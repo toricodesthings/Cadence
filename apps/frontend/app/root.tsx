@@ -19,6 +19,7 @@ import { Providers } from "./providers";
 import { RUNTIME_TARGET } from "./lib/env";
 import { LOADING_BOOT_SCRIPT } from "./lib/themes/season";
 import { DEV_SERVICE_WORKER_CLEANUP_SCRIPT } from "./lib/dev-service-worker-cleanup";
+import { SESSION_PREFETCH_SCRIPT } from "./lib/auth/session-prefetch";
 // One render-blocking stylesheet link; Vite updates its URL during HMR.
 // Do not also side-effect-import app.css, which would load a second copy.
 import appStylesHref from "./app.css?url";
@@ -65,6 +66,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
               }}
             />
           </>
+        )}
+        {/* Early in the head: the session check overlaps the bundle download. Deployed web
+            only, where /api/auth is the same-origin proxy (dev and desktop call Neon directly). */}
+        {RUNTIME_TARGET !== "desktop" && !import.meta.env.DEV && (
+          <script dangerouslySetInnerHTML={{ __html: SESSION_PREFETCH_SCRIPT }} />
         )}
         <title>Cadence</title>
         <meta

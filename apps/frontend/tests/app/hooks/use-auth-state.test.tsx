@@ -1,7 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthStateProvider, useAuthState } from "../../../app/hooks/auth/use-auth-state";
+import { useLocation } from "react-router";
+import { rememberIdentity } from "../../../app/lib/auth/offline-identity";
+import { isSessionHeld, releaseSessionHold } from "../../../app/lib/api/client";
 
 const authMocks = vi.hoisted(() => ({
     useSessionMock: vi.fn(),
@@ -134,5 +137,62 @@ describe("use-auth-state", () => {
         authMocks.signOutMock.mockResolvedValue({ error: null });
         await result.current.completeSignOut();
         expect(localStorage.getItem("cadence-offline-identity")).toBeNull();
+    });
+
+    describe("provisional warm start", () => {
+        const pending = { data: null, isPending: true, refetch: vi.fn() };
+        const view = () => renderHook(() => ({ auth: useAuthState(), path: useLocation().pathname }), { wrapper });
+        afterEach(() => releaseSessionHold());
+
+        it("opens the remembered account's saved workspace while API calls wait for the session", () => {
+            rememberIdentity({ id: "user-1", email: "a@b.c" });
+            authMocks.useSessionMock.mockReturnValue(pending);
+            const { result } = view();
+            expect(result.current.auth.status).toBe("provisional");
+            expect(result.current.auth.session?.user.id).toBe("user-1");
+            expect(result.current.auth.authReady).toBe(true);
+            expect(isSessionHeld()).toBe(true);
+        });
+
+        it("releases the calls when the same account's session arrives", async () => {
+            rememberIdentity({ id: "user-1" });
+            authMocks.useSessionMock.mockReturnValue(pending);
+            const { result, rerender } = view();
+            authMocks.useSessionMock.mockReturnValue({ data: { user: { id: "user-1" }, session: { token: "jwt" } }, isPending: false, refetch: vi.fn() });
+            rerender();
+            await waitFor(() => expect(result.current.auth.status).toBe("authenticated"));
+            expect(isSessionHeld()).toBe(false);
+        });
+
+        it("sends a session that comes back anonymous to sign-in", async () => {
+            rememberIdentity({ id: "user-1" });
+            authMocks.useSessionMock.mockReturnValue(pending);
+            const { result, rerender } = view();
+            authMocks.useSessionMock.mockReturnValue({ data: null, isPending: false, refetch: vi.fn() });
+            rerender();
+            await waitFor(() => expect(result.current.path).toBe("/auth/sign-in"));
+            expect(result.current.auth.session).toBeNull();
+            expect(isSessionHeld()).toBe(false);
+        });
+
+        it("switches to a different account that comes back (its own isolated cache)", async () => {
+            rememberIdentity({ id: "user-1" });
+            authMocks.useSessionMock.mockReturnValue(pending);
+            const { result, rerender } = view();
+            authMocks.useSessionMock.mockReturnValue({ data: { user: { id: "user-2" }, session: { token: "jwt" } }, isPending: false, refetch: vi.fn() });
+            rerender();
+            await waitFor(() => expect(result.current.auth.session?.user.id).toBe("user-2"));
+            expect(isSessionHeld()).toBe(false);
+        });
+
+        it("never shows a saved workspace on auth or consent pages", () => {
+            rememberIdentity({ id: "user-1" });
+            authMocks.useSessionMock.mockReturnValue(pending);
+            const { result } = renderHook(() => useAuthState(), {
+                wrapper: ({ children }) => <MemoryRouter initialEntries={["/connect"]}><AuthStateProvider>{children}</AuthStateProvider></MemoryRouter>,
+            });
+            expect(result.current.status).toBe("bootstrapping");
+            expect(isSessionHeld()).toBe(false);
+        });
     });
 });

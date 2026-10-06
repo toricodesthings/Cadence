@@ -7,8 +7,13 @@
     "directory": "./build/client",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/auth/*", "/auth/callback", "/assets/*"]
+    // Hashed assets are served directly (immutable caching via _headers); a missing one is not
+    // a navigation, so it still reaches the Worker, which answers 404 instead of the SPA shell.
+    "run_worker_first": ["/api/auth/*", "/api/v1/*", "/auth/callback"]
   },
+  // Same-origin API: /api/v1/* goes to the backend over a service binding (no CORS preflight,
+  // no second TLS handshake). The MCP/OAuth origin and desktop stay on api.cadenceapp.cloud.
+  "services": [{ "binding": "BACKEND", "service": "cadence-backend" }],
 
   "vars": {
     "NEON_AUTH_BASE_URL": "https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth"
@@ -29,6 +34,7 @@
   "env": {
     "dev": {
       "name": "cadence-frontend-dev",
+      "services": [{ "binding": "BACKEND", "service": "cadence-backend-dev" }],
       "vars": {
         "NEON_AUTH_BASE_URL": "https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech/neondb/auth"
       }

@@ -109,6 +109,19 @@ export function clearAuthJwtCache(): void {
     _cachedJwtExpiry = 0;
 }
 
+// While a warm start shows the saved workspace ahead of the session check, API calls
+// wait here. The real session releases them (an account change aborts them instead).
+let sessionHold: ReturnType<typeof Promise.withResolvers<void>> | null = null;
+export function holdForSession(): void {
+    sessionHold ??= Promise.withResolvers<void>();
+}
+export function releaseSessionHold(): void {
+    sessionHold?.resolve();
+    sessionHold = null;
+}
+/** True while the session check hasn't answered a provisional (warm) start. */
+export const isSessionHeld = () => sessionHold !== null;
+
 /** Cancelling one caller must not cancel the token request shared by other reads. */
 function withSignal<T>(work: Promise<T>, signal?: AbortSignal | null): Promise<T> {
     if (!signal) return work;
@@ -127,6 +140,12 @@ export async function authenticatedFetch(
     const { authenticated = false, ...requestInit } = init;
     const headers = new Headers(requestInit.headers);
     const callerSignal = requestInit.signal;
+    const heldGeneration = _authGeneration;
+    if (authenticated && sessionHold) {
+        // Before the deadline starts: the wait is for the session, not this request.
+        await withSignal(sessionHold.promise, callerSignal);
+        if (heldGeneration !== _authGeneration) throw new DOMException("Account changed", "AbortError");
+    }
     // Streams and uploads own their deadlines. Ordinary reads always retain a deadline.
     const requestUrl = String(input instanceof Request ? input.url : input);
     const bounded = authenticated && !(requestInit.body instanceof FormData || requestInit.body instanceof Blob)
@@ -205,7 +224,9 @@ export const apiClient = {
             };
             try {
                 const response = await authenticatedFetch(input, { ...requestInit, authenticated: true });
-                record(start, response.ok ? "ready" : "error", { status: response.status });
+                // A capability probe's 403/404 is an expected "no", not a failed read.
+                const expected = response.ok || (endpoint === "debug_capabilities" && (response.status === 403 || response.status === 404));
+                record(start, expected ? "ready" : "error", { status: response.status });
                 // Measure only the body's normal consumption; never clone/drain it or delay headers.
                 if (measured && startupCollecting()) {
                     const json = response.json.bind(response);

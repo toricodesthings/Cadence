@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, dehydrate } from "@tanstack/react-query";
 import type { PersistedClient } from "@tanstack/react-query-persist-client";
-import { createIDBPersister, type ManagedPersister } from "../../../../app/lib/api/persister";
+import { createIDBPersister, prefetchSavedWorkspace, type ManagedPersister } from "../../../../app/lib/api/persister";
 
 const storage = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn(), del: vi.fn() }));
 vi.mock("idb-keyval", () => storage);
@@ -55,4 +55,21 @@ it("restores the stored snapshot untouched (old-shape data is dropped by the cac
     expect(restored?.clientState.queries.map(q => q.queryKey)).toEqual(keys);
     expect(restored?.buster).toBe("account");
     qc.clear();
+});
+
+it("restores from the read started at boot, once, unless a write came after it", async () => {
+    storage.get.mockResolvedValueOnce(snapshot(1));
+    prefetchSavedWorkspace();
+    storage.get.mockResolvedValue(snapshot(2));
+    expect((await persister.restoreClient())?.timestamp).toBe(1);
+    expect((await persister.restoreClient())?.timestamp).toBe(2);
+    expect(storage.get).toHaveBeenCalledTimes(2);
+
+    storage.get.mockResolvedValueOnce(snapshot(3));
+    prefetchSavedWorkspace();
+    const saved = persister.persistClient(snapshot(4));
+    await vi.advanceTimersByTimeAsync(250);
+    await saved;
+    storage.get.mockResolvedValue(snapshot(4));
+    expect((await persister.restoreClient())?.timestamp).toBe(4);
 });

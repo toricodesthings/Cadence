@@ -8,7 +8,8 @@
  * Section 16.1: NLP code is lazy-loaded — never in the main shell bundle.
  * The parse module is dynamically imported and cached after first use.
  */
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useContext } from "react";
+import { StartupRenderContext } from "./core/use-workspace-startup";
 import type { DateValue, ParseResult, ParsedEntity } from "@cadence/nlp/core";
 import type { SourceSurface } from "@cadence/nlp/core";
 import type { TaskPriority } from "@cadence/contracts/task";
@@ -27,6 +28,41 @@ function ensureParseModule(): Promise<void> {
         parseModuleCache = { parse: mod.parse };
     });
     return parseModulePromise;
+}
+
+type ParseFn = typeof import("@cadence/nlp/parse")["parse"];
+
+/** The parser for event handlers (chrono-node never rides on the first screen). */
+export async function loadParse(): Promise<ParseFn> {
+    await ensureParseModule();
+    return parseModuleCache!.parse;
+}
+
+/**
+ * The parser for synchronous use in render: null until loaded. While `needed` and
+ * loading, workspace startup waits for it; otherwise it loads when the browser is idle.
+ */
+export function useParseModule(needed: boolean): ParseFn | null {
+    const [parse, setParse] = useState<ParseFn | null>(() => parseModuleCache?.parse ?? null);
+    const trackRender = useContext(StartupRenderContext);
+    useEffect(() => {
+        if (parse) return;
+        let active = true;
+        let pending = needed;
+        const settle = () => { if (pending) { pending = false; trackRender(-1); } };
+        const load = () => void ensureParseModule().then(() => { if (active) setParse(() => parseModuleCache!.parse); }).catch(() => {}).finally(settle);
+        if (needed) {
+            trackRender(1);
+            load();
+            return () => { active = false; settle(); };
+        }
+        const idle = typeof requestIdleCallback === "function" ? requestIdleCallback(load, { timeout: 3_000 }) : window.setTimeout(load, 2_000);
+        return () => {
+            active = false;
+            if (typeof cancelIdleCallback === "function") cancelIdleCallback(idle); else window.clearTimeout(idle);
+        };
+    }, [needed, parse, trackRender]);
+    return parse;
 }
 
 interface UseNlpParseOptions {

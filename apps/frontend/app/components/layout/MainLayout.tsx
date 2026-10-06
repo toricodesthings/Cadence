@@ -18,7 +18,7 @@ import { useKeyboardShortcuts } from "../../hooks/core/use-keyboard-shortcuts";
 import { Loading } from "../shared/Loading";
 import { DeferredMount } from "../shared/DeferredMount";
 import type { CSSProperties } from "react";
-import { lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense as PlainSuspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useOfflineWindow } from "../../hooks/core/use-offline-window";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
@@ -115,6 +115,11 @@ const PAGE_META: Record<string, { title: string; description: string }> = {
         description: "Process inbox items, unscheduled work, waiting tasks, and routines in one weekly ritual.",
     },
 };
+
+/** The assistant panel's glass surface, shown while its code loads. */
+function AssistantShell({ width }: { width?: number }) {
+    return <div aria-hidden="true" style={width ? { width } : undefined} className={`surface-shell h-full shrink-0 ${width ? "photo-shell-surface" : "w-full"}`} />;
+}
 
 interface ShellHeaderConfig {
     title?: React.ReactNode;
@@ -828,12 +833,14 @@ export function MainLayout({
                                             style={{ willChange: "transform, opacity" }}
                                             className="flex h-full min-w-0 flex-1 items-stretch"
                                         >
-                                            <Suspense fallback={null}>
+                                            {/* Optional, even when persisted open: never part of startup.
+                                                The glass shell holds the rail at reveal; the chat fills in. */}
+                                            <PlainSuspense fallback={<AssistantShell width={assistantPanelWidth + 4} />}>
                                                 <AssistantSidePanel
                                                     width={assistantPanelWidth}
                                                     onWidthChange={setAssistantPanelWidth}
                                                 />
-                                            </Suspense>
+                                            </PlainSuspense>
                                         </motion.div>
                                     </motion.div>
                                 ) : null}
@@ -852,9 +859,9 @@ export function MainLayout({
                             onClose={toggleAssistantPanel}
                             fill
                         >
-                            <Suspense fallback={null}>
+                            <PlainSuspense fallback={<AssistantShell />}>
                                 <AssistantSidePanel width={400} isMobile />
-                            </Suspense>
+                            </PlainSuspense>
                         </ResponsiveOverlayPanel>
                     ) : null}
                 </div>

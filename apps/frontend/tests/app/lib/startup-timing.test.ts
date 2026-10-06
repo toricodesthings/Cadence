@@ -52,7 +52,7 @@ it("keeps headers, body, and legacy readiness timings distinct and labels the bu
     recordStartupRead("tasks", 210, "error", { endpoint: "tasks_open", status: 503, error_code: "INTERNAL_ERROR" }, "api_body");
     startupMark("reveal.ready");
     const samples = collectStartupSamples({ route: "capture", cache: "cold", platform: "web", viewport: "wide" });
-    expect(samples.find(s => s.phase === "api")).toMatchObject({ duration_ms: 100, elapsed_ms: 300, measurement_revision: 2 });
+    expect(samples.find(s => s.phase === "api")).toMatchObject({ duration_ms: 100, elapsed_ms: 100, measurement_revision: 3 });
     expect(samples.find(s => s.phase === "api_body")).toMatchObject({ duration_ms: 90, elapsed_ms: 300, error_code: "INTERNAL_ERROR" });
     expect(samples.every(s => typeof s.build_id === "string")).toBe(true);
     expect(performanceBatchSchema.safeParse({ samples }).success).toBe(true);
@@ -63,7 +63,7 @@ it("fits a full startup into one delivery batch and stops collecting after revea
         recordStartupRead("tasks", 0, "ready", { endpoint: "tasks_open" });
         recordStartupRead("tasks", 0, "ready", { endpoint: "tasks_open" }, "api_body");
     }
-    for (const phase of ["session", "restore", "jwt", "required_data", "chunks", "visible_assets", "hydrate", "reveal_frame"] as const) {
+    for (const phase of ["session", "restore", "jwt", "required_data", "visible_assets", "reveal_frame"] as const) {
         startupMark(`${phase}.start`);
         startupMark(`${phase}.ready`);
     }

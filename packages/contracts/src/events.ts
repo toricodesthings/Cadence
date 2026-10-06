@@ -72,16 +72,19 @@ export type TrackEvent = z.infer<typeof trackEventSchema>;
 export type UsageEvent = TrackEvent["event"];
 
 // Fixed dimensions keep browser telemetry private and useful for percentile graphs.
-export const STARTUP_PHASES = ["session", "restore", "jwt", "required_data", "chunks", "reveal", "visible_assets", "api", "api_body", "hydrate", "reveal_frame"] as const;
+// `chunks` and `hydrate` are only sent by revision ≤ 2 clients. Revision 3 adds `boot`
+// (navigation → session start) and gives `api` rows their start offset as `elapsed_ms`.
+export const STARTUP_PHASES = ["boot", "session", "restore", "jwt", "required_data", "chunks", "reveal", "visible_assets", "api", "api_body", "hydrate", "reveal_frame"] as const;
 export const STARTUP_ROUTES = ["capture", "today", "schedule", "routines", "list", "tag", "upcoming", "completed", "trash", "events", "browse", "weekly_reset", "other"] as const;
-export const PERFORMANCE_CACHE_CLASSES = ["warm", "cold", "unknown"] as const;
+/** `provisional`: revealed from the saved workspace before the session check answered. */
+export const PERFORMANCE_CACHE_CLASSES = ["warm", "cold", "provisional", "unknown"] as const;
 export const PERFORMANCE_PLATFORMS = ["web", "desktop"] as const;
 export const PERFORMANCE_VIEWPORTS = ["compact", "wide"] as const;
 export const PERFORMANCE_CATEGORIES = ["workspace", "tasks", "projects", "tags", "inbox", "habits", "settings", "subtasks", "appearance", "other"] as const;
 export const PERFORMANCE_ENDPOINTS = ["workspace", "tasks_open", "tasks_capture", "tasks_schedule", "tasks_history", "tasks_batch", "task_detail", "settings", "notification_state", "focus_views", "inbox_clarifying", "inbox_kept", "habits_range", "habits", "projects", "tags", "subtasks", "appearance", "proxy", "debug_capabilities", "other"] as const;
 export const performanceSampleSchema = z.object({
     // Old clients retain their historical timing definitions and an explicit legacy cohort.
-    measurement_revision: z.union([z.literal(1), z.literal(2)]).default(1),
+    measurement_revision: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1),
     build_id: z.string().regex(/^[a-z0-9]{1,32}$/).optional(),
     version: z.string().regex(/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/).max(40).optional(),
     endpoint: z.enum(PERFORMANCE_ENDPOINTS).optional(),

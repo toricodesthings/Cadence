@@ -14,11 +14,11 @@
  * Import as a side-effect in root.tsx before the React tree mounts.
  */
 
-import { isTauri } from "@tauri-apps/api/core";
 import { NEON_AUTH_URL, RUNTIME_TARGET, WEB_APP_BASE_URL } from "../lib/env";
 import { log } from "../lib/log";
 
-if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && isTauri()) {
+// `isTauri` as in @tauri-apps/api/core, inlined so the web build never loads that module.
+if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && Boolean((window as { isTauri?: unknown }).isTauri)) {
     const NEON_AUTH_BASE = NEON_AUTH_URL.replace(/\/$/, "");
     const AUTH_ORIGIN = new URL(WEB_APP_BASE_URL).origin;
     const AUTH_REFERER = new URL("/", WEB_APP_BASE_URL).toString();

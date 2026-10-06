@@ -1,7 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
 import { createUser, getTestDb, startTestDb } from "../helpers/db";
-import { createUserIn } from "../helpers/zone";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
 import { projectRoutes } from "../../src/domains/projects/projects.route";
@@ -20,7 +19,7 @@ let subApi: ReturnType<typeof apiAs>;
 
 beforeAll(startTestDb);
 beforeEach(async () => {
-    userId = await createUserIn("America/New_York");
+    userId = await createUser({ zone: "America/New_York" });
     api = apiAs(userId, "/tasks", taskRoutes);
     subApi = apiAs(userId, "", subtaskRoutes);
     const tools = buildToolRegistry({} as never, userId, { timezone: "America/New_York", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;

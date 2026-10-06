@@ -14,16 +14,17 @@ import { Loading } from "../shared/Loading";
 /** Lives above routes so startup completes once per signed-in account. */
 export function WorkspaceStartup({ children }: { children: ReactNode }) {
     const { pathname } = useLocation();
-    const { authReady, isAuthenticated } = useAuthState();
+    const { authReady, isAuthenticated, status } = useAuthState();
     const { data: settings } = useSettings();
     const client = useQueryClient();
     const restoring = useIsRestoring();
     const reported = useRef(false);
     const entryRoute = useRef(startupRoute(pathname));
-    const cacheClass = useRef<"warm" | "cold" | "unknown">("unknown");
+    const cacheClass = useRef<"warm" | "cold" | "provisional" | "unknown">("unknown");
     const reportedFailures = useRef(new Set<string>());
     const { pending, state, slow, retry, trackRender } = useWorkspaceStartup(
         authReady && isAuthenticated && isWorkspacePath(pathname),
+        pathname,
     );
     useEffect(() => {
         setDiagnosticsEnabled(Boolean(settings) && settings?.privacy?.usageDiagnostics !== false);
@@ -41,7 +42,6 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
         }
         if (pending) {
             startupMark("required_data.start");
-            startupMark("chunks.start");
             if (settings?.privacy?.usageDiagnostics && (state === "error" || state === "offline") && !reportedFailures.current.has(state)) {
                 reportedFailures.current.add(state);
                 const sample = startupFailureSample({ route: entryRoute.current, cache: cacheClass.current, platform: IS_DESKTOP_RUNTIME ? "desktop" : "web", viewport: window.innerWidth < 1120 ? "compact" : "wide" }, state === "offline" ? "network_unavailable" : "error");
@@ -51,6 +51,8 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
         }
         // This effect runs after the inert/hidden wrapper has committed.
         startupMark("reveal.ready");
+        // Revealed from the saved workspace before the session check answered.
+        if (status === "provisional" && !reported.current) cacheClass.current = "provisional";
         if (!settings || settings.privacy.usageDiagnostics === false || reported.current) return;
         reported.current = true;
         startupMark("visible_assets.start");

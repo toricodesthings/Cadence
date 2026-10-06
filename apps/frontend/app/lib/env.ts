@@ -26,7 +26,12 @@ export const RUNTIME_TARGET =
     (import.meta.env.VITE_RUNTIME_TARGET as string | undefined) === "desktop"
         ? "desktop"
         : DEFAULT_RUNTIME_TARGET;
-export const API_BASE_URL = requirePublicEnv("VITE_API_BASE_URL", DEV_API_BASE_URL);
+// Deployed web builds call the API same-origin: worker.ts forwards /api/v1/* to the backend
+// over a service binding, so an Authorization header needs no CORS preflight.
+export const API_BASE_URL =
+    RUNTIME_TARGET === "web" && !import.meta.env.DEV && typeof window !== "undefined"
+        ? window.location.origin
+        : requirePublicEnv("VITE_API_BASE_URL", DEV_API_BASE_URL);
 // Deployed web builds reach Neon Auth through the same-origin proxy in worker.ts so auth
 // cookies stay first-party; browsers that block third-party cookies (all of iOS) otherwise
 // never complete OAuth. Dev servers and desktop talk to Neon Auth directly.

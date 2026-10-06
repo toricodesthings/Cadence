@@ -1,35 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import { createAgentUIStream, readUIMessageStream, tool, ToolLoopAgent, type UIMessage } from "ai";
-import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
+import { MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
 import type { ApprovalMode } from "@cadence/contracts/ai";
 import { approvalFor } from "../../src/domains/ai/safety/approval";
 import { applyApprovals, settleUnanswered } from "../../src/domains/ai/persistence/message-mapper";
+import { finish, streamOf, textChunks } from "../helpers/ai";
 
 const SECRET = "test-approval-secret";
-const usage = {
-    inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
-    outputTokens: { total: 1, text: 1, reasoning: 0 },
-};
 
 /** A model that calls `toolName` once, then answers "Done." once it sees a result. */
 function scriptedModel(toolName: string, input: unknown) {
     return new MockLanguageModelV4({
-        doStream: async ({ prompt }) => {
-            const answered = prompt.some((message) => message.role === "tool");
-            const chunks = answered
-                ? [
-                      { type: "text-start", id: "t" },
-                      { type: "text-delta", id: "t", delta: "Done." },
-                      { type: "text-end", id: "t" },
-                      { type: "finish", finishReason: { unified: "stop", raw: "stop" }, usage },
-                  ]
-                : [
-                      { type: "tool-call", toolCallId: "call-1", toolName, input: JSON.stringify(input) },
-                      { type: "finish", finishReason: { unified: "tool-calls", raw: "tool_calls" }, usage },
-                  ];
-            return { stream: convertArrayToReadableStream([{ type: "stream-start", warnings: [] }, ...chunks] as never[]) };
-        },
+        doStream: async ({ prompt }) =>
+            prompt.some((message) => message.role === "tool")
+                ? streamOf(...textChunks("Done."), finish())
+                : streamOf({ type: "tool-call", toolCallId: "call-1", toolName, input: JSON.stringify(input) }, finish("tool-calls")),
     });
 }
 

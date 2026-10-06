@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useSyncExternalStore, useRef, useEffect } from "react";
+import { useMemo, useCallback, useSyncExternalStore, useRef, useEffect, useContext } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { NotificationState, UpsertNotificationState } from "@cadence/contracts/notification";
 import { useTasks } from "../tasks/use-tasks";
@@ -21,6 +21,7 @@ import { trackUsageEvent } from "../../lib/api/track-event";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import { createExternalStore } from "../../lib/utils/external-store";
+import { StartupReadyContext } from "../core/use-workspace-startup";
 
 // Keys are `${userId}:${notificationId}`, shared across surfaces and remounts; released with the workspace QueryClient.
 const presentedByClient = new WeakMap<QueryClient, Set<string>>();
@@ -114,20 +115,23 @@ export function useNotificationCenter() {
     const quietHoursEnd = settings?.notifications?.quietHoursEnd ?? null;
     const bundleMissedHabits = settings?.notifications?.bundleMissedRoutinePrompts !== false;
 
-    // Reminders skip Done and Trash, so open and waiting tasks are all it needs.
-    const { data: activeTasks } = useTasks({ state: "ACTIVE" });
-    const { data: waitingTasks } = useTasks({ state: "WAITING" });
+    // The bell is decoration: its reads start after the workspace reveals (the badge fades in).
+    const revealed = useContext(StartupReadyContext);
+    // Reminders skip Done and Trash, so open and waiting tasks are all it needs. These are
+    // the same lists useOfflineWindow warms right after reveal, so they cost no extra request.
+    const { data: activeTasks } = useTasks({ state: "ACTIVE", enabled: revealed });
+    const { data: waitingTasks } = useTasks({ state: "WAITING", enabled: revealed });
     const tasks = useMemo(() => [...(activeTasks ?? []), ...(waitingTasks ?? [])], [activeTasks, waitingTasks]);
     // Today's weekly data (shared with the due count): its logs say whether each
     // routine is due, paused or already checked.
     const today = useToday();
-    const { data: habits = [] } = useHabitsRange({ start: today, end: today });
+    const { data: habits = [] } = useHabitsRange({ start: today, end: today, enabled: revealed });
     const { authReady, isAuthenticated, session } = useAuthState();
     const userId = session?.user.id;
     const stateKey = queryKeys.settings.notificationState(userId);
     const { data: persistedRows = [], isSuccess: stateLoaded } = useQuery({
         queryKey: stateKey,
-        enabled: authReady && isAuthenticated,
+        enabled: revealed && authReady && isAuthenticated,
         queryFn: async () => {
             const res = await client.api.settings["notification-state"].$get();
             return unwrapResponse(res);

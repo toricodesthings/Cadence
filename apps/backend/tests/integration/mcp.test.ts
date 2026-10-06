@@ -1,7 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
 import { asOwner, createUser, startTestDb } from "../helpers/db";
-import { createUserIn } from "../helpers/zone";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 import { serveMcp } from "../../src/domains/mcp/server";
 import { connectionRoutes } from "../../src/domains/mcp/connections.route";
@@ -96,7 +95,7 @@ describe("catalog and scopes", () => {
     });
 
     it("introduces itself with Cadence's conventions, the user's day and its logo", async () => {
-        const userId = await createUserIn("America/Toronto");
+        const userId = await createUser({ zone: "America/Toronto" });
         const mcp = mcpAs(userId, await connect(userId, ["cadence:read"]), ["cadence:read"]);
         const init = { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } };
         const { instructions, serverInfo, capabilities } = (await mcp("initialize", init)).body.result;
@@ -137,7 +136,7 @@ describe("connection checks", () => {
 
 describe("reads", () => {
     it("returns what the assistant's own tool returns for the same user and day", async () => {
-        const userId = await createUserIn("America/Toronto", { dateTime: { weekStart: "Monday", timezone: "device", timeDisplay: "12h" } });
+        const userId = await createUser({ zone: "America/Toronto", settings: { dateTime: { weekStart: "Monday", timezone: "device", timeDisplay: "12h" } } });
         const tasks = apiAs(userId, "/tasks", taskRoutes);
         await tasks("POST", "", { title: "Draft report", orderIndex: 1 });
         await tasks("POST", "", { title: "Book dentist", orderIndex: 2 });
@@ -163,7 +162,7 @@ describe("reads", () => {
     });
 
     it("resolves today in users.time_zone, never the settings value", async () => {
-        const userId = await createUserIn("Pacific/Kiritimati", { dateTime: { weekStart: "Sunday", timezone: "device", timeDisplay: "12h" } });
+        const userId = await createUser({ zone: "Pacific/Kiritimati", settings: { dateTime: { weekStart: "Sunday", timezone: "device", timeDisplay: "12h" } } });
         const mcp = mcpAs(userId, await connect(userId, ["cadence:read"]), ["cadence:read"]);
         const { timezone, today } = (await call(mcp, "get_today")).data;
         expect(timezone).toBe("Pacific/Kiritimati");

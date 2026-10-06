@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAdminCapabilities } from "../../../app/hooks/auth/use-admin-capabilities";
+import { StartupReadyContext } from "../../../app/hooks/core/use-workspace-startup";
 import { testQueryClient, withClient } from "../../helpers";
 
 const state = vi.hoisted(() => ({ get: vi.fn() }));
@@ -28,6 +29,14 @@ describe("developer capability reads", () => {
         state.get.mockResolvedValue(new Response(null, { status: 404 }));
         const fallback = renderHook(useAdminCapabilities, { wrapper: withClient(qc) });
         await waitFor(() => expect(fallback.result.current.data?.canUseDeveloperTools).toBe(false));
+        qc.clear();
+    });
+    it("never asks before the workspace reveals", async () => {
+        const qc = testQueryClient();
+        const Client = withClient(qc);
+        renderHook(useAdminCapabilities, { wrapper: ({ children }) => <Client><StartupReadyContext value={false}>{children}</StartupReadyContext></Client> });
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(state.get).not.toHaveBeenCalled();
         qc.clear();
     });
 });

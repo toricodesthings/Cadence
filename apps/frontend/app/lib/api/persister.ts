@@ -8,9 +8,29 @@ const IDB_KEY = "cadence-query-cache";
 // All account transitions share the same device cache key: serialize writes/removal.
 let storageWork: Promise<unknown> = Promise.resolve();
 function serialize<T>(work: () => Promise<T>): Promise<T> {
+    // Any write or removal makes an early read stale.
+    early = undefined;
     const next = storageWork.catch(() => {}).then(work);
     storageWork = next;
     return next;
+}
+
+async function readSaved(): Promise<PersistedClient | undefined> {
+    if (IS_DESKTOP_RUNTIME) {
+        const store = await getNativeStore("cadence_cache");
+        if (store) return (await store.get<PersistedClient>(IDB_KEY)) ?? undefined;
+    }
+    return (await get<PersistedClient>(IDB_KEY)) ?? undefined;
+}
+
+let early: Promise<PersistedClient | undefined> | undefined;
+/**
+ * Start reading the saved workspace at boot, alongside the session check, instead of
+ * after it. The first restore takes this read; the buster still decides whether the
+ * snapshot belongs to the account that signs in.
+ */
+export function prefetchSavedWorkspace(): void {
+    early ??= readSaved().catch(() => undefined);
 }
 
 export interface ManagedPersister extends Persister {
@@ -75,14 +95,11 @@ export function createIDBPersister(): ManagedPersister {
         },
         restoreClient: async () => {
             startupMark("restore.start");
-            startupMark("hydrate.start");
             try {
                 await storageWork.catch(() => {});
-                if (IS_DESKTOP_RUNTIME) {
-                    const store = await getNativeStore("cadence_cache");
-                    if (store) return (await store.get<PersistedClient>(IDB_KEY)) ?? undefined;
-                }
-                return (await get<PersistedClient>(IDB_KEY)) ?? undefined;
+                const prefetched = early;
+                early = undefined;
+                return await (prefetched ?? readSaved());
             } finally {
                 startupMark("restore.ready");
             }

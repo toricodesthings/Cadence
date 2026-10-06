@@ -4,8 +4,7 @@
  * complex, and back again. Drives the real route with a scripted model.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ToolLoopAgent } from "ai";
-import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
+import { agentOf, textModel } from "../helpers/ai";
 import { apiAs, TEST_USER_ID } from "../helpers/app";
 
 const { getDbClientMock, getRedisMock, getRateLimitRedisMock } = vi.hoisted(() => ({
@@ -36,42 +35,16 @@ import { aiRoutes } from "../../src/domains/ai/ai.route";
 const CONV_ID = "22222222-2222-4222-8222-222222222222";
 const ENV = { AI_CHAT_MODEL: "std/model", AI_CHAT_MODEL_BASIC: "basic/model" };
 
-/** A model that just answers — the turn's routing is what's under test, not tool use. */
-const scriptedModel = () =>
-    new MockLanguageModelV4({
-        doStream: async () => ({
-            stream: convertArrayToReadableStream([
-                { type: "stream-start", warnings: [] },
-                { type: "text-start", id: "t" },
-                { type: "text-delta", id: "t", delta: "Done." },
-                { type: "text-end", id: "t" },
-                {
-                    type: "finish",
-                    finishReason: { unified: "stop", raw: "stop" },
-                    usage: {
-                        inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
-                        outputTokens: { total: 1, text: 1, reasoning: 0 },
-                    },
-                },
-            ] as never[]),
-        }),
-    });
-
 beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(resolveOrCreateConversation).mockResolvedValue({ id: CONV_ID, created: false, title: "t" });
     vi.mocked(loadConversationMessages).mockResolvedValue([]);
     vi.mocked(truncateMessagesAfter).mockResolvedValue(false);
-    vi.mocked(getAgentInstance).mockResolvedValue({
-        agent: new ToolLoopAgent({ model: scriptedModel(), tools: {} }) as never,
-        modelId: "unused",
-        promptHash: "hash",
-        turnContext: "",
-    });
+    vi.mocked(getAgentInstance).mockResolvedValue(agentOf(textModel()));
 });
 
-/** Send one user turn on the shared conversation; returns the model persisted for it. */
-async function turn(text: string): Promise<string | undefined> {
+/** Send one user turn on the shared conversation; returns the model it was built, saved and touched with. */
+async function turn(text: string) {
     const api = apiAs(TEST_USER_ID, "/ai", aiRoutes, ENV);
     const { status } = await api("POST", "/chat", {
         conversationId: CONV_ID,
@@ -81,23 +54,17 @@ async function turn(text: string): Promise<string | undefined> {
         approvalMode: "ask",
     });
     expect(status).toBe(200);
-    return vi.mocked(touchConversation).mock.calls.at(-1)?.[3]?.model;
+    return [
+        vi.mocked(getAgentInstance).mock.calls.at(-1)?.[2]?.modelId,
+        vi.mocked(saveAssistantMessage).mock.calls.at(-1)?.[3]?.metadata?.model,
+        vi.mocked(touchConversation).mock.calls.at(-1)?.[3]?.model,
+    ];
 }
 
 describe("model routing across one conversation", () => {
-    it("opens basic, upgrades when the ask gets complex, and drops back", async () => {
-        expect(await turn("add milk to groceries")).toBe("basic/model");
-        expect(await turn("plan my week around that")).toBe("std/model");
-        expect(await turn("mark the dentist task done")).toBe("basic/model");
-    });
-
-    it("passes the turn's model to the agent build and stamps it on the saved reply", async () => {
-        await turn("what's on today?");
-        expect(vi.mocked(getAgentInstance).mock.calls.at(-1)?.[2]).toMatchObject({ modelId: "basic/model" });
-        expect(vi.mocked(saveAssistantMessage).mock.calls.at(-1)?.[3]?.metadata).toMatchObject({ model: "basic/model" });
-
-        await turn("why is my week so full");
-        expect(vi.mocked(getAgentInstance).mock.calls.at(-1)?.[2]).toMatchObject({ modelId: "std/model" });
-        expect(vi.mocked(saveAssistantMessage).mock.calls.at(-1)?.[3]?.metadata).toMatchObject({ model: "std/model" });
+    it("opens basic, upgrades when the ask gets complex, and drops back, on the agent build, saved reply and thread alike", async () => {
+        expect(await turn("add milk to groceries")).toEqual(Array(3).fill("basic/model"));
+        expect(await turn("plan my week around that")).toEqual(Array(3).fill("std/model"));
+        expect(await turn("mark the dentist task done")).toEqual(Array(3).fill("basic/model"));
     });
 });

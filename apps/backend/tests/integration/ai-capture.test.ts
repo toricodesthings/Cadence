@@ -1,7 +1,6 @@
 import { beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
-import { startTestDb } from "../helpers/db";
-import { createUserIn } from "../helpers/zone";
+import { createUser, startTestDb } from "../helpers/db";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 import { inboxRoutes } from "../../src/domains/inbox/inbox.route";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
@@ -10,7 +9,7 @@ let capture: (args: any, toolCallId: string) => Promise<any>;
 let inbox: ReturnType<typeof apiAs>;
 beforeAll(startTestDb);
 beforeEach(async () => {
-    const id = await createUserIn("America/New_York");
+    const id = await createUser({ zone: "America/New_York" });
     inbox = apiAs(id, "/inbox", inboxRoutes);
     const registry = buildToolRegistry({} as any, id, { timezone: "America/New_York", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23", weekStart: "Monday" }) as any;
     run = args => registry.get_inbox_items.execute(args, { toolCallId: "test", messages: [] });

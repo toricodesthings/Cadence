@@ -6,11 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
-Underground work mostly.
+Cadence opens faster, especially when you come back to it.
+
+### Changed
+
+- Cadence opens faster, especially when you return to it.
 
 ### Fixed
 
 - Cron jobs now run properly
+- An assistant reply that failed now shows Retry after a reload, instead of looking finished
 
 ## [0.26.4] - 2026-10-06
 

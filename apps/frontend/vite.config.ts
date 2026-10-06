@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
@@ -32,7 +33,11 @@ export default defineConfig(({ mode }) => ({
   // ("Outdated Optimize Dep") and forces a full reload. Pre-bundling them at
   // boot makes the optimize pass happen once, before the browser connects.
   // Vite 8 resolves tsconfig `paths` natively (replaced vite-tsconfig-paths).
-  resolve: { tsconfigPaths: true },
+  resolve: {
+    tsconfigPaths: true,
+    // @neondatabase/auth needs four error classes from the Supabase client, not the client.
+    alias: { "@supabase/auth-js": fileURLToPath(new URL("./app/lib/auth/supabase-auth-errors.ts", import.meta.url)) },
+  },
   optimizeDeps: {
     include: [
       "emoji-mart",
@@ -50,6 +55,22 @@ export default defineConfig(({ mode }) => ({
   },
   // Warm the route entrypoints at startup so their static imports are
   // transformed (and their deps discovered) up front rather than lazily.
+  // Stable vendors every first screen loads, as a few long-cached files instead of dozens of
+  // small chunks (each one a separate service worker lookup). Only libraries whose whole
+  // module set is on the first screen belong here, or a group would drag lazy code forward.
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            { name: "vendor-react", test: /node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?(?:react|react-dom|react-router|scheduler|cookie|set-cookie-parser)[\\/]/ },
+            { name: "vendor-query", test: /node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?@tanstack[\\/]/ },
+            { name: "vendor-motion", test: /node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?(?:framer-motion|motion-dom|motion-utils)[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   server: {
     warmup: {
       clientFiles: [

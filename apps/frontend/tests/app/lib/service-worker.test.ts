@@ -128,11 +128,11 @@ describe("shell caching", () => {
         expect(w.fetch).toHaveBeenCalledOnce();
         expect(w.cache.put).not.toHaveBeenCalled();
     });
-    it("keeps a valid offline shell when the network returns an error page", async () => {
+    it("serves the saved shell at once and never replaces it with an error page", async () => {
         const shell = new Response("<html>offline shell</html>", { headers: { "content-type": "text/html" } });
         const w = worker(shell);
         w.fetch.mockResolvedValueOnce(new Response("Error", { status: 500 }));
-        expect((await w.request("/today", "navigate"))?.status).toBe(500);
+        expect(await w.request("/today", "navigate")).toBe(shell);
         expect(w.cache.put).not.toHaveBeenCalled();
         w.fetch.mockRejectedValueOnce(new Error("Offline"));
         expect(await w.request("/today", "navigate")).toBe(shell);

@@ -378,11 +378,12 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             });
             return streamErrorToText(streamError);
         },
-        onEnd: async ({ responseMessage, isAborted, finishReason }) => {
+        onEnd: async ({ responseMessage, isAborted, finishReason, outcome }) => {
             const totalMs = since();
             abortController.abort(); // stop the fallback watcher loop
             // Terminal status drives the client's Retry affordance after reload (doc 09 §3.3).
-            const status = isAborted ? "aborted" : finishReason === "error" ? "failed" : "complete";
+            // A model call that throws ends with outcome "failed" and no finishReason.
+            const status = isAborted ? "aborted" : outcome.status === "failed" || finishReason === "error" ? "failed" : "complete";
             try {
                 const titleSpend = (await titlePromise)?.spend; // always resolves, ≤4s
                 const cleaned = stripNonceFromMessage(responseMessage as any, nonce);

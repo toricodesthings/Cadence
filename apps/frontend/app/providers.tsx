@@ -16,7 +16,6 @@ import { OfflineBanner } from "./components/shared/OfflineBanner";
 import { Provider as TooltipProvider } from "./components/primitives/Tooltip";
 import { getWalSnapshot, initWal } from "./lib/api/offline-wal";
 import { startWalSync } from "./lib/api/mutation-executor";
-import { startupMark } from "./lib/startup-timing";
 import { log, reportError } from "./lib/log";
 import { CADENCE_BUILD_ID } from "./lib/constants/app-info";
 import {
@@ -372,7 +371,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
     );
 
     return (
-        <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions} onSuccess={() => startupMark("hydrate.ready")}>
+        <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
             <div className="neon-auth-ui">
                 <AuthUIBoundary
                     authClient={authClient}

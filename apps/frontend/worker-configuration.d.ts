@@ -3,5 +3,6 @@
 
 interface Env {
 	ASSETS: Fetcher;
+	BACKEND: Fetcher;
 	NEON_AUTH_BASE_URL: string;
 }

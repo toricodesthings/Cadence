@@ -1,5 +1,4 @@
-import { getCurrentWindow, Window } from "@tauri-apps/api/window";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import type { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { QuickAddTab } from "../components/quick-add/QuickAddSurface";
 import { getNativeStore, getWebStorage, hasDesktopWindow } from "./runtime";
 
@@ -9,6 +8,10 @@ const DESKTOP_COMMAND_EVENT = "cadence://desktop-command";
 export const QUICK_CAPTURE_TAB_EVENT = "cadence://quick-capture-tab";
 const QUICK_CAPTURE_COMPLETE_EVENT = "cadence://quick-capture-complete";
 export const GLOBAL_QUICK_CAPTURE_SHORTCUT = "CommandOrControl+Shift+C";
+
+// Loaded on use, so the web build's first screen never carries the Tauri window API.
+const getCurrentWindow = async () => (await import("@tauri-apps/api/window")).getCurrentWindow();
+const loadWebviewWindow = async () => (await import("@tauri-apps/api/webviewWindow")).WebviewWindow;
 
 const DESKTOP_PREFERENCES_STORE = "cadence_desktop_preferences";
 const DESKTOP_LAST_ROUTE_KEY = "last_route";
@@ -44,7 +47,7 @@ async function getCurrentDesktopWindowLabel() {
         return null;
     }
 
-    return getCurrentWindow().label;
+    return (await getCurrentWindow()).label;
 }
 
 export async function listenForDesktopCommands(handler: (payload: DesktopCommandPayload) => void) {
@@ -52,7 +55,7 @@ export async function listenForDesktopCommands(handler: (payload: DesktopCommand
         return () => undefined;
     }
 
-    return getCurrentWindow().listen<DesktopCommandPayload>(DESKTOP_COMMAND_EVENT, (event) => {
+    return (await getCurrentWindow()).listen<DesktopCommandPayload>(DESKTOP_COMMAND_EVENT, (event) => {
         handler(event.payload);
     });
 }
@@ -62,7 +65,7 @@ export async function listenForQuickCaptureCompletions(handler: (payload: QuickC
         return () => undefined;
     }
 
-    return getCurrentWindow().listen<QuickCaptureCompletionPayload>(QUICK_CAPTURE_COMPLETE_EVENT, (event) => {
+    return (await getCurrentWindow()).listen<QuickCaptureCompletionPayload>(QUICK_CAPTURE_COMPLETE_EVENT, (event) => {
         handler(event.payload);
     });
 }
@@ -100,7 +103,7 @@ export async function focusMainDesktopWindow() {
         return;
     }
 
-    const mainWindow = await Window.getByLabel(MAIN_DESKTOP_WINDOW_LABEL);
+    const mainWindow = await (await import("@tauri-apps/api/window")).Window.getByLabel(MAIN_DESKTOP_WINDOW_LABEL);
     if (!mainWindow) {
         return;
     }
@@ -135,6 +138,7 @@ export async function openQuickCaptureWindow(tab: QuickAddTab = "task") {
         return;
     }
 
+    const WebviewWindow = await loadWebviewWindow();
     const existingWindow = await WebviewWindow.getByLabel(QUICK_CAPTURE_WINDOW_LABEL);
     if (existingWindow) {
         await existingWindow.emit(QUICK_CAPTURE_TAB_EVENT, { tab }).catch(() => undefined);
@@ -168,7 +172,7 @@ export async function completeQuickCapture(route: string) {
         return;
     }
 
-    const currentWindow = getCurrentWindow();
+    const currentWindow = await getCurrentWindow();
     await currentWindow.emitTo(MAIN_DESKTOP_WINDOW_LABEL, QUICK_CAPTURE_COMPLETE_EVENT, { route });
     await focusMainDesktopWindow();
 
@@ -182,7 +186,7 @@ export async function closeCurrentDesktopWindow() {
         return;
     }
 
-    await getCurrentWindow().close().catch(() => undefined);
+    await (await getCurrentWindow()).close().catch(() => undefined);
 }
 
 export async function configureGlobalQuickCaptureShortcut(enabled: boolean) {

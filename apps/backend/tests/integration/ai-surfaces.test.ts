@@ -6,8 +6,7 @@
  */
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
-import { getTestDb, startTestDb } from "../helpers/db";
-import { createUserIn } from "../helpers/zone";
+import { createUser, getTestDb, startTestDb } from "../helpers/db";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
 import { subtaskRoutes } from "../../src/domains/subtasks/subtasks.route";
@@ -24,7 +23,7 @@ let api: ReturnType<typeof apiAs>;
 
 beforeAll(startTestDb);
 beforeEach(async () => {
-    userId = await createUserIn(TZ);
+    userId = await createUser({ zone: TZ });
     api = apiAs(userId, "/tasks", taskRoutes);
     const tools = buildToolRegistry({} as never, userId, { timezone: TZ, currentDate: "2026-09-23T16:00:00Z", today: "2026-09-23", weekStart: "Monday" }) as any;
     let seq = 0;

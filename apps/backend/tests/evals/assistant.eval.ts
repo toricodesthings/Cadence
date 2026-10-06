@@ -11,8 +11,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getTestDb, startTestDb } from "../helpers/db";
-import { createUserIn } from "../helpers/zone";
+import { createUser, getTestDb, startTestDb } from "../helpers/db";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 import { getAgentInstance } from "../../src/domains/ai/agent";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
@@ -517,7 +516,7 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
             const problems: string[] = [];
             let calls: string[] = [];
             for (let attempt = 1; attempt <= (scenario.runs ?? 1); attempt++) {
-                const userId = await createUserIn(TZ);
+                const userId = await createUser({ zone: TZ });
                 const t = Object.assign(toolsFor(userId, scenario.now), { userId });
                 const seeded = (await scenario.seed?.(t)) ?? {};
                 const run = await converse(userId, scenario.turns, scenario.now);

@@ -1,5 +1,6 @@
 import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
-import { useState, useMemo, useCallback, useRef } from "react";
+import { lazy, useState, useMemo, useCallback, useRef } from "react";
+import { StartupSuspense } from "../components/shared/StartupSuspense";
 import { CalendarDays, Inbox, PanelRightClose, PanelRightOpen } from "lucide-react";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
@@ -21,7 +22,7 @@ import { useRightPanelStore } from "../stores/right-panel-store";
 import { useAssistantStore } from "../stores/assistant-store";
 import { useCaptureFeed } from "../hooks/inbox/use-capture-feed";
 import { useIsCoarsePointer } from "../hooks/ui/use-coarse-pointer";
-import { FocusViewBar } from "../components/focus-views/FocusViewBar";
+const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then((m) => ({ default: m.FocusViewBar })));
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
@@ -179,7 +180,7 @@ export default function HomeRoute() {
             sidePanel={sidePanel}
             sidePanelActive={Boolean(hasPanelContent)}
             sidePanelLabel="Place"
-            headerRight={<div className="flex items-center gap-2"><FocusViewBar capture />{!shell.isCompact && <SortMenu view={view} onViewChange={setView} />}{headerRight}</div>}
+            headerRight={<div className="flex items-center gap-2"><StartupSuspense fallback={null}><LazyFocusViewBar capture /></StartupSuspense>{!shell.isCompact && <SortMenu view={view} onViewChange={setView} />}{headerRight}</div>}
             compactHeaderRightInline
             shellHeader={{
                 title: "Capture",

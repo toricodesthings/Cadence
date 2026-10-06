@@ -2,6 +2,7 @@ import type { MutationOp } from "./offline-wal";
 import { enqueueWalEntry, getWalSnapshot, walTargetIds } from "./offline-wal";
 import { requestReplay, toRequests } from "./mutation-executor";
 import { isNetworkFailure } from "../../types/api";
+import { isSessionHeld } from "./client";
 
 /** Writes to one entity run in order, so an edit never overtakes the create it depends on. */
 const lastWriteById = new Map<string, Promise<unknown>>();
@@ -41,7 +42,7 @@ async function enqueue(op: MutationOp) {
  * Wraps a mutation function to support offline queueing.
  *
  * Online: calls the API function directly. Offline, on a network failure (weak
- * signal, timeout), or while earlier changes wait in the queue: serializes the
+ * signal, timeout), before a warm start's session check answers, or while earlier changes wait in the queue: serializes the
  * operation to the durable WAL and returns `undefined`. 4xx/5xx answers still throw.
  *
  * Hooks should guard `onSuccess` against undefined results (queued case).
@@ -53,7 +54,8 @@ export function withOfflineSupport<TInput, TResult>(
     return (input: TInput) => {
         const op = toOp(input);
         return afterPreviousWrites(walTargetIds(op), async () => {
-            if (!navigator.onLine || mustQueue(op)) {
+            // Before the session check answers a warm start, writes queue and replay once it does.
+            if (!navigator.onLine || isSessionHeld() || mustQueue(op)) {
                 await enqueue(op);
                 return undefined;
             }

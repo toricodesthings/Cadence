@@ -11,10 +11,12 @@ vi.mock("idb-keyval", () => ({
     del: async (key: string) => void store.delete(key),
 }));
 vi.mock("../../../../app/platform/runtime", () => ({ IS_DESKTOP_RUNTIME: false, getNativeStore: async () => null }));
+const sessionHeld = vi.hoisted(() => ({ value: false }));
 vi.mock("../../../../app/lib/api/client", () => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     apiClient: { api: (hc<any>("https://api.test") as any).api.v1 },
     authenticatedFetch: (url: string, init: RequestInit) => fetchMock(url, init),
+    isSessionHeld: () => sessionHeld.value,
 }));
 
 const { ApiErrorResponse, networkError } = await import("../../../../app/types/api");
@@ -133,5 +135,17 @@ describe("withOfflineSupport", () => {
         await withOfflineSupport(op, apiFn)(undefined);
         expect(apiFn).not.toHaveBeenCalled();
         expect(wal.getWalSnapshot().map((e) => e.op.type)).toEqual(["create_task", "delete_task"]);
+    });
+    it("queues a write made before a warm start's session check answers", async () => {
+        const apiFn = vi.fn();
+        fetchMock.mockRejectedValue(networkError());
+        sessionHeld.value = true;
+        try {
+            expect(await withOfflineSupport(op, apiFn)(undefined)).toBeUndefined();
+        } finally {
+            sessionHeld.value = false;
+        }
+        expect(apiFn).not.toHaveBeenCalled();
+        expect(wal.getWalSnapshot().map((e) => e.op.type)).toEqual(["delete_task"]);
     });
 });

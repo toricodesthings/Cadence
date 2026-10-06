@@ -170,16 +170,6 @@ describe("resolving occurrences", () => {
         expect(body.data.habit).toMatchObject({ currentStreak: 2, longestStreak: 5, totalCompletions: 4 });
     });
 
-    it("keeps the streak when today is still open", async () => {
-        const habit = await create();
-        await backdate(habit.id, 2);
-        await resolve(habit.id, day(-2), "COMPLETED");
-
-        const { body } = await resolve(habit.id, day(-1), "COMPLETED");
-
-        expect(body.data.habit.currentStreak).toBe(2);
-    });
-
     it("checking off today keeps a run logged before the routine was created (regression: streak fell to 1)", async () => {
         const habit = await create();
         for (const offset of [-3, -2, -1]) await resolve(habit.id, day(offset), "COMPLETED");

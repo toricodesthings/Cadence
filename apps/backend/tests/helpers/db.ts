@@ -51,13 +51,18 @@ export async function asOwner<T>(fn: (pg: PGlite) => Promise<T>): Promise<T> {
     }
 }
 
-/** Inserts a fresh user (column defaults for settings) and returns its id. */
-export async function createUser(settings?: Record<string, unknown>): Promise<string> {
+/** Inserts a fresh user and returns its id. Unset `settings` / `zone` (`users.time_zone`) keep the column defaults. */
+export async function createUser({ settings, zone }: { settings?: Record<string, unknown>; zone?: string } = {}): Promise<string> {
     const id = crypto.randomUUID();
-    await asOwner((pg) =>
-        settings
-            ? pg.query("INSERT INTO users (id, settings) VALUES ($1, $2)", [id, JSON.stringify(settings)])
-            : pg.query("INSERT INTO users (id) VALUES ($1)", [id]),
-    );
+    await asOwner(async (pg) => {
+        await pg.query("INSERT INTO users (id) VALUES ($1)", [id]);
+        if (settings || zone) {
+            await pg.query("UPDATE users SET settings = COALESCE($2::jsonb, settings), time_zone = COALESCE($3, time_zone) WHERE id = $1", [
+                id,
+                settings ? JSON.stringify(settings) : null,
+                zone ?? null,
+            ]);
+        }
+    });
     return id;
 }

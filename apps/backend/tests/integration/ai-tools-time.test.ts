@@ -7,8 +7,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { asSchema } from "ai";
 import { addDays } from "@cadence/domain/time";
 import { apiAs } from "../helpers/app";
-import { asOwner, startTestDb } from "../helpers/db";
-import { createUserIn } from "../helpers/zone";
+import { asOwner, createUser, startTestDb } from "../helpers/db";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
@@ -29,7 +28,7 @@ let notes: ReturnType<typeof apiAs>;
 
 beforeAll(startTestDb);
 beforeEach(async () => {
-    const userId = await createUserIn("America/Toronto");
+    const userId = await createUser({ zone: "America/Toronto" });
     tasks = apiAs(userId, "/tasks", taskRoutes);
     habits = apiAs(userId, "/habits", habitRoutes);
     notes = apiAs(userId, "/api", noteRoutes);
@@ -138,7 +137,7 @@ describe("the same fixtures land on the same day on every surface", () => {
     let post: (body: object) => Promise<any>;
 
     beforeEach(async () => {
-        userId = await createUserIn(ZONE);
+        userId = await createUser({ zone: ZONE });
         rest = apiAs(userId, "/tasks", taskRoutes);
         post = async (body) => (await rest("POST", "", { orderIndex: 1, ...body })).body.data;
     });

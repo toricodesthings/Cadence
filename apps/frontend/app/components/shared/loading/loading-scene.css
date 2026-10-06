@@ -15,6 +15,15 @@
     --ls-ease-sine: cubic-bezier(0.37, 0, 0.63, 1);
     --ls-ease-rise: cubic-bezier(0.3, 0.15, 0.45, 1);
     background: var(--loading-sky-deep);
+    /* A fixed full-screen box: its layout and paint never touch the page being parsed beneath it. */
+    contain: strict;
+}
+
+/* The decorative loops (rain, snow, leaves, wisps, grass) hold their first frame for the boot's
+ * first ~600ms so parsing gets the CPU on weak phones; the head boot script then sets
+ * data-loading-awake. Paused at the same pose, the first frame looks identical. */
+:root:not([data-loading-awake]) .loading-screen :is(.ls-particles, .ls-particles *, .ls-susuki > svg) {
+    animation-play-state: paused;
 }
 
 @media (min-aspect-ratio: 2/1) {

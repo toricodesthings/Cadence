@@ -123,16 +123,14 @@ self.addEventListener("fetch", (event) => {
         event.respondWith((async () => {
             const cache = await caches.open(CACHE_NAME);
             try {
-                // A validated cached shell is usable while a stalled network recovers.
+                // Stale-while-revalidate: a validated cached shell opens at once; its assets are
+                // precached (this build and the previous one), and a newer deploy is announced by
+                // the app's update toast. The fresh shell is saved for the next visit.
                 const saved = await cache.match("/");
                 const network = (async () => (await event.preloadResponse) || fetch(request))();
-                let timer;
-                const response = saved && isHtml(saved)
-                    ? await Promise.race([network, new Promise((resolve) => { timer = setTimeout(() => resolve(saved), 20_000); })]).finally(() => clearTimeout(timer))
-                    : await network;
-                // Late success can update the shell for the next visit.
                 event.waitUntil(network.then((fresh) => isHtml(fresh) ? store(cache, "/", fresh.clone()) : undefined).catch(() => {}));
-                return response;
+                if (saved && isHtml(saved)) return saved;
+                return await network;
             } catch {
                 const saved = await cache.match("/");
                 return saved && isHtml(saved) ? saved : new Response("Offline", { status: 503 });

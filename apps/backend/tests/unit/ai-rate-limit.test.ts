@@ -11,7 +11,7 @@ import {
     emptyUsage,
     type AiLimits,
 } from "../../src/domains/ai/safety/rate-limit";
-import { rlKeys } from "../../src/domains/ai/safety/rate-limit-keys";
+import { rlKeys, WINDOW_5H_S, WINDOW_7D_S } from "../../src/domains/ai/safety/rate-limit-keys";
 import type { Env } from "../../src/types/env";
 
 const USER_KEY = "deadbeefdeadbeef";
@@ -158,18 +158,20 @@ describe("admit — under cap", () => {
 
 describe("admit — over each cap rejects", () => {
     it.each([
-        ["5h request", () => k.req5h, limits.requests5h, "5h", "req"],
-        ["5h token", () => k.tok5h, limits.tokens5h, "5h", "tok"],
-        ["7d request", () => k.req7d, limits.requests7d, "7d", "req"],
-        ["7d token", () => k.tok7d, limits.tokens7d, "7d", "tok"],
-        ["concurrency", () => k.inflight, limits.maxConcurrent, undefined, "concurrency"],
-    ] as const)("rejects on the %s cap", async (_label, key, cap, window, dimension) => {
+        // Seeded keys carry no TTL, so retry-after falls back to the full window.
+        ["5h request", () => k.req5h, limits.requests5h, "5h", "req", WINDOW_5H_S],
+        ["5h token", () => k.tok5h, limits.tokens5h, "5h", "tok", WINDOW_5H_S],
+        ["7d request", () => k.req7d, limits.requests7d, "7d", "req", WINDOW_7D_S],
+        ["7d token", () => k.tok7d, limits.tokens7d, "7d", "tok", WINDOW_7D_S],
+        ["concurrency", () => k.inflight, limits.maxConcurrent, undefined, "concurrency", 5],
+    ] as const)("rejects on the %s cap", async (_label, key, cap, window, dimension, retryAfterS) => {
         const redis = new FakeRedis();
         redis.strings.set(key(), String(cap));
         const res = await admit(asRedis(redis), USER_KEY, limits.reserve, limits);
         if (res.ok) throw new Error("expected reject");
         if (window) expect(res.window).toBe(window);
         expect(res.dimension).toBe(dimension);
+        expect(res.retryAfterS).toBe(retryAfterS);
     });
 });
 

@@ -5,7 +5,7 @@ type Phase = PerformanceSample["phase"];
 const marks = new Map<string, number>();
 export type ReadDetails = Pick<PerformanceSample, "endpoint" | "status" | "error_code">;
 const reads: Array<ReadDetails & { phase: "api" | "api_body"; elapsed_ms: number; duration_ms: number; category: PerformanceSample["category"]; outcome: PerformanceSample["outcome"] }> = [];
-const cohort = { measurement_revision: 2 as const, build_id: CADENCE_BUILD_ID, version: CADENCE_VERSION, endpoint: "workspace" as const };
+const cohort = { measurement_revision: 3 as const, build_id: CADENCE_BUILD_ID, version: CADENCE_VERSION, endpoint: "workspace" as const };
 let finished = false;
 
 /** Local fixed-name marks only. Delivery is gated separately by account settings. */
@@ -26,13 +26,14 @@ export function resetStartupTiming(collect = true) {
 /** True until reveal (or a disabled/finished collection): after that, reads aren't measured. */
 export const startupCollecting = () => !finished && !marks.has("reveal.ready");
 
-// A delivery batch holds 50 samples: nine phases, 30 headers reads (the legacy cap) and 11 bodies.
+// A delivery batch holds 50 samples: eight phases, 30 headers reads (the legacy cap) and 11 bodies.
 const READ_CAPS = { api: 30, api_body: 11 };
 
 export function recordStartupRead(category: PerformanceSample["category"], start: number, outcome: PerformanceSample["outcome"], details: ReadDetails = {}, phase: "api" | "api_body" = "api") {
     const end = performance.now();
     if (startupCollecting() && reads.filter((r) => r.phase === phase).length < READ_CAPS[phase]) {
-        reads.push({ ...details, phase, category, duration_ms: end - start, elapsed_ms: end, outcome });
+        // Headers rows carry their start offset so reads can be placed on a timeline.
+        reads.push({ ...details, phase, category, duration_ms: end - start, elapsed_ms: phase === "api" ? start : end, outcome });
         performance.measure?.(`cadence.startup.${phase}.${details.endpoint ?? category}`, { start, end });
     }
 }
@@ -86,7 +87,10 @@ export function collectStartupSamples(context: Pick<PerformanceSample, "route" |
         samples.push({ ...context, ...cohort, phase, duration_ms: Math.round(end - start), elapsed_ms: Math.round(end), outcome: "ready", category: "workspace", count, encoded_bytes, decoded_bytes });
         performance.measure?.(`cadence.startup.${phase}`, { start, end });
     };
-    for (const phase of ["session", "restore", "jwt", "required_data", "chunks", "visible_assets", "hydrate", "reveal_frame"] as const) {
+    // Boot: navigation until React first renders the auth provider (JS download, parse, evaluate).
+    const sessionStart = marks.get("session.start");
+    if (sessionStart !== undefined) add("boot", 0, sessionStart);
+    for (const phase of ["session", "restore", "jwt", "required_data", "visible_assets", "reveal_frame"] as const) {
         const end = marks.get(`${phase}.ready`);
         if (end !== undefined) add(phase, marks.get(`${phase}.start`) ?? 0, end);
     }
@@ -96,7 +100,7 @@ export function collectStartupSamples(context: Pick<PerformanceSample, "route" |
         const js = resources.filter((r) => r.startTime <= reveal && (r.initiatorType === "script" || /\/assets\/[^?]+\.js(?:\?|$)/.test(r.name)));
         add("reveal", 0, reveal, js.length, Math.round(js.reduce((n, r) => n + r.encodedBodySize, 0)), Math.round(js.reduce((n, r) => n + r.decodedBodySize, 0)));
     }
-    for (const read of reads.filter((r) => r.duration_ms >= 0 && r.duration_ms <= 600_000)) samples.push({ ...context, ...cohort, ...read, elapsed_ms: Math.round(read.phase === "api" ? reveal ?? performance.now() : read.elapsed_ms), duration_ms: Math.round(read.duration_ms), count: 1, encoded_bytes: 0, decoded_bytes: 0 });
+    for (const read of reads.filter((r) => r.duration_ms >= 0 && r.duration_ms <= 600_000)) samples.push({ ...context, ...cohort, ...read, elapsed_ms: Math.round(read.elapsed_ms), duration_ms: Math.round(read.duration_ms), count: 1, encoded_bytes: 0, decoded_bytes: 0 });
     finished = true;
     return samples;
 }

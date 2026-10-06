@@ -83,7 +83,7 @@ describe("canonicalNlpEnvelopeSchema", () => {
 describe("batch and reorder limits", () => {
     it.each([
         ["batch state", batchStateSchema, (n: number) => ({ taskIds: ids(n), state: "COMPLETE" })],
-        ["batch reschedule", batchRescheduleSchema, (n: number) => ({ taskIds: ids(n), scheduledStart: "2026-03-09" })],
+        ["batch reschedule", batchRescheduleSchema, (n: number) => ({ taskIds: ids(n), date: "2026-03-09" })],
     ] as const)("%s takes 1–50 tasks", (_label, schema, build) => {
         expect(schema.safeParse(build(1)).success).toBe(true);
         expect(schema.safeParse(build(50)).success).toBe(true);

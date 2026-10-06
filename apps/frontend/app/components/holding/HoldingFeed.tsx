@@ -3,7 +3,6 @@ import { Inbox, CalendarClock, ChevronRight, StickyNote, Trash2, X } from "lucid
 import type { ReactNode } from "react";
 import { BucketedCollectionView, BucketedSectionHeader } from "../shared/BucketedCollectionView";
 import { useMemo, useState } from "react";
-import { parse } from "@cadence/nlp/parse";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
@@ -24,6 +23,7 @@ import { dayOfInstant, fromTimeValue, nlpClock, toDay } from "../../lib/utils/da
 import { today } from "../../lib/utils/user-zone";
 import { useWeekLoad, usePlaceTask } from "./PlaceSheet";
 import { toast } from "sonner";
+import { loadParse, useParseModule } from "../../hooks/use-nlp-parse";
 
 export function HoldingFeed({
     onSelectTask,
@@ -49,8 +49,11 @@ export function HoldingFeed({
     const placeTask = usePlaceTask();
     const openAssistant = useAssistantStore((s) => s.requestMessage);
     const definition = settings?.tasks.intelligence?.focusViewsEnabled === false ? null : activeDefinition;
+    // Only priority order and focus views read what a thought says; chronological order never parses.
+    const parse = useParseModule(captureOrder === "priority" || Boolean(definition));
     const ordered = useMemo(() => {
         const rank = (item: InboxItem) => {
+            if (!parse) return { item, priority: 0, effort: null, state: "ACTIVE", projectId: null, dueDate: null, scheduledStart: null };
             const parsed = parse({
                 input: item.rawText,
                 sourceSurface: "inbox",
@@ -97,7 +100,7 @@ export function HoldingFeed({
             older: thoughts(feed.older),
             tasks: (definition ? applyFocusView(feed.tasks, definition, { clock: nlpClock(), dayOf: dayOfInstant }) : [...feed.tasks]).sort(compare),
         };
-    }, [feed.thoughts, feed.older, feed.tasks, definition, captureOrder, settings?.dateTime.dateStyle]);
+    }, [feed.thoughts, feed.older, feed.tasks, definition, captureOrder, settings?.dateTime.dateStyle, parse]);
     const toggle = (id: string) =>
         setSelected((old) => {
             const next = new Set(old);
@@ -109,6 +112,7 @@ export function HoldingFeed({
         if (busy) return;
         setBusy(true);
         try {
+            const parseText = await loadParse();
             for (const item of [...feed.thoughts, ...feed.older, ...feed.notes].filter((i) => selected.has(i.id))) {
                 if (discard) await status.setStatus(item, "discarded");
                 else {
@@ -120,7 +124,7 @@ export function HoldingFeed({
                         rawText: item.rawText,
                         title:
                             overrides?.title ??
-                            parse({
+                            parseText({
                                 input: item.rawText,
                                 sourceSurface: "inbox",
                                 clock: nlpClock(),

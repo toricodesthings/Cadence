@@ -1,10 +1,14 @@
+import { lazy } from "react";
 import type { InboxItem } from "@cadence/contracts/inbox";
-import { ClarifySheet } from "../holding/ClarifySheet";
 import type { Habit } from "@cadence/contracts/habit";
 import type { PersonalEvent } from "../../types/settings";
-import { TaskEditor } from "../tasks/TaskEditor";
-import { HabitEditor } from "../habits/HabitEditor";
-import { PersonalEventEditor } from "../events/PersonalEventEditor";
+import { StartupSuspense } from "./StartupSuspense";
+
+// Editors load on first selection, never with the first screen (a deep link still waits for its editor).
+const ClarifySheet = lazy(() => import("../holding/ClarifySheet").then((m) => ({ default: m.ClarifySheet })));
+const TaskEditor = lazy(() => import("../tasks/TaskEditor").then((m) => ({ default: m.TaskEditor })));
+const HabitEditor = lazy(() => import("../habits/HabitEditor").then((m) => ({ default: m.HabitEditor })));
+const PersonalEventEditor = lazy(() => import("../events/PersonalEventEditor").then((m) => ({ default: m.PersonalEventEditor })));
 
 type EditorProps = {
     onClose: () => void;
@@ -19,6 +23,10 @@ type EditorProps = {
 
 /** The shared entry point for inspecting and editing app entities. */
 export function EditSidePanel(props: EditorProps) {
+    return <StartupSuspense fallback={null}><Editor {...props} /></StartupSuspense>;
+}
+
+function Editor(props: EditorProps) {
     switch (props.kind) {
         case "capture": return <ClarifySheet key={props.item.id} {...props} />;
         case "task": return <TaskEditor key={props.taskId} {...props} />;

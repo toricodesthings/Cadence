@@ -209,4 +209,29 @@ describe("api/client", () => {
         expect(tokenFetchMock).toHaveBeenCalledTimes(1);
     });
 
+
+    it("holds API calls during a warm start until the real session seeds its JWT", async () => {
+        const { holdForSession, releaseSessionHold, seedAuthJwtCache, authenticatedFetch, isSessionHeld } = await import("../../../../app/lib/api/client");
+        holdForSession();
+        expect(isSessionHeld()).toBe(true);
+        const request = authenticatedFetch("/api/tasks", { authenticated: true });
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(platformFetchMock).not.toHaveBeenCalled();
+        const token = jwt({ sub: "user", exp: Date.now() / 1000 + 60 });
+        seedAuthJwtCache(token, "user");
+        releaseSessionHold();
+        const body = await (await request).json() as EchoedRequest;
+        expect(body.headers.authorization).toBe(`Bearer ${token}`);
+        expect(tokenFetchMock).not.toHaveBeenCalled();
+        expect(isSessionHeld()).toBe(false);
+    });
+    it("aborts held calls when the session check answers with another account", async () => {
+        const { holdForSession, releaseSessionHold, clearAuthJwtCache, authenticatedFetch } = await import("../../../../app/lib/api/client");
+        holdForSession();
+        const request = authenticatedFetch("/api/tasks", { authenticated: true });
+        clearAuthJwtCache();
+        releaseSessionHold();
+        await expect(request).rejects.toMatchObject({ name: "AbortError" });
+        expect(platformFetchMock).not.toHaveBeenCalled();
+    });
 });

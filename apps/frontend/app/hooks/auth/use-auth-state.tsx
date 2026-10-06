@@ -11,7 +11,8 @@ import {
     type StoredDesktopAuthSession,
 } from "../../lib/desktop-auth-session";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
-import { clearAuthJwtCache, seedAuthJwtCache } from "../../lib/api/client";
+import { clearAuthJwtCache, holdForSession, releaseSessionHold, seedAuthJwtCache } from "../../lib/api/client";
+import { takePrefetchedSession } from "../../lib/auth/session-prefetch";
 import { setDiagnosticsEnabled, setCrashReportsEnabled } from "../../lib/api/track-event";
 import { startupMark, resetStartupTiming } from "../../lib/startup-timing";
 import { isWorkspacePath } from "../../lib/auth/workspace-path";
@@ -24,6 +25,8 @@ type AuthStatus =
     | "authenticated"
     /** No connection to check the session; running on the last signed-in identity and cached data. */
     | "offline"
+    /** Warm start: the last signed-in identity's saved workspace shows while the session is checked. API calls wait for it. */
+    | "provisional"
     | "anonymous"
     | "refreshing"
     | "recoverable_error";
@@ -63,8 +66,25 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
             : null),
         [identity, isPending, liveSession, online, sessionError],
     );
-    const resolvedSession = liveSession ?? offlineSession;
+    // Same exposure as offline mode: data already stored on this device, no tokens.
+    // Workspace paths only (never /connect or auth pages).
+    const provisionalSession = useMemo<DesktopAuthSessionData | null>(
+        () => (!liveSession && !offlineSession && identity && (isPending || !desktopSessionLoaded) && isWorkspacePath(location.pathname)
+            ? { user: { ...identity }, session: {} }
+            : null),
+        [desktopSessionLoaded, identity, isPending, liveSession, location.pathname, offlineSession],
+    );
+    const resolvedSession = liveSession ?? offlineSession ?? provisionalSession;
     const previousAccount = useRef<string | null>(null);
+
+    // The head script started get-session before the bundle loaded: take its answer.
+    useEffect(() => {
+        let active = true;
+        void takePrefetchedSession()?.then((early) => {
+            if (active && early?.user.id) setRecoveredSession((current) => current ?? early as SessionData);
+        });
+        return () => { active = false; };
+    }, []);
 
     // Invalidate/seed before descendant passive effects start their API reads.
     useLayoutEffect(() => {
@@ -78,11 +98,18 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
             }
             previousAccount.current = userId;
         }
+        if (provisionalSession) {
+            holdForSession();
+            return;
+        }
         if (userId) {
             startupMark("session.ready");
             seedAuthJwtCache(liveSession?.session?.token ?? desktopSession?.jwt, userId);
         }
-    }, [resolvedSession?.user.id, liveSession?.session?.token, desktopSession?.jwt]);
+        // The session check answered (signed in, offline or anonymous): held calls go on, or
+        // were already aborted above if the account changed.
+        releaseSessionHold();
+    }, [resolvedSession?.user.id, liveSession?.session?.token, desktopSession?.jwt, provisionalSession]);
 
     useEffect(() => {
         if (!liveSession?.user.id) return;
@@ -144,11 +171,6 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
     statusRef.current = status;
 
     useEffect(() => {
-        if (!desktopSessionLoaded) {
-            setStatus("bootstrapping");
-            return;
-        }
-
         if (liveSession) {
             setStatus("authenticated");
             return;
@@ -156,6 +178,16 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
 
         if (offlineSession) {
             setStatus("offline");
+            return;
+        }
+
+        if (provisionalSession) {
+            setStatus("provisional");
+            return;
+        }
+
+        if (!desktopSessionLoaded) {
+            setStatus("bootstrapping");
             return;
         }
 
@@ -171,7 +203,7 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
         }
 
         setStatus("anonymous");
-    }, [desktopSessionLoaded, isPending, liveSession, offlineSession]);
+    }, [desktopSessionLoaded, isPending, liveSession, offlineSession, provisionalSession]);
 
     useEffect(() => {
         if (status !== "anonymous") return;
@@ -252,7 +284,7 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
             status,
             session: resolvedSession,
             isAuthenticated: Boolean(resolvedSession),
-            authReady: desktopSessionLoaded && status !== "bootstrapping" && status !== "refreshing",
+            authReady: status === "provisional" || (desktopSessionLoaded && status !== "bootstrapping" && status !== "refreshing"),
             beginAuthRecovery,
             completeSignOut,
         }),

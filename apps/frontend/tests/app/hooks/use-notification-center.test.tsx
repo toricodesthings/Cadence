@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { useNotificationCenter } from "../../../app/hooks/notifications/use-notification-center";
 import { queryKeys } from "../../../app/lib/api/query-keys";
+import { StartupReadyContext } from "../../../app/hooks/core/use-workspace-startup";
 import { testQueryClient, withClient } from "../../helpers";
 
 const fixture = vi.hoisted(() => {
@@ -18,8 +19,9 @@ const fixture = vi.hoisted(() => {
         $get: vi.fn(async () => ({ ok: true, json: async () => ({ data: [] as unknown[] }) })), $post: post,
     } } } } };
 });
-vi.mock("../../../app/hooks/tasks/use-tasks", () => ({ useTasks: () => ({ data: fixture.empty }) }));
-vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: () => ({ data: fixture.empty }) }));
+const reads = vi.hoisted(() => ({ tasks: vi.fn(), habits: vi.fn() }));
+vi.mock("../../../app/hooks/tasks/use-tasks", () => ({ useTasks: (options: unknown) => { reads.tasks(options); return { data: fixture.empty }; } }));
+vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: (options: unknown) => { reads.habits(options); return { data: fixture.empty }; } }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: undefined }) }));
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => fixture.auth }));
 vi.mock("../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => fixture.client }));
@@ -133,6 +135,18 @@ it("keeps presentation claims and saved rows separate for each account", async (
     hook.rerender();
     await waitFor(() => expect(client.getQueryData(queryKeys.settings.notificationState("user-2"))).toHaveLength(1));
     expect(fixture.post).toHaveBeenCalledTimes(2);
+    hook.unmount();
+    client.clear();
+});
+
+it("keeps the bell's reads out of startup: nothing loads until the workspace reveals", async () => {
+    const client = testQueryClient();
+    const Client = withClient(client);
+    const hook = renderHook(() => useNotificationCenter(), { wrapper: ({ children }) => <Client><StartupReadyContext value={false}>{children}</StartupReadyContext></Client> });
+    await act(async () => {});
+    expect(fixture.client.api.settings["notification-state"].$get).not.toHaveBeenCalled();
+    expect(reads.tasks).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
+    expect(reads.habits).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
     hook.unmount();
     client.clear();
 });

@@ -12,7 +12,10 @@
  * Safari, Firefox strict mode) otherwise drop the OAuth session challenge
  * cookie and sign-in never completes.
  *
- * - `/assets/*` validates hashed files before applying immutable caching.
+ * - `/assets/*` reaches this worker only for a missing file (hashed assets are served
+ *   directly, immutable via `_headers`): it answers 404, never the SPA shell.
+ * - `/api/v1/*` goes to the backend Worker over the BACKEND service binding, so the
+ *   app's API is same-origin (no CORS preflight per read, no second TLS handshake).
  * - `/api/auth/*` is a transparent proxy to Neon Auth. Cookie values are
  *   forwarded byte-for-byte; only Set-Cookie flags are rewritten for this origin.
  * - `/auth/callback?neon_auth_session_verifier=…` exchanges the single-use
@@ -21,6 +24,7 @@
  */
 
 const AUTH_PROXY_PREFIX = "/api/auth/";
+const API_PREFIX = "/api/v1/";
 const AUTH_CALLBACK_PATH = "/auth/callback";
 const NEON_COOKIE_PREFIX = "__Secure-neon-auth.";
 const CHALLENGE_COOKIE_NAMES = [`${NEON_COOKIE_PREFIX}session_challenge`, `${NEON_COOKIE_PREFIX}session_challange`];
@@ -144,6 +148,9 @@ export default {
 			return response;
 		}
 		const url = new URL(request.url);
+
+		// Untouched: headers (CF-Connecting-IP for rate limits), body and Server-Timing pass through.
+		if (url.pathname.startsWith(API_PREFIX)) return env.BACKEND.fetch(request);
 
 		if (url.pathname.startsWith(AUTH_PROXY_PREFIX)) {
 			return proxyAuth(request, env, url);

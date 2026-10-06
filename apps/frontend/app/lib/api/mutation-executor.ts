@@ -154,7 +154,10 @@ async function keepBothNotes(op: Extract<MutationOp, { type: "upsert_note" }>, e
 type EntryResult = "done" | "offline" | { error: string };
 
 function classify(err: unknown, entry: WalEntry): EntryResult {
-    if (isNetworkFailure(err) || (err instanceof ApiErrorResponse && err.isRetryable)) return "offline";
+    // An account change mid-replay (say, a warm start's session came back as someone else)
+    // got no answer: the change stays pending for its own account.
+    const aborted = err instanceof DOMException && err.name === "AbortError";
+    if (aborted || isNetworkFailure(err) || (err instanceof ApiErrorResponse && err.isRetryable)) return "offline";
     // Deletes win: a change to something deleted elsewhere is dropped.
     if (err instanceof ApiErrorResponse && err.status === 404 && !entry.op.type.startsWith("create_")) return "done";
     return { error: reason(err) };
