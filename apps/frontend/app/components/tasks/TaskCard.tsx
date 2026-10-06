@@ -1,4 +1,4 @@
-import { COLLECTION_ROW_SURFACE, COLLECTION_ROW_HOVER, COLLECTION_ROW_TITLE } from "./task-row-styles";
+import { COLLECTION_ROW_SURFACE, COLLECTION_ROW_HOVER, COLLECTION_ROW_SELECTED, COLLECTION_ROW_TITLE } from "./task-row-styles";
 import { ThoughtMark } from "./ThoughtMark";
 import { getTagTone } from "./TagSignal";
 import { useState, useId } from "react";
@@ -65,13 +65,13 @@ const PRIORITY_BAR_CLASS: Record<number, string> = {
 const PRIORITY_BG_CLASS: Record<number, string> = {
     0: "",
     1: "",
-    2: "bg-[var(--color-priority-medium)]/[0.02]",
-    3: "bg-[var(--color-priority-high)]/[0.02]",
-    4: "bg-[var(--color-priority-urgent)]/[0.03]",
+    2: "[--row-wash:color-mix(in_srgb,var(--color-priority-medium)_2%,transparent)]",
+    3: "[--row-wash:color-mix(in_srgb,var(--color-priority-high)_2%,transparent)]",
+    4: "[--row-wash:color-mix(in_srgb,var(--color-priority-urgent)_3%,transparent)]",
 };
 
 const PASSIVE_TIMETABLE_CARD_CLASS =
-    "border-moonlit/22 bg-[linear-gradient(180deg,rgba(126,184,212,0.08),rgba(126,184,212,0.03))] shadow-[inset_0_1px_0_rgba(126,184,212,0.08)]";
+    "border-moonlit/22 [--row-wash:rgba(126,184,212,0.055)] shadow-[inset_0_1px_0_rgba(126,184,212,0.08)]";
 
 const EFFORT_LABELS: Record<1 | 2 | 3, string> = {
     1: "Light effort",
@@ -276,10 +276,10 @@ export function TaskCard({
                 ${isPassiveTimetable ? PASSIVE_TIMETABLE_CARD_CLASS : ""}
                 ${isComplete ? "opacity-45" : ""}
                 ${isTaskSelected
-                    ? "bg-white/[0.04] ring-1 ring-accent-primary/15"
-                    : `${COLLECTION_ROW_HOVER} ${PRIORITY_BG_CLASS[task.priority]}`
+                    ? `${COLLECTION_ROW_SELECTED} ring-1 ring-accent-primary/15`
+                    : `${COLLECTION_ROW_HOVER} ${isDropTarget || isPassiveTimetable ? "" : PRIORITY_BG_CLASS[task.priority]}`
                 }
-                ${isDropTarget ? "ring-1 ring-moonlit/30 border-moonlit/35 bg-moonlit/[0.035]" : ""}
+                ${isDropTarget ? "ring-1 ring-moonlit/30 border-moonlit/35 [--row-wash:color-mix(in_srgb,var(--color-moonlit)_3.5%,transparent)]" : ""}
                 ${isDragging ? "shadow-[0_18px_46px_rgba(0,0,0,0.32),0_0_24px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]" : ""}
             `}
         >

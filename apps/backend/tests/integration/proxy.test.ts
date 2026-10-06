@@ -24,7 +24,7 @@ describe("proxy route contracts", () => {
 
     describe("GET /proxy/weather", () => {
         it("returns only the current conditions from upstream", async () => {
-            const upstream = { current_weather: { temperature: 22, weathercode: 1, windspeed: 9 }, hourly: {} };
+            const upstream = { current_weather: { temperature: 22, weathercode: 1, is_day: 0, windspeed: 9 }, hourly: {} };
             fetchMock.mockResolvedValue(jsonResponse(upstream));
 
             const res = await app.request("/proxy/weather?latitude=40.7&longitude=-74.0");
@@ -32,7 +32,7 @@ describe("proxy route contracts", () => {
             expect(res.status).toBe(200);
             expect(res.headers.get("cache-control")).toContain("no-store");
             const body: any = await res.json();
-            expect(body).toEqual({ data: { temperature: 22, weatherCode: 1 } });
+            expect(body).toEqual({ data: { temperature: 22, weatherCode: 1, isDay: false } });
             expect(fetchMock).toHaveBeenCalledOnce();
             expect(fetchMock.mock.calls[0][0]).toContain("api.open-meteo.com");
         });

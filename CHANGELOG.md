@@ -6,6 +6,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Repeating blocks fill the whole month again, and your time zone keeps in sync.
+
+### Added
+
+- Sync now also checks for a Cadence update on desktop
+
+### Changed
+
+- Capture greets you again, with the local weather beside it (°F in the US, a moon at night)
+- The Capture box stays one quiet line until you start typing, then grows and shows its shortcuts
+- Capture rows show up to three lines of a thought, and their age only once it's 3 days old
+- Shortcut hints say Ctrl instead of ⌘ on Windows and Linux
+
+### Fixed
+
+- Repeating blocks now show on every day of Month and Year, not just the first few weeks
+
 ## [0.27.0] - 2026-10-06
 
 Schedule and Today are calmer to look at, and every panel now stands clear of your background.

@@ -123,14 +123,14 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Weather service unavailable", status: 502 }), 502);
         }
 
-        const payload = (await res.json()) as { current_weather?: { temperature?: unknown; weathercode?: unknown } };
+        const payload = (await res.json()) as { current_weather?: { temperature?: unknown; weathercode?: unknown; is_day?: unknown } };
         const current = payload.current_weather;
         if (typeof current?.temperature !== "number" || typeof current.weathercode !== "number") {
             return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Weather service returned no current conditions", status: 502 }), 502);
         }
 
         return c.json(
-            { data: { temperature: current.temperature, weatherCode: current.weathercode } satisfies WeatherReading },
+            { data: { temperature: current.temperature, weatherCode: current.weathercode, isDay: current.is_day !== 0 } satisfies WeatherReading },
             200,
             PRIVATE_NO_STORE,
         );

@@ -6,6 +6,10 @@ import * as Popover from "../primitives/Popover";
 export const PAGE_HEADER_SURFACE =
     "surface-shell photo-shell-surface layer-shell-header shrink-0 border-b border-twilight-border";
 
+/** The view picker (Day/Week/…) in a desktop page header; add the page's focus ring colour. */
+export const HEADER_SELECT_TRIGGER =
+    "surface-control h-11 w-auto min-w-[7.5rem] gap-2 rounded-xl border-twilight-border/30 px-3.5 text-sm font-medium text-twilight-text shadow-none";
+
 export interface PageHeaderIdentityProps {
     icon?: ReactNode;
     eyebrow?: ReactNode;

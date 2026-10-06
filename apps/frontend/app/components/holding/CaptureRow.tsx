@@ -1,4 +1,4 @@
-import { COLLECTION_ROW_SURFACE, COLLECTION_ROW_HOVER, COLLECTION_ROW_TITLE } from "../tasks/task-row-styles";
+import { COLLECTION_ROW_SURFACE, COLLECTION_ROW_HOVER, COLLECTION_ROW_SELECTED, COLLECTION_ROW_TITLE } from "../tasks/task-row-styles";
 import { useRef, useState, useEffect, useId } from "react";
 import {
     CalendarClock,
@@ -81,6 +81,7 @@ export function CaptureRow({
     const stacked = stackedProp || shell.isPhone;
     const { data: settings } = useSettings();
     const quiet = settings?.tasks.intelligence?.lowStimulationMode;
+    const ageDays = Math.floor((Date.now() - Date.parse(object.createdAt)) / 86_400_000);
     const { data: allTags = [] } = useTags();
     const [menuOpen, setMenuOpen] = useState(false);
     const subtaskUi = useInlineSubtasks(task?.id ?? "");
@@ -257,7 +258,7 @@ export function CaptureRow({
                         actions[e.key]();
                     }
                 }}
-                className={`${COLLECTION_ROW_SURFACE} min-w-0 px-4 py-3.5 sm:px-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${selected ? "bg-accent-primary/10 ring-accent-primary/15" : COLLECTION_ROW_HOVER} ${tagOver ? "ring-1 ring-accent-primary/40" : ""}`}
+                className={`${COLLECTION_ROW_SURFACE} min-w-0 px-4 py-3.5 sm:px-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${selected ? `${COLLECTION_ROW_SELECTED} [--row-wash:color-mix(in_srgb,var(--accent-primary)_10%,transparent)] ring-accent-primary/15` : COLLECTION_ROW_HOVER} ${tagOver ? "ring-1 ring-accent-primary/40" : ""}`}
             >
                 {/* Side controls centre on the 44px title line, like task cards, so a tag line hangs below. */}
                 <div className="flex min-h-9 items-start gap-2">
@@ -296,7 +297,7 @@ export function CaptureRow({
                             onClick={onOpen}
                             className={`block min-h-11 w-full min-w-0 rounded-lg px-1 text-left font-sans font-normal text-twilight-text hover:text-twilight-text active:scale-100 ${COLLECTION_ROW_TITLE}`}
                         >
-                            <span className="line-clamp-2 break-words">{title}<PendingMark id={object.id} /></span>
+                            <span className="line-clamp-3 break-words">{title}<PendingMark id={object.id} /></span>
                         </Button>
                         {(rowTags.length > 0 || (stacked && detected)) && (
                             <div className="flex flex-wrap items-center gap-1.5 px-1 pb-0.5">
@@ -327,10 +328,12 @@ export function CaptureRow({
                                       "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100",
                                   ))}
                     </div>
-                    {!quiet && !stacked && (
+                    {/* Age only once it means something; fresh rows stay quiet. */}
+                    {!quiet && !stacked && ageDays >= 3 && (
                         <time
                             className="min-w-9 shrink-0 whitespace-nowrap text-right text-xs leading-[2.75rem] tabular-nums text-twilight-text-muted"
                             dateTime={object.createdAt}
+                            title={`Captured ${ageDays} days ago`}
                         >
                             {relativeTime(object.createdAt)}
                         </time>

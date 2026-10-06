@@ -28,7 +28,7 @@ import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useReducedMotionSetting } from "../hooks/ui/use-reduced-motion";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
-import { PageHeader, PhonePageHeader, PhoneViewPicker } from "../components/layout/PageHeader";
+import { HEADER_SELECT_TRIGGER, PageHeader, PhonePageHeader, PhoneViewPicker } from "../components/layout/PageHeader";
 import { PeriodNav, PeriodTodayPill } from "../components/layout/PeriodNav";
 
 const HABITS_ACCENT = "var(--accent-nav-habits, var(--accent-primary))";
@@ -227,7 +227,7 @@ export default function Routines() {
                                 <Select value={displayMode} onValueChange={(value) => setDisplay(value as DisplayMode)}>
                                     <SelectTrigger
                                         aria-label="Routine view"
-                                        className="h-11 w-auto min-w-[7.5rem] gap-2 rounded-xl border-twilight-border/30 bg-twilight-base/35 px-3.5 text-sm font-medium text-twilight-text shadow-none hover:bg-twilight-base/50 focus:ring-accent-nav-habits/40"
+                                        className={`${HEADER_SELECT_TRIGGER} focus:ring-accent-nav-habits/40`}
                                     >
                                         <SelectValue />
                                     </SelectTrigger>
@@ -239,7 +239,7 @@ export default function Routines() {
                                 {shell.isCompact ? null : <button
                                     type="button"
                                     onClick={() => setIsCreateOpen(true)}
-                                    className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl border border-accent-primary/20 bg-accent-primary/15 px-4 text-sm font-medium text-accent-primary transition-colors hover:border-accent-primary/30 hover:bg-accent-primary/25"
+                                    className="surface-control-accent inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl border border-accent-primary/20 px-4 text-sm font-medium text-accent-primary transition-colors hover:border-accent-primary/30"
                                 >
                                     <Plus size={14} aria-hidden="true" />
                                     Add routine

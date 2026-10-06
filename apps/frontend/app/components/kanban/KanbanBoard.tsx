@@ -72,7 +72,7 @@ function KanbanColumn({
     const [renamingTask, setRenamingTask] = useState<Task | null>(null);
 
     return (
-        <div className="flex flex-col h-full rounded-[28px] border border-twilight-border/45 bg-twilight-surface/20 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-xl min-w-[280px]">
+        <div className="flex flex-col h-full surface-card rounded-[28px] min-w-[280px]">
             {/* Header */}
             <div className="relative flex items-start justify-between gap-3 border-b border-twilight-border/30 px-5 py-4 group">
                 {isRenaming && onRename ? (

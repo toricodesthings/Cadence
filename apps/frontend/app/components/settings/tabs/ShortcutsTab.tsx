@@ -7,6 +7,7 @@ import { SETTINGS_DEFAULTS } from "../../../types/settings";
 import { GLOBAL_QUICK_CAPTURE_SHORTCUT } from "../../../platform/desktop-shell";
 import { useDesktopCommandPreferences } from "../../../hooks/ui/use-desktop-command-preferences";
 import { IS_DESKTOP_RUNTIME } from "../../../platform/runtime";
+import { MOD_KEY } from "../../../lib/constants/keys";
 
 const BINDING_LABELS: Record<string, { label: string; description: string }> = {
     commandPalette: { label: "Command palette", description: "Open the global command palette" },
@@ -19,7 +20,7 @@ const BINDING_LABELS: Record<string, { label: string; description: string }> = {
 
 function formatKeyForDisplay(key: string): string {
     return key
-        .replace("mod+", "⌘ ")
+        .replace("mod+", `${MOD_KEY} `)
         .replace("ctrl+", "Ctrl+")
         .replace("alt+", "Alt+")
         .replace("shift+", "Shift+")

@@ -13,7 +13,7 @@ import { getDateFormatConfig, getWeekStart, MONTH_NAMES } from "../../lib/utils/
 import { dayOfMonth, parseYMD } from "../../lib/utils/calendar/calendar-math";
 import * as Popover from "../primitives/Popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../primitives/Select";
-import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity, PhonePageHeader } from "../layout/PageHeader";
+import { HEADER_SELECT_TRIGGER, PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity, PhonePageHeader } from "../layout/PageHeader";
 import { PeriodNav, PeriodTodayButton } from "../layout/PeriodNav";
 
 export type CalendarViewMode = "day" | "week" | "month" | "year";
@@ -107,8 +107,8 @@ function ContextualAddTrigger({
                 onClick={isTask ? onAddTask : onAddEvent}
                 className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-4 text-sm font-medium transition-colors cursor-pointer ${
                     isTask
-                        ? "border-accent-primary/20 bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25 hover:border-accent-primary/30"
-                        : "border-accent-nav-schedule/20 bg-accent-nav-schedule/12 text-accent-nav-schedule hover:border-accent-nav-schedule/30 hover:bg-accent-nav-schedule/18"
+                        ? "surface-control-accent border-accent-primary/20 text-accent-primary hover:border-accent-primary/30"
+                        : "surface-control-accent [--control-tone:var(--accent-nav-schedule)] border-accent-nav-schedule/20 text-accent-nav-schedule hover:border-accent-nav-schedule/30"
                 }`}
             >
                 {isTask ? <Plus size={14} /> : <CalendarHeart size={14} />}
@@ -253,7 +253,7 @@ export function ScheduleHeader({
                 <Select value={viewMode} onValueChange={(value) => onViewMode(value as CalendarViewMode)}>
                     <SelectTrigger
                         aria-label="Calendar view"
-                        className="h-11 w-auto min-w-[7.5rem] gap-2 rounded-xl border-twilight-border/30 bg-twilight-base/35 px-3.5 text-sm font-medium text-twilight-text shadow-none hover:bg-twilight-base/50 focus:ring-accent-nav-schedule/40"
+                        className={`${HEADER_SELECT_TRIGGER} focus:ring-accent-nav-schedule/40`}
                     >
                         <SelectValue />
                     </SelectTrigger>

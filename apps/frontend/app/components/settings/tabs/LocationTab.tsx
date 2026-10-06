@@ -97,7 +97,7 @@ export function LocationTab() {
             <div>
                 <h2 className="mb-2 text-2xl font-bold text-twilight-text">Location & Weather</h2>
                 <p className="text-sm leading-relaxed text-twilight-text-soft">
-                    Cadence uses your location for two things: the weather on Home and the public holidays on your
+                    Cadence uses your location for two things: the weather on Capture and the public holidays on your
                     calendar. Choose how much it knows, or turn it off.
                 </p>
             </div>

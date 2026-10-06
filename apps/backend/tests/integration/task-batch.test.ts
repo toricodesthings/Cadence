@@ -85,13 +85,13 @@ describe("batched open task reads", () => {
         } finally { transactions.mockRestore(); }
     });
 
-    it("keeps full open lists while each schedule window retains the single-read cap", async () => {
+    it("keeps full open lists and full schedule windows", async () => {
         // Direct SQL seeding avoids testing create 60 times; reads still run with real RLS.
         const { asOwner } = await import("../helpers/db");
         await asOwner((pg) => pg.query(`INSERT INTO tasks (user_id, title, order_index, due_on)
             SELECT $1, 'Task ' || n, n, '2026-03-09'::date FROM generate_series(1, 60) n`, [userId]));
         const result = await tasks("GET", batchPath([{ state: "ACTIVE" }, { state: "ACTIVE", from: "2026-03-09", to: "2026-03-09" }]));
         expect(result.status).toBe(200);
-        expect(result.body.data.lists.map((list: number[]) => list.length)).toEqual([60, 50]);
+        expect(result.body.data.lists.map((list: number[]) => list.length)).toEqual([60, 60]);
     });
 });

@@ -35,8 +35,8 @@ export const holidaysQuerySchema = z.object({
 export const coordinatesSchema = z.object({ latitude: z.number(), longitude: z.number() });
 export type Coordinates = z.infer<typeof coordinatesSchema>;
 
-/** GET /proxy/weather: current conditions in Celsius, `weatherCode` is WMO. */
-export const weatherReadingSchema = z.object({ temperature: z.number(), weatherCode: z.number() });
+/** GET /proxy/weather: current conditions in Celsius, `weatherCode` is WMO, `isDay` is false between sunset and sunrise. */
+export const weatherReadingSchema = z.object({ temperature: z.number(), weatherCode: z.number(), isDay: z.boolean() });
 export type WeatherReading = z.infer<typeof weatherReadingSchema>;
 
 /** GET /proxy/geocode/reverse: the region a point falls in. */

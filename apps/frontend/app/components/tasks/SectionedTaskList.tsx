@@ -108,7 +108,7 @@ export function SectionedTaskList({
 
     if (!hasCustomSections) {
         return (
-            <div className={`flex flex-col gap-1 ${shell.isCompact ? "rounded-[30px] border border-twilight-border/45 bg-twilight-surface/20 px-3 py-4 shadow-[0_24px_80px_rgba(0,0,0,0.16)] backdrop-blur-xl" : ""}`}>
+            <div className={`flex flex-col gap-1 ${shell.isCompact ? "surface-card rounded-[30px] px-3 py-4" : ""}`}>
                 <TaskList
                     tasks={tasks}
                     selectedTaskId={selectedTaskId}
@@ -162,7 +162,7 @@ export function SectionedTaskList({
     }
 
     const sectionSurfaceClass = shell.isCompact
-        ? "rounded-[28px] border border-twilight-border/45 bg-twilight-surface/20 px-3 py-3 shadow-[0_24px_80px_rgba(0,0,0,0.16)] backdrop-blur-xl"
+        ? "surface-card rounded-[28px] px-3 py-3"
         : "";
     const inlineAddClass = shell.isCompact ? "mt-3" : "mt-2";
 

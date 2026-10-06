@@ -39,7 +39,7 @@ export function SegmentedControl<T extends string>({
         <div
             role="radiogroup"
             aria-label={ariaLabel}
-            className={cn("inline-flex items-center gap-0.5 border border-twilight-border/30 bg-twilight-base/35", SIZES[size].root, className)}
+            className={cn("surface-control inline-flex items-center gap-0.5 border border-twilight-border/30", SIZES[size].root, className)}
             style={{ "--segment-tone": tone } as CSSProperties}
         >
             {options.map((option) => {

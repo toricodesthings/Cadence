@@ -357,8 +357,8 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
             <Popover.Trigger
                 className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors ${
                     activeDefinition
-                        ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25"
-                        : "bg-white/[0.03] text-twilight-text-muted border border-twilight-border/30 hover:bg-white/[0.06]"
+                        ? "surface-control-accent text-accent-primary border border-accent-primary/25"
+                        : "surface-control text-twilight-text-muted border border-twilight-border/30 hover:text-twilight-text"
                 }`}
             >
                 <Zap size={14} aria-hidden="true" />

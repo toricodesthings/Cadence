@@ -11,7 +11,7 @@ export function PeriodTodayButton({ isCurrent, onToday, compact = false }: { isC
             type="button"
             onClick={onToday}
             disabled={isCurrent}
-            className={`cursor-pointer border border-twilight-border/30 bg-white/[0.03] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text disabled:pointer-events-none disabled:opacity-30 ${compact ? "ml-auto rounded-lg px-3 py-1 text-[13px]" : "inline-flex min-h-11 items-center rounded-xl px-3.5 text-sm"}`}
+            className={`surface-control cursor-pointer border border-twilight-border/30 font-medium text-twilight-text-soft transition-colors hover:text-twilight-text disabled:pointer-events-none disabled:text-twilight-text-muted/45 ${compact ? "ml-auto rounded-lg px-3 py-1 text-[13px]" : "inline-flex min-h-11 items-center rounded-xl px-3.5 text-sm"}`}
         >
             Today
         </button>

@@ -142,14 +142,14 @@ function DesktopHeaderStatus({ onOpenAbout }: { onOpenAbout: () => void }) {
                 <button
                     type="button"
                     onClick={onOpenAbout}
-                    className={`${HEADER_CHIP} cursor-pointer gap-1.5 border-accent-primary/25 bg-accent-primary/15 px-3 text-accent-primary hover:bg-accent-primary/20`}
+                    className={`${HEADER_CHIP} cursor-pointer gap-1.5 surface-control-accent border-accent-primary/25 px-3 text-accent-primary`}
                 >
                     <Download size={14} aria-hidden="true" />
                     Update {update.version}
                 </button>
             ) : null}
 
-            <div role="group" aria-label="Layout scale" className={`${HEADER_CHIP} overflow-hidden border-twilight-border/30 bg-white/[0.03]`}>
+            <div role="group" aria-label="Layout scale" className={`${HEADER_CHIP} surface-control overflow-hidden border-twilight-border/30`}>
                 <Tooltip.Tip label="Smaller" side="bottom">
                     <button
                         type="button"

@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogTitle } from "../primitives/Dialog";
 import { Keyboard } from "lucide-react";
+import { MOD_KEY } from "../../lib/constants/keys";
 
 interface ShortcutReferenceProps {
     open: boolean;
@@ -26,7 +27,7 @@ const SECTIONS: { title: string; items: ShortcutEntry[] }[] = [
     {
         title: "Global",
         items: [
-            { keys: ["⌘", "K"], label: "Command palette" },
+            { keys: [MOD_KEY, "K"], label: "Command palette" },
             { keys: ["Q"], label: "Quick capture" },
             { keys: ["⇧", "Q"], label: "Quick add task" },
             { keys: ["?"], label: "Shortcut reference" },

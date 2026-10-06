@@ -73,6 +73,8 @@ export function resolveOccurrenceAnchor(task: TaskRow & { recurrenceRule: string
     return before?.day ?? first;
 }
 
+export const SCHEDULE_WINDOW_MAX = 5000;
+
 /**
  * Expand a window of tasks: one-offs stay when their day is inside it, and each repeating
  * task becomes one instance per occurrence (`<seriesId>::<LocalDate>`). Timed series repeat in
@@ -132,7 +134,8 @@ export function expandScheduleScopedTasks<T extends TaskRow>(
         return a.orderIndex - b.orderIndex;
     });
 
-    // No limit means the whole range (the contract has no default); a month of daily blocks passes 50.
+    // Without a limit a view needs the whole window (a month of daily blocks passes 50);
+    // ponytail: the cap only stops runaway responses (an hourly rule over years), page if a real calendar nears it.
     const offset = filters.offset ?? 0;
-    return filters.limit ? items.slice(offset, offset + filters.limit) : items.slice(offset);
+    return items.slice(offset, offset + (filters.limit ?? SCHEDULE_WINDOW_MAX));
 }

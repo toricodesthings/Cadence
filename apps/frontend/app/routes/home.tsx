@@ -10,6 +10,7 @@ import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { Composer } from "../components/shared/Composer";
 import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { CaptureInput, useCaptureComposer } from "../components/holding/CaptureInput";
+import { CaptureGreeting } from "../components/holding/CaptureGreeting";
 import { HoldingFeed } from "../components/holding/HoldingFeed";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
@@ -192,12 +193,18 @@ export default function HomeRoute() {
             {board ? <>
                 <PageContent width="default">
                     <LocationNotice />
-                    {!coarse && <CaptureInput />}
+                    <div className="group/capture">
+                        <CaptureGreeting className={`mb-2 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0 ${coarse ? "pl-3 sm:pl-4" : "pl-4"}`} />
+                        {!coarse && <CaptureInput />}
+                    </div>
                 </PageContent>
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col">{feed}</div>
             </> : <ScrollAreaWrapper><PageContent width="default">
                 {!shell.isCompact && <LocationNotice />}
-                {!coarse && <div className="mb-5"><CaptureInput /></div>}
+                <div className={`group/capture pt-1 ${coarse ? "mb-3" : "mb-6"}`}>
+                    <CaptureGreeting className={`mb-2 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0 ${coarse ? "pl-3 sm:pl-4" : "pl-4"}`} />
+                    {!coarse && <CaptureInput />}
+                </div>
                 {feed}
             </PageContent></ScrollAreaWrapper>}
             {coarse && <>

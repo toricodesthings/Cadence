@@ -75,7 +75,7 @@ describe("useUserLocation", () => {
             city: "Toronto",
             coordinates: { latitude: 43.65, longitude: -79.38 },
         } }));
-        mocks.weatherGet.mockImplementation(async () => Response.json({ data: { temperature: 19.4, weatherCode: 0 } }));
+        mocks.weatherGet.mockImplementation(async () => Response.json({ data: { temperature: 19.4, weatherCode: 0, isDay: true } }));
     });
 
     it("does nothing until the server copy of settings has loaded", async () => {
@@ -99,7 +99,7 @@ describe("useUserLocation", () => {
         const { result } = await renderLocationAndWeather();
 
         await waitFor(() => expect(result.current.weather.status).toBe("ready"));
-        expect(result.current.weather.weather).toMatchObject({ temp: 19, condition: "Clear" });
+        expect(result.current.weather.weather).toMatchObject({ temp: 19, condition: "clear" });
         expect(result.current.location.place).toMatchObject({ source: "approximate", countryCode: "CA", city: "Toronto" });
         expect(result.current.location.shouldShowPrompt).toBe(true);
         expect(getCurrentPosition).not.toHaveBeenCalled();

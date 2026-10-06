@@ -2029,26 +2029,24 @@ a:active {
   opacity: 0.6;
 }
 
-/* Capture's hero field: a lantern in the dark. Deeper than the rows beneath it, with the
-   accent pooled inside and a gradient hairline that fully lights when you start typing. */
+/* Capture's hero field: the top of the content ladder, one step above a card on the same panel
+   base, with the accent pooled at the icon and a gradient hairline that fully lights when you type. */
 @utility capture-surface {
   position: relative;
   isolation: isolate;
   border-radius: 28px;
   background:
-    radial-gradient(circle 420px at 0% 0%,
-      color-mix(in srgb, var(--accent-primary) 11%, transparent), transparent 70%),
-    radial-gradient(circle 340px at 100% 130%,
-      color-mix(in srgb, var(--accent-primary) 6%, transparent), transparent 72%),
+    radial-gradient(circle 360px at 0% 0%,
+      color-mix(in srgb, var(--accent-primary) 9%, transparent), transparent 70%),
+    radial-gradient(circle 300px at 100% 130%,
+      color-mix(in srgb, var(--accent-primary) 5%, transparent), transparent 72%),
     linear-gradient(180deg,
-      color-mix(in srgb, var(--color-twilight-surface) 62%, transparent),
-      color-mix(in srgb, var(--color-twilight-deep) 88%, transparent));
-  -webkit-backdrop-filter: blur(28px);
-  backdrop-filter: blur(28px);
+      color-mix(in srgb, var(--color-panel-raised) var(--hero-tint), transparent),
+      color-mix(in srgb, var(--color-panel) calc(var(--hero-tint) + 18%), transparent));
+  /* At rest it's quiet; the accent glow belongs to focus. */
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--color-twilight-text) 9%, transparent),
-    0 28px 64px -28px rgb(0 0 0 / 0.6),
-    0 0 48px -16px color-mix(in srgb, var(--accent-primary) 14%, transparent);
+    0 28px 64px -28px rgb(0 0 0 / 0.6);
   transition: box-shadow var(--duration-smooth, 300ms) var(--ease-out-expo, ease-out);
 
   /* Gradient hairline: accent at the lit corners, fading through soft white. */
@@ -2067,12 +2065,28 @@ a:active {
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
-    opacity: 0.6;
+    opacity: 0.3;
     transition: opacity var(--duration-smooth, 300ms) var(--ease-out-expo, ease-out);
   }
 
   /* Focus is the visible focus style: the hairline lights and the lantern blooms. */
   &:focus-within {
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--color-twilight-text) 12%, transparent),
+      0 28px 64px -28px rgb(0 0 0 / 0.6),
+      0 0 0 4px color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  }
+
+  /* A draft left behind glows softly, with no ring: waiting, not live. */
+  &[data-draft] {
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--color-twilight-text) 9%, transparent),
+      0 28px 64px -28px rgb(0 0 0 / 0.6),
+      0 0 56px -16px color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  }
+
+  /* The lantern blooms only once you're writing, so a freshly focused field still looks calm. */
+  &[data-active] {
     box-shadow:
       inset 0 1px 0 color-mix(in srgb, var(--color-twilight-text) 12%, transparent),
       0 28px 64px -28px rgb(0 0 0 / 0.6),
@@ -2085,11 +2099,10 @@ a:active {
   }
 }
 
-[data-theme="daylight"] .capture-surface {
+[data-theme="daylight"] .capture-surface:not(:focus-within):not([data-draft]) {
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.7),
-    0 20px 48px -28px rgb(0 0 0 / 0.25),
-    0 0 48px -16px color-mix(in srgb, var(--accent-primary) 14%, transparent);
+    0 20px 48px -28px rgb(0 0 0 / 0.25);
 }
 
 @utility scrollbar-hide {
@@ -2160,12 +2173,58 @@ a:active {
   --card-tint: 22%;
   --card-tint-up: 32%;
   --item-tint: 40%;
+  --row-tint: 8%;
+  --row-tint-up: 16%;
+  --control-tint: 35%;
+  --control-tint-up: 50%;
+  --hero-tint: 62%;
 }
 
 [data-bg-image="on"] {
-  --card-tint: 64%;
-  --card-tint-up: 74%;
+  --card-tint: 50%;
+  --card-tint-up: 60%;
   --item-tint: 72%;
+  --row-tint: 28%;
+  --row-tint-up: 38%;
+  --control-tint: 54%;
+  --control-tint-up: 66%;
+  --hero-tint: 66%;
+}
+
+/* The rules below are unlayered on purpose, so they win over a component's own default fill. */
+
+/* Header controls (view pickers, Today, segmented groups, header chips) stand on the panel base like
+   items, so they darken with the content over a photo. The accent variant tints that base with `--control-tone`. */
+.surface-control {
+  background-color: color-mix(in srgb, var(--color-panel-raised) var(--control-tint), transparent);
+}
+
+.surface-control-accent {
+  --control-tone-mix: 15%;
+  background-color: color-mix(
+    in srgb,
+    var(--control-tone, var(--accent-primary)) var(--control-tone-mix),
+    color-mix(in srgb, var(--color-panel-raised) var(--control-tint), transparent)
+  );
+}
+
+button.surface-control:not(:disabled):hover {
+  --control-tint: var(--control-tint-up);
+}
+
+.surface-control-accent:hover {
+  --control-tone-mix: 25%;
+}
+
+/* List rows: a quieter step than cards, since rows stack. States set variables, never the fill:
+   `--row-tint` steps up on hover/selection, `--row-wash` lays a tone over it (priority, timetable, drop). */
+.surface-row {
+  background-color: color-mix(in srgb, var(--color-panel) var(--row-tint), transparent);
+  background-image: linear-gradient(var(--row-wash, transparent), var(--row-wash, transparent));
+}
+
+.surface-row:hover {
+  --row-tint: var(--row-tint-up);
 }
 
 @utility surface-card {

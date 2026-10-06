@@ -19,7 +19,7 @@ export function ViewToggle({ view, onViewChange, compact = false }: ViewTogglePr
     const fill = compact ? "flex-1 justify-center" : "";
 
     return (
-        <div className={`${compact ? "w-full" : ""} flex items-center rounded-2xl border border-twilight-border/30 bg-twilight-base/40 p-1 backdrop-blur-md ${isCompact ? "gap-0.5" : ""}`}>
+        <div className={`${compact ? "w-full" : ""} flex items-center rounded-2xl surface-control border border-twilight-border/30 p-1 ${isCompact ? "gap-0.5" : ""}`}>
             <button
                 type="button"
                 onClick={() => onViewChange("list")}

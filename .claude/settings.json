@@ -5,6 +5,7 @@
     "javascript-typescript@claude-code-workflows": true,
     "ui-design@claude-code-workflows": true,
     "playwright@claude-plugins-official": true,
-    "marketing-skills@marketingskills": true
+    "marketing-skills@marketingskills": true,
+    "claude-security@claude-plugins-official": true
   }
 }
