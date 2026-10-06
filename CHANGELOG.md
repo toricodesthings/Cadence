@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Underground work mostly.
+
+### Fixed
+
+- Cron jobs now run properly
+
 ## [0.26.4] - 2026-10-06
 
 Underground work continues on improving time zone handling and task scheduling consistency.
