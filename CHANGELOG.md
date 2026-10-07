@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.29.3] - 2026-10-07
+
 ### Added
 
 - Settings lists every device that can show your reminders, so you can switch one off from any of them.
