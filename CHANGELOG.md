@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.29.4] - 2026-10-07
+
 ### Fixed
 
 - Fixed the app freezing and navigation locking up right after enabling notifications.
