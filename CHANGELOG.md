@@ -6,9 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Settings lists every device that can show your reminders, so you can switch one off from any of them.
+- Cadence points out when your desktop app and a browser on one computer would both alert you.
+
 ### Changed
 
 - On Windows, Cadence now runs in Efficiency mode while it's in the background and returns to normal on focus.
+- Turning notifications off on a device now leaves it in your list, ready to turn back on.
 
 ## [0.29.2] - 2026-10-07
 

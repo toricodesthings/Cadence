@@ -130,7 +130,11 @@ mod efficiency {
         let state = PROCESS_POWER_THROTTLING_STATE {
             Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
             ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
-            StateMask: if on { PROCESS_POWER_THROTTLING_EXECUTION_SPEED } else { 0 },
+            StateMask: if on {
+                PROCESS_POWER_THROTTLING_EXECUTION_SPEED
+            } else {
+                0
+            },
         };
         // Best effort: older Windows builds reject it, and nothing depends on it.
         unsafe {

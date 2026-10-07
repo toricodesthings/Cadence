@@ -3,7 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
-import { DeviceDeliveryRow } from "../../notifications/DeviceDelivery";
+import { DeviceDeliveryRow, DeviceList } from "../../notifications/DeviceDelivery";
 
 export function NotificationsTab() {
     const { data: settings } = useSettings();
@@ -30,6 +30,8 @@ export function NotificationsTab() {
 
                 <DeviceDeliveryRow />
             </SettingsSection>
+
+            <DeviceList />
 
             {/* ── Reminder Types ── */}
             <SettingsSection title="Reminder types">

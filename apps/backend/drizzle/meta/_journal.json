@@ -78,6 +78,13 @@
       "when": 1791402730666,
       "tag": "0010_push_delivery",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791406592776,
+      "tag": "0011_devices",
+      "breakpoints": true
     }
   ]
 }

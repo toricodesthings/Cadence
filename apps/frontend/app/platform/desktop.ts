@@ -283,7 +283,7 @@ export const desktopRuntime = {
         return normalizeNotificationPermission(await requestPermission());
     },
     // The notification plugin answers "granted" without asking Windows, so permission here is a hint, not a check.
-    async sendNotification(notification: { title: string; body?: string; icon?: string; route?: string }): Promise<void> {
+    async sendNotification(notification: { title: string; body?: string; icon?: string; route?: string; tag?: string }): Promise<void> {
         if (!hasTauriRuntime()) throw new Error("Desktop notifications need the Cadence app.");
         if (!(await isPermissionGranted())) throw new Error("Notifications aren't allowed.");
 

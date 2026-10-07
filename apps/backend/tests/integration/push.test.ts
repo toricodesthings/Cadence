@@ -12,11 +12,13 @@ import type { Env } from "../../src/types/env";
 beforeAll(startTestDb);
 afterEach(() => vi.unstubAllGlobals());
 
-async function vapidEnv(): Promise<Env & Record<string, unknown>> {
+type TestEnv = Env & Record<string, unknown>;
+
+async function vapidEnv(): Promise<TestEnv> {
     const pair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign"]) as CryptoKeyPair;
     const jwk = await crypto.subtle.exportKey("jwk", pair.privateKey) as JsonWebKey;
     const point = new Uint8Array([4, ...fromBase64Url(jwk.x!), ...fromBase64Url(jwk.y!)]);
-    return { VAPID_PUBLIC_KEY: toBase64Url(point), VAPID_PRIVATE_KEY: jwk.d! } as Env & Record<string, unknown>;
+    return { VAPID_PUBLIC_KEY: toBase64Url(point), VAPID_PRIVATE_KEY: jwk.d! } as TestEnv;
 }
 
 async function keys() {
@@ -26,14 +28,19 @@ async function keys() {
 
 const endpointFor = () => `https://fcm.googleapis.com/fcm/send/${crypto.randomUUID()}`;
 const sql = <T = any>(text: string, params: unknown[] = []) => asOwner(async (pg) => (await pg.query<T>(text, params)).rows);
+const api = (userId: string, env: Record<string, unknown> = {}) => apiAs(userId, "/push", pushRoutes, env);
 
-/** A user with notifications on, a registered device and a clock in Toronto. */
-async function subscriber(env: Env & Record<string, unknown>, notifications: Record<string, unknown> = {}) {
-    const userId = await createUser({ zone: "America/Toronto", settings: { notifications: { email: true, browser: true, ...notifications } } });
-    const endpoint = endpointFor();
-    const res = await apiAs(userId, "/push", pushRoutes, env)("PUT", "/subscription", { endpoint, keys: await keys() });
+async function registerBrowser(env: TestEnv, userId: string, label = "Chrome on Windows") {
+    const device = { installId: crypto.randomUUID(), kind: "computer" as const, label, endpoint: endpointFor() };
+    const res = await api(userId, env)("PUT", "/devices", { ...device, subscription: { endpoint: device.endpoint, keys: await keys() } });
     expect(res.status).toBe(200);
-    return { userId, endpoint };
+    return device;
+}
+
+/** A user with notifications on, one registered browser, and a clock in Toronto. */
+async function subscriber(env: TestEnv, notifications: Record<string, unknown> = {}) {
+    const userId = await createUser({ zone: "America/Toronto", settings: { notifications: { email: true, browser: true, ...notifications } } });
+    return { userId, ...await registerBrowser(env, userId) };
 }
 
 const remind = (userId: string, title: string, at: string) =>
@@ -47,44 +54,87 @@ function pushService(status = 201) {
     return calls;
 }
 
-describe("push routes", () => {
-    it("offers no key until the server has VAPID keys, and refuses to register then", async () => {
+describe("devices", () => {
+    it("offers no key until the server has VAPID keys, and refuses a subscription then", async () => {
         const userId = await createUser();
-        const api = apiAs(userId, "/push", pushRoutes, {});
-        expect((await api("GET", "/config")).body.data.publicKey).toBeNull();
-        expect((await api("PUT", "/subscription", { endpoint: endpointFor(), keys: await keys() })).status).toBe(503);
+        expect((await api(userId)("GET", "/config")).body.data.publicKey).toBeNull();
+        const res = await api(userId)("PUT", "/devices", { installId: crypto.randomUUID(), kind: "computer", label: "Chrome", subscription: { endpoint: endpointFor(), keys: await keys() } });
+        expect(res.status).toBe(503);
     });
 
-    it("registers a device, validates it, and gives an endpoint to one account at a time", async () => {
+    it("registers a device without push, so the desktop app is listed and controllable", async () => {
+        const env = await vapidEnv();
+        const userId = await createUser();
+        const installId = crypto.randomUUID();
+        const res = await api(userId, env)("PUT", "/devices", { installId, kind: "desktop-app", label: "Cadence for Windows" });
+        expect(res.status).toBe(200);
+        expect(res.body.data).toEqual([expect.objectContaining({ installId, kind: "desktop-app", label: "Cadence for Windows", enabled: true, push: false })]);
+        // Nothing to push to: the test must say so rather than pretend it sent one.
+        expect((await api(userId, env)("POST", "/test", { installId })).status).toBe(409);
+    });
+
+    it("validates a subscription and never returns endpoints or keys", async () => {
+        const env = await vapidEnv();
+        const userId = await createUser();
+        const device = { installId: crypto.randomUUID(), kind: "computer", label: "Chrome" };
+        expect((await api(userId, env)("PUT", "/devices", { ...device, subscription: { endpoint: "https://evil.example/x", keys: await keys() } })).status).toBe(422);
+        expect((await api(userId, env)("PUT", "/devices", { ...device, subscription: { endpoint: endpointFor(), keys: { p256dh: "AAAA", auth: "AAAA" } } })).status).toBe(422);
+        const { body } = await api(userId, env)("GET", "/devices");
+        expect(body.data).toEqual([]);
+        const saved = await registerBrowser(env, userId);
+        const listed = (await api(userId, env)("GET", "/devices")).body.data[0];
+        expect(listed).toMatchObject({ installId: saved.installId, push: true });
+        expect(JSON.stringify(listed)).not.toContain(saved.endpoint);
+    });
+
+    it("keeps one row per browser across a changed endpoint, and gives it to one account at a time", async () => {
         const env = await vapidEnv();
         const [first, second] = [await createUser(), await createUser()];
+        const installId = crypto.randomUUID();
         const endpoint = endpointFor();
-        const body = { endpoint, keys: await keys() };
-        expect((await apiAs(first, "/push", pushRoutes, env)("GET", "/config")).body.data.publicKey).toBe(env.VAPID_PUBLIC_KEY);
-        expect((await apiAs(first, "/push", pushRoutes, env)("PUT", "/subscription", { ...body, endpoint: "https://evil.example/x" })).status).toBe(422);
-        expect((await apiAs(first, "/push", pushRoutes, env)("PUT", "/subscription", { ...body, keys: { p256dh: "AAAA", auth: "AAAA" } })).status).toBe(422);
-        expect((await apiAs(first, "/push", pushRoutes, env)("PUT", "/subscription", body)).status).toBe(200);
-        expect((await apiAs(first, "/push", pushRoutes, env)("PUT", "/subscription", body)).status).toBe(200);
-        expect((await apiAs(second, "/push", pushRoutes, env)("PUT", "/subscription", body)).status).toBe(200);
-        expect(await sql("SELECT user_id FROM push_subscriptions WHERE endpoint = $1", [endpoint])).toEqual([{ user_id: second }]);
-        expect((await apiAs(first, "/push", pushRoutes, env)("DELETE", "/subscription", { endpoint })).status).toBe(200);
-        expect(await sql("SELECT 1 FROM push_subscriptions WHERE endpoint = $1", [endpoint])).toHaveLength(1);
-        expect((await apiAs(second, "/push", pushRoutes, env)("DELETE", "/subscription", { endpoint })).status).toBe(200);
-        expect(await sql("SELECT 1 FROM push_subscriptions WHERE endpoint = $1", [endpoint])).toHaveLength(0);
+        const body = { installId, kind: "computer", label: "Chrome", subscription: { endpoint, keys: await keys() } };
+        await api(first, env)("PUT", "/devices", body);
+        // The browser resubscribes with a new endpoint: the same device, not a second one.
+        await api(first, env)("PUT", "/devices", { ...body, subscription: { endpoint: endpointFor(), keys: await keys() } });
+        expect((await api(first, env)("GET", "/devices")).body.data).toHaveLength(1);
+        // Someone else signs into that browser: the endpoint moves with it.
+        await api(second, env)("PUT", "/devices", body);
+        expect(await sql("SELECT user_id FROM devices WHERE endpoint = $1", [endpoint])).toEqual([{ user_id: second }]);
     });
 
-    it("tests only the caller's own device through the push service", async () => {
+    it("turns a device off from another device without touching the rest, and registering again respects that", async () => {
         const env = await vapidEnv();
-        const { userId, endpoint } = await subscriber(env);
-        const other = await createUser();
+        const { userId, installId } = await subscriber(env);
+        const other = await registerBrowser(env, userId, "Safari on iPhone");
+        expect((await api(userId, env)("PATCH", `/devices/${installId}`, { enabled: false })).body.data.enabled).toBe(false);
+        const listed = (await api(userId, env)("GET", "/devices")).body.data;
+        expect(listed.find((d: any) => d.installId === installId).enabled).toBe(false);
+        expect(listed.find((d: any) => d.installId === other.installId).enabled).toBe(true);
+        // A later visit from that browser must not silently switch it back on.
+        await api(userId, env)("PUT", "/devices", { installId, kind: "computer", label: "Chrome on Windows" });
+        expect((await api(userId, env)("GET", "/devices")).body.data.find((d: any) => d.installId === installId).enabled).toBe(false);
+    });
+
+    it("only lets a person see and change their own devices", async () => {
+        const env = await vapidEnv();
+        const { userId, installId } = await subscriber(env);
+        const stranger = await createUser();
+        expect((await api(stranger, env)("GET", "/devices")).body.data).toEqual([]);
+        expect((await api(stranger, env)("PATCH", `/devices/${installId}`, { enabled: false })).status).toBe(404);
+        expect((await api(stranger, env)("POST", "/test", { installId })).status).toBe(404);
+        expect((await api(stranger, env)("DELETE", `/devices/${installId}`)).status).toBe(200);
+        expect((await api(userId, env)("GET", "/devices")).body.data).toHaveLength(1);
+    });
+
+    it("tests through the real push path and forgets a device the service has dropped", async () => {
+        const env = await vapidEnv();
+        const { userId, installId, endpoint } = await subscriber(env);
         const calls = pushService();
-        expect((await apiAs(other, "/push", pushRoutes, env)("POST", "/test", { endpoint })).status).toBe(404);
-        expect(calls).toEqual([]);
-        expect((await apiAs(userId, "/push", pushRoutes, env)("POST", "/test", { endpoint })).body.data.outcome).toBe("accepted");
+        expect((await api(userId, env)("POST", "/test", { installId })).body.data.outcome).toBe("accepted");
         expect(calls).toEqual([endpoint]);
         pushService(410);
-        expect((await apiAs(userId, "/push", pushRoutes, env)("POST", "/test", { endpoint })).body.data.outcome).toBe("gone");
-        expect(await sql("SELECT 1 FROM push_subscriptions WHERE endpoint = $1", [endpoint])).toHaveLength(0);
+        expect((await api(userId, env)("POST", "/test", { installId })).body.data.outcome).toBe("gone");
+        expect((await api(userId, env)("GET", "/devices")).body.data).toEqual([]);
     });
 });
 
@@ -98,6 +148,18 @@ describe("push dispatch", () => {
         await runPushDispatch(env, new Date(NOW.getTime() + 60_000));
         expect(calls.filter((url) => url === endpoint)).toHaveLength(1);
         expect(await sql("SELECT status FROM push_deliveries WHERE user_id = $1", [userId])).toEqual([{ status: "sent" }]);
+    });
+
+    it("skips a device the person turned off, and keeps sending to their others", async () => {
+        const env = await vapidEnv();
+        const { userId, installId, endpoint } = await subscriber(env);
+        const phone = await registerBrowser(env, userId, "Safari on iPhone");
+        await api(userId, env)("PATCH", `/devices/${installId}`, { enabled: false });
+        await remind(userId, "Pay rent", "2026-10-07T14:59:00Z");
+        const calls = pushService();
+        await runPushDispatch(env, NOW);
+        expect(calls).toEqual([phone.endpoint]);
+        expect(calls).not.toContain(endpoint);
     });
 
     it("holds back reminders that are not due, too late, off, silenced, or dismissed", async () => {
@@ -136,7 +198,7 @@ describe("push dispatch", () => {
         await remind(gone.userId, "x", "2026-10-07T14:59:00Z");
         pushService(410);
         await runPushDispatch(env, NOW);
-        expect(await sql("SELECT 1 FROM push_subscriptions WHERE user_id = $1", [gone.userId])).toHaveLength(0);
+        expect(await sql("SELECT 1 FROM devices WHERE user_id = $1", [gone.userId])).toHaveLength(0);
     });
 
     it("alerts a deadline at 09:00 on its day, and a deferral again at its new time", async () => {

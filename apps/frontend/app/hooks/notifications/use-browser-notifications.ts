@@ -65,7 +65,8 @@ export function useBrowserNotifications(notifications: AppNotification[]) {
             // Claim before sending so overlapping runs can't double up; a failed send gives the claim back.
             fired.add(due.key);
             saveFired(userId, fired);
-            sendPlatformNotification({ title: n.title, body: n.body, icon: "/logo.png", route: n.route ?? undefined }).catch(() => {
+            // The occurrence key is the tag the server pushes with, so a local alert and a pushed one collapse into one.
+            sendPlatformNotification({ title: n.title, body: n.body, icon: "/logo.png", route: n.route ?? undefined, tag: due.key }).catch(() => {
                 fired.delete(due.key);
                 saveFired(userId, fired);
             });

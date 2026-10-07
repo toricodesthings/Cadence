@@ -31,11 +31,11 @@ export const webRuntime = {
 
         return normalizeNotificationPermission(await Notification.requestPermission());
     },
-    async sendNotification(notification: { title: string; body?: string; icon?: string; route?: string }): Promise<void> {
+    async sendNotification(notification: { title: string; body?: string; icon?: string; route?: string; tag?: string }): Promise<void> {
         if (typeof window === "undefined" || !("Notification" in window)) throw new Error("Notifications aren't supported here.");
         if (Notification.permission !== "granted") throw new Error("Notifications aren't allowed.");
 
-        const options = { body: notification.body, icon: notification.icon, data: { route: notification.route ?? "/" } };
+        const options = { body: notification.body, icon: notification.icon, tag: notification.tag, data: { route: notification.route ?? "/" } };
         // Installed apps and phones only notify through the service worker (sw.js routes the tap).
         const registration = await readyRegistration(3_000);
         if (registration) {

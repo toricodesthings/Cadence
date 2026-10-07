@@ -1,8 +1,12 @@
-import { BellRing } from "lucide-react";
+import { BellRing, Laptop, Monitor, Smartphone, X } from "lucide-react";
+import type { Device } from "@cadence/contracts/push";
 import { Button } from "../primitives/Button";
-import { SettingsRow } from "../settings/layout/SettingsLayout";
+import { Switch } from "../primitives";
+import { Tip } from "../primitives/Tooltip";
+import { SettingsSection, SettingsRow } from "../settings/layout/SettingsLayout";
 import { useDeviceDelivery } from "../../hooks/notifications/use-device-delivery";
 import { isBrave, type DeviceStatus } from "../../lib/notifications/device-delivery";
+import { formatShortDateTime } from "../../lib/utils/date-format";
 
 const STATUS_COPY: Record<DeviceStatus, (desktop: boolean) => string> = {
     off: (desktop) => `Get reminders on this ${desktop ? "computer" : "device"}.`,
@@ -20,10 +24,12 @@ const blockedPushCopy = () => isBrave()
 
 const MISSING_HELP = "Check that notifications are allowed for Cadence in your device settings and that Focus or Do Not Disturb is off. Then send another test.";
 
+const DEVICE_ICON = { phone: Smartphone, computer: Monitor, "desktop-app": Laptop } as const;
+
 /** What happened to the last test, in words, with the two answers that tell us if it truly arrived. */
 function TestFeedback() {
     const { test, confirmTest, error } = useDeviceDelivery();
-    return <div aria-live="polite" className="text-sm text-twilight-text-soft">
+    return <div aria-live="polite" className="text-sm text-twilight-text-soft empty:hidden">
         {error && <p className="text-feedback-error">{error}</p>}
         {test === "sending" && <p>Sending a test…</p>}
         {test === "sent" && <div className="flex flex-wrap items-center gap-2">
@@ -35,6 +41,26 @@ function TestFeedback() {
         {test === "missing" && <p>{MISSING_HELP}</p>}
         {test === "failed" && <p className="text-feedback-error">The test couldn't be sent. Check your connection and that notifications are allowed, then try again.</p>}
         {test === "gone" && <p className="text-feedback-error">This device was no longer registered. Turn notifications on again to reconnect it.</p>}
+    </div>;
+}
+
+/**
+ * The overlap Cadence can see but can't resolve on its own: the desktop app and a browser on the
+ * same computer both alerting. It says so and offers the one-tap fix rather than guessing.
+ */
+function DuplicateHint() {
+    const { duplicateHint, setEnabled, disable } = useDeviceDelivery();
+    if (!duplicateHint) return null;
+    const appAlso = duplicateHint.kind === "app-also";
+    return <div className="mx-1 flex flex-wrap items-center gap-3 rounded-2xl bg-white/[0.03] px-4 py-3 text-sm text-twilight-text-soft">
+        <p className="min-w-0 flex-1">
+            {appAlso
+                ? `“${duplicateHint.device.label}” also shows these, but only while it's running. If you see each reminder twice on one screen, turn it off.`
+                : `“${duplicateHint.device.label}” already gets these, even when Cadence is closed. If you see each reminder twice on one screen, turn this one off.`}
+        </p>
+        <Button variant="secondary" size="sm" onClick={() => appAlso ? setEnabled(duplicateHint.device.installId, false) : void disable()}>
+            {appAlso ? "Turn off the app" : "Turn off here"}
+        </Button>
     </div>;
 }
 
@@ -56,7 +82,46 @@ export function DeviceDeliveryRow() {
             </div>
         </SettingsRow>
         <TestFeedback />
+        <DuplicateHint />
     </>;
+}
+
+function DeviceLine({ device, isThis }: { device: Device; isThis: boolean }) {
+    const { setEnabled, forget } = useDeviceDelivery();
+    const Icon = DEVICE_ICON[device.kind] ?? Monitor;
+    const reach = device.push ? "Reminders arrive even when closed" : "Reminders appear while Cadence is open";
+    return <li className="flex items-center gap-3 rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-4">
+        <Icon size={20} className="shrink-0 text-twilight-text-soft" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+            <p className="truncate text-base font-medium text-twilight-text">
+                {device.label}{isThis && <span className="ml-2 text-xs font-normal text-accent-primary">This device</span>}
+            </p>
+            <p className="text-sm text-twilight-text-soft">
+                {reach}{device.lastSeenAt && ` · last used ${formatShortDateTime(device.lastSeenAt)}`}
+            </p>
+        </div>
+        <Switch checked={device.enabled} aria-label={`Reminders on ${device.label}`}
+            onCheckedChange={(enabled) => setEnabled(device.installId, enabled)} />
+        {!isThis && <Tip label={`Forget ${device.label}`}>
+            <button type="button" aria-label={`Forget ${device.label}`} className="mobile-icon-button" onClick={() => forget(device.installId)}>
+                <X size={16} aria-hidden="true" />
+            </button>
+        </Tip>}
+    </li>;
+}
+
+/** Every device that can show this account's reminders, controllable from any one of them. */
+export function DeviceList() {
+    const { devices, thisInstallId } = useDeviceDelivery();
+    if (devices.length === 0) return null;
+    return <SettingsSection title="Your devices">
+        <p className="-mt-2 px-1 text-sm text-twilight-text-soft">
+            Turn reminders off for any device from here. Forgetting one stops it until someone enables it there again.
+        </p>
+        <ul className="flex flex-col gap-3">
+            {devices.map((device) => <DeviceLine key={device.installId} device={device} isThis={device.installId === thisInstallId} />)}
+        </ul>
+    </SettingsSection>;
 }
 
 /** The quiet offer at the top of the notification center: one tap to enable, or wave it away for good. */

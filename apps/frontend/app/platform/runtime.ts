@@ -18,6 +18,8 @@ export interface PlatformNotification {
     icon?: string;
     /** Same-origin path a tap opens. */
     route?: string;
+    /** Notifications sharing a tag replace each other, so a local alert and a pushed one never stack. */
+    tag?: string;
 }
 
 export interface NativeStoreAdapter {

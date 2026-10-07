@@ -51,6 +51,8 @@ export const queryKeys = {
     settings: {
         notificationState: (userId: string | undefined) => ["settings", userId ?? "anonymous", "notification-state"] as const,
         focusViews: (userId: string | undefined) => ["settings", userId ?? "anonymous", "focusViews"] as const,
+        /** Every device that may show this account's reminders. */
+        devices: (userId: string | undefined) => ["settings", userId ?? "anonymous", "devices"] as const,
     },
     ai: {
         conversations: ["ai", "conversations"] as const,

@@ -5,7 +5,7 @@ import { getDbClient, type DbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
 import { userZone } from "../../platform/user-zone";
 import { logger, hashIdentifier, issuesFromError } from "../../platform/log";
-import { habitLogs, habits, notificationState, pushDeliveries, pushSubscriptions, tasks, users } from "../../db/schema";
+import { devices, habitLogs, habits, notificationState, pushDeliveries, tasks, users } from "../../db/schema";
 import { normalizeSettings } from "../settings/settings.route";
 import { sendWebPush, vapidConfigured, type PushMessage, type PushOutcome } from "./web-push";
 import type { Env } from "../../types/env";
@@ -26,7 +26,7 @@ function openUrl(reminder: { route: string | null; entityId: string | null; kind
 
 interface Claim {
     deliveryId: string;
-    subscription: { id: string; endpoint: string; p256dh: string; auth: string };
+    device: { id: string; endpoint: string; p256dh: string; auth: string };
     message: PushMessage;
 }
 
@@ -39,8 +39,12 @@ async function claimDueReminders(db: DbClient, userId: string, now: Date): Promi
         // The account's browser/desktop notification switch still gates every device while devices are per-browser.
         if (!prefs.browser) return [];
 
-        const subscriptions = await tx.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
-        if (subscriptions.length === 0) return [];
+        // Only devices the server can reach, and only the ones still switched on here.
+        const targets = await tx
+            .select({ id: devices.id, endpoint: devices.endpoint, p256dh: devices.p256dh, auth: devices.auth })
+            .from(devices)
+            .where(and(eq(devices.userId, userId), eq(devices.enabled, true), isNotNull(devices.endpoint)));
+        if (targets.length === 0) return [];
 
         const zone = await userZone(tx, userId);
         const today = todayIn(zone, now);
@@ -105,18 +109,18 @@ async function claimDueReminders(db: DbClient, userId: string, now: Date): Promi
                 deferredUntil: state?.deferredUntil,
             });
             if (!due) continue;
-            for (const subscription of subscriptions) {
+            for (const device of targets) {
                 const [claimed] = await tx
                     .insert(pushDeliveries)
-                    .values({ userId, subscriptionId: subscription.id, occurrenceKey: due.key, leaseUntil: new Date(now.getTime() + LEASE_MS).toISOString() })
+                    .values({ userId, deviceId: device.id, occurrenceKey: due.key, leaseUntil: new Date(now.getTime() + LEASE_MS).toISOString() })
                     .onConflictDoUpdate({
-                        target: [pushDeliveries.subscriptionId, pushDeliveries.occurrenceKey],
+                        target: [pushDeliveries.deviceId, pushDeliveries.occurrenceKey],
                         set: { attempts: sql`${pushDeliveries.attempts} + 1`, leaseUntil: new Date(now.getTime() + LEASE_MS).toISOString() },
                         // Only an expired, unfinished claim is retried; a sent one never is.
                         setWhere: and(eq(pushDeliveries.status, "pending"), lt(pushDeliveries.leaseUntil, now.toISOString()), lt(pushDeliveries.attempts, MAX_ATTEMPTS)),
                     })
                     .returning({ id: pushDeliveries.id });
-                if (claimed) claims.push({ deliveryId: claimed.id, subscription, message: { title: reminder.title, body: reminder.body, route: openUrl(reminder), tag: due.key } });
+                if (claimed) claims.push({ deliveryId: claimed.id, device: device as Claim["device"], message: { title: reminder.title, body: reminder.body, route: openUrl(reminder), tag: due.key } });
             }
         }
         return claims;
@@ -126,19 +130,19 @@ async function claimDueReminders(db: DbClient, userId: string, now: Date): Promi
 async function settle(db: DbClient, userId: string, results: Array<{ claim: Claim; outcome: PushOutcome }>, now: Date) {
     await withRls(db, userId, async (tx) => {
         for (const { claim, outcome } of results) {
-            const id = claim.subscription.id;
+            const id = claim.device.id;
             if (outcome === "accepted") {
                 await tx.update(pushDeliveries).set({ status: "sent" }).where(eq(pushDeliveries.id, claim.deliveryId));
-                await tx.update(pushSubscriptions).set({ lastSuccessAt: now.toISOString(), failureCount: 0 }).where(eq(pushSubscriptions.id, id));
+                await tx.update(devices).set({ lastSuccessAt: now.toISOString(), failureCount: 0 }).where(eq(devices.id, id));
             } else if (outcome === "gone") {
-                await tx.delete(pushSubscriptions).where(eq(pushSubscriptions.id, id)); // cascades its claims
+                await tx.delete(devices).where(eq(devices.id, id)); // cascades its claims
             } else {
                 // Release the claim for the next run (attempts bound the retries).
                 await tx.update(pushDeliveries).set({ leaseUntil: now.toISOString() }).where(eq(pushDeliveries.id, claim.deliveryId));
-                await tx.update(pushSubscriptions).set({ failureCount: sql`${pushSubscriptions.failureCount} + 1` }).where(eq(pushSubscriptions.id, id));
+                await tx.update(devices).set({ failureCount: sql`${devices.failureCount} + 1` }).where(eq(devices.id, id));
             }
         }
-        await tx.delete(pushSubscriptions).where(and(eq(pushSubscriptions.userId, userId), sql`${pushSubscriptions.failureCount} >= ${MAX_FAILURES}`));
+        await tx.delete(devices).where(and(eq(devices.userId, userId), sql`${devices.failureCount} >= ${MAX_FAILURES}`));
     });
 }
 
@@ -158,7 +162,7 @@ export async function runPushDispatch(env: Env, now: Date = new Date()) {
         try {
             const claims = await claimDueReminders(db, userId, now);
             if (claims.length === 0) continue;
-            const results = await Promise.all(claims.map(async (claim) => ({ claim, outcome: await sendWebPush(env, claim.subscription, claim.message) })));
+            const results = await Promise.all(claims.map(async (claim) => ({ claim, outcome: await sendWebPush(env, claim.device, claim.message) })));
             await settle(db, userId, results, now);
             for (const { outcome } of results) {
                 if (outcome === "accepted") sent++;

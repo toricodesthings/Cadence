@@ -787,17 +787,27 @@ export const notificationState = pgTable(
     }),
 ).enableRLS();
 
-// 13c. Web Push subscriptions (one per browser profile / installed app; deleting one turns that device off)
-export const pushSubscriptions = pgTable(
-    "push_subscriptions",
+// 13c. Devices: one row per browser profile, phone or installed app that may show this account's reminders.
+// A device with push keys can be reached while Cadence is closed; the desktop app has none and alerts itself while running.
+export const devices = pgTable(
+    "devices",
     {
         id: uuid("id").defaultRandom().primaryKey(),
         userId: uuid("user_id")
             .references(() => users.id, { onDelete: "cascade" })
             .notNull(),
-        endpoint: text("endpoint").notNull(),
-        p256dh: text("p256dh").notNull(),
-        auth: text("auth").notNull(),
+        /** Stable identity of this browser profile or app install; survives a changed push endpoint. */
+        installId: text("install_id").notNull(),
+        /** "phone" | "computer" | "desktop-app" */
+        kind: text("kind").notNull(),
+        /** What the person sees in their device list ("Chrome on Windows"). */
+        label: text("label").notNull(),
+        /** Turned off here or from another device; the row stays so it can be turned back on. */
+        enabled: boolean("enabled").default(true).notNull(),
+        endpoint: text("endpoint"),
+        p256dh: text("p256dh"),
+        auth: text("auth"),
+        lastSeenAt: timestamptz("last_seen_at"),
         lastSuccessAt: timestamptz("last_success_at"),
         failureCount: integer("failure_count").default(0).notNull(),
         createdAt: timestamptz("created_at")
@@ -805,9 +815,11 @@ export const pushSubscriptions = pgTable(
             .notNull(),
     },
     (table) => ({
-        endpointIdx: uniqueIndex("push_subscriptions_endpoint_unique").on(table.endpoint),
-        userIdx: index("push_subscriptions_user_idx").on(table.userId),
-        rlsPolicy: pgPolicy("push_subscriptions_owner_access", {
+        userInstallIdx: uniqueIndex("devices_user_install_unique").on(table.userId, table.installId),
+        // A push endpoint belongs to one account at a time (push_release_endpoint hands it over).
+        endpointIdx: uniqueIndex("devices_endpoint_unique").on(table.endpoint).where(sql`${table.endpoint} IS NOT NULL`),
+        userIdx: index("devices_user_idx").on(table.userId),
+        rlsPolicy: pgPolicy("devices_owner_access", {
             as: "permissive",
             for: "all",
             using: rlsUsing,
@@ -824,8 +836,8 @@ export const pushDeliveries = pgTable(
         userId: uuid("user_id")
             .references(() => users.id, { onDelete: "cascade" })
             .notNull(),
-        subscriptionId: uuid("subscription_id")
-            .references(() => pushSubscriptions.id, { onDelete: "cascade" })
+        deviceId: uuid("device_id")
+            .references(() => devices.id, { onDelete: "cascade" })
             .notNull(),
         occurrenceKey: text("occurrence_key").notNull(),
         /** pending = claimed (lease), sent = accepted by the push service. A failed send releases the claim. */
@@ -837,7 +849,7 @@ export const pushDeliveries = pgTable(
             .notNull(),
     },
     (table) => ({
-        occurrenceIdx: uniqueIndex("push_deliveries_subscription_occurrence_unique").on(table.subscriptionId, table.occurrenceKey),
+        occurrenceIdx: uniqueIndex("push_deliveries_device_occurrence_unique").on(table.deviceId, table.occurrenceKey),
         createdIdx: index("push_deliveries_created_idx").on(table.createdAt),
         rlsPolicy: pgPolicy("push_deliveries_owner_access", {
             as: "permissive",
