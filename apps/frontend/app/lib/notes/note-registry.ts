@@ -57,16 +57,16 @@ export function acquireNoteSession(queryClient: QueryClient, userId: string, own
             journal: noteJournal,
             walEntries: getWalSnapshot,
             subscribeWal,
+            discardQueued: (branch) => {
+                for (const e of getWalSnapshot()) {
+                    if (e.op.type === "upsert_note" && e.op.taskId === ownerId && e.op.payload.branch === branch) void removeWalEntry(e.id);
+                }
+            },
             isOnline: () => navigator.onLine,
             branchAlive,
             holdBranch,
             legacySeed,
         });
-        session.discardQueued = (branch) => {
-            for (const e of getWalSnapshot()) {
-                if (e.op.type === "upsert_note" && e.op.taskId === ownerId && e.op.payload.branch === branch) void removeWalEntry(e.id);
-            }
-        };
         entry = { session, users: 0 };
         sessions.set(key, entry);
     }

@@ -1,3 +1,5 @@
+import { toast } from "sonner";
+
 /** Copy and download for notes: the latest local text, always with a visible fallback. */
 
 export async function copyText(text: string): Promise<boolean> {
@@ -21,6 +23,11 @@ export async function copyText(text: string): Promise<boolean> {
             return false;
         }
     }
+}
+
+/** Copy and say so; a failure names the fallback. */
+export function copyNote(text: string, done = "Note copied", failed = "Couldn’t copy") {
+    void copyText(text).then((ok) => toast[ok ? "success" : "error"](ok ? done : failed));
 }
 
 export function downloadMarkdown(text: string, name: string) {

@@ -5,7 +5,7 @@ const KEYBOARD_MIN = 120;
 
 /**
  * How far the on-screen keyboard covers the layout viewport, from `visualViewport` (iOS Safari has neither
- * the VirtualKeyboard API nor `interactive-widget`). `lastHeight` remembers the keyboard so a panel can take
+ * the VirtualKeyboard API nor `interactive-widget`). `last` remembers the keyboard so a panel can take
  * its place at the same height. Inactive hooks cost nothing.
  */
 export function useKeyboardInset(active: boolean) {
@@ -33,5 +33,5 @@ export function useKeyboardInset(active: boolean) {
         };
     }, [active]);
 
-    return { inset, lastHeight: () => last.current };
+    return { inset, last };
 }

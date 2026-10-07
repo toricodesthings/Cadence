@@ -12,7 +12,7 @@ import {
 } from "./offline-wal";
 import { cancelWorkspaceQueries, invalidateWorkspaceCaches } from "./workspace-cache";
 import { chunk } from "../utils";
-import { reconcileNote } from "../notes/note-reconcile";
+import { reconcileNote } from "../notes/note-merge";
 import { ApiErrorResponse, isNetworkFailure } from "../../types/api";
 import { reason } from "../utils/error-toast";
 

@@ -10,7 +10,7 @@ import type { TaskNote } from "@cadence/contracts/note";
 import type { NoteSavePayload, WalEntry } from "../api/offline-wal";
 import { ApiErrorResponse, isNetworkFailure } from "../../types/api";
 import { keepRecoveryCopy, type DraftRecord, type NoteJournal } from "./note-journal";
-import { reconcileNote } from "./note-reconcile";
+import { reconcileNote } from "./note-merge";
 
 export const NOTE_MAX_CHARS = 50_000;
 /** Initial tuning targets (0.28.0 plan §4): local checkpoint, idle save, longest wait while typing. */
@@ -82,6 +82,8 @@ export interface SessionDeps {
     journal: NoteJournal;
     walEntries: () => WalEntry[];
     subscribeWal: (cb: () => void) => () => void;
+    /** Remove this branch's entry from the offline queue (the user chose a version, so the queued copy is stale). */
+    discardQueued: (branch: string) => void;
     isOnline: () => boolean;
     /** Holds a lock for as long as this tab lives; resolves `true` while another tab's branch is still alive. */
     branchAlive: (branch: string) => Promise<boolean>;
@@ -516,7 +518,7 @@ export class NoteSession {
         const c = this.state.conflict;
         if (!c) return;
         await this.keepRecovery(c.remote);
-        this.dropQueuedEntryFor(); // the queued copy would repeat the old base
+        this.deps.discardQueued(this.branch); // the queued copy would repeat the old base
         this.set({ conflict: null, baseBody: c.remote, baseVersion: c.remoteVersion, gen: this.state.gen + 1, queued: false });
         void this.flush();
     }
@@ -526,18 +528,12 @@ export class NoteSession {
         const c = this.state.conflict;
         if (!c) return;
         await this.keepRecovery(this.state.body);
-        this.dropQueuedEntryFor();
+        this.deps.discardQueued(this.branch);
         const gen = this.state.gen + 1;
         this.set({ conflict: null, body: c.remote, baseBody: c.remote, baseVersion: c.remoteVersion, gen, ackedGen: gen, durableGen: gen, queued: false });
         this.tellViews(c.remote);
         void this.writeJournal();
     }
-
-    private dropQueuedEntryFor() {
-        // The caller removes the WAL entry through `discardQueued` (set by the hook layer).
-        this.discardQueued?.(this.branch);
-    }
-    discardQueued?: (branch: string) => void;
 
     private async keepRecovery(body: string) {
         this.set({ recovery: { body, at: Date.now() } });

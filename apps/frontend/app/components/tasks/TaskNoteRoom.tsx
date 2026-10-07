@@ -32,7 +32,7 @@ import { NoteConvertSheet } from "./note/NoteConvertSheet";
 import { NoteConflictSheet } from "./note/NoteConflictSheet";
 import { NoteQuickStrip, NotePhonePanel } from "./note/NotePhoneChrome";
 import { NoteLinkPopover } from "./note/NoteLinkPopover";
-import { copyText, downloadMarkdown } from "./note/note-export";
+import { copyNote, downloadMarkdown } from "./note/note-export";
 import { runNoteCommand, getNoteCommand, type NoteCommandId } from "./note/note-commands";
 import { useNoteToolbarState } from "./note/use-note-toolbar-state";
 
@@ -113,8 +113,8 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
     }, [state?.loaded, state?.body]);
 
     // Phone keyboard: strip and panels ride it; a panel takes its place at the last height.
-    const { inset, lastHeight } = useKeyboardInset(phone);
-    const panelHeight = Math.min(Math.max(lastHeight() || 320, 280), Math.round((typeof window === "undefined" ? 800 : window.innerHeight) / 2));
+    const { inset, last } = useKeyboardInset(phone);
+    const panelHeight = Math.min(Math.max(last.current || 320, 280), Math.round((typeof window === "undefined" ? 800 : window.innerHeight) / 2));
     const effectiveInset = phone ? (panel ? panelHeight : inset) : 0;
 
     // ── words (debounced: never per keystroke) ──
@@ -201,7 +201,7 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
 
     const onStatusAct = useCallback((s: Status) => {
         if (s === "review") setReviewOpen(true);
-        else if (s === "save-failed") void copyText(body).then((ok) => toast[ok ? "success" : "error"](ok ? "Note copied" : "Couldn’t copy. Select the text instead."));
+        else if (s === "save-failed") copyNote(body, "Note copied", "Couldn’t copy. Select the text instead.");
         else void saveNow();
     }, [body, saveNow]);
 
@@ -211,7 +211,7 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
             case "find": setFindOpen(true); break;
             case "outline": setOutlineSheet(true); break;
             case "convert-subtasks": setConvertOpen(true); break;
-            case "copy-markdown": void copyText(body).then((ok) => toast[ok ? "success" : "error"](ok ? "Markdown copied" : "Couldn’t copy. Use Download instead.")); break;
+            case "copy-markdown": copyNote(body, "Markdown copied", "Couldn’t copy. Use Download instead."); break;
             case "download-markdown": downloadMarkdown(body, title); break;
             case "edit-markdown":
                 if (sourceMode) {
@@ -330,7 +330,7 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
                     </AlertDialog.Header>
                     <AlertDialog.Footer>
                         <Button variant="ghost" size="md" onClick={() => { setRecoveryOpen(false); onClose(); }}>Close anyway</Button>
-                        <Button variant="secondary" size="md" onClick={() => void copyText(body).then((ok) => toast[ok ? "success" : "error"](ok ? "Note copied" : "Couldn’t copy"))}>Copy note</Button>
+                        <Button variant="secondary" size="md" onClick={() => copyNote(body)}>Copy note</Button>
                         <Button size="md" onClick={() => { setRecoveryOpen(false); void saveNow(); }}>Retry</Button>
                     </AlertDialog.Footer>
                 </AlertDialog.Content>

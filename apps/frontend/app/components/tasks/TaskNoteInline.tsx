@@ -15,8 +15,7 @@ import { NoteLinkPopover } from "./note/NoteLinkPopover";
 import { NoteSourceEditor } from "./note/NoteSourceEditor";
 import { NoteStatus } from "./note/NoteStatus";
 import { NoteConvertSheet } from "./note/NoteConvertSheet";
-import { copyText } from "./note/note-export";
-import { toast } from "sonner";
+import { copyNote } from "./note/note-export";
 
 /**
  * The note on the task panel: the same editor and session as the writing room, quieter. It is always
@@ -95,7 +94,7 @@ export function TaskNoteInline({ taskId, onOpenRoom }: { taskId: string; onOpenR
                             <NoteStatus
                                 status={status}
                                 onAct={(s) => (s === "save-failed"
-                                    ? void copyText(body).then((ok) => toast[ok ? "success" : "error"](ok ? "Note copied" : "Couldn’t copy"))
+                                    ? copyNote(body)
                                     : s === "review" && task ? (onOpenRoom?.(), openRoom(task.id, task.title)) : void session.flush())}
                             />
                             {/* The counter only surfaces near the limit: no running tally to watch. */}

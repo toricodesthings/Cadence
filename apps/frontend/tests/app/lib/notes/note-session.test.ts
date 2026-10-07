@@ -19,7 +19,6 @@ function memoryJournal(): NoteJournal & { records: Map<string, DraftRecord>; fai
         put: async (_u: string, _o: string, r: DraftRecord) => { if (j.failing) throw new Error("full"); records.set(r.branch, r); },
         remove: async (_u: string, _o: string, b: string) => { records.delete(b); },
         list: async () => [...records.values()],
-        owners: async () => [],
     };
     return j;
 }
@@ -44,6 +43,7 @@ function make(extra: Partial<SessionDeps> = {}) {
         journal,
         walEntries: () => wal,
         subscribeWal: () => () => {},
+        discardQueued: () => {},
         isOnline: () => online,
         branchAlive: async (b) => alive.has(b),
         holdBranch: () => () => {},

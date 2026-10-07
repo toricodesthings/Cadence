@@ -45,8 +45,6 @@ export interface NoteJournal {
     put(userId: string, owner: string, record: DraftRecord): Promise<void>;
     remove(userId: string, owner: string, branch: string): Promise<void>;
     list(userId: string, owner: string): Promise<DraftRecord[]>;
-    /** Owners with anything kept, for sign-out and recovery. */
-    owners(userId: string): Promise<string[]>;
 }
 
 // One lock per account, not per note: the owners index is shared by all of the account's notes.
@@ -67,7 +65,6 @@ export const noteJournal: NoteJournal = {
             await write(indexKey(userId), owners.length ? owners : undefined);
         }),
     list: async (userId, owner) => Object.values((await read<Branches>(keyOf(userId, owner))) ?? {}),
-    owners: async (userId) => (await read<string[]>(indexKey(userId))) ?? [],
 };
 
 /** Set aside a version the user didn't pick (a conflict choice); it stays until they discard it. */

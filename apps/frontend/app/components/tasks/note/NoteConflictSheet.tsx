@@ -1,10 +1,9 @@
 import { useMemo } from "react";
 import { ClipboardCopy, Download } from "lucide-react";
-import { toast } from "sonner";
 import { UtilitySheet } from "../../shared/UtilitySheet";
 import { Button } from "../../primitives/Button";
 import { cn } from "../../../lib/utils";
-import { copyText, downloadMarkdown } from "./note-export";
+import { copyNote, downloadMarkdown } from "./note-export";
 
 function Version({ title, text, other, tone }: { title: string; text: string; other: string; tone: string }) {
     // A line the other version doesn't have is the difference worth seeing.
@@ -47,7 +46,7 @@ export function NoteConflictSheet({
             footer={
                 <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                     <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => void copyText(mine).then((ok) => toast[ok ? "success" : "error"](ok ? "Your version copied" : "Couldn’t copy"))}><ClipboardCopy size={15} aria-hidden="true" />Copy mine</Button>
+                        <Button variant="ghost" size="sm" onClick={() => copyNote(mine, "Your version copied")}><ClipboardCopy size={15} aria-hidden="true" />Copy mine</Button>
                         <Button variant="ghost" size="sm" onClick={() => downloadMarkdown(mine, "my-version")}><Download size={15} aria-hidden="true" />Download</Button>
                     </div>
                     <div className="flex gap-2">
