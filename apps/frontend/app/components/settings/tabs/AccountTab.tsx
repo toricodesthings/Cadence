@@ -213,7 +213,7 @@ function PasswordModal({ email, hasPassword }: { email: string; hasPassword: boo
     return (
         <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (isOpen) reset(); }}>
             <Dialog.DialogTrigger asChild>
-                <Button variant="secondary" size="sm" className="w-full sm:w-auto">
+                <Button variant="secondary" className="w-full sm:w-auto">
                     {hasPassword ? "Change password" : "Set a password"}
                 </Button>
             </Dialog.DialogTrigger>

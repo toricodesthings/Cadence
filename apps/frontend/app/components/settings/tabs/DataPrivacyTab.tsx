@@ -81,7 +81,7 @@ export function DataPrivacyTab() {
                 <SettingsRow title="Request data export" description={exportStatus}>
                     <AlertDialog.Root open={exportConfirmOpen} onOpenChange={setExportConfirmOpen}>
                         <AlertDialog.Trigger asChild>
-                            <Button variant="secondary" className="bg-white/5 border-white/10" disabled={exportBusy}>
+                            <Button variant="secondary" disabled={exportBusy}>
                                 {exportBusy ? "Preparing…" : "Email my data"}
                             </Button>
                         </AlertDialog.Trigger>

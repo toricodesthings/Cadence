@@ -355,7 +355,7 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
     return (
         <Popover.Root open={open} onOpenChange={setOpen}>
             <Popover.Trigger
-                className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors ${
+                className={`shrink-0 inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-[13px] font-medium transition-colors ${
                     activeDefinition
                         ? "surface-control-accent text-accent-primary border border-accent-primary/25"
                         : "surface-control text-twilight-text-muted border border-twilight-border/30 hover:text-twilight-text"

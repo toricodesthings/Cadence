@@ -19,6 +19,14 @@ function listZones(): string[] {
     return ["UTC", ...all.filter((zone) => zone !== "UTC")];
 }
 
+/** "UTC-04:00" etc. for a zone at the given instant. */
+function zoneOffsetLabel(zone: string, atISO: string): string {
+    const offset = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "shortOffset" })
+        .formatToParts(new Date(atISO))
+        .find((part) => part.type === "timeZoneName")?.value ?? "";
+    return offset.replace("GMT", "UTC") || "UTC+0";
+}
+
 /** "device" follows the device; an IANA name pins the zone. A search box narrows the list; a live clock previews the choice. */
 function TimezonePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     const [query, setQuery] = useState("");
@@ -38,15 +46,19 @@ function TimezonePicker({ value, onChange }: { value: string; onChange: (value: 
                 onChange={(event) => setQuery(event.target.value)}
                 className="h-11 w-full rounded-xl border border-twilight-border-light bg-white/[0.05] px-3 text-sm text-twilight-text focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
             />
-            <select
-                aria-label="Time zone"
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-                className="h-11 w-full cursor-pointer rounded-xl border border-twilight-border-light bg-twilight-base px-3 text-sm text-twilight-text focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
-            >
-                <option value="device">{`Device (${device})`}</option>
-                {matches.map((zone) => <option key={zone} value={zone}>{zone.replace(/_/g, " ")}</option>)}
-            </select>
+            <Select value={value} onValueChange={onChange}>
+                <SelectTrigger aria-label="Time zone">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="device">{`Device (${device}, ${zoneOffsetLabel(device, now)})`}</SelectItem>
+                    {matches.map((zone) => (
+                        <SelectItem key={zone} value={zone}>
+                            {`${zone.replace(/_/g, " ")} (${zoneOffsetLabel(zone, now)})`}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
             <p className="text-sm text-twilight-text-muted">Now: {preview}</p>
         </div>
     );
