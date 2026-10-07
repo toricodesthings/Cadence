@@ -82,7 +82,10 @@ export async function isRegistered(userId: string | undefined): Promise<boolean>
     return !!subscription && storage((s) => s.getItem(subscriptionKey(userId)) === subscription.endpoint, false);
 }
 
-export type RegisterResult = "connected" | "unavailable" | "failed";
+/** blocked = the browser refused to subscribe (Brave does this until its push setting is on). */
+export type RegisterResult = "connected" | "unavailable" | "blocked" | "failed";
+
+export const isBrave = () => typeof navigator !== "undefined" && "brave" in navigator;
 
 /**
  * Subscribes this browser to Web Push and saves the subscription. Needs notification permission
@@ -103,7 +106,13 @@ export async function registerThisDevice(client: ApiClient, userId: string): Pro
             await subscription.unsubscribe();
             subscription = null;
         }
-        subscription ??= await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+        if (!subscription) {
+            try {
+                subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+            } catch {
+                return "blocked";
+            }
+        }
         const { endpoint, keys } = subscription.toJSON();
         if (!endpoint || !keys?.p256dh || !keys.auth) return "failed";
         await unwrapResponse(await client.api.push.subscription.$put({ json: { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } } }));

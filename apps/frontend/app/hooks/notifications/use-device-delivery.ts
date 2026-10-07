@@ -34,10 +34,12 @@ interface DeviceState {
     busy: boolean;
     test: TestState;
     error: string | null;
+    /** Why background delivery didn't connect, when the browser refused it. */
+    pushIssue: "blocked" | null;
 }
 
 // One state for every surface (Settings, the center's offer, the dispatcher): a grant made anywhere is seen everywhere at once.
-const store = createExternalStore<DeviceState>({ permission: "default", registered: false, deviceOff: readDeviceOff(), busy: false, test: "idle", error: null });
+const store = createExternalStore<DeviceState>({ permission: "default", registered: false, deviceOff: readDeviceOff(), busy: false, test: "idle", error: null, pushIssue: null });
 const patch = (next: Partial<DeviceState>) => store.set({ ...store.get(), ...next });
 
 const OFFER_KEY = "cadence_notification_offer_dismissed";
@@ -85,7 +87,8 @@ export function useDeviceDelivery() {
             if (!accountOn) updateSettings.mutate({ notifications: { browser: true } });
             if (!IS_DESKTOP_RUNTIME && userId && canPush()) {
                 const result = await registerThisDevice(client, userId);
-                if (result !== "connected") patch({ error: "Reminders will show while Cadence is open. Background delivery isn't available right now." });
+                patch({ pushIssue: result === "blocked" ? "blocked" : null });
+                if (result === "unavailable" || result === "failed") patch({ error: "Reminders will show while Cadence is open. Background delivery isn't available right now." });
                 await refresh();
             }
         } finally {
@@ -159,6 +162,9 @@ export function useDeviceDeliverySync() {
     useEffect(() => {
         if (status !== "local" || IS_DESKTOP_RUNTIME || !userId || !canPush() || attempted.current === userId) return;
         attempted.current = userId;
-        void registerThisDevice(client, userId).then(recheck);
+        void registerThisDevice(client, userId).then((result) => {
+            patch({ pushIssue: result === "blocked" ? "blocked" : null });
+            return recheck();
+        });
     }, [status, client, userId, recheck]);
 }

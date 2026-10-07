@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- On Windows, Cadence now runs in Efficiency mode while it's in the background and returns to normal on focus.
+
 ## [0.29.2] - 2026-10-07
 
 ### Added

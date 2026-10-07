@@ -42,3 +42,9 @@ tauri-plugin-oauth = "2"
 tauri-plugin-keyring = "0.1.0"
 tauri-plugin-single-instance = { version = "2.4.0", features = ["deep-link"] }
 tauri-plugin-global-shortcut = "2.3.1"
+
+# Windows only: Efficiency mode (EcoQoS) + WebView2 memory target while Cadence is in the background.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows-core = "0.62"
+windows-sys = { version = "0.61", features = ["Win32_System_Threading"] }

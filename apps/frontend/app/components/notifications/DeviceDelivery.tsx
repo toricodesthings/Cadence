@@ -2,7 +2,7 @@ import { BellRing } from "lucide-react";
 import { Button } from "../primitives/Button";
 import { SettingsRow } from "../settings/layout/SettingsLayout";
 import { useDeviceDelivery } from "../../hooks/notifications/use-device-delivery";
-import type { DeviceStatus } from "../../lib/notifications/device-delivery";
+import { isBrave, type DeviceStatus } from "../../lib/notifications/device-delivery";
 
 const STATUS_COPY: Record<DeviceStatus, (desktop: boolean) => string> = {
     off: (desktop) => `Get reminders on this ${desktop ? "computer" : "device"}.`,
@@ -12,6 +12,11 @@ const STATUS_COPY: Record<DeviceStatus, (desktop: boolean) => string> = {
     install: () => "On iPhone or iPad, tap Share, then Add to Home Screen, and open Cadence from its icon.",
     unsupported: () => "This browser can't show notifications.",
 };
+
+// The browser refused background push; say how to allow it instead of silently staying local.
+const blockedPushCopy = () => isBrave()
+    ? "Brave blocks background reminders by default. Turn on “Use Google services for push messaging” in brave://settings/privacy, restart Brave, then try again."
+    : "This browser didn't allow background reminders, so they appear while Cadence is open. Check its notification settings, then try again.";
 
 const MISSING_HELP = "Check that notifications are allowed for Cadence in your device settings and that Focus or Do Not Disturb is off. Then send another test.";
 
@@ -35,13 +40,15 @@ function TestFeedback() {
 
 /** Notifications on this device: the one place to enable, test and turn off delivery. */
 export function DeviceDeliveryRow() {
-    const { status, desktop, busy, test, enable, disable, recheck, runTest } = useDeviceDelivery();
+    const { status, desktop, busy, test, enable, disable, recheck, runTest, pushIssue } = useDeviceDelivery();
+    const blocked = status === "local" && pushIssue === "blocked";
     const on = status === "connected" || status === "local";
     return <>
-        <SettingsRow title={desktop ? "Notifications on this computer" : "Notifications on this device"} description={STATUS_COPY[status](desktop)}>
+        <SettingsRow title={desktop ? "Notifications on this computer" : "Notifications on this device"} description={blocked ? blockedPushCopy() : STATUS_COPY[status](desktop)}>
             <div className="flex flex-wrap gap-2 sm:justify-end">
                 {status === "off" && <Button variant="primary" size="sm" disabled={busy} onClick={() => void enable()}>Enable notifications</Button>}
                 {status === "denied" && <Button variant="secondary" size="sm" onClick={() => void recheck()}>Check again</Button>}
+                {blocked && <Button variant="secondary" size="sm" disabled={busy} onClick={() => void enable()}>Try again</Button>}
                 {on && <>
                     <Button variant="secondary" size="sm" disabled={test === "sending"} onClick={() => void runTest()}>Send a test</Button>
                     <Button variant="ghost" size="sm" onClick={() => void disable()}>Turn off</Button>
