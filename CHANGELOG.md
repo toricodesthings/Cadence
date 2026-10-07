@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.29.2] - 2026-10-07
+
 ### Added
 
 - Get nudged for Waiting follow-ups you scheduled and for yearly events whose bell is on.
