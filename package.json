@@ -61,6 +61,9 @@
         "@better-auth/api-key>better-call": "2",
         "@triplit/logger>typescript": "7"
       }
+    },
+    "patchedDependencies": {
+      "rrule@2.8.1": "patches/rrule@2.8.1.patch"
     }
   }
 }

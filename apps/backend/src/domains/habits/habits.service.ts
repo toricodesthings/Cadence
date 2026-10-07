@@ -1,31 +1,22 @@
 import { and, eq, inArray, min, sql } from "drizzle-orm";
 import type { HabitRow, HabitLog, InsertHabit, ResolveHabitAction, UpdateHabit } from "@cadence/contracts/habit";
-import { habitOccurrences, habitRule, isPausedOn, stepDayStatus } from "@cadence/domain/repeats";
-import { addDays, dayOf, floatingDay, floatingEnd, todayIn, type LocalDate, type Zone } from "@cadence/domain/time";
+import { habitOccurrences, isPausedOn, stepDayStatus } from "@cadence/domain/repeats";
+import { addDays, dayOf, parseRecurrenceRule, todayIn, type LocalDate, type Zone } from "@cadence/domain/time";
 import { habits, habitLogs, habitTags } from "../../db/schema";
 import { assertNoConflict, throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { userZone } from "../../platform/user-zone";
-import { logger, shorten, issuesFromError } from "../../platform/log";
 import type { Tx } from "../../types/db";
 
 // ── Utility ───────────────────────────────────────────────────────────
 
 /**
  * Shared recurrence expansion — single source of truth. The days (YYYY-MM-DD)
- * a routine is due in [startDate, endDate]; see `habitRule` for the anchor.
+ * a routine is due in [startDate, endDate]; unsafe stored rules fail explicitly.
  */
 export function expandOccurrences(recurrenceRule: string, createdAt: string, from: LocalDate, to: LocalDate, zone: Zone): LocalDate[] {
-    try {
-        return habitOccurrences(recurrenceRule, String(createdAt), from, to, zone);
-    } catch (e) {
-        logger.warn("http", "recurrence_rule_invalid", {
-            rule: shorten(recurrenceRule),
-            issues: issuesFromError(e),
-        });
-        return [];
-    }
+    return habitOccurrences(recurrenceRule, String(createdAt), from, to, zone);
 }
 
 /**
@@ -212,10 +203,8 @@ export function scanStreak(
  * Current streak = the most recent unbroken run of COMPLETED occurrences ending
  * at (or just before) `asOfDateStr`, for any recurrence cadence.
  *
- * Cost is bounded by the streak length, not by total habit history: occurrences
- * are walked backward in rrule batches and `loadCompleted` is queried per batch,
- * stopping as soon as the streak is determined. This is the correct, cadence-
- * agnostic replacement for a fixed look-back window or a full-history rescan.
+ * Expand the bounded history once (rrule.before repeatedly allocates its whole
+ * prefix), then query resolved days in batches, stopping when the streak is known.
  *
  * `loadResolved` is injected (rather than taking a `tx`) so the streak logic is
  * pure of persistence concerns and unit-testable with real recurrence rules.
@@ -229,36 +218,14 @@ export async function computeCurrentStreak(
     loadResolved: (dates: string[]) => Promise<ReadonlyMap<string, ResolvedStatus>>,
     { timeZone = "UTC", earliest }: { timeZone?: string; earliest?: string | null } = {},
 ): Promise<number> {
-    let rule: ReturnType<typeof habitRule>;
-    try {
-        const created = dayOf(createdAt, timeZone);
-        const from = earliest && earliest < created ? earliest : created;
-        rule = habitRule(recurrenceRule, String(createdAt), from, timeZone);
-    } catch (e) {
-        logger.warn("http", "recurrence_rule_invalid", {
-            rule: shorten(recurrenceRule),
-            issues: issuesFromError(e),
-        });
-        return 0;
-    }
+    const created = dayOf(createdAt, timeZone);
+    const from = earliest && earliest < created ? earliest : created;
+    const dates = habitOccurrences(recurrenceRule, String(createdAt), from, asOfDateStr, timeZone).reverse();
 
     const BATCH_SIZE = STREAK_LEADING_LIMIT;
     let state: StreakScanState = { streak: 0, runStarted: false, leadingGap: 0 };
-    let cursor: Date | null = floatingEnd(asOfDateStr);
-
-    while (cursor) {
-        // Collect a batch of occurrence dates walking backward (newest → oldest).
-        const window: string[] = [];
-        for (let i = 0; i < BATCH_SIZE; i++) {
-            const occ: Date | null = rule.before(cursor, true);
-            if (!occ) {
-                cursor = null;
-                break;
-            }
-            window.push(floatingDay(occ));
-            cursor = new Date(occ.getTime() - 1000); // step strictly before this occurrence
-        }
-        if (window.length === 0) break;
+    for (let cursor = 0; cursor < dates.length; cursor += BATCH_SIZE) {
+        const window = dates.slice(cursor, cursor + BATCH_SIZE);
 
         const result = scanStreak(window, await loadResolved(window), state);
         if (result.terminated) return result.streak;
@@ -278,6 +245,7 @@ export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: I
         if (existing) return existing;
     }
 
+    parseRecurrenceRule(body.recurrenceRule);
     await assertOwnership(tx, userId, { projectId: body.projectId, tagIds });
 
     const [row] = await insertWithClientId(() => tx
@@ -411,6 +379,7 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
 
 /** Change a routine; `tagIds` replaces its tags. 404 when it isn't the caller's. */
 export async function updateHabit(tx: Tx, userId: string, id: string, { expectedUpdatedAt, tagIds, ...body }: UpdateHabit) {
+    if (body.recurrenceRule !== undefined) parseRecurrenceRule(body.recurrenceRule);
     if (expectedUpdatedAt) {
         const [existing] = await tx
             .select({ updatedAt: habits.updatedAt })

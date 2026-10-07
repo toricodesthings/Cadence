@@ -16,7 +16,7 @@ Standalone Cloudflare Worker API (Hono v4 + Neon Postgres via Hyperdrive). Share
 | Auth | Neon Auth JWTs, verified via `jose` against JWKS |
 | AI | Vercel AI SDK (`ai` v7); `@openrouter/ai-sdk-provider` for chat, titles and embeddings; Upstash Redis (`@upstash/redis/cloudflare`) for stream resumption |
 | Scheduling | Cloudflare cron triggers |
-| Recurrence | `rrule`; dates via `date-fns` |
+| Recurrence | Shared day-based validation/expansion in `@cadence/domain/time`; pnpm-patched `rrule` bounds sparse searches, streaks expand history once |
 | NLP | `@cadence/nlp` (workspace dep) |
 | Lang | TypeScript 7 |
 

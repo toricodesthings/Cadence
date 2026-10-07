@@ -45,6 +45,23 @@ async function backdate(habitId: string, days: number) {
 const resolve = (id: string, targetDate: string, status: string) => habits("POST", `/${id}/resolve`, { targetDate, status });
 
 describe("creating and listing habits", () => {
+    it("guards writes, old stored rules, and streak updates while allowing repair", async () => {
+        const rejected = await habits("POST", "", { title: "Dense", recurrenceRule: "FREQ=SECONDLY" });
+        expect(rejected.status).toBe(400);
+        expect(rejected.body.error.code).toBe("INVALID_RECURRENCE_RULE");
+        const habit = await create();
+        expect((await habits("PATCH", `/${habit.id}`, { recurrenceRule: "FREQ=DAILY;INTERVAL=-1" })).status).toBe(400);
+        await asOwner((pg) => pg.query("UPDATE habits SET recurrence_rule = $2 WHERE id = $1", [habit.id, "FREQ=SECONDLY"]));
+
+        const read = await habits("GET", `/weekly?start=${day()}&end=${day(6)}`);
+        expect(read.status).toBe(400);
+        expect(read.body.error.code).toBe("INVALID_RECURRENCE_RULE");
+        expect((await resolve(habit.id, day(), "COMPLETED")).status).toBe(400);
+        expect((await habits("PATCH", `/${habit.id}`, { recurrenceRule: "FREQ=DAILY" })).status).toBe(200);
+        expect((await resolve(habit.id, day(), "COMPLETED")).status).toBe(200);
+        expect((await habits("GET", `/weekly?start=${day()}&end=${day(6)}`)).body.data[0].logs).toHaveLength(7);
+    });
+
     it("creates a habit with DB defaults and its tags", async () => {
         const { body: tag } = await tags("POST", "", { name: "health" });
 

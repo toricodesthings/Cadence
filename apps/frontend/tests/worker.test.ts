@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import worker from "../worker";
 
 function assetEnv(response: Response): Env {
-    return { ASSETS: { fetch: vi.fn().mockResolvedValue(response), connect: vi.fn() }, BACKEND: { fetch: vi.fn(), connect: vi.fn() }, NEON_AUTH_BASE_URL: "https://auth.test" };
+    return { ASSETS: { fetch: vi.fn().mockResolvedValue(response), connect: vi.fn() }, BACKEND: { fetch: vi.fn(), connect: vi.fn() }, NEON_AUTH_BASE_URL: "https://auth.test" } as unknown as Env;
 }
 
 describe("same-origin API", () => {

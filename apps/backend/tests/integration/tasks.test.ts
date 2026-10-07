@@ -40,6 +40,24 @@ const setZone = (zone: string, id = userId) => asOwner((pg) => pg.query("UPDATE 
 const titles = (list: any[]) => list.map((t) => t.title);
 
 describe("creating tasks", () => {
+    it("rejects dense repeat writes and refuses to expand or copy unsafe stored series", async () => {
+        const unsafe = { title: "Dense", orderIndex: 0, dueDate: "2026-10-07", recurrenceRule: "FREQ=SECONDLY" };
+        expect((await tasks("POST", "", unsafe)).body.error.code).toBe("INVALID_RECURRENCE_RULE");
+        const task = await create({ ...unsafe, recurrenceRule: "FREQ=DAILY" });
+        expect((await tasks("PATCH", `/${task.id}`, { recurrenceRule: "FREQ=DAILY;BYSECOND=0,1" })).status).toBe(400);
+
+        // Model a row persisted before the write guard existed.
+        await asOwner((pg) => pg.query("UPDATE tasks SET recurrence_rule = $2 WHERE id = $1", [task.id, unsafe.recurrenceRule]));
+        const read = await tasks("GET", "?from=2026-10-07&to=2027-10-06&limit=1");
+        expect(read.status).toBe(400);
+        expect(read.body.error.code).toBe("INVALID_RECURRENCE_RULE");
+        expect((await tasks("POST", `/${task.id}/duplicate`)).status).toBe(400);
+
+        // The owner can repair the rule and read the same calendar normally.
+        expect((await tasks("PATCH", `/${task.id}`, { recurrenceRule: "FREQ=DAILY" })).status).toBe(200);
+        expect((await tasks("GET", "?from=2026-10-07&to=2026-10-09")).body.data).toHaveLength(3);
+    });
+
     it("applies defaults on create", async () => {
         const task = await create({ title: "Write spec", dueDate: "2026-03-10" });
 

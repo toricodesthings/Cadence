@@ -1,7 +1,7 @@
 // Repeating things come in three kinds (Fixed · Routine · Task). These helpers
 // hold the rules shared by every client.
-import { RRule, rrulestr } from "rrule";
-import { addDays, dayOf, daysBetween, floatingDay, floatingEnd, floatingStart, weekdayOf, type LocalDate, type Zone } from "./time";
+import { RRule } from "rrule";
+import { addDays, dayOf, daysBetween, expandSeries, parseRecurrenceRule, weekdayOf, type LocalDate, type Zone } from "./time";
 
 const RRULE_DAY_KEYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
 
@@ -35,8 +35,8 @@ export function isPausedOn(pausedUntil: string | null | undefined, day: string, 
  * be logged. "Every N" rules keep the creation day, which they count from.
  * Routines live on LocalDates, so the rule runs in a floating UTC frame.
  */
-export function habitRule(recurrenceRule: string, createdAt: string, from: LocalDate, zone: Zone) {
-    const { freq, interval = 1, count } = RRule.parseString(recurrenceRule);
+function habitStart(recurrenceRule: string, createdAt: string, from: LocalDate, zone: Zone) {
+    const { freq, interval = 1, count } = parseRecurrenceRule(recurrenceRule, zone);
     let anchor = dayOf(createdAt, zone);
     if (anchor > from && interval <= 1 && !count) {
         if (freq === RRule.DAILY || freq === RRule.WEEKLY) {
@@ -48,17 +48,16 @@ export function habitRule(recurrenceRule: string, createdAt: string, from: Local
             anchor = `${String(y - (y - Number(from.slice(0, 4)) + 1)).padStart(4, "0")}${rest}`;
         }
     }
-    return rrulestr(recurrenceRule, { dtstart: floatingStart(anchor) });
+    return anchor;
 }
 
 /**
- * The days a routine is due between two days, inclusive (see {@link habitRule}).
+ * The days a routine is due between two days, inclusive (see {@link habitStart}).
  * Throws on an invalid rule.
  */
 export function habitOccurrences(recurrenceRule: string, createdAt: string, from: LocalDate, to: LocalDate, zone: Zone): LocalDate[] {
-    return habitRule(recurrenceRule, createdAt, from, zone)
-        .between(floatingStart(from), floatingEnd(to), true)
-        .map(floatingDay);
+    return expandSeries({ rule: recurrenceRule, start: { day: habitStart(recurrenceRule, createdAt, from, zone) }, zone, range: { from, to } })
+        .map((occurrence) => occurrence.day);
 }
 
 type StepMark = "COMPLETED" | "SKIPPED";

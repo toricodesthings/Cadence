@@ -1,6 +1,7 @@
 // The one place that converts between Instant, LocalDate, WallTime and Zone.
 // Pure, `Intl` only, shaped like `Temporal` so it can be swapped for it later.
-import { rrulestr } from "rrule";
+import { RRule } from "rrule";
+import { DomainError } from "./errors";
 
 /** One exact moment: ISO 8601 (this module writes `Z`; offsets are accepted). */
 export type Instant = string;
@@ -215,12 +216,74 @@ export function untilClause(day: LocalDate): string {
     return `UNTIL=${day.replaceAll("-", "")}`;
 }
 
-/** Whether a rule parses (an unparseable UNTIL counts as invalid). */
+/** Bound the anchor-to-window span and returned occurrences (~100 years). */
+export const MAX_RECURRENCE_DAYS = 36_600;
+
+function invalidRule(): never {
+    throw new DomainError("INVALID_RECURRENCE_RULE", "Use a daily, weekly, monthly or yearly repeat with valid calendar fields");
+}
+
+/**
+ * One day-based RRULE, shared by writes and stored-state reads. The series owns
+ * its start, time and zone: embedded calendars and subdaily selectors are not
+ * part of this contract. Validate before rrule can iterate or build a timeset.
+ */
+export function parseRecurrenceRule(rule: string, zone: Zone = "UTC") {
+    if (rule.length > 500) invalidRule();
+    const normalized = rule.trim().replace(/^RRULE:/i, "").toUpperCase();
+    const fields = new Map<string, string>();
+    for (const part of normalized.split(";")) {
+        const match = /^([A-Z]+)=([A-Z0-9,+-]+)$/.exec(part);
+        if (!match) invalidRule();
+        const key = match[1] === "BYWEEKDAY" ? "BYDAY" : match[1];
+        if (fields.has(key)) invalidRule();
+        fields.set(key, match[2]);
+    }
+    if (!/^(DAILY|WEEKLY|MONTHLY|YEARLY)$/.test(fields.get("FREQ") ?? "")) invalidRule();
+    const signedList = (value: string, max: number, negative = true) => value.split(",").every((item) =>
+        /^[+-]?\d+$/.test(item) && Number.isSafeInteger(Number(item)) && Number(item) !== 0 &&
+        Number(item) >= (negative ? -max : 1) && Number(item) <= max);
+    for (const [key, value] of fields) {
+        switch (key) {
+            case "FREQ": case "UNTIL": break;
+            case "INTERVAL": case "COUNT":
+                if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < 1) invalidRule();
+                break;
+            case "BYMONTH": if (!signedList(value, 12, false)) invalidRule(); break;
+            case "BYMONTHDAY": if (!signedList(value, 31)) invalidRule(); break;
+            case "BYYEARDAY": if (!signedList(value, 366)) invalidRule(); break;
+            case "BYSETPOS": {
+                // Positions select days within a period, never a timeset. Bound
+                // prefix work too: between's callback only sees in-range dates.
+                const max = { DAILY: 1, WEEKLY: 7, MONTHLY: 31, YEARLY: 366 }[fields.get("FREQ")!]!;
+                const positions = value.split(",").map(Number);
+                if (!signedList(value, max) || new Set(positions).size !== positions.length) invalidRule();
+                break;
+            }
+            case "BYWEEKNO": if (!signedList(value, 53)) invalidRule(); break;
+            case "BYDAY":
+                if (!value.split(",").every((day) => {
+                    const match = /^([+-]?\d+)?(MO|TU|WE|TH|FR|SA|SU)$/.exec(day);
+                    return match && (!match[1] || signedList(match[1], 53));
+                })) invalidRule();
+                break;
+            case "WKST": if (!/^(MO|TU|WE|TH|FR|SA|SU)$/.test(value)) invalidRule(); break;
+            default: invalidRule();
+        }
+    }
+    try {
+        const { rule: bare, until } = splitUntil([...fields].map(([key, value]) => `${key}=${value}`).join(";"), zone);
+        if (until === undefined || (until !== null && !isLocalDate(until))) invalidRule();
+        return { ...RRule.parseString(bare), ...(until ? { until: floatingEnd(until) } : {}) };
+    } catch {
+        return invalidRule();
+    }
+}
+
+/** Whether a rule is valid for a single day-based series. */
 export function isValidRule(rule: string, zone: Zone = "UTC"): boolean {
     try {
-        const { rule: bare, until } = splitUntil(rule, zone);
-        if (until === undefined) return false;
-        rrulestr(bare, { dtstart: new Date(Date.UTC(2000, 0, 1)) });
+        parseRecurrenceRule(rule, zone);
         return true;
     } catch {
         return false;
@@ -250,17 +313,20 @@ export function expandSeries(args: {
     const endInstant = "instant" in s ? s.end : null;
     const spanMs = endInstant ? Math.max(0, wallMs(dayOf(endInstant, zone), wallTimeOf(endInstant, zone)) - wallMs(startDay, startWall)) : 0;
 
-    const { rule, until } = splitUntil(args.rule, zone);
-    let parsed: ReturnType<typeof rrulestr>;
-    try {
-        parsed = rrulestr(rule, { dtstart: new Date(wallMs(startDay, startWall)) });
-    } catch {
-        return [];
-    }
+    const options = parseRecurrenceRule(args.rule, zone);
+    const until = options.until ? floatingDay(options.until) : null;
     const last = until && until < range.to ? until : range.to;
-    if (last < range.from) return [];
+    if (last < range.from || last < startDay) return [];
+    const first = startDay < range.from ? startDay : range.from;
+    if (![first, startDay, last].every(isLocalDate) || daysBetween(first, last) >= MAX_RECURRENCE_DAYS) {
+        throw new DomainError("INVALID_RECURRENCE_RULE", "Repeat history or date range is too long (maximum 36,600 days)");
+    }
 
-    const floating = parsed.between(new Date(wallMs(range.from, "00:00")), new Date(wallMs(last, "00:00") + DAY_MS - 1), true);
+    const parsed = new RRule({ ...options, dtstart: new Date(wallMs(startDay, startWall)) }, true);
+    const floating = parsed.between(floatingStart(range.from), floatingEnd(last), true, (_date, index) => {
+        if (index >= MAX_RECURRENCE_DAYS) throw new DomainError("INVALID_RECURRENCE_RULE", "This repeat produces too many occurrences");
+        return true;
+    });
     return floating.map((f) => {
         const day = floatingDay(f);
         if (!timed) return { day, start: null, end: null };

@@ -116,9 +116,16 @@ describe("computeCurrentStreak (cadence-agnostic, bounded)", () => {
         expect(streak).toBe(0);
     });
 
-    it("returns 0 for an invalid recurrence rule instead of throwing", async () => {
-        const streak = await computeCurrentStreak("NOT A RULE", "2026-01-01", "2026-06-01", lookup([]));
-        expect(streak).toBe(0);
+    it.each(["NOT A RULE", "FREQ=SECONDLY", "FREQ=DAILY;BYHOUR=0,1"])("rejects unsafe stored rules explicitly: %s", async (rule) => {
+        await expect(computeCurrentStreak(rule, "2026-01-01", "2026-06-01", lookup([])))
+            .rejects.toMatchObject({ code: "INVALID_RECURRENCE_RULE" });
+    });
+
+    it("preserves yearly and finite-count streaks", async () => {
+        const years = ["2024-01-01", "2025-01-01", "2026-01-01"];
+        expect(await computeCurrentStreak("FREQ=YEARLY;COUNT=3", "2024-01-01", "2027-01-01", lookup(years))).toBe(3);
+        const days = ["2026-01-01", "2026-01-03", "2026-01-05"];
+        expect(await computeCurrentStreak("FREQ=DAILY;INTERVAL=2;COUNT=3", "2026-01-01", "2026-06-01", lookup(days))).toBe(3);
     });
 
     it("reaches days logged before the routine was created", async () => {

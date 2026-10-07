@@ -175,7 +175,7 @@ Never import `AppError` here.
   `startOfDay`/`endOfDay`, `wallTimeOf`, `toZonedIso`, LocalDate math (`addDays`,
   `daysBetween`, `weekRange`, `monthRange`), `expandSeries` (all-day series on dates,
   timed series in a floating wall-clock frame converted with `atLocal`), `isZone`,
-  `formatInZone`. Intl only, no date library.
+  `formatInZone`. `parseRecurrenceRule` enforces single day-based rules; expansion caps its anchor-to-window span/output at 36,600 days. The pnpm rrule patch bounds no-match searches and deduplicates selected dates.
 - `task-temporal.ts` — `classifyTaskReadShape` (4 shapes: `unscheduled`, `day`, `days`,
   `timed`), `normalizeTaskTemporalFields` (validates `dueDate`/`endDate` LocalDates or
   `scheduledStart`/`scheduledEnd` instants with a `zone`; all-day = no start),
@@ -183,14 +183,14 @@ Never import `AppError` here.
   a timed task keeps its local time via `atLocal`).
 - `task-recurrence.ts` — `validateTaskRecurrenceRule` (`UNTIL` is a LocalDate), `expandScheduleScopedTasks` (via `expandSeries`, in the series zone; occurrence ids `<series>::<LocalDate>`)
   (+ helpers), and `resolveOccurrenceAnchor` (next/closest occurrence around a
-  reference date; returns `null` on unparseable rule — callers supply the
-  fallback). Filter inputs are typed via the local `ScheduleScopeFilters`
+  reference date; unsafe rules raise `INVALID_RECURRENCE_RULE` on writes and reads).
+  Filter inputs are typed via the local `ScheduleScopeFilters`
   (structurally compatible with the backend's `NormalizedTaskFilters`, so no
   backend import).
 - `ordering.ts` — fractional `orderIndex` math (`ORDER_INDEX_GAP`,
   `computeNextOrderIndex`, `computeMidpointIndex`, `computeGappedOrderIndex`).
 - `repeats.ts` — the Fixed / Routine / Task rules: `routineTimeOn` (a routine's
-  time on a date, honouring per-weekday overrides), `habitRule`/`habitOccurrences`
+  time on a date, honouring per-weekday overrides), `habitOccurrences` (via `expandSeries`)
   (a routine's due days; rules without INTERVAL/COUNT are anchored by whole
   periods so days before creation follow the pattern, "every N" rules count from
   the creation day in the user's zone), `isPausedOn` (a pause covers today through `pausedUntil`, never the past), `stepDayStatus`/`stepMarksOn`

@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Repeating tasks and routines reject unsafe repeat rules before they can stall the calendar or streak updates.
+
 ## [0.29.0] - 2026-10-07
 
 ### Added

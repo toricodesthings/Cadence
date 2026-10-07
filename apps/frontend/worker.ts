@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/workers-types" />
+
 
 /**
  * Cadence Frontend — Cloudflare Worker Entry Point

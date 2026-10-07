@@ -1,5 +1,4 @@
-import { DomainError } from "./errors";
-import { addDays, dayOf, daysBetween, expandSeries, isValidRule, nextOccurrence, type Instant, type SeriesStart, type LocalDate, type Zone } from "./time";
+import { addDays, dayOf, daysBetween, expandSeries, parseRecurrenceRule, nextOccurrence, type Instant, type SeriesStart, type LocalDate, type Zone } from "./time";
 
 /** The day window (LocalDates, inclusive) and paging needed to expand schedule-scoped repeating tasks. */
 export type ScheduleScopeFilters = {
@@ -43,11 +42,9 @@ export function taskDay(task: Pick<TaskRow, "dueDate" | "scheduledStart">, zone:
     return task.scheduledStart ? dayOf(task.scheduledStart, zone) : task.dueDate;
 }
 
-/** A repeating task's rule must parse (`UNTIL` is a LocalDate, inclusive). */
+/** A repeating task uses the shared day-based rule contract (`UNTIL` is inclusive). */
 export function validateTaskRecurrenceRule(recurrenceRule: string | null | undefined, zone: Zone = "UTC") {
-    if (recurrenceRule && !isValidRule(recurrenceRule, zone)) {
-        throw new DomainError("INVALID_RECURRENCE_RULE", "Recurrence rule could not be parsed", 400);
-    }
+    if (recurrenceRule) parseRecurrenceRule(recurrenceRule, zone);
 }
 
 function seriesStart(task: TaskRow, userZone: Zone): { zone: Zone; start: SeriesStart | null } {
@@ -135,7 +132,7 @@ export function expandScheduleScopedTasks<T extends TaskRow>(
     });
 
     // Without a limit a view needs the whole window (a month of daily blocks passes 50);
-    // ponytail: the cap only stops runaway responses (an hourly rule over years), page if a real calendar nears it.
+    // Expansion is bounded separately; this cap controls response pagination.
     const offset = filters.offset ?? 0;
     return items.slice(offset, offset + (filters.limit ?? SCHEDULE_WINDOW_MAX));
 }

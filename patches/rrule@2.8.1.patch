@@ -1,0 +1,96 @@
+diff --git a/dist/es5/rrule.js b/dist/es5/rrule.js
+index b671aaad592beda14cd0a778fe25b412a0effd89..1bcc53039e0c5dca6e1169312693cf2c3a9eafa8 100644
+--- a/dist/es5/rrule.js
++++ b/dist/es5/rrule.js
+@@ -2928,6 +2928,7 @@ var Iterinfo = /** @class */ (function () {
+ 
+ function buildPoslist(bysetpos, timeset, start, end, ii, dayset) {
+     var poslist = [];
++    var seen = new Set();
+     for (var j = 0; j < bysetpos.length; j++) {
+         var daypos = void 0;
+         var timepos = void 0;
+@@ -2957,10 +2958,11 @@ function buildPoslist(bysetpos, timeset, start, end, ii, dayset) {
+         var time = timeset[timepos];
+         var date = fromOrdinal(ii.yearordinal + i);
+         var res = combine(date, time);
+-        // XXX: can this ever be in the array?
+-        // - compare the actual date instead?
+-        if (!includes(poslist, res))
++        // Positive and negative positions can select the same occurrence.
++        if (!seen.has(res.getTime())) {
++            seen.add(res.getTime());
+             poslist.push(res);
++        }
+     }
+     sort(poslist);
+     return poslist;
+@@ -2979,6 +2981,10 @@ function buildPoslist(bysetpos, timeset, start, end, ii, dayset) {
+ function iter(iterResult, options) {
+     var dtstart = options.dtstart, freq = options.freq, interval = options.interval, until = options.until, bysetpos = options.bysetpos;
+     var count = options.count;
++    // Sparse rules may never call accept(). Bound their period traversal too.
++    // Use a conservative year boundary: monthly/yearly candidates can precede
++    // counterDate within its period, and TZID can cross into an adjacent year.
++    var lastYear = Math.min(MAXYEAR, until ? until.getUTCFullYear() + 1 : MAXYEAR, iterResult.maxDate ? iterResult.maxDate.getUTCFullYear() + 1 : MAXYEAR);
+     if (count === 0 || interval === 0) {
+         return emitResult(iterResult);
+     }
+@@ -2987,6 +2993,7 @@ function iter(iterResult, options) {
+     ii.rebuild(counterDate.year, counterDate.month);
+     var timeset = makeTimeset(ii, counterDate, options);
+     for (;;) {
++        if (counterDate.year > lastYear) return emitResult(iterResult);
+         var _a = ii.getdayset(freq)(counterDate.year, counterDate.month, counterDate.day), dayset = _a[0], start = _a[1], end = _a[2];
+         var filtered = removeFilteredDays(dayset, start, end, ii, options);
+         if (notEmpty(bysetpos)) {
+diff --git a/dist/esm/iter/index.js b/dist/esm/iter/index.js
+index 2dbadcf4a4810ad5882162ad49815b1dffae61fa..08ac524b310d7d1db87e4b438ccf73bc973413b2 100644
+--- a/dist/esm/iter/index.js
++++ b/dist/esm/iter/index.js
+@@ -10,6 +10,10 @@ import { DateTime } from '../datetime';
+ export function iter(iterResult, options) {
+     var dtstart = options.dtstart, freq = options.freq, interval = options.interval, until = options.until, bysetpos = options.bysetpos;
+     var count = options.count;
++    // Sparse rules may never call accept(). Bound their period traversal too.
++    // Use a conservative year boundary: monthly/yearly candidates can precede
++    // counterDate within its period, and TZID can cross into an adjacent year.
++    var lastYear = Math.min(MAXYEAR, until ? until.getUTCFullYear() + 1 : MAXYEAR, iterResult.maxDate ? iterResult.maxDate.getUTCFullYear() + 1 : MAXYEAR);
+     if (count === 0 || interval === 0) {
+         return emitResult(iterResult);
+     }
+@@ -18,6 +22,7 @@ export function iter(iterResult, options) {
+     ii.rebuild(counterDate.year, counterDate.month);
+     var timeset = makeTimeset(ii, counterDate, options);
+     for (;;) {
++        if (counterDate.year > lastYear) return emitResult(iterResult);
+         var _a = ii.getdayset(freq)(counterDate.year, counterDate.month, counterDate.day), dayset = _a[0], start = _a[1], end = _a[2];
+         var filtered = removeFilteredDays(dayset, start, end, ii, options);
+         if (notEmpty(bysetpos)) {
+diff --git a/dist/esm/iter/poslist.js b/dist/esm/iter/poslist.js
+index 15501eb983817fecfd0af8dbd8bae745d3f24d77..0d10b8fe2560df0bf03e5152303698953aaee1d7 100644
+--- a/dist/esm/iter/poslist.js
++++ b/dist/esm/iter/poslist.js
+@@ -2,6 +2,7 @@ import { combine, fromOrdinal, sort } from '../dateutil';
+ import { pymod, isPresent, includes } from '../helpers';
+ export function buildPoslist(bysetpos, timeset, start, end, ii, dayset) {
+     var poslist = [];
++    var seen = new Set();
+     for (var j = 0; j < bysetpos.length; j++) {
+         var daypos = void 0;
+         var timepos = void 0;
+@@ -31,10 +32,11 @@ export function buildPoslist(bysetpos, timeset, start, end, ii, dayset) {
+         var time = timeset[timepos];
+         var date = fromOrdinal(ii.yearordinal + i);
+         var res = combine(date, time);
+-        // XXX: can this ever be in the array?
+-        // - compare the actual date instead?
+-        if (!includes(poslist, res))
++        // Positive and negative positions can select the same occurrence.
++        if (!seen.has(res.getTime())) {
++            seen.add(res.getTime());
+             poslist.push(res);
++        }
+     }
+     sort(poslist);
+     return poslist;

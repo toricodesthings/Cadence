@@ -160,6 +160,7 @@ export async function duplicateTask(tx: Tx, userId: string, id: string, title?: 
         .from(tasks)
         .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
     throwIfNotFound(original, "Task");
+    validateTaskRecurrenceRule(original.recurrenceRule, original.zone ?? "UTC");
 
     const [dup] = await tx
         .insert(tasks)
