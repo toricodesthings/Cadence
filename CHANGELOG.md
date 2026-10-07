@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-06
+
 ### Added
 
 - Task notes now format as you write: bold, lists, checklists, links and tables show up right away.
