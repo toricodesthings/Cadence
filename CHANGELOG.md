@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed non cohesive UI issues.
+
 ## [0.29.4] - 2026-10-07
 
 ### Fixed
