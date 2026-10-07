@@ -9,7 +9,7 @@
 import type { TaskNote } from "@cadence/contracts/note";
 import type { NoteSavePayload, WalEntry } from "../api/offline-wal";
 import { ApiErrorResponse, isNetworkFailure } from "../../types/api";
-import type { DraftRecord, NoteJournal } from "./note-journal";
+import { keepRecoveryCopy, type DraftRecord, type NoteJournal } from "./note-journal";
 import { reconcileNote } from "./note-reconcile";
 
 export const NOTE_MAX_CHARS = 50_000;
@@ -109,7 +109,8 @@ export class NoteSession {
     private driveAgain = false;
     private journalRun: Promise<void> | null = null;
     private retries = 0;
-    private seenOps = new Set<string>();
+    /** The text this branch last handed to the offline queue, so its delivery reads as ours, not as someone else's edit. */
+    private queuedSnapshot: { body: string; gen: number } | null = null;
     private releaseBranch: () => void = () => {};
     private unsubscribeWal: () => void = () => {};
     private disposed = false;
@@ -181,6 +182,7 @@ export class NoteSession {
     }
 
     private async doLoad() {
+        this.releaseBranch();
         this.releaseBranch = this.deps.holdBranch(this.branch);
         let note: TaskNote | null | undefined;
         try {
@@ -189,7 +191,10 @@ export class NoteSession {
             note = this.deps.cachedNote();
         }
         if (this.disposed) return;
-        if (note === undefined) return this.set({ loadFailed: true });
+        if (note === undefined) {
+            this.loading = null; // Retry loads again
+            return this.set({ loadFailed: true });
+        }
 
         const body = note?.body ?? this.deps.legacySeed?.() ?? "";
         this.state = { ...this.state, loaded: true, loadFailed: false, body, baseBody: note?.body ?? "", baseVersion: note?.version ?? 0 };
@@ -219,6 +224,9 @@ export class NoteSession {
             if (this.deps.walEntries().some((e) => e.op.type === "upsert_note" && e.op.taskId === this.deps.ownerId && e.op.payload.branch === record.branch)) continue;
             if (record.body !== this.state.body || record.baseVersion !== this.state.baseVersion) {
                 this.adoptDraft(record);
+                // On the device under this branch first: the closed tab's copy is about to go.
+                await this.writeJournal();
+                if (this.state.journalFailed) continue;
             }
             await this.deps.journal.remove(this.deps.userId, this.deps.ownerId, record.branch).catch(() => {});
         }
@@ -345,6 +353,7 @@ export class NoteSession {
             try {
                 const note = await this.deps.send(payload);
                 if (!note) {
+                    this.queuedSnapshot = snapshot;
                     this.firstDirtyAt = 0;
                     this.set({ sending: false, queued: true, problem: null });
                     return;
@@ -361,7 +370,6 @@ export class NoteSession {
 
     private acknowledge(note: TaskNote, gen: number) {
         this.retries = 0;
-        this.seenOps.add(`${note.version}`);
         this.deps.publish((old) => ({ ...(old ?? note), ...note }));
         this.set({ sending: false, queued: false, problem: null, baseBody: note.body, baseVersion: note.version, ackedGen: Math.max(this.state.ackedGen, gen) });
         if (this.state.gen === this.state.ackedGen) {
@@ -461,6 +469,13 @@ export class NoteSession {
             }
             this.set({ queued: false });
             if (!remote) return void this.fail("deleted");
+            const delivered = this.queuedSnapshot;
+            this.queuedSnapshot = null;
+            if (delivered && remote.version > this.state.baseVersion) {
+                // Our queued text reached the server: it is the base for anything typed since, not a rival edit.
+                if (remote.body === delivered.body) this.acknowledge(remote, delivered.gen);
+                else this.set({ baseBody: delivered.body });
+            }
             this.receiveRemote(remote);
             if (this.state.gen !== this.state.ackedGen) this.scheduleSave();
         } else if (ours) {
@@ -525,9 +540,8 @@ export class NoteSession {
     discardQueued?: (branch: string) => void;
 
     private async keepRecovery(body: string) {
-        const record: DraftRecord = { branch: `recovery-${this.branch}`, baseBody: "", baseVersion: 0, body, gen: 0, updatedAt: Date.now(), kind: "recovery" };
-        this.set({ recovery: { body, at: record.updatedAt } });
-        await this.deps.journal.put(this.deps.userId, this.deps.ownerId, record).catch(() => {});
+        this.set({ recovery: { body, at: Date.now() } });
+        await keepRecoveryCopy(this.deps.journal, this.deps.userId, this.deps.ownerId, this.branch, body).catch(() => {});
     }
 
     async discardRecovery() {

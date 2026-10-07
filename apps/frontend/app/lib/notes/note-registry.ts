@@ -24,7 +24,17 @@ const sessions = new Map<string, Entry>();
 const keyOf = (userId: string, owner: string) => `${userId}:${owner}`;
 const LINGER_MS = 30_000;
 
+let watchingPage = false;
+/** Hidden or closing tab: drafts go to the device and pending saves go out, for every note open anywhere in the tab. */
+function watchPage() {
+    if (watchingPage || typeof document === "undefined") return;
+    watchingPage = true;
+    document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && checkpointNoteSessions());
+    window.addEventListener("pagehide", checkpointNoteSessions);
+}
+
 export function acquireNoteSession(queryClient: QueryClient, userId: string, ownerId: string, legacySeed?: () => string): NoteSession {
+    watchPage();
     for (const [key, entry] of sessions) {
         if (!key.startsWith(`${userId}:`)) drop(key, entry);
     }
@@ -83,11 +93,17 @@ export function releaseNoteSession(userId: string, ownerId: string) {
     entry.timer = setTimeout(retire, LINGER_MS);
 }
 
-function drop(key: string, entry: Entry) {
+/** Keeps the draft on the device but sends nothing: after an account switch, a request would go out as the new account. */
+function drop(key: string, entry: Entry, keepDraft = true) {
     clearTimeout(entry.timer);
-    entry.session.checkpoint();
+    if (keepDraft) void entry.session.persist();
     entry.session.dispose();
     sessions.delete(key);
+}
+
+/** Sign-out that drops unsynced work: close every session without writing anything more. */
+export function discardNoteSessions() {
+    for (const [key, entry] of sessions) drop(key, entry, false);
 }
 
 /** Save everything pending in this tab (sign-out, hide). */

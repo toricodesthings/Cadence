@@ -5,7 +5,7 @@ import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import { toast } from "sonner";
 import { useNoteRoomStore } from "../../stores/note-room-store";
-import { useTaskNote, useNoteSessionLifecycle } from "../../hooks/tasks/use-task-note";
+import { useTaskNote } from "../../hooks/tasks/use-task-note";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useKeyboardInset } from "../../hooks/ui/use-keyboard-inset";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
@@ -72,7 +72,6 @@ export function TaskNoteRoom() {
 
 function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTitle: string; onClose: () => void }) {
     const { task, session, state, status, isLoading, loadFailed } = useTaskNote(taskId);
-    useNoteSessionLifecycle();
     const shell = useShellMode();
     const phone = shell.isPhone;
     const fade = useReducedMotionSetting() ? 0 : 0.15;

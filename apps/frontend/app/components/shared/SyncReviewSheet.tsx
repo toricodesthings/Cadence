@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Habit } from "@cadence/contracts/habit";
 import type { Task } from "@cadence/contracts/task";
@@ -10,6 +10,9 @@ import { queryKeys } from "../../lib/api/query-keys";
 import type { WalEntry } from "../../lib/api/offline-wal";
 import { replaceWalEntryOp, removeWalEntry } from "../../lib/api/offline-wal";
 import { toRequests, replayWal } from "../../lib/api/mutation-executor";
+import { keepRecoveryCopy, noteJournal } from "../../lib/notes/note-journal";
+import { copyText } from "../tasks/note/note-export";
+import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { fetchTaskNote } from "../../hooks/tasks/use-task-note-api";
 import { NoteConflictSheet } from "../tasks/note/NoteConflictSheet";
 import { toast } from "sonner";
@@ -17,11 +20,17 @@ import { toast } from "sonner";
 /** A queued note edit that overlapped a newer version: both texts side by side, then keep either. */
 function QueuedNoteConflict({ entry, title, onClose }: { entry: WalEntry; title?: string; onClose: () => void }) {
     const queryClient = useQueryClient();
+    const userId = useAuthState().session?.user.id;
     const op = entry.op as Extract<WalEntry["op"], { type: "upsert_note" }>;
     const [latest, setLatest] = useState<{ body: string; version: number } | null>(null);
     useEffect(() => {
-        void fetchTaskNote(op.taskId).then((n) => setLatest({ body: n?.body ?? "", version: n?.version ?? 0 })).catch(() => toast.error("Couldn’t load the latest version"));
-    }, [op.taskId]);
+        void fetchTaskNote(op.taskId).then((n) => setLatest({ body: n?.body ?? "", version: n?.version ?? 0 })).catch(() => {
+            toast.error("Couldn’t load the latest version");
+            onClose();
+        });
+    }, [op.taskId, onClose]);
+    // The version not picked stays on this device until discarded in the note.
+    const setAside = (body: string) => (userId ? keepRecoveryCopy(noteJournal, userId, op.taskId, entry.id, body).catch(() => undefined) : undefined);
     if (!latest) return null;
     return (
         <NoteConflictSheet
@@ -31,17 +40,18 @@ function QueuedNoteConflict({ entry, title, onClose }: { entry: WalEntry; title?
             latest={latest.body}
             taskTitle={title}
             onUseMine={async () => {
-                // Saved on top of the latest version; the latest stays available through the note's history of saves.
+                await setAside(latest.body);
                 const next = { ...op, payload: { ...op.payload, expectedVersion: latest.version, baseBody: latest.body, opId: crypto.randomUUID() } };
                 await replaceWalEntryOp(entry.id, next, toRequests(next));
                 onClose();
                 void replayWal(queryClient);
             }}
             onUseLatest={async () => {
+                await setAside(op.payload.body);
                 await removeWalEntry(entry.id);
                 await queryClient.invalidateQueries({ queryKey: queryKeys.notes.detail(op.taskId) });
                 onClose();
-                toast("Kept the latest version", { action: { label: "Copy mine", onClick: () => void navigator.clipboard?.writeText(op.payload.body) } });
+                toast("Kept the latest version. Yours is set aside in the note.", { action: { label: "Copy mine", onClick: () => void copyText(op.payload.body) } });
             }}
         />
     );
@@ -56,6 +66,7 @@ export function SyncReviewSheet({ open, onClose }: { open: boolean; onClose: () 
     const queryClient = useQueryClient();
     const [confirming, setConfirming] = useState<string | null>(null);
     const [reviewing, setReviewing] = useState<WalEntry | null>(null);
+    const stopReviewing = useCallback(() => setReviewing(null), []);
     const failed = outbox.failed;
 
     useEffect(() => {
@@ -111,7 +122,7 @@ export function SyncReviewSheet({ open, onClose }: { open: boolean; onClose: () 
                     </li>
                 ))}
             </ul>
-            {reviewing && <QueuedNoteConflict entry={reviewing} title={titleOf((reviewing.op as { taskId: string }).taskId)} onClose={() => setReviewing(null)} />}
+            {reviewing && <QueuedNoteConflict entry={reviewing} title={titleOf((reviewing.op as { taskId: string }).taskId)} onClose={stopReviewing} />}
         </UtilitySheet>
     );
 }

@@ -5,7 +5,7 @@ import { getNoteOwnerTaskId } from "../../lib/notes/recurring-note-scope";
 import { useTaskNoteQuery } from "./use-task-note-api";
 import { useAuthState } from "../auth/use-auth-state";
 import { useOnlineStatus } from "../core/use-online-status";
-import { acquireNoteSession, releaseNoteSession, checkpointNoteSessions } from "../../lib/notes/note-registry";
+import { acquireNoteSession, releaseNoteSession } from "../../lib/notes/note-registry";
 import { onNoteSaved } from "../../lib/notes/note-channel";
 import { queryKeys } from "../../lib/api/query-keys";
 import { noteStatus, type NoteSession } from "../../lib/notes/note-session";
@@ -69,18 +69,4 @@ export function useTaskNote(taskId: string | null) {
         isLoading: !session || !state?.loaded,
         loadFailed: state?.loadFailed ?? false,
     };
-}
-
-/** Persist drafts when the tab is hidden or closing (storage writes, not a network promise). */
-export function useNoteSessionLifecycle() {
-    useEffect(() => {
-        const hide = () => checkpointNoteSessions();
-        const visibility = () => document.visibilityState === "hidden" && hide();
-        document.addEventListener("visibilitychange", visibility);
-        window.addEventListener("pagehide", hide);
-        return () => {
-            document.removeEventListener("visibilitychange", visibility);
-            window.removeEventListener("pagehide", hide);
-        };
-    }, []);
 }

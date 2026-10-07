@@ -6,6 +6,10 @@ import { cn } from "../../../lib/utils";
 import { caretRect } from "./note-selection";
 import type { NoteCommand } from "./note-commands";
 
+/** Ids the editor points at (aria-activedescendant) so a screen reader announces the highlighted row. */
+export const SLASH_LIST_ID = "note-slash-list";
+export const slashOptionId = (commandId: string) => `note-slash-${commandId.replace(/[^\w-]/g, "-")}`;
+
 /**
  * The "/" menu, anchored at the real caret. Presentational: the editor owns the query, the
  * highlighted row and the keys, so Escape and arrows are handled in one place and nothing listens globally.
@@ -18,6 +22,7 @@ export function NoteSlashMenu({
     bottomInset,
     onPick,
     onHover,
+    onDismiss,
 }: {
     editor: Editor;
     anchorPos: number;
@@ -26,6 +31,7 @@ export function NoteSlashMenu({
     bottomInset: number;
     onPick: (command: NoteCommand) => void;
     onHover: (index: number) => void;
+    onDismiss: () => void;
 }) {
     const listRef = useRef<HTMLDivElement>(null);
     const virtualRef = useMemo(() => ({ current: { getBoundingClientRect: () => caretRect(editor, anchorPos) } }), [editor, anchorPos]);
@@ -47,16 +53,19 @@ export function NoteSlashMenu({
                 // The editor keeps focus and the keys; the menu is only ever pointed at.
                 onOpenAutoFocus={(e) => e.preventDefault()}
                 onCloseAutoFocus={(e) => e.preventDefault()}
+                // Radix takes Escape before the editor and marks it handled (ProseMirror then skips it), so the menu closes itself here.
+                onEscapeKeyDown={onDismiss}
                 onInteractOutside={(e) => e.preventDefault()}
                 onMouseDown={(e) => e.preventDefault()}
             >
                 {commands.length === 0 ? (
                     <p className="px-3 py-2.5 text-[15px] text-twilight-text-soft" role="status">No matches. Keep typing, or press Esc.</p>
                 ) : (
-                    <div ref={listRef} role="listbox" aria-label="Insert" className="max-h-72 overflow-y-auto overscroll-contain">
+                    <div ref={listRef} id={SLASH_LIST_ID} role="listbox" aria-label="Insert" className="max-h-72 overflow-y-auto overscroll-contain">
                         {commands.map((cmd, i) => (
                             <div
                                 key={cmd.id}
+                                id={slashOptionId(cmd.id)}
                                 role="option"
                                 aria-selected={i === index}
                                 tabIndex={-1}

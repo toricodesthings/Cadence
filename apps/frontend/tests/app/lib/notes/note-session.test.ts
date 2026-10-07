@@ -235,6 +235,51 @@ describe("offline and failures", () => {
         expect(s.getSnapshot().loaded).toBe(false);
     });
 
+    it("loads again on Retry after a failed load", async () => {
+        let fails = true;
+        const s = make({ fetchNote: async () => { if (fails) throw networkError(); return server; }, cachedNote: () => undefined });
+        await s.load();
+        expect(s.getSnapshot().loadFailed).toBe(true);
+        fails = false;
+        await s.load();
+        expect(s.getSnapshot().loaded).toBe(true);
+        expect(s.getSnapshot().body).toBe("base");
+    });
+
+    it("doesn't ask for review of its own queued save when typing continued meanwhile", async () => {
+        let walChanged!: () => void;
+        sendImpl = async (p) => {
+            wal = [{ id: "w", op: { type: "upsert_note", taskId: "t", payload: p }, status: "pending", attempted: true, createdAt: 0 } as WalEntry];
+            return undefined;
+        };
+        const s = make({ subscribeWal: (cb) => { walChanged = cb; return () => {}; } });
+        await s.load();
+        s.edit("base A");
+        await settle();
+        s.edit("base AB"); // the queued request is already out, so this waits on the device
+        await settle();
+        expect(sent).toHaveLength(1);
+
+        // The queue delivers the older text.
+        sendImpl = applyToServer;
+        server = note("base A", 2);
+        wal = [];
+        walChanged();
+        await settle();
+        expect(s.status).toBe("saved");
+        expect(server?.body).toBe("base AB");
+    });
+
+    it("journals an adopted draft under its own branch before dropping the closed tab's copy", async () => {
+        journal.records.set("old", { branch: "old", baseBody: "base", baseVersion: 1, body: "base, unsaved", gen: 3, updatedAt: 1, kind: "draft" });
+        sendImpl = async () => { throw networkError(); };
+        const s = make();
+        await s.load();
+        await settle();
+        expect(journal.records.has("old")).toBe(false);
+        expect(journal.records.get(s.branch)?.body).toBe("base, unsaved");
+    });
+
     it("seeds legacy content only when the server has no note, without saving it", async () => {
         server = null;
         const s = make({ legacySeed: () => "old task text" });

@@ -6,13 +6,17 @@ import { NoteFind } from "../../../lib/notes/note-find";
 import type { NoteSession } from "../../../lib/notes/note-session";
 import { openExternalUrl } from "../../../platform/runtime";
 import { cn } from "../../../lib/utils";
-import { NoteSlashMenu } from "./NoteSlashMenu";
+import { NoteSlashMenu, SLASH_LIST_ID, slashOptionId } from "./NoteSlashMenu";
 import { NoteLinkPopover } from "./NoteLinkPopover";
 import { applyRemoteDoc, posAtPoint } from "./note-selection";
 import { filterSlashCommands, type NoteCommand } from "./note-commands";
 
-/** Report typing to the session this often at most (the session journals ~150ms after, saves after idle). */
+/** Report typing to the session after this pause (the session journals ~150ms after, saves after idle)… */
 const REPORT_MS = 120;
+/** …and at least this often while typing never pauses, so the journal and the 2s save cap still apply. */
+const REPORT_MAX_MS = 1_000;
+/** A view nobody is typing in takes text from elsewhere after this lull: not a whole-note re-parse per keystroke burst. */
+const BACKGROUND_APPLY_MS = 400;
 
 interface Slash {
     from: number;
@@ -66,8 +70,11 @@ export function NoteEditor({
     onRequestEdit, onFocusChange, slashBottomInset = 0, className,
 }: NoteEditorProps) {
     const dirty = useRef(false);
+    const dirtySince = useRef(0);
     const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const pendingRemote = useRef<string | null>(null);
+    const remoteTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const settleRemote = useRef<() => void>(() => {});
     const editorRef = useRef<Editor | null>(null);
     const handlers = useRef({ onSave, onFind, onUnfaithful });
     handlers.current = { onSave, onFind, onUnfaithful };
@@ -104,6 +111,7 @@ export function NoteEditor({
     }, [session, viewId]);
 
     const schedule = useCallback((editor: Editor) => {
+        if (!dirty.current) dirtySince.current = Date.now();
         dirty.current = true;
         clearTimeout(timer.current);
         const run = () => {
@@ -111,8 +119,16 @@ export function NoteEditor({
             if (editor.view.composing) timer.current = setTimeout(run, 60);
             else report(editor);
         };
-        timer.current = setTimeout(run, REPORT_MS);
+        timer.current = setTimeout(run, Math.max(0, Math.min(REPORT_MS, REPORT_MAX_MS - (Date.now() - dirtySince.current))));
     }, [report]);
+
+    /** The first Escape closes the menu and leaves the typed text alone. */
+    const dismissSlash = useCallback(() => {
+        if (!slashRef.current) return;
+        dismissed.current = slashRef.current.from;
+        slashRef.current = null;
+        setSlash(null);
+    }, []);
 
     const pickSlash = useCallback((command: NoteCommand) => {
         const editor = editorRef.current;
@@ -161,10 +177,7 @@ export function NoteEditor({
                         return false;
                     }
                     if (event.key === "Escape") {
-                        // The first Escape closes the menu and leaves the typed text alone.
-                        dismissed.current = open.from;
-                        slashRef.current = null;
-                        setSlash(null);
+                        dismissSlash();
                         return true;
                     }
                 }
@@ -190,7 +203,10 @@ export function NoteEditor({
             syncSlash(e);
         },
         onSelectionUpdate: ({ editor: e }) => syncSlash(e),
-        onFocus: () => onFocusChange?.(true),
+        onFocus: () => {
+            settleRemote.current(); // text from elsewhere lands before any typing here
+            onFocusChange?.(true);
+        },
         onBlur: () => {
             const e = editorRef.current;
             if (e && dirty.current) report(e);
@@ -205,6 +221,20 @@ export function NoteEditor({
         return () => onEditor?.(null);
     }, [editor, onEditor]);
 
+    // The editor keeps focus while the slash menu is open, so the highlighted row is named through aria-activedescendant.
+    useEffect(() => {
+        const dom = editor?.view.dom;
+        if (!dom) return;
+        const row = slash && matches.length ? matches[Math.min(slashIndex, matches.length - 1)] : null;
+        if (row) {
+            dom.setAttribute("aria-controls", SLASH_LIST_ID);
+            dom.setAttribute("aria-activedescendant", slashOptionId(row.id));
+        } else {
+            dom.removeAttribute("aria-controls");
+            dom.removeAttribute("aria-activedescendant");
+        }
+    }, [editor, slash, matches, slashIndex]);
+
     useEffect(() => {
         editor?.setEditable(editable);
     }, [editor, editable]);
@@ -212,18 +242,29 @@ export function NoteEditor({
     // The session asks for unreported text before saving, and hands back text from elsewhere.
     useEffect(() => {
         if (!editor) return;
-        const apply = (body: string) => {
-            if (!isFaithful(body)) return handlers.current.onUnfaithful?.();
-            if (editor.view.composing) {
+        const apply = (body: string, now = false) => {
+            if (editor.isDestroyed) return;
+            if (editor.view.composing || (!now && !editor.isFocused)) {
+                // Composition finishes first; an unfocused view (the panel behind the room) catches up in a lull or on focus.
                 pendingRemote.current = body;
+                clearTimeout(remoteTimer.current);
+                remoteTimer.current = setTimeout(settle, BACKGROUND_APPLY_MS);
                 return;
             }
+            if (!isFaithful(body)) return handlers.current.onUnfaithful?.();
             applyRemoteDoc(editor, editor.schema.nodeFromJSON(markdownToDoc(body)));
             setEmpty(editor.isEmpty);
         };
+        const settle = () => {
+            clearTimeout(remoteTimer.current);
+            const body = pendingRemote.current;
+            pendingRemote.current = null;
+            if (body !== null) apply(body, true);
+        };
+        settleRemote.current = settle;
         const detach = session.attachView(
             viewId,
-            apply,
+            (body) => apply(body),
             () => {
                 if (!dirty.current) return null;
                 clearTimeout(timer.current);
@@ -232,13 +273,10 @@ export function NoteEditor({
                 return docToMarkdown(editor.getJSON());
             },
         );
-        const settle = () => {
-            const body = pendingRemote.current;
-            pendingRemote.current = null;
-            if (body !== null) apply(body);
-        };
         editor.view.dom.addEventListener("compositionend", settle);
         return () => {
+            clearTimeout(remoteTimer.current);
+            settleRemote.current = () => {};
             editor.view.dom.removeEventListener("compositionend", settle);
             detach();
         };
@@ -264,7 +302,7 @@ export function NoteEditor({
             className={cn("note-editor relative", className)}
         >
             <EditorContent editor={editor} />
-            {slash && <NoteSlashMenu editor={editor} anchorPos={slash.to} commands={matches} index={slashIndex} bottomInset={slashBottomInset} onPick={pickSlash} onHover={(i) => { slashIndexRef.current = i; setSlashIndex(i); }} />}
+            {slash && <NoteSlashMenu editor={editor} anchorPos={slash.to} commands={matches} index={slashIndex} bottomInset={slashBottomInset} onPick={pickSlash} onDismiss={dismissSlash} onHover={(i) => { slashIndexRef.current = i; setSlashIndex(i); }} />}
             <NoteLinkPopover editor={editor} open={linkOpen} onOpenChange={setLinkOpen} />
         </div>
     );

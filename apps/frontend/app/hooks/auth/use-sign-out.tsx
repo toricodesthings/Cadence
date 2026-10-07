@@ -1,10 +1,11 @@
 import { useState } from "react";
 import * as AlertDialog from "../../components/primitives/AlertDialog";
 import { Button } from "../../components/primitives/Button";
-import { clearWal } from "../../lib/api/offline-wal";
+import { clearWal, getWalSnapshot } from "../../lib/api/offline-wal";
 import { useWalEntries } from "../../lib/api/mutation-outbox";
 import { useAuthState } from "./use-auth-state";
-import { flushNoteSessions, unsyncedNoteCount } from "../../lib/notes/note-registry";
+import { discardNoteSessions, flushNoteSessions, unsyncedNoteCount } from "../../lib/notes/note-registry";
+import { clearNoteJournal } from "../../lib/notes/note-journal";
 
 /**
  * Sign-out for the user's own buttons: changes that haven't synced yet belong to
@@ -12,23 +13,35 @@ import { flushNoteSessions, unsyncedNoteCount } from "../../lib/notes/note-regis
  * when the same account signs back in.) Render `dialog` next to the button.
  */
 export function useSignOut() {
-    const { completeSignOut } = useAuthState();
-    const total = useWalEntries().length;
+    const { completeSignOut, session } = useAuthState();
+    const queued = useWalEntries().length;
+    const [notes, setNotes] = useState(0);
     const [asking, setAsking] = useState(false);
     const [pending, setPending] = useState(false);
+    const total = queued + notes;
 
     const finish = async (dropQueue: boolean) => {
         setPending(true);
         try {
-            if (dropQueue) await clearWal();
-            else await flushNoteSessions(); // text still in a note editor reaches the queue before the account goes
+            if (dropQueue) {
+                discardNoteSessions();
+                await clearWal();
+                if (session) await clearNoteJournal(session.user.id).catch(() => {});
+            }
             await completeSignOut();
         } finally {
             setPending(false);
         }
     };
 
-    const signOut = () => (total + unsyncedNoteCount() > 0 ? (setAsking(true), Promise.resolve()) : finish(false));
+    const signOut = async () => {
+        // Text still in a note editor reaches the queue (or Cadence) before anything is counted.
+        setPending(true);
+        await flushNoteSessions().finally(() => setPending(false));
+        const unsynced = unsyncedNoteCount();
+        setNotes(unsynced);
+        return getWalSnapshot().length + unsynced > 0 ? setAsking(true) : finish(false);
+    };
 
     const dialog = (
         <AlertDialog.Root open={asking} onOpenChange={setAsking}>
