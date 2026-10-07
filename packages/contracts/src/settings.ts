@@ -16,7 +16,10 @@ export const focusViewDefinitionSchema = z.object({
     needsDate: z.boolean(),
     needsProject: z.boolean(),
     priorityMin: z.number().int().min(0).max(4).nullable(),
+    // Defaulted so definitions stored before these filters existed still parse.
+    effortMin: z.number().int().min(1).max(3).nullable().default(null),
     effortMax: z.number().int().min(1).max(3).nullable(),
+    durationMaxMinutes: z.number().int().min(1).nullable().default(null),
     dueWindow: z.enum(["overdue", "today", "this_week", "this_month"]).nullable(),
     waitingOnly: z.boolean(),
     missingStructureOnly: z.boolean(),

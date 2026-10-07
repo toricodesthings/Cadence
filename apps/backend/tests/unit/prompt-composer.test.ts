@@ -50,6 +50,11 @@ describe("isWorkloadHigh", () => {
         expect(isWorkloadHigh(70, true)).toBe(false);
         expect(isWorkloadHigh(95, false)).toBe(false);
     });
+
+    // 0.30.0 (B08): unknown workload is not a workload state.
+    it("is never high when the index is unknown", () => {
+        expect(isWorkloadHigh(null, true)).toBe(false);
+    });
 });
 
 describe("composePrompt", () => {

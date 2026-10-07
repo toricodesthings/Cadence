@@ -46,6 +46,13 @@ export interface Env {
     /** Email Sending binding (`send_email`) that mails people their data export. When absent, POST /account/export answers 503. */
     EMAIL?: SendEmail;
 
+    // ── Web Push (reminders on devices) ──
+    // A VAPID key pair (base64url: 65-byte public point, 32-byte private scalar). Without both, push stays off: /push/config answers no key and nothing is sent.
+    VAPID_PUBLIC_KEY?: string;
+    VAPID_PRIVATE_KEY?: string;
+    /** `mailto:` or https contact the push services can reach. Defaults to the support address. */
+    VAPID_SUBJECT?: string;
+
     // ── MCP (outside assistants) ──
     /** OAuth provider storage (clients, grants, token hashes). When absent, MCP answers 503. */
     OAUTH_KV?: KVNamespace;

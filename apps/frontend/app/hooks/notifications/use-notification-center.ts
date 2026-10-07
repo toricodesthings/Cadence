@@ -75,7 +75,7 @@ function toNotificationRecord(notification: AppNotification): { objectType: "tas
     if (!notification.entityId) return null;
 
     return {
-        objectType: notification.kind === "habit-reminder" ? "habit" : notification.kind === "system" ? "event" : "task",
+        objectType: notification.kind === "habit-reminder" ? "habit" : notification.kind === "system" || notification.kind === "personal-event" ? "event" : "task",
         objectId: notification.entityId,
         triggerId: notification.id,
     };
@@ -93,7 +93,7 @@ function emitChange() {
     versionStore.set(versionStore.get() + 1);
 }
 
-function getDismissalState(): NotificationDismissalState {
+export function getDismissalState(): NotificationDismissalState {
     return { dismissedIds, deferredUntil };
 }
 
@@ -113,7 +113,14 @@ export function useNotificationCenter() {
     const quietHoursEnabled = settings?.notifications?.quietHoursEnabled ?? false;
     const quietHoursStart = settings?.notifications?.quietHoursStart ?? null;
     const quietHoursEnd = settings?.notifications?.quietHoursEnd ?? null;
+    const habitLeadMinutes = settings?.notifications?.habitReminderLeadMinutes ?? 15;
     const bundleMissedHabits = settings?.notifications?.bundleMissedRoutinePrompts !== false;
+    // Yearly events with their bell on join the reminder candidates.
+    const personalEvents = settings?.calendar?.personalEvents;
+    const notifiedEvents = useMemo(
+        () => (personalEvents?.enabled ? (personalEvents.items ?? []) : []),
+        [personalEvents],
+    );
 
     // The bell is decoration: its reads start after the workspace reveals (the badge fades in).
     const revealed = useContext(StartupReadyContext);
@@ -201,7 +208,7 @@ export function useNotificationCenter() {
     const allNotifications = useMemo(() => {
         const now = nowRef.current;
         // Step 1: Pure candidate derivation
-        const candidates = deriveCandidates(tasks, habits, now);
+        const candidates = deriveCandidates(tasks, habits, now, { personalEvents: notifiedEvents, habitLeadMinutes });
         // Step 2: Behavior filtering (preferences, quiet hours, bundling)
         const filtered = filterByBehavior(candidates, now, {
             taskReminders,
@@ -219,7 +226,7 @@ export function useNotificationCenter() {
         });
         return filtered;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tasks, habits, taskReminders, habitReminders, dueDateAlerts, quietHoursEnabled, quietHoursStart, quietHoursEnd, bundleMissedHabits, version]);
+    }, [tasks, habits, notifiedEvents, taskReminders, habitReminders, dueDateAlerts, habitLeadMinutes, quietHoursEnabled, quietHoursStart, quietHoursEnd, bundleMissedHabits, version]);
 
     // Step 3: Persistence-aware presentation
     const notifications = useMemo(() => {

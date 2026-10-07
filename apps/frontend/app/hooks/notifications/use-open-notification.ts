@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { buildFocusSearchParams } from "../search/use-route-focus";
 import type { AppNotification } from "../../lib/notifications/notification-model";
@@ -19,4 +20,17 @@ export function useOpenNotification(markRead: (id: string) => void, onClose: () 
         });
         onClose();
     };
+}
+
+/** A tap on a reminder shown by the service worker (sw.js) lands on its target in the already-open app. */
+export function useNotificationTapRouting() {
+    const navigate = useNavigate();
+    useEffect(() => {
+        const onMessage = (event: MessageEvent) => {
+            const { type, route } = (event.data ?? {}) as { type?: string; route?: unknown };
+            if (type === "cadence:open" && typeof route === "string" && route.startsWith("/") && !route.startsWith("//")) navigate(route);
+        };
+        navigator.serviceWorker?.addEventListener("message", onMessage);
+        return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
+    }, [navigate]);
 }

@@ -1,4 +1,5 @@
 import type { ParsedEntity, DurationValue } from "../core/index.js";
+import { isNegatedBefore } from "./guards.js";
 
 const DURATION_PATTERNS: Array<{
   pattern: RegExp;
@@ -123,6 +124,8 @@ export function parseWaitingOn(input: string): EntityParseResult {
   const consumedRanges: Array<{ start: number; end: number }> = [];
 
   const match = input.match(WAITING_PATTERN) || input.match(WAITING_SIMPLE);
+  // "Not waiting on Sam anymore": a release, not a dependency — leave it literal.
+  if (match && isNegatedBefore(input, match.index ?? 0)) return { entities, consumedRanges };
   if (match) {
     const person = match[1].trim();
     if (person.length > 0 && person.length < 100) {

@@ -15,7 +15,7 @@ const SORT_LABELS = { newest: "Newest first", oldest: "Oldest first", priority: 
 type SortOrder = keyof typeof SORT_LABELS;
 
 export function NotificationCenter({
-    grouped, hasUnread, markRead, markUnread, markAllRead, dismiss, dismissMany, defer, onClose, onOpenSettings, fullPage = false,
+    grouped, hasUnread, markRead, markUnread, markAllRead, dismiss, dismissMany, defer, onClose, onOpenSettings, banner, fullPage = false,
 }: {
     grouped: GroupedNotifications[];
     hasUnread: boolean;
@@ -28,6 +28,8 @@ export function NotificationCenter({
     onClose: () => void;
     fullPage?: boolean;
     onOpenSettings?: () => void;
+    /** Shown above the list (the device-notifications offer). */
+    banner?: React.ReactNode;
 }) {
     const handleOpen = useOpenNotification(markRead, onClose);
     const [unreadOnly, setUnreadOnly] = useState(false);
@@ -107,6 +109,7 @@ export function NotificationCenter({
             </div>
         </div>
 
+        {banner}
         <div ref={listRef} tabIndex={-1} aria-label="Notification list" className="notification-center-list min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary">
             {visible.length === 0 ? <div className="flex min-h-56 flex-col items-center justify-center gap-4 px-5 py-10 text-center">
                 <div className="flex size-14 items-center justify-center rounded-2xl bg-accent-primary-dim text-accent-primary"><BellRing size={24} aria-hidden="true" /></div>

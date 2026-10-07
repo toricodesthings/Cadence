@@ -7,6 +7,7 @@ import { withRls } from "../platform/rls";
 import { computeWorkloadSignals, overdueOn } from "../platform/metrics";
 import { userZone } from "../platform/user-zone";
 import { logger, hashIdentifier, issuesFromError } from "../platform/log";
+import { prunePushDeliveries } from "../domains/push/dispatch";
 import type { Env } from "../types/env";
 import type { Tx } from "../types/db";
 
@@ -165,15 +166,16 @@ const PRUNE_HOUR_UTC = 6;
 export async function runHourlyCron(env: Env, now: Date = new Date()) {
     const prune = now.getUTCHours() === PRUNE_HOUR_UTC;
     const skipped = Promise.resolve(undefined);
-    const [overdue, mutations, memories, images, usage] = await Promise.allSettled([
+    const [overdue, mutations, memories, images, usage, pushClaims] = await Promise.allSettled([
         handleOverdueCheck(env, now),
         prune ? pruneStaleMutations(env, now) : skipped,
         prune ? pruneAiMemories(env, now) : skipped,
         prune ? pruneAiImages(env, now) : skipped,
         prune ? pruneUsageEvents(env, now) : skipped,
+        prune ? prunePushDeliveries(env, now) : skipped,
     ]);
     const ok = <T>(result: PromiseSettledResult<T>) => (result.status === "fulfilled" ? result.value : undefined);
-    const failed = Object.entries({ overdue, mutations, memories, images, usage }).filter(([, r]) => r.status === "rejected");
+    const failed = Object.entries({ overdue, mutations, memories, images, usage, pushClaims }).filter(([, r]) => r.status === "rejected");
     for (const [job, result] of failed) {
         logger.error("cron", "cron_job_failed", { job, issues: issuesFromError((result as PromiseRejectedResult).reason) });
     }
@@ -183,6 +185,7 @@ export async function runHourlyCron(env: Env, now: Date = new Date()) {
         prunedMemories: ok(memories),
         prunedImages: ok(images),
         prunedUsageEvents: ok(usage),
+        prunedPushClaims: ok(pushClaims),
         failed: failed.length,
     });
 }

@@ -84,7 +84,9 @@ function describeFocusView(definition: {
     needsDate: boolean;
     needsProject: boolean;
     priorityMin: number | null;
+    effortMin: number | null;
     effortMax: number | null;
+    durationMaxMinutes: number | null;
     dueWindow: "overdue" | "today" | "this_week" | "this_month" | null;
     waitingOnly: boolean;
     missingStructureOnly: boolean;
@@ -105,7 +107,9 @@ function describeFocusView(definition: {
     if (definition.needsDate) parts.push("Needs a date");
     if (definition.needsProject) parts.push("Needs a list");
     if (definition.priorityMin !== null) parts.push(`P${definition.priorityMin}+`);
+    if (definition.effortMin !== null) parts.push(`Effort ≥ ${definition.effortMin}`);
     if (definition.effortMax !== null) parts.push(`Effort ≤ ${definition.effortMax}`);
+    if (definition.durationMaxMinutes !== null) parts.push(`≤ ${definition.durationMaxMinutes} min`);
     if (definition.missingStructureOnly) parts.push("Missing structure");
     return parts.length > 0 ? parts.join(" · ") : "Saved focus view";
 }

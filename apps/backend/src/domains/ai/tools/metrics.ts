@@ -13,7 +13,8 @@ export const metricTools = (env: Env, userId: string, _ctx?: AgentContext) => ({
     get_user_metrics: tool({
         description:
             "The user's workload signals: burnout index, reschedule velocity, completion ratio, overdue load, " +
-            "routine adherence and schedule density.",
+            "routine adherence and schedule density. A null burnout index means there is not enough history " +
+            "to estimate one — say it is unknown, never guess a number.",
         inputSchema: z.object({}),
         execute: async () =>
             safeExecute("get_user_metrics", userId, async () => {

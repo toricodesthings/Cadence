@@ -18,6 +18,7 @@ export function applyFocusView<
     scheduledStart: string | null;
     priority: number;
     effort: number | null;
+    durationEstimate?: number | null | undefined;
     waitingOn?: string | null | undefined;
   },
 >(
@@ -44,6 +45,16 @@ export function applyFocusView<
       return false;
     }
     if (definition.effortMax !== null && task.effort !== null && task.effort > definition.effortMax) {
+      return false;
+    }
+    if (definition.effortMin !== null && task.effort !== null && task.effort < definition.effortMin) {
+      return false;
+    }
+    // "Short" is a known estimate: a task with no estimate is not known to be short.
+    if (
+      definition.durationMaxMinutes !== null &&
+      (task.durationEstimate == null || task.durationEstimate > definition.durationMaxMinutes)
+    ) {
       return false;
     }
     if (definition.waitingOnly && !task.waitingOn) {

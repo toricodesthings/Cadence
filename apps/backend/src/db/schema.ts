@@ -110,7 +110,7 @@ export const userMetrics = pgTable('user_metrics', {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
     rescheduleVelocity: real('reschedule_velocity').default(0).notNull(), // Averages how often tasks are pushed back
-    currentBurnoutIndex: integer('current_burnout_index').default(10).notNull(), // 1-100 score indicating cognitive load
+    currentBurnoutIndex: integer('current_burnout_index'), // 1-100 score indicating cognitive load; NULL = not enough evidence to say
     completionRatio: real('completion_ratio').default(0).notNull(), // completed / (completed + overdue) over rolling window
     overdueCarryLoad: integer('overdue_carry_load').default(0).notNull(), // number of tasks currently overdue
     habitAdherenceRate: real('habit_adherence_rate').default(0).notNull(), // completed / (completed + skipped) rolling 14 days
@@ -779,6 +779,67 @@ export const notificationState = pgTable(
             .on(table.userId, table.objectId, table.triggerId),
         deferredUntilIdx: index("notification_state_deferred_until_idx").on(table.deferredUntil),
         rlsPolicy: pgPolicy("notification_state_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
+    }),
+).enableRLS();
+
+// 13c. Web Push subscriptions (one per browser profile / installed app; deleting one turns that device off)
+export const pushSubscriptions = pgTable(
+    "push_subscriptions",
+    {
+        id: uuid("id").defaultRandom().primaryKey(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        endpoint: text("endpoint").notNull(),
+        p256dh: text("p256dh").notNull(),
+        auth: text("auth").notNull(),
+        lastSuccessAt: timestamptz("last_success_at"),
+        failureCount: integer("failure_count").default(0).notNull(),
+        createdAt: timestamptz("created_at")
+            .default(sql`now()`)
+            .notNull(),
+    },
+    (table) => ({
+        endpointIdx: uniqueIndex("push_subscriptions_endpoint_unique").on(table.endpoint),
+        userIdx: index("push_subscriptions_user_idx").on(table.userId),
+        rlsPolicy: pgPolicy("push_subscriptions_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
+    }),
+).enableRLS();
+
+// 13d. Push outbox: one row claims one reminder occurrence for one device, so no scheduler run repeats it.
+export const pushDeliveries = pgTable(
+    "push_deliveries",
+    {
+        id: uuid("id").defaultRandom().primaryKey(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        subscriptionId: uuid("subscription_id")
+            .references(() => pushSubscriptions.id, { onDelete: "cascade" })
+            .notNull(),
+        occurrenceKey: text("occurrence_key").notNull(),
+        /** pending = claimed (lease), sent = accepted by the push service. A failed send releases the claim. */
+        status: text("status").default("pending").notNull(),
+        attempts: integer("attempts").default(1).notNull(),
+        leaseUntil: timestamptz("lease_until").notNull(),
+        createdAt: timestamptz("created_at")
+            .default(sql`now()`)
+            .notNull(),
+    },
+    (table) => ({
+        occurrenceIdx: uniqueIndex("push_deliveries_subscription_occurrence_unique").on(table.subscriptionId, table.occurrenceKey),
+        createdIdx: index("push_deliveries_created_idx").on(table.createdAt),
+        rlsPolicy: pgPolicy("push_deliveries_owner_access", {
             as: "permissive",
             for: "all",
             using: rlsUsing,

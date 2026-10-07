@@ -65,7 +65,7 @@ export interface AgentBuildOptions {
 async function loadUserContext(
     env: Env,
     userId: string,
-): Promise<{ burnoutIndex: number; persona: AssistantPersona; weekStart: PromptRuntimeContext["weekStart"] }> {
+): Promise<{ burnoutIndex: number | null; persona: AssistantPersona; weekStart: PromptRuntimeContext["weekStart"] }> {
     const db = getDbClient(env);
     return withRls(db, userId, async (tx) => {
         const [metricsRow] = await tx
@@ -85,7 +85,8 @@ async function loadUserContext(
         const persona = { ...SETTINGS_DEFAULTS.assistant, ...stored } as AssistantPersona;
         const weekStart = ((userRow?.settings as any)?.dateTime?.weekStart ?? "Sunday") as PromptRuntimeContext["weekStart"];
 
-        return { burnoutIndex: metricsRow?.currentBurnoutIndex ?? 10, persona, weekStart };
+        // No metrics row (or a null index) means no evidence yet — unknown, not a low score.
+        return { burnoutIndex: metricsRow?.currentBurnoutIndex ?? null, persona, weekStart };
     });
 }
 
@@ -108,7 +109,8 @@ async function maybeRetrieveMemories(
         const embedded = await embedText(env, queryText, { requestId, userHash });
         spend = embedded.spend;
         const db = getDbClient(env);
-        const memories = await withRls(db, userId, (tx) => retrieveMemories(tx, userId, embedded.embedding));
+        // Only rows embedded by the same model as the query are comparable.
+        const memories = await withRls(db, userId, (tx) => retrieveMemories(tx, userId, embedded.embedding, embedded.spend.model));
         return { memories, spend };
     } catch (error) {
         logger.warn("ai", "memory_retrieval_failed", {

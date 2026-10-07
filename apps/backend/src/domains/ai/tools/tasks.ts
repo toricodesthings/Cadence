@@ -296,11 +296,11 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 "Returns each taskId and its subtaskIds. Never for a task that already exists: use update_tasks.",
             inputSchema: z.object({
                 tasks: z.array(taskDraftSchema.extend({
-                    inboxItemId: z.uuid().optional().describe("The capture this task is made from."),
+                    inboxItemId: z.uuid().optional().describe("The capture this task is made from. A reminder and a hide-until day carry over; a capture can't become a Fixed block."),
                 }).refine(
                     // null and false set nothing: a model that sends every field sends them for "none".
-                    (d) => !d.inboxItemId || [d.fixed, d.reminderAt, d.hideUntil].every((v) => !v),
-                    "A task from a capture takes no fixed, reminder or hide-until",
+                    (d) => !d.inboxItemId || !d.fixed,
+                    "A task from a capture can't be a Fixed block",
                 )).min(1).max(20),
             }),
             execute: async ({ tasks: drafts }, { toolCallId }) =>
@@ -314,7 +314,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             created.push(...await createTasks(tx, userId, [{ ...draft, tagIds: allTagIds, notBefore: hideUntil }]));
                             continue;
                         }
-                        const { subtasks: steps, note, fixed: _fixed, reminderAt: _reminder, ...fields } = draft;
+                        const { subtasks: steps, note, fixed: _fixed, ...fields } = draft;
                         const { task } = await processCapture(tx, userId, inboxItemId, {
                             ...fields,
                             // Explicit nulls: the capture's own words never add a date, list or tags.
@@ -323,6 +323,8 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             scheduledEnd: fields.scheduledEnd ?? null,
                             projectId: fields.projectId ?? null,
                             sectionId: fields.sectionId ?? null,
+                            reminderAt: fields.reminderAt ?? null,
+                            notBefore: hideUntil ?? null,
                             tagIds: allTagIds,
                         }, { subtasks: steps, note });
                         created.push({ inboxItemId, taskId: task.id, title: task.title });
@@ -558,7 +560,10 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         if (view.needsDate) conditions.push(hasNoDay());
         if (view.needsProject) conditions.push(isNull(tasks.projectId));
         if (view.priorityMin !== null) conditions.push(gte(tasks.priority, view.priorityMin));
+        if (view.effortMin !== null) conditions.push(or(isNull(tasks.effort), gte(tasks.effort, view.effortMin)));
         if (view.effortMax !== null) conditions.push(or(isNull(tasks.effort), lte(tasks.effort, view.effortMax)));
+        // Short = a known estimate at most this long; unknown length is not known-short.
+        if (view.durationMaxMinutes !== null) conditions.push(lte(tasks.durationEstimate, view.durationMaxMinutes));
         if (view.waitingOnly) conditions.push(isNotNull(tasks.waitingOn));
         if (view.missingStructureOnly) conditions.push(or(hasNoDay(), isNull(tasks.projectId)));
         if (view.dueWindow === "overdue") conditions.push(onOrBefore(addDays(ctx.today, -1), zone));

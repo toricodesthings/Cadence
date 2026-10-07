@@ -5,6 +5,7 @@ import type {
     SocialProvider,
 } from "./runtime";
 import { getAuthCallbackUrl } from "./runtime";
+import { readyRegistration } from "../lib/notifications/device-delivery";
 
 function normalizeNotificationPermission(permission: string): NotificationPermissionState {
     if (permission === "granted" || permission === "denied") {
@@ -30,25 +31,21 @@ export const webRuntime = {
 
         return normalizeNotificationPermission(await Notification.requestPermission());
     },
-    async sendNotification(notification: { title: string; body?: string; icon?: string }): Promise<void> {
-        if (typeof window === "undefined" || !("Notification" in window)) {
-            return;
-        }
+    async sendNotification(notification: { title: string; body?: string; icon?: string; route?: string }): Promise<void> {
+        if (typeof window === "undefined" || !("Notification" in window)) throw new Error("Notifications aren't supported here.");
+        if (Notification.permission !== "granted") throw new Error("Notifications aren't allowed.");
 
-        if (Notification.permission !== "granted") {
-            return;
-        }
-
-        const options = { body: notification.body, icon: notification.icon };
-        // iOS home-screen apps have no Notification constructor; they only
-        // notify through the service worker (sw.js handles the click).
-        const registration = await navigator.serviceWorker?.getRegistration().catch(() => undefined);
+        const options = { body: notification.body, icon: notification.icon, data: { route: notification.route ?? "/" } };
+        // Installed apps and phones only notify through the service worker (sw.js routes the tap).
+        const registration = await readyRegistration(3_000);
         if (registration) {
             await registration.showNotification(notification.title, options);
             return;
         }
 
+        // No worker (a dev build, a blocked worker): the constructor works on desktop browsers and throws elsewhere.
         const browserNotification = new Notification(notification.title, options);
+        browserNotification.onclick = () => window.focus();
         window.setTimeout(() => browserNotification.close(), 8_000);
     },
     async openExternalUrl(url: string): Promise<void> {

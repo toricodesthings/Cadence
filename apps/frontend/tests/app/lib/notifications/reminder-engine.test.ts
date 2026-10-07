@@ -89,6 +89,48 @@ describe("deriveCandidates", () => {
         expect(candidates.length).toBe(1);
         expect(candidates[0].kind).toBe("task-reminder");
     });
+
+    // 0.30.0 (B03): waiting follow-ups and yearly events are covered.
+    it("produces one waiting follow-up per check-in, only while still waiting", () => {
+        const now = new Date("2026-03-26T10:00:00.000Z");
+        const waiting: Task = {
+            ...BASE_TASK,
+            state: "WAITING",
+            waitingOn: "Sam",
+            waitingReminder: "2026-03-26T09:30:00.000Z",
+        };
+        const candidates = deriveCandidates([waiting], [], now);
+        expect(candidates.length).toBe(1);
+        expect(candidates[0].kind).toBe("waiting-followup");
+        expect(candidates[0].id).toBe(`waiting-followup::t1::${waiting.waitingReminder}`);
+        expect(candidates[0].body).toContain("Sam");
+
+        // Released (back to active) or done waiting: no nudge.
+        expect(deriveCandidates([{ ...waiting, state: "ACTIVE" }], [], now)).toEqual([]);
+        expect(deriveCandidates([{ ...waiting, state: "COMPLETE" }], [], now)).toEqual([]);
+        expect(deriveCandidates([{ ...waiting, waitingOn: null }], [], now)).toEqual([]);
+    });
+
+    it("produces a personal-event candidate on the day, only with its bell on", () => {
+        const now = at("10:00");
+        const event = { id: "ev1", label: "Mum's birthday", monthDay: "03-26", emoji: null, notify: true, startedOn: null };
+        const candidates = deriveCandidates([], [], now, { personalEvents: [event] });
+        expect(candidates.length).toBe(1);
+        expect(candidates[0].kind).toBe("personal-event");
+        expect(candidates[0].id).toBe("personal-event::ev1::2026-03-26");
+        // Bell off, or another day: nothing.
+        expect(deriveCandidates([], [], now, { personalEvents: [{ ...event, notify: false }] })).toEqual([]);
+        expect(deriveCandidates([], [], at("10:00", "2026-03-27"), { personalEvents: [event] })).toEqual([]);
+    });
+
+    it("observes Feb 29 birthdays on Feb 28 in common years", () => {
+        const event = { id: "ev2", label: "Leap day", monthDay: "02-29", emoji: null, notify: true, startedOn: null };
+        // 2026 is a common year: the nudge lands on Feb 28.
+        expect(deriveCandidates([], [], at("10:00", "2026-02-28"), { personalEvents: [event] }).length).toBe(1);
+        expect(deriveCandidates([], [], at("10:00", "2026-03-01"), { personalEvents: [event] })).toEqual([]);
+        // 2028 is a leap year: the nudge lands on Feb 29 itself.
+        expect(deriveCandidates([], [], at("10:00", "2028-02-29"), { personalEvents: [event] }).length).toBe(1);
+    });
 });
 
 describe("filterByBehavior", () => {
@@ -238,6 +280,6 @@ describe("zone-aware behaviour", () => {
         const night = at("22:30");
         expect(filterByBehavior(deriveCandidates([], [habit], night), night, options)).toHaveLength(0);
         const noon = at("12:00");
-        expect(filterByBehavior([{ id: "x", kind: "habit-reminder", title: "", body: "", triggerAt: noon.toISOString(), entityId: null, route: null, priority: "normal", read: false }], noon, options)).toHaveLength(1);
+        expect(filterByBehavior([{ id: "x", kind: "habit-reminder", title: "", body: "", triggerAt: noon.toISOString(), alertAt: null, entityId: null, route: null, priority: "normal", read: false }], noon, options)).toHaveLength(1);
     });
 });

@@ -131,7 +131,9 @@ type ViewFilters = {
     needsDate?: boolean;
     needsProject?: boolean;
     priorityMin?: number | null;
+    effortMin?: number | null;
     effortMax?: number | null;
+    durationMaxMinutes?: number | null;
     dueWindow?: string | null;
     waitingOnly?: boolean;
     missingStructureOnly?: boolean;
@@ -152,7 +154,9 @@ function useFilterSummary(filters: ViewFilters = {}) {
         filters.needsDate ? "No date" : null,
         filters.needsProject ? "No list" : null,
         filters.priorityMin ? `${PRIORITY_OPTIONS.find((o) => o.value === filters.priorityMin)?.label ?? filters.priorityMin}+ priority` : null,
+        filters.effortMin ? `${EFFORT_OPTIONS.find((o) => o.value === filters.effortMin)?.label ?? filters.effortMin} effort or more` : null,
         filters.effortMax ? `${EFFORT_OPTIONS.find((o) => o.value === filters.effortMax)?.label ?? filters.effortMax} effort or less` : null,
+        filters.durationMaxMinutes ? `${filters.durationMaxMinutes} min or less` : null,
         filters.dueWindow ? DUE_COPY[filters.dueWindow] ?? filters.dueWindow : null,
         filters.waitingOnly ? "Waiting only" : null,
         filters.missingStructureOnly ? "Missing a date or list" : null,

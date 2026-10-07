@@ -1,11 +1,8 @@
 import { dayOf, todayIn } from "@cadence/domain/time";
 import { getUserZone } from "../utils/user-zone";
 
-export type NotificationKind =
-    | "task-reminder"
-    | "task-due"
-    | "habit-reminder"
-    | "system";
+export type { ReminderKind as NotificationKind } from "@cadence/domain/reminders";
+import type { ReminderKind as NotificationKind } from "@cadence/domain/reminders";
 
 export type NotificationPriority = "normal" | "high";
 
@@ -17,6 +14,8 @@ export interface AppNotification {
     body: string;
     /** Instant the notification becomes relevant */
     triggerAt: string;
+    /** Instant an OS alert is due; null = never alerts the OS */
+    alertAt: string | null;
     /** Entity id this notification relates to (task or habit id) */
     entityId: string | null;
     /** Route to navigate to when clicked */

@@ -19,8 +19,8 @@ import type { PromptBlocks, PromptRuntimeContext } from "./prompt-blocks.schema"
 /** Burnout above this (with adaptive tone on) makes the workload "high". */
 const HIGH_WORKLOAD_BURNOUT = 70;
 
-export function isWorkloadHigh(burnoutIndex: number, adaptiveTone: boolean): boolean {
-    return adaptiveTone && burnoutIndex > HIGH_WORKLOAD_BURNOUT;
+export function isWorkloadHigh(burnoutIndex: number | null, adaptiveTone: boolean): boolean {
+    return adaptiveTone && burnoutIndex !== null && burnoutIndex > HIGH_WORKLOAD_BURNOUT;
 }
 
 const APPROVAL_LABEL: Record<ApprovalMode, string> = { ask: "ask first", auto: "auto", full: "full" };

@@ -19,6 +19,7 @@
     "./events": "./src/events.ts",
     "./proxy": "./src/proxy.ts",
     "./notification": "./src/notification.ts",
+    "./push": "./src/push.ts",
     "./connections": "./src/connections.ts",
     "./account": "./src/account.ts"
   },

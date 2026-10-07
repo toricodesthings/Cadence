@@ -7,6 +7,7 @@ import { UtilitySheet } from "../shared/UtilitySheet";
 import { Dialog, DialogContent, DialogTitle } from "../primitives/Dialog";
 import { Tip } from "../primitives/Tooltip";
 import { NotificationCenter } from "./NotificationCenter";
+import { DeviceOffer } from "./DeviceDelivery";
 
 /** Shared notification panel: a dialog on desktop, a sheet in compact shells. */
 export function NotificationsSheet() {
@@ -16,7 +17,7 @@ export function NotificationsSheet() {
     const heading = useRef<HTMLHeadingElement>(null);
     const opener = useRef<HTMLElement | null>(null);
     const restoreFocus = useRef(true);
-    const content = <NotificationCenter {...notifications} fullPage
+    const content = <NotificationCenter {...notifications} banner={<DeviceOffer />} fullPage
         onClose={() => { restoreFocus.current = false; }}
         onOpenSettings={() => { restoreFocus.current = false; openSettings("notifications"); }} />;
 

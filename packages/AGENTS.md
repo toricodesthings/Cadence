@@ -189,6 +189,7 @@ Never import `AppError` here.
   backend import).
 - `ordering.ts` — fractional `orderIndex` math (`ORDER_INDEX_GAP`,
   `computeNextOrderIndex`, `computeMidpointIndex`, `computeGappedOrderIndex`).
+- `reminders.ts` — the one reminder rulebook for app and server: `deriveReminders` (task reminders, Waiting check-ins, deadlines, routines with lead time, yearly events; wording injected via `ReminderFormat`), `reminderKindEnabled`, `isInQuietHours`, and `dueAlert` (OS-alert policy: alert instant, 15-minute late bound, deadline alerts at 09:00 until the day ends, dismissal, deferral as a new key, quiet hours silence all).
 - `repeats.ts` — the Fixed / Routine / Task rules: `routineTimeOn` (a routine's
   time on a date, honouring per-weekday overrides), `habitOccurrences` (via `expandSeries`)
   (a routine's due days; rules without INTERVAL/COUNT are anchored by whole

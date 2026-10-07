@@ -12,10 +12,12 @@ export interface AvailableAppUpdate {
     install: () => Promise<void>;
 }
 
-interface PlatformNotification {
+export interface PlatformNotification {
     title: string;
     body?: string;
     icon?: string;
+    /** Same-origin path a tap opens. */
+    route?: string;
 }
 
 export interface NativeStoreAdapter {
@@ -28,6 +30,7 @@ interface PlatformRuntime {
     target: RuntimeTarget;
     getNotificationPermission: () => Promise<NotificationPermissionState>;
     requestNotificationPermission: () => Promise<NotificationPermissionState>;
+    /** Resolves once the notification was handed to the browser/OS (not proof it was seen); throws if it could not be. */
     sendNotification: (notification: PlatformNotification) => Promise<void>;
     openExternalUrl: (url: string) => Promise<void>;
     getAuthCallbackUrl: (redirectTo?: string) => string;
@@ -78,6 +81,11 @@ export function normalizeRedirectTo(value?: string | null): string {
     } catch {
         return "/";
     }
+}
+
+/** Starts loading the platform adapter, so a later tap can call it without waiting on an import (a permission prompt must run inside the tap). */
+export function warmPlatformRuntime(): void {
+    void loadPlatformRuntime();
 }
 
 export async function getNotificationPermission(): Promise<NotificationPermissionState> {

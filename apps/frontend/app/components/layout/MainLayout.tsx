@@ -27,6 +27,7 @@ import { useFocusViews } from "../../hooks/core/use-focus-views";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useNotificationCenter } from "../../hooks/notifications/use-notification-center";
 import { useBrowserNotifications } from "../../hooks/notifications/use-browser-notifications";
+import { useNotificationTapRouting } from "../../hooks/notifications/use-open-notification";
 import { useThemeSync } from "../../hooks/ui/use-theme-sync";
 import { useZoneSync } from "../../hooks/core/use-zone-sync";
 import { useViewMode } from "../../hooks/ui/use-view-mode";
@@ -400,9 +401,10 @@ export function MainLayout({
         onShortcutReference: () => setShortcutsRefOpen((o) => !o),
     });
 
-    // Drive browser notifications from the notification center's computed list
+    // Local alerts from the notification center's list (devices the server can't push to) and taps on pushed reminders
     const { allNotifications } = useNotificationCenter();
     useBrowserNotifications(allNotifications);
+    useNotificationTapRouting();
 
     // Sync appearance settings (theme, motion) to the DOM
     useThemeSync();

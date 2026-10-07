@@ -1,4 +1,5 @@
 import type { ParsedEntity, RecurrenceValue } from "../core/index.js";
+import { nounContinuesAfter } from "./guards.js";
 
 interface RecurrencePattern {
   pattern: RegExp;
@@ -157,13 +158,63 @@ const RECURRENCE_PATTERNS: RecurrencePattern[] = [
   },
 ];
 
-/** A word right after a bare adverb-style cadence that continues the phrase rather than the schedule. */
-const NOUN_FOLLOWS =
-  /^\s+(?!(?:at|on|from|until|till|starting|for|by|before|after|and|or|in|this|next|today|tomorrow|tonight|every|p[1-4]|waiting)\b)[a-z]/i;
+// ── Exceptions: "every day except weekends" ──
+
+const DAY_NAME = "(?:mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)s?";
+
+/** An exception clause whose days we can express: "except weekends", "but not Friday", "except Saturday and Sunday". */
+const DAY_EXCEPTION = new RegExp(
+  `^\\s*,?\\s*(?:except|but(?:\\s+not)?|excluding|other\\s+than)\\s+(?:the\\s+)?(weekends?|weekdays?|${DAY_NAME}(?:\\s*(?:,|and|or)\\s*${DAY_NAME})*)\\b`,
+  "i",
+);
+
+/** Any exception marker, even one we cannot express — a partial rule must never contradict it silently. */
+const EXCEPTION_MARKER = /^\s*,?\s*(?:except|but(?:\s+not)?|excluding|other\s+than)\b/i;
+
+/** The full exception phrase, bounded by the next cue word, punctuation, or end of input. */
+const EXCEPTION_PHRASE =
+  /^\s*,?\s*(?:except|but\s+not|excluding|other\s+than)\s+.+?(?=\s+(?:at|on|by|before|after|until|till|tomorrow|today|tonight|next|this|every|remind|waiting|p[1-4])\b|\s*[,;]|$)/i;
+
+const ALL_DAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
+
+/** Day codes an exception removes; undefined when the exception names no days we know. */
+function excludedDays(text: string): string[] | undefined {
+  const lower = text.toLowerCase().trim();
+  if (/^weekends?$/.test(lower)) return ["SA", "SU"];
+  if (/^weekdays?$/.test(lower)) return ["MO", "TU", "WE", "TH", "FR"];
+  const days = lower
+    .split(/\s*(?:,|and|or)\s*/i)
+    .map((d) => d.trim())
+    .map((d) => WEEKDAY_MAP[d] ?? WEEKDAY_MAP[d.replace(/s$/, "")])
+    .filter((d): d is string => Boolean(d));
+  return days.length > 0 ? days : undefined;
+}
+
+/**
+ * Apply an exception to a matched rule. Only a plain daily rule converts (to the weekly
+ * day set that remains); anything else returns null so the whole rule stays literal.
+ */
+function applyDayException(value: RecurrenceValue, exceptionText: string): RecurrenceValue | null {
+  if (value.rrule !== "FREQ=DAILY") return null;
+  const excluded = excludedDays(exceptionText);
+  if (!excluded) return null;
+  const remaining = ALL_DAYS.filter((d) => !excluded.includes(d));
+  if (remaining.length === 0) return null;
+  return {
+    rrule: `FREQ=WEEKLY;BYDAY=${remaining.join(",")}`,
+    humanLabel: `${value.humanLabel} except ${exceptionText.trim()}`,
+  };
+}
 
 export interface RecurrenceParseResult {
   entities: ParsedEntity[];
   consumedRanges: Array<{ start: number; end: number }>;
+  /**
+   * Spans hidden from the date parser but kept in the title: a recurrence refused
+   * because of an unsupported exception stays literal, and chrono must not eat its
+   * day words ("Team sync every Monday except holidays" keeps "Monday").
+   */
+  protectedRanges: Array<{ start: number; end: number }>;
 }
 
 /**
@@ -173,19 +224,37 @@ export interface RecurrenceParseResult {
 export function parseRecurrence(input: string): RecurrenceParseResult {
   const entities: ParsedEntity[] = [];
   const consumedRanges: Array<{ start: number; end: number }> = [];
+  const protectedRanges: Array<{ start: number; end: number }> = [];
 
   for (const { pattern, resolve } of RECURRENCE_PATTERNS) {
     const match = input.match(pattern);
     if (!match) continue;
 
-    const value = resolve(match);
+    let value = resolve(match);
     if (!value) continue;
 
     const sourceText = match[0];
     const start = match.index ?? 0;
-    const end = start + sourceText.length;
+    let end = start + sourceText.length;
+
+    // "every day except weekends": honour the exception in the rule, or leave the
+    // whole rule literal — never keep a partial rule that contradicts it.
+    const exception = DAY_EXCEPTION.exec(input.slice(end));
+    if (exception) {
+      const converted = applyDayException(value, exception[1]);
+      if (!converted) {
+        protectedRanges.push(protectedExceptionRange(input, start, end));
+        break;
+      }
+      value = converted;
+      end += exception[0].length;
+    } else if (EXCEPTION_MARKER.test(input.slice(end))) {
+      protectedRanges.push(protectedExceptionRange(input, start, end));
+      break;
+    }
+
     // "monthly report", "daily digest": the word modifies a noun, it isn't a schedule
-    if (/^(?:daily|monthly|yearly|annually|biweekly)$/i.test(sourceText) && NOUN_FOLLOWS.test(input.slice(end))) continue;
+    if (/^(?:daily|monthly|yearly|annually|biweekly)$/i.test(sourceText) && nounContinuesAfter(input, end)) continue;
 
     entities.push({
       id: `recurrence:${value.rrule.toLowerCase().replace(/[;=,]/g, "_")}`,
@@ -202,5 +271,11 @@ export function parseRecurrence(input: string): RecurrenceParseResult {
     break; // Only one recurrence per input
   }
 
-  return { entities, consumedRanges };
+  return { entities, consumedRanges, protectedRanges };
+}
+
+/** The refused rule plus its whole exception phrase, so no later parser treats those words as dates. */
+function protectedExceptionRange(input: string, start: number, ruleEnd: number): { start: number; end: number } {
+  const phrase = EXCEPTION_PHRASE.exec(input.slice(ruleEnd));
+  return { start, end: phrase ? ruleEnd + phrase[0].length : ruleEnd };
 }

@@ -101,11 +101,11 @@ export async function computeWorkloadSignals(db: DbClient, userId: string) {
         const sevenDaysAgo = daysAgo(7);
 
         const [
-            rescheduleVelocity,
-            overdueCarryLoad,
+            reschedule,
+            overdue,
             completedCount,
-            habitAdherenceRate,
-            scheduleDensity,
+            habit,
+            density,
         ] = await Promise.all([
             queryRescheduleVelocity(tx, userId, fourteenDaysAgo),
             queryOverdueCarryLoad(tx, userId, today, zone),
@@ -114,24 +114,25 @@ export async function computeWorkloadSignals(db: DbClient, userId: string) {
             queryScheduleDensity(tx, userId, sevenDaysAgo),
         ]);
 
-        const denominator = completedCount + overdueCarryLoad;
+        const denominator = completedCount + overdue.overdue;
         const completionRatio = denominator > 0 ? completedCount / denominator : 0;
 
+        // A signal with no underlying rows is unknown, not zero — it carries no penalty.
         const burnoutIndex = computeBurnoutIndex({
-            rescheduleVelocity,
-            overdueCarryLoad,
-            completionRatio,
-            habitAdherenceRate,
-            scheduleDensity,
+            rescheduleVelocity: reschedule.rows > 0 ? reschedule.value : null,
+            overdueCarryLoad: overdue.active > 0 ? overdue.overdue : null,
+            completionRatio: denominator > 0 ? completionRatio : null,
+            habitAdherenceRate: habit.logs > 0 ? habit.rate : null,
+            scheduleDensity: density.blocks > 0 ? density.minutesPerDay : null,
         });
 
         const data = {
-            rescheduleVelocity,
+            rescheduleVelocity: reschedule.value,
             currentBurnoutIndex: burnoutIndex,
             completionRatio,
-            overdueCarryLoad,
-            habitAdherenceRate,
-            scheduleDensity,
+            overdueCarryLoad: overdue.overdue,
+            habitAdherenceRate: habit.rate,
+            scheduleDensity: density.minutesPerDay,
             lastCalculatedAt: now.toISOString(),
         };
         await tx
@@ -143,19 +144,23 @@ export async function computeWorkloadSignals(db: DbClient, userId: string) {
 
 async function queryRescheduleVelocity(tx: Tx, userId: string, since: string) {
     const [stats] = await tx
-        .select({ avgReschedules: avg(taskMetrics.rescheduleCount) })
+        .select({ avgReschedules: avg(taskMetrics.rescheduleCount), rows: count() })
         .from(taskMetrics)
         .where(and(eq(taskMetrics.userId, userId), gte(taskMetrics.createdAt, since)));
-    return parseFloat(String(stats?.avgReschedules ?? "0"));
+    return { value: parseFloat(String(stats?.avgReschedules ?? "0")), rows: stats?.rows ?? 0 };
 }
 
-/** Open one-off tasks whose day is before the user's today. Repeating series and Fixed blocks are never overdue. */
+/** Open one-off tasks whose day is before the user's today, plus how many such tasks exist at all (evidence coverage). */
 async function queryOverdueCarryLoad(tx: Tx, userId: string, today: LocalDate, zone: Zone) {
+    const countable = and(isNull(tasks.recurrenceRule), ne(tasks.interactionMode, "timetable"));
     const [stats] = await tx
-        .select({ cnt: count() })
+        .select({
+            overdue: sql<number>`COUNT(*) FILTER (WHERE ${overdueOn(today, zone)})`,
+            active: sql<number>`COUNT(*) FILTER (WHERE ${countable})`,
+        })
         .from(tasks)
-        .where(and(eq(tasks.userId, userId), eq(tasks.state, "ACTIVE"), overdueOn(today, zone)));
-    return stats?.cnt ?? 0;
+        .where(and(eq(tasks.userId, userId), eq(tasks.state, "ACTIVE")));
+    return { overdue: Number(stats?.overdue ?? 0), active: Number(stats?.active ?? 0) };
 }
 
 async function queryCompletedCount(tx: Tx, userId: string, since: string) {
@@ -176,38 +181,38 @@ async function queryHabitAdherenceRate(tx: Tx, userId: string, since: LocalDate)
         .where(and(eq(habitLogs.userId, userId), gte(habitLogs.targetDate, since)));
     const completed = Number(stats?.completed ?? 0);
     const total = Number(stats?.total ?? 0);
-    return total > 0 ? completed / total : 0;
+    return { rate: total > 0 ? completed / total : 0, logs: total };
 }
 
 async function queryScheduleDensity(tx: Tx, userId: string, since: string) {
     const [stats] = await tx
         .select({
             totalMinutes: sql<number>`COALESCE(SUM(EXTRACT(EPOCH FROM (${tasks.scheduledEnd} - ${tasks.scheduledStart})) / 60), 0)`,
+            blocks: count(),
         })
         .from(tasks)
         .where(and(eq(tasks.userId, userId), sql`${tasks.scheduledStart} IS NOT NULL`, sql`${tasks.scheduledEnd} IS NOT NULL`, gte(tasks.scheduledStart, since)));
-    return (Number(stats?.totalMinutes) || 0) / 7;
+    return { minutesPerDay: (Number(stats?.totalMinutes) || 0) / 7, blocks: stats?.blocks ?? 0 };
 }
 
+/**
+ * The heuristic load score from whichever signals actually have evidence. A signal with no
+ * rows is unknown and adds nothing; with no evidence at all the score itself is unknown
+ * (null) — a new account has no purported stress state.
+ */
 function computeBurnoutIndex(signals: {
-    rescheduleVelocity: number;
-    overdueCarryLoad: number;
-    completionRatio: number;
-    habitAdherenceRate: number;
-    scheduleDensity: number;
-}) {
-    return Math.min(
-        100,
-        Math.max(
-            1,
-            Math.round(
-                10
-                + signals.rescheduleVelocity * 8
-                + signals.overdueCarryLoad * 3
-                + (1 - signals.completionRatio) * 20
-                + (1 - signals.habitAdherenceRate) * 10
-                + signals.scheduleDensity * 0.05,
-            ),
-        ),
-    );
+    rescheduleVelocity: number | null;
+    overdueCarryLoad: number | null;
+    completionRatio: number | null;
+    habitAdherenceRate: number | null;
+    scheduleDensity: number | null;
+}): number | null {
+    if (Object.values(signals).every((v) => v === null)) return null;
+    let index = 10;
+    if (signals.rescheduleVelocity !== null) index += signals.rescheduleVelocity * 8;
+    if (signals.overdueCarryLoad !== null) index += signals.overdueCarryLoad * 3;
+    if (signals.completionRatio !== null) index += (1 - signals.completionRatio) * 20;
+    if (signals.habitAdherenceRate !== null) index += (1 - signals.habitAdherenceRate) * 10;
+    if (signals.scheduleDensity !== null) index += signals.scheduleDensity * 0.05;
+    return Math.min(100, Math.max(1, Math.round(index)));
 }

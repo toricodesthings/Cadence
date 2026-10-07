@@ -99,14 +99,31 @@ self.addEventListener("activate", (event) => {
     })());
 });
 
-// Reminders are shown through the registration (the only way on iOS), so a
-// tap has to bring the app forward here.
+// Reminders are shown through the registration (the only way on iOS). The server pushes them
+// so they arrive with the app closed; a push must always show a notification (Safari revokes
+// subscriptions that don't). Payload: { title, body, route, tag }.
+self.addEventListener("push", (event) => {
+    let data = {};
+    try { data = event.data ? event.data.json() : {}; } catch { /* malformed: still show something */ }
+    event.waitUntil(self.registration.showNotification(data.title || "Cadence", {
+        body: data.body || "",
+        icon: "/icon-192.png",
+        tag: data.tag || undefined,
+        data: { route: data.route || "/" },
+    }));
+});
+
+// A tap brings the app forward on the reminder's target. A running tab is told where to go;
+// otherwise the app opens there. Only same-origin paths are followed.
 self.addEventListener("notificationclick", (event) => {
     event.notification.close();
+    const route = event.notification.data?.route;
+    const target = typeof route === "string" && route.startsWith("/") && !route.startsWith("//") ? route : "/";
     event.waitUntil((async () => {
         const [client] = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-        if (client) return client.focus();
-        return self.clients.openWindow("/");
+        if (!client) return self.clients.openWindow(target);
+        await client.focus();
+        client.postMessage({ type: "cadence:open", route: target });
     })());
 });
 

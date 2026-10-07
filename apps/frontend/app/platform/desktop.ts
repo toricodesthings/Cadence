@@ -282,16 +282,13 @@ export const desktopRuntime = {
     async requestNotificationPermission(): Promise<NotificationPermissionState> {
         return normalizeNotificationPermission(await requestPermission());
     },
-    async sendNotification(notification: { title: string; body?: string; icon?: string }): Promise<void> {
-        if (!hasTauriRuntime()) {
-            return;
-        }
+    // The notification plugin answers "granted" without asking Windows, so permission here is a hint, not a check.
+    async sendNotification(notification: { title: string; body?: string; icon?: string; route?: string }): Promise<void> {
+        if (!hasTauriRuntime()) throw new Error("Desktop notifications need the Cadence app.");
+        if (!(await isPermissionGranted())) throw new Error("Notifications aren't allowed.");
 
-        if (!(await isPermissionGranted())) {
-            return;
-        }
-
-        sendDesktopNotification(notification);
+        // The plugin has no activation callback; a tap opens Cadence, not the reminder's page.
+        sendDesktopNotification({ title: notification.title, body: notification.body, icon: notification.icon });
     },
     async openExternalUrl(url: string): Promise<void> {
         if (!hasTauriRuntime()) {

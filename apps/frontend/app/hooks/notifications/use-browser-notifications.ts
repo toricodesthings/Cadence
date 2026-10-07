@@ -1,96 +1,74 @@
-import { useCallback, useEffect, useRef } from "react";
-import { useSettings, useUpdateSettings } from "../core/use-settings";
+import { useEffect, useRef } from "react";
+import { dueAlert } from "@cadence/domain/reminders";
+import { useSettings } from "../core/use-settings";
+import { useAuthState } from "../auth/use-auth-state";
 import type { AppNotification } from "../../lib/notifications/notification-model";
-import { isInQuietHours } from "../../lib/notifications/reminder-engine";
-import {
-    getNotificationPermission,
-    requestNotificationPermission,
-    sendPlatformNotification,
-} from "../../platform/runtime";
-import { useState } from "react";
+import { getUserZone } from "../../lib/utils/user-zone";
+import { sendPlatformNotification } from "../../platform/runtime";
+import { getDismissalState } from "./use-notification-center";
+import { useDeviceDelivery, useDeviceDeliverySync } from "./use-device-delivery";
 
-export type NotificationPermission = "default" | "granted" | "denied";
+const FIRED_KEY = "cadence_alerted_occurrences";
+const FIRED_LIMIT = 300;
 
-/**
- * Returns the current platform notification permission state.
- */
-export async function getStoredNotificationPermission(): Promise<NotificationPermission> {
-    return getNotificationPermission();
+/** Occurrences this device already alerted, per account, so a reload never repeats one. */
+function loadFired(userId: string): Set<string> {
+    try {
+        const saved = JSON.parse(window.localStorage.getItem(FIRED_KEY) ?? "null") as { userId?: string; keys?: string[] } | null;
+        return new Set(saved?.userId === userId && Array.isArray(saved.keys) ? saved.keys : []);
+    } catch {
+        return new Set();
+    }
+}
+
+function saveFired(userId: string, fired: Set<string>) {
+    try {
+        window.localStorage.setItem(FIRED_KEY, JSON.stringify({ userId, keys: [...fired].slice(-FIRED_LIMIT) }));
+    } catch {
+        // Best effort: a reload may repeat an alert, never lose one.
+    }
 }
 
 /**
- * Browser notification hook for foreground reminders.
- *
- * - Manages permission request flow
- * - Deduplicates notifications so the same reminder doesn't fire twice per session
- * - Only fires when the `browser` setting is enabled
+ * Local reminder alerts for a device the server can't reach (Cadence shows them itself while it is
+ * running): desktop, and browsers without a saved push registration. A connected device is served by
+ * the server's push, so this stays silent there. Same policy as the server: `dueAlert`.
  */
 export function useBrowserNotifications(notifications: AppNotification[]) {
+    useDeviceDeliverySync();
+    const { status } = useDeviceDelivery();
     const { data: settings } = useSettings();
-    const updateSettings = useUpdateSettings();
-    const firedRef = useRef(new Set<string>());
-    const [permission, setPermission] = useState<NotificationPermission>("default");
+    const userId = useAuthState().session?.user.id;
+    const firedRef = useRef<{ userId: string; keys: Set<string> } | null>(null);
 
-    const browserEnabled = settings?.notifications?.browser ?? false;
     const quietHoursEnabled = settings?.notifications?.quietHoursEnabled ?? false;
     const quietHoursStart = settings?.notifications?.quietHoursStart ?? null;
     const quietHoursEnd = settings?.notifications?.quietHoursEnd ?? null;
-    const requestPermission = useCallback(async () => {
-        const result = await requestNotificationPermission();
-        // If user granted permission, also enable the setting
-        if (result === "granted") {
-            updateSettings.mutate({ notifications: { browser: true } });
-        }
-        setPermission(result);
-        return result as NotificationPermission;
-    }, [updateSettings]);
 
     useEffect(() => {
-        let active = true;
+        if (status !== "local" || !userId) return;
+        if (firedRef.current?.userId !== userId) firedRef.current = { userId, keys: loadFired(userId) };
+        const fired = firedRef.current.keys;
+        const dismissal = getDismissalState();
+        const now = new Date();
+        const zone = getUserZone();
 
-        void getNotificationPermission().then((result) => {
-            if (active) {
-                setPermission(result);
-            }
-        });
-
-        return () => {
-            active = false;
-        };
-    }, []);
-
-    // Fire browser notifications for new items
-    useEffect(() => {
-        if (!browserEnabled || permission !== "granted") return;
-        if (isInQuietHours(new Date(), quietHoursEnabled, quietHoursStart, quietHoursEnd)) return;
-
-        const now = Date.now();
         for (const n of notifications) {
-            // Skip already-fired
-            if (firedRef.current.has(n.id)) continue;
+            const due = dueAlert(n, {
+                now, zone,
+                quietHours: { enabled: quietHoursEnabled, start: quietHoursStart, end: quietHoursEnd },
+                dismissed: dismissal.dismissedIds.has(n.id),
+                deferredUntil: dismissal.deferredUntil.get(n.id),
+            });
+            if (!due || fired.has(due.key)) continue;
 
-            const triggerTime = new Date(n.triggerAt).getTime();
-            // Only fire for notifications that triggered within the last 5 minutes
-            if (now - triggerTime > 5 * 60_000) continue;
-            // Don't fire for future notifications
-            if (triggerTime > now) continue;
-
-            firedRef.current.add(n.id);
-
-            void sendPlatformNotification({
-                title: n.title,
-                body: n.body,
-                icon: "/logo.png",
+            // Claim before sending so overlapping runs can't double up; a failed send gives the claim back.
+            fired.add(due.key);
+            saveFired(userId, fired);
+            sendPlatformNotification({ title: n.title, body: n.body, icon: "/logo.png", route: n.route ?? undefined }).catch(() => {
+                fired.delete(due.key);
+                saveFired(userId, fired);
             });
         }
-    }, [notifications, browserEnabled, permission, quietHoursEnabled, quietHoursStart, quietHoursEnd]);
-
-    return {
-        /** Whether the user has enabled browser notifications in settings */
-        browserEnabled,
-        /** Current browser permission state */
-        permission,
-        /** Request browser notification permission (also enables the setting on grant) */
-        requestPermission,
-    };
+    }, [notifications, status, userId, quietHoursEnabled, quietHoursStart, quietHoursEnd]);
 }

@@ -81,7 +81,7 @@
   ],
 
   "triggers": {
-    "crons": ["0 * * * *"]
+    "crons": ["0 * * * *", "* * * * *"]
   },
   "preview_urls": false,
   "workers_dev": false,
@@ -100,6 +100,8 @@
   // AI_*_MODEL override the chat, title and memory-embedding models (unset or empty = the built-in default in domains/ai).
   "vars": {
     "DEPLOYMENT_STAGE": "production",
+    // Public half of the Web Push key pair. The private half is the VAPID_PRIVATE_KEY secret.
+    "VAPID_PUBLIC_KEY": "BPQMDLo4FUNgt4CTWVPFeqAxGU7ni1Cn8trfCiq5N3antgRnaL3QI34L4Fykn3buTQ9Nv_YlmOg3nGVCsQ2WJw4",
     "AI_CHAT_MODEL": "openai/gpt-6-luna",
     "AI_CHAT_MODEL_BASIC":"deepseek/deepseek-v4.1-flash",
     "AI_TITLE_MODEL": "google/gemma-4-26b-a4b-it:nitro",
@@ -132,6 +134,7 @@
       // MCP and its OAuth endpoints share the dev server's origin; consent opens the local web app.
       "vars": {
         "DEPLOYMENT_STAGE": "development",
+        "VAPID_PUBLIC_KEY": "BPQMDLo4FUNgt4CTWVPFeqAxGU7ni1Cn8trfCiq5N3antgRnaL3QI34L4Fykn3buTQ9Nv_YlmOg3nGVCsQ2WJw4",
         "AI_CHAT_MODEL": "openai/gpt-6-luna",
         "AI_CHAT_MODEL_BASIC":"deepseek/deepseek-v4.1-flash",
         "AI_TITLE_MODEL": "google/gemma-4-26b-a4b-it:nitro",
@@ -162,7 +165,7 @@
         }
       ],
       "triggers": {
-        "crons": ["0 * * * *"]
+        "crons": ["0 * * * *", "* * * * *"]
       }
     }
   }

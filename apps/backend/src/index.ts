@@ -18,6 +18,7 @@ import { subtaskRoutes } from "./domains/subtasks/subtasks.route";
 import { sectionRoutes } from "./domains/sections/sections.route";
 import { settingsRoutes } from "./domains/settings/settings.route";
 import { backgroundRoutes } from "./domains/settings/background.route";
+import { pushRoutes } from "./domains/push/push.route";
 import { eventRoutes } from "./domains/events/events.route";
 import { proxyRoutes } from "./domains/proxy/proxy.route";
 import { noteRoutes } from "./domains/notes/notes.route";
@@ -181,6 +182,7 @@ const apiApp = app
   .route("/api/v1/settings/background", backgroundRoutes)
   .route("/api/v1/settings", settingsRoutes)
   .route("/api/v1/events", eventRoutes)
+  .route("/api/v1/push", pushRoutes)
   .route("/api/v1/proxy", proxyRoutes)
   .route("/api/v1/debug", debugRoutes)
   .route("/api/v1/ai/images", aiImageRoutes)
@@ -193,6 +195,9 @@ const apiApp = app
 export type AppType = typeof apiApp;
 
 import { runHourlyCron } from "./cron/overdue-check";
+import { runPushDispatch } from "./domains/push/dispatch";
+
+const PUSH_CRON = "* * * * *";
 
 export default {
   // The MCP origin (outside assistants: OAuth + /mcp) is its own protocol boundary:
@@ -214,7 +219,8 @@ export default {
     if (!env.OAUTH_KV) return new Response("Connecting assistants isn't available right now.", { status: 503 });
     return mcpProvider(env).fetch(request, env, ctx);
   },
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(runHourlyCron(env));
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    // Two triggers: every minute sends due device reminders, every hour does the sweeps.
+    ctx.waitUntil(event.cron === PUSH_CRON ? runPushDispatch(env) : runHourlyCron(env));
   },
 };

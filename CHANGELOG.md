@@ -6,6 +6,27 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Get nudged for Waiting follow-ups you scheduled and for yearly events whose bell is on.
+- Enable notifications on a device and send a test; reminders now reach installed web apps even when closed.
+
+### Changed
+
+- Quiet hours now silence every device alert, and routine reminders use your chosen lead time.
+- Deadline alerts arrive at 9:00 on the day, and a late alert is still delivered within 15 minutes.
+- Focus Views tell short, easy, urgent and demanding apart; Deep Focus filters effort, not priority.
+
+### Fixed
+
+- Allowing notifications in Settings now takes effect right away, and blocked or unsupported browsers say so.
+- Dismissed and deferred reminders no longer pop up as device alerts, and tapping one opens its task.
+- "Not urgent" and "urgent care" no longer set priority, and "not waiting on Sam" no longer marks waiting.
+- "Every day except weekends" repeats on weekdays only; an exception Cadence can't read keeps the words literal.
+- Moving a timed task to another day no longer moves its deadline with it.
+- New accounts no longer see a workload score before there's any history to base it on.
+- Turning a capture into a task with the assistant keeps the reminder and hide-until day you chose.
+
 ## [0.29.1] - 2026-10-07
 
 ### Fixed

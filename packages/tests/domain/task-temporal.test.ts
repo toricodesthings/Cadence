@@ -88,6 +88,14 @@ describe("rescheduleToDay", () => {
         const day: TaskTemporal = { dueDate: "2026-03-10", endDate: "2026-03-12", scheduledStart: null, scheduledEnd: null, zone: null };
         expect(rescheduleToDay(day, "2026-03-20", TORONTO)).toEqual({ dueDate: "2026-03-20", endDate: "2026-03-22", scheduledStart: null, scheduledEnd: null, zone: null });
     });
+
+    // 0.30.0 (B09): moving a work block never moves the commitment it works towards.
+    it("keeps the deadline when a timed block moves", () => {
+        const withDeadline: TaskTemporal = { ...timed, dueDate: "2026-10-31" };
+        const moved = rescheduleToDay(withDeadline, "2026-10-29", TORONTO);
+        expect(moved.dueDate).toBe("2026-10-31");
+        expect(moved.scheduledStart).toBe("2026-10-29T18:35:00.000Z");
+    });
 });
 
 describe("classifyTaskReadShape", () => {

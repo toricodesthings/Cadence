@@ -35,9 +35,9 @@ src/
 │   ├── validation.ts # apiValidator() wrapper
 │   ├── idempotency.ts, ownership.ts, metrics.ts, log.ts, request-log.ts, redis.ts, user-zone.ts
 ├── domains/           # tasks, habits, inbox, projects, tags, subtasks, sections, settings,
-│                       # notes, events, health, proxy, ai, mcp, debug — one folder each
+│                       # notes, events, push, health, proxy, ai, mcp, debug — one folder each
 ├── db/schema.ts       # Drizzle schema: tables, enums, indexes, RLS policies, relations (SOURCE OF TRUTH)
-├── cron/overdue-check.ts
+├── cron/overdue-check.ts   # hourly sweeps; the per-minute push dispatch lives in domains/push
 └── types/             # env.ts (Env bindings), db.ts (DbClient/Tx aliases), text-modules.d.ts (.md imports)
 ```
 
@@ -95,6 +95,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 | habits | `/habits` | CRUD, resolve (streak in the user's zone; skipped days are neutral, never a break; a routine with `steps` can send `stepStatus` and the day's status follows from it via `stepDayStatus`, a partial day kept as PENDING), `/weekly` range view (logs and tags pipelined on the RLS connection, then `projectHabitRange` expands the committed snapshot outside it with a bounded projection span; any start/end: logs per due day from the day before creation, earlier days only when logged; a pause hides today onward, never the past) |
 | settings | `/settings`, `/settings/background` | GET + PATCH (deep-merge via `deepPartial`); background = one photo per user in R2 (`USER_ASSETS`): POST upload (WebP-only, metadata stripped), GET own image, DELETE |
 | events | `/events` | single + batch usage tracking |
+| push | `/push` | Web Push for reminders on devices: `GET /config` (public VAPID key, null = push off), `PUT/DELETE /subscription` (this browser; endpoint must be https on a known push service, keys size-checked; a browser endpoint belongs to one account, `push_release_endpoint` hands it over; max 10 devices), `POST /test` (one push to the caller's own device, ignores quiet hours). 503 `PUSH_UNAVAILABLE` without VAPID keys |
 | proxy | `/proxy` | proxied external calls: weather, reverse/forward geocoding, approximate location (`GET /geo/approximate` from Cloudflare `request.cf`), holidays. Coordinates are rounded to 2 decimals before upstream calls; successful holiday responses share an edge cache (dates 7 days, metadata 1 day), with failures uncached. |
 | debug | `/debug` | clear + seed (non-prod only) |
 | connections | `/connections` | connected assistants (MCP): `GET /` active ones with a live KV grant (rows under 10 minutes old always show), `DELETE /:id` Disconnect; the consent page's `GET /requests/:request`, `POST …/approve` (scopes + browser zone → callback URL) and `POST …/decline` |
@@ -107,7 +108,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 
 Task writes carrying `nlp.resolved` (create, inbox process) are stored as sent: the server never re-infers them (older clients without it keep the inference path). `tasks.effort_origin`/`effort_chosen_at` record who chose an Effort (`effortProvenance`; any write that changes `effort` without an origin clears it, so assistant/import/copy values never count); `GET /tasks/effort-evidence` returns only the account's own recorded choices outside Trash and repeating series. Effort set before provenance existed counts only on tasks with an NLP record (app composers), as `accepted` (migration 0008). Inbox process stores `reminderAt`/`notBefore`, and a `waitingOn` makes the task WAITING.
 
-`src/db/schema.ts` is truth: **26 tables**, **12 pgEnums**. Groups: identity (`users`, `userMetrics`) · tasks ecosystem (`projects`, `taskSections`, `tasks`, `subtasks`, `tags`, `taskTags`, `taskMetrics`, `taskNotes`, `taskNlpMetadata`) · inbox (`inboxItems`, `inboxSections`) · habits (`habits`, `habitLogs`, `habitTags`) · intelligence (`aiMemories`, `usageEvents`, `savedFocusViews`, `notificationState`) · AI assistant (`aiConversations`, `aiMessages`, `aiImages`) · connected assistants (`mcpConnections`) · infra (`mutationDedup`, `dataExports`).
+`src/db/schema.ts` is truth: **28 tables**, **12 pgEnums**. Groups: identity (`users`, `userMetrics`) · tasks ecosystem (`projects`, `taskSections`, `tasks`, `subtasks`, `tags`, `taskTags`, `taskMetrics`, `taskNotes`, `taskNlpMetadata`) · inbox (`inboxItems`, `inboxSections`) · habits (`habits`, `habitLogs`, `habitTags`) · intelligence (`aiMemories`, `usageEvents`, `savedFocusViews`, `notificationState`, `pushSubscriptions`, `pushDeliveries`) · AI assistant (`aiConversations`, `aiMessages`, `aiImages`) · connected assistants (`mcpConnections`) · infra (`mutationDedup`, `dataExports`).
 
 **Account deletion** (`domains/account`): `POST /account/delete` (body carries `ACCOUNT_DELETE_PHRASE` plus a `password` or emailed sign-in `otp`, checked server-side against Neon Auth by `verifyPresence`, so a stolen JWT alone can't delete) erases R2 files, MCP grants, the `users` row (everything cascades), then the Neon Auth identity through the Neon API. The identity goes last so a failure leaves a signed-in user who can retry. Needs secrets `NEON_API_KEY` (project-scoped), `NEON_PROJECT_ID`, `NEON_BRANCH_ID`; without them it answers 503 before touching anything.
 
@@ -146,7 +147,7 @@ Reads `Authorization: Bearer`, loads JWKS from `NEON_AUTH_JWKS_URL` (URL-keyed c
 
 ## 13. Background Jobs
 
-Cron `0 * * * *` (hourly, `wrangler.jsonc`, `runHourlyCron`). It runs as `api_worker` under RLS like every path: `cron_user_ids` (SECURITY DEFINER, ids only) lists users, and each job runs per user in `withRls`. Every hour `handleOverdueCheck` takes users at local 04:00 (overdue → `task_metrics.delay_count`); at 06:00 UTC `pruneStaleMutations`, `pruneAiMemories`, `pruneAiImages` (unsent after a day, others 30 days after last use; storage before rows), `pruneUsageEvents` (past 90 days). Task metrics (`platform/metrics.ts`) silently track reschedule count, first-scheduled, completed-at, created-to-done duration — internal only, no public API.
+Two crons (`wrangler.jsonc`; `scheduled` tells them apart by `event.cron`): `* * * * *` runs `runPushDispatch`, `0 * * * *` runs `runHourlyCron`. It runs as `api_worker` under RLS like every path: `cron_user_ids` (SECURITY DEFINER, ids only) lists users, and each job runs per user in `withRls`. Every hour `handleOverdueCheck` takes users at local 04:00 (overdue → `task_metrics.delay_count`); at 06:00 UTC `pruneStaleMutations`, `pruneAiMemories`, `pruneAiImages` (unsent after a day, others 30 days after last use; storage before rows), `pruneUsageEvents` (past 90 days). **Push dispatch** (`domains/push/dispatch.ts`): `push_user_ids` (SECURITY DEFINER) lists users with a device; per user one `withRls` transaction derives the due reminders with `@cadence/domain/reminders` (`deriveReminders`, `dueAlert`: the one OS-alert policy shared with the app), honours dismissal/deferral from `notification_state` and quiet hours (they silence every OS alert, high priority included) and claims each occurrence per device in `push_deliveries` (unique `(subscription, occurrenceKey)`, 2-minute lease, 3 attempts); the push services are called with no transaction open (`web-push.ts`: WebCrypto VAPID + aes128gcm, redirects refused, no endpoint/key ever logged); 404/410 drops the device, repeated failures drop it, the 06:00 UTC prune deletes claims older than 3 days. The account `notifications.browser` switch still gates it. Task metrics (`platform/metrics.ts`) silently track reschedule count, first-scheduled, completed-at, created-to-done duration — internal only, no public API.
 
 ## 14. Environment & Bindings
 
@@ -159,6 +160,7 @@ Cron `0 * * * *` (hourly, `wrangler.jsonc`, `runHourlyCron`). It runs as `api_wo
 | `UPSTASH_REDIS_REST_URL` / `_TOKEN` | AI stream resumption (optional — absence disables gracefully) |
 | `AI_RL_*` / `AI_IMAGES_*` | AI budget caps (5h/7d requests + tokens, concurrency; `AI_RL_IMAGES_24H` 20, `AI_IMAGES_PER_MESSAGE` 4, `AI_IMAGES_MAX_PENDING` 8), all optional |
 | `EMAIL` | Email Sending (`send_email`) for data exports (optional — absence answers 503 on `POST /account/export`; dev sends remotely) |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push signing keys (base64url P-256 public point and private scalar; optional — absence turns push off and `/push/test` answers 503) and the `mailto:` contact (default the support address) |
 | `OAUTH_KV` | MCP OAuth provider storage (optional — absence answers 503 on the MCP origin) |
 | `MCP_ORIGIN` / `APP_ORIGIN` | MCP server origin (default `https://mcp.cadenceapp.cloud`, dev `http://localhost:8787`) and the web app hosting `/connect` (default the production dashboard) |
 | `TOOL_APPROVAL_SECRET` | HMAC key for assistant tool approvals (required in production; unset = unsigned, dev only) |

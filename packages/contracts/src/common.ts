@@ -81,6 +81,8 @@ export const ERROR_CODES = [
     "AI_UPSTREAM_UNAVAILABLE",
     "AI_TOOL_FAILED",
     "AI_CONTENT_BLOCKED",
+    // Push
+    "PUSH_UNAVAILABLE",
     // Server
     "UPSTREAM_ERROR",
     "SEED_FAILED",

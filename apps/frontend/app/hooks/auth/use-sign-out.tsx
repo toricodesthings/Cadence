@@ -6,6 +6,8 @@ import { useWalEntries } from "../../lib/api/mutation-outbox";
 import { useAuthState } from "./use-auth-state";
 import { discardNoteSessions, flushNoteSessions, unsyncedNoteCount } from "../../lib/notes/note-registry";
 import { clearNoteJournal } from "../../lib/notes/note-journal";
+import { unregisterThisDevice } from "../../lib/notifications/device-delivery";
+import { useApiClient } from "./use-api-client";
 
 /**
  * Sign-out for the user's own buttons: changes that haven't synced yet belong to
@@ -14,6 +16,7 @@ import { clearNoteJournal } from "../../lib/notes/note-journal";
  */
 export function useSignOut() {
     const { completeSignOut, session } = useAuthState();
+    const client = useApiClient();
     const queued = useWalEntries().length;
     const [notes, setNotes] = useState(0);
     const [asking, setAsking] = useState(false);
@@ -28,6 +31,8 @@ export function useSignOut() {
                 await clearWal();
                 if (session) await clearNoteJournal(session.user.id).catch(() => {});
             }
+            // This device stops getting the account's reminders while signed out (best effort: a forced sign-out can't ask; the next account to register the browser takes it over).
+            await unregisterThisDevice(client, session?.user.id).catch(() => {});
             await completeSignOut();
         } finally {
             setPending(false);

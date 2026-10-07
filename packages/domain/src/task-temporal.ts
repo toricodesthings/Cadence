@@ -77,15 +77,16 @@ export function normalizeTaskTemporalFields(fields: TaskTemporalFields, zone: Zo
 
 /**
  * One task moved to a local `day`, keeping its shape: an all-day task lands on the day (its end
- * moves by the same number of days); a timed task keeps its local time there, and its end and
- * deadline keep their wall time and offset in days. Re-plans in `zone`, the user's.
+ * moves by the same number of days); a timed task keeps its local time there and its end moves
+ * with it. A deadline is a commitment, not a work block: moving when you work never moves
+ * `dueDate`. Re-plans in `zone`, the user's.
  */
 export function rescheduleToDay(row: TaskTemporal, newDay: LocalDate, zone: Zone): TaskTemporal {
     if (row.scheduledStart) {
         const oldDay = dayOf(row.scheduledStart, zone);
         const shift = daysBetween(oldDay, newDay);
         return {
-            dueDate: row.dueDate ? addDays(row.dueDate, shift) : null,
+            dueDate: row.dueDate,
             endDate: null,
             scheduledStart: atLocal(newDay, wallTimeOf(row.scheduledStart, zone), zone),
             scheduledEnd: row.scheduledEnd ? atLocal(addDays(dayOf(row.scheduledEnd, zone), shift), wallTimeOf(row.scheduledEnd, zone), zone) : null,

@@ -92,7 +92,8 @@ export function parse(options: ParseOptions): ParseResult {
 
   // 3. Dates — skip any that overlap recurrence or duration matches
   // Blank what recurrence/duration already took, so chrono can't merge it into a date ("weekday tomorrow").
-  const dateText = consumedRanges.reduce(
+  // Refused recurrences ("every Monday except holidays") are blanked too, but stay in the title.
+  const dateText = [...consumedRanges, ...recurrenceResult.protectedRanges].reduce(
     (acc, r) => acc.slice(0, r.start) + " ".repeat(r.end - r.start) + acc.slice(r.end),
     text,
   );

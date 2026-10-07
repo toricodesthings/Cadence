@@ -9,7 +9,7 @@
  * Memory content originates from user text and is fenced as untrusted data by
  * the prompt composer — never trusted as instructions.
  */
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gt, gte, isNull, or, sql } from "drizzle-orm";
 import { aiMemories } from "../../../db/schema";
 import type { Tx } from "../../../types/db";
 import { logger, hashIdentifier, issuesFromError } from "../../../platform/log";
@@ -100,11 +100,16 @@ export function rankMemories(
 /**
  * RLS-scoped similarity retrieval. The caller wraps in `withRls` and supplies
  * `tx`; this function never opens its own transaction.
+ *
+ * `embeddingModel` is the model that produced `queryEmbedding`: only rows embedded
+ * by the same model are comparable in cosine space, so others (and rows whose model
+ * is unknown) are excluded — a model swap means re-embedding, never mixing spaces.
  */
 export async function retrieveMemories(
     tx: Tx,
     userId: string,
     queryEmbedding: number[],
+    embeddingModel: string,
     opts?: RetrievalOptions,
 ): Promise<RetrievedMemory[]> {
     const k = opts?.k ?? DEFAULT_K;
@@ -114,30 +119,48 @@ export async function retrieveMemories(
     const vectorLiteral = toVectorLiteral(queryEmbedding);
     const fetchLimit = k * CANDIDATE_FETCH_MULTIPLIER;
 
-    // Over-fetch nearest neighbours plus high-salience CORE rows; the pure
-    // ranker applies the threshold + CORE-inclusion merge. userId is filtered
-    // defensively in addition to RLS.
-    const distanceExpr = sql<number>`(${aiMemories.embedding} <=> ${vectorLiteral}::vector)`;
-    const rows = await tx
-        .select({
-            id: aiMemories.id,
-            content: aiMemories.content,
-            type: aiMemories.type,
-            salience: aiMemories.salience,
-            distance: distanceExpr,
-        })
+    // Only live, same-model rows can ever enter the prompt: expired facts and
+    // foreign embeddings are excluded at the source, not after ranking.
+    // userId is filtered defensively in addition to RLS.
+    const liveCompatible = and(
+        eq(aiMemories.userId, userId),
+        or(isNull(aiMemories.expiresAt), gt(aiMemories.expiresAt, sql`now()`)),
+        eq(aiMemories.embeddingModel, embeddingModel),
+    );
+
+    const columns = {
+        id: aiMemories.id,
+        content: aiMemories.content,
+        type: aiMemories.type,
+        salience: aiMemories.salience,
+        distance: sql<number>`(${aiMemories.embedding} <=> ${vectorLiteral}::vector)`,
+    };
+
+    // Nearest neighbours, over-fetched so the threshold/merge can still fill k…
+    const nearest = await tx
+        .select(columns)
         .from(aiMemories)
-        .where(and(eq(aiMemories.userId, userId)))
-        .orderBy(distanceExpr, sql`${aiMemories.salience} DESC`)
+        .where(liveCompatible)
+        .orderBy(columns.distance, sql`${aiMemories.salience} DESC`)
         .limit(fetchLimit);
 
-    const candidates: MemoryCandidate[] = rows.map((r) => ({
+    // …plus required CORE rows fetched independently, so a stable preference far
+    // from the query is never cut by the distance-ordered window.
+    const requiredCore = await tx
+        .select(columns)
+        .from(aiMemories)
+        .where(and(liveCompatible, eq(aiMemories.type, "CORE"), gte(aiMemories.salience, coreSalienceFloor)));
+
+    const toCandidate = (r: typeof nearest[number]): MemoryCandidate => ({
         id: r.id,
         content: truncate(r.content),
         type: r.type,
         salience: r.salience,
         distance: Number(r.distance),
-    }));
+    });
+
+    // rankMemories de-dupes by id, so the CORE overlap with `nearest` is safe.
+    const candidates = [...nearest.map(toCandidate), ...requiredCore.map(toCandidate)];
 
     const ranked = rankMemories(candidates, { k, distanceThreshold, coreSalienceFloor });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFocusView, composeFocusView, parseCanonicalNlpEnvelope, parse } from "@cadence/nlp";
+import { applyFocusView, composeFocusView, FOCUS_VIEW_PRESETS, parseCanonicalNlpEnvelope, parse } from "@cadence/nlp";
 import type { NlpClock, WarningCode } from "@cadence/nlp/core";
 
 const clockOf = (today: string): NlpClock => ({ today, now: "12:00", weekStart: "Sunday" });
@@ -55,6 +55,29 @@ describe("@cadence/nlp canonical behavior", () => {
 
         expect(filtered).toHaveLength(1);
         expect(filtered[0]?.id).toBe("1");
+    });
+
+    // 0.30.0 (B13): short, easy, urgent and demanding are different qualities.
+    it("keeps short, easy, urgent and demanding distinct", () => {
+        expect(composeFocusView("short tasks").definition.durationMaxMinutes).toBe(30);
+        expect(composeFocusView("short tasks").definition.effortMax).toBeNull();
+        expect(composeFocusView("easy tasks").definition.effortMax).toBe(1);
+        expect(composeFocusView("easy tasks").definition.durationMaxMinutes).toBeNull();
+        expect(composeFocusView("urgent tasks").definition.priorityMin).toBe(4);
+        expect(composeFocusView("demanding tasks").definition.effortMin).toBe(3);
+
+        const deepFocus = FOCUS_VIEW_PRESETS.find((p) => p.id === "deep-focus");
+        expect(deepFocus?.definition.effortMin).toBe(3);
+        expect(deepFocus?.definition.priorityMin).toBeNull();
+
+        const tasks = [
+            { id: "short-hard", state: "ACTIVE", projectId: null, dueDate: null, scheduledStart: null, priority: 0, effort: 3, durationEstimate: 15 },
+            { id: "long-easy", state: "ACTIVE", projectId: null, dueDate: null, scheduledStart: null, priority: 0, effort: 1, durationEstimate: 120 },
+            { id: "unestimated", state: "ACTIVE", projectId: null, dueDate: null, scheduledStart: null, priority: 0, effort: null, durationEstimate: null },
+        ];
+        const ctx = { clock: clockOf("2026-03-20"), dayOf: (i: string) => i.slice(0, 10) };
+        expect(applyFocusView(tasks, composeFocusView("short tasks").definition, ctx).map((t) => t.id)).toEqual(["short-hard"]);
+        expect(applyFocusView(tasks, composeFocusView("demanding tasks").definition, ctx).map((t) => t.id)).toEqual(["short-hard", "unestimated"]);
     });
 });
 

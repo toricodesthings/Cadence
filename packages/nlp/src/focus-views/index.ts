@@ -17,8 +17,14 @@ export interface FocusViewDefinition {
   tagIds: string[];
   needsDate: boolean;
   needsProject: boolean;
+  /** Urgency: at least this priority. */
   priorityMin: number | null;
+  /** Demanding: at least this effort. Distinct from duration — effort is how hard, not how long. */
+  effortMin: number | null;
+  /** Easy: at most this effort. */
   effortMax: number | null;
+  /** Short: estimated to take at most this many minutes. Distinct from effort — length, not difficulty. */
+  durationMaxMinutes: number | null;
   dueWindow: "overdue" | "today" | "this_week" | "this_month" | null;
   waitingOnly: boolean;
   missingStructureOnly: boolean;
@@ -42,7 +48,9 @@ const DEFAULT_DEFINITION: FocusViewDefinition = {
   needsDate: false,
   needsProject: false,
   priorityMin: null,
+  effortMin: null,
   effortMax: null,
+  durationMaxMinutes: null,
   dueWindow: null,
   waitingOnly: false,
   missingStructureOnly: false,
@@ -55,7 +63,7 @@ export const FOCUS_VIEW_PRESETS: FocusViewPreset[] = [
   {
     id: "quick-wins",
     name: "Quick Wins",
-    description: "Short tasks you can knock out fast",
+    description: "Easy tasks you can knock out fast",
     icon: "Zap",
     definition: {
       ...DEFAULT_DEFINITION,
@@ -102,7 +110,7 @@ export const FOCUS_VIEW_PRESETS: FocusViewPreset[] = [
     icon: "Brain",
     definition: {
       ...DEFAULT_DEFINITION,
-      priorityMin: 3,
+      effortMin: 3,
       sortMode: "priority",
     },
   },
@@ -151,8 +159,17 @@ const PHRASE_RULES: PhraseRule[] = [
     apply: (def) => { def.waitingOnly = true; def.states = ["WAITING"]; },
   },
   {
+    // Short = takes little time (an estimate), not the same as easy (low effort).
     pattern: /\bquick\b|\bshort\b|\bfast\b/i,
+    apply: (def) => { def.durationMaxMinutes = 30; },
+  },
+  {
+    pattern: /\beasy\b|\bsimple\b|\blight\b|\blow\s*effort\b/i,
     apply: (def) => { def.effortMax = 1; },
+  },
+  {
+    pattern: /\bdemanding\b|\bhard\b|\bdeep\b|\bhigh\s*effort\b/i,
+    apply: (def) => { def.effortMin = 3; },
   },
   {
     pattern: /\bhigh\s*prio(?:rity)?\b/i,

@@ -8,9 +8,9 @@ import type { AppNotification } from "../../../app/lib/notifications/notificatio
 import { Location } from "../../helpers";
 
 const notices: AppNotification[] = [
-    { id: "old", title: "Old priority task", body: "Due today", kind: "task-due", priority: "high", read: false, triggerAt: "2026-09-16T08:00:00Z", route: "/today", entityId: "task1" },
-    { id: "new", title: "New reminder", body: "Review the launch", kind: "task-reminder", priority: "normal", read: false, triggerAt: "2026-09-16T10:00:00Z", route: "/today", entityId: "task2" },
-    { id: "bundle", title: "Missed routines", body: "3 habits are waiting for you", kind: "habit-reminder", priority: "normal", read: true, triggerAt: "2026-09-16T09:00:00Z", route: "/habits", entityId: null },
+    { id: "old", title: "Old priority task", body: "Due today", kind: "task-due", priority: "high", read: false, alertAt: null, triggerAt: "2026-09-16T08:00:00Z", route: "/today", entityId: "task1" },
+    { id: "new", title: "New reminder", body: "Review the launch", kind: "task-reminder", priority: "normal", read: false, alertAt: null, triggerAt: "2026-09-16T10:00:00Z", route: "/today", entityId: "task2" },
+    { id: "bundle", title: "Missed routines", body: "3 habits are waiting for you", kind: "habit-reminder", priority: "normal", read: true, alertAt: null, triggerAt: "2026-09-16T09:00:00Z", route: "/habits", entityId: null },
 ];
 
 function Back() {

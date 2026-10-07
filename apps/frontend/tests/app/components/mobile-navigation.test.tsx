@@ -63,7 +63,7 @@ describe("Compact navigation", () => {
     it("notification dismiss keyboard events do not open the associated task", async () => {
         const markRead = vi.fn(); const dismiss = vi.fn(); const markAllRead = vi.fn(); const defer = vi.fn();
         render(<MemoryRouter><TooltipProvider><Location /><NotificationCenter fullPage hasUnread markRead={markRead} markUnread={vi.fn()} markAllRead={markAllRead} dismiss={dismiss} defer={defer} onClose={vi.fn()}
-            grouped={[{ group: "today", label: "Today", items: [{ id: "notice", kind: "task-due", title: "Review plan", body: "Due today", triggerAt: new Date().toISOString(), entityId: "task1", route: "/today", priority: "normal", read: false }] }]} /></TooltipProvider></MemoryRouter>);
+            grouped={[{ group: "today", label: "Today", items: [{ id: "notice", kind: "task-due", title: "Review plan", body: "Due today", triggerAt: new Date().toISOString(), alertAt: null, entityId: "task1", route: "/today", priority: "normal", read: false }] }]} /></TooltipProvider></MemoryRouter>);
         const button = screen.getByRole("button", { name: "Dismiss notification: Review plan" });
         fireEvent.keyDown(button, { key: "Enter" });
         fireEvent.click(button);
