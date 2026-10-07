@@ -62,7 +62,7 @@ export function useDeviceDelivery() {
     const accountOn = settings?.notifications?.browser ?? false;
     const iosTab = !IS_DESKTOP_RUNTIME && isIosTab();
 
-    const devicesKey = queryKeys.settings.devices(userId);
+    const devicesKey = useMemo(() => queryKeys.settings.devices(userId), [userId]);
     const { data: devices = [], isSuccess: devicesLoaded } = useQuery({
         queryKey: devicesKey,
         enabled: authReady && isAuthenticated,
@@ -190,7 +190,7 @@ export function useDeviceDeliverySync() {
     const client = useApiClient();
     const queryClient = useQueryClient();
     const userId = useAuthState().session?.user.id;
-    const devicesKey = queryKeys.settings.devices(userId);
+    const devicesKey = useMemo(() => queryKeys.settings.devices(userId), [userId]);
     const announced = useRef<string | null>(null);
 
     useEffect(() => {
