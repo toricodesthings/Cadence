@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-07
+
 ### Added
 
 - Weekly Reset: type a change for one or several tasks, even a section to move to, and see it before you apply.
