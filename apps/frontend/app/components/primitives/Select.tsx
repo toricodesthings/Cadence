@@ -80,10 +80,51 @@ const SelectItem = React.forwardRef<
 ))
 SelectItem.displayName = SelectPrimitive.Item.displayName
 
+/**
+ * A search box docked to the top of `SelectContent`, for lists too long to scan (timezones,
+ * long project lists). Radix Select has no search of its own: this hijacks keys itself so
+ * typing filters instead of triggering Radix's single-letter typeahead, and hands `ArrowDown`
+ * off to the first item so keyboard users can still reach the (filtered) list.
+ * Radix Select focuses the selected item on open and doesn't expose `onOpenAutoFocus` to steal
+ * that back, so pair this with a controlled `open` on `Select` and focus it from an effect:
+ * `useEffect(() => { if (open) requestAnimationFrame(() => ref.current?.focus()); }, [open])`.
+ */
+const SelectSearch = React.forwardRef<
+    HTMLInputElement,
+    React.InputHTMLAttributes<HTMLInputElement>
+>(({ className, onKeyDown, ...props }, ref) => (
+    <div className="sticky top-0 z-10 -mx-1 -mt-1 mb-1 bg-[inherit] px-1 pb-1 pt-1">
+        <input
+            ref={ref}
+            type="search"
+            onKeyDown={(event) => {
+                if (event.key === "ArrowDown") {
+                    event.preventDefault()
+                    const option = event.currentTarget
+                        .closest("[data-radix-select-viewport]")
+                        ?.querySelector<HTMLElement>('[role="option"]')
+                    option?.focus()
+                } else if (event.key !== "Escape") {
+                    // Keep typing in the box; only Escape should reach Radix's own handling (closes the menu).
+                    event.stopPropagation()
+                }
+                onKeyDown?.(event)
+            }}
+            className={cn(
+                "w-full rounded-lg border border-twilight-border-light bg-white/[0.06] px-2.5 py-1.5 text-sm text-twilight-text placeholder:text-twilight-text-muted outline-none focus:ring-1 focus:ring-accent-primary/40",
+                className
+            )}
+            {...props}
+        />
+    </div>
+))
+SelectSearch.displayName = "Select.Search"
+
 export {
     Select,
     SelectValue,
     SelectTrigger,
     SelectContent,
     SelectItem,
+    SelectSearch,
 }

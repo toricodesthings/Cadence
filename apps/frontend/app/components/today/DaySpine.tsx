@@ -95,13 +95,13 @@ export function DaySpine({ items, onOpen }: { items: SpineItem[]; onOpen: (item:
                         const markerAfter = nowIndex === -1 && index === sorted.length - 1;
                         const time = formatTime(item.start.toISOString());
                         return (
-                            <li key={item.id} className="flex shrink-0 items-center gap-2">
+                            <li key={item.id} className={`flex items-center gap-2 ${markerAfter ? "min-w-0 flex-1" : "shrink-0"}`}>
                                 {markerBefore ? <NowMarker now={now} /> : null}
                                 <button
                                     type="button"
                                     onClick={() => onOpen(item)}
                                     aria-label={`${item.title}, ${time}${item.end ? ` to ${formatTime(item.end.toISOString())}` : ""}${isCurrent ? ", happening now" : ""}`}
-                                    className={`flex min-h-11 cursor-pointer flex-col justify-center rounded-2xl border px-3 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
+                                    className={`flex min-h-11 shrink-0 cursor-pointer flex-col justify-center rounded-2xl border px-3 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
                                         isCurrent
                                             ? "border-moonlit/45 bg-moonlit/15"
                                             : "surface-item border-moonlit/20 hover:bg-white/[0.06]"
@@ -113,7 +113,7 @@ export function DaySpine({ items, onOpen }: { items: SpineItem[]; onOpen: (item:
                                     </span>
                                     <span className="max-w-[14rem] truncate text-[13px] font-medium text-twilight-text">{item.title}</span>
                                 </button>
-                                {markerAfter ? <NowMarker now={now} /> : null}
+                                {markerAfter ? <NowRest now={now} /> : null}
                             </li>
                         );
                     })}
@@ -179,6 +179,17 @@ function NowMarker({ now }: { now: Date }) {
         <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium tabular-nums text-accent-primary" aria-label={`Now, ${formatTime(now.toISOString())}`}>
             <span className="h-2 w-2 rounded-full bg-accent-primary" aria-hidden="true" />
             <span aria-hidden="true">{formatTime(now.toISOString())}</span>
+        </span>
+    );
+}
+
+/** Row view, nothing left today: the dot anchors now, a soft line fills the rest of the strip, the time sits at the far end. */
+function NowRest({ now }: { now: Date }) {
+    return (
+        <span className="flex min-w-[7rem] flex-1 items-center gap-2 pr-2" aria-label={`Now, ${formatTime(now.toISOString())}`}>
+            <span className="h-2 w-2 shrink-0 rounded-full bg-accent-primary" aria-hidden="true" />
+            <span className="h-px min-w-[2rem] flex-1 bg-accent-primary/20" aria-hidden="true" />
+            <span className="shrink-0 text-[11px] font-medium tabular-nums text-twilight-text-soft" aria-hidden="true">{formatTime(now.toISOString())}</span>
         </span>
     );
 }

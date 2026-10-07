@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatInZone } from "@cadence/domain/time";
 import { Link, useNavigate } from "react-router";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
+import { Select, SelectContent, SelectItem, SelectSearch, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { Switch } from "../../primitives";
 import { Button } from "../../primitives/Button";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
@@ -30,27 +30,36 @@ function zoneOffsetLabel(zone: string, atISO: string): string {
 /** "device" follows the device; an IANA name pins the zone. A search box narrows the list; a live clock previews the choice. */
 function TimezonePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     const [query, setQuery] = useState("");
+    const [open, setOpen] = useState(false);
+    const searchRef = useRef<HTMLInputElement>(null);
     const zones = useMemo(listZones, []);
     const device = deviceZone();
     const now = useMinuteClock().toISOString(); // time-ok: the current instant, shown in the chosen zone
     const needle = query.trim().toLowerCase().replace(/ /g, "_");
     const matches = zones.filter((zone) => zone.toLowerCase().includes(needle) || zone === value);
     const preview = formatInZone(now, resolveZone(value), { weekday: "short", hour: "numeric", minute: "2-digit" });
+
+    // Radix focuses the selected item on open; steal focus back for the search box one frame later.
+    useEffect(() => {
+        if (!open) return;
+        const id = requestAnimationFrame(() => searchRef.current?.focus());
+        return () => cancelAnimationFrame(id);
+    }, [open]);
+
     return (
         <div className="flex w-full flex-col gap-2 sm:max-w-[18rem]">
-            <input
-                type="search"
-                aria-label="Search time zones"
-                placeholder="Search time zones"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                className="h-11 w-full rounded-xl border border-twilight-border-light bg-white/[0.05] px-3 text-sm text-twilight-text focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
-            />
-            <Select value={value} onValueChange={onChange}>
+            <Select value={value} onValueChange={onChange} open={open} onOpenChange={setOpen}>
                 <SelectTrigger aria-label="Time zone">
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                    <SelectSearch
+                        ref={searchRef}
+                        aria-label="Search time zones"
+                        placeholder="Search time zones"
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                    />
                     <SelectItem value="device">{`Device (${device}, ${zoneOffsetLabel(device, now)})`}</SelectItem>
                     {matches.map((zone) => (
                         <SelectItem key={zone} value={zone}>
