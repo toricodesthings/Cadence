@@ -53,6 +53,10 @@ export const processInboxItemSchema = z.object({
     durationEstimate: z.number().int().min(1).max(480).nullish(),
     recurrenceRule: z.string().max(500).nullish(),
     waitingOn: z.string().max(200).nullish(),
+    /** A nudge at an exact moment. */
+    reminderAt: instantSchema.nullish(),
+    /** Hide until this day. */
+    notBefore: localDateSchema.nullish(),
     nlp: canonicalNlpEnvelopeSchema.nullish(),
     parseResult: z.record(z.string(), z.unknown()).nullish(),
 });

@@ -4,6 +4,19 @@ const DURATION_PATTERNS: Array<{
   pattern: RegExp;
   resolve: (match: RegExpMatchArray) => DurationValue;
 }> = [
+  // "an hour", "one hour"
+  {
+    pattern: /(?<!\bhalf\s)(?<!\bof\s)\b(?:an?|one)\s+hour\b(?!\s+and\s+a\s+half)/i,
+    resolve: () => ({ minutes: 60, humanLabel: "1 hour" }),
+  },
+  // "two hours" … "six hours"
+  {
+    pattern: /\b(two|three|four|five|six)\s+hours?\b/i,
+    resolve: (m) => {
+      const hours = { two: 2, three: 3, four: 4, five: 5, six: 6 }[m[1].toLowerCase() as "two"];
+      return { minutes: hours * 60, humanLabel: `${hours} hours` };
+    },
+  },
   // "half hour", "half an hour"
   {
     pattern: /\bhalf\s+(?:an?\s+)?hour\b/i,
@@ -53,7 +66,7 @@ const DURATION_PATTERNS: Array<{
   },
 ];
 
-const WAITING_PATTERN = /\bwaiting\s+(?:on|for)\s+(.+?)(?:\s*$|\s+(?:by|before|until|due|tomorrow|today|next))/i;
+const WAITING_PATTERN = /\bwaiting\s+(?:on|for)\s+(.+?)(?:\s*$|\s*[,;]|\s+(?:for|about|regarding|and|so|then|by|before|until|due|tomorrow|today|tonight|next|this|on|at|p[1-4])\b)/i;
 const WAITING_SIMPLE = /\bwaiting\s+(?:on|for)\s+(.+)/i;
 
 export interface EntityParseResult {
@@ -71,6 +84,8 @@ export function parseDuration(input: string): EntityParseResult {
   for (const { pattern, resolve } of DURATION_PATTERNS) {
     const match = input.match(pattern);
     if (!match) continue;
+    // "in 30 minutes" / "within 2 hours" is when something starts, not how long it takes
+    if (/\b(?:in|within|after)\s+$/i.test(input.slice(0, match.index ?? 0))) continue;
 
     const value = resolve(match);
     // Only accept reasonable durations (1 min – 8 hours)
@@ -91,7 +106,9 @@ export function parseDuration(input: string): EntityParseResult {
       explanation: `Detected duration: ${value.humanLabel}`,
     });
 
-    consumedRanges.push({ start, end });
+    // "takes 45 minutes", "for half an hour": the cue word goes with the estimate
+    const cue = /\b(?:takes?|taking|about|around|for)\s+$/i.exec(input.slice(0, start));
+    consumedRanges.push({ start: cue ? start - cue[0].length : start, end });
     break;
   }
 
@@ -129,4 +146,38 @@ export function parseWaitingOn(input: string): EntityParseResult {
   }
 
   return { entities, consumedRanges };
+}
+
+const UNIT_MINUTES: Record<string, number> = { m: 1, h: 60, d: 1440 };
+const RELATIVE_REMINDER =
+  /\b(?:remind(?:\s+me)?|reminder|alert(?:\s+me)?|notify(?:\s+me)?)\s+(\d+|an?|one|half\s+an?)\s*(min(?:ute)?s?|m|hours?|hrs?|h|days?|d)\s+(?:before|ahead|early|prior)\b/i;
+
+/**
+ * "remind me 30 minutes before": a nudge measured back from the task's timed start. The value carries only the
+ * offset; the draft turns it into an instant once it knows the start (no start, nothing applies).
+ */
+export function parseRelativeReminder(input: string): EntityParseResult {
+  const match = RELATIVE_REMINDER.exec(input);
+  if (!match) return { entities: [], consumedRanges: [] };
+  const amount = /^half/i.test(match[1]) ? 0.5 : /^\d/.test(match[1]) ? parseInt(match[1], 10) : 1;
+  const beforeMinutes = Math.round(amount * UNIT_MINUTES[match[2][0].toLowerCase()]);
+  if (beforeMinutes < 1 || beforeMinutes > 7 * 1440) return { entities: [], consumedRanges: [] };
+  const start = match.index;
+  const end = start + match[0].length;
+  const humanLabel = beforeMinutes % 1440 === 0 ? `${beforeMinutes / 1440} day${beforeMinutes === 1440 ? "" : "s"} before`
+    : beforeMinutes % 60 === 0 ? `${beforeMinutes / 60} hour${beforeMinutes === 60 ? "" : "s"} before`
+    : `${beforeMinutes} min before`;
+  return {
+    entities: [{
+      id: `reminder:before:${beforeMinutes}`,
+      type: "reminder",
+      sourceText: match[0],
+      start,
+      end,
+      confidence: "high",
+      normalizedValue: { beforeMinutes, humanLabel },
+      explanation: `Reminder ${humanLabel}`,
+    }],
+    consumedRanges: [{ start, end }],
+  };
 }

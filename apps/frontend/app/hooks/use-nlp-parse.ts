@@ -8,14 +8,16 @@
  * Section 16.1: NLP code is lazy-loaded — never in the main shell bundle.
  * The parse module is dynamically imported and cached after first use.
  */
-import { useState, useEffect, useRef, useCallback, useContext } from "react";
+import { useState, useEffect, useMemo, useCallback, useContext } from "react";
 import { StartupRenderContext } from "./core/use-workspace-startup";
-import type { DateValue, ParseResult, ParsedEntity } from "@cadence/nlp/core";
+import type { ParseResult, ParsedEntity } from "@cadence/nlp/core";
 import type { SourceSurface } from "@cadence/nlp/core";
 import type { TaskPriority } from "@cadence/contracts/task";
+import { resolveDraft, type DraftDecisions, type DraftField, type DraftFields } from "@cadence/domain/nlp-draft";
+import type { Zone } from "@cadence/domain/time";
 import type { QuickAddParsedToken, QuickAddParseResult } from "../lib/utils/quick-add-parser";
-import { trackUsageEvent } from "../lib/api/track-event";
-import { fromTimeValue, nlpClock } from "../lib/utils/date-format";
+import { nlpClock } from "../lib/utils/date-format";
+import { getUserZone } from "../lib/utils/user-zone";
 
 // Lazy module cache — loaded once, shared across all hook instances
 let parseModuleCache: { parse: typeof import("@cadence/nlp/parse")["parse"] } | null = null;
@@ -57,15 +59,33 @@ export function useParseModule(needed: boolean): ParseFn | null {
     return parse;
 }
 
+const ALL_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([
+    "dueDate", "scheduledStart", "scheduledEnd", "recurrenceRule", "priority", "projectId", "tagIds", "waitingOn", "durationMinutes",
+]);
+
+/** What a full task can store from typed words (a surface that stores less passes its own set). */
+export const TASK_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([...ALL_FIELDS, "notBefore", "reminderAt"]);
+
 interface UseNlpParseOptions {
     input: string;
     projects: Array<{ id: string; name: string }>;
     tags: Array<{ id: string; name: string }>;
     ignoredTokenIds?: string[];
     dismissedEntityIds?: string[];
+    /** Suggested entity ids the user chose to use. */
+    acceptedEntityIds?: string[];
+    /** Fields set by hand; a present key (even null) beats the words. */
+    manual?: DraftDecisions["manual"];
+    /** "Keep as written": no interpretation for this draft. */
+    literal?: boolean;
+    /** What the surface can store; the rest stays in the title. */
+    capabilities?: ReadonlySet<DraftField>;
+    /** The surface stores a month and day only (a yearly event). */
+    monthDayOnly?: boolean;
     sourceSurface?: SourceSurface;
     dateStyle?: "mdy" | "dmy" | "ymd";
     confidenceThreshold?: "high" | "medium" | "low";
+    /** Accepted for old callers; presentation never changes what is understood. */
     lowStimulationMode?: boolean;
     enabled?: boolean;
 }
@@ -83,273 +103,108 @@ export interface NlpParseOutput extends QuickAddParseResult {
     dueHumanLabel: string | null;
     /** Timed start (an Instant) when a date entity carries a time of day */
     scheduledStart: string | null;
+    /** End of a typed range ("2pm to 3pm"), an Instant */
+    scheduledEnd: string | null;
+    /** Recognized but not applied: the user may choose these */
+    suggestions: ParsedEntity[];
+    /** Language this surface cannot store (kept in the title) */
+    unfit: ParsedEntity[];
+    /** Recognized and applied to the draft */
+    applied: ParsedEntity[];
+    /** False only while the parser module is still loading and the text needs it */
+    ready: boolean;
+    /** Every field of the draft as it will save */
+    fields: DraftFields;
+}
+
+/** Maps an entity to a chip-style token (id, label, raw words). */
+function entityToToken(entity: ParsedEntity): QuickAddParsedToken | null {
+    const kind = {
+        scheduled_start: "date", due_date: "date", recurrence: "recurrence", priority: "priority", project: "project", tag: "tag",
+    }[entity.type as string] as QuickAddParsedToken["kind"] | undefined;
+    if (!kind) return null;
+    const label = kind === "date" ? (entity.normalizedValue as { humanLabel?: string })?.humanLabel ?? entity.sourceText
+        : kind === "recurrence" ? entity.explanation ?? entity.sourceText
+        : kind === "priority" ? entity.sourceText.toUpperCase()
+        : kind === "project" ? `/${entity.sourceText}`
+        : `#${entity.sourceText}`;
+    return { id: entity.id, kind, label, raw: entity.sourceText };
+}
+
+const emptyResult = (input: string, sourceSurface: SourceSurface): ParseResult => ({
+    rawInput: input,
+    cleanedTitle: input.trim(),
+    parserVersion: "",
+    sourceSurface,
+    entities: [],
+    warnings: [],
+    summary: null,
+    overallConfidence: null,
+});
+
+/** The draft for `options` right now: parse, then the shared domain policy. No debounce, no stale state. */
+export function computeNlp(parse: ParseFn | null, options: UseNlpParseOptions, zone: Zone = getUserZone()): NlpParseOutput {
+    const {
+        input, projects, tags, sourceSurface = "inline_add", dateStyle = "mdy", confidenceThreshold = "medium",
+        ignoredTokenIds = [], dismissedEntityIds = [], acceptedEntityIds = [], manual, literal, capabilities = ALL_FIELDS, monthDayOnly, enabled = true,
+    } = options;
+    const dismissed = [...ignoredTokenIds, ...dismissedEntityIds];
+    const parsed = enabled && parse && input.trim()
+        ? parse({
+            input, sourceSurface, clock: nlpClock(), dateStyle,
+            context: { projects: projects.map((p) => ({ id: p.id, name: p.name })), tags: tags.map((t) => ({ id: t.id, name: t.name })) },
+            dismissedEntityIds: dismissed,
+        })
+        : emptyResult(input, sourceSurface);
+    const draft = resolveDraft(input, parsed.entities, { dismissed, accepted: acceptedEntityIds, manual, literal }, { zone, capabilities, threshold: confidenceThreshold, monthDayOnly });
+    const f = draft.fields;
+    const applied = parsed.entities.filter((e) => draft.applied.includes(e.id));
+    const tokens = applied.map(entityToToken).filter((t): t is QuickAddParsedToken => t !== null);
+    const dateEntity = applied.find((e) => e.type === "due_date" || e.type === "scheduled_start");
+
+    return {
+        cleanedTitle: draft.title,
+        dueDate: f.dueDate,
+        recurrenceRule: f.recurrenceRule,
+        priority: f.priority > 0 ? (f.priority as TaskPriority) : null,
+        projectId: f.projectId,
+        tagIds: f.tagIds,
+        tokens,
+        parseResult: { ...parsed, cleanedTitle: draft.title },
+        summary: parsed.summary ?? "",
+        waitingOn: f.waitingOn,
+        durationMinutes: f.durationMinutes,
+        dueHumanLabel: (dateEntity?.normalizedValue as { humanLabel?: string } | undefined)?.humanLabel ?? null,
+        scheduledStart: f.scheduledStart,
+        scheduledEnd: f.scheduledEnd,
+        suggestions: draft.suggestions,
+        unfit: draft.unfit,
+        applied,
+        ready: !enabled || !input.trim() || parse !== null,
+        fields: f,
+    };
 }
 
 /**
- * Maps NLP ParsedEntity types to the existing QuickAddParsedToken kinds.
+ * The live draft of a parsed field. It is computed during render, so what is shown is what Enter saves;
+ * `finalize` covers the one gap (the parser module still loading) by waiting for it and recomputing.
  */
-function entityToToken(entity: ParsedEntity): QuickAddParsedToken | null {
-    switch (entity.type) {
-        case "scheduled_start":
-        case "due_date":
-            return {
-                id: entity.id,
-                kind: "date",
-                label: (entity.normalizedValue as { humanLabel?: string })?.humanLabel ?? entity.sourceText,
-                raw: entity.sourceText,
-            };
-        case "recurrence":
-            return {
-                id: entity.id,
-                kind: "recurrence",
-                label: entity.explanation ?? entity.sourceText,
-                raw: entity.sourceText,
-            };
-        case "priority":
-            return {
-                id: entity.id,
-                kind: "priority",
-                label: entity.sourceText.toUpperCase(),
-                raw: entity.sourceText,
-            };
-        case "project":
-            return {
-                id: entity.id,
-                kind: "project",
-                label: `/${entity.sourceText}`,
-                raw: entity.sourceText,
-            };
-        case "tag":
-            return {
-                id: entity.id,
-                kind: "tag",
-                label: `#${entity.sourceText}`,
-                raw: entity.sourceText,
-            };
-        default:
-            return null;
-    }
-}
+export function useNlpParse(options: UseNlpParseOptions): NlpParseOutput & { finalize: () => Promise<NlpParseOutput> } {
+    const { enabled = true, input } = options;
+    const parse = useParseModule(enabled && Boolean(input.trim()));
+    const zone = getUserZone();
+    const key = JSON.stringify([
+        input, options.projects, options.tags, options.ignoredTokenIds, options.dismissedEntityIds, options.acceptedEntityIds,
+        options.manual, options.literal, options.monthDayOnly, options.sourceSurface, options.dateStyle, options.confidenceThreshold, enabled, zone,
+    ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` covers every option by value
+    const output = useMemo(() => computeNlp(parse, options, zone), [parse, key]);
 
-const EMPTY_OUTPUT: NlpParseOutput = {
-    cleanedTitle: "",
-    dueDate: null,
-    recurrenceRule: null,
-    priority: null,
-    projectId: null,
-    tagIds: [],
-    tokens: [],
-    parseResult: {
-        rawInput: "",
-        cleanedTitle: "",
-        parserVersion: "2.0.0",
-        sourceSurface: "inline_add",
-        entities: [],
-        warnings: [],
-        summary: "",
-        overallConfidence: null,
-    },
-    summary: "",
-    waitingOn: null,
-    durationMinutes: null,
-    dueHumanLabel: null,
-    scheduledStart: null,
-};
+    const finalize = useCallback(async () => {
+        const loaded = enabled && input.trim() ? await loadParse().catch(() => null) : null;
+        return computeNlp(loaded, options, getUserZone());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [key]);
 
-/** Section 16.2: debounce parse to token boundaries, not every keystroke */
-const PARSE_DEBOUNCE_MS = 180;
-/** Low-stimulation mode: longer debounce to reduce visual churn */
-const PARSE_DEBOUNCE_LOW_STIM_MS = 400;
-const CONFIDENCE_ORDER: Record<"low" | "medium" | "high", number> = {
-    low: 0,
-    medium: 1,
-    high: 2,
-};
-
-function confidenceMeetsThreshold(confidence: "high" | "medium" | "low", threshold: "high" | "medium" | "low"): boolean {
-    return CONFIDENCE_ORDER[confidence] >= CONFIDENCE_ORDER[threshold];
-}
-
-export function useNlpParse({
-    input,
-    projects,
-    tags,
-    ignoredTokenIds = [],
-    dismissedEntityIds = [],
-    sourceSurface = "inline_add",
-    dateStyle = "mdy",
-    confidenceThreshold = "medium",
-    lowStimulationMode = false,
-    enabled = true,
-}: UseNlpParseOptions): NlpParseOutput {
-    // §11.5: Low-stimulation mode enforces stricter confidence threshold
-    // Only high-confidence entities auto-apply; medium/low are suppressed
-    const effectiveThreshold = lowStimulationMode && confidenceThreshold !== "high"
-        ? "high" as const
-        : confidenceThreshold;
-    const [output, setOutput] = useState<NlpParseOutput>({ ...EMPTY_OUTPUT, cleanedTitle: input.trim() });
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const latestInputRef = useRef(input);
-    const latestDismissedEntityIdsRef = useRef(dismissedEntityIds);
-    const latestProjectsRef = useRef(projects);
-    const latestTagsRef = useRef(tags);
-    const latestIgnoredTokenIdsRef = useRef(ignoredTokenIds);
-    latestInputRef.current = input;
-    latestDismissedEntityIdsRef.current = dismissedEntityIds;
-    latestProjectsRef.current = projects;
-    latestTagsRef.current = tags;
-    latestIgnoredTokenIdsRef.current = ignoredTokenIds;
-
-    const runParse = useCallback(() => {
-        const currentInput = latestInputRef.current;
-        if (!enabled || !currentInput.trim()) {
-            setOutput({
-                ...EMPTY_OUTPUT,
-                cleanedTitle: currentInput.trim(),
-                parseResult: {
-                    ...EMPTY_OUTPUT.parseResult,
-                    rawInput: currentInput,
-                    cleanedTitle: currentInput.trim(),
-                    sourceSurface,
-                },
-            });
-            return;
-        }
-
-        const mod = parseModuleCache;
-        if (!mod) return; // Module not loaded yet
-
-        const resolutionContext = {
-            projects: latestProjectsRef.current.map((p) => ({ id: p.id, name: p.name })),
-            tags: latestTagsRef.current.map((t) => ({ id: t.id, name: t.name })),
-        };
-
-        const result = mod.parse({
-            input: currentInput,
-            sourceSurface,
-            clock: nlpClock(),
-            dateStyle,
-            context: resolutionContext,
-            dismissedEntityIds: [...latestIgnoredTokenIdsRef.current, ...latestDismissedEntityIdsRef.current],
-        });
-
-        const ignored = new Set([...latestIgnoredTokenIdsRef.current, ...latestDismissedEntityIdsRef.current]);
-        let dueDate: string | null = null;
-        let dueHumanLabel: string | null = null;
-        let scheduledStart: string | null = null;
-        let recurrenceRule: string | null = null;
-        let priority: TaskPriority | null = null;
-        let projectId: string | null = null;
-        const tagIds: string[] = [];
-        let waitingOn: string | null = null;
-        let durationMinutes: number | null = null;
-        const tokens: QuickAddParsedToken[] = [];
-
-        for (const entity of result.entities) {
-            const token = entityToToken(entity);
-            if (token && ignored.has(token.id)) continue;
-
-            switch (entity.type) {
-                case "scheduled_start":
-                case "due_date": {
-                    const val = entity.normalizedValue as Partial<DateValue> | undefined;
-                    if (confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) {
-                        // A typed time makes a timed block (and no deadline); a bare day is the all-day / deadline day.
-                        if (val?.date && val.time && val.hasTime !== false) {
-                            if (!scheduledStart) scheduledStart = fromTimeValue(val.date, val.time);
-                        } else if (!dueDate && val?.date) {
-                            dueDate = val.date;
-                        }
-                        if (!dueHumanLabel && val?.humanLabel) {
-                            dueHumanLabel = val.humanLabel;
-                        }
-                    }
-                    break;
-                }
-                case "recurrence": {
-                    const val = entity.normalizedValue as { rrule?: string };
-                    if (!recurrenceRule && val?.rrule && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) recurrenceRule = val.rrule;
-                    break;
-                }
-                case "priority": {
-                    const val = entity.normalizedValue as TaskPriority;
-                    if (!priority && val && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) priority = val;
-                    break;
-                }
-                case "project": {
-                    const val = entity.normalizedValue as { id?: string; resolvedId?: string };
-                    if (!projectId && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) projectId = val.id ?? val.resolvedId ?? null;
-                    break;
-                }
-                case "tag": {
-                    const val = entity.normalizedValue as { id?: string; resolvedId?: string };
-                    const tagId = val.id ?? val.resolvedId;
-                    if (tagId && confidenceMeetsThreshold(entity.confidence, effectiveThreshold) && !tagIds.includes(tagId)) tagIds.push(tagId);
-                    break;
-                }
-                case "waiting_on": {
-                    const val = entity.normalizedValue as { person?: string };
-                    if (!waitingOn && val?.person && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) waitingOn = val.person;
-                    break;
-                }
-                case "duration": {
-                    const val = entity.normalizedValue as { minutes?: number };
-                    if (!durationMinutes && val?.minutes && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) durationMinutes = val.minutes;
-                    break;
-                }
-            }
-            if (token) tokens.push(token);
-        }
-
-        setOutput({
-            cleanedTitle: result.cleanedTitle,
-            dueDate,
-            recurrenceRule,
-            priority,
-            projectId,
-            tagIds,
-            tokens,
-            parseResult: result,
-            // §11.5: Low-stimulation mode suppresses verbose summary text
-            summary: lowStimulationMode ? "" : (result.summary ?? ""),
-            waitingOn,
-            durationMinutes,
-            dueHumanLabel,
-            scheduledStart,
-        });
-
-        // §11.8 NLP telemetry
-        trackUsageEvent("nlp.parse_completed", {
-            surface: sourceSurface,
-            confidence_tier: result.overallConfidence ?? undefined,
-        });
-        if (result.overallConfidence === "low") {
-            trackUsageEvent("nlp.low_confidence_seen", { surface: sourceSurface });
-        }
-    }, [sourceSurface, dateStyle, enabled, effectiveThreshold, lowStimulationMode]);
-
-    // Load module on mount (when enabled) and trigger initial parse
-    useEffect(() => {
-        if (!enabled) return;
-        ensureParseModule().then(() => {
-            runParse();
-        });
-    }, [enabled, runParse]);
-
-    // Debounced parse on input change (Section 16.2)
-    // §11.5: Low-stimulation mode uses longer debounce to reduce visual churn
-    const dismissedKey = [...ignoredTokenIds, ...dismissedEntityIds].join("|");
-    const debounceMs = lowStimulationMode ? PARSE_DEBOUNCE_LOW_STIM_MS : PARSE_DEBOUNCE_MS;
-    useEffect(() => {
-        if (!enabled) return;
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(() => {
-            if (parseModuleCache) runParse();
-        }, debounceMs);
-        return () => {
-            if (debounceRef.current) clearTimeout(debounceRef.current);
-        };
-    }, [input, enabled, runParse, dismissedKey]);
-
-    return output;
+    return { ...output, finalize };
 }

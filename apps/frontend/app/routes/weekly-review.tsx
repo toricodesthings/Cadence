@@ -4,7 +4,7 @@ export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteE
 import { MainLayout } from "../components/layout/MainLayout";
 import { Button } from "../components/primitives/Button";
 import { Tip } from "../components/primitives";
-import { ArrowRight, ArrowLeft, Clock, Check, Pause, Repeat, Sun, Sunrise, Moon, Trash2, LoaderCircle, type LucideIcon } from "lucide-react";
+import { ArrowRight, ArrowLeft, Clock, Check, Pause, Repeat, Sun, Sunrise, Moon, Trash2, LoaderCircle, PenLine, type LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { today } from "../lib/utils/user-zone";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
@@ -14,6 +14,13 @@ import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
 import { WeeklyResetSidebar, STEPS } from "../components/weekly-review/WeeklyResetSidebar";
 import { WeeklyResetHero } from "../components/weekly-review/WeeklyResetHero";
 import { trackUsageEvent } from "../lib/api/track-event";
+import { InstructionField } from "../components/weekly-review/InstructionField";
+import { useThoughtParse } from "../hooks/inbox/use-thought-parse";
+import { MAX_BATCH } from "../hooks/tasks/use-apply-instruction";
+import { toDay, formatShortDate, formatShortDateTime } from "../lib/utils/date-format";
+import type { InstructionPatch } from "@cadence/domain/task-instruction";
+import type { InboxItem } from "@cadence/contracts/inbox";
+import type { Task } from "@cadence/contracts/task";
 
 const STEP_STORAGE_KEY = "cadence-weekly-reset-step";
 
@@ -34,6 +41,8 @@ function ReviewListItem({
     actionKeyPrefix,
     actionError,
     onRunAction,
+    select,
+    typed,
 }: {
     title: string;
     actions: ReviewAction[];
@@ -41,9 +50,23 @@ function ReviewListItem({
     actionKeyPrefix: string;
     actionError: string | null;
     onRunAction: (key: string, fn: () => Promise<void>) => void;
+    /** Pick this row for one change to several. */
+    select?: { checked: boolean; onChange: () => void };
+    /** Say a change in words instead of tapping a fixed choice. */
+    typed?: { placeholder: string; applyLabel: string; onApply: (patch: InstructionPatch) => Promise<void>; listId?: string | null };
 }) {
+    const [typing, setTyping] = useState(false);
     return (
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-twilight-border/40 bg-twilight-surface/30 px-4 py-3 transition-colors hover:bg-white/[0.03]">
+            {select ? (
+                <input
+                    type="checkbox"
+                    checked={select.checked}
+                    onChange={select.onChange}
+                    aria-label={`Select ${title}`}
+                    className="size-5 shrink-0 cursor-pointer accent-[var(--accent-primary)]"
+                />
+            ) : null}
             <span className="w-full sm:w-auto sm:flex-1 min-w-0 truncate text-sm font-medium text-twilight-text">
                 {title}
             </span>
@@ -88,9 +111,99 @@ function ReviewListItem({
                     );
                 })}
             </div>
+            {typed ? (
+                <Tip label="Type a change" side="top">
+                    <button
+                        type="button"
+                        onClick={() => setTyping((open) => !open)}
+                        aria-label="Type a change"
+                        aria-expanded={typing}
+                        className="touch-target inline-flex items-center justify-center rounded-xl px-2.5 text-twilight-text-soft hover:bg-white/[0.06] hover:text-twilight-text"
+                    >
+                        <PenLine size={16} aria-hidden="true" />
+                    </button>
+                </Tip>
+            ) : null}
+            {typing && typed ? (
+                <InstructionField
+                    autoFocus
+                    placeholder={typed.placeholder}
+                    applyLabel={typed.applyLabel}
+                    listId={typed.listId}
+                    disabled={Boolean(pendingActionKey)}
+                    onApply={async (patch) => { await typed.onApply(patch); setTyping(false); }}
+                />
+            ) : null}
             {actionError && (
                 <span className="text-xs text-feedback-error">{actionError}</span>
             )}
+        </div>
+    );
+}
+
+/** A capture row: the one obvious placement is the day its words name (when they are today's words), else Today. */
+function CaptureReviewRow({
+    item,
+    onPlace,
+    onAction,
+    pendingActionKey,
+    actionError,
+    onRunAction,
+}: {
+    item: InboxItem;
+    onPlace: (choice: { day?: string; patch?: InstructionPatch }) => Promise<void>;
+    onAction: (action: "today" | "tomorrow" | "someday" | "delete") => Promise<void>;
+    pendingActionKey: string | null;
+    actionError: string | null;
+    onRunAction: (key: string, fn: () => Promise<void>) => void;
+}) {
+    const parse = useThoughtParse(item.rawText, (item.analysis?.dismissedEntityIds ?? []) as string[]);
+    // A capture from an earlier day: its "tomorrow" is not today's, so no day is proposed from its words.
+    const fresh = toDay(item.createdAt) === today();
+    const start = fresh ? parse.scheduledStart : null;
+    const day = fresh ? parse.dueDate : null;
+    const proposed = start ?? day;
+    const primary: ReviewAction = proposed
+        ? {
+            label: `Place on ${start ? formatShortDateTime(start) : formatShortDate(day!)}`,
+            shortLabel: start ? formatShortDateTime(start) : formatShortDate(day!),
+            icon: Sun,
+            onClick: () => onPlace(start ? { patch: { scheduledStart: start, scheduledEnd: parse.scheduledEnd, dueDate: null } } : { day: day! }),
+            variant: "cardPrimary",
+        }
+        : { label: "Do Today", shortLabel: "Today", icon: Sun, onClick: () => onAction("today"), variant: "cardPrimary" };
+    return (
+        <ReviewListItem
+            title={item.rawText || "Empty"}
+            actionKeyPrefix={`inbox:${item.id}`}
+            actions={[
+                primary,
+                ...(proposed ? [{ label: "Do Today", shortLabel: "Today", icon: Sun, onClick: () => onAction("today") }] : []),
+                { label: "Do Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => onAction("tomorrow") },
+                { label: "Decide Later", shortLabel: "Later", icon: Moon, onClick: () => onAction("someday") },
+                { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => onAction("delete"), variant: "cardDanger" },
+            ]}
+            typed={{ placeholder: "Friday 3pm for 30 min, in Work…", applyLabel: "Place", onApply: (patch) => onPlace({ patch }) }}
+            pendingActionKey={pendingActionKey}
+            actionError={actionError}
+            onRunAction={onRunAction}
+        />
+    );
+}
+
+/** One change typed for the rows the user picked: shows what changes and how many, applies on one press. */
+function BatchBar({ count, onApply, onClear }: { count: number; onApply: (patch: InstructionPatch) => Promise<void>; onClear: () => void }) {
+    return (
+        <div className="sticky bottom-0 z-10 mt-4 flex flex-col gap-2 rounded-2xl border border-accent-primary/25 bg-twilight-deep/90 p-3 backdrop-blur-xl" role="region" aria-label="Change selected tasks">
+            <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-twilight-text">{count} selected{count > MAX_BATCH ? ` (${MAX_BATCH} at a time)` : ""}</span>
+                <button type="button" onClick={onClear} className="touch-target min-h-9 cursor-pointer rounded-lg px-2 text-xs text-twilight-text-soft hover:text-twilight-text">Clear</button>
+            </div>
+            <InstructionField
+                placeholder="move these to next Monday, put these in Work…"
+                applyLabel={`Apply to ${Math.min(count, MAX_BATCH)} task${count === 1 ? "" : "s"}`}
+                onApply={onApply}
+            />
         </div>
     );
 }
@@ -205,10 +318,25 @@ export default function WeeklyReview() {
         actionError,
         runCardAction,
         handleInboxAction,
+        placeCapture,
+        applyInstruction,
         handleUnscheduledAction,
         handleWaitingAction,
         setKeptWaitingIds,
     } = useWeeklyReviewActions(currentStep);
+
+    // Rows picked for one typed change; a failed one stays picked so a retry touches only it.
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const toggleSelected = (id: string) => setSelectedIds((prev) => { const next = new Set(prev); if (!next.delete(id)) next.add(id); return next; });
+    const workRows: Task[] = [...unscheduledTasks, ...visibleWaiting];
+    const selectedTasks = workRows.filter((t) => selectedIds.has(t.id));
+    const applyToSelected = async (patch: InstructionPatch) => {
+        const result = await applyInstruction(selectedTasks, patch, `Updated ${selectedTasks.length} task${selectedTasks.length === 1 ? "" : "s"}`);
+        setSelectedIds(new Set(result.failed));
+    };
+    const applyToOne = async (task: Task, patch: InstructionPatch) => {
+        await applyInstruction([task], patch, "Updated");
+    };
 
     const [reviewedHabitIds, setReviewedHabitIds] = useState<Set<string>>(new Set());
     const unreviewedHabits = habitReviewItems.filter((h) => !reviewedHabitIds.has(h.id));
@@ -330,16 +458,11 @@ export default function WeeklyReview() {
                                 {inboxItems.length > 0 ? (
                                     <div className="flex flex-col gap-2">
                                         {inboxItems.map((item) => (
-                                            <ReviewListItem
+                                            <CaptureReviewRow
                                                 key={item.id}
-                                                title={item.rawText || "Empty"}
-                                                actionKeyPrefix={`inbox:${item.id}`}
-                                                actions={[
-                                                    { label: "Do Today", shortLabel: "Today", icon: Sun, onClick: () => handleInboxAction(item, "today"), variant: "cardPrimary" },
-                                                    { label: "Do Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => handleInboxAction(item, "tomorrow") },
-                                                    { label: "Decide Later", shortLabel: "Later", icon: Moon, onClick: () => handleInboxAction(item, "someday") },
-                                                    { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => handleInboxAction(item, "delete"), variant: "cardDanger" },
-                                                ]}
+                                                item={item}
+                                                onPlace={(choice) => placeCapture(item, choice)}
+                                                onAction={(action) => handleInboxAction(item, action)}
                                                 pendingActionKey={pendingActionKey}
                                                 actionError={actionError}
                                                 onRunAction={runCardAction}
@@ -385,6 +508,8 @@ export default function WeeklyReview() {
                                                     key={task.id}
                                                     title={task.title}
                                                     actionKeyPrefix={`unscheduled:${task.id}`}
+                                                    select={{ checked: selectedIds.has(task.id), onChange: () => toggleSelected(task.id) }}
+                                                    typed={{ placeholder: "Friday afternoon for 30 min, in Work, waiting on Alex…", applyLabel: "Apply", onApply: (patch) => applyToOne(task, patch), listId: task.projectId }}
                                                     actions={[
                                                         { label: "Assign Today", shortLabel: "Today", icon: Sun, onClick: () => handleUnscheduledAction(task, "today"), variant: "cardPrimary" },
                                                         { label: "Assign Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => handleUnscheduledAction(task, "tomorrow") },
@@ -408,6 +533,8 @@ export default function WeeklyReview() {
                                                     key={task.id}
                                                     title={task.title}
                                                     actionKeyPrefix={`waiting:${task.id}`}
+                                                    select={{ checked: selectedIds.has(task.id), onChange: () => toggleSelected(task.id) }}
+                                                    typed={{ placeholder: "follow up next Tuesday, keep waiting until Monday, activate tomorrow…", applyLabel: "Apply", onApply: (patch) => applyToOne(task, patch), listId: task.projectId }}
                                                     actions={[
                                                         { label: "Activate Today", shortLabel: "Today", icon: Sun, onClick: () => handleWaitingAction(task, "today"), variant: "cardPrimary" },
                                                         { label: "Activate Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => handleWaitingAction(task, "tomorrow") },
@@ -424,6 +551,9 @@ export default function WeeklyReview() {
                                 )}
                                 {unscheduledTasks.length === 0 && visibleWaiting.length === 0 && (
                                     <StepDone label="Everything is placed." onNext={handleNext} />
+                                )}
+                                {selectedTasks.length > 0 && (
+                                    <BatchBar count={selectedTasks.length} onApply={applyToSelected} onClear={() => setSelectedIds(new Set())} />
                                 )}
                                 {(unscheduledTasks.length > 0 || visibleWaiting.length > 0) && (
                                     <div className="mt-6 flex justify-end">

@@ -25,90 +25,53 @@ export function resolveProjectsAndTags(
   dismissed: Set<string>,
 ): ParsedEntity[] {
   const entities: ParsedEntity[] = [];
-
-  // Build word sequences from unconsumed portions of input
   const words = extractUnconsumedWords(input, consumedRanges);
   if (words.length === 0) return entities;
 
-  // Try fuzzy project matching
-  if (context.projects.length > 0) {
-    const projectFuse = new Fuse(context.projects, FUSE_OPTIONS);
+  const projectFuse = new Fuse(context.projects, FUSE_OPTIONS);
+  const tagFuse = new Fuse(context.tags, FUSE_OPTIONS);
 
-    // Try 2-word and 1-word sequences for project names
-    for (let windowSize = Math.min(3, words.length); windowSize >= 1; windowSize--) {
-      for (let i = 0; i <= words.length - windowSize; i++) {
-        const phrase = words
-          .slice(i, i + windowSize)
-          .map((w) => w.text)
-          .join(" ");
-        const results = projectFuse.search(phrase);
+  // A name only counts after a placement/tagging cue ("in Work", "tag it errands"): plain words never match.
+  for (const match of input.matchAll(CUE_RE)) {
+    const cueStart = match.index ?? 0;
+    const isTag = /^tag/i.test(match[1]);
+    const cueEnd = cueStart + match[0].length;
+    const after = words.filter((w) => w.start >= cueEnd && !consumedRanges.some((r) => w.start < r.end && w.end > r.start));
+    // Longest name first: "Work Admin" beats "Work"
+    for (let size = Math.min(3, after.length); size >= 1; size--) {
+      const run = after.slice(0, size);
+      if (run.some((w, i) => i > 0 && w.start - run[i - 1].end > 1)) continue;
+      const phrase = run.map((w) => w.text.replace(/[.,;:!?]+$/, "")).join(" ");
+      const best = (isTag ? tagFuse : projectFuse).search(phrase)[0];
+      if (!best || (best.score ?? 1) > 0.2) continue;
+      const id = `${isTag ? "tag" : "project"}:${best.item.id}`;
+      if (dismissed.has(id) || entities.some((e) => e.id === id)) break;
+      if (!isTag && entities.some((e) => e.type === "project")) break;
 
-        if (results.length === 0) continue;
-        const best = results[0];
-        if (!best.score || best.score > 0.3) continue; // Too fuzzy
-
-        const projectId = `project:${best.item.id}`;
-        if (dismissed.has(projectId)) continue;
-        if (entities.some((e) => e.type === "project")) continue; // One project only
-
-        const confidence: ConfidenceTier =
-          best.score < 0.05 ? "high" : "medium";
-
-        const startWord = words[i];
-        const endWord = words[i + windowSize - 1];
-
-        entities.push({
-          id: projectId,
-          type: "project",
-          sourceText: phrase,
-          start: startWord.start,
-          end: endWord.end,
-          confidence,
-          normalizedValue: { id: best.item.id, resolvedId: best.item.id, name: best.item.name },
-          explanation:
-            confidence === "high"
-              ? `List: ${best.item.name}`
-              : `Suggested project: ${best.item.name}`,
-        });
-      }
-    }
-  }
-
-  // Try fuzzy tag matching
-  if (context.tags.length > 0) {
-    const tagFuse = new Fuse(context.tags, FUSE_OPTIONS);
-
-    for (const word of words) {
-      const results = tagFuse.search(word.text);
-      if (results.length === 0) continue;
-      const best = results[0];
-      if (!best.score || best.score > 0.2) continue;
-
-      const tagId = `tag:${best.item.id}`;
-      if (dismissed.has(tagId)) continue;
-      if (entities.some((e) => e.id === tagId)) continue;
-
-      const confidence: ConfidenceTier =
-        best.score < 0.05 ? "high" : "medium";
-
+      const confidence: ConfidenceTier = (best.score ?? 0) < 0.05 ? "high" : "medium";
+      const last = run[run.length - 1];
       entities.push({
-        id: tagId,
-        type: "tag",
-        sourceText: word.text,
-        start: word.start,
-        end: word.end,
+        id,
+        type: isTag ? "tag" : "project",
+        sourceText: input.slice(cueStart, last.end),
+        start: cueStart,
+        end: last.end,
         confidence,
         normalizedValue: { id: best.item.id, resolvedId: best.item.id, name: best.item.name },
         explanation:
           confidence === "high"
-            ? `Tag: #${best.item.name}`
-            : `Suggested tag: #${best.item.name}`,
+            ? `${isTag ? "Tag: #" : "List: "}${best.item.name}`
+            : `Suggested ${isTag ? "tag: #" : "list: "}${best.item.name}`,
       });
+      break;
     }
   }
 
   return entities;
 }
+
+/** "in", "under", "to", "into", "put this in", "tag it", "tagged as", "tag with" */
+const CUE_RE = /\b(?:(?:put|move|add)\s+(?:this|it)\s+(?:in|into|to|under)|(tag(?:ged)?(?:\s+(?:it|this))?(?:\s+(?:as|with))?)|in|into|under)\s+(?=\S)/gi;
 
 interface WordPosition {
   text: string;

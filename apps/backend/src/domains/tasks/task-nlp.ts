@@ -103,7 +103,7 @@ export function inferTaskFieldsFromParse(
             }
             case "waiting_on": {
                 if (explicit.waitingOn !== undefined) continue;
-                parsedWaitingOn = entity.normalizedValue as string;
+                parsedWaitingOn = (entity.normalizedValue as { person: string }).person;
                 break;
             }
             case "recurrence": {

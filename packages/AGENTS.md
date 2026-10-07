@@ -11,9 +11,9 @@ by every client (`apps/backend`, `apps/frontend`, and downstream
 
 ```
 packages/
-  nlp/        NLP parse / resolve / rank / focus-views.   deps: chrono-node, fuse.js
+  nlp/        NLP parse / resolve / title / effort / rank / focus-views.   deps: chrono-node, fuse.js
   contracts/  Zod schemas → inferred types (wire shapes). deps: zod, @cadence/nlp
-  domain/     Pure domain logic (no I/O, no framework).   deps: rrule, @cadence/contracts
+  domain/     Pure domain logic (no I/O, no framework).   deps: rrule, @cadence/contracts, @cadence/nlp
   tests/      @cadence/package-tests: every package test, mirroring each package's src/
 ```
 
@@ -196,6 +196,7 @@ Never import `AppError` here.
   the creation day in the user's zone), `isPausedOn` (a pause covers today through `pausedUntil`, never the past), `stepDayStatus`/`stepMarksOn`
   (a routine day's status from its step marks, and back), and
   `suggestInteractionMode` (the server default that makes class-like timed series Fixed).
+- `nlp-draft.ts` — `resolveDraft`: the one place a parse becomes a draft. Precedence is a hand-set field (a present key wins, even none) → applied language → surface default; fuzzy names and under-threshold meaning are suggestions until chosen; dismissals follow the phrase id; `capabilities` say what a surface (task, calendar block, routine, yearly event) can store, the rest stays in the title; the title loses only applied/replaced phrases. `task-instruction.ts` turns a typed instruction for existing work into a bounded patch (and `undoPatch`), including a named section (`findSectionMention`/`resolveSection`: a cue word, unambiguous within the named or current list, and a day-like name only with "section"); a relative reminder ("30 minutes before") applies only once the draft has a timed start; `effort-evidence.ts` decides what may inform an Effort suggestion and when it may show.
 - `ai-title.ts` — conversation-title helpers (`deriveFallbackTitle`,
   `normalizeTitle`) for the frontend's optimistic title and the backend fallback.
 

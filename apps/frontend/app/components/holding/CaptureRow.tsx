@@ -18,6 +18,7 @@ import type { Task } from "@cadence/contracts/task";
 import type { Subtask } from "@cadence/contracts/subtask";
 import { useThoughtParse } from "../../hooks/inbox/use-thought-parse";
 import { useProcessInboxToTask, todayISO, tomorrowISO } from "../../hooks/inbox/use-process-inbox-to-task";
+import { resolvedNlp } from "../../lib/utils/task/resolved-nlp";
 import { useCaptureActions } from "../../hooks/inbox/use-capture-actions";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useSettings } from "../../hooks/core/use-settings";
@@ -120,14 +121,17 @@ export function CaptureRow({
                   }),
             projectId: overrides?.projectId !== undefined ? overrides.projectId : parse.projectId,
             tagIds: overrides?.tagIds ?? parse.tagIds,
+            priority: parse.priority ?? 0,
+            durationEstimate: parse.durationMinutes,
+            waitingOn: parse.waitingOn,
             complete,
-            nlp: {
-                rawInput: item!.rawText,
-                sourceSurface: "inbox",
-                dateStyle: settings?.dateTime.dateStyle ?? "mdy",
-                dismissedEntityIds: (item?.analysis?.dismissedEntityIds ?? []) as string[],
-                userOverrides: overrides ?? {},
-            },
+            nlp: resolvedNlp(
+                item!.rawText,
+                "inbox",
+                settings?.dateTime.dateStyle ?? "mdy",
+                (item?.analysis?.dismissedEntityIds ?? []) as string[],
+                overrides ?? {},
+            ),
         });
     };
     const discard = () => {

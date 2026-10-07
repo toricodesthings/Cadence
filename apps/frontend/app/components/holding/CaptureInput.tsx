@@ -1,4 +1,8 @@
-import { nlpClock } from "../../lib/utils/date-format";
+import { computeNlp, loadParse, TASK_FIELDS } from "../../hooks/use-nlp-parse";
+import { resolvedNlp } from "../../lib/utils/task/resolved-nlp";
+import { useProjects } from "../../hooks/projects/use-projects";
+import { useTags } from "../../hooks/tags/use-tags";
+import { useSettings } from "../../hooks/core/use-settings";
 import { useState, useRef, useEffect, useLayoutEffect, useContext, type KeyboardEvent } from "react";
 import { Inbox, MessageSquare } from "lucide-react";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
@@ -34,6 +38,12 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     const input = useRef<HTMLTextAreaElement>(null);
     const create = useCreateInboxItem();
     const process = useProcessInboxToTask();
+    const { data: projects = [] } = useProjects();
+    const { data: tags = [] } = useTags();
+    const { data: settings } = useSettings();
+    const nlpEnabled = settings?.tasks?.intelligence?.nlpEnabled !== false;
+    const dateStyle = settings?.dateTime?.dateStyle ?? "mdy";
+    const confidenceThreshold = settings?.tasks?.intelligence?.confidenceThreshold ?? "medium";
     const savedCapture = useRef<InboxItem | undefined>(undefined);
     const lines = value
         .split(/\r?\n/)
@@ -54,12 +64,25 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
                 const item = savedCapture.current ?? (await create.mutateAsync({ id, rawText: text }));
                 if (asTask) {
                     savedCapture.current = item ?? savedCapture.current;
-                    const { parse } = await import("@cadence/nlp/parse");
-                    const parsed = parse({ input: text, sourceSurface: "inbox", clock: nlpClock() });
+                    // Same interpretation as every composer: what is understood is sent, and the server stores it as sent.
+                    const parse = await loadParse().catch(() => null);
+                    const draft = computeNlp(parse, { input: text, projects, tags, capabilities: TASK_FIELDS, sourceSurface: "inbox", dateStyle, confidenceThreshold, enabled: nlpEnabled });
                     await process.mutateAsync({
                         inboxItemId: id,
                         rawText: text,
-                        title: parsed.cleanedTitle || text,
+                        title: draft.cleanedTitle || text,
+                        dueDate: draft.fields.dueDate,
+                        scheduledStart: draft.fields.scheduledStart,
+                        scheduledEnd: draft.fields.scheduledEnd,
+                        recurrenceRule: draft.fields.recurrenceRule,
+                        projectId: draft.fields.projectId,
+                        tagIds: draft.fields.tagIds,
+                        priority: draft.fields.priority,
+                        durationEstimate: draft.fields.durationMinutes,
+                        waitingOn: draft.fields.waitingOn,
+                        reminderAt: draft.fields.reminderAt,
+                        notBefore: draft.fields.notBefore,
+                        nlp: resolvedNlp(text, "inbox", dateStyle, [], {}),
                     });
                 }
                 savedCapture.current = undefined;

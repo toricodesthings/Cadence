@@ -6,7 +6,15 @@ import { ColourDot } from "../shared/ColourDot";
 import { PersonalEventDetailsFields } from "./PersonalEventDetailsFields";
 import type { PersonalEvent } from "../../types/settings";
 import { today } from "../../lib/utils/user-zone";
+import { useNlpParse } from "../../hooks/use-nlp-parse";
+import { useSettings } from "../../hooks/core/use-settings";
+import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
+import type { DraftField } from "@cadence/domain/nlp-draft";
+import { DraftRow } from "../tasks/DraftRow";
 import { EVENT_SWATCHES, eventToneStyle } from "../../lib/utils/personal-events";
+
+/** A yearly event stores a month and day: nothing else a title can say. */
+const EVENT_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>(["dueDate"]);
 
 interface PersonalEventEditorDialogProps {
     open: boolean;
@@ -56,6 +64,31 @@ export function usePersonalEventComposer({
     const [trackMilestone, setTrackMilestone] = useState(false);
     const [startedOn, setStartedOn] = useState(startDate);
     const [notify, setNotify] = useState(true);
+    const [dateTouched, setDateTouched] = useState(false);
+    const [dismissed, setDismissed] = useState<string[]>([]);
+    const [accepted, setAccepted] = useState<string[]>([]);
+    const [literal, setLiteral] = useState(false);
+    const { data: settings } = useSettings();
+    const saveThought = useCreateInboxItem();
+    const intelligence = settings?.tasks?.intelligence;
+    const nlp = useNlpParse({
+        input: label,
+        projects: [],
+        tags: [],
+        dismissedEntityIds: dismissed,
+        acceptedEntityIds: accepted,
+        literal,
+        manual: dateTouched ? { dueDate: eventDate } : undefined,
+        capabilities: EVENT_FIELDS,
+        monthDayOnly: true,
+        sourceSurface: "quick_add",
+        dateStyle: settings?.dateTime?.dateStyle ?? "mdy",
+        confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
+        enabled: open && intelligence?.nlpEnabled !== false,
+    });
+    // A time or a year can't live on a yearly event: the words stay, we say so, and nothing falls back to today.
+    const unfit = literal ? undefined : nlp.unfit[0];
+    const shownDate = dateTouched ? eventDate : (nlp.fields.dueDate ?? eventDate);
 
     useEffect(() => {
         if (!open || !autoFocus) return;
@@ -71,15 +104,23 @@ export function usePersonalEventComposer({
         setTrackMilestone(false);
         setStartedOn(startDate);
         setNotify(true);
+        setDateTouched(false);
+        setDismissed([]);
+        setAccepted([]);
+        setLiteral(false);
     };
 
-    const handleSubmit = () => {
-        const trimmedLabel = label.trim();
-        if (!trimmedLabel || !eventDate) return;
+    const handleSubmit = async () => {
+        if (!label.trim() || unfit) return;
+        // Enter saves what is on screen; only a still-loading parser makes it wait, then re-reads the same text.
+        const draft = nlp.ready ? nlp : await nlp.finalize();
+        const trimmedLabel = (draft.cleanedTitle || label).trim().slice(0, 80);
+        const day = dateTouched ? eventDate : (draft.fields.dueDate ?? eventDate);
+        if (!trimmedLabel || !day) return;
         onSubmit({
             label: trimmedLabel,
             emoji: emoji.trim() || null,
-            monthDay: eventDate.slice(5),
+            monthDay: day.slice(5),
             notify,
             startedOn: trackMilestone ? startedOn : null,
             color: color || null,
@@ -92,9 +133,9 @@ export function usePersonalEventComposer({
         icon: CalendarHeart,
         tone: "schedule",
         subtitle: "Yearly personal event",
-        isDirty: Boolean(label.trim() || emoji.trim() || color || eventDate !== startDate || trackMilestone || startedOn !== startDate || !notify),
+        isDirty: Boolean(label.trim() || emoji.trim() || color || dateTouched || eventDate !== startDate || trackMilestone || startedOn !== startDate || !notify),
         discardTitle: "Discard this event?",
-        footer: <ComposerSubmit onSubmit={handleSubmit} submitLabel={submitLabel} icon={CalendarHeart} tone="schedule" disabled={!label.trim()} />,
+        footer: <ComposerSubmit onSubmit={() => void handleSubmit()} submitLabel={submitLabel} icon={CalendarHeart} tone="schedule" disabled={!label.trim() || Boolean(unfit)} />,
         reset,
         titleRef,
         children: (
@@ -103,7 +144,7 @@ export function usePersonalEventComposer({
                     inputRef={titleRef}
                     value={label}
                     onChange={(event) => setLabel(event.target.value)}
-                    onKeyDown={(event) => { if (event.key === "Enter") handleSubmit(); }}
+                    onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) void handleSubmit(); }}
                     placeholder="Mom's birthday, retreat, launch day…"
                     maxLength={80}
                     aria-label="Event name"
@@ -116,8 +157,30 @@ export function usePersonalEventComposer({
                     )}
                 />
 
+                {unfit ? (
+                    <div role="status" className="space-y-2 rounded-xl border border-twilight-border/45 px-3 py-2 text-sm text-twilight-text-soft">
+                        <p>Yearly events repeat on a day, so "{unfit.sourceText}" can't be saved here. Pick the day below, or keep your words as a thought.</p>
+                        <button
+                            type="button"
+                            className="min-h-9 cursor-pointer rounded-lg px-2 font-medium text-accent-primary"
+                            onClick={() => { saveThought.mutate({ id: crypto.randomUUID(), rawText: label.trim() }); reset(); }}
+                        >
+                            Save as thought
+                        </button>
+                    </div>
+                ) : null}
+                <DraftRow
+                    applied={nlp.applied}
+                    suggestions={nlp.suggestions}
+                    shownElsewhere={["due_date", "scheduled_start"]}
+                    literal={literal}
+                    onDismiss={(id) => setDismissed((current) => [...current, id])}
+                    onAccept={(id) => setAccepted((current) => [...current, id])}
+                    onLiteral={setLiteral}
+                />
+
                 <PersonalEventDetailsFields
-                    eventDate={eventDate} setEventDate={setEventDate}
+                    eventDate={shownDate} setEventDate={(day) => { setEventDate(day); setDateTouched(true); }}
                     trackMilestone={trackMilestone} setTrackMilestone={setTrackMilestone}
                     startedOn={startedOn} setStartedOn={setStartedOn}
                     notify={notify} setNotify={setNotify}

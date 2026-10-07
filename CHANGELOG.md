@@ -6,6 +6,26 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Weekly Reset: type a change for one or several tasks, even a section to move to, and see it before you apply.
+- Effort suggestions from your own past choices on similar tasks. You pick; nothing is filled in for you.
+- "Remind me 30 minutes before" sets a reminder that counts back from the task's start time.
+- Routines, yearly events and weekly calendar blocks read cadence, times and dates from the name you type.
+- "Keep as written" skips interpretation for one typed task, routine or event.
+
+### Changed
+
+- Typed dates, lists and tags now save exactly what you see, and "in the next 2 days" is only suggested as a deadline.
+- Weekly Reset turns a capture into a task in one step and keeps it as placed, instead of copying then deleting.
+
+### Fixed
+
+- Typing "in 30 minutes", "monthly report" or a quoted phrase no longer drops words or sets the wrong date.
+- A second date or a phrase Cadence can't read stays in the title instead of disappearing.
+- "Waiting on Sam" now marks a new task as waiting, so who you're waiting on shows when you open it.
+- With a photo background, the writing room and full-screen editors cover the page instead of showing it through.
+
 ## [0.28.0] - 2026-10-06
 
 ### Added

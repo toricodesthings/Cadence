@@ -37,7 +37,7 @@ export function useCreateTask() {
                         title: input.title,
                         ...(input.content !== undefined && { content: input.content }),
                         orderIndex: input.orderIndex,
-                        state: "ACTIVE",
+                        state: input.state ?? "ACTIVE",
                         ...(input.projectId && { projectId: input.projectId }),
                         ...(input.tagIds?.length ? { tagIds: input.tagIds } : {}),
                         ...(input.sectionId !== undefined && { sectionId: input.sectionId }),
@@ -55,6 +55,7 @@ export function useCreateTask() {
                         ...(input.waitingOn !== undefined && { waitingOn: input.waitingOn }),
                         ...(input.waitingReminder !== undefined && { waitingReminder: input.waitingReminder }),
                         ...(input.effort !== undefined && { effort: input.effort }),
+                        ...(input.effortOrigin && { effortOrigin: input.effortOrigin }),
                         ...(input.notBefore !== undefined && { notBefore: input.notBefore }),
                         ...(input.durationEstimate !== undefined && { durationEstimate: input.durationEstimate }),
                         ...(input.nlp && { nlp: input.nlp }),
@@ -79,7 +80,7 @@ export function useCreateTask() {
                 tagIds: input.tagIds ?? [],
                 title: input.title,
                 content: input.content ?? null,
-                state: "ACTIVE",
+                state: input.state ?? "ACTIVE",
                 orderIndex: input.orderIndex,
                 dueDate: input.dueDate ?? null,
                 endDate: input.endDate ?? null,
@@ -111,8 +112,9 @@ export function useCreateTask() {
             return { snapshot, optimisticId: optimisticTask.id };
         },
 
-        onSuccess: (task, _input, context) => {
+        onSuccess: (task, input, context) => {
             if (!task) return; // Queued offline
+            if (input.effortOrigin) void queryClient.invalidateQueries({ queryKey: queryKeys.effortEvidence });
             if (isRecurringTask(task)) {
                 taskCache.invalidate(queryClient);
                 return;

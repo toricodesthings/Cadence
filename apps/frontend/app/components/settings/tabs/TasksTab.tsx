@@ -328,6 +328,18 @@ export function TasksTab() {
                         </SettingsRow>
 
                         <SettingsRow
+                            title="Suggest Effort"
+                            description="Offer an Effort level from the choices you've made on similar tasks. You always pick; nothing is filled in for you."
+                        >
+                            <Switch
+                                checked={intelligence.effortSuggestions}
+                                onCheckedChange={(val) =>
+                                    updateSettings.mutate({ tasks: { intelligence: { effortSuggestions: val } } })
+                                }
+                            />
+                        </SettingsRow>
+
+                        <SettingsRow
                             title="Focus Views"
                             description="Enable preset and custom Focus Views like Quick Wins, Due Soon, and Deep Focus."
                         >

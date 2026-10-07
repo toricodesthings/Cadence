@@ -17,6 +17,8 @@ export type SourceSurface = z.infer<typeof sourceSurfaceSchema>;
 
 export const taskPrioritySchema = z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
 export type TaskPriority = z.infer<typeof taskPrioritySchema>;
+export const effortOriginSchema = z.enum(["manual", "accepted"]);
+export type EffortOrigin = z.infer<typeof effortOriginSchema>;
 export const effortLevelSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
 export type EffortLevel = z.infer<typeof effortLevelSchema> | null;
 
@@ -26,6 +28,7 @@ export const canonicalNlpEnvelopeSchema = z.object({
     dateStyle: z.enum(DATE_STYLES),
     dismissedEntityIds: z.array(z.string().min(1).max(100)).default([]),
     userOverrides: z.record(z.string(), z.unknown()).default({}),
+    resolved: z.boolean().optional(),
 }) satisfies z.ZodType<CanonicalNlpEnvelope>; // nlp owns the type; this fails tsc if they drift
 
 // ── Input schemas (moved verbatim from backend tasks.schema.ts) ──
@@ -56,6 +59,8 @@ export const insertTaskSchema = z.object({
     waitingOn: waitingOnSchema.nullable().optional(),
     waitingReminder: instantSchema.nullable().optional(),
     effort: effortLevelSchema.nullable().optional(),
+    /** Who chose `effort`; omit when it was not the person (assistant, import). Only chosen values inform suggestions. */
+    effortOrigin: effortOriginSchema.optional(),
     /** Hide until this day. */
     notBefore: localDateSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
@@ -86,6 +91,7 @@ export const updateTaskSchema = z.object({
     waitingOn: waitingOnSchema.nullable().optional(),
     waitingReminder: instantSchema.nullable().optional(),
     effort: effortLevelSchema.nullable().optional(),
+    effortOrigin: effortOriginSchema.optional(),
     notBefore: localDateSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
     expectedUpdatedAt: z.string().optional(),
@@ -149,6 +155,8 @@ export const taskRowSchema = z.object({
     waitingOn: z.string().nullable(),
     waitingReminder: instantSchema.nullable(),
     effort: z.number().int().min(1).max(3).nullable(),
+    effortOrigin: z.string().nullable(),
+    effortChosenAt: instantSchema.nullable(),
     notBefore: localDateSchema.nullable(),
     createdAt: instantSchema,
     updatedAt: instantSchema,
@@ -157,7 +165,7 @@ export type TaskRow = z.infer<typeof taskRowSchema>;
 
 // ── Entity schema — row + API enrichment (joins/derived). Narrows priority/effort
 //    to the canonical literal unions that the client consumes. ──
-export const taskSchema = taskRowSchema.extend({
+export const taskSchema = taskRowSchema.omit({ effortOrigin: true, effortChosenAt: true }).extend({
     origin: z.enum(["thought"]).nullable().optional(),
     priority: taskPrioritySchema,
     effort: effortLevelSchema.nullable(),
@@ -182,6 +190,17 @@ export type Task = z.infer<typeof taskSchema>;
 // for clients building request bodies.
 export type CreateTaskInput = z.input<typeof insertTaskSchema>;
 export type UpdateTaskInput = z.input<typeof updateTaskSchema>;
+
+/** One earlier Effort choice, from `GET /tasks/effort-evidence`: the person's own recorded choices only. */
+export const effortEvidenceRowSchema = z.object({
+    id: z.uuid(),
+    title: z.string(),
+    projectId: z.uuid().nullable(),
+    effort: effortLevelSchema,
+    origin: effortOriginSchema,
+    chosenAt: instantSchema,
+});
+export type EffortEvidenceRow = z.infer<typeof effortEvidenceRowSchema>;
 
 // ── List filters (GET /tasks query) ──
 

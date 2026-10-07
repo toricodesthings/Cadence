@@ -10,7 +10,10 @@
     "./ordering": "./src/ordering.ts",
     "./ai-title": "./src/ai-title.ts",
     "./repeats": "./src/repeats.ts",
-    "./time": "./src/time.ts"
+    "./time": "./src/time.ts",
+    "./nlp-draft": "./src/nlp-draft.ts",
+    "./task-instruction": "./src/task-instruction.ts",
+    "./effort-evidence": "./src/effort-evidence.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -18,7 +21,8 @@
   },
   "dependencies": {
     "@cadence/contracts": "workspace:*",
-    "rrule": "^2.8.1"
+    "rrule": "^2.8.1",
+    "@cadence/nlp": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^7.0.2"

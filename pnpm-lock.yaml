@@ -438,6 +438,9 @@ importers:
       '@cadence/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@cadence/nlp':
+        specifier: workspace:*
+        version: link:../nlp
       rrule:
         specifier: ^2.8.1
         version: 2.8.1

@@ -3,6 +3,7 @@
 
 export * from "./core/index.js";
 export { parse, parseCanonicalNlpEnvelope } from "./parse/index.js";
+export { cleanTitle } from "./title/index.js";
 export { rankTasks } from "./ranking/index.js";
 export type { RankableTask, RankedTask, TaskRankReason, RankingOptions } from "./ranking/index.js";
 export { composeFocusView, FOCUS_VIEW_PRESETS } from "./focus-views/index.js";
@@ -12,3 +13,5 @@ export type {
   FocusViewPreset,
   FocusViewComposerResult,
 } from "./focus-views/index.js";
+export { suggestEffort, meaningOf } from "./effort/index.js";
+export type { EffortEvidence, EffortSuggestion, EffortLevel } from "./effort/index.js";

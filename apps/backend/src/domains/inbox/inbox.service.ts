@@ -67,7 +67,19 @@ export async function processCapture(
         clock: nlpRuntime.clock,
     });
     const confidenceThreshold = (((nlpRuntime.settings as any).tasks?.intelligence?.confidenceThreshold ?? "medium") as "high" | "medium" | "low");
-    const inferred = inferTaskFieldsFromParse(
+    // `resolved`: the client chose every field; store them as sent (an absent one is "none") and never re-read the words.
+    const sent = {
+        projectId: projectId ?? undefined,
+        tagIds: tagIds ?? [],
+        priority: priority ?? 0,
+        durationEstimate: durationEstimate ?? null,
+        waitingOn: waitingOn ?? null,
+        recurrenceRule: recurrenceRule ?? null,
+        dueDate: body.dueDate !== undefined ? body.dueDate : scheduledDay ?? null,
+        scheduledStart: body.scheduledStart ?? null,
+        scheduledEnd: scheduledEnd ?? null,
+    };
+    const inferred = nlp?.resolved ? sent : inferTaskFieldsFromParse(
         parsed,
         {
             projectId,
@@ -92,11 +104,13 @@ export async function processCapture(
     );
 
     const taskTagIds = Array.from(new Set(tagIds ?? inferred.tagIds ?? []));
+    const taskWaitingOn = inferred.waitingOn ?? waitingOn ?? null;
     const taskValues = {
         userId,
         title,
         orderIndex: 0,
-        state: body.complete ? "COMPLETE" as const : "ACTIVE" as const,
+        // Waiting on someone is a state, not just a note: the task shows who only while WAITING.
+        state: body.complete ? "COMPLETE" as const : taskWaitingOn ? "WAITING" as const : "ACTIVE" as const,
         origin: body.complete ? "thought" as const : null,
         projectId: "projectId" in body ? body.projectId : inferred.projectId,
         sectionId: body.sectionId ?? null,
@@ -104,7 +118,9 @@ export async function processCapture(
         durationEstimate: inferred.durationEstimate ?? durationEstimate ?? null,
         effort: body.effort ?? null,
         recurrenceRule: inferred.recurrenceRule ?? recurrenceRule ?? null,
-        waitingOn: inferred.waitingOn ?? waitingOn ?? null,
+        waitingOn: taskWaitingOn,
+        reminderAt: body.reminderAt ?? null,
+        notBefore: body.notBefore ?? null,
         ...temporalFields,
         ...(body.complete ? { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null, projectId: null, sectionId: null, recurrenceRule: null } : {}),
     };

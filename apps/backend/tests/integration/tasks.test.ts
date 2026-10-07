@@ -68,6 +68,29 @@ describe("creating tasks", () => {
         expect(meta).toEqual({ source_surface: "quick_add", is_current: true });
     });
 
+    it("stores a resolved draft exactly as sent, without re-reading the words", async () => {
+        const { body: project } = await projects("POST", "", { name: "Apollo" });
+
+        const task = await create({
+            title: "Work on Apollo tomorrow",
+            nlp: { rawInput: "Work on Apollo tomorrow 2026-03-09", sourceSurface: "inline_add", dateStyle: "mdy", resolved: true },
+        });
+
+        expect(project.data.id).toBeTruthy();
+        expect(task).toMatchObject({ title: "Work on Apollo tomorrow", projectId: null, dueDate: null });
+        const [meta] = await asOwner(async (pg) => (await pg.query("SELECT raw_input FROM task_nlp_metadata WHERE task_id = $1", [task.id])).rows);
+        expect(meta).toEqual({ raw_input: "Work on Apollo tomorrow 2026-03-09" });
+    });
+
+    it("reads waiting-on as the person's name for a client that sends no decisions", async () => {
+        const task = await create({
+            title: "Contract",
+            nlp: { rawInput: "Contract waiting on Sam", sourceSurface: "quick_add", dateStyle: "mdy" },
+        });
+
+        expect(task.waitingOn).toBe("Sam");
+    });
+
     it("rejects a malformed recurrence rule", async () => {
         const { status, body } = await tasks("POST", "", {
             title: "Broken",
@@ -536,5 +559,46 @@ describe("one time model", () => {
         const { status } = await tasks("POST", "", { title: "Bad", orderIndex: 1, dueDate: "2026-10-05", endDate: "2026-10-04" });
 
         expect(status).toBe(400);
+    });
+});
+
+describe("effort evidence", () => {
+    const evidence = async (client = tasks) => (await client("GET", "/effort-evidence")).body.data as any[];
+
+    it("records a person's own choice, and an accepted suggestion as such", async () => {
+        await create({ title: "Class X Lab 1", effort: 3, effortOrigin: "manual" });
+        await create({ title: "Class X Lab 2", effort: 3, effortOrigin: "accepted" });
+
+        expect((await evidence()).map((e) => [e.title, e.effort, e.origin]).sort()).toEqual([
+            ["Class X Lab 1", 3, "manual"],
+            ["Class X Lab 2", 3, "accepted"],
+        ]);
+    });
+
+    it("never counts a value nobody chose: no origin, a cleared value, a repeating task, a copy, or Trash", async () => {
+        await create({ title: "From the assistant", effort: 2 });
+        const cleared = await create({ title: "Cleared", effort: 2, effortOrigin: "manual" });
+        await tasks("PATCH", `/${cleared.id}`, { effort: null });
+        await create({ title: "Every week", effort: 2, effortOrigin: "manual", scheduledStart: "2026-03-10T14:00:00.000Z", scheduledEnd: "2026-03-10T15:00:00.000Z", recurrenceRule: "FREQ=WEEKLY" });
+        const kept = await create({ title: "Kept", effort: 1, effortOrigin: "manual" });
+        const trashed = await create({ title: "Trashed", effort: 1, effortOrigin: "manual" });
+        await tasks("PATCH", "/batch/state", { taskIds: [trashed.id], state: "ARCHIVED" });
+        const copy = (await tasks("POST", `/${kept.id}/duplicate`)).body.data;
+
+        expect((await evidence()).map((e) => e.title)).toEqual(["Kept"]);
+        expect(copy.effort).toBe(1);
+    });
+
+    it("an edit without an origin makes the value unknown again; an edit with one re-records it", async () => {
+        const task = await create({ title: "Lab", effort: 3, effortOrigin: "manual" });
+        await tasks("PATCH", `/${task.id}`, { effort: 1 });
+        expect(await evidence()).toEqual([]);
+        await tasks("PATCH", `/${task.id}`, { effort: 2, effortOrigin: "manual" });
+        expect((await evidence()).map((e) => e.effort)).toEqual([2]);
+    });
+
+    it("keeps one account's choices out of another's", async () => {
+        await create({ title: "Mine", effort: 3, effortOrigin: "manual" });
+        expect(await evidence(otherTasks)).toEqual([]);
     });
 });

@@ -57,16 +57,14 @@ const RECURRENCE_PATTERNS: RecurrencePattern[] = [
       humanLabel: "Every weekend",
     }),
   },
-  // "every [day of week]" — e.g. "every Monday", "every tue"
+  // "every other [day of week]" — e.g. "every other Tuesday"
   {
-    pattern: /\bevery\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\b/i,
+    pattern: /\bevery\s+other\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\b/i,
     resolve: (match) => {
-      const day = match[1].toLowerCase();
-      const byDay = WEEKDAY_MAP[day];
-      if (!byDay) return null;
+      const byDay = WEEKDAY_MAP[match[1].toLowerCase()];
       return {
-        rrule: `FREQ=WEEKLY;BYDAY=${byDay}`,
-        humanLabel: `Every ${WEEKDAY_LABELS[byDay]}`,
+        rrule: `FREQ=WEEKLY;INTERVAL=2;BYDAY=${byDay}`,
+        humanLabel: `Every other ${WEEKDAY_LABELS[byDay]}`,
       };
     },
   },
@@ -82,6 +80,19 @@ const RECURRENCE_PATTERNS: RecurrencePattern[] = [
       return {
         rrule: `FREQ=WEEKLY;BYDAY=${byDays.join(",")}`,
         humanLabel: `Every ${byDays.map((b) => WEEKDAY_LABELS[b]).join(", ")}`,
+      };
+    },
+  },
+  // "every [day of week]" — e.g. "every Monday", "every tue"
+  {
+    pattern: /\bevery\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\b/i,
+    resolve: (match) => {
+      const day = match[1].toLowerCase();
+      const byDay = WEEKDAY_MAP[day];
+      if (!byDay) return null;
+      return {
+        rrule: `FREQ=WEEKLY;BYDAY=${byDay}`,
+        humanLabel: `Every ${WEEKDAY_LABELS[byDay]}`,
       };
     },
   },
@@ -111,6 +122,15 @@ const RECURRENCE_PATTERNS: RecurrencePattern[] = [
       };
     },
   },
+  // "every month on the 15th"
+  {
+    pattern: /\bevery\s+month\s+on\s+the\s+(\d{1,2})(?:st|nd|rd|th)?\b/i,
+    resolve: (match) => {
+      const day = parseInt(match[1], 10);
+      if (day < 1 || day > 31) return null;
+      return { rrule: `FREQ=MONTHLY;BYMONTHDAY=${day}`, humanLabel: `Monthly on the ${day}${["th", "st", "nd", "rd"][day % 10 > 3 || Math.floor(day / 10) === 1 ? 0 : day % 10]}` };
+    },
+  },
   // "every month" / "monthly"
   {
     pattern: /\b(every\s*month|monthly)\b/i,
@@ -137,6 +157,10 @@ const RECURRENCE_PATTERNS: RecurrencePattern[] = [
   },
 ];
 
+/** A word right after a bare adverb-style cadence that continues the phrase rather than the schedule. */
+const NOUN_FOLLOWS =
+  /^\s+(?!(?:at|on|from|until|till|starting|for|by|before|after|and|or|in|this|next|today|tomorrow|tonight|every|p[1-4]|waiting)\b)[a-z]/i;
+
 export interface RecurrenceParseResult {
   entities: ParsedEntity[];
   consumedRanges: Array<{ start: number; end: number }>;
@@ -160,6 +184,8 @@ export function parseRecurrence(input: string): RecurrenceParseResult {
     const sourceText = match[0];
     const start = match.index ?? 0;
     const end = start + sourceText.length;
+    // "monthly report", "daily digest": the word modifies a noun, it isn't a schedule
+    if (/^(?:daily|monthly|yearly|annually|biweekly)$/i.test(sourceText) && NOUN_FOLLOWS.test(input.slice(end))) continue;
 
     entities.push({
       id: `recurrence:${value.rrule.toLowerCase().replace(/[;=,]/g, "_")}`,

@@ -7,7 +7,7 @@ import { getDbClient } from "../../platform/db";
 import { throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
-import { readTaskBatch, readTasks } from "./tasks.read";
+import { readEffortEvidence, readTaskBatch, readTasks } from "./tasks.read";
 import { hasTaskTemporalMutation } from "@cadence/domain/task-temporal";
 import { computeGappedOrderIndex } from "@cadence/domain/ordering";
 import { apiValidator } from "../../platform/validation";
@@ -174,6 +174,8 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 const nlpRuntime = nlp
                     ? await loadNlpRuntime(tx, userId)
                     : null;
+                // `resolved`: the client sent the user's final fields; they are stored as sent and never re-inferred.
+                const inferFields = Boolean(nlp) && !nlp?.resolved;
                 const parsed = nlp
                     ? parseCanonicalNlpEnvelope(
                         {
@@ -191,7 +193,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     : null;
 
                 const zone = await userZone(tx, userId);
-                const inferred = parsed
+                const inferred = parsed && inferFields
                     ? inferTaskFieldsFromParse(
                         parsed,
                         {
@@ -213,7 +215,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 const explicitTagIds = tagIds ?? [];
                 const parsedTagIds = inferred?.tagIds ?? [];
                 const allTagIds = Array.from(new Set([...explicitTagIds, ...parsedTagIds]));
-                const taskBody = parsed
+                const taskBody = inferred
                     ? {
                         ...body,
                         projectId: inferred?.projectId !== undefined ? inferred.projectId : body.projectId,
@@ -379,6 +381,12 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const userId = c.get("userId");
         const { queries } = c.req.valid("query");
         const items = await withRls(getDbClient(c.env), userId, (tx) => readTaskBatch(tx, userId, queries));
+        c.header("Cache-Control", "private, no-store");
+        return c.json({ data: items });
+    })
+    .get("/effort-evidence", async (c) => {
+        const userId = c.get("userId");
+        const items = await withRls(getDbClient(c.env), userId, (tx) => readEffortEvidence(tx, userId));
         c.header("Cache-Control", "private, no-store");
         return c.json({ data: items });
     })

@@ -29,11 +29,14 @@ interface ProcessInboxParams {
     scheduledStart?: Instant | null;
     scheduledEnd?: Instant | null;
     projectId?: string | null;
+    sectionId?: string | null;
     tagIds?: string[];
     priority?: number | null;
     durationEstimate?: number | null;
     recurrenceRule?: string | null;
     waitingOn?: string | null;
+    reminderAt?: Instant | null;
+    notBefore?: LocalDate | null;
     nlp?: CanonicalNlpEnvelope;
     /**
      * Skip optimistically removing the capture from the feed. Used by flows that
@@ -56,11 +59,11 @@ export function useProcessInboxToTask() {
 
     return useMutation({
         mutationFn: withOfflineSupport<ProcessInboxParams, Task>(
-            ({ inboxItemId, rawText, title, scheduledDay, dueDate, scheduledStart, scheduledEnd, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete }) => ({
+            ({ inboxItemId, rawText, title, scheduledDay, dueDate, scheduledStart, scheduledEnd, projectId, sectionId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, reminderAt, notBefore, nlp, complete }) => ({
                 type: "process_inbox_to_task",
-                payload: { inboxItemId, rawText, title, scheduledDay, dueDate, scheduledStart, scheduledEnd, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete },
+                payload: { inboxItemId, rawText, title, scheduledDay, dueDate, scheduledStart, scheduledEnd, projectId, sectionId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, reminderAt, notBefore, nlp, complete },
             }),
-            async ({ inboxItemId, rawText, title, scheduledDay, dueDate, scheduledStart, scheduledEnd, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete }) => {
+            async ({ inboxItemId, rawText, title, scheduledDay, dueDate, scheduledStart, scheduledEnd, projectId, sectionId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, reminderAt, notBefore, nlp, complete }) => {
                 const taskTitle = title?.trim() || rawText;
 
                 const taskRes = await client.api.inbox[":id"].process.$post({
@@ -72,11 +75,14 @@ export function useProcessInboxToTask() {
                         scheduledStart,
                         scheduledEnd,
                         projectId,
+                        sectionId,
                         tagIds,
                         priority,
                         durationEstimate,
                         recurrenceRule,
                         waitingOn,
+                        reminderAt,
+                        notBefore,
                         nlp,
                         complete,
                     },

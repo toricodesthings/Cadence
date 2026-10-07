@@ -290,7 +290,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
             {/* ── Effort ── */}
             <EffortPicker
                 currentEffort={task.effort}
-                onSelect={(e) => updateTask.mutate({ id: task.id, effort: e })}
+                onSelect={(e) => updateTask.mutate({ id: task.id, effort: e, ...(e && { effortOrigin: "manual" as const }) })}
             />
 
             <Menu.Separator />

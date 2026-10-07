@@ -14,7 +14,8 @@ import { Button } from "../primitives/Button";
 import { Tip } from "../primitives/Tooltip";
 import * as Menu from "../primitives/DropdownMenu";
 import { TagField } from "../tasks/TagField";
-import { ParseSummaryChips } from "../tasks/ParseSummaryChips";
+import { resolvedNlp } from "../../lib/utils/task/resolved-nlp";
+import { DraftRow } from "../tasks/DraftRow";
 import { QuickScheduleSurface, type ScheduleUpdates } from "../tasks/QuickScheduleSurface";
 import type { Instant, LocalDate } from "@cadence/domain/time";
 import { today } from "../../lib/utils/user-zone";
@@ -79,13 +80,8 @@ export function ClarifySheet({
                 : when
                   ? placeFields(when)
                   : { dueDate: null, scheduledStart: null, scheduledEnd: null }), // explicit nulls: the server must not infer a day from the text
-            nlp: {
-                rawInput: item.rawText,
-                sourceSurface: "clarify_sheet",
-                dateStyle: settings?.dateTime.dateStyle ?? "mdy",
-                dismissedEntityIds: dismissed,
-                userOverrides: { title, projectId, tagIds },
-            },
+            waitingOn: parse.waitingOn,
+            nlp: resolvedNlp(item.rawText, "clarify_sheet", settings?.dateTime.dateStyle ?? "mdy", dismissed, { title, projectId, tagIds }),
             skipOptimisticRemoval: openEditor,
             successLabel: openEditor ? "Made a task" : undefined,
         });
@@ -118,21 +114,20 @@ export function ClarifySheet({
             onModeChange={onDetailModeChange}
         >
             <DetailTitle value={title} label="Edit thought title" onSave={(next) => save({ title: next })}>
-                <ParseSummaryChips
-                    parseResult={{
-                        ...parse.parseResult,
-                        entities: parse.parseResult.entities.filter(
-                            // When, List and Tags show these below; the chips cover what has no field of its own.
-                            (e) => !["due_date", "scheduled_start", "project", "tag"].includes(e.type),
-                        ),
-                    }}
-                    summary=""
+                <DraftRow
+                    applied={parse.applied}
+                    suggestions={[]}
+                    // When, List and Tags show these below; the row covers what has no field of its own.
+                    shownElsewhere={["due_date", "scheduled_start", "project", "tag"]}
+                    literal={false}
                     onDismiss={(id) =>
                         update.mutate({
                             id: item.id,
                             analysis: { ...item.analysis, dismissedEntityIds: [...dismissed, id] },
                         })
                     }
+                    onAccept={() => {}}
+                    onLiteral={() => {}}
                 />
                 {title.trim() !== item.rawText.trim() && (
                     <p className="mt-2 text-xs text-twilight-text-muted">From: {item.rawText}</p>

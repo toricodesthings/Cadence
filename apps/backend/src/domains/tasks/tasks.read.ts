@@ -1,7 +1,7 @@
 /** Task list reads shared by the single-list route and offline batch. */
-import { and, asc, desc, eq, isNull, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { tracing } from "cloudflare:workers";
-import type { Task, TaskBatch, TaskBatchFilters, TaskFilters } from "@cadence/contracts/task";
+import type { EffortEvidenceRow, Task, TaskBatch, TaskBatchFilters, TaskFilters } from "@cadence/contracts/task";
 import type { Zone } from "@cadence/domain/time";
 import { expandScheduleScopedTasks, isScheduleScopedTaskQuery } from "@cadence/domain/task-recurrence";
 import { tasks } from "../../db/schema";
@@ -111,4 +111,21 @@ export async function readTaskBatch(tx: Tx, userId: string, queries: TaskBatchFi
         }));
     });
     return result;
+}
+
+/** How many recorded choices one read returns: recent ones are what suggestions use, and it bounds the payload. */
+const EVIDENCE_LIMIT = 300;
+
+/**
+ * This account's own recorded Effort choices, newest first. Only values a person chose (or accepted) are here:
+ * never the assistant's, an import's, a copy's, a repeating task's, or anything in Trash.
+ */
+export async function readEffortEvidence(tx: Tx, userId: string) {
+    const rows = await tx
+        .select({ id: tasks.id, title: tasks.title, projectId: tasks.projectId, effort: tasks.effort, origin: tasks.effortOrigin, chosenAt: tasks.effortChosenAt })
+        .from(tasks)
+        .where(and(eq(tasks.userId, userId), isNotNull(tasks.effortOrigin), isNotNull(tasks.effort), isNull(tasks.recurrenceRule), ne(tasks.state, "ARCHIVED")))
+        .orderBy(desc(tasks.effortChosenAt))
+        .limit(EVIDENCE_LIMIT);
+    return rows as EffortEvidenceRow[];
 }

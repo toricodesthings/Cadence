@@ -130,7 +130,8 @@ export function TaskEditor({
 
     const handleEffortChange = (level: EffortLevel) => {
         if (!task) return;
-        updateTask.mutate({ id: task.id, effort: task.effort === level ? null : level });
+        const next = task.effort === level ? null : level;
+        updateTask.mutate({ id: task.id, effort: next, ...(next && { effortOrigin: "manual" as const }) });
     };
 
     const handlePinToggle = () => {

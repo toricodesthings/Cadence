@@ -7,10 +7,12 @@
     ".": "./src/index.ts",
     "./core": "./src/core/index.ts",
     "./parse": "./src/parse/index.ts",
+    "./title": "./src/title/index.ts",
     "./resolve": "./src/resolve/index.ts",
     "./ranking": "./src/ranking/index.ts",
     "./focus-views": "./src/focus-views/index.ts",
-    "./focus-views/apply": "./src/focus-views/apply.ts"
+    "./focus-views/apply": "./src/focus-views/apply.ts",
+    "./effort": "./src/effort/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -72,6 +72,25 @@ describe("processing an item into a task", () => {
         expect((await inbox("GET", "")).body.data).toEqual([]);
     });
 
+    it("stores a resolved conversion as sent and does not re-read the capture's words", async () => {
+        const item = await capture("dentist tomorrow p1");
+
+        const { body } = await inbox("POST", `/${item.id}/process`, {
+            title: "dentist tomorrow p1",
+            nlp: { rawInput: "dentist tomorrow p1", sourceSurface: "inbox", dateStyle: "mdy", resolved: true },
+        });
+
+        expect(body.data).toMatchObject({ title: "dentist tomorrow p1", dueDate: null, scheduledStart: null, priority: 0 });
+    });
+
+    it("a capture waiting on someone becomes waiting work", async () => {
+        const item = await capture("contract from Jordan");
+
+        const { body } = await inbox("POST", `/${item.id}/process`, { title: "Contract", waitingOn: "Jordan" });
+
+        expect(body.data).toMatchObject({ title: "Contract", waitingOn: "Jordan", state: "WAITING" });
+    });
+
     it("uses explicit fields over what the text implies", async () => {
         const item = await capture("dentist tomorrow p4");
 

@@ -22,8 +22,18 @@ import { writeNote } from "../notes/notes.service";
 
 // ── Utility ───────────────────────────────────────────────────────────
 
-type NewTask = Omit<typeof tasks.$inferInsert, "userId">;
+type NewTask = Omit<typeof tasks.$inferInsert, "userId"> & { effortOrigin?: "manual" | "accepted" | null };
 type TaskPatch = Omit<UpdateTask, "expectedUpdatedAt">;
+
+/**
+ * The provenance columns that go with a written `effort`: a value the person chose (or a suggestion they accepted) is
+ * recorded as such; anything else (the assistant, an import, a clear) leaves it unknown, so it never counts as evidence.
+ */
+export function effortProvenance(effort: number | null | undefined, origin: "manual" | "accepted" | null | undefined) {
+    return effort != null && origin
+        ? { effortOrigin: origin, effortChosenAt: sql`NOW()` }
+        : { effortOrigin: null, effortChosenAt: null };
+}
 
 /** A task as the assistant drafts it: plain fields, plus checklist steps and a note. */
 export type TaskDraft = Partial<Pick<InsertTask,
@@ -96,7 +106,12 @@ export async function createTask(tx: Tx, userId: string, values: NewTask, tagIds
 
     const [row] = await insertWithClientId(() => tx
         .insert(tasks)
-        .values({ ...values, interactionMode: values.interactionMode ?? suggestInteractionMode(values), userId })
+        .values({
+            ...values,
+            interactionMode: values.interactionMode ?? suggestInteractionMode(values),
+            userId,
+            ...effortProvenance(values.effort, values.effortOrigin),
+        })
         .returning());
     if (tagIds.length > 0) {
         await tx.insert(taskTags).values(tagIds.map((tagId) => ({ taskId: row.id, tagId })));
@@ -262,9 +277,13 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
             : sql`date_trunc('milliseconds', ${tasks.updatedAt}) = ${expectedDate.toISOString()}::timestamptz`;
     }
 
+    // A changed Effort carries who chose it; the origin is never a column the caller writes directly.
+    const { effortOrigin, ...columns } = patch as typeof patch & { effortOrigin?: "manual" | "accepted" };
+    const provenance = columns.effort !== undefined ? effortProvenance(columns.effort as number | null, effortOrigin) : {};
+
     const [row] = await tracing.enterSpan("tasks.update.write", () => tx
         .update(tasks)
-        .set({ ...patch, updatedAt: sql`NOW()` })
+        .set({ ...columns, ...provenance, updatedAt: sql`NOW()` })
         .where(and(eq(tasks.id, id), eq(tasks.userId, userId), versionCondition))
         .returning());
     if (!row && expectedUpdatedAt && !needsExisting) {

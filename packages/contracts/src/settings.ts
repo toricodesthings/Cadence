@@ -229,6 +229,8 @@ export const userSettingsSchema = z.object({
         intelligence: z.object({
             nlpEnabled: z.boolean().optional(),
             autoParseOnCapture: z.boolean().optional(),
+            /** Suggest an Effort from this account's own earlier choices. */
+            effortSuggestions: z.boolean().optional(),
             confidenceThreshold: z.enum(["high", "medium", "low"]).optional(),
             showExplanations: z.boolean().optional(),
             smartSortEnabled: z.boolean().optional(),
@@ -465,6 +467,7 @@ export const SETTINGS_DEFAULTS = {
         intelligence: {
             nlpEnabled: true,
             autoParseOnCapture: true,
+            effortSuggestions: true,
             confidenceThreshold: "medium" as const,
             showExplanations: true,
             smartSortEnabled: true,

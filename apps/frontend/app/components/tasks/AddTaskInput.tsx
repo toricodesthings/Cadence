@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus, Calendar, CalendarHeart } from "lucide-react";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { useProjects } from "../../hooks/projects/use-projects";
@@ -8,17 +8,18 @@ import { formatDateSpan, formatShortDate, formatShortDateTime } from "../../lib/
 import { useSettings } from "../../hooks/core/use-settings";
 import { mapPriorityNameToNumber } from "../../lib/utils/task/task-defaults";
 import { buildTypedTaskInput } from "../../lib/utils/task/typed-task-input";
-import type { Task } from "@cadence/contracts/task";
+import type { EffortLevel, Task, TaskPriority } from "@cadence/contracts/task";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
 import { QuickAddActionTray } from "./QuickAddActionTray";
-import { ParseSummaryChips } from "./ParseSummaryChips";
-import { useNlpParse } from "../../hooks/use-nlp-parse";
+import { DraftRow } from "./DraftRow";
+import { AcceptedEffort, EffortSuggestionRow } from "./TaskWeightFields";
+import { useEffortSuggestion } from "../../hooks/tasks/use-effort-suggestion";
+import { TASK_FIELDS, useNlpParse, type NlpParseOutput } from "../../hooks/use-nlp-parse";
+import type { DraftFields } from "@cadence/domain/nlp-draft";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { AddPersonalEventDialog } from "../calendar/AddPersonalEventDialog";
-
-const NO_SCHEDULE: ScheduleUpdates = { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, recurrenceRule: null };
 
 interface AddTaskInputProps {
     projectId?: string;
@@ -40,10 +41,16 @@ export function AddTaskInput({
     const [isFocused, setIsFocused] = useState(false);
     const [isTrayOpen, setIsTrayOpen] = useState(false);
     const [showEventDialog, setShowEventDialog] = useState(false);
-    const [projectSelection, setProjectSelection] = useState<string | null>(projectId ?? null);
-    const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-    const [ignoredTokenIds, setIgnoredTokenIds] = useState<string[]>([]);
-    const [deadline, setDeadline] = useState<ScheduleUpdates>(NO_SCHEDULE);
+    const [manualProject, setManualProject] = useState<string | null | undefined>(undefined);
+    const [manualTags, setManualTags] = useState<string[] | undefined>(undefined);
+    const [dismissed, setDismissed] = useState<string[]>([]);
+    const [accepted, setAccepted] = useState<string[]>([]);
+    const [literal, setLiteral] = useState(false);
+    const [deadline, setDeadline] = useState<ScheduleUpdates | null>(null);
+    // No Effort control here: the only Effort an inline add sets is a suggestion the person used.
+    const [effort, setEffort] = useState<EffortLevel>(null);
+    const [effortDismissed, setEffortDismissed] = useState(false);
+    const submitting = useRef(false);
 
     const createTask = useCreateTask();
     const { data: projects = [] } = useProjects();
@@ -52,79 +59,101 @@ export function AddTaskInput({
     const taskDefaults = userSettings?.tasks;
     const nlpEnabled = taskDefaults?.intelligence?.nlpEnabled !== false;
     const autoParseOnCapture = taskDefaults?.intelligence?.autoParseOnCapture !== false;
-    const showExplanations = taskDefaults?.intelligence?.showExplanations !== false;
     const confidenceThreshold = taskDefaults?.intelligence?.confidenceThreshold ?? "medium";
-    const lowStimulationMode = taskDefaults?.intelligence?.lowStimulationMode ?? false;
     const dateStyle = userSettings?.dateTime?.dateStyle ?? "mdy";
+
+    // What the user set by hand beats the words: a key that is present wins, even when it is "none".
+    const manual: Partial<DraftFields> = {
+        ...(manualProject !== undefined && { projectId: manualProject }),
+        ...(manualTags && { tagIds: manualTags }),
+        ...(deadline && {
+            dueDate: deadline.dueDate,
+            scheduledStart: deadline.scheduledStart,
+            scheduledEnd: deadline.scheduledEnd,
+            recurrenceRule: deadline.recurrenceRule,
+        }),
+    };
     const parsedInput = useNlpParse({
         input: value,
-        projects,
+        // Inside a list the list is fixed, so list names stay words in the title (as in the task composer).
+        projects: projectId ? [] : projects,
         tags,
-        ignoredTokenIds,
-        dismissedEntityIds: ignoredTokenIds,
+        dismissedEntityIds: dismissed,
+        acceptedEntityIds: accepted,
+        manual,
+        literal,
+        capabilities: TASK_FIELDS,
         sourceSurface: "inline_add",
         dateStyle,
         confidenceThreshold,
-        lowStimulationMode,
         enabled: nlpEnabled && autoParseOnCapture,
     });
 
-    // A typed time is a timed block; a typed day alone is a deadline day.
-    const typedSchedule: ScheduleUpdates = parsedInput.scheduledStart
-        ? { dueDate: null, endDate: null, scheduledStart: parsedInput.scheduledStart, scheduledEnd: null, recurrenceRule: parsedInput.recurrenceRule }
-        : { dueDate: parsedInput.dueDate, endDate: null, scheduledStart: null, scheduledEnd: null, recurrenceRule: parsedInput.recurrenceRule };
+    const effortSuggestion = useEffortSuggestion({
+        title: parsedInput.cleanedTitle,
+        projectId: projectId ?? parsedInput.fields.projectId,
+        chosen: effort ?? undefined,
+        dismissed: effortDismissed,
+        literal,
+        open: Boolean(value.trim()),
+    });
 
-    const handleSubmit = () => {
+    const schedule = (draft: Pick<NlpParseOutput, "fields">): ScheduleUpdates => ({
+        dueDate: draft.fields.dueDate,
+        endDate: deadline?.endDate ?? null,
+        scheduledStart: draft.fields.scheduledStart,
+        scheduledEnd: draft.fields.scheduledEnd,
+        recurrenceRule: draft.fields.recurrenceRule,
+    });
+
+    const save = (draft: NlpParseOutput) => {
         const rawTitle = value.trim();
-        if (!rawTitle) return;
-
         const placement = taskDefaults?.newTaskPlacement ?? "bottom";
         const orderIndex = placement === "top" ? 0 : computeNextOrderIndex(tasks);
-        const resolvedPriority = parsedInput.priority ?? mapPriorityNameToNumber(taskDefaults?.defaultPriority);
-        const resolvedProjectId = projectId ?? projectSelection ?? parsedInput.projectId ?? null;
-        const resolvedTagIds = Array.from(new Set([...selectedTagIds, ...parsedInput.tagIds]));
-        const hasManualSchedule = Boolean(
-            deadline.dueDate || deadline.scheduledStart || deadline.recurrenceRule,
-        );
-        const resolvedDeadline = hasManualSchedule ? deadline : typedSchedule;
-        const didApplyNlp = Boolean(
-            (!hasManualSchedule && (resolvedDeadline.dueDate || resolvedDeadline.scheduledStart || resolvedDeadline.recurrenceRule))
-            || (!projectId && !projectSelection && parsedInput.projectId)
-            || parsedInput.tagIds.some((tagId) => !selectedTagIds.includes(tagId))
-            || parsedInput.waitingOn
-            || parsedInput.durationMinutes,
-        );
-        const title = didApplyNlp && parsedInput.cleanedTitle ? parsedInput.cleanedTitle : rawTitle;
 
         trackUsageEvent("task.create", { surface: "inline_add", object_type: "task" });
         createTask.mutate(buildTypedTaskInput({
             rawInput: value,
-            title,
-            schedule: resolvedDeadline,
-            priority: resolvedPriority,
-            projectId: resolvedProjectId,
-            tagIds: resolvedTagIds,
-            waitingOn: parsedInput.waitingOn,
-            durationMinutes: parsedInput.durationMinutes,
+            title: draft.cleanedTitle || rawTitle,
+            schedule: schedule(draft),
+            priority: (draft.fields.priority || mapPriorityNameToNumber(taskDefaults?.defaultPriority)) as TaskPriority,
+            projectId: projectId ?? draft.fields.projectId,
+            tagIds: draft.fields.tagIds,
+            waitingOn: draft.fields.waitingOn,
+            durationMinutes: draft.fields.durationMinutes,
+            notBefore: draft.fields.notBefore,
+            reminderAt: draft.fields.reminderAt,
             surface: "inline_add",
             dateStyle,
-            dismissedEntityIds: ignoredTokenIds,
-            extra: { orderIndex, ...(sectionId && { sectionId }) },
+            dismissedEntityIds: dismissed,
+            extra: { orderIndex, ...(sectionId && { sectionId }), ...(effort && { effort, effortOrigin: "accepted" as const }) },
         }));
 
         setValue("");
         setIsTrayOpen(false);
-        setProjectSelection(projectId ?? null);
-        setSelectedTagIds([]);
-        setIgnoredTokenIds([]);
-        setDeadline(NO_SCHEDULE);
+        setManualProject(undefined);
+        setManualTags(undefined);
+        setDismissed([]);
+        setAccepted([]);
+        setLiteral(false);
+        setDeadline(null);
+        setEffort(null);
+        setEffortDismissed(false);
     };
 
-    const hasManualDay = Boolean(deadline.dueDate || deadline.scheduledStart);
-    const previewDeadline: ScheduleUpdates = {
-        ...(hasManualDay ? deadline : typedSchedule),
-        recurrenceRule: deadline.recurrenceRule ?? parsedInput.recurrenceRule,
+    const handleSubmit = async () => {
+        if (!value.trim() || submitting.current) return;
+        // Enter saves what is on screen; only a still-loading parser makes it wait (then re-reads the same text).
+        if (parsedInput.ready) return save(parsedInput);
+        submitting.current = true;
+        try {
+            save(await parsedInput.finalize());
+        } finally {
+            submitting.current = false;
+        }
     };
+
+    const previewDeadline = schedule(parsedInput);
     const hasDeadlineSet = Boolean(previewDeadline.dueDate || previewDeadline.scheduledStart);
     const showScheduleTrigger = isFocused || hasDeadlineSet || value.trim().length > 0;
 
@@ -140,7 +169,7 @@ export function AddTaskInput({
         <form
             onSubmit={(e) => {
                 e.preventDefault();
-                handleSubmit();
+                void handleSubmit();
             }}
             onFocusCapture={() => {
                 setIsFocused(true);
@@ -212,11 +241,11 @@ export function AddTaskInput({
 
             {showScheduleTrigger ? (
                 <DeadlinePickerPopover
-                    dueDate={deadline.dueDate}
-                    endDate={deadline.endDate}
-                    scheduledStart={deadline.scheduledStart}
-                    scheduledEnd={deadline.scheduledEnd}
-                    recurrenceRule={deadline.recurrenceRule}
+                    dueDate={previewDeadline.dueDate}
+                    endDate={previewDeadline.endDate}
+                    scheduledStart={previewDeadline.scheduledStart}
+                    scheduledEnd={previewDeadline.scheduledEnd}
+                    recurrenceRule={previewDeadline.recurrenceRule}
                     onChange={(updates) => setDeadline(updates)}
                 >
                     <button
@@ -237,7 +266,7 @@ export function AddTaskInput({
                     </button>
                 </DeadlinePickerPopover>
             ) : null}
-            {(isTrayOpen || parsedInput.tokens.length > 0 || selectedTagIds.length > 0 || (!projectId && projectSelection)) ? (
+            {(isTrayOpen || parsedInput.applied.length > 0 || parsedInput.suggestions.length > 0 || literal || effortSuggestion || effort) ? (
                 <div className={`flex w-full flex-col gap-2 ${compact ? "pl-6" : "pl-8"}`}>
                     <QuickAddActionTray
                         quickAddSettings={taskDefaults?.quickAdd}
@@ -249,28 +278,32 @@ export function AddTaskInput({
                         scheduledEnd={previewDeadline.scheduledEnd}
                         recurrenceRule={previewDeadline.recurrenceRule}
                         priority={null}
-                        projectId={projectId ?? projectSelection ?? parsedInput.projectId ?? null}
-                        tagIds={Array.from(new Set([...selectedTagIds, ...parsedInput.tagIds]))}
+                        projectId={projectId ?? parsedInput.fields.projectId}
+                        tagIds={parsedInput.fields.tagIds}
                         onScheduleChange={(updates) => setDeadline(updates)}
                         onPriorityChange={() => {}}
-                        onProjectChange={(value) => setProjectSelection(value)}
+                        onProjectChange={(value) => setManualProject(value)}
                         onToggleTag={(tagId) =>
-                            setSelectedTagIds((current) =>
-                                current.includes(tagId) ? current.filter((item) => item !== tagId) : [...current, tagId],
-                            )
+                            setManualTags((current) => {
+                                const shown = current ?? parsedInput.fields.tagIds;
+                                return shown.includes(tagId) ? shown.filter((item) => item !== tagId) : [...shown, tagId];
+                            })
                         }
                     />
-                    {showExplanations && parsedInput.parseResult.entities.length > 0 && (
-                        <ParseSummaryChips
-                            entities={parsedInput.parseResult.entities}
-                            summary={parsedInput.summary}
-                            ignoredTokenIds={ignoredTokenIds}
-                            onDismissToken={(tokenId) => setIgnoredTokenIds((current) => [...current, tokenId])}
-                            compact={compact}
-                            lowStimulation={lowStimulationMode || userSettings?.appearance?.motion === "reduced"}
-                            maxVisibleChips={3}
-                        />
-                    )}
+                    <DraftRow
+                        applied={parsedInput.applied}
+                        suggestions={parsedInput.suggestions}
+                        shownElsewhere={["due_date", "scheduled_start", "project", "tag"]}
+                        literal={literal}
+                        onDismiss={(id) => setDismissed((current) => [...current, id])}
+                        onAccept={(id) => setAccepted((current) => [...current, id])}
+                        onLiteral={setLiteral}
+                    />
+                    {effort ? (
+                        <AcceptedEffort level={effort} onUndo={() => setEffort(null)} />
+                    ) : effortSuggestion ? (
+                        <EffortSuggestionRow suggestion={effortSuggestion} onUse={setEffort} onDismiss={() => setEffortDismissed(true)} />
+                    ) : null}
                 </div>
             ) : null}
             <AddPersonalEventDialog open={showEventDialog} onClose={() => setShowEventDialog(false)} />

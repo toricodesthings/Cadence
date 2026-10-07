@@ -336,6 +336,10 @@ export const tasks = pgTable('tasks', {
     waitingOn: text('waiting_on'),
     waitingReminder: timestamptz('waiting_reminder'),
     effort: integer('effort'), // 1=Low, 2=Medium, 3=High, NULL=unset
+    // Who chose `effort`: only a person's own choice ('manual'), or a suggestion they accepted ('accepted'), can inform
+    // later suggestions. NULL = unknown (the assistant, an import, a copy, or a value from before this was recorded).
+    effortOrigin: text('effort_origin'),
+    effortChosenAt: timestamptz('effort_chosen_at'),
     notBefore: date('hidden_until', { mode: 'string' }), // Hidden until this day
 
     createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
@@ -353,6 +357,9 @@ export const tasks = pgTable('tasks', {
         projectIdIdx: index('tasks_project_id_idx').on(table.projectId),
         sectionIdIdx: index('tasks_section_id_idx').on(table.sectionId),
         effortCheck: check('tasks_effort_check', sql`effort IS NULL OR effort BETWEEN 1 AND 3`),
+        effortOriginCheck: check('tasks_effort_origin_check', sql`effort_origin IS NULL OR (effort IS NOT NULL AND effort_origin IN ('manual', 'accepted'))`),
+        // The evidence read: one account's own recorded choices, newest first.
+        userEffortIdx: index('tasks_user_effort_idx').on(table.userId, table.effortChosenAt.desc()).where(sql`${table.effortOrigin} IS NOT NULL`),
         timedHasZoneCheck: check('tasks_timed_zone_check', sql`scheduled_start IS NULL OR zone IS NOT NULL`),
         noEndWithoutStartCheck: check('tasks_end_needs_start_check', sql`scheduled_start IS NOT NULL OR scheduled_end IS NULL`),
         endOnCheck: check('tasks_end_on_check', sql`end_on IS NULL OR (due_on IS NOT NULL AND end_on >= due_on)`),

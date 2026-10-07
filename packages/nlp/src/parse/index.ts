@@ -11,8 +11,9 @@ import { PARSER_VERSION } from "../core/index.js";
 import { parseDates } from "./date-parser.js";
 import { parseRecurrence } from "./recurrence-parser.js";
 import { parsePriority } from "./priority-parser.js";
-import { parseDuration, parseWaitingOn } from "./entity-parser.js";
+import { parseDuration, parseRelativeReminder, parseWaitingOn } from "./entity-parser.js";
 import { resolveProjectsAndTags } from "../resolve/index.js";
+import { buildCleanedTitle, quotedSegmentsOf } from "../title/index.js";
 
 /**
  * Main parse entry point — shared across frontend preview and backend canonicalization.
@@ -44,46 +45,76 @@ export function parse(options: ParseOptions): ParseResult {
 
   // 0. Extract quoted "literal" segments — protect from NLP parsing
   // e.g. "Heaven's Night" → replaced with placeholder, restored in cleaned title
-  const quotedSegments: Array<{ start: number; end: number; text: string }> = [];
-  const QUOTE_RE = /"([^"]+)"/g;
-  let qMatch: RegExpExecArray | null;
-  while ((qMatch = QUOTE_RE.exec(input)) !== null) {
-    quotedSegments.push({
-      start: qMatch.index,
-      end: qMatch.index + qMatch[0].length,
-      text: qMatch[1], // inner text without quotes
-    });
-  }
+  const quotedSegments = quotedSegmentsOf(input);
 
   // Mark quoted regions as consumed so no parser touches them
   for (const seg of quotedSegments) {
     consumedRanges.push({ start: seg.start, end: seg.end });
   }
 
-  /** Keep a parser's undismissed entities (optionally skipping ones over consumed text) and consume its ranges. */
+  // Parsers see the input with quoted text blanked (same length, so offsets still line up).
+  // URLs, emails and `code` are literal too: nothing inside them is a date, a tag or a priority.
+  const literalRanges = [
+    ...quotedSegments,
+    ...Array.from(input.matchAll(/`[^`]*`|https?:\/\/\S+|www\.\S+|\b[\w.+-]+@[\w-]+\.[\w.-]+\b/gi), (m) => ({ start: m.index ?? 0, end: (m.index ?? 0) + m[0].length })),
+  ];
+  const text = literalRanges.reduce(
+    (acc, seg) => acc.slice(0, seg.start) + " ".repeat(seg.end - seg.start) + acc.slice(seg.end),
+    input,
+  );
+
+  /**
+   * Keep a parser's undismissed entities and consume each one's own range (parsers emit
+   * `consumedRanges[i]` for `entities[i]`). Low-confidence entities are suggestions: their words stay in the title.
+   */
   const take = (
     result: { entities: ParsedEntity[]; consumedRanges: Array<{ start: number; end: number }> },
     skipOverlaps: boolean,
     onTake?: (entity: ParsedEntity) => void,
   ) => {
-    for (const entity of result.entities) {
-      if (skipOverlaps && consumedRanges.some((r) => entity.start < r.end && entity.end > r.start)) continue;
-      if (dismissed.has(entity.id)) continue;
+    result.entities.forEach((entity, i) => {
+      if (skipOverlaps && consumedRanges.some((r) => entity.start < r.end && entity.end > r.start)) return;
+      if (dismissed.has(entity.id)) return;
       onTake?.(entity);
+      entity.consumed = result.consumedRanges[i] ?? { start: entity.start, end: entity.end };
       allEntities.push(entity);
-      consumedRanges.push(...result.consumedRanges);
-    }
+      if (entity.confidence !== "low") consumedRanges.push(entity.consumed);
+    });
   };
 
   // 1. Recurrence
-  const recurrenceResult = parseRecurrence(input);
+  const recurrenceResult = parseRecurrence(text);
   take(recurrenceResult, false);
 
-  // 2. Duration (before dates — chrono-node would otherwise consume duration phrases)
-  take(parseDuration(input), true);
+  // 2. "remind me 30 minutes before", then duration (both before dates — chrono-node would otherwise consume them)
+  take(parseRelativeReminder(text), true);
+  take(parseDuration(text), true);
 
   // 3. Dates — skip any that overlap recurrence or duration matches
-  const dateResult = parseDates(input, { clock, dateStyle });
+  // Blank what recurrence/duration already took, so chrono can't merge it into a date ("weekday tomorrow").
+  const dateText = consumedRanges.reduce(
+    (acc, r) => acc.slice(0, r.start) + " ".repeat(r.end - r.start) + acc.slice(r.end),
+    text,
+  );
+  const dateResult = parseDates(dateText, { clock, dateStyle });
+
+  // "every Monday until December 14": the date ends the series; it is not a day for the task.
+  const recurrenceEntity = allEntities.find((e) => e.type === "recurrence");
+  const untilCue = recurrenceEntity && /^\s+(?:until|till|through)\s+/i.exec(text.slice(recurrenceEntity.end));
+  if (recurrenceEntity && untilCue) {
+    const from = recurrenceEntity.end + untilCue[0].length;
+    const at = dateResult.entities.findIndex((e) => e.start === from && e.confidence !== "low" && !e.id.endsWith(":am") && !e.id.endsWith(":pm"));
+    if (at >= 0) {
+      const [until] = dateResult.entities.splice(at, 1);
+      dateResult.consumedRanges.splice(at, 1);
+      const value = recurrenceEntity.normalizedValue as { rrule: string; humanLabel: string };
+      const day = (until.normalizedValue as { date: string }).date;
+      recurrenceEntity.normalizedValue = { rrule: `${value.rrule};UNTIL=${day.replaceAll("-", "")}`, humanLabel: `${value.humanLabel} until ${(until.normalizedValue as { humanLabel: string }).humanLabel}` };
+      recurrenceEntity.consumed = { start: recurrenceEntity.consumed?.start ?? recurrenceEntity.start, end: until.end };
+      consumedRanges.push({ start: recurrenceEntity.end, end: until.end });
+    }
+  }
+
   take(dateResult, true, (entity) => {
     if (entity.type === "due_date" && (entity.normalizedValue as { hasTime?: boolean })?.hasTime) {
       warnings.push("timed_deadline_needs_review");
@@ -92,6 +123,18 @@ export function parse(options: ParseOptions): ParseResult {
       warnings.push("low_confidence_entity");
     }
   });
+
+  // "starting next week" with a repeat: the cue word goes with the date that anchors the series.
+  if (recurrenceEntity) {
+    for (const entity of allEntities) {
+      if (entity.type !== "scheduled_start" || entity.confidence === "low" || !entity.consumed) continue;
+      const cue = /\b(?:starting|starts?|beginning|from)\s+$/i.exec(text.slice(0, entity.consumed.start));
+      if (cue) {
+        entity.consumed = { start: entity.consumed.start - cue[0].length, end: entity.consumed.end };
+        consumedRanges.push(entity.consumed);
+      }
+    }
+  }
 
   // Emit warning if multiple dates detected
   if (dateResult.entities.length > 1) {
@@ -104,14 +147,15 @@ export function parse(options: ParseOptions): ParseResult {
   }
 
   // 4. Priority
-  take(parsePriority(input), false);
+  take(parsePriority(text), false);
 
   // 5. Waiting on
-  take(parseWaitingOn(input), false);
+  take(parseWaitingOn(text), false);
 
   // 6. Explicit #tag and /project shorthand
-  const shorthandEntities = parseShorthand(input, context, dismissed);
+  const shorthandEntities = parseShorthand(text, context, dismissed);
   for (const entity of shorthandEntities) {
+    entity.consumed = { start: entity.start, end: entity.end };
     allEntities.push(entity);
     consumedRanges.push({ start: entity.start, end: entity.end });
   }
@@ -119,12 +163,16 @@ export function parse(options: ParseOptions): ParseResult {
   // 7. Fuzzy project/tag resolution (only if context is provided)
   if (context) {
     const fuzzyEntities = resolveProjectsAndTags(
-      input,
+      text,
       context,
       consumedRanges,
       dismissed,
     );
     allEntities.push(...fuzzyEntities);
+    for (const entity of fuzzyEntities) {
+      entity.consumed = { start: entity.start, end: entity.end };
+      if (entity.confidence !== "low") consumedRanges.push({ start: entity.start, end: entity.end });
+    }
   }
 
   // Build cleaned title by removing consumed entity text
@@ -245,31 +293,6 @@ function parseShorthand(
  * Quoted segments are special: the surrounding quotes are removed but
  * the inner text is preserved in the title (it was protected from NLP).
  */
-function buildCleanedTitle(
-  input: string,
-  ranges: Array<{ start: number; end: number }>,
-  quotedSegments: Array<{ start: number; end: number; text: string }> = [],
-): string {
-  if (ranges.length === 0 && quotedSegments.length === 0) return input.trim();
-
-  const quotedSet = new Set(quotedSegments.map((s) => `${s.start}:${s.end}`));
-
-  // Sort ranges by start position descending to splice from end
-  const sorted = [...ranges].sort((a, b) => b.start - a.start);
-  let result = input;
-  for (const { start, end } of sorted) {
-    const key = `${start}:${end}`;
-    if (quotedSet.has(key)) {
-      // Quoted segment — strip quotes but keep inner text
-      const seg = quotedSegments.find((s) => s.start === start && s.end === end);
-      result = result.slice(0, start) + (seg?.text ?? "") + result.slice(end);
-    } else {
-      result = result.slice(0, start) + " " + result.slice(end);
-    }
-  }
-  return result.replace(/\s+/g, " ").trim();
-}
-
 /**
  * Build a one-line summary of what was recognized.
  */

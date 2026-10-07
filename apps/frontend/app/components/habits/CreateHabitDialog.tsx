@@ -5,6 +5,11 @@ import { TimePicker } from "../primitives";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useCreateHabit } from "../../hooks/habits/use-create-habit";
 import { useProjects } from "../../hooks/projects/use-projects";
+import { useTags } from "../../hooks/tags/use-tags";
+import { useSettings } from "../../hooks/core/use-settings";
+import { useNlpParse, type NlpParseOutput } from "../../hooks/use-nlp-parse";
+import type { DraftField } from "@cadence/domain/nlp-draft";
+import { DraftRow } from "../tasks/DraftRow";
 import { CadencePicker } from "./CadencePicker";
 import { DayTimes } from "./DayTimes";
 import { ColourDot } from "../shared/ColourDot";
@@ -30,6 +35,9 @@ const IDEAS = [
 
 const DEFAULT_TIME = "09:00";
 
+/** What a routine stores: a cadence, a time of day, a list and tags. */
+const ROUTINE_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>(["recurrenceRule", "timeOfDay", "projectId", "tagIds"]);
+
 /** New routine, alone in the composer (the Routines page). */
 export function CreateHabitDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
     const { reset, ...draft } = useRoutineComposer({ onSaved: () => onOpenChange(false) });
@@ -41,18 +49,58 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
     const shell = useShellMode();
     const { mutate: createHabit, isPending } = useCreateHabit();
     const { data: projects = [] } = useProjects();
+    const { data: allTags = [] } = useTags();
 
     const [title, setTitle] = useState("");
     const [emoji, setEmoji] = useState<string | null>(null);
     const [colorAccent, setColorAccent] = useState<string>(ROUTINE_DEFAULT_ACCENT);
     const [targetTimes, setTargetTimes] = useState<Record<string, string> | null>(null);
-    const [recurrenceRule, setRecurrenceRule] = useState("FREQ=DAILY");
-    const [targetTime, setTargetTime] = useState<string | null>(null);
+    const [ruleState, setRuleState] = useState("FREQ=DAILY");
+    const [timeState, setTimeState] = useState<string | null>(null);
     const [reminderEnabled, setReminderEnabled] = useState(false);
     const [description, setDescription] = useState("");
-    const [projectId, setProjectId] = useState<string | null>(null);
-    const [tagIds, setTagIds] = useState<string[]>([]);
+    const [projectState, setProjectState] = useState<string | null>(null);
+    const [tagState, setTagState] = useState<string[]>([]);
+    const [touched, setTouched] = useState<ReadonlySet<DraftField>>(new Set());
+    const [dismissed, setDismissed] = useState<string[]>([]);
+    const [accepted, setAccepted] = useState<string[]>([]);
+    const [literal, setLiteral] = useState(false);
     const [steps, setSteps] = useState<RoutineStep[] | null>(null);
+
+    // What the user set by hand beats the words (a present key wins, even "none"); otherwise the words fill it.
+    const touch = (field: DraftField) => setTouched((current) => new Set(current).add(field));
+    const { data: settings } = useSettings();
+    const intelligence = settings?.tasks?.intelligence;
+    const nlp = useNlpParse({
+        input: title,
+        projects: projects.map((p) => ({ id: p.id, name: p.name })),
+        tags: allTags.map((t) => ({ id: t.id, name: t.name })),
+        dismissedEntityIds: dismissed,
+        acceptedEntityIds: accepted,
+        literal,
+        manual: {
+            ...(touched.has("recurrenceRule") && { recurrenceRule: ruleState }),
+            ...(touched.has("timeOfDay") && { timeOfDay: timeState }),
+            ...(touched.has("projectId") && { projectId: projectState }),
+            ...(touched.has("tagIds") && { tagIds: tagState }),
+        },
+        capabilities: ROUTINE_FIELDS,
+        sourceSurface: "quick_add",
+        dateStyle: settings?.dateTime?.dateStyle ?? "mdy",
+        confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
+        enabled: intelligence?.nlpEnabled !== false,
+    });
+    const recurrenceRule = touched.has("recurrenceRule") ? ruleState : (nlp.fields.recurrenceRule ?? ruleState);
+    const targetTime = touched.has("timeOfDay") ? timeState : (nlp.fields.timeOfDay ?? timeState);
+    const projectId = touched.has("projectId") ? projectState : (nlp.fields.projectId ?? projectState);
+    const tagIds = touched.has("tagIds") ? tagState : (nlp.fields.tagIds.length ? nlp.fields.tagIds : tagState);
+    const setRecurrenceRule = (rule: string) => { setRuleState(rule); touch("recurrenceRule"); };
+    const setTargetTime = (time: string | null) => { setTimeState(time); touch("timeOfDay"); };
+    const setProjectId = (id: string | null) => { setProjectState(id); touch("projectId"); };
+    const setTagIds = (update: string[] | ((prev: string[]) => string[])) => {
+        setTagState(typeof update === "function" ? update(tagIds) : update);
+        touch("tagIds");
+    };
 
     const isDirty = Boolean(title.trim() || emoji || colorAccent !== ROUTINE_DEFAULT_ACCENT || recurrenceRule !== "FREQ=DAILY" || targetTime || targetTimes || description.trim() || projectId || tagIds.length || steps);
 
@@ -61,27 +109,41 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
         setEmoji(null);
         setColorAccent(ROUTINE_DEFAULT_ACCENT);
         setTargetTimes(null);
-        setRecurrenceRule("FREQ=DAILY");
-        setTargetTime(null);
+        setRuleState("FREQ=DAILY");
+        setTimeState(null);
         setReminderEnabled(false);
         setDescription("");
-        setProjectId(null);
-        setTagIds([]);
+        setProjectState(null);
+        setTagState([]);
         setSteps(null);
+        setTouched(new Set());
+        setDismissed([]);
+        setAccepted([]);
+        setLiteral(false);
     };
 
-    const submit = () => {
+    const submit = async () => {
+        if (!title.trim() || isPending) return;
+        // Enter saves what is on screen; only a still-loading parser makes it wait, then re-reads the same text.
+        send(nlp.ready ? nlp : await nlp.finalize());
+    };
+
+    const send = (draft: NlpParseOutput) => {
+        const rule = touched.has("recurrenceRule") ? ruleState : (draft.fields.recurrenceRule ?? ruleState);
+        const time = touched.has("timeOfDay") ? timeState : (draft.fields.timeOfDay ?? timeState);
+        const list = touched.has("projectId") ? projectState : (draft.fields.projectId ?? projectState);
+        const tagged = touched.has("tagIds") ? tagState : (draft.fields.tagIds.length ? draft.fields.tagIds : tagState);
         const parsed = createHabitSchema.safeParse({
-            title: title.trim(),
+            title: (draft.cleanedTitle || title).trim(),
             description: description.trim() || undefined,
-            recurrenceRule,
+            recurrenceRule: rule,
             colorAccent,
-            targetTime,
+            targetTime: time,
             targetTimes,
             emoji,
-            reminderEnabled: Boolean(targetTime) && reminderEnabled,
-            projectId,
-            tagIds: tagIds.length ? tagIds : undefined,
+            reminderEnabled: Boolean(time) && reminderEnabled,
+            projectId: list,
+            tagIds: tagged.length ? tagged : undefined,
             steps: steps ?? undefined,
         });
         if (!parsed.success) {
@@ -115,7 +177,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
         subtitle,
         isDirty,
         discardTitle: "Discard this routine?",
-        footer: <ComposerSubmit onSubmit={submit} submitLabel={isPending ? "Creating…" : "Create routine"} icon={Repeat} tone="habits" disabled={!title.trim() || isPending} />,
+        footer: <ComposerSubmit onSubmit={() => void submit()} submitLabel={isPending ? "Creating…" : "Create routine"} icon={Repeat} tone="habits" disabled={!title.trim() || isPending} />,
         reset,
         children: (
             <>
@@ -124,7 +186,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
                     autoFocus={!shell.isCompact}
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
-                    onKeyDown={(event) => { if (event.key === "Enter" && title.trim()) submit(); }}
+                    onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing && title.trim()) void submit(); }}
                     placeholder="Name this routine…"
                     maxLength={200}
                     aria-label="Routine name"
@@ -134,6 +196,15 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
                             <ColourDot options={ROUTINE_SWATCHES} value={colorAccent} onChange={setColorAccent} label="Routine colour" />
                         </span>
                     )}
+                />
+                <DraftRow
+                    applied={nlp.applied}
+                    suggestions={nlp.suggestions}
+                    shownElsewhere={["recurrence", "scheduled_start", "project", "tag"]}
+                    literal={literal}
+                    onDismiss={(id) => setDismissed((current) => [...current, id])}
+                    onAccept={(id) => setAccepted((current) => [...current, id])}
+                    onLiteral={setLiteral}
                 />
                 {title.trim() ? null : (
                     <div className="flex flex-wrap gap-1.5" role="group" aria-label="Ideas">

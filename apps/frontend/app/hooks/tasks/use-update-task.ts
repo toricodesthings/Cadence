@@ -83,8 +83,9 @@ export function useUpdateTask() {
             return { snapshot };
         },
 
-        onSuccess: (task) => {
+        onSuccess: (task, input) => {
             if (!task) return; // Queued offline
+            if (input.effort !== undefined) void queryClient.invalidateQueries({ queryKey: queryKeys.effortEvidence });
             if (isRecurringTask(task)) {
                 taskCache.invalidate(queryClient);
                 return;

@@ -1,5 +1,7 @@
 /** Centralized query key factory — single source of truth for cache targeting */
 export const queryKeys = {
+    /** This account's own recorded Effort choices (separate from `tasks`: task cache patches must not touch it). */
+    effortEvidence: ["effort-evidence"] as const,
     tasks: {
         all: ["tasks"] as const,
         list: (filters: Record<string, unknown>) => ["tasks", filters] as const,

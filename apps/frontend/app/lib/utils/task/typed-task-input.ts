@@ -24,6 +24,8 @@ export function buildTypedTaskInput({
     tagIds,
     waitingOn,
     durationMinutes,
+    notBefore,
+    reminderAt,
     surface,
     dateStyle,
     dismissedEntityIds,
@@ -37,6 +39,10 @@ export function buildTypedTaskInput({
     tagIds: string[];
     waitingOn: string | null;
     durationMinutes: number | null;
+    /** Hide until this day. */
+    notBefore?: LocalDate | null;
+    /** A reminder at an exact moment. */
+    reminderAt?: Instant | null;
     surface: SourceSurface;
     dateStyle: "mdy" | "dmy" | "ymd";
     dismissedEntityIds: string[];
@@ -54,13 +60,18 @@ export function buildTypedTaskInput({
         recurrenceRule: schedule.recurrenceRule ?? undefined,
         ...(priority > 0 && { priority }),
         ...(projectId && { projectId }),
-        ...(waitingOn && { waitingOn }),
+        // Waiting on someone is a state: the editor shows who only on WAITING work.
+        ...(waitingOn && { waitingOn, state: "WAITING" as const }),
         ...(durationMinutes && { durationEstimate: durationMinutes }),
+        ...(notBefore && { notBefore }),
+        ...(reminderAt && { reminderAt }),
         nlp: {
             rawInput,
             sourceSurface: surface,
             dateStyle,
             dismissedEntityIds,
+            // The fields above are the user's final choices; the server stores this record and does not reinterpret it.
+            resolved: true,
             userOverrides: {
                 title,
                 projectId,

@@ -2,13 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarHeart, CalendarRange, Clock3, StickyNote } from "lucide-react";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { FIELD_LABEL } from "../tasks/task-choice-options";
-import { EffortField, PriorityField } from "../tasks/TaskWeightFields";
+import { AcceptedEffort, EffortField, EffortSuggestionRow, PriorityField } from "../tasks/TaskWeightFields";
+import { useEffortSuggestion } from "../../hooks/tasks/use-effort-suggestion";
+import { DraftRow } from "../tasks/DraftRow";
 import { addDays, atLocal, untilClause, weekdayOf, type LocalDate } from "@cadence/domain/time";
 import { addMinutesToTime, formatShortDateLabel, formatWallTime } from "../../lib/utils/date-format";
 import { getUserZone } from "../../lib/utils/user-zone";
 import { minutesToWallTime } from "../../lib/utils/calendar/calendar-dnd";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useNlpParse } from "../../hooks/use-nlp-parse";
+import type { DraftField } from "@cadence/domain/nlp-draft";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useTypedWhen } from "../../hooks/use-typed-when";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
@@ -73,6 +76,12 @@ function buildWeeklyRule(days: WeekdayCode[], endDate: LocalDate | null) {
     return endDate ? `${base};${untilClause(endDate)}` : base;
 }
 
+/** What a calendar block can store from typed words. */
+const TASK_BLOCK_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>(["dueDate", "scheduledStart", "scheduledEnd", "durationMinutes", "priority", "recurrenceRule"]);
+
+/** The days of a plain weekly rule ("every Mon and Wed"), which the weekday picker can show; anything richer stays a typed rule. */
+const weeklyDaysOf = (rule: string | null) => (/^FREQ=WEEKLY;BYDAY=([A-Z,]+)$/.exec(rule ?? "")?.[1].split(",") as WeekdayCode[] | undefined) ?? null;
+
 export function CalendarEventPopover({ info, initialTab = "task", onClose }: CalendarEventPopoverProps) {
     const taskTitleRef = useRef<HTMLInputElement>(null);
     const { mutate: createTask, isPending } = useCreateTask();
@@ -84,12 +93,21 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
 
     const [title, setTitle] = useState("");
     const [notes, setNotes] = useState("");
-    const [mode, setMode] = useState<ComposerMode>("once");
+    // `null` until the person picks: typed words ("every Mon and Wed") may choose for them.
+    const [modeChoice, setMode] = useState<ComposerMode | null>(null);
     const [endDate, setEndDate] = useState<LocalDate | "">("");
     const [hasEndDate, setHasEndDate] = useState(false);
-    const [weekdays, setWeekdays] = useState<WeekdayCode[]>([toWeekdayCode(info.date)]);
+    const [weekdayChoice, setWeekdays] = useState<WeekdayCode[] | null>(null);
     const [priority, setPriority] = useState<TaskPriority>(0);
-    const [effort, setEffort] = useState<EffortLevel>(null);
+    const [effort, setEffortValue] = useState<EffortLevel>(null);
+    // Effort is the person's: a hand-set value (or clear) beats any suggestion, and one they accepted is recorded as accepted.
+    const [effortOrigin, setEffortOrigin] = useState<"manual" | "accepted" | null>(null);
+    const [effortTouched, setEffortTouched] = useState(false);
+    const [effortDismissed, setEffortDismissed] = useState(false);
+    const setEffort = (value: EffortLevel) => { setEffortValue(value); setEffortOrigin(value ? "manual" : null); setEffortTouched(true); };
+    const [dismissed, setDismissed] = useState<string[]>([]);
+    const [accepted, setAccepted] = useState<string[]>([]);
+    const [literal, setLiteral] = useState(false);
     const [interactionMode, setInteractionMode] = useState<TaskInteractionMode>("timetable");
 
     const event = usePersonalEventComposer({
@@ -118,32 +136,42 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const { data: userSettings } = useSettings();
     const intelligence = userSettings?.tasks?.intelligence;
     const startTime = minutesToWallTime(info.startHour * 60 + info.startMinute);
-    const nlpOn = isPhone && tab === "task" && mode === "once" && intelligence?.nlpEnabled !== false;
+    const nlpOn = tab === "task" && intelligence?.nlpEnabled !== false;
+    const typedWhen = useTypedWhen({ date: info.date, allDay: false, start: startTime, end: addMinutesToTime(startTime, info.durationMinutes ?? 60) }, nlpOn);
     const nlp = useNlpParse({
         input: title,
         projects: [],
         tags: [],
+        dismissedEntityIds: dismissed,
+        acceptedEntityIds: accepted,
+        literal,
+        manual: { ...typedWhen.manual, ...(priority > 0 && { priority }) },
+        capabilities: TASK_BLOCK_FIELDS,
         enabled: nlpOn,
         sourceSurface: "quick_add",
         dateStyle: userSettings?.dateTime?.dateStyle ?? "mdy",
         confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
-        lowStimulationMode: intelligence?.lowStimulationMode ?? false,
     });
-    const typed = useTypedWhen(nlp, { date: info.date, allDay: false, start: startTime, end: addMinutesToTime(startTime, info.durationMinutes ?? 60) }, nlpOn);
+    const typed = typedWhen.bind(nlp);
+    const typedDays = weeklyDaysOf(nlp.fields.recurrenceRule);
+    const mode: ComposerMode = modeChoice ?? (typedDays ? "weekly" : "once");
+    const weekdays = weekdayChoice ?? typedDays ?? [toWeekdayCode(info.date)];
     const { date: whenStartDate, start: whenStartTime, end: whenEndTime } = typed.when;
-    const submitTitle = (typed.parsed && nlp.cleanedTitle.trim()) || title.trim();
+    const submitTitle = nlp.cleanedTitle.trim() || title.trim();
+    const effortSuggestion = useEffortSuggestion({ title: submitTitle, projectId: null, chosen: effortTouched ? effort : undefined, dismissed: effortDismissed, literal, open: tab === "task" });
 
     const taskDirty = Boolean(title.trim() || notes.trim() || mode === "weekly" || hasEndDate || priority > 0 || effort !== null);
     const isDirty = taskDirty || event.isDirty;
 
-    const recurrenceRule = mode === "weekly" ? buildWeeklyRule(weekdays, hasEndDate && endDate ? endDate : null) : null;
+    // Once: a repeat typed in words ("daily at 7am") still stands; Repeats weekly: the picked days.
+    const recurrenceRule = mode === "weekly" ? buildWeeklyRule(weekdays, hasEndDate && endDate ? endDate : null) : nlp.fields.recurrenceRule;
     const summary = useMemo(
         () => {
-            if (mode !== "weekly") return null;
+            if (!recurrenceRule) return null;
             const { start, end } = blockInstants(whenStartDate, whenStartTime, whenEndTime);
             return getTaskRecurrenceSummary({ recurrenceRule, scheduledStart: start, scheduledEnd: end });
         },
-        [mode, recurrenceRule, whenStartDate, whenStartTime, whenEndTime],
+        [recurrenceRule, whenStartDate, whenStartTime, whenEndTime],
     );
 
     const handleTaskSubmit = useCallback(() => {
@@ -158,17 +186,18 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                 orderIndex: Date.now(),
                 scheduledStart: start,
                 scheduledEnd: end,
-                timezoneLocked: mode === "weekly",
+                timezoneLocked: Boolean(recurrenceRule),
                 recurrenceRule: recurrenceRule ?? undefined,
                 interactionMode: recurrenceRule ? interactionMode : "task",
-                priority,
+                priority: (priority || nlp.fields.priority) as TaskPriority,
                 effort,
+                ...(effort && effortOrigin && { effortOrigin }),
             },
             { onSuccess: onClose },
         );
-    }, [createTask, effort, interactionMode, mode, notes, onClose, priority, recurrenceRule, submitTitle, whenEndTime, whenStartDate, whenStartTime]);
+    }, [createTask, effort, effortOrigin, interactionMode, nlp.fields.priority, notes, onClose, priority, recurrenceRule, submitTitle, whenEndTime, whenStartDate, whenStartTime]);
 
-    const taskSubtitle = mode === "weekly" ? (summary?.label ?? "Repeats every week") : formatTimeRange(whenStartTime, whenEndTime);
+    const taskSubtitle = recurrenceRule ? (summary?.label ?? "Repeats every week") : formatTimeRange(whenStartTime, whenEndTime);
 
     const composerTitle = tab === "task" ? `Create on ${formatShortDateLabel(whenStartDate)}` : "Add event";
     const composerSubtitle = tab === "task" ? taskSubtitle : "Yearly personal event";
@@ -261,12 +290,38 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
         >
             {tab === "task" ? (
                 <>
-                    <ComposerTitle inputRef={taskTitleRef} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={isPhone ? "What, and when? e.g. Lunch with Sam Fri 1pm" : "Block title…"} aria-label="Block title" />
+                    <ComposerTitle inputRef={taskTitleRef} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What, and when? e.g. Lunch with Sam Fri 1pm" aria-label="Block title" />
+
+                    {nlpOn ? (
+                        <DraftRow
+                            applied={nlp.applied}
+                            suggestions={nlp.suggestions}
+                            shownElsewhere={["due_date", "scheduled_start"]}
+                            literal={literal}
+                            onDismiss={(id) => setDismissed((current) => [...current, id])}
+                            onAccept={(id) => setAccepted((current) => [...current, id])}
+                            onLiteral={setLiteral}
+                        />
+                    ) : null}
+                    {effort && effortOrigin === "accepted" ? (
+                        <AcceptedEffort level={effort} onUndo={() => { setEffortValue(null); setEffortOrigin(null); setEffortTouched(false); }} />
+                    ) : effortSuggestion ? (
+                        <EffortSuggestionRow
+                            suggestion={effortSuggestion}
+                            onUse={(level) => { setEffortValue(level); setEffortOrigin("accepted"); setEffortTouched(true); }}
+                            onDismiss={() => setEffortDismissed(true)}
+                        />
+                    ) : null}
 
                     <ComposerTabs
                         ariaLabel="Repeat"
                         value={mode}
-                        onChange={setMode}
+                        onChange={(next) => {
+                            setMode(next);
+                            // "Once" over a typed repeat: set the repeat aside, so its words go back to the title.
+                            const typedRepeat = nlp.applied.find((e) => e.type === "recurrence");
+                            if (next === "once" && typedRepeat) setDismissed((current) => [...current, typedRepeat.id]);
+                        }}
                         options={[{ id: "once", label: "Once" }, { id: "weekly", label: "Repeats weekly" }]}
                     />
 

@@ -5,20 +5,21 @@ import { ComposerMore, ComposerSubmit, ComposerTitle, ComposerToggle, COMPOSER_F
 import { TimePicker } from "../primitives";
 import { DatePicker } from "../shared/DatePicker";
 import { FIELD_LABEL } from "./task-choice-options";
-import { EffortField, PriorityField } from "./TaskWeightFields";
+import { AcceptedEffort, EffortField, EffortSuggestionRow, PriorityField } from "./TaskWeightFields";
+import { useEffortSuggestion } from "../../hooks/tasks/use-effort-suggestion";
 import { QuickAddActionTray } from "./QuickAddActionTray";
-import { ParseSummaryChips } from "./ParseSummaryChips";
+import { DraftRow } from "./DraftRow";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useSections } from "../../hooks/sections/use-sections";
 import { useSettings } from "../../hooks/core/use-settings";
-import { useNlpParse } from "../../hooks/use-nlp-parse";
+import { TASK_FIELDS, useNlpParse, type NlpParseOutput } from "../../hooks/use-nlp-parse";
 import { useTypedWhen } from "../../hooks/use-typed-when";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
 import { mapPriorityNameToNumber, resolveDefaultDueDate } from "../../lib/utils/task/task-defaults";
 import { buildTypedTaskInput } from "../../lib/utils/task/typed-task-input";
-import { blockEnd, formatShortDateLabel, formatWallTime, fromTimeValue } from "../../lib/utils/date-format";
+import { formatShortDateLabel, formatWallTime } from "../../lib/utils/date-format";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import type { EffortLevel, Task, TaskPriority } from "@cadence/contracts/task";
 
@@ -69,10 +70,17 @@ export function useTaskComposer({
     const [title, setTitle] = useState("");
     const [notes, setNotes] = useState("");
     const [priority, setPriority] = useState<TaskPriority>(0);
-    const [effort, setEffort] = useState<EffortLevel>(null);
-    const [projectId, setProjectId] = useState<string | null>(null);
-    const [tagIds, setTagIds] = useState<string[]>([]);
+    const [effort, setEffortValue] = useState<EffortLevel>(null);
+    // Effort is the person's: a hand-set value (or clear) beats any suggestion, and one they accepted is recorded as accepted.
+    const [effortOrigin, setEffortOrigin] = useState<"manual" | "accepted" | null>(null);
+    const [effortDismissed, setEffortDismissed] = useState(false);
+    const setEffort = (value: EffortLevel) => { setEffortValue(value); setEffortOrigin(value ? "manual" : null); setEffortTouched(true); };
+    const [effortTouched, setEffortTouched] = useState(false);
     const [dismissedEntityIds, setDismissedEntityIds] = useState<string[]>([]);
+    const [acceptedEntityIds, setAcceptedEntityIds] = useState<string[]>([]);
+    const [literal, setLiteral] = useState(false);
+    const [manualProject, setManualProject] = useState<string | null | undefined>(undefined);
+    const [manualTags, setManualTags] = useState<string[] | undefined>(undefined);
 
     useEffect(() => {
         if (!open) return;
@@ -83,26 +91,35 @@ export function useTaskComposer({
     // "Send deck Fri 3pm": a typed day and time fill the when, until a field is touched.
     const intelligence = settings?.tasks?.intelligence;
     const dateStyle = settings?.dateTime?.dateStyle ?? "mdy";
+    const typedWhen = useTypedWhen(INITIAL_WHEN);
     const nlp = useNlpParse({
         input: title,
         projects: project ? [] : projects.map((p) => ({ id: p.id, name: p.name })),
         tags: tags.map((t) => ({ id: t.id, name: t.name })),
         dismissedEntityIds,
+        acceptedEntityIds,
+        literal,
+        manual: {
+            ...typedWhen.manual,
+            ...(priority > 0 && { priority }),
+            ...(manualProject !== undefined && { projectId: manualProject }),
+            ...(manualTags && { tagIds: manualTags }),
+        },
+        capabilities: TASK_FIELDS,
         enabled: open && intelligence?.nlpEnabled !== false && intelligence?.autoParseOnCapture !== false,
         sourceSurface: project ? "inline_add" : "quick_add",
         dateStyle,
         confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
-        lowStimulationMode: intelligence?.lowStimulationMode ?? false,
     });
-    const typed = useTypedWhen(nlp, INITIAL_WHEN);
+    const typed = typedWhen.bind(nlp);
     const { when } = typed;
-    const resolvedProjectId = project?.id ?? projectId ?? nlp.projectId ?? null;
-    const resolvedTagIds = Array.from(new Set([...(lockedTag ? [lockedTag.id] : []), ...tagIds, ...nlp.tagIds]));
-    const parsed = typed.parsed || Boolean(nlp.tagIds.length || (!project && !projectId && nlp.projectId) || (!priority && nlp.priority) || nlp.waitingOn);
-    const submitTitle = (parsed && nlp.cleanedTitle.trim()) || title.trim();
+    const resolvedProjectId = project?.id ?? nlp.fields.projectId;
+    const resolvedTagIds = Array.from(new Set([...(lockedTag ? [lockedTag.id] : []), ...nlp.fields.tagIds]));
+    const submitTitle = nlp.cleanedTitle.trim() || title.trim();
+    const effortSuggestion = useEffortSuggestion({ title: submitTitle, projectId: resolvedProjectId, chosen: effortTouched ? effort : undefined, dismissed: effortDismissed, literal, open });
 
     const reset = () => {
-        setTitle(""); setNotes(""); setPriority(0); setEffort(null); setProjectId(null); setTagIds([]); setDismissedEntityIds([]);
+        setTitle(""); setNotes(""); setPriority(0); setEffortValue(null); setEffortOrigin(null); setEffortTouched(false); setEffortDismissed(false); setManualProject(undefined); setManualTags(undefined); setDismissedEntityIds([]); setAcceptedEntityIds([]); setLiteral(false);
         typed.reset();
     };
 
@@ -110,30 +127,41 @@ export function useTaskComposer({
         ? `${formatShortDateLabel(when.date)}${when.allDay ? "" : ` · ${formatWallTime(when.start)}`}`
         : null;
 
-    const submit = () => {
-        if (!submitTitle || createTask.isPending) return;
+    const submit = async () => {
+        if (!title.trim() || createTask.isPending) return;
+        // Enter saves what is on screen; only a still-loading parser makes it wait, then re-reads the same text.
+        if (!nlp.ready) {
+            const draft = await nlp.finalize();
+            return send(draft);
+        }
+        send(nlp);
+    };
+
+    const send = (draft: NlpParseOutput) => {
+        const finalTitle = draft.cleanedTitle.trim() || title.trim();
         // A timed block sends instants only; an all-day task sends its day.
-        const timed = Boolean(when.date) && !when.allDay;
-        const start = timed ? fromTimeValue(when.date, when.start) : null;
-        const end = start ? blockEnd(when.date, start, when.end) : null;
+        const start = draft.fields.scheduledStart;
+        const end = draft.fields.scheduledEnd;
         const siblings = project ? tasksIn(tasks, target) : tasks;
 
         trackUsageEvent("task.create", { surface: project ? "inline_add" : "quick_add", object_type: "task" });
         createTask.mutate(
             buildTypedTaskInput({
                 rawInput: title,
-                title: submitTitle,
+                title: finalTitle,
                 schedule: {
-                    dueDate: timed ? null : when.date || resolveDefaultDueDate(settings?.tasks?.defaultDueDate) || null,
+                    dueDate: start ? null : draft.fields.dueDate || resolveDefaultDueDate(settings?.tasks?.defaultDueDate) || null,
                     scheduledStart: start,
                     scheduledEnd: end,
-                    recurrenceRule: typed.touched ? null : nlp.recurrenceRule,
+                    recurrenceRule: draft.fields.recurrenceRule,
                 },
-                priority: priority || nlp.priority || mapPriorityNameToNumber(settings?.tasks?.defaultPriority),
-                projectId: resolvedProjectId,
-                tagIds: resolvedTagIds,
-                waitingOn: nlp.waitingOn,
-                durationMinutes: nlp.durationMinutes,
+                priority: (draft.fields.priority || mapPriorityNameToNumber(settings?.tasks?.defaultPriority)) as TaskPriority,
+                projectId: project?.id ?? draft.fields.projectId,
+                tagIds: Array.from(new Set([...(lockedTag ? [lockedTag.id] : []), ...draft.fields.tagIds])),
+                waitingOn: draft.fields.waitingOn,
+                durationMinutes: draft.fields.durationMinutes,
+                notBefore: draft.fields.notBefore,
+                reminderAt: draft.fields.reminderAt,
                 surface: project ? "inline_add" : "quick_add",
                 dateStyle,
                 dismissedEntityIds,
@@ -141,6 +169,7 @@ export function useTaskComposer({
                     orderIndex: settings?.tasks?.newTaskPlacement === "top" ? 0 : computeNextOrderIndex(siblings),
                     content: notes.trim() || null,
                     effort,
+                    ...(effort && effortOrigin && { effortOrigin }),
                     ...(project && target !== UNSECTIONED_ID && { sectionId: target }),
                 },
             }),
@@ -163,8 +192,6 @@ export function useTaskComposer({
         </ChipScroller>
     ) : undefined;
 
-    const showExplanations = intelligence?.showExplanations !== false;
-
     return {
         title: "Add task",
         icon: CheckSquare,
@@ -172,13 +199,13 @@ export function useTaskComposer({
             ? (projectSections.length > 0 ? `${project.name} · ${targetName}` : project.name)
             : lockedTag ? `Tagged #${lockedTag.name}` : "Lands in Capture unless you pick a list",
         band,
-        isDirty: Boolean(title.trim() || notes.trim() || typed.touched || priority > 0 || effort !== null || projectId || tagIds.length),
+        isDirty: Boolean(title.trim() || notes.trim() || typed.touched || priority > 0 || effort !== null || manualProject || manualTags?.length),
         discardTitle: "Discard this task?",
-        footer: <ComposerSubmit onSubmit={submit} submitLabel={createTask.isPending ? "Adding…" : "Add task"} icon={Plus} disabled={!submitTitle || createTask.isPending} />,
+        footer: <ComposerSubmit onSubmit={() => void submit()} submitLabel={createTask.isPending ? "Adding…" : "Add task"} icon={Plus} disabled={!submitTitle || createTask.isPending} />,
         reset,
         children: (
             <>
-                <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="space-y-3">
+                <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="space-y-3">
                     <ComposerTitle
                         inputRef={titleRef}
                         value={title}
@@ -187,13 +214,22 @@ export function useTaskComposer({
                         aria-label="Task title"
                         enterKeyHint="done"
                     />
-                    {showExplanations ? (
-                        <ParseSummaryChips
-                            parseResult={nlp.parseResult}
-                            summary={nlp.summary}
-                            onDismiss={(entityId) => setDismissedEntityIds((prev) => [...prev, entityId])}
-                            lowStimulation={intelligence?.lowStimulationMode || settings?.appearance?.motion === "reduced"}
-                            maxVisibleChips={4}
+                    <DraftRow
+                        applied={nlp.applied}
+                        suggestions={nlp.suggestions}
+                        shownElsewhere={["due_date", "scheduled_start", "project", "tag"]}
+                        literal={literal}
+                        onDismiss={(id) => setDismissedEntityIds((prev) => [...prev, id])}
+                        onAccept={(id) => setAcceptedEntityIds((prev) => [...prev, id])}
+                        onLiteral={setLiteral}
+                    />
+                    {effort && effortOrigin === "accepted" ? (
+                        <AcceptedEffort level={effort} onUndo={() => { setEffortValue(null); setEffortOrigin(null); setEffortTouched(false); }} />
+                    ) : effortSuggestion ? (
+                        <EffortSuggestionRow
+                            suggestion={effortSuggestion}
+                            onUse={(level) => { setEffortValue(level); setEffortOrigin("accepted"); setEffortTouched(true); }}
+                            onDismiss={() => setEffortDismissed(true)}
                         />
                     ) : null}
                     <QuickAddActionTray
@@ -208,8 +244,11 @@ export function useTaskComposer({
                         tagIds={resolvedTagIds}
                         onScheduleChange={() => {}}
                         onPriorityChange={() => {}}
-                        onProjectChange={setProjectId}
-                        onToggleTag={(tagId) => tagId !== lockedTag?.id && setTagIds((current) => (current.includes(tagId) ? current.filter((id) => id !== tagId) : [...current, tagId]))}
+                        onProjectChange={setManualProject}
+                        onToggleTag={(tagId) => tagId !== lockedTag?.id && setManualTags((current) => {
+                            const shown = current ?? nlp.fields.tagIds;
+                            return shown.includes(tagId) ? shown.filter((id) => id !== tagId) : [...shown, tagId];
+                        })}
                     />
                 </form>
 

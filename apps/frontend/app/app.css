@@ -2264,7 +2264,8 @@ button.surface-control:not(:disabled):hover {
 }
 
 /* Full-screen editor overlays sit over page content, so they need an opaque fill. */
-[data-detail-mode="focus"].surface-shell {
+[data-detail-mode="focus"].surface-shell,
+[data-bg-image="on"] [data-detail-mode="focus"].photo-shell-surface {
   background: color-mix(in srgb, var(--color-panel) 99%, transparent);
 }
 

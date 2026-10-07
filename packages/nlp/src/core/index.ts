@@ -1,5 +1,5 @@
 /** Parser version — bumped on any behavior-changing parser update */
-export const PARSER_VERSION = "3.1.0";
+export const PARSER_VERSION = "3.4.0";
 
 // ── Confidence Model (Section 9) ──
 
@@ -49,7 +49,9 @@ export type ParsedEntityType =
   | "project"
   | "tag"
   | "waiting_on"
-  | "duration";
+  | "duration"
+  | "not_before"
+  | "reminder";
 
 // ── Parsed Entity (Section 8.3) ──
 
@@ -63,6 +65,8 @@ export interface ParsedEntity {
   start: number;
   /** End offset in the raw input */
   end: number;
+  /** The words removed from the title if this entity is applied (a deadline word goes with its date). */
+  consumed?: { start: number; end: number };
   confidence: ConfidenceTier;
   /** Type-specific normalized value */
   normalizedValue: unknown;
@@ -91,6 +95,8 @@ export interface CanonicalNlpEnvelope {
   dateStyle: DateStyle;
   dismissedEntityIds: string[];
   userOverrides: Record<string, unknown>;
+  /** The sender already chose every field; the receiver stores the envelope and does not reinterpret it. */
+  resolved?: boolean;
 }
 
 export interface CanonicalNlpSnapshot extends ParseResult {
@@ -154,6 +160,9 @@ export interface DateValue {
   time: WallTime | null;
   /** Whether a specific time was mentioned */
   hasTime: boolean;
+  /** End of an explicit range ("2pm to 3pm"), on `endDate`; absent when no end was typed. */
+  endDate?: LocalDate;
+  endTime?: WallTime;
   /** Human-readable label */
   humanLabel: string;
 }

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import type { TaskSection } from "@cadence/contracts/section";
@@ -25,6 +25,20 @@ export function useSections(projectId?: string | null) {
             const res = await client.api.sections.$get({ query });
             return unwrapResponse(res);
         },
+    });
+}
+
+/** Every list's sections (same cache as `useSections`), for naming a section in words. Loads only while `enabled`. */
+export function useAllSections(projectIds: string[], enabled = true): TaskSection[] {
+    const client = useApiClient();
+    const { authReady, isAuthenticated } = useAuthState();
+    return useQueries({
+        queries: projectIds.map((projectId) => ({
+            queryKey: sectionsKey(projectId),
+            enabled: enabled && authReady && isAuthenticated,
+            queryFn: async () => unwrapResponse(await client.api.sections.$get({ query: { projectId } })),
+        })),
+        combine: (results) => results.flatMap((r) => (r.data ?? []) as TaskSection[]),
     });
 }
 
