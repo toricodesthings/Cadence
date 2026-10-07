@@ -24,6 +24,7 @@ export function UtilitySheet({
     flush = false,
     mode = "peek",
     fit = false,
+    layer,
 }: {
     title: string;
     /** Secondary line under the heading. */
@@ -45,6 +46,7 @@ export function UtilitySheet({
     mode?: "peek" | "focus";
     /** Short sheets: height follows the content instead of the tall default. */
     fit?: boolean;
+    layer?: "route" | "room";
 }) {
     const scroll = useRef<HTMLDivElement>(null);
     const heading = useRef<HTMLHeadingElement>(null);
@@ -53,7 +55,7 @@ export function UtilitySheet({
         if (open && !header) (scroll.current?.querySelector<HTMLElement>("[data-initial-focus]") ?? heading.current)?.focus({ preventScroll: true });
     }, [title, open, header]);
 
-    return <ResponsiveOverlayPanel open={open} onClose={onClose} ariaLabel={title} mode={mode} fill fit={fit}>
+    return <ResponsiveOverlayPanel open={open} onClose={onClose} ariaLabel={title} mode={mode} fill fit={fit} layer={layer}>
         <header className={`utility-sheet-header shrink-0 px-4 pb-3 ${band || footer || header ? "border-b border-twilight-border" : ""}`}>
             <div className="flex min-h-14 items-center gap-2">
                 {onBack && <Tip label={backLabel}><button type="button" className="mobile-icon-button" aria-label={backLabel} onClick={onBack}><ChevronLeft size={22} aria-hidden="true" /></button></Tip>}

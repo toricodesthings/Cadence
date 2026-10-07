@@ -164,6 +164,9 @@
   --z-route-overlay: 70;
   --z-utility-surface: 80;
   --z-fullscreen-surface: 90;
+  /* Sheets opened from a full-screen room (note room outline, review) open above it. */
+  --z-room-sheet-backdrop: 95;
+  --z-room-sheet: 100;
   --z-system-dialog: 110;
   /* Floating UI (selects, dropdowns, popovers, tooltips, context menus) sits
      ABOVE system dialogs so it stays usable when triggered from inside a modal.
@@ -1184,6 +1187,14 @@
 
   .layer-fullscreen-surface {
     z-index: var(--z-fullscreen-surface);
+  }
+
+  .layer-room-sheet-backdrop {
+    z-index: var(--z-room-sheet-backdrop);
+  }
+
+  .layer-room-sheet {
+    z-index: var(--z-room-sheet);
   }
 
   .layer-floating-ui {
@@ -2718,7 +2729,7 @@ button.surface-control:not(:disabled):hover {
    The fill is a background-image so a control's own tint still shows through. */
 @media (max-width: 767px) {
   .header-glass button,
-  button:is([aria-label], :has(> .sr-only)):has(> svg):not(.glass-inset, :has(> :not(svg, .sr-only)), [class*="gap-"], [role="radio"], [role="checkbox"], [aria-checked], [aria-pressed]) {
+  button:is([aria-label], :has(> .sr-only)):has(> svg):not(.glass-inset, :has(> :not(svg, .sr-only)), [class*="gap-"], [role="radio"], [role="checkbox"], [aria-checked], [aria-pressed], [role="toolbar"] button) {
     border: 1px solid color-mix(in srgb, var(--color-twilight-text) 14%, transparent);
     border-radius: 9999px;
     background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-twilight-text) 9%, transparent), color-mix(in srgb, var(--color-twilight-text) 3%, transparent));
@@ -2819,3 +2830,154 @@ body:has(.compact-navigation-shell) .mobile-floating-action {
 body:has([data-capture-selection]) .mobile-floating-action:not([data-capture-selection]) {
   visibility: hidden;
 }
+
+/* ── Note content ──
+   One rule set for a note wherever it appears: the editor (`.ProseMirror`), the task panel and
+   rendered Markdown (assistant previews and diffs, `data-size="chat"`). Built only from existing
+   tokens, so every palette, mode and photo background carries over. */
+.note-content {
+  --note-size: 17px;
+  --note-leading: 1.7;
+  font-family: var(--font-sans);
+  font-size: var(--note-size);
+  line-height: var(--note-leading);
+  color: var(--color-twilight-text);
+  overflow-wrap: anywhere;
+  caret-color: var(--accent-primary);
+  outline: none;
+}
+.note-content[data-size="chat"] { --note-size: 14px; --note-leading: 1.6; }
+@media (pointer: fine) and (min-width: 768px) {
+  .note-content:not([data-size="chat"]) { --note-size: 18px; --note-leading: 1.72; }
+}
+/* Focus is shown by the surface's soft glow, never a ring round the page. */
+.note-content:focus, .note-content:focus-visible, [data-theme="daylight"] .note-content:focus-visible { outline: none; box-shadow: none; }
+.note-content > * + * { margin-top: 0.85em; }
+.note-content :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin-top: 1.5em;
+  scroll-margin-top: 5rem;
+}
+.note-content > :first-child { margin-top: 0; }
+.note-content h1 { font-size: 1.7em; }
+.note-content h2 { font-size: 1.4em; }
+.note-content h3 { font-size: 1.18em; }
+.note-content :is(h4, h5, h6) { font-size: 1em; color: var(--color-twilight-text-soft); }
+.note-content :is(ul, ol) { padding-left: 1.5em; }
+.note-content ul { list-style: disc; }
+.note-content ol { list-style: decimal; }
+.note-content li > :is(ul, ol) { margin-top: 0.3em; }
+.note-content li + li { margin-top: 0.3em; }
+.note-content li > p { margin: 0; }
+.note-content ::marker { color: var(--color-twilight-text-muted); }
+.note-content a { color: var(--accent-primary); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.note-content strong { font-weight: 650; }
+.note-content blockquote {
+  padding-left: 1em;
+  border-left: 3px solid color-mix(in srgb, var(--accent-primary) 55%, transparent);
+  color: var(--color-twilight-text-soft);
+}
+.note-content hr { border: 0; border-top: 1px solid var(--color-twilight-border); margin-block: 1.4em; }
+.note-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  padding: 0.12em 0.4em;
+  border-radius: 6px;
+  background: var(--color-twilight-void);
+  color: var(--accent-primary);
+}
+.note-content pre {
+  overflow-x: auto;
+  padding: 0.85em 1em;
+  border-radius: 14px;
+  background: var(--color-twilight-void);
+  border: 1px solid color-mix(in srgb, var(--color-twilight-border) 70%, transparent);
+}
+.note-content pre code { padding: 0; background: none; color: var(--color-twilight-text); font-size: 0.86em; }
+.note-content img { max-width: 100%; border-radius: 12px; }
+.note-content .tableWrapper, .note-content :has(> table) { overflow-x: auto; }
+.note-content table { border-collapse: collapse; min-width: 100%; font-size: 0.94em; }
+.note-content :is(th, td) { border: 1px solid var(--color-twilight-border); padding: 0.45em 0.7em; text-align: left; vertical-align: top; min-width: 5em; }
+.note-content th { background: var(--color-twilight-elevated); font-weight: 600; }
+.note-content :is(td, th) > p { margin: 0; }
+.note-content .selectedCell { background: var(--accent-primary-soft); }
+.note-content ::selection { background: var(--accent-primary-soft); color: var(--color-twilight-text); }
+/* Placeholder: quiet but above the contrast floor. */
+.note-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: color-mix(in srgb, var(--color-twilight-text-muted) 100%, transparent);
+}
+.note-editor[data-hint] .note-content p.is-editor-empty:first-child::after {
+  content: "   /  for commands";
+  color: color-mix(in srgb, var(--color-twilight-text-muted) 100%, transparent);
+  opacity: 0.8;
+  white-space: pre;
+}
+/* Checklists: the Cadence checkbox ring, one step quieter than a real subtask. */
+.note-content ul[data-type="taskList"] { list-style: none; padding-left: 0.2em; }
+.note-content ul[data-type="taskList"] ul[data-type="taskList"] { padding-left: 1.4em; }
+.note-content ul[data-type="taskList"] > li { display: flex; align-items: flex-start; gap: 0.6em; }
+.note-content ul[data-type="taskList"] > li > label { flex: none; display: inline-flex; align-items: center; justify-content: center; min-height: 1.7em; cursor: pointer; user-select: none; }
+.note-content ul[data-type="taskList"] > li > div { flex: 1; min-width: 0; }
+.note-content ul[data-type="taskList"] > li input[type="checkbox"] {
+  appearance: none;
+  width: 1.05em; height: 1.05em;
+  border-radius: 9999px;
+  border: 1.5px solid color-mix(in srgb, var(--color-twilight-text-muted) 80%, transparent);
+  display: grid; place-content: center;
+  cursor: pointer;
+  transition: background-color 120ms, border-color 120ms;
+}
+.note-content ul[data-type="taskList"] > li input[type="checkbox"]:checked { background: var(--accent-primary); border-color: var(--accent-primary); }
+.note-content ul[data-type="taskList"] > li input[type="checkbox"]:checked::after { content: ""; width: 0.28em; height: 0.5em; border: solid var(--primary-foreground); border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg); }
+.note-content ul[data-type="taskList"] > li input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.note-content ul[data-type="taskList"] > li[data-checked="true"] > div { color: var(--color-twilight-text-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+/* Find highlights are decorations, never part of the Markdown. */
+.note-content .note-find-match { background: color-mix(in srgb, var(--accent-primary) 28%, transparent); border-radius: 3px; }
+.note-content .note-find-current { background: color-mix(in srgb, var(--accent-primary) 55%, transparent); }
+.note-content .ProseMirror-gapcursor::after { border-top-color: var(--accent-primary); }
+/* The writing surface lights softly when focused (the capture composer's treatment), with no ring round the page. */
+.note-surface {
+  border-radius: 28px;
+  transition: box-shadow var(--duration-smooth, 300ms) var(--ease-out-expo, ease-out);
+}
+.note-surface:focus-within {
+  box-shadow: inset 0 0 64px -36px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}
+
+/* Attention chip under a room's header: one glass chip in the offline-banner tones; the healthy baseline shows nothing. */
+.note-attention {
+  --offline-accent: var(--accent-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.5rem 0 0.9rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-twilight-text);
+  border: 1px solid color-mix(in srgb, var(--offline-accent) 22%, var(--color-twilight-border));
+  background: color-mix(in srgb, var(--offline-accent) 12%, color-mix(in srgb, var(--color-twilight-surface) 85%, transparent));
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+.note-attention--failed { --offline-accent: var(--color-feedback-error); }
+.note-attention__action {
+  min-height: 2.25rem;
+  padding: 0 0.8rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--offline-accent) 24%, var(--color-twilight-border));
+  background: color-mix(in srgb, var(--offline-accent) 18%, transparent);
+}
+.note-attention__action:hover { background: color-mix(in srgb, var(--offline-accent) 28%, transparent); }

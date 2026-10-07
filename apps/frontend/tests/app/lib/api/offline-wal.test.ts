@@ -21,7 +21,7 @@ vi.mock("../../../../app/lib/api/client", () => ({
 
 const { ApiErrorResponse, networkError } = await import("../../../../app/types/api");
 const wal = await import("../../../../app/lib/api/offline-wal");
-const { replayWal } = await import("../../../../app/lib/api/mutation-executor");
+const { replayWal, toRequests } = await import("../../../../app/lib/api/mutation-executor");
 const { withOfflineSupport } = await import("../../../../app/lib/api/offline-mutation");
 
 const TASK = "11111111-1111-4111-8111-111111111111";
@@ -88,28 +88,66 @@ describe("offline queue", () => {
 });
 
 describe("offline notes", () => {
-    const note = (body: string, expectedUpdatedAt?: string) =>
-        ({ type: "upsert_note" as const, taskId: TASK, payload: { body, expectedUpdatedAt } });
+    const note = (body: string, extra: Record<string, unknown> = {}) =>
+        ({ type: "upsert_note" as const, taskId: TASK, payload: { body, expectedVersion: 1, branch: "tab-a", baseBody: "base", ...extra } });
 
-    it("keeps one queued save per note: the newest text, checked against the version it started from", async () => {
-        await wal.enqueueWalEntry(note("Draft", "v1"));
-        await wal.enqueueWalEntry(note("Draft, finished", "v2"));
-        expect(wal.getWalSnapshot().map((e) => e.op)).toEqual([note("Draft, finished", "v1")]);
+    it("folds unsent saves from one editing line on one base into the newest text", async () => {
+        await wal.enqueueWalEntry(note("Draft"));
+        await wal.enqueueWalEntry(note("Draft, finished"));
+        expect(wal.getWalSnapshot().map((e) => e.op)).toEqual([note("Draft, finished")]);
     });
 
-    it("keeps both versions when the note changed elsewhere meanwhile", async () => {
+    it("keeps another tab's branch, a different base, and an attempted entry apart", async () => {
+        await wal.enqueueWalEntry(note("A"));
+        await wal.enqueueWalEntry(note("B", { branch: "tab-b" }));
+        await wal.enqueueWalEntry(note("C", { expectedVersion: 2 }));
+        const [first] = wal.getWalSnapshot();
+        await wal.updateWalEntry(first.id, { attempted: true });
+        await wal.enqueueWalEntry(note("A, more"));
+        expect(wal.getWalSnapshot().map((e) => (e.op as { payload: { body: string } }).payload.body)).toEqual(["A", "B", "C", "A, more"]);
+    });
+
+    it("never folds saves queued by older builds (no branch)", async () => {
+        const legacy = (body: string) => ({ type: "upsert_note" as const, taskId: TASK, payload: { body } });
+        await wal.enqueueWalEntry(legacy("one"));
+        await wal.enqueueWalEntry(legacy("two"));
+        expect(wal.getWalSnapshot()).toHaveLength(2);
+    });
+
+    it("merges edits to different places when the note changed elsewhere", async () => {
         fetchMock
             .mockResolvedValueOnce(status(409))
-            .mockResolvedValueOnce(Response.json({ data: { body: "From the laptop", updatedAt: "v9" } }))
+            .mockResolvedValueOnce(Response.json({ data: { body: "one\n\ntwo\n\nTHREE", version: 5 } }))
             .mockResolvedValueOnce(Response.json({ data: {} }));
-        await wal.enqueueWalEntry(note("From the phone", "v1"));
+        await wal.enqueueWalEntry(note("ONE\n\ntwo\n\nthree", { baseBody: "one\n\ntwo\n\nthree" }));
 
         await replayWal(testQueryClient());
 
         const saved = JSON.parse(fetchMock.mock.calls[2][1].body);
-        expect(saved.expectedUpdatedAt).toBe("v9");
-        expect(saved.body).toMatch(/^From the laptop\n\n---\n\n\*Offline edit, .+\*\n\nFrom the phone$/);
+        expect(saved).toEqual({ body: "ONE\n\ntwo\n\nTHREE", expectedVersion: 5 });
         expect(wal.getWalSnapshot()).toEqual([]);
+    });
+
+    it("holds an overlapping edit for review instead of appending it to the note", async () => {
+        fetchMock
+            .mockResolvedValueOnce(status(409))
+            .mockResolvedValueOnce(Response.json({ data: { body: "From the laptop", version: 9 } }));
+        await wal.enqueueWalEntry(note("From the phone", { baseBody: "Start" }));
+
+        await replayWal(testQueryClient());
+
+        expect(fetchMock).toHaveBeenCalledTimes(2); // no write of any combined text
+        const [entry] = wal.getWalSnapshot();
+        expect(entry).toMatchObject({ status: "failed", conflict: true });
+        expect((entry.op as { payload: { body: string } }).payload.body).toBe("From the phone");
+    });
+
+    it("sends the save's operation id as its Idempotency-Key", async () => {
+        fetchMock.mockResolvedValueOnce(Response.json({ data: {} }));
+        await wal.enqueueWalEntry(note("x", { opId: "op-77" }), toRequests(note("x", { opId: "op-77" })));
+        await replayWal(testQueryClient());
+        expect(fetchMock.mock.calls[0][1].headers["Idempotency-Key"]).toBe("op-77");
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ body: "x", expectedVersion: 1 });
     });
 });
 

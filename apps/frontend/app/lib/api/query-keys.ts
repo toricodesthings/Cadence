@@ -5,6 +5,10 @@ export const queryKeys = {
         list: (filters: Record<string, unknown>) => ["tasks", filters] as const,
         detail: (id: string) => ["tasks", id] as const,
     },
+    /** A task's dedicated note, by canonical owner (the series for a recurring task). Nested under `tasks` so a task refresh refreshes it. */
+    notes: {
+        detail: (ownerId: string) => ["tasks", ownerId, "note"] as const,
+    },
     projects: {
         all: ["projects"] as const,
         detail: (id: string) => ["projects", id] as const,
@@ -67,6 +71,7 @@ export const queryKeys = {
 export const STALE_TIMES = {
     OFFLINE_WINDOW: 60 * 60 * 1000, // 1 hour — background warming freshness
     TASKS: 30 * 1000,           // 30s — tasks change frequently
+    NOTES: 5 * 1000,            // 5s — an open note is also polled, so edits from elsewhere show up
     PROJECTS: 5 * 60 * 1000,    // 5min — projects rarely change
     INBOX: 60 * 1000,           // 1min — inbox items moderate frequency
     TAGS: 10 * 60 * 1000,       // 10min — tags very rarely change

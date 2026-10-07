@@ -10,6 +10,13 @@ import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import { writeNote } from "./notes.service";
+import { AppError } from "../../platform/errors";
+import { checkIdempotency, getIdempotencyKey, recordMutation, storedResult } from "../../platform/idempotency";
+
+async function payloadHash(...parts: unknown[]) {
+    const bytes = new TextEncoder().encode(JSON.stringify(parts));
+    return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // PATCH /tasks/:taskId/note — upsert note (create or update)
@@ -20,12 +27,23 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         async (c) => {
             const userId = c.get("userId");
             const { taskId } = c.req.valid("param");
-            const { body, expectedUpdatedAt } = c.req.valid("json");
+            const { body, expectedVersion, expectedUpdatedAt } = c.req.valid("json");
             const db = getDbClient(c.env);
+            const key = getIdempotencyKey(c);
+            const hash = key ? await payloadHash(taskId, body, expectedVersion ?? null, expectedUpdatedAt ?? null) : "";
 
-            const result = await withRls(db, userId, (tx) =>
-                writeNote(tx, userId, taskId, body, { expectedUpdatedAt }),
-            );
+            // A retry under the same key replays the first answer (not whatever is latest now);
+            // the same key with a different edit is a client bug.
+            const result = await withRls(db, userId, async (tx) => {
+                if (key && (await checkIdempotency(tx, userId, key))) {
+                    const first = (await storedResult(tx, userId, key)) as { hash: string; row: Awaited<ReturnType<typeof writeNote>> };
+                    if (first.hash !== hash) throw new AppError(422, "VALIDATION_ERROR", "That operation id was already used for a different edit");
+                    return first.row;
+                }
+                const row = await writeNote(tx, userId, taskId, body, { expectedVersion, expectedUpdatedAt });
+                await recordMutation(tx, userId, key, row.id, { hash, row });
+                return row;
+            });
 
             return c.json({ data: result });
         },

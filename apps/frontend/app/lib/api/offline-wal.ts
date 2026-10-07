@@ -10,6 +10,20 @@ import { IS_DESKTOP_RUNTIME, getNativeStore } from "../../platform/runtime";
 // Every mutation the app can queue, as a serializable object. Creates carry the
 // client-chosen id, so later ops can target the entity before it syncs.
 
+/**
+ * One save of a task's note. `branch` (a tab's editing line), `baseBody` (the text the
+ * edit started from) and `opId` (the Idempotency-Key, fixed for this exact payload) come
+ * from the note session; entries queued by older builds have none of them.
+ */
+export interface NoteSavePayload {
+    body: string;
+    expectedVersion?: number;
+    expectedUpdatedAt?: string;
+    branch?: string;
+    baseBody?: string;
+    opId?: string;
+}
+
 export type MutationOp =
     | { type: "create_task"; payload: CreateTaskInput & { id: string } }
     | { type: "update_task"; id: string; payload: UpdateTaskInput }
@@ -31,7 +45,7 @@ export type MutationOp =
     | { type: "delete_habit"; id: string }
     | { type: "resolve_habit"; id: string; payload: { targetDate: LocalDate; status: string; stepStatus?: Record<string, "COMPLETED" | "SKIPPED"> } }
     | { type: "unprocess_inbox"; id: string }
-    | { type: "upsert_note"; taskId: string; payload: { body: string; expectedUpdatedAt?: string } }
+    | { type: "upsert_note"; taskId: string; payload: NoteSavePayload }
     | { type: "add_task_tag"; id: string; tagId: string }
     | { type: "remove_task_tag"; id: string; tagId: string }
     | { type: "create_subtask"; taskId: string; payload: { id: string; title: string; orderIndex: number } }
@@ -61,6 +75,10 @@ export type WalEntryStatus = "pending" | "replaying" | "failed";
 export interface WalEntry {
     /** Also the Idempotency-Key of requests without their own. */
     id: string;
+    /** A request went out under this entry's ids, so its payload is frozen (a retry must repeat it exactly). */
+    attempted?: boolean;
+    /** A note edit that overlaps a newer saved version: waits for the user's choice, never merged by guess. */
+    conflict?: boolean;
     op: MutationOp;
     requests?: WalRequest[];
     status: WalEntryStatus;
@@ -212,24 +230,32 @@ export async function enqueueWalEntry(op: MutationOp, requests?: WalRequest[]): 
         createdAt: Date.now(),
     };
     await mutate((entries) => {
-        // Every offline save of a note carries the whole text: keep one, with the
-        // newest text and the version it started from (for the conflict check).
-        if (op.type !== "upsert_note") return [...entries, entry];
-        const earlier = entries.findIndex((e) => e.status === "pending" && e.op.type === "upsert_note" && e.op.taskId === op.taskId);
+        // Every save of a note carries the whole text, so unsent saves from one editing
+        // line on one acknowledged base fold into the newest. Another tab's branch, or an
+        // entry a request already went out for, is never replaced.
+        if (op.type !== "upsert_note" || !op.payload.branch) return [...entries, entry];
+        const earlier = entries.findIndex((e) =>
+            e.status === "pending" && !e.attempted && !e.conflict && e.op.type === "upsert_note"
+            && e.op.taskId === op.taskId && e.op.payload.branch === op.payload.branch
+            && e.op.payload.expectedVersion === op.payload.expectedVersion);
         if (earlier < 0) return [...entries, entry];
-        const base = entries[earlier].op as typeof op;
-        const payload = { ...op.payload, expectedUpdatedAt: base.payload.expectedUpdatedAt };
-        const merged = { ...entries[earlier], op: { ...op, payload }, requests: requests?.map((r) => ({ ...r, json: payload })) };
-        return entries.map((e, i) => (i === earlier ? merged : e));
+        return entries.map((e, i) => (i === earlier ? { ...e, op, requests } : e));
     });
     return entry;
 }
 
 export async function updateWalEntry(
     id: string,
-    patch: Partial<Pick<WalEntry, "status" | "error">>,
+    patch: Partial<Pick<WalEntry, "status" | "error" | "attempted" | "conflict">>,
 ): Promise<void> {
     await mutate((entries) => entries.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+}
+
+/** Swap an entry's payload (the user chose which note version to keep); it becomes a fresh, unattempted save. */
+export async function replaceWalEntryOp(id: string, op: MutationOp, requests: WalRequest[]): Promise<void> {
+    await mutate((entries) => entries.map((e) => (e.id === id
+        ? { ...e, op, requests, status: "pending" as const, error: undefined, attempted: false, conflict: false }
+        : e)));
 }
 
 export async function removeWalEntry(id: string): Promise<void> {

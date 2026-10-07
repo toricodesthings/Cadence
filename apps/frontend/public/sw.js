@@ -195,6 +195,10 @@ async function replayQueue(userId) {
         if (!entry) return;
         if (!entry.requests) throw new Error("Queued by an older version"); // The app replays it.
 
+        // A note's payload is frozen once a request leaves, so a retry repeats it exactly.
+        if (entry.op.type === "upsert_note" && !entry.attempted) {
+            await changeQueue(userId, (all) => all.map((e) => (e.id === entry.id ? { ...e, attempted: true } : e)));
+        }
         for (const [index, request] of entry.requests.entries()) {
             const key = request.key ?? entry.id;
             const res = await fetch(request.url, {
@@ -208,7 +212,7 @@ async function replayQueue(userId) {
             });
             if (res.ok || (res.status === 404 && !entry.op.type.startsWith("create_"))) continue;
             if (res.status === 401 || res.status === 429 || res.status >= 500) throw new Error(`Retry later (${res.status})`);
-            if (res.status === 409) return; // A conflict: the app keeps both versions of a note.
+            if (res.status === 409) return; // A note conflict: the app reconciles it (merge or Sync review), never the worker.
             const body = await res.json().catch(() => null);
             await changeQueue(userId, (all) => all.map((e) => (e.id === entry.id
                 ? { ...e, status: "failed", error: body?.error?.message ?? `Request failed with status ${res.status}` }

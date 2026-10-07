@@ -14,6 +14,10 @@ const SIZES = {
     md: { root: "min-h-11 rounded-xl p-0.5", item: "h-9 rounded-lg px-3.5 text-sm" },
 } as const;
 
+/** The chosen/idle look of one segment, shared with other pressed controls (formatting toggles). Needs `--segment-tone` on the element or an ancestor. */
+export const SEGMENT_ACTIVE = "border-[color-mix(in_srgb,var(--segment-tone)_25%,transparent)] bg-[color-mix(in_srgb,var(--segment-tone)_18%,transparent)] text-[var(--segment-tone)]";
+export const SEGMENT_IDLE = "border-transparent text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text";
+
 /**
  * One choice out of a few, shown side by side (Week/Month, Task/Event,
  * Soft/Balanced/Vivid). The chosen segment takes `tone`, the accent by default.
@@ -55,9 +59,7 @@ export function SegmentedControl<T extends string>({
                         className={cn(
                             "inline-flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--segment-tone)]/50",
                             SIZES[size].item,
-                            active
-                                ? "border-[color-mix(in_srgb,var(--segment-tone)_25%,transparent)] bg-[color-mix(in_srgb,var(--segment-tone)_18%,transparent)] text-[var(--segment-tone)]"
-                                : "border-transparent text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text",
+                            active ? SEGMENT_ACTIVE : SEGMENT_IDLE,
                         )}
                     >
                         {option.icon ? <span className="shrink-0">{option.icon}</span> : null}

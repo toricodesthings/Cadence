@@ -20,6 +20,8 @@ interface ResponsiveOverlayPanelProps {
     fill?: boolean;
     /** Phone peek sheets: size to the content (still capped) instead of the fixed tall height. */
     fit?: boolean;
+    /** `room`: opened from a full-screen room (e.g. the note room), so it stacks above it. */
+    layer?: "route" | "room";
 }
 
 const SWIPE_THRESHOLD = 80;
@@ -52,6 +54,7 @@ export function ResponsiveOverlayPanel({
     mode = "peek",
     fill = false,
     fit = false,
+    layer = "route",
 }: ResponsiveOverlayPanelProps) {
     const shell = useShellMode();
     const isMobile = shell.isCompact;
@@ -187,7 +190,7 @@ export function ResponsiveOverlayPanel({
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="layer-route-backdrop fixed inset-0 bg-twilight-void/78 backdrop-blur-md"
+                            className={`${layer === "room" ? "layer-room-sheet-backdrop" : "layer-route-backdrop"} fixed inset-0 bg-twilight-void/78 backdrop-blur-md`}
                             onClick={onClose}
                         />
 
@@ -213,7 +216,7 @@ export function ResponsiveOverlayPanel({
                             onDragEnd={isPeekMobile ? handleDragEnd : undefined}
                             style={isPeekMobile ? { height: fit ? "auto" : "min(92dvh, 52rem)", maxHeight: "min(92dvh, 52rem)", width: "100%", maxWidth: shell.isTablet ? "48rem" : undefined, marginInline: "auto" } : undefined}
                             className={[
-                                "mobile-sheet-shell layer-route-overlay surface-route-overlay fixed flex w-full flex-col shadow-2xl shadow-black/40",
+                                `mobile-sheet-shell ${layer === "room" ? "layer-room-sheet" : "layer-route-overlay"} surface-route-overlay fixed flex w-full flex-col shadow-2xl shadow-black/40`,
                                 isMobile
                                     ? isFocus
                                         ? "safe-bottom safe-top inset-0 border-none"
@@ -264,7 +267,7 @@ export function ResponsiveOverlayPanel({
             </AnimatePresence>,
             portalNode,
         );
-    }, [ariaLabel, children, dragControls, fill, fit, handleDragEnd, handleKeyDown, isFocus, isMobile, isPeekMobile, labelId, onClose, open, portalNode, reducedMotion, shell.isTablet, showHeader, title]);
+    }, [ariaLabel, children, dragControls, fill, fit, handleDragEnd, handleKeyDown, isFocus, layer, isMobile, isPeekMobile, labelId, onClose, open, portalNode, reducedMotion, shell.isTablet, showHeader, title]);
 
     return overlay;
 }

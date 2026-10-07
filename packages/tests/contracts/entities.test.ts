@@ -47,6 +47,8 @@ describe("text length limits", () => {
         expect(ok(upsertNoteSchema, { body: "" })).toBe(true);
         expect(ok(upsertNoteSchema, { body: "x".repeat(50_000) })).toBe(true);
         expect(ok(upsertNoteSchema, { body: "x".repeat(50_001) })).toBe(false);
+        expect(ok(upsertNoteSchema, { body: "", expectedVersion: 0 })).toBe(true);
+        expect(ok(upsertNoteSchema, { body: "", expectedVersion: -1 })).toBe(false);
     });
 });
 

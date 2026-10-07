@@ -15,6 +15,8 @@ export interface NoteSuggestion {
     insert?: string;
     /** Where to insert (if applicable) */
     insertAt?: "cursor" | "end";
+    /** The editor action that carries it out, from the command registry. */
+    command?: "heading" | "checklist" | "convert-subtasks";
 }
 
 /** Detect unstructured long notes that could benefit from headings. */
@@ -28,7 +30,8 @@ function suggestHeadings(body: string): NoteSuggestion | null {
             id: "add-headings",
             type: "structure",
             title: "Add headings",
-            description: "This note is getting long — consider adding ## headings to organize sections.",
+            description: "This note is getting long. Headings would break it into sections.",
+            command: "heading",
         };
     }
     return null;
@@ -44,7 +47,8 @@ function suggestCheckboxes(body: string): NoteSuggestion | null {
             id: "convert-to-checklist",
             type: "actionable",
             title: "Convert to checklist",
-            description: "Some lines look like action items — use checkboxes to track them.",
+            description: "Some lines look like action items. A checklist lets you tick them off.",
+            command: "checklist",
         };
     }
     return null;
@@ -72,7 +76,8 @@ function suggestSubtaskConversion(body: string): NoteSuggestion | null {
             id: "convert-to-subtasks",
             type: "actionable",
             title: "Convert items to subtasks",
-            description: `${bulletLines.length} bullet points detected — consider converting some to trackable subtasks.`,
+            description: `${bulletLines.length} list lines could become trackable subtasks.`,
+            command: "convert-subtasks",
         };
     }
     return null;

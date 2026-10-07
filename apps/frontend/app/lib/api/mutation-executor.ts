@@ -12,6 +12,7 @@ import {
 } from "./offline-wal";
 import { cancelWorkspaceQueries, invalidateWorkspaceCaches } from "./workspace-cache";
 import { chunk } from "../utils";
+import { reconcileNote } from "../notes/note-reconcile";
 import { ApiErrorResponse, isNetworkFailure } from "../../types/api";
 import { reason } from "../utils/error-toast";
 
@@ -75,8 +76,11 @@ export function toRequests(op: MutationOp): WalRequest[] {
             return [{ method: "POST", url: url(api.habits[":id"].resolve.$url({ param: { id: op.id } })), json: op.payload }];
         case "unprocess_inbox":
             return [{ method: "POST", url: url(api.inbox[":id"].unprocess.$url({ param: { id: op.id } })) }];
-        case "upsert_note":
-            return [{ method: "PATCH", url: url(api.tasks[":taskId"].note.$url({ param: { taskId: op.taskId } })), json: op.payload }];
+        case "upsert_note": {
+            // The session's bookkeeping stays on this device; only what the route reads is sent.
+            const { branch: _b, baseBody: _t, opId, ...json } = op.payload;
+            return [{ method: "PATCH", url: url(api.tasks[":taskId"].note.$url({ param: { taskId: op.taskId } })), json, key: opId }];
+        }
         case "add_task_tag":
             return [{ method: "POST", url: url(api.tasks[":id"].tags.$url({ param: { id: op.id } })), json: { tagId: op.tagId } }];
         case "remove_task_tag":
@@ -127,31 +131,32 @@ async function send(entry: WalEntry): Promise<void> {
 }
 
 /**
- * The note changed elsewhere while this edit waited offline. Prose is never
- * overwritten: the offline text goes below the current note, marked.
+ * The note changed elsewhere while this edit waited. Edits to different places are
+ * combined; overlapping ones wait for the user (Sync review) with the local text kept
+ * on the entry. Prose is never overwritten or appended.
  */
-async function keepBothNotes(op: Extract<MutationOp, { type: "upsert_note" }>, editedAt: number) {
+async function reconcileQueuedNote(op: Extract<MutationOp, { type: "upsert_note" }>): Promise<"done" | "conflict"> {
     const noteUrl = api.tasks[":taskId"].note.$url({ param: { taskId: op.taskId } }).href;
     const res = await authenticatedFetch(noteUrl, { authenticated: true });
     if (!res.ok) throw await parseApiError(res);
-    const current = ((await res.json()) as { data: { body: string; updatedAt: string } | null }).data;
-    if (current?.body === op.payload.body) return;
-    const when = new Date(editedAt).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-    const body = current?.body
-        ? `${current.body}\n\n---\n\n*Offline edit, ${when}*\n\n${op.payload.body}`
-        : op.payload.body;
+    const current = ((await res.json()) as { data: { body: string; version: number } | null }).data;
+    const outcome = reconcileNote(op.payload.baseBody, op.payload.body, current?.body ?? "");
+    if (outcome.kind === "same") return "done";
+    if (outcome.kind === "conflict") return "conflict";
     const save = await authenticatedFetch(noteUrl, {
         authenticated: true,
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body, expectedUpdatedAt: current?.updatedAt }),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({ body: outcome.body, expectedVersion: current?.version ?? 0 }),
     });
+    if (save.status === 409) return "conflict";
     if (!save.ok) throw await parseApiError(save);
+    return "done";
 }
 
 // ── WAL Replay ──
 
-type EntryResult = "done" | "offline" | { error: string };
+type EntryResult = "done" | "offline" | { error: string; conflict?: boolean };
 
 function classify(err: unknown, entry: WalEntry): EntryResult {
     // An account change mid-replay (say, a warm start's session came back as someone else)
@@ -170,8 +175,9 @@ async function replayOne(entry: WalEntry): Promise<EntryResult> {
     } catch (err) {
         if (!(err instanceof ApiErrorResponse && err.status === 409 && entry.op.type === "upsert_note")) return classify(err, entry);
         try {
-            await keepBothNotes(entry.op, entry.createdAt);
-            return "done";
+            return (await reconcileQueuedNote(entry.op)) === "done"
+                ? "done"
+                : { error: "This note changed somewhere else. Choose which version to keep.", conflict: true };
         } catch (mergeError) {
             return classify(mergeError, entry);
         }
@@ -202,7 +208,7 @@ export async function replayWal(queryClient: QueryClient): Promise<ReplayOutcome
                 continue;
             }
 
-            await updateWalEntry(entry.id, { status: "replaying" });
+            await updateWalEntry(entry.id, { status: "replaying", attempted: true });
             const result = await replayOne(entry);
             if (result === "offline") {
                 await updateWalEntry(entry.id, { status: "pending" });
@@ -213,7 +219,7 @@ export async function replayWal(queryClient: QueryClient): Promise<ReplayOutcome
                 await removeWalEntry(entry.id);
                 replayed = true;
             } else {
-                await updateWalEntry(entry.id, { status: "failed", error: result.error });
+                await updateWalEntry(entry.id, { status: "failed", error: result.error, ...(result.conflict && { conflict: true }) });
             }
         }
         if (outcome !== "offline") outcome = replayed ? "done" : "idle";

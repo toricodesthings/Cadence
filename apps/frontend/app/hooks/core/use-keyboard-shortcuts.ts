@@ -109,8 +109,11 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
                 target instanceof HTMLTextAreaElement ||
                 target.isContentEditable;
 
-            // Command palette — always active even in inputs
-            if (shortcutsEnabled && matchesBinding(e, bindings.commandPalette)) {
+            // Mid-composition keys belong to the input method.
+            if (e.isComposing) return;
+
+            // Command palette — always active even in inputs, except the note editor, which owns ⌘/Ctrl+K for links.
+            if (shortcutsEnabled && matchesBinding(e, bindings.commandPalette) && !target.closest?.("[data-note-editor]")) {
                 e.preventDefault();
                 trackUsageEvent("shortcut.used", { input_method: "keyboard", outcome: "command_palette" });
                 opts.onCommandPalette?.();

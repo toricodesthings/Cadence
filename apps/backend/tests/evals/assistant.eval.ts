@@ -146,6 +146,21 @@ const SCENARIOS: Scenario[] = [
         },
     },
     {
+        name: "deadline with a time keeps the time",
+        level: "simple",
+        runs: 3,
+        turns: ["I have a lab due October 20 at 23:59, note that for me"],
+        check: async (run, t) => {
+            const task = titled(await openTasks(t), "lab");
+            const detail = task && (await t("get_task_detail", { taskId: task.id }));
+            return [
+                ...need(task?.dueDate === "2026-10-20" && !task?.scheduledStart, `due Oct 20, not timed (got ${task?.dueDate} / ${task?.scheduledStart})`),
+                ...need(/23:59|11:59/.test(detail?.note?.text ?? ""), `time kept in the note (got "${detail?.note?.text}")`),
+                ...need(!/lab.*(23|11):59/i.test(task?.title ?? ""), "time stays out of the title"),
+            ];
+        },
+    },
+    {
         name: "find tasks by tag past the first page",
         level: "medium",
         seed: async (t) => {

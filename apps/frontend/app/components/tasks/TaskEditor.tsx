@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import {
     Calendar, Bell, Tag, FolderOpen,
     Pin, Repeat, CalendarRange, Trash2, SlidersHorizontal,
     CircleDot, EyeOff, Clock, Columns3,
-    ExternalLink, Check, ListChecks, StickyNote
+    ListChecks, StickyNote
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTask } from "../../hooks/tasks/use-tasks";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useArchiveTask } from "../../hooks/tasks/use-archive-task";
-import { useCreateSubtask } from "../../hooks/tasks/use-subtasks";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useSections } from "../../hooks/sections/use-sections";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
@@ -20,12 +20,10 @@ import { TagField } from "./TagField";
 import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags/use-task-tags";
 import { SubtaskList } from "./SubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
-import { TaskNoteSaveStatus } from "./TaskNoteSaveStatus";
 import { TimetableBlockEditor } from "./TimetableBlockEditor";
 import { RepeatKindPicker } from "../shared/RepeatKindPicker";
 import { getTaskRepeatKind, useConvertRepeat } from "../../hooks/habits/use-convert-repeat";
 import { DatePicker } from "../shared/DatePicker";
-import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
 import { Button } from "../primitives/Button";
 import { Skeleton } from "../primitives/Skeleton";
 import { Switch } from "../primitives/Switch";
@@ -45,9 +43,8 @@ import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import {
     CARD, PANEL_TRIGGER, PanelTrigger, PanelHeader, DetailGroup, FieldBlock, FieldRow, ValueSelect, VALUE_BTN,
 } from "../shared/DetailPanelSections";
-import { useNoteRoomStore } from "../../stores/note-room-store";
 
-const MarkdownEditor = lazy(() => import("./MarkdownEditor").then((m) => ({ default: m.MarkdownEditor })));
+const TaskNoteInline = lazy(() => import("./TaskNoteInline").then((m) => ({ default: m.TaskNoteInline })));
 
 interface TaskEditorProps {
     taskId: string;
@@ -69,24 +66,23 @@ export function TaskEditor({
     onDetailModeChange,
 }: TaskEditorProps) {
     const task = useTask(taskId);
+    // Below the wide layout this panel is a modal overlay (everything behind it is inert): it steps aside so the room above it is usable.
+    const { isWide } = useShellMode();
     const { data: projects } = useProjects();
     const updateTask = useUpdateTask();
     const convertRepeat = useConvertRepeat();
     const archiveTask = useArchiveTask();
-    const createSubtask = useCreateSubtask(taskId);
     const addTagAssoc = useAddTaskTag();
     const removeTagAssoc = useRemoveTaskTag();
-    const openNoteRoom = useNoteRoomStore((s) => s.open);
 
     const [waitingOn, setWaitingOn] = useState(task?.waitingOn ?? "");
-    const [isEditingNotes, setIsEditingNotes] = useState(false);
     const [activePanel, setActivePanel] = useState<"notes" | "subtasks" | "details">("notes");
-    const [showConvertedCheck, setShowConvertedCheck] = useState(false);
     const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
     const { data: subtasks = [] } = useSubtasks(taskId);
 
-    // Unified note state — shared between inline editor and Writing Room
-    const { draft: notes, onChange: onNotesChange, saveStatus } = useTaskNote(taskId);
+    // The note is one session shared with the writing room; the summary reads from it.
+    const { state: noteState } = useTaskNote(taskId);
+    const notes = noteState?.body ?? "";
 
     // Sync waitingOn when task loads
     useEffect(() => {
@@ -116,22 +112,6 @@ export function TaskEditor({
         if (!task) return;
         updateTask.mutate({ id: task.id, waitingOn: content || null });
     }, 800);
-
-    const existingSubtaskTitles = useMemo(() => {
-        return new Set(subtasks.map(st => st.title.trim().toLowerCase()));
-    }, [subtasks]);
-
-    const convertibleNoteLines = useMemo(
-        () =>
-            notes
-                .split("\n")
-                .map((line) => line.trim())
-                .filter((line) => /^(-|\*|\d+\.)\s+/.test(line))
-                .map((line) => line.replace(/^(-|\*|\d+\.)\s+/, "").trim())
-                .filter(Boolean)
-                .filter((line) => !existingSubtaskTitles.has(line.toLowerCase())),
-        [notes, existingSubtaskTitles],
-    );
 
     const handleWaitingOnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setWaitingOn(e.target.value);
@@ -186,13 +166,11 @@ export function TaskEditor({
                 ? (isPassiveTimetable ? "Fixed time" : "Time block")
                 : "Deadline";
 
-    const charCount = notes.length;
-    const maxChars = 50000;
     const completedSubtasks = subtasks.filter((subtask) => subtask.isComplete).length;
     const subtaskSummary = subtasks.length
         ? `${completedSubtasks}/${subtasks.length} complete`
         : "No subtasks yet";
-    const noteSummary = notes.trim() ? `${charCount.toLocaleString()} chars` : "Tap to write notes";
+    const noteSummary = notes.trim() ? `${notes.trim().split(/\s+/).length.toLocaleString()} words` : "Tap to write notes";
     const stateLabel = task?.state === "WAITING" ? "Waiting" : task?.state === "COMPLETE" ? "Complete" : isPassiveTimetable ? "Fixed" : "Active";
     const detailsSummary = [
         stateLabel,
@@ -247,85 +225,12 @@ export function TaskEditor({
                                     className="flex shrink-0 flex-col gap-3"
                                 >
                                     <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
-                                        <MarkdownEditor
-                                            notes={notes}
-                                            isEditing={isEditingNotes}
-                                            setIsEditing={setIsEditingNotes}
-                                            onNotesChange={onNotesChange}
-                                            maxLength={maxChars}
-                                        />
+                                        <TaskNoteInline taskId={task.id} onOpenRoom={isWide ? undefined : onClose} />
                                     </Suspense>
-
-                                    {(convertibleNoteLines.length > 0 || showConvertedCheck) && (
-                                        <button
-                                            type="button"
-                                            disabled={showConvertedCheck}
-                                            onClick={() => {
-                                                if (convertibleNoteLines.length === 0) return;
-                                                const baseOrder = Date.now();
-                                                convertibleNoteLines.forEach((line, index) => {
-                                                    createSubtask.mutate({ title: line, orderIndex: baseOrder + index });
-                                                });
-                                                setShowConvertedCheck(true);
-                                                setTimeout(() => setShowConvertedCheck(false), 2000);
-                                            }}
-                                            className={`flex min-h-10 items-center justify-center gap-2 rounded-[1.15rem] px-4 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
-                                                showConvertedCheck
-                                                    ? "bg-feedback-success/15 text-feedback-success"
-                                                    : "cursor-pointer bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/15"
-                                            }`}
-                                        >
-                                            {showConvertedCheck ? (
-                                                <>
-                                                    <Check size={14} aria-hidden="true" />
-                                                    Added to subtasks
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <ListChecks size={14} aria-hidden="true" />
-                                                    Turn {convertibleNoteLines.length} bullet{convertibleNoteLines.length === 1 ? "" : "s"} into subtasks
-                                                </>
-                                            )}
-                                        </button>
-                                    )}
-
-                                    <button
-                                        type="button"
-                                        onClick={() => openNoteRoom(task.id, task.title)}
-                                        className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                                    >
-                                        <ExternalLink size={14} aria-hidden="true" />
-                                        Open writing room
-                                    </button>
-
-                                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
-                                        <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                            <p className="text-[11px] leading-relaxed text-twilight-text-muted/90" aria-label="Task metadata">
-                                                Created {formatDateTime(task.createdAt)}
-                                                {task.updatedAt !== task.createdAt && (
-                                                    <> · Updated {formatDateTime(task.updatedAt)}</>
-                                                )}
-                                            </p>
-                                            {isSeriesScopedNote(task) && (
-                                                <span className="rounded-md bg-moonlit/10 px-1.5 py-0.5 text-[10px] font-medium text-moonlit">
-                                                    {getNoteScopeLabel(task)}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <TaskNoteSaveStatus status={saveStatus} />
-                                            {/* Counter only surfaces near the limit — no running tally to watch. */}
-                                            {charCount > maxChars * 0.8 && (
-                                                <span
-                                                    className="text-[11px] tabular-nums text-accent-primary"
-                                                    aria-live="polite"
-                                                    aria-label={`${charCount} of ${maxChars} characters used`}
-                                                >
-                                                    {charCount.toLocaleString()} / {maxChars.toLocaleString()}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
+                                    <p className="px-1 text-[13px] leading-relaxed text-twilight-text-muted" aria-label="Task metadata">
+                                        Created {formatDateTime(task.createdAt)}
+                                        {task.updatedAt !== task.createdAt && <> · Updated {formatDateTime(task.updatedAt)}</>}
+                                    </p>
                                 </motion.div>
                             ) : null}
                         </AnimatePresence>

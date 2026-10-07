@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Task notes now format as you write: bold, lists, checklists, links and tables show up right away.
+- On a phone, a note opens to read; tap the pencil to write and ✓ to finish, with Format and Insert panels.
+- Find and replace in a note, plus copy as Markdown and download as a .md file.
+- A note shows one calm save status, and your text is kept on this device until it reaches Cadence.
+- A note open in two tabs updates itself; edits to different parts merge, and overlapping ones ask you.
+
+### Changed
+
+- A note edited offline no longer appends to the newer version; overlapping edits wait in Sync review.
+
+### Fixed
+
+- A deadline with a time keeps that time in the task's note, and the assistant no longer says it saved what it didn't.
+
 ## [0.27.2] - 2026-10-06
 
 ### Fixed

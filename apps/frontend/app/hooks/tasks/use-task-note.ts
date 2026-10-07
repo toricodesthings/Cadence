@@ -1,89 +1,86 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTask } from "./use-tasks";
-import { useDebouncedCallback } from "../core/use-debounced-callback";
-import type { SaveStatus } from "../../components/tasks/TaskNoteSaveStatus";
 import { getNoteOwnerTaskId } from "../../lib/notes/recurring-note-scope";
-import { useTaskNoteQuery, useUpsertTaskNote } from "./use-task-note-api";
+import { useTaskNoteQuery } from "./use-task-note-api";
+import { useAuthState } from "../auth/use-auth-state";
+import { useOnlineStatus } from "../core/use-online-status";
+import { acquireNoteSession, releaseNoteSession, checkpointNoteSessions } from "../../lib/notes/note-registry";
+import { onNoteSaved } from "../../lib/notes/note-channel";
+import { queryKeys } from "../../lib/api/query-keys";
+import { noteStatus, type NoteSession } from "../../lib/notes/note-session";
 
 /**
- * All-in-one hook for task note editing. Handles:
- * - Resolving note owner (series-scoped for recurring tasks)
- * - Uses dedicated task_notes API (lazy loaded, separate from tasks.content)
- * - Local draft state
- * - Debounced save (800ms)
- * - Save status tracking
+ * The task's note as one shared session: the task panel and the writing room read the
+ * same text, status and save stream. Resolves the canonical owner (the series for a
+ * recurring task) and the account once, so nothing leaks across tasks or accounts.
  */
 export function useTaskNote(taskId: string | null) {
     const task = useTask(taskId) ?? null;
-
-    // Resolve note owner for recurring tasks
-    const noteOwnerId = task ? getNoteOwnerTaskId(task) : taskId;
-    const ownerTask = useTask(noteOwnerId !== taskId ? noteOwnerId : null);
+    const ownerId = task ? getNoteOwnerTaskId(task) : taskId;
+    const ownerTask = useTask(ownerId !== taskId ? ownerId : null);
     const noteOwnerTask = ownerTask ?? task;
+    const { session: auth } = useAuthState();
+    const userId = auth?.user.id ?? null;
+    const queryClient = useQueryClient();
+    const online = useOnlineStatus();
 
-    // Lazy-load dedicated note for the owner task
-    const { data: noteData, isLoading: noteLoading } = useTaskNoteQuery(noteOwnerId);
-    const upsertNote = useUpsertTaskNote(noteOwnerId ?? "");
+    const legacy = useRef("");
+    legacy.current = noteOwnerTask?.content ?? "";
 
-    // Determine initial content: prefer dedicated note body, fall back to task.content
-    const serverBody = noteData?.body ?? noteOwnerTask?.content ?? "";
-
-    const [draft, setDraft] = useState(serverBody);
-    const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-    const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-    const lastSyncedRef = useRef<string>(serverBody);
-    /** Prevents background refetch data from overwriting in-progress edits */
-    const isDirtyRef = useRef(false);
-
-    // Sync draft when server data changes — only if user hasn't made unsaved edits
+    // Wait for the owner before editing: an occurrence must never open its own empty note.
+    const ready = !!task && !!ownerId && !!userId;
+    const [held, setHeld] = useState<NoteSession | null>(null);
     useEffect(() => {
-        if (isDirtyRef.current) return;
-        if (serverBody !== lastSyncedRef.current) {
-            setDraft(serverBody);
-            lastSyncedRef.current = serverBody;
-        }
-    }, [serverBody]);
+        if (!ready) return setHeld(null);
+        const acquired = acquireNoteSession(queryClient, userId!, ownerId!, () => legacy.current);
+        setHeld(acquired);
+        void acquired.load();
+        return () => releaseNoteSession(userId!, ownerId!);
+    }, [ready, queryClient, userId, ownerId]);
+    // Between a task/account switch and the effect above, never hand out the previous owner's session.
+    const session = held && held.owner === ownerId && held.userId === userId ? held : null;
 
-    // Reset on task switch
-    useEffect(() => {
-        isDirtyRef.current = false;
-        setSaveStatus("idle");
-    }, [taskId]);
-
-    const debouncedSave = useDebouncedCallback((body: string) => {
-        if (!noteOwnerId) return;
-        setSaveStatus("saving");
-        upsertNote.mutate(
-            { body, expectedUpdatedAt: noteData?.updatedAt },
-            {
-                onSuccess: () => {
-                    isDirtyRef.current = false;
-                    lastSyncedRef.current = body;
-                    setSaveStatus("saved");
-                    clearTimeout(saveTimerRef.current);
-                    saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
-                },
-                onError: () => setSaveStatus("error"),
-            },
-        );
-    }, 800);
-
-    const onChange = useCallback(
-        (value: string) => {
-            isDirtyRef.current = true;
-            setDraft(value);
-            debouncedSave(value);
-        },
-        [debouncedSave],
+    const state = useSyncExternalStore(
+        (cb) => session?.subscribe(cb) ?? (() => {}),
+        () => session?.getSnapshot() ?? null,
+        () => null,
     );
+
+    // Server data from elsewhere: poll/focus/reconnect, and other tabs' announcements.
+    const { data: remote } = useTaskNoteQuery(ownerId ?? null, { live: true });
+    useEffect(() => {
+        if (session && remote) session.receiveRemote(remote);
+    }, [session, remote]);
+    useEffect(() => {
+        if (!userId || !ownerId) return;
+        return onNoteSaved(userId, (m) => {
+            if (m.owner === ownerId) void queryClient.invalidateQueries({ queryKey: queryKeys.notes.detail(ownerId) });
+        });
+    }, [queryClient, userId, ownerId]);
+    useEffect(() => session?.setOnline(online), [session, online]);
 
     return {
         task,
         noteOwnerTask,
-        draft,
-        onChange,
-        saveStatus,
-        isLoading: (!task && taskId !== null) || noteLoading,
-        noteData,
+        session,
+        state,
+        status: state ? noteStatus(state) : "loading",
+        isLoading: !session || !state?.loaded,
+        loadFailed: state?.loadFailed ?? false,
     };
+}
+
+/** Persist drafts when the tab is hidden or closing (storage writes, not a network promise). */
+export function useNoteSessionLifecycle() {
+    useEffect(() => {
+        const hide = () => checkpointNoteSessions();
+        const visibility = () => document.visibilityState === "hidden" && hide();
+        document.addEventListener("visibilitychange", visibility);
+        window.addEventListener("pagehide", hide);
+        return () => {
+            document.removeEventListener("visibilitychange", visibility);
+            window.removeEventListener("pagehide", hide);
+        };
+    }, []);
 }

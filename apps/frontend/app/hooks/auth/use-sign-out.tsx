@@ -4,6 +4,7 @@ import { Button } from "../../components/primitives/Button";
 import { clearWal } from "../../lib/api/offline-wal";
 import { useWalEntries } from "../../lib/api/mutation-outbox";
 import { useAuthState } from "./use-auth-state";
+import { flushNoteSessions, unsyncedNoteCount } from "../../lib/notes/note-registry";
 
 /**
  * Sign-out for the user's own buttons: changes that haven't synced yet belong to
@@ -20,13 +21,14 @@ export function useSignOut() {
         setPending(true);
         try {
             if (dropQueue) await clearWal();
+            else await flushNoteSessions(); // text still in a note editor reaches the queue before the account goes
             await completeSignOut();
         } finally {
             setPending(false);
         }
     };
 
-    const signOut = () => (total > 0 ? (setAsking(true), Promise.resolve()) : finish(false));
+    const signOut = () => (total + unsyncedNoteCount() > 0 ? (setAsking(true), Promise.resolve()) : finish(false));
 
     const dialog = (
         <AlertDialog.Root open={asking} onOpenChange={setAsking}>
