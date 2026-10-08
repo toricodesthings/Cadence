@@ -16,6 +16,7 @@ import { eventTools } from "./events";
 import { metricTools } from "./metrics";
 import { focusViewTools } from "./focus-views";
 import { helpTools } from "./help";
+import { askTools } from "./ask";
 
 /**
  * Runtime context captured per request when the tool registry is built.
@@ -145,6 +146,7 @@ export function buildToolRegistry(env: Env, userId: string, ctx: AgentContext) {
         ...metricTools(env, userId, ctx),
         ...focusViewTools(env, userId, ctx),
         ...helpTools(),
+        ...askTools(),
     });
 }
 

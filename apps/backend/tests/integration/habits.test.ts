@@ -183,9 +183,23 @@ describe("resolving occurrences", () => {
         expect((await mark("20:00", "SKIPPED")).body.data.log.status).toBe("SKIPPED"); // mixed: closed, never "completed"
         expect((await mark("20:00", "PENDING")).body.data.log.status).toBe("PENDING");
 
-        expect((await resolve(habit.id, day(), "COMPLETED")).status).toBe(400);
+        expect((await resolve(habit.id, day(), "SKIPPED")).status).toBe(400); // a skip names its time
         expect((await mark("09:30", "COMPLETED")).status).toBe(400);
         expect((await resolve(habit.id, day(), "PENDING")).body.data.log.timeMarks).toBeNull();
+    });
+
+    it("set times: a plain done takes the only open time on another day, else names the open ones; set times remind by default; one time is the usual time", async () => {
+        const habit = await create({ title: "Medication", times: ["20:00", "08:00", "14:00"] });
+        expect(habit).toMatchObject({ times: ["08:00", "14:00", "20:00"], reminderEnabled: true });
+        const unclear = await resolve(habit.id, day(-1), "COMPLETED");
+        expect(unclear.status).toBe(400);
+        expect(JSON.stringify(unclear.body)).toContain("08:00, 14:00, 20:00");
+        for (const time of ["08:00", "14:00"]) await habits("POST", `/${habit.id}/resolve`, { targetDate: day(-1), status: "COMPLETED", time });
+        const done = await resolve(habit.id, day(-1), "COMPLETED");
+        expect(done.body.data.log.status).toBe("COMPLETED");
+
+        const single = await create({ title: "Vitamin", times: ["09:00"] });
+        expect(single).toMatchObject({ times: null, targetTime: "09:00" });
     });
 
     it("set times: moving a time keeps its mark, removing the open one closes today, steps and times don't mix", async () => {

@@ -150,7 +150,7 @@ describe("tool registry", () => {
         const frontend = [...registry.matchAll(/^    (\w+): \{/gm)].map((m) => m[1]).sort();
 
         expect(frontend).toEqual(backend);
-        expect(backend).toHaveLength(43);
+        expect(backend).toHaveLength(44);
     });
 
     it("sends the model schemas without regex patterns, but still validates calls in full", async () => {

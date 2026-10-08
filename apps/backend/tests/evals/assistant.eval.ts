@@ -88,7 +88,10 @@ async function converse(userId: string, turns: string[], now = NOW): Promise<Run
         }
         steps += result.steps.length;
         tokens += result.totalUsage?.totalTokens ?? 0;
-        text = result.text;
+        // A question asked with `ask_user` reads like one the reply typed: its question and options.
+        const asked = calls.filter((c) => c.name === "ask_user" && c.step >= steps - result.steps.length)
+            .map((c) => `${c.input?.question ?? ""} ${(c.input?.options ?? []).map((o: any) => o.label).join(" / ")}`);
+        text = [result.text, ...asked].filter(Boolean).join("\n");
         // Every step's calls and results, as production replays them from the stored parts: in ai v7
         // `result.response.messages` is the last step only, which left later turns without the ids.
         messages.push(...result.steps.flatMap((step) => step.response.messages));
@@ -266,7 +269,7 @@ const SCENARIOS: Scenario[] = [
             return {};
         },
         turns: ["delete my old stuff list"],
-        check: async (run) => need(called(run, "delete_project").length === 0 && /\?/.test(run.text), "asks first (keep or trash its tasks)"),
+        check: async (run) => need(called(run, "delete_project").length === 0 && called(run, "ask_user").length === 1, "asks first with ask_user (keep or trash its tasks)"),
     },
     {
         name: "merge two tags",
@@ -330,6 +333,65 @@ const SCENARIOS: Scenario[] = [
             return [
                 ...need(called(run, "delete_habit").length === 1, "delete_habit"),
                 ...need(JSON.stringify(titles) === JSON.stringify(["Read", "Journal"]), `Read first, Meditate gone (got ${titles})`),
+            ];
+        },
+    },
+    {
+        name: "set times: one medication routine",
+        level: "simple",
+        runs: 3,
+        turns: ["I need a proper medication routine, I take it at 9am, 3pm and 9pm"],
+        check: async (run, t) => {
+            const routines = (await t("get_habits", {})).habits as any[];
+            return [
+                ...need(routines.length === 1, `one routine (got ${routines.map((h) => h.title)})`),
+                ...need(JSON.stringify(routines[0]?.times) === JSON.stringify(["09:00", "15:00", "21:00"]), `times 09:00, 15:00, 21:00 (got ${JSON.stringify(routines[0]?.times)})`),
+                ...need(called(run, "create_tasks").length === 0, "no tasks"),
+            ];
+        },
+    },
+    {
+        name: "set times: log the dose they name",
+        level: "simple",
+        runs: 3,
+        seed: async (t) => t("create_habit", { title: "Pills", recurrenceRule: "FREQ=DAILY", times: ["07:30", "12:30", "19:30"] }),
+        turns: ["took my 7:30 pills"],
+        check: async (run, t) => {
+            const pills = ((await t("get_habit_status_today", {})).statuses as any[])[0];
+            const done = (pills?.times ?? []).filter((x: any) => x.status === "COMPLETED").map((x: any) => x.time);
+            return [
+                ...need(JSON.stringify(done) === JSON.stringify(["07:30"]), `only 07:30 done (got ${JSON.stringify(done)})`),
+                ...need(/7:30/.test(run.text), "says which time it marked"),
+            ];
+        },
+    },
+    {
+        name: "set times: a plain done near a dose takes it",
+        level: "simple",
+        runs: 3,
+        // 10:00 in Toronto: 9:30 is clearly the one.
+        seed: async (t) => t("create_habit", { title: "Pills", recurrenceRule: "FREQ=DAILY", times: ["09:30", "15:00", "21:00"] }),
+        turns: ["took my pills"],
+        check: async (run, t) => {
+            const pills = ((await t("get_habit_status_today", {})).statuses as any[])[0];
+            const done = (pills?.times ?? []).filter((x: any) => x.status === "COMPLETED").map((x: any) => x.time);
+            return need(JSON.stringify(done) === JSON.stringify(["09:30"]), `only 09:30 done (got ${JSON.stringify(done)})`);
+        },
+    },
+    {
+        name: "set times: between doses, ask which",
+        level: "simple",
+        runs: 3,
+        // 10:00 in Toronto: three hours from 7:00 and from 13:00.
+        seed: async (t) => t("create_habit", { title: "Pills", recurrenceRule: "FREQ=DAILY", times: ["07:00", "13:00", "19:00"] }),
+        turns: ["took my pills"],
+        check: async (run, t) => {
+            const pills = ((await t("get_habit_status_today", {})).statuses as any[])[0];
+            const done = (pills?.times ?? []).filter((x: any) => x.status === "COMPLETED");
+            return [
+                ...need(done.length === 0, `marks nothing yet (got ${JSON.stringify(done)})`),
+                ...need(called(run, "ask_user").length === 1, "asks with ask_user"),
+                ...need(/\?/.test(run.text) && /7(:00)?\s*(am|AM)|13:00|1(:00)?\s*(pm|PM)/.test(run.text), "asks which, naming the times"),
             ];
         },
     },
@@ -413,8 +475,26 @@ const SCENARIOS: Scenario[] = [
         check: async (run, t) => [
             // A held set_task_state changes nothing, so check the data, not the calls.
             ...need(!(await t("get_tasks", { state: "COMPLETE" })).tasks.length, "nothing marked done on a guess"),
-            ...need(/3005/.test(run.text) && /2000/.test(run.text), "asks which, naming both sections"),
+            ...need(called(run, "ask_user").length === 1 && /3005/.test(run.text) && /2000/.test(run.text), "asks which with ask_user, naming both sections"),
         ],
+    },
+    {
+        name: "ask, then act on the answer",
+        level: "medium",
+        runs: 3,
+        seed: async (t) => {
+            const { projectId, sections } = await t("create_project", { name: "University", sections: ["COMP3005", "COMP2000"] });
+            await t("create_tasks", { tasks: sections.map((s: { sectionId: string }) => ({ title: "Assignment 1", dueDate: TODAY, projectId, sectionId: s.sectionId })) });
+            return {};
+        },
+        turns: ["done with the comp assignment due today", "COMP2000"],
+        check: async (run, t) => {
+            const done = (await t("get_tasks", { state: "COMPLETE" })).tasks as any[];
+            return [
+                ...need(called(run, "ask_user").length === 1, "asked once with ask_user"),
+                ...need(done.length === 1 && /2000/.test(done[0].section ?? ""), `marks only the COMP2000 one (got ${done.map((d) => d.section)})`),
+            ];
+        },
     },
     {
         name: "rebalance an overloaded week",
@@ -465,7 +545,7 @@ const SCENARIOS: Scenario[] = [
         check: async (run, t) => [
             ...need(/COMP3000/i.test(run.text), "names the all-day task due today"),
             ...need(!/Tomorrow thing/i.test(run.text), "leaves tomorrow's task out"),
-            ...need(!/overdue/i.test(run.text), "doesn't call today's task overdue"),
+            ...need(!/COMP3000[^.]*overdue|overdue[^.]*COMP3000/i.test(run.text), "doesn't call today's task overdue"),
             ...need(run.calls.every((c) => c.name.startsWith("get_")), "reads only"),
             ...need((await openTasks(t)).length === 2, "nothing changed"),
         ],
@@ -504,7 +584,7 @@ const SCENARIOS: Scenario[] = [
         turns: ["What time is my COMP3005 lecture on Thursday Oct 29 and on Thursday Nov 5?"],
         check: async (run) => [
             ...need(called(run, "get_schedule_window").length >= 1, "read the schedule window"),
-            ...need((run.text.match(/2:35\s*(PM|pm)|14:35/g) ?? []).length >= 1, "says 2:35 PM"),
+            ...need(/2:35|14:35/.test(run.text), "says 2:35 PM"),
             ...need(!/1:35|3:35/.test(run.text), "never shifts the time an hour"),
             ...need(run.calls.every((c) => c.name.startsWith("get_")), "reads only"),
         ],

@@ -15,6 +15,7 @@ import {
     CreateFocusViewCard, DeleteFocusViewCard, DeleteProjectCard, DeleteTagCard, UpdateFocusViewCard, UpdateProjectCard, UpdateTagCard,
 } from "./widgets/OrganizeCards";
 import type { ToolRenderContext } from "./widgets/ApprovalCard";
+import { AskCard } from "./widgets/AskCard";
 import { Sparkles } from "lucide-react";
 
 /**
@@ -26,9 +27,10 @@ import { Sparkles } from "lucide-react";
  *  - write → an approval card: it waits for a tap when the server asks for one,
  *    otherwise it arrives done and shows settled.
  *  - capture → never waits (capture_to_inbox); quiet confirm chip.
+ *  - ask → the assistant's question (ask_user); answered as the user's next message.
  */
 
-export type ToolClass = "read" | "write" | "capture";
+export type ToolClass = "read" | "write" | "capture" | "ask";
 
 interface ToolDescriptor {
     class: ToolClass;
@@ -87,6 +89,9 @@ const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
 
     // ── capture → quiet confirmation chip ─────────────────────────────────
     capture_to_inbox: { class: "capture", label: "Saved to your inbox" },
+
+    // ── ask → a question to tap or type an answer to ──────────────────────
+    ask_user: { class: "ask", label: "Asked you", render: (ctx) => <AskCard ctx={ctx} /> },
 };
 
 /** Writes the server no longer offers, still in older threads: they render with their old card. */
@@ -131,6 +136,7 @@ export function ToolPart({
     part,
     answer,
     stale,
+    reply,
 }: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     part: any;
@@ -138,6 +144,8 @@ export function ToolPart({
     answer?: ToolRenderContext["answer"];
     /** The part sits on an older reply. */
     stale?: boolean;
+    /** Answers an `ask_user` question as the user's next message. */
+    reply?: ToolRenderContext["reply"];
 }) {
     const toolName = safeToolName(part);
     const descriptor = toolName ? TOOL_REGISTRY[toolName] : undefined;
@@ -162,7 +170,7 @@ export function ToolPart({
         return <WriteConfirmChip label={descriptor.label} />;
     }
 
-    return <>{descriptor.render?.({ part, toolName: toolName!, answer, stale })}</>;
+    return <>{descriptor.render?.({ part, toolName: toolName!, answer, stale, reply })}</>;
 }
 
 /** Still running: an errored or denied call has settled too, so it must stop spinning. */

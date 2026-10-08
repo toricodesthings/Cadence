@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Assistant can now work with routine reminders.
+
+### Added
+
+- Assistant can ask and await responses from the user if unclear.
+
 ## [0.30.1] - 2026-10-08
 
 ### Added

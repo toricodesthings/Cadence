@@ -168,6 +168,23 @@ export function nextOpenTime(times: readonly string[], marks: Readonly<Record<st
     return open.find((time) => time >= now) ?? open.at(-1) ?? null;
 }
 
+/** How far a check-in may sit from a set time and still clearly be that one. */
+export const LIKELY_TIME_MINUTES = 90;
+
+/**
+ * The open time a "done" with no time most likely means: the one nearest `now`
+ * ("HH:MM") when it's within {@link LIKELY_TIME_MINUTES} (08:00 at 8:45); on
+ * another day (`now` null) the only one left open. Null when it isn't clear: ask.
+ */
+export function likelyOpenTime(times: readonly string[], marks: Readonly<Record<string, TimeMarkOn>>, now: string | null): string | null {
+    const open = times.filter((time) => !marks[time]);
+    if (now === null) return open.length === 1 ? open[0] : null;
+    const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+    const gap = (time: string) => Math.abs(minutes(time) - minutes(now));
+    const nearest = [...open].sort((a, b) => gap(a) - gap(b))[0];
+    return nearest !== undefined && gap(nearest) <= LIKELY_TIME_MINUTES ? nearest : null;
+}
+
 // ponytail: keyword list, not a classifier. The user can switch kinds in one tap.
 const FIXED_WORDS = /\b(class|lecture|lab|seminar|tutorial|lesson|course|school|shift|stand-?up|meeting|appointment|therapy)\b/i;
 

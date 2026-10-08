@@ -9,9 +9,9 @@ import type { ApprovalMode } from "@cadence/contracts/ai";
 /** Auto applies changes to at most this many tasks without a tap. */
 export const AUTO_TASK_LIMIT = 5;
 
-/** Reads, and capture (additive, discardable), run without approval in every mode. */
+/** Reads, capture (additive, discardable) and a question to the user run without approval in every mode. */
 function isFree(toolName: string) {
-    return toolName.startsWith("get_") || toolName === "capture_to_inbox";
+    return toolName.startsWith("get_") || toolName === "capture_to_inbox" || toolName === "ask_user";
 }
 
 /**

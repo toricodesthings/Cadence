@@ -1,4 +1,4 @@
-import { ToolLoopAgent, asSchema, isStepCount, type ToolSet } from "ai";
+import { ToolLoopAgent, asSchema, hasToolCall, isStepCount, type ToolSet } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { eq } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
@@ -27,7 +27,7 @@ const FALLBACK_CHAT_MODEL = "google/gemini-3.7-flash";
  * Thinking budget. Turns are short planning chores (read a few rows, draft one
  * proposal), so "low" keeps latency and cost down; raise it if tool choice slips.
  */
-const REASONING_EFFORT = "low";
+const REASONING_EFFORT = "medium";
 
 /**
  * Language model via OpenRouter's native provider (Chat Completions, reasoning round-trip).
@@ -235,7 +235,8 @@ export async function getAgentInstance(
         model: getModel(env, modelId, userHash),
         instructions,
         tools,
-        stopWhen: isStepCount(MAX_TOOL_STEPS),
+        // A question to the user ends the turn: their reply is the next message.
+        stopWhen: [isStepCount(MAX_TOOL_STEPS), hasToolCall("ask_user")],
         maxOutputTokens: MAX_OUTPUT_TOKENS,
         // Writes run here on the server; this decides which wait for the user's tap.
         // Approvals are HMAC-signed at issue, so an edited or forged one fails closed.

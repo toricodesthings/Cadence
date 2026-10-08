@@ -102,9 +102,9 @@
     "DEPLOYMENT_STAGE": "production",
     // Public half of the Web Push key pair. The private half is the VAPID_PRIVATE_KEY secret.
     "VAPID_PUBLIC_KEY": "BPQMDLo4FUNgt4CTWVPFeqAxGU7ni1Cn8trfCiq5N3antgRnaL3QI34L4Fykn3buTQ9Nv_YlmOg3nGVCsQ2WJw4",
-    "AI_CHAT_MODEL": "openai/gpt-6-luna",
+    "AI_CHAT_MODEL": "anthropic/claude-haiku-5.5",
     "AI_CHAT_MODEL_BASIC":"deepseek/deepseek-v4.1-flash",
-    "AI_TITLE_MODEL": "google/gemma-4-26b-a4b-it:nitro",
+    "AI_TITLE_MODEL": "openai/gpt-oss-20b:nitro",
     "AI_EMBEDDING_MODEL": "qwen/qwen3-embedding-8b"
   },
 
@@ -135,9 +135,9 @@
       "vars": {
         "DEPLOYMENT_STAGE": "development",
         "VAPID_PUBLIC_KEY": "BPQMDLo4FUNgt4CTWVPFeqAxGU7ni1Cn8trfCiq5N3antgRnaL3QI34L4Fykn3buTQ9Nv_YlmOg3nGVCsQ2WJw4",
-        "AI_CHAT_MODEL": "openai/gpt-6-luna",
+        "AI_CHAT_MODEL": "anthropic/claude-haiku-5.5",
         "AI_CHAT_MODEL_BASIC":"deepseek/deepseek-v4.1-flash",
-        "AI_TITLE_MODEL": "google/gemma-4-26b-a4b-it:nitro",
+        "AI_TITLE_MODEL": "openai/gpt-oss-20b:nitro",
         "AI_EMBEDDING_MODEL": "qwen/qwen3-embedding-8b",
         "MCP_ORIGIN": "http://localhost:8787",
         "APP_ORIGIN": "http://localhost:8788"

@@ -23,7 +23,7 @@ export type StepStatus = z.infer<typeof stepStatusSchema>;
 
 /** A routine at set times: its daily WallTimes, ascending. A time is its own id in a day's `timeMarks`. */
 export const MAX_ROUTINE_TIMES = 12;
-export const routineTimesSchema = z.array(z.string().regex(/^\d{2}:\d{2}$/)).max(MAX_ROUTINE_TIMES)
+export const routineTimesSchema = z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Times are HH:MM, 24h")).max(MAX_ROUTINE_TIMES)
     .refine((times) => new Set(times).size === times.length, "Times must be unique");
 /** One day's marks by time: done or skipped, and the Instant it happened (null when the day was logged whole). A time without a key is still open. */
 export const timeMarkSchema = z.object({ status: z.enum(["COMPLETED", "SKIPPED"]), at: instantSchema.nullable() });

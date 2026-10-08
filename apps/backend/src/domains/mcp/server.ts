@@ -126,7 +126,8 @@ function instructions(ctx: AgentContext, app: string) {
         '- A deadline is a day (dueDate, "by Friday"); a time means a timed block (scheduledStart, "tomorrow at 6pm") or a reminderAt. ' +
             "Fill only what they said: never invent a deadline, priority or list.",
         "- A Fixed block (class, shift) just passes: never checked off or overdue. A routine (gym, reading) is create_habit, " +
-            "done or skipped per day. A repeating task (rent) stays owed. Only tasks go overdue.",
+            "done or skipped per day; several set times a day (medication at 8, 2, 8) is one routine with times, each logged on its own. " +
+            "A repeating task (rent) stays owed. Only tasks go overdue.",
         '- "Delete" a task means Trash (restorable); delete for good only if they say so. Lists, tags and focus views have ' +
             "no Trash: confirm first.",
         "- Lists are projects in tools; sections are a list's columns. Tag by name (tagNames): an existing tag matches, a new name makes one.",

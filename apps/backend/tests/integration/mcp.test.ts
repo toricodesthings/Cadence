@@ -66,7 +66,8 @@ describe("catalog and scopes", () => {
         const all = ["cadence:read", "cadence:capture", "cadence:write"];
         const names = (await mcpAs(userId, await connect(userId, all), all)("tools/list")).body.result.tools.map((t: any) => t.name);
         const internal = Object.keys(buildToolRegistry({} as any, userId, { timezone: "UTC", currentDate: "", today: "2026-01-01", weekStart: "Monday" }));
-        expect(names.sort()).toEqual([...internal, "get_today"].sort());
+        // ask_user stays in the app: an MCP client asks in its own chat.
+        expect(names.sort()).toEqual([...internal.filter((name) => name !== "ask_user"), "get_today"].sort());
     });
 
     it("capture alone reads nothing: a guessed read tool fails", async () => {

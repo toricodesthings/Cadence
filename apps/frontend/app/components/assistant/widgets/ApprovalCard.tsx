@@ -21,6 +21,8 @@ export interface ToolRenderContext {
     answer?: (approved: boolean, reason?: string) => void;
     /** On an older reply: anything still open there was never answered. */
     stale?: boolean;
+    /** Sends the user's answer to an `ask_user` question as their next message; absent once the thread moved on. */
+    reply?: (text: string) => void;
 }
 
 export type Outcome = "done" | "declined" | "failed" | "unanswered";

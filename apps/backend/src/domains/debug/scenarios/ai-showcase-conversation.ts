@@ -6,6 +6,7 @@
  * - approved (`output-available`): set_task_state, create_tasks, log_habit (in Auto),
  *   create_tasks from a capture, create_project
  * - declined (`output-denied`): create_tag; not answered: reschedule_tasks
+ * - a question (`ask_user`), answered by the next message
  * - waiting (`approval-requested`, last reply only): every other write tool (routine
  *   changes, events, sections, lists, tags, captures, copies, order, focus views)
  *
@@ -257,6 +258,20 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 approved("set_task_state", { taskIds: [invoices.id], state: "COMPLETE" }, { updated: 1 }),
                 approved("create_tasks", { tasks: [slidesDraft] }, { created: slidesCreated }),
             ],
+        },
+        {
+            role: "user",
+            minute: 5,
+            parts: [text("Actually, when's the review again?")],
+        },
+        {
+            role: "assistant",
+            minute: 5,
+            // A question to tap or type an answer to; answered by the next message, so it rests settled.
+            parts: [step, read("ask_user", {
+                question: "Which review do you mean?",
+                options: [{ label: "The client review", description: "In two days, with the slides" }, { label: "Something else" }],
+            }, { asked: true })],
         },
         {
             role: "user",

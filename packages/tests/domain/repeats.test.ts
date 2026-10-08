@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyTimeMark, nextOpenTime, routineTimesOn, timeDayStatus, timeMarksOn, timeProgress, habitOccurrences, isPausedOn, routineTimeOn, stepDayStatus, stepMarksOn, suggestInteractionMode } from "@cadence/domain/repeats";
+import { applyTimeMark, likelyOpenTime, nextOpenTime, routineTimesOn, timeDayStatus, timeMarksOn, timeProgress, habitOccurrences, isPausedOn, routineTimeOn, stepDayStatus, stepMarksOn, suggestInteractionMode } from "@cadence/domain/repeats";
 
 describe("routineTimeOn", () => {
     const gym = { targetTime: "18:00", targetTimes: { SA: "", MO: "07:00" } };
@@ -155,5 +155,14 @@ describe("routine at set times", () => {
         expect(nextOpenTime(times, done("08:00"), "15:00")).toBe("20:00");
         expect(nextOpenTime(times, done("08:00", "14:00"), "22:00")).toBe("20:00"); // late, still reachable
         expect(nextOpenTime(times, done("08:00", "14:00", "20:00"), "09:00")).toBeNull();
+    });
+
+    it("a done with no time takes the open time it clearly means, else none (ask)", () => {
+        expect(likelyOpenTime(times, {}, "08:45")).toBe("08:00");
+        expect(likelyOpenTime(times, {}, "13:00")).toBe("14:00");
+        expect(likelyOpenTime(times, {}, "11:00")).toBeNull(); // between doses
+        expect(likelyOpenTime(times, { "08:00": { status: "COMPLETED", at: null } }, "08:30")).toBeNull(); // that one's done
+        expect(likelyOpenTime(times, {}, null)).toBeNull(); // another day, three open
+        expect(likelyOpenTime(times, { "08:00": { status: "COMPLETED", at: null }, "14:00": { status: "SKIPPED", at: null } }, null)).toBe("20:00");
     });
 });

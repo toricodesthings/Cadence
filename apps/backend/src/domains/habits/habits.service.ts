@@ -1,7 +1,7 @@
 import { and, eq, inArray, min, sql } from "drizzle-orm";
 import type { HabitRow, HabitLog, InsertHabit, ResolveHabitAction, UpdateHabit } from "@cadence/contracts/habit";
-import { habitOccurrences, isPausedOn, applyTimeMark, stepDayStatus, timeDayStatus, timeMarksOn } from "@cadence/domain/repeats";
-import { addDays, dayOf, parseRecurrenceRule, todayIn, type LocalDate, type Zone } from "@cadence/domain/time";
+import { habitOccurrences, isPausedOn, applyTimeMark, likelyOpenTime, stepDayStatus, timeDayStatus, timeMarksOn } from "@cadence/domain/repeats";
+import { addDays, dayOf, parseRecurrenceRule, todayIn, wallTimeOf, type LocalDate, type Zone } from "@cadence/domain/time";
 import { habits, habitLogs, habitTags } from "../../db/schema";
 import { AppError, assertNoConflict, throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
@@ -247,6 +247,8 @@ export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: I
     }
 
     parseRecurrenceRule(body.recurrenceRule);
+    normalizeTimes(body);
+    if (body.times?.length && body.reminderEnabled === undefined) body.reminderEnabled = true; // like the composer: set times remind at each one
     assertStepsOrTimes(body);
     await assertOwnership(tx, userId, { projectId: body.projectId, tagIds });
 
@@ -269,7 +271,9 @@ export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: I
  * marks instead: the status follows from them, and a partly done day is kept
  * as PENDING. A whole-day status clears the step marks (one tap, every step).
  * A routine at set times takes one `time` at a time (with the `at` it happened):
- * that time is merged into the day, and the day closes when no time is open.
+ * that time is merged into the day, and the day closes when no time is open. A
+ * "done" with no time records the open time it clearly means (`likelyOpenTime`)
+ * or is refused naming the open times; a whole-day skip is refused.
  * The routine row is locked first, so check-ins on it run one after another:
  * two times logged at once on a day with no log both land, and totals never lose a count.
  */
@@ -285,8 +289,8 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
     const now = sql`NOW()`;
     const stepIds = (habit.steps ?? []).map((step) => step.id);
     const times = habit.times ?? [];
-    if (times.length && !action.time && action.status !== "PENDING") {
-        throw new AppError(400, "VALIDATION_ERROR", "This routine is checked off one time at a time; send the time.");
+    if (times.length && !action.time && action.status === "SKIPPED") {
+        throw new AppError(400, "VALIDATION_ERROR", "This routine is skipped one time at a time; send each time.");
     }
 
     // Upsert by habitId + targetDate (unique constraint handles dedup); the routine's lock makes this read current.
@@ -307,7 +311,21 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
         : { status: action.status, stepStatus: null };
     if (times.length) {
         if (action.time && !times.includes(action.time)) throw new AppError(400, "VALIDATION_ERROR", "This routine has no such time.");
-        ({ status, timeMarks } = applyTimeMark(times, existing, { time: action.time, status: action.status, at: action.at ?? new Date().toISOString() }));
+        const at = action.at ?? new Date().toISOString();
+        // "Done" with no time (the assistant) records the time it clearly means, never the whole day; unclear → say which are open, so it asks.
+        let time = action.time;
+        if (!time && action.status === "COMPLETED") {
+            const zone = await userZone(tx, userId);
+            const marks = timeMarksOn(times, existing);
+            time = likelyOpenTime(times, marks, targetDate === todayIn(zone) ? wallTimeOf(at, zone) : null) ?? undefined;
+            const open = times.filter((entry) => !marks[entry]);
+            if (!time) {
+                throw new AppError(400, "VALIDATION_ERROR", open.length
+                    ? `Which time? Still open: ${open.join(", ")}. Ask the user, then send that time.`
+                    : "Every time is already checked off that day.");
+            }
+        }
+        ({ status, timeMarks } = applyTimeMark(times, existing, { time, status: action.status, at }));
         stepStatus = null;
     }
 
@@ -395,6 +413,13 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
 
 // ── Update ────────────────────────────────────────────────────────────
 
+/** Set times are stored ascending; a single one is just the usual time. */
+function normalizeTimes(body: { times?: string[] | null; targetTime?: string | null }) {
+    if (!body.times) return;
+    body.times = [...body.times].sort();
+    if (body.times.length < 2) Object.assign(body, { targetTime: body.times[0] ?? body.targetTime ?? null, times: null });
+}
+
 /** Steps and set times don't mix: each would check the day off its own way. */
 function assertStepsOrTimes({ steps, times }: { steps?: unknown[] | null; times?: unknown[] | null }) {
     if (steps?.length && times?.length) throw new AppError(400, "VALIDATION_ERROR", "A routine has steps or set times, not both.");
@@ -408,6 +433,7 @@ function assertStepsOrTimes({ steps, times }: { steps?: unknown[] | null; times?
  */
 export async function updateHabit(tx: Tx, userId: string, id: string, { expectedUpdatedAt, tagIds, ...body }: UpdateHabit) {
     if (body.recurrenceRule !== undefined) parseRecurrenceRule(body.recurrenceRule);
+    normalizeTimes(body);
     const before = body.times !== undefined || body.steps !== undefined
         ? (await tx.select({ steps: habits.steps, times: habits.times }).from(habits).where(and(eq(habits.id, id), eq(habits.userId, userId))).for("update"))[0]
         : undefined;

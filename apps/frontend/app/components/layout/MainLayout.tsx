@@ -133,7 +133,7 @@ interface ShellHeaderConfig {
 }
 
 /** Shared look of the desktop header's chips; matches the Focus trigger beside them. */
-const HEADER_CHIP = "hidden h-9 shrink-0 items-center rounded-xl border text-[13px] font-medium transition-colors lg:flex";
+const HEADER_CHIP = "hidden h-11 shrink-0 items-center rounded-xl border text-[13px] font-medium transition-colors lg:flex";
 const HEADER_CHIP_STEP = "flex h-full w-8 cursor-pointer items-center justify-center text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/50 disabled:pointer-events-none disabled:opacity-40";
 
 function DesktopHeaderStatus({ onOpenAbout }: { onOpenAbout: () => void }) {

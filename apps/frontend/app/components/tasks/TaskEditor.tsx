@@ -100,6 +100,14 @@ export function TaskEditor({
         setActivePanel("notes");
     }, [taskId]);
 
+    // Removed from elsewhere (assistant, another view): the panel closes instead of staying on a gone task.
+    const wasLive = useRef(false);
+    useEffect(() => {
+        const live = Boolean(task) && task?.state !== "ARCHIVED";
+        if (live) wasLive.current = true;
+        else if (wasLive.current) onClose();
+    }, [task, onClose]);
+
     // Listen for the custom rename event dispatched by context menus
     useEffect(() => {
         const handleFocusTitle = (e: Event) => {

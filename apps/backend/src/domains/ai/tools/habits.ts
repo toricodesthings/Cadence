@@ -96,7 +96,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_habits: tool({
         description:
-            "The user's routines (habits in code) in their Routines order, with emoji, usual time, day times, steps, streaks, " +
+            "The user's routines (habits in code) in their Routines order, with emoji, usual time, day times or set times, steps, streaks, " +
             "adherence (share of the last 30 days' due days done, 0..1) and missedLast30. Which days were missed: get_habit_history. " +
             "Archived ones only when asked. more:true and nextOffset when there's more.",
         inputSchema: z.object({
@@ -255,12 +255,12 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
 
     // ── W ──────────────────────────────────────────────────────────────────
     log_habit: tool({
-        description: "Marks a routine done or skipped for a day (PENDING clears it), or, with `stepStatus`, the day's steps one by one: the day is done once every step is done or skipped. A routine at set times is marked one `time` at a time. Returns the day's status and the routine's streak.",
+        description: "Marks a routine done or skipped for a day (PENDING clears it), or, with `stepStatus`, the day's steps one by one: the day is done once every step is done or skipped. A routine at set times is marked one `time` at a time: send the time they mean; with none, COMPLETED takes the open time within 90 minutes of now (today) or the only one left, else it fails naming the open times: ask which. The result lists each time. Returns the day's status and the routine's streak.",
         inputSchema: z.object({
             habitId: z.uuid(),
             status: z.enum(["COMPLETED", "SKIPPED", "PENDING"]).describe("The whole day. Ignored when stepStatus is sent."),
             targetDate: z.iso.date().describe("The local day."),
-            time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().describe("A routine at set times: the HH:MM to mark; only that time changes (status PENDING clears it). Required to mark such a routine."),
+            time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().describe("A routine at set times: the HH:MM to mark; only that time changes (PENDING clears it). Required to skip; without it COMPLETED takes the time it clearly means or asks you to ask."),
             stepStatus: stepStatusSchema.optional().describe("Step id → COMPLETED or SKIPPED, for every step settled that day; a step left out is open. Replaces the day's marks."),
         }),
         execute: async (input, { toolCallId }) =>
@@ -268,7 +268,16 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
                         const { habit, log } = await resolveHabit(tx, userId, input.habitId, input);
-                        return { result: { status: log.status, currentStreak: habit.currentStreak }, id: habit.id };
+                        const times = habit.times ?? [];
+                        const marks = timeMarksOn(times, log);
+                        return {
+                            result: {
+                                status: log.status,
+                                currentStreak: habit.currentStreak,
+                                times: times.length ? times.map((time) => ({ time, status: marks[time]?.status ?? "PENDING" })) : undefined,
+                            },
+                            id: habit.id,
+                        };
                     }),
                 ),
             ),

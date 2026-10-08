@@ -290,7 +290,8 @@ export function AssistantSidePanel({
             const landed = message.parts.flatMap((part) => {
                 const name = safeToolName(part);
                 const { state, toolCallId } = part as { state?: string; toolCallId?: string };
-                const isWrite = !!name && getToolDescriptor(name)?.class !== "read" && state === "output-available";
+                const kind = name ? getToolDescriptor(name)?.class : undefined;
+                const isWrite = !!kind && kind !== "read" && kind !== "ask" && state === "output-available";
                 return isWrite && toolCallId && !refreshedWritesRef.current.has(toolCallId) ? [toolCallId] : [];
             });
             if (landed.length === 0) return;
@@ -992,6 +993,17 @@ export function AssistantSidePanel({
         return streamErrorFromError(error);
     }, [error]);
 
+    // An answer to the assistant's question (`ask_user`): a plain next message, leaving the composer's draft alone.
+    const replyToQuestion = (text: string) => {
+        if (isStreaming) return;
+        if (!online) {
+            setInputNotice("You’re offline — I’ll be here when you’re back.");
+            return;
+        }
+        clientMessageIdRef.current = crypto.randomUUID();
+        sendLocal({ text });
+        requestAnimationFrame(() => scrollToBottom());
+    };
     // A failed turn with photos: send it again without them, or share them with the report.
     const lastUserMessage = lastUserIndex >= 0 ? messages[lastUserIndex] : undefined;
     const lastUserImages = useMemo(() => (lastUserMessage ? imageIdsOf(lastUserMessage) : []), [lastUserMessage]);
@@ -1197,6 +1209,7 @@ export function AssistantSidePanel({
                                                         <ToolPart
                                                             part={seg.part}
                                                             stale={!isLastAssistant}
+                                                            reply={isLastAssistant && !isStreaming ? replyToQuestion : undefined}
                                                             answer={
                                                                 answerable && seg.part.approval?.id
                                                                     ? (approved, reason) => answerApproval(seg.part.approval.id, approved, reason)
