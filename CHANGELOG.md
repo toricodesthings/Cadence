@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.29.8] - 2026-10-08
+
 ### Fixed
 
 - Settings and other dialogs no longer keep the graphics card busy while they're open.
