@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-10-08
+
 ### Added
 
 - Routines can have several set times a day, each checked off on its own with its own reminder.
