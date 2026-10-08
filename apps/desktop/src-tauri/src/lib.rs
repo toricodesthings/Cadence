@@ -159,6 +159,89 @@ mod efficiency {
     }
 }
 
+/// Windows only: lets Cadence keep running (and delivering reminders) after the main window
+/// closes, with a tray icon as the only way back. Opt-in, read once at startup from the same
+/// preference store the frontend writes — enabling it from Settings takes effect on next launch,
+/// never retroactively, so a tray never silently appears without a way back.
+#[cfg(windows)]
+mod background {
+    use super::focus_main_window;
+    use std::sync::Mutex;
+    use tauri::{
+        menu::MenuBuilder,
+        tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+        App, Manager,
+    };
+    use tauri_plugin_store::StoreExt;
+
+    const PREFERENCES_STORE: &str = "cadence_desktop_preferences.dat";
+    const BACKGROUND_KEY: &str = "backgroundDelivery";
+
+    /// Whether this session's main window should hide instead of quitting on close.
+    pub struct BackgroundActive(pub Mutex<bool>);
+
+    fn requested_at_startup(app: &App) -> bool {
+        app.store(PREFERENCES_STORE)
+            .ok()
+            .and_then(|store| store.get(BACKGROUND_KEY))
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false)
+    }
+
+    /// Builds the tray icon only when the person already opted in before this launch. Managing
+    /// `BackgroundActive(false)` either way keeps the window-close handler infallible to call.
+    pub fn setup(app: &App) -> tauri::Result<()> {
+        let active = requested_at_startup(app);
+        app.manage(BackgroundActive(Mutex::new(active)));
+
+        if !active {
+            return Ok(());
+        }
+
+        let menu = MenuBuilder::new(app)
+            .text("tray.open", "Open Cadence")
+            .separator()
+            .text("tray.quit", "Quit Cadence")
+            .build()?;
+
+        let mut builder = TrayIconBuilder::new()
+            .menu(&menu)
+            .tooltip("Cadence")
+            .show_menu_on_left_click(false)
+            .on_menu_event(|app, event| match event.id().0.as_str() {
+                "tray.open" => focus_main_window(app),
+                "tray.quit" => app.exit(0),
+                _ => {}
+            })
+            .on_tray_icon_event(|tray, event| {
+                if let TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    ..
+                } = event
+                {
+                    focus_main_window(&tray.app_handle());
+                }
+            });
+
+        if let Some(icon) = app.default_window_icon() {
+            builder = builder.icon(icon.clone());
+        }
+
+        builder.build(app)?;
+        Ok(())
+    }
+
+    /// Called from the main window's close handler: true means hide instead of quitting.
+    pub fn should_hide_on_close<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
+        app.state::<BackgroundActive>()
+            .0
+            .lock()
+            .map(|guard| *guard)
+            .unwrap_or(false)
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
@@ -174,6 +257,10 @@ pub fn run() {
         .plugin(tauri_plugin_keyring::init())
         .plugin(tauri_plugin_oauth::init());
 
+    // Windows only: relaunches Cadence on login so background delivery survives a restart.
+    #[cfg(windows)]
+    let builder = builder.plugin(tauri_plugin_autostart::Builder::new().build());
+
     builder
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_http::init())
@@ -183,11 +270,20 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .on_window_event(|window, event| {
             #[cfg(windows)]
-            if let tauri::WindowEvent::Focused(focused) = event {
-                if window.label() == MAIN_WINDOW_LABEL {
-                    if let Some(w) = window.app_handle().get_webview_window(MAIN_WINDOW_LABEL) {
-                        efficiency::set(&w, !*focused);
+            if window.label() == MAIN_WINDOW_LABEL {
+                match event {
+                    tauri::WindowEvent::Focused(focused) => {
+                        if let Some(w) = window.app_handle().get_webview_window(MAIN_WINDOW_LABEL) {
+                            efficiency::set(&w, !*focused);
+                        }
                     }
+                    tauri::WindowEvent::CloseRequested { api, .. } => {
+                        if background::should_hide_on_close(window.app_handle()) {
+                            api.prevent_close();
+                            let _ = window.hide();
+                        }
+                    }
+                    _ => {}
                 }
             }
             #[cfg(not(windows))]
@@ -208,6 +304,9 @@ pub fn run() {
                     })
                     .build(),
             )?;
+
+            #[cfg(windows)]
+            background::setup(app)?;
 
             #[cfg(desktop)]
             {

@@ -4,11 +4,14 @@ import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
 import { DeviceDeliveryRow, DeviceList } from "../../notifications/DeviceDelivery";
+import { isWindowsDesktop } from "../../../lib/notifications/device-delivery";
+import { useDesktopBackgroundDelivery } from "../../../hooks/ui/use-desktop-background-delivery";
 
 export function NotificationsTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
     const notif = settings?.notifications ?? SETTINGS_DEFAULTS.notifications;
+    const backgroundDelivery = useDesktopBackgroundDelivery();
 
     return (
         <div className="flex flex-col gap-10">
@@ -29,6 +32,18 @@ export function NotificationsTab() {
                 </SettingsRow>
 
                 <DeviceDeliveryRow />
+
+                {isWindowsDesktop() && (
+                    <SettingsRow
+                        title="Keep running in the background"
+                        description="Reminders keep arriving after you close this window, and Cadence reopens at login. Takes effect the next time you open Cadence. A tray icon is the way back in — Quit Cadence from there to stop it."
+                    >
+                        <Switch
+                            checked={backgroundDelivery.enabled}
+                            onCheckedChange={(val) => void backgroundDelivery.setEnabled(val)}
+                        />
+                    </SettingsRow>
+                )}
             </SettingsSection>
 
             <DeviceList />

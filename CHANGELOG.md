@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Windows: optional setting to keep Cadence running in the tray and deliver reminders after closing.
+
 ## [0.29.5] - 2026-10-07
 
 ### Fixed

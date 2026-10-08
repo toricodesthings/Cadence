@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "windows-background",
+  "description": "Windows only: lets the main window enable/disable launch-at-login for background reminder delivery. The autostart plugin is a Windows-only dependency, so this capability must stay off other platforms.",
+  "windows": ["main"],
+  "platforms": ["windows"],
+  "permissions": [
+    "autostart:default"
+  ]
+}

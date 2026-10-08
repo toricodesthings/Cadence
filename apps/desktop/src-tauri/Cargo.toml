@@ -25,7 +25,7 @@ tauri-build = { version = "2.5.6", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.10.3", features = [] }
+tauri = { version = "2.10.3", features = ["tray-icon"] }
 tauri-plugin-deep-link = "2.4.7"
 # unsafe-headers: Neon Auth only trusts the web app's Origin, so the frontend sets it (patch-desktop-fetch.ts).
 tauri-plugin-http = { version = "2.5.7", features = ["unsafe-headers"] }
@@ -43,8 +43,10 @@ tauri-plugin-keyring = "0.1.0"
 tauri-plugin-single-instance = { version = "2.4.0", features = ["deep-link"] }
 tauri-plugin-global-shortcut = "2.3.1"
 
-# Windows only: Efficiency mode (EcoQoS) + WebView2 memory target while Cadence is in the background.
+# Windows only: Efficiency mode (EcoQoS) + WebView2 memory target while Cadence is in the background,
+# plus the tray/autostart pair that lets Cadence keep delivering reminders after the window closes.
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"
 windows-core = "0.62"
 windows-sys = { version = "0.61", features = ["Win32_System_Threading"] }
+tauri-plugin-autostart = "2"

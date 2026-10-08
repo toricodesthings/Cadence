@@ -99,6 +99,9 @@ export const isIosTab = () => isIosDevice() && !isStandalone();
 export const hasNotificationApi = () => typeof window !== "undefined" && "Notification" in window;
 export const canPush = () => hasNotificationApi() && "serviceWorker" in navigator && "PushManager" in window;
 
+/** Windows only: the one platform slice 4's background delivery was built and can be verified on. */
+export const isWindowsDesktop = () => IS_DESKTOP_RUNTIME && typeof navigator !== "undefined" && /Windows/.test(navigator.userAgent);
+
 function osName(): string {
     const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
     if (/Windows/.test(ua)) return "Windows";
