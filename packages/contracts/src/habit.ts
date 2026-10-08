@@ -21,6 +21,17 @@ export const stepStatusSchema = z.record(z.string().max(64), z.enum(["COMPLETED"
     .refine((marks) => Object.keys(marks).length <= MAX_ROUTINE_STEPS, "Too many steps");
 export type StepStatus = z.infer<typeof stepStatusSchema>;
 
+/** A routine at set times: its daily WallTimes, ascending. A time is its own id in a day's `timeMarks`. */
+export const MAX_ROUTINE_TIMES = 12;
+export const routineTimesSchema = z.array(z.string().regex(/^\d{2}:\d{2}$/)).max(MAX_ROUTINE_TIMES)
+    .refine((times) => new Set(times).size === times.length, "Times must be unique");
+/** One day's marks by time: done or skipped, and the Instant it happened (null when the day was logged whole). A time without a key is still open. */
+export const timeMarkSchema = z.object({ status: z.enum(["COMPLETED", "SKIPPED"]), at: instantSchema.nullable() });
+export type TimeMark = z.infer<typeof timeMarkSchema>;
+export const timeMarksSchema = z.record(z.string().regex(/^\d{2}:\d{2}$/), timeMarkSchema)
+    .refine((marks) => Object.keys(marks).length <= MAX_ROUTINE_TIMES, "Too many times");
+export type TimeMarks = z.infer<typeof timeMarksSchema>;
+
 // No .default()s on create schemas: an omitted field takes its DB column default, and
 // a default here would leak into the .partial() update schema and overwrite data.
 export const insertHabitSchema = z.object({
@@ -41,6 +52,8 @@ export const insertHabitSchema = z.object({
     sortOrder: z.number().optional(),
     pausedUntil: z.string().nullable().optional(),
     steps: routineStepsSchema.nullable().optional(),
+    /** Set times each day; null/absent = the usual single `targetTime`. Replaces `targetTime` and `targetTimes` when set. */
+    times: routineTimesSchema.nullable().optional(),
 });
 export type InsertHabit = z.input<typeof insertHabitSchema>;
 
@@ -56,6 +69,10 @@ export const resolveHabitActionSchema = z.object({
     status: habitStatusSchema,
     /** A routine with steps: the day's step marks. The server derives `status` from them (see `stepDayStatus`). */
     stepStatus: stepStatusSchema.optional(),
+    /** A routine at set times: change just this time (`status` PENDING clears it); other times are kept. */
+    time: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    /** When it happened, for a late or corrected check-in; the server's clock when absent. */
+    at: instantSchema.optional(),
 });
 export type ResolveHabitAction = z.infer<typeof resolveHabitActionSchema>;
 
@@ -91,6 +108,7 @@ export const habitRowSchema = z.object({
     archived: z.boolean(),
     notes: z.string().nullable(),
     steps: z.array(z.object({ id: z.string(), title: z.string() })).nullable(),
+    times: z.array(z.string()).nullable(),
     createdAt: instantSchema,
     updatedAt: instantSchema,
 });
@@ -108,6 +126,7 @@ export const habitLogRowSchema = z.object({
     completedAt: instantSchema.nullable(),
     resolvedAt: instantSchema.nullable(),
     stepStatus: habitLogStepStatusSchema.nullable(),
+    timeMarks: z.record(z.string(), timeMarkSchema).nullable(),
     createdAt: instantSchema,
 });
 
@@ -116,6 +135,7 @@ export const habitLogSchema = habitLogRowSchema.extend({
     id: z.string(),
     userId: z.uuid().optional(),
     stepStatus: habitLogStepStatusSchema.nullable().optional(),
+    timeMarks: z.record(z.string(), timeMarkSchema).nullable().optional(),
     resolvedAt: z.string().nullable().optional(),
     createdAt: z.string().optional(),
 });

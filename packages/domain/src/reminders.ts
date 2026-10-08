@@ -1,7 +1,7 @@
 import type { Task } from "@cadence/contracts/task";
-import type { Habit } from "@cadence/contracts/habit";
+import type { Habit, TimeMarks } from "@cadence/contracts/habit";
 import type { PersonalEvent } from "@cadence/contracts/settings";
-import { routineTimeOn } from "./repeats";
+import { routineTimesOn, timeMarksOn } from "./repeats";
 import { addDays, atLocal, daysBetween, dayOf, expandSeries, todayIn, wallTimeOf, type Instant, type LocalDate, type WallTime, type Zone } from "./time";
 
 export type ReminderKind =
@@ -35,7 +35,7 @@ export interface ReminderFormat {
 }
 
 export type ReminderTask = Pick<Task, "id" | "title" | "state" | "projectId" | "dueDate" | "reminderAt" | "reminderSilenced" | "waitingOn" | "waitingReminder"> & Partial<Pick<Task, "scheduledStart" | "scheduledEnd" | "recurrenceRule" | "interactionMode">> & { createdAt?: Instant };
-export type ReminderHabit = Pick<Habit, "id" | "title" | "archived" | "reminderEnabled" | "targetTime" | "targetTimes"> & { logs?: Array<{ targetDate: LocalDate; status: string }> };
+export type ReminderHabit = Pick<Habit, "id" | "title" | "archived" | "reminderEnabled" | "targetTime" | "targetTimes"> & { times?: string[] | null; logs?: Array<{ targetDate: LocalDate; status: string; timeMarks?: TimeMarks | null }> };
 
 export interface ReminderPrefs {
     taskReminders: boolean;
@@ -227,25 +227,28 @@ export function deriveReminders(
     for (const habit of input.habits) {
         if (habit.archived || !habit.reminderEnabled) continue;
 
-        const targetTime = routineTimeOn(habit, today);
-        if (!targetTime) continue;
-        const target = atLocal(today, targetTime, zone);
-        const diffMs = Date.parse(target) - now.getTime();
-        if (Math.abs(diffMs) > 2 * HOUR) continue;
-
-        // Today's log exists only when the routine is due and not paused; remind while it is still open.
-        if (!habit.logs?.some((log) => log.targetDate === today && log.status === "PENDING")) continue;
-        items.push({
-            id: `habit-reminder::${habit.id}::${today}`,
-            kind: "habit-reminder",
-            title: habit.title,
-            body: diffMs > 0 ? `Due at ${targetTime.slice(0, 5)}` : "Due now",
-            triggerAt: target,
-            alertAt: new Date(Date.parse(target) - prefs.habitReminderLeadMinutes * 60_000).toISOString(),
-            entityId: habit.id,
-            route: "/routines",
-            priority: "normal",
-        });
+        // Today's log (when the routine is due and not paused, made or not): remind each time still open.
+        const log = habit.logs?.find((entry) => entry.targetDate === today);
+        if (!log) continue;
+        const times = routineTimesOn(habit, today);
+        const marks = timeMarksOn(times, log);
+        for (const time of times) {
+            if (habit.times?.length ? marks[time] : log.status !== "PENDING") continue;
+            const target = atLocal(today, time, zone);
+            const diffMs = Date.parse(target) - now.getTime();
+            if (Math.abs(diffMs) > 2 * HOUR) continue;
+            items.push({
+                id: `habit-reminder::${habit.id}::${today}${habit.times?.length ? `::${time}` : ""}`,
+                kind: "habit-reminder",
+                title: habit.title,
+                body: diffMs > 0 ? `Due at ${time.slice(0, 5)}` : "Due now",
+                triggerAt: target,
+                alertAt: new Date(Date.parse(target) - prefs.habitReminderLeadMinutes * 60_000).toISOString(),
+                entityId: habit.id,
+                route: "/routines",
+                priority: "normal",
+            });
+        }
     }
 
     // Yearly personal events with their per-event bell on: a morning nudge on the day and on

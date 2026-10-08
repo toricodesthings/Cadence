@@ -91,6 +91,83 @@ export function stepMarksOn(
     return {};
 }
 
+/** A routine at set times: one mark per "HH:MM". `at` is when it happened; null on a day logged whole. */
+export type TimeMarkOn = { status: StepMark; at: string | null };
+
+/**
+ * A routine's times on a day: its set times when it has them (they replace the
+ * usual time and weekday overrides), otherwise its one time, otherwise none.
+ */
+export function routineTimesOn(
+    routine: { targetTime: string | null; targetTimes?: Record<string, string> | null; times?: readonly string[] | null },
+    date: string,
+): string[] {
+    if (routine.times?.length) return [...routine.times].sort();
+    const time = routineTimeOn(routine, date);
+    return time ? [time] : [];
+}
+
+/**
+ * Each time's mark on a day, keeping only times the routine still has. A day
+ * checked off (or skipped) as a whole, before the routine had set times, reads
+ * as every time done (or skipped) with no recorded instant.
+ */
+export function timeMarksOn(
+    times: readonly string[],
+    log: { status: string; timeMarks?: Readonly<Record<string, TimeMarkOn>> | null } | undefined,
+): Record<string, TimeMarkOn> {
+    if (log?.timeMarks) return Object.fromEntries(times.flatMap((time) => (log.timeMarks![time] ? [[time, log.timeMarks![time]]] : [])));
+    if (log?.status === "COMPLETED" || log?.status === "SKIPPED") return Object.fromEntries(times.map((time) => [time, { status: log.status as StepMark, at: null }]));
+    return {};
+}
+
+/**
+ * A routine day's status from its times. Every time done → COMPLETED. Nothing
+ * left open but some skipped → SKIPPED (closed, never claimed as done). Any
+ * time still open → PENDING. A miss never carries forward: the next day starts fresh.
+ */
+export function timeDayStatus(times: readonly string[], marks: Readonly<Record<string, TimeMarkOn>>): StepMark | "PENDING" {
+    const settled = times.filter((time) => marks[time]);
+    if (!times.length || settled.length < times.length) return "PENDING";
+    return settled.every((time) => marks[time].status === "COMPLETED") ? "COMPLETED" : "SKIPPED";
+}
+
+/**
+ * A day's log after one time is marked (`PENDING` clears it) or, with no `time`,
+ * after the whole day is cleared. Other times keep their marks, a day logged
+ * whole included. Server and optimistic cache both use it.
+ */
+export function applyTimeMark(
+    times: readonly string[],
+    log: Parameters<typeof timeMarksOn>[1],
+    change: { time?: string; status: StepMark | "PENDING"; at: string },
+): { status: StepMark | "PENDING"; timeMarks: Record<string, TimeMarkOn> | null } {
+    const marks: Record<string, TimeMarkOn> = {};
+    if (change.time) {
+        Object.assign(marks, timeMarksOn(times, log));
+        if (change.status === "PENDING") delete marks[change.time];
+        else if (marks[change.time]?.status !== change.status) marks[change.time] = { status: change.status, at: change.at }; // a repeat keeps when it happened
+    }
+    return { status: timeDayStatus(times, marks), timeMarks: Object.keys(marks).length ? marks : null };
+}
+
+/** Counts for "1 of 3 done" / "2 done · 1 skipped". */
+export function timeProgress(times: readonly string[], marks: Readonly<Record<string, TimeMarkOn>>) {
+    const done = times.filter((time) => marks[time]?.status === "COMPLETED").length;
+    const skipped = times.filter((time) => marks[time]?.status === "SKIPPED").length;
+    return { done, skipped, open: times.length - done - skipped, total: times.length };
+}
+
+/**
+ * The time "Mark done" records: the first open time not yet past `now` ("HH:MM"),
+ * else the latest open one (everything left is late). Earlier open times stay
+ * reachable in the checklist. Null once nothing is open.
+ */
+export function nextOpenTime(times: readonly string[], marks: Readonly<Record<string, TimeMarkOn>>, now: string): string | null {
+    const open = [...times].sort().filter((time) => !marks[time]);
+    return open.find((time) => time >= now) ?? open.at(-1) ?? null;
+}
+
 // ponytail: keyword list, not a classifier. The user can switch kinds in one tap.
 const FIXED_WORDS = /\b(class|lecture|lab|seminar|tutorial|lesson|course|school|shift|stand-?up|meeting|appointment|therapy)\b/i;
 

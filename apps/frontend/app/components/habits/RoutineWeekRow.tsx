@@ -1,6 +1,7 @@
 import type { CSSProperties, MouseEvent } from "react";
 import type { Habit, HabitLog } from "@cadence/contracts/habit";
 import { routineTimeOn } from "@cadence/domain/repeats";
+import { listTimes } from "./RoutineTimes";
 import { formatShortDate, formatTime, fromTimeValue } from "../../lib/utils/date-format";
 import { isRoutinePaused, routineTone } from "../../lib/utils/habits";
 import { RoutineDayCell } from "./RoutineDayCell";
@@ -39,7 +40,7 @@ export function RoutineMeta({ habit, today, showStreaks }: { habit: Habit; today
     const time = routineTimeOn(habit, today);
     const parts = paused
         ? [`Paused until ${formatShortDate(habit.pausedUntil!)}`]
-        : [time ? formatTime(fromTimeValue(today, time)) : null, showStreaks && habit.currentStreak > 0 ? `${habit.currentStreak} in a row` : null];
+        : [habit.times?.length ? listTimes(habit.times) : time ? formatTime(fromTimeValue(today, time)) : null, showStreaks && habit.currentStreak > 0 ? `${habit.currentStreak} in a row` : null];
     const text = parts.filter(Boolean).join(" · ");
     return text ? <span className="block truncate text-xs text-twilight-text-muted">{text}</span> : null;
 }

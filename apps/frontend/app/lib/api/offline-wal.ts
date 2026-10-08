@@ -43,7 +43,7 @@ export type MutationOp =
     | { type: "create_habit"; payload: Record<string, unknown> & { id: string } }
     | { type: "update_habit"; id: string; payload: Record<string, unknown> }
     | { type: "delete_habit"; id: string }
-    | { type: "resolve_habit"; id: string; payload: { targetDate: LocalDate; status: string; stepStatus?: Record<string, "COMPLETED" | "SKIPPED"> } }
+    | { type: "resolve_habit"; id: string; payload: { targetDate: LocalDate; status: string; stepStatus?: Record<string, "COMPLETED" | "SKIPPED">; time?: string; at?: string } }
     | { type: "unprocess_inbox"; id: string }
     | { type: "upsert_note"; taskId: string; payload: NoteSavePayload }
     | { type: "add_task_tag"; id: string; tagId: string }

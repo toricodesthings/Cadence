@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { habitOccurrences, isPausedOn, routineTimeOn, stepDayStatus, stepMarksOn, suggestInteractionMode } from "@cadence/domain/repeats";
+import { applyTimeMark, nextOpenTime, routineTimesOn, timeDayStatus, timeMarksOn, timeProgress, habitOccurrences, isPausedOn, routineTimeOn, stepDayStatus, stepMarksOn, suggestInteractionMode } from "@cadence/domain/repeats";
 
 describe("routineTimeOn", () => {
     const gym = { targetTime: "18:00", targetTimes: { SA: "", MO: "07:00" } };
@@ -93,5 +93,67 @@ describe("isPausedOn", () => {
 
     it("is off without a pause", () => {
         expect(isPausedOn(null, today, today)).toBe(false);
+    });
+});
+
+describe("routine at set times", () => {
+    const times = ["08:00", "14:00", "20:00"];
+    const at = (h: string) => `2026-10-08T${h}:00.000Z`;
+
+    it("uses its set times, else the usual time", () => {
+        expect(routineTimesOn({ targetTime: "18:00", times: ["20:00", "08:00"] }, "2026-10-08")).toEqual(["08:00", "20:00"]);
+        expect(routineTimesOn({ targetTime: "18:00", times: null }, "2026-10-08")).toEqual(["18:00"]);
+        expect(routineTimesOn({ targetTime: null }, "2026-10-08")).toEqual([]);
+    });
+
+    it("1 of 3 and 2 of 3 stay open; 3 of 3 completes the day", () => {
+        let log = applyTimeMark(times, undefined, { time: "08:00", status: "COMPLETED", at: at("12") });
+        expect(log.status).toBe("PENDING");
+        log = applyTimeMark(times, log, { time: "14:00", status: "COMPLETED", at: at("18") });
+        expect(log.status).toBe("PENDING");
+        expect(timeProgress(times, timeMarksOn(times, log))).toEqual({ done: 2, skipped: 0, open: 1, total: 3 });
+        log = applyTimeMark(times, log, { time: "20:00", status: "COMPLETED", at: at("23") });
+        expect(log.status).toBe("COMPLETED");
+        expect(log.timeMarks?.["14:00"].at).toBe(at("18")); // each keeps its own instant
+    });
+
+    it("closes a mixed day without claiming completion", () => {
+        let log = applyTimeMark(times, undefined, { time: "08:00", status: "COMPLETED", at: at("12") });
+        log = applyTimeMark(times, log, { time: "14:00", status: "SKIPPED", at: at("18") });
+        log = applyTimeMark(times, log, { time: "20:00", status: "COMPLETED", at: at("23") });
+        expect(log.status).toBe("SKIPPED");
+        expect(timeProgress(times, timeMarksOn(times, log))).toMatchObject({ done: 2, skipped: 1, open: 0 });
+    });
+
+    it("clears one time only, and the whole day when no time is given", () => {
+        let log = applyTimeMark(times, undefined, { time: "08:00", status: "COMPLETED", at: at("12") });
+        log = applyTimeMark(times, log, { time: "14:00", status: "COMPLETED", at: at("18") });
+        log = applyTimeMark(times, log, { time: "14:00", status: "PENDING", at: at("19") });
+        expect(Object.keys(log.timeMarks!)).toEqual(["08:00"]);
+        expect(applyTimeMark(times, log, { status: "PENDING", at: at("19") })).toEqual({ status: "PENDING", timeMarks: null });
+    });
+
+    it("drops marks for a time the routine no longer has", () => {
+        const log = applyTimeMark(times, undefined, { time: "20:00", status: "COMPLETED", at: at("23") });
+        expect(timeDayStatus(["08:00", "14:00"], timeMarksOn(["08:00", "14:00"], log))).toBe("PENDING");
+    });
+
+    it("reads a legacy whole-day check-in as every time done, with no instant", () => {
+        const marks = timeMarksOn(times, { status: "COMPLETED" });
+        expect(Object.values(marks).every((mark) => mark.status === "COMPLETED" && mark.at === null)).toBe(true);
+    });
+
+    it("keeps a whole-day check-in's marks when one time changes", () => {
+        const log = applyTimeMark(times, { status: "COMPLETED" }, { time: "14:00", status: "SKIPPED", at: at("18") });
+        expect(log.status).toBe("SKIPPED");
+        expect(log.timeMarks?.["08:00"]).toEqual({ status: "COMPLETED", at: null });
+    });
+
+    it("picks the next open time, else the latest late one", () => {
+        const done = (...t: string[]) => Object.fromEntries(t.map((x) => [x, { status: "COMPLETED" as const, at: null }]));
+        expect(nextOpenTime(times, done("08:00"), "10:00")).toBe("14:00");
+        expect(nextOpenTime(times, done("08:00"), "15:00")).toBe("20:00");
+        expect(nextOpenTime(times, done("08:00", "14:00"), "22:00")).toBe("20:00"); // late, still reachable
+        expect(nextOpenTime(times, done("08:00", "14:00", "20:00"), "09:00")).toBeNull();
     });
 });

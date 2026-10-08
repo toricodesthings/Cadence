@@ -51,6 +51,7 @@ export function useCreateHabit() {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 targetTimes: input.targetTimes ?? null,
+                times: input.times ?? null,
                 emoji: input.emoji ?? null,
                 projectId: input.projectId ?? null,
                 sortOrder: input.sortOrder ?? 0,

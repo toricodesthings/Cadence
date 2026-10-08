@@ -13,6 +13,7 @@ export const createHabitSchema = insertHabitSchema
         colorAccent: true,
         targetTime: true,
         targetTimes: true,
+        times: true,
         emoji: true,
         reminderEnabled: true,
         projectId: true,

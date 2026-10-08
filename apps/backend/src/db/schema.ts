@@ -535,6 +535,9 @@ export const habits = pgTable(
         // Ordered steps ("water → stretch → journal"); null for a single-act routine
         steps: jsonb('steps').$type<Array<{ id: string; title: string }>>(),
 
+        // A routine at set times: its daily "HH:mm" times, ascending; null = the usual targetTime
+        times: jsonb('times').$type<string[]>(),
+
         createdAt: timestamptz('created_at')
             .default(sql`now()`)
             .notNull(),
@@ -604,6 +607,9 @@ export const habitLogs = pgTable(
 
         // Step id → COMPLETED/SKIPPED for routines with steps; a partial day stays PENDING
         stepStatus: jsonb('step_status').$type<Record<string, "COMPLETED" | "SKIPPED">>(),
+
+        // "HH:mm" → { status, at } for a routine at set times; the day's status follows from these
+        timeMarks: jsonb('time_marks').$type<Record<string, { status: "COMPLETED" | "SKIPPED"; at: string | null }>>(),
 
         createdAt: timestamptz('created_at')
             .default(sql`now()`)

@@ -150,6 +150,19 @@ describe("push dispatch", () => {
         expect(await sql("SELECT status FROM push_deliveries WHERE user_id = $1", [userId])).toEqual([{ status: "sent" }]);
     });
 
+    it("reminds a routine's open time on an untouched day, and not one already marked", async () => {
+        const env = await vapidEnv();
+        const { userId, endpoint } = await subscriber(env);
+        const [{ id }] = await sql("INSERT INTO habits (user_id, title, recurrence_rule, reminder_enabled, times) VALUES ($1, 'Medication', 'FREQ=DAILY', true, '[\"08:00\",\"11:10\",\"20:00\"]') RETURNING id", [userId]);
+        const calls = pushService();
+        await runPushDispatch(env, NOW); // no log exists yet today
+        expect(calls.filter((url) => url === endpoint)).toHaveLength(1);
+
+        await sql("INSERT INTO habit_logs (habit_id, user_id, target_date, status, time_marks) VALUES ($1, $2, '2026-10-07', 'PENDING', $3)", [id, userId, JSON.stringify({ "11:10": { status: "COMPLETED", at: "2026-10-07T15:00:00Z" } })]);
+        await runPushDispatch(env, new Date(NOW.getTime() + 60_000));
+        expect(calls.filter((url) => url === endpoint)).toHaveLength(1); // the marked time doesn't alert again
+    });
+
     it("skips a device the person turned off, and keeps sending to their others", async () => {
         const env = await vapidEnv();
         const { userId, installId, endpoint } = await subscriber(env);

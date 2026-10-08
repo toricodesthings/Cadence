@@ -30,7 +30,7 @@ import { useTasks } from "../hooks/tasks/use-tasks";
 import { useProjects } from "../hooks/projects/use-projects";
 import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
-import { routineTimeOn } from "@cadence/domain/repeats";
+import { nextOpenTime, routineTimeOn, timeMarksOn } from "@cadence/domain/repeats";
 import { useTagFilterStore } from "../stores/tag-filter-store";
 import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
 import { useFocusViewStore } from "../stores/focus-view-store";
@@ -42,9 +42,9 @@ import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
 import { useSectionNav } from "../hooks/ui/use-section-nav";
 import { useSettings } from "../hooks/core/use-settings";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
-import { addDays, type LocalDate } from "@cadence/domain/time";
+import { addDays, wallTimeOf, type LocalDate } from "@cadence/domain/time";
 import { dayOfInstant, formatShortDate, formatTime, formatWallTime, fromTimeValue, nlpClock } from "../lib/utils/date-format";
-import { useToday } from "../lib/utils/user-zone";
+import { getUserZone, useToday } from "../lib/utils/user-zone";
 import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task/task-scheduling";
 import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
 import type { SortMode } from "../lib/utils/task/sort-tasks";
@@ -275,8 +275,12 @@ export default function Upcoming() {
                 // A missed routine lets go: it never shows as overdue.
                 if (bucket === "nextWeek" || bucket === "overdue") continue;
 
-                const time = routineTimeOn(habit, dateOnly);
-                const habitTimeLabel = time ? formatWallTime(time) : null;
+                // A routine at set times lists at its next open time (its first on a later day).
+                const times = habit.times?.length ? habit.times : null;
+                const time = times
+                    ? nextOpenTime(times, timeMarksOn(times, log), dateOnly === todayISO ? wallTimeOf(new Date(), getUserZone()) : "00:00")
+                    : routineTimeOn(habit, dateOnly);
+                const habitTimeLabel = time ? `${times ? "Next at " : ""}${formatWallTime(time)}` : null;
 
                 grouped[bucket].push({
                     id: `habit-${habit.id}-${dateOnly}`,

@@ -59,7 +59,8 @@ export function LogHabitCard({ ctx }: { ctx: ToolRenderContext }) {
     const habitName = habit?.title ?? "this routine";
     const marks: Record<string, string> | undefined = input.stepStatus;
     const status: string = input.status ?? "COMPLETED";
-    const verb = marks ? "Logged steps" : status === "COMPLETED" ? "Done" : status === "SKIPPED" ? "Skipped" : "Cleared";
+    const at = typeof input.time === "string" ? ` at ${formatTime(`2000-01-01T${input.time}:00`)}` : "";
+    const verb = marks ? "Logged steps" : (status === "COMPLETED" ? "Done" : status === "SKIPPED" ? "Skipped" : "Cleared") + at;
     // Step marks, in the routine's order: "Water ✓ · Stretch skipped".
     const stepLine = marks
         ? (habit?.steps ?? []).filter((step) => marks[step.id]).map((step) => `${step.title} ${marks[step.id] === "SKIPPED" ? "skipped" : "✓"}`).join(" · ") || "Clear every step"
@@ -75,7 +76,7 @@ export function LogHabitCard({ ctx }: { ctx: ToolRenderContext }) {
             doneText={`${verb}: ${habitName}.`}
             declinedText="No worries, left it."
         >
-            <IdentityBlock title={habitName} subtitle={stepLine ?? (status === "COMPLETED" ? "Mark complete" : status === "SKIPPED" ? "Skip" : "Clear")} />
+            <IdentityBlock title={habitName} subtitle={stepLine ?? (status === "COMPLETED" ? "Mark complete" : status === "SKIPPED" ? "Skip" : "Clear") + at} />
         </ApprovalCard>
     );
 }
@@ -91,6 +92,7 @@ type RoutineDraft = {
     pausedUntil?: string | null;
     archived?: boolean;
     dayTimes?: Record<string, string> | null;
+    times?: string[] | null;
     colorAccent?: string;
     projectId?: string | null;
     tagIds?: string[];
@@ -103,7 +105,8 @@ const WEEKDAY_NAMES: Record<string, string> = { MO: "Mon", TU: "Tue", WE: "Wed",
 function routineSummary(draft: RoutineDraft, tagNames: string[] = []) {
     return [
         draft.recurrenceRule ? getTaskRecurrenceSummary({ recurrenceRule: draft.recurrenceRule, scheduledStart: null, scheduledEnd: null })?.cadenceLabel ?? "Repeats" : null,
-        draft.targetTime ? formatTime(`2000-01-01T${draft.targetTime}:00`) : draft.targetTime === null ? "Any time" : null,
+        draft.times?.length ? draft.times.map((time) => formatTime(`2000-01-01T${time}:00`)).join(", ")
+            : draft.targetTime ? formatTime(`2000-01-01T${draft.targetTime}:00`) : draft.targetTime === null ? "Any time" : null,
         draft.steps ? (draft.steps.length ? draft.steps.map((step) => (typeof step === "string" ? step : step.title)).join(" → ") : "No steps") : null,
         draft.reminderEnabled === true ? "Reminder on" : draft.reminderEnabled === false ? "Reminder off" : null,
         draft.pausedUntil ? `Paused until ${formatShortDate(draft.pausedUntil)}` : draft.pausedUntil === null ? "Resumed" : null,

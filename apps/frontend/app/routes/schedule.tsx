@@ -54,7 +54,7 @@ import { rescheduleToDay } from "@cadence/domain/task-temporal";
 import { getUserZone, today, useToday } from "../lib/utils/user-zone";
 import type { Task } from "@cadence/contracts/task";
 import { useVirtualHabitTasks } from "../hooks/habits/use-virtual-habit-tasks";
-import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
+import { timeAction, useResolveHabit } from "../hooks/habits/use-resolve-habit";
 import { toast } from "sonner";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
@@ -584,11 +584,12 @@ export default function Schedule() {
     // ── Phone row actions ───────────────────────────────────────────────────
     const completeRow = useCallback((task: Task) => {
         if (task.isHabit) {
-            const [habitPart, targetDate] = task.id.split("--", 2);
+            const [habitPart, targetDate, time] = task.id.split("--", 3);
             return resolveHabitMutation.mutateAsync({
                 habitId: habitPart.replace(/^habit-/, ""),
                 targetDate,
-                status: task.state === "COMPLETE" ? "PENDING" : "COMPLETED",
+                // A block of a routine at set times is one time, not the day.
+                ...(time ? timeAction(time, task.state === "COMPLETE" ? "PENDING" : "COMPLETED") : { status: task.state === "COMPLETE" ? "PENDING" : "COMPLETED" }),
             });
         }
         // Same short, cancellable countdown the checkbox shows.

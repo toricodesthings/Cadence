@@ -165,6 +165,46 @@ describe("resolving occurrences", () => {
         expect(logs).toEqual({ n: 0 });
     });
 
+    it("set times: each time is recorded on its own, 3 of 3 alone completes the day, a whole-day tap is refused", async () => {
+        const habit = await create({ title: "Medication", times: ["08:00", "14:00", "20:00"], reminderEnabled: true });
+        const mark = (time: string, status: string, at?: string) => habits("POST", `/${habit.id}/resolve`, { targetDate: day(), status, time, ...(at && { at }) });
+
+        const first = await mark("08:00", "COMPLETED", "2026-10-08T12:07:00.000Z");
+        expect(first.body.data.log).toMatchObject({ status: "PENDING", timeMarks: { "08:00": { status: "COMPLETED", at: "2026-10-08T12:07:00.000Z" } } });
+        const second = await mark("14:00", "COMPLETED");
+        expect(second.body.data.log.status).toBe("PENDING");
+        expect(Object.keys(second.body.data.log.timeMarks)).toEqual(["08:00", "14:00"]); // merged, not replaced
+        expect(second.body.data.log.timeMarks["08:00"].at).toBe("2026-10-08T12:07:00.000Z"); // its instant is kept
+
+        const replay = await mark("08:00", "COMPLETED", "2026-10-08T12:07:00.000Z"); // a retry changes nothing
+        expect(replay.body.data.log.timeMarks["08:00"].at).toBe("2026-10-08T12:07:00.000Z");
+
+        expect((await mark("20:00", "COMPLETED")).body.data.log.status).toBe("COMPLETED");
+        expect((await mark("20:00", "SKIPPED")).body.data.log.status).toBe("SKIPPED"); // mixed: closed, never "completed"
+        expect((await mark("20:00", "PENDING")).body.data.log.status).toBe("PENDING");
+
+        expect((await resolve(habit.id, day(), "COMPLETED")).status).toBe(400);
+        expect((await mark("09:30", "COMPLETED")).status).toBe(400);
+        expect((await resolve(habit.id, day(), "PENDING")).body.data.log.timeMarks).toBeNull();
+    });
+
+    it("set times: moving a time keeps its mark, removing the open one closes today, steps and times don't mix", async () => {
+        const habit = await create({ title: "Medication", times: ["08:00", "14:00", "20:00"] });
+        const mark = (time: string) => habits("POST", `/${habit.id}/resolve`, { targetDate: day(), status: "COMPLETED", time });
+        await mark("08:00");
+        await mark("14:00");
+
+        await habits("PATCH", `/${habit.id}`, { times: ["08:00", "14:30", "20:00"] });
+        const todayLog = async () => (await habits("GET", `/weekly?start=${day()}&end=${day()}`)).body.data.find((h: { id: string }) => h.id === habit.id).logs[0];
+        expect(Object.keys((await todayLog()).timeMarks).sort()).toEqual(["08:00", "14:30"]);
+
+        const closed = await habits("PATCH", `/${habit.id}`, { times: ["08:00", "14:30"] });
+        expect(closed.body.data.totalCompletions).toBe(1);
+        expect((await todayLog()).status).toBe("COMPLETED");
+
+        expect((await habits("PATCH", `/${habit.id}`, { steps: [{ id: "s1", title: "Water" }] })).status).toBe(400);
+    });
+
     it("a skipped day is neutral: done, skip, done keeps a run of 2 whichever day is logged last", async () => {
         const habit = await create();
         await backdate(habit.id, 3);

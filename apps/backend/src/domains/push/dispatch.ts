@@ -6,6 +6,7 @@ import { withRls } from "../../platform/rls";
 import { userZone } from "../../platform/user-zone";
 import { logger, hashIdentifier, issuesFromError } from "../../platform/log";
 import { devices, habitLogs, habits, notificationState, pushDeliveries, tasks, users } from "../../db/schema";
+import { habitDays } from "../habits/habits.service";
 import { normalizeSettings } from "../settings/settings.route";
 import { sendWebPush, vapidConfigured, type PushMessage, type PushOutcome } from "./web-push";
 import type { Env } from "../../types/env";
@@ -71,15 +72,21 @@ async function claimDueReminders(db: DbClient, userId: string, now: Date): Promi
                 and(isNotNull(tasks.recurrenceRule), isNotNull(tasks.scheduledStart)),
             )));
 
+        // Every reminding routine, with today's log if one was made: an untouched day has none.
         const habitRows = await tx
             .select({
                 id: habits.id, title: habits.title, archived: habits.archived, reminderEnabled: habits.reminderEnabled,
-                targetTime: habits.targetTime, targetTimes: habits.targetTimes, targetDate: habitLogs.targetDate, status: habitLogs.status,
+                targetTime: habits.targetTime, targetTimes: habits.targetTimes, times: habits.times,
+                recurrenceRule: habits.recurrenceRule, createdAt: habits.createdAt, pausedUntil: habits.pausedUntil,
+                status: habitLogs.status, timeMarks: habitLogs.timeMarks,
             })
             .from(habits)
-            .innerJoin(habitLogs, eq(habitLogs.habitId, habits.id))
-            .where(and(eq(habits.userId, userId), eq(habits.archived, false), eq(habits.reminderEnabled, true), eq(habitLogs.targetDate, today), eq(habitLogs.status, "PENDING")));
-        const routines: ReminderHabit[] = habitRows.map(({ targetDate, status, ...habit }) => ({ ...habit, logs: [{ targetDate, status }] }));
+            .leftJoin(habitLogs, and(eq(habitLogs.habitId, habits.id), eq(habitLogs.targetDate, today)))
+            .where(and(eq(habits.userId, userId), eq(habits.archived, false), eq(habits.reminderEnabled, true)));
+        const routines: ReminderHabit[] = habitRows.flatMap(({ status, timeMarks, recurrenceRule, createdAt, pausedUntil, ...habit }) => {
+            const due = habitDays({ recurrenceRule, createdAt, pausedUntil }, new Map(), today, today, zone, today).length > 0;
+            return due ? [{ ...habit, logs: [{ targetDate: today, status: status ?? "PENDING", timeMarks }] }] : [];
+        });
 
         const personal = settings.calendar.personalEvents;
         const hour12 = settings.dateTime.timeDisplay !== "24h";

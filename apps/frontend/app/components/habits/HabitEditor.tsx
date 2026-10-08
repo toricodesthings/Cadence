@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import * as Popover from "../primitives/Popover";
 import { addDays, weekdayOf, type LocalDate } from "@cadence/domain/time";
-import { Archive, ArchiveRestore, Bell, CalendarClock, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock3, FolderOpen, ListChecks, Palette, Pause, Play, SlidersHorizontal, StickyNote, Tag, Target, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Bell, CalendarClock, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock3, FolderOpen, ListChecks, Repeat2, Palette, Pause, Play, SlidersHorizontal, StickyNote, Tag, Target, Trash2 } from "lucide-react";
 import type { Habit } from "@cadence/contracts/habit";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
 import { useRoutineActions } from "../../hooks/habits/use-routine-actions";
@@ -19,6 +19,7 @@ import { DayTimes } from "./DayTimes";
 import { RoutineDayCell } from "./RoutineDayCell";
 import { RoutineMonthGrid } from "./RoutineMonthGrid";
 import { RoutineStepChecklist, RoutineStepsEditor } from "./RoutineSteps";
+import { listTimes, nextTime, RoutineTimeChecklist, RoutineTimes } from "./RoutineTimes";
 import { logsByDay } from "./RoutineWeekRow";
 import { Button } from "../primitives/Button";
 import { Switch } from "../primitives/Switch";
@@ -107,7 +108,8 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
     const historyMonth = useRoutineInRange(habit, getMonthDateRange(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1), section === "history");
 
     const status = habit.archived ? "Archived" : actions.isPaused ? `Paused until ${formatShortDate(habit.pausedUntil!)}` : "Active";
-    const routineSummary = `${getTaskRecurrenceSummary({
+    const times = habit.times?.length ? habit.times : null;
+    const routineSummary = times ? `${habit.recurrenceRule === "FREQ=DAILY" ? "Every day" : "Repeats"} at ${listTimes(times)}` : `${getTaskRecurrenceSummary({
         recurrenceRule: habit.recurrenceRule,
         scheduledStart: habit.targetTime ? fromTimeValue(today, habit.targetTime) : null,
         scheduledEnd: null,
@@ -143,6 +145,12 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                             })}
                         </div>
                     )}
+                    {times && !habit.archived && weekLogs.get(today) ? (
+                        <div className="border-t border-twilight-border/30 pt-1">
+                            <p className="pt-2 text-xs font-medium text-twilight-text-soft">Today's times</p>
+                            <RoutineTimeChecklist habit={habit} date={today} log={weekLogs.get(today)} />
+                        </div>
+                    ) : null}
                     {habit.steps?.length && !habit.archived && weekLogs.get(today) ? (
                         <div className="border-t border-twilight-border/30 pt-1">
                             <p className="pt-2 text-xs font-medium text-twilight-text-soft">Today's steps</p>
@@ -172,8 +180,8 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                     </section>
                 </Reveal>
 
-                {section !== "steps" ? <PanelTrigger icon={ListChecks} title="Steps" summary={habit.steps?.length ? habit.steps.map((step) => step.title).join(" → ") : "Break it into a short sequence"} onOpen={() => setSection("steps")} /> : null}
-                <Reveal open={section === "steps"}>
+                {times ? null : section !== "steps" ? <PanelTrigger icon={ListChecks} title="Steps" summary={habit.steps?.length ? habit.steps.map((step) => step.title).join(" → ") : "Break it into a short sequence"} onOpen={() => setSection("steps")} /> : null}
+                <Reveal open={!times && section === "steps"}>
                     <section className={`${CARD} space-y-1 px-4 py-3`}>
                         <PanelHeader title="Steps" onDone={() => setSection(null)} />
                         <RoutineStepsEditor steps={habit.steps ?? []} onChange={(steps) => update({ steps })} />
@@ -181,27 +189,51 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                     </section>
                 </Reveal>
 
-                {section !== "details" ? <PanelTrigger icon={SlidersHorizontal} title="Details" summary={[status, habit.targetTime ? formatTime(fromTimeValue(today, habit.targetTime)) : null, habit.reminderEnabled ? "Reminder on" : null].filter(Boolean).join(" · ")} onOpen={() => setSection("details")} /> : null}
+                {section !== "details" ? <PanelTrigger icon={SlidersHorizontal} title="Details" summary={[status, times ? listTimes(times) : habit.targetTime ? formatTime(fromTimeValue(today, habit.targetTime)) : null, habit.reminderEnabled ? "Reminder on" : null].filter(Boolean).join(" · ")} onOpen={() => setSection("details")} /> : null}
                 <Reveal open={section === "details"}>
                     <section className={`${CARD} flex flex-col`}>
                         <div className="px-4 pb-1 pt-3"><PanelHeader title="Details" summary={status} onDone={() => setSection(null)} /></div>
 
                         <DetailGroup title="Rhythm">
                             <CadencePicker select value={habit.recurrenceRule} onChange={(recurrenceRule) => update({ recurrenceRule })} />
-                            <FieldRow icon={Clock3} label="Usual time">
-                                <TimePicker label="Routine usual time" value={habit.targetTime ?? ""} placeholder="Any time" clearable onChange={(value) => update({ targetTime: value || null })} className={VALUE_TIME} />
-                            </FieldRow>
-                            <FieldRow icon={CalendarClock} label="Times by day" hint="Different on some days">
+                            {times ? (
+                                <FieldBlock icon={Clock3} label="Times">
+                                    <RoutineTimes
+                                        times={times}
+                                        cadence={habit.recurrenceRule === "FREQ=DAILY" ? "Every day" : "Repeats"}
+                                        onChange={(next) => update(next.length > 1 ? { times: next } : { times: null, targetTime: next[0] ?? habit.targetTime })}
+                                    />
+                                </FieldBlock>
+                            ) : (
+                                <>
+                                <FieldRow icon={Clock3} label="Usual time">
+                                    <TimePicker label="Routine usual time" value={habit.targetTime ?? ""} placeholder="Any time" clearable onChange={(value) => update({ targetTime: value || null })} className={VALUE_TIME} />
+                                </FieldRow>
+                                <FieldRow icon={CalendarClock} label="Times by day" hint="Different on some days">
+                                    <Switch
+                                        checked={dayTimesOpen}
+                                        aria-label="Different times on some days"
+                                        onCheckedChange={(on) => {
+                                            setDayTimesOpen(on);
+                                            if (!on && habit.targetTimes) update({ targetTimes: null }); // off means one time every day
+                                        }}
+                                    />
+                                </FieldRow>
+                                {dayTimesOpen ? <div className="pb-2 pl-6"><DayTimes value={habit.targetTimes} usualTime={habit.targetTime} onChange={(targetTimes) => update({ targetTimes })} /></div> : null}
+                                </>
+                            )}
+                            <FieldRow icon={Repeat2} label="Several times a day" hint={habit.steps?.length && !times ? "Not with steps" : "Check off each time"}>
                                 <Switch
-                                    checked={dayTimesOpen}
-                                    aria-label="Different times on some days"
+                                    checked={Boolean(times)}
+                                    disabled={Boolean(habit.steps?.length) && !times}
+                                    aria-label="Several times a day"
                                     onCheckedChange={(on) => {
-                                        setDayTimesOpen(on);
-                                        if (!on && habit.targetTimes) update({ targetTimes: null }); // off means one time every day
+                                        // The usual time and times by day are kept underneath, so turning it off brings them back.
+                                        const first = habit.targetTime ?? "09:00";
+                                        update(on ? { times: [first, nextTime([first])] } : { times: null, targetTime: habit.targetTime ?? times?.[0] ?? null });
                                     }}
                                 />
                             </FieldRow>
-                            {dayTimesOpen ? <div className="pb-2 pl-6"><DayTimes value={habit.targetTimes} usualTime={habit.targetTime} onChange={(targetTimes) => update({ targetTimes })} /></div> : null}
                             <FieldRow icon={Bell} label="Reminder">
                                 <Switch checked={habit.reminderEnabled} aria-label="Routine reminder" onCheckedChange={(reminderEnabled) => update({ reminderEnabled })} />
                             </FieldRow>
@@ -234,7 +266,7 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                         <DetailGroup title="Kind">
                             <RepeatKindPicker
                                 value="routine"
-                                disabled={convertRepeat.isPending}
+                                disabled={convertRepeat.isPending || Boolean(times)}
                                 fixedUnavailableReason={habit.targetTime ? null : "Set a usual time to make it fixed."}
                                 onChange={(kind) => {
                                     if (kind === "routine") return;

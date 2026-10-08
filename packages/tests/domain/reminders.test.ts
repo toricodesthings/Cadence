@@ -32,6 +32,28 @@ describe("deriveReminders", () => {
         expect(Date.parse(r.triggerAt)).toBe(Date.parse("2026-10-07T18:00:00-04:00"));
         expect(Date.parse(r.alertAt!)).toBe(Date.parse("2026-10-07T17:30:00-04:00"));
     });
+
+    describe("routine at set times", () => {
+        const meds = (timeMarks: Record<string, { status: "COMPLETED" | "SKIPPED"; at: string }> | null) => ({
+            id: "h2", title: "Medication", archived: false, reminderEnabled: true, targetTime: null, targetTimes: null, times: ["08:00", "14:00", "20:00"],
+            logs: [{ targetDate: "2026-10-07", status: "PENDING", timeMarks }],
+        }) as ReminderHabit;
+
+        it("reminds each open time on its own, with its own id", () => {
+            const rs = derive([], "2026-10-07T13:00:00-04:00", [meds(null)]);
+            expect(rs.map((r) => r.id)).toEqual(["habit-reminder::h2::2026-10-07::14:00"]); // 20:00 is hours away
+        });
+
+        it("stops reminding a time once it is marked, and leaves the others", () => {
+            const marks = { "14:00": { status: "COMPLETED" as const, at: "2026-10-07T18:07:00.000Z" } };
+            const rs = derive([], "2026-10-07T15:00:00-04:00", [meds(marks)]);
+            expect(rs.map((r) => r.id)).not.toContain("habit-reminder::h2::2026-10-07::14:00");
+        });
+
+        it("reminds on an untouched day's virtual log, with no marks yet", () => {
+            expect(derive([], "2026-10-07T07:30:00-04:00", [meds(null)]).map((r) => r.id)).toContain("habit-reminder::h2::2026-10-07::08:00");
+        });
+    });
 });
 
 describe("reminder prefs", () => {

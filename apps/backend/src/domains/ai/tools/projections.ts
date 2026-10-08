@@ -149,6 +149,8 @@ export interface MinimalHabit {
     projectId?: string;
     tagIds?: string[];
     steps?: { id: string; title: string }[];
+    /** Set times each day, HH:MM (each checked off on its own); replaces targetTime and dayTimes. */
+    times?: string[];
     currentStreak: number;
     longestStreak: number;
     /** Share of the last 30 days' due days that were done (skipped days don't count), 0..1, 2dp; left out with none due. */
@@ -163,7 +165,7 @@ export interface MinimalHabit {
 export type HabitRow = Pick<
     HabitRecord,
     "id" | "title" | "recurrenceRule" | "currentStreak" | "longestStreak" | "archived" | "pausedUntil"
-> & Partial<Pick<HabitRecord, "emoji" | "targetTime" | "steps" | "targetTimes" | "colorAccent" | "projectId">> & { tagIds?: string[] };
+> & Partial<Pick<HabitRecord, "emoji" | "targetTime" | "steps" | "targetTimes" | "times" | "colorAccent" | "projectId">> & { tagIds?: string[] };
 
 /**
  * Project a routine. `recent` is its last 30 days before today (from `habitDays`):
@@ -179,8 +181,9 @@ export function toMinimalHabit(row: HabitRow, currentDate: string, recent?: { do
         title: row.title,
         emoji: row.emoji ?? undefined,
         recurrenceRule: row.recurrenceRule,
-        targetTime: row.targetTime || undefined,
-        dayTimes: row.targetTimes && Object.keys(row.targetTimes).length ? row.targetTimes : undefined,
+        targetTime: row.times?.length ? undefined : row.targetTime || undefined,
+        dayTimes: !row.times?.length && row.targetTimes && Object.keys(row.targetTimes).length ? row.targetTimes : undefined,
+        times: row.times?.length ? row.times : undefined,
         // "lantern" is the default colour, left out like other defaults.
         colorAccent: row.colorAccent && row.colorAccent !== "lantern" ? row.colorAccent : undefined,
         projectId: row.projectId ?? undefined,

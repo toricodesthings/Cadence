@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Bell, CalendarClock, Clock3, Flame, FolderOpen, ListChecks, Repeat, StickyNote, Tag } from "lucide-react";
+import { Bell, CalendarClock, Flame, FolderOpen, ListChecks, Repeat, StickyNote, Tag } from "lucide-react";
 import { toast } from "sonner";
-import { TimePicker } from "../primitives";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useCreateHabit } from "../../hooks/habits/use-create-habit";
 import { useProjects } from "../../hooks/projects/use-projects";
@@ -24,6 +23,7 @@ import { fromTimeValue } from "../../lib/utils/date-format";
 import { today } from "../../lib/utils/user-zone";
 import type { Habit, RoutineStep } from "@cadence/contracts/habit";
 import { RoutineStepsEditor } from "./RoutineSteps";
+import { RoutineTimes } from "./RoutineTimes";
 import { createHabitSchema } from "../../lib/validations/habit-schemas";
 
 const IDEAS = [
@@ -66,6 +66,9 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
     const [accepted, setAccepted] = useState<string[]>([]);
     const [literal, setLiteral] = useState(false);
     const [steps, setSteps] = useState<RoutineStep[] | null>(null);
+    // Two or more daily times (a routine at set times); one time stays the usual `targetTime`.
+    const [manyTimes, setManyTimes] = useState<string[] | null>(null);
+    const [reminderTouched, setReminderTouched] = useState(false);
 
     // What the user set by hand beats the words (a present key wins, even "none"); otherwise the words fill it.
     const touch = (field: DraftField) => setTouched((current) => new Set(current).add(field));
@@ -95,14 +98,22 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
     const projectId = touched.has("projectId") ? projectState : (nlp.fields.projectId ?? projectState);
     const tagIds = touched.has("tagIds") ? tagState : (nlp.fields.tagIds.length ? nlp.fields.tagIds : tagState);
     const setRecurrenceRule = (rule: string) => { setRuleState(rule); touch("recurrenceRule"); };
-    const setTargetTime = (time: string | null) => { setTimeState(time); touch("timeOfDay"); };
+    const setTargetTime = (time: string | null) => { setTimeState(time); setManyTimes(null); touch("timeOfDay"); };
+    const timeList = manyTimes ?? (targetTime ? [targetTime] : []);
+    const setTimeList = (list: string[]) => {
+        if (list.length < 2) return setTargetTime(list[0] ?? null);
+        setTimeState(list[0]);
+        setManyTimes(list);
+        touch("timeOfDay");
+        if (!reminderTouched) setReminderEnabled(true); // a routine at set times reminds at each one
+    };
     const setProjectId = (id: string | null) => { setProjectState(id); touch("projectId"); };
     const setTagIds = (update: string[] | ((prev: string[]) => string[])) => {
         setTagState(typeof update === "function" ? update(tagIds) : update);
         touch("tagIds");
     };
 
-    const isDirty = Boolean(title.trim() || emoji || colorAccent !== ROUTINE_DEFAULT_ACCENT || recurrenceRule !== "FREQ=DAILY" || targetTime || targetTimes || description.trim() || projectId || tagIds.length || steps);
+    const isDirty = Boolean(title.trim() || emoji || colorAccent !== ROUTINE_DEFAULT_ACCENT || recurrenceRule !== "FREQ=DAILY" || targetTime || manyTimes || targetTimes || description.trim() || projectId || tagIds.length || steps);
 
     const reset = () => {
         setTitle("");
@@ -116,6 +127,8 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
         setProjectState(null);
         setTagState([]);
         setSteps(null);
+        setManyTimes(null);
+        setReminderTouched(false);
         setTouched(new Set());
         setDismissed([]);
         setAccepted([]);
@@ -138,13 +151,14 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
             description: description.trim() || undefined,
             recurrenceRule: rule,
             colorAccent,
-            targetTime: time,
-            targetTimes,
+            targetTime: manyTimes ? null : time,
+            targetTimes: manyTimes ? undefined : targetTimes,
+            times: manyTimes ?? undefined,
             emoji,
             reminderEnabled: Boolean(time) && reminderEnabled,
             projectId: list,
             tagIds: tagged.length ? tagged : undefined,
-            steps: steps ?? undefined,
+            steps: manyTimes ? undefined : steps ?? undefined,
         });
         if (!parsed.success) {
             toast.error(parsed.error.issues[0]?.message ?? "Couldn't create routine");
@@ -164,6 +178,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
         scheduledEnd: null,
     });
     const subtitle = `${summary?.label ?? "Repeats"}${targetTime ? "" : ", any time"}`;
+    const cadence = recurrenceRule === "FREQ=DAILY" ? "Every day" : (summary?.label ?? "Repeats");
 
     const projectName = projects.find((project) => project.id === projectId)?.name;
     const moreSummary = [steps ? `${steps.length} step${steps.length > 1 ? "s" : ""}` : null, targetTimes ? "times by day" : null, projectName, tagIds.length ? `${tagIds.length} tag${tagIds.length > 1 ? "s" : ""}` : null, description.trim() ? "purpose" : null]
@@ -238,33 +253,33 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
                 <span className={FIELD_LABEL}>When</span>
                 <ComposerTabs
                     ariaLabel="When"
-                    options={[{ id: "any", label: "Any time" }, { id: "set", label: "At a set time" }]}
+                    options={[{ id: "any", label: "Any time" }, { id: "set", label: "At set times" }]}
                     value={targetTime ? "set" : "any"}
                     onChange={(next) => setTargetTime(next === "set" ? (targetTime ?? DEFAULT_TIME) : null)}
                 />
                 {targetTime ? (
                     <>
-                        <TimePicker value={targetTime} onChange={setTargetTime} icon={<Clock3 size={14} className="text-moonlit" />} />
+                        <RoutineTimes times={timeList} onChange={setTimeList} cadence={cadence} />
                         <ComposerToggle
                             icon={Bell}
                             label="Remind me"
-                            description="A nudge at this time. Missing it is fine."
+                            description={timeList.length > 1 ? "At each time." : "A nudge at this time."}
                             checked={reminderEnabled}
-                            onCheckedChange={setReminderEnabled}
-                            ariaLabel="Remind me at this time"
+                            onCheckedChange={(on) => { setReminderTouched(true); setReminderEnabled(on); }}
+                            ariaLabel={timeList.length > 1 ? "Remind me at each time" : "Remind me at this time"}
                         />
                     </>
                 ) : null}
             </div>
 
             <ComposerMore summary={moreSummary}>
-                <div role="group" aria-label="Steps">
+                {manyTimes ? null : <div role="group" aria-label="Steps">
                     <span className={`mb-1 flex items-center gap-1.5 ${FIELD_LABEL}`}>
                         <ListChecks size={12} aria-hidden="true" />
                         Steps
                     </span>
                     <RoutineStepsEditor steps={steps ?? []} onChange={setSteps} />
-                </div>
+                </div>}
 
                 <label className="block">
                     <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
@@ -280,13 +295,13 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
                     />
                 </label>
 
-                <div role="group" aria-label="Times by day">
+                {manyTimes ? null : <div role="group" aria-label="Times by day">
                     <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
                         <CalendarClock size={12} aria-hidden="true" />
                         Times by day
                     </span>
                     <DayTimes value={targetTimes} usualTime={targetTime} onChange={setTargetTimes} />
-                </div>
+                </div>}
 
                 <div>
                     {projects.length > 0 ? (

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useHabitsRange } from "./use-habits";
 import type { Task } from "@cadence/contracts/task";
-import { routineTimeOn } from "@cadence/domain/repeats";
+import { routineTimeOn, timeMarksOn } from "@cadence/domain/repeats";
 import type { LocalDate } from "@cadence/domain/time";
 import { fromTimeValue } from "../../lib/utils/date-format";
 
@@ -22,15 +22,19 @@ export function useVirtualHabitTasks(options: {
 
     return useMemo<Task[]>(() => {
         return rawHabits.flatMap((h) =>
-            h.logs?.filter(l => l.status !== "SKIPPED").map(l => {
-                const time = routineTimeOn(h, l.targetDate);
-                return {
-                    id: `habit-${h.id}--${l.targetDate}`,
+            h.logs?.flatMap((l) => {
+                // A routine at set times is one block per time that isn't skipped; otherwise one block, unless the day was skipped.
+                const marks = h.times?.length ? timeMarksOn(h.times, l) : null;
+                const slots = marks
+                    ? h.times!.filter((t) => marks[t]?.status !== "SKIPPED").map((t) => ({ time: t, complete: marks[t]?.status === "COMPLETED", suffix: `--${t}` }))
+                    : l.status === "SKIPPED" ? [] : [{ time: routineTimeOn(h, l.targetDate), complete: l.status === "COMPLETED", suffix: "" }];
+                return slots.map(({ time, complete, suffix }) => ({
+                    id: `habit-${h.id}--${l.targetDate}${suffix}`,
                     userId: h.userId,
                     projectId: h.projectId ?? null,
                     title: h.title,
                     content: h.description,
-                    state: l.status === "COMPLETED" ? "COMPLETE" : "ACTIVE",
+                    state: complete ? "COMPLETE" : "ACTIVE",
                     orderIndex: 0,
                     // A timed routine day is a timed block (its wall time on that day); an anytime day is all-day.
                     dueDate: time ? null : l.targetDate,
@@ -51,7 +55,7 @@ export function useVirtualHabitTasks(options: {
                     // Routine identity for schedule pills (`RoutineMark` + `routineTone`); not part of the Task contract.
                     habitEmoji: h.emoji,
                     habitColor: h.colorAccent,
-                } as VirtualHabitTask;
+                } as VirtualHabitTask));
             }) || []
         );
     }, [rawHabits]);

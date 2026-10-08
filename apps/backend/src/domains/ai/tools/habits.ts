@@ -10,8 +10,8 @@ import { safeExecute, clampLimit, once } from "./index";
 import { toMinimalHabit } from "./projections";
 import { routinesDue } from "./calendar";
 import { createHabit, deleteHabit, habitDays, moveHabit, resolveHabit, updateHabit } from "../../habits/habits.service";
-import { habitTargetTimesSchema, insertHabitSchema, MAX_ROUTINE_STEPS, routineStepSchema, stepStatusSchema } from "@cadence/contracts/habit";
-import { stepMarksOn } from "@cadence/domain/repeats";
+import { habitTargetTimesSchema, insertHabitSchema, MAX_ROUTINE_STEPS, routineStepSchema, routineTimesSchema, stepStatusSchema } from "@cadence/contracts/habit";
+import { stepMarksOn, timeMarksOn } from "@cadence/domain/repeats";
 import { addDays } from "@cadence/domain/time";
 import type { Tx } from "../../../types/db";
 
@@ -29,6 +29,7 @@ const routineFields = z.object({
     colorAccent: z.string().max(40).optional().describe("Colour token, e.g. 'lantern'."),
     dayTimes: habitTargetTimesSchema.nullable().optional()
         .describe("Weekday (MO..SU) → HH:MM where a day differs from targetTime; \"\" = any time that day; null = the same every day."),
+    times: routineTimesSchema.nullable().optional().describe("Several set times each day, HH:MM 24h (medication at 08:00, 14:00, 20:00); each is checked off on its own. Replaces targetTime and dayTimes; null = back to one usual time."),
     projectId: z.uuid().nullable().optional().describe("A list it belongs to; null = none."),
     tagIds: z.array(z.uuid()).max(20).optional().describe("Its tags (replaces them on change)."),
 });
@@ -41,7 +42,7 @@ type DayStatus = "done" | "skipped" | "missed" | "partial" | "open";
 /**
  * Each routine's due days in [from, to] with how each went, the way Routines
  * shows them (`habitDays`): done, skipped, missed (due, nothing logged, before
- * today), partial (some steps settled, the day not), or open (today, not yet).
+ * today), partial (some steps or times settled, the day not), or open (today, not yet).
  */
 async function routineDays(
     tx: Tx,
@@ -54,7 +55,7 @@ async function routineDays(
 ) {
     const logs = rows.length
         ? await tx
-              .select({ habitId: habitLogs.habitId, targetDate: habitLogs.targetDate, status: habitLogs.status, stepStatus: habitLogs.stepStatus })
+              .select({ habitId: habitLogs.habitId, targetDate: habitLogs.targetDate, status: habitLogs.status, stepStatus: habitLogs.stepStatus, timeMarks: habitLogs.timeMarks })
               .from(habitLogs)
               .where(and(eq(habitLogs.userId, userId), inArray(habitLogs.habitId, rows.map((row) => row.id)), gte(habitLogs.targetDate, from), lte(habitLogs.targetDate, to)))
         : [];
@@ -67,7 +68,7 @@ async function routineDays(
         const status: DayStatus = log?.status === "COMPLETED" ? "done"
             : log?.status === "SKIPPED" ? "skipped"
                 : date >= today ? "open"
-                    : log?.stepStatus && Object.keys(log.stepStatus).length ? "partial" : "missed";
+                    : Object.keys(log?.stepStatus ?? log?.timeMarks ?? {}).length ? "partial" : "missed";
         return { date, status };
     })]));
 }
@@ -83,6 +84,7 @@ const routineColumns = {
     colorAccent: habits.colorAccent,
     projectId: habits.projectId,
     steps: habits.steps,
+    times: habits.times,
     currentStreak: habits.currentStreak,
     longestStreak: habits.longestStreak,
     archived: habits.archived,
@@ -144,7 +146,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_habit_status_today: tool({
         description:
-            "Today's status (COMPLETED, SKIPPED or PENDING) for each routine due today, with each step's status for routines that have steps; paused ones are left out.",
+            "Today's status (COMPLETED, SKIPPED or PENDING) for each routine due today, with each step's status for routines that have steps and each time's for routines at set times; paused ones are left out.",
         inputSchema: z.object({}),
         execute: async () =>
             safeExecute("get_habit_status_today", userId, async () => {
@@ -160,6 +162,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                             createdAt: habits.createdAt,
                             pausedUntil: habits.pausedUntil,
                             steps: habits.steps,
+                            times: habits.times,
                         })
                         .from(habits)
                         .where(and(eq(habits.userId, userId), eq(habits.archived, false)))
@@ -167,7 +170,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .limit(50);
 
                     const logs = await tx
-                        .select({ habitId: habitLogs.habitId, status: habitLogs.status, stepStatus: habitLogs.stepStatus })
+                        .select({ habitId: habitLogs.habitId, status: habitLogs.status, stepStatus: habitLogs.stepStatus, timeMarks: habitLogs.timeMarks })
                         .from(habitLogs)
                         .where(
                             and(eq(habitLogs.userId, userId), eq(habitLogs.targetDate, today)),
@@ -175,6 +178,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                     const active = routinesDue(rows, today, today, today, ctx.timezone);
                     const byHabit = new Map(logs.map((l) => [l.habitId, l]));
                     const stepsOf = new Map(rows.map((r) => [r.id, r.steps ?? []]));
+                    const timesOf = new Map(rows.map((r) => [r.id, r.times ?? []]));
 
                     return {
                         date: today,
@@ -182,11 +186,14 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                             const log = byHabit.get(h.id);
                             const steps = stepsOf.get(h.id) ?? [];
                             const marks = stepMarksOn(steps.map((step) => step.id), log);
+                            const times = timesOf.get(h.id) ?? [];
+                            const timeMarks = timeMarksOn(times, log);
                             return {
                                 habitId: h.id,
                                 title: h.title,
                                 status: log?.status ?? "PENDING",
                                 steps: steps.length ? steps.map((step) => ({ id: step.id, title: step.title, status: marks[step.id] ?? "PENDING" })) : undefined,
+                                times: times.length ? times.map((time) => ({ time, status: timeMarks[time]?.status ?? "PENDING" })) : undefined,
                             };
                         }),
                     };
@@ -198,7 +205,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
     get_habit_history: tool({
         description:
             "How each routine went on its due days in a local date range (inclusive, through today, up to ~2 months): dates done, " +
-            "skipped, missed (due, nothing logged), partial (some steps settled) and open (today, not logged yet). " +
+            "skipped, missed (due, nothing logged), partial (some steps or times settled) and open (today, not logged yet). " +
             "Paused days and days before a routine existed aren't due. Archived routines only when asked.",
         inputSchema: z.object({
             start: z.iso.date().describe("First local day."),
@@ -248,11 +255,12 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
 
     // ── W ──────────────────────────────────────────────────────────────────
     log_habit: tool({
-        description: "Marks a routine done or skipped for a day (PENDING clears it), or, with `stepStatus`, the day's steps one by one: the day is done once every step is done or skipped. Returns the day's status and the routine's streak.",
+        description: "Marks a routine done or skipped for a day (PENDING clears it), or, with `stepStatus`, the day's steps one by one: the day is done once every step is done or skipped. A routine at set times is marked one `time` at a time. Returns the day's status and the routine's streak.",
         inputSchema: z.object({
             habitId: z.uuid(),
             status: z.enum(["COMPLETED", "SKIPPED", "PENDING"]).describe("The whole day. Ignored when stepStatus is sent."),
             targetDate: z.iso.date().describe("The local day."),
+            time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().describe("A routine at set times: the HH:MM to mark; only that time changes (status PENDING clears it). Required to mark such a routine."),
             stepStatus: stepStatusSchema.optional().describe("Step id → COMPLETED or SKIPPED, for every step settled that day; a step left out is open. Replaces the day's marks."),
         }),
         execute: async (input, { toolCallId }) =>

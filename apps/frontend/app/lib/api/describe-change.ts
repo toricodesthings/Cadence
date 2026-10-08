@@ -1,5 +1,5 @@
 import type { MutationOp } from "./offline-wal";
-import { formatShortDate } from "../utils/date-format";
+import { formatShortDate, formatWallTime } from "../utils/date-format";
 
 const quote = (text: string | undefined | null) => (text ? `“${text.length > 60 ? `${text.slice(0, 57)}…` : text}”` : "");
 const plural = (count: number, one: string) => `${count} ${one}${count === 1 ? "" : "s"}`;
@@ -37,7 +37,7 @@ export function describeChange(op: MutationOp, titleOf: (id: string) => string |
         case "create_habit": return `Add routine ${quote(String(op.payload.title ?? ""))}`;
         case "update_habit": return `Edit ${quote(titleOf(op.id)) || "a routine"}`;
         case "delete_habit": return `Delete ${quote(titleOf(op.id)) || "a routine"}`;
-        case "resolve_habit": return `Log ${quote(titleOf(op.id)) || "a routine"} for ${formatShortDate(op.payload.targetDate)}`;
+        case "resolve_habit": return `Log ${quote(titleOf(op.id)) || "a routine"} for ${formatShortDate(op.payload.targetDate)}${op.payload.time ? ` at ${formatWallTime(op.payload.time)}` : ""}`;
         case "upsert_note": return `Edit the note on ${task(op.taskId)}`;
         case "add_task_tag": return `Tag ${task(op.id)}`;
         case "remove_task_tag": return `Untag ${task(op.id)}`;

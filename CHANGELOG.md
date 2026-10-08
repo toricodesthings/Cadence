@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Routines can have several set times a day, each checked off on its own with its own reminder.
+
+### Fixed
+
+- Routine reminders now arrive on days you haven't touched the routine yet.
+
 ## [0.30.0] - 2026-10-08
 
 Cadence feels at home on Windows.

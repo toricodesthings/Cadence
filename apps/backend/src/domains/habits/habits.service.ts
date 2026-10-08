@@ -1,9 +1,9 @@
 import { and, eq, inArray, min, sql } from "drizzle-orm";
 import type { HabitRow, HabitLog, InsertHabit, ResolveHabitAction, UpdateHabit } from "@cadence/contracts/habit";
-import { habitOccurrences, isPausedOn, stepDayStatus } from "@cadence/domain/repeats";
+import { habitOccurrences, isPausedOn, applyTimeMark, stepDayStatus, timeDayStatus, timeMarksOn } from "@cadence/domain/repeats";
 import { addDays, dayOf, parseRecurrenceRule, todayIn, type LocalDate, type Zone } from "@cadence/domain/time";
 import { habits, habitLogs, habitTags } from "../../db/schema";
-import { assertNoConflict, throwIfNotFound } from "../../platform/errors";
+import { AppError, assertNoConflict, throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { userZone } from "../../platform/user-zone";
@@ -67,6 +67,7 @@ export function projectHabitRange(
             targetDate: dateKey,
             completedAt: existingLog?.completedAt || null,
             stepStatus: existingLog?.stepStatus ?? null,
+            timeMarks: existingLog?.timeMarks ?? null,
         }));
 
         // Compute window summary
@@ -246,6 +247,7 @@ export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: I
     }
 
     parseRecurrenceRule(body.recurrenceRule);
+    assertStepsOrTimes(body);
     await assertOwnership(tx, userId, { projectId: body.projectId, tagIds });
 
     const [row] = await insertWithClientId(() => tx
@@ -266,22 +268,28 @@ export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: I
  * totals and streaks in step. A routine with steps can send the day's step
  * marks instead: the status follows from them, and a partly done day is kept
  * as PENDING. A whole-day status clears the step marks (one tap, every step).
+ * A routine at set times takes one `time` at a time (with the `at` it happened):
+ * that time is merged into the day, and the day closes when no time is open.
+ * The routine row is locked first, so check-ins on it run one after another:
+ * two times logged at once on a day with no log both land, and totals never lose a count.
  */
 export async function resolveHabit(tx: Tx, userId: string, id: string, { targetDate, ...action }: ResolveHabitAction) {
     const [habit] = await tx
         .select()
         .from(habits)
-        .where(and(eq(habits.id, id), eq(habits.userId, userId)));
+        .where(and(eq(habits.id, id), eq(habits.userId, userId)))
+        .for("update");
 
     throwIfNotFound(habit, "Habit");
 
     const now = sql`NOW()`;
     const stepIds = (habit.steps ?? []).map((step) => step.id);
-    const { status, stepStatus } = stepIds.length && action.stepStatus
-        ? stepDayStatus(stepIds, action.stepStatus)
-        : { status: action.status, stepStatus: null };
+    const times = habit.times ?? [];
+    if (times.length && !action.time && action.status !== "PENDING") {
+        throw new AppError(400, "VALIDATION_ERROR", "This routine is checked off one time at a time; send the time.");
+    }
 
-    // Upsert by habitId + targetDate (unique constraint handles dedup)
+    // Upsert by habitId + targetDate (unique constraint handles dedup); the routine's lock makes this read current.
     const [existing] = await tx
         .select()
         .from(habitLogs)
@@ -293,17 +301,27 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
             )
         );
 
+    let timeMarks: NonNullable<typeof existing>["timeMarks"] = null;
+    let { status, stepStatus } = stepIds.length && action.stepStatus
+        ? stepDayStatus(stepIds, action.stepStatus)
+        : { status: action.status, stepStatus: null };
+    if (times.length) {
+        if (action.time && !times.includes(action.time)) throw new AppError(400, "VALIDATION_ERROR", "This routine has no such time.");
+        ({ status, timeMarks } = applyTimeMark(times, existing, { time: action.time, status: action.status, at: action.at ?? new Date().toISOString() }));
+        stepStatus = null;
+    }
+
     let row;
-    if (status === "PENDING" && !stepStatus) {
+    if (status === "PENDING" && !stepStatus && !timeMarks) {
         if (existing) {
             // Clearing a resolution — delete the log row to avoid noisy PENDING accumulation
             await tx.delete(habitLogs).where(eq(habitLogs.id, existing.id));
-            row = { ...existing, status: "PENDING" as const, completedAt: null, resolvedAt: null, stepStatus: null };
+            row = { ...existing, status: "PENDING" as const, completedAt: null, resolvedAt: null, stepStatus: null, timeMarks: null };
         } else {
-            row = { id: `virt_${targetDate}`, habitId: habit.id, userId, status: "PENDING" as const, targetDate: targetDate, completedAt: null, resolvedAt: null, stepStatus: null, createdAt: new Date().toISOString() };
+            row = { id: `virt_${targetDate}`, habitId: habit.id, userId, status: "PENDING" as const, targetDate: targetDate, completedAt: null, resolvedAt: null, stepStatus: null, timeMarks: null, createdAt: new Date().toISOString() };
         }
     } else {
-        const values = { status, stepStatus, completedAt: status === "COMPLETED" ? now : null, resolvedAt: now };
+        const values = { status, stepStatus, timeMarks, completedAt: status === "COMPLETED" ? now : null, resolvedAt: now };
         [row] = existing
             ? await tx.update(habitLogs).set(values).where(eq(habitLogs.id, existing.id)).returning()
             : await tx.insert(habitLogs).values({ userId, habitId: habit.id, targetDate: targetDate, ...values }).returning();
@@ -377,9 +395,23 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
 
 // ── Update ────────────────────────────────────────────────────────────
 
-/** Change a routine; `tagIds` replaces its tags. 404 when it isn't the caller's. */
+/** Steps and set times don't mix: each would check the day off its own way. */
+function assertStepsOrTimes({ steps, times }: { steps?: unknown[] | null; times?: unknown[] | null }) {
+    if (steps?.length && times?.length) throw new AppError(400, "VALIDATION_ERROR", "A routine has steps or set times, not both.");
+}
+
+/**
+ * Change a routine; `tagIds` replaces its tags. 404 when it isn't the caller's.
+ * Moving one set time (14:00 → 14:30) carries its marks to the new time on every
+ * day, and today's status is re-derived from the new times.
+ * ponytail: past days keep their stored status when a time is added or removed; recompute them if History confuses.
+ */
 export async function updateHabit(tx: Tx, userId: string, id: string, { expectedUpdatedAt, tagIds, ...body }: UpdateHabit) {
     if (body.recurrenceRule !== undefined) parseRecurrenceRule(body.recurrenceRule);
+    const before = body.times !== undefined || body.steps !== undefined
+        ? (await tx.select({ steps: habits.steps, times: habits.times }).from(habits).where(and(eq(habits.id, id), eq(habits.userId, userId))).for("update"))[0]
+        : undefined;
+    if (before) assertStepsOrTimes({ steps: body.steps !== undefined ? body.steps : before.steps, times: body.times !== undefined ? body.times : before.times });
     if (expectedUpdatedAt) {
         const [existing] = await tx
             .select({ updatedAt: habits.updatedAt })
@@ -408,7 +440,27 @@ export async function updateHabit(tx: Tx, userId: string, id: string, { expected
         }
     }
 
-    return row;
+    const oldTimes = before?.times ?? [];
+    const newTimes = row.times ?? [];
+    if (body.times === undefined || oldTimes.join() === newTimes.join()) return row;
+
+    const removed = oldTimes.filter((time) => !newTimes.includes(time));
+    const added = newTimes.filter((time) => !oldTimes.includes(time));
+    if (removed.length === 1 && added.length === 1) {
+        await tx.update(habitLogs)
+            .set({ timeMarks: sql`(${habitLogs.timeMarks} - ${removed[0]}::text) || jsonb_build_object(${added[0]}::text, ${habitLogs.timeMarks} -> ${removed[0]}::text)` })
+            .where(and(eq(habitLogs.habitId, id), eq(habitLogs.userId, userId), sql`jsonb_exists(${habitLogs.timeMarks}, ${removed[0]}::text)`));
+    }
+
+    // Today's day follows its new times: re-apply one of its marks (or clear an open time) so status, totals and streak are re-derived.
+    if (!newTimes.length) return row;
+    const today = todayIn(await userZone(tx, userId));
+    const [log] = await tx.select().from(habitLogs).where(and(eq(habitLogs.habitId, id), eq(habitLogs.targetDate, today)));
+    if (!log) return row;
+    const marks = timeMarksOn(newTimes, log);
+    if (timeDayStatus(newTimes, marks) === log.status) return row;
+    const [time, mark] = Object.entries(marks)[0] ?? [newTimes[0], undefined];
+    return (await resolveHabit(tx, userId, id, { targetDate: today, time, status: mark?.status ?? "PENDING", at: mark?.at ?? undefined })).habit;
 }
 
 /** Move a routine to `position` (1 = first) in the Routines order; past the end = last. */

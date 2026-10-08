@@ -44,7 +44,7 @@ const scheduleColumns = {
 
 /** Routines with the days they're due in [from, to], skipping paused days; none due → left out. */
 export function routinesDue(
-    rows: { id: string; title: string; recurrenceRule: string; targetTime: string | null; createdAt: string; pausedUntil: string | null }[],
+    rows: { id: string; title: string; recurrenceRule: string; targetTime: string | null; times?: string[] | null; createdAt: string; pausedUntil: string | null }[],
     from: string,
     to: string,
     today: string,
@@ -53,7 +53,8 @@ export function routinesDue(
     return rows.flatMap((row) => {
         const days = expandOccurrences(row.recurrenceRule, row.createdAt, from, to, timeZone)
             .filter((day) => !isPausedOn(row.pausedUntil, day, today));
-        return days.length ? [{ id: row.id, title: row.title, days, targetTime: row.targetTime }] : [];
+        // A routine at set times reports them instead of one usual time.
+        return days.length ? [{ id: row.id, title: row.title, days, ...(row.times?.length ? { times: row.times } : { targetTime: row.targetTime }) }] : [];
     });
 }
 
@@ -110,6 +111,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                             title: habits.title,
                             recurrenceRule: habits.recurrenceRule,
                             targetTime: habits.targetTime,
+                            times: habits.times,
                             createdAt: habits.createdAt,
                             pausedUntil: habits.pausedUntil,
                         })

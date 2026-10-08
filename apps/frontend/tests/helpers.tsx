@@ -34,7 +34,7 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
 export function makeHabit(overrides: Partial<Habit> = {}): Habit {
     return {
         id: "habit-1", userId: "user-1", title: "Habit", description: null, steps: null, notes: null,
-        recurrenceRule: "FREQ=DAILY", targetTime: null, targetTimes: null, reminderEnabled: false,
+        recurrenceRule: "FREQ=DAILY", targetTime: null, targetTimes: null, times: null, reminderEnabled: false,
         totalCompletions: 0, totalSkips: 0, currentStreak: 0, longestStreak: 0, colorAccent: "lantern",
         archived: false, emoji: null, projectId: null, sortOrder: 0, pausedUntil: null, logs: [],
         createdAt: "2026-03-09T00:00:00.000Z", updatedAt: "2026-03-09T00:00:00.000Z",

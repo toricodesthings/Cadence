@@ -2,9 +2,11 @@ import { useState, type CSSProperties } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown, Clock3 } from "lucide-react";
 import type { Habit } from "@cadence/contracts/habit";
-import { routineTimeOn } from "@cadence/domain/repeats";
-import { formatTime } from "../../lib/utils/date-format";
+import { nextOpenTime, routineTimeOn, timeMarksOn, timeProgress } from "@cadence/domain/repeats";
+import { wallTimeOf } from "@cadence/domain/time";
+import { formatWallTime } from "../../lib/utils/date-format";
 import { routineTone } from "../../lib/utils/habits";
+import { getUserZone } from "../../lib/utils/user-zone";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 import { AgendaRow } from "./AgendaRow";
@@ -113,8 +115,10 @@ export interface RoutineAgendaItem {
     /** "HH:mm" on that day, when the routine has one. */
     time: string | null;
     done: boolean;
-    /** "2/3" while a routine with steps is partly done. */
+    /** "2/3" while a routine with steps is partly done; "1 of 3 done" for a routine at set times. */
     progress: string | null;
+    /** A routine at set times: `time` is the next open one, and what checking in records. */
+    timed: boolean;
 }
 
 /** The routines due on `day` (skipped ones left out), timed first. */
@@ -123,7 +127,11 @@ export function routineAgendaItems(habits: Habit[], day: string): RoutineAgendaI
         .flatMap((habit) => {
             const log = habit.logs?.find((entry) => entry.targetDate === day);
             if (!log || log.status === "SKIPPED") return [];
-            return [{ habitId: habit.id, title: habit.title, emoji: habit.emoji ?? null, tone: routineTone(habit.colorAccent), time: routineTimeOn(habit, day), done: log.status === "COMPLETED", progress: stepProgress(habit, log) }];
+            const base = { habitId: habit.id, title: habit.title, emoji: habit.emoji ?? null, tone: routineTone(habit.colorAccent), done: log.status === "COMPLETED" };
+            if (!habit.times?.length) return [{ ...base, time: routineTimeOn(habit, day), progress: stepProgress(habit, log), timed: false }];
+            const marks = timeMarksOn(habit.times, log);
+            const { done, total } = timeProgress(habit.times, marks);
+            return [{ ...base, time: nextOpenTime(habit.times, marks, wallTimeOf(new Date(), getUserZone())) ?? habit.times.at(-1)!, progress: `${done} of ${total} done`, timed: true }];
         })
         .sort((a, b) => (a.time ?? "99:99").localeCompare(b.time ?? "99:99") || a.title.localeCompare(b.title));
 }
@@ -157,7 +165,7 @@ export function RoutineAgendaList({ items, day, animate = false, columns = false
             tone={item.tone}
             done={item.done}
             progress={item.progress}
-            timeLabel={item.time ? formatTime(`${day}T${item.time}:00`) : null}
+            timeLabel={item.time ? (item.timed && !item.done ? "Next at " : "") + formatWallTime(item.time) : null}
             onOpen={() => onOpen(item.habitId)}
             onComplete={() => onComplete(item)}
         />

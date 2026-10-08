@@ -9,6 +9,8 @@ import { isRoutinePaused, routineTone } from "../../lib/utils/habits";
 import { formatShortDateLabel } from "../../lib/utils/date-format";
 import { RoutineMark } from "./RoutineMark";
 import { RoutineStepChecklist, stepProgress } from "./RoutineSteps";
+import { RoutineTimeChecklist } from "./RoutineTimes";
+import { timeMarksOn, timeProgress } from "@cadence/domain/repeats";
 
 const LONG_PRESS_MS = 450;
 
@@ -29,7 +31,8 @@ const SM_HIT = "before:absolute before:-inset-[3px] before:rounded-full before:c
  * can't be logged yet. Click/tap toggles done (touch adds Undo); right-click or
  * long-press opens the day menu (Done · Skip · Clear, then the steps one by one
  * when the routine has them). A partly done day shows "2/3" (the date in month
- * grids) in the open look. Keys: Space toggles, S skips, E opens the routine.
+ * grids) in the open look. A routine at set times opens its time checklist
+ * instead: a whole-day tap would otherwise check off times that haven't come. Keys: Space toggles, S skips, E opens the routine.
  */
 export function RoutineDayCell({
     habit,
@@ -44,7 +47,7 @@ export function RoutineDayCell({
     gridPosition,
     onEdit,
 }: {
-    habit: Pick<Habit, "id" | "title" | "emoji" | "colorAccent" | "pausedUntil" | "steps">;
+    habit: Pick<Habit, "id" | "title" | "emoji" | "colorAccent" | "pausedUntil" | "steps" | "times">;
     date: string;
     log?: HabitLog;
     today: string;
@@ -87,7 +90,9 @@ export function RoutineDayCell({
         );
     }
 
+    const timed = Boolean(habit.times?.length);
     const set = (next: HabitStatus, undoable = isCoarsePointer) => {
+        if (timed) return setMenuOpen(true);
         const previous = status ?? "PENDING";
         if (next === previous && (next !== "PENDING" || !log.stepStatus)) return; // clearing still drops a partly done day's steps
         const previousSteps = log.stepStatus ?? undefined;
@@ -107,8 +112,9 @@ export function RoutineDayCell({
     };
 
     const isToday = date === today;
-    const progress = status === "PENDING" ? stepProgress(habit, log) : null;
-    const state = status === "COMPLETED" ? "done" : status === "SKIPPED" ? "skipped" : progress ? `${progress.replace("/", " of ")} steps` : isToday ? "open today" : "not logged";
+    const counts = timed ? timeProgress(habit.times!, timeMarksOn(habit.times!, log)) : null;
+    const progress = status !== "PENDING" ? null : counts ? (counts.total - counts.open > 0 ? `${counts.total - counts.open}/${counts.total}` : null) : stepProgress(habit, log);
+    const state = status === "COMPLETED" ? "done" : status === "SKIPPED" ? "skipped" : progress ? `${progress.replace("/", " of ")} ${timed ? "times" : "steps"}` : isToday ? "open today" : "not logged";
     const look = status === "COMPLETED"
         ? "border border-transparent bg-[color-mix(in_srgb,var(--routine-tone)_80%,transparent)] text-[var(--primary-foreground)]"
         : status === "SKIPPED"
@@ -184,7 +190,7 @@ export function RoutineDayCell({
             </Popover.Anchor>
             <Popover.Content side="top" align="center" style={style} className="w-auto p-2 [--glass-surface-tint:100%]" aria-label={`${habit.title}, ${dayLabel}`}>
                 <p className="px-2 pb-2 pt-1 text-xs font-medium text-twilight-text-soft">{dayLabel}</p>
-                <div className="flex gap-1.5">
+                {timed ? <div className="w-64"><RoutineTimeChecklist habit={habit} date={date} log={log} /></div> : <div className="flex gap-1.5">
                     {([
                         ["COMPLETED", "Done", Check],
                         ["SKIPPED", "Skip", X],
@@ -201,7 +207,7 @@ export function RoutineDayCell({
                             {text}
                         </button>
                     ))}
-                </div>
+                </div>}
                 {habit.steps?.length ? (
                     <div className="mt-2 w-64 border-t border-twilight-border/30 pt-1">
                         <RoutineStepChecklist habit={habit} date={date} log={log} />
