@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.29.7] - 2026-10-08
+
 ### Added
 
 - Alerts before timed calendar blocks, 10 minutes ahead (30 for Fixed blocks), both adjustable.
