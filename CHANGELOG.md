@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.29.9] - 2026-10-08
+
 ### Added
 
 - Choose the hour the Day and Week views open at, instead of always 7 AM.
