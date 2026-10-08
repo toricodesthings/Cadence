@@ -1319,6 +1319,13 @@ a:active {
   animation-play-state: paused !important;
 }
 
+/* A modal's backdrop blur is redrawn every frame anything beneath it moves, which pins the GPU
+   (WebView2 most of all). Hold the always-on loops still while a modal is open. */
+body:has(.layer-system-dialog, .layer-route-backdrop, .layer-room-sheet-backdrop) :is(.cadence-now-line-sheen, .cadence-now-live-chip, .cadence-diagonal-sheen, .weekly-reset-sway, .weekly-reset-drift),
+body:has(.layer-system-dialog, .layer-route-backdrop, .layer-room-sheet-backdrop) :is(.cadence-now-live-chip, .cadence-diagonal-sheen)::after {
+  animation-play-state: paused !important;
+}
+
 /* ── Skeleton Shimmer (for app/components/primitives/Skeleton.tsx) ── */
 @keyframes shimmer {
   100% {

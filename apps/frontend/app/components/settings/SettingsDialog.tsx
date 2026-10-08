@@ -38,7 +38,7 @@ export function SettingsDialog() {
     return (
         <Dialog open={!!activeTab} onOpenChange={(open) => !open && void handleClose()}>
             <DialogContent
-                className="block h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-none gap-0 overflow-hidden rounded-[2rem] p-0 outline-none lg:h-[95vh] lg:w-[min(96vw,1720px)] !translate-x-[-50%] !translate-y-[-50%] !left-[50%] !top-[50%]"
+                className="block !bg-panel-raised ![backdrop-filter:none] ![-webkit-backdrop-filter:none] h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-none gap-0 overflow-hidden rounded-[2rem] p-0 outline-none lg:h-[95vh] lg:w-[min(96vw,1720px)] !translate-x-[-50%] !translate-y-[-50%] !left-[50%] !top-[50%]"
                 style={{
                     width: "min(calc(100vw - 2rem), 1720px)",
                     maxWidth: "none",

@@ -190,7 +190,7 @@ export function ResponsiveOverlayPanel({
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className={`${layer === "room" ? "layer-room-sheet-backdrop" : "layer-route-backdrop"} fixed inset-0 bg-twilight-void/78 backdrop-blur-md`}
+                            className={`${layer === "room" ? "layer-room-sheet-backdrop" : "layer-route-backdrop"} fixed inset-0 bg-twilight-void/85`}
                             onClick={onClose}
                         />
 
