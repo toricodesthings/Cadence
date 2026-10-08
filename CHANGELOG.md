@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-08
+
 Cadence feels at home on Windows.
 
 ### Changed
