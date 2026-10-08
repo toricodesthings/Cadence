@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { hasNativeSaveAs, saveTextAs } from "../../../platform/desktop-shell";
 
 /** Copy and download for notes: the latest local text, always with a visible fallback. */
 
@@ -30,12 +31,21 @@ export function copyNote(text: string, done = "Note copied", failed = "Couldn’
     void copyText(text).then((ok) => toast[ok ? "success" : "error"](ok ? done : failed));
 }
 
+/** The app asks where to save (cancel changes nothing); a browser downloads. */
 export function downloadMarkdown(text: string, name: string) {
     const safe = name.trim().replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60) || "note";
+    if (!hasNativeSaveAs()) return browserDownload(text, `${safe}.md`);
+    void saveTextAs(`${safe}.md`, text).then(
+        (saved) => { if (saved) toast.success("Note saved"); },
+        () => toast.error("Couldn’t save the file. Your text is still here."),
+    );
+}
+
+function browserDownload(text: string, fileName: string) {
     const url = URL.createObjectURL(new Blob([text], { type: "text/markdown;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${safe}.md`;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     link.remove();

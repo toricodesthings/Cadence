@@ -6,6 +6,28 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Cadence feels at home on Windows.
+
+### Changed
+
+- On Windows, the title bar and menus now follow your Cadence theme.
+- On Windows, Cadence remembers its window size and position and can shrink to fit a Snap slot.
+- On Windows, starting at sign-in opens Cadence quietly in the tray when it runs in the background.
+- On Windows, Settings says when Windows didn't let Cadence start at sign-in.
+- Downloading a note in the desktop app now asks where to save it.
+
+### Added
+
+- On Windows, right-click Cadence on the taskbar for Quick Capture or your Schedule.
+- The tray menu has Quick Capture.
+- Settings › About has Reload fresh, for when something looks out of date. Unsynced changes stay safe.
+- Desktop updates show their download progress on the taskbar.
+
+### Fixed
+
+- The desktop app catches up on reminders and data after your computer wakes from sleep.
+- A saved desktop file damaged by a crash is restored from its last good copy.
+
 ## [0.29.9] - 2026-10-08
 
 ### Added

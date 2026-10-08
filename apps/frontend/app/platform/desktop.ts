@@ -1,4 +1,4 @@
-import { isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
@@ -17,7 +17,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import { load as loadStore } from "@tauri-apps/plugin-store";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, ProgressBarStatus } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { redirectlessAuthClient } from "../lib/auth-client";
 import { WEB_APP_BASE_URL } from "../lib/env";
@@ -274,6 +274,8 @@ function firstCadenceUrl(urls: Iterable<string>): URL | null {
     return null;
 }
 
+const restoredStores = new Set<string>();
+
 export const desktopRuntime = {
     target: "desktop" as const,
     async getNotificationPermission(): Promise<NotificationPermissionState> {
@@ -465,7 +467,23 @@ export const desktopRuntime = {
             date: update.date,
             body: update.body,
             install: async () => {
-                await update.downloadAndInstall();
+                // Download progress on the taskbar button; cleared on failure so it never sticks.
+                const win = getCurrentWindow();
+                let total = 0;
+                let received = 0;
+                try {
+                    await update.downloadAndInstall((event) => {
+                        if (event.event === "Started") total = event.data.contentLength ?? 0;
+                        else if (event.event === "Progress") received += event.data.chunkLength;
+                        const progress = total ? Math.min(100, Math.round((received / total) * 100)) : undefined;
+                        void win.setProgressBar(progress === undefined
+                            ? { status: ProgressBarStatus.Indeterminate }
+                            : { status: ProgressBarStatus.Normal, progress }).catch(() => undefined);
+                    });
+                } catch (error) {
+                    await win.setProgressBar({ status: ProgressBarStatus.None }).catch(() => undefined);
+                    throw error;
+                }
                 await relaunch();
             },
         };
@@ -475,18 +493,28 @@ export const desktopRuntime = {
             return null;
         }
 
+        // A torn write leaves the file unreadable: restore the last good copy before the first load.
+        // The query cache is rebuildable, so only protected stores pay for a snapshot after each save.
+        if (!restoredStores.has(storeName)) {
+            restoredStores.add(storeName);
+            await invoke("store_restore_if_corrupt", { name: storeName }).catch(() => undefined);
+        }
         const store = await loadStore(`${storeName}.dat`);
+        const save = async () => {
+            await store.save();
+            if (storeName !== "cadence_cache") await invoke("store_snapshot", { name: storeName }).catch(() => undefined);
+        };
         return {
             get: async <T>(key: string): Promise<T | undefined> => {
                 return (await store.get<T>(key)) ?? undefined;
             },
             set: async (key: string, value: any): Promise<void> => {
                 await store.set(key, value);
-                await store.save();
+                await save();
             },
             del: async (key: string): Promise<void> => {
                 await store.delete(key);
-                await store.save();
+                await save();
             }
         };
     },

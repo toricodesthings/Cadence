@@ -4,6 +4,7 @@ import { useAuthState } from "../auth/use-auth-state";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { resolveZone, setUserZone } from "../../lib/utils/user-zone";
 import { useSettings } from "./use-settings";
+import { WAKE_EVENT } from "./use-wake-refresh";
 
 /**
  * Keeps the app's zone and `users.time_zone` equal to the device's (or the zone Settings pins).
@@ -34,7 +35,9 @@ export function useZoneSync() {
         document.addEventListener("visibilitychange", onVisible);
         window.addEventListener("online", sync);
         window.addEventListener("focus", onVisible); // the desktop app resuming from sleep
+        window.addEventListener(WAKE_EVENT, onVisible); // ...or waking while hidden in the tray
         return () => {
+            window.removeEventListener(WAKE_EVENT, onVisible);
             document.removeEventListener("visibilitychange", onVisible);
             window.removeEventListener("online", sync);
             window.removeEventListener("focus", onVisible);

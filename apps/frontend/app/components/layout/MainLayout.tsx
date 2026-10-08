@@ -28,6 +28,7 @@ import { useSettings } from "../../hooks/core/use-settings";
 import { useNotificationCenter } from "../../hooks/notifications/use-notification-center";
 import { useBrowserNotifications } from "../../hooks/notifications/use-browser-notifications";
 import { useNotificationTapRouting } from "../../hooks/notifications/use-open-notification";
+import { useWakeRefresh } from "../../hooks/core/use-wake-refresh";
 import { useThemeSync } from "../../hooks/ui/use-theme-sync";
 import { useZoneSync } from "../../hooks/core/use-zone-sync";
 import { useViewMode } from "../../hooks/ui/use-view-mode";
@@ -54,6 +55,8 @@ import {
     openQuickCaptureWindow,
     readRememberedDesktopWorkspaceRoute,
     rememberDesktopWorkspaceRoute,
+    takeLaunchCommand,
+    type DesktopCommandPayload,
 } from "../../platform/desktop-shell";
 import { useDesktopCommandPreferences } from "../../hooks/ui/use-desktop-command-preferences";
 
@@ -409,6 +412,7 @@ export function MainLayout({
     // Sync appearance settings (theme, motion) to the DOM
     useThemeSync();
     useZoneSync();
+    useWakeRefresh();
 
 
     useEffect(() => {
@@ -471,7 +475,7 @@ export function MainLayout({
         let unlistenQuickCapture: (() => void) | undefined;
         let active = true;
 
-        void listenForDesktopCommands((payload) => {
+        const handleCommand = (payload: DesktopCommandPayload) => {
             if (!active) {
                 return;
             }
@@ -518,8 +522,13 @@ export function MainLayout({
                     void setLayoutScale(DESKTOP_LAYOUT_SCALE_DEFAULT);
                     break;
             }
-        }).then((dispose) => {
+        };
+
+        void listenForDesktopCommands(handleCommand).then(async (dispose) => {
             unlistenCommands = dispose;
+            // A Jump List launch that started Cadence: its command waited for this listener.
+            const pending = await takeLaunchCommand();
+            if (pending) handleCommand(pending);
         });
 
         void listenForQuickCaptureCompletions((payload) => {

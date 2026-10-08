@@ -3,6 +3,7 @@ import { useSettings } from "../core/use-settings";
 import { setDateFormatConfig, WEEK_START_INDEX } from "../../lib/utils/date-format";
 import { useDesktopLayoutScale } from "./use-desktop-layout-scale";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
+import { syncNativeWindowTheme } from "../../platform/desktop-shell";
 import { deriveCustomTokens, buildGradientCSS, gradientBaseHex } from "../../lib/themes/background-tokens";
 import { autoAccent, derivePhotoAccentTokens, derivePhotoTone } from "../../lib/themes/image-palette";
 import { GRADIENT_PRESETS } from "../../lib/themes/gradient-presets";
@@ -80,6 +81,12 @@ export function useThemeSync() {
         }
 
         apply(effectiveTheme as "twilight" | "daylight");
+    }, [effectiveTheme]);
+
+    // ── Native frame sync (desktop only; "system" follows Windows) ──
+    useEffect(() => {
+        if (!IS_DESKTOP_RUNTIME) return;
+        void syncNativeWindowTheme(effectiveTheme === "daylight" ? "daylight" : effectiveTheme === "system" ? "system" : "twilight");
     }, [effectiveTheme]);
 
     // ── Motion sync ──

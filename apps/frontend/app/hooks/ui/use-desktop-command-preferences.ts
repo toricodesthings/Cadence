@@ -115,8 +115,21 @@ async function updateDesktopCommandPreferences(patch: Partial<DesktopCommandPref
  */
 export async function setBackgroundDelivery(enabled: boolean) {
     await updateDesktopCommandPreferences({ backgroundDelivery: enabled });
-    const autostart = await import("@tauri-apps/plugin-autostart");
-    await (enabled ? autostart.enable() : autostart.disable()).catch(() => {});
+    return syncLoginLaunch(enabled);
+}
+
+/**
+ * Makes Windows' login item match the setting (re-registering also refreshes its launch flag).
+ * Resolves false when Windows refused, so the setting can say so instead of claiming success.
+ */
+export async function syncLoginLaunch(enabled: boolean): Promise<boolean> {
+    try {
+        const autostart = await import("@tauri-apps/plugin-autostart");
+        await (enabled ? autostart.enable() : autostart.disable());
+        return (await autostart.isEnabled()) === enabled;
+    } catch {
+        return false;
+    }
 }
 
 export function useDesktopCommandPreferences() {

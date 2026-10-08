@@ -24,6 +24,8 @@ async function readSaved(): Promise<PersistedClient | undefined> {
 }
 
 let early: Promise<PersistedClient | undefined> | undefined;
+// Set by a repair so a flush on the way out can't write the old snapshot back.
+let frozen = false;
 /**
  * Start reading the saved workspace at boot, alongside the session check, instead of
  * after it. The first restore takes this read; the buster still decides whether the
@@ -31,6 +33,25 @@ let early: Promise<PersistedClient | undefined> | undefined;
  */
 export function prefetchSavedWorkspace(): void {
     early ??= readSaved().catch(() => undefined);
+}
+
+/**
+ * Settings' repair: drop this device's saved copy of server data and reload, so everything is
+ * fetched fresh. Unsynced changes and note drafts live in the WAL, which this never touches.
+ */
+export async function repairWorkspaceCache(): Promise<void> {
+    frozen = true;
+    await serialize(async () => {
+        if (IS_DESKTOP_RUNTIME) {
+            const store = await getNativeStore("cadence_cache");
+            if (store) {
+                await store.del(IDB_KEY);
+                return;
+            }
+        }
+        await del(IDB_KEY);
+    });
+    window.location.reload();
 }
 
 export interface ManagedPersister extends Persister {
@@ -47,6 +68,7 @@ export function createIDBPersister(): ManagedPersister {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let pending: ReturnType<typeof Promise.withResolvers<void>> | undefined;
     const write = async (client: PersistedClient) => {
+        if (frozen) return;
         if (IS_DESKTOP_RUNTIME) {
             const store = await getNativeStore("cadence_cache");
             if (store) {

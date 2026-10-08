@@ -1,4 +1,4 @@
-import type React from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Switch, TimePicker } from "../../primitives";
 import { SegmentedControl } from "../../primitives/SegmentedControl";
 import { SEGMENT_ACTIVE, SEGMENT_IDLE } from "../../primitives/SegmentedControl";
@@ -12,7 +12,7 @@ import { cn } from "../../../lib/utils";
 import { getUserZone } from "../../../lib/utils/user-zone";
 import { formatShortDateTime } from "../../../lib/utils/date-format";
 import { isWindowsDesktop } from "../../../lib/notifications/device-delivery";
-import { setBackgroundDelivery, useDesktopCommandPreferences } from "../../../hooks/ui/use-desktop-command-preferences";
+import { setBackgroundDelivery, syncLoginLaunch, useDesktopCommandPreferences } from "../../../hooks/ui/use-desktop-command-preferences";
 
 type Notif = UserSettings["notifications"];
 
@@ -42,7 +42,7 @@ function MultiChips<T extends number>({ value, options, onChange, label }: {
     label: string;
 }) {
     return (
-        <div role="group" aria-label={label} className="flex flex-wrap gap-2" style={{ "--segment-tone": "var(--accent-primary)" } as React.CSSProperties}>
+        <div role="group" aria-label={label} className="flex flex-wrap gap-2" style={{ "--segment-tone": "var(--accent-primary)" } as CSSProperties}>
             {options.map(([n, text]) => {
                 const on = value.includes(n);
                 return (
@@ -73,6 +73,11 @@ export function NotificationsTab() {
     const notif: Notif = { ...SETTINGS_DEFAULTS.notifications, ...settings?.notifications };
     const set = (patch: Partial<Notif>) => updateSettings.mutate({ notifications: patch });
     const { preferences: desktopPrefs } = useDesktopCommandPreferences();
+    const [loginLaunchFailed, setLoginLaunchFailed] = useState(false);
+    // Windows' startup list can drift from the saved setting (turned off in Task Manager, an old registration).
+    useEffect(() => {
+        if (isWindowsDesktop() && desktopPrefs.backgroundDelivery) void syncLoginLaunch(true).then((ok) => setLoginLaunchFailed(!ok));
+    }, [desktopPrefs.backgroundDelivery]);
     const paused = !!notif.pausedUntil && Date.parse(notif.pausedUntil) > Date.now();
     const pauseFor = (hours: number) => set({ pausedUntil: new Date(Date.now() + hours * 3_600_000).toISOString() });
     const pauseUntilMorning = () => {
@@ -91,11 +96,14 @@ export function NotificationsTab() {
                 {isWindowsDesktop() && (
                     <SettingsRow
                         title="Keep running in the background"
-                        description="Reminders keep arriving after you close the window. Quit from the tray icon. Applies next launch."
+                        description={loginLaunchFailed
+                            ? "Windows didn't let Cadence start at sign-in, so reminders begin once you open it. The tray still works."
+                            : "Reminders keep arriving after you close the window. Quit from the tray icon. Applies next launch."}
                     >
                         <Switch
                             checked={desktopPrefs.backgroundDelivery}
-                            onCheckedChange={(val) => void setBackgroundDelivery(val)}
+                            aria-label="Keep running in the background"
+                            onCheckedChange={(val) => void setBackgroundDelivery(val).then((ok) => setLoginLaunchFailed(val && !ok))}
                         />
                     </SettingsRow>
                 )}

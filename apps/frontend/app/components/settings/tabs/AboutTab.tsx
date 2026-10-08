@@ -11,6 +11,7 @@ import { dayOfInstant, formatShortDateTime, formatTime } from "../../../lib/util
 import { today } from "../../../lib/utils/user-zone";
 import { checkForAppUpdate, IS_DESKTOP_RUNTIME } from "../../../platform/runtime";
 import { Reveal } from "../../shared/Reveal";
+import { repairWorkspaceCache } from "../../../lib/api/persister";
 import { publishAvailableDesktopUpdate, useAvailableDesktopUpdate, useLastUpdateCheck } from "../../../platform/desktop-update-state";
 
 const PILL = "inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-soft";
@@ -87,7 +88,34 @@ function DesktopUpdatePanel() {
                 )}
             </div>
             {update && dialogOpen && <UpdateDialog update={update} onClose={() => setDialogOpen(false)} />}
+            <RepairCache />
         </SettingsSection>
+    );
+}
+
+/** Tucked away: only for when something looks stale or wrong. Unsynced changes are never touched. */
+function RepairCache() {
+    const [repairing, setRepairing] = useState(false);
+    return (
+        <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm leading-relaxed text-twilight-text-soft">
+                Something look out of date? Reload everything fresh. Changes not yet synced stay safe.
+            </p>
+            <Button
+                variant="ghost"
+                size="md"
+                disabled={repairing}
+                onClick={() => {
+                    setRepairing(true);
+                    void repairWorkspaceCache().catch(() => {
+                        setRepairing(false);
+                        toast.error("Cadence couldn't clear its saved copy. Try again after a restart.");
+                    });
+                }}
+            >
+                {repairing ? "Reloading…" : "Reload fresh"}
+            </Button>
+        </div>
     );
 }
 

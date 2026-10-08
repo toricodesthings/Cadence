@@ -9,6 +9,9 @@
   "permissions": [
     "core:default",
     "core:webview:allow-create-webview-window",
+    "core:window:allow-set-theme",
+    "core:window:allow-set-progress-bar",
+    "window-state:default",
     "deep-link:default",
     "global-shortcut:default",
     "keyring:allow-set-secret",

@@ -6,6 +6,7 @@ import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
 import { createExternalStore } from "../../lib/utils/external-store";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
+import { WAKE_EVENT } from "../core/use-wake-refresh";
 import {
     canPush,
     deviceStatus,
@@ -197,9 +198,12 @@ export function useDeviceDeliverySync() {
         warmPlatformRuntime();
         void recheck();
         const onShow = () => { if (document.visibilityState === "visible") void recheck(); };
+        const onWake = () => void recheck();
         window.addEventListener("focus", onShow);
+        window.addEventListener(WAKE_EVENT, onWake);
         document.addEventListener("visibilitychange", onShow);
         return () => {
+            window.removeEventListener(WAKE_EVENT, onWake);
             window.removeEventListener("focus", onShow);
             document.removeEventListener("visibilitychange", onShow);
         };

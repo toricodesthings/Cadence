@@ -3,7 +3,7 @@ import {
     readDesktopSecureSecret,
     writeDesktopSecureSecret,
 } from "../platform/desktop-keyring";
-import { getDesktopStore, getWebStorage } from "../platform/runtime";
+import { getDesktopStore, getWebStorage, hasDesktopWindow } from "../platform/runtime";
 import { log } from "./log";
 
 const DESKTOP_AUTH_STORE_NAME = "cadence_auth";
@@ -163,6 +163,14 @@ export async function writeDesktopAuthSession(session: StoredDesktopAuthSession)
             log.error("desktop-auth", "Couldn't save your desktop sign-in securely.");
             throw new Error("Cadence could not persist the desktop auth session securely.");
         }
+    }
+
+    // Inside the app a failed native store must never downgrade the sign-in to browser storage;
+    // the fallback is only for the desktop build running in a plain browser (dev).
+    if (hasDesktopWindow()) {
+        memoryCache = null;
+        log.error("desktop-auth", "Couldn't save your desktop sign-in securely.");
+        throw new Error("Cadence could not persist the desktop auth session securely.");
     }
 
     getWebStorage()?.setItem(DESKTOP_AUTH_STORAGE_KEY, JSON.stringify(session));

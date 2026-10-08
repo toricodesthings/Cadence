@@ -9,6 +9,8 @@ on:
   pull_request:
     paths:
       - apps/desktop/**
+      - apps/frontend/app/platform/**
+      - apps/frontend/app/routes/desktop.*
       - pnpm-lock.yaml
       - .github/workflows/cadence-desktop.yml
   push:
@@ -16,6 +18,8 @@ on:
       - main
     paths:
       - apps/desktop/**
+      - apps/frontend/app/platform/**
+      - apps/frontend/app/routes/desktop.*
       - pnpm-lock.yaml
       - .github/workflows/cadence-desktop.yml
 

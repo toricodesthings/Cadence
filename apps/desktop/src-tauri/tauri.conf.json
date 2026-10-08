@@ -20,11 +20,12 @@
         "title": "Cadence",
         "width": 1440,
         "height": 960,
-        "minWidth": 1100,
-        "minHeight": 720,
+        "minWidth": 480,
+        "minHeight": 480,
         "resizable": true,
         "fullscreen": false,
-        "center": true
+        "center": true,
+        "visible": false
       }
     ],
     "security": {

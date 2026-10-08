@@ -60,6 +60,25 @@ export async function listenForDesktopCommands(handler: (payload: DesktopCommand
     });
 }
 
+/** The command a cold launch was started with (a Jump List task), handed over once. */
+export async function takeLaunchCommand(): Promise<DesktopCommandPayload | null> {
+    if (!hasDesktopWindow()) {
+        return null;
+    }
+
+    const { invoke } = await import("@tauri-apps/api/core");
+    return invoke<DesktopCommandPayload | null>("take_launch_command").catch(() => null);
+}
+
+/** Whether `saveTextAs` can ask where to save; a browser downloads instead. */
+export const hasNativeSaveAs = hasDesktopWindow;
+
+/** Native Save As in the app (Rust owns the dialog and the write): true saved, false cancelled. */
+export async function saveTextAs(fileName: string, contents: string): Promise<boolean> {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return invoke<boolean>("save_text_as", { fileName, contents });
+}
+
 export async function listenForQuickCaptureCompletions(handler: (payload: QuickCaptureCompletionPayload) => void) {
     if (!hasDesktopWindow()) {
         return () => undefined;
@@ -96,6 +115,20 @@ export async function readRememberedDesktopWorkspaceRoute() {
     }
 
     return getWebStorage()?.getItem(DESKTOP_LAST_ROUTE_FALLBACK_KEY) ?? null;
+}
+
+/**
+ * Tints the native frame (titlebar, caption buttons, menu) to match the app's resolved appearance.
+ * "system" hands control back to Windows. Every open window gets it, so Quick Capture matches too.
+ */
+export async function syncNativeWindowTheme(theme: "twilight" | "daylight" | "system") {
+    if (!hasDesktopWindow()) {
+        return;
+    }
+
+    const native = theme === "system" ? null : theme === "daylight" ? "light" : "dark";
+    const windows = await (await tauriWindow()).getAllWindows();
+    await Promise.all(windows.map((w) => w.setTheme(native).catch(() => undefined)));
 }
 
 export async function focusMainDesktopWindow() {
