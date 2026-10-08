@@ -3,7 +3,7 @@
 - [Profile & Security](?settings=account): name, email, password, two-factor, devices.
 - [Appearance](?settings=appearance): theme, accent, background, motion, density.
 - [Notifications](?settings=notifications): reminders and lead times for tasks, due dates, timed blocks, routines and yearly events; pause, quiet hours, my morning/evening; daily summary is upcoming.
-- [Calendar & Time](?settings=datetime): formats, timezone, first day of week, calendar view, holidays, personal events.
+- [Calendar & Time](?settings=datetime): time zone, time and date format, week start, default view, the hour Day and Week open at, and what shows on the calendar (task kinds, holidays, yearly events).
 - [Tasks & Workflow](?settings=tasks): task defaults, views, routine streaks, Quick Add, smart features.
 - [Keyboard Shortcuts](?settings=shortcuts): key bindings and navigation shortcuts.
 - [Cadence Assistant](?settings=assistant): the assistant's name, voice and behavior.

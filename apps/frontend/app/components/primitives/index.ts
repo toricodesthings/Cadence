@@ -24,3 +24,4 @@ export * from "./Switch";
 export * from "./Input";
 export * from "./TimePicker";
 export * as Select from "./Select";
+export * from "./SearchSelect";

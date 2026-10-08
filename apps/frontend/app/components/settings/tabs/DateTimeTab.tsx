@@ -1,17 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, type ReactNode } from "react";
 import { formatInZone } from "@cadence/domain/time";
 import { Link, useNavigate } from "react-router";
-import { Select, SelectContent, SelectItem, SelectSearch, SelectTrigger, SelectValue } from "../../primitives/Select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
+import { SearchSelect } from "../../primitives/SearchSelect";
 import { Switch } from "../../primitives";
+import { SegmentedControl, type SegmentedOption } from "../../primitives/SegmentedControl";
 import { Button } from "../../primitives/Button";
-import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
+import { SettingsSection, SettingsRow, SettingsList } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
-import { SETTINGS_DEFAULTS } from "../../../types/settings";
-import { useHolidayOverlay } from "../../../hooks/environment/use-holiday-overlay";
+import { SETTINGS_DEFAULTS, type DeepPartial, type UserSettings } from "../../../types/settings";
+import { HOLIDAY_SOURCE_LABELS, useHolidayOverlay } from "../../../hooks/environment/use-holiday-overlay";
 import { usePersonalEvents } from "../../../hooks/calendar/use-personal-events";
 import { useMinuteClock } from "../../../hooks/ui/use-realtime-clock";
 import { deviceZone, resolveZone, useToday } from "../../../lib/utils/user-zone";
-import { HolidayPreferencesPanel } from "../../calendar/HolidayControls";
+import { formatWallTime } from "../../../lib/utils/date-format";
 
 /** Every IANA zone the runtime knows, "UTC" first (some runtimes leave it out of the list). */
 function listZones(): string[] {
@@ -27,51 +29,50 @@ function zoneOffsetLabel(zone: string, atISO: string): string {
     return offset.replace("GMT", "UTC") || "UTC+0";
 }
 
-/** "device" follows the device; an IANA name pins the zone. A search box narrows the list; a live clock previews the choice. */
-function TimezonePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-    const [query, setQuery] = useState("");
-    const [open, setOpen] = useState(false);
-    const searchRef = useRef<HTMLInputElement>(null);
-    const zones = useMemo(listZones, []);
+/** "device" follows the device; an IANA name pins the zone. The row's description is a live clock in the chosen zone. */
+function TimezoneRow({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     const device = deviceZone();
     const now = useMinuteClock().toISOString(); // time-ok: the current instant, shown in the chosen zone
-    const needle = query.trim().toLowerCase().replace(/ /g, "_");
-    const matches = zones.filter((zone) => zone.toLowerCase().includes(needle) || zone === value);
+    const options = useMemo(() => listZones().map((zone) => ({ value: zone, label: `${zone.replace(/_/g, " ")} (${zoneOffsetLabel(zone, now)})` })), [now]);
+    const pinned = useMemo(() => [{ value: "device", label: `Device (${device}, ${zoneOffsetLabel(device, now)})` }], [device, now]);
     const preview = formatInZone(now, resolveZone(value), { weekday: "short", hour: "numeric", minute: "2-digit" });
 
-    // Radix focuses the selected item on open; steal focus back for the search box one frame later.
-    useEffect(() => {
-        if (!open) return;
-        const id = requestAnimationFrame(() => searchRef.current?.focus());
-        return () => cancelAnimationFrame(id);
-    }, [open]);
-
     return (
-        <div className="flex w-full flex-col gap-2 sm:max-w-[18rem]">
-            <Select value={value} onValueChange={onChange} open={open} onOpenChange={setOpen}>
-                <SelectTrigger aria-label="Time zone">
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectSearch
-                        ref={searchRef}
-                        aria-label="Search time zones"
-                        placeholder="Search time zones"
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
-                    />
-                    <SelectItem value="device">{`Device (${device}, ${zoneOffsetLabel(device, now)})`}</SelectItem>
-                    {matches.map((zone) => (
-                        <SelectItem key={zone} value={zone}>
-                            {`${zone.replace(/_/g, " ")} (${zoneOffsetLabel(zone, now)})`}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-            <p className="text-sm text-twilight-text-muted">Now: {preview}</p>
-        </div>
+        <SettingsRow title="Time zone" description={`Now: ${preview}`}>
+            <div className="w-full sm:max-w-[18rem]">
+                <SearchSelect value={value} onValueChange={onChange} options={options} pinned={pinned} ariaLabel="Time zone" searchLabel="Search time zones" />
+            </div>
+        </SettingsRow>
     );
 }
+
+type DateTime = UserSettings["dateTime"];
+type Calendar = UserSettings["calendar"];
+
+const TIME_DISPLAY: ReadonlyArray<SegmentedOption<DateTime["timeDisplay"]>> = [
+    { value: "12h", label: "12-hour" },
+    { value: "24h", label: "24-hour" },
+];
+const DATE_STYLE: ReadonlyArray<SegmentedOption<NonNullable<DateTime["dateStyle"]>>> = [
+    { value: "mdy", label: "MM/DD/YYYY" },
+    { value: "dmy", label: "DD/MM/YYYY" },
+    { value: "ymd", label: "YYYY-MM-DD" },
+];
+const WEEK_START: ReadonlyArray<SegmentedOption<DateTime["weekStart"]>> = [
+    { value: "Sunday", label: "Sun" },
+    { value: "Monday", label: "Mon" },
+    { value: "Saturday", label: "Sat" },
+];
+const VIEW: ReadonlyArray<SegmentedOption<NonNullable<Calendar["defaultView"]>>> = [
+    { value: "month", label: "Month" },
+    { value: "week", label: "Week" },
+    { value: "day", label: "Day" },
+];
+const HOURS = Array.from({ length: 24 }, (_, hour) => String(hour));
+
+const segment = <T extends string,>(label: string, value: T, options: ReadonlyArray<SegmentedOption<T>>, onChange: (value: T) => void) => (
+    <SegmentedControl ariaLabel={label} className="max-w-full" value={value} options={options} onChange={onChange} />
+);
 
 export function DateTimeTab() {
     const { data: settings } = useSettings();
@@ -84,236 +85,71 @@ export function DateTimeTab() {
         viewMode: "year",
         fetchOverlay: false,
     });
-
     const personalEvents = usePersonalEvents(currentYear);
 
-    const dtSettings = settings?.dateTime ?? SETTINGS_DEFAULTS.dateTime;
-    const calSettings = settings?.calendar ?? SETTINGS_DEFAULTS.calendar;
+    const dt: DateTime = { ...SETTINGS_DEFAULTS.dateTime, ...settings?.dateTime };
+    const cal = { ...SETTINGS_DEFAULTS.calendar, ...settings?.calendar };
+    const clutter = { ...SETTINGS_DEFAULTS.calendar.clutter, ...cal.clutter };
+    const setDate = (patch: DeepPartial<DateTime>) => updateSettings.mutate({ dateTime: patch });
+    const setCalendar = (patch: DeepPartial<Calendar>) => updateSettings.mutate({ calendar: patch });
+    const setClutter = (patch: DeepPartial<Calendar["clutter"]>) => setCalendar({ clutter: patch });
+
+    /** One line: title, an optional note, and a switch (with an extra button beside it). */
+    const toggle = (title: string, checked: boolean, onChange: (value: boolean) => void, note?: string, extra?: ReactNode) => (
+        <SettingsRow inline title={title} description={note}>
+            <div className="flex items-center gap-3">
+                {extra}
+                <Switch checked={checked} aria-label={title} onCheckedChange={onChange} />
+            </div>
+        </SettingsRow>
+    );
+
+    const regionNote = `${holidayOverlay.regionLabel ?? "Region unknown"}${holidayOverlay.source ? ` · ${HOLIDAY_SOURCE_LABELS[holidayOverlay.source]}` : ""}`;
+    const eventCount = personalEvents.items.length;
 
     return (
         <div className="flex flex-col gap-10">
             <h2 className="mb-2 text-2xl font-bold text-twilight-text">Calendar & Time</h2>
 
-            <SettingsSection title="Formats">
-                <SettingsRow
-                    title="Date format"
-                    description="Choose the order Cadence uses when displaying dates."
-                >
-                    <div className="w-full sm:max-w-[18rem]">
-                        <Select
-                            value={dtSettings.dateStyle}
-                            onValueChange={(val) =>
-                                updateSettings.mutate({ dateTime: { dateStyle: val as any } })
-                            }
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="mdy">MM/DD/YYYY</SelectItem>
-                                <SelectItem value="dmy">DD/MM/YYYY</SelectItem>
-                                <SelectItem value="ymd">YYYY-MM-DD</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Time display"
-                    description="Choose 12-hour or 24-hour time notation."
-                >
-                    <div className="w-full sm:max-w-[18rem]">
-                        <Select
-                            value={dtSettings.timeDisplay}
-                            onValueChange={(val) =>
-                                updateSettings.mutate({ dateTime: { timeDisplay: val as any } })
-                            }
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="12h">12-hour (1:00 PM)</SelectItem>
-                                <SelectItem value="24h">24-hour (13:00)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </SettingsRow>
+            <SettingsSection title="Region & format">
+                <SettingsList>
+                    <TimezoneRow value={dt.timezone} onChange={(timezone) => setDate({ timezone })} />
+                    <SettingsRow title="Time">{segment("Time format", dt.timeDisplay, TIME_DISPLAY, (timeDisplay) => setDate({ timeDisplay }))}</SettingsRow>
+                    <SettingsRow title="Date">{segment("Date format", dt.dateStyle ?? "mdy", DATE_STYLE, (dateStyle) => setDate({ dateStyle }))}</SettingsRow>
+                    <SettingsRow title="Week starts">{segment("First day of the week", dt.weekStart, WEEK_START, (weekStart) => setDate({ weekStart }))}</SettingsRow>
+                </SettingsList>
             </SettingsSection>
 
-            <SettingsSection title="Timezone">
-                <SettingsRow
-                    title="Timezone"
-                    description="Follow your device's time zone as you travel, or pin one."
-                >
-                    <TimezonePicker value={dtSettings.timezone} onChange={(timezone) => updateSettings.mutate({ dateTime: { timezone } })} />
-                </SettingsRow>
-            </SettingsSection>
-
-            <SettingsSection title="Calendar layout">
-                <SettingsRow
-                    title="First day of week"
-                    description="Sets the starting day for calendar grids and weekly planners."
-                >
-                    <div className="w-full sm:max-w-[18rem]">
-                        <Select
-                            value={dtSettings.weekStart}
-                            onValueChange={(val) =>
-                                updateSettings.mutate({ dateTime: { weekStart: val as any } })
-                            }
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Sunday">Sunday</SelectItem>
-                                <SelectItem value="Monday">Monday</SelectItem>
-                                <SelectItem value="Saturday">Saturday</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Default calendar view"
-                    description="The view Cadence opens to when you visit the calendar."
-                >
-                    <div className="w-full sm:max-w-[18rem]">
-                        <Select
-                            value={calSettings.defaultView}
-                            onValueChange={(val) =>
-                                updateSettings.mutate({ calendar: { defaultView: val as any } })
-                            }
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="month">Month</SelectItem>
-                                <SelectItem value="week">Week</SelectItem>
-                                <SelectItem value="day">Day</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Show week numbers"
-                    description="Display ISO week numbers along the edge of the calendar."
-                >
-                    <Switch
-                        checked={calSettings.showWeekNumbers}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ calendar: { showWeekNumbers: val } })
-                        }
-                    />
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Show weekends"
-                    description="Toggle Saturday and Sunday columns in the calendar grid."
-                >
-                    <Switch
-                        checked={calSettings.showWeekends}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ calendar: { showWeekends: val } })
-                        }
-                    />
-                </SettingsRow>
-            </SettingsSection>
-
-            <SettingsSection title="Calendar clutter controls">
-                <SettingsRow
-                    title="Show all-day tasks"
-                    description="Keep floating tasks visible at the top of the planner."
-                >
-                    <Switch
-                        checked={calSettings.clutter?.showAllDay ?? true}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ calendar: { clutter: { showAllDay: val } } })
-                        }
-                    />
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Show timed task blocks"
-                    description="Display scheduled task blocks inside day and week timelines."
-                >
-                    <Switch
-                        checked={calSettings.clutter?.showTimedTasks ?? true}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ calendar: { clutter: { showTimedTasks: val } } })
-                        }
-                    />
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Show fixed blocks"
-                    description="Classes, shifts and other times you're committed to."
-                >
-                    <Switch
-                        checked={calSettings.clutter?.showFixed ?? true}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ calendar: { clutter: { showFixed: val } } })
-                        }
-                    />
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Show routine markers"
-                    description="Show routines alongside scheduled work."
-                >
-                    <Switch
-                        checked={calSettings.clutter?.showHabitAnchors ?? true}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ calendar: { clutter: { showHabitAnchors: val } } })
-                        }
-                    />
-                </SettingsRow>
-            </SettingsSection>
-
-            <SettingsSection title="Holiday overlay">
-                <SettingsRow
-                    title="Location-aware holidays"
-                    description="Overlay public holidays on the calendar. The region follows your location setting."
-                    className="items-stretch"
-                >
-                    <div className="w-full sm:min-w-[22rem]">
-                        <HolidayPreferencesPanel
-                            enabled={holidayOverlay.enabled}
-                            regionLabel={holidayOverlay.regionLabel}
-                            source={holidayOverlay.source}
-                            onEnabledChange={holidayOverlay.setEnabled}
-                            onOpenLocationSettings={() => navigate("?settings=location")}
-                        />
-                    </div>
-                </SettingsRow>
-            </SettingsSection>
-
-            <SettingsSection title="Personal events">
-                <SettingsRow
-                    title="Yearly recurring events"
-                    description="Control whether personal events appear in Schedule, then manage the event cards from the dedicated Personal Events page."
-                    className="items-stretch"
-                >
-                    <div className="w-full space-y-3">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-twilight-text-soft">Visible in Schedule</span>
-                            <Switch
-                                checked={personalEvents.enabled}
-                                onCheckedChange={personalEvents.setEnabled}
-                            />
+            <SettingsSection title="Calendar">
+                <SettingsList>
+                    <SettingsRow title="Opens in">{segment("Default calendar view", cal.defaultView ?? "month", VIEW, (defaultView) => setCalendar({ defaultView }))}</SettingsRow>
+                    <SettingsRow title="Day and week open at">
+                        <div className="w-full sm:max-w-[10rem]">
+                            <Select value={String(cal.timelineStartHour ?? 7)} onValueChange={(hour) => setCalendar({ timelineStartHour: Number(hour) })}>
+                                <SelectTrigger aria-label="Hour the day and week views open at"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {HOURS.map((hour) => <SelectItem key={hour} value={hour}>{formatWallTime(`${hour.padStart(2, "0")}:00`)}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </div>
-                        <p className="text-sm leading-relaxed text-twilight-text-muted">
-                            {personalEvents.items.length > 0
-                                ? `${personalEvents.items.length} yearly ${personalEvents.items.length === 1 ? "event is" : "events are"} in your library.`
-                                : "Your yearly event library lives on the dedicated Events page."}
-                        </p>
-                        <Button asChild variant="ghost" size="md" className="justify-start rounded-2xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.05]">
-                            <Link to="/events">Manage events</Link>
-                        </Button>
-                    </div>
-                </SettingsRow>
+                    </SettingsRow>
+                    {toggle("Week numbers", cal.showWeekNumbers ?? false, (showWeekNumbers) => setCalendar({ showWeekNumbers }))}
+                    {toggle("Weekends", cal.showWeekends ?? true, (showWeekends) => setCalendar({ showWeekends }))}
+                </SettingsList>
+            </SettingsSection>
+
+            <SettingsSection title="Show on calendar">
+                <SettingsList>
+                    {toggle("All-day tasks", clutter.showAllDay ?? true, (showAllDay) => setClutter({ showAllDay }))}
+                    {toggle("Timed blocks", clutter.showTimedTasks ?? true, (showTimedTasks) => setClutter({ showTimedTasks }))}
+                    {toggle("Fixed blocks", clutter.showFixed ?? true, (showFixed) => setClutter({ showFixed }))}
+                    {toggle("Routines", clutter.showHabitAnchors ?? true, (showHabitAnchors) => setClutter({ showHabitAnchors }))}
+                    {toggle("Holidays", holidayOverlay.enabled, holidayOverlay.setEnabled, regionNote,
+                        <Button variant="ghost" size="sm" aria-label="Change holiday region" onClick={() => navigate("?settings=location")}>Change</Button>)}
+                    {toggle("Yearly events", personalEvents.enabled, personalEvents.setEnabled,
+                        eventCount > 0 ? `${eventCount} in your library` : "None yet",
+                        <Button asChild variant="ghost" size="sm"><Link to="/events">Manage</Link></Button>)}
+                </SettingsList>
             </SettingsSection>
         </div>
     );

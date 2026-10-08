@@ -1136,6 +1136,7 @@ export default function Schedule() {
                                                 onResizeTask={handleResizeTask}
                                                 onGridClick={handleGridClick}
                                                 onJumpToDay={(dateStr) => { setCurrentDate(dateStr); setViewMode("day"); }}
+                                                startHour={userSettings?.calendar?.timelineStartHour}
                                             />
                                     )}
 
@@ -1170,6 +1171,7 @@ export default function Schedule() {
                                                 onArchiveTask={handleArchiveTask}
                                                 onResizeTask={handleResizeTask}
                                                 onGridClick={handleGridClick}
+                                                startHour={userSettings?.calendar?.timelineStartHour}
                                             />
                                         )
                                     )}

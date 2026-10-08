@@ -16,6 +16,14 @@ import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 /** Where the holiday region came from, shown next to it in settings. */
 export type HolidayRegionSource = "precise" | "approximate" | "manual" | "timezone" | "locale";
 
+export const HOLIDAY_SOURCE_LABELS: Record<HolidayRegionSource, string> = {
+    precise: "from your precise location",
+    approximate: "from your approximate location",
+    manual: "chosen by you",
+    timezone: "from your time zone",
+    locale: "from your language settings",
+};
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function getBrowserTimeZone() {

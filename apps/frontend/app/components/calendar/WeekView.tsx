@@ -218,6 +218,8 @@ export interface WeekViewProps {
     onGridClick?: (info: CalendarEventInfo) => void;
     /** Callback to switch to day view for a specific date */
     onJumpToDay?: (dateStr: string) => void;
+    /** The hour the timeline opens scrolled to. */
+    startHour?: number;
 }
 
 export function WeekView({
@@ -234,16 +236,17 @@ export function WeekView({
     onResizeTask,
     onGridClick,
     onJumpToDay,
+    startHour = 7,
 }: WeekViewProps) {
     const todayStr = useToday();
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Scroll to 7 AM on mount
+    // Open at the user's chosen hour (7 AM by default)
     useEffect(() => {
         if (scrollRef.current) {
-            scrollRef.current.scrollTop = 7 * HOUR_HEIGHT;
+            scrollRef.current.scrollTop = startHour * HOUR_HEIGHT;
         }
-    }, []);
+    }, [startHour]);
 
     // Split tasks into all-day and timed
     const allDayByDate = useMemo(() => {

@@ -202,6 +202,8 @@ export interface DayViewProps {
     onResizeTask?: (id: string, durationMinutes: number) => void;
     /** Callback when user clicks an empty grid cell (opens event popover) */
     onGridClick?: (info: CalendarEventInfo) => void;
+    /** The hour the timeline opens scrolled to. */
+    startHour?: number;
 }
 
 /** Chips size to their words and wrap; two rows show, the rest sit behind "+N more". */
@@ -299,16 +301,17 @@ export function DayView({
     onArchiveTask,
     onResizeTask,
     onGridClick,
+    startHour = 7,
 }: DayViewProps) {
     const isToday = currentDate === useToday();
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Scroll to 7 AM on mount
+    // Open at the user's chosen hour (7 AM by default)
     useEffect(() => {
         if (scrollRef.current) {
-            scrollRef.current.scrollTop = 7 * HOUR_HEIGHT;
+            scrollRef.current.scrollTop = startHour * HOUR_HEIGHT;
         }
-    }, [currentDate]);
+    }, [currentDate, startHour]);
 
     const { allDay, timed } = useMemo(() => {
         return {

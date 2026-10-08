@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { formatShortDateTime } from "../../../lib/utils/date-format";
 import { useToday } from "../../../lib/utils/user-zone";
 import { ExternalLink } from "../../shared/ExternalLink";
@@ -9,13 +9,12 @@ import { Compass, EyeOff, LocateFixed, MapPin, Search, SlidersHorizontal, type L
 import type { CityResult } from "@cadence/contracts/proxy";
 import type { LocationMode } from "@cadence/contracts/settings";
 import { Button, Input, Switch } from "../../primitives";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
-import { SettingsRow, SettingsSection } from "../layout/SettingsLayout";
-import { HOLIDAY_SOURCE_LABELS } from "../../calendar/HolidayControls";
+import { SearchSelect } from "../../primitives/SearchSelect";
+import { SettingsList, SettingsRow, SettingsSection } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { useApiClient } from "../../../hooks/auth/use-api-client";
 import { useUserLocation, type LocationSource, type ResolvedPlace } from "../../../hooks/environment/use-user-location";
-import { useHolidayOverlay } from "../../../hooks/environment/use-holiday-overlay";
+import { HOLIDAY_SOURCE_LABELS, useHolidayOverlay } from "../../../hooks/environment/use-holiday-overlay";
 import { fetchHolidayCountries, fetchHolidaySubdivisions } from "../../../lib/holidays/provider";
 import { getCountryLabel, getPreferredLocale } from "../../../lib/holidays/location-resolver";
 import { unwrapResponse } from "../../../lib/api/helpers";
@@ -31,25 +30,25 @@ const MODE_OPTIONS: Array<{ mode: LocationMode; label: string; description: stri
     {
         mode: "approximate",
         label: "Approximate",
-        description: "Estimated from your network connection. Close enough for weather and regional holidays, with no permission prompt.",
+        description: "From your network. No prompt.",
         icon: Compass,
     },
     {
         mode: "precise",
         label: "Precise",
-        description: "Uses your device's location services. Your browser asks for permission once.",
+        description: "From your device. Asks once.",
         icon: LocateFixed,
     },
     {
         mode: "manual",
         label: "Choose myself",
-        description: "Pick your country, region, and city. Nothing is looked up automatically.",
+        description: "Pick country, region and city.",
         icon: SlidersHorizontal,
     },
     {
         mode: "off",
         label: "Off",
-        description: "No location at all. Weather is hidden and holidays follow your time zone.",
+        description: "No weather. Holidays follow your time zone.",
         icon: EyeOff,
     },
 ];
@@ -83,9 +82,9 @@ export function LocationTab() {
     });
     const weatherEnabled = settings?.weather?.enabled ?? true;
 
-    const holidayDescription = holidays.regionLabel && holidays.source
-        ? `${holidays.regionLabel}, ${HOLIDAY_SOURCE_LABELS[holidays.source]}.`
-        : "Public holidays as quiet markers in the calendar.";
+    const holidayNote = holidays.regionLabel && holidays.source
+        ? `${holidays.regionLabel} · ${HOLIDAY_SOURCE_LABELS[holidays.source]}`
+        : undefined;
 
     const handleForget = () => {
         location.forgetLocation();
@@ -94,60 +93,45 @@ export function LocationTab() {
 
     return (
         <div className="flex flex-col gap-10">
-            <div>
-                <h2 className="mb-2 text-2xl font-bold text-twilight-text">Location & Weather</h2>
-                <p className="text-sm leading-relaxed text-twilight-text-soft">
-                    Cadence uses your location for two things: the weather on Capture and the public holidays on your
-                    calendar. Choose how much it knows, or turn it off.
-                </p>
-            </div>
+            <h2 className="mb-2 text-2xl font-bold text-twilight-text">Location & Weather</h2>
 
             <SettingsSection title="How Cadence finds you">
                 <ModePicker location={location} />
-                <CurrentLocation location={location} locale={locale} subdivisionFallback={holidays.subdivisionLabel} />
-                {location.mode === "manual" ? (
-                    <ManualLocationEditor location={location} locale={locale} year={year} />
-                ) : null}
+                <LocationCard location={location} locale={locale} subdivisionFallback={holidays.subdivisionLabel} year={year} />
             </SettingsSection>
 
             <SettingsSection title="Used for">
-                <SettingsRow
-                    title="Weather"
-                    description={location.mode === "off"
-                        ? "Hidden while location is off."
-                        : "Current temperature and conditions next to the date on Home."}
-                >
-                    <Switch
-                        checked={weatherEnabled}
-                        onCheckedChange={(enabled) => updateSettings.mutate({ weather: { enabled } })}
-                        aria-label="Show weather"
-                    />
-                </SettingsRow>
-                <SettingsRow title="Holidays" description={holidayDescription}>
-                    <Switch
-                        checked={holidays.enabled}
-                        onCheckedChange={holidays.setEnabled}
-                        aria-label="Show holidays"
-                    />
-                </SettingsRow>
+                <SettingsList>
+                    <SettingsRow inline title="Weather" description={location.mode === "off" ? "Hidden while location is off" : undefined}>
+                        <Switch
+                            checked={weatherEnabled}
+                            onCheckedChange={(enabled) => updateSettings.mutate({ weather: { enabled } })}
+                            aria-label="Show weather"
+                        />
+                    </SettingsRow>
+                    <SettingsRow inline title="Holidays" description={holidayNote}>
+                        <Switch
+                            checked={holidays.enabled}
+                            onCheckedChange={holidays.setEnabled}
+                            aria-label="Show holidays"
+                        />
+                    </SettingsRow>
+                </SettingsList>
             </SettingsSection>
 
-            <SettingsSection title="What's shared">
-                <div className="flex flex-col gap-3 rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-4 text-sm leading-relaxed text-twilight-text-soft">
-                    <p>
-                        Coordinates are rounded to about 1 km before they leave your device. Cadence uses them to fetch
-                        weather from Open-Meteo and, for precise location, to name your region through OpenStreetMap.
-                        A precise position stays cached on this device for up to 7 days and is cleared when you sign out.
-                    </p>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <ExternalLink href={CADENCE_PRIVACY_URL} className="text-accent-primary hover:underline">
+            <SettingsSection title="Privacy">
+                <SettingsList>
+                    <SettingsRow inline title="Rounded to about 1 km" description="Weather comes from Open-Meteo. A precise position is named through OpenStreetMap.">
+                        <ExternalLink href={CADENCE_PRIVACY_URL} className="whitespace-nowrap text-sm text-accent-primary hover:underline">
                             Privacy policy
                         </ExternalLink>
-                        <Button type="button" variant="secondary" size="sm" onClick={handleForget}>
-                            Forget saved location
+                    </SettingsRow>
+                    <SettingsRow inline title="Saved on this device" description="A precise position is kept up to 7 days, and cleared at sign-out.">
+                        <Button type="button" variant="secondary" size="sm" aria-label="Forget saved location" onClick={handleForget}>
+                            Forget
                         </Button>
-                    </div>
-                </div>
+                    </SettingsRow>
+                </SettingsList>
             </SettingsSection>
         </div>
     );
@@ -155,7 +139,7 @@ export function LocationTab() {
 
 function ModePicker({ location }: { location: UserLocation }) {
     return (
-        <div role="radiogroup" aria-label="Location mode" className="grid gap-2 sm:grid-cols-2">
+        <div role="radiogroup" aria-label="Location mode" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
             {MODE_OPTIONS.map(({ mode, label, description, icon: Icon }) => {
                 const selected = location.mode === mode;
                 return (
@@ -179,7 +163,7 @@ function ModePicker({ location }: { location: UserLocation }) {
                             <Icon size={15} aria-hidden="true" />
                             {label}
                         </span>
-                        <span className="text-xs leading-relaxed text-twilight-text-soft">{description}</span>
+                        <span className="text-xs text-twilight-text-soft">{description}</span>
                     </button>
                 );
             })}
@@ -187,14 +171,17 @@ function ModePicker({ location }: { location: UserLocation }) {
     );
 }
 
-function CurrentLocation({
+/** Where Cadence thinks you are, and (when you choose yourself) the fields to change it, in one card. */
+function LocationCard({
     location,
     locale,
     subdivisionFallback,
+    year,
 }: {
     location: UserLocation;
     locale: string;
     subdivisionFallback: string | null;
+    year: number;
 }) {
     const { place } = location;
     const label = location.mode === "off"
@@ -204,21 +191,23 @@ function CurrentLocation({
             : location.isResolving ? "Finding your area..." : "Not set yet";
 
     return (
-        <div className="rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-twilight-text-soft">Current location</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-twilight-text">
-                <MapPin size={14} aria-hidden="true" className="text-twilight-text-soft" />
-                <span>{label}</span>
-                {place ? (
-                    <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-0.5 text-xs text-twilight-text-soft">
-                        {SOURCE_LABELS[place.source]}
-                    </span>
-                ) : null}
-                {location.refreshedAt ? (
-                    <span className="text-xs text-twilight-text-muted">Updated {formatUpdatedAt(location.refreshedAt)}</span>
-                ) : null}
+        <div className="flex flex-col divide-y divide-white/[0.04] rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02]">
+            <div className="p-4">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-twilight-text">
+                    <MapPin size={14} aria-hidden="true" className="text-twilight-text-soft" />
+                    <span className="font-medium">{label}</span>
+                    {place ? (
+                        <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-0.5 text-xs text-twilight-text-soft">
+                            {SOURCE_LABELS[place.source]}
+                        </span>
+                    ) : null}
+                    {location.refreshedAt ? (
+                        <span className="text-xs text-twilight-text-muted">Updated {formatUpdatedAt(location.refreshedAt)}</span>
+                    ) : null}
+                </div>
+                <PreciseStatus location={location} />
             </div>
-            <PreciseStatus location={location} />
+            {location.mode === "manual" ? <ManualLocationEditor location={location} locale={locale} year={year} /> : null}
         </div>
     );
 }
@@ -268,11 +257,15 @@ function PreciseStatus({ location }: { location: UserLocation }) {
     );
 }
 
+const NONE = "__none__";
+const FIELD_LABEL = "mb-1.5 text-xs font-medium text-twilight-text-soft";
+
 function ManualLocationEditor({ location, locale, year }: { location: UserLocation; locale: string; year: number }) {
     const client = useApiClient();
     const countryCode = location.manualCountryCode;
     const [draft, setDraft] = useState("");
     const [search, setSearch] = useState<string | null>(null);
+    const [changing, setChanging] = useState(false);
 
     const countriesQuery = useQuery({
         queryKey: ["holiday-country-options", locale],
@@ -299,6 +292,11 @@ function ManualLocationEditor({ location, locale, year }: { location: UserLocati
         meta: { persist: false },
     });
 
+    const countries = useMemo(() => (countriesQuery.data ?? []).map(({ code, label }) => ({ value: code, label })), [countriesQuery.data]);
+    const regions = useMemo(() => (subdivisionsQuery.data ?? []).map(({ code, label }) => ({ value: code, label })), [subdivisionsQuery.data]);
+    const noCountry = useMemo(() => [{ value: NONE, label: "Use my time zone" }], []);
+    const noRegion = useMemo(() => [{ value: NONE, label: "Country-wide holidays only" }], []);
+
     const submitSearch = (event: FormEvent) => {
         event.preventDefault();
         const name = draft.trim();
@@ -315,93 +313,74 @@ function ManualLocationEditor({ location, locale, year }: { location: UserLocati
         if (saved) {
             setSearch(null);
             setDraft("");
+            setChanging(false);
         }
     };
 
     return (
-        <div className="grid gap-4 rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-4">
+        <div className="grid gap-4 p-4">
             <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-twilight-text-soft">Country</p>
-                    <Select
-                        value={countryCode ?? "__none__"}
+                    <p className={FIELD_LABEL}>Country</p>
+                    <SearchSelect
+                        value={countryCode ?? NONE}
                         onValueChange={(value) => void location.setManualLocation({
-                            countryCode: value === "__none__" ? null : value,
+                            countryCode: value === NONE ? null : value,
                             subdivisionCode: null,
                         })}
-                    >
-                        <SelectTrigger aria-label="Country">
-                            <SelectValue placeholder={countriesQuery.isLoading ? "Loading countries..." : "Choose a country"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="__none__">Use my time zone</SelectItem>
-                            {(countriesQuery.data ?? []).map((country) => (
-                                <SelectItem key={country.code} value={country.code}>
-                                    {country.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        options={countries}
+                        pinned={noCountry}
+                        ariaLabel="Country"
+                        searchLabel="Search countries"
+                        placeholder={countriesQuery.isLoading ? "Loading countries..." : "Choose a country"}
+                    />
                 </div>
 
                 <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-twilight-text-soft">Region / State</p>
-                    <Select
-                        value={location.manualSubdivisionCode ?? "__none__"}
-                        onValueChange={(value) => void location.setManualLocation({
-                            subdivisionCode: value === "__none__" ? null : value,
-                        })}
+                    <p className={FIELD_LABEL}>Region / State</p>
+                    <SearchSelect
+                        value={location.manualSubdivisionCode ?? NONE}
+                        onValueChange={(value) => void location.setManualLocation({ subdivisionCode: value === NONE ? null : value })}
+                        options={regions}
+                        pinned={noRegion}
+                        ariaLabel="Region or state"
+                        searchLabel="Search regions"
+                        placeholder={!countryCode ? "Choose a country first" : subdivisionsQuery.isLoading ? "Loading regions..." : "Country-wide holidays only"}
                         disabled={!countryCode}
-                    >
-                        <SelectTrigger aria-label="Region or state">
-                            <SelectValue
-                                placeholder={
-                                    !countryCode
-                                        ? "Select a country first"
-                                        : subdivisionsQuery.isLoading ? "Loading regions..." : "Country-wide holidays only"
-                                }
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="__none__">Country-wide holidays only</SelectItem>
-                            {(subdivisionsQuery.data ?? []).map((subdivision) => (
-                                <SelectItem key={subdivision.code} value={subdivision.code}>
-                                    {subdivision.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
             </div>
 
             <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-twilight-text-soft">City, for weather</p>
-                {location.savedCity ? (
-                    <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1 text-sm text-twilight-text">
+                <p className={FIELD_LABEL}>City, for weather</p>
+                {location.savedCity && !changing ? (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] py-1 pl-3 pr-1 text-sm text-twilight-text">
                         <span className="inline-flex items-center gap-2">
                             <MapPin size={13} aria-hidden="true" />
                             {location.savedCity.name}
                         </span>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => void location.setManualLocation({ city: null })}>
-                            Remove
-                        </Button>
+                        <span className="flex gap-1">
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setChanging(true)}>Change</Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => void location.setManualLocation({ city: null })}>Remove</Button>
+                        </span>
                     </div>
-                ) : null}
+                ) : (
+                    <form onSubmit={submitSearch} className="flex gap-2">
+                        <Input
+                            value={draft}
+                            onChange={(event) => setDraft(event.target.value)}
+                            placeholder="Search for a city"
+                            aria-label="Search for a city"
+                        />
+                        <Button type="submit" variant="secondary" disabled={draft.trim().length < 2 || citiesQuery.isFetching}>
+                            <Search size={14} aria-hidden="true" />
+                            Search
+                        </Button>
+                        {changing ? <Button type="button" variant="ghost" onClick={() => { setChanging(false); setSearch(null); setDraft(""); }}>Cancel</Button> : null}
+                    </form>
+                )}
 
-                <form onSubmit={submitSearch} className="flex gap-2">
-                    <Input
-                        value={draft}
-                        onChange={(event) => setDraft(event.target.value)}
-                        placeholder="Search for a city"
-                        aria-label="Search for a city"
-                    />
-                    <Button type="submit" variant="secondary" disabled={draft.trim().length < 2 || citiesQuery.isFetching}>
-                        <Search size={14} aria-hidden="true" />
-                        Search
-                    </Button>
-                </form>
-
-                {search !== null ? (
+                {search !== null && (!location.savedCity || changing) ? (
                     <div className="mt-2 text-sm">
                         {citiesQuery.isFetching ? (
                             <p className="px-3 py-2 text-twilight-text-soft">Searching...</p>
@@ -428,10 +407,6 @@ function ManualLocationEditor({ location, locale, year }: { location: UserLocati
                             <p className="px-3 py-2 text-twilight-text-soft">No matches for &ldquo;{search}&rdquo;.</p>
                         )}
                     </div>
-                ) : null}
-
-                {!location.savedCity ? (
-                    <p className="mt-2 text-xs text-twilight-text-muted">Add a city to see weather in this mode.</p>
                 ) : null}
             </div>
         </div>

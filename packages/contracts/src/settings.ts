@@ -203,6 +203,8 @@ export const userSettingsSchema = z.object({
         defaultView: z.enum(["month", "week", "day"]).optional(),
         showWeekNumbers: z.boolean().optional(),
         showWeekends: z.boolean().optional(),
+        /** The hour (0-23) Day and Week open scrolled to. */
+        timelineStartHour: z.number().int().min(0).max(23).optional(),
         clutter: z.object({
             showAllDay: z.boolean().optional(),
             showTimedTasks: z.boolean().optional(),
@@ -455,6 +457,7 @@ export const SETTINGS_DEFAULTS = {
         defaultView: "month" as const,
         showWeekNumbers: false,
         showWeekends: true,
+        timelineStartHour: 7,
         clutter: {
             showAllDay: true,
             showTimedTasks: true,

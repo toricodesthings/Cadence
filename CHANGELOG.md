@@ -6,6 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Choose the hour the Day and Week views open at, instead of always 7 AM.
+- Country, region and time zone pickers are searchable lists.
+
+### Changed
+
+- Calendar & Time is regrouped into Region & format, Calendar and Show on calendar, with one-tap choices.
+- Holidays and yearly events are one switch each, with the region and Manage beside them.
+- Location & Weather is shorter: one location card, a single city row, and privacy as two plain rows.
+
 ## [0.29.8] - 2026-10-08
 
 ### Fixed
