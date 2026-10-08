@@ -6,6 +6,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Alerts before timed calendar blocks, 10 minutes ahead (30 for Fixed blocks), both adjustable.
+- Heads-up alert before a due date, and a choice of how long overdue tasks stay listed.
+- Yearly events can notify the day before or a week ahead, not only on the day.
+- Pause all notifications for an hour or until tomorrow, and set your own morning and evening times.
+- Routine reminders can fire at the exact time or an hour before.
+
+### Fixed
+
+- Task reminders open a date and time picker instead of firing right away; switched on, they follow the deadline.
+
+### Changed
+
+- The Routines sidebar dot setting moved to Appearance.
+- Notification settings are regrouped by what they alert, with chips instead of long descriptions.
+- Daily summary email is now shown as upcoming, since it is not available yet.
+
 ## [0.29.6] - 2026-10-07
 
 ### Added

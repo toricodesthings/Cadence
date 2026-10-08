@@ -166,35 +166,27 @@ mod efficiency {
 #[cfg(windows)]
 mod background {
     use super::focus_main_window;
-    use std::sync::Mutex;
     use tauri::{
         menu::MenuBuilder,
         tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-        App, Manager,
+        App, Runtime,
     };
     use tauri_plugin_store::StoreExt;
 
     const PREFERENCES_STORE: &str = "cadence_desktop_preferences.dat";
-    const BACKGROUND_KEY: &str = "backgroundDelivery";
-
-    /// Whether this session's main window should hide instead of quitting on close.
-    pub struct BackgroundActive(pub Mutex<bool>);
+    const TRAY_ID: &str = "main";
 
     fn requested_at_startup(app: &App) -> bool {
         app.store(PREFERENCES_STORE)
             .ok()
-            .and_then(|store| store.get(BACKGROUND_KEY))
-            .and_then(|value| value.as_bool())
+            .and_then(|store| store.get("command_preferences"))
+            .and_then(|prefs| prefs.get("backgroundDelivery")?.as_bool())
             .unwrap_or(false)
     }
 
-    /// Builds the tray icon only when the person already opted in before this launch. Managing
-    /// `BackgroundActive(false)` either way keeps the window-close handler infallible to call.
+    /// Builds the tray icon only when the person already opted in before this launch.
     pub fn setup(app: &App) -> tauri::Result<()> {
-        let active = requested_at_startup(app);
-        app.manage(BackgroundActive(Mutex::new(active)));
-
-        if !active {
+        if !requested_at_startup(app) {
             return Ok(());
         }
 
@@ -204,7 +196,7 @@ mod background {
             .text("tray.quit", "Quit Cadence")
             .build()?;
 
-        let mut builder = TrayIconBuilder::new()
+        let mut builder = TrayIconBuilder::with_id(TRAY_ID)
             .menu(&menu)
             .tooltip("Cadence")
             .show_menu_on_left_click(false)
@@ -220,7 +212,7 @@ mod background {
                     ..
                 } = event
                 {
-                    focus_main_window(&tray.app_handle());
+                    focus_main_window(tray.app_handle());
                 }
             });
 
@@ -232,13 +224,10 @@ mod background {
         Ok(())
     }
 
-    /// Called from the main window's close handler: true means hide instead of quitting.
-    pub fn should_hide_on_close<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
-        app.state::<BackgroundActive>()
-            .0
-            .lock()
-            .map(|guard| *guard)
-            .unwrap_or(false)
+    /// Hide instead of quitting exactly when the tray exists, so the window is never hidden
+    /// without a way back in.
+    pub fn should_hide_on_close<R: Runtime>(app: &tauri::AppHandle<R>) -> bool {
+        app.tray_by_id(TRAY_ID).is_some()
     }
 }
 

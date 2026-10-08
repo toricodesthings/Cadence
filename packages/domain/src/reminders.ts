@@ -2,11 +2,12 @@ import type { Task } from "@cadence/contracts/task";
 import type { Habit } from "@cadence/contracts/habit";
 import type { PersonalEvent } from "@cadence/contracts/settings";
 import { routineTimeOn } from "./repeats";
-import { atLocal, daysBetween, dayOf, todayIn, wallTimeOf, type Instant, type LocalDate, type WallTime, type Zone } from "./time";
+import { addDays, atLocal, daysBetween, dayOf, expandSeries, todayIn, wallTimeOf, type Instant, type LocalDate, type WallTime, type Zone } from "./time";
 
 export type ReminderKind =
     | "task-reminder"
     | "task-due"
+    | "block-start"
     | "habit-reminder"
     | "waiting-followup"
     | "personal-event"
@@ -33,18 +34,31 @@ export interface ReminderFormat {
     date: (day: LocalDate) => string;
 }
 
-export type ReminderTask = Pick<Task, "id" | "title" | "state" | "projectId" | "dueDate" | "reminderAt" | "reminderSilenced" | "waitingOn" | "waitingReminder"> & { createdAt?: Instant };
+export type ReminderTask = Pick<Task, "id" | "title" | "state" | "projectId" | "dueDate" | "reminderAt" | "reminderSilenced" | "waitingOn" | "waitingReminder"> & Partial<Pick<Task, "scheduledStart" | "scheduledEnd" | "recurrenceRule" | "interactionMode">> & { createdAt?: Instant };
 export type ReminderHabit = Pick<Habit, "id" | "title" | "archived" | "reminderEnabled" | "targetTime" | "targetTimes"> & { logs?: Array<{ targetDate: LocalDate; status: string }> };
 
 export interface ReminderPrefs {
     taskReminders: boolean;
     habitReminders: boolean;
     dueDateAlerts: boolean;
+    followUps: boolean;
+    scheduleAlerts: boolean;
     habitReminderLeadMinutes: number;
+    blockLeadMinutes: number;
+    fixedLeadMinutes: number;
+    dueHeadsUpDays: number;
+    overdueDays: number;
+    eventDaysBefore: number[];
+    /** A deadline's or event's OS alert is a wall time on its day; the deadline itself stays a LocalDate. */
+    morningTime: WallTime;
 }
 
-/** A deadline's OS alert, a wall time on its day. The deadline itself stays a LocalDate. */
-export const DEADLINE_ALERT_TIME: WallTime = "09:00";
+/** Must equal the settings defaults (a test holds them together). */
+export const DEFAULT_REMINDER_PREFS: ReminderPrefs = {
+    taskReminders: true, habitReminders: true, dueDateAlerts: true, followUps: true, scheduleAlerts: true,
+    habitReminderLeadMinutes: 15, blockLeadMinutes: 10, fixedLeadMinutes: 30,
+    dueHeadsUpDays: 0, overdueDays: 3, eventDaysBefore: [0], morningTime: "09:00",
+};
 /** An OS alert still goes out this long after it was due (deadline alerts: until the day ends). */
 export const LATE_ALERT_MS = 15 * 60_000;
 
@@ -60,6 +74,10 @@ export function personalEventDay(monthDay: string, year: number): LocalDate {
 
 const taskRoute = (task: Pick<ReminderTask, "projectId">) => (task.projectId ? `/project/${task.projectId}` : "/");
 
+export function isPaused(now: Date, pausedUntil: Instant | null | undefined): boolean {
+    return !!pausedUntil && Date.parse(pausedUntil) > now.getTime();
+}
+
 /** Handles midnight crossing (e.g. 22:00 → 07:00). */
 export function isInQuietHours(now: Date, zone: Zone, enabled: boolean, start: WallTime | null, end: WallTime | null): boolean {
     if (!enabled || !start || !end) return false;
@@ -71,10 +89,13 @@ export function isInQuietHours(now: Date, zone: Zone, enabled: boolean, start: W
 }
 
 /** Whether the user's reminder switches allow this kind at all. */
-export function reminderKindEnabled(kind: ReminderKind, prefs: Pick<ReminderPrefs, "taskReminders" | "habitReminders" | "dueDateAlerts">): boolean {
-    if (kind === "task-reminder" || kind === "waiting-followup") return prefs.taskReminders;
-    if (kind === "task-due") return prefs.dueDateAlerts;
-    if (kind === "habit-reminder") return prefs.habitReminders;
+export function reminderKindEnabled(kind: ReminderKind, prefs: Partial<Pick<ReminderPrefs, "taskReminders" | "habitReminders" | "dueDateAlerts" | "followUps" | "scheduleAlerts">>): boolean {
+    const on = { ...DEFAULT_REMINDER_PREFS, ...prefs };
+    if (kind === "task-reminder") return on.taskReminders;
+    if (kind === "waiting-followup") return on.taskReminders && on.followUps;
+    if (kind === "task-due") return on.dueDateAlerts;
+    if (kind === "block-start") return on.scheduleAlerts;
+    if (kind === "habit-reminder") return on.habitReminders;
     return true;
 }
 
@@ -87,8 +108,9 @@ export function deriveReminders(
     now: Date,
     zone: Zone,
     fmt: ReminderFormat,
-    leadMinutes = 15,
+    given: Partial<ReminderPrefs> = {},
 ): Reminder[] {
+    const prefs = { ...DEFAULT_REMINDER_PREFS, ...given };
     const items: Reminder[] = [];
     const today = todayIn(zone, now);
 
@@ -140,18 +162,63 @@ export function deriveReminders(
         // task made after that moment (it would announce what the user just typed).
         if (task.dueDate) {
             const overdueDays = daysBetween(task.dueDate, today);
-            if (overdueDays >= 0 && overdueDays <= 3) {
-                const alertAt = atLocal(task.dueDate, DEADLINE_ALERT_TIME, zone);
+            const alertAt = atLocal(task.dueDate, prefs.morningTime, zone);
+            const madeAfter = (at: Instant) => (task.createdAt && Date.parse(task.createdAt) > Date.parse(at) ? null : at);
+            if (overdueDays >= 0 && overdueDays <= prefs.overdueDays) {
                 items.push({
                     id: `task-due::${task.id}::${task.dueDate}`,
                     kind: "task-due",
                     title: task.title,
                     body: overdueDays === 0 ? "Due today" : `Overdue since ${fmt.date(task.dueDate)}`,
                     triggerAt: atLocal(task.dueDate, "00:00", zone),
-                    alertAt: task.createdAt && Date.parse(task.createdAt) > Date.parse(alertAt) ? null : alertAt,
+                    alertAt: madeAfter(alertAt),
                     entityId: task.id,
                     route: taskRoute(task),
                     priority: "high",
+                });
+            }
+            // The extra heads-up: its own occurrence, so it is dismissed on its own.
+            if (prefs.dueHeadsUpDays > 0 && daysBetween(today, task.dueDate) === prefs.dueHeadsUpDays) {
+                const headsUpAt = atLocal(today, prefs.morningTime, zone);
+                items.push({
+                    id: `task-due::${task.id}::${task.dueDate}::ahead`,
+                    kind: "task-due",
+                    title: task.title,
+                    body: prefs.dueHeadsUpDays === 1 ? "Due tomorrow" : `Due ${fmt.date(task.dueDate)}`,
+                    triggerAt: atLocal(today, "00:00", zone),
+                    alertAt: madeAfter(headsUpAt),
+                    entityId: task.id,
+                    route: taskRoute(task),
+                    priority: "normal",
+                });
+            }
+        }
+
+        // Timed blocks: one alert a lead before each start (a Fixed block gets its own lead).
+        // An explicit reminder on the task wins, so the block never alerts twice.
+        if (task.scheduledStart && !(task.reminderAt && !task.reminderSilenced)) {
+            const lead = (task.interactionMode === "timetable" ? prefs.fixedLeadMinutes : prefs.blockLeadMinutes) * 60_000;
+            const starts = task.recurrenceRule
+                ? expandSeries({
+                    rule: task.recurrenceRule,
+                    start: { instant: task.scheduledStart, end: task.scheduledEnd ?? undefined },
+                    zone,
+                    range: { from: today, to: addDays(today, 1) },
+                }).flatMap((occurrence) => (occurrence.start ? [occurrence.start] : []))
+                : [task.scheduledStart];
+            for (const start of starts) {
+                const diffMs = Date.parse(start) - now.getTime();
+                if (diffMs > lead + HOUR || diffMs <= -30 * 60_000) continue;
+                items.push({
+                    id: `block-start::${task.id}::${start}`,
+                    kind: "block-start",
+                    title: task.title,
+                    body: diffMs > 0 ? `Starts at ${fmt.time(start)}` : "Started",
+                    triggerAt: new Date(Date.parse(start) - lead).toISOString(),
+                    alertAt: new Date(Date.parse(start) - lead).toISOString(),
+                    entityId: task.id,
+                    route: taskRoute(task),
+                    priority: "normal",
                 });
             }
         }
@@ -174,31 +241,35 @@ export function deriveReminders(
             title: habit.title,
             body: diffMs > 0 ? `Due at ${targetTime.slice(0, 5)}` : "Due now",
             triggerAt: target,
-            alertAt: new Date(Date.parse(target) - leadMinutes * 60_000).toISOString(),
+            alertAt: new Date(Date.parse(target) - prefs.habitReminderLeadMinutes * 60_000).toISOString(),
             entityId: habit.id,
             route: "/routines",
             priority: "normal",
         });
     }
 
-    // Yearly personal events with their per-event bell on: one morning nudge on the day.
-    // The id carries the year-day, so each year's occurrence is a fresh, stable candidate.
+    // Yearly personal events with their per-event bell on: a morning nudge on the day and on
+    // each chosen day before. The id carries the event's year-day, so each year's occurrence is a
+    // fresh, stable candidate (and a heads-up is its own, dismissed on its own).
+    const year = Number(today.slice(0, 4));
     for (const event of input.personalEvents ?? []) {
         if (!event.notify) continue;
-        const day = personalEventDay(event.monthDay, Number(today.slice(0, 4)));
-        if (day !== today) continue;
-        const at = atLocal(day, "09:00", zone);
-        items.push({
-            id: `personal-event::${event.id}::${day}`,
-            kind: "personal-event",
-            title: event.label,
-            body: "Today",
-            triggerAt: at,
-            alertAt: at,
-            entityId: event.id,
-            route: "/events",
-            priority: "normal",
-        });
+        for (const ahead of prefs.eventDaysBefore) {
+            const day = [year, year + 1].map((y) => personalEventDay(event.monthDay, y)).find((d) => daysBetween(today, d) === ahead);
+            if (!day) continue;
+            const at = atLocal(today, prefs.morningTime, zone);
+            items.push({
+                id: `personal-event::${event.id}::${day}${ahead ? `::${ahead}d` : ""}`,
+                kind: "personal-event",
+                title: event.label,
+                body: ahead === 0 ? "Today" : ahead === 1 ? "Tomorrow" : `In ${ahead} days`,
+                triggerAt: at,
+                alertAt: at,
+                entityId: event.id,
+                route: "/events",
+                priority: "normal",
+            });
+        }
     }
 
     return items;
@@ -208,6 +279,8 @@ export interface AlertGate {
     now: Date;
     zone: Zone;
     quietHours: { enabled: boolean; start: WallTime | null; end: WallTime | null };
+    /** Silences every alert, like quiet hours, until this instant. */
+    pausedUntil?: Instant | null;
     dismissed: boolean;
     deferredUntil?: Instant | null;
 }
@@ -228,6 +301,7 @@ export function dueAlert(reminder: Reminder, gate: AlertGate): { key: string; at
         ? dayOf(at, gate.zone) !== todayIn(gate.zone, gate.now)
         : nowMs - Date.parse(at) > LATE_ALERT_MS;
     if (late) return null;
+    if (isPaused(gate.now, gate.pausedUntil)) return null;
     if (isInQuietHours(gate.now, gate.zone, gate.quietHours.enabled, gate.quietHours.start, gate.quietHours.end)) return null;
     return { key: deferred ? `${reminder.id}@${deferred}` : reminder.id, at };
 }

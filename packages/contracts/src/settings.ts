@@ -170,7 +170,25 @@ export const userSettingsSchema = z.object({
         quietHoursEnabled: z.boolean().optional(),
         quietHoursStart: z.string().nullable().optional(),
         quietHoursEnd: z.string().nullable().optional(),
-        habitReminderLeadMinutes: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30)]).optional(),
+        habitReminderLeadMinutes: z.union([z.literal(0), z.literal(5), z.literal(10), z.literal(15), z.literal(30), z.literal(60)]).optional(),
+        /** Waiting-task check-ins. */
+        followUps: z.boolean().optional(),
+        /** Timed blocks on the calendar. */
+        scheduleAlerts: z.boolean().optional(),
+        blockLeadMinutes: z.union([z.literal(0), z.literal(5), z.literal(10), z.literal(15), z.literal(30), z.literal(60)]).optional(),
+        /** Fixed blocks (class, shift) get their own, longer lead. */
+        fixedLeadMinutes: z.union([z.literal(0), z.literal(15), z.literal(30), z.literal(60), z.literal(120)]).optional(),
+        /** Days before a deadline for the extra heads-up; 0 = none. */
+        dueHeadsUpDays: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(7)]).optional(),
+        /** Days a missed deadline stays in the list; 0 = the due day only. */
+        overdueDays: z.union([z.literal(0), z.literal(1), z.literal(3), z.literal(7)]).optional(),
+        /** Yearly events notify this many days ahead (each one a separate alert). */
+        eventDaysBefore: z.array(z.union([z.literal(0), z.literal(1), z.literal(7)])).max(3).optional(),
+        /** "My morning" and "my evening": deadline and event alerts, and the Defer choices. */
+        morningTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+        eveningTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+        /** Everything stays silent until this instant. */
+        pausedUntil: instantSchema.nullable().optional(),
         showHabitNavDueCount: z.boolean().optional(),
         bundleMissedRoutinePrompts: z.boolean().optional(),
     }).optional(),
@@ -413,7 +431,17 @@ export const SETTINGS_DEFAULTS = {
         quietHoursEnabled: false,
         quietHoursStart: null as string | null,
         quietHoursEnd: null as string | null,
-        habitReminderLeadMinutes: 15 as 5 | 10 | 15 | 30,
+        habitReminderLeadMinutes: 15 as 0 | 5 | 10 | 15 | 30 | 60,
+        followUps: true,
+        scheduleAlerts: true,
+        blockLeadMinutes: 10 as 0 | 5 | 10 | 15 | 30 | 60,
+        fixedLeadMinutes: 30 as 0 | 15 | 30 | 60 | 120,
+        dueHeadsUpDays: 0 as 0 | 1 | 2 | 7,
+        overdueDays: 3 as 0 | 1 | 3 | 7,
+        eventDaysBefore: [0] as Array<0 | 1 | 7>,
+        morningTime: "09:00",
+        eveningTime: "19:00",
+        pausedUntil: null as string | null,
         showHabitNavDueCount: true,
         bundleMissedRoutinePrompts: true,
     },

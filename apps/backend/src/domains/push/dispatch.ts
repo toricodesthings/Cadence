@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNotNull, lt, or, sql } from "drizzle-orm";
-import { formatInZone, todayIn } from "@cadence/domain/time";
+import { addDays, formatInZone, todayIn } from "@cadence/domain/time";
 import { deriveReminders, dueAlert, reminderKindEnabled, type ReminderHabit, type ReminderTask } from "@cadence/domain/reminders";
 import { getDbClient, type DbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
@@ -50,18 +50,25 @@ async function claimDueReminders(db: DbClient, userId: string, now: Date): Promi
         const today = todayIn(zone, now);
         const from = new Date(now.getTime() - 24 * 3600_000).toISOString();
         const to = new Date(now.getTime() + 3600_000).toISOString();
+        const blockTo = new Date(now.getTime() + 4 * 3600_000).toISOString();
         const open = and(eq(tasks.userId, userId), inArray(tasks.state, ["ACTIVE", "WAITING"]));
         const taskRows: ReminderTask[] = await tx
             .select({
                 id: tasks.id, title: tasks.title, state: tasks.state, projectId: tasks.projectId, dueDate: tasks.dueDate,
                 reminderAt: tasks.reminderAt, reminderSilenced: tasks.reminderSilenced, waitingOn: tasks.waitingOn,
                 waitingReminder: tasks.waitingReminder, createdAt: tasks.createdAt,
+                scheduledStart: tasks.scheduledStart, scheduledEnd: tasks.scheduledEnd,
+                recurrenceRule: tasks.recurrenceRule, interactionMode: tasks.interactionMode,
             })
             .from(tasks)
             .where(and(open, or(
                 sql`${tasks.reminderAt} BETWEEN ${from}::timestamptz AND ${to}::timestamptz`,
                 sql`${tasks.waitingReminder} BETWEEN ${from}::timestamptz AND ${to}::timestamptz`,
                 eq(tasks.dueDate, today),
+                ...(prefs.dueHeadsUpDays ? [eq(tasks.dueDate, addDays(today, prefs.dueHeadsUpDays))] : []),
+                // Timed blocks: one-offs about to start (longest lead 2 h), and every repeating series (expanded in the rulebook).
+                sql`${tasks.scheduledStart} BETWEEN ${from}::timestamptz AND ${blockTo}::timestamptz`,
+                and(isNotNull(tasks.recurrenceRule), isNotNull(tasks.scheduledStart)),
             )));
 
         const habitRows = await tx
@@ -84,7 +91,7 @@ async function claimDueReminders(db: DbClient, userId: string, now: Date): Promi
                 time: (instant) => formatInZone(instant, zone, { hour: "numeric", minute: "2-digit", hour12 }),
                 date: (day) => formatInZone(day, zone, { month: "short", day: "numeric" }),
             },
-            prefs.habitReminderLeadMinutes,
+            prefs,
         ).filter((reminder) => reminder.alertAt && reminderKindEnabled(reminder.kind, prefs));
         if (reminders.length === 0) return [];
 
@@ -105,6 +112,7 @@ async function claimDueReminders(db: DbClient, userId: string, now: Date): Promi
             const due = dueAlert(reminder, {
                 now, zone,
                 quietHours: { enabled: prefs.quietHoursEnabled, start: prefs.quietHoursStart, end: prefs.quietHoursEnd },
+                pausedUntil: prefs.pausedUntil,
                 dismissed: !!state?.dismissedAt,
                 deferredUntil: state?.deferredUntil,
             });

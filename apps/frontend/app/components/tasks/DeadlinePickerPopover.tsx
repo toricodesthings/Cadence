@@ -16,6 +16,11 @@ interface DeadlinePickerPopoverProps {
     scheduledEnd?: Instant | null;
     recurrenceRule: string | null;
     onChange: (updates: ScheduleUpdates) => void;
+    /** "moment" picks one date and time (reminders, check-ins). */
+    variant?: "schedule" | "moment";
+    /** Optional control of the open state (e.g. open it from a switch). */
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
     children,
@@ -25,9 +30,15 @@ export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
     scheduledEnd,
     recurrenceRule,
     onChange,
+    variant = "schedule",
+    open: controlledOpen,
+    onOpenChange,
 }) => {
     const shell = useShellMode();
-    const [open, setOpen] = useState(false);
+    const [ownOpen, setOwnOpen] = useState(false);
+    const open = controlledOpen ?? ownOpen;
+    const setOpen = (next: boolean) => { setOwnOpen(next); onOpenChange?.(next); };
+    const moment = variant === "moment";
     if (shell.isPhone) {
         return (
             <Dialog.Dialog open={open} onOpenChange={setOpen}>
@@ -35,8 +46,8 @@ export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
                 <Dialog.DialogContent className="max-w-lg overflow-hidden p-0 sm:max-w-lg">
                     <div className="border-b border-twilight-border/40 px-5 py-4">
                         <Dialog.DialogHeader className="text-left">
-                            <Dialog.DialogTitle>Schedule task</Dialog.DialogTitle>
-                            <Dialog.DialogDescription>Choose a date, time, range, or recurrence.</Dialog.DialogDescription>
+                            <Dialog.DialogTitle>{moment ? "Remind me" : "Schedule task"}</Dialog.DialogTitle>
+                            <Dialog.DialogDescription>{moment ? "Choose a day and time." : "Choose a date, time, range, or recurrence."}</Dialog.DialogDescription>
                         </Dialog.DialogHeader>
                     </div>
                     <QuickScheduleSurface
@@ -48,6 +59,7 @@ export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
                         isOpen={open}
                         onChange={onChange}
                         onRequestClose={() => setOpen(false)}
+                        variant={variant}
                     />
                 </Dialog.DialogContent>
             </Dialog.Dialog>
@@ -62,7 +74,7 @@ export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
                 side="bottom"
                 align="start"
                 role="dialog"
-                aria-label="Deadline picker"
+                aria-label={moment ? "Reminder picker" : "Deadline picker"}
             >
                 <QuickScheduleSurface
                     dueDate={dueDate}
@@ -73,6 +85,7 @@ export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
                     isOpen={open}
                     onChange={onChange}
                     onRequestClose={() => setOpen(false)}
+                    variant={variant}
                 />
             </Popover.Content>
         </Popover.Root>

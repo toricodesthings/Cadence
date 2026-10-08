@@ -20,6 +20,9 @@ import { trackUsageEvent } from "../../lib/api/track-event";
 import { addDays, weekdayOf } from "@cadence/domain/time";
 import { rescheduleToDay } from "@cadence/domain/task-temporal";
 import { getUserZone, today } from "../../lib/utils/user-zone";
+import { useSettings } from "../../hooks/core/use-settings";
+import { deadlineReminderAt } from "../../lib/notifications/reminder-engine";
+import { formatShortDateTime } from "../../lib/utils/date-format";
 
 export interface TaskMenuItemsProps {
     task: Task;
@@ -38,7 +41,9 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
     const duplicateTask = useDuplicateTask();
     const addTaskTag = useAddTaskTag();
     const removeTaskTag = useRemoveTaskTag();
-    const [menuView, setMenuView] = useState<"main" | "reschedule-presets" | "reschedule-custom">("main");
+    const [menuView, setMenuView] = useState<"main" | "reschedule-presets" | "reschedule-custom" | "reminder">("main");
+    const { data: settings } = useSettings();
+    const deadlineInstant = deadlineReminderAt(task, settings?.notifications?.morningTime);
 
     const trackMenuAction = (outcome: string) => {
         trackUsageEvent("task.context_menu_action", { object_type: "task", outcome });
@@ -49,13 +54,13 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
         updateTask.mutate({ id: task.id, isPinned: !task.isPinned });
     };
 
-    const handleToggleReminder = () => {
-        trackMenuAction(task.reminderAt ? "remove_reminder" : "set_reminder");
-        updateTask.mutate({
-            id: task.id,
-            reminderAt: task.reminderAt ? null : new Date().toISOString(),
-            reminderSilenced: false,
-        });
+    const setReminder = (reminderAt: string | null) => updateTask.mutate({ id: task.id, reminderAt, reminderSilenced: false });
+
+    /** Opens the reminder picker; a new reminder starts on the deadline when there is one. */
+    const handleOpenReminder = () => {
+        trackMenuAction(task.reminderAt ? "edit_reminder" : "set_reminder");
+        if (!task.reminderAt && deadlineInstant) setReminder(deadlineInstant);
+        setMenuView("reminder");
     };
 
     const handleQuickSchedule = (daysToAdd: number, startOfWeekend = false, nextWeek = false) => {
@@ -93,7 +98,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                         Back
                     </button>
                     <p className="text-sm font-semibold text-twilight-text">
-                        {menuView === "reschedule-custom" ? "Custom schedule" : "Reschedule task"}
+                        {menuView === "reminder" ? "Remind me" : menuView === "reschedule-custom" ? "Custom schedule" : "Reschedule task"}
                     </p>
                     <button
                         type="button"
@@ -105,7 +110,16 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                     </button>
                 </div>
 
-                {menuView === "reschedule-presets" ? (
+                {menuView === "reminder" ? (
+                    <QuickScheduleSurface
+                        variant="moment"
+                        dueDate={null}
+                        scheduledStart={task.reminderAt ?? deadlineInstant}
+                        recurrenceRule={null}
+                        onChange={(updates) => setReminder(updates.scheduledStart)}
+                        onRequestClose={() => onCloseMenu?.()}
+                    />
+                ) : menuView === "reschedule-presets" ? (
                     <div className="p-3">
                         <div className="px-1 pb-3">
                             <p className="text-sm font-semibold text-twilight-text">Choose a date fast</p>
@@ -264,10 +278,19 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                 </div>
             </Menu.Item>
 
-            <Menu.Item onClick={handleToggleReminder}>
-                <div className="flex items-center gap-2">
+            <Menu.Item
+                onSelect={(event) => {
+                    event.preventDefault();
+                    handleOpenReminder();
+                }}
+            >
+                <div className="flex w-full items-center gap-2">
                     <Bell size={16} />
-                    <span>{task.reminderAt ? "Remove Reminder" : "Set Reminder"}</span>
+                    <span>{task.reminderAt ? "Reminder" : "Set Reminder"}</span>
+                    <span className="ml-auto inline-flex items-center gap-2 text-[10px] text-twilight-text-muted/90">
+                        {task.reminderAt && <span>{formatShortDateTime(task.reminderAt)}</span>}
+                        <ChevronRight size={13} aria-hidden="true" />
+                    </span>
                 </div>
             </Menu.Item>
 

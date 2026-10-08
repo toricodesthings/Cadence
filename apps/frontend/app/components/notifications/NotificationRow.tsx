@@ -8,6 +8,7 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 export const NOTIFICATION_STYLES: Record<AppNotification["kind"], { icon: typeof Bell; label: string }> = {
     "task-reminder": { icon: Clock, label: "Reminder" },
     "task-due": { icon: CalendarClock, label: "Task" },
+    "block-start": { icon: CalendarClock, label: "Schedule" },
     "habit-reminder": { icon: Flame, label: "Habit" },
     "waiting-followup": { icon: Timer, label: "Waiting" },
     "personal-event": { icon: Bell, label: "Event" },

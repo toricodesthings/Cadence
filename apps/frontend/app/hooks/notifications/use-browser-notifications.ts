@@ -44,6 +44,7 @@ export function useBrowserNotifications(notifications: AppNotification[]) {
     const quietHoursEnabled = settings?.notifications?.quietHoursEnabled ?? false;
     const quietHoursStart = settings?.notifications?.quietHoursStart ?? null;
     const quietHoursEnd = settings?.notifications?.quietHoursEnd ?? null;
+    const pausedUntil = settings?.notifications?.pausedUntil ?? null;
 
     useEffect(() => {
         if (status !== "local" || !userId) return;
@@ -57,6 +58,7 @@ export function useBrowserNotifications(notifications: AppNotification[]) {
             const due = dueAlert(n, {
                 now, zone,
                 quietHours: { enabled: quietHoursEnabled, start: quietHoursStart, end: quietHoursEnd },
+                pausedUntil,
                 dismissed: dismissal.dismissedIds.has(n.id),
                 deferredUntil: dismissal.deferredUntil.get(n.id),
             });
@@ -71,5 +73,5 @@ export function useBrowserNotifications(notifications: AppNotification[]) {
                 saveFired(userId, fired);
             });
         }
-    }, [notifications, status, userId, quietHoursEnabled, quietHoursStart, quietHoursEnd]);
+    }, [notifications, status, userId, quietHoursEnabled, quietHoursStart, quietHoursEnd, pausedUntil]);
 }

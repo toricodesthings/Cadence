@@ -72,12 +72,12 @@ export function DeviceDeliveryRow() {
     return <>
         <SettingsRow title={desktop ? "Notifications on this computer" : "Notifications on this device"} description={blocked ? blockedPushCopy() : STATUS_COPY[status](desktop)}>
             <div className="flex flex-wrap gap-2 sm:justify-end">
-                {status === "off" && <Button variant="primary" size="sm" disabled={busy} onClick={() => void enable()}>Enable notifications</Button>}
-                {status === "denied" && <Button variant="secondary" size="sm" onClick={() => void recheck()}>Check again</Button>}
-                {blocked && <Button variant="secondary" size="sm" disabled={busy} onClick={() => void enable()}>Try again</Button>}
+                {status === "off" && <Button variant="primary" disabled={busy} onClick={() => void enable()}>Enable notifications</Button>}
+                {status === "denied" && <Button variant="secondary" onClick={() => void recheck()}>Check again</Button>}
+                {blocked && <Button variant="secondary" disabled={busy} onClick={() => void enable()}>Try again</Button>}
                 {on && <>
-                    <Button variant="secondary" size="sm" disabled={test === "sending"} onClick={() => void runTest()}>Send a test</Button>
-                    <Button variant="ghost" size="sm" onClick={() => void disable()}>Turn off</Button>
+                    <Button variant="secondary" disabled={test === "sending"} onClick={() => void runTest()}>Send a test</Button>
+                    <Button variant="ghost" onClick={() => void disable()}>Turn off</Button>
                 </>}
             </div>
         </SettingsRow>
@@ -86,8 +86,9 @@ export function DeviceDeliveryRow() {
     </>;
 }
 
-function DeviceLine({ device, isThis }: { device: Device; isThis: boolean }) {
-    const { setEnabled, forget } = useDeviceDelivery();
+type DeviceActions = Pick<ReturnType<typeof useDeviceDelivery>, "setEnabled" | "forget">;
+
+function DeviceLine({ device, isThis, setEnabled, forget }: { device: Device; isThis: boolean } & DeviceActions) {
     const Icon = DEVICE_ICON[device.kind] ?? Monitor;
     const reach = device.push ? "Reminders arrive even when closed" : "Reminders appear while Cadence is open";
     return <li className="flex items-center gap-3 rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-4">
@@ -112,14 +113,14 @@ function DeviceLine({ device, isThis }: { device: Device; isThis: boolean }) {
 
 /** Every device that can show this account's reminders, controllable from any one of them. */
 export function DeviceList() {
-    const { devices, thisInstallId } = useDeviceDelivery();
+    const { devices, thisInstallId, setEnabled, forget } = useDeviceDelivery();
     if (devices.length === 0) return null;
     return <SettingsSection title="Your devices">
         <p className="-mt-2 px-1 text-sm text-twilight-text-soft">
             Turn reminders off for any device from here. Forgetting one stops it until someone enables it there again.
         </p>
         <ul className="flex flex-col gap-3">
-            {devices.map((device) => <DeviceLine key={device.installId} device={device} isThis={device.installId === thisInstallId} />)}
+            {devices.map((device) => <DeviceLine key={device.installId} device={device} isThis={device.installId === thisInstallId} setEnabled={setEnabled} forget={forget} />)}
         </ul>
     </SettingsSection>;
 }

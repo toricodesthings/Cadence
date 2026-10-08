@@ -5,6 +5,7 @@ import { useTasks } from "../tasks/use-tasks";
 import { useHabitsRange } from "../habits/use-habits";
 import { useToday } from "../../lib/utils/user-zone";
 import { useSettings } from "../core/use-settings";
+import { SETTINGS_DEFAULTS } from "../../types/settings";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
 import {
@@ -107,14 +108,11 @@ export function useNotificationCenter() {
     const client = useApiClient();
     const queryClient = useQueryClient();
     const { data: settings } = useSettings();
-    const taskReminders = settings?.notifications?.taskReminders ?? true;
-    const habitReminders = settings?.notifications?.habitReminders ?? true;
-    const dueDateAlerts = settings?.notifications?.dueDateAlerts ?? true;
-    const quietHoursEnabled = settings?.notifications?.quietHoursEnabled ?? false;
-    const quietHoursStart = settings?.notifications?.quietHoursStart ?? null;
-    const quietHoursEnd = settings?.notifications?.quietHoursEnd ?? null;
-    const habitLeadMinutes = settings?.notifications?.habitReminderLeadMinutes ?? 15;
-    const bundleMissedHabits = settings?.notifications?.bundleMissedRoutinePrompts !== false;
+    const notif = settings?.notifications;
+    // Every preference the rulebook reads, defaults filled in; one dependency for the derive memo.
+    const prefs = useMemo(() => ({ ...SETTINGS_DEFAULTS.notifications, ...notif }), [notif]);
+    const { quietHoursEnabled, quietHoursStart, quietHoursEnd } = prefs;
+    const bundleMissedHabits = notif?.bundleMissedRoutinePrompts !== false;
     // Yearly events with their bell on join the reminder candidates.
     const personalEvents = settings?.calendar?.personalEvents;
     const notifiedEvents = useMemo(
@@ -208,17 +206,9 @@ export function useNotificationCenter() {
     const allNotifications = useMemo(() => {
         const now = nowRef.current;
         // Step 1: Pure candidate derivation
-        const candidates = deriveCandidates(tasks, habits, now, { personalEvents: notifiedEvents, habitLeadMinutes });
+        const candidates = deriveCandidates(tasks, habits, now, { personalEvents: notifiedEvents, prefs });
         // Step 2: Behavior filtering (preferences, quiet hours, bundling)
-        const filtered = filterByBehavior(candidates, now, {
-            taskReminders,
-            habitReminders,
-            dueDateAlerts,
-            quietHoursEnabled,
-            quietHoursStart,
-            quietHoursEnd,
-            bundleMissedHabits,
-        });
+        const filtered = filterByBehavior(candidates, now, { ...prefs, bundleMissedHabits });
         // Sort: high priority first, then by trigger time
         filtered.sort((a, b) => {
             if (a.priority !== b.priority) return a.priority === "high" ? -1 : 1;
@@ -226,7 +216,7 @@ export function useNotificationCenter() {
         });
         return filtered;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tasks, habits, notifiedEvents, taskReminders, habitReminders, dueDateAlerts, habitLeadMinutes, quietHoursEnabled, quietHoursStart, quietHoursEnd, bundleMissedHabits, version]);
+    }, [tasks, habits, notifiedEvents, prefs, bundleMissedHabits, version]);
 
     // Step 3: Persistence-aware presentation
     const notifications = useMemo(() => {
@@ -339,7 +329,7 @@ export function useNotificationCenter() {
     /** §11.7: Defer a notification — it will resurface after the chosen delay */
     const defer = useCallback((id: string, choice: DeferChoice) => {
         trackUsageEvent("reminder.deferred", { outcome: choice });
-        const until = computeDeferUntil(choice, new Date());
+        const until = computeDeferUntil(choice, new Date(), prefs);
         deferredUntil.set(id, until);
         emitChange();
         const notification = notifications.find((item) => item.id === id);
@@ -352,7 +342,7 @@ export function useNotificationCenter() {
                 actionTaken: "deferred",
             });
         }
-    }, [notifications, syncNotificationState]);
+    }, [notifications, syncNotificationState, prefs]);
 
     return {
         notifications,

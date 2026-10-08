@@ -2,7 +2,7 @@
 - [About Cadence](?settings=about): version and product info.
 - [Profile & Security](?settings=account): name, email, password, two-factor, devices.
 - [Appearance](?settings=appearance): theme, accent, background, motion, density.
-- [Notifications](?settings=notifications): reminders, daily summary, routine prompts, quiet hours.
+- [Notifications](?settings=notifications): reminders and lead times for tasks, due dates, timed blocks, routines and yearly events; pause, quiet hours, my morning/evening; daily summary is upcoming.
 - [Calendar & Time](?settings=datetime): formats, timezone, first day of week, calendar view, holidays, personal events.
 - [Tasks & Workflow](?settings=tasks): task defaults, views, routine streaks, Quick Add, smart features.
 - [Keyboard Shortcuts](?settings=shortcuts): key bindings and navigation shortcuts.

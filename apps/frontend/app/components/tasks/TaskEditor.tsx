@@ -13,6 +13,8 @@ import { useArchiveTask } from "../../hooks/tasks/use-archive-task";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useSections } from "../../hooks/sections/use-sections";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
+import { useSettings } from "../../hooks/core/use-settings";
+import { deadlineReminderAt } from "../../lib/notifications/reminder-engine";
 import { useSubtasks } from "../../hooks/tasks/use-subtasks";
 import { useTaskNote } from "../../hooks/tasks/use-task-note";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
@@ -27,7 +29,7 @@ import { DatePicker } from "../shared/DatePicker";
 import { Button } from "../primitives/Button";
 import { Skeleton } from "../primitives/Skeleton";
 import { Switch } from "../primitives/Switch";
-import { formatShortDate, formatShortDateTime, fromTimeValue } from "../../lib/utils/date-format";
+import { formatShortDate, formatShortDateTime } from "../../lib/utils/date-format";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
 import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_ICON, EFFORT_OPTIONS, PRIORITY_ICON, PRIORITY_OPTIONS } from "./task-choice-options";
 import {
@@ -77,6 +79,9 @@ export function TaskEditor({
 
     const [waitingOn, setWaitingOn] = useState(task?.waitingOn ?? "");
     const [activePanel, setActivePanel] = useState<"notes" | "subtasks" | "details">("notes");
+    const [reminderOpen, setReminderOpen] = useState(false);
+    const { data: settings } = useSettings();
+    const morningTime = settings?.notifications?.morningTime ?? "09:00";
     const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
     const { data: subtasks = [] } = useSubtasks(taskId);
 
@@ -137,6 +142,17 @@ export function TaskEditor({
     const handlePinToggle = () => {
         if (!task) return;
         updateTask.mutate({ id: task.id, isPinned: !task.isPinned });
+    };
+
+    const deadlineInstant = task ? deadlineReminderAt(task, morningTime) : null;
+    const setReminder = (reminderAt: string | null) => {
+        if (!task) return;
+        updateTask.mutate({ id: task.id, reminderAt, reminderSilenced: false });
+    };
+    const handleReminderSwitch = (on: boolean) => {
+        if (!on) return setReminder(null);
+        if (deadlineInstant) return setReminder(deadlineInstant);
+        setReminderOpen(true); // nothing to follow: ask when
     };
 
     const handleDeadlineChange = (updates: ScheduleUpdates) => {
@@ -320,7 +336,8 @@ export function TaskEditor({
                                                                 dueDate={null}
                                                                 scheduledStart={task.waitingReminder ?? null}
                                                                 recurrenceRule={null}
-                                                                onChange={(updates) => updateTask.mutate({ id: task.id, waitingReminder: updates.scheduledStart ?? (updates.dueDate ? fromTimeValue(updates.dueDate, "09:00") : null) })}
+                                                                variant="moment"
+                                                                onChange={(updates) => updateTask.mutate({ id: task.id, waitingReminder: updates.scheduledStart })}
                                                             >
                                                                 <button type="button" className={`${VALUE_BTN} -ml-2.5`}>
                                                                     {task.waitingReminder ? `Check again ${formatDateTime(task.waitingReminder)}` : "Set a check-in reminder"}
@@ -408,12 +425,27 @@ export function TaskEditor({
                                             </FieldRow>
                                         ) : null}
 
-                                        <FieldRow icon={Bell} label="Reminder" hint={task.reminderAt ? formatShortDateTime(task.reminderAt) : undefined}>
-                                            <Switch
-                                                checked={Boolean(task.reminderAt)}
-                                                onCheckedChange={(on) => updateTask.mutate({ id: task.id, reminderAt: on ? new Date().toISOString() : null, reminderSilenced: false })}
-                                                aria-label={task.reminderAt ? "Remove reminder" : "Set reminder"}
-                                            />
+                                        <FieldRow icon={Bell} label="Reminder">
+                                            <div className="flex items-center gap-2">
+                                                <DeadlinePickerPopover
+                                                    variant="moment"
+                                                    open={reminderOpen}
+                                                    onOpenChange={setReminderOpen}
+                                                    dueDate={null}
+                                                    scheduledStart={task.reminderAt ?? deadlineInstant}
+                                                    recurrenceRule={null}
+                                                    onChange={(updates) => setReminder(updates.scheduledStart)}
+                                                >
+                                                    <button type="button" className={`${VALUE_BTN} ${task.reminderAt ? "" : "text-twilight-text-muted"}`}>
+                                                        {task.reminderAt ? formatShortDateTime(task.reminderAt) : "None"}
+                                                    </button>
+                                                </DeadlinePickerPopover>
+                                                <Switch
+                                                    checked={Boolean(task.reminderAt)}
+                                                    onCheckedChange={handleReminderSwitch}
+                                                    aria-label={task.reminderAt ? "Remove reminder" : "Set reminder"}
+                                                />
+                                            </div>
                                         </FieldRow>
                                     </DetailGroup>
 

@@ -3,11 +3,14 @@ import type { Habit } from "@cadence/contracts/habit";
 import type { PersonalEvent } from "@cadence/contracts/settings";
 import type { AppNotification } from "./notification-model";
 import { addDays, atLocal, todayIn } from "@cadence/domain/time";
-import { deriveReminders, isInQuietHours as isInQuietHoursIn, reminderKindEnabled, personalEventDay } from "@cadence/domain/reminders";
+import { deriveReminders, isInQuietHours, isPaused, reminderKindEnabled, type ReminderPrefs } from "@cadence/domain/reminders";
 import { formatShortDate, formatTime } from "../utils/date-format";
 import { getUserZone } from "../utils/user-zone";
 
-export { personalEventDay };
+/** A reminder switched on with no time of its own follows the deadline: a block's start, or the due day at "my morning". */
+export function deadlineReminderAt(task: Pick<Task, "scheduledStart" | "dueDate">, morningTime = "09:00"): string | null {
+    return task.scheduledStart ?? (task.dueDate ? atLocal(task.dueDate, morningTime, getUserZone()) : null);
+}
 
 // ── §11.7: Defer choices ──
 
@@ -20,19 +23,20 @@ export const DEFER_LABELS: Record<DeferChoice, string> = {
 };
 
 /** The instant (ISO) a notification should resurface after deferral; "evening" and "tomorrow" are wall times in the user's zone. */
-export function computeDeferUntil(choice: DeferChoice, now: Date): string {
+export function computeDeferUntil(choice: DeferChoice, now: Date, times: { morningTime?: string; eveningTime?: string } = {}): string {
+    const { morningTime = "09:00", eveningTime = "19:00" } = times;
     const zone = getUserZone();
     const today = todayIn(zone, now);
     switch (choice) {
         case "10_minutes":
             return new Date(now.getTime() + 10 * 60_000).toISOString();
         case "this_evening": {
-            // If already past 7pm, push to tomorrow evening
-            const evening = atLocal(today, "19:00", zone);
-            return Date.parse(evening) > now.getTime() ? evening : atLocal(addDays(today, 1), "19:00", zone);
+            // If the evening has passed, push to tomorrow evening
+            const evening = atLocal(today, eveningTime, zone);
+            return Date.parse(evening) > now.getTime() ? evening : atLocal(addDays(today, 1), eveningTime, zone);
         }
         case "tomorrow":
-            return atLocal(addDays(today, 1), "09:00", zone);
+            return atLocal(addDays(today, 1), morningTime, zone);
     }
 }
 
@@ -45,17 +49,6 @@ export interface NotificationDismissalState {
     deferredUntil: Map<string, string>;
 }
 
-// ── §11.7: Quiet hours check ──
-
-export function isInQuietHours(
-    now: Date,
-    enabled: boolean,
-    start: string | null,
-    end: string | null,
-): boolean {
-    return isInQuietHoursIn(now, getUserZone(), enabled, start, end);
-}
-
 // ── §11.7: Step 1 — Pure candidate derivation ──
 
 /**
@@ -66,14 +59,14 @@ export function deriveCandidates(
     tasks: Task[],
     habits: Habit[],
     now: Date,
-    extras: { personalEvents?: PersonalEvent[]; habitLeadMinutes?: number } = {},
+    extras: { personalEvents?: PersonalEvent[]; prefs?: Partial<ReminderPrefs> } = {},
 ): AppNotification[] {
     return deriveReminders(
         { tasks, habits, personalEvents: extras.personalEvents },
         now,
         getUserZone(),
         { time: formatTime, date: formatShortDate },
-        extras.habitLeadMinutes,
+        extras.prefs,
     ).map((reminder) => ({ ...reminder, read: false }));
 }
 
@@ -84,10 +77,14 @@ export interface BehaviorFilterOptions {
     taskReminders: boolean;
     habitReminders: boolean;
     dueDateAlerts: boolean;
+    followUps?: boolean;
+    scheduleAlerts?: boolean;
     /** Quiet hours */
     quietHoursEnabled: boolean;
     quietHoursStart: string | null;
     quietHoursEnd: string | null;
+    /** Silent until this instant */
+    pausedUntil?: string | null;
     /** Bundle missed habits into a single prompt when > threshold */
     bundleMissedHabits?: boolean;
     missedHabitBundleThreshold?: number;
@@ -102,8 +99,9 @@ export function filterByBehavior(
     options: BehaviorFilterOptions,
 ): AppNotification[] {
     // During quiet hours, suppress all non-high-priority notifications
-    const inQuietHours = isInQuietHours(
+    const inQuietHours = isPaused(now, options.pausedUntil) || isInQuietHours(
         now,
+        getUserZone(),
         options.quietHoursEnabled,
         options.quietHoursStart,
         options.quietHoursEnd,

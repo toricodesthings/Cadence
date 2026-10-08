@@ -182,6 +182,23 @@ describe("push dispatch", () => {
         for (const { endpoint } of [upcoming, stale, off, quiet, dismissed]) expect(calls).not.toContain(endpoint);
     });
 
+    it("alerts before a timed block by its lead, and stays silent while paused", async () => {
+        const env = await vapidEnv();
+        const calls = pushService();
+        const block = (userId: string, start: string) =>
+            sql("INSERT INTO tasks (user_id, title, order_index, scheduled_start, scheduled_end, zone) VALUES ($1, 'Standup', 1, $2, $3::timestamptz + interval '30 minutes', 'America/Toronto')", [userId, start, start]);
+        const early = await subscriber(env);
+        await block(early.userId, "2026-10-07T15:10:00Z"); // starts in 10 min (default lead 10)
+        const tooFar = await subscriber(env);
+        await block(tooFar.userId, "2026-10-07T15:40:00Z");
+        const paused = await subscriber(env, { pausedUntil: "2026-10-07T16:00:00Z" });
+        await block(paused.userId, "2026-10-07T15:10:00Z");
+        await runPushDispatch(env, NOW);
+        expect(calls).toContain(early.endpoint);
+        expect(calls).not.toContain(tooFar.endpoint);
+        expect(calls).not.toContain(paused.endpoint);
+    });
+
     it("retries a failed send on a later run, then gives up on a gone device", async () => {
         const env = await vapidEnv();
         const { userId, endpoint } = await subscriber(env);

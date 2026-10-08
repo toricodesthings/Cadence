@@ -37,6 +37,8 @@ interface QuickScheduleSurfaceProps {
     isOpen?: boolean;
     onChange: (updates: ScheduleUpdates) => void;
     onRequestClose?: () => void;
+    /** "moment": one date and time (a reminder) — no span, end time or repeat. */
+    variant?: "schedule" | "moment";
 }
 
 type PickerMode = "deadline" | "duration";
@@ -73,11 +75,13 @@ export function QuickScheduleSurface({
     isOpen = true,
     onChange,
     onRequestClose,
+    variant = "schedule",
 }: QuickScheduleSurfaceProps) {
+    const moment = variant === "moment";
     const [viewDay, setViewDay] = useState<LocalDate>(initialDay(dueDate, scheduledStart));
     const [selectedDate, setSelectedDate] = useState<LocalDate>(initialDay(dueDate, scheduledStart));
     const [rangeEndDate, setRangeEndDate] = useState<LocalDate | null>(endDate);
-    const [showTime, setShowTime] = useState(Boolean(scheduledStart));
+    const [showTime, setShowTime] = useState(moment || Boolean(scheduledStart));
     const [endTimeValue, setEndTimeValue] = useState<WallTime | null>(
         scheduledStart && scheduledEnd ? toTimeValue(scheduledEnd) : null,
     );
@@ -91,11 +95,11 @@ export function QuickScheduleSurface({
         setViewDay(day);
         setSelectedDate(day);
         setRangeEndDate(endDate);
-        setShowTime(Boolean(scheduledStart));
+        setShowTime(moment || Boolean(scheduledStart));
         setEndTimeValue(scheduledStart && scheduledEnd ? toTimeValue(scheduledEnd) : null);
         setMode(endDate ? "duration" : "deadline");
         setRangeClickStep("start");
-    }, [dueDate, endDate, isOpen, scheduledEnd, scheduledStart]);
+    }, [dueDate, endDate, isOpen, moment, scheduledEnd, scheduledStart]);
 
     const startTimeValue = scheduledStart ? toTimeValue(scheduledStart) : DEFAULT_TIME;
 
@@ -204,7 +208,7 @@ export function QuickScheduleSurface({
 
     return (
         <div className="overflow-hidden">
-            <div className="flex flex-wrap items-center gap-1 border-b border-twilight-border/40 px-3 py-2" role="tablist" aria-label="Picker mode">
+            {!moment && <div className="flex flex-wrap items-center gap-1 border-b border-twilight-border/40 px-3 py-2" role="tablist" aria-label="Picker mode">
                 <button
                     type="button"
                     role="tab"
@@ -250,7 +254,7 @@ export function QuickScheduleSurface({
                         Duration
                     </span>
                 </button>
-            </div>
+            </div>}
 
             <div className="flex items-center justify-center gap-1 px-3 pb-1 pt-3" role="group" aria-label="Quick date presets">
                 {QUICK_ACTIONS.map(({ id, icon: Icon, label }) => {
@@ -290,7 +294,9 @@ export function QuickScheduleSurface({
             ) : null}
 
             <div className="space-y-2 border-t border-twilight-border/40 px-3 pb-3 pt-2">
-                {mode === "deadline" ? (
+                {moment ? (
+                    <TimePicker value={startTimeValue} onChange={handleStartTimeChange} label="Reminder time" />
+                ) : mode === "deadline" ? (
                     <div className="space-y-2">
                         <button
                             type="button"
@@ -346,19 +352,19 @@ export function QuickScheduleSurface({
                     </div>
                 ) : null}
 
-                <RecurrencePicker
+                {!moment && <RecurrencePicker
                     value={recurrenceRule}
                     onChange={(value) => onChange(
                         mode === "duration"
                             ? spanUpdates(selectedDate, rangeEndDate, value)
                             : dayUpdates(selectedDate, showTime, startTimeValue, endTimeValue, value),
                     )}
-                />
+                />}
 
                 <button
                     type="button"
                     onClick={clearDeadline}
-                    aria-label="Clear deadline"
+                    aria-label={moment ? "Clear" : "Clear deadline"}
                     className="flex w-full items-center justify-center gap-2 rounded-xl border border-twilight-border py-1.5 text-xs font-medium text-twilight-text-muted transition-colors hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400"
                 >
                     <X size={13} aria-hidden="true" />

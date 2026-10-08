@@ -4,6 +4,8 @@ import { createExternalStore } from "../../lib/utils/external-store";
 
 interface DesktopCommandPreferences {
     quickCaptureShortcutEnabled: boolean;
+    /** Windows only: read once by Rust at launch (`mod background`), so a change applies next launch. */
+    backgroundDelivery: boolean;
 }
 
 const DESKTOP_COMMAND_STORE = "cadence_desktop_preferences";
@@ -12,6 +14,7 @@ const DESKTOP_COMMAND_PREFERENCES_FALLBACK_KEY = "cadence:desktop-command-prefer
 
 const DEFAULT_DESKTOP_COMMAND_PREFERENCES: DesktopCommandPreferences = {
     quickCaptureShortcutEnabled: false,
+    backgroundDelivery: false,
 };
 
 let loaded = false;
@@ -33,7 +36,7 @@ async function readPreferences() {
         if (store) {
             const stored = await store.get<unknown>(DESKTOP_COMMAND_PREFERENCES_KEY);
             if (isDesktopCommandPreferences(stored)) {
-                return stored;
+                return { ...DEFAULT_DESKTOP_COMMAND_PREFERENCES, ...stored };
             }
         }
     }
@@ -50,7 +53,7 @@ async function readPreferences() {
         }
 
         const parsed = JSON.parse(raw) as unknown;
-        return isDesktopCommandPreferences(parsed) ? parsed : DEFAULT_DESKTOP_COMMAND_PREFERENCES;
+        return isDesktopCommandPreferences(parsed) ? { ...DEFAULT_DESKTOP_COMMAND_PREFERENCES, ...parsed } : DEFAULT_DESKTOP_COMMAND_PREFERENCES;
     } catch {
         return DEFAULT_DESKTOP_COMMAND_PREFERENCES;
     }
@@ -104,6 +107,16 @@ async function updateDesktopCommandPreferences(patch: Partial<DesktopCommandPref
     loaded = true;
     preferencesStore.set(next);
     await persistPreferences(next);
+}
+
+/**
+ * Windows only: keep Cadence in the tray after the window closes, and relaunch it at login so
+ * reminders keep arriving. The tray (the only way back in) appears from the next launch on.
+ */
+export async function setBackgroundDelivery(enabled: boolean) {
+    await updateDesktopCommandPreferences({ backgroundDelivery: enabled });
+    const autostart = await import("@tauri-apps/plugin-autostart");
+    await (enabled ? autostart.enable() : autostart.disable()).catch(() => {});
 }
 
 export function useDesktopCommandPreferences() {

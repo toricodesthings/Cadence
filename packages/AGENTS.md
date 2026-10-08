@@ -189,7 +189,7 @@ Never import `AppError` here.
   backend import).
 - `ordering.ts` — fractional `orderIndex` math (`ORDER_INDEX_GAP`,
   `computeNextOrderIndex`, `computeMidpointIndex`, `computeGappedOrderIndex`).
-- `reminders.ts` — the one reminder rulebook for app and server: `deriveReminders` (task reminders, Waiting check-ins, deadlines, routines with lead time, yearly events; wording injected via `ReminderFormat`), `reminderKindEnabled`, `isInQuietHours`, and `dueAlert` (OS-alert policy: alert instant, 15-minute late bound, deadline alerts at 09:00 until the day ends, dismissal, deferral as a new key, quiet hours silence all).
+- `reminders.ts` — the one reminder rulebook for app and server: `deriveReminders` (task reminders, Waiting check-ins, deadlines with an optional heads-up day and a chosen overdue span, timed blocks with their own lead and a longer one for Fixed blocks (expanded per day for repeats; an explicit reminder wins), routines with lead time, yearly events on each chosen day-before; preferences arrive as `ReminderPrefs`, defaults in `DEFAULT_REMINDER_PREFS`, wording injected via `ReminderFormat`), `reminderKindEnabled`, `isInQuietHours`, `isPaused`, and `dueAlert` (OS-alert policy: alert instant, 15-minute late bound, deadline alerts at the user's morning time until the day ends, dismissal, deferral as a new key, quiet hours and a pause silence all).
 - `repeats.ts` — the Fixed / Routine / Task rules: `routineTimeOn` (a routine's
   time on a date, honouring per-weekday overrides), `habitOccurrences` (via `expandSeries`)
   (a routine's due days; rules without INTERVAL/COUNT are anchored by whole

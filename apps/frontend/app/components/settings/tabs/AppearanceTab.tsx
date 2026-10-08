@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { Switch } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
@@ -213,6 +214,16 @@ export function AppearanceTab() {
             </SettingsSection>
 
             {/* ── Density ── */}
+            <SettingsSection title="Sidebar">
+                <SettingsRow title="Dot on Routines">
+                    <Switch
+                        checked={settings?.notifications?.showHabitNavDueCount ?? true}
+                        aria-label="Dot on Routines"
+                        onCheckedChange={(showHabitNavDueCount) => updateSettings.mutate({ notifications: { showHabitNavDueCount } })}
+                    />
+                </SettingsRow>
+            </SettingsSection>
+
             <SettingsSection title="Density">
                 <SettingsRow
                     title="Interface density"

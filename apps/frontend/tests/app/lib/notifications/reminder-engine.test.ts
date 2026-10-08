@@ -266,6 +266,16 @@ describe("computeDeferUntil", () => {
     });
 });
 
+describe("computeDeferUntil with my morning and evening", () => {
+    it("uses the chosen times", () => {
+        const times = { morningTime: "07:30", eveningTime: "18:00" };
+        const tomorrow = computeDeferUntil("tomorrow", at("10:00"), times);
+        expect([dayOf(tomorrow, ZONE), wallTimeOf(tomorrow, ZONE)]).toEqual(["2026-03-27", "07:30"]);
+        const evening = computeDeferUntil("this_evening", at("10:00"), times);
+        expect([dayOf(evening, ZONE), wallTimeOf(evening, ZONE)]).toEqual(["2026-03-26", "18:00"]);
+    });
+});
+
 describe("zone-aware behaviour", () => {
     it("treats a deadline as a day: due today at 23:30 local still reads as today, and a timed block is not a deadline", () => {
         const due = makeTask({ id: "d", dueDate: "2026-03-26" });
