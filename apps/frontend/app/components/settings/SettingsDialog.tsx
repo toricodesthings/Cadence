@@ -1,8 +1,8 @@
 import * as React from "react";
 import { useSearchParams } from "react-router";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../primitives/Dialog";
-import { Input } from "../primitives/Input";
+import { SearchField } from "../primitives/SearchField";
 import { cn } from "../../lib/utils";
 import { flushAllPendingSettingsMutations } from "../../hooks/core/use-settings";
 
@@ -53,12 +53,11 @@ export function SettingsDialog() {
                     {/* Left Sidebar */}
                     <div className="hidden w-[280px] shrink-0 flex-col gap-6 overflow-y-auto border-r border-twilight-border/70 bg-twilight-surface-muted/70 px-4 py-10 md:flex">
                         <div className="px-2">
-                            <Input
-                                icon={<Search className="w-4 h-4" />}
-                                placeholder="Search settings..."
+                            <SearchField
+                                placeholder="Search settings"
+                                aria-label="Search settings"
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-twilight-base/40 border-twilight-border/80"
+                                onValueChange={setSearchQuery}
                             />
                         </div>
 

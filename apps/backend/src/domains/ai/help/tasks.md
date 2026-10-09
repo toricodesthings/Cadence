@@ -4,4 +4,4 @@
 - **Waiting:** set a task to Waiting when it's blocked on someone; you can add who it's waiting on and a check-in reminder.
 - **Done:** tick it off. Finished tasks live in [Completed](/completed).
 - **Delete:** deleting moves a task to [Trash](/trash), where you can restore it. Permanently deleting from Trash, one task or all of them with Empty Trash, can't be undone.
-- **Undo:** most actions show an Undo right after.
+- **Undo:** most actions show an Undo right after. Deleting a list, tag, section, routine, event or chat, or bulk-deleting tasks, has no confirm step: Undo shows for a few seconds, then it's gone for good.

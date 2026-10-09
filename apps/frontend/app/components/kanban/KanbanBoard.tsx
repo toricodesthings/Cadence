@@ -436,7 +436,7 @@ export function KanbanBoard({
                             projectId={projectId}
                             onSelectTask={onSelectTask}
                             onRename={(name) => updateSection.mutate({ id: column.id, name })}
-                            onDelete={() => deleteSection.mutate(column.id)}
+                            onDelete={() => deleteSection.mutate({ id: column.id, name: column.section.name })}
                         />
                     </div>
                 ))}

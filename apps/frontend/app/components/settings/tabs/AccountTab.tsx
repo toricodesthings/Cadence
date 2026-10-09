@@ -389,10 +389,7 @@ function OAuthConnectionsBlock() {
                                     const error = await authError(authClient.unlinkAccount({ providerId: acc.providerId }));
                                     setLoading(false);
                                     if (error) toast.error(error.message || "Failed to unlink account");
-                                    else {
-                                        toast.success(`Unlinked ${acc.providerId}`);
-                                        void queryClient.invalidateQueries({ queryKey: queryKeys.auth.accounts });
-                                    }
+                                    else void queryClient.invalidateQueries({ queryKey: queryKeys.auth.accounts });
                                 }}
                                 disabled={loading}
                             >
@@ -517,10 +514,7 @@ function SessionsBlock() {
                                             const error = await authError(authClient.revokeSession({ token: sess.token }));
                                             setLoading(false);
                                             if (error) toast.error("Failed to log out device");
-                                            else {
-                                                toast.success("Device logged out successfully");
-                                                setSessions(sessions.filter(s => s.id !== sess.id));
-                                            }
+                                            else setSessions(sessions.filter(s => s.id !== sess.id));
                                         }}
                                         disabled={loading}
                                     >
@@ -579,7 +573,6 @@ function AvatarEditModal({ onProfileUpdated }: { onProfileUpdated: () => Promise
             toast.error(error.message || "Failed to update profile picture");
         } else {
             await onProfileUpdated();
-            toast.success("Profile picture updated");
             setOpen(false);
             setPreviewImage("");
         }
@@ -660,7 +653,6 @@ export function AccountTab() {
         if (error) {
             toast.error(error.message || `Failed to update ${field}`);
         } else {
-            toast.success(`${field} updated successfully`);
             await refetchSession(); // Force UI update
         }
     };

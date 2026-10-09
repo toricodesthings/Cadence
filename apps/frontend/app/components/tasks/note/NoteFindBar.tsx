@@ -3,6 +3,7 @@ import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import { ChevronDown, ChevronUp, Replace, X } from "lucide-react";
 import { Button } from "../../primitives/Button";
+import { SearchField } from "../../primitives/SearchField";
 import { Tip } from "../../primitives/Tooltip";
 import { Reveal } from "../../shared/Reveal";
 import { getFind, replaceAll, replaceCurrent, setFind, stepFind } from "../../../lib/notes/note-find";
@@ -52,10 +53,10 @@ export function NoteFindBar({ editor, onClose, className }: { editor: Editor; on
             }}
         >
             <div className="flex items-center gap-1.5">
-                <input
+                <SearchField
                     ref={input}
                     value={query}
-                    onChange={(e) => update(e.target.value)}
+                    onValueChange={update}
                     onKeyDown={(e) => {
                         if (e.key === "Enter") {
                             e.preventDefault();
@@ -64,8 +65,7 @@ export function NoteFindBar({ editor, onClose, className }: { editor: Editor; on
                     }}
                     placeholder="Find"
                     aria-label="Find"
-                    className={FIELD}
-                    autoComplete="off"
+                    className="flex-1"
                 />
                 <span role="status" className="min-w-[4.5rem] text-center text-[13px] tabular-nums text-twilight-text-muted">{label}</span>
                 <Tip label="Previous match" side="bottom"><Button variant="ghost" size="icon" aria-label="Previous match" disabled={!find.count} onClick={() => stepFind(editor, -1)}><ChevronUp size={18} aria-hidden="true" /></Button></Tip>

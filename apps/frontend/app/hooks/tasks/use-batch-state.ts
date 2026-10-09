@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
@@ -8,6 +9,7 @@ import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { chunk } from "../../lib/utils";
 import { toastError } from "../../lib/utils/error-toast";
+import { isUndone, toastUndo, undoWindow } from "../../lib/utils/undo-toast";
 import { rescheduleToDay } from "@cadence/domain/task-temporal";
 import type { Instant, LocalDate } from "@cadence/domain/time";
 import { getUserZone } from "../../lib/utils/user-zone";
@@ -93,19 +95,23 @@ export function useBatchRescheduleTasks() {
     });
 }
 
+const countLabel = (n: number) => `${n} task${n === 1 ? "" : "s"}`;
+
+/** Permanently deletes tasks, but only once Undo's window closes; they leave the screen at once. */
 export function useBatchDeleteTasks() {
     const client = useApiClient();
     const queryClient = useQueryClient();
+    const send = withOfflineSupport<{ taskIds: string[] }, Task[]>(
+        ({ taskIds }) => ({ type: "batch_delete", payload: { taskIds } }),
+        ({ taskIds }) => inBatches(taskIds, async (ids) =>
+            unwrapResponse(await client.api.tasks.batch.delete.$post({ json: { taskIds: ids } }))),
+    );
 
     return useMutation({
-        mutationFn: withOfflineSupport<
-            { taskIds: string[] },
-            Task[]
-        >(
-            ({ taskIds }) => ({ type: "batch_delete", payload: { taskIds } }),
-            ({ taskIds }) => inBatches(taskIds, async (ids) =>
-                unwrapResponse(await client.api.tasks.batch.delete.$post({ json: { taskIds: ids } }))),
-        ),
+        mutationFn: async (input: { taskIds: string[] }) => {
+            await undoWindow(`Deleted ${countLabel(input.taskIds.length)}`, { description: "They're gone for good once this closes." });
+            return send(input);
+        },
         onMutate: async ({ taskIds }) => {
             await taskCache.cancel(queryClient);
             const snapshot = taskCache.snapshot(queryClient);
@@ -121,8 +127,46 @@ export function useBatchDeleteTasks() {
         },
         onError: (err, _vars, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toastError(err, "Couldn't delete tasks");
+            if (!isUndone(err)) toastError(err, "Couldn't delete tasks");
             taskCache.invalidate(queryClient);
         },
     });
+}
+
+/** The state each task is in now, read before a change so Undo can put it back. */
+function statesOf(queryClient: ReturnType<typeof useQueryClient>, taskIds: string[]) {
+    const wanted = new Set(taskIds);
+    const states = new Map<string, TaskState>();
+    for (const [, list] of taskCache.snapshot(queryClient)) {
+        if (!Array.isArray(list)) continue;
+        for (const task of list as Task[]) if (wanted.has(task.id)) states.set(task.id, task.state);
+    }
+    return states;
+}
+
+/**
+ * Sends tasks to Trash with one Undo toast that returns each to the state it came from.
+ * The one place bulk Trash is wired, so the bar and the keyboard shortcut behave alike.
+ */
+export function useTrashTasks() {
+    const queryClient = useQueryClient();
+    const { mutate } = useBatchStateTransition();
+
+    return useCallback((taskIds: string[], onDone?: () => void) => {
+        if (taskIds.length === 0) return;
+        const before = statesOf(queryClient, taskIds);
+        mutate({ taskIds, state: "ARCHIVED" }, {
+            onSuccess: () => {
+                onDone?.();
+                toastUndo(`Moved ${countLabel(taskIds.length)} to Trash`, () => {
+                    const byState = new Map<TaskState, string[]>();
+                    for (const id of taskIds) {
+                        const state = before.get(id) ?? "ACTIVE";
+                        byState.set(state, [...(byState.get(state) ?? []), id]);
+                    }
+                    for (const [state, ids] of byState) mutate({ taskIds: ids, state });
+                });
+            },
+        });
+    }, [queryClient, mutate]);
 }

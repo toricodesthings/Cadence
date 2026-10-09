@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { CalendarHeart, CalendarPlus, ArrowDownUp, ChevronDown } from "lucide-react";
-import { toast } from "sonner";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { EventCard } from "../components/events/EventCard";
-import * as AlertDialog from "../components/primitives/AlertDialog";
 import { MainLayout } from "../components/layout/MainLayout";
 import { PageContent } from "../components/layout/PageLayout";
 import { Button } from "../components/primitives/Button";
@@ -52,7 +50,6 @@ export default function EventsRoute() {
     const [selectedEventId, setSelectedEventId] = useState<string | null>(() => searchParams.get("event"));
     const [detailMode, setDetailMode] = useState<"peek" | "focus">("peek");
     const editingEvent = personalEvents.items.find((event) => event.id === selectedEventId);
-    const [deletingEvent, setDeletingEvent] = useState<PersonalEvent | null>(null);
     const [sortMode, setSortMode] = useState<PersonalEventSortMode>("next");
 
     useDocumentMeta(
@@ -98,22 +95,24 @@ export default function EventsRoute() {
 
     const handleSubmit = (value: Omit<PersonalEvent, "id">) => {
         personalEvents.addEvent(value);
-        toast.success("Event added", {
-            action: { label: "Open Schedule", onClick: () => handleOpenSchedule(getNextPersonalEventDate(value)) },
-        });
 
         setEditorOpen(false);
         setSelectedEventId(null);
     };
 
     const closeDetails = () => setSelectedEventId(null);
+
+    const deleteEvent = (event: PersonalEvent) => {
+        personalEvents.removeEvent(event.id);
+        if (selectedEventId === event.id) closeDetails();
+    };
     const detailPanel = editingEvent ? (
         <EditSidePanel kind="event"
             key={editingEvent.id}
             event={editingEvent}
             onChange={(patch) => personalEvents.updateEvent(editingEvent.id, patch)}
             onClose={closeDetails}
-            onDelete={() => setDeletingEvent(editingEvent)}
+            onDelete={() => deleteEvent(editingEvent)}
             detailMode={detailMode}
             onDetailModeChange={shell.isWide ? undefined : setDetailMode}
         />
@@ -204,10 +203,9 @@ export default function EventsRoute() {
                                     item={item}
                                     onOpen={toggleEdit}
                                     onEdit={openEdit}
-                                    onDelete={setDeletingEvent}
+                                    onDelete={deleteEvent}
                                     onToggleReminder={(event) => {
                                         personalEvents.updateEvent(event.id, { ...event, notify: !event.notify });
-                                        toast.success(event.notify ? "Reminder disabled" : "Reminder enabled");
                                     }}
                                     onOpenInSchedule={(event) => {
                                         handleOpenSchedule(getNextPersonalEventDate(event));
@@ -234,39 +232,6 @@ export default function EventsRoute() {
                 onClose={() => setEditorOpen(false)}
                 onSubmit={handleSubmit}
             />
-
-            <AlertDialog.Root open={Boolean(deletingEvent)} onOpenChange={(open) => { if (!open) setDeletingEvent(null); }}>
-                <AlertDialog.Content>
-                    <AlertDialog.Header>
-                        <AlertDialog.Title>Delete "{deletingEvent?.label}"?</AlertDialog.Title>
-                        <AlertDialog.Description>
-                            This event will be removed from your personal events library and from Schedule.
-                        </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                        <AlertDialog.Cancel asChild>
-                            <Button variant="ghost" size="md">
-                                Cancel
-                            </Button>
-                        </AlertDialog.Cancel>
-                        <AlertDialog.Action asChild>
-                            <Button
-                                variant="danger"
-                                size="md"
-                                onClick={() => {
-                                    if (!deletingEvent) return;
-                                    personalEvents.removeEvent(deletingEvent.id);
-                                    if (selectedEventId === deletingEvent.id) closeDetails();
-                                    toast.success("Event deleted");
-                                    setDeletingEvent(null);
-                                }}
-                            >
-                                Delete event
-                            </Button>
-                        </AlertDialog.Action>
-                    </AlertDialog.Footer>
-                </AlertDialog.Content>
-            </AlertDialog.Root>
         </MainLayout>
     );
 }

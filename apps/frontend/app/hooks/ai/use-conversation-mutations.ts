@@ -12,6 +12,7 @@ import { queryKeys } from "../../lib/api/query-keys";
 import { toast } from "sonner";
 import type { ConversationListItem } from "@cadence/contracts/ai";
 import { toastError } from "../../lib/utils/error-toast";
+import { isUndone, undoWindow } from "../../lib/utils/undo-toast";
 
 type ListSnapshot = ConversationListItem[] | undefined;
 
@@ -92,11 +93,13 @@ export function useDeleteConversation() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (id: string) => {
+        // The row disappears at once; the server hears about it only once Undo's window closes.
+        mutationFn: async ({ id, title }: { id: string; title: string }) => {
+            await undoWindow(`Deleted ${title}`);
             const res = await client.api.ai.conversations[":id"].$delete({ param: { id } });
             return unwrapResponse(res);
         },
-        onMutate: async (id) => {
+        onMutate: async ({ id }) => {
             await queryClient.cancelQueries({ queryKey: queryKeys.ai.conversations });
             const snapshot = patchList(queryClient, (rows) => rows.filter((r) => r.id !== id));
             return { snapshot };
@@ -105,7 +108,7 @@ export function useDeleteConversation() {
             if (context?.snapshot) {
                 queryClient.setQueryData(queryKeys.ai.conversations, context.snapshot);
             }
-            toastError(err, "Couldn’t delete that conversation");
+            if (!isUndone(err)) toastError(err, "Couldn’t delete that conversation");
         },
         onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
     });

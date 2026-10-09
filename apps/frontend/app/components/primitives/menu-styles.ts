@@ -1,5 +1,5 @@
 /** Floating surfaces: ContextMenu, DropdownMenu, Popover and Tooltip. */
-export const FLOATING_SURFACE = "glass-surface layer-floating-ui";
+export const FLOATING_SURFACE = "surface-floating layer-floating-ui";
 /** Open/close motion for menus and popovers (Tooltip animates on `delayed-open`). */
 export const FLOATING_MOTION = [
     "data-[state=open]:animate-in data-[state=closed]:animate-out",

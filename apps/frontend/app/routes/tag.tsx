@@ -15,7 +15,6 @@ import { UtilitySheet } from "../components/shared/UtilitySheet";
 import { Swatches, TAG_SWATCHES } from "../components/shared/Swatches";
 import { useTaskComposer } from "../components/tasks/TaskComposer";
 import * as DropdownMenu from "../components/primitives/DropdownMenu";
-import * as AlertDialog from "../components/primitives/AlertDialog";
 import { Button } from "../components/primitives/Button";
 import { Tip } from "../components/primitives";
 import { useTags } from "../hooks/tags/use-tags";
@@ -53,7 +52,6 @@ export default function TagView() {
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
     const [addOpen, setAddOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
-    const [deleteOpen, setDeleteOpen] = useState(false);
     const [name, setName] = useState("");
     const [color, setColor] = useState("default");
 
@@ -85,7 +83,7 @@ export default function TagView() {
     };
 
     const handleDelete = () => {
-        deleteTag.mutate(tagId);
+        deleteTag.mutate({ id: tagId, name: tag?.name ?? "tag" });
         navigate("/");
     };
 
@@ -119,25 +117,6 @@ export default function TagView() {
 
     return (
         <>
-            <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
-                <AlertDialog.Content>
-                    <AlertDialog.Header>
-                        <AlertDialog.Title>Delete the tag "{tag?.name}"?</AlertDialog.Title>
-                        <AlertDialog.Description>
-                            The tag comes off every task that has it. The tasks themselves stay.
-                        </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                        <AlertDialog.Cancel asChild>
-                            <Button variant="ghost" size="md">Cancel</Button>
-                        </AlertDialog.Cancel>
-                        <AlertDialog.Action asChild>
-                            <Button variant="danger" size="md" onClick={handleDelete}>Delete tag</Button>
-                        </AlertDialog.Action>
-                    </AlertDialog.Footer>
-                </AlertDialog.Content>
-            </AlertDialog.Root>
-
             <UtilitySheet
                 title="Edit tag"
                 open={editOpen}
@@ -189,7 +168,7 @@ export default function TagView() {
                                 <Pencil size={15} aria-hidden="true" /> Rename or recolour
                             </DropdownMenu.Item>
                             <DropdownMenu.Separator />
-                            <DropdownMenu.Item variant="danger" className="flex min-h-11 items-center gap-2" onSelect={() => setDeleteOpen(true)}>
+                            <DropdownMenu.Item variant="danger" className="flex min-h-11 items-center gap-2" onSelect={handleDelete}>
                                 <Trash2 size={15} aria-hidden="true" /> Delete tag
                             </DropdownMenu.Item>
                         </DropdownMenu.Content>

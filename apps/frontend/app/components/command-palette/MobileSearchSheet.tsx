@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import {
     Search, Clock, ArrowUpLeft,
 } from "lucide-react";
+import { SearchField } from "../primitives/SearchField";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { useUniversalSearch, type SearchResult } from "../../hooks/search/use-universal-search";
 import { useSearchNavigation } from "../../hooks/search/use-search-navigation";
@@ -107,18 +108,15 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                 /* The heading row is a search field here; the sheet still owns
                    the drag handle, backdrop, focus trap, Escape and close. */
                 <form onSubmit={handleSubmit} className="flex min-w-0 flex-1 items-center gap-3">
-                    <Search size={20} className="shrink-0 text-twilight-text-muted" aria-hidden="true" />
-                    <input
+                    <SearchField
                         ref={inputRef}
+                        variant="bare"
+                        size="lg"
                         value={rawQuery}
-                        onChange={(e) => setRawQuery(e.target.value)}
+                        onValueChange={setRawQuery}
                         placeholder="Search your workspace"
-                        enterKeyHint="search"
-                        autoComplete="off"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        className="min-w-0 flex-1 bg-transparent py-3 font-display text-lg text-twilight-text outline-none placeholder:text-twilight-text-muted/70"
                         aria-label="Search workspace"
+                        className="min-h-0 flex-1"
                     />
                 </form>
             )}

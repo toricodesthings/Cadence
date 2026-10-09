@@ -30,7 +30,7 @@ export function SlashCommandMenu({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
             transition={{ duration: 0.15 }}
-            className="mb-2 flex flex-col gap-0.5 rounded-[20px] border border-white/[0.08] bg-panel-raised/95 p-1.5 shadow-[0_18px_40px_-24px_rgba(0,0,0,0.7)]"
+            className="surface-floating mb-2 flex flex-col gap-0.5 rounded-[20px] p-1.5"
         >
             {commands.map((command, i) => {
                 const Icon = ICONS[command.id];

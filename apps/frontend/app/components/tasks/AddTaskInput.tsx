@@ -267,7 +267,7 @@ export function AddTaskInput({
                 </DeadlinePickerPopover>
             ) : null}
             {(isTrayOpen || parsedInput.applied.length > 0 || parsedInput.suggestions.length > 0 || literal || effortSuggestion || effort) ? (
-                <div className={`flex w-full flex-col gap-2 ${compact ? "pl-6" : "pl-8"}`}>
+                <div className={`flex w-full flex-col gap-2 empty:hidden ${compact ? "pl-6" : "pl-8"}`}>
                     <QuickAddActionTray
                         quickAddSettings={taskDefaults?.quickAdd}
                         projectLocked={Boolean(projectId)}

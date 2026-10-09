@@ -143,7 +143,7 @@ export function CaptureRow({
             { id: object.id, state: "ARCHIVED" },
             {
                 onSuccess: () =>
-                    toast("Discarded", {
+                    toast.message("Discarded", {
                         action: {
                             label: "Undo",
                             onClick: () => update.mutate({ id: object.id, state: "ACTIVE" }),

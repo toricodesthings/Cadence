@@ -5,7 +5,6 @@ import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ContextMenu from "../primitives/ContextMenu";
 import * as Dialog from "../primitives/Dialog";
-import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
 import { Tip } from "../primitives";
 import { useUpdateProject } from "../../hooks/projects/use-update-project";
@@ -32,7 +31,6 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
     const deleteProject = useDeleteProject();
 
     const [renameOpen, setRenameOpen] = useState(false);
-    const [deleteOpen, setDeleteOpen] = useState(false);
     const [renameValue, setRenameValue] = useState("");
     const [colorValue, setColorValue] = useState("luminous-amber");
     const [emojiValue, setEmojiValue] = useState(emoji || "");
@@ -61,7 +59,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
     };
 
     const handleDelete = () => {
-        deleteProject.mutate(id);
+        deleteProject.mutate({ id, name: label });
         if (active) navigate("/");
     };
 
@@ -134,34 +132,6 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                 </Dialog.DialogContent>
             </Dialog.Dialog>
 
-            {/* Delete confirmation */}
-            <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
-                <AlertDialog.Content>
-                    <AlertDialog.Header>
-                        <AlertDialog.Title>Delete "{label}"?</AlertDialog.Title>
-                        <AlertDialog.Description>
-                            This will permanently delete the list and all its tasks. This action cannot be undone.
-                        </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                        <AlertDialog.Cancel asChild>
-                            <Button variant="ghost" size="md">
-                                Cancel
-                            </Button>
-                        </AlertDialog.Cancel>
-                        <AlertDialog.Action asChild>
-                            <Button
-                                variant="danger"
-                                size="md"
-                                onClick={handleDelete}
-                            >
-                                Delete list
-                            </Button>
-                        </AlertDialog.Action>
-                    </AlertDialog.Footer>
-                </AlertDialog.Content>
-            </AlertDialog.Root>
-
             {/* Row */}
             <ContextMenu.Root onOpenChange={(isOpen) => {
                 if (isOpen) trackUsageEvent("project.context_menu_opened", { object_type: "project", input_method: "context_menu" });
@@ -211,7 +181,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                         <DropdownMenu.Separator />
                         <DropdownMenu.Item
                             className="flex items-center gap-2 text-[13px] text-red-400 focus:text-red-400 focus:bg-red-500/10"
-                            onSelect={() => setDeleteOpen(true)}
+                            onSelect={handleDelete}
                         >
                             <Trash2 size={12} aria-hidden="true" />
                             Delete
@@ -229,7 +199,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                     </div>
                 </ContextMenu.Item>
                 <ContextMenu.Separator />
-                <ContextMenu.Item variant="danger" onSelect={() => setDeleteOpen(true)}>
+                <ContextMenu.Item variant="danger" onSelect={handleDelete}>
                     <div className="flex items-center gap-2">
                         <Trash2 size={16} />
                         <span>Delete list</span>

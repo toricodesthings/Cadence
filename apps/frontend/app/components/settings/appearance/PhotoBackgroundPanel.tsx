@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Check, Loader2, Lock, Sparkles, Trash2, Upload, Pipette } from "lucide-react";
-import { toast } from "sonner";
 import { ExternalLink } from "../../shared/ExternalLink";
 import { CADENCE_PRIVACY_URL } from "../../../lib/constants/app-info";
 import type { BackgroundImage } from "@cadence/contracts/settings";
@@ -207,7 +206,6 @@ export function PhotoBackgroundPanel({
                         <AlertDialog.Action
                             onClick={() =>
                                 remove.mutate(undefined, {
-                                    onSuccess: () => toast.success("Background deleted"),
                                     onError: (error) => toastError(error, "Couldn't delete that photo"),
                                 })
                             }

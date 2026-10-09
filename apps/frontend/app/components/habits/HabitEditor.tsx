@@ -327,7 +327,6 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                     <span className="min-w-0 flex-1"><span className="block text-sm font-medium">Delete routine</span><span className="block text-xs text-twilight-text-muted">Permanently remove this routine and its history.</span></span>
                 </Button>
             </DetailPanelLayout>
-            {actions.deleteDialog}
         </div>
     );
 }

@@ -5,7 +5,6 @@
  * browser got when the assistant started connecting.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import type { McpScope } from "@cadence/contracts/connections";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
@@ -30,7 +29,6 @@ export function useDisconnect() {
     return useMutation({
         mutationFn: async (id: string) =>
             unwrapResponse(await client.api.connections[":id"].$delete({ param: { id } })),
-        onSuccess: () => toast.success("Disconnected"),
         onError: (error) => toastError(error, "Couldn't disconnect"),
         onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.connections.all }),
     });

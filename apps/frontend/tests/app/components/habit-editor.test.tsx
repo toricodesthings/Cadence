@@ -116,15 +116,11 @@ describe("HabitEditor", () => {
         expect(update).toHaveBeenCalledWith({ id: habit.id, archived: false });
         expect(close).toHaveBeenCalledOnce();
     });
-    it("requires confirmation before permanent deletion", () => {
+    it("deletes at once and closes; the Undo toast owns the way back", () => {
         setup();
         fireEvent.click(screen.getByRole("button", { name: "Delete routine" }));
-        expect(remove).not.toHaveBeenCalled();
-        fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-        expect(remove).not.toHaveBeenCalled();
-        fireEvent.click(screen.getByRole("button", { name: "Delete routine" }));
-        fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete routine" }));
-        expect(remove).toHaveBeenCalledWith(habit.id);
+        expect(screen.queryByRole("alertdialog")).toBeNull();
+        expect(remove).toHaveBeenCalledWith({ id: habit.id, name: habit.title });
         expect(close).toHaveBeenCalledOnce();
     });
 });

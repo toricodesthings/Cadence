@@ -9,6 +9,7 @@ import { resolveTagColor } from "../../lib/utils/color-resolver";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { Swatches, TAG_SWATCHES } from "../shared/Swatches";
 import { Button } from "../primitives/Button";
+import { SearchField } from "../primitives/SearchField";
 
 interface TagPickerSubmenuProps {
     activeTagIds: string[];
@@ -170,13 +171,13 @@ export function TagPickerSheet({ open, onClose, activeTagIds, onAdd, onRemove }:
                 <form className="space-y-3 border-t border-twilight-border px-4 py-3" onSubmit={(e) => { e.preventDefault(); void create(); }}>
                     {canCreate ? <Swatches options={TAG_SWATCHES} value={color} onChange={setColor} /> : null}
                     <div className="flex items-center gap-2">
-                        <input
+                        <SearchField
                             value={query}
-                            onChange={(e) => setQuery(e.target.value)}
+                            onValueChange={setQuery}
                             placeholder="Find or create a tag"
                             aria-label="Find or create a tag"
                             enterKeyHint="done"
-                            className="min-h-12 min-w-0 flex-1 rounded-2xl border border-twilight-border bg-white/[0.04] px-4 text-base text-twilight-text outline-none placeholder:text-twilight-text-muted/80 focus:border-accent-primary/40"
+                            className="min-h-12 flex-1 rounded-2xl"
                         />
                         {canCreate ? <Button type="submit" variant="primary" size="md" className="min-h-12" disabled={createTag.isPending}>Create</Button> : null}
                     </div>

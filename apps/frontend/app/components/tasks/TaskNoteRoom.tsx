@@ -216,7 +216,7 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
             case "edit-markdown":
                 if (sourceMode) {
                     if (isFaithful(body)) setSourceMode(false);
-                    else toast("This note has formatting the visual editor can’t keep, so it stays as Markdown.");
+                    else toast.message("This note has formatting the visual editor can’t keep, so it stays as Markdown.");
                 } else setSourceMode(true);
                 break;
             default: if (editor) runNoteCommand(editor, id);

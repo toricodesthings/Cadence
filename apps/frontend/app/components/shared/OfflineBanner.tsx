@@ -12,7 +12,7 @@ const NOTICE_AFTER_MS = 5_000;
 const CONNECTION_TOAST = "connection";
 
 function connectionToast(online: boolean) {
-    toast(online ? "Oh hey, you're back online!" : "You're offline for now. Your changes will wait here.", {
+    toast.message(online ? "Oh hey, you're back online!" : "You're offline for now. Your changes will wait here.", {
         id: CONNECTION_TOAST,
         duration: 2_400,
         className: online ? "cadence-toast--online" : "cadence-toast--offline",

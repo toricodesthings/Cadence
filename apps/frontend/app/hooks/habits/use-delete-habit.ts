@@ -7,23 +7,27 @@ import { removeHabitFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
+import { isUndone, undoWindow } from "../../lib/utils/undo-toast";
 
 export function useDeleteHabit() {
     const client = useApiClient();
     const queryClient = useQueryClient();
+    const send = withOfflineSupport<{ id: string; name: string }, unknown>(
+        ({ id }) => ({ type: "delete_habit", id }),
+        async ({ id }) => {
+            const res = await client.api.habits[":id"].$delete({ param: { id } });
+            return unwrapResponse(res);
+        },
+    );
 
     return useMutation({
-        mutationFn: withOfflineSupport<string, unknown>(
-            (id) => ({ type: "delete_habit", id }),
-            async (id) => {
-                const res = await client.api.habits[":id"].$delete({
-                    param: { id },
-                });
-                return unwrapResponse(res);
-            },
-        ),
+        // The routine disappears at once; the delete is sent (or queued offline) once Undo's window closes.
+        mutationFn: async (input: { id: string; name: string }) => {
+            await undoWindow(`Deleted ${input.name}`, { description: "Its history went with it." });
+            return send(input);
+        },
 
-        onMutate: async (id) => {
+        onMutate: async ({ id }) => {
             await habitCache.cancel(queryClient);
             const snapshot = habitCache.snapshot(queryClient);
 
@@ -37,13 +41,13 @@ export function useDeleteHabit() {
             return { snapshot };
         },
 
-        onSuccess: (_data, id) => {
+        onSuccess: (_data, { id }) => {
             removeHabitFromCaches(queryClient, id);
         },
 
         onError: (err, _id, context) => {
             if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
-            toastError(err, "Couldn't delete routine");
+            if (!isUndone(err)) toastError(err, "Couldn't delete routine");
         },
 
         onSettled: (data, error) => !wasQueued(data, error) && habitCache.invalidate(queryClient),

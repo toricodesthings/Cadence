@@ -152,7 +152,7 @@ export function HoldingFeed({
             for (const task of feed.tasks.filter((t) => selected.has(t.id))) {
                 if (discard) {
                     await updateTask.mutateAsync({ id: task.id, state: "ARCHIVED" });
-                    toast("Discarded", {
+                    toast.message("Discarded", {
                         action: {
                             label: "Undo",
                             onClick: () => updateTask.mutate({ id: task.id, state: task.state }),

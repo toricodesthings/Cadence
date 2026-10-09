@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Dialog, DialogCloseButton, DialogContent } from "../primitives/Dialog";
+import { SearchField } from "../primitives/SearchField";
 import { useNavigate } from "react-router";
 import {
     Search,
@@ -137,15 +138,16 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             >
                 {/* Search input */}
                 <div className="flex min-h-18 items-center gap-3 border-b border-twilight-border px-6 py-4">
-                    <Search size={20} className="shrink-0 text-twilight-text-muted" aria-hidden="true" />
-                    <input
+                    <SearchField
                         ref={inputRef}
                         autoFocus
+                        variant="bare"
+                        size="lg"
                         value={rawQuery}
-                        onChange={(e) => setRawQuery(e.target.value)}
+                        onValueChange={setRawQuery}
                         placeholder="Search tasks, routines, thoughts, pages…"
-                        className="w-full bg-transparent text-lg text-twilight-text outline-none placeholder:text-twilight-text-muted"
                         aria-label="Search workspace"
+                        className="min-h-0 flex-1"
                     />
                     <DialogCloseButton className="-mr-2" aria-label="Close search" />
                 </div>

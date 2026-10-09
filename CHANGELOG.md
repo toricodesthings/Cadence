@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Deleting a list, tag, section, routine, event, chat or tasks in bulk now shows Undo instead of asking first.
+- Toasts now appear only for deletions with Undo, errors and results you can't see.
+- Menus, popovers and dropdowns are now see-through frosted glass.
+- Every search box now looks and behaves the same, with a Clear button.
+- Bulk Archive now has an Undo that puts each task back the way it was.
+
+### Fixed
+
+- Adding a task inside a section no longer leaves a gap under the field or knocks it off-centre.
+- Bulk Delete no longer removes tasks for good with one click and no way back.
+
 ## [0.30.2] - 2026-10-08
 
 ### Fixed

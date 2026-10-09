@@ -33,7 +33,6 @@ import type { RankableTask } from "@cadence/nlp/ranking";
 const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then(m => ({ default: m.FocusViewBar })));
 import { useSettings } from "../hooks/core/use-settings";
 import * as Dialog from "../components/primitives/Dialog";
-import * as AlertDialog from "../components/primitives/AlertDialog";
 import { Button } from "../components/primitives/Button";
 import { Tip } from "../components/primitives";
 import { resolveAccentColor } from "../lib/utils/color-resolver";
@@ -118,7 +117,6 @@ export default function ProjectView() {
     });
 
     const [renameOpen, setRenameOpen] = useState(false);
-    const [deleteOpen, setDeleteOpen] = useState(false);
     const [renameValue, setRenameValue] = useState("");
     const [colorValue, setColorValue] = useState("luminous-amber");
     const [emojiValue, setEmojiValue] = useState("");
@@ -222,7 +220,7 @@ export default function ProjectView() {
 
     const handleDelete = () => {
         if (!projectId) return;
-        deleteProject.mutate(projectId);
+        deleteProject.mutate({ id: projectId, name: project?.name ?? "list" });
         navigate("/");
     };
 
@@ -360,34 +358,6 @@ export default function ProjectView() {
                 </Dialog.DialogContent>
             </Dialog.Dialog>
 
-            {/* Delete confirmation */}
-            <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
-                <AlertDialog.Content>
-                    <AlertDialog.Header>
-                        <AlertDialog.Title>Delete "{project?.name}"?</AlertDialog.Title>
-                        <AlertDialog.Description>
-                            This permanently deletes the list and its sections. Its tasks stay, with no list. This can’t be undone.
-                        </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                        <AlertDialog.Cancel asChild>
-                            <Button variant="ghost" size="md">
-                                Cancel
-                            </Button>
-                        </AlertDialog.Cancel>
-                        <AlertDialog.Action asChild>
-                            <Button
-                                variant="danger"
-                                size="md"
-                                onClick={handleDelete}
-                            >
-                                Delete list
-                            </Button>
-                        </AlertDialog.Action>
-                    </AlertDialog.Footer>
-                </AlertDialog.Content>
-            </AlertDialog.Root>
-
             <MainLayout
                 requireAuth
                 hideContextualOrb={shell.isCompact}
@@ -450,7 +420,7 @@ export default function ProjectView() {
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => setDeleteOpen(true)}
+                                            onClick={handleDelete}
                                             className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 text-sm font-medium text-red-400"
                                         >
                                             <Trash2 size={15} aria-hidden="true" />
@@ -490,7 +460,7 @@ export default function ProjectView() {
                                 {
                                     label: "Delete list",
                                     icon: Trash2,
-                                    onSelect: () => setDeleteOpen(true),
+                                    onSelect: handleDelete,
                                     danger: true,
                                 },
                             ]}

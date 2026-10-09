@@ -276,7 +276,7 @@ export function SectionedTaskList({
                                         </DropdownMenu.Item>
                                         <DropdownMenu.Separator />
                                         <DropdownMenu.Item
-                                            onClick={() => deleteSection.mutate(section.id)}
+                                            onClick={() => deleteSection.mutate({ id: section.id, name: section.name })}
                                             className="text-red-400 focus:text-red-400"
                                         >
                                             <Trash2 size={14} className="mr-2" />

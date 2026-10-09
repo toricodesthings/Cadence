@@ -66,7 +66,7 @@ export function TagBubble({ tag, isActive, onClick }: TagBubbleProps) {
                 <ContextMenu.Item
                     variant="danger"
                     className="flex items-center gap-2 text-[13px]"
-                    onSelect={() => deleteTag.mutate(tag.id)}
+                    onSelect={() => deleteTag.mutate({ id: tag.id, name: tag.name })}
                 >
                     <Trash2 size={13} aria-hidden="true" />
                     Delete tag

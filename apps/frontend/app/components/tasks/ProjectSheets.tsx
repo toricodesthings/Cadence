@@ -4,8 +4,6 @@ import { UtilitySheet } from "../shared/UtilitySheet";
 import { Composer } from "../shared/Composer";
 import { useTaskComposer, tasksIn, UNSECTIONED_ID } from "./TaskComposer";
 import { Tip } from "../primitives/Tooltip";
-import { Button } from "../primitives/Button";
-import * as AlertDialog from "../primitives/AlertDialog";
 import { useSections, useCreateSection, useUpdateSection, useDeleteSection } from "../../hooks/sections/use-sections";
 import type { TaskSection } from "@cadence/contracts/section";
 import type { Task } from "@cadence/contracts/task";
@@ -118,14 +116,12 @@ export function ProjectSectionsSheet({ open, onClose, projectId, tasks, focus }:
     const updateSection = useUpdateSection(projectId);
     const deleteSection = useDeleteSection(projectId);
     const [newName, setNewName] = useState("");
-    const [pendingDelete, setPendingDelete] = useState<TaskSection | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [wasOpen, setWasOpen] = useState(false);
     if (open !== wasOpen) {
         setWasOpen(open);
         if (open) setEditingId(focus || null);
     }
-    const pendingCount = pendingDelete ? tasksIn(tasks, pendingDelete.id).length : 0;
 
     const add = () => {
         const name = newName.trim();
@@ -167,7 +163,7 @@ export function ProjectSectionsSheet({ open, onClose, projectId, tasks, focus }:
                                 editing={editingId === section.id}
                                 onEditingChange={(value) => setEditingId(value ? section.id : null)}
                                 onRename={(name) => updateSection.mutate({ id: section.id, name })}
-                                onDelete={() => setPendingDelete(section)}
+                                onDelete={() => deleteSection.mutate({ id: section.id, name: section.name })}
                             />
                         ))}
                     </ul>
@@ -175,29 +171,6 @@ export function ProjectSectionsSheet({ open, onClose, projectId, tasks, focus }:
                     <p className="pt-4 text-sm text-twilight-text-soft">No sections yet. Tasks without one stay in Unsectioned.</p>
                 )}
             </UtilitySheet>
-
-            <AlertDialog.Root open={Boolean(pendingDelete)} onOpenChange={(value) => !value && setPendingDelete(null)}>
-                <AlertDialog.Content>
-                    <AlertDialog.Header>
-                        <AlertDialog.Title>Delete "{pendingDelete?.name}"?</AlertDialog.Title>
-                        <AlertDialog.Description>
-                            {pendingCount > 0
-                                ? `Its ${pendingCount} ${pendingCount === 1 ? "task moves" : "tasks move"} to Unsectioned.`
-                                : "This section is empty."}
-                        </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                        <AlertDialog.Cancel asChild>
-                            <Button variant="ghost" size="md">Cancel</Button>
-                        </AlertDialog.Cancel>
-                        <AlertDialog.Action asChild>
-                            <Button variant="danger" size="md" onClick={() => pendingDelete && deleteSection.mutate(pendingDelete.id)}>
-                                Delete section
-                            </Button>
-                        </AlertDialog.Action>
-                    </AlertDialog.Footer>
-                </AlertDialog.Content>
-            </AlertDialog.Root>
         </>
     );
 }

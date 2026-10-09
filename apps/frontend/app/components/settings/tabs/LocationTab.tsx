@@ -4,12 +4,12 @@ import { useToday } from "../../../lib/utils/user-zone";
 import { ExternalLink } from "../../shared/ExternalLink";
 import { CADENCE_PRIVACY_URL } from "../../../lib/constants/app-info";
 import { useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { Compass, EyeOff, LocateFixed, MapPin, Search, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import type { CityResult } from "@cadence/contracts/proxy";
 import type { LocationMode } from "@cadence/contracts/settings";
-import { Button, Input, Switch } from "../../primitives";
+import { Button, Switch } from "../../primitives";
 import { SearchSelect } from "../../primitives/SearchSelect";
+import { SearchField } from "../../primitives/SearchField";
 import { SettingsList, SettingsRow, SettingsSection } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { useApiClient } from "../../../hooks/auth/use-api-client";
@@ -88,7 +88,6 @@ export function LocationTab() {
 
     const handleForget = () => {
         location.forgetLocation();
-        toast.success("Removed the location saved on this device.");
     };
 
     return (
@@ -366,11 +365,12 @@ function ManualLocationEditor({ location, locale, year }: { location: UserLocati
                     </div>
                 ) : (
                     <form onSubmit={submitSearch} className="flex gap-2">
-                        <Input
+                        <SearchField
                             value={draft}
-                            onChange={(event) => setDraft(event.target.value)}
+                            onValueChange={setDraft}
                             placeholder="Search for a city"
                             aria-label="Search for a city"
+                            className="flex-1"
                         />
                         <Button type="submit" variant="secondary" disabled={draft.trim().length < 2 || citiesQuery.isFetching}>
                             <Search size={14} aria-hidden="true" />

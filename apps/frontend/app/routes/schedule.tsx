@@ -56,6 +56,7 @@ import type { Task } from "@cadence/contracts/task";
 import { useVirtualHabitTasks } from "../hooks/habits/use-virtual-habit-tasks";
 import { timeAction, useResolveHabit } from "../hooks/habits/use-resolve-habit";
 import { toast } from "sonner";
+import { toastUndo } from "../lib/utils/undo-toast";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { usePeriodSwipe } from "../hooks/ui/use-period-swipe";
@@ -419,7 +420,7 @@ export default function Schedule() {
         const prev = temporalOf(task);
         updateTask({ id: task.id, ...rescheduleToDay(prev, day, getUserZone()) });
         if (!quiet) {
-            toast(`Moved to ${dayLabel(day)}`, { action: { label: "Undo", onClick: () => updateTask({ id: task.id, ...prev }) } });
+            toast.message(`Moved to ${dayLabel(day)}`, { action: { label: "Undo", onClick: () => updateTask({ id: task.id, ...prev }) } });
         }
         return prev;
     }, [updateTask]);
@@ -542,7 +543,7 @@ export default function Schedule() {
                 scheduledEnd: new Date(new Date(iso).getTime() + durationMs).toISOString(),
             });
             trackUsageEvent("schedule.drop_completed", { input_method: "dnd", object_type: "task", outcome: "timed" });
-            toast("Task moved", { action: { label: "Undo", onClick: undoMove } });
+            toast.message("Task moved", { action: { label: "Undo", onClick: undoMove } });
             return;
         }
 
@@ -552,14 +553,14 @@ export default function Schedule() {
                 ? { id: taskId, dueDate: day, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null }
                 : { id: taskId, ...rescheduleToDay(prev, day, getUserZone()) });
             trackUsageEvent("schedule.drop_completed", { input_method: "dnd", object_type: "task", outcome: "allday" });
-            toast("Task moved", { action: { label: "Undo", onClick: undoMove } });
+            toast.message("Task moved", { action: { label: "Undo", onClick: undoMove } });
             return;
         }
 
         if (droppedId.startsWith("day-")) {
             moveTaskToDay(task, droppedId.slice(4), { quiet: true });
             trackUsageEvent("schedule.drop_completed", { input_method: "dnd", object_type: "task", outcome: "day" });
-            toast("Task moved", { action: { label: "Undo", onClick: undoMove } });
+            toast.message("Task moved", { action: { label: "Undo", onClick: undoMove } });
         }
     }, [allVisibleTasks, moveTaskToDay, updateTask]);
 
@@ -635,7 +636,7 @@ export default function Schedule() {
             else updateTask({ id: task.id, dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null });
             return prev;
         });
-        toast(to === "tomorrow" ? "Moved to tomorrow" : "Dates cleared", {
+        toast.message(to === "tomorrow" ? "Moved to tomorrow" : "Dates cleared", {
             action: { label: "Undo", onClick: () => previous.forEach((prev) => updateTask(prev)) },
         });
     }, [moveTaskToDay, todayIso, updateTask]);
@@ -653,9 +654,6 @@ export default function Schedule() {
             return;
         }
         updateTask({ id: taskId, state: "COMPLETE" });
-        toast("Task completed", {
-            action: { label: "Undo", onClick: () => updateTask({ id: taskId, state: "ACTIVE" }) },
-        });
     }, [updateTask, resolveHabit, allVisibleTasks]);
 
     const handleArchiveTask = useCallback(async (taskId: string) => {
@@ -671,20 +669,14 @@ export default function Schedule() {
             return;
         }
         updateTask({ id: taskId, state: "ARCHIVED" });
-        toast("Task archived", {
-            action: { label: "Undo", onClick: () => updateTask({ id: taskId, state: "ACTIVE" }) },
-        });
+        toastUndo("Task moved to Trash", () => updateTask({ id: taskId, state: "ACTIVE" }));
     }, [updateTask, resolveHabit, allVisibleTasks]);
 
     const handleResizeTask = useCallback((taskId: string, durationMinutes: number) => {
         const task = allVisibleTasks.get(taskId);
         if (!task || !task.scheduledStart) return;
         const newEnd = new Date(new Date(task.scheduledStart).getTime() + durationMinutes * 60_000);
-        const prevEnd = task.scheduledEnd;
         updateTask({ id: taskId, scheduledEnd: newEnd.toISOString() });
-        toast("Duration updated", {
-            action: { label: "Undo", onClick: () => updateTask({ id: taskId, scheduledEnd: prevEnd ?? undefined }) },
-        });
     }, [updateTask, allVisibleTasks]);
 
     // ── Year view helpers ───────────────────────────────────────────────────

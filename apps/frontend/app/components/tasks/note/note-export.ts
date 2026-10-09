@@ -35,10 +35,8 @@ export function copyNote(text: string, done = "Note copied", failed = "Couldn’
 export function downloadMarkdown(text: string, name: string) {
     const safe = name.trim().replace(/[^\p{L}\p{N}\-_ ]+/gu, "").replace(/\s+/g, "-").slice(0, 60) || "note";
     if (!hasNativeSaveAs()) return browserDownload(text, `${safe}.md`);
-    void saveTextAs(`${safe}.md`, text).then(
-        (saved) => { if (saved) toast.success("Note saved"); },
-        () => toast.error("Couldn’t save the file. Your text is still here."),
-    );
+    // The native Save As is its own confirmation; only a failure needs saying.
+    void saveTextAs(`${safe}.md`, text).catch(() => toast.error("Couldn’t save the file. Your text is still here."));
 }
 
 function browserDownload(text: string, fileName: string) {

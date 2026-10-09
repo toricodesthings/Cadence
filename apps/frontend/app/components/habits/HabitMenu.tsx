@@ -13,7 +13,6 @@ export function HabitMenu({ habit, onEdit }: { habit: Habit; onEdit: () => void 
     const actions = useRoutineActions(habit);
     return (
         <>
-            {actions.deleteDialog}
             <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                     <button
@@ -40,7 +39,6 @@ export function HabitContextMenu({ habit, onEdit, children }: { habit: Habit; on
     if (coarse) return <>{children}</>;
     return (
         <>
-            {actions.deleteDialog}
             <ContextMenu.Root onOpenChange={(isOpen) => {
                 if (isOpen) trackUsageEvent("habit.context_menu_opened", { object_type: "habit", input_method: "context_menu" });
             }}>

@@ -63,7 +63,7 @@ export function usePlaceTask() {
     const updateTask = useUpdateTask();
     return async (task: Task, day: LocalDate) => {
         await updateTask.mutateAsync({ id: task.id, dueDate: day, endDate: null, scheduledStart: null, scheduledEnd: null });
-        toast(placementLabel(day), { action: { label: "Undo", onClick: () => updateTask.mutate({ id: task.id, dueDate: task.dueDate, endDate: task.endDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd }) } });
+        toast.message(placementLabel(day), { action: { label: "Undo", onClick: () => updateTask.mutate({ id: task.id, dueDate: task.dueDate, endDate: task.endDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd }) } });
     };
 }
 

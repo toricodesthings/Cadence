@@ -135,7 +135,7 @@ export function ConversationList({
                                     onSelect={() => onSelect(c.id)}
                                     onRename={(title) => rename.mutate({ id: c.id, title })}
                                     onArchive={(archived) => archive.mutate({ id: c.id, archived })}
-                                    onDelete={() => del.mutate(c.id)}
+                                    onDelete={() => del.mutate({ id: c.id, title: c.title?.trim() || "conversation" })}
                                 />
                             ))}
 
@@ -172,7 +172,7 @@ export function ConversationList({
                                                         onArchive={(archived) =>
                                                             archive.mutate({ id: c.id, archived })
                                                         }
-                                                        onDelete={() => del.mutate(c.id)}
+                                                        onDelete={() => del.mutate({ id: c.id, title: c.title?.trim() || "conversation" })}
                                                     />
                                                 ))}
                                                 <div className="flex justify-center px-2 pb-1 pt-3">

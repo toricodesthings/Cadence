@@ -4,11 +4,11 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { taskCache } from "./optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
-import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { useRestoreTask } from "./use-restore-task";
 import { toastError } from "../../lib/utils/error-toast";
+import { toastUndo } from "../../lib/utils/undo-toast";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 /** Move a task to trash (ARCHIVED state) with optimistic removal from active caches */
@@ -37,9 +37,7 @@ export function useArchiveTask() {
 
         onSuccess: (task, id) => {
             if (task) reconcileTaskInCaches(queryClient, task);
-            toast("Task moved to trash", {
-                action: { label: "Undo", onClick: () => restoreTask.mutate(id) },
-            });
+            toastUndo("Task moved to Trash", () => restoreTask.mutate(id));
         },
 
         onError: (err, _input, context) => {

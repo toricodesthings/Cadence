@@ -1,11 +1,10 @@
 import { X, Calendar, CheckSquare, Trash2, Sun, Moon, ArrowRight, Archive, FolderOpen, Hash } from "lucide-react";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
-import { useBatchStateTransition, useBatchDeleteTasks, useBatchRescheduleTasks } from "../../hooks/tasks/use-batch-state";
+import { useBatchStateTransition, useBatchDeleteTasks, useBatchRescheduleTasks, useTrashTasks } from "../../hooks/tasks/use-batch-state";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useAddTaskTag } from "../../hooks/tags/use-task-tags";
-import { toast } from "sonner";
 import * as Popover from "../primitives/Popover";
 import { Button } from "../primitives/Button";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
@@ -23,6 +22,7 @@ export function FloatingActionBar() {
 
     const batchState = useBatchStateTransition();
     const batchDelete = useBatchDeleteTasks();
+    const trashTasks = useTrashTasks();
     const batchReschedule = useBatchRescheduleTasks();
     const updateTask = useUpdateTask();
     const addTaskTag = useAddTaskTag();
@@ -34,38 +34,17 @@ export function FloatingActionBar() {
     const handleMarkComplete = () => {
         batchState.mutate(
             { taskIds: selectedArray, state: "COMPLETE" },
-            {
-                onSuccess: () => {
-                    toast.success(`Marked ${count} tasks complete`);
-                    clearSelection();
-                }
-            }
+            { onSuccess: clearSelection }
         );
     };
 
     const handleDelete = () => {
-        batchDelete.mutate(
-            { taskIds: selectedArray },
-            {
-                onSuccess: () => {
-                    toast.success(`Deleted ${count} tasks`);
-                    clearSelection();
-                }
-            }
-        );
+        // Off the screen at once; the Undo toast (in the hook) holds the real delete back.
+        batchDelete.mutate({ taskIds: selectedArray });
+        clearSelection();
     };
 
-    const handleArchive = () => {
-        batchState.mutate(
-            { taskIds: selectedArray, state: "ARCHIVED" },
-            {
-                onSuccess: () => {
-                    toast.success(`Archived ${count} tasks`);
-                    clearSelection();
-                },
-            },
-        );
-    };
+    const handleArchive = () => trashTasks(selectedArray, clearSelection);
 
     const handleReschedule = (updates: ScheduleUpdates) => {
         // A picked time moves tasks to that instant; a picked day moves each to the day, keeping its own time.
@@ -73,24 +52,14 @@ export function FloatingActionBar() {
         if (!when) return;
         batchReschedule.mutate(
             { taskIds: selectedArray, ...when },
-            {
-                onSuccess: () => {
-                    toast.success(`Rescheduled ${count} tasks`);
-                    clearSelection();
-                }
-            }
+            { onSuccess: clearSelection }
         );
     };
 
     const handleQuickReschedule = (daysFromNow: number) => {
         batchReschedule.mutate(
             { taskIds: selectedArray, date: addDays(today(), daysFromNow) },
-            {
-                onSuccess: () => {
-                    toast.success(`Rescheduled ${count} tasks`);
-                    clearSelection();
-                },
-            },
+            { onSuccess: clearSelection },
         );
     };
 
@@ -100,7 +69,6 @@ export function FloatingActionBar() {
                 updateTask.mutateAsync({ id: taskId, projectId, sectionId: null }),
             ),
         );
-        toast.success(projectId ? `Moved ${count} tasks` : `Returned ${count} tasks to Capture`);
         clearSelection();
     };
 
@@ -108,7 +76,6 @@ export function FloatingActionBar() {
         await Promise.all(
             selectedArray.map((taskId) => addTaskTag.mutateAsync({ taskId, tagId })),
         );
-        toast.success(`Tagged ${count} tasks`);
         clearSelection();
     };
 

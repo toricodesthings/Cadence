@@ -8,6 +8,8 @@ import { useAuthState } from "../auth/use-auth-state";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { clientIdFor } from "../../lib/api/optimistic-id";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
+import { isUndone, undoWindow } from "../../lib/utils/undo-toast";
+import { toastError } from "../../lib/utils/error-toast";
 
 function sectionsKey(projectId?: string | null) {
     return ["sections", projectId ?? "__none__"] as const;
@@ -131,13 +133,15 @@ export function useDeleteSection(projectId?: string | null) {
     const key = sectionsKey(projectId);
 
     return useMutation({
-        mutationFn: async (id: string) => {
+        // The section disappears at once; the server hears about it only once Undo's window closes.
+        mutationFn: async ({ id, name }: { id: string; name: string }) => {
+            await undoWindow(`Deleted ${name}`, { description: "Its tasks stay in the list." });
             const res = await client.api.sections[":id"].$delete({
                 param: { id },
             });
             if (!res.ok) throw new Error("Failed to delete section");
         },
-        onMutate: async (id) => {
+        onMutate: async ({ id }) => {
             await queryClient.cancelQueries({ queryKey: key });
             const previous = queryClient.getQueryData<TaskSection[]>(key);
 
@@ -153,11 +157,12 @@ export function useDeleteSection(projectId?: string | null) {
 
             return { previous, previousTasks };
         },
-        onError: (_err, _id, context) => {
+        onError: (err, _input, context) => {
             if (context?.previous) {
                 queryClient.setQueryData(key, context.previous);
             }
             for (const [taskKey, data] of context?.previousTasks ?? []) queryClient.setQueryData(taskKey, data);
+            if (!isUndone(err)) toastError(err, "Couldn't delete section");
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: key });

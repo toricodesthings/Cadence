@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import type { Task } from "@cadence/contracts/task";
-import { toast } from "sonner";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { taskCache } from "./optimistic-helpers";
 import { toastError } from "../../lib/utils/error-toast";
@@ -26,7 +25,6 @@ export function useDuplicateTask() {
         onSuccess: () => {
             // The copy's tags are added server-side and aren't in the response.
             taskCache.invalidate(queryClient);
-            toast.success("Task duplicated");
         },
 
         onError: (err) => {

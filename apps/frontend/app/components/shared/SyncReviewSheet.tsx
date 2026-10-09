@@ -51,7 +51,7 @@ function QueuedNoteConflict({ entry, title, onClose }: { entry: WalEntry; title?
                 await removeWalEntry(entry.id);
                 await queryClient.invalidateQueries({ queryKey: queryKeys.notes.detail(op.taskId) });
                 onClose();
-                toast("Kept the latest version. Yours is set aside in the note.", { action: { label: "Copy mine", onClick: () => void copyText(op.payload.body) } });
+                toast.message("Kept the latest version. Yours is set aside in the note.", { action: { label: "Copy mine", onClick: () => void copyText(op.payload.body) } });
             }}
         />
     );

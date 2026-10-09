@@ -1,6 +1,7 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useRef } from "react";
 import { useSettings, useUpdateSettings } from "../core/use-settings";
 import type { PersonalEvent } from "../../types/settings";
+import { toastUndo } from "../../lib/utils/undo-toast";
 
 const DEFAULT_PERSONAL_EVENTS = {
     enabled: true,
@@ -96,13 +97,28 @@ export function usePersonalEvents(year: number, month?: number) {
         });
     }, [items, updateSettings]);
 
+    // Latest list for Undo, which can run after this component has re-rendered or left.
+    const itemsRef = useRef(items);
+    itemsRef.current = items;
+
+    /** Removes the event and offers Undo, which puts it back where it was. */
     const removeEvent = useCallback((id: string) => {
+        const index = items.findIndex((e) => e.id === id);
+        if (index < 0) return;
+        const removed = items[index];
         updateSettings.mutate({
             calendar: {
                 personalEvents: {
                     items: items.filter((e) => e.id !== id),
                 },
             },
+        });
+        toastUndo(`Deleted ${removed.label}`, () => {
+            const latest = itemsRef.current;
+            if (latest.some((e) => e.id === id)) return;
+            const next = [...latest];
+            next.splice(Math.min(index, next.length), 0, removed);
+            updateSettings.mutate({ calendar: { personalEvents: { items: next } } });
         });
     }, [items, updateSettings]);
 

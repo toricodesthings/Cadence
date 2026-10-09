@@ -7,18 +7,21 @@ import { removeProjectFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { projectCache } from "./optimistic-helpers";
 import { toastError } from "../../lib/utils/error-toast";
+import { isUndone, undoWindow } from "../../lib/utils/undo-toast";
 
 export function useDeleteProject() {
     const client = useApiClient();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (id: string) => {
+        // The list disappears at once; the server hears about it only once Undo's window closes.
+        mutationFn: async ({ id, name }: { id: string; name: string }) => {
+            await undoWindow(`Deleted ${name}`, { description: "Its tasks stay, with no list." });
             const res = await client.api.projects[":id"].$delete({ param: { id } });
             return unwrapResponse(res);
         },
 
-        onMutate: async (id) => {
+        onMutate: async ({ id }) => {
             await projectCache.cancel(queryClient);
             const snapshot = projectCache.snapshot(queryClient);
 
@@ -30,13 +33,13 @@ export function useDeleteProject() {
             return { snapshot };
         },
 
-        onSuccess: (_project, id) => {
+        onSuccess: (_project, { id }) => {
             removeProjectFromCaches(queryClient, id);
         },
 
         onError: (err, _input, context) => {
             if (context) projectCache.rollback(queryClient, context.snapshot);
-            toastError(err, "Couldn't delete list");
+            if (!isUndone(err)) toastError(err, "Couldn't delete list");
         },
 
         onSettled: () => projectCache.invalidate(queryClient),

@@ -4,8 +4,6 @@ import { formatShortDate } from "../../lib/utils/date-format";
 import { getUserZone } from "../../lib/utils/user-zone";
 import { MoreHorizontal, Pencil, Archive, ArchiveRestore, Trash2, Check, X } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
-import * as AlertDialog from "../primitives/AlertDialog";
-import { Button } from "../primitives/Button";
 import { Tip } from "../primitives";
 import type { ConversationListItem } from "@cadence/contracts/ai";
 
@@ -53,7 +51,6 @@ export function ConversationListItem({
 }) {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState("");
-    const [deleteOpen, setDeleteOpen] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const title = conversation.title?.trim() || fallbackTitle || "New conversation";
@@ -167,7 +164,7 @@ export function ConversationListItem({
                     <DropdownMenu.Separator />
                     <DropdownMenu.Item
                         variant="danger"
-                        onSelect={() => setDeleteOpen(true)}
+                        onSelect={() => onDelete()}
                         className="gap-2 text-[14px]"
                     >
                         <Trash2 size={14} />
@@ -175,32 +172,6 @@ export function ConversationListItem({
                     </DropdownMenu.Item>
                 </DropdownMenu.Content>
             </DropdownMenu.Root>
-
-            {/* Deleting a thread is permanent — confirm through the app's standard
-                calm dialog (same pattern as project delete), never one-click. */}
-            <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
-                <AlertDialog.Content>
-                    <AlertDialog.Header>
-                        <AlertDialog.Title>Delete “{title}”?</AlertDialog.Title>
-                        <AlertDialog.Description>
-                            This permanently deletes the conversation and its messages. It
-                            can’t be undone.
-                        </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                        <AlertDialog.Cancel asChild>
-                            <Button variant="ghost" size="md">
-                                Cancel
-                            </Button>
-                        </AlertDialog.Cancel>
-                        <AlertDialog.Action asChild>
-                            <Button variant="danger" size="md" onClick={() => onDelete()}>
-                                Delete conversation
-                            </Button>
-                        </AlertDialog.Action>
-                    </AlertDialog.Footer>
-                </AlertDialog.Content>
-            </AlertDialog.Root>
         </div>
     );
 }

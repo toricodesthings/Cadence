@@ -1,7 +1,7 @@
 import { useTasks } from "../../hooks/tasks/use-tasks";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
-import { CalendarRange, Inbox, CheckCircle2, Trash2, LayoutDashboard, Calendar, CalendarHeart, Flame, Sprout, Search, Plus } from "lucide-react";
+import { CalendarRange, Inbox, CheckCircle2, Trash2, LayoutDashboard, Calendar, CalendarHeart, Flame, Sprout, Plus } from "lucide-react";
 import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
 import * as Separator from "../primitives/Separator";
 import * as Collapsible from "../primitives/Collapsible";
@@ -13,6 +13,7 @@ import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
 import { resolveAccentColor } from "../../lib/utils/color-resolver";
 import { Skeleton } from "../primitives/Skeleton";
 import { Button } from "../primitives/Button";
+import { SearchField, SearchTrigger } from "../primitives/SearchField";
 import { TagBubble } from "./TagBubble";
 import { CreateTagInline } from "./CreateTagInline";
 import { useTags } from "../../hooks/tags/use-tags";
@@ -100,14 +101,7 @@ export function SidebarPanel({
                 header-height strip so its border lines up with the page header's. */}
             {onSearchOpen && (
                 <div className="flex h-(--shell-header-h) shrink-0 items-center border-b border-twilight-border px-3">
-                    <button
-                        onClick={onSearchOpen}
-                        className="flex w-full items-center gap-3 rounded-xl border border-twilight-border/50 bg-white/[0.02] px-3.5 py-2.5 text-sm text-twilight-text-muted/60 hover:bg-white/[0.04] hover:border-twilight-border transition-colors cursor-pointer"
-                        aria-label="Search workspace"
-                    >
-                        <Search size={15} className="shrink-0" aria-hidden="true" />
-                        <span className="text-truncate-safe">Search…</span>
-                    </button>
+                    <SearchTrigger onClick={onSearchOpen} aria-label="Search workspace" />
                 </div>
             )}
             <ScrollAreaWrapper>
@@ -255,12 +249,13 @@ export function SidebarPanel({
                             {/* Mini search */}
                             {tags.length > 5 && (
                                 <div className="px-3 mb-2">
-                                    <input
-                                        type="text"
+                                    <SearchField
+                                        size="sm"
                                         value={tagSearch}
-                                        onChange={(e) => setTagSearch(e.target.value)}
-                                        placeholder="Search tags…"
-                                        className="w-full bg-white/[0.04] rounded-lg px-2.5 py-1.5 text-[12px] outline-none placeholder:text-twilight-text-muted/80 border border-transparent focus:border-twilight-border-interactive transition-colors"
+                                        onValueChange={setTagSearch}
+                                        placeholder="Search tags"
+                                        aria-label="Search tags"
+                                        className="rounded-lg"
                                     />
                                 </div>
                             )}

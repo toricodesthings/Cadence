@@ -99,7 +99,7 @@ export function RoutineDayCell({
         resolve({ targetDate: date, status: next });
         if (next === "COMPLETED" && bloom) setBlooming(true);
         if (!undoable) return;
-        toast(next === "COMPLETED" ? "Checked off" : next === "SKIPPED" ? "Skipped" : "Cleared", {
+        toast.message(next === "COMPLETED" ? "Checked off" : next === "SKIPPED" ? "Skipped" : "Cleared", {
             description: `${habit.title} · ${dayLabel}`,
             action: { label: "Undo", onClick: () => resolve({ targetDate: date, status: previous, stepStatus: previousSteps }) },
         });
@@ -188,7 +188,7 @@ export function RoutineDayCell({
                             : label ?? progress ?? (isToday ? <RoutineMark emoji={habit.emoji} size={13} /> : <span aria-hidden="true" className="h-1 w-1 rounded-full bg-twilight-text-muted/70" />)}
                 </button>
             </Popover.Anchor>
-            <Popover.Content side="top" align="center" style={style} className="w-auto p-2 [--glass-surface-tint:100%]" aria-label={`${habit.title}, ${dayLabel}`}>
+            <Popover.Content side="top" align="center" style={style} className="w-auto p-2" aria-label={`${habit.title}, ${dayLabel}`}>
                 <p className="px-2 pb-2 pt-1 text-xs font-medium text-twilight-text-soft">{dayLabel}</p>
                 {timed ? <div className="w-64"><RoutineTimeChecklist habit={habit} date={date} log={log} /></div> : <div className="flex gap-1.5">
                     {([

@@ -6,7 +6,7 @@ import { withClient } from "../../helpers";
 
 const { patch, toast } = vi.hoisted(() => ({
     patch: vi.fn(),
-    toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+    toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), message: vi.fn() }),
 }));
 vi.mock("../../../app/hooks/auth/use-api-client", () => ({
     useApiClient: () => ({ api: { tasks: { ":id": { $patch: patch } } } }),
@@ -19,7 +19,7 @@ const response = (state: string) => Response.json({ data: { id: "task-1", state,
 describe("Trash Undo", () => {
     beforeEach(() => {
         patch.mockReset();
-        toast.mockClear();
+        toast.message.mockClear();
         toast.error.mockClear();
     });
 
@@ -29,7 +29,7 @@ describe("Trash Undo", () => {
         patch.mockResolvedValueOnce(response("ARCHIVED")).mockResolvedValueOnce(response("ACTIVE"));
         const editor = setup();
         await act(async () => { await editor.result.current.mutateAsync("task-1"); });
-        const undo = toast.mock.calls[0][1].action.onClick;
+        const undo = toast.message.mock.calls[0][1].action.onClick;
         editor.unmount();
         expect(open).not.toHaveBeenCalled();
 
@@ -44,7 +44,7 @@ describe("Trash Undo", () => {
         patch.mockResolvedValueOnce(response("ARCHIVED")).mockRejectedValueOnce(new Error("Restore failed"));
         const editor = setup();
         await act(async () => { await editor.result.current.mutateAsync("task-1"); });
-        act(() => toast.mock.calls[0][1].action.onClick());
+        act(() => toast.message.mock.calls[0][1].action.onClick());
         await waitFor(() => expect(toast.error).toHaveBeenCalledWith(
             "Couldn't restore task",
             expect.objectContaining({ description: "Something went wrong on our end. Try again." }),

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import { LEGAL_VERSION } from "@cadence/contracts/settings";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
@@ -41,7 +40,6 @@ export function LegalConsentGate() {
         setPending(true);
         try {
             await record(new Date().toISOString());
-            toast.success("Thanks, you're all set.");
         } catch (error) {
             toastError(error, "Couldn't save that. Try again.");
         } finally {

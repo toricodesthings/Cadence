@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { BellRing, CheckCheck, Search, Settings, ChevronDown } from "lucide-react";
+import { BellRing, CheckCheck, Settings, ChevronDown } from "lucide-react";
 import { useOpenNotification } from "../../hooks/notifications/use-open-notification";
 import { NotificationRow, NOTIFICATION_STYLES, actionClass } from "./NotificationRow";
 import type { GroupedNotifications } from "../../hooks/notifications/use-notification-center";
@@ -7,6 +7,7 @@ import { DEFER_LABELS, type DeferChoice } from "../../lib/notifications/reminder
 import { Tip } from "../primitives/Tooltip";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
+import { SearchField } from "../primitives/SearchField";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 
 const PAGE_SIZE = 30;
@@ -87,13 +88,9 @@ export function NotificationCenter({
                     className={actionClass} aria-label="Mark all as read"><CheckCheck size={16} aria-hidden="true" />Read all</button>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-                <label className="relative flex min-w-0 flex-[1_1_7rem] items-center">
-                    <Search size={17} className="pointer-events-none absolute left-3 text-twilight-text-muted" aria-hidden="true" />
-                    <span className="sr-only">Search notifications</span>
-                    <input ref={searchRef} type="search" value={search} placeholder="Search"
-                        onChange={(event) => { setSearch(event.target.value); resetList(); }}
-                        className="min-h-11 w-full rounded-xl border border-twilight-border bg-twilight-surface py-2 pl-10 pr-3 text-sm text-twilight-text placeholder:text-twilight-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary" />
-                </label>
+                <SearchField ref={searchRef} value={search} placeholder="Search" aria-label="Search notifications"
+                    onValueChange={(value) => { setSearch(value); resetList(); }}
+                    className="flex-[1_1_7rem]" />
                 <DropdownMenu.Root>
                     <DropdownMenu.Trigger asChild>
                         <button type="button" aria-label={`Sort notifications: ${SORT_LABELS[sort]}`} className={`${actionClass} border border-twilight-border bg-twilight-surface`}>

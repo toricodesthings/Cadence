@@ -35,8 +35,7 @@ import { useViewMode } from "../../hooks/ui/use-view-mode";
 import { useFocusViewStore } from "../../stores/focus-view-store";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useNoteRoomStore } from "../../stores/note-room-store";
-import { useBatchStateTransition } from "../../hooks/tasks/use-batch-state";
-import { toast } from "sonner";
+import { useBatchStateTransition, useTrashTasks } from "../../hooks/tasks/use-batch-state";
 import { CompactPageControls } from "../shared/CompactPageControls";
 import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity, PhonePageHeader } from "./PageHeader";
 import { ContextualAddOrb } from "../shared/ContextualAddOrb";
@@ -285,6 +284,7 @@ export function MainLayout({
     const { selectedTaskIds, clearSelection } = useTaskSelectionStore();
     const noteRoomOpen = useNoteRoomStore((state) => state.taskId !== null);
     const batchState = useBatchStateTransition();
+    const trashTasks = useTrashTasks();
     const { stepLayoutScale, setLayoutScale } = useDesktopLayoutScale();
     const { sync } = useWorkspaceSync();
     const { preferences } = useDesktopCommandPreferences();
@@ -375,16 +375,13 @@ export function MainLayout({
             if (ids.length === 0) return;
             batchState.mutate(
                 { taskIds: ids, state: "COMPLETE" },
-                { onSuccess: () => { toast.success(`Completed ${ids.length} task${ids.length > 1 ? "s" : ""}`); clearSelection(); } },
+                { onSuccess: clearSelection },
             );
         },
         onArchiveTask: () => {
             const ids = Array.from(selectedTaskIds);
             if (ids.length === 0) return;
-            batchState.mutate(
-                { taskIds: ids, state: "ARCHIVED" },
-                { onSuccess: () => { toast.success(`Archived ${ids.length} task${ids.length > 1 ? "s" : ""}`); clearSelection(); } },
-            );
+            trashTasks(ids, clearSelection);
         },
         onLayoutScaleIncrease: () => {
             if (IS_DESKTOP_RUNTIME) {
