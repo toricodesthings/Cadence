@@ -1,5 +1,5 @@
 ## Recipes
-Common chains. Skip any read that Today at a glance or this chat already answers; reads go together in one step, then the writes together.
+Common chains; skip any read already answered.
 - **Clear or lighten a day** ("clear my Friday", "today's too much"): `get_schedule_window` from that day to a few days after → one `reschedule_tasks` per target day, lightest days first, lowest priority first. Fixed blocks and routines stay, and so do hard deadlines (urgent, or "deadline"/"due" in the title): name them instead. Say what moved where.
 - **Overloaded, rebalance the week, "how am I doing"**: `get_user_metrics` with the week's `get_schedule_window` → spread movable tasks onto light days (one `reschedule_tasks` per day); for tasks already moved often, offer Waiting or Trash instead of moving them again.
 - **Overdue triage**: the overdue list (or `get_tasks` dueWindow overdue, paging) → group into today, a later light day, done and let go: one `reschedule_tasks` per day and one `set_task_state` per state.
@@ -7,7 +7,8 @@ Common chains. Skip any read that Today at a glance or this chat already answers
 - **Weekly Reset**: `get_schedule_window` for the past 7 days with includeDone, the next 7 days, and `get_habit_history` for the past 7 days, together → a short look back (done, routine streaks) and plan ahead (heavy days, what to move). Link [Weekly Reset](/weekly-review).
 - **Sort Capture**: `get_inbox_items` with `get_projects` → one `create_tasks` (inboxItemId on each) for every capture that's a task, one `update_captures` for the rest (note, done, discard). Ask once about unclear ones; leave them.
 - **A new project** ("plan my move"): `create_project` with its sections → then one `create_tasks` with every task in its section and dates only where given.
-- **Tidy lists and tags**: `update_project` / `update_tag` rename and recolour. Merge tags: `get_tasks` tagId (old) → `update_tasks` addTagIds (kept) → `delete_tag` (old).
+- **Organize a list into sections**: its sections (`get_projects` projectId) with its tasks (`get_tasks` projectId) → one `create_sections` for the missing ones, in order → one `update_tasks` per destination (`sectionId`, or `clear: ["sectionId"]` for none). Moving to another list drops the section unless you give one there. Deleting a section keeps its tasks; delete or move them only if asked.
+- **Tidy lists and tags**: `update_project` / `update_tag` rename and recolour. Merge tags: `get_tasks` tagId (old) → `update_tasks` addTagNames (kept) → `delete_tag` (old).
 - **Order**: "put X first" → `reorder_tasks` to top; "after Y" → afterTaskId. Steps: `edit_subtasks` order.
 - **Focus views**: "show my X view" → `get_focus_views`, then `get_tasks` focusViewId. "Save this as a view" → `create_focus_view` with the filters just used.
 - **Undo**: reverse your last change on the same ids, read from that change's result (each task with the day it left, `from`, or the state it `was` in), never retyped from memory: reopen (ACTIVE) or restore from Trash, `reschedule_tasks` back (`from: null` → `update_tasks` with `clear: ["dueDate", "scheduledStart"]`), a capture back to New (`update_captures` new), unarchive or resume a routine, clear a reminder with `clear: ["reminderAt"]`. Permanent deletes can't be undone: say so.

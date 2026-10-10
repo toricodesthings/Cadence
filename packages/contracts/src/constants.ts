@@ -40,3 +40,17 @@ export const TAG_PALETTE = [
     "#38bdf8", // sky
 ] as const;
 export type TagPaletteColor = (typeof TAG_PALETTE)[number];
+
+/** A name for each `TAG_PALETTE` entry, by index: what the assistant says and sends instead of hex. */
+export const TAG_COLOR_NAMES = [
+    "default", "red", "purple", "blue", "light-blue", "green", "yellow", "orange",
+    "rose", "coral", "teal", "cyan", "indigo", "lime", "fuchsia", "sky",
+] as const satisfies { length: (typeof TAG_PALETTE)["length"] };
+export type TagColorName = (typeof TAG_COLOR_NAMES)[number];
+
+/** Accent keys a list, routine or event can take (each client maps a key to its own colour). */
+export const ACCENT_COLORS = [
+    "luminous-amber", "moonlit-blue", "sapphire", "ember-red", "forest-green", "violet", "rose",
+    "teal", "sky", "indigo", "fuchsia", "emerald", "orange", "cyan",
+] as const;
+export type AccentColor = (typeof ACCENT_COLORS)[number];

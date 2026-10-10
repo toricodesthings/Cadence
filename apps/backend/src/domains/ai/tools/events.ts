@@ -1,4 +1,5 @@
 import { tool } from "ai";
+import { ACCENT_COLORS } from "@cadence/contracts/constants";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
@@ -22,7 +23,7 @@ const eventInput = z.object({
     emoji: eventFields.shape.emoji.optional().describe("One emoji, or null for none."),
     notify: eventFields.shape.notify.optional().describe("Remind on the day. Default true."),
     startedOn: eventFields.shape.startedOn.optional().describe("YYYY-MM-DD the first one happened (birth year, wedding day), to count years."),
-    color: eventFields.shape.color.describe("A routine colour key for its card tint, e.g. 'rose'; null = none."),
+    color: z.enum(ACCENT_COLORS).nullable().optional().describe("Its card tint; null = none."),
 });
 
 /** The event's next date on or after `today` (local YYYY-MM-DD); Feb 29 falls back to Feb 28. */

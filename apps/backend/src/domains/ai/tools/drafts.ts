@@ -67,6 +67,7 @@ export const taskPatchSchema = updateTaskSchema
         addTagIds: z.array(z.uuid()).max(20).optional(),
         removeTagIds: z.array(z.uuid()).max(20).optional(),
         addTagNames: tagNames.optional().describe("Tags to add by name: an existing tag matches, a new name makes one."),
+        removeTagNames: tagNames.optional().describe("Tags to take off, by name."),
         reminderAt: reminderAt.nullable().optional().describe("When to remind the user: local time with offset; null removes it."),
         checkInAt: updateTaskSchema.shape.waitingReminder.describe("A Waiting task's check-in: local time with offset; null removes it."),
         hideUntil: hideUntil.nullable().optional().describe("Hide it from lists until this local day; null shows it again."),

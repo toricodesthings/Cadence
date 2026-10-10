@@ -6,7 +6,9 @@
  *
  * Costs model tokens, so it never runs with `pnpm test`: `pnpm eval:assistant`
  * (needs OPENROUTER_API_KEY in the environment or `.dev.vars`; AI_CHAT_MODEL
- * picks another model). Prints a summary and writes `output/evals/assistant.json`.
+ * picks another model; EVAL_RUNS=1 runs every scenario once for a quick, cheaper
+ * pass; `-t "<name>"` picks scenarios). Prints a summary with each scenario's
+ * cached share and cost, and writes `output/evals/assistant.json`.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -37,10 +39,12 @@ function devVars(): Record<string, string> {
 }
 const vars = { ...devVars(), ...process.env } as Record<string, string | undefined>;
 const env = { OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY, AI_CHAT_MODEL: vars.AI_CHAT_MODEL } as unknown as Env;
+/** Caps each scenario's repeat count (EVAL_RUNS=1: one pass each, for iterating). */
+const maxRuns = Number(vars.EVAL_RUNS) || Infinity;
 
 type Call = { step: number; name: string; input: any; output: any };
 type Tools = ReturnType<typeof toolsFor> & { userId?: string };
-interface Run { calls: Call[]; text: string; steps: number; tokens: number; ms: number }
+interface Run { calls: Call[]; text: string; steps: number; tokens: number; cached: number; written: number; cost: number; ms: number }
 interface Scenario {
     name: string;
     level: "simple" | "medium" | "complex";
@@ -73,13 +77,14 @@ async function converse(userId: string, turns: string[], now = NOW): Promise<Run
     const messages: any[] = [];
     let text = "";
     let steps = 0;
-    let tokens = 0;
+    let tokens = 0, cached = 0, written = 0, cost = 0;
     const started = Date.now();
     for (const turn of turns) {
         const { agent, turnContext } = await getAgentInstance(env, userId, { timezone: TZ, currentDate: now, approvalMode: "full", nonce: "evalnonce", queryText: turn });
-        messages.push({ role: "user", content: turn });
-        // Like production: this turn's context rides on the newest user message, never stored in history.
-        const result = await agent.generate({ messages: [...messages.slice(0, -1), { role: "user", content: `${turn}\n\n${turnContext}` }] });
+        // Like production: each user message keeps the context it was sent with, so later turns replay
+        // it unchanged and read the earlier ones from the prompt cache.
+        messages.push({ role: "user", content: `${turn}\n\n${turnContext}` });
+        const result = await agent.generate({ messages });
         for (const [i, step] of result.steps.entries()) {
             for (const call of step.toolCalls) {
                 const output = step.toolResults.find((r: any) => r.toolCallId === call.toolCallId)?.output;
@@ -88,6 +93,10 @@ async function converse(userId: string, turns: string[], now = NOW): Promise<Run
         }
         steps += result.steps.length;
         tokens += result.totalUsage?.totalTokens ?? 0;
+        cached += result.totalUsage?.inputTokenDetails?.cacheReadTokens ?? 0;
+        written += result.totalUsage?.inputTokenDetails?.cacheWriteTokens ?? 0;
+        // What OpenRouter billed, per step.
+        cost += result.steps.reduce((sum, step: any) => sum + (step.providerMetadata?.openrouter?.usage?.cost ?? 0), 0);
         // A question asked with `ask_user` reads like one the reply typed: its question and options.
         const asked = calls.filter((c) => c.name === "ask_user" && c.step >= steps - result.steps.length)
             .map((c) => `${c.input?.question ?? ""} ${(c.input?.options ?? []).map((o: any) => o.label).join(" / ")}`);
@@ -96,7 +105,7 @@ async function converse(userId: string, turns: string[], now = NOW): Promise<Run
         // `result.response.messages` is the last step only, which left later turns without the ids.
         messages.push(...result.steps.flatMap((step) => step.response.messages));
     }
-    return { calls, text, steps, tokens, ms: Date.now() - started };
+    return { calls, text, steps, tokens, cached, written, cost, ms: Date.now() - started };
 }
 
 // ── Checks ──────────────────────────────────────────────────────────────────
@@ -592,32 +601,42 @@ const SCENARIOS: Scenario[] = [
 ];
 
 // ── Runner ──────────────────────────────────────────────────────────────────
-const report: { name: string; level: string; passed: boolean; problems: string[]; steps: number; tokens: number; ms: number; calls: string[] }[] = [];
+type Totals = { steps: number; tokens: number; cached: number; written: number; cost: number; ms: number };
+const report: ({ name: string; level: string; passed: boolean; problems: string[]; calls: string[] } & Totals)[] = [];
+/** The share of input read from the prompt cache (input includes cached tokens). */
+const cachedShare = (r: Totals) => (r.tokens ? `${Math.round((r.cached / r.tokens) * 100)}%`.padStart(4) : "  -");
 
 describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
-    beforeAll(startTestDb);
+    beforeAll(async () => {
+        await startTestDb();
+        // One turn first writes the static prefix (tools + system prompt, the same for every
+        // scenario) to the prompt cache; otherwise the concurrent first turns all miss and each pays to write it.
+        await converse(await createUser({ zone: TZ }), ["hi"]);
+    });
     afterAll(() => {
         const passed = report.filter((r) => r.passed).length;
-        const rows = report.map((r) => `${r.passed ? "PASS" : "FAIL"}  ${r.level.padEnd(7)} ${r.name.padEnd(46)} ${String(r.steps).padStart(2)} steps ${String(r.tokens).padStart(6)} tok ${(r.ms / 1000).toFixed(1).padStart(5)}s  ${r.calls.join(" → ")}${r.problems.length ? `\n      ✗ ${r.problems.join("\n      ✗ ")}` : ""}`);
-        process.stdout.write(`\nAssistant evals (${env.AI_CHAT_MODEL ?? "default model"}): ${passed}/${report.length} passed\n${rows.join("\n")}\n\n`);
+        const sum = report.reduce((a, r) => ({ cost: a.cost + r.cost, tokens: a.tokens + r.tokens, cached: a.cached + r.cached }), { cost: 0, tokens: 0, cached: 0 });
+        const rows = report.map((r) => `${r.passed ? "PASS" : "FAIL"}  ${r.level.padEnd(7)} ${r.name.padEnd(46)} ${String(r.steps).padStart(2)} steps ${String(r.tokens).padStart(6)} tok ${cachedShare(r)} cached $${r.cost.toFixed(4)} ${(r.ms / 1000).toFixed(1).padStart(5)}s  ${r.calls.join(" → ")}${r.problems.length ? `\n      ✗ ${r.problems.join("\n      ✗ ")}` : ""}`);
+        process.stdout.write(`\nAssistant evals (${env.AI_CHAT_MODEL ?? "default model"}): ${passed}/${report.length} passed · ${sum.tokens} tok, ${cachedShare(sum as Totals)} cached · $${sum.cost.toFixed(4)}\n${rows.join("\n")}\n\n`);
         const dir = join(__dirname, "../../../../output/evals");
         mkdirSync(dir, { recursive: true });
-        writeFileSync(join(dir, "assistant.json"), JSON.stringify({ at: new Date().toISOString(), model: env.AI_CHAT_MODEL ?? "default", passed, total: report.length, report }, null, 2));
+        writeFileSync(join(dir, "assistant.json"), JSON.stringify({ at: new Date().toISOString(), model: env.AI_CHAT_MODEL ?? "default", passed, total: report.length, cost: sum.cost, report }, null, 2));
     });
 
     for (const scenario of SCENARIOS) {
         it.concurrent(scenario.name, async () => {
-            const total = { steps: 0, tokens: 0, ms: 0 };
+            const total: Totals = { steps: 0, tokens: 0, cached: 0, written: 0, cost: 0, ms: 0 };
             const problems: string[] = [];
             let calls: string[] = [];
-            for (let attempt = 1; attempt <= (scenario.runs ?? 1); attempt++) {
+            const runs = Math.min(scenario.runs ?? 1, maxRuns);
+            for (let attempt = 1; attempt <= runs; attempt++) {
                 const userId = await createUser({ zone: TZ });
                 const t = Object.assign(toolsFor(userId, scenario.now), { userId });
                 const seeded = (await scenario.seed?.(t)) ?? {};
                 const run = await converse(userId, scenario.turns, scenario.now);
                 const found = [...(await scenario.check(run, t, seeded)), ...failedCalls(run).filter((p) => !p.startsWith("get_"))];
-                problems.push(...found.map((p) => ((scenario.runs ?? 1) > 1 ? `run ${attempt}: ${p}` : p)));
-                total.steps += run.steps; total.tokens += run.tokens; total.ms += run.ms;
+                problems.push(...found.map((p) => (runs > 1 ? `run ${attempt}: ${p}` : p)));
+                for (const key of Object.keys(total) as (keyof Totals)[]) total[key] += run[key];
                 calls = [...new Set(run.calls.map((c) => c.step))].map((step) => run.calls.filter((c) => c.step === step).map((c) => c.name).join("+"));
             }
             report.push({ name: scenario.name, level: scenario.level, passed: problems.length === 0, problems, ...total, calls });

@@ -44,6 +44,11 @@ export interface AgentContext {
     waitUntil?: (promise: Promise<unknown>) => void;
     /** The chat's approval mode, so a tool knows when the user tapped to approve its call. Unset off the chat (MCP). */
     approvalMode?: ApprovalMode;
+    /**
+     * Offer null on every optional field (default on), for models that fill every field ({@link nullableOptionals}).
+     * Claude leaves unused fields out, so its schemas skip it; calls are validated leniently either way.
+     */
+    nullableOptionals?: boolean;
 }
 
 /**
@@ -135,7 +140,7 @@ export function clampLimit(limit: number | undefined, fallback = 20): number {
  * The integration in agent.ts spreads the result into `streamText({ tools })`.
  */
 export function buildToolRegistry(env: Env, userId: string, ctx: AgentContext) {
-    return withoutPatterns({
+    return withoutPatterns(ctx.nullableOptionals !== false, {
         ...taskTools(env, userId, ctx),
         ...projectTools(env, userId, ctx),
         ...tagTools(env, userId, ctx),
@@ -159,8 +164,12 @@ export function dropPatterns(node: unknown): unknown {
     );
 }
 
-/** Validation-only bounds the model can't act on; batch caps are already stated in each description. */
-const BOUNDS = new Set(["minLength", "maxLength", "minimum", "maximum", "minItems", "maxItems"]);
+/**
+ * Validation-only keys the model can't act on: bounds (batch caps are stated in each description)
+ * and `default` (the server fills it). `additionalProperties: false` goes too: it only matters to
+ * strict mode, which is off; a record's value schema (`additionalProperties: {…}`) stays.
+ */
+const BOUNDS = new Set(["minLength", "maxLength", "minimum", "maximum", "minItems", "maxItems", "default"]);
 
 /**
  * Shrink a JSON schema for the model (validation still runs on the full zod schema): drop
@@ -172,7 +181,7 @@ export function slimSchema(node: unknown): unknown {
     if (!node || typeof node !== "object") return node;
     const out: Record<string, any> = {};
     for (const [key, value] of Object.entries(node)) {
-        if (BOUNDS.has(key)) continue;
+        if (BOUNDS.has(key) || (key === "additionalProperties" && value === false)) continue;
         // `properties` maps field names to schemas: recurse per field, never filter the names.
         out[key] = key === "properties" && value && typeof value === "object"
             ? Object.fromEntries(Object.entries(value).map(([name, schema]) => [name, slimSchema(schema)]))
@@ -352,12 +361,15 @@ export function applyClear(value: unknown, clearable: string[]): unknown {
  * most of the tool tokens, and slimmed further by {@link slimSchema}. Calls are
  * still validated against the full zod schema, leniently ({@link validateLenient}).
  */
-function withoutPatterns<T extends Record<string, { inputSchema: unknown; execute?: unknown }>>(tools: T): T {
+function withoutPatterns<T extends Record<string, { inputSchema: unknown; execute?: unknown }>>(nullable: boolean, tools: T): T {
     for (const t of Object.values(tools)) {
         const full = asSchema(t.inputSchema as Parameters<typeof asSchema>[0]);
         let clearable: Promise<string[]> | undefined;
         const clearableOnce = () => (clearable ??= Promise.resolve(full.jsonSchema).then(clearableFields));
-        t.inputSchema = jsonSchema(async () => withClear(nullableOptionals(slimSchema(dropPatterns(await full.jsonSchema))), await clearableOnce()) as never, {
+        t.inputSchema = jsonSchema(async () => {
+            const slim = slimSchema(dropPatterns(await full.jsonSchema));
+            return withClear(nullable ? nullableOptionals(slim) : slim, await clearableOnce()) as never;
+        }, {
             validate: async (value) => {
                 const fields = await clearableOnce();
                 const result = await validateLenient(full.validate!, applyClear(value, fields));

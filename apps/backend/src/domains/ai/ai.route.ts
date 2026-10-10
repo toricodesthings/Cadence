@@ -353,7 +353,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // Each recent user message replays the context it was sent with (stored, from the DB rows
     // only — never a client copy). The new message gets this turn's; a continued turn
     // (approval, kept retry) keeps its original so the reply resumes on the same prefix.
-    const lastUser = uiMessages.findLast((m) => m.role === "user");
+    const lastUser = [...uiMessages].reverse().find((m) => m.role === "user");
     const { contexts, current: lastUserContext, stored: storedLastContext } = turnContexts(history, lastUser?.id, turnContext, continues);
     turnTiming.setupMs = since(); // auth, budget, DB, prompt build: everything before the model call
 

@@ -32,8 +32,11 @@ const REASONING_EFFORT = "medium";
 /** A provider prompt-cache breakpoint (5-minute TTL, refreshed by every hit). */
 const CACHE_BREAKPOINT = { type: "ephemeral" } as const;
 
-/** Anthropic caches only behind explicit breakpoints; the other chat models cache prefixes implicitly. */
-function needsCacheBreakpoints(modelId: string): boolean {
+/**
+ * A Claude model. Anthropic caches only behind explicit breakpoints (the other chat models cache
+ * prefixes implicitly), and Claude leaves unused tool fields out, so its schemas skip the nulls.
+ */
+function isClaude(modelId: string): boolean {
     return modelId.startsWith("anthropic/");
 }
 
@@ -47,7 +50,7 @@ function needsCacheBreakpoints(modelId: string): boolean {
  * so each tool-loop step reads the step before it from cache.
  */
 export function chatModelSettings(env: Env, modelId: string, userHash: string): OpenRouterChatSettings {
-    const breakpoints = needsCacheBreakpoints(modelId);
+    const breakpoints = isClaude(modelId);
     return {
         models: [...new Set([modelId, getModelId(env), FALLBACK_CHAT_MODEL])],
         reasoning: { effort: REASONING_EFFORT },
@@ -63,7 +66,7 @@ export function chatModelSettings(env: Env, modelId: string, userHash: string): 
  * tokens, identical for every user and turn) whatever happens later in the messages.
  */
 export function chatInstructions(instructions: string, modelId: string): string | SystemModelMessage {
-    if (!needsCacheBreakpoints(modelId)) return instructions;
+    if (!isClaude(modelId)) return instructions;
     return { role: "system", content: instructions, providerOptions: { openrouter: { cacheControl: CACHE_BREAKPOINT } } };
 }
 
@@ -149,6 +152,17 @@ async function maybeRetrieveMemories(
     }
 }
 
+type ChatTools = Omit<ReturnType<typeof buildToolRegistry>, "get_habit_status_today">;
+
+/**
+ * The chat model's tools: the registry less what Today at a glance already answers each turn.
+ * Today's routine statuses come with the snapshot, and `get_habit_history` reads them after a change.
+ */
+export function chatTools(tools: ReturnType<typeof buildToolRegistry>): ChatTools {
+    const { get_habit_status_today: _snapshotOnly, ...rest } = tools;
+    return rest;
+}
+
 type SnapshotTools = Pick<ReturnType<typeof buildToolRegistry>,
     "get_schedule_window" | "get_tasks" | "get_habit_status_today" | "get_inbox_items" | "get_events">;
 
@@ -179,21 +193,26 @@ export async function loadSnapshot(tools: SnapshotTools, today: string): Promise
     });
 }
 
-let promptHash: Promise<string> | undefined;
+/** Per schema variant (Claude's tools skip the nulls), computed once per isolate. */
+const promptHashes = new Map<boolean, Promise<string>>();
 
 /**
  * Fingerprint of everything the model sees besides the conversation: the prompt
  * blocks, the Cadence guide, and each tool's name, description and input schema. Stamped on every
  * assistant message so a behavior change can be traced to a prompt or tool edit.
- * Static per deploy, so computed once per isolate.
+ * Static per deploy and schema variant.
  */
-function getPromptHash(tools: ToolSet): Promise<string> {
-    promptHash ??= (async () => {
-        const toolDefs = await Promise.all(Object.entries(tools).map(async ([name, t]) =>
-            [name, t.description, await asSchema(t.inputSchema).jsonSchema]));
-        return hashIdentifier(JSON.stringify([PROMPT_BLOCKS, HELP_TOPICS, toolDefs]));
-    })();
-    return promptHash;
+function getPromptHash(tools: ToolSet, variant: boolean): Promise<string> {
+    let hash = promptHashes.get(variant);
+    if (!hash) {
+        hash = (async () => {
+            const toolDefs = await Promise.all(Object.entries(tools).map(async ([name, t]) =>
+                [name, t.description, await asSchema(t.inputSchema).jsonSchema]));
+            return hashIdentifier(JSON.stringify([PROMPT_BLOCKS, HELP_TOPICS, toolDefs]));
+        })();
+        promptHashes.set(variant, hash);
+    }
+    return hash;
 }
 
 /**
@@ -221,7 +240,7 @@ export async function getAgentInstance(
     env: Env,
     userId: string,
     opts: AgentBuildOptions,
-): Promise<{ agent: ToolLoopAgent<never, ReturnType<typeof buildToolRegistry>>; modelId: string; promptHash: string; turnContext: string; embeddingSpend?: EmbeddingSpend }> {
+): Promise<{ agent: ToolLoopAgent<never, ChatTools>; modelId: string; promptHash: string; turnContext: string; embeddingSpend?: EmbeddingSpend }> {
     const locale = opts.locale ?? "en";
     const modelId = opts.modelId ?? getModelId(env);
     const userHash = await hashIdentifier(userId);
@@ -236,6 +255,7 @@ export async function getAgentInstance(
         nonce: opts.nonce,
         waitUntil: opts.waitUntil,
         approvalMode: opts.approvalMode,
+        nullableOptionals: !isClaude(modelId),
     };
     const tools = buildToolRegistry(env, userId, agentCtx);
     const [{ memories, spend: embeddingSpend }, snapshot] = await Promise.all([
@@ -262,7 +282,7 @@ export async function getAgentInstance(
     const agent = new ToolLoopAgent({
         model: getModel(env, modelId, userHash),
         instructions: chatInstructions(instructions, modelId),
-        tools,
+        tools: chatTools(tools),
         // A question to the user ends the turn: their reply is the next message.
         stopWhen: [isStepCount(MAX_TOOL_STEPS), hasToolCall("ask_user")],
         maxOutputTokens: MAX_OUTPUT_TOKENS,
@@ -272,5 +292,5 @@ export async function getAgentInstance(
         experimental_toolApprovalSecret: env.TOOL_APPROVAL_SECRET,
     });
 
-    return { agent, modelId, promptHash: await getPromptHash(tools), turnContext, embeddingSpend };
+    return { agent, modelId, promptHash: await getPromptHash(chatTools(tools), isClaude(modelId)), turnContext, embeddingSpend };
 }

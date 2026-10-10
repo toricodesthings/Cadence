@@ -1,4 +1,5 @@
 import { tool } from "ai";
+import { ACCENT_COLORS } from "@cadence/contracts/constants";
 import { z } from "zod";
 import { and, asc, count, eq, desc, exists, ilike, inArray, isNull, max, or } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
@@ -20,7 +21,7 @@ const SECTION_LIMIT = 200;
 const namePattern = (query: string) => `%${query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
 const offsetSchema = z.number().int().min(0).max(2_147_483_647).optional();
 const sectionName = createSectionSchema.shape.name;
-const colorAccent = z.string().max(40).describe("Accent token, e.g. 'luminous-amber'.");
+const colorAccent = z.enum(ACCENT_COLORS);
 
 async function findSection(tx: Tx, userId: string, sectionId: string) {
     const [row] = await tx

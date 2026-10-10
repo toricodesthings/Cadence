@@ -1,5 +1,6 @@
 // Canonical, framework-neutral tag palette is shared via @cadence/contracts.
 export { TAG_PALETTE, type TagPaletteColor } from "@cadence/contracts/constants";
+import type { AccentColor } from "@cadence/contracts/constants";
 
 // Project accent options carry CSS-var presentation, so they stay frontend-local.
 export const PROJECT_ACCENT_OPTIONS = [
@@ -17,6 +18,6 @@ export const PROJECT_ACCENT_OPTIONS = [
     { label: "Emerald", value: "emerald", varName: "#10b981" },
     { label: "Orange", value: "orange", varName: "#f97316" },
     { label: "Cyan", value: "cyan", varName: "#06b6d4" },
-] as const;
+] as const satisfies readonly { label: string; value: AccentColor; varName: string }[];
 
 export const PROJECT_FALLBACK_COLOR = "#e8a44a";

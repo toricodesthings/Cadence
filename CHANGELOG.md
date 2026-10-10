@@ -10,6 +10,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 - Assistant chats use far less of your usage limit, so you can keep going for much longer.
 - Long assistant chats no longer lose track of your most recent messages.
+- Asking the assistant to recolour a list, tag, routine or event now actually changes its colour.
+- The assistant can now see and remove a task's tags by name.
 
 ## [0.30.3] - 2026-10-09
 

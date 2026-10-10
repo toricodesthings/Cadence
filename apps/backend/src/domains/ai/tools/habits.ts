@@ -1,4 +1,5 @@
 import { tool } from "ai";
+import { ACCENT_COLORS } from "@cadence/contracts/constants";
 import { z } from "zod";
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
@@ -26,7 +27,7 @@ const routineFields = z.object({
     emoji: insertHabitSchema.shape.emoji.describe("One emoji as its mark, or null for none."),
     description: z.string().max(2_000).nullable().optional().describe("Its purpose, a line or two."),
     reminderEnabled: z.boolean().optional().describe("Remind on due days while still open."),
-    colorAccent: z.string().max(40).optional().describe("Colour token, e.g. 'lantern'."),
+    colorAccent: z.enum(["lantern", ...ACCENT_COLORS]).optional().describe("lantern = the default."),
     dayTimes: habitTargetTimesSchema.nullable().optional()
         .describe("Weekday (MO..SU) → HH:MM where a day differs from targetTime; \"\" = any time that day; null = the same every day."),
     times: routineTimesSchema.nullable().optional().describe("Several set times each day, HH:MM 24h (medication at 08:00, 14:00, 20:00); each is checked off on its own. Replaces targetTime and dayTimes; null = back to one usual time."),
@@ -260,7 +261,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
             habitId: z.uuid(),
             status: z.enum(["COMPLETED", "SKIPPED", "PENDING"]).describe("The whole day. Ignored when stepStatus is sent."),
             targetDate: z.iso.date().describe("The local day."),
-            time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().describe("A routine at set times: the HH:MM to mark; only that time changes (PENDING clears it). Required to skip; without it COMPLETED takes the time it clearly means or asks you to ask."),
+            time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional().describe("A routine at set times: the HH:MM to mark; only that time changes (PENDING clears it). Required to skip."),
             stepStatus: stepStatusSchema.optional().describe("Step id → COMPLETED or SKIPPED, for every step settled that day; a step left out is open. Replaces the day's marks."),
         }),
         execute: async (input, { toolCallId }) =>

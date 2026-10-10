@@ -112,7 +112,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         get_tasks: tool({
             description:
                 "The user's tasks, open ones (Active and Waiting) unless a state is given. Filters combine. " +
-                "Leaves out Fixed blocks and the days of repeating series (see get_schedule_window). Rows carry tagIds. Pages with offset: more:true and nextOffset when there's more.",
+                "Leaves out Fixed blocks and the days of repeating series (see get_schedule_window). Rows carry their tag names. Pages with offset: more:true and nextOffset when there's more.",
             inputSchema: z.object({
                 query: z.string().min(1).max(200).optional().describe("Words to find; each must be in the title, note, list name or section name."),
                 state: z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]).optional().describe("ARCHIVED = Trash."),
@@ -211,11 +211,11 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             .limit(limit + 1)
                             .offset(offset);
                         const shown = rows.slice(0, limit);
-                        const tagIds = await tagIdsFor(tx, shown.map((row) => row.id));
+                        const tagNames = await tagNamesFor(tx, shown.map((row) => row.id));
                         const more = rows.length > limit;
                         return {
                             ...(view && { view }),
-                            tasks: shown.map((row) => toMinimalTask({ ...row, tagIds: tagIds.get(row.id) }, ctx.timezone)),
+                            tasks: shown.map((row) => toMinimalTask({ ...row, tagNames: tagNames.get(row.id) }, ctx.timezone)),
                             count: shown.length,
                             ...(more && { more, nextOffset: offset + limit }),
                         };
@@ -374,7 +374,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     "Nothing to change: set a field, or name it in clear to empty it (null changes nothing)"),
             execute: async ({ taskIds, patch }, { toolCallId }) =>
                 write("update_tasks", toolCallId, async (tx) => {
-                    const { addTagIds = [], addTagNames, removeTagIds, note, appendNote, noteVersion, checkInAt, hideUntil, fixed, ...fields } = patch;
+                    const { addTagIds = [], addTagNames, removeTagIds = [], removeTagNames, note, appendNote, noteVersion, checkInAt, hideUntil, fixed, ...fields } = patch;
                     const rows = await updateTasks(tx, userId, {
                         taskIds,
                         patch: {
@@ -384,7 +384,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             ...(fixed !== undefined && { interactionMode: fixed ? "timetable" as const : "task" as const }),
                         },
                         addTagIds: [...addTagIds, ...(addTagNames?.length ? await findOrCreateTags(tx, userId, addTagNames) : [])],
-                        removeTagIds,
+                        removeTagIds: [...removeTagIds, ...(removeTagNames?.length ? await existingTagIds(tx, removeTagNames) : [])],
                     });
                     if (note !== undefined || appendNote) await changeNote(tx, userId, taskIds[0], { note, appendNote, noteVersion });
                     const changes = hasTaskTemporalMutation(fields) ? { rescheduled: rows } : undefined;
@@ -534,6 +534,15 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         return new Map(clean.map((name, i) => [name.toLowerCase(), ids[i]]));
     }
 
+    /** The ids of the user's tags with these names (case-insensitive); a name with no tag is skipped. */
+    async function existingTagIds(tx: Tx, names: string[]) {
+        const wanted = [...new Set(names.map((name) => name.trim().toLowerCase()).filter(Boolean))];
+        if (!wanted.length) return [];
+        const rows = await tx.select({ id: tags.id }).from(tags)
+            .where(and(eq(tags.userId, userId), inArray(sql`lower(${tags.name})`, wanted)));
+        return rows.map((row) => row.id);
+    }
+
     /** Tasks carrying any of `tagIds`. */
     function hasAnyTag(tagIds: string[]) {
         return exists(
@@ -573,15 +582,17 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
     }
 };
 
-/** Each task's tag ids, in one query. */
-export async function tagIdsFor(tx: Tx, taskIds: string[]) {
+/** Each task's tag names (by name: what the user says, and far shorter than ids), in one query. */
+export async function tagNamesFor(tx: Tx, taskIds: string[]) {
     const byTask = new Map<string, string[]>();
     if (!taskIds.length) return byTask;
     const links = await tx
-        .select({ taskId: taskTags.taskId, tagId: taskTags.tagId })
+        .select({ taskId: taskTags.taskId, name: tags.name })
         .from(taskTags)
-        .where(inArray(taskTags.taskId, taskIds));
-    for (const link of links) byTask.set(link.taskId, [...(byTask.get(link.taskId) ?? []), link.tagId]);
+        .innerJoin(tags, eq(taskTags.tagId, tags.id))
+        .where(inArray(taskTags.taskId, taskIds))
+        .orderBy(asc(tags.name));
+    for (const link of links) byTask.set(link.taskId, [...(byTask.get(link.taskId) ?? []), link.name]);
     return byTask;
 }
 

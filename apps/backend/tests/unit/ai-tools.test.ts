@@ -4,6 +4,7 @@ import {
     toMinimalTask,
     toMinimalHabit,
     toMinimalInboxItem,
+    toMinimalTag,
     resolveDueWindow,
     type TaskRow,
 } from "../../src/domains/ai/tools/projections";
@@ -14,6 +15,7 @@ import { buildToolRegistry, clampLimit, MAX_LIST_LIMIT, safeExecute, slimSchema 
 import { AppError } from "../../src/platform/errors";
 import { taskDraftSchema } from "../../src/domains/ai/tools/drafts";
 import { approvalFor, needsTap } from "../../src/domains/ai/safety/approval";
+import { ACCENT_COLORS, TAG_COLOR_NAMES } from "@cadence/contracts/constants";
 
 const baseTask: TaskRow = {
     id: "t1",
@@ -161,6 +163,41 @@ describe("tool registry", () => {
         expect((await schema.validate!({ taskIds: ["not-a-uuid"], targetDate: "2026-10-01" })).success).toBe(false);
         expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01T14:00" })).success).toBe(false);
         expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01" })).success).toBe(true);
+    });
+
+    it("sends Claude lean schemas: no nulls on optionals, no strict-only or default keys, still lenient", async () => {
+        const ctx = { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" };
+        const lean = buildToolRegistry({} as never, "u", { ...ctx, nullableOptionals: false }) as any;
+        const padded = buildToolRegistry({} as never, "u", ctx) as any;
+        const text = async (tools: any) => JSON.stringify(await Promise.all(Object.values(tools).map((t: any) => asSchema(t.inputSchema).jsonSchema)));
+        const model = await asSchema(lean.get_tasks.inputSchema).jsonSchema as any;
+        expect(model.properties.query.type).toBe("string");
+        expect(model.properties.state.enum).not.toContain(null);
+        for (const schema of [await text(lean), await text(padded)]) {
+            expect(schema).not.toContain('"additionalProperties":false');
+            expect(schema).not.toContain('"default":');
+        }
+        expect((await text(lean)).length).toBeLessThan((await text(padded)).length);
+        // A record keeps its value schema: a habit day's steps map step ids to a status.
+        const log = await asSchema(lean.log_habit.inputSchema).jsonSchema as any;
+        expect(log.properties.stepStatus.additionalProperties).toBeTruthy();
+        // A null, or a field that only clears, still means the same on the lean schema.
+        const sent = await asSchema(lean.get_tasks.inputSchema).validate!({ query: "x", projectId: null }) as any;
+        expect(JSON.parse(JSON.stringify(sent.value))).toEqual({ query: "x", limit: 20 });
+        const update = await asSchema(lean.update_tasks.inputSchema).jsonSchema as any;
+        expect(update.properties.patch.properties.clear.items.enum).toContain("dueDate");
+    });
+
+    it("names colours from the app's palettes, never a free-form token", async () => {
+        const tools = buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23", nullableOptionals: false }) as any;
+        const field = async (name: string, path: string[]) => path.reduce((node: any, key) => node.properties[key], await asSchema(tools[name].inputSchema).jsonSchema);
+        expect((await field("create_project", ["colorAccent"])).enum).toEqual([...ACCENT_COLORS]);
+        expect((await field("create_habit", ["colorAccent"])).enum).toEqual(["lantern", ...ACCENT_COLORS]);
+        const event = await field("create_event", ["color"]);
+        expect(event.enum ?? event.anyOf.find((b: any) => b.enum).enum).toEqual(expect.arrayContaining([...ACCENT_COLORS]));
+        expect((await field("create_tag", ["color"])).enum).toEqual([...TAG_COLOR_NAMES]);
+        expect(toMinimalTag({ id: "t", name: "x", color: "#79c0ff" }).color).toBe("blue");
+        expect(toMinimalTag({ id: "t", name: "x", color: "#123456" }).color).toBe("#123456");
     });
 
     it("drops the placeholders a fill-every-field model sends, and keeps real values", async () => {

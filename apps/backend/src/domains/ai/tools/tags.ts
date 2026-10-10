@@ -9,9 +9,14 @@ import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, once, MAX_LIST_LIMIT } from "./index";
 import { toMinimalTag } from "./projections";
+import { TAG_COLOR_NAMES, TAG_PALETTE } from "@cadence/contracts/constants";
 import { createTag, deleteTag, updateTag } from "../../tags/tags.service";
 
-const color = z.string().max(40).describe("Color token, e.g. 'default'.");
+const color = z.enum(TAG_COLOR_NAMES);
+
+/** The model names a palette colour; the row stores its hex (`TAG_PALETTE`). */
+const toHex = <T extends { color?: string }>(input: T): T =>
+    input.color === undefined ? input : { ...input, color: TAG_PALETTE[TAG_COLOR_NAMES.indexOf(input.color as never)] ?? input.color };
 
 export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
@@ -48,7 +53,7 @@ export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
         }),
         execute: async (input, { toolCallId }) =>
             safeExecute("create_tag", userId, async () => {
-                const row = await withRls(getDbClient(env), userId, (tx) => createTag(tx, userId, input, toolCallId));
+                const row = await withRls(getDbClient(env), userId, (tx) => createTag(tx, userId, toHex(input), toolCallId));
                 return { tagId: row.id, name: row.name };
             }),
     }),
@@ -65,7 +70,7 @@ export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
             safeExecute("update_tag", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
-                        const row = await updateTag(tx, userId, tagId, patch);
+                        const row = await updateTag(tx, userId, tagId, toHex(patch));
                         return { result: toMinimalTag(row), id: row.id };
                     }),
                 ),

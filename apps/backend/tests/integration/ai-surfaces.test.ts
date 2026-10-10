@@ -49,11 +49,15 @@ describe("get_tasks filters and pages", () => {
             { title: "Loose" },
         ]);
         await call("update_tasks", { taskIds: [pinned], patch: { isPinned: true } });
-        const [{ id: deep }] = (await call("get_tags", { query: "dee" })).tags;
+        const [{ id: deep, name: deepName }] = (await call("get_tags", { query: "dee" })).tags;
 
         const tagged = await call("get_tasks", { tagId: deep, sort: "date" });
         expect(titles(tagged.tasks)).toEqual(["Early", "Late"]);
-        expect(tagged.tasks[0].tagIds).toEqual([deep]);
+        expect(tagged.tasks[0].tags).toEqual([deepName]);
+        // Off by name, any case; a name with no tag changes nothing.
+        await call("update_tasks", { taskIds: [early], patch: { removeTagNames: ["DEEP", "nope"] } });
+        expect(titles((await call("get_tasks", { tagId: deep })).tasks)).toEqual(["Late"]);
+        await call("update_tasks", { taskIds: [early], patch: { addTagNames: ["deep"] } });
         expect(titles((await call("get_tasks", { minPriority: 3 })).tasks)).toEqual(["Late", "Pinned"]);
         expect((await call("get_tasks", { pinned: true })).tasks).toMatchObject([{ id: pinned, pinned: true }]);
         expect(titles((await call("get_tasks", { from: "2026-09-25", to: "2026-09-25" })).tasks)).toEqual(["Late"]);
@@ -145,6 +149,9 @@ describe("lists and tags", () => {
         const [{ id }] = (await call("get_tags", { query: "tag54" })).tags;
 
         expect(await call("update_tag", { tagId: id, patch: { name: "Urgent", color: "rose" } })).toMatchObject({ name: "Urgent", color: "rose" });
+        // Colours go by palette name; the row keeps the palette's hex.
+        const [stored] = await withRls(getTestDb(), userId, (tx) => tx.select({ color: tags.color }).from(tags).where(eq(tags.id, id)));
+        expect(stored.color).toBe("#f472b6");
         const [tagged] = await make([{ title: "Tagged", tagIds: [id] }]);
         expect(await call("delete_tag", { tagId: id, name: "Urgent" })).toEqual({ deleted: "Urgent" });
         expect((await task(tagged)).tagIds).toEqual([]);

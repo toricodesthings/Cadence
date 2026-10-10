@@ -16,6 +16,7 @@ import type { TaskRow as TaskRecord } from "@cadence/contracts/task";
 import { isPausedOn } from "@cadence/domain/repeats";
 import { addDays, monthRange, toZonedIso, weekRange, type WeekStart } from "@cadence/domain/time";
 import { NOTE_READ_LIMIT } from "./drafts";
+import { TAG_COLOR_NAMES, TAG_PALETTE } from "@cadence/contracts/constants";
 
 /**
  * A minimal task row as projected for the model. Keys at their default are left
@@ -46,7 +47,8 @@ export interface MinimalTask {
     fixedBlock?: true;
     /** Part of a repeating series; `id` is the series id. */
     repeats?: true;
-    tagIds?: string[];
+    /** Its tags, by name. */
+    tags?: string[];
     pinned?: true;
     /** When Cadence reminds the user, local time with offset. */
     reminderAt?: string;
@@ -64,7 +66,7 @@ export type TaskRow = Pick<
 > & Partial<Pick<TaskRecord, "endDate" | "sectionId" | "content" | "isPinned" | "reminderAt" | "waitingReminder" | "notBefore">> & {
     /** Set on an expanded occurrence of a repeating task (see expandScheduleScopedTasks). */
     seriesId?: string;
-    tagIds?: string[];
+    tagNames?: string[];
     listName?: string | null;
     sectionName?: string | null;
 };
@@ -97,7 +99,7 @@ export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
         waitingOn: row.waitingOn ?? undefined,
         fixedBlock: row.interactionMode === "timetable" || undefined,
         repeats: !!row.recurrenceRule || undefined,
-        tagIds: row.tagIds?.length ? row.tagIds : undefined,
+        tags: row.tagNames?.length ? row.tagNames : undefined,
         pinned: row.isPinned || undefined,
         reminderAt: row.reminderAt ? toZonedIso(row.reminderAt, timezone) : undefined,
         checkInAt: row.waitingReminder ? toZonedIso(row.waitingReminder, timezone) : undefined,
@@ -113,8 +115,10 @@ export function toMinimalSubtask(row: MinimalSubtask): MinimalSubtask {
 
 export type MinimalTag = Pick<TagRecord, "id" | "name" | "color">;
 
+/** A tag as the model reads it: a palette colour by name (as it sends one), any other value as stored. */
 export function toMinimalTag(row: MinimalTag): MinimalTag {
-    return { id: row.id, name: row.name, color: row.color };
+    const palette = TAG_PALETTE.indexOf(row.color as (typeof TAG_PALETTE)[number]);
+    return { id: row.id, name: row.name, color: palette >= 0 ? TAG_COLOR_NAMES[palette]! : row.color };
 }
 
 export type ProjectRow = Pick<ProjectRecord, "id" | "name" | "emoji" | "colorAccent">;
