@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 ### Fixed
 
 - Reminders silenced by quiet hours or a pause now alert when it ends, if still ahead, and stay in the bell meanwhile.
+- The desktop app keeps up with your other devices while in the tray, so it no longer alerts what you already did.
 
 ## [0.30.4] - 2026-10-10
 

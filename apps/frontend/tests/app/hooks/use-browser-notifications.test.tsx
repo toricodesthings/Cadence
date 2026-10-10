@@ -13,6 +13,7 @@ vi.mock("../../../app/hooks/notifications/use-device-delivery", () => ({
 vi.mock("../../../app/hooks/core/use-settings", () => ({
     useSettings: () => ({ data: { notifications: { quietHoursEnabled: state.quiet, quietHoursStart: "00:00", quietHoursEnd: "23:59" } } }),
 }));
+vi.mock("../../../app/hooks/notifications/use-local-reminder-refresh", () => ({ useLocalReminderRefresh: () => {} }));
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ session: { user: { id: "u1" } } }) }));
 vi.mock("../../../app/hooks/notifications/use-notification-center", () => ({
     getDismissalState: () => ({ dismissedIds: state.dismissed, deferredUntil: new Map() }),

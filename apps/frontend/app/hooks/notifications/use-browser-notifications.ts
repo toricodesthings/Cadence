@@ -7,6 +7,7 @@ import { getUserZone } from "../../lib/utils/user-zone";
 import { sendPlatformNotification } from "../../platform/runtime";
 import { getDismissalState } from "./use-notification-center";
 import { useDeviceDelivery, useDeviceDeliverySync } from "./use-device-delivery";
+import { useLocalReminderRefresh } from "./use-local-reminder-refresh";
 
 const FIRED_KEY = "cadence_alerted_occurrences";
 const FIRED_LIMIT = 300;
@@ -32,13 +33,15 @@ function saveFired(userId: string, fired: Set<string>) {
 /**
  * Local reminder alerts for a device the server can't reach (Cadence shows them itself while it is
  * running): desktop, and browsers without a saved push registration. A connected device is served by
- * the server's push, so this stays silent there. Same policy as the server: `dueAlert`.
+ * the server's push, so this stays silent there. Same policy as the server: `dueAlert`. While it alerts
+ * by itself it also keeps its data fresh in the background (`useLocalReminderRefresh`).
  */
 export function useBrowserNotifications(notifications: AppNotification[]) {
     useDeviceDeliverySync();
     const { status } = useDeviceDelivery();
     const { data: settings } = useSettings();
     const userId = useAuthState().session?.user.id;
+    useLocalReminderRefresh(status === "local", userId);
     const firedRef = useRef<{ userId: string; keys: Set<string> } | null>(null);
 
     const quietHoursEnabled = settings?.notifications?.quietHoursEnabled ?? false;
