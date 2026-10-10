@@ -9,14 +9,19 @@ import { Location } from "../../helpers";
 
 vi.mock("../../../app/hooks/habits/use-routine-due-count", () => ({ useRoutineDueCount: () => 0 }));
 
-const state = vi.hoisted(() => ({ signOut: vi.fn(), error: vi.fn() }));
+const state = vi.hoisted(() => ({ signOut: vi.fn(), error: vi.fn(), forgetDevice: vi.fn() }));
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({
     session: { user: { name: "Sam", email: "sam@example.com" } }, completeSignOut: state.signOut,
 }) }));
 vi.mock("../../../app/hooks/notifications/use-notification-center", () => ({ useNotificationCenter: () => ({ hasUnread: true, unreadCount: 5 }) }));
 vi.mock("sonner", () => ({ toast: { error: state.error } }));
+// Sign-out forgets this device on the server first; a real call here reaches the network (and timed out on CI).
+vi.mock("../../../app/lib/notifications/device-delivery", () => ({ forgetThisDevice: state.forgetDevice }));
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+    vi.clearAllMocks();
+    state.forgetDevice.mockResolvedValue(undefined);
+});
 
 describe("Compact navigation", () => {
     it.each(["/", "/today", "/schedule", "/routines", "/browse", "/project/example", "/?settings=appearance", "/today?notifications=true"])("keeps four destinations and one selected tab at %s", (path) => {
@@ -53,6 +58,7 @@ describe("Compact navigation", () => {
         expect((screen.getByRole("button", { name: "Signing out…" }) as HTMLButtonElement).disabled).toBe(true);
         await waitFor(() => expect(state.error).toHaveBeenCalledWith("Offline"));
         expect(state.signOut).toHaveBeenCalledTimes(1);
+        expect(state.forgetDevice).toHaveBeenCalledTimes(1);
         await waitFor(() => expect((screen.getByRole("button", { name: "Sign out" }) as HTMLButtonElement).disabled).toBe(false));
         state.signOut.mockResolvedValueOnce(undefined);
         fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
