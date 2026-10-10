@@ -94,6 +94,13 @@ describe("timed blocks", () => {
         expect(Date.parse(fixed.alertAt!)).toBe(Date.parse("2026-10-07T13:30:00-04:00"));
     });
 
+    it("stays relevant until the block starts; a reminder until its day ends", () => {
+        const [plain] = derive([block()], "2026-10-07T13:00:00-04:00");
+        expect(Date.parse(plain.relevantUntil!)).toBe(Date.parse("2026-10-07T14:00:00-04:00"));
+        const [reminded] = derive([block({ reminderAt: "2026-10-07T13:00:00-04:00" })], "2026-10-07T13:00:00-04:00");
+        expect(Date.parse(reminded.relevantUntil!)).toBe(Date.parse("2026-10-08T00:00:00-04:00"));
+    });
+
     it("skips far-off, finished and explicitly reminded blocks", () => {
         expect(derive([block()], "2026-10-07T08:00:00-04:00")).toHaveLength(0);
         expect(derive([block()], "2026-10-07T14:45:00-04:00")).toHaveLength(0);
@@ -154,6 +161,46 @@ describe("dueAlert", () => {
     it("silences every alert in quiet hours, high priority included", () => {
         const q = { enabled: true, start: "09:00", end: "11:00" };
         expect(dueAlert(reminder(), gate("2026-10-07T10:01:00-04:00", { quietHours: q }))).toBeNull();
+    });
+
+    describe("holds what quiet hours silenced until they end, while it is still relevant", () => {
+        const night = { enabled: true, start: "22:00", end: "08:00" };
+        // An 8:35 Fixed class with a 60-minute lead alerts at 7:35, inside quiet hours.
+        const classAlert = reminder({ kind: "block-start", alertAt: "2026-10-09T07:35:00-04:00", relevantUntil: "2026-10-09T08:35:00-04:00" });
+
+        it("sends it when quiet hours end, within the late bound from then", () => {
+            expect(dueAlert(classAlert, gate("2026-10-09T07:40:00-04:00", { quietHours: night }))).toBeNull();
+            expect(dueAlert(classAlert, gate("2026-10-09T08:00:00-04:00", { quietHours: night }))?.key).toBe("task-reminder::t1::x");
+            expect(dueAlert(classAlert, gate("2026-10-09T08:16:00-04:00", { quietHours: night }))).toBeNull();
+        });
+
+        it("still sends an unheld alert at a block's start (a lead of 0)", () => {
+            const atStart = reminder({ kind: "block-start", alertAt: "2026-10-09T14:00:00-04:00", relevantUntil: "2026-10-09T14:00:00-04:00" });
+            expect(dueAlert(atStart, gate("2026-10-09T14:00:09-04:00", { quietHours: night }))).not.toBeNull();
+        });
+
+        it("drops a block that started before quiet hours ended", () => {
+            const early = reminder({ kind: "block-start", alertAt: "2026-10-09T07:00:00-04:00", relevantUntil: "2026-10-09T07:50:00-04:00" });
+            expect(dueAlert(early, gate("2026-10-09T08:00:00-04:00", { quietHours: night }))).toBeNull();
+        });
+
+        it("drops a late-night routine time once its day is over", () => {
+            const dose = reminder({ kind: "habit-reminder", alertAt: "2026-10-09T23:30:00-04:00", relevantUntil: "2026-10-10T00:00:00-04:00" });
+            expect(dueAlert(dose, gate("2026-10-10T08:00:00-04:00", { quietHours: night }))).toBeNull();
+        });
+
+        it("holds through a pause the same way", () => {
+            const pausedUntil = "2026-10-07T10:30:00-04:00";
+            const held = reminder({ relevantUntil: "2026-10-08T00:00:00-04:00" });
+            expect(dueAlert(held, gate("2026-10-07T10:31:00-04:00", { pausedUntil }))).not.toBeNull();
+            expect(dueAlert(held, gate("2026-10-07T10:46:00-04:00", { pausedUntil }))).toBeNull();
+        });
+
+        it("still sends a deferral past its original day", () => {
+            const stale = reminder({ relevantUntil: "2026-10-08T00:00:00-04:00" });
+            const deferredUntil = "2026-10-08T09:00:00-04:00";
+            expect(dueAlert(stale, gate("2026-10-08T09:01:00-04:00", { deferredUntil }))?.key).toBe(`task-reminder::t1::x@${deferredUntil}`);
+        });
     });
 
     it("skips dismissed ones and re-delivers a deferral under a new key", () => {

@@ -3,7 +3,7 @@
  *
  * - Reminder derivation is deterministic
  * - Dismissals and deferrals persist as intended
- * - Quiet hours suppress non-high-priority
+ * - Quiet hours never hide anything from the list
  * - Habit bundling works at threshold
  */
 import { beforeEach, describe, it, expect } from "vitest";
@@ -33,9 +33,6 @@ const DEFAULT_BEHAVIOR: BehaviorFilterOptions = {
     taskReminders: true,
     habitReminders: true,
     dueDateAlerts: true,
-    quietHoursEnabled: false,
-    quietHoursStart: null,
-    quietHoursEnd: null,
 };
 
 describe("deriveCandidates", () => {
@@ -148,8 +145,7 @@ describe("filterByBehavior", () => {
         expect(filtered.length).toBe(0);
     });
 
-    it("suppresses non-high-priority during quiet hours", () => {
-        // 10pm is in quiet hours (22:00 - 07:00)
+    it("keeps reminders in the list during quiet hours (they only hold OS alerts)", () => {
         const now = at("22:30");
         const habit: Habit = {
             ...BASE_HABIT,
@@ -158,14 +154,7 @@ describe("filterByBehavior", () => {
             logs: [{ id: "virt", habitId: "h1", status: "PENDING", targetDate: "2026-03-26", completedAt: null }],
         };
         const candidates = deriveCandidates([], [habit], now);
-        const filtered = filterByBehavior(candidates, now, {
-            ...DEFAULT_BEHAVIOR,
-            quietHoursEnabled: true,
-            quietHoursStart: "22:00",
-            quietHoursEnd: "07:00",
-        });
-        // Habit reminders are "normal" priority — should be suppressed
-        expect(filtered.length).toBe(0);
+        expect(filterByBehavior(candidates, now, DEFAULT_BEHAVIOR)).toHaveLength(1);
     });
 
     it("bundles missed habits when count >= threshold", () => {
@@ -282,14 +271,5 @@ describe("zone-aware behaviour", () => {
         const timed = makeTask({ id: "t", scheduledStart: atLocal("2026-03-26", "11:00", ZONE), zone: ZONE });
         const candidates = deriveCandidates([due, timed], [], at("23:30"));
         expect(candidates.map((c) => [c.entityId, c.body])).toEqual([["d", "Due today"]]);
-    });
-
-    it("quiet hours read the wall clock in the user's zone", () => {
-        const options = { ...DEFAULT_BEHAVIOR, quietHoursEnabled: true, quietHoursStart: "22:00", quietHoursEnd: "07:00" };
-        const habit = { ...BASE_HABIT, reminderEnabled: true, targetTime: "22:00", logs: [{ id: "v", habitId: "h1", status: "PENDING" as const, targetDate: "2026-03-26", completedAt: null }] };
-        const night = at("22:30");
-        expect(filterByBehavior(deriveCandidates([], [habit], night), night, options)).toHaveLength(0);
-        const noon = at("12:00");
-        expect(filterByBehavior([{ id: "x", kind: "habit-reminder", title: "", body: "", triggerAt: noon.toISOString(), alertAt: null, entityId: null, route: null, priority: "normal", read: false }], noon, options)).toHaveLength(1);
     });
 });

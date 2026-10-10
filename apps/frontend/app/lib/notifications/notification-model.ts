@@ -16,6 +16,8 @@ export interface AppNotification {
     triggerAt: string;
     /** Instant an OS alert is due; null = never alerts the OS */
     alertAt: string | null;
+    /** A held OS alert (quiet hours, a pause) still goes out until this instant */
+    relevantUntil?: string | null;
     /** Entity id this notification relates to (task or habit id) */
     entityId: string | null;
     /** Route to navigate to when clicked */

@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Reminders silenced by quiet hours or a pause now alert when it ends, if still ahead, and stay in the bell meanwhile.
+
 ## [0.30.4] - 2026-10-10
 
 ### Fixed

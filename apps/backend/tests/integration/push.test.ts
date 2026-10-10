@@ -153,7 +153,7 @@ describe("push dispatch", () => {
     it("reminds a routine's open time on an untouched day, and not one already marked", async () => {
         const env = await vapidEnv();
         const { userId, endpoint } = await subscriber(env);
-        const [{ id }] = await sql("INSERT INTO habits (user_id, title, recurrence_rule, reminder_enabled, times) VALUES ($1, 'Medication', 'FREQ=DAILY', true, '[\"08:00\",\"11:10\",\"20:00\"]') RETURNING id", [userId]);
+        const [{ id }] = await sql("INSERT INTO habits (user_id, title, recurrence_rule, reminder_enabled, times, created_at) VALUES ($1, 'Medication', 'FREQ=DAILY', true, '[\"08:00\",\"11:10\",\"20:00\"]', '2026-10-01T12:00:00Z') RETURNING id", [userId]);
         const calls = pushService();
         await runPushDispatch(env, NOW); // no log exists yet today
         expect(calls.filter((url) => url === endpoint)).toHaveLength(1);

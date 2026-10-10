@@ -23,6 +23,8 @@ export interface Reminder {
     triggerAt: Instant;
     /** Instant an OS alert is due (routine lead time, deadline alert time); null = never alerts the OS. */
     alertAt: Instant | null;
+    /** An alert held by quiet hours or a pause still goes out until this instant: a block's start, else the end of the alert's day. */
+    relevantUntil?: Instant | null;
     entityId: string | null;
     route: string | null;
     priority: "normal" | "high";
@@ -63,6 +65,9 @@ export const DEFAULT_REMINDER_PREFS: ReminderPrefs = {
 export const LATE_ALERT_MS = 15 * 60_000;
 
 const HOUR = 60 * 60_000;
+
+/** Midnight that ends the local day an instant falls on. */
+const endOfDay = (instant: Instant, zone: Zone): Instant => atLocal(addDays(dayOf(instant, zone), 1), "00:00", zone);
 
 /** The day a yearly event falls on this year. Feb 29 is observed on Feb 28 in common years. */
 export function personalEventDay(monthDay: string, year: number): LocalDate {
@@ -128,6 +133,7 @@ export function deriveReminders(
                     body: diffMs > 0 ? `Reminder at ${fmt.time(task.reminderAt)}` : `Reminder was at ${fmt.time(task.reminderAt)}`,
                     triggerAt: task.reminderAt,
                     alertAt: task.reminderAt,
+                    relevantUntil: endOfDay(task.reminderAt, zone),
                     entityId: task.id,
                     route: taskRoute(task),
                     priority: diffMs <= 0 ? "high" : "normal",
@@ -150,6 +156,7 @@ export function deriveReminders(
                         : `Time to follow up with ${task.waitingOn}`,
                     triggerAt: task.waitingReminder,
                     alertAt: task.waitingReminder,
+                    relevantUntil: endOfDay(task.waitingReminder, zone),
                     entityId: task.id,
                     route: taskRoute(task),
                     priority: "normal",
@@ -172,6 +179,7 @@ export function deriveReminders(
                     body: overdueDays === 0 ? "Due today" : `Overdue since ${fmt.date(task.dueDate)}`,
                     triggerAt: atLocal(task.dueDate, "00:00", zone),
                     alertAt: madeAfter(alertAt),
+                    relevantUntil: endOfDay(alertAt, zone),
                     entityId: task.id,
                     route: taskRoute(task),
                     priority: "high",
@@ -187,6 +195,7 @@ export function deriveReminders(
                     body: prefs.dueHeadsUpDays === 1 ? "Due tomorrow" : `Due ${fmt.date(task.dueDate)}`,
                     triggerAt: atLocal(today, "00:00", zone),
                     alertAt: madeAfter(headsUpAt),
+                    relevantUntil: endOfDay(headsUpAt, zone),
                     entityId: task.id,
                     route: taskRoute(task),
                     priority: "normal",
@@ -216,6 +225,7 @@ export function deriveReminders(
                     body: diffMs > 0 ? `Starts at ${fmt.time(start)}` : "Started",
                     triggerAt: new Date(Date.parse(start) - lead).toISOString(),
                     alertAt: new Date(Date.parse(start) - lead).toISOString(),
+                    relevantUntil: start,
                     entityId: task.id,
                     route: taskRoute(task),
                     priority: "normal",
@@ -244,6 +254,7 @@ export function deriveReminders(
                 body: diffMs > 0 ? `Due at ${time.slice(0, 5)}` : "Due now",
                 triggerAt: target,
                 alertAt: new Date(Date.parse(target) - prefs.habitReminderLeadMinutes * 60_000).toISOString(),
+                relevantUntil: endOfDay(target, zone),
                 entityId: habit.id,
                 route: "/routines",
                 priority: "normal",
@@ -268,6 +279,7 @@ export function deriveReminders(
                 body: ahead === 0 ? "Today" : ahead === 1 ? "Tomorrow" : `In ${ahead} days`,
                 triggerAt: at,
                 alertAt: at,
+                relevantUntil: endOfDay(at, zone),
                 entityId: event.id,
                 route: "/events",
                 priority: "normal",
@@ -288,11 +300,31 @@ export interface AlertGate {
     deferredUntil?: Instant | null;
 }
 
+/** When the quiet hours or pause covering `at` end (chained: a pause can end inside quiet hours); `at` itself when nothing silenced it. */
+function releasedAt(at: Instant, gate: AlertGate): number {
+    const { enabled, start, end } = gate.quietHours;
+    let ms = Date.parse(at);
+    for (let step = 0; step < 3; step++) {
+        const moment = new Date(ms);
+        if (isPaused(moment, gate.pausedUntil)) {
+            ms = Date.parse(gate.pausedUntil!);
+        } else if (isInQuietHours(moment, gate.zone, enabled, start, end)) {
+            const day = dayOf(moment, gate.zone);
+            const endToday = Date.parse(atLocal(day, end!, gate.zone));
+            ms = endToday > ms ? endToday : Date.parse(atLocal(addDays(day, 1), end!, gate.zone));
+        } else {
+            break;
+        }
+    }
+    return ms;
+}
+
 /**
  * The one OS-delivery policy for every transport. Returns the key and instant to send now, or
- * null: not due yet, too late, dismissed, or in quiet hours (quiet hours silence every OS alert,
- * high priority included; the app list still shows it). A deferral is a new delivery at its own
- * instant, so the key changes with it.
+ * null: not due yet, too late, no longer relevant, dismissed, or silenced. Quiet hours and a pause
+ * silence every OS alert (high priority included; the app list still shows it) and hold it: it
+ * goes out when they end, while it is still relevant (`relevantUntil`). A deferral is a new
+ * delivery at its own instant, so the key changes with it.
  */
 export function dueAlert(reminder: Reminder, gate: AlertGate): { key: string; at: Instant } | null {
     if (!reminder.alertAt || gate.dismissed) return null;
@@ -300,11 +332,15 @@ export function dueAlert(reminder: Reminder, gate: AlertGate): { key: string; at
     const at = deferred ?? reminder.alertAt;
     const nowMs = gate.now.getTime();
     if (nowMs < Date.parse(at)) return null;
-    const late = reminder.kind === "task-due" && !deferred
-        ? dayOf(at, gate.zone) !== todayIn(gate.zone, gate.now)
-        : nowMs - Date.parse(at) > LATE_ALERT_MS;
-    if (late) return null;
     if (isPaused(gate.now, gate.pausedUntil)) return null;
     if (isInQuietHours(gate.now, gate.zone, gate.quietHours.enabled, gate.quietHours.start, gate.quietHours.end)) return null;
+    const released = releasedAt(at, gate);
+    const late = reminder.kind === "task-due" && !deferred
+        ? dayOf(at, gate.zone) !== todayIn(gate.zone, gate.now)
+        : nowMs - released > LATE_ALERT_MS;
+    if (late) return null;
+    // Only a held alert can go stale; a deferral is the person's own choice of time.
+    const held = released > Date.parse(at);
+    if (held && !deferred && reminder.relevantUntil && nowMs >= Date.parse(reminder.relevantUntil)) return null;
     return { key: deferred ? `${reminder.id}@${deferred}` : reminder.id, at };
 }

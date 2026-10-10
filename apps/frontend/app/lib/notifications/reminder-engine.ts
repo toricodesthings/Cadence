@@ -3,7 +3,7 @@ import type { Habit } from "@cadence/contracts/habit";
 import type { PersonalEvent } from "@cadence/contracts/settings";
 import type { AppNotification } from "./notification-model";
 import { addDays, atLocal, todayIn } from "@cadence/domain/time";
-import { deriveReminders, isInQuietHours, isPaused, reminderKindEnabled, type ReminderPrefs } from "@cadence/domain/reminders";
+import { deriveReminders, reminderKindEnabled, type ReminderPrefs } from "@cadence/domain/reminders";
 import { formatShortDate, formatTime } from "../utils/date-format";
 import { getUserZone } from "../utils/user-zone";
 
@@ -79,40 +79,21 @@ export interface BehaviorFilterOptions {
     dueDateAlerts: boolean;
     followUps?: boolean;
     scheduleAlerts?: boolean;
-    /** Quiet hours */
-    quietHoursEnabled: boolean;
-    quietHoursStart: string | null;
-    quietHoursEnd: string | null;
-    /** Silent until this instant */
-    pausedUntil?: string | null;
     /** Bundle missed habits into a single prompt when > threshold */
     bundleMissedHabits?: boolean;
     missedHabitBundleThreshold?: number;
 }
 
 /**
- * Filter candidates based on user behavior preferences, quiet hours, and bundling rules.
+ * Filter candidates by the user's reminder switches and bundle missed routines. Quiet hours and a
+ * pause never hide anything here: they only hold OS alerts (`dueAlert`), so the list is where those wait.
  */
 export function filterByBehavior(
     candidates: AppNotification[],
     now: Date,
     options: BehaviorFilterOptions,
 ): AppNotification[] {
-    // During quiet hours, suppress all non-high-priority notifications
-    const inQuietHours = isPaused(now, options.pausedUntil) || isInQuietHours(
-        now,
-        getUserZone(),
-        options.quietHoursEnabled,
-        options.quietHoursStart,
-        options.quietHoursEnd,
-    );
-
-    let filtered = candidates.filter((n) => {
-        if (!reminderKindEnabled(n.kind, options)) return false;
-        // During quiet hours, only show high-priority notifications
-        if (inQuietHours && n.priority !== "high") return false;
-        return true;
-    });
+    let filtered = candidates.filter((n) => reminderKindEnabled(n.kind, options));
 
     // Bundle missed habit reminders when there are many
     const threshold = options.missedHabitBundleThreshold ?? 3;

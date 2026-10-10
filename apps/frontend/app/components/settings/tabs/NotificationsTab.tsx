@@ -209,7 +209,7 @@ export function NotificationsTab() {
                         </div>
                     )}
                 </SettingsRow>
-                <SettingsRow title="Quiet hours">
+                <SettingsRow title="Quiet hours" description="Reminders wait in Cadence; any still ahead alert when it ends.">
                     <Switch checked={notif.quietHoursEnabled} aria-label="Quiet hours" onCheckedChange={(quietHoursEnabled) => set({ quietHoursEnabled })} />
                 </SettingsRow>
                 {notif.quietHoursEnabled && (
