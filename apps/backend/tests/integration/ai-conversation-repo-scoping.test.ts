@@ -15,7 +15,10 @@ import {
     truncateMessagesAfter,
     deleteAllMessages,
     setTitleIfEmpty,
+    setTurnContext,
+    loadConversationMessages,
 } from "../../src/domains/ai/persistence/conversation-repo";
+import { historyWindowStart, MAX_HISTORY_TURNS } from "../../src/domains/ai/safety/input-guard";
 import { withRls } from "../../src/platform/rls";
 import type { Tx } from "../../src/types/db";
 
@@ -90,5 +93,43 @@ describe("conversation-repo destructive helpers are owner-scoped", () => {
         await bypassingRls((tx) => setTitleIfEmpty(tx, owner, conv, "Plan The Week"));
         await bypassingRls((tx) => setTitleIfEmpty(tx, owner, conv, "Second Title"));
         expect(await title(conv)).toBe("Plan The Week");
+    });
+});
+
+describe("the replayed history window", () => {
+    it("holds the thread's latest rows from the stepped window start, oldest first", async () => {
+        const total = MAX_HISTORY_TURNS + 5;
+        const conv = await seedThread(owner, total);
+
+        const rows = await withRls(getTestDb(), owner, (tx) => loadConversationMessages(tx, owner, conv, { historyWindow: true }));
+
+        const start = historyWindowStart(total);
+        expect(rows.map((r) => r.id)).toEqual(Array.from({ length: total - start }, (_, i) => `${conv}-${start + i + 1}`));
+    });
+
+    it("is the whole thread while it fits", async () => {
+        const conv = await seedThread(owner, 3);
+        const rows = await withRls(getTestDb(), owner, (tx) => loadConversationMessages(tx, owner, conv, { historyWindow: true }));
+        expect(rows.map((r) => r.id)).toEqual([`${conv}-1`, `${conv}-2`, `${conv}-3`]);
+    });
+});
+
+describe("setTurnContext", () => {
+    async function metadata(id: string) {
+        const { rows } = await asOwner((pg) => pg.query<{ metadata: Record<string, unknown> }>("SELECT metadata FROM ai_messages WHERE id = $1", [id]));
+        return rows[0].metadata;
+    }
+
+    it("merges into the owner's user message only, keeping its other metadata", async () => {
+        const conv = await seedThread(owner, 1);
+        await withRls(getTestDb(), owner, (tx) =>
+            appendUserMessage(tx, owner, conv, { id: `${conv}-c`, role: "user", parts: [] }, { clientMessageId: "client-1" }),
+        );
+
+        await bypassingRls((tx) => setTurnContext(tx, other, conv, `${conv}-c`, "HIJACK"));
+        expect(await metadata(`${conv}-c`)).toEqual({ clientMessageId: "client-1" });
+
+        await bypassingRls((tx) => setTurnContext(tx, owner, conv, `${conv}-c`, "CTX"));
+        expect(await metadata(`${conv}-c`)).toEqual({ clientMessageId: "client-1", turnContext: "CTX" });
     });
 });

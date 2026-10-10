@@ -16,6 +16,7 @@ import type { Tx } from "../../../types/db";
 import type { ConversationDetail, ConversationListItem } from "@cadence/contracts/ai";
 import { AppError } from "../../../platform/errors";
 import { logger } from "../../../platform/log";
+import { historyWindowStart, MAX_HISTORY_TURNS } from "../safety/input-guard";
 import {
     nextOrderIndex,
     uiMessageToRow,
@@ -83,22 +84,29 @@ export async function resolveOrCreateConversation(
 /**
  * Load a thread's messages ordered by `orderIndex` ASC, mapped to
  * StoredMessage. Paginates forward by `beforeOrderIndex` (exclusive). Applies a
- * sane default + max limit.
+ * sane default + max limit. `historyWindow` instead loads what the model replays:
+ * the latest rows from {@link historyWindowStart}, at most {@link MAX_HISTORY_TURNS}.
  */
 export async function loadConversationMessages(
     tx: Tx,
     userId: string,
     conversationId: string,
-    opts?: { limit?: number; beforeOrderIndex?: number },
+    opts?: { limit?: number; beforeOrderIndex?: number; historyWindow?: boolean },
 ): Promise<StoredMessage[]> {
-    const limit = clampLimit(opts?.limit, DEFAULT_MESSAGE_LIMIT, MAX_MESSAGE_LIMIT);
-
     const conditions = [
         eq(aiMessages.conversationId, conversationId),
         eq(aiMessages.userId, userId),
     ];
     if (opts?.beforeOrderIndex !== undefined) {
         conditions.push(lt(aiMessages.orderIndex, opts.beforeOrderIndex));
+    }
+
+    let limit = clampLimit(opts?.limit, DEFAULT_MESSAGE_LIMIT, MAX_MESSAGE_LIMIT);
+    let offset = 0;
+    if (opts?.historyWindow) {
+        const [counted] = await tx.select({ n: sql<number>`count(*)::int` }).from(aiMessages).where(and(...conditions));
+        offset = historyWindowStart(counted?.n ?? 0);
+        limit = MAX_HISTORY_TURNS;
     }
 
     const rows = await tx
@@ -113,7 +121,8 @@ export async function loadConversationMessages(
         .from(aiMessages)
         .where(and(...conditions))
         .orderBy(asc(aiMessages.orderIndex))
-        .limit(limit);
+        .limit(limit)
+        .offset(offset);
 
     return rows.map((row) => ({
         id: row.id,
@@ -173,6 +182,29 @@ export async function appendUserMessage(
 
     // No row returned → the PK already existed → this is a deduped retry.
     return { id: msg.id, deduped: inserted.length === 0 };
+}
+
+/**
+ * Keep the turn context a user message was sent with (`metadata.turnContext`), so
+ * later turns replay that message byte-identical and the provider's prompt cache
+ * holds. Server-written only; never sent to the client (`toClientMessage`).
+ */
+export async function setTurnContext(
+    tx: Tx,
+    userId: string,
+    conversationId: string,
+    messageId: string,
+    turnContext: string,
+): Promise<void> {
+    await tx
+        .update(aiMessages)
+        .set({ metadata: sql`${aiMessages.metadata} || ${JSON.stringify({ turnContext })}::jsonb` })
+        .where(and(
+            eq(aiMessages.id, messageId),
+            eq(aiMessages.conversationId, conversationId),
+            eq(aiMessages.userId, userId),
+            eq(aiMessages.role, "user"),
+        ));
 }
 
 /**

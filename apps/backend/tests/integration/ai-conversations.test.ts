@@ -9,6 +9,7 @@ import {
     appendUserMessage,
     resolveOrCreateConversation,
     saveAssistantMessage,
+    setTurnContext,
     touchConversation,
 } from "../../src/domains/ai/persistence/conversation-repo";
 import { withRls } from "../../src/platform/rls";
@@ -38,6 +39,16 @@ async function seedThread(owner: string, opts: { lastMessageAt?: string; assista
 }
 
 describe("conversation list and history", () => {
+    it("keeps the replay-only turn context on the server", async () => {
+        const id = await seedThread(userId);
+        await withRls(getTestDb(), userId, (tx) => setTurnContext(tx, userId, id, `u-${id}`, "Today at a glance: …"));
+
+        const { body } = await ai("GET", `/conversations/${id}`);
+
+        expect(body.data.messages[0].metadata).toEqual({});
+        expect(JSON.stringify(body)).not.toContain("Today at a glance");
+    });
+
     it("lists only the caller's threads, most recent first", async () => {
         const older = await seedThread(userId, { lastMessageAt: "2026-03-01T00:00:00.000Z" });
         const newer = await seedThread(userId, { lastMessageAt: "2026-03-02T00:00:00.000Z" });

@@ -240,17 +240,37 @@ function compactReadPart(part: unknown): unknown {
     return { ...p, output };
 }
 
+/** Turns replayed whole (full read rows, turn context, images) before they compact together. */
+export const COMPACT_EVERY_TURNS = 4;
+
 /**
- * Read results from assistant turns before the latest one shrink to `{count, ids}`
- * before replay: the model keeps the ids it can act on, not every row again on
- * every later turn. The latest assistant turn keeps its full rows.
+ * Index of the first message replayed whole; everything before it is compacted
+ * (`compactOldReads`, no turn context, image stubs). The point moves only once every
+ * {@link COMPACT_EVERY_TURNS} user turns, so older turns change together in one step
+ * instead of on every turn: any change to replayed history invalidates the
+ * provider's prompt cache (and the model's replayed reasoning) from that point on.
+ * The turn before the current one always stays whole.
  */
-export function compactOldReads<T extends { role: string; parts: unknown[] }>(messages: T[]): T[] {
-    let latest = -1;
-    messages.forEach((msg, i) => {
-        if (msg.role === "assistant") latest = i;
-    });
+export function recentStart(messages: { role: string }[]): number {
+    const users = messages.flatMap((m, i) => (m.role === "user" ? [i] : []));
+    const current = users.length - 1;
+    if (current <= 0) return 0;
+    return users[Math.floor((current - 1) / COMPACT_EVERY_TURNS) * COMPACT_EVERY_TURNS]!;
+}
+
+/**
+ * Read results from assistant turns before `from` (default {@link recentStart})
+ * shrink to `{count, ids}` before replay: the model keeps the ids it can act on,
+ * not every row again on every later turn. Recent turns keep their full rows.
+ */
+export function compactOldReads<T extends { role: string; parts: unknown[] }>(messages: T[], from = recentStart(messages)): T[] {
     return messages.map((msg, i) =>
-        msg.role !== "assistant" || i === latest ? msg : { ...msg, parts: msg.parts.map(compactReadPart) },
+        msg.role !== "assistant" || i >= from ? msg : { ...msg, parts: msg.parts.map(compactReadPart) },
     );
+}
+
+/** A stored row as the client sees it: the replay-only turn context stays on the server. */
+export function toClientMessage(row: StoredMessage): UIMessageLike {
+    const { turnContext: _, ...metadata } = row.metadata ?? {};
+    return { ...rowToUIMessage(row), metadata };
 }

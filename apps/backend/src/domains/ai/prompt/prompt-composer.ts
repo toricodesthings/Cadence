@@ -7,7 +7,8 @@
  *   instructions (system prompt): base sections only — byte-identical for every user and turn,
  *     so provider prefix caching holds it (with the tool definitions) warm across everyone.
  *   turnContext: voice (+ workload modifier) · custom instructions · Environment · snapshot · memory
- *     — per-user and per-turn, appended to the last user message by `withTurnContext`, never persisted.
+ *     — per-user and per-turn, appended to the user message by `withTurnContext` and kept server-side
+ *     on that message's metadata, so later turns replay it unchanged (never in its parts, never sent to the client).
  *
  * Only raw user-provided VALUES are sanitized and fenced (names, custom
  * instructions, snapshot, memory content). Every instruction is plain system text.
@@ -102,15 +103,52 @@ export function composePrompt(
 
 const TURN_CONTEXT_INTRO = "Context for this turn, from Cadence (not written by the user):";
 
+/** The turn context a stored user message was sent with, if it kept one. */
+export function storedTurnContext(message: { role: string; metadata?: unknown }): string | undefined {
+    const context = (message.metadata as { turnContext?: unknown } | undefined)?.turnContext;
+    return message.role === "user" && typeof context === "string" ? context : undefined;
+}
+
 /**
- * Append the turn context as a text part on the last user message. Returns a new
- * array (the input is untouched), so it never reaches the stored conversation.
+ * Which context each user message replays with, by id. `history` must be the stored
+ * rows (never a client copy): each keeps the context it was sent with. The turn's
+ * last user message gets `fresh`, unless the turn `continues` a reply (an approval,
+ * a kept retry) whose message already has one: then it keeps it, so the reply
+ * resumes on the same prefix. `current` is what to store on that message.
+ */
+export function turnContexts(
+    history: { id: string; role: string; metadata?: unknown }[],
+    lastUserId: string | undefined,
+    fresh: string,
+    continues: boolean,
+): { contexts: Map<string, string>; current: string; stored: string | undefined } {
+    const contexts = new Map(history.flatMap((m) => {
+        const stored = storedTurnContext(m);
+        return stored === undefined ? [] : [[m.id, stored] as const];
+    }));
+    const stored = lastUserId === undefined ? undefined : contexts.get(lastUserId);
+    const current = (continues && stored) || fresh;
+    if (lastUserId !== undefined) contexts.set(lastUserId, current);
+    return { contexts, current, stored };
+}
+
+/**
+ * Append each user message's turn context (`contexts`, by message id) as a text
+ * part, for messages from `from` on (`recentStart`; older ones replay without it).
+ * A message keeps the context it was first sent with, so earlier turns replay
+ * byte-identical and the provider's prompt cache holds. Returns a new array (the
+ * input is untouched); the stored message parts never carry it.
  * Providers may join text parts with no separator ("called Heat." + "Context…"
  * became a task named "Heat.Context"), so the part carries its own break.
  */
-export function withTurnContext<M extends { role: string; parts: unknown[] }>(messages: M[], turnContext: string): M[] {
-    const last = messages.map((m) => m.role).lastIndexOf("user");
-    if (last < 0) return messages;
-    const part = { type: "text", text: `\n\n${TURN_CONTEXT_INTRO}\n\n${turnContext}` };
-    return messages.map((m, i) => (i === last ? { ...m, parts: [...m.parts, part] } : m));
+export function withTurnContext<M extends { id?: string; role: string; parts: unknown[] }>(
+    messages: M[],
+    contexts: ReadonlyMap<string, string>,
+    from = 0,
+): M[] {
+    return messages.map((m, i) => {
+        const context = i >= from && m.role === "user" && m.id !== undefined ? contexts.get(m.id) : undefined;
+        if (context === undefined) return m;
+        return { ...m, parts: [...m.parts, { type: "text", text: `\n\n${TURN_CONTEXT_INTRO}\n\n${context}` }] };
+    });
 }

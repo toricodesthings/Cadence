@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { AppError } from "../../src/platform/errors";
 import {
     assertMessageWithinCaps,
-    clampHistory,
+    HISTORY_DROP_STEP,
+    historyWindowStart,
     MAX_HISTORY_TURNS,
     MAX_MESSAGE_CHARS,
     MAX_PART_BYTES,
     MAX_PARTS_PER_MESSAGE,
+    startAtUser,
 } from "../../src/domains/ai/safety/input-guard";
 
 function expectInvalidRequest(fn: () => void) {
@@ -80,23 +82,30 @@ describe("assertMessageWithinCaps — image file parts", () => {
     });
 });
 
-describe("clampHistory", () => {
-    it("returns all items when under the limit", () => {
-        const history = [1, 2, 3];
-        expect(clampHistory(history)).toEqual([1, 2, 3]);
+describe("historyWindowStart", () => {
+    it("replays the whole thread up to the cap", () => {
+        expect(historyWindowStart(0)).toBe(0);
+        expect(historyWindowStart(MAX_HISTORY_TURNS)).toBe(0);
     });
 
-    it("bounds to the last MAX_HISTORY_TURNS items", () => {
-        const history = Array.from({ length: MAX_HISTORY_TURNS + 10 }, (_, i) => i);
-        const clamped = clampHistory(history);
-        expect(clamped.length).toBe(MAX_HISTORY_TURNS);
-        expect(clamped[0]).toBe(10);
-        expect(clamped[clamped.length - 1]).toBe(MAX_HISTORY_TURNS + 9);
+    it("drops rows in steps, so the window's start holds still between them", () => {
+        const starts = Array.from({ length: 3 * HISTORY_DROP_STEP }, (_, i) => historyWindowStart(MAX_HISTORY_TURNS + 1 + i));
+        expect(new Set(starts)).toEqual(new Set([HISTORY_DROP_STEP, 2 * HISTORY_DROP_STEP, 3 * HISTORY_DROP_STEP]));
+        expect(starts.filter((s) => s === HISTORY_DROP_STEP)).toHaveLength(HISTORY_DROP_STEP);
     });
 
-    it("does not mutate the input array", () => {
-        const history = [1, 2, 3];
-        clampHistory(history);
-        expect(history).toEqual([1, 2, 3]);
+    it("never replays more than the cap", () => {
+        for (let total = 0; total < 200; total++) {
+            expect(total - historyWindowStart(total)).toBeLessThanOrEqual(MAX_HISTORY_TURNS);
+            expect(historyWindowStart(total)).toBeGreaterThanOrEqual(0);
+        }
+    });
+});
+
+describe("startAtUser", () => {
+    it("drops the leading rows a window cut into, without mutating", () => {
+        const history = [{ role: "assistant" }, { role: "user" }, { role: "assistant" }];
+        expect(startAtUser(history)).toEqual(history.slice(1));
+        expect(history).toHaveLength(3);
     });
 });

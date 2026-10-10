@@ -1,5 +1,5 @@
-import { ToolLoopAgent, asSchema, hasToolCall, isStepCount, type ToolSet } from "ai";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { ToolLoopAgent, asSchema, hasToolCall, isStepCount, type SystemModelMessage, type ToolSet } from "ai";
+import { createOpenRouter, type OpenRouterChatSettings } from "@openrouter/ai-sdk-provider";
 import { eq } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { users, userMetrics } from "../../db/schema";
@@ -25,24 +25,52 @@ const FALLBACK_CHAT_MODEL = "google/gemini-3.7-flash";
 
 /**
  * Thinking budget. Turns are short planning chores (read a few rows, draft one
- * proposal), so "low" keeps latency and cost down; raise it if tool choice slips.
+ * proposal). Fixed for every turn: a change invalidates the provider's cached history.
  */
 const REASONING_EFFORT = "medium";
 
+/** A provider prompt-cache breakpoint (5-minute TTL, refreshed by every hit). */
+const CACHE_BREAKPOINT = { type: "ephemeral" } as const;
+
+/** Anthropic caches only behind explicit breakpoints; the other chat models cache prefixes implicitly. */
+function needsCacheBreakpoints(modelId: string): boolean {
+    return modelId.startsWith("anthropic/");
+}
+
 /**
- * Language model via OpenRouter's native provider (Chat Completions, reasoning round-trip).
- * A basic model that fails over lands on the standard model before the last-resort fallback.
+ * OpenRouter settings for one chat model. A basic model that fails over lands on the
+ * standard model before the last-resort fallback. Each provider keeps its own prompt
+ * cache, so the route is pinned (Anthropic's own endpoint for Claude, DeepInfra, the
+ * cheapest, for the rest) and the ids carry no `:nitro`, whose throughput sort hops
+ * providers. Fallbacks stay on: an outage costs the cache, not the turn. Claude also
+ * gets the top-level automatic breakpoint, which follows the end of the conversation
+ * so each tool-loop step reads the step before it from cache.
  */
-function getModel(env: Env, modelId: string, userHash: string) {
-    const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY || "dummy" });
-    return openrouter(modelId, {
+export function chatModelSettings(env: Env, modelId: string, userHash: string): OpenRouterChatSettings {
+    const breakpoints = needsCacheBreakpoints(modelId);
+    return {
         models: [...new Set([modelId, getModelId(env), FALLBACK_CHAT_MODEL])],
         reasoning: { effort: REASONING_EFFORT },
-        // DeepInfra is the cheapest endpoint and its prefix cache only hits on a sticky route, so
-        // no `:nitro` / throughput sort. Fallbacks stay on: an outage costs the cache, not the turn.
-        provider: { order: ["DeepInfra"], allow_fallbacks: true },
+        provider: { order: [breakpoints ? "Anthropic" : "DeepInfra"], allow_fallbacks: true },
         user: userHash,
-    });
+        ...(breakpoints && { cache_control: CACHE_BREAKPOINT }),
+    };
+}
+
+/**
+ * The system prompt as the agent sends it. For Claude it carries an explicit cache
+ * breakpoint: tools render before the system prompt, so this caches both (~15k
+ * tokens, identical for every user and turn) whatever happens later in the messages.
+ */
+export function chatInstructions(instructions: string, modelId: string): string | SystemModelMessage {
+    if (!needsCacheBreakpoints(modelId)) return instructions;
+    return { role: "system", content: instructions, providerOptions: { openrouter: { cacheControl: CACHE_BREAKPOINT } } };
+}
+
+/** Language model via OpenRouter's native provider (Chat Completions, reasoning round-trip). */
+function getModel(env: Env, modelId: string, userHash: string) {
+    const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY || "dummy" });
+    return openrouter(modelId, chatModelSettings(env, modelId, userHash));
 }
 
 /** Options resolved by the route before assembling the agent for one turn. */
@@ -233,7 +261,7 @@ export async function getAgentInstance(
 
     const agent = new ToolLoopAgent({
         model: getModel(env, modelId, userHash),
-        instructions,
+        instructions: chatInstructions(instructions, modelId),
         tools,
         // A question to the user ends the turn: their reply is the next message.
         stopWhen: [isStepCount(MAX_TOOL_STEPS), hasToolCall("ask_user")],

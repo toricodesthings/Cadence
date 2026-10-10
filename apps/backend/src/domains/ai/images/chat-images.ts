@@ -17,6 +17,7 @@ import { CHAT_IMAGE_MEDIA_TYPE, parseChatImageUrl } from "@cadence/contracts/ai"
 import { aiImages } from "../../../db/schema";
 import { AppError } from "../../../platform/errors";
 import type { Tx } from "../../../types/db";
+import { recentStart } from "../persistence/message-mapper";
 
 // ── Utility ───────────────────────────────────────────────────────────
 
@@ -28,9 +29,6 @@ export const IMAGE_RETENTION_DAYS = 30;
 export const ORPHAN_HOURS = 24;
 /** Extra days a reported image is kept, so there is time to look at it. */
 export const REPORT_KEEP_DAYS = 14;
-/** Only images in the last N messages reach the model; older ones become a stub. */
-export const HYDRATE_WINDOW_MESSAGES = 6;
-
 export const IMAGE_STUB_TEXT =
     "[An image the user shared earlier. It's no longer in view; ask them to share it again if you need it.]";
 
@@ -119,20 +117,21 @@ type Message = { role: string; parts: unknown[] };
 
 /**
  * Swap `cadence-image:` references for what the model should see, once per turn:
- * images in the last `HYDRATE_WINDOW_MESSAGES` messages become data URLs (one
+ * images in recent turns (from `from`, default `recentStart`) become data URLs (one
  * parallel R2 read each); older ones, and any the bucket no longer has, become a
- * text stub. Without the window every later turn would re-send every image.
+ * text stub. Without the cut every later turn would re-send every image; batching
+ * it with the other compaction keeps the replayed prefix cacheable.
  * Pure apart from the reads; never mutates its input.
  */
 export async function hydrateImages<T extends Message>(
     messages: T[],
     bucket: R2Bucket | undefined,
     userKey: string,
+    from = recentStart(messages),
 ): Promise<{ messages: T[]; hydrated: number }> {
-    const windowStart = messages.length - HYDRATE_WINDOW_MESSAGES;
     const wanted = new Set<string>();
     messages.forEach((m, i) => {
-        if (i >= windowStart) imageIdsIn(m.parts).forEach((id) => wanted.add(id));
+        if (i >= from) imageIdsIn(m.parts).forEach((id) => wanted.add(id));
     });
 
     const loaded = new Map<string, string>();
@@ -152,7 +151,7 @@ export async function hydrateImages<T extends Message>(
             const p = part as { type?: unknown; url?: unknown };
             if (p?.type !== "file") return part;
             const id = parseChatImageUrl(p.url);
-            const url = id && i >= windowStart ? loaded.get(id) : undefined;
+            const url = id && i >= from ? loaded.get(id) : undefined;
             if (!url) return { type: "text", text: IMAGE_STUB_TEXT };
             hydrated++;
             return { type: "file", mediaType: CHAT_IMAGE_MEDIA_TYPE, url };

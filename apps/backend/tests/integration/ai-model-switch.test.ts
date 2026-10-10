@@ -1,7 +1,8 @@
 /**
- * The model is chosen per TURN, not per thread: a conversation that opens on the
+ * The model is chosen per turn, but only upward: a conversation that opens on the
  * cheap model moves to the standard one the moment the user asks for something
- * complex, and back again. Drives the real route with a scripted model.
+ * complex, and stays there (each model keeps its own prompt cache). Drives the
+ * real route with a scripted model.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { agentOf, textModel } from "../helpers/ai";
@@ -23,6 +24,7 @@ vi.mock("../../src/domains/ai/persistence/conversation-repo");
 vi.mock("../../src/domains/ai/agent");
 
 import {
+    getConversation,
     resolveOrCreateConversation,
     loadConversationMessages,
     truncateMessagesAfter,
@@ -41,6 +43,8 @@ beforeEach(() => {
     vi.mocked(loadConversationMessages).mockResolvedValue([]);
     vi.mocked(truncateMessagesAfter).mockResolvedValue(false);
     vi.mocked(getAgentInstance).mockResolvedValue(agentOf(textModel()));
+    // The thread remembers the model its last turn touched it with.
+    vi.mocked(getConversation).mockImplementation(async () => ({ model: vi.mocked(touchConversation).mock.calls.at(-1)?.[3]?.model ?? null }) as never);
 });
 
 /** Send one user turn on the shared conversation; returns the model it was built, saved and touched with. */
@@ -62,9 +66,10 @@ async function turn(text: string) {
 }
 
 describe("model routing across one conversation", () => {
-    it("opens basic, upgrades when the ask gets complex, and drops back, on the agent build, saved reply and thread alike", async () => {
+    it("opens basic, upgrades when the ask gets complex, and stays, on the agent build, saved reply and thread alike", async () => {
         expect(await turn("add milk to groceries")).toEqual(Array(3).fill("basic/model"));
-        expect(await turn("plan my week around that")).toEqual(Array(3).fill("std/model"));
         expect(await turn("mark the dentist task done")).toEqual(Array(3).fill("basic/model"));
+        expect(await turn("plan my week around that")).toEqual(Array(3).fill("std/model"));
+        expect(await turn("mark the gym task done")).toEqual(Array(3).fill("std/model"));
     });
 });

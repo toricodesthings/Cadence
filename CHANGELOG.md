@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Assistant chats use far less of your usage limit, so you can keep going for much longer.
+- Long assistant chats no longer lose track of your most recent messages.
+
 ## [0.30.3] - 2026-10-09
 
 ### Changed

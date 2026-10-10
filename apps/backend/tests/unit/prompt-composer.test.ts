@@ -7,7 +7,7 @@ vi.mock("../../src/domains/ai/safety/injection-policy", () => ({
     sanitizeUntrusted: (text: string, _nonce: string) => `SANITIZED(${text})`,
 }));
 
-import { composePrompt, isWorkloadHigh, withTurnContext } from "../../src/domains/ai/prompt/prompt-composer";
+import { composePrompt, isWorkloadHigh, storedTurnContext, turnContexts, withTurnContext } from "../../src/domains/ai/prompt/prompt-composer";
 import { PROMPT_BLOCKS } from "../../src/domains/ai/prompt/prompt-blocks";
 import type { AssistantPersona, PromptRuntimeContext } from "../../src/domains/ai/prompt/prompt-blocks.schema";
 
@@ -77,22 +77,35 @@ describe("composePrompt", () => {
         expect(a.turnContext).not.toBe(b.turnContext);
     });
 
-    it("appends the turn context to the last user message without mutating the input", () => {
+    it("appends each user message's own turn context without mutating the input", () => {
         const msgs = [
-            { role: "user", parts: [{ type: "text", text: "first" }] },
-            { role: "assistant", parts: [{ type: "text", text: "ok" }] },
-            { role: "user", parts: [{ type: "text", text: "second" }] },
-            { role: "assistant", parts: [] },
+            { id: "u1", role: "user", parts: [{ type: "text", text: "first" }] },
+            { id: "a1", role: "assistant", parts: [{ type: "text", text: "ok" }] },
+            { id: "u2", role: "user", parts: [{ type: "text", text: "second" }] },
+            { id: "a2", role: "assistant", parts: [] },
         ];
-        const out = withTurnContext(msgs, "CTX");
+        const out = withTurnContext(msgs, new Map([["u1", "OLD"], ["u2", "CTX"], ["a1", "never on a reply"]]));
         expect(out[2]!.parts).toHaveLength(2);
         expect((out[2]!.parts[1] as { text: string }).text).toContain("CTX");
         // Providers join text parts with "": the context must not run into the user's last word.
         expect((out[2]!.parts[1] as { text: string }).text).toMatch(/^\n\n/);
-        expect(out[0]).toBe(msgs[0]);
+        // An earlier message replays the context it was sent with.
+        expect((out[0]!.parts[1] as { text: string }).text).toContain("OLD");
+        expect(out[1]).toBe(msgs[1]);
         expect(msgs[2]!.parts).toHaveLength(1);
-        expect(withTurnContext([msgs[1]!], "CTX")).toEqual([msgs[1]]);
+        expect(withTurnContext([msgs[1]!], new Map([["a1", "CTX"]]))).toEqual([msgs[1]]);
     });
+
+    it("leaves the turn context off messages before the recent cut", () => {
+        const msgs = [
+            { id: "u1", role: "user", parts: [] },
+            { id: "u2", role: "user", parts: [] },
+        ];
+        const out = withTurnContext(msgs, new Map([["u1", "OLD"], ["u2", "CTX"]]), 1);
+        expect(out[0]).toBe(msgs[0]);
+        expect(out[1]!.parts).toHaveLength(1);
+    });
+
 
     it("states the assistant's name once, in the fenced Environment names", () => {
         const out = compose(ctx({}, { assistantName: "Jeeves", nickname: "Sam" }));
@@ -158,5 +171,31 @@ describe("composePrompt", () => {
     it("throws naming the token on an unknown placeholder", () => {
         const blocks = { ...PROMPT_BLOCKS, base: ["Hello {{bogusToken}}"] };
         expect(() => composePrompt(blocks, ctx(), "N")).toThrowError(/bogusToken/);
+    });
+});
+
+describe("turn contexts", () => {
+    const user = (id: string, turnContext?: unknown) => ({ id, role: "user", metadata: turnContext === undefined ? {} : { turnContext } });
+
+    it("are read from user messages only", () => {
+        expect(storedTurnContext(user("u", "CTX"))).toBe("CTX");
+        expect(storedTurnContext({ role: "assistant", metadata: { turnContext: "CTX" } })).toBeUndefined();
+        expect(storedTurnContext(user("u", 3))).toBeUndefined();
+    });
+
+    it("keep each earlier message's own and give a new message this turn's", () => {
+        const { contexts, current, stored } = turnContexts([user("u1", "MON"), user("u2")], "u3", "TUE", false);
+        expect(Object.fromEntries(contexts)).toEqual({ u1: "MON", u3: "TUE" });
+        expect(current).toBe("TUE");
+        expect(stored).toBeUndefined();
+    });
+
+    it("refresh a re-sent message, but keep a continued reply's message as it was sent", () => {
+        expect(turnContexts([user("u1", "MON")], "u1", "TUE", false).current).toBe("TUE");
+        const continued = turnContexts([user("u1", "MON")], "u1", "TUE", true);
+        expect(continued.current).toBe("MON");
+        expect(continued.stored).toBe("MON");
+        // A continued message that never kept one (sent before contexts were stored) gets this turn's.
+        expect(turnContexts([user("u1")], "u1", "TUE", true).current).toBe("TUE");
     });
 });

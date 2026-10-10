@@ -22,18 +22,33 @@ function bucket(stored: string[]) {
 }
 
 describe("hydrateImages", () => {
-    it("inlines images in the last six messages and stubs older ones", async () => {
-        const messages = [user(file(ids[0])), assistant(), user(text("a")), assistant(), user(text("b")), assistant(), user(file(ids[1]), text("this?"))];
+    it("inlines images in recent turns and stubs older ones", async () => {
+        const exchange = (...parts: unknown[]) => [user(...parts), assistant()];
+        const messages = [
+            ...exchange(file(ids[0])),
+            ...exchange(text("a")),
+            ...exchange(text("b")),
+            ...exchange(text("c")),
+            ...exchange(text("d")),
+            user(file(ids[1]), text("this?")),
+        ];
         const r2 = bucket(ids);
         const { messages: out, hydrated } = await hydrateImages(messages, r2, "u");
 
         expect(out[0].parts[0]).toEqual({ type: "text", text: IMAGE_STUB_TEXT });
-        expect(out[6].parts[0]).toEqual({ type: "file", mediaType: "image/webp", url: "data:image/webp;base64,AQID" });
-        expect(out[6].parts[1]).toEqual(text("this?"));
+        expect(out[10].parts[0]).toEqual({ type: "file", mediaType: "image/webp", url: "data:image/webp;base64,AQID" });
+        expect(out[10].parts[1]).toEqual(text("this?"));
         expect(hydrated).toBe(1);
         expect(r2.reads).toEqual([aiImageKey("u", ids[1])]); // the stubbed image is never read
-        expect(messages[6].parts[0]).toEqual(file(ids[1])); // input untouched
+        expect(messages[10].parts[0]).toEqual(file(ids[1])); // input untouched
     });
+
+    it("keeps an image inlined until its turn compacts with the others", async () => {
+        const messages = [user(file(ids[0])), assistant(), user(text("a")), assistant(), user(text("b"))];
+        const { messages: out } = await hydrateImages(messages, bucket(ids), "u");
+        expect(out[0].parts[0]).toMatchObject({ type: "file" });
+    });
+
 
     it("stubs an image storage no longer has (expired)", async () => {
         const { messages: out } = await hydrateImages([user(file(ids[2]))], bucket([]), "u");

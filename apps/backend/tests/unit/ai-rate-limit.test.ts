@@ -6,7 +6,7 @@ import {
     admit,
     settle,
     readUsage,
-    readTotalTokens,
+    readMeteredTokens,
     addStepSpend,
     emptyUsage,
     type AiLimits,
@@ -91,18 +91,34 @@ describe("estimateReserve", () => {
     });
 });
 
-describe("readTotalTokens", () => {
-    it("reads metadata.totalUsage.totalTokens", () => {
-        expect(readTotalTokens({ metadata: { totalUsage: { totalTokens: 1500 } } })).toBe(1500);
+describe("readMeteredTokens", () => {
+    it("uses totalTokens when nothing was cached", () => {
+        expect(readMeteredTokens({ metadata: { totalUsage: { totalTokens: 1500 } } })).toBe(1500);
     });
 
-    it("falls back to inputTokens + outputTokens", () => {
-        expect(readTotalTokens({ metadata: { totalUsage: { inputTokens: 200, outputTokens: 300 } } })).toBe(500);
+    it("falls back to input + output", () => {
+        expect(readMeteredTokens({ metadata: { totalUsage: { inputTokens: 200, outputTokens: 300 } } })).toBe(500);
     });
 
-    it("returns 0 when usage is absent (errored/aborted turn → reservation refunded)", () => {
-        expect(readTotalTokens({ metadata: {} })).toBe(0);
-        expect(readTotalTokens(null)).toBe(0);
+    it("counts cached input at its price: reads at a tenth, writes at a premium", () => {
+        const totalUsage = {
+            inputTokens: 20_000,
+            outputTokens: 300,
+            totalTokens: 20_300,
+            inputTokenDetails: { noCacheTokens: 2_000, cacheReadTokens: 17_000, cacheWriteTokens: 1_000 },
+        };
+        // 2,000 plain + 1,700 read + 1,250 written + 300 out
+        expect(readMeteredTokens({ metadata: { totalUsage } })).toBe(5_250);
+    });
+
+    it("never counts a cached token twice when the details overshoot the input", () => {
+        const totalUsage = { inputTokens: 100, outputTokens: 0, inputTokenDetails: { cacheReadTokens: 500, cacheWriteTokens: 50 } };
+        expect(readMeteredTokens({ metadata: { totalUsage } })).toBe(10);
+    });
+
+    it("returns 0 with no usage (refund path)", () => {
+        expect(readMeteredTokens({ metadata: {} })).toBe(0);
+        expect(readMeteredTokens(null)).toBe(0);
     });
 });
 

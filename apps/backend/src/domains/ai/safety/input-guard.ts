@@ -26,8 +26,11 @@ export const MAX_PARTS_PER_MESSAGE = SHARED_MAX_PARTS_PER_MESSAGE;
 /** Max UTF-8 byte size of any single part (after JSON serialization). */
 export const MAX_PART_BYTES = 16_000;
 
-/** Max conversation turns loaded into model context (bounds prompt size & cost). */
+/** Max stored rows (messages) replayed into model context (bounds prompt size & cost). */
 export const MAX_HISTORY_TURNS = 40;
+
+/** Rows the history window drops at once when a thread outgrows {@link MAX_HISTORY_TURNS}. */
+export const HISTORY_DROP_STEP = 16;
 
 /** Max output tokens the model may emit per turn. */
 export const MAX_OUTPUT_TOKENS = 2_048;
@@ -116,10 +119,18 @@ export function assertMessageWithinCaps(
 }
 
 /**
- * Return the last `MAX_HISTORY_TURNS` items, bounding how much conversation is
- * loaded into model context. Pure; never mutates the input array.
+ * Index of the first stored row the model sees, out of `total`. The window holds at
+ * most {@link MAX_HISTORY_TURNS} rows and its start moves in steps of
+ * {@link HISTORY_DROP_STEP}, so the replayed history stays byte-identical (and
+ * provider-cached) for that many rows instead of shifting on every turn.
  */
-export function clampHistory<T>(history: T[]): T[] {
-    if (history.length <= MAX_HISTORY_TURNS) return history.slice();
-    return history.slice(history.length - MAX_HISTORY_TURNS);
+export function historyWindowStart(total: number): number {
+    if (total <= MAX_HISTORY_TURNS) return 0;
+    return Math.ceil((total - MAX_HISTORY_TURNS) / HISTORY_DROP_STEP) * HISTORY_DROP_STEP;
+}
+
+/** History opens on a user message: drops the leading rows a window start cut into. Pure. */
+export function startAtUser<T extends { role: string }>(history: T[]): T[] {
+    const first = history.findIndex((m) => m.role === "user");
+    return first < 0 ? [] : history.slice(first);
 }

@@ -4,6 +4,9 @@ import {
     dropUnsignedReasoning,
     dropForeignReasoning,
     compactOldReads,
+    COMPACT_EVERY_TURNS,
+    recentStart,
+    toClientMessage,
     applyApprovals,
     settleUnanswered,
     keepFinishedWrites,
@@ -132,14 +135,40 @@ describe("compactOldReads", () => {
     const proposal = { type: "tool-propose_create_task", state: "input-available", input: { title: "X" } };
     const turn = (role: string) => ({ role, parts: role === "assistant" ? [read, proposal] : [{ type: "text", text: "hi" }] });
 
-    it("shrinks older turns' read rows to ids and keeps the latest assistant turn whole", () => {
-        const [older, , latest, user] = compactOldReads([turn("assistant"), turn("user"), turn("assistant"), turn("user")]);
+    /** `n` user/assistant exchanges, then the new user message. */
+    const thread = (n: number) => [...Array.from({ length: n }, () => [turn("user"), turn("assistant")]).flat(), turn("user")];
 
-        expect(older.parts[0]).toMatchObject({ output: { tasks: { count: 2, ids: ["a", "b"] }, count: 2 } });
-        expect(older.parts[1]).toBe(proposal);
-        expect(latest.parts[0]).toBe(read);
-        expect(user.parts).toEqual([{ type: "text", text: "hi" }]);
+    it("shrinks older turns' read rows to ids and keeps recent turns whole", () => {
+        const messages = thread(COMPACT_EVERY_TURNS + 1);
+        const out = compactOldReads(messages);
+        const from = recentStart(messages);
+
+        expect(from).toBe(2 * COMPACT_EVERY_TURNS); // the first COMPACT_EVERY_TURNS exchanges compacted
+        expect(out[1].parts[0]).toMatchObject({ output: { tasks: { count: 2, ids: ["a", "b"] }, count: 2 } });
+        expect(out[1].parts[1]).toBe(proposal);
+        expect(out[from + 1].parts[0]).toBe(read);
+        expect(out.at(-1)!.parts).toEqual([{ type: "text", text: "hi" }]);
     });
+
+    it("moves the cut only once every few turns, always keeping the previous turn whole", () => {
+        const cuts = Array.from({ length: 3 * COMPACT_EVERY_TURNS }, (_, n) => recentStart(thread(n)));
+        // Each cut holds for COMPACT_EVERY_TURNS turns in a row, so replayed history only grows between steps.
+        expect(new Set(cuts).size).toBe(3);
+        cuts.forEach((cut, n) => expect(cut).toBeLessThanOrEqual(Math.max(0, 2 * (n - 1))));
+    });
+
+});
+
+describe("turn context", () => {
+    const row = (role: "user" | "assistant", metadata: Record<string, unknown>): StoredMessage =>
+        ({ id: "m", role, parts: [], metadata, status: "complete", orderIndex: 1 });
+
+    it("stays on the server: the client copy drops it, keeping the rest", () => {
+        const stored = row("user", { clientMessageId: "c", turnContext: "CTX" });
+        expect(toClientMessage(stored).metadata).toEqual({ clientMessageId: "c" });
+        expect(stored.metadata.turnContext).toBe("CTX");
+    });
+
 });
 
 describe("approval answers", () => {

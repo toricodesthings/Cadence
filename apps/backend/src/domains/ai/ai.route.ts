@@ -26,8 +26,8 @@ import {
     stopStreamSchema,
 } from "@cadence/contracts/ai";
 import { getAgentInstance } from "./agent";
-import { withTurnContext } from "./prompt/prompt-composer";
-import { pickChatModel } from "./model-router";
+import { turnContexts, withTurnContext } from "./prompt/prompt-composer";
+import { getModelId, pickChatModel } from "./model-router";
 import {
     resolveOrCreateConversation,
     loadConversationMessages,
@@ -46,14 +46,15 @@ import {
     setActiveStream,
     finalizeActiveStream,
     setTitleIfEmpty,
+    setTurnContext,
 } from "./persistence/conversation-repo";
 import { generateConversationTitle } from "./title/generate-title";
 import { openStream, closeStream, flushChunks, requestAbort, readMeta } from "./streaming/resume-store";
 import { startAbortWatcher } from "./streaming/abort-watcher";
 import { buildResumeStream } from "./streaming/replay";
-import { applyApprovals, keepFinishedWrites, compactOldReads, dropForeignReasoning, dropUnsignedReasoning, rowToUIMessage, settleUnanswered } from "./persistence/message-mapper";
+import { applyApprovals, keepFinishedWrites, compactOldReads, dropForeignReasoning, dropUnsignedReasoning, recentStart, rowToUIMessage, settleUnanswered, toClientMessage } from "./persistence/message-mapper";
 import { makeFenceNonce, stripNonce } from "./safety/injection-policy";
-import { assertMessageWithinCaps, clampHistory, MAX_HISTORY_TURNS } from "./safety/input-guard";
+import { assertMessageWithinCaps, startAtUser } from "./safety/input-guard";
 import { buildStreamError, streamErrorToText, AI_ERROR_MESSAGES } from "./safety/stream-error";
 import {
     resolveLimits,
@@ -61,7 +62,7 @@ import {
     admit,
     settle,
     readUsage,
-    readTotalTokens,
+    readMeteredTokens,
     addStepSpend,
     emptyUsage,
     rateLimitHeaders,
@@ -165,7 +166,13 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     const db = getDbClient(c.env);
     const nonce = makeFenceNonce();
-    const modelId = pickChatModel(c.env, { text: incomingText, imageCount: imageIds.length });
+    const routed = { text: incomingText, imageCount: imageIds.length };
+    let modelId = pickChatModel(c.env, routed);
+    // A thread already on the standard model stays there (model-router), so only a basic pick reads the thread's last model.
+    if (body.conversationId && modelId !== getModelId(c.env)) {
+        const previous = await withRls(db, userId, (tx) => getConversation(tx, userId, body.conversationId!)).catch(() => null);
+        modelId = pickChatModel(c.env, routed, previous?.model);
+    }
     const clientMessageId = body.clientMessageId ?? getIdempotencyKey(c);
 
     // Resumption + hard abort (doc Update 4). Null when unconfigured/disabled →
@@ -245,7 +252,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             // client sends: only its waiting parts change, signatures stay the server's.
             const conversation = await getConversation(tx, userId, body.conversationId!);
             throwIfNotFound(conversation, "Conversation");
-            const rows = await loadConversationMessages(tx, userId, conversation!.id, { limit: MAX_HISTORY_TURNS });
+            const rows = await loadConversationMessages(tx, userId, conversation!.id, { historyWindow: true });
             const last = rows.at(-1);
             const answered = last?.role === "assistant" ? applyApprovals(rowToUIMessage(last), body.approvals!) : null;
             if (!answered) throw new AppError(409, "CONFLICT", "Nothing here is waiting for approval.");
@@ -266,10 +273,10 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         // leaks back into model context and resurrects on reload.
         // A retry of a reply that failed after changing something continues that reply instead.
         const kept = body.editAnchorId === undefined
-            ? keepFinishedWrites(await loadConversationMessages(tx, userId, id, { limit: MAX_HISTORY_TURNS }), incoming.id)
+            ? keepFinishedWrites(await loadConversationMessages(tx, userId, id, { historyWindow: true }), incoming.id)
             : null;
         const isRerun = await truncateMessagesAfter(tx, userId, id, kept?.id ?? incoming.id);
-        const priorRows = await loadConversationMessages(tx, userId, id, { limit: MAX_HISTORY_TURNS });
+        const priorRows = await loadConversationMessages(tx, userId, id, { historyWindow: true });
         await appendUserMessage(tx, userId, id, incoming, { clientMessageId });
         await markSent(tx, userId, imageIds);
         if (redis) await setActiveStream(tx, userId, id, streamId);
@@ -329,15 +336,25 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         : [...settleUnanswered(history.filter((m) => m.id !== incoming!.id)), incoming!];
     // A turn that switched models (model-router) must not replay the previous
     // model's thought signatures — they belong to a family this one never used.
+    // Older turns compact together once every few turns (`recentStart`), so the
+    // replayed history only grows between those steps and stays prompt-cached.
+    const replayed = startAtUser(turn.filter((m) => m.role !== "system"));
+    const recentFrom = recentStart(replayed);
     const uiMessages = compactOldReads(
-        dropForeignReasoning(dropUnsignedReasoning(clampHistory(turn.filter((m) => m.role !== "system"))), modelId),
+        dropForeignReasoning(dropUnsignedReasoning(replayed), modelId),
+        recentFrom,
     ) as ChatMessage[];
     // Recent `cadence-image:` references become data URLs for the model; older or
     // expired ones a text stub. Memory extraction and the stored reply keep the
     // references (never base64).
-    const { messages: modelMessages, hydrated: imageCount } = await hydrateImages(uiMessages, c.env.USER_ASSETS, userKey);
+    const { messages: modelMessages, hydrated: imageCount } = await hydrateImages(uiMessages, c.env.USER_ASSETS, userKey, recentFrom);
 
     const { agent, promptHash, embeddingSpend, turnContext } = await agentReady;
+    // Each recent user message replays the context it was sent with (stored, from the DB rows
+    // only — never a client copy). The new message gets this turn's; a continued turn
+    // (approval, kept retry) keeps its original so the reply resumes on the same prefix.
+    const lastUser = uiMessages.findLast((m) => m.role === "user");
+    const { contexts, current: lastUserContext, stored: storedLastContext } = turnContexts(history, lastUser?.id, turnContext, continues);
     turnTiming.setupMs = since(); // auth, budget, DB, prompt build: everything before the model call
 
     // Cross-isolate stop (Redis) aborts through this; the SDK `timeout` below owns the ceilings.
@@ -353,7 +370,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     const agentStream = await createAgentUIStream({
         agent,
-        uiMessages: withTurnContext(modelMessages as { role: string; parts: unknown[] }[], turnContext),
+        uiMessages: withTurnContext(modelMessages as { id: string; role: string; parts: unknown[] }[], contexts, recentFrom),
         abortSignal: abortController.signal,
         // Hard ceilings cancel the upstream model call (no zombie spend, doc 09 §3.1);
         // firstChunkMs fails a hung provider fast instead of waiting out the whole turn.
@@ -399,6 +416,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                         metadata: { ...cleaned.metadata, ...spend, titleSpend, embeddingSpend },
                     });
                     await touchConversation(tx, userId, conversationId, { model: modelId });
+                    if (lastUser && storedLastContext !== lastUserContext) {
+                        await setTurnContext(tx, userId, conversationId, lastUser.id, lastUserContext);
+                    }
                 });
             } catch {
                 logger.warn("ai", "ai_persist_failed", { requestId, userHash, conversationId });
@@ -420,7 +440,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             // slot. Idempotent per streamId (settle-once guard) so an onFinish/stop
             // race counts a turn exactly once (§9.2/§15.6). Only when we admitted.
             if (rlRedis && admitted) {
-                const actualTokens = readTotalTokens(responseMessage);
+                const actualTokens = readMeteredTokens(responseMessage);
                 await settle(rlRedis, userKey, reserved, actualTokens).catch(() =>
                     logger.warn("ai", "ai_ratelimit_settle_failed", { requestId, userHash }),
                 );
@@ -482,6 +502,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             totalMs,
             inputTokens: usage?.inputTokens,
             cachedInputTokens: usage?.inputTokenDetails?.cacheReadTokens,
+            cacheWriteTokens: usage?.inputTokenDetails?.cacheWriteTokens,
             outputTokens,
             reasoningTokens: usage?.outputTokenDetails?.reasoningTokens,
             tokensPerSec: outputTokens && streamS > 0 ? Math.round(outputTokens / streamS) : undefined,
@@ -681,7 +702,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             const conversation = await getConversation(tx, userId, id);
             throwIfNotFound(conversation, "Conversation");
             const rows = await loadConversationMessages(tx, userId, id, { limit, beforeOrderIndex: before });
-            return { conversation, messages: rows.map(rowToUIMessage) };
+            return { conversation, messages: rows.map(toClientMessage) };
         });
 
         c.header("Cache-Control", "private, max-age=0, stale-while-revalidate=5");

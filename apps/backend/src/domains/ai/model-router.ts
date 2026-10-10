@@ -39,26 +39,30 @@ const COMPLEX_CUE =
     /\b(?:plan|reschedul\w*|reorgani[sz]\w*|prioriti[sz]\w*|summari[sz]\w*|analy[sz]\w*|compare|review|suggest\w*|recommend\w*|should|balance|workload|burnout|break ?down|help me|why|how (?:should|can|could|would|do)|then|every|each|all|next\s+(?:week|month|year|\w+day)|in \d+\s*(?:days?|weeks?|months?))\b/i;
 
 /**
- * Picks the chat model for one turn from the new message alone. The cheap model
+ * Picks the chat model for one turn from the new message. The cheap model
  * (`AI_CHAT_MODEL_BASIC`) needs a short, single-line, image-free message that matches
  * a {@link BASIC_INTENT} and trips no {@link COMPLEX_CUE}; everything else — an
  * unrecognised phrasing, an approval-only turn, no basic model configured — goes to
  * the standard model. Misjudging costs money, so the fallthrough is always the
- * expensive side.
+ * expensive side. A thread that has used the standard model (`previousModel`, the
+ * conversation's last) stays on it: each model keeps its own prompt cache, and a
+ * switch drops the reasoning replayed from earlier turns, so flipping back and
+ * forth costs more than the cheap turn saves.
  */
-export function pickChatModel(env: Env, turn: { text: string; imageCount: number }): string {
+export function pickChatModel(env: Env, turn: { text: string; imageCount: number }, previousModel?: string | null): string {
     const basic = env.AI_CHAT_MODEL_BASIC?.trim();
+    const standard = getModelId(env);
     const text = turn.text.trim();
     const isBasic =
         !!basic &&
+        previousModel !== standard &&
         !!text &&
         turn.imageCount === 0 &&
         !text.includes("\n") &&
         text.split(/\s+/).length <= BASIC_MAX_WORDS &&
         BASIC_INTENT.some((intent) => intent.test(text)) &&
         !COMPLEX_CUE.test(text);
-    // ponytail: English regex allowlist on the new message only — no history, so an
-    // allowlisted line inside a complex thread still goes basic. A miss costs money,
-    // never correctness. Add history stickiness or a classifier if the bill says so.
-    return isBasic ? basic : getModelId(env);
+    // ponytail: English regex allowlist on the new message only. A miss costs money,
+    // never correctness. Add a classifier if the bill says so.
+    return isBasic ? basic : standard;
 }

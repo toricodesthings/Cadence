@@ -69,4 +69,10 @@ describe("pickChatModel", () => {
         expect(pick("add milk", 0, env({ AI_CHAT_MODEL_BASIC: undefined }))).toBe("std/model");
         expect(pick("add milk", 0, env({ AI_CHAT_MODEL_BASIC: "  " }))).toBe("std/model");
     });
+
+    it("keeps a thread that has used the standard model on it", () => {
+        expect(pickChatModel(env(), { text: "add milk to groceries", imageCount: 0 }, "std/model")).toBe("std/model");
+        expect(pickChatModel(env(), { text: "add milk to groceries", imageCount: 0 }, "basic/model")).toBe("basic/model");
+        expect(pickChatModel(env(), { text: "add milk to groceries", imageCount: 0 }, null)).toBe("basic/model");
+    });
 });

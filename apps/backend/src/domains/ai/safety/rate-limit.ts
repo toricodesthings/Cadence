@@ -209,21 +209,40 @@ export function estimateReserve(incomingChars: number, limits: AiLimits, imageCo
     return Math.max(limits.reserve, inputEst + MAX_OUTPUT_TOKENS + HISTORY_TOOL_BUDGET);
 }
 
+/** Prompt-cache reads and writes, priced against a plain input token (Anthropic and most providers). */
+export const CACHE_READ_WEIGHT = 0.1;
+export const CACHE_WRITE_WEIGHT = 1.25;
+
 /**
- * Read the actual total tokens the model reported. `messageMetadata` attaches
- * `{ totalUsage, model }` to the finish part (ai.route.ts), so it lands on
- * `responseMessage.metadata.totalUsage`. Falls back to input+output, then 0 (a
- * hard error/abort with no usage → 0 → settlement REFUNDS the reservation).
+ * The tokens a turn spends from the budget. `messageMetadata` attaches
+ * `{ totalUsage, model }` to the finish part (ai.route.ts), so the usage lands on
+ * `responseMessage.metadata.totalUsage`. Input the provider served from its prompt
+ * cache counts at {@link CACHE_READ_WEIGHT} and cache writes at
+ * {@link CACHE_WRITE_WEIGHT}, as they're billed: `inputTokens` includes both, so a
+ * raw total would charge a cached turn as if nothing were cached. Falls back to
+ * the total, then input+output, then 0 (a hard error/abort with no usage → 0 →
+ * settlement REFUNDS the reservation).
  */
-export function readTotalTokens(responseMessage: unknown): number {
+export function readMeteredTokens(responseMessage: unknown): number {
     const usage = (responseMessage as { metadata?: { totalUsage?: unknown } } | null)?.metadata?.totalUsage as
-        | { totalTokens?: unknown; inputTokens?: unknown; outputTokens?: unknown }
+        | {
+              totalTokens?: unknown;
+              inputTokens?: unknown;
+              outputTokens?: unknown;
+              inputTokenDetails?: { cacheReadTokens?: unknown; cacheWriteTokens?: unknown };
+          }
         | undefined;
     if (!usage || typeof usage !== "object") return 0;
+    const count = (n: unknown) => (typeof n === "number" && n > 0 ? n : 0);
+    const input = count(usage.inputTokens);
+    const output = count(usage.outputTokens);
+    const read = Math.min(count(usage.inputTokenDetails?.cacheReadTokens), input);
+    const write = Math.min(count(usage.inputTokenDetails?.cacheWriteTokens), input - read);
+    if (read + write > 0) {
+        return Math.ceil(input - read - write + read * CACHE_READ_WEIGHT + write * CACHE_WRITE_WEIGHT + output);
+    }
     if (typeof usage.totalTokens === "number" && usage.totalTokens >= 0) return usage.totalTokens;
-    const input = typeof usage.inputTokens === "number" ? usage.inputTokens : 0;
-    const output = typeof usage.outputTokens === "number" ? usage.outputTokens : 0;
-    return Math.max(0, input + output);
+    return input + output;
 }
 
 /** What a turn cost OpenRouter's side: exact USD and the model that actually answered. */
