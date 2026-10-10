@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.30.3] - 2026-10-09
+
 ### Changed
 
 - Deleting a list, tag, section, routine, event, chat or tasks in bulk now shows Undo instead of asking first.
