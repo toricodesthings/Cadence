@@ -67,9 +67,9 @@ async function turn(text: string) {
 
 describe("model routing across one conversation", () => {
     it("opens basic, upgrades when the ask gets complex, and stays, on the agent build, saved reply and thread alike", async () => {
-        expect(await turn("add milk to groceries")).toEqual(Array(3).fill("basic/model"));
-        expect(await turn("mark the dentist task done")).toEqual(Array(3).fill("basic/model"));
-        expect(await turn("plan my week around that")).toEqual(Array(3).fill("std/model"));
-        expect(await turn("mark the gym task done")).toEqual(Array(3).fill("std/model"));
+        expect(await turn("hi")).toEqual(Array(3).fill("basic/model"));
+        expect(await turn("what can you do?")).toEqual(Array(3).fill("basic/model"));
+        expect(await turn("add milk to groceries")).toEqual(Array(3).fill("std/model"));
+        expect(await turn("thanks!")).toEqual(Array(3).fill("std/model"));
     });
 });

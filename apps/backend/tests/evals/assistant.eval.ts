@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { createUser, getTestDb, startTestDb } from "../helpers/db";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 import { getAgentInstance } from "../../src/domains/ai/agent";
+import { getModelId, pickChatModel } from "../../src/domains/ai/model-router";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
 import type { Env } from "../../src/types/env";
 import { withRls } from "../../src/platform/rls";
@@ -38,13 +39,13 @@ function devVars(): Record<string, string> {
     }
 }
 const vars = { ...devVars(), ...process.env } as Record<string, string | undefined>;
-const env = { OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY, AI_CHAT_MODEL: vars.AI_CHAT_MODEL } as unknown as Env;
+const env = { OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY, AI_CHAT_MODEL: vars.AI_CHAT_MODEL, AI_CHAT_MODEL_BASIC: vars.AI_CHAT_MODEL_BASIC ?? "deepseek/deepseek-v4.1-flash" } as unknown as Env;
 /** Caps each scenario's repeat count (EVAL_RUNS=1: one pass each, for iterating). */
 const maxRuns = Number(vars.EVAL_RUNS) || Infinity;
 
 type Call = { step: number; name: string; input: any; output: any };
 type Tools = ReturnType<typeof toolsFor> & { userId?: string };
-interface Run { calls: Call[]; text: string; steps: number; tokens: number; cached: number; written: number; cost: number; ms: number }
+interface Run { calls: Call[]; text: string; models: string[]; steps: number; tokens: number; cached: number; written: number; cost: number; ms: number }
 interface Scenario {
     name: string;
     level: "simple" | "medium" | "complex";
@@ -52,6 +53,8 @@ interface Scenario {
     turns: string[];
     /** The user's clock for this scenario (default: NOW). */
     now?: string;
+    /** Pick each turn's model with the router, as the chat route does (default: always the standard model). */
+    routed?: boolean;
     /** Model runs to repeat, all of which must pass (luna is not deterministic; the time scenarios run 3). */
     runs?: number;
     /** Problems found, empty when it passed. */
@@ -72,15 +75,23 @@ function toolsFor(userId: string, now = NOW) {
     };
 }
 
-async function converse(userId: string, turns: string[], now = NOW): Promise<Run> {
+async function converse(userId: string, turns: string[], now = NOW, routed = false): Promise<Run> {
     const calls: Call[] = [];
     const messages: any[] = [];
     let text = "";
+    const models: string[] = [];
     let steps = 0;
     let tokens = 0, cached = 0, written = 0, cost = 0;
     const started = Date.now();
     for (const turn of turns) {
-        const { agent, turnContext } = await getAgentInstance(env, userId, { timezone: TZ, currentDate: now, approvalMode: "full", nonce: "evalnonce", queryText: turn });
+        // Like the chat route: the thread's model so far decides whether it may still go basic.
+        const modelId = routed ? pickChatModel(env, { text: turn, imageCount: 0 }, models.at(-1)) : getModelId(env);
+        // Like dropForeignReasoning: a model never replays another model's reasoning.
+        if (models.length && models.at(-1) !== modelId) {
+            for (const m of messages) if (m.role === "assistant" && Array.isArray(m.content)) m.content = m.content.filter((p: any) => p.type !== "reasoning");
+        }
+        models.push(modelId);
+        const { agent, turnContext } = await getAgentInstance(env, userId, { timezone: TZ, currentDate: now, approvalMode: "full", nonce: "evalnonce", queryText: turn, modelId });
         // Like production: each user message keeps the context it was sent with, so later turns replay
         // it unchanged and read the earlier ones from the prompt cache.
         messages.push({ role: "user", content: `${turn}\n\n${turnContext}` });
@@ -105,7 +116,7 @@ async function converse(userId: string, turns: string[], now = NOW): Promise<Run
         // `result.response.messages` is the last step only, which left later turns without the ids.
         messages.push(...result.steps.flatMap((step) => step.response.messages));
     }
-    return { calls, text, steps, tokens, cached, written, cost, ms: Date.now() - started };
+    return { calls, text, models, steps, tokens, cached, written, cost, ms: Date.now() - started };
 }
 
 // ── Checks ──────────────────────────────────────────────────────────────────
@@ -598,6 +609,28 @@ const SCENARIOS: Scenario[] = [
             ...need(run.calls.every((c) => c.name.startsWith("get_")), "reads only"),
         ],
     },
+    {
+        name: "router: greeting and how-to stay on the basic model",
+        level: "simple",
+        routed: true,
+        turns: ["hi", "how do I add a routine?"],
+        check: async (run) => [
+            ...need(run.models.every((m) => m === env.AI_CHAT_MODEL_BASIC), `basic model throughout (got ${run.models.join(", ")})`),
+            ...need(!run.calls.some((c) => !c.name.startsWith("get_")), "changed nothing"),
+            ...need(/routine/i.test(run.text), "answered the how-to"),
+        ],
+    },
+    {
+        name: "router: a real ask takes over for good",
+        level: "simple",
+        routed: true,
+        turns: ["hey", "add buy milk tomorrow", "thanks!"],
+        check: async (run, t) => [
+            ...need(run.models[0] === env.AI_CHAT_MODEL_BASIC, `opened basic (got ${run.models[0]})`),
+            ...need(run.models.slice(1).every((m) => m === getModelId(env)), `standard from the add on, never back (got ${run.models.join(", ")})`),
+            ...need(!!titled(await openTasks(t), "milk"), "milk task added"),
+        ],
+    },
 ];
 
 // ── Runner ──────────────────────────────────────────────────────────────────
@@ -633,7 +666,7 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
                 const userId = await createUser({ zone: TZ });
                 const t = Object.assign(toolsFor(userId, scenario.now), { userId });
                 const seeded = (await scenario.seed?.(t)) ?? {};
-                const run = await converse(userId, scenario.turns, scenario.now);
+                const run = await converse(userId, scenario.turns, scenario.now, scenario.routed);
                 const found = [...(await scenario.check(run, t, seeded)), ...failedCalls(run).filter((p) => !p.startsWith("get_"))];
                 problems.push(...found.map((p) => (runs > 1 ? `run ${attempt}: ${p}` : p)));
                 for (const key of Object.keys(total) as (keyof Totals)[]) total[key] += run[key];

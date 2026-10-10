@@ -12,42 +12,35 @@ export function getModelId(env: Env): string {
 const BASIC_MAX_WORDS = 12;
 
 /**
- * The only intents the cheap model is trusted with: a greeting, one task checked
- * off, one plain add, one look at what's on. Everything else — including anything
- * this list doesn't recognise — is the standard model's. The list grows on
- * evidence, never on a guess.
+ * The only intents the cheap model is trusted with: small talk and how-to help.
+ * Anything that reads or changes the user's data — even one plain add or check-off —
+ * is the standard model's, as is anything this list doesn't recognise. The list
+ * grows on evidence, never on a guess.
  */
 const BASIC_INTENT: RegExp[] = [
     // Nothing to do but answer: "hi", "thanks!", "good morning".
     /^(?:hi|hey|hello|yo|sup|thanks|thank you|ty|ok|okay|cool|nice|great|awesome|perfect|good (?:morning|afternoon|evening|night))(?: there| cadence)?[\s!.,?]*$/i,
-    // One task off the list: "complete the report", "check off laundry", "done with dishes".
-    /^(?:complete|finish|check off|tick off|cross off)\s+\S/i,
-    /^(?:mark|set)\b.*\b(?:done|complete|completed|finished)\b/i,
-    /^(?:done|finished)\b/i,
-    // One thing in: "add milk to groceries", "remind me to call mom", "note: renew passport".
-    /^(?:add|create|new task|remind me to|capture|note)\b/i,
-    // One look at the list, not a judgment about it: "what's on today?", "show my tasks".
-    /^(?:what(?:'s|s| is| are)?|show|list|any)\b.*\b(?:today|tomorrow|now|next|due|overdue|left|on|schedule|agenda|tasks?|habits?|routines?|lists?|inbox|captures?)\b/i,
+    // Help with Cadence itself, answered from the guide: "what can you do?", "how do I add a routine?".
+    /^(?:help|what can you (?:do|help with)|who are you|what are you)\b/i,
+    /^(?:how (?:do|can) i|how does|where (?:is|are|do i|can i)|what(?:'s| is| are) (?:a |an |the )?(?:focus view|routine|capture|fixed block|weekly reset|event|tag|list|section)s?\b)/i,
 ];
 
 /**
- * Planning, judgment, bulk edits and date arithmetic — the standard model's job
- * even when the wording matches a basic intent above ("add all my overdue tasks…",
- * "add gym next tuesday").
+ * Work on the user's data, planning and judgment: the standard model's job even when
+ * the wording opens like a help question ("how do I fit the gym in this week").
  */
 const COMPLEX_CUE =
-    /\b(?:plan|reschedul\w*|reorgani[sz]\w*|prioriti[sz]\w*|summari[sz]\w*|analy[sz]\w*|compare|review|suggest\w*|recommend\w*|should|balance|workload|burnout|break ?down|help me|why|how (?:should|can|could|would|do)|then|every|each|all|next\s+(?:week|month|year|\w+day)|in \d+\s*(?:days?|weeks?|months?))\b/i;
+    /\b(?:my|plan|reschedul\w*|reorgani[sz]\w*|prioriti[sz]\w*|summari[sz]\w*|analy[sz]\w*|compare|review|suggest\w*|recommend\w*|should|balance|workload|burnout|break ?down|help me|why|then|every|each|all|today|tomorrow|tonight|week|month|\w+day|in \d+\s*(?:days?|weeks?|months?))\b/i;
 
 /**
  * Picks the chat model for one turn from the new message. The cheap model
- * (`AI_CHAT_MODEL_BASIC`) needs a short, single-line, image-free message that matches
- * a {@link BASIC_INTENT} and trips no {@link COMPLEX_CUE}; everything else — an
- * unrecognised phrasing, an approval-only turn, no basic model configured — goes to
- * the standard model. Misjudging costs money, so the fallthrough is always the
- * expensive side. A thread that has used the standard model (`previousModel`, the
- * conversation's last) stays on it: each model keeps its own prompt cache, and a
- * switch drops the reasoning replayed from earlier turns, so flipping back and
- * forth costs more than the cheap turn saves.
+ * (`AI_CHAT_MODEL_BASIC`) takes only a short, single-line, image-free greeting or
+ * how-to question ({@link BASIC_INTENT}) that trips no {@link COMPLEX_CUE}, and only
+ * while the thread has used nothing else (`previousModel`, the conversation's model:
+ * none or the basic one). Everything else goes to the standard model, and once a
+ * thread has used it, it never switches back: each model keeps its own prompt cache,
+ * and a switch drops the reasoning replayed from earlier turns. A miss costs money,
+ * never correctness, so the fallthrough is always the standard model.
  */
 export function pickChatModel(env: Env, turn: { text: string; imageCount: number }, previousModel?: string | null): string {
     const basic = env.AI_CHAT_MODEL_BASIC?.trim();
@@ -55,7 +48,7 @@ export function pickChatModel(env: Env, turn: { text: string; imageCount: number
     const text = turn.text.trim();
     const isBasic =
         !!basic &&
-        previousModel !== standard &&
+        (!previousModel || previousModel === basic) &&
         !!text &&
         turn.imageCount === 0 &&
         !text.includes("\n") &&
