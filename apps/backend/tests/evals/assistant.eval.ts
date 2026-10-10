@@ -142,7 +142,7 @@ const SCENARIOS: Scenario[] = [
             const [tag] = (await t("get_tags", { query: "errand" })).tags;
             const task = titled(await openTasks(t), "passport");
             return [
-                ...need(!!tag && task?.tagIds?.includes(tag.id), "task carries an errands tag"),
+                ...need(!!tag && task?.tags?.includes(tag.name), "task carries an errands tag"),
                 ...need(called(run, "create_tag").length === 0, "tagged by name instead of create_tag first"),
                 ...need(run.steps <= 2, `≤2 steps (took ${run.steps})`),
             ];
@@ -294,7 +294,7 @@ const SCENARIOS: Scenario[] = [
             const tasks = await openTasks(t);
             return [
                 ...need(!tags.some((tag) => tag.name === "work"), "work tag deleted"),
-                ...need(!!job && tasks.every((task) => task.tagIds?.includes(job.id)), "every task now tagged job"),
+                ...need(!!job && tasks.every((task) => task.tags?.includes(job.name)), "every task now tagged job"),
                 ...failedCalls(run),
             ];
         },

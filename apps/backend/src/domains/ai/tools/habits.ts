@@ -268,7 +268,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
             safeExecute("log_habit", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
-                        const { habit, log } = await resolveHabit(tx, userId, input.habitId, input);
+                        const { habit, log } = await resolveHabit(tx, userId, input.habitId, { ...input, at: ctx.currentDate });
                         const times = habit.times ?? [];
                         const marks = timeMarksOn(times, log);
                         return {

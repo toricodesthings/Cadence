@@ -317,7 +317,7 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
         if (!time && action.status === "COMPLETED") {
             const zone = await userZone(tx, userId);
             const marks = timeMarksOn(times, existing);
-            time = likelyOpenTime(times, marks, targetDate === todayIn(zone) ? wallTimeOf(at, zone) : null) ?? undefined;
+            time = likelyOpenTime(times, marks, targetDate === todayIn(zone, new Date(at)) ? wallTimeOf(at, zone) : null) ?? undefined;
             const open = times.filter((entry) => !marks[entry]);
             if (!time) {
                 throw new AppError(400, "VALIDATION_ERROR", open.length
