@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.30.7] - 2026-10-11
+
 ### Added
 
 - Upcoming shows everything ahead: tasks past this week fold under Further out, grouped by week, then by month.
