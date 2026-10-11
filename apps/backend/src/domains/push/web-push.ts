@@ -2,7 +2,7 @@
  * Web Push sender on WebCrypto: VAPID (RFC 8292) + aes128gcm payload encryption (RFC 8291).
  * Edge-safe, no dependencies. Never log or return an endpoint or its keys.
  */
-import type { Env } from "../../types/env";
+import { appOrigin, type Env } from "../../types/env";
 
 const encoder = new TextEncoder();
 
@@ -95,6 +95,26 @@ export interface PushMessage {
     tag: string;
 }
 
+/**
+ * A Declarative Web Push message: Safari 18.4+ can show it with no service worker running, and a tap
+ * opens `navigate`. `mutable` still hands it to sw.js first, which keeps in-app tap routing and the
+ * icon badge; other browsers always hand it to sw.js. The flat copy is the payload service workers from
+ * before this format read.
+ * ponytail: drop the flat fields once installed apps have all updated their sw.js.
+ */
+export function pushPayload(env: Env, message: PushMessage) {
+    const title = message.title.slice(0, 120) || "Cadence";
+    const body = message.body.slice(0, 240);
+    const route = message.route && message.route.startsWith("/") && !message.route.startsWith("//") ? message.route : "/";
+    const tag = message.tag.slice(0, 200);
+    return {
+        web_push: 8030,
+        mutable: true,
+        notification: { title, body, navigate: `${appOrigin(env)}${route}`, tag },
+        title, body, route, tag,
+    };
+}
+
 /** accepted: the push service took it · gone: the device is unregistered (drop it) · failed: try again later. */
 export type PushOutcome = "accepted" | "gone" | "failed";
 
@@ -107,12 +127,7 @@ export async function sendWebPush(
 ): Promise<PushOutcome> {
     if (!vapidConfigured(env) || !isAllowedPushEndpoint(subscription.endpoint)) return "failed";
     try {
-        const body = await encryptPayload(subscription, JSON.stringify({
-            title: message.title.slice(0, 120),
-            body: message.body.slice(0, 240),
-            route: message.route && message.route.startsWith("/") && !message.route.startsWith("//") ? message.route : "/",
-            tag: message.tag.slice(0, 200),
-        }));
+        const body = await encryptPayload(subscription, JSON.stringify(pushPayload(env, message)));
         const response = await fetch(subscription.endpoint, {
             method: "POST",
             redirect: "manual",

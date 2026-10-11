@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { bodyLimit } from "hono/body-limit";
 import type { Env } from "./types/env";
-import { getDeploymentStage, getAllowedOrigins } from "./types/env";
+import { appOrigin, getDeploymentStage, getAllowedOrigins } from "./types/env";
 import { authMiddleware } from "./platform/auth";
 import { createErrorBody, formatErrorResponse } from "./platform/errors";
 import { createRequestContext, getRequestId, logErrorResponse, setRequestErrorCode } from "./platform/request-log";
@@ -27,7 +27,7 @@ import { aiImageRoutes } from "./domains/ai/images/images.route";
 import { connectionRoutes } from "./domains/mcp/connections.route";
 import { accountRoutes } from "./domains/account/account.route";
 import { meRoutes } from "./domains/account/me.route";
-import { appOrigin, isMcpRequest, mcpOrigin, mcpProvider } from "./domains/mcp/oauth";
+import { isMcpRequest, mcpOrigin, mcpProvider } from "./domains/mcp/oauth";
 
 const PRODUCTION_ORIGIN = "https://dashboard.cadenceapp.cloud";
 

@@ -28,6 +28,7 @@ import { useSettings } from "../../hooks/core/use-settings";
 import { useNotificationCenter } from "../../hooks/notifications/use-notification-center";
 import { useBrowserNotifications } from "../../hooks/notifications/use-browser-notifications";
 import { useNotificationTapRouting } from "../../hooks/notifications/use-open-notification";
+import { useInstalledApp } from "../../hooks/ui/use-installed-app";
 import { useWakeRefresh } from "../../hooks/core/use-wake-refresh";
 import { useThemeSync } from "../../hooks/ui/use-theme-sync";
 import { useZoneSync } from "../../hooks/core/use-zone-sync";
@@ -402,9 +403,10 @@ export function MainLayout({
     });
 
     // Local alerts from the notification center's list (devices the server can't push to) and taps on pushed reminders
-    const { allNotifications } = useNotificationCenter();
+    const { allNotifications, unreadCount } = useNotificationCenter();
     useBrowserNotifications(allNotifications);
     useNotificationTapRouting();
+    useInstalledApp(unreadCount);
 
     // Sync appearance settings (theme, motion) to the DOM
     useThemeSync();

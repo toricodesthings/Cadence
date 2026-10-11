@@ -14,7 +14,7 @@ import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
 import { AppError } from "../../platform/errors";
 import { hashIdentifier, logger } from "../../platform/log";
-import type { Env } from "../../types/env";
+import { appOrigin, type Env } from "../../types/env";
 import { serveMcp } from "./server";
 
 /**
@@ -37,14 +37,12 @@ export type McpProps = { userId: string; connectionId: string };
 type Approval = { userId: string; requestHash: string; scopes: McpScope[] };
 
 const DEFAULT_MCP_ORIGIN = "https://mcp.cadenceapp.cloud";
-const DEFAULT_APP_ORIGIN = "https://dashboard.cadenceapp.cloud";
 const REQUEST_TTL = 600; // matches the provider's binding cookie
 const APPROVAL_TTL = 300;
 
 // ── Utility ─────────────────────────────────────────────────────────────────
 
 export const mcpOrigin = (env: Env) => (env.MCP_ORIGIN ?? DEFAULT_MCP_ORIGIN).replace(/\/$/, "");
-export const appOrigin = (env: Env) => (env.APP_ORIGIN ?? DEFAULT_APP_ORIGIN).replace(/\/$/, "");
 const requestKey = (hash: string) => `cadence:mcp-request:${hash}`;
 const approvalKey = (id: string) => `cadence:mcp-approval:${id}`;
 

@@ -58,7 +58,7 @@ export interface Env {
     OAUTH_KV?: KVNamespace;
     /** Public origin of the MCP server and its OAuth endpoints. Defaults to https://mcp.cadenceapp.cloud. */
     MCP_ORIGIN?: string;
-    /** Origin of the web app that hosts the consent page. Defaults to the production dashboard. */
+    /** Origin of the web app (the consent page, links in pushed reminders). Defaults to the production dashboard. */
     APP_ORIGIN?: string;
 
     // ── Rate limiting ──
@@ -127,3 +127,6 @@ export function getAllowedOrigins(env: Env): string[] {
     if (!env.ALLOWED_ORIGINS) return [];
     return env.ALLOWED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean);
 }
+
+/** The web app's origin, without a trailing slash. */
+export const appOrigin = (env: Env) => (env.APP_ORIGIN ?? "https://dashboard.cadenceapp.cloud").replace(/\/$/, "");

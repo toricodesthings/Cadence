@@ -20,6 +20,7 @@ import { RUNTIME_TARGET } from "./lib/env";
 import { LOADING_BOOT_SCRIPT } from "./lib/themes/season";
 import { DEV_SERVICE_WORKER_CLEANUP_SCRIPT } from "./lib/dev-service-worker-cleanup";
 import { SESSION_PREFETCH_SCRIPT } from "./lib/auth/session-prefetch";
+import { RESUME_ROUTE_SCRIPT } from "./lib/resume-route";
 // One render-blocking stylesheet link; Vite updates its URL during HMR.
 // Do not also side-effect-import app.css, which would load a second copy.
 import appStylesHref from "./app.css?url";
@@ -66,6 +67,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               }}
             />
           </>
+        )}
+        {/* Before the session check reads the path: a fresh launch of the installed app resumes its last screen. */}
+        {RUNTIME_TARGET !== "desktop" && (
+          <script dangerouslySetInnerHTML={{ __html: RESUME_ROUTE_SCRIPT }} />
         )}
         {/* Early in the head: the session check overlaps the bundle download. Deployed web
             only, where /api/auth is the same-origin proxy (dev and desktop call Neon directly). */}

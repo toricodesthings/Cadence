@@ -925,8 +925,9 @@
     background: var(--color-twilight-void);
   }
 
-  /* Installed app: the shell never rubber-bands; inner scrollers still do. */
-  @media (display-mode: standalone) {
+  /* Installed app: the shell never rubber-bands; inner scrollers still do. iOS can report
+     a standalone app as fullscreen (WebKit bug 264218). */
+  @media (display-mode: standalone), (display-mode: fullscreen) {
     html, body { overscroll-behavior: none; }
   }
 

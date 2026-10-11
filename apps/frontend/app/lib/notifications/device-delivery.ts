@@ -2,6 +2,7 @@ import type { Device, DeviceKind } from "@cadence/contracts/push";
 import type { ApiClient } from "../api/client";
 import { unwrapResponse } from "../api/helpers";
 import { IS_DESKTOP_RUNTIME, type NotificationPermissionState } from "../../platform/runtime";
+import { isInstalledApp } from "../../platform/installed-app";
 
 /**
  * What this device can do about reminders, in the one vocabulary Settings, the
@@ -90,11 +91,8 @@ export const isBrave = () => typeof navigator !== "undefined" && "brave" in navi
 const isIosDevice = () => typeof navigator !== "undefined"
     && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
 
-const isStandalone = () => typeof window !== "undefined"
-    && ((navigator as Navigator & { standalone?: boolean }).standalone === true || !!window.matchMedia?.("(display-mode: standalone)").matches);
-
 /** iPhone/iPad outside the installed Home Screen app: no push, no Notification API. */
-export const isIosTab = () => isIosDevice() && !isStandalone();
+export const isIosTab = () => isIosDevice() && !isInstalledApp();
 
 export const hasNotificationApi = () => typeof window !== "undefined" && "Notification" in window;
 export const canPush = () => hasNotificationApi() && "serviceWorker" in navigator && "PushManager" in window;
@@ -129,7 +127,7 @@ export function describeDevice(): { kind: DeviceKind; label: string } {
     if (IS_DESKTOP_RUNTIME) return { kind: "desktop-app", label: `Cadence app on ${osName()}` };
     const mobile = isIosDevice() || /Android/.test(navigator.userAgent);
     const kind: DeviceKind = mobile ? "phone" : "computer";
-    return { kind, label: isStandalone() ? `Cadence on ${osName()}` : `${browserName()} on ${osName()}` };
+    return { kind, label: isInstalledApp() ? `Cadence on ${osName()}` : `${browserName()} on ${osName()}` };
 }
 
 const bytesOf = (text: string) => {

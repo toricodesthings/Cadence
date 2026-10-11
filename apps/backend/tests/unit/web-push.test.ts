@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { encryptPayload, fromBase64Url, hasValidPushKeys, isAllowedPushEndpoint, sendWebPush, toBase64Url } from "../../src/domains/push/web-push";
+import { encryptPayload, fromBase64Url, hasValidPushKeys, isAllowedPushEndpoint, pushPayload, sendWebPush, toBase64Url } from "../../src/domains/push/web-push";
 import type { Env } from "../../src/types/env";
 
 const concat = (...parts: Uint8Array[]) => Uint8Array.from(parts.flatMap((part) => [...part]));
@@ -44,6 +44,26 @@ describe("encryptPayload", () => {
     });
 });
 
+describe("pushPayload", () => {
+    it("is a Declarative Web Push message that opens the app's own page, with the older flat fields", () => {
+        const env = { APP_ORIGIN: "https://app.test/" } as Env;
+        expect(pushPayload(env, { title: "Pay rent", body: "Due today", route: "/project/1?focusId=x", tag: "k" })).toEqual({
+            web_push: 8030,
+            mutable: true,
+            notification: { title: "Pay rent", body: "Due today", navigate: "https://app.test/project/1?focusId=x", tag: "k" },
+            title: "Pay rent", body: "Due today", route: "/project/1?focusId=x", tag: "k",
+        });
+    });
+
+    it("never links off the app and always has a title", () => {
+        for (const route of [null, "//evil.example", "https://evil.example"]) {
+            const payload = pushPayload({} as Env, { title: "", body: "", route, tag: "k" });
+            expect(payload.notification).toMatchObject({ title: "Cadence", navigate: "https://dashboard.cadenceapp.cloud/" });
+            expect(payload.route).toBe("/");
+        }
+    });
+});
+
 describe("sendWebPush", () => {
     const endpoint = "https://fcm.googleapis.com/fcm/send/abc";
     const message = { title: "t", body: "b", route: "/project/1", tag: "k" };
@@ -64,7 +84,7 @@ describe("sendWebPush", () => {
         const key = await crypto.subtle.importKey("raw", fromBase64Url(env.VAPID_PUBLIC_KEY!), { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
         expect(await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, fromBase64Url(signature), new TextEncoder().encode(`${head}.${claims}`))).toBe(true);
         expect(JSON.parse(new TextDecoder().decode(fromBase64Url(claims))).aud).toBe("https://fcm.googleapis.com");
-        expect(JSON.parse(await target.decrypt(init.body as Uint8Array))).toMatchObject({ title: "t", route: "/project/1", tag: "k" });
+        expect(JSON.parse(await target.decrypt(init.body as Uint8Array))).toMatchObject({ web_push: 8030, notification: { title: "t", tag: "k" }, route: "/project/1" });
         vi.unstubAllGlobals();
     });
 

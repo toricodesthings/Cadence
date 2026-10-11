@@ -6,7 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- The installed app reopens on the screen you left it on, if you were there in the last few hours.
+- The installed app's icon shows how many notifications you haven't read yet.
+- Android: long-press the Cadence icon to jump straight to Today, Schedule or Routines.
+
+### Changed
+
+- Reminders on iPhone and iPad are more reliable: iOS can now show them itself when Cadence can't.
+
 ### Fixed
+
+- The Cadence icon on Android is no longer cropped by round icon shapes.
 
 - Reload on the "new version" notice updates the installed app again, without closing it first.
 

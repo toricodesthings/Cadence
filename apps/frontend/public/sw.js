@@ -112,17 +112,50 @@ self.addEventListener("activate", (event) => {
 
 // Reminders are shown through the registration (the only way on iOS). The server pushes them
 // so they arrive with the app closed; a push must always show a notification (Safari revokes
-// subscriptions that don't). Payload: { title, body, route, tag }.
+// subscriptions that don't). The payload is a Declarative Web Push message (Safari 18.4+ shows it
+// itself if this worker can't; `mutable` hands it here first): { web_push, notification: { title,
+// body, navigate, tag } }. Older payloads were flat: { title, body, route, tag }.
 self.addEventListener("push", (event) => {
     let data = {};
     try { data = event.data ? event.data.json() : {}; } catch { /* malformed: still show something */ }
-    event.waitUntil(self.registration.showNotification(data.title || "Cadence", {
-        body: data.body || "",
-        icon: "/icon-192.png",
-        tag: data.tag || undefined,
-        data: { route: data.route || "/" },
-    }));
+    if (!data || typeof data !== "object") data = {};
+    const message = data.notification && typeof data.notification === "object" ? data.notification : data;
+    event.waitUntil(Promise.all([
+        self.registration.showNotification(message.title || "Cadence", {
+            body: message.body || "",
+            icon: "/icon-192.png",
+            tag: message.tag || undefined,
+            data: { route: sameOriginRoute(message.navigate) ?? data.route ?? "/" },
+        }),
+        message.tag === "cadence-test" ? null : raiseBadge(),
+    ]));
 });
+
+/** Path and query of a same-origin URL; anything else is no route. */
+function sameOriginRoute(href) {
+    if (typeof href !== "string") return null;
+    try {
+        const url = new URL(href, self.location.origin);
+        return url.origin === self.location.origin ? url.pathname + url.search : null;
+    } catch {
+        return null;
+    }
+}
+
+// The app icon shows the bell's unread count, saved by the app (APP_BADGE_KEY in
+// platform/installed-app.ts). A reminder pushed while no window is on screen adds one; a visible
+// app keeps the count itself. Best effort: the app sets the true count when it opens.
+const APP_BADGE_KEY = "cadence-app-badge";
+async function raiseBadge() {
+    try {
+        if (!self.navigator?.setAppBadge) return;
+        const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        if (windows.some((client) => client.visibilityState === "visible")) return;
+        const count = (Number(await idb("readonly", (s) => s.get(APP_BADGE_KEY))) || 0) + 1;
+        await idb("readwrite", (s) => s.put(count, APP_BADGE_KEY));
+        await self.navigator.setAppBadge(count);
+    } catch { /* the notification still shows */ }
+}
 
 // A tap brings the app forward on the reminder's target. A running tab is told where to go;
 // otherwise the app opens there. Only same-origin paths are followed.

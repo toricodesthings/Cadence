@@ -6,7 +6,7 @@ import type { McpScope } from "@cadence/contracts/connections";
 import { mcpConnections, users } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
-import type { Env } from "../../types/env";
+import { appOrigin, type Env } from "../../types/env";
 import { dropPatterns, type AgentContext } from "../ai/tools/index";
 import { taskTools } from "../ai/tools/tasks";
 import { projectTools } from "../ai/tools/projects";
@@ -22,7 +22,7 @@ import { loadSnapshot, userClock } from "../ai/agent";
 import { formatInZone } from "@cadence/domain/time";
 import { userZone } from "../../platform/user-zone";
 import { hashIdentifier } from "../../platform/log";
-import { appOrigin, mcpOrigin, type McpProps } from "./oauth";
+import { mcpOrigin, type McpProps } from "./oauth";
 
 /**
  * The MCP endpoint: a thin wrapper over the assistant's own tool factories, so an

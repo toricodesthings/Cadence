@@ -7,6 +7,8 @@ import { useAuthState } from "./use-auth-state";
 import { discardNoteSessions, flushNoteSessions, unsyncedNoteCount } from "../../lib/notes/note-registry";
 import { clearNoteJournal } from "../../lib/notes/note-journal";
 import { forgetThisDevice } from "../../lib/notifications/device-delivery";
+import { forgetRoute } from "../../lib/resume-route";
+import { syncAppBadge } from "../../platform/installed-app";
 import { useApiClient } from "./use-api-client";
 
 /**
@@ -33,6 +35,9 @@ export function useSignOut() {
             }
             // This device stops getting the account's reminders while signed out (best effort: a forced sign-out can't ask; the next account to register the browser takes it over).
             await forgetThisDevice(client).catch(() => {});
+            // The next account on this device starts on Capture with no badge.
+            forgetRoute();
+            await syncAppBadge(0);
             await completeSignOut();
         } finally {
             setPending(false);
