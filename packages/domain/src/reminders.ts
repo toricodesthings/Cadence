@@ -77,7 +77,14 @@ export function personalEventDay(monthDay: string, year: number): LocalDate {
     return `${year}-${String(mm).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-const taskRoute = (task: Pick<ReminderTask, "projectId">) => (task.projectId ? `/project/${task.projectId}` : "/");
+/** Where a tap lands: the task's list, else the view that shows its day (Capture only holds tasks with no day). */
+function taskRoute(task: ReminderTask, today: LocalDate, zone: Zone): string {
+    if (task.projectId) return `/project/${task.projectId}`;
+    if (task.interactionMode === "timetable") return "/schedule";
+    const day = task.dueDate ?? (task.scheduledStart ? dayOf(task.scheduledStart, zone) : null);
+    if (!day) return "/";
+    return day <= today ? "/today" : "/upcoming";
+}
 
 export function isPaused(now: Date, pausedUntil: Instant | null | undefined): boolean {
     return !!pausedUntil && Date.parse(pausedUntil) > now.getTime();
@@ -135,7 +142,7 @@ export function deriveReminders(
                     alertAt: task.reminderAt,
                     relevantUntil: endOfDay(task.reminderAt, zone),
                     entityId: task.id,
-                    route: taskRoute(task),
+                    route: taskRoute(task, today, zone),
                     priority: diffMs <= 0 ? "high" : "normal",
                 });
             }
@@ -158,7 +165,7 @@ export function deriveReminders(
                     alertAt: task.waitingReminder,
                     relevantUntil: endOfDay(task.waitingReminder, zone),
                     entityId: task.id,
-                    route: taskRoute(task),
+                    route: taskRoute(task, today, zone),
                     priority: "normal",
                 });
             }
@@ -181,7 +188,7 @@ export function deriveReminders(
                     alertAt: madeAfter(alertAt),
                     relevantUntil: endOfDay(alertAt, zone),
                     entityId: task.id,
-                    route: taskRoute(task),
+                    route: taskRoute(task, today, zone),
                     priority: "high",
                 });
             }
@@ -197,7 +204,7 @@ export function deriveReminders(
                     alertAt: madeAfter(headsUpAt),
                     relevantUntil: endOfDay(headsUpAt, zone),
                     entityId: task.id,
-                    route: taskRoute(task),
+                    route: taskRoute(task, today, zone),
                     priority: "normal",
                 });
             }
@@ -227,7 +234,7 @@ export function deriveReminders(
                     alertAt: new Date(Date.parse(start) - lead).toISOString(),
                     relevantUntil: start,
                     entityId: task.id,
-                    route: taskRoute(task),
+                    route: taskRoute(task, today, zone),
                     priority: "normal",
                 });
             }

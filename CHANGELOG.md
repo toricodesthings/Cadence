@@ -21,6 +21,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - The Cadence icon on Android is no longer cropped by round icon shapes.
 
 - Reload on the "new version" notice updates the installed app again, without closing it first.
+- Tapping a reminder for a task with no list opens Today or Upcoming, where it is, instead of Capture.
+- Opening a task from search or a reminder always shows it, even when its row isn't on that page.
 
 ## [0.30.5] - 2026-10-10
 

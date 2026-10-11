@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
+import { openTaskDetails } from "../../lib/actions/task-details";
 
 export type FocusKind = "task" | "habit" | "inbox" | "section";
 export type FocusSource = "search" | "quick-add" | "notification";
@@ -96,7 +97,8 @@ export function useRouteFocus(opts?: {
             if (attemptRef.current < maxAttempts) {
                 setTimeout(tryFocus, interval);
             } else {
-                // Gave up — clear params anyway to avoid stale state
+                // The row isn't on this page (folded, filtered, out of range): open the task itself, so a tap never lands on nothing.
+                if (focusParams.focusKind === "task" && focusParams.focusId) openTaskDetails(focusParams.focusId);
                 clearFocusParams();
             }
         };

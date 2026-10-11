@@ -25,6 +25,16 @@ describe("deriveReminders", () => {
         expect(due.alertAt).toBeNull();
     });
 
+    it("routes a tap to the view that shows the task, not Capture", () => {
+        const now = "2026-10-07T12:00:00-04:00";
+        const route = (over: Partial<ReminderTask>) => derive([task({ dueDate: "2026-10-07", ...over })], now)[0].route;
+        expect(route({})).toBe("/today");
+        expect(route({ dueDate: "2026-10-05" })).toBe("/today");
+        expect(route({ projectId: "p1" })).toBe("/project/p1");
+        const [ahead] = derive([task({ dueDate: "2026-10-08" })], now, [], { dueHeadsUpDays: 1 });
+        expect(ahead.route).toBe("/upcoming");
+    });
+
     it("alerts a routine one lead time before its target", () => {
         const habit = { id: "h1", title: "Gym", archived: false, reminderEnabled: true, targetTime: "18:00", targetTimes: null,
             logs: [{ targetDate: "2026-10-07", status: "PENDING" }] } as ReminderHabit;
