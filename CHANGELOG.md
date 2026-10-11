@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.30.6] - 2026-10-11
+
 ### Added
 
 - The installed app reopens on the screen you left it on, if you were there in the last few hours.
