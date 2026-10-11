@@ -312,6 +312,7 @@ export default function WeeklyReview() {
         inboxItems,
         unscheduledTasks,
         visibleWaiting,
+        dueSoonCount,
         habitReviewItems,
         pauseHabit,
         pendingActionKey,
@@ -634,6 +635,16 @@ export default function WeeklyReview() {
                                 <p className="text-sm text-twilight-text-soft leading-relaxed mb-8">
                                     Everything's been reviewed. Start wherever feels right.
                                 </p>
+                                {dueSoonCount > 0 ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate("/upcoming")}
+                                        className="-mt-5 mb-6 inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                                    >
+                                        Due in the next 2 weeks: <span className="tabular-nums font-medium text-twilight-text">{dueSoonCount}</span>
+                                        <ArrowRight size={14} aria-hidden="true" />
+                                    </button>
+                                ) : null}
                                 <Button variant="primary" size="lg" onClick={handleFinish} className="w-full max-w-xs justify-center">
                                     Go to Today <ArrowRight size={16} />
                                 </Button>

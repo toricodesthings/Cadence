@@ -58,8 +58,14 @@ export function useWeeklyReviewActions(currentStep: number) {
 
     const visibleWaiting = waitingTasks.filter((t) => !keptWaitingIds.has(t.id));
 
-    // Habit stats
     const todayDay = useToday();
+    // The Ready step's look ahead: deadlines from today through the next two weeks.
+    const dueSoonCount = useMemo(() => {
+        const until = addDays(todayDay, 14);
+        return activeTasks.filter((t) => t.dueDate && t.dueDate >= todayDay && t.dueDate <= until).length;
+    }, [activeTasks, todayDay]);
+
+    // Habit stats
     const { data: habits = [] } = useHabitsRange({
         start: addDays(todayDay, -7),
         end: todayDay,
@@ -197,6 +203,7 @@ export function useWeeklyReviewActions(currentStep: number) {
         inboxItems,
         unscheduledTasks,
         visibleWaiting,
+        dueSoonCount,
         habitStats,
         habitReviewItems,
         pauseHabit,

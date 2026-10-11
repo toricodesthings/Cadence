@@ -1,6 +1,6 @@
 import { StartupSuspense as Suspense } from "../components/shared/StartupSuspense";
 import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
-import { useEffect, useMemo, useState, lazy } from "react";
+import { useMemo, useState, lazy } from "react";
 import { useNavigate } from "react-router";
 import { DayEventRows } from "../components/events/DayEventRows";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
@@ -27,6 +27,7 @@ import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
+import { useDeviceFlag } from "../hooks/ui/use-device-flag";
 import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { useRouteFocus, buildFocusSearchParams } from "../hooks/search/use-route-focus";
@@ -51,22 +52,6 @@ import type { Task } from "@cadence/contracts/task";
 
 const ROUTINES_STORAGE_KEY = "cadence-today-hide-routines";
 const FIXED_STORAGE_KEY = "cadence-today-hide-fixed-column";
-
-function readFlag(key: string) {
-    try {
-        return window.localStorage.getItem(key) === "1";
-    } catch {
-        return false;
-    }
-}
-
-function writeFlag(key: string, value: boolean) {
-    try {
-        window.localStorage.setItem(key, value ? "1" : "0");
-    } catch {
-        // Per-viewer convenience only.
-    }
-}
 
 /** Show/hide for a section: a quiet moonlit eye on the header's line, 44px hit area around a 16px glyph. */
 function EyeToggle({ hidden, label, onToggle }: { hidden: boolean; label: string; onToggle: () => void }) {
@@ -100,8 +85,8 @@ export default function TodayRoute() {
         setMobilePanelOpen(true);
     });
 
-    const [hideRoutines, setHideRoutines] = useState(false);
-    const [hideFixed, setHideFixed] = useState(false);
+    const [hideRoutines, toggleRoutines] = useDeviceFlag(ROUTINES_STORAGE_KEY);
+    const [hideFixed, toggleFixed] = useDeviceFlag(FIXED_STORAGE_KEY);
     const resolveHabit = useResolveHabit();
     const todayISO = useToday();
     const { activeTagId } = useTagFilterStore();
@@ -124,11 +109,6 @@ export default function TodayRoute() {
 
     const { onNextSection, onPrevSection } = useSectionNav();
     useKeyboardShortcuts({ onNextSection, onPrevSection });
-
-    useEffect(() => {
-        setHideRoutines(readFlag(ROUTINES_STORAGE_KEY));
-        setHideFixed(readFlag(FIXED_STORAGE_KEY));
-    }, []);
 
     const { data: tasks = [], isLoading } = useTasks({
         state: "ACTIVE",
@@ -226,19 +206,6 @@ export default function TodayRoute() {
         }
     };
 
-    const toggleRoutines = () => {
-        setHideRoutines((current) => {
-            writeFlag(ROUTINES_STORAGE_KEY, !current);
-            return !current;
-        });
-    };
-
-    const toggleFixed = () => {
-        setHideFixed((current) => {
-            writeFlag(FIXED_STORAGE_KEY, !current);
-            return !current;
-        });
-    };
 
     const openRoutine = (habitId: string) => {
         navigate(`/routines?${buildFocusSearchParams({ focusKind: "habit", focusId: habitId })}`);

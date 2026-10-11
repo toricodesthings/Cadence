@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Upcoming shows everything ahead: tasks past this week fold under Further out, grouped by week, then by month.
+- Weekly Reset's last step shows how many deadlines fall in the next two weeks, one tap from Upcoming.
+
+### Changed
+
+- New accounts get a heads-up the day before a deadline. Existing accounts keep their setting.
+
 ## [0.30.6] - 2026-10-11
 
 ### Added

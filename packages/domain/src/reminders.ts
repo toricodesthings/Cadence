@@ -59,7 +59,7 @@ export interface ReminderPrefs {
 export const DEFAULT_REMINDER_PREFS: ReminderPrefs = {
     taskReminders: true, habitReminders: true, dueDateAlerts: true, followUps: true, scheduleAlerts: true,
     habitReminderLeadMinutes: 15, blockLeadMinutes: 10, fixedLeadMinutes: 30,
-    dueHeadsUpDays: 0, overdueDays: 3, eventDaysBefore: [0], morningTime: "09:00",
+    dueHeadsUpDays: 1, overdueDays: 3, eventDaysBefore: [0], morningTime: "09:00",
 };
 /** An OS alert still goes out this long after it was due (deadline alerts: until the day ends). */
 export const LATE_ALERT_MS = 15 * 60_000;
