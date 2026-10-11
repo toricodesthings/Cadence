@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Reload on the "new version" notice updates the installed app again, without closing it first.
+
 ## [0.30.5] - 2026-10-10
 
 ### Fixed

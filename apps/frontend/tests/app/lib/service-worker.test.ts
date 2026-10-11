@@ -47,6 +47,21 @@ describe("shell caching", () => {
         await retry;
         expect(w.cache.put).toHaveBeenCalledWith(path, expect.any(Response));
     });
+    it.each([
+        ["text/html", true],
+        ["text/plain", false],
+    ])("refreshes the saved shell on request and always answers (%s)", async (type, saved) => {
+        const w = worker();
+        w.fetch.mockResolvedValueOnce(new Response("<html>new build</html>", { headers: { "content-type": type } }));
+        const reply = vi.fn();
+        let refresh: Promise<unknown> | undefined;
+        w.handlers.message({ data: { type: "cadence-refresh-shell" }, ports: [{ postMessage: reply }],
+            waitUntil: (p: Promise<unknown>) => { refresh = p; } });
+        await refresh;
+        expect(w.fetch).toHaveBeenCalledWith("/", expect.objectContaining({ cache: "no-store" }));
+        expect(w.cache.put).toHaveBeenCalledTimes(saved ? 1 : 0);
+        expect(reply).toHaveBeenCalledOnce();
+    });
     it("bounds installation to three downloads and continues past already cached assets", async () => {
         const paths = Array.from({ length: 8 }, (_, i) => `/assets/chunk-${i}abcdefgh.js`);
         const w = worker(undefined, paths);

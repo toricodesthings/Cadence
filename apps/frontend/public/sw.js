@@ -61,9 +61,20 @@ function warmAssets(cache) {
     return assetWarming;
 }
 
+// Navigations open from the saved shell, so a plain reload reopens the build already running.
+// The app's update toast asks for the new shell first (and waits for the reply) before reloading.
+async function refreshShell() {
+    const cache = await caches.open(CACHE_NAME);
+    const response = await fetch("/", { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+    if (isHtml(response)) await store(cache, "/", response);
+}
+
 // A reconnect/return retries assets missed during installation, keeping full coverage automatic.
 self.addEventListener("message", (event) => {
     if (event.data?.type === "cadence-precache") event.waitUntil(caches.open(CACHE_NAME).then(warmAssets));
+    if (event.data?.type === "cadence-refresh-shell") {
+        event.waitUntil(refreshShell().catch(() => {}).finally(() => event.ports[0]?.postMessage("done")));
+    }
 });
 
 self.addEventListener("install", (event) => {

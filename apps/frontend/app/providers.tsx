@@ -29,6 +29,22 @@ import {
 import { installDesktopE2EBridge } from "./platform/desktop-e2e";
 import { announceDesktopUpdate, publishAvailableDesktopUpdate } from "./platform/desktop-update-state";
 
+/**
+ * Reload onto the newest deploy. The service worker opens the app from its saved shell, so a
+ * plain reload would reopen this same build (an installed PWA never got past it): have the
+ * worker fetch the new shell first. A worker that never answers only delays the reload.
+ */
+async function reloadToLatest() {
+    const worker = navigator.serviceWorker?.controller;
+    if (worker) {
+        const channel = new MessageChannel();
+        const saved = new Promise((resolve) => { channel.port1.onmessage = resolve; });
+        worker.postMessage({ type: "cadence-refresh-shell" }, [channel.port2]);
+        await Promise.race([saved, new Promise((resolve) => setTimeout(resolve, 10_000))]);
+    }
+    window.location.reload();
+}
+
 /** v2: API timestamps unified to strict ISO; drop caches holding Postgres-text timestamps. */
 const QUERY_CACHE_VERSION = "v4";
 /** How long a saved workspace stays usable offline. gcTime matches it, or inactive views are dropped before they're saved. */
@@ -278,7 +294,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
             toast.info("A new version of Cadence is available.", {
                 id: "app-update",
                 duration: Number.POSITIVE_INFINITY,
-                action: { label: "Reload", onClick: () => window.location.reload() },
+                action: { label: "Reload", onClick: () => void reloadToLatest() },
             });
         };
 
@@ -305,7 +321,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
             } catch {
                 return;
             }
-            window.location.reload();
+            void reloadToLatest();
         };
         window.addEventListener("vite:preloadError", onPreloadError);
         return () => window.removeEventListener("vite:preloadError", onPreloadError);
