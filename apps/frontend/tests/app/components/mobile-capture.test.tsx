@@ -83,4 +83,27 @@ describe("Capture composer", () => {
         expect(process.mock.calls[0][0]).toMatchObject({ title: "Call Maya", priority: 3, nlp: { resolved: true } });
         expect(process.mock.calls[0][0].dueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
+    it("a short line with a day is a task, said before Enter, and Enter saves it as one", async () => {
+        create.mockResolvedValue({ id: "one" });
+        process.mockResolvedValue({ id: "task" });
+        render(<Host />);
+        const input = screen.getByRole("textbox") as HTMLTextAreaElement;
+        fireEvent.change(input, { target: { value: "Pay rent tomorrow" } });
+        await screen.findByRole("button", { name: /Add task/ });
+        expect(screen.getByRole("button", { name: /^Deadline: / })).toBeTruthy();
+        fireEvent.keyDown(input, { key: "Enter" });
+        await waitFor(() => expect(process).toHaveBeenCalled());
+        expect(process.mock.calls[0][0]).toMatchObject({ title: "Pay rent", endDate: null, nlp: { resolved: true } });
+    });
+    it("a longer vent that names a day stays a thought", async () => {
+        create.mockResolvedValue({ id: "one" });
+        render(<Host />);
+        const input = screen.getByRole("textbox") as HTMLTextAreaElement;
+        fireEvent.change(input, { target: { value: "honestly I keep dreading the meeting on friday and I can't stop thinking about it" } });
+        await waitFor(() => expect(screen.getByRole("button", { name: "Add task date" })).toBeTruthy());
+        expect(screen.getByRole("button", { name: /Capture/ })).toBeTruthy();
+        fireEvent.keyDown(input, { key: "Enter" });
+        await waitFor(() => expect(create).toHaveBeenCalled());
+        expect(process).not.toHaveBeenCalled();
+    });
 });

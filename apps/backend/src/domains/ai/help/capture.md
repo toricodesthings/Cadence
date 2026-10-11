@@ -1,6 +1,6 @@
 # Capture
 - [Capture](/) holds thoughts with zero decisions. New shows recent thoughts; No day yet shows tasks without a day or list. Older folds thoughts after two weeks; Notes holds kept notes. Older and Notes aren't in the badge.
-- Enter saves and starts the next thought everywhere, including Quick Add's Thought tab (`T`). Shift+Enter adds a newline. Ctrl/Cmd+Enter makes a task, using a typed day if present. Escape blurs without erasing the draft.
+- Enter saves and starts the next thought everywhere, including Quick Add's Thought tab (`T`). Shift+Enter adds a newline. A short line with a day ("pay rent nov 1"), or a day picked with the calendar button, saves as a task: the button reads Add task before you press Enter. Ctrl/Cmd+Enter always makes a task. Escape blurs without erasing the draft.
 - On phones, the orb opens the keyboard; the sheet stays open after each save. Done closes it. Pasting several lines offers to add separate thoughts.
 - Tick the circle to finish a thought: it appears in [Completed](/completed) with a Thought mark. Undo brings it back to Capture; reopening later makes it a task in No day yet and keeps the mark.
 - Tap the text for details. Title edits, List and Tags are saved there. Choose the detected day and time, Today, Tomorrow, the lightest day or Pick day. Keep with no day never infers a day from the words.

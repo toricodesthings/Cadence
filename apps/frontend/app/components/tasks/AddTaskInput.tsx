@@ -1,15 +1,14 @@
 import { useRef, useState } from "react";
-import { Plus, Calendar, CalendarHeart } from "lucide-react";
+import { Plus, CalendarHeart } from "lucide-react";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
-import { formatDateSpan, formatShortDate, formatShortDateTime } from "../../lib/utils/date-format";
 import { useSettings } from "../../hooks/core/use-settings";
 import { mapPriorityNameToNumber } from "../../lib/utils/task/task-defaults";
 import { buildTypedTaskInput } from "../../lib/utils/task/typed-task-input";
 import type { EffortLevel, Task, TaskPriority } from "@cadence/contracts/task";
-import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
+import { DeadlineTrigger, isPickerFocus } from "./DeadlineTrigger";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
 import { QuickAddActionTray } from "./QuickAddActionTray";
 import { DraftRow } from "./DraftRow";
@@ -157,14 +156,6 @@ export function AddTaskInput({
     const hasDeadlineSet = Boolean(previewDeadline.dueDate || previewDeadline.scheduledStart);
     const showScheduleTrigger = isFocused || hasDeadlineSet || value.trim().length > 0;
 
-    const deadlineLabel = previewDeadline.scheduledStart
-        ? formatShortDateTime(previewDeadline.scheduledStart)
-        : previewDeadline.dueDate && previewDeadline.endDate
-            ? formatDateSpan(previewDeadline.dueDate, previewDeadline.endDate)
-            : previewDeadline.dueDate
-                ? formatShortDate(previewDeadline.dueDate)
-                : "Add date";
-
     return (
         <form
             onSubmit={(e) => {
@@ -177,13 +168,7 @@ export function AddTaskInput({
             }}
             onBlurCapture={(e) => {
                 const nextFocused = e.relatedTarget as Node | null;
-                if (nextFocused && e.currentTarget.contains(nextFocused)) {
-                    return;
-                }
-                if (
-                    nextFocused instanceof HTMLElement &&
-                    nextFocused.closest('[data-cadence-popover-content="true"], [data-cadence-dialog-content="true"]')
-                ) {
+                if ((nextFocused && e.currentTarget.contains(nextFocused)) || isPickerFocus(nextFocused)) {
                     return;
                 }
                 setIsFocused(false);
@@ -240,31 +225,7 @@ export function AddTaskInput({
             />
 
             {showScheduleTrigger ? (
-                <DeadlinePickerPopover
-                    dueDate={previewDeadline.dueDate}
-                    endDate={previewDeadline.endDate}
-                    scheduledStart={previewDeadline.scheduledStart}
-                    scheduledEnd={previewDeadline.scheduledEnd}
-                    recurrenceRule={previewDeadline.recurrenceRule}
-                    onChange={(updates) => setDeadline(updates)}
-                >
-                    <button
-                        type="button"
-                        data-no-dnd="true"
-                        aria-label={hasDeadlineSet ? `Deadline: ${deadlineLabel}. Click to change` : "Add task date"}
-                        className={`
-                            inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 ${compact ? "text-[10px]" : "text-[11px]"} font-medium
-                            transition-colors duration-200
-                            ${hasDeadlineSet
-                                ? "opacity-100 bg-accent-primary/10 text-accent-primary"
-                                : "text-twilight-text-muted/90 hover:bg-white/[0.04] hover:text-twilight-text-soft"
-                            }
-                        `}
-                    >
-                        <Calendar size={13} aria-hidden="true" />
-                        {deadlineLabel}
-                    </button>
-                </DeadlinePickerPopover>
+                <DeadlineTrigger schedule={previewDeadline} onChange={setDeadline} compact={compact} />
             ) : null}
             {(isTrayOpen || parsedInput.applied.length > 0 || parsedInput.suggestions.length > 0 || literal || effortSuggestion || effort) ? (
                 <div className={`flex w-full flex-col gap-2 empty:hidden ${compact ? "pl-6" : "pl-8"}`}>

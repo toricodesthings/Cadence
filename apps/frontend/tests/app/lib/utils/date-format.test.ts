@@ -6,6 +6,7 @@ import {
     getFirstDayOfWeek,
     getWeekDays,
     pickerDate,
+    placementReceipt,
     relativeTime,
     toTimeValue,
     weekdayLabels,
@@ -49,5 +50,14 @@ describe("date-format shared helpers", () => {
         expect(getWeekDays("2026-09-23", 1)).toEqual([
             "2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25", "2026-09-26", "2026-09-27",
         ]);
+    });
+    it("placementReceipt says where a placed task now shows", () => {
+        vi.useFakeTimers().setSystemTime(new Date("2026-10-11T16:00:00Z"));
+        expect(placementReceipt("2026-10-11")).toBe("Today");
+        expect(placementReceipt("2026-10-09")).toBe("Fri, Oct 9 · in Today");
+        expect(placementReceipt("2026-10-12")).toBe("Tomorrow · in Upcoming");
+        expect(placementReceipt("2026-11-01")).toBe("Sun, Nov 1 · in Upcoming");
+        expect(placementReceipt("2026-11-01", "Essays")).toBe("Sun, Nov 1 · in Essays");
+        vi.useRealTimers();
     });
 });

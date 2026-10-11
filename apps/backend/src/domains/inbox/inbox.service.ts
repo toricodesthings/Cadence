@@ -99,7 +99,7 @@ export async function processCapture(
 
     // One placement: what the caller sent (a day, or a timed start), else what the parse found.
     const temporalFields = temporalColumns(
-        { dueDate: inferred.dueDate, scheduledStart: inferred.scheduledStart, scheduledEnd: inferred.scheduledEnd },
+        { dueDate: inferred.dueDate, endDate: body.endDate ?? null, scheduledStart: inferred.scheduledStart, scheduledEnd: inferred.scheduledEnd },
         zone,
     );
 

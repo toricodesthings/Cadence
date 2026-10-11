@@ -36,7 +36,7 @@ export type MutationOp =
     | { type: "create_inbox"; payload: { id: string; rawText: string; sectionId?: string; orderIndex?: number } }
     | { type: "update_inbox"; id: string; payload: Record<string, unknown> }
     | { type: "delete_inbox"; id: string }
-    | { type: "process_inbox_to_task"; payload: { inboxItemId: string; rawText: string; complete?: boolean; title?: string; scheduledDay?: LocalDate | null; dueDate?: LocalDate | null; scheduledStart?: Instant | null; scheduledEnd?: Instant | null; projectId?: string | null; tagIds?: string[]; priority?: number | null; durationEstimate?: number | null; recurrenceRule?: string | null; waitingOn?: string | null; nlp?: CanonicalNlpEnvelope } }
+    | { type: "process_inbox_to_task"; payload: { inboxItemId: string; rawText: string; complete?: boolean; title?: string; scheduledDay?: LocalDate | null; dueDate?: LocalDate | null; endDate?: LocalDate | null; scheduledStart?: Instant | null; scheduledEnd?: Instant | null; projectId?: string | null; tagIds?: string[]; priority?: number | null; durationEstimate?: number | null; recurrenceRule?: string | null; waitingOn?: string | null; nlp?: CanonicalNlpEnvelope } }
     | { type: "create_inbox_section"; payload: { name: string; orderIndex?: number } }
     | { type: "update_inbox_section"; id: string; payload: Record<string, unknown> }
     | { type: "delete_inbox_section"; id: string }

@@ -1,10 +1,10 @@
-import { computeNlp, loadParse, TASK_FIELDS } from "../../hooks/use-nlp-parse";
+import { TASK_FIELDS, useNlpParse } from "../../hooks/use-nlp-parse";
 import { resolvedNlp } from "../../lib/utils/task/resolved-nlp";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useState, useRef, useEffect, useLayoutEffect, useContext, type KeyboardEvent } from "react";
-import { Inbox, MessageSquare } from "lucide-react";
+import { Inbox, MessageSquare, Plus } from "lucide-react";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
 import { useProcessInboxToTask } from "../../hooks/inbox/use-process-inbox-to-task";
 import { ComposerSubmit, COMPOSER_FIELD, type ComposerDraft } from "../shared/Composer";
@@ -14,6 +14,16 @@ import { StartupReadyContext } from "../../hooks/core/use-workspace-startup";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { MOD_KEY } from "../../lib/constants/keys";
+import { DeadlineTrigger, isPickerFocus } from "../tasks/DeadlineTrigger";
+import type { ScheduleUpdates } from "../tasks/QuickScheduleSurface";
+
+/** A typed day turns a capture into a task only on one short line; a longer vent that names a day stays a thought. */
+const TASK_LINE_WORDS = 12;
+
+const isTaskLine = (text: string): boolean => {
+    const line = text.trim();
+    return Boolean(line) && !line.includes("\n") && line.split(/\s+/).length <= TASK_LINE_WORDS;
+};
 
 /** Read and write a tab-scoped draft; storage can be missing or blocked, and the draft still works without it. */
 function readDraft(key: string | undefined): string {
@@ -45,12 +55,34 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     const dateStyle = settings?.dateTime?.dateStyle ?? "mdy";
     const confidenceThreshold = settings?.tasks?.intelligence?.confidenceThreshold ?? "medium";
     const savedCapture = useRef<InboxItem | undefined>(undefined);
+    // A day set in the picker (or cleared there: "No date"). Picked beats typed.
+    const [picked, setPicked] = useState<ScheduleUpdates | null>(null);
+    // Read live, like every composer, so the day control shows what Enter saves before it's pressed.
+    const nlp = useNlpParse({
+        input: value,
+        projects,
+        tags,
+        manual: picked ? { dueDate: picked.dueDate, scheduledStart: picked.scheduledStart, scheduledEnd: picked.scheduledEnd, recurrenceRule: picked.recurrenceRule } : undefined,
+        capabilities: TASK_FIELDS,
+        sourceSurface: "inbox",
+        dateStyle,
+        confidenceThreshold,
+        enabled: nlpEnabled,
+    });
+    const dated = Boolean(nlp.fields.dueDate || nlp.fields.scheduledStart);
+    // One rule: a day means a task. A picked day always counts; a typed one only on a short line.
+    const asTask = dated && (picked !== null || isTaskLine(value));
+    const schedule: ScheduleUpdates = asTask
+        ? { dueDate: nlp.fields.dueDate, endDate: picked?.endDate ?? null, scheduledStart: nlp.fields.scheduledStart, scheduledEnd: nlp.fields.scheduledEnd, recurrenceRule: nlp.fields.recurrenceRule }
+        : { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, recurrenceRule: null };
     const lines = value
         .split(/\r?\n/)
         .map((s) => s.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").trim())
         .filter(Boolean);
-    const save = async (asTask = false, split = false) => {
+    /** Saves the draft: a task when it has a day (or `forceTask`, ⌘↵), else a thought; `split` saves each line as a thought. */
+    const save = async (forceTask = false, split = false) => {
         if (!value.trim() || busy) return;
+        const task = !split && (forceTask || asTask);
         setBusy(true);
         setError(false);
         const original = value;
@@ -62,16 +94,16 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
                 // so "as task" can still be queued right behind it.
                 const id = savedCapture.current?.id ?? crypto.randomUUID();
                 const item = savedCapture.current ?? (await create.mutateAsync({ id, rawText: text }));
-                if (asTask) {
+                if (task) {
                     savedCapture.current = item ?? savedCapture.current;
-                    // Same interpretation as every composer: what is understood is sent, and the server stores it as sent.
-                    const parse = await loadParse().catch(() => null);
-                    const draft = computeNlp(parse, { input: text, projects, tags, capabilities: TASK_FIELDS, sourceSurface: "inbox", dateStyle, confidenceThreshold, enabled: nlpEnabled });
+                    // What is shown is what is sent (the parser still loading is the one wait), and the server stores it as sent.
+                    const draft = nlp.ready ? nlp : await nlp.finalize();
                     await process.mutateAsync({
                         inboxItemId: id,
                         rawText: text,
                         title: draft.cleanedTitle || text,
                         dueDate: draft.fields.dueDate,
+                        endDate: draft.fields.dueDate ? picked?.endDate ?? null : null,
                         scheduledStart: draft.fields.scheduledStart,
                         scheduledEnd: draft.fields.scheduledEnd,
                         recurrenceRule: draft.fields.recurrenceRule,
@@ -91,6 +123,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
                 if (!split || !remaining.length) onSaved?.(item);
             }
             setValue((current) => (current === original ? "" : current));
+            setPicked(null);
             setPasted(false);
             input.current?.focus();
         } catch {
@@ -127,6 +160,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             onChange={(e) => {
                 setValue(e.target.value);
                 savedCapture.current = undefined;
+                if (!e.target.value.trim()) setPicked(null);
             }}
             onKeyDown={keyDown}
             onPaste={(e) => setPasted(e.clipboardData.getData("text").includes("\n"))}
@@ -149,9 +183,15 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             )}
         </>
     );
+    // The list composer's calendar button: shows the day the draft will save, and picking one makes it a task.
+    const dayControl = <DeadlineTrigger schedule={schedule} onChange={setPicked} />;
+    const submitLabel = busy ? (asTask ? "Adding…" : "Capturing…") : asTask ? "Add task" : "Capture";
     return {
         value,
         input,
+        asTask,
+        dayControl,
+        submitLabel,
         splitCount: pasted && lines.length > 1 ? lines.length : 0,
         error,
         count,
@@ -163,6 +203,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             setValue("");
             setCount(0);
             setPasted(false);
+            setPicked(null);
         },
     };
 }
@@ -181,12 +222,15 @@ export function useCaptureComposer({
         discardTitle: "Discard this thought?",
         reset: draft.reset,
         footer: (
-            <ComposerSubmit
-                onSubmit={() => void draft.save()}
-                submitLabel={draft.busy ? "Capturing…" : "Capture"}
-                icon={Inbox}
-                disabled={!draft.value.trim() || draft.busy}
-            />
+            <>
+                <div className="mr-auto">{draft.dayControl}</div>
+                <ComposerSubmit
+                    onSubmit={() => void draft.save()}
+                    submitLabel={draft.submitLabel}
+                    icon={draft.asTask ? Plus : Inbox}
+                    disabled={!draft.value.trim() || draft.busy}
+                />
+            </>
         ),
         children: (
             <>
@@ -258,7 +302,8 @@ export function CaptureInput() {
             onInput={() => setEngaged(true)}
             onFocus={() => setFocused(true)}
             onBlur={(e) => {
-                if (e.currentTarget.contains(e.relatedTarget)) return;
+                // The day picker opens outside this box; the row stays open behind it.
+                if (e.currentTarget.contains(e.relatedTarget) || isPickerFocus(e.relatedTarget)) return;
                 setFocused(false);
                 setEngaged(false);
                 // A resting draft shows how the thought starts.
@@ -277,7 +322,7 @@ export function CaptureInput() {
             </div>
             <Reveal open={active}>
                 <div className="flex items-center justify-between gap-3 pb-1 pl-7.5 pt-3">
-                    {/* A multi-line paste offers its split in the hint's place; otherwise only the task shortcut needs saying. */}
+                    {/* A multi-line paste offers its split in the day control's place. */}
                     {draft.splitCount ? (
                         <Button
                             variant="subtle"
@@ -290,11 +335,17 @@ export function CaptureInput() {
                             Add as {draft.splitCount} thoughts
                         </Button>
                     ) : (
-                        <p aria-hidden="true" className="inline-flex items-center gap-1 text-xs text-twilight-text-muted opacity-0 transition-opacity duration-300 group-focus-within:opacity-100">
-                            <kbd className={KEYCAP}>{MOD_KEY}</kbd>
-                            <kbd className={KEYCAP}>↵</kbd>
-                            <span className="ml-0.5">as task</span>
-                        </p>
+                        <div className="flex min-w-0 items-center gap-3">
+                            {draft.dayControl}
+                            {/* No day yet: ⌘↵ still saves it as a task, undated. */}
+                            {draft.asTask ? null : (
+                                <p aria-hidden="true" className="inline-flex items-center gap-1 text-xs text-twilight-text-muted opacity-0 transition-opacity duration-300 group-focus-within:opacity-100">
+                                    <kbd className={KEYCAP}>{MOD_KEY}</kbd>
+                                    <kbd className={KEYCAP}>↵</kbd>
+                                    <span className="ml-0.5">as task</span>
+                                </p>
+                            )}
+                        </div>
                     )}
                     <Button
                         variant="cardPrimary"
@@ -305,7 +356,7 @@ export function CaptureInput() {
                         onClick={() => void draft.save()}
                         className="h-9 min-h-9 shrink-0 rounded-full px-4 text-[13px]"
                     >
-                        {draft.busy ? "Capturing…" : "Capture"}
+                        {draft.submitLabel}
                     </Button>
                 </div>
             </Reveal>

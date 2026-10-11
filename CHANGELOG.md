@@ -13,6 +13,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ### Changed
 
+- Type a task with a day into Capture, or pick one with the calendar button, and it's saved as a task.
+- Capture's calendar button is the same one lists use, so the full date picker is one tap away.
+- Making a thought a task now says where it went, like "Sun, Nov 1 · in Upcoming".
 - New accounts get a heads-up the day before a deadline. Existing accounts keep their setting.
 
 ## [0.30.6] - 2026-10-11

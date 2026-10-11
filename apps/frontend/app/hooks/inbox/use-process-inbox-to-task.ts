@@ -4,11 +4,12 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { removeInboxItemFromCaches } from "../../lib/api/cache-sync";
 import type { Task } from "@cadence/contracts/task";
+import type { Project } from "@cadence/contracts/project";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { toast } from "sonner";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { addDays, type Instant, type LocalDate } from "@cadence/domain/time";
-import { placementLabel } from "../../lib/utils/date-format";
+import { placementReceipt } from "../../lib/utils/date-format";
 import { today } from "../../lib/utils/user-zone";
 import { useUnprocessInbox } from "./use-unprocess-inbox";
 import type { CanonicalNlpEnvelope } from "@cadence/nlp/core";
@@ -25,6 +26,8 @@ interface ProcessInboxParams {
     scheduledDay?: LocalDate | null;
     /** A deadline (a day). */
     dueDate?: LocalDate | null;
+    /** A multi-day deadline's last day. */
+    endDate?: LocalDate | null;
     /** A timed placement: start and optional end instants. */
     scheduledStart?: Instant | null;
     scheduledEnd?: Instant | null;
@@ -59,11 +62,11 @@ export function useProcessInboxToTask() {
 
     return useMutation({
         mutationFn: withOfflineSupport<ProcessInboxParams, Task>(
-            ({ inboxItemId, rawText, title, scheduledDay, dueDate, scheduledStart, scheduledEnd, projectId, sectionId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, reminderAt, notBefore, nlp, complete }) => ({
+            ({ inboxItemId, rawText, title, scheduledDay, dueDate, endDate, scheduledStart, scheduledEnd, projectId, sectionId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, reminderAt, notBefore, nlp, complete }) => ({
                 type: "process_inbox_to_task",
-                payload: { inboxItemId, rawText, title, scheduledDay, dueDate, scheduledStart, scheduledEnd, projectId, sectionId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, reminderAt, notBefore, nlp, complete },
+                payload: { inboxItemId, rawText, title, scheduledDay, dueDate, endDate, scheduledStart, scheduledEnd, projectId, sectionId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, reminderAt, notBefore, nlp, complete },
             }),
-            async ({ inboxItemId, rawText, title, scheduledDay, dueDate, scheduledStart, scheduledEnd, projectId, sectionId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, reminderAt, notBefore, nlp, complete }) => {
+            async ({ inboxItemId, rawText, title, scheduledDay, dueDate, endDate, scheduledStart, scheduledEnd, projectId, sectionId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, reminderAt, notBefore, nlp, complete }) => {
                 const taskTitle = title?.trim() || rawText;
 
                 const taskRes = await client.api.inbox[":id"].process.$post({
@@ -72,6 +75,7 @@ export function useProcessInboxToTask() {
                         title: taskTitle,
                         scheduledDay,
                         dueDate,
+                        endDate,
                         scheduledStart,
                         scheduledEnd,
                         projectId,
@@ -108,7 +112,11 @@ export function useProcessInboxToTask() {
             queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });
             queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
             const scheduledLabel = _data.scheduledStart ?? _data.dueDate ?? variables.scheduledStart ?? variables.scheduledDay ?? variables.dueDate;
-            const label = variables.successLabel ?? (variables.complete ? "Ticked off" : scheduledLabel ? placementLabel(scheduledLabel) : "No day yet");
+            const listName = _data.projectId ? queryClient.getQueryData<Project[]>(queryKeys.projects.all)?.find((project) => project.id === _data.projectId)?.name : null;
+            // Every placement says where it went: its list, or the view that shows its day.
+            const label = variables.successLabel ?? (variables.complete ? "Ticked off"
+                : scheduledLabel ? placementReceipt(scheduledLabel, listName)
+                : listName ? `In ${listName}` : "No day yet");
             toast.success(label, { action: { label: "Undo", onClick: () => unprocess.mutate({ id: variables.inboxItemId, taskId: _data.id, item: context?.snapshot.flatMap(([, items]) => items ?? []).find(item => item.id === variables.inboxItemId) }) } });
         },
         onError: (err, _variables, context) => {

@@ -99,6 +99,14 @@ describe("processing an item into a task", () => {
         expect(body.data).toMatchObject({ title: "Dentist", dueDate: "2026-04-01", priority: 1 });
     });
 
+    it("keeps a picked multi-day span", async () => {
+        const item = await capture("conference");
+
+        const { body } = await inbox("POST", `/${item.id}/process`, { title: "Conference", dueDate: "2026-04-01", endDate: "2026-04-03" });
+
+        expect(body.data).toMatchObject({ dueDate: "2026-04-01", endDate: "2026-04-03" });
+    });
+
     it("replays a retried process call with the same Idempotency-Key as 200, without a second task", async () => {
         const item = await capture("once");
         const headers = { "Idempotency-Key": "process-1" };

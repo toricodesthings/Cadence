@@ -248,6 +248,14 @@ export function placementLabel(value: Instant | LocalDate): string {
     return isLocalDate(value) ? label : `${label} · ${formatTime(value)}`;
 }
 
+/** A placed task's receipt: when, and the view that now shows it ("Sun, Mar 8 · in Upcoming"). Its list wins; today needs no "where". */
+export function placementReceipt(value: Instant | LocalDate, listName?: string | null): string {
+    const day = toDay(value);
+    const now = today();
+    const where = listName ?? (day < now ? "Today" : day > now ? "Upcoming" : null);
+    return where ? `${placementLabel(value)} · in ${where}` : placementLabel(value);
+}
+
 /** The user's today, time and week start for `@cadence/nlp` (it never reads the machine clock or zone). */
 export const nlpClock = (): NlpClock => ({
     today: today(),
