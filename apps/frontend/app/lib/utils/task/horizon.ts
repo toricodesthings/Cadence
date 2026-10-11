@@ -12,27 +12,25 @@ export interface HorizonGroup<T> {
 
 /**
  * Upcoming's "Further out", grouped the way people plan far ahead: the next four calendar weeks one by one, then whole
- * months. Groups run in date order; each keeps its items in the order given, so the route's sort still applies.
+ * months. Groups run in date order; each keeps its items in the order given.
  */
 export function groupFurtherOut<T extends { dueDate: LocalDate }>(items: readonly T[], today: LocalDate): HorizonGroup<T>[] {
     const monthsFrom = addDays(getWeekStart(addDays(today, 8)), HORIZON_WEEKS * 7);
-    const groups = new Map<string, HorizonGroup<T> & { first: LocalDate }>();
+    const groups = new Map<string, HorizonGroup<T> & { from: LocalDate }>();
     for (const item of items) {
-        const day = item.dueDate;
-        const byWeek = day < monthsFrom;
-        const start = byWeek ? getWeekStart(day) : monthRange(day).start;
+        const byWeek = item.dueDate < monthsFrom;
+        const start = byWeek ? getWeekStart(item.dueDate) : monthRange(item.dueDate).start;
+        // The month the weeks end in only holds what's left of it.
+        const from = byWeek || start >= monthsFrom ? start : monthsFrom;
         const key = `${byWeek ? "week" : "month"}:${start}`;
         let group = groups.get(key);
         if (!group) {
-            const label = byWeek ? `Week of ${formatShortDate(start)}`
-                : start.startsWith(today.slice(0, 4)) ? formatMonthName(start) : formatMonthYear(start);
-            group = { key, label, items: [], first: day };
+            const month = start.startsWith(today.slice(0, 4)) ? formatMonthName(start) : formatMonthYear(start);
+            const label = byWeek ? `Week of ${formatShortDate(start)}` : from === start ? month : `Rest of ${month}`;
+            group = { key, label, items: [], from };
             groups.set(key, group);
         }
         group.items.push(item);
-        if (day < group.first) group.first = day;
     }
-    return [...groups.values()]
-        .sort((a, b) => a.first.localeCompare(b.first))
-        .map(({ key, label, items: grouped }) => ({ key, label, items: grouped }));
+    return [...groups.values()].sort((a, b) => a.from.localeCompare(b.from));
 }

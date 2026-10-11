@@ -1,16 +1,14 @@
 import { StartupSuspense as Suspense } from "../components/shared/StartupSuspense";
 import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
-import { useEffect, useMemo, useState, lazy } from "react";
-import { useNavigate } from "react-router";
+import { useMemo, useState, lazy } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { DayEventRows, type DayEvent } from "../components/events/DayEventRows";
 import {
     Inbox,
     CalendarRange,
-    ChevronDown,
     Layers3,
     PanelRightClose,
     Sunrise,
-    Telescope,
 } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { AgendaHabitDivider } from "../components/shared/AgendaRow";
@@ -23,6 +21,7 @@ import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";
 import { TaskList } from "../components/tasks/TaskList";
+import { FURTHER_OUT_OPEN_PARAM, useFurtherOutSection, type FurtherOutItem } from "../components/upcoming/FurtherOutSection";
 import { PageContent } from "../components/layout/PageLayout";
 import { ViewToggle } from "../components/shared/ViewToggle";
 import { SortMenu } from "../components/shared/SortMenu";
@@ -39,18 +38,16 @@ import { useFocusViewStore } from "../stores/focus-view-store";
 import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
-import { useDeviceFlag } from "../hooks/ui/use-device-flag";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
 import { useSectionNav } from "../hooks/ui/use-section-nav";
 import { useSettings } from "../hooks/core/use-settings";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { addDays, wallTimeOf, type LocalDate } from "@cadence/domain/time";
-import { dayOfInstant, formatShortDate, formatShortDateLabel, formatTime, formatWallTime, fromTimeValue, nlpClock } from "../lib/utils/date-format";
+import { dayOfInstant, formatShortDate, formatTime, formatWallTime, fromTimeValue, nlpClock } from "../lib/utils/date-format";
 import { getUserZone, useToday } from "../lib/utils/user-zone";
 import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task/task-scheduling";
 import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
-import { groupFurtherOut } from "../lib/utils/task/horizon";
 import type { SortMode } from "../lib/utils/task/sort-tasks";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { rankTasks } from "@cadence/nlp/ranking";
@@ -59,9 +56,7 @@ import type { Task } from "@cadence/contracts/task";
 
 const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then((m) => ({ default: m.FocusViewBar })));
 
-type UpcomingBucketKey = "overdue" | "today" | "tomorrow" | "nextWeek" | "further";
-
-const FURTHER_OPEN_STORAGE_KEY = "cadence-upcoming-further-open";
+type UpcomingBucketKey = "overdue" | "today" | "tomorrow" | "nextWeek";
 
 interface UpcomingViewerItem {
     id: string;
@@ -113,15 +108,7 @@ const UPCOMING_SECTIONS: Array<{
         icon: Layers3,
         accentClass: "text-moonlit",
     },
-    {
-        key: "further",
-        title: "Further out",
-        icon: Telescope,
-        accentClass: "text-twilight-text-soft",
-    },
 ];
-
-const emptyBuckets = <T,>(): Record<UpcomingBucketKey, T[]> => ({ overdue: [], today: [], tomorrow: [], nextWeek: [], further: [] });
 
 function getTaskSortAt(task: Task, day: LocalDate) {
     return Date.parse(task.scheduledStart ?? fromTimeValue(day, "12:00"));
@@ -150,11 +137,12 @@ function getUpcomingComparator(mode: SortMode) {
     };
 }
 
-function classifyUpcomingBucket(dateOnly: LocalDate, todayISO: LocalDate, tomorrowISO: LocalDate, nextWeekISO: LocalDate): UpcomingBucketKey {
+function classifyUpcomingBucket(dateOnly: LocalDate, todayISO: LocalDate, tomorrowISO: LocalDate, nextWeekISO: LocalDate): UpcomingBucketKey | null {
     if (dateOnly < todayISO) return "overdue";
     if (dateOnly === todayISO) return "today";
     if (dateOnly === tomorrowISO) return "tomorrow";
-    return dateOnly <= nextWeekISO ? "nextWeek" : "further";
+    if (dateOnly > tomorrowISO && dateOnly <= nextWeekISO) return "nextWeek";
+    return null;
 }
 
 function UpcomingEmptyState({ title }: { title: string }) {
@@ -214,6 +202,7 @@ export default function Upcoming() {
     });
 
     const { focusParams } = useRouteFocus();
+    const [searchParams] = useSearchParams();
 
     const { onNextSection, onPrevSection } = useSectionNav();
     useKeyboardShortcuts({ onNextSection, onPrevSection });
@@ -236,7 +225,12 @@ export default function Upcoming() {
     );
 
     const groupedItems = useMemo<Record<UpcomingBucketKey, UpcomingViewerItem[]>>(() => {
-        const grouped = emptyBuckets<UpcomingViewerItem>();
+        const grouped: Record<UpcomingBucketKey, UpcomingViewerItem[]> = {
+            overdue: [],
+            today: [],
+            tomorrow: [],
+            nextWeek: [],
+        };
 
         for (const task of tagFilteredTasks) {
             if (isPassiveTimetableTask(task)) {
@@ -247,6 +241,8 @@ export default function Upcoming() {
             if (!dateOnly) continue;
 
             const bucket = classifyUpcomingBucket(dateOnly, todayISO, tomorrowISO, nextWeekISO);
+            if (!bucket) continue;
+
             const project = task.projectId ? projectById.get(task.projectId) ?? null : null;
 
             grouped[bucket].push({
@@ -277,8 +273,9 @@ export default function Upcoming() {
                 if (!dateOnly) continue;
 
                 const bucket = classifyUpcomingBucket(dateOnly, todayISO, tomorrowISO, nextWeekISO);
-                // Routines show for today and tomorrow only; a missed one lets go, never overdue.
-                if (bucket !== "today" && bucket !== "tomorrow") continue;
+                if (!bucket) continue;
+                // A missed routine lets go: it never shows as overdue.
+                if (bucket === "nextWeek" || bucket === "overdue") continue;
 
                 // A routine at set times lists at its next open time (its first on a later day).
                 const times = habit.times?.length ? habit.times : null;
@@ -349,21 +346,14 @@ export default function Upcoming() {
         return grouped;
     }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO, intelligenceEnabled, smartSortEnabled]);
 
-    const totalVisible = Object.values(groupedItems).reduce((sum, items) => sum + items.length, 0);
+    // Past the week: Further out (tasks only; routines and yearly events keep to the week).
+    const furtherItems = useMemo(() => tagFilteredTasks.flatMap((task): FurtherOutItem[] => {
+        if (isPassiveTimetableTask(task)) return [];
+        const day = getTaskTimelineAnchor(task, todayISO) ?? task.dueDate;
+        return day && day > nextWeekISO ? [{ task, dueDate: day }] : [];
+    }), [nextWeekISO, tagFilteredTasks, todayISO]);
 
-    // Further out stays folded to one line unless opened here, or a search/reminder tap points at a row inside it.
-    const [furtherKeptOpen, toggleFurtherKeptOpen] = useDeviceFlag(FURTHER_OPEN_STORAGE_KEY);
-    const [furtherRevealed, setFurtherRevealed] = useState(false);
-    const focusTaskId = focusParams?.focusKind === "task" ? focusParams.focusId : undefined;
-    const focusIsFurther = Boolean(focusTaskId) && groupedItems.further.some((item) => item.id === focusTaskId);
-    useEffect(() => {
-        if (focusIsFurther) setFurtherRevealed(true);
-    }, [focusIsFurther]);
-    const furtherOpen = furtherKeptOpen || furtherRevealed;
-    const toggleFurther = () => {
-        setFurtherRevealed(false);
-        if (!furtherOpen || furtherKeptOpen) toggleFurtherKeptOpen();
-    };
+    const totalVisible = groupedItems.overdue.length + groupedItems.today.length + groupedItems.tomorrow.length + groupedItems.nextWeek.length + furtherItems.length;
     const isLoading = tasksLoading || habitsLoading;
 
     const handleSelectTask = (taskId: string) => {
@@ -445,86 +435,44 @@ export default function Upcoming() {
     };
 
     // Each event sits in its day's section or column.
-    const dayEvents = emptyBuckets<DayEvent>();
+    const dayEvents: Record<UpcomingBucketKey, DayEvent[]> = { overdue: [], today: [], tomorrow: [], nextWeek: [] };
     for (const { event, dateStr } of upcomingEvents) {
         const bucket = classifyUpcomingBucket(dateStr, todayISO, tomorrowISO, nextWeekISO);
-        dayEvents[bucket].push({ ...event, dateStr, dateLabel: bucket === "nextWeek" ? formatShortDate(dateStr) : null });
+        if (bucket) dayEvents[bucket].push({ ...event, dateStr, dateLabel: bucket === "nextWeek" ? formatShortDate(dateStr) : null });
     }
 
-    // Tasks only (routines and yearly events keep to the week), grouped by week and then month.
-    const renderFurtherOut = (cardVariant?: "list" | "board") => (
-        <div className="flex flex-col gap-4">
-            {groupFurtherOut(groupedItems.further, todayISO).map((group) => (
-                <div key={group.key} className="flex flex-col gap-1.5">
-                    <h3 className="px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-twilight-text-muted">{group.label}</h3>
-                    <TaskList
-                        tasks={group.items.map((item) => item.task!)}
-                        selectedTaskId={selectedTaskId}
-                        onSelectTask={handleSelectTask}
-                        rationaleByTaskId={Object.fromEntries(group.items.map((item) => [item.id, item.rationaleLabel]))}
-                        reorderable={false}
-                        {...(cardVariant ? { cardVariant } : {})}
-                    />
-                </div>
-            ))}
-        </div>
-    );
-
-    const nextFurther = groupedItems.further.reduce<UpcomingViewerItem | null>(
-        (soonest, item) => (!soonest || item.dueDate < soonest.dueDate ? item : soonest),
-        null,
-    );
-    const furtherLabel = furtherOpen ? "Fold further out" : `Show ${groupedItems.further.length} further out`;
-    const furtherToggle = (
-        <button
-            type="button"
-            onClick={toggleFurther}
-            aria-expanded={furtherOpen}
-            aria-label={furtherLabel}
-            title={furtherLabel}
-            className="touch-target -my-3 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-        >
-            <ChevronDown size={16} aria-hidden="true" className={`transition-transform duration-200 ${furtherOpen ? "rotate-180" : ""}`} />
-        </button>
-    );
-    // Folded, the section is one quiet line: the count in the header, the next thing due under it.
-    const furtherSummary = !furtherOpen && nextFurther ? (
-        <button type="button" onClick={toggleFurther} className="cursor-pointer text-left text-[13px] text-twilight-text-muted transition-colors hover:text-twilight-text-soft">
-            Next: {nextFurther.title} · {formatShortDateLabel(nextFurther.dueDate)}
-        </button>
-    ) : undefined;
-
-    const sections = UPCOMING_SECTIONS.flatMap((section) => {
-        const items = groupedItems[section.key];
-        if (section.key === "further") {
-            if (items.length === 0) return [];
-            return [{
-                ...section,
-                count: items.length,
-                description: furtherSummary,
-                headerAction: furtherToggle,
-                listOpen: furtherOpen,
-                listContent: renderFurtherOut(),
-                // Desktop boards fold it to a rail; a phone board already shows one column at a time.
-                boardCollapsed: !shell.isCompact && !furtherOpen,
-                onBoardExpand: toggleFurther,
-                boardHeaderAction: shell.isCompact ? undefined : furtherToggle,
-                boardContent: renderFurtherOut("board"),
-            }];
-        }
-        return [{
-            ...section,
-            count: items.length,
-            description: dayEvents[section.key].length > 0 ? <DayEventRows events={dayEvents[section.key]} /> : undefined,
-            listContent: renderUpcomingBucket(section.title, section.key, items),
-            boardContent: (
-                <>
-                    <DayEventRows events={dayEvents[section.key]} className="mb-2.5" />
-                    {renderUpcomingBucket(section.title, section.key, items, "board")}
-                </>
-            ),
-        }];
+    const furtherSection = useFurtherOutSection({
+        items: furtherItems,
+        today: todayISO,
+        focusTaskId: focusParams?.focusKind === "task" ? focusParams.focusId : undefined,
+        openRequested: searchParams.has(FURTHER_OUT_OPEN_PARAM),
+        compact: shell.isCompact,
+        renderTasks: (furtherTasks, cardVariant) => (
+            <TaskList
+                tasks={furtherTasks}
+                selectedTaskId={selectedTaskId}
+                onSelectTask={handleSelectTask}
+                reorderable={false}
+                {...(cardVariant ? { cardVariant } : {})}
+            />
+        ),
     });
+
+    const sections = [...UPCOMING_SECTIONS.map((section) => ({
+        key: section.key,
+        title: section.title,
+        icon: section.icon,
+        accentClass: section.accentClass,
+        count: groupedItems[section.key].length,
+        description: dayEvents[section.key].length > 0 ? <DayEventRows events={dayEvents[section.key]} /> : undefined,
+        listContent: renderUpcomingBucket(section.title, section.key, groupedItems[section.key]),
+        boardContent: (
+            <>
+                <DayEventRows events={dayEvents[section.key]} className="mb-2.5" />
+                {renderUpcomingBucket(section.title, section.key, groupedItems[section.key], "board")}
+            </>
+        ),
+    })), ...(furtherSection ? [furtherSection] : [])];
 
     return (
         <MainLayout

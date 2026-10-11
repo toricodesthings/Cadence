@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useDeviceFlag } from "../../hooks/ui/use-device-flag";
 import { ChevronDown } from "lucide-react";
 import type { Habit } from "@cadence/contracts/habit";
 import { useResolveHabit } from "../../hooks/habits/use-resolve-habit";
@@ -7,14 +7,6 @@ import { Reveal } from "../shared/Reveal";
 import { RoutineAgendaList, routineAgendaItems } from "../shared/RoutineAgendaRow";
 
 const COLLAPSED_KEY = "cadence-routines-today-collapsed";
-
-function readCollapsed() {
-    try {
-        return window.localStorage.getItem(COLLAPSED_KEY) === "1";
-    } catch {
-        return false;
-    }
-}
 
 /** A ring filling as today's routines are checked off, the count inside. `still` = no fill motion (low stimulation). */
 function ProgressRing({ done, total, still }: { done: number; total: number; still: boolean }) {
@@ -54,7 +46,7 @@ export function RoutineTodayBand({ habits, today, bloom, columns, onOpen }: {
     columns: boolean;
     onOpen: (habitId: string) => void;
 }) {
-    const [collapsed, setCollapsed] = useState(readCollapsed);
+    const [collapsed, setCollapsed] = useDeviceFlag(COLLAPSED_KEY);
     const { mutateAsync: resolve } = useResolveHabit();
     const items = routineAgendaItems(habits, today);
     if (!items.length) return null;
@@ -64,14 +56,7 @@ export function RoutineTodayBand({ habits, today, bloom, columns, onOpen }: {
         ? "All done for today"
         : next ? `Next at ${formatTime(`${today}T${next.time}:00`)} · ${next.title}` : `${items.length - done} left, any time today`;
 
-    const toggle = () => setCollapsed((current) => {
-        try {
-            window.localStorage.setItem(COLLAPSED_KEY, current ? "0" : "1");
-        } catch {
-            // Per-device convenience only.
-        }
-        return !current;
-    });
+    const toggle = () => setCollapsed(!collapsed);
 
     return (
         <section aria-label="Today's routines" className="surface-card mb-4 rounded-[28px] px-2 py-2">

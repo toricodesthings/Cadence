@@ -85,8 +85,10 @@ export default function TodayRoute() {
         setMobilePanelOpen(true);
     });
 
-    const [hideRoutines, toggleRoutines] = useDeviceFlag(ROUTINES_STORAGE_KEY);
-    const [hideFixed, toggleFixed] = useDeviceFlag(FIXED_STORAGE_KEY);
+    const [hideRoutines, setHideRoutines] = useDeviceFlag(ROUTINES_STORAGE_KEY);
+    const [hideFixed, setHideFixed] = useDeviceFlag(FIXED_STORAGE_KEY);
+    const toggleRoutines = () => setHideRoutines(!hideRoutines);
+    const toggleFixed = () => setHideFixed(!hideFixed);
     const resolveHabit = useResolveHabit();
     const todayISO = useToday();
     const { activeTagId } = useTagFilterStore();

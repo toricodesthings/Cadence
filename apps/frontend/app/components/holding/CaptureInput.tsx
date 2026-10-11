@@ -14,8 +14,10 @@ import { StartupReadyContext } from "../../hooks/core/use-workspace-startup";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { MOD_KEY } from "../../lib/constants/keys";
-import { DeadlineTrigger, isPickerFocus } from "../tasks/DeadlineTrigger";
+import { DeadlineTrigger } from "../tasks/DeadlineTrigger";
+import { isFloatingFocus } from "../../lib/utils/dom";
 import type { ScheduleUpdates } from "../tasks/QuickScheduleSurface";
+import type { DraftFields } from "@cadence/domain/nlp-draft";
 
 /** A typed day turns a capture into a task only on one short line; a longer vent that names a day stays a thought. */
 const TASK_LINE_WORDS = 12;
@@ -24,6 +26,24 @@ const isTaskLine = (text: string): boolean => {
     const line = text.trim();
     return Boolean(line) && !line.includes("\n") && line.split(/\s+/).length <= TASK_LINE_WORDS;
 };
+
+/** A long or multi-line draft keeps its typed days as words: the parser may not turn them into a day. */
+const WORDS_ONLY = { dueDate: null, scheduledStart: null, scheduledEnd: null, recurrenceRule: null } as const;
+
+/** A day picked for one draft. */
+interface DayPick {
+    /** The text it was picked for. */
+    for: string;
+    schedule: ScheduleUpdates;
+}
+
+/** A pick holds while the draft is still that text, edited rather than replaced: it keeps the first half it was picked for. */
+export const pickHolds = (pickedFor: string, value: string): boolean => {
+    const anchor = pickedFor.trim();
+    return value.trim().startsWith(anchor.slice(0, Math.ceil(anchor.length / 2)));
+};
+
+const isDated = ({ dueDate, scheduledStart }: Pick<DraftFields, "dueDate" | "scheduledStart">) => Boolean(dueDate || scheduledStart);
 
 /** Read and write a tab-scoped draft; storage can be missing or blocked, and the draft still works without it. */
 function readDraft(key: string | undefined): string {
@@ -56,25 +76,27 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     const confidenceThreshold = settings?.tasks?.intelligence?.confidenceThreshold ?? "medium";
     const savedCapture = useRef<InboxItem | undefined>(undefined);
     // A day set in the picker (or cleared there: "No date"). Picked beats typed.
-    const [picked, setPicked] = useState<ScheduleUpdates | null>(null);
-    // Read live, like every composer, so the day control shows what Enter saves before it's pressed.
+    const [pick, setPick] = useState<DayPick | null>(null);
+    const picked = pick && pickHolds(pick.for, value) ? pick.schedule : null;
+    // One rule: a day means a task. A picked day always counts; a typed one only on a short line, so the parser
+    // reads days only there. Read live, like every composer: the day control shows what Enter saves.
     const nlp = useNlpParse({
         input: value,
         projects,
         tags,
-        manual: picked ? { dueDate: picked.dueDate, scheduledStart: picked.scheduledStart, scheduledEnd: picked.scheduledEnd, recurrenceRule: picked.recurrenceRule } : undefined,
+        manual: picked
+            ? { dueDate: picked.dueDate, scheduledStart: picked.scheduledStart, scheduledEnd: picked.scheduledEnd, recurrenceRule: picked.recurrenceRule }
+            : isTaskLine(value) ? undefined : WORDS_ONLY,
         capabilities: TASK_FIELDS,
         sourceSurface: "inbox",
         dateStyle,
         confidenceThreshold,
         enabled: nlpEnabled,
     });
-    const dated = Boolean(nlp.fields.dueDate || nlp.fields.scheduledStart);
-    // One rule: a day means a task. A picked day always counts; a typed one only on a short line.
-    const asTask = dated && (picked !== null || isTaskLine(value));
-    const schedule: ScheduleUpdates = asTask
-        ? { dueDate: nlp.fields.dueDate, endDate: picked?.endDate ?? null, scheduledStart: nlp.fields.scheduledStart, scheduledEnd: nlp.fields.scheduledEnd, recurrenceRule: nlp.fields.recurrenceRule }
-        : { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, recurrenceRule: null };
+    const asTask = isDated(nlp.fields);
+    const endDate = picked?.endDate ?? null;
+    const { dueDate, scheduledStart, scheduledEnd, recurrenceRule } = nlp.fields;
+    const schedule: ScheduleUpdates = { dueDate, endDate, scheduledStart, scheduledEnd, recurrenceRule };
     const lines = value
         .split(/\r?\n/)
         .map((s) => s.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").trim())
@@ -82,12 +104,16 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     /** Saves the draft: a task when it has a day (or `forceTask`, ⌘↵), else a thought; `split` saves each line as a thought. */
     const save = async (forceTask = false, split = false) => {
         if (!value.trim() || busy) return;
-        const task = !split && (forceTask || asTask);
         setBusy(true);
         setError(false);
         const original = value;
         let remaining = split ? lines : [value.trim()];
         try {
+            // Decide on what Enter saves. The parser still loading (a cold open, typing fast) is the one wait,
+            // and only for a draft that could be a task.
+            const mayBeTask = !split && (forceTask || picked !== null || isTaskLine(value));
+            const draft = !mayBeTask ? null : nlp.ready ? nlp : await nlp.finalize();
+            const task = draft !== null && (forceTask || isDated(draft.fields));
             while (remaining.length) {
                 const text = remaining[0];
                 // Offline the create is queued and returns nothing, but the id is ours,
@@ -96,14 +122,13 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
                 const item = savedCapture.current ?? (await create.mutateAsync({ id, rawText: text }));
                 if (task) {
                     savedCapture.current = item ?? savedCapture.current;
-                    // What is shown is what is sent (the parser still loading is the one wait), and the server stores it as sent.
-                    const draft = nlp.ready ? nlp : await nlp.finalize();
+                    // What is shown is what is sent, and the server stores it as sent.
                     await process.mutateAsync({
                         inboxItemId: id,
                         rawText: text,
                         title: draft.cleanedTitle || text,
                         dueDate: draft.fields.dueDate,
-                        endDate: draft.fields.dueDate ? picked?.endDate ?? null : null,
+                        endDate,
                         scheduledStart: draft.fields.scheduledStart,
                         scheduledEnd: draft.fields.scheduledEnd,
                         recurrenceRule: draft.fields.recurrenceRule,
@@ -123,7 +148,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
                 if (!split || !remaining.length) onSaved?.(item);
             }
             setValue((current) => (current === original ? "" : current));
-            setPicked(null);
+            setPick(null);
             setPasted(false);
             input.current?.focus();
         } catch {
@@ -160,7 +185,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             onChange={(e) => {
                 setValue(e.target.value);
                 savedCapture.current = undefined;
-                if (!e.target.value.trim()) setPicked(null);
+                if (!e.target.value.trim()) setPick(null);
             }}
             onKeyDown={keyDown}
             onPaste={(e) => setPasted(e.clipboardData.getData("text").includes("\n"))}
@@ -184,7 +209,13 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         </>
     );
     // The list composer's calendar button: shows the day the draft will save, and picking one makes it a task.
-    const dayControl = <DeadlineTrigger schedule={schedule} onChange={setPicked} />;
+    const focusField = () => {
+        const el = input.current;
+        el?.focus();
+        el?.setSelectionRange(el.value.length, el.value.length);
+    };
+    // After picking, focus is back in the field, so Enter saves (not reopens the picker).
+    const dayControl = <DeadlineTrigger schedule={schedule} onChange={(next) => setPick({ for: value, schedule: next })} returnFocus={focusField} />;
     const submitLabel = busy ? (asTask ? "Adding…" : "Capturing…") : asTask ? "Add task" : "Capture";
     return {
         value,
@@ -203,7 +234,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             setValue("");
             setCount(0);
             setPasted(false);
-            setPicked(null);
+            setPick(null);
         },
     };
 }
@@ -303,7 +334,7 @@ export function CaptureInput() {
             onFocus={() => setFocused(true)}
             onBlur={(e) => {
                 // The day picker opens outside this box; the row stays open behind it.
-                if (e.currentTarget.contains(e.relatedTarget) || isPickerFocus(e.relatedTarget)) return;
+                if (e.currentTarget.contains(e.relatedTarget) || isFloatingFocus(e.relatedTarget)) return;
                 setFocused(false);
                 setEngaged(false);
                 // A resting draft shows how the thought starts.

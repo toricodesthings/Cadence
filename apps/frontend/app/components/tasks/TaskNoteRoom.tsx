@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useDeviceFlag } from "../../hooks/ui/use-device-flag";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronLeft, Loader2, ListTree, Pencil, Plus, X, Type } from "lucide-react";
 import type { Editor } from "@tiptap/core";
@@ -37,13 +38,6 @@ import { runNoteCommand, getNoteCommand, type NoteCommandId } from "./note/note-
 import { useNoteToolbarState } from "./note/use-note-toolbar-state";
 
 const OUTLINE_PREF = "cadence-note-outline";
-const readOutlinePref = () => {
-    try {
-        return localStorage.getItem(OUTLINE_PREF) === "1";
-    } catch {
-        return false;
-    }
-};
 
 /**
  * TaskNoteRoom — the full-screen writing room. Mounted at shell level (MainLayout) over the
@@ -81,7 +75,7 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
     const [editor, setEditor] = useState<Editor | null>(null);
     const [sourceMode, setSourceMode] = useState(false);
     const [findOpen, setFindOpen] = useState(false);
-    const [outlineRail, setOutlineRail] = useState(readOutlinePref);
+    const [outlineRail, setOutlineRail] = useDeviceFlag(OUTLINE_PREF);
     const [outlineSheet, setOutlineSheet] = useState(false);
     const [convertOpen, setConvertOpen] = useState(false);
     const [reviewOpen, setReviewOpen] = useState(false);
@@ -226,9 +220,7 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
 
     const toggleOutline = () => {
         if (shell.isDesktop) {
-            const next = !outlineRail;
-            setOutlineRail(next);
-            try { localStorage.setItem(OUTLINE_PREF, next ? "1" : "0"); } catch { /* device-local preference only */ }
+            setOutlineRail(!outlineRail);
         } else setOutlineSheet(true);
     };
 

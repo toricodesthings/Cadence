@@ -59,10 +59,10 @@ export function useWeeklyReviewActions(currentStep: number) {
     const visibleWaiting = waitingTasks.filter((t) => !keptWaitingIds.has(t.id));
 
     const todayDay = useToday();
-    // The Ready step's look ahead: deadlines from today through the next two weeks.
+    // The Ready step's look ahead: deadlines in the 14 days from today.
     const dueSoonCount = useMemo(() => {
         const until = addDays(todayDay, 14);
-        return activeTasks.filter((t) => t.dueDate && t.dueDate >= todayDay && t.dueDate <= until).length;
+        return activeTasks.filter((t) => t.dueDate && t.dueDate >= todayDay && t.dueDate < until).length;
     }, [activeTasks, todayDay]);
 
     // Habit stats

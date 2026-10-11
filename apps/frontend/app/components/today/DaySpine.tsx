@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useDeviceFlag } from "../../hooks/ui/use-device-flag";
 import { CalendarClock, ChevronDown } from "lucide-react";
 import { Reveal } from "../shared/Reveal";
 import { formatTime } from "../../lib/utils/date-format";
@@ -14,22 +15,6 @@ export interface SpineItem {
 }
 
 const STORAGE_KEY = "cadence-today-spine-collapsed";
-
-function readCollapsed() {
-    try {
-        return window.localStorage.getItem(STORAGE_KEY) === "1";
-    } catch {
-        return false;
-    }
-}
-
-function writeCollapsed(value: boolean) {
-    try {
-        window.localStorage.setItem(STORAGE_KEY, value ? "1" : "0");
-    } catch {
-        // Per-viewer convenience only; the spine still works without it.
-    }
-}
 
 function formatIn(ms: number) {
     return `in ${formatDuration(Math.max(1, Math.round(ms / 60_000)))}`;
@@ -56,17 +41,11 @@ export function useSpine(items: SpineItem[]) {
  */
 export function DaySpine({ items, onOpen }: { items: SpineItem[]; onOpen: (item: SpineItem) => void }) {
     const { now, sorted, current, summary } = useSpine(items);
-    const [collapsed, setCollapsed] = useState(false);
-    useEffect(() => setCollapsed(readCollapsed()), []);
+    const [collapsed, setCollapsed] = useDeviceFlag(STORAGE_KEY);
 
     if (sorted.length === 0) return null;
 
-    const toggle = () => {
-        setCollapsed((value) => {
-            writeCollapsed(!value);
-            return !value;
-        });
-    };
+    const toggle = () => setCollapsed(!collapsed);
 
     // The "now" marker sits between the last started item and the first upcoming one.
     const nowIndex = sorted.findIndex((item) => item.start > now);

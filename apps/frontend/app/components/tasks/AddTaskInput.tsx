@@ -8,7 +8,8 @@ import { useSettings } from "../../hooks/core/use-settings";
 import { mapPriorityNameToNumber } from "../../lib/utils/task/task-defaults";
 import { buildTypedTaskInput } from "../../lib/utils/task/typed-task-input";
 import type { EffortLevel, Task, TaskPriority } from "@cadence/contracts/task";
-import { DeadlineTrigger, isPickerFocus } from "./DeadlineTrigger";
+import { DeadlineTrigger } from "./DeadlineTrigger";
+import { isFloatingFocus } from "../../lib/utils/dom";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
 import { QuickAddActionTray } from "./QuickAddActionTray";
 import { DraftRow } from "./DraftRow";
@@ -168,7 +169,7 @@ export function AddTaskInput({
             }}
             onBlurCapture={(e) => {
                 const nextFocused = e.relatedTarget as Node | null;
-                if ((nextFocused && e.currentTarget.contains(nextFocused)) || isPickerFocus(nextFocused)) {
+                if ((nextFocused && e.currentTarget.contains(nextFocused)) || isFloatingFocus(nextFocused)) {
                     return;
                 }
                 setIsFocused(false);

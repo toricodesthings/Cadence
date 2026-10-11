@@ -53,6 +53,7 @@ export function useRouteFocus(opts?: {
     const [searchParams, setSearchParams] = useSearchParams();
     const attemptRef = useRef(0);
     const cleanupTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+    const settleTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
     const focusParams = parseFocusParams(searchParams);
 
@@ -79,8 +80,9 @@ export function useRouteFocus(opts?: {
             ) as HTMLElement | null;
 
             if (el) {
-                // Scroll into view
+                // Scroll into view, and again once a section opening around it (a Reveal) has settled.
                 el.scrollIntoView({ behavior: "smooth", block: "center" });
+                settleTimerRef.current = setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
 
                 // Apply reveal animation
                 el.classList.add("focus-pulse-soft");
@@ -109,6 +111,7 @@ export function useRouteFocus(opts?: {
         return () => {
             clearTimeout(startTimer);
             clearTimeout(cleanupTimerRef.current);
+            clearTimeout(settleTimerRef.current);
         };
     }, [focusParams?.focusKind, focusParams?.focusId]); // eslint-disable-line react-hooks/exhaustive-deps
 

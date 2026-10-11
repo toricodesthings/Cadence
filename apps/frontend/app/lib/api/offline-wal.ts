@@ -2,9 +2,13 @@ import { get, set, del } from "idb-keyval";
 import type { CreateTaskInput, UpdateTaskInput } from "@cadence/contracts/task";
 import type { CreateProjectInput, UpdateProject } from "@cadence/contracts/project";
 import type { CreateTagInput, UpdateTag } from "@cadence/contracts/tag";
+import type { ProcessInboxItem } from "@cadence/contracts/inbox";
 import type { CanonicalNlpEnvelope } from "@cadence/nlp/core";
 import type { Instant, LocalDate } from "@cadence/domain/time";
 import { IS_DESKTOP_RUNTIME, getNativeStore } from "../../platform/runtime";
+
+/** Capture → task, as queued: the endpoint's body, plus the capture it places (its words stand in for a blank title). */
+export type ProcessInboxPayload = Omit<ProcessInboxItem, "title"> & { inboxItemId: string; rawText: string; title?: string };
 
 // ── Operation Descriptors ──
 // Every mutation the app can queue, as a serializable object. Creates carry the
@@ -36,7 +40,7 @@ export type MutationOp =
     | { type: "create_inbox"; payload: { id: string; rawText: string; sectionId?: string; orderIndex?: number } }
     | { type: "update_inbox"; id: string; payload: Record<string, unknown> }
     | { type: "delete_inbox"; id: string }
-    | { type: "process_inbox_to_task"; payload: { inboxItemId: string; rawText: string; complete?: boolean; title?: string; scheduledDay?: LocalDate | null; dueDate?: LocalDate | null; endDate?: LocalDate | null; scheduledStart?: Instant | null; scheduledEnd?: Instant | null; projectId?: string | null; tagIds?: string[]; priority?: number | null; durationEstimate?: number | null; recurrenceRule?: string | null; waitingOn?: string | null; nlp?: CanonicalNlpEnvelope } }
+    | { type: "process_inbox_to_task"; payload: ProcessInboxPayload }
     | { type: "create_inbox_section"; payload: { name: string; orderIndex?: number } }
     | { type: "update_inbox_section"; id: string; payload: Record<string, unknown> }
     | { type: "delete_inbox_section"; id: string }

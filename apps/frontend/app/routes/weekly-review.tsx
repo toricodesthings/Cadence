@@ -15,6 +15,7 @@ import { WeeklyResetSidebar, STEPS } from "../components/weekly-review/WeeklyRes
 import { WeeklyResetHero } from "../components/weekly-review/WeeklyResetHero";
 import { trackUsageEvent } from "../lib/api/track-event";
 import { InstructionField } from "../components/weekly-review/InstructionField";
+import { FURTHER_OUT_OPEN_PARAM } from "../components/upcoming/FurtherOutSection";
 import { useThoughtParse } from "../hooks/inbox/use-thought-parse";
 import { MAX_BATCH } from "../hooks/tasks/use-apply-instruction";
 import { toDay, formatShortDate, formatShortDateTime } from "../lib/utils/date-format";
@@ -632,14 +633,15 @@ export default function WeeklyReview() {
                                     <Check size={26} className="text-accent-primary" aria-hidden="true" />
                                 </div>
                                 <h1 className="text-2xl font-display font-semibold text-twilight-text mb-2">You're set for the week.</h1>
-                                <p className="text-sm text-twilight-text-soft leading-relaxed mb-8">
+                                <p className={`text-sm text-twilight-text-soft leading-relaxed ${dueSoonCount > 0 ? "mb-2" : "mb-8"}`}>
                                     Everything's been reviewed. Start wherever feels right.
                                 </p>
+                                {/* Opens Upcoming with Further out unfolded, so every one of them is on screen. */}
                                 {dueSoonCount > 0 ? (
                                     <button
                                         type="button"
-                                        onClick={() => navigate("/upcoming")}
-                                        className="-mt-5 mb-6 inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                                        onClick={() => navigate(`/upcoming?${FURTHER_OUT_OPEN_PARAM}`)}
+                                        className="mb-6 inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                                     >
                                         Due in the next 2 weeks: <span className="tabular-nums font-medium text-twilight-text">{dueSoonCount}</span>
                                         <ArrowRight size={14} aria-hidden="true" />

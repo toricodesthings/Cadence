@@ -19,7 +19,7 @@ describe("groupFurtherOut", () => {
             ["Week of Oct 19", ["2026-10-20", "2026-10-21"]],
             ["Week of Oct 26", ["2026-10-28"]],
             ["Week of Nov 9", ["2026-11-15"]],
-            ["November", ["2026-11-16"]],
+            ["Rest of November", ["2026-11-16"]],
             ["December", ["2026-12-03"]],
             ["January 2027", ["2027-01-05"]],
         ]);
@@ -29,6 +29,6 @@ describe("groupFurtherOut", () => {
         setDateFormatConfig({ ...initial, weekStartsOn: 0 });
         // Sunday-first: Further out's first week is Sun 18 Oct; weeks run until Sun 15 Nov.
         const groups = groupFurtherOut([at("2026-11-14"), at("2026-11-15"), at("2026-11-01")], "2026-10-11");
-        expect(groups.map((group) => group.label)).toEqual(["Week of Nov 1", "Week of Nov 8", "November"]);
+        expect(groups.map((group) => group.label)).toEqual(["Week of Nov 1", "Week of Nov 8", "Rest of November"]);
     });
 });

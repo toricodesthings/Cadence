@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, configure } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useCaptureComposer } from "../../../app/components/holding/CaptureInput";
+import { pickHolds, useCaptureComposer } from "../../../app/components/holding/CaptureInput";
 import { Composer } from "../../../app/components/shared/Composer";
 
 // Real parser and real composers: under four parallel zone runs a wait needs more than the 1s default.
@@ -90,7 +90,7 @@ describe("Capture composer", () => {
         const input = screen.getByRole("textbox") as HTMLTextAreaElement;
         fireEvent.change(input, { target: { value: "Pay rent tomorrow" } });
         await screen.findByRole("button", { name: /Add task/ });
-        expect(screen.getByRole("button", { name: /^Deadline: / })).toBeTruthy();
+        expect(screen.getByRole("button", { name: /^Date: / })).toBeTruthy();
         fireEvent.keyDown(input, { key: "Enter" });
         await waitFor(() => expect(process).toHaveBeenCalled());
         expect(process.mock.calls[0][0]).toMatchObject({ title: "Pay rent", endDate: null, nlp: { resolved: true } });
@@ -105,5 +105,23 @@ describe("Capture composer", () => {
         fireEvent.keyDown(input, { key: "Enter" });
         await waitFor(() => expect(create).toHaveBeenCalled());
         expect(process).not.toHaveBeenCalled();
+    });
+    it("⌘↵ on a long line saves an undated task, the day left in its words, as the control showed", async () => {
+        create.mockResolvedValue({ id: "one" });
+        process.mockResolvedValue({ id: "task" });
+        render(<Host />);
+        const input = screen.getByRole("textbox") as HTMLTextAreaElement;
+        const vent = "honestly I keep dreading the meeting on friday and I can't stop thinking about it";
+        fireEvent.change(input, { target: { value: vent } });
+        fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
+        await waitFor(() => expect(process).toHaveBeenCalled());
+        expect(process.mock.calls[0][0]).toMatchObject({ dueDate: null, scheduledStart: null, endDate: null });
+        expect(process.mock.calls[0][0].title).toContain("friday");
+    });
+    it("a picked day holds while the draft is edited, not once it's replaced", () => {
+        expect(pickHolds("", "anything typed after picking")).toBe(true);
+        expect(pickHolds("Pay rent", "Pay rent and water bill")).toBe(true);
+        expect(pickHolds("Pay rent and water bill", "Pay rent and")).toBe(true);
+        expect(pickHolds("Pay rent", "Call Maya")).toBe(false);
     });
 });

@@ -42,7 +42,7 @@ export const processInboxItemSchema = z.object({
     /** An all-day placement: the day (a deadline is a day). */
     scheduledDay: localDateSchema.nullish(),
     dueDate: localDateSchema.nullish(),
-    /** A deadline's last day, when it spans several (needs a dueDate). */
+    /** A multi-day deadline's last day; kept only with the `dueDate` it was picked with. */
     endDate: localDateSchema.nullish(),
     /** A timed placement: the start and optional end instants (the server adds the user's zone). */
     scheduledStart: instantSchema.nullish(),

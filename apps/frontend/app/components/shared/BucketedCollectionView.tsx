@@ -11,6 +11,7 @@ export interface BucketedCollectionSection {
     count: number;
     description?: ReactNode;
     headerAction?: ReactNode;
+    /** Board view's header action; unset falls back to `headerAction`, `null` shows none. */
     boardHeaderAction?: ReactNode;
     /** Board column description (list view uses `description`). */
     boardDescription?: ReactNode;
@@ -86,7 +87,7 @@ export function BucketedCollectionView({ sections, view, desktopColumnScroll = f
                 count: section.count,
                 icon: <section.icon size={18} className={section.accentClass} aria-hidden="true" />,
                 description: section.boardDescription,
-                headerAction: section.boardHeaderAction ?? section.headerAction,
+                headerAction: section.boardHeaderAction === undefined ? section.headerAction : section.boardHeaderAction,
                 content: section.boardContent,
                 collapsed: section.boardCollapsed,
                 onExpand: section.onBoardExpand,

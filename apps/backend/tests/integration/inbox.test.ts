@@ -107,6 +107,15 @@ describe("processing an item into a task", () => {
         expect(body.data).toMatchObject({ dueDate: "2026-04-01", endDate: "2026-04-03" });
     });
 
+    it("drops a span's last day when the day it belonged to wasn't the one stored", async () => {
+        const item = await capture("conference tomorrow");
+
+        const { status, body } = await inbox("POST", `/${item.id}/process`, { title: "Conference", endDate: "2099-04-03" });
+
+        expect(status).toBe(201);
+        expect(body.data.endDate).toBeNull();
+    });
+
     it("replays a retried process call with the same Idempotency-Key as 200, without a second task", async () => {
         const item = await capture("once");
         const headers = { "Idempotency-Key": "process-1" };
