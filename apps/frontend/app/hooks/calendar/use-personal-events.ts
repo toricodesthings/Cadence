@@ -1,7 +1,7 @@
 import { useMemo, useCallback, useRef } from "react";
 import { useSettings, useUpdateSettings } from "../core/use-settings";
 import type { PersonalEvent } from "../../types/settings";
-import { toastUndo } from "../../lib/utils/undo-toast";
+import { toastName, toastUndo } from "../../lib/utils/undo-toast";
 
 const DEFAULT_PERSONAL_EVENTS = {
     enabled: true,
@@ -113,13 +113,13 @@ export function usePersonalEvents(year: number, month?: number) {
                 },
             },
         });
-        toastUndo(`Deleted ${removed.label}`, () => {
+        toastUndo(toastName(removed.label), () => {
             const latest = itemsRef.current;
             if (latest.some((e) => e.id === id)) return;
             const next = [...latest];
             next.splice(Math.min(index, next.length), 0, removed);
             updateSettings.mutate({ calendar: { personalEvents: { items: next } } });
-        });
+        }, { description: "Deleted" });
     }, [items, updateSettings]);
 
     const setEnabled = useCallback((value: boolean) => {
