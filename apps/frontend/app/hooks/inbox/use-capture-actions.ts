@@ -1,4 +1,4 @@
-import { toast } from "sonner";
+import { toastName, toastUndo } from "../../lib/utils/undo-toast";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { useUpdateInboxItem } from "./use-update-inbox-item";
 
@@ -12,15 +12,10 @@ export function useCaptureActions() {
                 captureStatus: status,
             })
             .then(() => {
-                toast.success(
-                    status === "discarded" ? "Discarded" : status === "kept" ? "Kept as a note" : "Back in New",
-                    {
-                        action: {
-                            label: "Undo",
-                            onClick: () => update.mutate({ id: item.id, captureStatus: item.captureStatus }),
-                        },
-                    },
-                );
+                // It leaves this list, so the toast names it and says where it went.
+                toastUndo(toastName(item.rawText), () => update.mutate({ id: item.id, captureStatus: item.captureStatus }), {
+                    description: status === "discarded" ? "Discarded" : status === "kept" ? "Kept as a note" : "Back in New",
+                });
             });
     return { setStatus, isPending: update.isPending };
 }

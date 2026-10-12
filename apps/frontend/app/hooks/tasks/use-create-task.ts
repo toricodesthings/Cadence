@@ -14,6 +14,40 @@ import { toastError } from "../../lib/utils/error-toast";
 import { clientIdFor } from "../../lib/api/optimistic-id";
 import { getUserZone } from "../../lib/utils/user-zone";
 
+/** The row a new task shows as until the server answers (a create, or a capture placed as a task). */
+export function buildOptimisticTask(id: string, input: CreateTaskInput): Task {
+    return {
+        id,
+        userId: "",
+        projectId: input.projectId ?? null,
+        sectionId: input.sectionId ?? null,
+        tagIds: input.tagIds ?? [],
+        title: input.title,
+        content: input.content ?? null,
+        state: input.state ?? "ACTIVE",
+        orderIndex: input.orderIndex,
+        dueDate: input.dueDate ?? null,
+        endDate: input.endDate ?? null,
+        scheduledStart: input.scheduledStart ?? null,
+        scheduledEnd: input.scheduledEnd ?? null,
+        zone: input.scheduledStart ? input.zone ?? getUserZone() : null,
+        durationEstimate: input.durationEstimate ?? null,
+        timezoneLocked: input.timezoneLocked ?? false,
+        priority: input.priority ?? 0,
+        isPinned: input.isPinned ?? false,
+        reminderAt: input.reminderAt ?? null,
+        reminderSilenced: input.reminderSilenced ?? false,
+        recurrenceRule: input.recurrenceRule ?? null,
+        interactionMode: input.interactionMode ?? suggestInteractionMode(input),
+        effort: input.effort ?? null,
+        waitingOn: input.waitingOn ?? null,
+        waitingReminder: input.waitingReminder ?? null,
+        notBefore: input.notBefore ?? null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    };
+}
+
 /** Create a task with optimistic insertion into all active task caches */
 export function useCreateTask() {
     const client = useApiClient();
@@ -72,36 +106,7 @@ export function useCreateTask() {
             const snapshot = taskCache.snapshot(queryClient);
 
             // The optimistic row already has the id the server will keep.
-            const optimisticTask: Task = {
-                id: clientIdFor(input),
-                userId: "",
-                projectId: input.projectId ?? null,
-                sectionId: input.sectionId ?? null,
-                tagIds: input.tagIds ?? [],
-                title: input.title,
-                content: input.content ?? null,
-                state: input.state ?? "ACTIVE",
-                orderIndex: input.orderIndex,
-                dueDate: input.dueDate ?? null,
-                endDate: input.endDate ?? null,
-                scheduledStart: input.scheduledStart ?? null,
-                scheduledEnd: input.scheduledEnd ?? null,
-                zone: input.scheduledStart ? input.zone ?? getUserZone() : null,
-                durationEstimate: input.durationEstimate ?? null,
-                timezoneLocked: input.timezoneLocked ?? false,
-                priority: input.priority ?? 0,
-                isPinned: input.isPinned ?? false,
-                reminderAt: input.reminderAt ?? null,
-                reminderSilenced: input.reminderSilenced ?? false,
-                recurrenceRule: input.recurrenceRule ?? null,
-                interactionMode: input.interactionMode ?? suggestInteractionMode(input),
-                effort: input.effort ?? null,
-                waitingOn: input.waitingOn ?? null,
-                waitingReminder: input.waitingReminder ?? null,
-                notBefore: input.notBefore ?? null,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            };
+            const optimisticTask = buildOptimisticTask(clientIdFor(input), input);
 
             queryClient.setQueriesData<Task[]>(
                 { queryKey: queryKeys.tasks.all },

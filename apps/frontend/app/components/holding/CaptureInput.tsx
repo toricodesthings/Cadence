@@ -119,7 +119,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
                 // Offline the create is queued and returns nothing, but the id is ours,
                 // so "as task" can still be queued right behind it.
                 const id = savedCapture.current?.id ?? crypto.randomUUID();
-                const item = savedCapture.current ?? (await create.mutateAsync({ id, rawText: text }));
+                const item = savedCapture.current ?? (await create.mutateAsync({ id, rawText: text, placing: task }));
                 if (task) {
                     savedCapture.current = item ?? savedCapture.current;
                     // What is shown is what is sent, and the server stores it as sent.

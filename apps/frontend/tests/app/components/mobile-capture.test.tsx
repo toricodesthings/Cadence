@@ -81,6 +81,8 @@ describe("Capture composer", () => {
         fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
         await waitFor(() => expect(process).toHaveBeenCalled());
         expect(process.mock.calls[0][0]).toMatchObject({ title: "Call Maya", priority: 3, nlp: { resolved: true } });
+        // Never shown as a thought on its way to being a task.
+        expect(create.mock.calls[0][0]).toMatchObject({ placing: true });
         expect(process.mock.calls[0][0].dueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
     it("a short line with a day is a task, said before Enter, and Enter saves it as one", async () => {

@@ -1,7 +1,9 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useProcessInboxToTask } from "../../../app/hooks/inbox/use-process-inbox-to-task";
-import { withClient } from "../../helpers";
+import { testQueryClient, withClient } from "../../helpers";
+import { queryKeys } from "../../../app/lib/api/query-keys";
+import type { Task } from "@cadence/contracts/task";
 
 const inboxProcessMock = vi.fn();
 
@@ -9,8 +11,9 @@ vi.mock("../../../app/hooks/auth/use-api-client", () => ({
     useApiClient: () => ({ api: { inbox: { ":id": { process: { $post: inboxProcessMock } } } } }),
 }));
 
+const { toastMessage } = vi.hoisted(() => ({ toastMessage: vi.fn() }));
 vi.mock("sonner", () => ({
-    toast: { success: vi.fn(), error: vi.fn() },
+    toast: { success: vi.fn(), error: vi.fn(), message: toastMessage },
 }));
 
 describe("useProcessInboxToTask", () => {
@@ -73,5 +76,23 @@ describe("useProcessInboxToTask", () => {
 
         await waitFor(() => expect(result.current.isError).toBe(true));
         expect(inboxProcessMock).toHaveBeenCalledOnce();
+    });
+    it("shows the task in its list at once, then names it in the toast with where it went", async () => {
+        const { promise, resolve } = Promise.withResolvers<Response>();
+        inboxProcessMock.mockReturnValue(promise);
+        const client = testQueryClient();
+        const key = [...queryKeys.tasks.all, { state: "ACTIVE", hasNoProject: true, hasNoDate: true }];
+        client.setQueryData<Task[]>(key, []);
+
+        const { result } = renderHook(() => useProcessInboxToTask(), { wrapper: withClient(client) });
+        result.current.mutate({ inboxItemId: "10000000-0000-4000-8000-000000000004", rawText: "Call Maya" });
+
+        // Before the server answers: already a task with no day, never a thought in between.
+        await waitFor(() => expect(client.getQueryData<Task[]>(key)?.map((task) => task.title)).toEqual(["Call Maya"]));
+
+        resolve(Response.json({ data: { id: "task-4", title: "Call Maya", state: "ACTIVE", projectId: null, dueDate: null, scheduledStart: null } }, { status: 201 }));
+        await waitFor(() => expect(result.current.isSuccess).toBe(true));
+        expect(client.getQueryData<Task[]>(key)?.map((task) => task.id)).toEqual(["task-4"]);
+        expect(toastMessage).toHaveBeenCalledWith("Call Maya", expect.objectContaining({ description: "No day yet" }));
     });
 });

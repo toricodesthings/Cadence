@@ -11,6 +11,9 @@ export class UndoneError extends Error {
 
 export const isUndone = (error: unknown): error is UndoneError => error instanceof UndoneError;
 
+/** A thing's name as a toast's line: one glance, so long titles are cut. */
+export const toastName = (title: string, max = 60): string => (title.length > max ? `${title.slice(0, max - 1).trimEnd()}…` : title);
+
 interface UndoToastOptions {
     description?: string;
     /** Same id replaces the toast instead of stacking one per repeat. */

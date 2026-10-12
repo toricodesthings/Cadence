@@ -9,7 +9,8 @@ React Router v8 SPA (`ssr: false`, intentional) deployed as static assets on Clo
 - Reusable hooks → `app/hooks/`; non-UI logic → `app/lib/`; shared UI → `app/components/` grouped by domain; Radix always through `app/components/primitives/`, never imported raw into domain components.
 - No sterile SaaS styling: no white cards, harsh borders, gray dashboards. Prefer glass, shadow, ambient color, breathing room. Never hardcode a one-off hex when a semantic token belongs in `app/app.css`.
 - Notification settings fields are required in the settings schema — never optional.
-- Mutations are optimistic-first: snapshot → update immediately → rollback on error → reconcile on settle.
+- Mutations are optimistic-first: snapshot → update immediately → rollback on error → reconcile on settle. The screen shows only the end state, never a step on the way (a capture saved as a task appears as that task, never first as a thought).
+- Toasts answer one question: "where did it go?" A happy path the person can see in place (a row appears, a check flips, a field saves) gets none. A toast is for: a failure (`toastError`); something that just left the screen (placed, moved, discarded, restored, converted, bulk), which names it (`toastName`) and says where it went in the description, with Undo when reversible (`toastUndo`); or a result that lands out of sight (email sent, clipboard, export, update ready). Touch may add an Undo toast where a stray tap is likely (routine marks).
 
 ## 2. Tech Stack
 

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router";
 import { DndContext, DragOverlay, useDraggable, useSensor, useSensors } from "@dnd-kit/core";
 import { MouseSensor } from "../../lib/utils/dnd";
 import { motion } from "framer-motion";
-import { toast } from "sonner";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
 import { UtilitySheet } from "../shared/UtilitySheet";
@@ -14,7 +13,8 @@ import { useTasks } from "../../hooks/tasks/use-tasks";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { addDays, type LocalDate } from "@cadence/domain/time";
 import { taskDay } from "@cadence/domain/task-recurrence";
-import { formatShortDateLabel, formatWeekdayNarrow, placementLabel } from "../../lib/utils/date-format";
+import { formatShortDateLabel, formatWeekdayNarrow, placementLabel, placementReceipt } from "../../lib/utils/date-format";
+import { toastName, toastUndo } from "../../lib/utils/undo-toast";
 import { getUserZone, useToday } from "../../lib/utils/user-zone";
 import { dayLoads, lightestDay, loadWord } from "../../lib/utils/task/day-load";
 
@@ -63,7 +63,10 @@ export function usePlaceTask() {
     const updateTask = useUpdateTask();
     return async (task: Task, day: LocalDate) => {
         await updateTask.mutateAsync({ id: task.id, dueDate: day, endDate: null, scheduledStart: null, scheduledEnd: null });
-        toast.message(placementLabel(day), { action: { label: "Undo", onClick: () => updateTask.mutate({ id: task.id, dueDate: task.dueDate, endDate: task.endDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd }) } });
+        toastUndo(toastName(task.title), () => updateTask.mutate({ id: task.id, dueDate: task.dueDate, endDate: task.endDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd }), {
+            // In a list it stays in that list; otherwise it moves to the view that shows its day.
+            description: task.projectId ? placementLabel(day) : placementReceipt(day),
+        });
     };
 }
 

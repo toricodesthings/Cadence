@@ -12,6 +12,8 @@ import { toastError } from "../../lib/utils/error-toast";
 export interface NewCapture {
     id: string;
     rawText: string;
+    /** Placed as a task right after (⌘↵, a day): never shown as a thought, so it can't flash in the feed. */
+    placing?: boolean;
 }
 
 export function useCreateInboxItem() {
@@ -20,14 +22,15 @@ export function useCreateInboxItem() {
 
     return useMutation({
         mutationFn: withOfflineSupport<NewCapture, InboxItem>(
-            (input) => ({ type: "create_inbox", payload: input }),
-            async (input) => {
-                const res = await client.api.inbox.$post({ json: input }, { headers: { "Idempotency-Key": input.id } });
+            ({ id, rawText }) => ({ type: "create_inbox", payload: { id, rawText } }),
+            async ({ id, rawText }) => {
+                const res = await client.api.inbox.$post({ json: { id, rawText } }, { headers: { "Idempotency-Key": id } });
                 return unwrapResponse(res);
             },
         ),
 
-        onMutate: async ({ id, rawText }) => {
+        onMutate: async ({ id, rawText, placing }) => {
+            if (placing) return undefined;
             await queryClient.cancelQueries({ queryKey: queryKeys.inbox.all });
             const snapshot = queryClient.getQueriesData<InboxItem[]>({ queryKey: queryKeys.inbox.all });
 
@@ -58,8 +61,8 @@ export function useCreateInboxItem() {
             return { snapshot, optimisticId: optimisticItem.id };
         },
 
-        onSuccess: (item, _input, context) => {
-            if (!item) return; // Queued offline
+        onSuccess: (item, { placing }, context) => {
+            if (!item || placing) return; // Queued offline, or about to become a task
             reconcileInboxItemInCaches(queryClient, item, context?.optimisticId);
         },
 
@@ -72,6 +75,7 @@ export function useCreateInboxItem() {
             toastError(err, "Couldn't add inbox item");
         },
 
-        onSettled: (data, error) => !wasQueued(data, error) && queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),
+        // A placed capture's refetch belongs to the placing (it would show the thought again in between).
+        onSettled: (data, error, { placing }) => !placing && !wasQueued(data, error) && queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),
     });
 }

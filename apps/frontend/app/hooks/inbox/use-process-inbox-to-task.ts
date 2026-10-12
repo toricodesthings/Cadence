@@ -2,11 +2,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
-import { removeInboxItemFromCaches } from "../../lib/api/cache-sync";
-import type { Task } from "@cadence/contracts/task";
+import { reconcileTaskInCaches, removeInboxItemFromCaches, removeTaskFromCaches } from "../../lib/api/cache-sync";
+import { taskCache } from "../tasks/optimistic-helpers";
+import { buildOptimisticTask } from "../tasks/use-create-task";
+import { toastName, toastUndo } from "../../lib/utils/undo-toast";
+import type { Task, TaskPriority } from "@cadence/contracts/task";
 import type { Project } from "@cadence/contracts/project";
 import type { InboxItem } from "@cadence/contracts/inbox";
-import { toast } from "sonner";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { addDays, type LocalDate } from "@cadence/domain/time";
 import { placementLabel, placementReceipt } from "../../lib/utils/date-format";
@@ -49,19 +51,39 @@ export function useProcessInboxToTask() {
                 return unwrapResponse(res);
             },
         ),
-        // Optimistically remove the capture from the holding feed the instant the
-        // user places it — the backend round-trip can take several seconds, and
-        // without this the item lingers and the action feels dead.
-        onMutate: async ({ inboxItemId, skipOptimisticRemoval }) => {
+        // The capture leaves the feed and the task lands in its view the instant it's placed: the round-trip can take
+        // seconds, and offline it waits for sync. Nothing passes through an in-between state on screen.
+        onMutate: async (params) => {
             await queryClient.cancelQueries({ queryKey: queryKeys.inbox.all });
             const snapshot = queryClient.getQueriesData<InboxItem[]>({ queryKey: queryKeys.inbox.all });
-            if (!skipOptimisticRemoval) {
-                removeInboxItemFromCaches(queryClient, inboxItemId);
-            }
-            return { snapshot };
+            if (params.skipOptimisticRemoval) return { snapshot };
+            removeInboxItemFromCaches(queryClient, params.inboxItemId);
+            if (params.complete) return { snapshot };
+            await taskCache.cancel(queryClient);
+            const optimistic = buildOptimisticTask(crypto.randomUUID(), {
+                title: params.title?.trim() || params.rawText,
+                orderIndex: 0,
+                state: params.waitingOn ? "WAITING" : "ACTIVE",
+                dueDate: params.dueDate ?? params.scheduledDay ?? null,
+                endDate: params.endDate ?? null,
+                scheduledStart: params.scheduledStart ?? null,
+                scheduledEnd: params.scheduledEnd ?? null,
+                projectId: params.projectId ?? null,
+                sectionId: params.sectionId ?? null,
+                tagIds: params.tagIds ?? [],
+                priority: (params.priority ?? 0) as TaskPriority,
+                recurrenceRule: params.recurrenceRule ?? null,
+                waitingOn: params.waitingOn ?? null,
+                reminderAt: params.reminderAt ?? null,
+                notBefore: params.notBefore ?? null,
+                durationEstimate: params.durationEstimate ?? null,
+            });
+            reconcileTaskInCaches(queryClient, optimistic);
+            return { snapshot, optimisticId: optimistic.id };
         },
         onSuccess: (_data, variables, context) => {
-            if (!_data) return; // Queued offline
+            if (!_data) return; // Queued offline: the optimistic task stays until sync.
+            reconcileTaskInCaches(queryClient, _data, context?.optimisticId);
             queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });
             queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
             const scheduledLabel = _data.scheduledStart ?? _data.dueDate ?? variables.scheduledStart ?? variables.scheduledDay ?? variables.dueDate;
@@ -72,10 +94,16 @@ export function useProcessInboxToTask() {
             const label = variables.successLabel ?? (variables.complete ? "Ticked off"
                 : scheduledLabel ? (shown ? placementReceipt(scheduledLabel, listName) : placementLabel(scheduledLabel))
                 : listName ? `In ${listName}` : "No day yet");
-            toast.success(label, { action: { label: "Undo", onClick: () => unprocess.mutate({ id: variables.inboxItemId, taskId: _data.id, item: context?.snapshot.flatMap(([, items]) => items ?? []).find(item => item.id === variables.inboxItemId) }) } });
+            // It left the screen, so the toast names it and says where it went.
+            toastUndo(toastName(_data.title), () => unprocess.mutate({
+                id: variables.inboxItemId,
+                taskId: _data.id,
+                item: context?.snapshot.flatMap(([, items]) => items ?? []).find((item) => item.id === variables.inboxItemId),
+            }), { description: label });
         },
         onError: (err, _variables, context) => {
-            // Restore the capture we optimistically removed.
+            // Restore the capture we optimistically removed, and take back the task we showed.
+            if (context?.optimisticId) removeTaskFromCaches(queryClient, context.optimisticId);
             if (context?.snapshot) {
                 for (const [key, data] of context.snapshot) {
                     queryClient.setQueryData(key, data);

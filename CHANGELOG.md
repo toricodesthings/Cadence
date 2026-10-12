@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Ctrl/⌘+Enter in Capture adds the task straight to its place, without showing it as a thought first.
+- Placing a thought or task names it in the toast and says where it went, not just "No day yet".
+
 ## [0.30.7] - 2026-10-11
 
 ### Added
