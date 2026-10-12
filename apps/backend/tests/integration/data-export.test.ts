@@ -36,7 +36,7 @@ describe("data export", () => {
             const [task] = await tx.insert(tasks).values({ userId, title: "Mine", orderIndex: 0 }).returning();
             const [tag] = await tx.insert(tags).values({ userId, name: "work" }).returning();
             await tx.insert(taskTags).values({ taskId: task.id, tagId: tag.id });
-            await tx.insert(aiMemories).values({ userId, content: "likes mornings", embedding: Array(1536).fill(0) });
+            await tx.insert(aiMemories).values({ userId, kind: "preference", content: "likes mornings", embedding: Array(512).fill(0), saidOn: "2026-10-01", lastSeenOn: "2026-10-01", source: "chat", confidence: "stated" });
             await tx.insert(mutationDedup).values({ userId, clientMutationId: "k" });
         });
         await withRls(getTestDb(), otherId, (tx) => tx.insert(tasks).values({ userId: otherId, title: "Theirs", orderIndex: 0 }));

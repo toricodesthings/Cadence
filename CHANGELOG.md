@@ -6,6 +6,25 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Cadence remembers, so you don't have to.
+
+### Added
+
+- The assistant remembers what you tell it, so you never repeat yourself. You choose how much on first open.
+- What Cadence knows shows everything it remembers in plain words. Forget any of it with a tap, or ask in chat.
+- Say "remember…" or "forget…" and it happens at once, with an Undo.
+- Ask about something you mentioned months ago and the assistant finds it, even from an old chat.
+- Full also learns from how you work: when you tend to finish things, what often gets moved, and how long things take.
+- Full reads your last three months of chats and task notes once, over a few nights.
+- A "Don't learn from this chat" switch in each conversation's menu.
+- Connected assistants get the same memory tools while you have memory on.
+
+### Changed
+
+- Help & Feedback has feature and Cadence Intelligence directories, with space for guides and future feedback.
+- The Terms and Privacy Policy describe memory, and ask you to accept the new version.
+- The old on/off memory switch in Settings is now the Off, Basic or Full choice.
+
 ## [0.31.0] - 2026-10-12
 
 Your captures come pre-sorted.

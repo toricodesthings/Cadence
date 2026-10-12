@@ -131,9 +131,11 @@ export const conversationPatchSchema = z
     .object({
         title: z.string().max(200).optional(),
         archived: z.boolean().optional(),
+        /** Memory may learn from this chat (default on). Off = "Don't learn from this chat". */
+        learn: z.boolean().optional(),
     })
-    .refine((d) => d.title !== undefined || d.archived !== undefined, {
-        message: "At least one of `title` or `archived` is required",
+    .refine((d) => d.title !== undefined || d.archived !== undefined || d.learn !== undefined, {
+        message: "At least one of `title`, `archived` or `learn` is required",
     });
 
 /**
@@ -175,7 +177,7 @@ export const aiConversationRowSchema = z.object({
 export const conversationSchema = aiConversationRowSchema;
 
 /** One row of GET /ai/conversations. */
-export const conversationListItemSchema = conversationSchema.pick({ id: true, title: true, lastMessageAt: true, archived: true });
+export const conversationListItemSchema = conversationSchema.pick({ id: true, title: true, lastMessageAt: true, archived: true }).extend({ learn: z.boolean() });
 export type ConversationListItem = z.infer<typeof conversationListItemSchema>;
 
 /** The thread metadata GET /ai/conversations/:id returns with its messages. */
@@ -188,7 +190,7 @@ export const conversationDetailSchema = conversationSchema.pick({
     activeStreamId: true,
     lastStreamId: true,
     lastStreamStatus: true,
-});
+}).extend({ learn: z.boolean() });
 export type ConversationDetail = z.infer<typeof conversationDetailSchema>;
 export type Conversation = z.infer<typeof conversationSchema>;
 
@@ -215,6 +217,8 @@ export const aiMessageRowSchema = z.object({
     metadata: z.record(z.string(), z.unknown()),
     status: messageStatusSchema,
     orderIndex: z.number(),
+    /** The person's own words in a user turn (what search_past_chats reads); never sent to the client. */
+    searchText: z.string().nullable(),
     createdAt: instantSchema,
 });
 

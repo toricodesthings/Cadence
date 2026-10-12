@@ -17,6 +17,8 @@ interface AssistantState {
     activeConversationId: string | null;
     /** History drawer visibility (in-panel collapsible, not a route). */
     historyOpen: boolean;
+    /** "What Cadence knows" overlay (not persisted): Settings opens the panel straight onto it. */
+    memoryOpen: boolean;
     /**
      * Approval mode. ask (default): every proposal waits for the user's confirm.
      * auto: proposals from a live turn commit themselves, except permanent deletes.
@@ -30,6 +32,7 @@ interface AssistantState {
     startNewConversation: () => void;
     setActiveConversation: (id: string) => void;
     setHistoryOpen: (open: boolean) => void;
+    setMemoryOpen: (open: boolean) => void;
     setApprovalMode: (mode: ApprovalMode) => void;
 }
 
@@ -43,6 +46,7 @@ export const useAssistantStore = create<AssistantState>()(
             assistantPanelWidth: 340, // default wider panel to fit interactive cards
             activeConversationId: null,
             historyOpen: false,
+            memoryOpen: false,
             approvalMode: "ask",
             toggleAssistantPanel: () => set((s) => ({ assistantPanelOpen: !s.assistantPanelOpen })),
             setAssistantPanelOpen: (open) => set({ assistantPanelOpen: open }),
@@ -51,6 +55,7 @@ export const useAssistantStore = create<AssistantState>()(
                 set({ activeConversationId: crypto.randomUUID(), historyOpen: false }),
             setActiveConversation: (id) => set({ activeConversationId: id, historyOpen: false }),
             setHistoryOpen: (open) => set({ historyOpen: open }),
+            setMemoryOpen: (open) => set(open ? { memoryOpen: true, assistantPanelOpen: true } : { memoryOpen: false }),
             setApprovalMode: (mode) => set({ approvalMode: mode }),
         }),
         {

@@ -3,7 +3,7 @@ import { asOwner, createUser, startTestDb } from "../helpers/db";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
-import { handleOverdueCheck, pruneAiMemories, pruneStaleMutations, pruneUsageEvents } from "../../src/cron/overdue-check";
+import { handleOverdueCheck, pruneStaleMutations, pruneUsageEvents, runMemoryNightly } from "../../src/cron/overdue-check";
 
 const env = {} as any;
 
@@ -118,21 +118,26 @@ describe("pruning", () => {
         expect(await sql("SELECT client_mutation_id FROM mutation_dedup WHERE user_id = $1", [userId])).toEqual([{ client_mutation_id: "new" }]);
     });
 
-    it("drops only expired EPHEMERAL memories, never CORE ones", async () => {
-        const userId = await createUser();
-        await sql(
-            `INSERT INTO ai_memories (user_id, content, type, expires_at) VALUES
-                ($1, 'expired ephemeral', 'EPHEMERAL', NOW() - interval '1 day'),
-                ($1, 'live ephemeral', 'EPHEMERAL', NOW() + interval '1 day'),
-                ($1, 'expired core', 'CORE', NOW() - interval '1 day')`,
-            [userId],
-        );
+    it("drops memory facts past their validThrough (a day's grace) in the nightly pass, keeping open-ended and current ones", async () => {
+        const userId = await createUser({ zone: "UTC" });
+        const insert = (content: string, validThrough: string | null) =>
+            sql(
+                `INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence, valid_through)
+                 VALUES ($1, 'life', $2, '2026-01-01', '2026-01-01', 'chat', 'stated', $3)`,
+                [userId, content, validThrough],
+            );
+        await insert("ended long ago", "2026-09-01");
+        await insert("ended yesterday", "2026-10-04");
+        await insert("ends today", "2026-10-05");
+        await insert("no end", null);
 
-        await runCron(pruneAiMemories);
+        // 03:30 local (UTC user): the person's nightly hour.
+        await runMemoryNightly({} as any, new Date("2026-10-05T03:30:00Z"));
 
         expect((await sql("SELECT content FROM ai_memories WHERE user_id = $1 ORDER BY content", [userId])).map((r) => r.content)).toEqual([
-            "expired core",
-            "live ephemeral",
+            "ended yesterday", // the day after it ended is still inside the grace
+            "ends today",
+            "no end",
         ]);
     });
 

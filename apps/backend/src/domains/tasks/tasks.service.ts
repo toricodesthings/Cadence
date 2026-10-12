@@ -17,8 +17,14 @@ import { insertWithClientId } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { userZone } from "../../platform/user-zone";
 import { trackBatchCompletion, trackBatchEvents, trackReschedules } from "../../platform/metrics";
+import { recordPersonActivity, type PersonActivity } from "../ai/memory/memory.service";
 import type { DbClient, Tx } from "../../types/db";
+import type { Env } from "../../types/env";
 import { writeNote } from "../notes/notes.service";
+
+// Query pieces other domains (the AI tools) reuse; tasks.service is the only door into this domain.
+export { hasNoDay, inDayWindow, onOrBefore } from "./task-filters";
+export { buildTaskWhereClause } from "./tasks.read";
 
 // ── Utility ───────────────────────────────────────────────────────────
 
@@ -52,6 +58,18 @@ export function temporalColumns(fields: TaskTemporalFields & { notBefore?: strin
     return "notBefore" in fields ? { ...temporal, notBefore: normalizeHiddenUntil(fields.notBefore) } : temporal;
 }
 
+/** Where a task sits in time, before a change: its start, or else its day. */
+export type TaskSlot = { scheduledStart: string | null; dueDate: string | null };
+
+/** The slots of these tasks as they are now, by id (read before a change, so memory can see what moved). */
+export async function slotsOf(tx: Tx, userId: string, taskIds: string[]): Promise<Map<string, TaskSlot>> {
+    const rows = await tx
+        .select({ id: tasks.id, scheduledStart: tasks.scheduledStart, dueDate: tasks.dueDate })
+        .from(tasks)
+        .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)));
+    return new Map(rows.map((row) => [row.id, { scheduledStart: row.scheduledStart, dueDate: row.dueDate }]));
+}
+
 /** Metrics and usage events for committed task writes. Best-effort, never blocks the caller. */
 export function trackTaskChanges(
     waitUntil: (promise: Promise<unknown>) => void,
@@ -61,9 +79,20 @@ export function trackTaskChanges(
         created?: string[];
         rescheduled?: { id: string; scheduledStart: string | null; dueDate: string | null }[];
         completed?: string[];
+        /** What each rescheduled task's slot was before, by id. With `env`, the change is also a signal for memory. */
+        from?: Map<string, TaskSlot>;
     },
+    /** Set by routes only: the change was made by the person in the app (never the assistant, MCP or an import). */
+    byPerson?: { env: Env },
 ) {
-    const { created = [], rescheduled = [], completed = [] } = changes;
+    const { created = [], rescheduled = [], completed = [], from } = changes;
+    if (byPerson) {
+        const activity: PersonActivity[] = [
+            ...rescheduled.flatMap((task) => (from?.get(task.id) ? [{ kind: "reschedule" as const, from: from.get(task.id)! }] : [])),
+            ...completed.map(() => ({ kind: "complete" as const })),
+        ];
+        if (activity.length) waitUntil(recordPersonActivity(byPerson.env, userId, activity));
+    }
     if (rescheduled.length) {
         waitUntil(tracing.enterSpan("tasks.metrics.reschedule", () => trackReschedules(db, userId, rescheduled.map((task) => ({ taskId: task.id, scheduledStart: task.scheduledStart, dueDate: task.dueDate })))));
     }

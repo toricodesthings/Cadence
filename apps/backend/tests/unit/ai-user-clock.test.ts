@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { userClock } from "../../src/domains/ai/agent";
+import { userClock } from "../../src/domains/ai/turn";
 
 describe("userClock (the time context the assistant gets)", () => {
     it("at 10:30 PM in Toronto, says it is still Monday the 21st, not the UTC date", () => {

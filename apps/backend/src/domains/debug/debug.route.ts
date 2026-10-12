@@ -7,6 +7,7 @@ import { scenarios, DEFAULT_SCENARIO } from "./scenarios";
 import {
     aiConversations,
     aiMemories,
+    aiMemorySignals,
     aiMessages,
     habitLogs,
     habitTags,
@@ -61,6 +62,7 @@ async function clearUserData(db: RlsClient, userId: string) {
     // AI threads: messages (child) → memories (provenance FK is set-null) → conversations
     await db.delete(aiMessages).where(eq(aiMessages.userId, userId));
     await db.delete(aiMemories).where(eq(aiMemories.userId, userId));
+    await db.delete(aiMemorySignals).where(eq(aiMemorySignals.userId, userId));
     await db.delete(aiConversations).where(eq(aiConversations.userId, userId));
     await db.delete(userMetrics).where(eq(userMetrics.userId, userId));
 

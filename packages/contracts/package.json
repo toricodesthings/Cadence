@@ -17,6 +17,8 @@
     "./note": "./src/note.ts",
     "./settings": "./src/settings.ts",
     "./ai": "./src/ai.ts",
+    "./ai-tools": "./src/ai-tools.ts",
+    "./memory": "./src/memory.ts",
     "./events": "./src/events.ts",
     "./proxy": "./src/proxy.ts",
     "./notification": "./src/notification.ts",

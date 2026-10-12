@@ -1,7 +1,8 @@
 import { eq, and, lt, sql, inArray, isNull, or } from "drizzle-orm";
 import { todayIn } from "@cadence/domain/time";
 import { getDbClient, type DbClient } from "../platform/db";
-import { tasks, taskMetrics, mutationDedup, aiMemories, aiImages, usageEvents } from "../db/schema";
+import { tasks, taskMetrics, mutationDedup, aiImages, usageEvents } from "../db/schema";
+import { nightlyForUser } from "../domains/ai/memory/nightly";
 import { aiImageKey, deleteImageObjects, IMAGE_RETENTION_DAYS, ORPHAN_HOURS } from "../domains/ai/images/chat-images";
 import { withRls } from "../platform/rls";
 import { computeWorkloadSignals, overdueOn } from "../platform/metrics";
@@ -111,21 +112,22 @@ export async function pruneUsageEvents(env: Env, now: Date = new Date()) {
 }
 
 /**
- * Auto-prune the AI memory layer (doc 06 §6). Deletes EXPIRED EPHEMERAL memories
- * only — CORE memories are NEVER pruned automatically.
+ * The nightly memory pass, once per person: on the run that falls in their 03:00 hour (like the
+ * overdue sweep, every zone has exactly one such hour a day). Forgotten facts are reduced to a label
+ * by the every-minute memory job, not here.
  */
-export async function pruneAiMemories(env: Env, now: Date = new Date()) {
+export async function runMemoryNightly(env: Env, now: Date = new Date()) {
     const db = getDbClient(env);
-    const instant = now.toISOString();
-
-    return forEachUser(db, await cronUserIds(db, now), async (tx, userId) => {
-        const deleted = await tx
-            .delete(aiMemories)
-            .where(and(eq(aiMemories.userId, userId), eq(aiMemories.type, "EPHEMERAL"), lt(aiMemories.expiresAt, instant)))
-            .returning({ id: aiMemories.id });
-        return deleted.length;
-    });
+    let changed = 0;
+    for (const userId of await cronUserIds(db, now, MEMORY_NIGHTLY_HOUR)) {
+        const result = await nightlyForUser(env, userId, now);
+        changed += result ? result.expired + result.decayed + result.merged + result.evicted + result.activity : 0;
+    }
+    return changed;
 }
+
+/** The local hour of the nightly memory pass: after the overdue sweep's 04:00 would be too late for "tomorrow morning". */
+const MEMORY_NIGHTLY_HOUR = 3;
 
 /**
  * Chat image retention: deletes images attached but never sent (older than a
@@ -169,7 +171,7 @@ export async function runHourlyCron(env: Env, now: Date = new Date()) {
     const [overdue, mutations, memories, images, usage, pushClaims] = await Promise.allSettled([
         handleOverdueCheck(env, now),
         prune ? pruneStaleMutations(env, now) : skipped,
-        prune ? pruneAiMemories(env, now) : skipped,
+        runMemoryNightly(env, now),
         prune ? pruneAiImages(env, now) : skipped,
         prune ? pruneUsageEvents(env, now) : skipped,
         prune ? prunePushDeliveries(env, now) : skipped,
@@ -182,7 +184,7 @@ export async function runHourlyCron(env: Env, now: Date = new Date()) {
     logger.info("cron", "cron_summary", {
         ...ok(overdue),
         prunedMutations: ok(mutations),
-        prunedMemories: ok(memories),
+        memoryNightlyChanges: ok(memories),
         prunedImages: ok(images),
         prunedUsageEvents: ok(usage),
         prunedPushClaims: ok(pushClaims),

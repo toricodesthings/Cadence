@@ -128,6 +128,16 @@ export function rowToUIMessage(row: StoredMessage): UIMessageLike {
     };
 }
 
+/** The text parts of a user turn, joined; null when it has none (an image alone). */
+function userText(parts: unknown[] | undefined): string | null {
+    const text = (parts ?? [])
+        .map((p) => (p && typeof p === "object" && (p as { type?: unknown }).type === "text" ? String((p as { text?: unknown }).text ?? "") : ""))
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+    return text || null;
+}
+
 /**
  * Produce the `ai_messages` insert payload for a UIMessage. Coerces role to the
  * enum and defaults missing `parts` to `[]` and `metadata` to `{}`.
@@ -141,12 +151,15 @@ export function uiMessageToRow(
         status: MessageStatus;
     },
 ): InsertRow {
+    const role = coerceRole(msg.role);
     return {
         id: msg.id,
         conversationId: ctx.conversationId,
         userId: ctx.userId,
-        role: coerceRole(msg.role),
+        role,
         parts: msg.parts ?? [],
+        // The person's own words, for search_past_chats. Assistant text is never searched.
+        searchText: role === "user" ? userText(msg.parts) : null,
         metadata: msg.metadata ?? {},
         status: ctx.status,
         orderIndex: ctx.orderIndex,

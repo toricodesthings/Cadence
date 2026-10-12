@@ -9,6 +9,9 @@ import { transformListCache } from "../../lib/api/cache-guards";
 import { isRecurringTask } from "../../lib/utils/task/task-scheduling";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
+import { offerDuration } from "../../lib/ai/duration-prompt";
+import { useReportDuration } from "../ai/use-memory";
+import { useSettings } from "../core/use-settings";
 
 /** Normalize date ranges so scheduledStart ≤ scheduledEnd */
 function normalizeDateRange<T extends Record<string, unknown>>(updates: T): T {
@@ -40,6 +43,8 @@ function afterPreviousWrite(id: string, write: (freshUpdatedAt: string | undefin
 export function useUpdateTask() {
     const client = useApiClient();
     const queryClient = useQueryClient();
+    const { data: settings } = useSettings();
+    const reportDuration = useReportDuration();
 
     /** The newest version any cache holds: an inactive list (another range, a restored cache) can lag behind. */
     function getExpectedUpdatedAt(id: string): string | undefined {
@@ -85,6 +90,8 @@ export function useUpdateTask() {
 
         onSuccess: (task, input) => {
             if (!task) return; // Queued offline
+            // Full only, at most once a day, never required.
+            if (input.state === "COMPLETE") offerDuration(task, settings?.assistant?.memoryMode, (report) => reportDuration.mutate(report));
             if (input.effort !== undefined) void queryClient.invalidateQueries({ queryKey: queryKeys.effortEvidence });
             if (isRecurringTask(task)) {
                 taskCache.invalidate(queryClient);

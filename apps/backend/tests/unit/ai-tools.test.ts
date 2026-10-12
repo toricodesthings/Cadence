@@ -9,8 +9,7 @@ import {
     type TaskRow,
 } from "../../src/domains/ai/tools/projections";
 import { taskDay } from "@cadence/domain/task-recurrence";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { TOOL_CATALOG } from "@cadence/contracts/ai-tools";
 import { buildToolRegistry, clampLimit, MAX_LIST_LIMIT, safeExecute, slimSchema } from "../../src/domains/ai/tools/index";
 import { AppError } from "../../src/platform/errors";
 import { taskDraftSchema } from "../../src/domains/ai/tools/drafts";
@@ -145,14 +144,10 @@ describe("toMinimalInboxItem", () => {
 });
 
 describe("tool registry", () => {
-    it("every backend tool has a frontend descriptor, and the frontend lists no removed tool", () => {
+    it("builds exactly the tools the shared catalog lists", () => {
         const backend = Object.keys(buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" })).sort();
-        const registry = readFileSync(join(__dirname, "../../../frontend/app/components/assistant/tool-registry.tsx"), "utf8");
-        // Live tools are `name: { … }` rows; retired names (history only) are `name: "label"`.
-        const frontend = [...registry.matchAll(/^    (\w+): \{/gm)].map((m) => m[1]).sort();
 
-        expect(frontend).toEqual(backend);
-        expect(backend).toHaveLength(44);
+        expect(backend).toEqual(Object.keys(TOOL_CATALOG).sort());
     });
 
     it("sends the model schemas without regex patterns, but still validates calls in full", async () => {

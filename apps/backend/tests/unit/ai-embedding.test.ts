@@ -2,8 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import { MockEmbeddingModelV4 } from "ai/test";
 import type { Env } from "../../src/types/env";
 
-const provider = vi.hoisted(() => ({ model: undefined as unknown }));
-vi.mock("@openrouter/ai-sdk-provider", () => ({ createOpenRouter: () => ({ textEmbeddingModel: () => provider.model }) }));
+const provider = vi.hoisted(() => ({ model: undefined as unknown, settings: undefined as unknown }));
+vi.mock("@openrouter/ai-sdk-provider", () => ({
+    createOpenRouter: () => ({
+        textEmbeddingModel: (_id: string, settings: unknown) => {
+            provider.settings = settings;
+            return provider.model;
+        },
+    }),
+}));
 
 import { embedText, embedTexts } from "../../src/domains/ai/memory/embedding";
 
@@ -24,17 +31,19 @@ function embeddingModel(dims: number) {
 }
 
 describe("embedding", () => {
-    it("embeds one text into the column's 1536 dims, with what it cost", async () => {
-        embeddingModel(1536);
+    it("embeds one text into the column's 512 dims, with what it cost", async () => {
+        embeddingModel(512);
 
         const { embedding, spend } = await embedText(env, "likes mornings");
 
-        expect(embedding).toHaveLength(1536);
+        expect(embedding).toHaveLength(512);
         expect(spend).toMatchObject({ inputTokens: 7, costUsd: 0.00002 });
+        // extraBody lands in the /embeddings body; require_parameters keeps OpenRouter off upstreams that ignore it.
+        expect(provider.settings).toMatchObject({ extraBody: { dimensions: 512 }, provider: { require_parameters: true } });
     });
 
     it("embeds a batch, and skips the call for an empty one", async () => {
-        const model = embeddingModel(1536);
+        const model = embeddingModel(512);
 
         expect(await embedTexts(env, [])).toEqual([]);
         expect(model.doEmbedCalls).toHaveLength(0);

@@ -17,7 +17,7 @@ import { taskTagSchema } from "@cadence/contracts/tag";
 import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, taskBatchQuerySchema, updateTaskSchema } from "@cadence/contracts/task";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
-import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, rescheduleTasks, setTaskState, temporalColumns, toTask, trackTaskChanges, updateTask, withTagIds } from "./tasks.service";
+import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, rescheduleTasks, setTaskState, slotsOf, temporalColumns, toTask, trackTaskChanges, updateTask, withTagIds, type TaskSlot } from "./tasks.service";
 import { userZone } from "../../platform/user-zone";
 
 const taskTagParamSchema = z.object({
@@ -294,8 +294,12 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const body = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const updatedTasks = await withRls(db, userId, async (tx) => withTagIds(tx, await rescheduleTasks(tx, userId, body)));
-        trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { rescheduled: updatedTasks });
+        let from = new Map<string, TaskSlot>();
+        const updatedTasks = await withRls(db, userId, async (tx) => {
+            from = await slotsOf(tx, userId, body.taskIds);
+            return withTagIds(tx, await rescheduleTasks(tx, userId, body));
+        });
+        trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { rescheduled: updatedTasks, from }, { env: c.env });
 
         return c.json({ data: updatedTasks });
     })
@@ -305,11 +309,17 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { expectedUpdatedAt, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const [updated] = await withRls(db, userId, async (tx) => withTagIds(tx, [await updateTask(tx, userId, id, body, expectedUpdatedAt)]));
-        trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, {
-            rescheduled: hasTaskTemporalMutation(body) ? [updated] : [],
-            completed: body.state === "COMPLETE" ? [id] : [],
+        const moving = hasTaskTemporalMutation(body);
+        let from = new Map<string, TaskSlot>();
+        const [updated] = await withRls(db, userId, async (tx) => {
+            if (moving) from = await slotsOf(tx, userId, [id]);
+            return withTagIds(tx, [await updateTask(tx, userId, id, body, expectedUpdatedAt)]);
         });
+        trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, {
+            rescheduled: moving ? [updated] : [],
+            completed: body.state === "COMPLETE" ? [id] : [],
+            from,
+        }, { env: c.env });
 
         return c.json({ data: updated });
     })
@@ -363,7 +373,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const updatedTasks = await withRls(db, userId, async (tx) => withTagIds(tx, await setTaskState(tx, userId, taskIds, state)));
         trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, {
             completed: state === "COMPLETE" ? updatedTasks.map((task) => task.id) : [],
-        });
+        }, { env: c.env });
 
         return c.json({ data: updatedTasks });
     })

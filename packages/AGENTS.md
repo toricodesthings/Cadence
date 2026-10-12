@@ -60,7 +60,7 @@ families plus their inferred types:
 `xRowSchema` must be **structurally identical** to `typeof table.$inferSelect`.
 This is asserted at compile time in
 `apps/backend/tests/unit/contract-parity.test.ts` (one `expectTypeOf(...)
-.toEqualTypeOf(...)` per table — currently 15). A column rename/add/nullability
+.toEqualTypeOf(...)` per table). A column rename/add/nullability
 change now fails `tsc` there instead of silently breaking a client. **When you
 touch `apps/backend/src/db/schema.ts`, update the matching `xRowSchema` in the
 same change.** Watch DB nullability: a Drizzle column with `.default()` but
@@ -111,7 +111,8 @@ interface** — the parity guard only covers the Row subset.
   conversation/message/image Row+Entity, conversation list/detail projections,
   `streamErrorSchema` + `AI_ERROR_CODES` (status + retryability; each client
   keeps its own wording), chat image limits + `cadence-image:` URL helpers, message role/status enums, and the
-  `TaskProposalPart`/`DangerConfirmPart` widget payloads). Everything that
+  `TaskProposalPart`/`DangerConfirmPart` widget payloads); **ai-tools** is `TOOL_CATALOG`, every assistant tool name with its kind (read/write/capture/ask) and `destructive` flag, read by the backend tools, MCP and the chat UI (`isMemoryTool` names the three that exist only while memory is on); **memory** holds the wire shapes of
+  assistant memory (mode, fact, page, receipt, duration report; `MEMORY_CONSENT_VERSION`). Everything that
   composes prompts, runs tools, retrieves memory, or persists rows stays in
   `apps/backend/src/domains/ai` (server-only).
 

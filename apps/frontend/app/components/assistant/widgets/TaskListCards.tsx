@@ -48,13 +48,13 @@ const STATE_COPY: Record<State, { eyebrow: string; glyph: LucideIcon; primary: (
 };
 
 /** Card for `set_task_state`: done, Trash (restorable), reopen, or waiting on someone. */
-export function SetStateCard({ ctx }: { ctx: ToolRenderContext }) {
+export function SetStateCard({ ctx }: { ctx: ToolRenderContext<"set_task_state"> }) {
     const persona = useAssistantPersona();
     const lookupTitle = useTaskTitleLookup();
     const { off, onToggle, removed } = useUnticked(ctx);
     const input = ctx.part?.input ?? {};
     const taskIds: string[] = input.taskIds ?? [];
-    const copy = STATE_COPY[(input.state as State) ?? "COMPLETE"] ?? STATE_COPY.COMPLETE;
+    const copy = STATE_COPY[input.state ?? "COMPLETE"] ?? STATE_COPY.COMPLETE;
     const titles = taskIds.map(lookupTitle);
     const kept = titles.length - off.size;
     // Held: another open task has the same title, so nothing changed and the assistant asks which.
@@ -92,7 +92,7 @@ export function SetStateCard({ ctx }: { ctx: ToolRenderContext }) {
  * Danger card for `delete_tasks` (design §4.4): permanent, so the exact titles are
  * echoed and the frame is calm but unmistakable. Auto still waits for this tap.
  */
-export function DeleteTasksCard({ ctx }: { ctx: ToolRenderContext }) {
+export function DeleteTasksCard({ ctx }: { ctx: ToolRenderContext<"delete_tasks"> }) {
     const persona = useAssistantPersona();
     const { off, onToggle, removed } = useUnticked(ctx);
     const targets: { taskId: string; title: string }[] = ctx.part?.input?.tasks ?? [];
@@ -130,7 +130,7 @@ function dayLabel(iso?: string): string {
  * Change-set card for `reschedule_tasks` (design §4.2). Load-reducing framing;
  * each task keeps its own time on the new day (the server moves them one by one).
  */
-export function RescheduleCard({ ctx }: { ctx: ToolRenderContext }) {
+export function RescheduleCard({ ctx }: { ctx: ToolRenderContext<"reschedule_tasks"> }) {
     const persona = useAssistantPersona();
     const lookupTitle = useTaskTitleLookup();
     const { off, onToggle, removed } = useUnticked(ctx);
@@ -159,7 +159,7 @@ export function RescheduleCard({ ctx }: { ctx: ToolRenderContext }) {
 }
 
 /** Card for `duplicate_tasks`: each copy with its title and, when moved, its day. */
-export function DuplicateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
+export function DuplicateTasksCard({ ctx }: { ctx: ToolRenderContext<"duplicate_tasks"> }) {
     const lookupTitle = useTaskTitleLookup();
     const { off, onToggle, removed } = useUnticked(ctx);
     const sources: { taskId: string; title?: string; targetDate?: string }[] = ctx.part?.input?.tasks ?? [];
@@ -185,7 +185,7 @@ export function DuplicateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
 }
 
 /** Card for `reorder_tasks`: the tasks in their new order and where they land. */
-export function ReorderTasksCard({ ctx }: { ctx: ToolRenderContext }) {
+export function ReorderTasksCard({ ctx }: { ctx: ToolRenderContext<"reorder_tasks"> }) {
     const lookupTitle = useTaskTitleLookup();
     const input = ctx.part?.input ?? {};
     const titles = ((input.taskIds ?? []) as string[]).map(lookupTitle);

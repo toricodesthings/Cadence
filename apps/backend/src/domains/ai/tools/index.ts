@@ -1,4 +1,4 @@
-import { asSchema, jsonSchema } from "ai";
+import { asSchema, jsonSchema, type InferUITools } from "ai";
 import type { Env } from "../../../types/env";
 import type { ApprovalMode } from "@cadence/contracts/ai";
 import { logger, hashIdentifier } from "../../../platform/log";
@@ -17,6 +17,7 @@ import { metricTools } from "./metrics";
 import { focusViewTools } from "./focus-views";
 import { helpTools } from "./help";
 import { askTools } from "./ask";
+import { memoryTools } from "./memory";
 
 /**
  * Runtime context captured per request when the tool registry is built.
@@ -152,8 +153,12 @@ export function buildToolRegistry(env: Env, userId: string, ctx: AgentContext) {
         ...focusViewTools(env, userId, ctx),
         ...helpTools(),
         ...askTools(),
+        ...memoryTools(env, userId, ctx),
     });
 }
+
+/** Each tool's input and output as the chat UI receives them (the cards type their tool parts with it). */
+export type ToolIO = InferUITools<ReturnType<typeof buildToolRegistry>>;
 
 /** Drop regex `pattern`s (and `$schema`) from a JSON schema, recursively. */
 export function dropPatterns(node: unknown): unknown {

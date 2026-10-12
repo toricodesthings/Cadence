@@ -6,7 +6,7 @@
  */
 import { AlertCircle, Archive, Check, CheckCircle2, Inbox, NotebookPen, RotateCcw, Trash2, Pencil } from "lucide-react";
 import { IdentityBlock } from "./ProposalCard";
-import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
+import { ApprovalCard, TickRow, useUnticked, type RetiredRenderContext, type ToolRenderContext } from "./ApprovalCard";
 import { DraftDetails, DraftNote, DraftQuotes, DraftSteps, type TaskDraft } from "./TaskBatchCard";
 import { useCaptureLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
@@ -14,7 +14,7 @@ import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 type CaptureDraft = TaskDraft & { inboxItemId?: string };
 
 /** Retired `structure_captures` (still in older threads): one capture whole, or several as rows the user can untick. */
-export function StructureCapturesCard({ ctx }: { ctx: ToolRenderContext }) {
+export function StructureCapturesCard({ ctx }: { ctx: RetiredRenderContext }) {
     const persona = useAssistantPersona();
     const { off, onToggle, removed } = useUnticked(ctx);
     const drafts = ((ctx.part?.input?.items ?? []) as CaptureDraft[]);
@@ -63,7 +63,7 @@ const ACTION_COPY: Record<CaptureAction, string> = { note: "Keep as a note", dis
 const ACTION_GLYPH = { note: NotebookPen, discard: Archive, done: CheckCircle2, new: RotateCcw, edit: Pencil };
 
 /** Card for `update_captures`: each capture with what happens to it. */
-export function UpdateCapturesCard({ ctx }: { ctx: ToolRenderContext }) {
+export function UpdateCapturesCard({ ctx }: { ctx: ToolRenderContext<"update_captures"> }) {
     const lookup = useCaptureLookup();
     const { off, onToggle, removed } = useUnticked(ctx);
     const items: { inboxItemId: string; text?: string; action?: CaptureAction }[] = ctx.part?.input?.items ?? [];
@@ -99,10 +99,10 @@ export function UpdateCapturesCard({ ctx }: { ctx: ToolRenderContext }) {
 }
 
 /** Danger card for `delete_captures`: permanent, so the exact words are echoed. Auto still waits for this tap. */
-export function DeleteCapturesCard({ ctx }: { ctx: ToolRenderContext }) {
+export function DeleteCapturesCard({ ctx }: { ctx: ToolRenderContext<"delete_captures"> }) {
     const persona = useAssistantPersona();
     const { off, onToggle, removed } = useUnticked(ctx);
-    const texts = ((ctx.part?.input?.items ?? []) as { text: string }[]).map((item) => item.text);
+    const texts = (ctx.part?.input?.items ?? []).map((item) => item.text);
     const kept = texts.length - off.size;
     return (
         <ApprovalCard
@@ -132,7 +132,7 @@ export function DeleteCapturesCard({ ctx }: { ctx: ToolRenderContext }) {
 }
 
 /** Retired `structure_inbox_item` (one capture per call), still in older threads. */
-export function InboxStructureCard({ ctx }: { ctx: ToolRenderContext }) {
+export function InboxStructureCard({ ctx }: { ctx: RetiredRenderContext }) {
     const persona = useAssistantPersona();
     const draft = (ctx.part?.input ?? {}) as TaskDraft;
     const title = draft.title ?? "this capture";

@@ -16,7 +16,7 @@ describe("matchSlashCommand", () => {
 
 describe("filterSlashCommands", () => {
     it("lists every command for a bare slash and narrows by prefix", () => {
-        expect(filterSlashCommands("/").map((c) => c.id)).toEqual(["usage", "clear", "history", "settings"]);
+        expect(filterSlashCommands("/").map((c) => c.id)).toEqual(["usage", "clear", "history", "memory", "settings"]);
         expect(filterSlashCommands("/U").map((c) => c.id)).toEqual(["usage"]);
         expect(filterSlashCommands("/h").map((c) => c.id)).toEqual(["history"]);
     });

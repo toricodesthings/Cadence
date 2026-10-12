@@ -16,6 +16,10 @@ If `graphify-out/graph.json` exists (a local, git-ignored knowledge graph of `ap
 
 The graph tracks structure, not behaviour, and lags uncommitted edits. Open the files it points to before editing, and grep only for exact strings or when the graph comes up empty.
 
+## Commands (repo root)
+
+`pnpm dev` (backend + frontend) · `pnpm typecheck` · `pnpm lint` (runs `check:time` first) · `pnpm test` · `pnpm test:tz` (suites in four zones). Per-app commands are in each guide.
+
 ## AGENTS.md files are the current truth
 
 - Each AGENTS.md describes the code **as it is now**. If your change makes a line wrong, fix that line in the same change.

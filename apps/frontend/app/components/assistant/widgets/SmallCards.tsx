@@ -13,7 +13,7 @@ import { formatShortDate, formatTime } from "../../../lib/utils/date-format";
 import { getTaskRecurrenceSummary } from "../../../lib/utils/task/task-scheduling";
 import { getNextPersonalEventDate } from "../../../lib/utils/personal-events";
 
-export function CreateProjectCard({ ctx }: { ctx: ToolRenderContext }) {
+export function CreateProjectCard({ ctx }: { ctx: ToolRenderContext<"create_project"> }) {
     const input = ctx.part?.input ?? {};
     const name: string = input.name ?? "this list";
     const sections: string[] = input.sections ?? [];
@@ -35,7 +35,7 @@ export function CreateProjectCard({ ctx }: { ctx: ToolRenderContext }) {
     );
 }
 
-export function CreateTagCard({ ctx }: { ctx: ToolRenderContext }) {
+export function CreateTagCard({ ctx }: { ctx: ToolRenderContext<"create_tag"> }) {
     const name: string = ctx.part?.input?.name ?? "this tag";
     return (
         <ApprovalCard
@@ -52,7 +52,7 @@ export function CreateTagCard({ ctx }: { ctx: ToolRenderContext }) {
     );
 }
 
-export function LogHabitCard({ ctx }: { ctx: ToolRenderContext }) {
+export function LogHabitCard({ ctx }: { ctx: ToolRenderContext<"log_habit"> }) {
     const lookupHabit = useHabitLookup();
     const input = ctx.part?.input ?? {};
     const habit = lookupHabit(input.habitId ?? "");
@@ -121,7 +121,7 @@ function routineSummary(draft: RoutineDraft, tagNames: string[] = []) {
     ].filter(Boolean).join(" · ") || undefined;
 }
 
-export function CreateHabitCard({ ctx }: { ctx: ToolRenderContext }) {
+export function CreateHabitCard({ ctx }: { ctx: ToolRenderContext<"create_habit"> }) {
     const lookupTags = useTagsLookup();
     const draft: RoutineDraft = ctx.part?.input ?? {};
     const name = draft.title ?? "this routine";
@@ -145,7 +145,7 @@ export function CreateHabitCard({ ctx }: { ctx: ToolRenderContext }) {
     );
 }
 
-export function UpdateHabitCard({ ctx }: { ctx: ToolRenderContext }) {
+export function UpdateHabitCard({ ctx }: { ctx: ToolRenderContext<"update_habit"> }) {
     const lookupHabit = useHabitLookup();
     const lookupTags = useTagsLookup();
     const input = ctx.part?.input ?? {};
@@ -174,7 +174,7 @@ export function UpdateHabitCard({ ctx }: { ctx: ToolRenderContext }) {
 }
 
 /** `delete_habit` is permanent (history and streaks go too), so Auto still waits for this tap. */
-export function DeleteHabitCard({ ctx }: { ctx: ToolRenderContext }) {
+export function DeleteHabitCard({ ctx }: { ctx: ToolRenderContext<"delete_habit"> }) {
     const persona = useAssistantPersona();
     const name: string = ctx.part?.input?.title ?? ctx.part?.output?.deleted ?? "this routine";
     return (
@@ -219,7 +219,7 @@ function eventSubtitle(draft: EventDraft) {
     return parts.join(" · ") || undefined;
 }
 
-export function CreateEventCard({ ctx }: { ctx: ToolRenderContext }) {
+export function CreateEventCard({ ctx }: { ctx: ToolRenderContext<"create_event"> }) {
     const draft: EventDraft = ctx.part?.input ?? {};
     const title = eventTitle(draft, "this event");
     return (
@@ -237,7 +237,7 @@ export function CreateEventCard({ ctx }: { ctx: ToolRenderContext }) {
     );
 }
 
-export function UpdateEventCard({ ctx }: { ctx: ToolRenderContext }) {
+export function UpdateEventCard({ ctx }: { ctx: ToolRenderContext<"update_event"> }) {
     const lookupEvent = useEventLookup();
     const input = ctx.part?.input ?? {};
     const current = lookupEvent(input.eventId ?? "");
@@ -263,7 +263,7 @@ export function UpdateEventCard({ ctx }: { ctx: ToolRenderContext }) {
 }
 
 /** `delete_event` is permanent (events have no Trash), so Auto still waits for this tap. */
-export function DeleteEventCard({ ctx }: { ctx: ToolRenderContext }) {
+export function DeleteEventCard({ ctx }: { ctx: ToolRenderContext<"delete_event"> }) {
     const lookupEvent = useEventLookup();
     const name = lookupEvent(ctx.part?.input?.eventId ?? "")?.label ?? ctx.part?.output?.deleted ?? "this event";
     return (
@@ -285,7 +285,7 @@ export function DeleteEventCard({ ctx }: { ctx: ToolRenderContext }) {
     );
 }
 
-export function CreateSectionsCard({ ctx }: { ctx: ToolRenderContext }) {
+export function CreateSectionsCard({ ctx }: { ctx: ToolRenderContext<"create_sections"> }) {
     const input = ctx.part?.input ?? {};
     const names: string[] = input.names ?? [];
     const label = names.length > 1 ? `${names.length} sections` : `“${names[0] ?? "a section"}”`;
@@ -304,7 +304,7 @@ export function CreateSectionsCard({ ctx }: { ctx: ToolRenderContext }) {
     );
 }
 
-export function UpdateSectionCard({ ctx }: { ctx: ToolRenderContext }) {
+export function UpdateSectionCard({ ctx }: { ctx: ToolRenderContext<"update_section"> }) {
     const lookupSection = useSectionLookup();
     const input = ctx.part?.input ?? {};
     const current = lookupSection(input.sectionId ?? "")?.name ?? "this section";
@@ -329,7 +329,7 @@ export function UpdateSectionCard({ ctx }: { ctx: ToolRenderContext }) {
 }
 
 /** `delete_section` is permanent; its tasks stay in the list, unsectioned. Auto still waits for this tap. */
-export function DeleteSectionCard({ ctx }: { ctx: ToolRenderContext }) {
+export function DeleteSectionCard({ ctx }: { ctx: ToolRenderContext<"delete_section"> }) {
     const persona = useAssistantPersona();
     const lookupSection = useSectionLookup();
     const output = ctx.part?.output;

@@ -8,7 +8,7 @@ import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit } from "./index";
 import { placeNameColumns } from "./tasks";
-import { inDayWindow } from "../../tasks/task-filters";
+import { inDayWindow } from "../../tasks/tasks.service";
 import { expandScheduleScopedTasks, taskDay } from "@cadence/domain/task-recurrence";
 import { isPausedOn } from "@cadence/domain/repeats";
 import { addDays } from "@cadence/domain/time";

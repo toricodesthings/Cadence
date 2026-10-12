@@ -16,6 +16,7 @@ export const PRIVACY: LegalDoc = {
     "Your workspace lives in a Neon Postgres database, separated per account by row-level security. Cloudflare runs the servers.",
     "If you message the assistant, that message, related tasks and notes, and any photos you attach go to AI model providers through OpenRouter. Their retention and training terms are not something this project can verify.",
     "Unless you switch it off in Settings (Suggest where captures go), a new capture's text, or a search that found nothing, goes to an AI provider with your list, section and task names, to suggest where it belongs or what you meant.",
+    "If you choose Basic or Full, the assistant remembers what you tell it (Full also learns from what you do in the app). You can see all of it, forget anything with one tap, or choose Off.",
     "Usage diagnostics are on by default (you can switch them off) and record which actions you use, not your text. The Crash reports switch currently does nothing.",
     "You can delete your account yourself in Settings: it is permanent and cannot be undone. You can also have a JSON copy of your data emailed to you from the same place.",
     "Cadence sets only the cookies needed to keep you signed in. This website sets none.",
@@ -124,11 +125,11 @@ export const PRIVACY: LegalDoc = {
               "Reply copy up to 1 hour while running, about 1 minute after it ends. Counters roll over within 5 hours, 24 hours, 7 days",
             ],
             [
-              "Assistant memory",
-              "Recall preferences across chats",
+              "Assistant memory: short facts about you (a sentence each, with the day you said it and where it came from), and for Full, signals of what you did (weekday and time-of-day buckets, durations you reported)",
+              "Recall what you said once, so you never repeat yourself",
               "Neon Postgres",
               "Neon",
-              "Nothing is written today. See the assistant section",
+              "Until you forget an item or clear memory. Activity signals 90 days. See the memory section",
             ],
           ],
         },
@@ -320,7 +321,7 @@ export const PRIVACY: LegalDoc = {
         { kind: "sub", title: "Memory" },
         {
           kind: "p",
-          text: "Memory is off by default in your settings. It is also unfinished: the code that would save facts about you is a stub, so nothing is written today, and saved memories could only ever be used if a server-side switch were also turned on. If that ever changes, your message would additionally be sent to an embedding model to find related memories, and this page will be updated first.",
+          text: "Memory is covered in its own section below: what Basic and Full each learn, what is never stored, and how to see, forget and clear it.",
         },
         { kind: "sub", title: "Retention and training by AI providers" },
         {
@@ -340,6 +341,69 @@ export const PRIVACY: LegalDoc = {
       ],
     },
     {
+      id: "memory",
+      title: "Assistant memory",
+      blocks: [
+        {
+          kind: "p",
+          text: "Memory lets the assistant carry what you have told it from one chat to the next, so you never repeat yourself. The first time you open the assistant it asks how much to remember, and you can change it any time in Settings, under Cadence Assistant. Nothing is learned until you choose Basic or Full.",
+        },
+        { kind: "sub", title: "What each choice learns from" },
+        {
+          kind: "table",
+          head: ["", "Off", "Basic", "Full"],
+          rows: [
+            ["What you say in assistant chats", "Nothing", "Yes", "Yes"],
+            ["Changes you make yourself: rescheduling, finishing tasks, routine check-ins, how long you say things took", "Nothing", "Nothing", "Yes"],
+            ["Changed lines of your task notes", "Nothing", "Nothing", "Yes"],
+            ["The last 90 days of chats and notes, once, over a few nights", "Nothing", "Nothing", "Yes, when you choose Full"],
+          ],
+        },
+        { kind: "sub", title: "How it learns" },
+        {
+          kind: "list",
+          items: [
+            "When you tell the assistant to remember, correct or forget something, it saves at once and shows what it saved with an Undo.",
+            "About ten minutes after a chat goes quiet, the messages you wrote in it are read once by an AI model that picks out the few lasting things worth keeping. Only your own words are read: never the assistant's replies, tool results, or text you quoted or pasted.",
+            "Each kept fact is a short sentence with the day you first said it. Its text is also sent to an embedding model so it can be found later by meaning.",
+            "At night, repeats are merged, facts that no longer apply are dropped, and unconfirmed guesses expire after 60 days. Things you said outright never expire on their own.",
+            "Full adds patterns it can count (for example that you often finish things in the evening) from the changes you made yourself in the app, never from changes the assistant or a connected assistant made. A pattern needs at least 5 events on 3 different days in 4 weeks, mostly in one slot, before anything is claimed.",
+          ],
+        },
+        { kind: "sub", title: "What goes to AI providers" },
+        {
+          kind: "p",
+          text: "The messages, and for Full the note lines, that memory reads are sent through OpenRouter to the model provider, the same way assistant messages are (see the assistant section for who that is and what cannot be verified about their retention). Cadence does not use your content to train models. The same limits on what Cadence can promise about providers apply here.",
+        },
+        { kind: "sub", title: "What is never stored" },
+        {
+          kind: "list",
+          items: [
+            "Anything the app already holds: your tasks, note text and settings. A note is never copied into memory; only a short fingerprint of each line read is kept so a saved edit is learned from once.",
+            "Anything from the assistant's own text, from tool results, or from quoted, forwarded or hypothetical text.",
+            "Details about other people beyond what planning needs (a name, how they relate to you, a date).",
+            "Diagnoses, mood or health guesses. A sensitive detail (health, money, relationship trouble) is kept only if you tell the assistant to remember it.",
+          ],
+        },
+        { kind: "sub", title: "Seeing, changing and removing it" },
+        {
+          kind: "list",
+          items: [
+            "**What Cadence knows** lists everything in plain sentences with where each came from. Tap an item to forget it; it is gone from use at once, can be brought back for 10 minutes, and afterwards only a short topic label stays so it is not learned again.",
+            "Ask the assistant to change or forget anything, in chat.",
+            "**Don't learn from this chat** in a conversation's menu keeps that chat out of memory.",
+            "Choosing Off stops learning and use on the next message; what is stored stays, shown as unused, until you clear it. Choosing Basic after Full deletes what only activity, notes or the 90-day catch-up taught. **Clear everything** deletes every item.",
+            "Your data export includes memory items; embedding vectors are left out. Deleting your account deletes memory with it.",
+          ],
+        },
+        {
+          kind: "gap",
+          title: "What this cannot promise",
+          text: "Extraction is done by an AI model and can get a fact wrong or miss one. Memory never overrides your settings or your instructions, and never lets the assistant do something you have not allowed, but it can be mistaken. Anything you would rather it did not keep, forget it or choose Off.",
+        },
+      ],
+    },
+    {
       id: "connected-assistants",
       title: "Connected assistants",
       blocks: [
@@ -351,6 +415,7 @@ export const PRIVACY: LegalDoc = {
           kind: "list",
           items: [
             "You choose the access: read your data, add to Capture only, or change your data (including permanent deletes). It cannot change settings.",
+            "While you have memory on, read access includes what Cadence remembers and searching what you said in past chats, and change access includes remembering, updating and forgetting facts. With memory off, none of that is offered.",
             "Cadence stores the assistant's name, the access you granted, your browser's time zone at the time, and when it last connected, in the database. Its access tokens are kept by Cloudflare, expire after 30 idle days, and are checked against your Disconnect on every call.",
             "Disconnect in Settings stops new access immediately. It cannot take back what the assistant already read; from then on that assistant's own provider handles it under its own terms.",
             "A short-lived cookie on the connected-assistant domain ties a consent request to the browser that started it, for up to 10 minutes.",
@@ -547,7 +612,7 @@ export const PRIVACY: LegalDoc = {
           kind: "list",
           items: [
             "In the file: your workspace as stored, meaning tasks, notes, subtasks, lists, sections, tags, routines and their logs, captures, saved views, settings, assistant conversations, connected-assistant records, reminder state and usage diagnostics, plus your account id and email.",
-            "Not in the file: photos you uploaded (your background, images sent to the assistant), sign-in details held by Neon Auth (name, profile picture, password, linked logins), assistant-memory embedding vectors, and the internal keys Cadence uses to avoid repeating a change.",
+            "Not in the file: photos you uploaded (your background, images sent to the assistant), sign-in details held by Neon Auth (name, profile picture, password, linked logins), assistant-memory embedding vectors (memory items themselves are in the file), and the internal keys Cadence uses to avoid repeating a change.",
             "Cadence keeps a record of each request: the address, the time, whether it was sent, and the file size. It does not keep the file. The record is erased with your account.",
             "It is a snapshot, not a backup, and it is not meant to be re-imported into Cadence.",
           ],
@@ -685,7 +750,7 @@ export const PRIVACY: LegalDoc = {
             "Usage diagnostics are on by default and tied to your account, even though the app calls them anonymous.",
             "The Crash reports and Store recent searches switches do not do anything.",
             "Signing out leaves a cached copy of your workspace on the device.",
-            "Assistant memory is an unfinished stub and currently stores nothing.",
+            "Memory is new: its learning rests on an AI model's reading of your words, which can be wrong, and its provider's retention terms could not be verified.",
             "Whether Cloudflare's analytics or security cookies are active at the network edge could not be verified.",
             "No data processing agreements were reviewed, and there has been no independent security audit.",
             "The minimum age of 16 is a proposal, and your age is self-declared and not verified.",

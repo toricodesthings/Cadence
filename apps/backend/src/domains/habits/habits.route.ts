@@ -13,6 +13,7 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
+import { recordPersonActivity } from "../ai/memory/memory.service";
 import { createHabit, deleteHabit, projectHabitRange, resolveHabit, updateHabit } from "./habits.service";
 
 export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -23,6 +24,10 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const db = getDbClient(c.env);
 
         const result = await withRls(db, userId, (tx) => resolveHabit(tx, userId, id, body));
+        // A check-in the person made in the app: a signal for memory (Full), never one from the assistant.
+        if (body.status === "COMPLETED") {
+            c.executionCtx.waitUntil(recordPersonActivity(c.env, userId, [{ kind: "routine", habitId: id, day: body.targetDate }]));
+        }
 
         return c.json({ data: result }, 200);
     })

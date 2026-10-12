@@ -23,7 +23,7 @@ const SKIPPED_TABLES = new Set(["mutation_dedup"]);
 
 /**
  * Every table holding the person's rows, as JSON. Driven by the schema, so a new table is exported without
- * anyone remembering to add it. Embedding vectors are left out (model internals, 1,536 numbers a row).
+ * anyone remembering to add it. Embedding vectors and generated search columns are left out (model internals).
  */
 export async function buildExport(tx: Tx, identity: { userId: string; email: string }): Promise<string> {
     const { userId } = identity;
@@ -32,7 +32,7 @@ export async function buildExport(tx: Tx, identity: { userId: string; email: str
         const name = getTableName(table);
         if (SKIPPED_TABLES.has(name)) continue;
         const all: Record<string, any> = getTableColumns(table);
-        const columns = Object.fromEntries(Object.entries(all).filter(([, column]) => column.columnType !== "PgVector"));
+        const columns = Object.fromEntries(Object.entries(all).filter(([, column]) => !["PgVector", "PgHalfVector"].includes(column.columnType) && !column.generated));
         const scope =
             "userId" in all ? eq(all.userId, userId)
             : name === "users" ? eq(all.id, userId)

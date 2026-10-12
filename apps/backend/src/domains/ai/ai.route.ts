@@ -35,6 +35,7 @@ import {
     truncateMessagesAfter,
     deleteAllMessages,
     saveAssistantMessage,
+    lastUserTexts,
     touchConversation,
     listConversations,
     getConversation,
@@ -70,7 +71,6 @@ import {
     type RemainingByWindow,
     type TurnSpend,
 } from "./safety/rate-limit";
-import { extractAndStoreMemories } from "./memory/memory-write";
 import { aiImageKey, deleteImageObjects, hydrateImages, imageIdsIn, markSent, resolveTurnImages } from "./images/chat-images";
 import { AppError, throwIfNotFound } from "../../platform/errors";
 import type { Env } from "../../types/env";
@@ -88,7 +88,7 @@ const FIRST_CHUNK_TIMEOUT_MS = 15_000;
 
 type ChatMessage = { id: string; role: "user" | "assistant" | "system"; parts: unknown[]; metadata?: Record<string, unknown> };
 
-/** Join text parts of a UIMessage into a single query string (for memory retrieval). */
+/** Join text parts of a UIMessage into one string. */
 function extractText(parts: unknown[]): string {
     return parts
         .map((p) => (p && typeof p === "object" && (p as any).type === "text" ? String((p as any).text ?? "") : ""))
@@ -229,15 +229,25 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // persistence, so build it alongside instead of after. Awaited below; the catch only
     // stops an unhandled rejection if persistence throws first.
     // The client's zone is synced to users.time_zone first, so every tool and the clock read the one stored zone.
-    const agentReady = withRls(db, userId, (tx) => syncUserZone(tx, userId, body.timezone)).then((timezone) => getAgentInstance(c.env, userId, {
+    const agentReady = withRls(db, userId, async (tx) => {
+        const timezone = await syncUserZone(tx, userId, body.timezone);
+        // What recall looks up: this message plus the one before it, so "yes, do that" keeps its subject.
+        let previous: string | undefined;
+        try {
+            if (body.conversationId) previous = (await lastUserTexts(tx, userId, body.conversationId, 2)).filter((text) => text !== incomingText).at(-1);
+        } catch {
+            // recall falls back to this message alone
+        }
+        return { timezone, queryText: [previous, incomingText].filter(Boolean).join("\n") || undefined };
+    }).then(({ timezone, queryText }) => getAgentInstance(c.env, userId, {
         timezone,
+        queryText,
+        requestId,
         currentDate: body.currentDate,
         locale: body.locale,
         approvalMode: body.approvalMode,
         modelId,
         nonce,
-        queryText: incomingText || undefined,
-        requestId,
         waitUntil: (promise) => c.executionCtx.waitUntil(promise),
     }));
     agentReady.catch(() => {});
@@ -349,7 +359,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // references (never base64).
     const { messages: modelMessages, hydrated: imageCount } = await hydrateImages(uiMessages, c.env.USER_ASSETS, userKey, recentFrom);
 
-    const { agent, promptHash, embeddingSpend, memoryRetrieval, turnContext } = await agentReady;
+    const { agent, promptHash, turnContext } = await agentReady;
     // Each recent user message replays the context it was sent with (stored, from the DB rows
     // only — never a client copy). The new message gets this turn's; a continued turn
     // (approval, kept retry) keeps its original so the reply resumes on the same prefix.
@@ -413,7 +423,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 await withRls(db, userId, async (tx) => {
                     await saveAssistantMessage(tx, userId, conversationId, cleaned, {
                         status,
-                        metadata: { ...cleaned.metadata, ...spend, titleSpend, embeddingSpend, memoryRetrieval },
+                        metadata: { ...cleaned.metadata, ...spend, titleSpend },
                     });
                     await touchConversation(tx, userId, conversationId, { model: modelId });
                     if (lastUser && storedLastContext !== lastUserContext) {
@@ -446,10 +456,6 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 );
             }
             logTurn(responseMessage, status, totalMs);
-            // Post-turn memory extraction — flagged + non-blocking (never blocks the stream).
-            c.executionCtx.waitUntil(
-                extractAndStoreMemories(c.env, userId, { conversationId, messages: uiMessages }).catch(() => {}),
-            );
         },
     });
 

@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from "react"
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { lastAssistantMessageIsCompleteWithApprovalResponses, type UIMessage } from "ai";
-import { X, ArrowUp, ArrowDown, History, SquarePen, ImagePlus, Slash, Zap, ShieldCheck, ShieldOff, ChevronDown, Sunrise, AlarmClock, Inbox, Loader2, AlertCircle } from "lucide-react";
+import { X, ArrowUp, ArrowDown, Brain, History, SquarePen, ImagePlus, Slash, Zap, ShieldCheck, ShieldOff, ChevronDown, Sunrise, AlarmClock, Inbox, Loader2, AlertCircle } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ResizableSidePanel } from "../shared/ResizableSidePanel";
 import { Tip, DropdownMenu } from "../primitives";
@@ -23,6 +23,9 @@ import { AssistantSigil } from "./AssistantSigil";
 import { ReadReceipt, type ReceiptState } from "./ReadReceipt";
 import { ConversationList } from "./ConversationList";
 import { UsageOverlay } from "./UsageOverlay";
+import { MemoryOverlay } from "./MemoryOverlay";
+import { MemoryPicker } from "./MemoryPicker";
+import { useMemoryPage } from "../../hooks/ai/use-memory";
 import { SlashCommandMenu, SLASH_MENU_ID, slashOptionId } from "./SlashCommandMenu";
 import { SLASH_COMMANDS, filterSlashCommands, matchSlashCommand, type SlashCommand } from "../../lib/ai/slash-commands";
 import { useStepOutOfAssistant } from "../../hooks/ai/use-step-out-of-assistant";
@@ -179,6 +182,8 @@ export function AssistantSidePanel({
         activeConversationId,
         historyOpen,
         setHistoryOpen,
+        memoryOpen,
+        setMemoryOpen,
         startNewConversation,
         setActiveConversation,
         approvalMode,
@@ -214,6 +219,7 @@ export function AssistantSidePanel({
     // narrows it; the `/` button opens all of it over a draft without touching the
     // text. Escape hides the menu until the text changes.
     const [usageOpen, setUsageOpen] = useState(false);
+    const { data: memoryPage } = useMemoryPage();
     const [slashIndex, setSlashIndex] = useState(0);
     const [slashDismissed, setSlashDismissed] = useState(false);
     const [slashMenuForced, setSlashMenuForced] = useState(false);
@@ -730,6 +736,10 @@ export function AssistantSidePanel({
         if (command.id === "usage") {
             setHistoryOpen(false);
             setUsageOpen(true);
+        } else if (command.id === "memory") {
+            setHistoryOpen(false);
+            setUsageOpen(false);
+            setMemoryOpen(true);
         } else if (command.id === "clear") {
             setUsageOpen(false);
             handleNewChat();
@@ -923,7 +933,9 @@ export function AssistantSidePanel({
         if (isMobile) return;
         const onKey = (e: KeyboardEvent) => {
             if (e.key !== "Escape") return;
-            if (usageOpen) {
+            if (memoryOpen) {
+                setMemoryOpen(false);
+            } else if (usageOpen) {
                 closeUsage();
             } else if (historyOpen) {
                 setHistoryOpen(false);
@@ -933,7 +945,7 @@ export function AssistantSidePanel({
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [isMobile, assistantPanelOpen, toggleAssistantPanel, historyOpen, setHistoryOpen, usageOpen]);
+    }, [isMobile, assistantPanelOpen, toggleAssistantPanel, historyOpen, setHistoryOpen, usageOpen, memoryOpen, setMemoryOpen]);
 
     // Index of the most recent user message — drives the read receipt.
     const lastUserIndex = useMemo(() => {
@@ -1095,6 +1107,20 @@ export function AssistantSidePanel({
                             <History size={17} aria-hidden="true" />
                         </button>
                     </Tip>
+                    {memoryPage ? (
+                        <Tip label="What Cadence knows" side="bottom">
+                            <button
+                                onClick={() => {
+                                    setUsageOpen(false);
+                                    setMemoryOpen(true);
+                                }}
+                                className="flex h-9 w-9 items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text cursor-pointer"
+                                aria-label="What Cadence knows"
+                            >
+                                <Brain size={17} aria-hidden="true" />
+                            </button>
+                        </Tip>
+                    ) : null}
                     <Tip label="Close assistant" side="bottom">
                         <button
                             onClick={toggleAssistantPanel}
@@ -1545,6 +1571,23 @@ export function AssistantSidePanel({
             <AnimatePresence>
                 {usageOpen ? <UsageOverlay onClose={closeUsage} onOpenSettings={openAssistantSettings} /> : null}
             </AnimatePresence>
+            <AnimatePresence>
+                {memoryOpen ? (
+                    <MemoryOverlay
+                        onClose={() => {
+                            setMemoryOpen(false);
+                            textareaRef.current?.focus();
+                        }}
+                        // The change goes through chat: the assistant applies it and shows the receipt.
+                        onAsk={(text) => {
+                            setMemoryOpen(false);
+                            submitText(text);
+                        }}
+                    />
+                ) : null}
+            </AnimatePresence>
+            {/* The first-start question: shown until answered, over everything else. */}
+            <MemoryPicker />
         </div>
     );
 

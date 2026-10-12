@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatInZone } from "@cadence/domain/time";
 import { formatShortDate } from "../../lib/utils/date-format";
 import { getUserZone } from "../../lib/utils/user-zone";
-import { MoreHorizontal, Pencil, Archive, ArchiveRestore, Trash2, Check, X } from "lucide-react";
+import { MoreHorizontal, Pencil, Archive, ArchiveRestore, Trash2, Check, X, EyeOff, Brain } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Tip } from "../primitives";
 import type { ConversationListItem } from "@cadence/contracts/ai";
@@ -39,6 +39,7 @@ export function ConversationListItem({
     onRename,
     onArchive,
     onDelete,
+    onToggleLearn,
 }: {
     conversation: ConversationListItem;
     active: boolean;
@@ -48,6 +49,8 @@ export function ConversationListItem({
     onRename: (title: string) => void;
     onArchive: (archived: boolean) => void;
     onDelete: () => void;
+    /** Present while memory is on: the "Don't learn from this chat" switch for this thread. */
+    onToggleLearn?: (learn: boolean) => void;
 }) {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState("");
@@ -128,6 +131,9 @@ export function ConversationListItem({
                 aria-current={active ? "true" : undefined}
             >
                 <span className="text-truncate-safe min-w-0 flex-1 font-medium">{title}</span>
+                {onToggleLearn && !conversation.learn ? (
+                    <EyeOff size={12} aria-label="Memory doesn’t learn from this chat" className="shrink-0 text-twilight-text-muted" />
+                ) : null}
                 <span className="shrink-0 text-[11px] text-twilight-text-muted">
                     {relativeTime(conversation.lastMessageAt)}
                 </span>
@@ -161,6 +167,12 @@ export function ConversationListItem({
                         <Pencil size={14} />
                         Rename
                     </DropdownMenu.Item>
+                    {onToggleLearn ? (
+                        <DropdownMenu.Item onSelect={() => onToggleLearn(!conversation.learn)} className="gap-2 text-[14px]">
+                            {conversation.learn ? <EyeOff size={14} /> : <Brain size={14} />}
+                            {conversation.learn ? "Don’t learn from this chat" : "Learn from this chat"}
+                        </DropdownMenu.Item>
+                    ) : null}
                     <DropdownMenu.Separator />
                     <DropdownMenu.Item
                         variant="danger"

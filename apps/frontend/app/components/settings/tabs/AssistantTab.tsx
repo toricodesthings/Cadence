@@ -1,13 +1,15 @@
-import { Bot, ClipboardList, Goal, Feather, Heart, Check, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Bot, Brain, ClipboardList, Goal, Feather, Heart, Check, ShieldCheck, type LucideIcon } from "lucide-react";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
-import { Input } from "../../primitives";
-import { Switch } from "../../primitives";
+import { Button, Input, Switch } from "../../primitives";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS, type UserSettings } from "../../../types/settings";
 import { cn } from "../../../lib/utils";
 import { useAiUsage } from "../../../hooks/ai/use-ai-usage";
 import { UsageMeters } from "../../assistant/UsageMeters";
 import { ClearArchiveButton } from "../../assistant/ClearArchiveButton";
+import { useMemoryPage, useSetMemoryMode } from "../../../hooks/ai/use-memory";
+import { useAssistantStore } from "../../../stores/assistant-store";
+import { useUtilityNavigation } from "../../../hooks/ui/use-utility-navigation";
 
 const CUSTOM_INSTRUCTIONS_MAX = 600;
 
@@ -33,6 +35,10 @@ export function AssistantTab() {
     const assistantName = assistant.assistantName?.trim() || SETTINGS_DEFAULTS.assistant.assistantName;
     const charsNearLimit = customInstructions.length > CUSTOM_INSTRUCTIONS_MAX * 0.9;
     const { data: usage, isLoading: usageLoading } = useAiUsage(true);
+    const { data: memory } = useMemoryPage();
+    const setMemoryMode = useSetMemoryMode();
+    const setMemoryOpen = useAssistantStore((s) => s.setMemoryOpen);
+    const { close: closeSettings } = useUtilityNavigation();
 
     const updateAssistant = (patch: Partial<UserSettings["assistant"]>) => {
         updateSettings.mutate({ assistant: patch });
@@ -171,17 +177,45 @@ export function AssistantTab() {
                     />
                 </SettingsRow>
 
-                <SettingsRow
-                    title="Memory"
-                    description="Let the assistant recall durable preferences across conversations when generating replies."
-                >
-                    <Switch
-                        checked={assistant.memoryEnabled}
-                        onCheckedChange={(value) => updateAssistant({ memoryEnabled: value })}
-                    />
-                </SettingsRow>
-
             </SettingsSection>
+
+            {/* ── Memory ── the mode is server-owned (POST /ai/memory/mode), never part of the settings PATCH */}
+            {memory ? (
+                <SettingsSection title="Memory">
+                    <SettingsRow
+                        title="How much to remember"
+                        description="Basic remembers what you tell the assistant. Full also learns from how you work: what you finish, move and how long things take."
+                    >
+                        <div role="radiogroup" aria-label="How much to remember" className="flex gap-1 rounded-full border border-twilight-border bg-twilight-surface/40 p-1">
+                            {(["off", "basic", "full"] as const).map((mode) => (
+                                <button
+                                    key={mode}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={memory.mode === mode}
+                                    disabled={setMemoryMode.isPending}
+                                    onClick={() => memory.mode !== mode && setMemoryMode.mutate(mode)}
+                                    className={cn(
+                                        "min-h-9 flex-1 cursor-pointer rounded-full px-4 text-sm font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50",
+                                        memory.mode === mode ? "bg-accent-primary/15 text-twilight-text" : "text-twilight-text-soft hover:text-twilight-text",
+                                    )}
+                                >
+                                    {mode}
+                                </button>
+                            ))}
+                        </div>
+                    </SettingsRow>
+                    <SettingsRow
+                        title="What Cadence knows"
+                        description="See everything remembered, forget anything with one tap, or ask for a change in chat."
+                    >
+                        <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => { closeSettings(); setMemoryOpen(true); }}>
+                            <Brain size={14} aria-hidden />
+                            Open
+                        </Button>
+                    </SettingsRow>
+                </SettingsSection>
+            ) : null}
 
             {/* ── Custom Guidance ── full-width, never a SettingsRow (which caps width) */}
             <SettingsSection title="Custom Guidance">

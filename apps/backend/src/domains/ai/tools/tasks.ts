@@ -6,8 +6,6 @@ import { getDbClient } from "../../../platform/db";
 import { projects, savedFocusViews, taskSections, tasks, subtasks, taskNotes, taskTags, tags } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
-import { hasNoDay, inDayWindow, onOrBefore } from "../../tasks/task-filters";
-import { buildTaskWhereClause } from "../../tasks/tasks.read";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, once } from "./index";
 import {
@@ -33,6 +31,10 @@ import {
     setTaskState,
     trackTaskChanges,
     updateTasks,
+    buildTaskWhereClause,
+    hasNoDay,
+    inDayWindow,
+    onOrBefore,
 } from "../../tasks/tasks.service";
 import { findOrCreateTags } from "../../tags/tags.service";
 import { processCapture } from "../../inbox/inbox.service";

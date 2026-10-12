@@ -329,7 +329,18 @@ export const userSettingsSchema = z.object({
         assistantName: z.string().max(40).optional(),
         customInstructions: z.string().max(600).nullable().optional(),
         proactiveSuggestions: z.boolean().optional(),
-        memoryEnabled: z.boolean().optional(),
+        // Server-owned (POST /ai/memory/mode): the settings PATCH refuses all four, so neither a client nor the model can forge consent.
+        memoryMode: z.enum(["off", "basic", "full"]).nullable().optional(),
+        memoryChoiceAt: z.string().nullable().optional(),
+        memoryConsentVersion: z.string().nullable().optional(),
+        memoryEpoch: z.number().int().optional(),
+        // Where the 90-day catch-up on choosing Full has got to (server-owned, like the choice itself).
+        memoryBackfill: z.object({
+            since: z.string(),
+            before: z.string(),
+            chats: z.enum(["pending", "done"]),
+            notes: z.enum(["pending", "done"]),
+        }).nullable().optional(),
         adaptiveTone: z.boolean().optional(),
     }).optional(),
     // Legacy field — accepted for backward compat; migrated to tasks.defaultView
@@ -339,7 +350,7 @@ export const userSettingsSchema = z.object({
 export type UserSettings = z.infer<typeof userSettingsSchema>;
 
 /** The revision of the Terms and Privacy Policy people accept (their `updated` date on cadenceapp.cloud). Bumping it asks everyone to accept again. */
-export const LEGAL_VERSION = "2026-09-30";
+export const LEGAL_VERSION = "2026-10-12";
 
 // ── Deep-partial utility (Zod 4 removed .deepPartial()) ──
 
@@ -371,7 +382,9 @@ function deepPartial(schema: z.ZodType): z.ZodType {
         for (const [k, v] of Object.entries(shape)) {
             out[k] = deepPartial(v as z.ZodType).optional();
         }
-        return z.object(out);
+        const partial = z.object(out);
+        // A strict object stays strict, so a field a patch may not carry is a 400, not a silent drop.
+        return (schema as any)._zod.def.catchall instanceof z.ZodNever ? partial.strict() : partial;
     }
     if (schema instanceof z.ZodOptional) return deepPartial((schema as any).unwrap()).optional();
     if (schema instanceof z.ZodNullable) return deepPartial((schema as any).unwrap()).nullable();
@@ -404,7 +417,18 @@ export function deepMerge(target: any, source: any): any {
 }
 
 // Patch schema — recursively partial version of the canonical schema.
-export const settingsPatchSchema = deepPartial(userSettingsSchema) as z.ZodType<DeepPartial<UserSettings>>;
+// The memory consent fields (and the backfill's progress) are written only by POST /ai/memory/mode and the memory jobs.
+const SERVER_OWNED_ASSISTANT = { memoryMode: true, memoryChoiceAt: true, memoryConsentVersion: true, memoryEpoch: true, memoryBackfill: true } as const;
+const patchSource = userSettingsSchema.extend({
+    assistant: userSettingsSchema.shape.assistant
+        .unwrap()
+        .omit(SERVER_OWNED_ASSISTANT)
+        // Desktop builds before 0.32.0 still send the old switch: accepted and dropped, never a 400.
+        .extend({ memoryEnabled: z.unknown().transform(() => undefined).optional() })
+        .strict()
+        .optional(),
+});
+export const settingsPatchSchema = deepPartial(patchSource) as z.ZodType<DeepPartial<UserSettings>>;
 
 // ── Canonical settings defaults — single source of truth ──
 
@@ -573,7 +597,11 @@ export const SETTINGS_DEFAULTS = {
         assistantName: "Emilie",
         customInstructions: null as string | null,
         proactiveSuggestions: true,
-        memoryEnabled: false,
+        memoryMode: null as "off" | "basic" | "full" | null,
+        memoryChoiceAt: null as string | null,
+        memoryConsentVersion: null as string | null,
+        memoryEpoch: 0,
+        memoryBackfill: null as { since: string; before: string; chats: "pending" | "done"; notes: "pending" | "done" } | null,
         adaptiveTone: true,
     },
 } as const satisfies Record<string, unknown>;

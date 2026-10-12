@@ -6,6 +6,7 @@ import { serveMcp } from "../../src/domains/mcp/server";
 import { connectionRoutes } from "../../src/domains/mcp/connections.route";
 import { isMcpRequest, mcpProvider, oauthApi } from "../../src/domains/mcp/oauth";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
+import { isMemoryTool } from "@cadence/contracts/ai-tools";
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
 import { noteRoutes } from "../../src/domains/notes/notes.route";
 
@@ -22,7 +23,7 @@ async function connect(userId: string, scopes: string[]): Promise<string> {
 }
 
 /** One JSON-RPC call to /mcp as a verified token for (userId, connectionId, scopes). */
-function mcpAs(userId: string, connectionId: string, scopes: string[]) {
+function mcpAs(userId: string, connectionId: string, scopes: string[], env: Record<string, unknown> = {}) {
     return async (method: string, params: object = {}, id: number = 1) => {
         const pending: Promise<unknown>[] = [];
         const ctx = { props: { userId, connectionId }, auth: { scope: scopes }, waitUntil: (p: Promise<unknown>) => pending.push(p) };
@@ -32,7 +33,7 @@ function mcpAs(userId: string, connectionId: string, scopes: string[]) {
                 headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
                 body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
             }),
-            {} as never,
+            env as never,
             ctx as never,
         );
         await Promise.all(pending);
@@ -66,8 +67,18 @@ describe("catalog and scopes", () => {
         const all = ["cadence:read", "cadence:capture", "cadence:write"];
         const names = (await mcpAs(userId, await connect(userId, all), all)("tools/list")).body.result.tools.map((t: any) => t.name);
         const internal = Object.keys(buildToolRegistry({} as any, userId, { timezone: "UTC", currentDate: "", today: "2026-01-01", weekStart: "Monday" }));
-        // ask_user stays in the app: an MCP client asks in its own chat.
-        expect(names.sort()).toEqual([...internal.filter((name) => name !== "ask_user"), "get_today"].sort());
+        // ask_user stays in the app: an MCP client asks in its own chat. the memory tools are published only while memory is on.
+        expect(names.sort()).toEqual([...internal.filter((name) => name !== "ask_user" && !isMemoryTool(name)), "get_today"].sort());
+    });
+
+    it("publishes remember (with the write scope) only to a person who has memory on", async () => {
+        const userId = await createUser();
+        const write = ["cadence:read", "cadence:write"];
+        const listed = async () => (await mcpAs(userId, await connect(userId, write), write)("tools/list")).body.result.tools.map((t: any) => t.name);
+
+        expect(await listed()).not.toContain("remember"); // not chosen yet
+        await asOwner((pg) => pg.query(`UPDATE users SET settings = jsonb_set(settings, '{assistant}', '{"memoryMode":"basic"}') WHERE id = $1`, [userId]));
+        expect(await listed()).toEqual(expect.arrayContaining(["remember", "recall", "search_past_chats"]));
     });
 
     it("capture alone reads nothing: a guessed read tool fails", async () => {

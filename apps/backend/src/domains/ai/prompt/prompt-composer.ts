@@ -13,6 +13,7 @@
  * Only raw user-provided VALUES are sanitized and fenced (names, custom
  * instructions, snapshot, memory content). Every instruction is plain system text.
  */
+import { formatInZone } from "@cadence/domain/time";
 import { fenceData, sanitizeUntrusted } from "../safety/injection-policy";
 import type { ApprovalMode } from "@cadence/contracts/ai";
 import type { PromptBlocks, PromptRuntimeContext } from "./prompt-blocks.schema";
@@ -64,6 +65,9 @@ function environmentSection(blocks: PromptBlocks, ctx: PromptRuntimeContext, non
     });
 }
 
+/** "June 2026": what the model says when it recalls a fact. The day is Cadence's own record, never a guess. */
+const saidIn = (day: string) => formatInZone(day, "UTC", { month: "long", year: "numeric" }, "en-US");
+
 /** Compose the static system prompt and the per-turn context from the block set + runtime context. */
 export function composePrompt(
     blocks: PromptBlocks,
@@ -90,11 +94,14 @@ export function composePrompt(
             ? interpolate(blocks.memory, {
                   memory: fence(
                       "memory",
-                      memories.map((m) => `- ${sanitizeUntrusted(m.content, nonce)}`).join("\n"),
+                      // The date is Cadence's, not the person's text: it is what makes "you mentioned in August" true.
+                      memories.map((m) => `- (said ${saidIn(m.saidOn)}${m.sensitive ? ", sensitive" : ""}${m.stale ? ", not mentioned in over a year: confirm once if it matters" : ""}) [${m.id}] ${sanitizeUntrusted(m.content, nonce)}`).join("\n"),
                       nonce,
                   ),
               })
-            : null,
+            : ctx.memoryOff
+              ? interpolate(blocks.memoryOff, {})
+              : null,
     ]
         .filter((part): part is string => part !== null)
         .join("\n\n");

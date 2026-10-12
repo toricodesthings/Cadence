@@ -557,21 +557,34 @@ export async function seed(db: Tx, userId: string) {
     ]).returning();
 
     // ── AI memories ──────────────────────────────────────────────────
+    const today = seedDate(clock, 0);
     await db.insert(aiMemories).values([
         {
             userId,
-            content: "The user prefers deep work between 9 AM and noon when the inbox is empty.",
-            type: "CORE",
+            kind: "preference",
+            content: "Prefers deep work between 9 AM and noon when the inbox is empty.",
+            saidOn: today,
+            lastSeenOn: today,
+            source: "chat",
+            confidence: "stated",
         },
         {
             userId,
+            kind: "life",
             content: "Weekly reset usually happens on Monday afternoon after the inbox is processed.",
-            type: "EPHEMERAL",
+            saidOn: today,
+            lastSeenOn: today,
+            source: "chat",
+            confidence: "observed",
         },
         {
             userId,
-            content: "Home errands feel lighter when grouped into a single evening block.",
-            type: "EPHEMERAL",
+            kind: "quirk",
+            content: "Groups home errands into a single evening block.",
+            saidOn: today,
+            lastSeenOn: today,
+            source: "chat",
+            confidence: "stated",
         },
     ]);
 

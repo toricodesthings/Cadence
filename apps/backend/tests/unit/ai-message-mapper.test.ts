@@ -57,7 +57,16 @@ describe("uiMessageToRow", () => {
             metadata: { ts: 1 },
             status: "complete",
             orderIndex: 5,
+            searchText: "hi",
         });
+    });
+
+    it("keeps only the person's own words for search: none from an assistant, none from an image alone", () => {
+        const ctx = { conversationId: "c", userId: "u", orderIndex: 1, status: "complete" } as const;
+        const parts = [{ type: "text", text: "the book" }, { type: "file", url: "cadence-image:x" }, { type: "text", text: "was Piranesi" }];
+        expect(uiMessageToRow({ id: "a", role: "user", parts }, ctx).searchText).toBe("the book was Piranesi");
+        expect(uiMessageToRow({ id: "b", role: "assistant", parts }, ctx).searchText).toBeNull();
+        expect(uiMessageToRow({ id: "c", role: "user", parts: [{ type: "file", url: "cadence-image:x" }] }, ctx).searchText).toBeNull();
     });
 
     it("coerces an unknown role to 'user'", () => {

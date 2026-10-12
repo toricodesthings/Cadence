@@ -82,9 +82,7 @@ export interface Env {
      * A dated ID from the Decisions list. Unset or empty = both features off.
      */
     AI_DECISION_MODEL?: string;
-    /** Master switch for the memory (pgvector RAG) layer. "true" enables retrieval/extraction. */
-    AI_MEMORY_ENABLED?: string;
-    /** OpenRouter embedding model id — must support `dimensions` (requested at 1536 for ai_memories.embedding). */
+    /** OpenRouter embedding model id — must support `dimensions` (requested at 512 for ai_memories.embedding). */
     AI_EMBEDDING_MODEL?: string;
 
     // ── AI stream resumption (Upstash Redis, REST) ──

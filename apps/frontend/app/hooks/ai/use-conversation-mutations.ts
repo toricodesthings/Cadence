@@ -87,6 +87,28 @@ export function useArchiveConversation() {
     });
 }
 
+/** "Don't learn from this chat" (optimistic flag flip): memory skips the thread. */
+export function useSetConversationLearn() {
+    const client = useApiClient();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ id, learn }: { id: string; learn: boolean }) => {
+            const res = await client.api.ai.conversations[":id"].$patch({ param: { id }, json: { learn } });
+            return unwrapResponse(res);
+        },
+        onMutate: async ({ id, learn }) => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.ai.conversations });
+            return { snapshot: patchList(queryClient, (rows) => rows.map((r) => (r.id === id ? { ...r, learn } : r))) };
+        },
+        onError: (err, _vars, context) => {
+            if (context?.snapshot) queryClient.setQueryData(queryKeys.ai.conversations, context.snapshot);
+            toastError(err, "Couldn’t update that conversation");
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
+    });
+}
+
 /** Delete a conversation (optimistic remove from the list). */
 export function useDeleteConversation() {
     const client = useApiClient();

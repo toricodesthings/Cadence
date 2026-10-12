@@ -4,7 +4,7 @@
  */
 import type { ApprovalMode } from "@cadence/contracts/ai";
 import type { UserSettings } from "@cadence/contracts/settings";
-import type { RetrievedMemory } from "../memory/memory-retrieval";
+import type { ProfileLine } from "../memory/memory-store";
 
 type AssistantSettings = NonNullable<UserSettings["assistant"]>;
 
@@ -21,6 +21,8 @@ export interface PromptBlocks {
     environment: string;
     snapshot: string;
     memory: string;
+    /** Said instead of the memory block while the person has memory off. */
+    memoryOff: string;
 }
 
 /**
@@ -45,7 +47,10 @@ export interface PromptRuntimeContext {
     /** Adaptive tone is on and the user's burnout index is above the threshold. */
     workloadHigh: boolean;
     persona: AssistantPersona;
-    /** Today at a glance: the turn's opening reads as JSON (agent.ts `loadSnapshot`). User data, fenced. */
+    /** Today at a glance: the turn's opening reads as JSON (turn.ts `loadSnapshot`). User data, fenced. */
     snapshot?: string;
-    memories?: RetrievedMemory[];
+    /** The always-present memory profile (Basic or Full on). User text, fenced. */
+    memories?: ProfileLine[];
+    /** Memory exists but the person hasn't turned it on (off, or not chosen yet). */
+    memoryOff?: boolean;
 }

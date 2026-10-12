@@ -1,0 +1,90 @@
+/**
+ * Consolidation: for each new fact, which known fact (if any) does it repeat, or give a new value for?
+ * One small call over all of a reading's candidates. The model sees opaque keys (k1, k2…) and can only name
+ * one of those or nothing, so it can't invent a merge, and any other reply means "new".
+ *
+ * Why not the decision model (as placement uses): on the eval it abstains whenever the value changed
+ * ("works afternoons now" vs "works mornings"), which is the case that matters most; see tests/evals/memory.eval.ts.
+ */
+import { generateText } from "ai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { z } from "zod";
+import { logger } from "../../../platform/log";
+import { getModelId } from "../model-router";
+import { addStepSpend } from "../safety/rate-limit";
+import type { Env } from "../../../types/env";
+import type { NearFact } from "./memory-store";
+
+const TIMEOUT_MS = 15_000;
+
+export const CONSOLIDATE_INSTRUCTIONS =
+    "You keep a short list of facts about one person. For each NEW fact, say which KNOWN fact it is about the same thing as: " +
+    "the same attribute of their life (when they work, which day an event is, what time calls may start, a habit they keep), " +
+    "whether it repeats the same value or gives a changed one. A different attribute or a different event matches nothing, and so does " +
+    "a fact that holds only for some days, places or situations when the known one covers others (a Friday habit is not the everyday habit).\n" +
+    'Reply with JSON only: {"matches":[{"new":1,"known":"k2"},{"new":2,"known":null}]}, one entry per new fact.';
+
+const replySchema = z.object({ matches: z.array(z.object({ new: z.number().int(), known: z.string().nullable() })) });
+
+export interface ConsolidationItem {
+    content: string;
+    near: NearFact[];
+}
+
+/** For each item, the id of the known fact it repeats or updates, or null. Never throws: any failure means "new". */
+export async function consolidate(env: Env, userHash: string, items: ConsolidationItem[]): Promise<(string | null)[]> {
+    const none: (string | null)[] = items.map(() => null);
+    const withNear = items.map((item, i) => ({ item, i })).filter(({ item }) => item.near.length > 0);
+    if (withNear.length === 0 || !env.OPENROUTER_API_KEY) return none;
+
+    // Opaque keys per known fact; the same fact keeps one key across items.
+    const keys = new Map<string, string>();
+    const byKey = new Map<string, string>();
+    const keyOf = (id: string) => {
+        let key = keys.get(id);
+        if (!key) {
+            key = `k${keys.size + 1}`;
+            keys.set(id, key);
+            byKey.set(key, id);
+        }
+        return key;
+    };
+    const prompt = withNear
+        .map(({ item }, n) => `NEW ${n + 1}: ${item.content}\nKNOWN for it:\n${item.near.map((k) => `  ${keyOf(k.id)}: ${k.content}`).join("\n")}`)
+        .join("\n\n");
+
+    try {
+        const startedAt = Date.now();
+        const { text, usage, providerMetadata, response } = await generateText({
+            model: createOpenRouter({ apiKey: env.OPENROUTER_API_KEY })(getModelId(env), { user: userHash }),
+            instructions: CONSOLIDATE_INSTRUCTIONS,
+            prompt,
+            temperature: 0,
+            maxOutputTokens: 400,
+            maxRetries: 1,
+            abortSignal: AbortSignal.timeout(TIMEOUT_MS),
+        });
+        logger.info("ai", "ai_memory_match", {
+            userHash,
+            items: withNear.length,
+            inputTokens: usage?.inputTokens,
+            outputTokens: usage?.outputTokens,
+            ms: Date.now() - startedAt,
+            ...addStepSpend({}, { providerMetadata, response }),
+        });
+        const json = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+        const parsed = replySchema.safeParse(json);
+        if (!parsed.success) return none;
+        const out = [...none];
+        for (const m of parsed.data.matches) {
+            const target = withNear[m.new - 1];
+            const id = m.known ? byKey.get(m.known) : undefined;
+            // Only a fact that was offered for that item can be named.
+            if (target && id && target.item.near.some((k) => k.id === id)) out[target.i] = id;
+        }
+        return out;
+    } catch (error) {
+        logger.warn("ai", "memory_match_failed", { userHash, reason: error instanceof Error ? error.name : "unknown" });
+        return none;
+    }
+}

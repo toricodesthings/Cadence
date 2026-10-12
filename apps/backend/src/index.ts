@@ -25,6 +25,7 @@ import { proxyRoutes } from "./domains/proxy/proxy.route";
 import { noteRoutes } from "./domains/notes/notes.route";
 import { aiRoutes } from "./domains/ai/ai.route";
 import { aiImageRoutes } from "./domains/ai/images/images.route";
+import { memoryRoutes } from "./domains/ai/memory/memory.route";
 import { connectionRoutes } from "./domains/mcp/connections.route";
 import { accountRoutes } from "./domains/account/account.route";
 import { meRoutes } from "./domains/account/me.route";
@@ -188,6 +189,7 @@ const apiApp = app
   .route("/api/v1/proxy", proxyRoutes)
   .route("/api/v1/debug", debugRoutes)
   .route("/api/v1/ai/images", aiImageRoutes)
+  .route("/api/v1/ai/memory", memoryRoutes)
   .route("/api/v1/ai", aiRoutes)
   .route("/api/v1/connections", connectionRoutes)
   .route("/api/v1/account", accountRoutes)
@@ -195,9 +197,11 @@ const apiApp = app
 
 // ── Type export for Hono RPC ──
 export type AppType = typeof apiApp;
+export type { ToolIO } from "./domains/ai/tools/index";
 
 import { runHourlyCron } from "./cron/overdue-check";
 import { runPushDispatch } from "./domains/push/dispatch";
+import { runMemoryJob } from "./domains/ai/memory/memory-job";
 
 const PUSH_CRON = "* * * * *";
 
@@ -222,7 +226,7 @@ export default {
     return mcpProvider(env).fetch(request, env, ctx);
   },
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    // Two triggers: every minute sends due device reminders, every hour does the sweeps.
-    ctx.waitUntil(event.cron === PUSH_CRON ? runPushDispatch(env) : runHourlyCron(env));
+    // Two triggers: every minute sends due device reminders and runs the memory job, every hour does the sweeps.
+    ctx.waitUntil(event.cron === PUSH_CRON ? Promise.all([runPushDispatch(env), runMemoryJob(env)]) : runHourlyCron(env));
   },
 };

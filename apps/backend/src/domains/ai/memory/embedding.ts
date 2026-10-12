@@ -4,9 +4,7 @@
  * Edge-safe: every call is plain HTTP via the `ai` SDK (`embed`/`embedMany`)
  * through OpenRouter — no native deps, runs on Workers.
  *
- * The whole memory layer is feature-flagged. When disabled, callers must
- * short-circuit *before* reaching `embedText`/`embedTexts` so no embedding
- * request is ever issued (zero added cost/latency when off).
+ * Callers check the person's mode (memory-mode.ts) first, so Off issues no embedding request.
  */
 import { embed, embedMany } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
@@ -14,23 +12,17 @@ import { logger } from "../../../platform/log";
 import { addStepSpend, type TurnSpend } from "../safety/rate-limit";
 import type { Env } from "../../../types/env";
 
-/** Dimensionality of the `ai_memories.embedding` column — embeddings MUST match. */
-const EMBEDDING_DIMENSIONS = 1536;
+/** Dimensionality of the `ai_memories.embedding` column (halfvec) — embeddings MUST match. */
+const EMBEDDING_DIMENSIONS = 512;
 
-/** 1536-dim default; configurable via AI_EMBEDDING_MODEL. */
+/** An embedding sits in front of a chat turn (recall): a slow provider costs the lookup, never the reply. */
+const EMBED_TIMEOUT_MS = 5_000;
+
+/** Qwen3 truncates by Matryoshka to {@link EMBEDDING_DIMENSIONS}; configurable via AI_EMBEDDING_MODEL. */
 const DEFAULT_EMBEDDING_MODEL = "qwen/qwen3-embedding-8b";
 
-/**
- * Server flag AND per-user setting. Memory is only active when the server
- * master switch is on *and* the user has not opted out. Off = zero cost:
- * no embedding HTTP calls, no retrieval, no extraction.
- */
-export function isMemoryEnabled(env: Env, perUserEnabled?: boolean): boolean {
-    return env.AI_MEMORY_ENABLED === "true" && perUserEnabled !== false;
-}
-
-/** Configured embedding model id, or a 1536-dim default. */
-function getEmbeddingModelId(env: Env): string {
+/** Configured embedding model id, or a default. */
+export function getEmbeddingModelId(env: Env): string {
     return env.AI_EMBEDDING_MODEL?.trim() || DEFAULT_EMBEDDING_MODEL;
 }
 
@@ -58,12 +50,12 @@ function assertDimensions(vector: number[]): number[] {
     return vector;
 }
 
-/** What an embedding call cost: saved on the assistant row (`metadata.embeddingSpend`) and logged as `ai_embedding`. */
+/** What an embedding call cost, logged as `ai_embedding`. */
 export type EmbeddingSpend = TurnSpend & { model: string; inputTokens?: number };
 
 /**
- * Embed a single text. Returns a 1536-dim vector plus what the call cost. Throws on failure or a
- * dimension mismatch — the caller (retrieval/extraction) decides whether to
+ * Embed a single text. Returns a vector of {@link EMBEDDING_DIMENSIONS} plus what the call cost. Throws on failure or a
+ * dimension mismatch — the caller (recall/learning) decides whether to
  * swallow it (best-effort) or surface it.
  */
 export async function embedText(
@@ -74,6 +66,7 @@ export async function embedText(
     const { embedding, usage, providerMetadata, response } = await embed({
         model: getEmbeddingModel(env, ctx.userHash),
         value: text,
+        abortSignal: AbortSignal.timeout(EMBED_TIMEOUT_MS),
     });
     // Same fields as `ai_turn` / `ai_title`, so all OpenRouter spend filters alike.
     const spend: EmbeddingSpend = {
@@ -85,9 +78,11 @@ export async function embedText(
     return { embedding: assertDimensions(embedding), spend };
 }
 
-/** Batch embedding via `embedMany`. Each vector is validated to be 1536-dim. */
-export async function embedTexts(env: Env, texts: string[]): Promise<number[][]> {
+/** Batch embedding via `embedMany`, logged as one `ai_embedding` line. Each vector is validated against the column size. */
+export async function embedTexts(env: Env, texts: string[], ctx: { userHash?: string } = {}): Promise<number[][]> {
     if (texts.length === 0) return [];
-    const { embeddings } = await embedMany({ model: getEmbeddingModel(env), values: texts });
+    const { embeddings, usage, providerMetadata } = await embedMany({ model: getEmbeddingModel(env, ctx.userHash), values: texts, abortSignal: AbortSignal.timeout(EMBED_TIMEOUT_MS) });
+    const spend = addStepSpend({}, { providerMetadata });
+    logger.info("ai", "ai_embedding", { ...ctx, model: getEmbeddingModelId(env), inputTokens: usage?.tokens, texts: texts.length, costUsd: spend.costUsd });
     return embeddings.map(assertDimensions);
 }

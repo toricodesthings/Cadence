@@ -7,6 +7,7 @@ export const SLASH_COMMANDS = [
     { id: "usage", label: "/usage", description: "See how much you have left" },
     { id: "clear", label: "/clear", description: "Start a fresh conversation" },
     { id: "history", label: "/history", description: "Your past conversations" },
+    { id: "memory", label: "/memory", description: "What Cadence knows about you" },
     { id: "settings", label: "/settings", description: "Assistant settings" },
 ] as const;
 

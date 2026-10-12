@@ -18,7 +18,7 @@
 		"test:watch": "vitest",
 		"eval:assistant": "vitest run --config vitest.evals.config.ts",
 		"typecheck": "tsc --noEmit",
-		"lint": "oxlint .",
+		"lint": "node scripts/check-domains.mjs && oxlint .",
 		"db:generate": "drizzle-kit generate",
 		"db:check": "drizzle-kit check",
 		"db:migrate": "drizzle-kit migrate",

@@ -1,6 +1,7 @@
 import { StartupSuspense as Suspense } from "../shared/StartupSuspense";
 import { Button } from "../primitives/Button";
 import { Sidebar } from "../sidebar/Sidebar";
+import { IconRail } from "../sidebar/IconRail";
 import { NotificationPreview } from "../notifications/NotificationPreview";
 import { MobileHeaderActions, MobileTabBar } from "./MobileNavigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -212,6 +213,7 @@ export function MainLayout({
     customSidebar,
     hideHeader = false,
     hideContextualOrb = false,
+    navigationMode = "workspace",
     pageTitle,
     pageDescription,
     shellHeader,
@@ -235,6 +237,8 @@ export function MainLayout({
     customSidebar?: React.ReactNode,
     hideHeader?: boolean,
     hideContextualOrb?: boolean,
+    /** Focused pages keep only the shared icon rail, at every shell size. */
+    navigationMode?: "workspace" | "rail",
     pageTitle?: string,
     pageDescription?: string,
     shellHeader?: ShellHeaderConfig,
@@ -252,9 +256,17 @@ export function MainLayout({
     const [forceLoading, setForceLoading] = useState(false);
     const { status, isAuthenticated, beginAuthRecovery } = useAuthState();
     const shell = useShellMode();
+    const railOnly = navigationMode === "rail";
     const isUtilityPage = location.pathname === "/browse";
     const { assistantPanelOpen, assistantPanelWidth, setAssistantPanelWidth, toggleAssistantPanel } = useAssistantStore();
     const { railView, setRailView } = useRightPanelStore();
+    const handleAssistantToggle = useCallback(() => {
+        if (railOnly) {
+            navigate("/");
+            if (assistantPanelOpen) return;
+        }
+        toggleAssistantPanel();
+    }, [assistantPanelOpen, navigate, railOnly, toggleAssistantPanel]);
 
     // The rail is mutually exclusive. Opening the assistant claims the rail
     // (Cadence tab); closing it hands the rail back to the contextual panel.
@@ -337,12 +349,12 @@ export function MainLayout({
             if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "i") {
                 if (location.pathname === "/weekly-review") return;
                 e.preventDefault();
-                toggleAssistantPanel();
+                handleAssistantToggle();
             }
         };
         window.addEventListener("keydown", handleAssistantHotkey);
         return () => window.removeEventListener("keydown", handleAssistantHotkey);
-    }, [location.pathname, toggleAssistantPanel]);
+    }, [handleAssistantToggle, location.pathname]);
 
     // Search resolves by shell mode (§4.5). The dense, keyboard-first command
     // palette is reserved for the full `wide` workspace; every narrower shell
@@ -714,9 +726,21 @@ export function MainLayout({
         <>
             {/* Compact headers pad under the iOS status bar themselves; the wide shell
                 (iPad landscape home-screen app) starts below it. Zero elsewhere. */}
-            <div className={`h-dvh overflow-hidden relative ${shell.isCompact ? "compact-navigation-shell" : "pt-[env(safe-area-inset-top)]"}`}>
+            <div className={`h-dvh overflow-hidden relative ${shell.isCompact && !railOnly ? "compact-navigation-shell" : "pt-[env(safe-area-inset-top)]"}`}>
                 <div className="flex h-full relative">
-                    {shell.isCompact ? null : customSidebar !== undefined ? customSidebar : (
+                    {railOnly ? (
+                        <aside className="layer-shell-base h-full shrink-0 overflow-y-auto scrollbar-none safe-bottom" aria-label="Application navigation">
+                            <IconRail
+                                className="h-auto min-h-full"
+                                onSearchOpen={openSearch}
+                                onQuickAddOpen={() => {
+                                    setQuickAddInitialTab("task");
+                                    setQuickAddOpen(true);
+                                }}
+                                onAssistantOpen={handleAssistantToggle}
+                            />
+                        </aside>
+                    ) : shell.isCompact ? null : customSidebar !== undefined ? customSidebar : (
                         <Sidebar
                             mode={shell.mode}
                             onSearchOpen={openSearch}
@@ -730,7 +754,7 @@ export function MainLayout({
                     <div className="flex min-w-0 flex-1 flex-col min-h-0">
                     {/* Off phone the header is a single row, so it takes the shared
                         height and its bottom border lines up with side-panel headers. */}
-                    {!hideHeader && (shell.isPhone ? (
+                    {!hideHeader && !railOnly && (shell.isPhone ? (
                         <PhonePageHeader eyebrow={shellHeader?.eyebrow} title={headerTitle} leading={workspaceMenuButton} actions={compactHeaderActions}>
                             {compactControls}
                         </PhonePageHeader>
@@ -773,13 +797,13 @@ export function MainLayout({
                         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
                             {children}
                         </main>
-                        {shell.isCompact && <MobileTabBar />}
+                        {shell.isCompact && !railOnly && <MobileTabBar />}
                     </div>
 
                     {/* ── Shared right rail — shows the contextual panel OR the Cadence
                         assistant, never both. A segmented toggle (rendered only when
                         both are available) flips between them without closing either. ── */}
-                    {shell.isWide ? (
+                    {shell.isWide && !railOnly ? (
                         <div
                             className="relative flex h-full self-stretch shrink-0 items-stretch overflow-hidden"
                             // Panel headers pad their right edge by this so the floating
@@ -862,7 +886,7 @@ export function MainLayout({
                         mobile surface: a bottom sheet (drag handle + rounded top)
                         on phone/tablet, a side panel on laptop. `fill` lets the
                         chat own its header / scroll / pinned composer. */}
-                    {!shell.isWide ? (
+                    {!shell.isWide && !railOnly ? (
                         <ResponsiveOverlayPanel
                             ariaLabel="Cadence assistant"
                             open={assistantPanelOpen}
@@ -878,10 +902,10 @@ export function MainLayout({
             </div>
 
             <Suspense fallback={null}>
-                <DeferredMount active={selectedTaskIds.size > 0}><FloatingActionBar /></DeferredMount>
+                <DeferredMount active={!railOnly && selectedTaskIds.size > 0}><FloatingActionBar /></DeferredMount>
             </Suspense>
             <Suspense fallback={null}>
-                <DeferredMount active={noteRoomOpen}><TaskNoteRoom /></DeferredMount>
+                <DeferredMount active={!railOnly && noteRoomOpen}><TaskNoteRoom /></DeferredMount>
             </Suspense>
             <Suspense fallback={null}>
                 <DeferredMount active={commandOpen}><CommandPalette open={commandOpen} onOpenChange={setCommandOpen} /></DeferredMount>
@@ -908,7 +932,7 @@ export function MainLayout({
             {IS_DESKTOP_RUNTIME ? (
                 <SyncInspectorDialog open={syncInspectorOpen} onOpenChange={setSyncInspectorOpen} />
             ) : null}
-            {shell.isPhone && !hideContextualOrb && !isUtilityPage ? (
+            {shell.isPhone && !railOnly && !hideContextualOrb && !isUtilityPage ? (
                 <ContextualAddOrb
                     onOpen={(tab) => {
                         setQuickAddInitialTab(tab);
@@ -918,7 +942,7 @@ export function MainLayout({
             ) : null}
             {/* Laptop uses a launcher; compact shells use the centered taskbar action.
                 Suppressed on the weekly ritual, mirroring the ⌘I hotkey guard. */}
-            {shell.isLaptop && !isUtilityPage && location.pathname !== "/weekly-review" ? (
+            {shell.isLaptop && !railOnly && !isUtilityPage && location.pathname !== "/weekly-review" ? (
                 <AssistantLauncher besideOrb={shell.isPhone && !hideContextualOrb} />
             ) : null}
         </>

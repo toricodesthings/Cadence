@@ -9,12 +9,27 @@
  */
 import { useState, type ComponentProps, type ReactNode } from "react";
 import { Check } from "lucide-react";
+import type { ToolIO } from "@cadence/backend";
+import type { ToolName } from "@cadence/contracts/ai-tools";
 import { ProposalCard } from "./ProposalCard";
 
-/** What every card renderer receives (tool parts stay `any`, as the SDK's typing doesn't reach the registry). */
-export interface ToolRenderContext {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    part: any;
+/** A tool's result when it ran (its `{ ok: false }` error and MCP's dedup echo left out). */
+type ToolResult<N extends ToolName> = Exclude<ToolIO[N]["output"], { ok: false } | { deduped: true }>;
+
+/**
+ * A tool part as its card reads it. Fields may be missing while input streams, and
+ * the result's fields are missing when the call failed (`ok: false`).
+ */
+export type ToolPartOf<N extends ToolName> = {
+    state?: string;
+    input?: Partial<ToolIO[N]["input"]>;
+    output?: Partial<ToolResult<N>> & { ok?: boolean };
+    approval?: { reason?: string };
+};
+
+/** What a card renderer receives, typed by its tool (`ToolIO` from the backend's tool registry). */
+export interface ToolRenderContext<N extends ToolName = ToolName> {
+    part: ToolPartOf<N>;
     /** The backend tool name, e.g. "create_tasks". */
     toolName: string;
     /** Answers this part's approval request; absent while a turn runs or on an older reply. */
@@ -24,6 +39,10 @@ export interface ToolRenderContext {
     /** Sends the user's answer to an `ask_user` question as their next message; absent once the thread moved on. */
     reply?: (text: string) => void;
 }
+
+/** Cards for tools the server no longer offers: their parts have no current type. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type RetiredRenderContext = Omit<ToolRenderContext, "part"> & { part: any };
 
 export type Outcome = "done" | "declined" | "failed" | "unanswered";
 
@@ -66,7 +85,7 @@ export function ApprovalCard({
     children,
     ...shell
 }: ShellProps & {
-    ctx: ToolRenderContext;
+    ctx: ToolRenderContext | RetiredRenderContext;
     /** Settled text once it ran. */
     doneText: string;
     declinedText?: string;
@@ -103,7 +122,7 @@ export function ApprovalCard({
  * Which rows of a batch card are unticked (by index). `onToggle(i)` is undefined
  * once the card can't be answered; `removed(labels)` picks the unticked ones.
  */
-export function useUnticked(ctx: ToolRenderContext) {
+export function useUnticked(ctx: ToolRenderContext | RetiredRenderContext) {
     const [off, setOff] = useState<ReadonlySet<number>>(new Set());
     const onToggle = (index: number) =>
         ctx.answer

@@ -52,6 +52,8 @@ export interface DecisionCandidate {
 export interface DecisionResult {
     /** The chosen candidate's id; null when the model abstained or fell short of the threshold. */
     id: string | null;
+    /** The option the model liked best even when it fell short of the threshold (null when "none" won). For calibration. */
+    top?: string | null;
     probability: number;
     model: string;
     costUsd?: number;
@@ -76,7 +78,7 @@ export async function decideChoice(
     const startedAt = Date.now();
     const finish = (
         outcome: DecisionOutcome,
-        extra: { id?: string | null; probability?: number; servedModel?: string; inputTokens?: number; costUsd?: number } = {},
+        extra: { id?: string | null; top?: string | null; probability?: number; servedModel?: string; inputTokens?: number; costUsd?: number } = {},
     ): DecisionResult => {
         const ms = Date.now() - startedAt;
         logger.info("ai", "ai_decision", {
@@ -89,7 +91,7 @@ export async function decideChoice(
             outcome,
             userHash: input.userHash,
         });
-        return { id: extra.id ?? null, probability: extra.probability ?? 0, model, costUsd: extra.costUsd, ms, outcome };
+        return { id: extra.id ?? null, top: extra.top ?? null, probability: extra.probability ?? 0, model, costUsd: extra.costUsd, ms, outcome };
     };
 
     // Opaque keys: the model never sees an id, and the user's labels never double as keys.
@@ -128,8 +130,8 @@ export async function decideChoice(
         const index = keys.indexOf(best);
         if (index < 0) return finish("error", meta);
         const threshold = DECISION_THRESHOLDS[model]?.[input.kind] ?? UNCALIBRATED_THRESHOLD;
-        if (probability < threshold) return finish("below_threshold", { ...meta, probability });
-        return finish("chose", { ...meta, id: candidates[index].id, probability });
+        if (probability < threshold) return finish("below_threshold", { ...meta, probability, top: candidates[index].id });
+        return finish("chose", { ...meta, id: candidates[index].id, top: candidates[index].id, probability });
     } catch (error) {
         return finish(error instanceof Error && error.name === "TimeoutError" ? "timeout" : "error");
     }

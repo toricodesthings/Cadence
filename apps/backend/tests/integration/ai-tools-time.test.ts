@@ -11,7 +11,7 @@ import { asOwner, createUser, startTestDb } from "../helpers/db";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
-import { loadSnapshot, userClock } from "../../src/domains/ai/agent";
+import { loadSnapshot, userClock } from "../../src/domains/ai/turn";
 import { serveMcp } from "../../src/domains/mcp/server";
 import { buildToolRegistry } from "../../src/domains/ai/tools/index";
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";

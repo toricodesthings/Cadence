@@ -40,6 +40,7 @@ import { useSignOut } from "../../hooks/auth/use-sign-out";
 import { useAssistantStore } from "../../stores/assistant-store";
 import { CADENCE_PRIVACY_URL, CADENCE_TERMS_URL } from "../../lib/constants/app-info";
 import { openExternalUrl } from "../../platform/runtime";
+import { cn } from "../../lib/utils";
 
 /** Nav item accent color definitions — per-concept wayfinding shades */
 const NAV_LINKS = [
@@ -114,9 +115,13 @@ const PROFILE_SUPPORT_LINKS: Array<{
 export function IconRail({
     onSearchOpen,
     onQuickAddOpen,
+    onAssistantOpen,
+    className,
 }: {
     onSearchOpen?: () => void;
     onQuickAddOpen?: () => void;
+    onAssistantOpen?: () => void;
+    className?: string;
 }) {
     const { count: captureCount } = useCaptureFeed();
     const location = useLocation();
@@ -313,7 +318,7 @@ export function IconRail({
 
     return (
         <div
-            className="flex h-full w-[60px] flex-col items-center gap-1 border-r border-twilight-border py-3 shrink-0"
+            className={cn("flex h-full w-[60px] flex-col items-center gap-1 border-r border-twilight-border py-3 shrink-0 [&>*]:shrink-0", className)}
             role="navigation"
             aria-label="Icon navigation rail"
         >
@@ -362,7 +367,7 @@ export function IconRail({
 
             <Tip label="Ask Assistant" side="right">
                 <button
-                    onClick={toggleAssistantPanel}
+                    onClick={onAssistantOpen ?? toggleAssistantPanel}
                     aria-label="Toggle AI Assistant Panel"
                     className={`
                         btn-icon relative rounded-2xl transition-all duration-200 outline-none

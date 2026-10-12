@@ -19,6 +19,7 @@
 import { asc, eq } from "drizzle-orm";
 import type { Tx } from "../../../types/db";
 import {
+    aiMemories,
     aiConversations,
     aiMessages,
     type habits,
@@ -142,6 +143,18 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
         rawText: "Renew passport before March",
         captureKind: "task",
         orderIndex: 10,
+    }).returning();
+
+    // remember saves immediately (its receipt carries Undo).
+    const [remembered] = await db.insert(aiMemories).values({
+        userId,
+        kind: "preference",
+        content: "Prefers one question at a time when things are busy",
+        saidOn: today,
+        lastSeenOn: today,
+        source: "explicit",
+        confidence: "stated",
+        pinned: true,
     }).returning();
 
     // Approved: set_task_state.
@@ -349,6 +362,20 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                     rawText: passport.rawText,
                     captureKind: "task",
                 }, { item: { id: passport.id, rawText: passport.rawText }, deduped: false }),
+                read("recall", { query: "one question at a time" }, {
+                    ok: true,
+                    facts: [{ id: remembered.id, text: remembered.content, saidOn: today }],
+                }),
+                read("search_past_chats", { query: "passport", after: seedDate(clock, -30) }, {
+                    ok: true,
+                    chats: [],
+                }),
+                read("remember", { action: "save", kind: "preference", text: remembered.content }, {
+                    ok: true,
+                    action: "saved",
+                    id: remembered.id,
+                    text: remembered.content,
+                }),
                 read("get_events", {}, {
                     today,
                     events: [toMinimalEvent({ id: "mom-birthday", label: "Mom's Birthday", monthDay: seedDate(clock, 4).slice(5), emoji: "🎂", notify: true, startedOn: null }, today)],

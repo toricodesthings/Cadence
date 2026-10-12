@@ -91,7 +91,7 @@ async function converse(userId: string, turns: string[], now = NOW, routed = fal
             for (const m of messages) if (m.role === "assistant" && Array.isArray(m.content)) m.content = m.content.filter((p: any) => p.type !== "reasoning");
         }
         models.push(modelId);
-        const { agent, turnContext } = await getAgentInstance(env, userId, { timezone: TZ, currentDate: now, approvalMode: "full", nonce: "evalnonce", queryText: turn, modelId });
+        const { agent, turnContext } = await getAgentInstance(env, userId, { timezone: TZ, currentDate: now, approvalMode: "full", nonce: "evalnonce", modelId });
         // Like production: each user message keeps the context it was sent with, so later turns replay
         // it unchanged and read the earlier ones from the prompt cache.
         messages.push({ role: "user", content: `${turn}\n\n${turnContext}` });

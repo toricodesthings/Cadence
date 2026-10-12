@@ -20,7 +20,11 @@ const persona: AssistantPersona = {
     assistantName: "Emilie",
     customInstructions: null,
     proactiveSuggestions: true,
-    memoryEnabled: false,
+    memoryMode: null,
+    memoryChoiceAt: null,
+    memoryConsentVersion: null,
+    memoryEpoch: 0,
+    memoryBackfill: null,
     adaptiveTone: true,
 };
 
@@ -69,7 +73,7 @@ describe("composePrompt", () => {
     });
 
     it("keeps the instructions byte-identical across users and turns, with nothing volatile in them", () => {
-        const a = parts(ctx({ snapshot: "{}", memories: [{ id: "1", content: "m", type: "CORE", salience: 0.9 }] }, { customInstructions: "Be brief" }));
+        const a = parts(ctx({ snapshot: "{}", memories: [{ id: "1", content: "m", saidOn: "2026-08-12", sensitive: false }] }, { customInstructions: "Be brief" }));
         const b = parts(ctx({ now: "2026-09-24 08:00 -04:00 (Thursday)", approvalMode: "full" }, { persona: "coach", assistantName: "Jeeves" }));
         expect(a.instructions).toBe(PROMPT_BLOCKS.base.join("\n\n"));
         expect(b.instructions).toBe(a.instructions);
@@ -154,14 +158,20 @@ describe("composePrompt", () => {
     });
 
     it("fences memory content and omits the section without memories", () => {
-        const out = compose(ctx({ memories: [{ id: "1", content: "prefers mornings", type: "CORE", salience: 0.9 }] }));
-        expect(out).toContain('kind="memory" trust="untrusted">>>\n- SANITIZED(prefers mornings)');
+        const out = compose(ctx({ memories: [{ id: "1", content: "prefers mornings", saidOn: "2026-08-12", sensitive: false }] }));
+        expect(out).toContain('kind="memory" trust="untrusted">>>\n- (said August 2026) [1] SANITIZED(prefers mornings)');
         expect(out.indexOf("## Memory")).toBeGreaterThan(out.indexOf("## Environment"));
         expect(compose(ctx())).not.toContain("## Memory");
     });
 
+    it("tells the model memory is off, only when the feature exists and the person hasn't turned it on", () => {
+        expect(compose(ctx({ memoryOff: true }))).toContain("Memory is off for this person");
+        expect(compose(ctx({ memoryOff: true, memories: [{ id: "1", content: "m", saidOn: "2026-08-12", sensitive: true }] }))).toContain("(said August 2026, sensitive)");
+        expect(compose(ctx())).not.toContain("Memory is off");
+    });
+
     it("fences the snapshot between Environment and memory, and omits it when absent", () => {
-        const out = compose(ctx({ snapshot: '{"overdue":[]}', memories: [{ id: "1", content: "m", type: "CORE", salience: 0.9 }] }));
+        const out = compose(ctx({ snapshot: '{"overdue":[]}', memories: [{ id: "1", content: "m", saidOn: "2026-08-12", sensitive: false }] }));
         expect(out).toContain('kind="snapshot" trust="untrusted">>>\nSANITIZED({"overdue":[]})');
         expect(out.indexOf("## Today at a glance")).toBeGreaterThan(out.indexOf("## Environment"));
         expect(out.indexOf("## Today at a glance")).toBeLessThan(out.indexOf("## Memory"));

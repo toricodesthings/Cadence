@@ -15,6 +15,26 @@ describe("SETTINGS_DEFAULTS", () => {
     });
 });
 
+describe("settingsPatchSchema: server-owned memory fields", () => {
+    it.each(["memoryMode", "memoryChoiceAt", "memoryConsentVersion", "memoryEpoch", "memoryBackfill"])("refuses a patch that carries %s", (field) => {
+        expect(settingsPatchSchema.safeParse({ assistant: { [field]: field === "memoryEpoch" ? 3 : "full" } }).success).toBe(false);
+    });
+
+    it("still takes the other assistant fields", () => {
+        expect(settingsPatchSchema.parse({ assistant: { emoji: false, assistantName: "Em" } })).toEqual({ assistant: { emoji: false, assistantName: "Em" } });
+    });
+
+    it("accepts and drops the old memoryEnabled switch that older desktop builds still send", () => {
+        const parsed = settingsPatchSchema.parse({ assistant: { memoryEnabled: true, emoji: false } }) as { assistant: Record<string, unknown> };
+        expect(JSON.parse(JSON.stringify(parsed))).toEqual({ assistant: { emoji: false } });
+    });
+
+    it("lets the stored shape carry them, so a settings read returns the choice", () => {
+        const stored = { ...SETTINGS_DEFAULTS, assistant: { ...SETTINGS_DEFAULTS.assistant, memoryMode: "basic" as const, memoryEpoch: 2 } };
+        expect(userSettingsSchema.parse(stored).assistant?.memoryMode).toBe("basic");
+    });
+});
+
 describe("settingsPatchSchema", () => {
     it("accepts nested partial updates at any depth", () => {
         const patch = {

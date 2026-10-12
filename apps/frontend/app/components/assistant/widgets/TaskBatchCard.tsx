@@ -150,10 +150,10 @@ export function DraftSteps({ draft }: { draft: TaskDraft }) {
  * Card for `create_tasks` (design §4.1): one task shows whole, with its checklist;
  * several show as rows the user can untick. One tap adds them all.
  */
-export function TaskBatchCard({ ctx }: { ctx: ToolRenderContext }) {
+export function TaskBatchCard({ ctx }: { ctx: ToolRenderContext<"create_tasks"> }) {
     const persona = useAssistantPersona();
     const { off, onToggle, removed } = useUnticked(ctx);
-    const drafts: TaskDraft[] = ((ctx.part?.input?.tasks ?? []) as TaskDraft[]);
+    const drafts: TaskDraft[] = ctx.part?.input?.tasks ?? [];
     const count = drafts.length;
     const kept = count - off.size;
     const first = drafts[0] ?? {};

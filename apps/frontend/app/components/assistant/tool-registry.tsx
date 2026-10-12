@@ -14,13 +14,15 @@ import { DeleteCapturesCard, InboxStructureCard, StructureCapturesCard, UpdateCa
 import {
     CreateFocusViewCard, DeleteFocusViewCard, DeleteProjectCard, DeleteTagCard, UpdateFocusViewCard, UpdateProjectCard, UpdateTagCard,
 } from "./widgets/OrganizeCards";
-import type { ToolRenderContext } from "./widgets/ApprovalCard";
+import type { RetiredRenderContext, ToolRenderContext } from "./widgets/ApprovalCard";
 import { AskCard } from "./widgets/AskCard";
+import { RememberReceipt } from "./widgets/RememberReceipt";
 import { Sparkles } from "lucide-react";
+import { TOOL_CATALOG, isToolName, type ToolKind, type ToolName } from "@cadence/contracts/ai-tools";
 
 /**
- * Tool-part registry (ai_frontend.md §6.1) — the SINGLE coupling point to backend
- * tool names; `tests/unit/ai-tools.test.ts` in the backend checks they match.
+ * Tool-part registry: chip copy and card per tool. Names and classes come from
+ * `@cadence/contracts/ai-tools`, so a tool added or removed there fails tsc here.
  *
  * Three classes, all executed on the server:
  *  - read  → subtle activity chip (no card).
@@ -30,72 +32,75 @@ import { Sparkles } from "lucide-react";
  *  - ask → the assistant's question (ask_user); answered as the user's next message.
  */
 
-export type ToolClass = "read" | "write" | "capture" | "ask";
-
 interface ToolDescriptor {
-    class: ToolClass;
+    class: ToolKind;
     /** Read/capture chip copy (design §9.2). */
     label: string;
-    /** Write card renderer. */
-    render?: (ctx: ToolRenderContext) => React.ReactNode;
+    /** Write card renderer; each takes its own tool's context, the dispatcher passes the part as received. */
+    render?: (ctx: ToolRenderContext<never>) => React.ReactNode;
 }
 
-const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
+const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRenderContext<N>) => React.ReactNode } } = {
     // ── read → activity chip ──────────────────────────────────────────────
-    get_tasks: { class: "read", label: "Checked your tasks" },
-    get_task_detail: { class: "read", label: "Checked your tasks" },
-    get_projects: { class: "read", label: "Checked your lists" },
-    get_tags: { class: "read", label: "Checked your tags" },
-    get_habits: { class: "read", label: "Looked at your routines" },
-    get_habit_status_today: { class: "read", label: "Looked at your routines" },
-    get_habit_history: { class: "read", label: "Looked back at your routines" },
-    get_inbox_items: { class: "read", label: "Looked through Capture" },
-    get_user_metrics: { class: "read", label: "Took a look around" },
-    get_schedule_window: { class: "read", label: "Scanned your schedule" },
-    get_events: { class: "read", label: "Looked at your events" },
-    get_focus_views: { class: "read", label: "Looked at your focus views" },
-    get_cadence_help: { class: "read", label: "Checked the Cadence guide" },
+    get_tasks: { label: "Checked your tasks" },
+    get_task_detail: { label: "Checked your tasks" },
+    get_projects: { label: "Checked your lists" },
+    get_tags: { label: "Checked your tags" },
+    get_habits: { label: "Looked at your routines" },
+    get_habit_status_today: { label: "Looked at your routines" },
+    get_habit_history: { label: "Looked back at your routines" },
+    get_inbox_items: { label: "Looked through Capture" },
+    get_user_metrics: { label: "Took a look around" },
+    get_schedule_window: { label: "Scanned your schedule" },
+    get_events: { label: "Looked at your events" },
+    get_focus_views: { label: "Looked at your focus views" },
+    get_cadence_help: { label: "Checked the Cadence guide" },
+    recall: { label: "Thought back to what you told me" },
+    search_past_chats: { label: "Looked through your past chats" },
 
     // ── write → approval cards ────────────────────────────────────────────
-    create_tasks: { class: "write", label: "Added tasks", render: (ctx) => <TaskBatchCard ctx={ctx} /> },
-    duplicate_tasks: { class: "write", label: "Copied tasks", render: (ctx) => <DuplicateTasksCard ctx={ctx} /> },
-    update_tasks: { class: "write", label: "Changed tasks", render: (ctx) => <UpdateTasksCard ctx={ctx} /> },
-    reorder_tasks: { class: "write", label: "Reordered tasks", render: (ctx) => <ReorderTasksCard ctx={ctx} /> },
-    edit_subtasks: { class: "write", label: "Changed a checklist", render: (ctx) => <SubtaskEditCard ctx={ctx} /> },
-    set_task_state: { class: "write", label: "Moved tasks", render: (ctx) => <SetStateCard ctx={ctx} /> },
-    delete_tasks: { class: "write", label: "Deleted tasks", render: (ctx) => <DeleteTasksCard ctx={ctx} /> },
-    reschedule_tasks: { class: "write", label: "Rescheduled tasks", render: (ctx) => <RescheduleCard ctx={ctx} /> },
-    update_captures: { class: "write", label: "Changed captures", render: (ctx) => <UpdateCapturesCard ctx={ctx} /> },
-    delete_captures: { class: "write", label: "Deleted captures", render: (ctx) => <DeleteCapturesCard ctx={ctx} /> },
-    create_project: { class: "write", label: "Made a list", render: (ctx) => <CreateProjectCard ctx={ctx} /> },
-    update_project: { class: "write", label: "Changed a list", render: (ctx) => <UpdateProjectCard ctx={ctx} /> },
-    delete_project: { class: "write", label: "Deleted a list", render: (ctx) => <DeleteProjectCard ctx={ctx} /> },
-    create_sections: { class: "write", label: "Added sections", render: (ctx) => <CreateSectionsCard ctx={ctx} /> },
-    update_section: { class: "write", label: "Changed a section", render: (ctx) => <UpdateSectionCard ctx={ctx} /> },
-    delete_section: { class: "write", label: "Deleted a section", render: (ctx) => <DeleteSectionCard ctx={ctx} /> },
-    create_tag: { class: "write", label: "Made a tag", render: (ctx) => <CreateTagCard ctx={ctx} /> },
-    update_tag: { class: "write", label: "Changed a tag", render: (ctx) => <UpdateTagCard ctx={ctx} /> },
-    delete_tag: { class: "write", label: "Deleted a tag", render: (ctx) => <DeleteTagCard ctx={ctx} /> },
-    log_habit: { class: "write", label: "Logged a routine", render: (ctx) => <LogHabitCard ctx={ctx} /> },
-    create_habit: { class: "write", label: "Added a routine", render: (ctx) => <CreateHabitCard ctx={ctx} /> },
-    update_habit: { class: "write", label: "Changed a routine", render: (ctx) => <UpdateHabitCard ctx={ctx} /> },
-    delete_habit: { class: "write", label: "Deleted a routine", render: (ctx) => <DeleteHabitCard ctx={ctx} /> },
-    create_event: { class: "write", label: "Added an event", render: (ctx) => <CreateEventCard ctx={ctx} /> },
-    update_event: { class: "write", label: "Changed an event", render: (ctx) => <UpdateEventCard ctx={ctx} /> },
-    delete_event: { class: "write", label: "Deleted an event", render: (ctx) => <DeleteEventCard ctx={ctx} /> },
-    create_focus_view: { class: "write", label: "Saved a focus view", render: (ctx) => <CreateFocusViewCard ctx={ctx} /> },
-    update_focus_view: { class: "write", label: "Changed a focus view", render: (ctx) => <UpdateFocusViewCard ctx={ctx} /> },
-    delete_focus_view: { class: "write", label: "Deleted a focus view", render: (ctx) => <DeleteFocusViewCard ctx={ctx} /> },
+    create_tasks: { label: "Added tasks", render: (ctx) => <TaskBatchCard ctx={ctx} /> },
+    duplicate_tasks: { label: "Copied tasks", render: (ctx) => <DuplicateTasksCard ctx={ctx} /> },
+    update_tasks: { label: "Changed tasks", render: (ctx) => <UpdateTasksCard ctx={ctx} /> },
+    reorder_tasks: { label: "Reordered tasks", render: (ctx) => <ReorderTasksCard ctx={ctx} /> },
+    edit_subtasks: { label: "Changed a checklist", render: (ctx) => <SubtaskEditCard ctx={ctx} /> },
+    set_task_state: { label: "Moved tasks", render: (ctx) => <SetStateCard ctx={ctx} /> },
+    delete_tasks: { label: "Deleted tasks", render: (ctx) => <DeleteTasksCard ctx={ctx} /> },
+    reschedule_tasks: { label: "Rescheduled tasks", render: (ctx) => <RescheduleCard ctx={ctx} /> },
+    update_captures: { label: "Changed captures", render: (ctx) => <UpdateCapturesCard ctx={ctx} /> },
+    delete_captures: { label: "Deleted captures", render: (ctx) => <DeleteCapturesCard ctx={ctx} /> },
+    create_project: { label: "Made a list", render: (ctx) => <CreateProjectCard ctx={ctx} /> },
+    update_project: { label: "Changed a list", render: (ctx) => <UpdateProjectCard ctx={ctx} /> },
+    delete_project: { label: "Deleted a list", render: (ctx) => <DeleteProjectCard ctx={ctx} /> },
+    create_sections: { label: "Added sections", render: (ctx) => <CreateSectionsCard ctx={ctx} /> },
+    update_section: { label: "Changed a section", render: (ctx) => <UpdateSectionCard ctx={ctx} /> },
+    delete_section: { label: "Deleted a section", render: (ctx) => <DeleteSectionCard ctx={ctx} /> },
+    create_tag: { label: "Made a tag", render: (ctx) => <CreateTagCard ctx={ctx} /> },
+    update_tag: { label: "Changed a tag", render: (ctx) => <UpdateTagCard ctx={ctx} /> },
+    delete_tag: { label: "Deleted a tag", render: (ctx) => <DeleteTagCard ctx={ctx} /> },
+    log_habit: { label: "Logged a routine", render: (ctx) => <LogHabitCard ctx={ctx} /> },
+    create_habit: { label: "Added a routine", render: (ctx) => <CreateHabitCard ctx={ctx} /> },
+    update_habit: { label: "Changed a routine", render: (ctx) => <UpdateHabitCard ctx={ctx} /> },
+    delete_habit: { label: "Deleted a routine", render: (ctx) => <DeleteHabitCard ctx={ctx} /> },
+    create_event: { label: "Added an event", render: (ctx) => <CreateEventCard ctx={ctx} /> },
+    update_event: { label: "Changed an event", render: (ctx) => <UpdateEventCard ctx={ctx} /> },
+    delete_event: { label: "Deleted an event", render: (ctx) => <DeleteEventCard ctx={ctx} /> },
+    create_focus_view: { label: "Saved a focus view", render: (ctx) => <CreateFocusViewCard ctx={ctx} /> },
+    update_focus_view: { label: "Changed a focus view", render: (ctx) => <UpdateFocusViewCard ctx={ctx} /> },
+    delete_focus_view: { label: "Deleted a focus view", render: (ctx) => <DeleteFocusViewCard ctx={ctx} /> },
+
+    // ── remember → one-line receipt with Undo, never an approval ───────────
+    remember: { label: "Remembered", render: (ctx) => <RememberReceipt ctx={ctx} /> },
 
     // ── capture → quiet confirmation chip ─────────────────────────────────
-    capture_to_inbox: { class: "capture", label: "Saved to your inbox" },
+    capture_to_inbox: { label: "Saved to your inbox" },
 
     // ── ask → a question to tap or type an answer to ──────────────────────
-    ask_user: { class: "ask", label: "Asked you", render: (ctx) => <AskCard ctx={ctx} /> },
+    ask_user: { label: "Asked you", render: (ctx) => <AskCard ctx={ctx} /> },
 };
 
 /** Writes the server no longer offers, still in older threads: they render with their old card. */
-const RETIRED_WRITES: Record<string, (ctx: ToolRenderContext) => React.ReactNode> = {
+const RETIRED_WRITES: Record<string, (ctx: RetiredRenderContext) => React.ReactNode> = {
     structure_inbox_item: (ctx) => <InboxStructureCard ctx={ctx} />,
     structure_captures: (ctx) => <StructureCapturesCard ctx={ctx} />,
 };
@@ -122,8 +127,8 @@ function RetiredProposal({ applied }: { applied: boolean }) {
 }
 
 /** Resolve the descriptor for a tool name, or undefined for unknown tools. */
-export function getToolDescriptor(toolName: string): ToolDescriptor | undefined {
-    return TOOL_REGISTRY[toolName];
+export function getToolDescriptor(toolName: string | undefined): ToolDescriptor | undefined {
+    return toolName && isToolName(toolName) ? { class: TOOL_CATALOG[toolName].kind, ...TOOL_REGISTRY[toolName] } : undefined;
 }
 
 /**
@@ -148,7 +153,7 @@ export function ToolPart({
     reply?: ToolRenderContext["reply"];
 }) {
     const toolName = safeToolName(part);
-    const descriptor = toolName ? TOOL_REGISTRY[toolName] : undefined;
+    const descriptor = getToolDescriptor(toolName);
     if (toolName?.startsWith("propose_")) return <RetiredProposal applied={part?.output?.decision === "commit"} />;
     const retired = toolName ? RETIRED_WRITES[toolName] : undefined;
     if (retired) return <>{retired({ part, toolName: toolName!, answer, stale })}</>;
@@ -198,5 +203,5 @@ export function safeToolName(part: { type?: string }): string | undefined {
 /** True when a part is a read-class tool part (used for grouped chip collection). */
 export function isReadToolPart(part: { type?: string }): boolean {
     const name = safeToolName(part);
-    return !!name && TOOL_REGISTRY[name]?.class === "read";
+    return !!name && isToolName(name) && TOOL_CATALOG[name].kind === "read";
 }

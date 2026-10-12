@@ -16,7 +16,7 @@ interface SubtaskEdit {
  * ticks and renames say what changes, removed steps are struck through. Every row
  * can be unticked before approving.
  */
-export function SubtaskEditCard({ ctx }: { ctx: ToolRenderContext }) {
+export function SubtaskEditCard({ ctx }: { ctx: ToolRenderContext<"edit_subtasks"> }) {
     const input: SubtaskEdit = ctx.part?.input ?? {};
     const taskId = input.taskId ?? "";
     const lookupTitle = useTaskTitleLookup();

@@ -378,6 +378,7 @@ export async function listConversations(
             title: aiConversations.title,
             lastMessageAt: aiConversations.lastMessageAt,
             archived: aiConversations.archived,
+            learn: sql<boolean>`coalesce(${aiConversations.metadata} ->> 'learn', 'true') <> 'false'`,
         })
         .from(aiConversations)
         .where(and(...conditions))
@@ -404,6 +405,8 @@ export async function getConversation(
             // grace-replay its still-alive chunk-log instead of popping in the DB text.
             lastStreamId: aiConversations.lastStreamId,
             lastStreamStatus: aiConversations.lastStreamStatus,
+            // "Don't learn from this chat" (metadata.learn = false): memory skips the thread.
+            learn: sql<boolean>`coalesce(${aiConversations.metadata} ->> 'learn', 'true') <> 'false'`,
         })
         .from(aiConversations)
         .where(and(eq(aiConversations.id, conversationId), eq(aiConversations.userId, userId)));
@@ -484,11 +487,12 @@ export async function renameOrArchiveConversation(
     tx: Tx,
     userId: string,
     conversationId: string,
-    patch: { title?: string; archived?: boolean },
+    patch: { title?: string; archived?: boolean; learn?: boolean },
 ): Promise<void> {
     const set: Record<string, unknown> = { updatedAt: sql`NOW()` };
     if (patch.title !== undefined) set.title = patch.title;
     if (patch.archived !== undefined) set.archived = patch.archived;
+    if (patch.learn !== undefined) set.metadata = sql`${aiConversations.metadata} || ${JSON.stringify({ learn: patch.learn })}::jsonb`;
 
     const updated = await tx
         .update(aiConversations)
@@ -526,4 +530,15 @@ export async function deleteArchivedConversations(tx: Tx, userId: string): Promi
         .where(and(eq(aiConversations.userId, userId), eq(aiConversations.archived, true)))
         .returning({ id: aiConversations.id });
     return deleted.length;
+}
+
+/** The person's last `count` user messages in a thread: what "yes, do that" refers to. Their own words only (`search_text`). */
+export async function lastUserTexts(tx: Tx, userId: string, conversationId: string, count = 1): Promise<string[]> {
+    const rows = await tx
+        .select({ text: aiMessages.searchText })
+        .from(aiMessages)
+        .where(and(eq(aiMessages.userId, userId), eq(aiMessages.conversationId, conversationId), eq(aiMessages.role, "user")))
+        .orderBy(desc(aiMessages.orderIndex))
+        .limit(count);
+    return rows.flatMap((r) => (r.text ? [r.text] : [])).reverse();
 }

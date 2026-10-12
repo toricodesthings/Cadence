@@ -16,7 +16,7 @@ function useProjectName() {
     return (id?: string) => data?.find((project) => project.id === id)?.name;
 }
 
-export function UpdateProjectCard({ ctx }: { ctx: ToolRenderContext }) {
+export function UpdateProjectCard({ ctx }: { ctx: ToolRenderContext<"update_project"> }) {
     const projectName = useProjectName();
     const input = ctx.part?.input ?? {};
     const patch: { name?: string; emoji?: string | null; colorAccent?: string } = input.patch ?? {};
@@ -43,7 +43,7 @@ export function UpdateProjectCard({ ctx }: { ctx: ToolRenderContext }) {
 }
 
 /** `delete_project` is permanent; what happens to its tasks is on the card. Auto still waits for this tap. */
-export function DeleteProjectCard({ ctx }: { ctx: ToolRenderContext }) {
+export function DeleteProjectCard({ ctx }: { ctx: ToolRenderContext<"delete_project"> }) {
     const input = ctx.part?.input ?? {};
     const output = ctx.part?.output;
     const name: string = input.name ?? output?.deleted ?? "this list";
@@ -75,7 +75,7 @@ export function DeleteProjectCard({ ctx }: { ctx: ToolRenderContext }) {
     );
 }
 
-export function UpdateTagCard({ ctx }: { ctx: ToolRenderContext }) {
+export function UpdateTagCard({ ctx }: { ctx: ToolRenderContext<"update_tag"> }) {
     const lookupTags = useTagsLookup();
     const input = ctx.part?.input ?? {};
     const [current] = lookupTags(input.tagId ? [input.tagId] : []);
@@ -101,7 +101,7 @@ export function UpdateTagCard({ ctx }: { ctx: ToolRenderContext }) {
 }
 
 /** `delete_tag` is permanent; tasks and routines keep everything but the tag. Auto still waits for this tap. */
-export function DeleteTagCard({ ctx }: { ctx: ToolRenderContext }) {
+export function DeleteTagCard({ ctx }: { ctx: ToolRenderContext<"delete_tag"> }) {
     const persona = useAssistantPersona();
     const name: string = ctx.part?.input?.name ?? ctx.part?.output?.deleted ?? "this tag";
     return (
@@ -164,7 +164,7 @@ function useFilterSummary(filters: ViewFilters = {}) {
     ].filter(Boolean).join(" · ") || undefined;
 }
 
-export function CreateFocusViewCard({ ctx }: { ctx: ToolRenderContext }) {
+export function CreateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"create_focus_view"> }) {
     const input = ctx.part?.input ?? {};
     const name: string = input.name ?? "this view";
     const summary = useFilterSummary(input.filters);
@@ -183,7 +183,7 @@ export function CreateFocusViewCard({ ctx }: { ctx: ToolRenderContext }) {
     );
 }
 
-export function UpdateFocusViewCard({ ctx }: { ctx: ToolRenderContext }) {
+export function UpdateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"update_focus_view"> }) {
     const { data: views } = useFocusViews();
     const input = ctx.part?.input ?? {};
     const current = views?.find((view) => view.id === input.focusViewId)?.name;
@@ -210,7 +210,7 @@ export function UpdateFocusViewCard({ ctx }: { ctx: ToolRenderContext }) {
 }
 
 /** `delete_focus_view` is permanent (no task changes). Auto still waits for this tap. */
-export function DeleteFocusViewCard({ ctx }: { ctx: ToolRenderContext }) {
+export function DeleteFocusViewCard({ ctx }: { ctx: ToolRenderContext<"delete_focus_view"> }) {
     const name: string = ctx.part?.input?.name ?? ctx.part?.output?.deleted ?? "this view";
     return (
         <ApprovalCard

@@ -11,8 +11,10 @@ import {
     useRenameConversation,
     useArchiveConversation,
     useDeleteConversation,
+    useSetConversationLearn,
 } from "../../hooks/ai/use-conversation-mutations";
 import { ConversationListItem } from "./ConversationListItem";
+import { useMemoryPage } from "../../hooks/ai/use-memory";
 import { ClearArchiveButton } from "./ClearArchiveButton";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 
@@ -37,6 +39,10 @@ export function ConversationList({
     const rename = useRenameConversation();
     const archive = useArchiveConversation();
     const del = useDeleteConversation();
+    const setLearn = useSetConversationLearn();
+    // The per-chat switch exists only while memory is on.
+    const { data: memoryPage } = useMemoryPage();
+    const learnSwitch = memoryPage && !memoryPage.inactive;
     const [showArchived, setShowArchived] = useState(false);
 
     const active = (conversations ?? []).filter((c) => !c.archived);
@@ -136,6 +142,7 @@ export function ConversationList({
                                     onRename={(title) => rename.mutate({ id: c.id, title })}
                                     onArchive={(archived) => archive.mutate({ id: c.id, archived })}
                                     onDelete={() => del.mutate({ id: c.id, title: c.title?.trim() || "conversation" })}
+                                    onToggleLearn={learnSwitch ? (learn) => setLearn.mutate({ id: c.id, learn }) : undefined}
                                 />
                             ))}
 
@@ -173,6 +180,7 @@ export function ConversationList({
                                                             archive.mutate({ id: c.id, archived })
                                                         }
                                                         onDelete={() => del.mutate({ id: c.id, title: c.title?.trim() || "conversation" })}
+                                                        onToggleLearn={learnSwitch ? (learn) => setLearn.mutate({ id: c.id, learn }) : undefined}
                                                     />
                                                 ))}
                                                 <div className="flex justify-center px-2 pb-1 pt-3">

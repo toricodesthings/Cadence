@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadSnapshot } from "../../src/domains/ai/agent";
+import { loadSnapshot } from "../../src/domains/ai/turn";
 
 const tool = (result: unknown) => ({ execute: async () => result });
 

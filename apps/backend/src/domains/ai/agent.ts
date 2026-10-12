@@ -15,10 +15,12 @@ import { approvalFor } from "./safety/approval";
 import type { ApprovalMode } from "@cadence/contracts/ai";
 import { MAX_OUTPUT_TOKENS, MAX_TOOL_STEPS } from "./safety/input-guard";
 import { getModelId } from "./model-router";
-import { isMemoryEnabled, embedText, type EmbeddingSpend } from "./memory/embedding";
-import { retrieveMemories, type RetrievedMemory } from "./memory/memory-retrieval";
+import { embedText, getEmbeddingModelId } from "./memory/embedding";
+import { isLearning } from "./memory/memory-mode";
+import { isMemoryTool } from "@cadence/contracts/ai-tools";
+import { loadProfile, recallFacts, type ProfileLine } from "./memory/memory-store";
 import type { Env } from "../../types/env";
-import { isZone, todayIn, toZonedIso } from "@cadence/domain/time";
+import { loadSnapshot, userClock } from "./turn";
 
 /** Served by OpenRouter when the chat model is unavailable or rate-limited. */
 const FALLBACK_CHAT_MODEL = "google/gemini-3.7-flash";
@@ -84,7 +86,7 @@ export interface AgentBuildOptions {
     approvalMode: ApprovalMode;
     modelId?: string;        // the router's pick for this turn (model-router.ts); default the standard model
     nonce: string;           // per-request data-fence nonce (safety/injection-policy)
-    queryText?: string;      // latest user message text — used for memory retrieval
+    queryText?: string;      // the person's last two messages: what recall looks up
     requestId?: string;      // tags the turn's side-call log lines (embedding)
     waitUntil?: (promise: Promise<unknown>) => void; // keeps post-commit metrics alive
 }
@@ -121,85 +123,66 @@ async function loadUserContext(
     });
 }
 
-/**
- * Retrieve top-k memories for the turn — feature-flagged (server AND per-user).
- * Embedding (an HTTP call) runs OUTSIDE any transaction; the similarity query is
- * RLS-scoped. Failures degrade to no memories (never block the chat path).
- */
-/** What a turn's memory lookup returned, saved on the assistant row (`metadata.memoryRetrieval`) so retrieval is visible in Admin. */
-export type MemoryRetrieval = { returned: number; core: number; ms: number };
+/** Skip the recall tier for a bare command with no conversation behind it ("ok", "done"): nothing to look up. */
+const MIN_RECALL_CHARS = 12;
 
-async function maybeRetrieveMemories(
+/**
+ * What the model is told about the person this turn, in two tiers (no model call):
+ *  1. the always-present profile: pinned facts, preferences, quirks, constraints, life facts coming up;
+ *  2. hybrid recall for this turn: full-text + cosine over the facts, from the last two user messages.
+ * Gated by the person's own mode; RLS-scoped. The query's embedding is an HTTP
+ * call outside any transaction. A failure degrades to what could be read, never blocks the chat.
+ */
+async function loadMemoryContext(
     env: Env,
     userId: string,
     userHash: string,
     persona: AssistantPersona,
+    today: string,
     queryText: string | undefined,
     requestId: string | undefined,
-): Promise<{ memories: RetrievedMemory[]; spend?: EmbeddingSpend; retrieval?: MemoryRetrieval }> {
-    if (!queryText || !isMemoryEnabled(env, persona.memoryEnabled)) return { memories: [] };
-    let spend: EmbeddingSpend | undefined; // kept if the similarity query fails after the paid embed
+): Promise<ProfileLine[]> {
+    if (!isLearning(persona.memoryMode)) return [];
+    const db = getDbClient(env);
+    let profile: ProfileLine[] = [];
     try {
-        const embedded = await embedText(env, queryText, { requestId, userHash });
-        spend = embedded.spend;
-        const db = getDbClient(env);
-        // Only rows embedded by the same model as the query are comparable.
-        const startedAt = Date.now();
-        const memories = await withRls(db, userId, (tx) => retrieveMemories(tx, userId, embedded.embedding, embedded.spend.model));
-        const retrieval = { returned: memories.length, core: memories.filter((m) => m.type === "CORE").length, ms: Date.now() - startedAt };
-        return { memories, spend, retrieval };
+        // The query's embedding (an HTTP call) runs while the profile loads.
+        const embedding = queryText && queryText.length >= MIN_RECALL_CHARS ? embedText(env, queryText, { requestId, userHash }).catch(() => null) : null;
+        profile = await withRls(db, userId, (tx) => loadProfile(tx, userId, today));
+        if (!queryText || !embedding) return profile;
+        const embedded = await embedding;
+        const recalled = await withRls(db, userId, (tx) =>
+            recallFacts(tx, userId, {
+                text: queryText,
+                embedding: embedded?.embedding ?? null,
+                model: embedded?.spend.model ?? getEmbeddingModelId(env),
+                today,
+                exclude: new Set(profile.map((p) => p.id)),
+            }),
+        );
+        return [...profile, ...recalled];
     } catch (error) {
-        logger.warn("ai", "memory_retrieval_failed", {
-            userHash,
-            issues: issuesFromError(error),
-        });
-        return { memories: [], spend };
+        logger.warn("ai", "memory_context_failed", { userHash, issues: issuesFromError(error) });
+        return profile;
     }
 }
 
 type ChatTools = Omit<ReturnType<typeof buildToolRegistry>, "get_habit_status_today">;
 
 /**
- * The chat model's tools: the registry less what Today at a glance already answers each turn.
- * Today's routine statuses come with the snapshot, and `get_habit_history` reads them after a change.
+ * The chat model's tools: the registry less what Today at a glance already answers each turn
+ * (today's routine statuses come with the snapshot; `get_habit_history` reads them after a change),
+ * and the memory tools unless the person has memory on.
  */
-export function chatTools(tools: ReturnType<typeof buildToolRegistry>): ChatTools {
+export function chatTools(tools: ReturnType<typeof buildToolRegistry>, memoryOn = false): ChatTools {
     const { get_habit_status_today: _snapshotOnly, ...rest } = tools;
-    return rest;
+    if (memoryOn) return rest;
+    // typed as present so tool calls stay typed; absent at runtime until memory is on
+    return Object.fromEntries(Object.entries(rest).filter(([name]) => !isMemoryTool(name))) as ChatTools;
 }
 
-type SnapshotTools = Pick<ReturnType<typeof buildToolRegistry>,
-    "get_schedule_window" | "get_tasks" | "get_habit_status_today" | "get_inbox_items" | "get_events">;
-
-/**
- * Today at a glance: the reads most turns open with, run before the model starts
- * so "plan my afternoon" needs no read step. Same tools and shapes the model
- * already knows; a failed read is left out. Small caps keep it ~1k tokens.
- */
-export async function loadSnapshot(tools: SnapshotTools, today: string): Promise<string> {
-    const read = async (t: { execute?: unknown }, input: object): Promise<any> => {
-        const result = await (t.execute as (input: object, options: object) => Promise<unknown>)(input, { toolCallId: "snapshot", messages: [] });
-        return (result as { ok?: boolean })?.ok === false ? undefined : result;
-    };
-    const [schedule, overdue, routines, capture, events] = await Promise.all([
-        read(tools.get_schedule_window, { start: today, end: today, includeDone: false, limit: 12 }),
-        read(tools.get_tasks, { dueWindow: "overdue", limit: 5 }),
-        read(tools.get_habit_status_today, {}),
-        read(tools.get_inbox_items, { includeProcessed: false, limit: 5 }),
-        read(tools.get_events, {}),
-    ]);
-    const targetTime = new Map<string, string | null>(schedule?.routines.map((r: any) => [r.id, r.targetTime]));
-    return JSON.stringify({
-        schedule: schedule && { tasks: schedule.tasks, more: schedule.more },
-        overdue,
-        routines: routines?.statuses.map((s: any) => ({ ...s, targetTime: targetTime.get(s.habitId) ?? undefined })),
-        capture,
-        events: events?.events.filter((e: { daysUntil: number }) => e.daysUntil <= 7),
-    });
-}
-
-/** Per schema variant (Claude's tools skip the nulls), computed once per isolate. */
-const promptHashes = new Map<boolean, Promise<string>>();
+/** Per schema variant (Claude's tools skip the nulls) and tool set, computed once per isolate. */
+const promptHashes = new Map<string, Promise<string>>();
 
 /**
  * Fingerprint of everything the model sees besides the conversation: the prompt
@@ -207,32 +190,18 @@ const promptHashes = new Map<boolean, Promise<string>>();
  * assistant message so a behavior change can be traced to a prompt or tool edit.
  * Static per deploy and schema variant.
  */
-function getPromptHash(tools: ToolSet, variant: boolean): Promise<string> {
-    let hash = promptHashes.get(variant);
+function getPromptHash(tools: ToolSet, variant: boolean, memoryOn: boolean): Promise<string> {
+    const key = `${variant}:${memoryOn}`;
+    let hash = promptHashes.get(key);
     if (!hash) {
         hash = (async () => {
             const toolDefs = await Promise.all(Object.entries(tools).map(async ([name, t]) =>
                 [name, t.description, await asSchema(t.inputSchema).jsonSchema]));
             return hashIdentifier(JSON.stringify([PROMPT_BLOCKS, HELP_TOPICS, toolDefs]));
         })();
-        promptHashes.set(variant, hash);
+        promptHashes.set(key, hash);
     }
     return hash;
-}
-
-/**
- * The user's clock for this turn, from `users.time_zone` (synced by ai.route). The model is shown local wall-clock time to the
- * minute with its offset and weekday ("2026-09-21 22:30 -04:00 (Monday)"), never a
- * UTC "Z" instant it would misread as local. Tools get the zone + local date.
- */
-export function userClock(timezone: string | undefined, currentDate: string) {
-    const tz = isZone(timezone) ? timezone : "UTC";
-    const parsed = new Date(currentDate);
-    const now = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-    const weekday = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long" }).format(now);
-    const iso = toZonedIso(now, tz); // 2026-09-21T22:30:00-04:00
-    const localTime = `${iso.slice(0, 10)} ${iso.slice(11, 16)} ${iso.slice(19)} (${weekday})`; // time-ok: slicing the zoned ISO string for the prompt, not deriving a day
-    return { timezone: tz, now, today: todayIn(tz, now), localTime };
 }
 
 /**
@@ -245,7 +214,7 @@ export async function getAgentInstance(
     env: Env,
     userId: string,
     opts: AgentBuildOptions,
-): Promise<{ agent: ToolLoopAgent<never, ChatTools>; modelId: string; promptHash: string; turnContext: string; embeddingSpend?: EmbeddingSpend; memoryRetrieval?: MemoryRetrieval }> {
+): Promise<{ agent: ToolLoopAgent<never, ChatTools>; modelId: string; promptHash: string; turnContext: string }> {
     const locale = opts.locale ?? "en";
     const modelId = opts.modelId ?? getModelId(env);
     const userHash = await hashIdentifier(userId);
@@ -263,8 +232,9 @@ export async function getAgentInstance(
         nullableOptionals: !isClaude(modelId),
     };
     const tools = buildToolRegistry(env, userId, agentCtx);
-    const [{ memories, spend: embeddingSpend, retrieval: memoryRetrieval }, snapshot] = await Promise.all([
-        maybeRetrieveMemories(env, userId, userHash, persona, opts.queryText, opts.requestId),
+    const memoryOn = isLearning(persona.memoryMode);
+    const [memories, snapshot] = await Promise.all([
+        loadMemoryContext(env, userId, userHash, persona, clock.today, opts.queryText, opts.requestId),
         loadSnapshot(tools, clock.today),
     ]);
 
@@ -280,6 +250,7 @@ export async function getAgentInstance(
             persona,
             snapshot,
             memories,
+            memoryOff: !memoryOn,
         },
         opts.nonce,
     );
@@ -287,7 +258,7 @@ export async function getAgentInstance(
     const agent = new ToolLoopAgent({
         model: getModel(env, modelId, userHash),
         instructions: chatInstructions(instructions, modelId),
-        tools: chatTools(tools),
+        tools: chatTools(tools, memoryOn),
         // A question to the user ends the turn: their reply is the next message.
         stopWhen: [isStepCount(MAX_TOOL_STEPS), hasToolCall("ask_user")],
         maxOutputTokens: MAX_OUTPUT_TOKENS,
@@ -297,5 +268,5 @@ export async function getAgentInstance(
         experimental_toolApprovalSecret: env.TOOL_APPROVAL_SECRET,
     });
 
-    return { agent, modelId, promptHash: await getPromptHash(chatTools(tools), isClaude(modelId)), turnContext, embeddingSpend, memoryRetrieval };
+    return { agent, modelId, promptHash: await getPromptHash(chatTools(tools, memoryOn), isClaude(modelId), memoryOn), turnContext };
 }

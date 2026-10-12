@@ -4,32 +4,17 @@ import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./Ap
 import { formatWhen, useTagsLookup, useTaskTitleLookup, useTaskLookup } from "./card-lookups";
 import { TaskDestination } from "./TaskDestination";
 import { TagNamePills } from "./TaskBatchCard";
-import { NoteDiff, useNoteProposal, type NoteProposal } from "./note-proposal";
+import { NoteDiff, useNoteProposal } from "./note-proposal";
 import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "../../tasks/task-choice-options";
-import type { UpdateTaskInput } from "@cadence/contracts/task";
-
-/** The change `update_tasks` applies to every listed task. */
-type TaskPatch = Partial<Pick<UpdateTaskInput,
-    "title" | "dueDate" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "projectId" | "sectionId" | "priority" | "effort" |
-    "waitingOn" | "isPinned" | "recurrenceRule">> &
-    NoteProposal & {
-        addTagIds?: string[];
-        removeTagIds?: string[];
-        addTagNames?: string[];
-        reminderAt?: string | null;
-        checkInAt?: string | null;
-        hideUntil?: string | null;
-        fixed?: boolean;
-    };
 
 /** Card for `update_tasks` (design §4.1): what changes, on one task or on rows the user can untick. */
-export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
+export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext<"update_tasks"> }) {
     const lookupTitle = useTaskTitleLookup();
     const lookupTask = useTaskLookup();
     const lookupTags = useTagsLookup();
     const { off, onToggle, removed } = useUnticked(ctx);
     const taskIds: string[] = ctx.part?.input?.taskIds ?? [];
-    const patch = (ctx.part?.input?.patch ?? {}) as TaskPatch;
+    const patch = ctx.part?.input?.patch ?? {};
     const count = taskIds.length;
     const kept = count - off.size;
     const title = count === 1 ? lookupTitle(taskIds[0]) : `${count} tasks`;
