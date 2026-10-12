@@ -24,11 +24,14 @@ describe("task writes in the one time model", () => {
         api.create.mockReturnValue(new Promise(() => {}));
         const qc = testQueryClient();
         qc.setQueryData(listKey, []);
+        const searchNotes = [{ taskId: "note-owner", terms: ["deployment"], headings: [] }];
+        qc.setQueryData(queryKeys.notes.search, searchNotes);
         const { result } = renderHook(useCreateTask, { wrapper: withClient(qc) });
         const start = atLocal("2026-03-26", "14:00", ZONE);
         act(() => { result.current.mutate({ title: "Lunch", orderIndex: 1, scheduledStart: start, scheduledEnd: atLocal("2026-03-26", "15:00", ZONE) }); });
         act(() => { result.current.mutate({ title: "Rent", orderIndex: 2, dueDate: "2026-03-31" }); });
         await waitFor(() => expect(qc.getQueryData<Task[]>(listKey)).toHaveLength(2));
+        expect(qc.getQueryData(queryKeys.notes.search)).toEqual(searchNotes);
         const [timed, allDay] = qc.getQueryData<Task[]>(listKey)!;
         expect(timed).toMatchObject({ scheduledStart: start, zone: ZONE, dueDate: null, endDate: null });
         expect(allDay).toMatchObject({ dueDate: "2026-03-31", scheduledStart: null, zone: null });

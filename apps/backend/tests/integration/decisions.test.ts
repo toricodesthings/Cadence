@@ -182,6 +182,16 @@ describe("S2: did you mean", () => {
         expect(sent).toHaveLength(0);
     });
 
+    it("finds a spelling suggestion in canonical notes while keeping versions exact", async () => {
+        const task = (await tasks("POST", "", { title: "Release checklist", orderIndex: 0 })).body.data;
+        const { noteRoutes } = await import("../../src/domains/notes/notes.route");
+        await apiAs(userId, "/api", noteRoutes)("PATCH", `/tasks/${task.id}/note`, { body: "Deployment 0.31.0" });
+        const result = await search("POST", "/did-you-mean", { query: "deploymnt 0.31.0" });
+        expect(result.body.data.task).toEqual({ id: task.id, title: task.title });
+        expect(sent).toHaveLength(0);
+        expect((await search("POST", "/did-you-mean", { query: "deploymnt 0.31.01" })).body.data.task).toBeNull();
+    });
+
     it("can suggest a completed task only when completed state was requested", async () => {
         const task = (await tasks("POST", "", { title: "Renew lease", orderIndex: 0 })).body.data;
         await tasks("PATCH", `/${task.id}`, { state: "COMPLETE" });

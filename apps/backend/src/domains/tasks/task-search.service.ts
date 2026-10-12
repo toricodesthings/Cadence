@@ -2,7 +2,7 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { and, ilike, or, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import { taskNotes, tasks, subtasks, taskTags, tags, projects, taskSections } from "../../db/schema";
 
-import { searchTerms, isIdentifier, identifierPattern, processTerm } from "@cadence/search/terms";
+import { searchTerms, isIdentifier, identifierPattern, processTerm, canApproximate } from "@cadence/search/terms";
 
 // Drizzle removes column qualification in a single-table SELECT. Correlated subqueries must retain it.
 const qualified = (column: AnyPgColumn) => sql`${column.table}.${sql.identifier(column.name)}`;
@@ -20,7 +20,7 @@ export const taskSearchColumns = {
 };
 
 /** Numbers/codes are literal identities, never stems or substring guesses. */
-function matchesTerm(column: SQLWrapper, term: string): SQL {
+function matchesTerm(column: SQLWrapper, term: string, fuzzy: boolean): SQL {
     if (isIdentifier(term)) {
         return sql`${column} ~* ${identifierPattern(term)}`;
     }
@@ -30,6 +30,7 @@ function matchesTerm(column: SQLWrapper, term: string): SQL {
         return or(
             sql`${column} ~* ${`\\m${term}([[:digit:]]+[[:alpha:]]*)?\\M`}`,
             sql`to_tsvector('english', coalesce(${column}, '')) @@ plainto_tsquery('english', ${term})`,
+            fuzzy && canApproximate(term) ? sql`word_similarity(${term}, coalesce(${column}, '')) >= 0.2` : undefined,
             // A broad candidate prefix only: the shared index verifies full word forms before returning anything.
             sql`${column} ~* ${`\\m${processTerm(term).slice(0, Math.max(1, processTerm(term).length - 2))}[[:alpha:]]*\\M`}`,
         )!;
@@ -39,10 +40,10 @@ function matchesTerm(column: SQLWrapper, term: string): SQL {
 }
 
 /** All terms must match the same task. Reuse the identifier subset when offering a fuzzy suggestion. */
-export function taskSearch(query: string, places: SQLWrapper[]) {
+export function taskSearch(query: string, places: SQLWrapper[], fuzzy = false) {
     const terms = searchTerms(query);
     const match = (term: string) => or(
-        ...[tasks.title, ...Object.values(taskSearchColumns), ...places].map((column) => matchesTerm(column, term)),
+        ...[tasks.title, ...Object.values(taskSearchColumns), ...places].map((column) => matchesTerm(column, term, fuzzy)),
     );
     return {
         condition: terms.length ? and(...terms.map(match))! : sql`false`,

@@ -7,9 +7,9 @@ export const queryKeys = {
         list: (filters: Record<string, unknown>) => ["tasks", filters] as const,
         detail: (id: string) => ["tasks", id] as const,
     },
-    /** A task's dedicated note, by canonical owner (the series for a recurring task). Nested under `tasks` so a task refresh refreshes it. */
+    /** Notes by canonical owner. The search projection has its own prefix so task cache patches cannot alter it. */
     notes: {
-        search: ["tasks", "search-notes"] as const,
+        search: ["search-notes"] as const,
         detail: (ownerId: string) => ["tasks", ownerId, "note"] as const,
     },
     projects: {

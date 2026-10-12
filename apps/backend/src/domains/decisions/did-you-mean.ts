@@ -1,5 +1,5 @@
 import { createSearchIndex } from "@cadence/search";
-import { taskSearch, taskPlaceColumns } from "../tasks/task-search.service";
+import { taskSearch, taskPlaceColumns, taskSearchColumns } from "../tasks/task-search.service";
 /**
  * S2: when a search finds nothing, ask which recent open task was meant.
  *
@@ -27,20 +27,33 @@ export async function didYouMean(
 ): Promise<{ id: string; title: string } | null> {
     if (!query.trim()) return null;
     const db = getDbClient(env);
-    const recent = await withRls(db, userId, async (tx) => {
-        if (!(await smartPlacementOn(tx, userId))) return [];
-        return tx
-            .select({ id: tasks.id, title: tasks.title })
-            .from(tasks)
-            .where(and(eq(tasks.userId, userId), scope ?? and(inArray(tasks.state, ["ACTIVE", "WAITING"]), taskSearch(query, Object.values(taskPlaceColumns)).identifiers), ne(tasks.interactionMode, "timetable")))
-            // ponytail: unindexed sort over one person's scoped tasks; a GiST trigram index if those reach six figures.
-            .orderBy(desc(sql`word_similarity(${query}, ${tasks.title})`), desc(tasks.updatedAt), desc(tasks.id));
+    const selection = await withRls(db, userId, async (tx) => {
+        if (!(await smartPlacementOn(tx, userId))) return { fuzzy: [], recent: [] };
+        const base = and(
+            eq(tasks.userId, userId),
+            scope ?? and(inArray(tasks.state, ["ACTIVE", "WAITING"]), taskSearch(query, Object.values(taskPlaceColumns)).identifiers),
+            ne(tasks.interactionMode, "timetable"),
+        );
+        // Broad SQL retrieval only; shared search verifies every term across the canonical fields.
+        const documents = await tx.select({ id: tasks.id, title: tasks.title, ...taskPlaceColumns, ...taskSearchColumns })
+            .from(tasks).where(and(base, taskSearch(query, Object.values(taskPlaceColumns), true).condition));
+        const hits = createSearchIndex(documents.map((doc) => ({ ...doc, list: doc.listName ?? "", section: doc.sectionName ?? "" })))
+            .search(query, { fuzzy: true });
+        const byId = new Map(documents.map((doc) => [doc.id, doc]));
+        const fuzzy = hits.map((hit) => byId.get(hit.id)!);
+        if (fuzzy.length === 1 || !decisionModel(env)) return { fuzzy, recent: [] };
+        // Semantic fallback is confirmation-only; rank by spelling before limiting the model's options.
+        const recent = await tx.select({ id: tasks.id, title: tasks.title }).from(tasks).where(base)
+            .orderBy(desc(sql`word_similarity(${query}, ${tasks.title})`), desc(tasks.updatedAt), desc(tasks.id)).limit(255);
+        return { fuzzy, recent };
     });
-    if (recent.length === 0) return null;
-    const fuzzy = createSearchIndex(recent).search(query, { fuzzy: true });
     // A spelling candidate is still a suggestion, never permission to mutate a task.
-    if (fuzzy.length === 1) return recent.find((task) => task.id === fuzzy[0]!.id) ?? null;
-    if (!decisionModel(env)) return null;
+    if (selection.fuzzy.length === 1) {
+        const { id, title } = selection.fuzzy[0]!;
+        return { id, title };
+    }
+    const recent = selection.recent;
+    if (!recent.length) return null;
     const decision = await decideChoice(env, {
         kind,
         state: query.slice(0, 200),

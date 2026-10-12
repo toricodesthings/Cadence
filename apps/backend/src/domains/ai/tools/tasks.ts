@@ -117,7 +117,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 "When a query finds nothing, possibleMatch may name the task they probably meant: offer it as a guess, never act on it unasked. " +
                 "Leaves out Fixed blocks and the days of repeating series (see get_schedule_window). Rows carry their tag names. Pages with offset: more:true and nextOffset when there's more.",
             inputSchema: z.object({
-                query: z.string().trim().min(1).max(200).optional().describe("Words for ONE task: ALL must match its title, note, list or section. Word forms match; numbers/versions/codes stay exact. Search separate tasks separately."),
+                query: z.string().trim().min(1).max(200).optional().describe("Words for ONE task: ALL must match its title, note, list, section, subtask or tag. Word forms match; numbers/versions/codes stay exact. Search separate tasks separately."),
                 state: z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]).optional().describe("ARCHIVED = Trash."),
                 dueWindow: z
                     .enum(["overdue", "today", "this_week", "this_month"])
