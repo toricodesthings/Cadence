@@ -11,6 +11,7 @@ by every client (`apps/backend`, `apps/frontend`, and downstream
 
 ```
 packages/
+  search/     Conservative token search / ranking.     deps: minisearch, stemmer
   nlp/        NLP parse / resolve / title / effort / rank / focus-views.   deps: chrono-node, fuse.js
   contracts/  Zod schemas → inferred types (wire shapes). deps: zod, @cadence/nlp
   domain/     Pure domain logic (no I/O, no framework).   deps: rrule, @cadence/contracts, @cadence/nlp
@@ -21,6 +22,7 @@ packages/
 
 ```
 app  →  domain  →  contracts  →  nlp
+app  →  search
 ```
 
 No package imports an app. No package imports `drizzle-orm`, `hono`, `react`, or
@@ -249,7 +251,7 @@ sync. Add to it when you add a `TaskReadShape` branch.
   come from `common.ts` (contracts and backend alike), never redeclared. A field is one type,
   never a date-or-datetime union.
 - **Imports:** always by sub-path (`@cadence/contracts/task`); contracts and domain
-  have no barrel (only nlp does, for the backend). Extensionless relative imports inside a package.
+  have no barrel (nlp and the search entry point expose their public API). Extensionless relative imports inside a package.
 - **No catch-all files.** One module per domain; no `utils.ts`/`helpers.ts`.
 - **Contracts own shape, including refinements.** Never
   duplicate a shape in an app. Where nlp owns a type (`CanonicalNlpEnvelope`,

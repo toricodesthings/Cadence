@@ -1,3 +1,5 @@
+import type { SearchNote } from "@cadence/contracts/search";
+import { searchTerms, noteHeadings } from "@cadence/search/terms";
 /**
  * The tab's note sessions, one per account + canonical owner. A session outlives the
  * editor that opened it so closing the room never loses the newest work; it is dropped
@@ -52,7 +54,14 @@ export function acquireNoteSession(queryClient: QueryClient, userId: string, own
             },
             cachedNote: () => queryClient.getQueryData<TaskNote | null>(noteKey),
             send: sendTaskNote(ownerId),
-            publish: (next) => queryClient.setQueryData(noteKey, next),
+            publish: (next) => {
+                const note = queryClient.setQueryData<TaskNote | null>(noteKey, next);
+                // Keep local search current, including a deliberately cleared note and offline saves.
+                if (note) queryClient.setQueryData<SearchNote[]>(queryKeys.notes.search, (old) => old && [
+                    ...old.filter((entry) => entry.taskId !== ownerId),
+                    { taskId: ownerId, terms: searchTerms(note.body), headings: noteHeadings(note.body) },
+                ]);
+            },
             announce: (message) => announceNoteSaved({ userId, ...message }),
             journal: noteJournal,
             walEntries: getWalSnapshot,

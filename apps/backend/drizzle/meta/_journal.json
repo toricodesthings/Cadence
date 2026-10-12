@@ -127,6 +127,13 @@
       "when": 1791821616002,
       "tag": "0017_memory_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791847595078,
+      "tag": "0018_trigram_search",
+      "breakpoints": true
     }
   ]
 }

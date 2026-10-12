@@ -13,6 +13,7 @@
  */
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
+import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
 import { drizzle } from "drizzle-orm/pglite";
 import { readFileSync } from "node:fs";
 import { inject } from "vitest";
@@ -23,7 +24,7 @@ let db: ReturnType<typeof drizzle<typeof schema>> | undefined;
 
 export async function startTestDb() {
     // The migrated database global-setup.ts built once for this run.
-    client = new PGlite({ extensions: { vector }, loadDataDir: new Blob([readFileSync(inject("testDbSnapshot"))]) });
+    client = new PGlite({ extensions: { vector, pg_trgm }, loadDataDir: new Blob([readFileSync(inject("testDbSnapshot"))]) });
     db = drizzle(client, { schema });
     // Superusers bypass RLS. Run as the worker's role so policies and grants apply as in production,
     // and in UTC like Neon so timestamp text matches what production returns.

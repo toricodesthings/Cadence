@@ -1,3 +1,7 @@
+import { createSearchIndex, type SearchDocument } from "@cadence/search";
+import { noteHeadings } from "@cadence/search/terms";
+import { useSearchNotes } from "./use-search-notes";
+import { useTags } from "../tags/use-tags";
 import { useMemo, useDeferredValue } from "react";
 import { useTasks } from "../tasks/use-tasks";
 import { useSubtasksByTaskIds } from "../tasks/use-subtasks";
@@ -10,11 +14,6 @@ import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../../lib/utils/t
 import { today as getToday } from "../../lib/utils/user-zone";
 import type { Task } from "@cadence/contracts/task";
 import type { FocusKind } from "./use-route-focus";
-
-/** Type-safe null filter */
-function nonNull<T>(value: T | null | undefined): value is T {
-    return value != null;
-}
 
 // ── Result model ──────────────────────────────────────────────────
 
@@ -114,40 +113,6 @@ function describeFocusView(definition: {
     return parts.length > 0 ? parts.join(" · ") : "Saved focus view";
 }
 
-// ── Scoring ───────────────────────────────────────────────────────
-
-function scoreMatch(query: string, target: string): number {
-    const q = query.toLowerCase();
-    const t = target.toLowerCase();
-    if (t === q) return 100;
-    if (t.startsWith(q)) return 90;
-    const words = t.split(/\s+/);
-    if (words.some(w => w === q)) return 80;
-    if (words.some(w => w.startsWith(q))) return 70;
-    if (t.includes(q)) return 60;
-    return 0;
-}
-
-function scoreItem(query: string, fields: { title: string; meta?: string[] }): number {
-    const titleScore = scoreMatch(query, fields.title);
-    if (titleScore > 0) return titleScore;
-    for (const m of fields.meta ?? []) {
-        const metaScore = scoreMatch(query, m);
-        if (metaScore > 0) return Math.max(metaScore - 20, 10);
-    }
-    return 0;
-}
-
-function extractMarkdownHeadings(input: string | null | undefined) {
-    if (!input) return [];
-    return input
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => /^#{1,6}\s+/.test(line))
-        .map((line) => line.replace(/^#{1,6}\s+/, "").trim())
-        .filter(Boolean);
-}
-
 // ── Route resolution ──────────────────────────────────────────────
 
 function resolveTaskRoute(task: Task): { route: string; context: string; scope?: string } {
@@ -171,196 +136,138 @@ function resolveTaskRoute(task: Task): { route: string; context: string; scope?:
 // ── Main hook ─────────────────────────────────────────────────────
 
 const MAX_RESULTS_PER_GROUP = 8;
+const EMPTY_TASKS: Task[] = [];
+const EMPTY_SUBTASKS: NonNullable<ReturnType<typeof useSubtasksByTaskIds>["data"]> = {};
+const EMPTY_HABITS: NonNullable<ReturnType<typeof useAllHabits>["data"]> = [];
+const EMPTY_INBOX: NonNullable<ReturnType<typeof useInbox>["data"]> = [];
+const EMPTY_PROJECTS: NonNullable<ReturnType<typeof useProjects>["data"]> = [];
+const EMPTY_SECTIONS: NonNullable<ReturnType<typeof useSections>["data"]> = [];
+const EMPTY_TAGS: NonNullable<ReturnType<typeof useTags>["data"]> = [];
+const EMPTY_NOTES: NonNullable<ReturnType<typeof useSearchNotes>["data"]> = [];
+
 
 export function useUniversalSearch(rawQuery: string, enabled: boolean) {
     const query = useDeferredValue(rawQuery.trim());
 
-    const { data: tasks = [] } = useTasks({ enabled });
+    const { data: tasks = EMPTY_TASKS } = useTasks({ enabled });
     const taskIds = useMemo(() => tasks.map((task) => task.id), [tasks]);
-    const { data: subtasksByTaskId = {} } = useSubtasksByTaskIds(taskIds);
-    const { data: habits = [] } = useAllHabits();
-    const { data: activeCaptures = [] } = useInbox();
-    const { data: keptCaptures = [] } = useInbox("kept");
+    const { data: subtasksByTaskId = EMPTY_SUBTASKS } = useSubtasksByTaskIds(taskIds);
+    const { data: habits = EMPTY_HABITS } = useAllHabits();
+    const { data: activeCaptures = EMPTY_INBOX } = useInbox();
+    const { data: keptCaptures = EMPTY_INBOX } = useInbox("kept");
     const inboxItems = useMemo(() => [...new Map([...activeCaptures, ...keptCaptures].map(item => [item.id, item])).values()], [activeCaptures, keptCaptures]);
-    const { data: projects = [] } = useProjects();
-    const { data: sections = [] } = useSections();
+    const { data: projects = EMPTY_PROJECTS } = useProjects();
+    const { data: sections = EMPTY_SECTIONS } = useSections();
+    const { data: tags = EMPTY_TAGS } = useTags();
+    const { data: searchNotes = EMPTY_NOTES } = useSearchNotes(enabled);
     const savedFocusViews = useFocusViewStore((state) => state.savedViews);
 
-    const projectMap = useMemo(() => {
-        const map = new Map<string, { name: string; emoji: string | null }>();
-        for (const p of projects) map.set(p.id, { name: p.name, emoji: p.emoji });
-        return map;
-    }, [projects]);
+    const indexed = useMemo(() => {
+        const projectMap = new Map(projects.map((p) => [p.id, p]));
+        const sectionMap = new Map(sections.map((section) => [section.id, section.name]));
+        const tagMap = new Map(tags.map((tag) => [tag.id, tag.name]));
+        const noteMap = new Map(searchNotes.map((note) => [note.taskId, note]));
+        const taskMap = new Map(tasks.map((task) => [task.id, task]));
+        const documents: SearchDocument[] = [];
+        const items = new Map<string, SearchResult>();
+        const taskDetails = new Map<string, { id: string; headings: string[]; subtaskTitles: string[]; sectionName?: string }>();
+        const add = (result: SearchResult, fields: Omit<SearchDocument, "id" | "title"> = {}, title = result.title) => {
+            items.set(result.id, result);
+            documents.push({ id: result.id, title, ...fields });
+        };
+        for (const page of STATIC_PAGES) add(page);
+        for (const task of tasks) {
+            const { route, context, scope } = resolveTaskRoute(task);
+            const owner = task.seriesId ?? task.id;
+            const dedicated = noteMap.get(owner);
+            const legacy = taskMap.get(owner)?.content ?? task.content ?? "";
+            const notes = dedicated ? dedicated.terms.join(" ") : legacy;
+            const headings = dedicated?.headings ?? noteHeadings(legacy);
+            const subs = subtasksByTaskId[task.id] ?? [];
+            const sectionName = task.sectionId ? sectionMap.get(task.sectionId) : undefined;
+            add({
+                id: `task-${task.id}`, kind: "task", focusKind: "task", title: task.title,
+                context, route, focusScope: scope,
+                score: task.state === "ACTIVE" ? 5 : task.state === "COMPLETE" || task.state === "ARCHIVED" ? -15 : 0,
+            }, {
+                notes, list: task.projectId ? projectMap.get(task.projectId)?.name : undefined,
+                section: sectionName, subtasks: subs.map((sub) => sub.title).join(" "),
+                tags: task.tagIds.map((id) => tagMap.get(id) ?? "").join(" "),
+            });
+            // Retain the original heading text for navigation; compact note tokens aren't display text.
+            taskDetails.set(`task-${task.id}`, { id: task.id, headings, subtaskTitles: subs.map((sub) => sub.title), sectionName });
+        }
+        for (const habit of habits) add({
+            id: `habit-${habit.id}`, kind: "habit", focusKind: "habit", title: habit.title,
+            context: habit.archived ? "Routines · Archived" : "Routines", route: "/routines", score: habit.archived ? -10 : 0,
+        }, { notes: `${habit.description ?? ""} ${habit.notes ?? ""}` });
+        for (const item of inboxItems) {
+            if (!["clarifying", "kept"].includes(item.captureStatus)) continue;
+            const title = (item.analysis?.userOverrides as { title?: string } | undefined)?.title ?? item.rawText;
+            add({ id: `inbox-${item.id}`, kind: "inbox", focusKind: "inbox",
+                title: title.length > 80 ? title.slice(0, 80) + "…" : title,
+                context: item.captureStatus === "kept" ? "Capture · Note" : "Capture · Thought",
+                route: "/", focusScope: "holding-captures", score: 0,
+            }, { notes: item.rawText }, title);
+        }
+        for (const project of projects) add({
+            id: `project-${project.id}`, kind: "project", focusKind: "section",
+            title: project.emoji ? `${project.emoji} ${project.name}` : project.name,
+            context: "List", route: `/project/${project.id}`, score: 0,
+        }, {}, project.name);
+        for (const view of savedFocusViews) add({
+            id: `focus-view-${view.id}`, kind: "focus-view", focusKind: "section", title: view.name,
+            context: `${view.isPinned ? "Pinned" : "Saved"} · ${describeFocusView(view.definition)}`,
+            route: "/today", focusScope: "focus-view", score: 0,
+        }, { notes: `${describeFocusView(view.definition)} ${view.source === "preset" ? "Preset view" : "Custom view"}` });
+        return { engine: createSearchIndex(documents), items, taskDetails };
+    }, [tasks, subtasksByTaskId, sections, tags, searchNotes, habits, inboxItems, projects, savedFocusViews]);
 
     const results = useMemo(() => {
-        if (!query) return { pages: STATIC_PAGES.slice(0, 5), tasks: [], habits: [], captures: [], projects: [], focusViews: [] };
+        const grouped: Record<"pages" | "tasks" | "habits" | "captures" | "projects" | "focusViews", SearchResult[]> = {
+            pages: [], tasks: [], habits: [], captures: [], projects: [], focusViews: [],
+        };
+        if (!query) return { ...grouped, pages: STATIC_PAGES.slice(0, 5) };
+        const keys = { page: "pages", task: "tasks", habit: "habits", inbox: "captures", project: "projects", "focus-view": "focusViews" } as const;
+        const hits = indexed.engine.search(query, { prefix: true, fuzzy: true });
+        const aliasRoutes = ALIAS_MAP[query.toLowerCase()];
+        for (const page of STATIC_PAGES) {
+            if (aliasRoutes?.includes(page.route) && !hits.some((hit) => hit.id === page.id)) {
+                hits.push({ id: page.id, score: 1085, approximate: false, fields: ["title"] });
+            }
+        }
+        for (const hit of hits) {
+            const item = indexed.items.get(hit.id)!;
+            const result = { ...item, score: item.score + hit.score };
+            grouped[keys[item.kind]].push(result);
+        }
+        for (const key of Object.keys(grouped) as (keyof typeof grouped)[]) {
+            grouped[key] = grouped[key].sort((a, b) => b.score - a.score).slice(0, MAX_RESULTS_PER_GROUP);
+        }
+        const hitMap = new Map(hits.map((hit) => [hit.id, hit]));
+        for (const result of grouped.tasks) {
+            const hit = hitMap.get(result.id)!;
+            const item = result;
+            const detail = indexed.taskDetails.get(result.id);
+            if (detail && !hit.fields.includes("title")) {
+                if (hit.fields.includes("subtasks")) {
+                    const subtask = createSearchIndex(detail.subtaskTitles.map((title, i) => ({ id: String(i), title })))
+                        .search(query, { prefix: true, fuzzy: true })[0];
+                    result.context += subtask ? ` · Subtask: ${detail.subtaskTitles[Number(subtask.id)]}` : " · Subtask";
+                }
+                else if (hit.fields.includes("section")) result.context += ` · Section: ${detail.sectionName}`;
+                else if (hit.fields.includes("notes")) {
+                    const heading = detail.headings.length ? createSearchIndex(detail.headings.map((title, i) => ({ id: String(i), title })))
+                        .search(query, { prefix: true, fuzzy: true })[0] : undefined;
+                    const matchedHeading = heading ? detail.headings[Number(heading.id)] : undefined;
+                    result.context += matchedHeading ? ` · Heading: ${matchedHeading}` : " · Notes";
+                    result.noteAction = { taskId: detail.id, taskTitle: item.title, ...(matchedHeading && { scrollToHeading: matchedHeading }) };
+                } else if (hit.fields.includes("tags")) result.context += " · Tag";
+            }
+        }
+        return grouped;
+    }, [query, indexed]);
 
-        const q = query.toLowerCase();
-
-        // Check alias map
-        const aliasRoutes = ALIAS_MAP[q];
-
-        // Score pages
-        const pageResults: SearchResult[] = STATIC_PAGES
-            .map(p => {
-                let s = scoreMatch(query, p.title);
-                if (aliasRoutes?.includes(p.route)) s = Math.max(s, 85);
-                return { ...p, score: s };
-            })
-            .filter(p => p.score > 0)
-            .sort((a, b) => b.score - a.score);
-
-        // Score tasks
-        const taskResults = tasks
-            .map(t => {
-                const proj = t.projectId ? projectMap.get(t.projectId) : null;
-                const matchedSubtasks = subtasksByTaskId[t.id] ?? [];
-                const sectionName = t.sectionId ? sections.find((section) => section.id === t.sectionId)?.name : null;
-                const headings = extractMarkdownHeadings(t.content);
-                const meta = [
-                    t.content ?? "",
-                    proj?.name ?? "",
-                    sectionName ?? "",
-                    ...headings,
-                    ...matchedSubtasks.map((subtask) => subtask.title),
-                ].filter(Boolean);
-                const s = scoreItem(query, { title: t.title, meta });
-                if (s === 0) return null;
-                const { route, context, scope } = resolveTaskRoute(t);
-                const matchedHeading = headings.find((heading) => scoreMatch(query, heading) > 0);
-                const matchedSubtask = matchedSubtasks.find((subtask) => scoreMatch(query, subtask.title) > 0);
-                const matchedInNotes = scoreMatch(query, t.content ?? "") > 0;
-                const matchedSection = sectionName && scoreMatch(query, sectionName) > 0 ? sectionName : null;
-                // Boost active, penalize completed/archived
-                let adjusted = s;
-                if (t.state === "ACTIVE") adjusted += 5;
-                if (t.state === "COMPLETE" || t.state === "ARCHIVED") adjusted -= 15;
-                return {
-                    id: `task-${t.id}`,
-                    kind: "task" as const,
-                    focusKind: "task" as const,
-                    title: t.title,
-                    context:
-                        matchedSubtask
-                            ? `${context} · Subtask: ${matchedSubtask.title}`
-                            : matchedHeading
-                                ? `${context} · Heading: ${matchedHeading}`
-                                : matchedSection
-                                    ? `${context} · Section: ${matchedSection}`
-                                    : matchedInNotes
-                                        ? `${context} · Notes`
-                                        : context,
-                    route,
-                    focusScope: scope,
-                    score: adjusted,
-                    // When match is in heading or notes, allow opening into note room
-                    noteAction: matchedHeading
-                        ? { taskId: t.id, taskTitle: t.title, scrollToHeading: matchedHeading }
-                        : matchedInNotes
-                            ? { taskId: t.id, taskTitle: t.title }
-                            : undefined,
-                } satisfies SearchResult;
-            })
-            .filter(nonNull)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, MAX_RESULTS_PER_GROUP);
-
-        // Score habits
-        const habitResults = habits
-            .map(h => {
-                const s = scoreItem(query, { title: h.title, meta: [h.description ?? "", h.notes ?? ""].filter(Boolean) });
-                if (s === 0) return null;
-                return {
-                    id: `habit-${h.id}`,
-                    kind: "habit" as const,
-                    focusKind: "habit" as const,
-                    title: h.title,
-                    context: h.archived ? "Routines · Archived" : "Routines",
-                    route: "/routines",
-                    score: h.archived ? s - 10 : s,
-                } satisfies SearchResult;
-            })
-            .filter(nonNull)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, MAX_RESULTS_PER_GROUP);
-
-        // Score captures
-        const captureResults = inboxItems
-            .map(item => {
-                if (!["clarifying", "kept"].includes(item.captureStatus)) return null;
-                const thoughtTitle = (item.analysis?.userOverrides as { title?: string } | undefined)?.title ?? item.rawText;
-                const s = scoreItem(query, { title: thoughtTitle, meta: [item.rawText] });
-                if (s === 0) return null;
-                return {
-                    id: `inbox-${item.id}`,
-                    kind: "inbox" as const,
-                    focusKind: "inbox" as const,
-                    title: thoughtTitle.length > 80 ? thoughtTitle.slice(0, 80) + "…" : thoughtTitle,
-                    context: item.captureStatus === "kept" ? "Capture · Note" : "Capture · Thought",
-                    route: "/",
-                    focusScope: "holding-captures",
-                    score: s,
-                } satisfies SearchResult;
-            })
-            .filter(nonNull)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, MAX_RESULTS_PER_GROUP);
-
-        // Score projects
-        const projectResults = projects
-            .map(p => {
-                const s = scoreItem(query, { title: p.name, meta: [p.emoji ?? ""].filter(Boolean) });
-                if (s === 0) return null;
-                return {
-                    id: `project-${p.id}`,
-                    kind: "project" as const,
-                    focusKind: "section" as const,
-                    title: p.emoji ? `${p.emoji} ${p.name}` : p.name,
-                    context: "List",
-                    route: `/project/${p.id}`,
-                    score: s,
-                } satisfies SearchResult;
-            })
-            .filter(nonNull)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, MAX_RESULTS_PER_GROUP);
-
-        const focusViewResults = savedFocusViews
-            .map((view) => {
-                const score = scoreItem(query, {
-                    title: view.name,
-                    meta: [describeFocusView(view.definition), view.source === "preset" ? "Preset view" : "Custom view"],
-                });
-                if (score === 0) return null;
-                return {
-                    id: `focus-view-${view.id}`,
-                    kind: "focus-view" as const,
-                    focusKind: "section" as const,
-                    title: view.name,
-                    context: `${view.isPinned ? "Pinned" : "Saved"} · ${describeFocusView(view.definition)}`,
-                    route: "/today",
-                    focusScope: "focus-view",
-                    score,
-                } satisfies SearchResult;
-            })
-            .filter(nonNull)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, MAX_RESULTS_PER_GROUP);
-
-        return { pages: pageResults, tasks: taskResults, habits: habitResults, captures: captureResults, projects: projectResults, focusViews: focusViewResults };
-    }, [query, tasks, subtasksByTaskId, sections, habits, inboxItems, projects, projectMap, savedFocusViews]);
-
-    const allResults = useMemo(() => {
-        const all = [
-            ...results.tasks,
-            ...results.habits,
-            ...results.captures,
-            ...results.projects,
-            ...results.focusViews,
-            ...results.pages,
-        ];
-        return all.sort((a, b) => b.score - a.score);
-    }, [results]);
-
+    const allResults = useMemo(() => Object.values(results).flat().sort((a, b) => b.score - a.score), [results]);
     return { results, allResults, query };
 }

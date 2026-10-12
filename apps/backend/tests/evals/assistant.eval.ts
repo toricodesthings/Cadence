@@ -131,7 +131,82 @@ function serialReads(run: Run) {
 const openTasks = async (t: Tools, input: object = {}) => (await t("get_tasks", { limit: 50, ...input })).tasks as any[];
 const titled = (rows: any[], title: string) => rows.find((row) => row.title.toLowerCase().includes(title.toLowerCase()));
 
+async function seedVersionTasks(t: Tools) {
+    const { projectId, sections } = await t("create_project", { name: "CS App Projects", sections: ["Cadence"] });
+    const { created } = await t("create_tasks", { tasks: [
+        { title: "Implement 0.31.0" },
+        { title: "Implement 0.32.0" },
+        { title: "Implement 0.31.01" },
+        { title: "Implement 0.32.0-rc1" },
+        { title: "Release retrospective", note: "Look back at 0.31.0" },
+        { title: "Buy groceries" },
+    ].map((task) => ({ ...task, projectId, sectionId: sections[0].sectionId })) });
+    return { targets: created.slice(0, 2).map((task: any) => task.taskId), projectId, sectionId: sections[0].sectionId };
+}
+
 const SCENARIOS: Scenario[] = [
+    {
+        name: "task search: complete two loosely named tasks without identifiers",
+        level: "medium",
+        seed: async (t) => {
+            const { created } = await t("create_tasks", { tasks: [
+                { title: "Renew passport" }, { title: "Book dentist" }, { title: "Book flight" },
+            ] });
+            return { targets: created.slice(0, 2).map((task: any) => task.taskId) };
+        },
+        turns: ["finished the passport renewal and dentist booking"],
+        check: async (run, t, { targets }) => {
+            const done = (await t("get_tasks", { state: "COMPLETE" })).tasks.map((task: any) => task.id).sort();
+            return [
+                ...need(JSON.stringify(done) === JSON.stringify([...targets].sort()), "only passport and dentist marked done"),
+                ...need(called(run, "ask_user").length === 0, "no clarification for clear word-form matches"),
+                ...need(called(run, "create_tasks").length === 0, "no replacements created"),
+            ];
+        },
+    },
+    {
+        name: "version search: complete two releases after an unrelated overdue question",
+        level: "medium",
+        runs: 3,
+        seed: seedVersionTasks,
+        turns: ["What's overdue?", "finished implementation of 0.31.0 and 0.32.0"],
+        check: async (run, t, { targets }) => {
+            const done = (await t("get_tasks", { state: "COMPLETE", limit: 50 })).tasks.map((task: any) => task.id).sort();
+            return [
+                ...need(JSON.stringify(done) === JSON.stringify([...targets].sort()), "only the two exact releases marked done"),
+                ...need(called(run, "ask_user").length === 0, "no clarification for unique title matches"),
+                ...need(called(run, "create_tasks").length === 0, "no invented replacement tasks"),
+            ];
+        },
+    },
+    {
+        name: "version search: missing release never becomes a nearby version",
+        level: "medium",
+        runs: 3,
+        seed: seedVersionTasks,
+        turns: ["finished implementation of 0.33.0"],
+        check: async (run, t) => [
+            ...need(!(await t("get_tasks", { state: "COMPLETE" })).tasks.length, "no other version marked done"),
+            ...need(called(run, "create_tasks").length === 0, "no invented replacement tasks"),
+            ...need(called(run, "get_tasks").some((call) => call.input.query?.includes("0.33.0")), "searched the actual identifier"),
+        ],
+    },
+    {
+        name: "version search: duplicate identifiers need clarification",
+        level: "medium",
+        runs: 3,
+        seed: async (t) => {
+            const seeded = await seedVersionTasks(t);
+            const { projectId } = await t("create_project", { name: "Another app" });
+            await t("create_tasks", { tasks: [{ title: "Implement 0.31.0", projectId }] });
+            return seeded;
+        },
+        turns: ["finished implementation of 0.31.0"],
+        check: async (run, t) => [
+            ...need(!(await t("get_tasks", { state: "COMPLETE" })).tasks.length, "no duplicate picked without evidence"),
+            ...need(called(run, "ask_user").length === 1, "asks which app"),
+        ],
+    },
     {
         name: "add a timed task",
         level: "simple",

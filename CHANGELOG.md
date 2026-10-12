@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Search handles word forms and typos across task titles, sections, tags, subtasks and notes, keeping versions exact.
+
+### Fixed
+
+- The assistant finds loosely named tasks and separate version numbers without confusing similar tasks.
+
 ## [0.32.0] - 2026-10-12
 
 Cadence remembers, so you don't have to.

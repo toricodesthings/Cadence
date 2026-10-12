@@ -2,11 +2,12 @@
 
 Dependency-light workspace packages reused across every Cadence client
 (`apps/backend`, `apps/frontend`, downstream `desktop`). Dependencies
-flow strictly downhill: `app → domain → contracts → nlp`. No package imports an
+flow strictly downhill: `app → domain → contracts → nlp`, with `app → search` as an independent leaf. No package imports an
 app, `drizzle-orm`, `hono`, `react`, or `@cloudflare/workers-types`.
 
 | Package | Job | Deps |
 |---|---|---|
+| [`@cadence/search`](./search) | Shared tokens, word forms, conservative fuzzy matching and relevance | minisearch, stemmer |
 | [`@cadence/nlp`](./nlp) | NLP parse / resolve / rank / focus-views | chrono-node, fuse.js |
 | [`@cadence/contracts`](./contracts) | Zod schemas → inferred types (the single source of truth for wire shapes) | zod, @cadence/nlp |
 | [`@cadence/domain`](./domain) | Pure domain logic — no I/O, no framework (`DomainError`) | rrule |

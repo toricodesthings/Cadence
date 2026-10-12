@@ -13,7 +13,8 @@
     "@cadence/contracts": "workspace:*",
     "@cadence/domain": "workspace:*",
     "@cadence/nlp": "workspace:*",
-    "zod": "^4.6.5"
+    "zod": "^4.6.5",
+    "@cadence/search": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

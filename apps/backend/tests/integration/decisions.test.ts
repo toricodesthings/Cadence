@@ -120,6 +120,14 @@ describe("S2: did you mean", () => {
         expect(body.data.task.title).toBe("Renew lease");
     });
 
+    it("lists the closest spelling first, ahead of newer tasks", async () => {
+        await tasks("POST", "", { title: "Book dentist appointment", orderIndex: 0 });
+        await tasks("POST", "", { title: "Water plants", orderIndex: 1 });
+        modelPicks("Book dentist appointment");
+        await search("POST", "/did-you-mean", { query: "dentsit" });
+        expect(sent[0].questions.pick.criteria.o1).toBe("Book dentist appointment");
+    });
+
     it("answers null when the switch is off", async () => {
         await tasks("POST", "", { title: "Renew lease", orderIndex: 0 });
         await apiAs(userId, "/settings", (await import("../../src/domains/settings/settings.route")).settingsRoutes)("PATCH", "", { tasks: { intelligence: { smartPlacement: false } } });
@@ -136,5 +144,50 @@ describe("S2: did you mean", () => {
         expect(empty.possibleMatch.title).toBe("Renew lease");
         const hit = await registry.get_tasks.execute({ query: "lease", limit: 20 }, { toolCallId: "t2", messages: [] });
         expect(hit.possibleMatch).toBeUndefined();
+    });
+
+    it("never offers a different numeric identifier, even when the model would pick it", async () => {
+        await tasks("POST", "", { title: "Implement 0.31.01", orderIndex: 0 });
+        modelPicks("Implement 0.31.01");
+        const registry = buildToolRegistry(env as any, userId, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
+        const result = await registry.get_tasks.execute({ query: "implmentation 0.31.0", limit: 20 }, { toolCallId: "t", messages: [] });
+        expect(result).toMatchObject({ tasks: [], count: 0 });
+        expect(result.possibleMatch).toBeUndefined();
+        expect(sent).toHaveLength(0);
+    });
+
+    it("offers typos only within the original filters and identifier", async () => {
+        const { work, uni, comp } = await roster();
+        await tasks("POST", "", { title: "Implement 0.31.0 Work", orderIndex: 0, projectId: work.id });
+        await tasks("POST", "", { title: "Implement 0.32.0", orderIndex: 0, projectId: uni.id, sectionId: comp.id });
+        await tasks("POST", "", { title: "Implement 0.31.0 Uni", orderIndex: 0, projectId: uni.id, sectionId: comp.id });
+        modelPicks("Implement 0.31.0 Uni");
+        const registry = buildToolRegistry(env as any, userId, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
+        const result = await registry.get_tasks.execute({ query: "implmentation 0.31.0", projectId: uni.id, sectionId: comp.id, limit: 20 }, { toolCallId: "t", messages: [] });
+        expect(result).toMatchObject({ tasks: [], count: 0, possibleMatch: { title: "Implement 0.31.0 Uni" } });
+        // Shared spelling matching needs no model call and still respects every original filter.
+        expect(sent).toHaveLength(0);
+    });
+
+    it.each([
+        { dueWindow: "overdue" }, { from: "2026-09-24" }, { noDate: true }, { pinned: true },
+        { minPriority: 4 }, { tagId: "00000000-0000-4000-8000-000000000001" }, { state: "COMPLETE" },
+    ])("does not escape filters on a fuzzy suggestion: %j", async (filter) => {
+        await tasks("POST", "", { title: "Renew lease", orderIndex: 0, dueDate: "2026-09-23" });
+        modelPicks("Renew lease");
+        const registry = buildToolRegistry(env as any, userId, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
+        const result = await registry.get_tasks.execute({ query: "tenancy", ...filter, limit: 20 }, { toolCallId: "t", messages: [] });
+        expect(result).toMatchObject({ tasks: [], count: 0 });
+        expect(result.possibleMatch).toBeUndefined();
+        expect(sent).toHaveLength(0);
+    });
+
+    it("can suggest a completed task only when completed state was requested", async () => {
+        const task = (await tasks("POST", "", { title: "Renew lease", orderIndex: 0 })).body.data;
+        await tasks("PATCH", `/${task.id}`, { state: "COMPLETE" });
+        modelPicks("Renew lease");
+        const registry = buildToolRegistry(env as any, userId, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
+        const result = await registry.get_tasks.execute({ query: "tenancy", state: "COMPLETE", limit: 20 }, { toolCallId: "t", messages: [] });
+        expect(result.possibleMatch).toMatchObject({ id: task.id, title: "Renew lease" });
     });
 });

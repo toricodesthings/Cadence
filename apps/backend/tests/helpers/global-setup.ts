@@ -6,6 +6,7 @@
  */
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
+import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,7 +22,7 @@ declare module "vitest" {
 }
 
 export default async function setup(project: TestProject) {
-    const pg = new PGlite({ extensions: { vector } });
+    const pg = new PGlite({ extensions: { vector, pg_trgm } });
     // As on Neon, the worker's role exists before the first migration, which grants it table access.
     await pg.exec("CREATE ROLE api_worker NOLOGIN;");
     const journal = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/_journal.json"), "utf8")) as { entries: { tag: string }[] };

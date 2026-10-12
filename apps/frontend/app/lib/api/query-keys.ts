@@ -9,6 +9,7 @@ export const queryKeys = {
     },
     /** A task's dedicated note, by canonical owner (the series for a recurring task). Nested under `tasks` so a task refresh refreshes it. */
     notes: {
+        search: ["tasks", "search-notes"] as const,
         detail: (ownerId: string) => ["tasks", ownerId, "note"] as const,
     },
     projects: {

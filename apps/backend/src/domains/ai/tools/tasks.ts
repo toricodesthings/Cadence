@@ -1,9 +1,10 @@
+import { createSearchIndex } from "@cadence/search";
 import { didYouMean } from "../../decisions/did-you-mean";
 import { tool } from "ai";
 import { z } from "zod";
-import { and, asc, desc, eq, exists, gte, ilike, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gte, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
-import { projects, savedFocusViews, taskSections, tasks, subtasks, taskNotes, taskTags, tags } from "../../../db/schema";
+import { savedFocusViews, tasks, subtasks, taskNotes, taskTags, tags } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
@@ -42,15 +43,13 @@ import { editSubtasks } from "../../subtasks/subtasks.service";
 import { writeNote } from "../../notes/notes.service";
 import { batchTaskIdsSchema, waitingOnSchema } from "@cadence/contracts/task";
 import { readFocusView } from "./focus-views";
+import { taskSearch, taskSearchColumns, taskPlaceColumns } from "../../tasks/task-search.service";
 
 /**
  * The task's list and section names, so the model can match how the user remembers it
  * ("the COMP3005 assignment") and say where it lives, with no extra read.
  */
-export const placeNameColumns = {
-    listName: sql<string | null>`(select ${projects.name} from ${projects} where ${projects.id} = ${tasks.projectId})`,
-    sectionName: sql<string | null>`(select ${taskSections.name} from ${taskSections} where ${taskSections.id} = ${tasks.sectionId})`,
-};
+export const placeNameColumns = taskPlaceColumns;
 
 /** Columns returned by the minimal task projection — selected once, reused. */
 const minimalTaskColumns = {
@@ -118,7 +117,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 "When a query finds nothing, possibleMatch may name the task they probably meant: offer it as a guess, never act on it unasked. " +
                 "Leaves out Fixed blocks and the days of repeating series (see get_schedule_window). Rows carry their tag names. Pages with offset: more:true and nextOffset when there's more.",
             inputSchema: z.object({
-                query: z.string().min(1).max(200).optional().describe("Words to find; each must be in the title, note, list name or section name."),
+                query: z.string().trim().min(1).max(200).optional().describe("Words for ONE task: ALL must match its title, note, list or section. Word forms match; numbers/versions/codes stay exact. Search separate tasks separately."),
                 state: z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]).optional().describe("ARCHIVED = Trash."),
                 dueWindow: z
                     .enum(["overdue", "today", "this_week", "this_month"])
@@ -138,7 +137,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 sort: z
                     .enum(["priority", "list", "date"])
                     .optional()
-                    .describe("priority (default) · list = the list's own order (pinned first) · date = soonest first, undated last."),
+                    .describe("Search relevance by default; otherwise priority · list = the list's own order (pinned first) · date = soonest first, undated last."),
                 offset: offsetSchema,
                 limit: z.number().int().min(1).max(50).default(20),
             }).refine((v) => (v.sectionId === undefined && !v.noSection) || v.projectId, "sectionId and noSection need projectId"),
@@ -147,6 +146,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     const limit = clampLimit(args.limit);
                     const offset = args.offset ?? 0;
                     const db = getDbClient(env);
+                    let suggestionScope: SQL | undefined;
                     const result = await withRls(db, userId, async (tx) => {
                         // Reuse the REST filter builder — no copy-pasted WHERE clauses (AGENTS §18).
                         // Fixed blocks (classes, shifts) aren't to-dos: they pass on their own and can't be
@@ -187,19 +187,10 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         else if (args.noSection) conditions.push(isNull(tasks.sectionId));
                         if (args.tagId) conditions.push(hasAnyTag([args.tagId]));
                         if (args.minPriority) conditions.push(gte(tasks.priority, args.minPriority));
-                        // Each word on its own, anywhere the user would recall it: "comp assignment" finds
-                        // "Assignment 1" in the COMP3005 section.
-                        for (const word of args.query?.split(/\s+/).filter(Boolean).slice(0, 8) ?? []) {
-                            // Escape LIKE wildcards so a model-supplied "%"/"_" matches literally.
-                            const pattern = `%${word.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
-                            const inNote = tx
-                                .select({ id: taskNotes.id })
-                                .from(taskNotes)
-                                .where(and(eq(taskNotes.taskId, tasks.id), ilike(taskNotes.body, pattern)));
-                            conditions.push(or(
-                                ilike(tasks.title, pattern), ilike(tasks.content, pattern), exists(inNote),
-                                sql`${placeNameColumns.listName} ilike ${pattern}`, sql`${placeNameColumns.sectionName} ilike ${pattern}`,
-                            ));
+                        if (args.query) {
+                            const search = taskSearch(args.query, Object.values(placeNameColumns));
+                            suggestionScope = and(...conditions, search.identifiers);
+                            conditions.push(search.condition);
                         }
 
                         const order = {
@@ -207,13 +198,26 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             list: [desc(tasks.isPinned), asc(tasks.orderIndex)],
                             date: [sql`${day} asc nulls last`, sql`${tasks.scheduledStart} asc nulls first`],
                         }[sort ?? "priority"];
-                        const rows = await tx
-                            .select(minimalTaskColumns)
+                        const selection = tx
+                            .select({ ...minimalTaskColumns, ...(args.query ? taskSearchColumns : {}) })
                             .from(tasks)
                             .where(and(...conditions))
-                            .orderBy(...order, asc(tasks.id))
-                            .limit(limit + 1)
-                            .offset(offset);
+                            .orderBy(...order, asc(tasks.id));
+                        // Rank the complete filtered candidate set before pagination; never search only a recent page.
+                        let rows;
+                        if (args.query) {
+                            const candidates = await selection;
+                            const hits = createSearchIndex(candidates.map((row) => ({
+                                id: row.id, title: row.title, list: row.listName ?? "", section: row.sectionName ?? "",
+                                notes: row.notes ?? "", subtasks: row.subtasks ?? "", tags: row.tags ?? "",
+                            }))).search(args.query);
+                            const scores = new Map(hits.map((hit) => [hit.id, hit.score]));
+                            rows = candidates.filter((row) => scores.has(row.id));
+                            if (!sort) rows.sort((a, b) => scores.get(b.id)! - scores.get(a.id)!);
+                            rows = rows.slice(offset, offset + limit + 1);
+                        } else {
+                            rows = await selection.limit(limit + 1).offset(offset);
+                        }
                         const shown = rows.slice(0, limit);
                         const tagNames = await tagNamesFor(tx, shown.map((row) => row.id));
                         const more = rows.length > limit;
@@ -226,7 +230,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     });
                     // Words matched nothing: one decision call (no transaction open) offers the task they probably meant.
                     if (args.query && offset === 0 && result.count === 0) {
-                        const match = await didYouMean(env, userId, args.query, "assistant_search");
+                        const match = await didYouMean(env, userId, args.query, "assistant_search", suggestionScope);
                         if (match) return { ...result, possibleMatch: { id: match.id, title: match.title } };
                     }
                     return result;
