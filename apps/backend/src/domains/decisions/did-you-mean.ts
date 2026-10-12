@@ -58,7 +58,7 @@ export async function didYouMean(
         kind,
         state: query.slice(0, 200),
         instructions: INSTRUCTIONS,
-        candidates: recent.slice(0, 255).map((task) => ({ id: task.id, label: task.title.slice(0, 120) })),
+        candidates: recent.map((task) => ({ id: task.id, label: task.title.slice(0, 120) })),
         userHash: await hashIdentifier(userId),
     });
     return recent.find((task) => task.id === decision?.id) ?? null;
