@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-10-12
+
 Cadence remembers, so you don't have to.
 
 ### Added
