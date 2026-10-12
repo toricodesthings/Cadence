@@ -1,3 +1,4 @@
+import { didYouMean } from "../../decisions/did-you-mean";
 import { tool } from "ai";
 import { z } from "zod";
 import { and, asc, desc, eq, exists, gte, ilike, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
@@ -112,6 +113,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         get_tasks: tool({
             description:
                 "The user's tasks, open ones (Active and Waiting) unless a state is given. Filters combine. " +
+                "When a query finds nothing, possibleMatch may name the task they probably meant: offer it as a guess, never act on it unasked. " +
                 "Leaves out Fixed blocks and the days of repeating series (see get_schedule_window). Rows carry their tag names. Pages with offset: more:true and nextOffset when there's more.",
             inputSchema: z.object({
                 query: z.string().min(1).max(200).optional().describe("Words to find; each must be in the title, note, list name or section name."),
@@ -143,7 +145,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     const limit = clampLimit(args.limit);
                     const offset = args.offset ?? 0;
                     const db = getDbClient(env);
-                    return withRls(db, userId, async (tx) => {
+                    const result = await withRls(db, userId, async (tx) => {
                         // Reuse the REST filter builder — no copy-pasted WHERE clauses (AGENTS §18).
                         // Fixed blocks (classes, shifts) aren't to-dos: they pass on their own and can't be
                         // checked off, so they never belong in a task list. get_schedule_window shows them.
@@ -220,6 +222,12 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             ...(more && { more, nextOffset: offset + limit }),
                         };
                     });
+                    // Words matched nothing: one decision call (no transaction open) offers the task they probably meant.
+                    if (args.query && offset === 0 && result.count === 0) {
+                        const match = await didYouMean(env, userId, args.query, "assistant_search");
+                        if (match) return { ...result, possibleMatch: { id: match.id, title: match.title } };
+                    }
+                    return result;
                 }),
         }),
 

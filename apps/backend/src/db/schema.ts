@@ -713,6 +713,8 @@ export const taskMetrics = pgTable(
         createdToDone: integer("created_to_done"),
         firstScheduled: date("first_scheduled", { mode: "string" }), // the day the task was first rescheduled to
         completedAt: timestamptz("completed_at"),
+        // When it was last rescheduled: the workload window reads this, not the row's creation time.
+        lastRescheduledAt: timestamptz("last_rescheduled_at"),
         createdAt: timestamptz("created_at")
             .default(sql`now()`)
             .notNull(),

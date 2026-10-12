@@ -98,6 +98,8 @@
   ],
 
   // AI_*_MODEL override the chat, title and memory-embedding models (unset or empty = the built-in default in domains/ai).
+  // AI_DECISION_MODEL is a dated OpenRouter *decision* model ID (domains/decisions); unset = pre-sorted captures and "did you mean" stay off.
+  // Set AI_DECISION_MODEL here, not only in the dashboard: deploys overwrite it.
   "vars": {
     "DEPLOYMENT_STAGE": "production",
     // Public half of the Web Push key pair. The private half is the VAPID_PRIVATE_KEY secret.
@@ -105,7 +107,8 @@
     "AI_CHAT_MODEL": "anthropic/claude-haiku-5.5",
     "AI_CHAT_MODEL_BASIC":"deepseek/deepseek-v4.1-flash",
     "AI_TITLE_MODEL": "openai/gpt-oss-20b:nitro",
-    "AI_EMBEDDING_MODEL": "qwen/qwen3-embedding-8b"
+    "AI_EMBEDDING_MODEL": "qwen/qwen3-embedding-8b",
+    "AI_DECISION_MODEL": "microsoft/microsoft-decision-1-20261009",
   },
 
   "env": {
@@ -139,6 +142,7 @@
         "AI_CHAT_MODEL_BASIC":"deepseek/deepseek-v4.1-flash",
         "AI_TITLE_MODEL": "openai/gpt-oss-20b:nitro",
         "AI_EMBEDDING_MODEL": "qwen/qwen3-embedding-8b",
+        "AI_DECISION_MODEL": "microsoft/microsoft-decision-1-20261009",
         "MCP_ORIGIN": "http://localhost:8787",
         "APP_ORIGIN": "http://localhost:8788"
       },

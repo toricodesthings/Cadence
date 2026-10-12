@@ -134,7 +134,8 @@ export async function processCapture(
     validateTaskRecurrenceRule(taskValues.recurrenceRule, taskValues.zone ?? zone);
 
     await assertOwnership(tx, userId, {
-        projectId: taskValues.projectId,
+        // A section with no list can't match: reject it rather than drop it silently.
+        projectId: taskValues.sectionId ? (taskValues.projectId ?? null) : taskValues.projectId,
         sectionId: taskValues.sectionId,
         tagIds: taskTagIds,
     });
@@ -168,7 +169,11 @@ export async function processCapture(
             analysisStatus: "applied",
             analysisVersion: parsed.parserVersion,
             analysisSummary: parsed.summary,
-            analysis: parsed as unknown as Record<string, unknown>,
+            // Kept after placing: Admin reads whether the suggestion was accepted, and what it cost, from here.
+            analysis: {
+                ...(parsed as unknown as Record<string, unknown>),
+                ...(item.analysis?.suggestedPlacement ? { suggestedPlacement: item.analysis.suggestedPlacement } : {}),
+            },
             sourceSurface: parsed.sourceSurface,
         })
         .where(eq(inboxItems.id, id));

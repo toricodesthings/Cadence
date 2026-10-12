@@ -6,6 +6,26 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Your captures come pre-sorted.
+
+### Added
+
+- Captures suggest the list and section they belong in, so placing a thought takes one tap.
+- Sort all in Capture places every thought that has a suggestion at once, with one Undo.
+- When a search finds nothing, Cadence suggests the task you probably meant.
+- Settings › Intelligence & Privacy has one switch, Suggest where captures go, that turns both off.
+
+### Changed
+
+- A thought's section can be picked in Clarify, and it follows the list you choose.
+- A day with tasks that have no effort set now counts as busier, and long timed blocks count by their hours.
+
+### Fixed
+
+- Typing a reminder or hide-until in a thought keeps it when you place the thought.
+- Dismissed or deferred missed-routine reminders no longer count toward the bundled reminder.
+- The workload signals now use when things happened, and skipped routines no longer count against you.
+
 ## [0.30.8] - 2026-10-11
 
 ### Fixed

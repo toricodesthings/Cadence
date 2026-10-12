@@ -27,10 +27,12 @@ interface ProcessInboxParams extends ProcessInboxPayload {
      * (which v5 drops once the component unmounts) to receive the new task id.
      */
     skipOptimisticRemoval?: boolean;
+    /** No toast of its own: a caller placing several (Sort all) shows one toast with one Undo. */
+    silent?: boolean;
 }
 
 /** What is sent (and queued offline): everything but the client-side options. */
-const toPayload = ({ successLabel: _label, skipOptimisticRemoval: _skip, ...payload }: ProcessInboxParams): ProcessInboxPayload => payload;
+const toPayload = ({ successLabel: _label, skipOptimisticRemoval: _skip, silent: _silent, ...payload }: ProcessInboxParams): ProcessInboxPayload => payload;
 
 /**
  * Process an inbox capture into a task (C5 structured capture model):
@@ -94,6 +96,7 @@ export function useProcessInboxToTask() {
             const label = variables.successLabel ?? (variables.complete ? "Ticked off"
                 : scheduledLabel ? (shown ? placementReceipt(scheduledLabel, listName) : placementLabel(scheduledLabel))
                 : listName ? `In ${listName}` : "No day yet");
+            if (variables.silent) return;
             // It left the screen, so the toast names it and says where it went.
             toastUndo(toastName(_data.title), () => unprocess.mutate({
                 id: variables.inboxItemId,

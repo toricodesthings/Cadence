@@ -257,6 +257,8 @@ export const userSettingsSchema = z.object({
             confidenceThreshold: z.enum(["high", "medium", "low"]).optional(),
             showExplanations: z.boolean().optional(),
             smartSortEnabled: z.boolean().optional(),
+            /** Suggest a list and section for captures, and a "did you mean" task when a search finds nothing. On unless `false`. */
+            smartPlacement: z.boolean().optional(),
             focusViewsEnabled: z.boolean().optional(),
             focusViewPresentation: z.enum(["compact", "expanded"]).optional(),
             lowStimulationMode: z.boolean().optional(),
@@ -505,6 +507,7 @@ export const SETTINGS_DEFAULTS = {
             confidenceThreshold: "medium" as const,
             showExplanations: true,
             smartSortEnabled: true,
+            smartPlacement: true,
             focusViewsEnabled: true,
             focusViewPresentation: "compact" as const,
             lowStimulationMode: false,

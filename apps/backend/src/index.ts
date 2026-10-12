@@ -10,6 +10,7 @@ import { createRequestContext, getRequestId, logErrorResponse, setRequestErrorCo
 import { taskRoutes } from "./domains/tasks/tasks.route";
 import { projectRoutes } from "./domains/projects/projects.route";
 import { inboxRoutes } from "./domains/inbox/inbox.route";
+import { searchRoutes } from "./domains/decisions/search.route";
 import { healthRoutes } from "./domains/health/health.route";
 import { debugRoutes } from "./domains/debug/debug.route";
 import { tagRoutes } from "./domains/tags/tags.route";
@@ -174,6 +175,7 @@ const apiApp = app
   .route("/api/v1/tasks", taskRoutes)
   .route("/api/v1/projects", projectRoutes)
   .route("/api/v1/inbox", inboxRoutes)
+  .route("/api/v1/search", searchRoutes)
   .route("/api/v1/tags", tagRoutes)
   .route("/api/v1/habits", habitRoutes)
   .route("/api/v1", subtaskRoutes)

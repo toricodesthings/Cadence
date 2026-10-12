@@ -9,7 +9,7 @@ export const TERMS: LegalDoc = {
   description:
     "The plain-language rules for using Cadence: a free, pre-release planner run by one maintainer, with an honest list of what is still undecided.",
   lede: "The rules for using Cadence, written to be read. Cadence is free, pre-release and run by one person, so some things are simply not promised, and this page says which.",
-  updated: "2026-09-30",
+  updated: "2026-10-12",
   inShort: [
     "Cadence is free, in beta, and run by one person. It can change, break or go away, so keep your own copies of anything that matters.",
     "Your tasks, notes and other content stay yours. You give Cadence only the permission it needs to store, sync and show them.",
@@ -99,7 +99,7 @@ export const TERMS: LegalDoc = {
       blocks: [
         {
           kind: "p",
-          text: "Emilie, the assistant, uses AI models run by third parties. When you message it, your message and the parts of your Cadence it needs are sent to them, as set out in the Privacy Policy.",
+          text: "Emilie, the assistant, uses AI models run by third parties. When you message it, your message and the parts of your Cadence it needs are sent to them, as set out in the Privacy Policy. The same applies to the suggestions Cadence makes for a new capture's destination and for a search that found nothing: the text and your list, section and task names are sent to an AI provider, and you can turn that off in Settings under Intelligence & Privacy.",
         },
         {
           kind: "list",

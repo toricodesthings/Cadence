@@ -1,6 +1,6 @@
 import { and, eq, inArray, min, sql } from "drizzle-orm";
 import type { HabitRow, HabitLog, InsertHabit, ResolveHabitAction, UpdateHabit } from "@cadence/contracts/habit";
-import { habitOccurrences, isPausedOn, applyTimeMark, likelyOpenTime, stepDayStatus, timeDayStatus, timeMarksOn } from "@cadence/domain/repeats";
+import { habitDays, habitOccurrences, applyTimeMark, likelyOpenTime, stepDayStatus, timeDayStatus, timeMarksOn } from "@cadence/domain/repeats";
 import { addDays, dayOf, parseRecurrenceRule, todayIn, wallTimeOf, type LocalDate, type Zone } from "@cadence/domain/time";
 import { habits, habitLogs, habitTags } from "../../db/schema";
 import { AppError, assertNoConflict, throwIfNotFound } from "../../platform/errors";
@@ -17,27 +17,6 @@ import type { Tx } from "../../types/db";
  */
 export function expandOccurrences(recurrenceRule: string, createdAt: string, from: LocalDate, to: LocalDate, zone: Zone): LocalDate[] {
     return habitOccurrences(recurrenceRule, String(createdAt), from, to, zone);
-}
-
-/**
- * A routine's due days in [from, to] (local `YYYY-MM-DD`) with each day's log,
- * exactly as Routines shows them: from the day before it was created ("I did it
- * yesterday too"), earlier days only when logged; a pause hides today onward,
- * never the past. Days without a log are open (today, later) or missed (before).
- */
-export function habitDays<L extends { targetDate: string }>(
-    habit: { recurrenceRule: string; createdAt: string; pausedUntil: string | null },
-    logsByDate: Map<string, L>,
-    from: string,
-    to: string,
-    timeZone: string,
-    today: string,
-): { date: string; log: L | undefined }[] {
-    const firstDay = addDays(dayOf(habit.createdAt, timeZone), -1);
-    return expandOccurrences(habit.recurrenceRule, habit.createdAt, from, to, timeZone)
-        .filter((date) => date >= firstDay || logsByDate.has(date))
-        .filter((date) => !isPausedOn(habit.pausedUntil, date, today))
-        .map((date) => ({ date, log: logsByDate.get(date) }));
 }
 
 /** Expand the committed SQL snapshot after releasing its RLS connection. */

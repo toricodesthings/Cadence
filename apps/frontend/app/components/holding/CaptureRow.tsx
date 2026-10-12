@@ -5,6 +5,7 @@ import {
     CalendarDays,
     CalendarPlus,
     CheckSquare,
+    FolderOpen,
     ListChecks,
     Inbox,
     MoreVertical,
@@ -31,6 +32,9 @@ import { today } from "../../lib/utils/user-zone";
 import { ThoughtMark } from "../tasks/ThoughtMark";
 import { TagSignal } from "../tasks/TagSignal";
 import { useTags } from "../../hooks/tags/use-tags";
+import { useProjects } from "../../hooks/projects/use-projects";
+import { useSections } from "../../hooks/sections/use-sections";
+import { overridesOf, placementFor } from "../../lib/utils/task/suggested-placement";
 import { useAddTaskTag } from "../../hooks/tags/use-task-tags";
 import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
 import { TAG_DRAG_TYPE } from "../sidebar/TagBubble";
@@ -84,6 +88,14 @@ export function CaptureRow({
     const quiet = settings?.tasks.intelligence?.lowStimulationMode;
     const ageDays = Math.floor((Date.now() - Date.parse(object.createdAt)) / 86_400_000);
     const { data: allTags = [] } = useTags();
+    // Where Done puts it. The chip skips a cue word's list: the words already say it.
+    const placement = item ? placementFor(item, { cue: parse.projectId }) : null;
+    const chip = item?.captureStatus !== "kept" && placement?.projectId !== parse.projectId ? placement : null;
+    const { data: lists = [] } = useProjects();
+    const { data: listSections = [] } = useSections(chip?.projectId);
+    const listName = chip ? lists.find((list) => list.id === chip.projectId)?.name : undefined;
+    const sectionName = chip?.sectionId ? listSections.find((section) => section.id === chip.sectionId)?.name : undefined;
+    const placementLabelText = listName ? (sectionName ? `${listName} · ${sectionName}` : listName) : null;
     const [menuOpen, setMenuOpen] = useState(false);
     const subtaskUi = useInlineSubtasks(task?.id ?? "");
     const subtaskPanelId = useId();
@@ -96,9 +108,7 @@ export function CaptureRow({
         [],
     );
     const longPressed = useRef(false);
-    const overrides = item?.analysis?.userOverrides as
-        | { title?: string; projectId?: string | null; tagIds?: string[] }
-        | undefined;
+    const overrides = item ? overridesOf(item) : undefined;
     const title = task?.title ?? overrides?.title ?? item!.rawText;
     const disabled = process.isPending || status.isPending;
     const place = (when?: LocalDate | Instant, complete = false) => {
@@ -119,11 +129,14 @@ export function CaptureRow({
                       scheduledStart: null,
                       scheduledEnd: null,
                   }),
-            projectId: overrides?.projectId !== undefined ? overrides.projectId : parse.projectId,
+            projectId: placement?.projectId ?? null,
+            sectionId: placement?.sectionId ?? null,
             tagIds: overrides?.tagIds ?? parse.tagIds,
             priority: parse.priority ?? 0,
             durationEstimate: parse.durationMinutes,
             waitingOn: parse.waitingOn,
+            reminderAt: parse.fields.reminderAt,
+            notBefore: parse.fields.notBefore,
             complete,
             nlp: resolvedNlp(
                 item!.rawText,
@@ -303,9 +316,15 @@ export function CaptureRow({
                         >
                             <span className="line-clamp-3 break-words">{title}<PendingMark id={object.id} /></span>
                         </Button>
-                        {(rowTags.length > 0 || (stacked && detected)) && (
+                        {(rowTags.length > 0 || placementLabelText || (stacked && detected)) && (
                             <div className="flex flex-wrap items-center gap-1.5 px-1 pb-0.5">
                                 {stacked && detected && pill(detected, true)}
+                                {placementLabelText && (
+                                    <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-twilight-border px-2 py-0.5 text-xs text-twilight-text-soft">
+                                        <FolderOpen size={12} aria-hidden />
+                                        {placementLabelText}
+                                    </span>
+                                )}
                                 <TagSignal tags={rowTags} />
                             </div>
                         )}

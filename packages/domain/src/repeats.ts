@@ -202,3 +202,24 @@ export function suggestInteractionMode(task: {
     const timedSeries = Boolean(task.recurrenceRule && task.scheduledStart && task.scheduledEnd);
     return timedSeries && FIXED_WORDS.test(task.title) ? "timetable" : "task";
 }
+
+/**
+ * A routine's due days in [from, to] (local `YYYY-MM-DD`) with each day's log,
+ * exactly as Routines shows them: from the day before it was created ("I did it
+ * yesterday too"), earlier days only when logged; a pause hides today onward,
+ * never the past. Days without a log are open (today, later) or missed (before).
+ */
+export function habitDays<L extends { targetDate: string }>(
+    habit: { recurrenceRule: string; createdAt: string; pausedUntil: string | null },
+    logsByDate: Map<string, L>,
+    from: string,
+    to: string,
+    timeZone: string,
+    today: string,
+): { date: string; log: L | undefined }[] {
+    const firstDay = addDays(dayOf(habit.createdAt, timeZone), -1);
+    return habitOccurrences(habit.recurrenceRule, String(habit.createdAt), from, to, timeZone)
+        .filter((date) => date >= firstDay || logsByDate.has(date))
+        .filter((date) => !isPausedOn(habit.pausedUntil, date, today))
+        .map((date) => ({ date, log: logsByDate.get(date) }));
+}

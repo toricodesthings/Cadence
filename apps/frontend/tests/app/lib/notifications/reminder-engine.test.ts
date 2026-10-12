@@ -180,6 +180,24 @@ describe("filterByBehavior", () => {
         expect(bundled.length).toBe(1);
         expect(bundled[0].body).toContain("4 routines");
     });
+
+    it("leaves dismissed and deferred routines out of the bundle count", () => {
+        const now = at("15:00");
+        const habits: Habit[] = Array.from({ length: 4 }, (_, i) => ({
+            ...BASE_HABIT, id: `h${i}`, title: `Habit ${i}`, reminderEnabled: true, targetTime: "14:00",
+            logs: [{ id: "virt", habitId: `h${i}`, status: "PENDING", targetDate: "2026-03-26", completedAt: null }],
+        }));
+        const candidates = deriveCandidates([], habits, now);
+        const hidden: NotificationDismissalState = {
+            dismissedIds: new Set([candidates[0].id]),
+            deferredUntil: new Map([[candidates[1].id, new Date(now.getTime() + 3_600_000).toISOString()]]),
+        };
+        const options = { ...DEFAULT_BEHAVIOR, bundleMissedHabits: true, missedHabitBundleThreshold: 3 };
+        // 4 minus 1 dismissed and 1 deferred leaves 2: under the threshold, so they stay individual.
+        const filtered = filterByBehavior(candidates, now, { ...options, hidden });
+        expect(filtered.some((n) => n.id.startsWith("habit-bundle"))).toBe(false);
+        expect(filtered).toHaveLength(2);
+    });
 });
 
 describe("routine reminders", () => {

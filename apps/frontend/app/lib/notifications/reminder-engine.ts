@@ -82,6 +82,8 @@ export interface BehaviorFilterOptions {
     /** Bundle missed habits into a single prompt when > threshold */
     bundleMissedHabits?: boolean;
     missedHabitBundleThreshold?: number;
+    /** Dismissed and deferred ones are dropped before bundling, so they never count toward a bundle. */
+    hidden?: NotificationDismissalState;
 }
 
 /**
@@ -94,6 +96,7 @@ export function filterByBehavior(
     options: BehaviorFilterOptions,
 ): AppNotification[] {
     let filtered = candidates.filter((n) => reminderKindEnabled(n.kind, options));
+    if (options.hidden) filtered = applyPresentationRules(filtered, options.hidden, now);
 
     // Bundle missed habit reminders when there are many
     const threshold = options.missedHabitBundleThreshold ?? 3;

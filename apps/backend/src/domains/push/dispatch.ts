@@ -6,7 +6,7 @@ import { withRls } from "../../platform/rls";
 import { userZone } from "../../platform/user-zone";
 import { logger, hashIdentifier, issuesFromError } from "../../platform/log";
 import { devices, habitLogs, habits, notificationState, pushDeliveries, tasks, users } from "../../db/schema";
-import { habitDays } from "../habits/habits.service";
+import { habitDays } from "@cadence/domain/repeats";
 import { normalizeSettings } from "../settings/settings.route";
 import { sendWebPush, vapidConfigured, type PushMessage, type PushOutcome } from "./web-push";
 import type { Env } from "../../types/env";

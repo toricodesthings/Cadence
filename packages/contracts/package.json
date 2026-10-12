@@ -8,6 +8,7 @@
     "./constants": "./src/constants.ts",
     "./task": "./src/task.ts",
     "./inbox": "./src/inbox.ts",
+    "./search": "./src/search.ts",
     "./habit": "./src/habit.ts",
     "./project": "./src/project.ts",
     "./tag": "./src/tag.ts",

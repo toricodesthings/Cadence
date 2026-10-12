@@ -5,6 +5,8 @@ import {
 import { SearchField } from "../primitives/SearchField";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { useUniversalSearch, type SearchResult } from "../../hooks/search/use-universal-search";
+import { DidYouMean } from "./DidYouMean";
+import { useNoteRoomStore } from "../../stores/note-room-store";
 import { useSearchNavigation } from "../../hooks/search/use-search-navigation";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import { GROUP_LABELS, GROUP_ORDER, SearchResultIcon } from "./search-groups";
@@ -60,6 +62,7 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
 
     const { results, query } = useUniversalSearch(rawQuery, open);
     const navigateToResult = useSearchNavigation();
+    const openNoteRoom = useNoteRoomStore((s) => s.open);
 
     useEffect(() => {
         if (open) {
@@ -154,6 +157,13 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                         <Search size={28} className="text-twilight-text-muted/40" aria-hidden="true" />
                         <p className="text-sm text-twilight-text-soft">No matches for &ldquo;{query}&rdquo;</p>
                         <p className="text-xs text-twilight-text-muted/70">Try a task name, list, routine, or page.</p>
+                        <DidYouMean
+                            query={query}
+                            onOpen={(task) => {
+                                onOpenChange(false);
+                                openNoteRoom(task.id, task.title);
+                            }}
+                        />
                     </div>
                 ) : (
                     <div className="px-2 py-3">

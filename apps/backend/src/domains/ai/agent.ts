@@ -126,6 +126,9 @@ async function loadUserContext(
  * Embedding (an HTTP call) runs OUTSIDE any transaction; the similarity query is
  * RLS-scoped. Failures degrade to no memories (never block the chat path).
  */
+/** What a turn's memory lookup returned, saved on the assistant row (`metadata.memoryRetrieval`) so retrieval is visible in Admin. */
+export type MemoryRetrieval = { returned: number; core: number; ms: number };
+
 async function maybeRetrieveMemories(
     env: Env,
     userId: string,
@@ -133,7 +136,7 @@ async function maybeRetrieveMemories(
     persona: AssistantPersona,
     queryText: string | undefined,
     requestId: string | undefined,
-): Promise<{ memories: RetrievedMemory[]; spend?: EmbeddingSpend }> {
+): Promise<{ memories: RetrievedMemory[]; spend?: EmbeddingSpend; retrieval?: MemoryRetrieval }> {
     if (!queryText || !isMemoryEnabled(env, persona.memoryEnabled)) return { memories: [] };
     let spend: EmbeddingSpend | undefined; // kept if the similarity query fails after the paid embed
     try {
@@ -141,8 +144,10 @@ async function maybeRetrieveMemories(
         spend = embedded.spend;
         const db = getDbClient(env);
         // Only rows embedded by the same model as the query are comparable.
+        const startedAt = Date.now();
         const memories = await withRls(db, userId, (tx) => retrieveMemories(tx, userId, embedded.embedding, embedded.spend.model));
-        return { memories, spend };
+        const retrieval = { returned: memories.length, core: memories.filter((m) => m.type === "CORE").length, ms: Date.now() - startedAt };
+        return { memories, spend, retrieval };
     } catch (error) {
         logger.warn("ai", "memory_retrieval_failed", {
             userHash,
@@ -240,7 +245,7 @@ export async function getAgentInstance(
     env: Env,
     userId: string,
     opts: AgentBuildOptions,
-): Promise<{ agent: ToolLoopAgent<never, ChatTools>; modelId: string; promptHash: string; turnContext: string; embeddingSpend?: EmbeddingSpend }> {
+): Promise<{ agent: ToolLoopAgent<never, ChatTools>; modelId: string; promptHash: string; turnContext: string; embeddingSpend?: EmbeddingSpend; memoryRetrieval?: MemoryRetrieval }> {
     const locale = opts.locale ?? "en";
     const modelId = opts.modelId ?? getModelId(env);
     const userHash = await hashIdentifier(userId);
@@ -258,7 +263,7 @@ export async function getAgentInstance(
         nullableOptionals: !isClaude(modelId),
     };
     const tools = buildToolRegistry(env, userId, agentCtx);
-    const [{ memories, spend: embeddingSpend }, snapshot] = await Promise.all([
+    const [{ memories, spend: embeddingSpend, retrieval: memoryRetrieval }, snapshot] = await Promise.all([
         maybeRetrieveMemories(env, userId, userHash, persona, opts.queryText, opts.requestId),
         loadSnapshot(tools, clock.today),
     ]);
@@ -292,5 +297,5 @@ export async function getAgentInstance(
         experimental_toolApprovalSecret: env.TOOL_APPROVAL_SECRET,
     });
 
-    return { agent, modelId, promptHash: await getPromptHash(chatTools(tools), isClaude(modelId)), turnContext, embeddingSpend };
+    return { agent, modelId, promptHash: await getPromptHash(chatTools(tools), isClaude(modelId)), turnContext, embeddingSpend, memoryRetrieval };
 }

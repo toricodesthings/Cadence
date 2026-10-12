@@ -12,6 +12,7 @@ import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import { processCapture, unprocessCapture } from "./inbox.service";
+import { suggestPlacement } from "../decisions/placement";
 
 export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // ── Atomic Inbox→Task Processing (Section 11.2C) ──
@@ -56,6 +57,8 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             return row;
         });
 
+        // Pick a list and section in the background; Save never waits. A replayed save already has its analysis.
+        if (!item.analysis) c.executionCtx.waitUntil(suggestPlacement(c.env, userId, item.id));
         return c.json({ data: item }, 201);
     })
     // ── Inbox Sections ──

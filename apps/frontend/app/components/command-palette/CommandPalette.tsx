@@ -10,6 +10,7 @@ import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
 import { useNoteRoomStore } from "../../stores/note-room-store";
 import { useFocusViewStore } from "../../stores/focus-view-store";
 import { trackUsageEvent } from "../../lib/api/track-event";
+import { DidYouMean } from "./DidYouMean";
 import { GROUP_LABELS, GROUP_ORDER, SearchResultIcon } from "./search-groups";
 
 interface CommandPaletteProps {
@@ -159,6 +160,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                             {hasQuery ? (
                                 <div className="text-sm text-twilight-text-muted">
                                     No results for &ldquo;{query}&rdquo;
+                                    <DidYouMean
+                                        query={query}
+                                        onOpen={(task) => {
+                                            onOpenChange(false);
+                                            openNoteRoom(task.id, task.title);
+                                        }}
+                                    />
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center gap-2 text-twilight-text-muted">

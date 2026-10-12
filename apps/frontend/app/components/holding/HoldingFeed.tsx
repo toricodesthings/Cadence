@@ -23,8 +23,15 @@ import { dayOfInstant, fromTimeValue, nlpClock, toDay } from "../../lib/utils/da
 import { today } from "../../lib/utils/user-zone";
 import { useWeekLoad, usePlaceTask } from "./PlaceSheet";
 import { toast } from "sonner";
+import { toastUndo } from "../../lib/utils/undo-toast";
+import { useUnprocessInbox } from "../../hooks/inbox/use-unprocess-inbox";
+import { overridesOf, placementFor } from "../../lib/utils/task/suggested-placement";
+import { useProjects } from "../../hooks/projects/use-projects";
 import { Reveal } from "../shared/Reveal";
-import { loadParse, useParseModule } from "../../hooks/use-nlp-parse";
+import { computeNlp, loadParse, TASK_FIELDS, useParseModule, type ParseFn } from "../../hooks/use-nlp-parse";
+
+/** Explicit nulls: the server must not infer a day from a thought's words. */
+const NO_DAY = { dueDate: null, scheduledStart: null, scheduledEnd: null };
 
 export function HoldingFeed({
     onSelectTask,
@@ -45,6 +52,8 @@ export function HoldingFeed({
     const [focusedId, setFocusedId] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const process = useProcessInboxToTask();
+    const { data: projects = [] } = useProjects();
+    const unprocess = useUnprocessInbox();
     const status = useCaptureActions();
     const updateTask = useUpdateTask();
     const placeTask = usePlaceTask();
@@ -109,6 +118,25 @@ export function HoldingFeed({
             else next.add(id);
             return next;
         });
+    /** A thought as a task, read the way its row's Done reads it: the user's edits, then its words, then the suggested list. */
+    const asTask = (item: InboxItem, parseText: ParseFn) => {
+        const overrides = overridesOf(item);
+        const dismissedEntityIds = (item.analysis?.dismissedEntityIds ?? []) as string[];
+        const dateStyle = settings?.dateTime.dateStyle ?? "mdy";
+        const draft = computeNlp(parseText, { input: item.rawText, projects, tags: [], dismissedEntityIds, sourceSurface: "inbox", dateStyle, capabilities: TASK_FIELDS });
+        const where = placementFor(item, { cue: draft.projectId });
+        return {
+            inboxItemId: item.id,
+            rawText: item.rawText,
+            title: overrides.title ?? draft.cleanedTitle,
+            projectId: where?.projectId ?? null,
+            sectionId: where?.sectionId ?? null,
+            tagIds: overrides.tagIds,
+            reminderAt: draft.fields.reminderAt,
+            notBefore: draft.fields.notBefore,
+            nlp: { rawInput: item.rawText, sourceSurface: "inbox" as const, dateStyle, dismissedEntityIds, userOverrides: overrides },
+        };
+    };
     const bulk = async (date?: LocalDate, discard = false) => {
         if (busy) return;
         setBusy(true);
@@ -116,33 +144,7 @@ export function HoldingFeed({
             const parseText = await loadParse();
             for (const item of [...feed.thoughts, ...feed.older, ...feed.notes].filter((i) => selected.has(i.id))) {
                 if (discard) await status.setStatus(item, "discarded");
-                else {
-                    const overrides = item.analysis?.userOverrides as
-                        | { title?: string; projectId?: string | null; tagIds?: string[] }
-                        | undefined;
-                    await process.mutateAsync({
-                        inboxItemId: item.id,
-                        rawText: item.rawText,
-                        title:
-                            overrides?.title ??
-                            parseText({
-                                input: item.rawText,
-                                sourceSurface: "inbox",
-                                clock: nlpClock(),
-                                dateStyle: settings?.dateTime.dateStyle,
-                            }).cleanedTitle,
-                        projectId: overrides?.projectId,
-                        tagIds: overrides?.tagIds,
-                        nlp: {
-                            rawInput: item.rawText,
-                            sourceSurface: "inbox",
-                            dateStyle: settings?.dateTime.dateStyle ?? "mdy",
-                            dismissedEntityIds: (item.analysis?.dismissedEntityIds ?? []) as string[],
-                            userOverrides: overrides ?? {},
-                        },
-                        ...(date ? { scheduledDay: date } : { dueDate: null, scheduledStart: null, scheduledEnd: null }),
-                    });
-                }
+                else await process.mutateAsync({ ...asTask(item, parseText), ...(date ? { scheduledDay: date } : NO_DAY) });
                 setSelected((old) => {
                     const next = new Set(old);
                     next.delete(item.id);
@@ -170,6 +172,31 @@ export function HoldingFeed({
         } finally {
             setBusy(false);
         }
+    };
+    // Thoughts that already carry a list (and section): the user's pick, or the server's suggestion.
+    const sortable = [...feed.thoughts, ...feed.older].filter((item) => placementFor(item));
+    const sortAll = async () => {
+        if (busy || sortable.length === 0) return;
+        setBusy(true);
+        const placed: { item: InboxItem; taskId: string }[] = [];
+        try {
+            const parseText = await loadParse();
+            for (const item of sortable) {
+                // Sorting never picks a day.
+                const task = await process.mutateAsync({ ...asTask(item, parseText), ...NO_DAY, silent: true });
+                if (task) placed.push({ item, taskId: task.id });
+            }
+        } catch {
+            toast.error("Some thoughts couldn't be sorted. They stay in New.");
+        } finally {
+            setBusy(false);
+        }
+        if (placed.length)
+            toastUndo(
+                `Sorted ${placed.length} ${placed.length === 1 ? "thought" : "thoughts"}`,
+                () => placed.forEach(({ item, taskId }) => unprocess.mutate({ id: item.id, taskId, item })),
+                { description: "Placed in their lists, no day yet" },
+            );
     };
     const available = [...ordered.thoughts, ...ordered.tasks, ...ordered.older, ...feed.notes];
     const activeId = available.some((item) => item.id === focusedId) ? focusedId : available[0]?.id;
@@ -234,6 +261,16 @@ export function HoldingFeed({
             Sort these with Cadence
         </Button>
     );
+    const thoughtsAction = (sortable.length > 0 || sortAction) && (
+        <div className="flex flex-wrap items-center gap-2">
+            {sortable.length > 0 && (
+                <Button variant="subtle" size="sm" className="shrink-0 px-2.5" disabled={busy} onClick={() => void sortAll()}>
+                    Sort all
+                </Button>
+            )}
+            {sortAction}
+        </div>
+    );
     const taskRows = (
         <>
             {ordered.tasks.map((task) => (
@@ -267,7 +304,7 @@ export function HoldingFeed({
                             icon: Inbox,
                             accentClass: "text-twilight-text-soft",
                             count: ordered.thoughts.length,
-                            headerAction: sortAction || undefined,
+                            headerAction: thoughtsAction || undefined,
                             listContent: null,
                             boardContent: (
                                 <div className="space-y-2">
@@ -321,7 +358,7 @@ export function HoldingFeed({
                     icon={Inbox}
                     accentClass="text-twilight-text-soft"
                     count={ordered.thoughts.length}
-                    headerAction={sortAction}
+                    headerAction={thoughtsAction || undefined}
                 />
                 <div className="space-y-2">{rows(ordered.thoughts)}</div>
                 {!ordered.thoughts.length && (

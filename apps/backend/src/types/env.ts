@@ -77,6 +77,11 @@ export interface Env {
     TOOL_APPROVAL_SECRET?: string;
     /** Conversation auto-title model id. Defaults to google/gemini-2.5-flash-lite (cheaper/faster). */
     AI_TITLE_MODEL?: string;
+    /**
+     * Decision model (OpenRouter Decisions API) that suggests where captures go and what a failed search meant.
+     * A dated ID from the Decisions list. Unset or empty = both features off.
+     */
+    AI_DECISION_MODEL?: string;
     /** Master switch for the memory (pgvector RAG) layer. "true" enables retrieval/extraction. */
     AI_MEMORY_ENABLED?: string;
     /** OpenRouter embedding model id — must support `dimensions` (requested at 1536 for ai_memories.embedding). */

@@ -32,7 +32,7 @@ function ensureParseModule(): Promise<void> {
     return parseModulePromise;
 }
 
-type ParseFn = typeof import("@cadence/nlp/parse")["parse"];
+export type ParseFn = typeof import("@cadence/nlp/parse")["parse"];
 
 /** The parser for event handlers (chrono-node never rides on the first screen). */
 export async function loadParse(): Promise<ParseFn> {

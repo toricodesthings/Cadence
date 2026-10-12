@@ -1,0 +1,1 @@
+ALTER TABLE "task_metrics" ADD COLUMN "last_rescheduled_at" timestamp with time zone;

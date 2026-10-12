@@ -349,7 +349,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // references (never base64).
     const { messages: modelMessages, hydrated: imageCount } = await hydrateImages(uiMessages, c.env.USER_ASSETS, userKey, recentFrom);
 
-    const { agent, promptHash, embeddingSpend, turnContext } = await agentReady;
+    const { agent, promptHash, embeddingSpend, memoryRetrieval, turnContext } = await agentReady;
     // Each recent user message replays the context it was sent with (stored, from the DB rows
     // only — never a client copy). The new message gets this turn's; a continued turn
     // (approval, kept retry) keeps its original so the reply resumes on the same prefix.
@@ -413,7 +413,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 await withRls(db, userId, async (tx) => {
                     await saveAssistantMessage(tx, userId, conversationId, cleaned, {
                         status,
-                        metadata: { ...cleaned.metadata, ...spend, titleSpend, embeddingSpend },
+                        metadata: { ...cleaned.metadata, ...spend, titleSpend, embeddingSpend, memoryRetrieval },
                     });
                     await touchConversation(tx, userId, conversationId, { model: modelId });
                     if (lastUser && storedLastContext !== lastUserContext) {

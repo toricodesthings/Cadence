@@ -7,6 +7,7 @@ import { reconcileInboxItemInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
+import { useSettings } from "../core/use-settings";
 
 /** `id` is chosen by the caller (`crypto.randomUUID()`), so it can place the capture before it syncs. */
 export interface NewCapture {
@@ -19,6 +20,7 @@ export interface NewCapture {
 export function useCreateInboxItem() {
     const client = useApiClient();
     const queryClient = useQueryClient();
+    const smartPlacementOn = useSettings().data?.tasks.intelligence?.smartPlacement !== false;
 
     return useMutation({
         mutationFn: withOfflineSupport<NewCapture, InboxItem>(
@@ -64,6 +66,8 @@ export function useCreateInboxItem() {
         onSuccess: (item, { placing }, context) => {
             if (!item || placing) return; // Queued offline, or about to become a task
             reconcileInboxItemInCaches(queryClient, item, context?.optimisticId);
+            // The server suggests a list and section after saving; pick it up once, quietly, a moment later.
+            if (smartPlacementOn) setTimeout(() => queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }), 4_000);
         },
 
         onError: (err, _input, context) => {

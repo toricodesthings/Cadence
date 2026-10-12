@@ -13,8 +13,9 @@ import { toMinimalInboxItem } from "./projections";
 import { NOTE_READ_LIMIT } from "./drafts";
 import { deleteCaptures, processCapture, unprocessCapture, updateCapture } from "../../inbox/inbox.service";
 import { insertInboxItemSchema } from "@cadence/contracts/inbox";
+import { suggestPlacement } from "../../decisions/placement";
 
-export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
+export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_inbox_items: tool({
         description:
@@ -88,6 +89,10 @@ export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
 
                     await recordMutation(tx, userId, toolCallId, row.id);
                     return { item: row, deduped: false as const };
+                }).then((result) => {
+                    // Same pre-sorting as a capture saved in the app; the user's switch is read inside.
+                    if (!result.deduped && ctx.waitUntil) ctx.waitUntil(suggestPlacement(env, userId, result.item.id));
+                    return result;
                 });
             }),
     }),

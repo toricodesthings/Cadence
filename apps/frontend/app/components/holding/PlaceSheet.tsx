@@ -11,6 +11,7 @@ import { TaskCard } from "../tasks/TaskCard";
 import { Button } from "../primitives/Button";
 import { useTasks } from "../../hooks/tasks/use-tasks";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
+import { useVirtualHabitTasks } from "../../hooks/habits/use-virtual-habit-tasks";
 import { addDays, type LocalDate } from "@cadence/domain/time";
 import { taskDay } from "@cadence/domain/task-recurrence";
 import { formatShortDateLabel, formatWeekdayNarrow, placementLabel, placementReceipt } from "../../lib/utils/date-format";
@@ -20,10 +21,15 @@ import { dayLoads, lightestDay, loadWord } from "../../lib/utils/task/day-load";
 
 export const dayLabel = (day: LocalDate) => formatShortDateLabel(day);
 
-/** Active dated tasks for `days` days from `start`, their effort-weighted loads, and the lightest of the first week. */
+/**
+ * Active dated tasks for `days` days from `start`, their effort-weighted loads (routines included), and the lightest
+ * of the first week. Routines weigh on a day but aren't listed in `tasks`: they aren't placed or opened from here.
+ */
 export function useWeekLoad(start: LocalDate, enabled = true, days = 7) {
-    const { data: tasks = [] } = useTasks({ state: "ACTIVE", range: { from: start, to: addDays(start, days - 1) }, enabled });
-    const loads = dayLoads(tasks, start, days);
+    const end = addDays(start, days - 1);
+    const { data: tasks = [] } = useTasks({ state: "ACTIVE", range: { from: start, to: end }, enabled });
+    const routines = useVirtualHabitTasks({ start, end, enabled });
+    const loads = dayLoads([...tasks, ...routines.filter((r) => r.state !== "COMPLETE")], start, days);
     return { tasks, loads, lightest: lightestDay(new Map([...loads].slice(0, 7)))! };
 }
 

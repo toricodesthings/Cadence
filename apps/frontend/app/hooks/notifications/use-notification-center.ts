@@ -208,7 +208,7 @@ export function useNotificationCenter() {
         // Step 1: Pure candidate derivation
         const candidates = deriveCandidates(tasks, habits, now, { personalEvents: notifiedEvents, prefs });
         // Step 2: Behavior filtering (preferences, quiet hours, bundling)
-        const filtered = filterByBehavior(candidates, now, { ...prefs, bundleMissedHabits });
+        const filtered = filterByBehavior(candidates, now, { ...prefs, bundleMissedHabits, hidden: getDismissalState() });
         // Sort: high priority first, then by trigger time
         filtered.sort((a, b) => {
             if (a.priority !== b.priority) return a.priority === "high" ? -1 : 1;

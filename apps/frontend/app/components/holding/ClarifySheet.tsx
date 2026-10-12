@@ -7,6 +7,8 @@ import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
 import { useCaptureActions } from "../../hooks/inbox/use-capture-actions";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useProjects } from "../../hooks/projects/use-projects";
+import { useSections } from "../../hooks/sections/use-sections";
+import { overridesOf, placementFor, storedSuggestion, type ThoughtOverrides } from "../../lib/utils/task/suggested-placement";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import { DetailTitle } from "../shared/DetailTitle";
 import { CARD, DetailGroup, FieldBlock, FieldRow, ValueSelect } from "../shared/DetailPanelSections";
@@ -41,14 +43,19 @@ export function ClarifySheet({
     const process = useProcessInboxToTask();
     const status = useCaptureActions();
     const { data: projects = [] } = useProjects();
-    const stored = item.analysis?.userOverrides as
-        | { title?: string; projectId?: string | null; tagIds?: string[] }
-        | undefined;
+    const stored = overridesOf(item);
+    // Read once: a suggestion that arrives after the sheet is open never changes a field under the user.
+    const [suggestion] = useState(() => storedSuggestion(item));
     const dismissed = (item.analysis?.dismissedEntityIds ?? []) as string[];
     const parse = useThoughtParse(item.rawText, dismissed);
-    const title = stored?.title ?? (parse.cleanedTitle || item.rawText);
-    const projectId = stored?.projectId !== undefined ? stored.projectId : parse.projectId;
-    const tagIds = stored?.tagIds ?? parse.tagIds;
+    const title = stored.title ?? (parse.cleanedTitle || item.rawText);
+    const placement = placementFor(item, { cue: parse.projectId, suggestion });
+    const projectId = placement?.projectId ?? null;
+    const suggested = stored.projectId === undefined && !parse.projectId && suggestion !== null;
+    const { data: sections = [] } = useSections(projectId);
+    // A section only counts inside the chosen list.
+    const sectionId = sections.some((section) => section.id === placement?.sectionId) ? placement!.sectionId : null;
+    const tagIds = stored.tagIds ?? parse.tagIds;
     const { lightest } = useWeekLoad(today());
     const [custom, setCustom] = useState(false);
     const [schedule, setSchedule] = useState<ScheduleUpdates>({
@@ -58,7 +65,7 @@ export function ClarifySheet({
         scheduledEnd: null,
         recurrenceRule: null,
     });
-    const save = (patch: NonNullable<typeof stored>) =>
+    const save = (patch: ThoughtOverrides) =>
         update.mutate({ id: item.id, analysis: { ...item.analysis, userOverrides: { ...stored, ...patch } } });
     const place = async (when?: LocalDate | Instant, openEditor = false, useCustom = false) => {
         const task = await process.mutateAsync({
@@ -66,6 +73,7 @@ export function ClarifySheet({
             rawText: item.rawText,
             title,
             projectId,
+            sectionId,
             tagIds,
             priority: parse.priority,
             durationEstimate: parse.durationMinutes,
@@ -81,6 +89,8 @@ export function ClarifySheet({
                   ? placeFields(when)
                   : { dueDate: null, scheduledStart: null, scheduledEnd: null }), // explicit nulls: the server must not infer a day from the text
             waitingOn: parse.waitingOn,
+            reminderAt: parse.fields.reminderAt,
+            notBefore: parse.fields.notBefore,
             nlp: resolvedNlp(item.rawText, "clarify_sheet", settings?.dateTime.dateStyle ?? "mdy", dismissed, { title, projectId, tagIds }),
             skipOptimisticRemoval: openEditor,
             successLabel: openEditor ? "Made a task" : undefined,
@@ -165,10 +175,22 @@ export function ClarifySheet({
                         <ValueSelect
                             label="List"
                             value={projectId ?? ""}
-                            onChange={(id) => save({ projectId: id || null })}
+                            // A section belongs to its list: changing the list clears it.
+                            onChange={(id) => save({ projectId: id || null, sectionId: null })}
                             options={[{ value: "", label: "None" }, ...projects.map((p) => ({ value: p.id, label: p.name }))]}
                         />
                     </FieldRow>
+                    {projectId && sections.length > 0 && (
+                        <FieldRow icon={FolderOpen} label="Section">
+                            <ValueSelect
+                                label="Section"
+                                value={sectionId ?? ""}
+                                onChange={(id) => save({ sectionId: id || null })}
+                                options={[{ value: "", label: "None" }, ...sections.map((section) => ({ value: section.id, label: section.name }))]}
+                            />
+                        </FieldRow>
+                    )}
+                    {suggested && <p className="px-1 text-xs text-twilight-text-muted">Suggested from your lists</p>}
                     <FieldBlock icon={Tag} label="Tags">
                         <TagField
                             tagIds={tagIds}

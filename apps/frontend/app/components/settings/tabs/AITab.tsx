@@ -55,7 +55,8 @@ export function AITab() {
             </h2>
             <p className="text-sm text-twilight-text-soft -mt-8">
                 Control how Cadence understands your input, ranks your tasks, and respects your data.
-                Everything here is deterministic and runs locally — no AI models, no cloud processing.
+                Parsing, ranking and Focus Views run on your device. One switch below sends a capture's words, or a search that
+                found nothing, to an AI provider to suggest where it goes or what you meant.
             </p>
 
             {/* ── Privacy & Diagnostics ── */}
@@ -118,6 +119,18 @@ export function AITab() {
                         checked={intelligence.nlpEnabled}
                         onCheckedChange={(val) =>
                             updateSettings.mutate({ tasks: { intelligence: { nlpEnabled: val } } })
+                        }
+                    />
+                </SettingsRow>
+
+                <SettingsRow
+                    title="Suggest where captures go"
+                    description="Sends a new capture's text, or a search that found nothing, with your list, section and task names, to an AI provider to suggest a destination or a match. Off sends nothing."
+                >
+                    <Switch
+                        checked={intelligence.smartPlacement !== false}
+                        onCheckedChange={(val) =>
+                            updateSettings.mutate({ tasks: { intelligence: { smartPlacement: val } } })
                         }
                     />
                 </SettingsRow>

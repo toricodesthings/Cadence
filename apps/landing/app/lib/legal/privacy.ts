@@ -10,11 +10,12 @@ export const PRIVACY: LegalDoc = {
   description:
     "What Cadence stores, who else handles it, how the AI assistant uses your data, and what is still unfinished. Plain language, nothing hidden.",
   lede: "What Cadence holds about you, who else touches it, and where the honest gaps are. Where something is unfinished or could not be verified, it is written down instead of smoothed over.",
-  updated: "2026-09-30",
+  updated: "2026-10-12",
   inShort: [
     "Cadence is run by one person with no company behind it. The apps contain no advertising or third-party analytics code, and your data is not sold.",
     "Your workspace lives in a Neon Postgres database, separated per account by row-level security. Cloudflare runs the servers.",
     "If you message the assistant, that message, related tasks and notes, and any photos you attach go to AI model providers through OpenRouter. Their retention and training terms are not something this project can verify.",
+    "Unless you switch it off in Settings (Suggest where captures go), a new capture's text, or a search that found nothing, goes to an AI provider with your list, section and task names, to suggest where it belongs or what you meant.",
     "Usage diagnostics are on by default (you can switch them off) and record which actions you use, not your text. The Crash reports switch currently does nothing.",
     "You can delete your account yourself in Settings: it is permanent and cannot be undone. You can also have a JSON copy of your data emailed to you from the same place.",
     "Cadence sets only the cookies needed to keep you signed in. This website sets none.",
@@ -204,12 +205,12 @@ export const PRIVACY: LegalDoc = {
             ],
             [
               "OpenRouter",
-              "Gateway that passes assistant requests to AI model providers",
+              "Gateway that passes assistant requests, and capture and search suggestions, to AI model providers",
               "See the assistant section",
               "Not verified",
             ],
             [
-              "AI model companies behind OpenRouter: DeepInfra (DeepSeek), Upstage (Solar) and Google (Gemini, and Gemma for titles)",
+              "AI model companies behind OpenRouter: DeepInfra (DeepSeek), Upstage (Solar) and Google (Gemini, and Gemma for titles), and the maker of the small decision model that makes capture and search suggestions (chosen by the server, so it can change)",
               "Run the AI models",
               "Whatever OpenRouter forwards for a request",
               "Not verified",
@@ -270,7 +271,7 @@ export const PRIVACY: LegalDoc = {
       blocks: [
         {
           kind: "p",
-          text: "Emilie is Cadence's AI assistant. Nothing is sent to an AI model unless you send the assistant a message. The assistant reads your data to answer, and every change it makes goes through the same permission checks as the app.",
+          text: "Emilie is Cadence's AI assistant. Apart from the destination suggestions described below, nothing is sent to an AI model unless you send the assistant a message. The assistant reads your data to answer, and every change it makes goes through the same permission checks as the app.",
         },
         { kind: "sub", title: "What is sent for each message" },
         {
@@ -290,6 +291,21 @@ export const PRIVACY: LegalDoc = {
         {
           kind: "p",
           text: "Every assistant request goes through OpenRouter, which passes it to the company that runs the model. Today that is DeepInfra for the DeepSeek model (most requests), Upstage for the Solar model (short, simple requests), and Google for Gemini, the default fallback if the others are unavailable, and for Gemma, which writes conversation titles. The code also lists a Mistral model as a further fallback. These are settings and can change without notice.",
+        },
+        { kind: "sub", title: "Suggestions in Capture and search" },
+        {
+          kind: "p",
+          text: "Separately from the assistant, Cadence can suggest where a new capture belongs and which task you meant when a search finds nothing. This is on by default. Turn it off in Settings, Intelligence & Privacy, under Suggest where captures go: nothing is sent for these suggestions once it is off, and the server checks the switch before every request.",
+        },
+        {
+          kind: "list",
+          items: [
+            "For a new capture (from the app, Quick Capture or a connected assistant): its text, with the names of your lists and sections.",
+            "For a search that found nothing: the search text, with the titles of your 255 most recently changed open tasks.",
+            "The model answers with a choice among those names or titles, never text. It is told nothing else about you, and ids are not sent.",
+            "The suggestion is stored on the capture (which list and section, and how sure the model was). Search suggestions are not stored.",
+            "Cadence logs only that a suggestion was made (the kind, model, size, cost, time and outcome), never the text.",
+          ],
         },
         { kind: "sub", title: "What is stored" },
         {
