@@ -12,6 +12,9 @@ const application = fileURLToPath(new URL(
 
 let driver;
 let tauriDriver;
+// Every process a test starts. Each holds the event loop open, so one left running (a second
+// instance whose handoff failed) keeps node --test from ever exiting: kill them all after.
+const launched = [];
 
 before(async () => {
   const nativeDriver = process.env.TAURI_NATIVE_DRIVER;
@@ -30,7 +33,7 @@ before(async () => {
 
 after(async () => {
   await driver?.quit().catch(() => {});
-  tauriDriver?.kill();
+  for (const child of [...launched, tauriDriver]) child?.kill();
 });
 
 describe("Cadence desktop smoke suite", () => {
@@ -59,7 +62,7 @@ describe("Cadence desktop smoke suite", () => {
     const deepLinkUrl = await callBridge("getAuthCallbackUrl", "/from-e2e");
     assert.equal(deepLinkUrl, "cadence://auth/callback?redirectTo=%2Ffrom-e2e");
 
-    spawn(application, [deepLinkUrl], { stdio: "ignore", windowsHide: true });
+    launched.push(spawn(application, [deepLinkUrl], { stdio: "ignore", windowsHide: true }));
 
     await driver.wait(
       async () => {
@@ -94,8 +97,9 @@ describe("Cadence desktop smoke suite", () => {
   });
 
   // The bridge turns every updater failure into { available: false, error }, so assert no error.
-  // Needs the published latest.json on GitHub to be reachable.
-  it("checks for updates without error", async () => {
+  // Needs the published latest.json on GitHub to be reachable. Releases are Windows-only, so the
+  // feed has no Linux entry and the check can only fail there.
+  it("checks for updates without error", { skip: process.platform === "linux" && "releases ship Windows only: latest.json has no Linux entry" }, async () => {
     const update = await callBridge("checkForUpdates");
     assert.equal(update.error, undefined);
   });
