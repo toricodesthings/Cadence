@@ -47,7 +47,7 @@ export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
                 if (!isLearning(state.mode)) return off;
                 let embedding: number[] | null = null;
                 try {
-                    [embedding] = await embedTexts(env, [query]);
+                    [embedding] = await embedTexts(env, [query], { inTurn: true });
                 } catch {
                     // words alone still work
                 }
@@ -147,7 +147,7 @@ export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
                 const model = getEmbeddingModelId(env);
                 let embedding: number[] | null = null;
                 try {
-                    [embedding] = await embedTexts(env, [text]);
+                    [embedding] = await embedTexts(env, [text], { inTurn: true });
                 } catch (error) {
                     logger.warn("ai", "memory_embed_failed", { userHash, issues: issuesFromError(error) });
                 }

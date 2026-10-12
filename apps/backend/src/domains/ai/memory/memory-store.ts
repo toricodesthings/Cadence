@@ -242,15 +242,6 @@ export async function clearFacts(tx: Tx, userId: string): Promise<number> {
     return rows.length;
 }
 
-/** Full → Basic: what only activity, notes or a backfill taught goes; chat-learned and explicit facts stay. */
-export async function deleteActivityFacts(tx: Tx, userId: string): Promise<number> {
-    const rows = await tx
-        .delete(aiMemories)
-        .where(and(eq(aiMemories.userId, userId), inArray(aiMemories.source, ["activity", "note", "backfill"])))
-        .returning({ id: aiMemories.id });
-    return rows.length;
-}
-
 const KIND_LABEL: Record<MemoryKind, string> = {
     preference: "a preference",
     quirk: "a quirk",
@@ -374,9 +365,9 @@ export async function syncActivityFacts(
 
 /** Inferred facts nobody reinforced for 60 days are dropped; stated and pinned facts never decay. */
 export async function deleteDecayed(tx: Tx, userId: string, today: string): Promise<number> {
+    // Anything the person didn't say outright; activity facts are re-derived nightly instead.
     const rows = await tx
         .delete(aiMemories)
-        // Anything the person didn't say outright; activity facts are re-derived nightly instead.
         .where(and(active(userId), ne(aiMemories.confidence, "stated"), ne(aiMemories.source, "activity"), eq(aiMemories.pinned, false), lt(aiMemories.lastSeenOn, sql`(${today}::date - 60)`)))
         .returning({ id: aiMemories.id });
     return rows.length;

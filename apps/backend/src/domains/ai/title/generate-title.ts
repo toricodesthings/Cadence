@@ -6,7 +6,7 @@
  * usable, short title within {@link TITLE_TIMEOUT_MS}. On any failure — no API
  * key, network error, timeout, refusal, empty output — it falls back to a
  * deterministic title derived from the user's text, so a thread is never left
- * untitled. The system prompt is title-prompt.md (edit and push to change it).
+ * untitled. The system prompt is prompts/assistant/title.md (edit and push to change it).
  */
 // oxlint-disable-next-line triple-slash-reference -- the frontend typecheck compiles this file without backend src/types
 /// <reference path="../../../types/text-modules.d.ts" />
@@ -16,7 +16,7 @@ import { deriveFallbackTitle, normalizeTitle } from "@cadence/domain/ai-title";
 import { logger } from "../../../platform/log";
 import { addStepSpend, type TurnSpend } from "../safety/rate-limit";
 import type { Env } from "../../../types/env";
-import titlePrompt from "./title-prompt.md";
+import titlePrompt from "../../../prompts/assistant/title.md";
 
 /** Cheaper/faster than the chat model — titles are tiny. Overridable via AI_TITLE_MODEL. */
 const DEFAULT_TITLE_MODEL = "google/gemma-3-27b-it";

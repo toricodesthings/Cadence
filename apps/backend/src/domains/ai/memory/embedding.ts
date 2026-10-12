@@ -15,8 +15,10 @@ import type { Env } from "../../../types/env";
 /** Dimensionality of the `ai_memories.embedding` column (halfvec) — embeddings MUST match. */
 const EMBEDDING_DIMENSIONS = 512;
 
-/** An embedding sits in front of a chat turn (recall): a slow provider costs the lookup, never the reply. */
+/** An embedding in a chat turn (recall, remember): a slow provider costs the lookup, never the reply. */
 const EMBED_TIMEOUT_MS = 5_000;
+/** Background batches (learning, the nightly pass) can wait longer: a batch of facts takes more than a turn's budget. */
+const BATCH_TIMEOUT_MS = 30_000;
 
 /** Qwen3 truncates by Matryoshka to {@link EMBEDDING_DIMENSIONS}; configurable via AI_EMBEDDING_MODEL. */
 const DEFAULT_EMBEDDING_MODEL = "qwen/qwen3-embedding-8b";
@@ -78,11 +80,12 @@ export async function embedText(
     return { embedding: assertDimensions(embedding), spend };
 }
 
-/** Batch embedding via `embedMany`, logged as one `ai_embedding` line. Each vector is validated against the column size. */
-export async function embedTexts(env: Env, texts: string[], ctx: { userHash?: string } = {}): Promise<number[][]> {
+/** Batch embedding via `embedMany`, logged as one `ai_embedding` line. Each vector is validated against the column size. `inTurn` keeps a chat turn's 5 s budget. */
+export async function embedTexts(env: Env, texts: string[], ctx: { userHash?: string; inTurn?: boolean } = {}): Promise<number[][]> {
     if (texts.length === 0) return [];
-    const { embeddings, usage, providerMetadata } = await embedMany({ model: getEmbeddingModel(env, ctx.userHash), values: texts, abortSignal: AbortSignal.timeout(EMBED_TIMEOUT_MS) });
+    const timeout = ctx.inTurn ? EMBED_TIMEOUT_MS : BATCH_TIMEOUT_MS;
+    const { embeddings, usage, providerMetadata } = await embedMany({ model: getEmbeddingModel(env, ctx.userHash), values: texts, abortSignal: AbortSignal.timeout(timeout) });
     const spend = addStepSpend({}, { providerMetadata });
-    logger.info("ai", "ai_embedding", { ...ctx, model: getEmbeddingModelId(env), inputTokens: usage?.tokens, texts: texts.length, costUsd: spend.costUsd });
+    logger.info("ai", "ai_embedding", { userHash: ctx.userHash, model: getEmbeddingModelId(env), inputTokens: usage?.tokens, texts: texts.length, costUsd: spend.costUsd });
     return embeddings.map(assertDimensions);
 }

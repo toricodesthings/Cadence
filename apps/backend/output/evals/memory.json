@@ -1,91 +1,7 @@
 {
-  "at": "2026-10-12T16:54:42.072Z",
+  "at": "2026-10-12T20:50:28.812Z",
   "model": "anthropic/claude-haiku-5.5",
   "runs": 3,
-  "extraction": {
-    "cases": 46,
-    "runs": 3,
-    "violations": [],
-    "injectionSaved": 0,
-    "recall": 1,
-    "missed": []
-  },
-  "consolidation": {
-    "correct": 1,
-    "wrongMerge": 0,
-    "misses": []
-  },
-  "recall": {
-    "found": 0.9666666666666667,
-    "requests": 30,
-    "missed": [
-      "r29"
-    ],
-    "contextSizes": [
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61,
-      61
-    ],
-    "ranks": [
-      "r1:0",
-      "r2:-1",
-      "r3:-1",
-      "r4:-1",
-      "r5:-1",
-      "r6:0",
-      "r7:-1",
-      "r8:-1",
-      "r9:0",
-      "r10:0",
-      "r11:1",
-      "r12:-1",
-      "r13:-1",
-      "r14:-1",
-      "r15:-1",
-      "r16:-1",
-      "r17:2",
-      "r18:-1",
-      "r19:-1",
-      "r20:-1",
-      "r21:-1",
-      "r22:0",
-      "r23:-1",
-      "r24:-1",
-      "r25:0",
-      "r26:2",
-      "r27:-1",
-      "r28:-1",
-      "r29:-1",
-      "r30:-1"
-    ]
-  },
   "recallWithModel": {
     "found": 0.9666666666666667,
     "missed": [
@@ -93,43 +9,5 @@
     ],
     "autoOnly": 0.9666666666666667,
     "recallCalls": 2
-  },
-  "agesAgo": [
-    {
-      "usesFact": true,
-      "mentionsJune": true,
-      "text": "I can see your sister Maya's wedding is on Saturday, September 18, 2027. You mentioned that in June, so that's the anchor for the weekend. I can't see your schedule that far out yet, so I'll build the plan around the wedding."
-    },
-    {
-      "usesFact": true,
-      "mentionsJune": true,
-      "text": "Your weekend of Friday 17 to Sunday 19 September 2027 is empty so far. You mentioned in June that your sister Maya's wedding is September 18, so Saturday is the anchor. Is that date still right?"
-    },
-    {
-      "usesFact": true,
-      "mentionsJune": true,
-      "text": "Nothing's on your calendar for Friday 17 to Sunday 19 September 2027, so it's a clean slate. You mentioned in June that your sister Maya's wedding is on Saturday 18 September 2027, so I'd build the weekend around that day:\n\n- **Friday 17:** Evening free. Pack, sort outfits and any gift, and get to bed early.\n- **Saturday 18:** Wedding day. Nothing else scheduled, so you can be fully there.\n- **Sun"
-    }
-  ],
-  "capacity": {
-    "people": 100,
-    "factsEach": 400,
-    "sizesMB": {
-      "ai_memories": 76.7,
-      "ai_memory_signals": 25.5,
-      "ai_messages_search_index": 10.5,
-      "ai_messages": 56.8
-    },
-    "memoryTablesMB": 102.2,
-    "messageSearchIndexMB": 10.5,
-    "profilePlusRecallMsP95": 23
-  },
-  "callbackTone": {
-    "problems": []
-  },
-  "embeddingDimensions": {
-    "512": 0.6,
-    "768": 0.6,
-    "1536": 0.6
   }
 }

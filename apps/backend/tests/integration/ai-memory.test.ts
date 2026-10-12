@@ -103,7 +103,7 @@ describe("the mode choice", () => {
         expect((await sql("SELECT settings #>> '{assistant,memoryEpoch}' AS e FROM users WHERE id = $1", [userId]))[0].e).toBe("2");
     });
 
-    it("Full → Basic deletes what activity, notes and the backfill taught; chat and explicit facts stay", async () => {
+    it("Full → Basic keeps everything Full taught, and the activity it was counted from", async () => {
         await setMode("full");
         await insertFact(userId, "from chat", "chat");
         await insertFact(userId, "from you saying remember", "explicit");
@@ -111,9 +111,12 @@ describe("the mode choice", () => {
         await insertFact(userId, "from a note", "note");
         await insertFact(userId, "from backfill", "backfill");
 
+        await sql("INSERT INTO ai_memory_signals (user_id, kind, \"on\", bucket) VALUES ($1, 'complete', '2026-10-01', 'evening')", [userId]);
+
         await setMode("basic");
 
-        expect((await facts(userId)).map((f) => f.content).sort()).toEqual(["from chat", "from you saying remember"]);
+        expect(await facts(userId)).toHaveLength(5);
+        expect(await sql("SELECT 1 FROM ai_memory_signals WHERE user_id = $1", [userId])).toHaveLength(1);
     });
 
     it("Off keeps stored items but shows them inactive; Clear and turn off removes them", async () => {
@@ -675,12 +678,11 @@ describe("Full: learning from what the person does", () => {
         expect(await learnFromConversation(env, userId, chat, now)).toMatchObject({ reports: 1, saved: 0 });
         expect(await signals()).toEqual([expect.objectContaining({ kind: "duration", subject: "lab report", minutes: 45 })]);
 
-        // Leaving Full drops the signals, and Basic records none.
+        // Leaving Full keeps what was counted (only Clear erases), and Basic records nothing new.
         await setMode("basic");
-        expect(await signals()).toEqual([]);
         const other = await seedChat(userId, ["The lab report took me 45 minutes"]);
         await learnFromConversation(env, userId, other, now);
-        expect(await signals()).toEqual([]);
+        expect(await signals()).toHaveLength(1);
     });
 });
 
@@ -732,7 +734,7 @@ describe("Full: the 90-day catch-up", () => {
         const ancient = await seedChat(userId, ["From before the 90 days"], "2026-05-01T15:00:00Z");
 
         const page = (await setMode("full")).body.data;
-        expect(page.gettingToKnowYou).toBe(true);
+        expect(page.catchUp).toEqual({ progress: 0.05, learned: 0, doneAt: null });
 
         const seen: string[] = [];
         const { generateText } = await import("ai");
@@ -749,8 +751,29 @@ describe("Full: the 90-day catch-up", () => {
         expect(read).not.toContain("Already read this one");
         expect(read).not.toContain("before the 90 days");
         expect(read.indexOf("peanuts")).toBeLessThan(read.indexOf("Thursdays")); // newest first
-        expect((await memory("GET", "")).body.data.gettingToKnowYou).toBe(false);
+        expect((await memory("GET", "")).body.data.catchUp).toMatchObject({ progress: 1, doneAt: now.toISOString() });
+        const [{ b }] = await sql("SELECT settings #> '{assistant,memoryBackfill}' AS b FROM users WHERE id = $1", [userId]);
+        expect(b).toMatchObject({ chats: "done", notes: "done", doneAt: now.toISOString(), learned: 0, failedNights: 0 });
         void old; void older; void ancient;
+    });
+
+    it("counts the nights a batch breaks, says so as an error from the third, and a night that reads resets it", async () => {
+        await setMode("full");
+        await seedChat(userId, ["I teach on Thursdays"], "2026-09-01T15:00:00Z");
+        const { generateText } = await import("ai");
+        const { logger } = await import("../../src/platform/log");
+        const error = vi.spyOn(logger, "error");
+        vi.mocked(generateText).mockRejectedValue(new Error("model down"));
+        const progress = async () => (await sql("SELECT settings #> '{assistant,memoryBackfill}' AS b FROM users WHERE id = $1", [userId]))[0].b;
+
+        for (let night = 1; night <= 3; night++) await nightlyForUser(env, userId, now);
+        expect(await progress()).toMatchObject({ chats: "pending", failedNights: 3 });
+        expect(error).toHaveBeenCalledWith("ai", "memory_backfill_stuck", expect.objectContaining({ failedNights: 3 }));
+
+        vi.mocked(generateText).mockResolvedValue({ text: "{\"facts\":[]}", usage: {}, providerMetadata: {}, response: {} } as never);
+        await nightlyForUser(env, userId, now);
+        expect(await progress()).toMatchObject({ failedNights: 0, doneAt: now.toISOString() });
+        error.mockRestore();
     });
 
     it("ends when the person leaves Full, and learns nothing from an Off period", async () => {

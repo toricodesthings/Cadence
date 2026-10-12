@@ -13,13 +13,12 @@ import { hashIdentifier, logger } from "../../platform/log";
 import { withRls } from "../../platform/rls";
 import type { Env } from "../../types/env";
 import { decideChoice, decisionModel, smartPlacementOn, type DecisionCandidate } from "./decision";
+import instructions from "../../prompts/decisions/placement.md";
 
 const MAX_TEXT = 1_000;
 const MAX_PAIRS = 255;
 
-const INSTRUCTIONS =
-    "The state is a thought the user just captured. Which of the user's lists (and section within it) does it belong in? " +
-    "Choose none unless one option clearly fits. A thought that is not about any option, or says it is not for one, is none.";
+const INSTRUCTIONS = instructions.trimEnd();
 
 const words = (text: string) => new Set(text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? []);
 

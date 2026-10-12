@@ -2,7 +2,7 @@
  * Decision-model evals (S1 placement, S2 did-you-mean): the adapter against a real decision model, on
  * synthetic rosters. Each case runs with its option order shuffled (and labels re-cased) so a model that
  * leans on position or spelling shows up. Costs a little, so it never runs with `pnpm test`:
- * `AI_DECISION_MODEL=<dated id> pnpm eval:assistant -t decisions` (OPENROUTER_API_KEY in env or `.dev.vars`).
+ * `AI_DECISION_MODEL=<dated id> pnpm eval:decisions` (OPENROUTER_API_KEY in env or `.dev.vars`).
  *
  * Prints, per kind: outcomes, latency, cost, shown-and-wrong rate, coverage (shown and right among cases that have a right answer),
  * the best threshold that meets the gate, and a local word-overlap baseline on the same cases. Writes
@@ -15,6 +15,8 @@ import { join } from "node:path";
 import { DECISION_THRESHOLDS, decideChoice, type DecisionKind } from "../../src/domains/decisions/decision";
 import type { Env } from "../../src/types/env";
 import { PLACEMENT_CASES, SEARCH_CASES, ROSTER, TASKS } from "./decisions-data";
+import placementPrompt from "../../src/prompts/decisions/placement.md";
+import didYouMeanPrompt from "../../src/prompts/decisions/did-you-mean.md";
 
 function devVars(): Record<string, string> {
     try {
@@ -110,14 +112,12 @@ describe.skipIf(!live)("decisions", () => {
     it("S1: placement", async () => {
         DECISION_THRESHOLDS[env.AI_DECISION_MODEL!] = { placement: 0, search: 0 }; // raw top choice; thresholds are swept below
         const pairs = ROSTER.map((r) => ({ id: r.id, label: r.label }));
-        results.placement = await run("placement", PLACEMENT_CASES, pairs,
-            "The state is a thought the user just captured. Which of the user's lists (and section within it) does it belong in? Choose none unless one option clearly fits. A thought that is not about any option, or says it is not for one, is none.");
+        results.placement = await run("placement", PLACEMENT_CASES, pairs, placementPrompt.trimEnd());
         expect(results.placement.length).toBeGreaterThan(0);
     });
     it("S2: did you mean", async () => {
         DECISION_THRESHOLDS[env.AI_DECISION_MODEL!] = { placement: 0, search: 0 };
-        results.search = await run("search", SEARCH_CASES, TASKS.map((t) => ({ id: t.id, label: t.title })),
-            "The state is a search the user typed that found nothing. Which of the user's tasks did they most likely mean? Choose none unless one task clearly matches what they were looking for.");
+        results.search = await run("search", SEARCH_CASES, TASKS.map((t) => ({ id: t.id, label: t.title })), didYouMeanPrompt.trimEnd());
         expect(results.search.length).toBeGreaterThan(0);
     });
     afterAll(() => {

@@ -11,10 +11,9 @@ import { hashIdentifier } from "../../platform/log";
 import { withRls } from "../../platform/rls";
 import type { Env } from "../../types/env";
 import { decideChoice, decisionModel, smartPlacementOn, type DecisionKind } from "./decision";
+import instructions from "../../prompts/decisions/did-you-mean.md";
 
-const INSTRUCTIONS =
-    "The state is a search the user typed that found nothing. Which of the user's tasks did they most likely mean? " +
-    "Choose none unless one task clearly matches what they were looking for.";
+const INSTRUCTIONS = instructions.trimEnd();
 
 export async function didYouMean(
     env: Env,

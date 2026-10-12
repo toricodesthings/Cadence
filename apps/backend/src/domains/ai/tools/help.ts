@@ -1,18 +1,18 @@
 import { tool } from "ai";
 import { z } from "zod";
-import tasks from "../help/tasks.md";
-import datesAndTimes from "../help/dates-and-times.md";
-import repeats from "../help/repeats.md";
-import routines from "../help/routines.md";
-import capture from "../help/capture.md";
-import organizing from "../help/organizing.md";
-import planning from "../help/planning.md";
-import events from "../help/events.md";
-import assistant from "../help/assistant.md";
-import settings from "../help/settings.md";
-import shortcuts from "../help/shortcuts.md";
-import devices from "../help/devices.md";
-import privacyAndData from "../help/privacy-and-data.md";
+import tasks from "../../../prompts/help/tasks.md";
+import datesAndTimes from "../../../prompts/help/dates-and-times.md";
+import repeats from "../../../prompts/help/repeats.md";
+import routines from "../../../prompts/help/routines.md";
+import capture from "../../../prompts/help/capture.md";
+import organizing from "../../../prompts/help/organizing.md";
+import planning from "../../../prompts/help/planning.md";
+import events from "../../../prompts/help/events.md";
+import assistant from "../../../prompts/help/assistant.md";
+import settings from "../../../prompts/help/settings.md";
+import shortcuts from "../../../prompts/help/shortcuts.md";
+import devices from "../../../prompts/help/devices.md";
+import privacyAndData from "../../../prompts/help/privacy-and-data.md";
 
 /**
  * The Cadence guide: one short markdown file per topic in ../help, git-owned like

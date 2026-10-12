@@ -5,7 +5,7 @@
   "compatibility_date": "2026-02-23",
   // global_fetch_strictly_public: SSRF guard the OAuth provider needs to fetch CIMD client documents.
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-  // Prompt markdown (domains/ai/prompt/blocks) bundles as text.
+  // Prompt markdown (src/prompts) bundles as text.
   "rules": [{ "type": "Text", "globs": ["**/*.md"], "fallthrough": true }],
   // Run next to Neon (aws-us-east-1): each request makes several sequential queries,
   // so a nearby Worker turns ~20-100ms per round trip into ~1-3ms.

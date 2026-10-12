@@ -28,7 +28,7 @@ import { embedTexts, getEmbeddingModelId } from "./embedding";
 import { fenceMemoryState, isLearning, readMemoryState, type MemoryState } from "./memory-mode";
 import { durationGroup } from "./signals";
 import { insertFact, MEMORY_CAP, countActive, nearestFacts, reinforceFact, updateFact, type NearFact } from "./memory-store";
-import extractPrompt from "./extract-prompt.md";
+import extractPrompt from "../../../prompts/memory/extract.md";
 
 /** What the extraction call reads: about 6k tokens of the person's newest messages. */
 const READ_CHAR_BUDGET = 24_000;
@@ -68,6 +68,8 @@ export interface LearnResult {
     /** Duration reports kept as signals (Full). */
     reports: number;
     skipped: boolean;
+    /** The reading broke (model, embedding or database); the cursor stays for a retry. */
+    failed?: boolean;
     /** The day's extraction budget was spent: nothing was read, and the reading waits for tomorrow. */
     capped?: boolean;
 }
@@ -176,7 +178,7 @@ export async function learnFromReading(
         return result;
     } catch (error) {
         logger.warn("ai", "memory_learn_failed", { userHash, issues: issuesFromError(error) });
-        return NONE;
+        return { ...NONE, failed: true };
     }
 }
 

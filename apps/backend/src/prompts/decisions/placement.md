@@ -1,0 +1,1 @@
+The state is a thought the user just captured. Which of the user's lists (and section within it) does it belong in? Choose none unless one option clearly fits. A thought that is not about any option, or says it is not for one, is none.

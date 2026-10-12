@@ -18,8 +18,8 @@ import type { Tx } from "../../../types/db";
 import type { Env } from "../../../types/env";
 import { recordPersonActivity } from "./memory.service";
 import { isLearning, memoryStateOf, readMemoryState, type MemoryState } from "./memory-mode";
-import { isBackfilling, newBackfill, type Backfill } from "./backfill";
-import { clearFacts, deleteActivityFacts, deleteFact, forgetFact, listFacts, listForgotten, restoreFact } from "./memory-store";
+import { catchUpOf, newBackfill, type Backfill } from "./backfill";
+import { clearFacts, deleteFact, forgetFact, listFacts, listForgotten, restoreFact } from "./memory-store";
 
 const undoQuerySchema = z.object({ undo: z.enum(["true", "false"]).optional().transform((v) => v === "true") });
 
@@ -31,7 +31,7 @@ async function readPage(tx: Tx, userId: string): Promise<MemoryPage> {
         mode: state.mode,
         choiceAt,
         inactive: !isLearning(state.mode),
-        gettingToKnowYou: state.mode === "full" && isBackfilling(row?.settings?.assistant?.memoryBackfill),
+        catchUp: state.mode === "full" ? catchUpOf(row?.settings?.assistant?.memoryBackfill as Backfill | null | undefined, new Date()) : null,
         facts: await listFacts(tx, userId),
         forgotten: await listForgotten(tx, userId),
     };
@@ -79,13 +79,8 @@ export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
         const userId = c.get("userId");
         const { mode, consentVersion } = c.req.valid("json");
         const page = await withRls(getDbClient(c.env), userId, async (tx) => {
-            const before = await writeMode(tx, userId, mode, consentVersion);
-            // Full → Basic: what only activity, notes or a backfill taught goes (and the activity it was counted from);
-            // chat-learned and explicit facts stay.
-            if (before.mode === "full" && mode !== "full") {
-                await deleteActivityFacts(tx, userId);
-                await tx.delete(aiMemorySignals).where(eq(aiMemorySignals.userId, userId));
-            }
+            // A mode change only starts or stops learning: nothing stored is erased (that is Clear, below).
+            await writeMode(tx, userId, mode, consentVersion);
             return readPage(tx, userId);
         });
         return c.json({ data: page });

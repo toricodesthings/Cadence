@@ -14,15 +14,11 @@ import { getModelId } from "../model-router";
 import { addStepSpend } from "../safety/rate-limit";
 import type { Env } from "../../../types/env";
 import type { NearFact } from "./memory-store";
+import consolidatePrompt from "../../../prompts/memory/consolidate.md";
 
 const TIMEOUT_MS = 15_000;
 
-export const CONSOLIDATE_INSTRUCTIONS =
-    "You keep a short list of facts about one person. For each NEW fact, say which KNOWN fact it is about the same thing as: " +
-    "the same attribute of their life (when they work, which day an event is, what time calls may start, a habit they keep), " +
-    "whether it repeats the same value or gives a changed one. A different attribute or a different event matches nothing, and so does " +
-    "a fact that holds only for some days, places or situations when the known one covers others (a Friday habit is not the everyday habit).\n" +
-    'Reply with JSON only: {"matches":[{"new":1,"known":"k2"},{"new":2,"known":null}]}, one entry per new fact.';
+const CONSOLIDATE_INSTRUCTIONS = consolidatePrompt.trimEnd();
 
 const replySchema = z.object({ matches: z.array(z.object({ new: z.number().int(), known: z.string().nullable() })) });
 

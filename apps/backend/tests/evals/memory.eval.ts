@@ -1,6 +1,6 @@
 /**
  * Memory evals (0.32.0 §12): the real extraction, consolidation and recall against a real model, on
- * synthetic people. Costs a little, so it never runs with `pnpm test`: `pnpm eval:assistant -t memory`
+ * synthetic people. Costs a little, so it never runs with `pnpm test`: `pnpm eval:memory`
  * (OPENROUTER_API_KEY in the environment or `.dev.vars`; MEMORY_EVAL_RUNS=1 for a quick pass). Every stochastic scenario runs 3 times and every run is scored.
  *
  * Gates:
@@ -8,6 +8,7 @@
  *  - consolidation: ≥ 95% correct, and no wrong merge
  *  - recall: the required fact is in the context (profile + recall) ≥ 95% of 30 requests over 300 facts
  *  - "ages ago": a fact stated 4 months and 300 facts earlier is used with the right month
+ *  - remember: "remember …" saves, "forget …" forgets, a save that was undone is saved again, and memory off saves nothing
  * Writes `output/evals/memory.json`.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -187,6 +188,52 @@ describe.skipIf(!live)("memory · the ages-ago test", () => {
         report.agesAgo = runs.map((r) => ({ usesFact: r.usesFact, mentionsJune: r.month, text: r.text.slice(0, 400) }));
         console.log(`ages ago: ${runs.filter((r) => r.usesFact).length}/${runs.length} used the fact`);
         expect(runs.every((r) => r.usesFact && r.month)).toBe(true); // used, with the month it was said
+    });
+});
+
+describe.skipIf(!live)("memory · the remember tool", () => {
+    type Turn = { role: "user" | "assistant"; content: string };
+    async function actions(mode: "basic" | "off", facts: string[], turns: Turn[]) {
+        const userId = await createUser();
+        const vectors = facts.length ? await embedTexts(env, facts) : [];
+        await withRls(getTestDb(), userId, async (tx: any) => {
+            await tx.update(users).set({ settings: { assistant: { memoryMode: mode, memoryEpoch: 1 } } }).where(eq(users.id, userId));
+            for (const [i, content] of facts.entries()) {
+                await insertFact(tx, userId, { kind: "constraint", content, embedding: vectors[i], embeddingModel: getEmbeddingModelId(env), saidOn: "2026-09-01", source: "chat", confidence: "stated" });
+            }
+        });
+        const request = turns.at(-1)!.content;
+        const { agent, turnContext } = await getAgentInstance(env, userId, {
+            timezone: "America/Toronto", currentDate: "2026-10-12T14:00:00.000Z", approvalMode: "ask", nonce: "evalnonce", queryText: request,
+        });
+        const messages = turns.map((turn, i) => (i === turns.length - 1 ? { ...turn, content: `${request}\n\n${turnContext}` } : turn));
+        const result = await agent.generate({ messages });
+        return result.steps.flatMap((step) => step.toolResults.filter((r: any) => r.toolName === "remember").map((r: any) => String(r.output?.action)));
+    }
+
+    it(`saves, forgets, saves again after an undo, and saves nothing while off (×${RUNS})`, async () => {
+        const problems: string[] = [];
+        await Promise.all(Array.from({ length: RUNS }, async (_, run) => {
+            const saved = await actions("basic", [], [{ role: "user", content: "Remember that I keep Friday evenings free for family dinner." }]);
+            if (!saved.includes("saved")) problems.push(`#${run} remember: ${saved.join(",") || "no call"}`);
+
+            const forgot = await actions("basic", ["Keeps Friday evenings free for family dinner"], [{ role: "user", content: "Forget the thing about Friday evenings, that's over." }]);
+            if (!forgot.includes("forgot")) problems.push(`#${run} forget: ${forgot.join(",") || "no call"}`);
+
+            // The earlier save was undone from its receipt, so nothing is stored; the history still shows it.
+            const again = await actions("basic", [], [
+                { role: "user", content: "Remember that I keep Friday evenings free for family dinner." },
+                { role: "assistant", content: "Got it, I'll remember that Friday evenings stay free for family dinner." },
+                { role: "user", content: "Please remember that about Friday evenings." },
+            ]);
+            if (!again.includes("saved")) problems.push(`#${run} again after undo: ${again.join(",") || "no call"}`);
+
+            const off = await actions("off", [], [{ role: "user", content: "Remember that I keep Friday evenings free for family dinner." }]);
+            if (off.length > 0) problems.push(`#${run} off: ${off.join(",")}`);
+        }));
+        report.rememberTool = { problems };
+        console.log(`remember tool: ${problems.length} problems`);
+        expect(problems).toEqual([]);
     });
 });
 
