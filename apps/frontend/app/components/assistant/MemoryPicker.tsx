@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import { Brain, Check } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { MemoryMode } from "@cadence/contracts/memory";
@@ -33,6 +33,17 @@ export function MemoryPicker() {
     const setMode = useSetMemoryMode();
     const reduceMotion = useReducedMotion();
     const [picked, setPicked] = useState<"basic" | "full">("basic");
+    const radios = useRef<(HTMLButtonElement | null)[]>([]);
+
+    // One tab stop; the arrows move between the two choices, as a radio group does.
+    const onArrow = (e: KeyboardEvent, index: number) => {
+        const step = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 0;
+        if (!step) return;
+        e.preventDefault();
+        const next = (index + step + CHOICES.length) % CHOICES.length;
+        setPicked(CHOICES[next].mode);
+        radios.current[next]?.focus();
+    };
 
     if (!data || data.mode !== null) return null;
 
@@ -41,7 +52,7 @@ export function MemoryPicker() {
             initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: EASE_OUT_EXPO }}
-            className="absolute inset-0 z-20 flex flex-col justify-center gap-4 overflow-y-auto bg-panel/95 px-4 py-6 backdrop-blur-xl"
+            className="absolute inset-0 z-20 flex flex-col justify-center gap-4 overflow-y-auto bg-panel px-4 py-6"
             role="dialog"
             aria-labelledby="memory-picker-title"
         >
@@ -55,7 +66,7 @@ export function MemoryPicker() {
             </div>
 
             <div role="radiogroup" aria-labelledby="memory-picker-title" className="flex flex-col gap-2">
-                {CHOICES.map((choice) => {
+                {CHOICES.map((choice, index) => {
                     const active = picked === choice.mode;
                     return (
                         <button
@@ -63,6 +74,11 @@ export function MemoryPicker() {
                             type="button"
                             role="radio"
                             aria-checked={active}
+                            tabIndex={active ? 0 : -1}
+                            ref={(el) => {
+                                radios.current[index] = el;
+                            }}
+                            onKeyDown={(e) => onArrow(e, index)}
                             onClick={() => setPicked(choice.mode)}
                             className={cn(
                                 "relative flex min-h-11 cursor-pointer flex-col gap-1 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50",

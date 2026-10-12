@@ -1,7 +1,7 @@
 import { hc } from "hono/client";
 import type { AppType } from "@cadence/backend";
 import { ApiErrorResponse, networkError } from "../../types/api";
-import { authClient } from "../auth-client";
+import { jwtExpiry, publishSessionExpiry, readFreshSession } from "../auth/session";
 import { readDesktopAuthSession } from "../desktop-auth-session";
 import { API_BASE_URL, NEON_AUTH_URL } from "../env";
 import { platformFetch } from "../../platform/runtime";
@@ -13,10 +13,6 @@ import { PERFORMANCE_CATEGORIES, type PerformanceSample } from "@cadence/contrac
 
 export interface AuthenticatedFetchOptions extends RequestInit {
     authenticated?: boolean;
-}
-
-function looksLikeJwt(token: unknown): token is string {
-    return typeof token === "string" && token.split(".").length === 3;
 }
 
 // JWT token cache: avoids hitting /token on every single authenticated request.
@@ -31,20 +27,14 @@ const JWT_CACHE_TTL_MS = 55_000; // 55 seconds — conservative under a typical 
 /** Cache only a live JWT for this account; the backend still verifies its signature. */
 export function seedAuthJwtCache(token: unknown, userId: string): boolean {
     startupMark("jwt.start");
-    if (!looksLikeJwt(token)) return false;
-    try {
-        const encoded = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-        const payload = JSON.parse(atob(encoded));
-        if (payload.sub !== userId || typeof payload.exp !== "number" || !Number.isFinite(payload.exp)) return false;
-        const expiry = Math.min(payload.exp * 1000 - 5_000, Date.now() + JWT_CACHE_TTL_MS);
-        if (expiry <= Date.now()) return false;
-        // A late /token response must not replace the seeded session.
-        _inflight = null;
-        _cachedJwt = token;
-        _cachedJwtExpiry = expiry;
-        startupMark("jwt.ready");
-        return true;
-    } catch { return false; }
+    const expiry = Math.min(jwtExpiry(token, userId), Date.now() + JWT_CACHE_TTL_MS);
+    if (typeof token !== "string" || expiry <= Date.now()) return false;
+    // A late /token response must not replace the seeded session.
+    _inflight = null;
+    _cachedJwt = token;
+    _cachedJwtExpiry = expiry;
+    startupMark("jwt.ready");
+    return true;
 }
 
 async function _fetchAuthJwtOnce(): Promise<string | null> {
@@ -62,8 +52,10 @@ async function _fetchAuthJwtOnce(): Promise<string | null> {
         log.warn("api-auth", `/token request failed (${response?.status ?? "network"})`);
         throw networkError();
     }
+    if (response.status === 429) throw networkError();
     if (!response.ok) {
         log.warn("api-auth", `/token request failed (${response.status})`);
+        if (response.status !== 401 && response.status !== 403) throw networkError();
         return null;
     }
 
@@ -72,7 +64,7 @@ async function _fetchAuthJwtOnce(): Promise<string | null> {
         | null;
 
     const token = payload?.token ?? payload?.data?.token;
-    return looksLikeJwt(token) ? token : null;
+    return typeof token === "string" && jwtExpiry(token) > Date.now() ? token : null;
 }
 
 async function fetchAuthJwt(): Promise<string | null> {
@@ -87,11 +79,25 @@ async function fetchAuthJwt(): Promise<string | null> {
     }
 
     const generation = _authGeneration;
-    const request = _fetchAuthJwtOnce().then((token) => {
+    const request = (async () => {
+        let token = await _fetchAuthJwtOnce();
+        if (!token && generation === _authGeneration) {
+            // get-session renews the cookie-backed session; /token alone does not.
+            let result;
+            try { result = await readFreshSession(); }
+            catch (error) {
+                if ((error as { status?: number })?.status !== 401) throw networkError();
+            }
+            const stored = await readDesktopAuthSession();
+            token = [result?.data?.session?.token, stored?.jwt]
+                .find((value): value is string => typeof value === "string" && jwtExpiry(value) > Date.now()) ?? null;
+        }
+        return token;
+    })().then((token) => {
         if (generation !== _authGeneration) return null;
         if (_cachedJwt && Date.now() < _cachedJwtExpiry) return _cachedJwt;
         _cachedJwt = token;
-        _cachedJwtExpiry = token ? Date.now() + JWT_CACHE_TTL_MS : 0;
+        _cachedJwtExpiry = token ? Math.min(jwtExpiry(token), Date.now() + JWT_CACHE_TTL_MS) : 0;
         if (token) startupMark("jwt.ready");
         return token;
     }).finally(() => {
@@ -138,8 +144,9 @@ export async function authenticatedFetch(
     init: AuthenticatedFetchOptions = {},
 ): Promise<Response> {
     const { authenticated = false, ...requestInit } = init;
-    const headers = new Headers(requestInit.headers);
-    const callerSignal = requestInit.signal;
+    const headers = new Headers(requestInit.headers ?? (input instanceof Request ? input.headers : undefined));
+    const method = requestInit.method ?? (input instanceof Request ? input.method : "GET");
+    const callerSignal = requestInit.signal ?? (input instanceof Request ? input.signal : undefined);
     const heldGeneration = _authGeneration;
     if (authenticated && sessionHold) {
         // Before the deadline starts: the wait is for the session, not this request.
@@ -154,31 +161,25 @@ export async function authenticatedFetch(
         ? AbortSignal.any([callerSignal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
         : AbortSignal.timeout(REQUEST_TIMEOUT_MS);
 
-    if (authenticated) {
-        const generation = _authGeneration;
-        // The shared JWT cache is the common path. Session/keyring reads are
-        // fallbacks, not a prerequisite repeated before every API request.
-        if (callerSignal?.aborted) throw callerSignal.reason;
-        let token: string | null;
-        try {
-            token = await withSignal(fetchAuthJwt(), requestInit.signal);
-            if (!token) {
-                const [desktopSession, sessionResult] = await withSignal(Promise.all([
-                    readDesktopAuthSession(),
-                    authClient.getSession(),
-                ]), requestInit.signal);
-                token = [desktopSession?.jwt, sessionResult?.data?.session?.token].find(looksLikeJwt) ?? null;
-            }
-        } catch (error) {
+    const generation = _authGeneration;
+    const acquireToken = async () => {
+        try { return await withSignal(fetchAuthJwt(), requestInit.signal); }
+        catch (error) {
             if (callerSignal?.aborted) throw callerSignal.reason;
             throw requestInit.signal?.aborted ? networkError() : error;
         }
+    };
+    if (authenticated) {
+        // The shared JWT cache is the common path. Session/keyring reads are
+        // fallbacks, not a prerequisite repeated before every API request.
+        if (callerSignal?.aborted) throw callerSignal.reason;
+        const token = await acquireToken();
         if (generation !== _authGeneration) throw new DOMException("Account changed", "AbortError");
         if (callerSignal?.aborted) throw callerSignal.reason;
         if (requestInit.signal?.aborted) throw networkError();
 
         if (!token) {
-            log.warn("api-auth", "authenticated request has no usable JWT", input instanceof Request ? input.url : String(input));
+            publishSessionExpiry();
             throw new ApiErrorResponse({
                 status: 401,
                 code: "UNAUTHORIZED",
@@ -187,16 +188,36 @@ export async function authenticatedFetch(
         }
 
         headers.set("Authorization", `Bearer ${token}`);
-        if ((requestInit.method ?? "GET").toUpperCase() === "GET") {
+        if (method.toUpperCase() === "GET") {
             requestInit.cache = "no-store";
         }
     }
 
     // Any rejection means no answer (the desktop transport rejects with its own errors),
     // except a caller's own abort, like stopping an assistant reply.
-    const response = await platformFetch(input, { ...requestInit, headers }).catch((error: unknown) => {
+    const send = () => platformFetch(input instanceof Request ? input.clone() as typeof input : input, { ...requestInit, headers }).catch((error: unknown) => {
         throw callerSignal?.aborted ? callerSignal.reason : error instanceof DOMException && error.name === "AbortError" && !bounded ? error : networkError();
     });
+    let response = await send();
+    if (authenticated && response.status === 401 && generation === _authGeneration) {
+        // Only retry an explicit auth rejection, before any route work/stream began.
+        // Concurrent rejections of the same token share the replacement request.
+        const rejected = headers.get("Authorization")?.slice(7);
+        if (_cachedJwt === rejected) {
+            _cachedJwt = null;
+            _cachedJwtExpiry = 0;
+        }
+        const token = await acquireToken();
+        if (generation !== _authGeneration) throw new DOMException("Account changed", "AbortError");
+        if (callerSignal?.aborted) throw callerSignal.reason;
+        if (requestInit.signal?.aborted) throw networkError();
+        if (token && token !== rejected && !(requestInit.body instanceof ReadableStream)) {
+            await response.body?.cancel();
+            headers.set("Authorization", `Bearer ${token}`);
+            response = await send();
+        }
+        if (response.status === 401 && generation === _authGeneration) publishSessionExpiry();
+    }
     // A captive portal answers API calls with its own HTML page.
     if (authenticated && response.headers.get("content-type")?.includes("text/html")) throw networkError();
 

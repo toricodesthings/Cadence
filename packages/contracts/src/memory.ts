@@ -49,8 +49,15 @@ export const memoryPageSchema = z.object({
     choiceAt: instantSchema.nullable(),
     /** Stored items are shown but not used while the mode is off (or unchosen). */
     inactive: z.boolean(),
-    /** Full is reading the last 3 months of chats and notes: "Getting to know you". */
-    gettingToKnowYou: z.boolean(),
+    /**
+     * Full's read of the last 3 months: a rough share done (chats by how far back it has read, then notes) and
+     * what it learned. Kept for a week after it finishes, for the "Done" line; null otherwise.
+     */
+    catchUp: z.object({
+        progress: z.number().min(0).max(1),
+        learned: z.number().int().min(0),
+        doneAt: instantSchema.nullable(),
+    }).nullable(),
     facts: z.array(memoryFactSchema),
     forgotten: z.array(z.object({ id: z.uuid(), label: z.string() })),
 });

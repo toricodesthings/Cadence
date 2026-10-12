@@ -392,7 +392,7 @@ export const PRIVACY: LegalDoc = {
             "**What Cadence knows** lists everything in plain sentences with where each came from. Tap an item to forget it; it is gone from use at once, can be brought back for 10 minutes, and afterwards only a short topic label stays so it is not learned again.",
             "Ask the assistant to change or forget anything, in chat.",
             "**Don't learn from this chat** in a conversation's menu keeps that chat out of memory.",
-            "Choosing Off stops learning and use on the next message; what is stored stays, shown as unused, until you clear it. Choosing Basic after Full deletes what only activity, notes or the 90-day catch-up taught. **Clear everything** deletes every item.",
+            "Choosing Off stops learning and use on the next message; what is stored stays, shown as unused, until you clear it. Choosing Basic after Full stops the activity, note and catch-up learning; what Full already learned stays, and activity signals still expire after 90 days. Changing the mode never erases anything: **Clear everything** deletes every item.",
             "Your data export includes memory items; embedding vectors are left out. Deleting your account deletes memory with it.",
           ],
         },

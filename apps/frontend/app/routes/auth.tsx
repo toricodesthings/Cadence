@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useEffect, useState } from "react";
 import { authClient } from "../lib/auth-client";
+import { jwtExpiry } from "../lib/auth/session";
 import {
     DESKTOP_OAUTH_PAYLOAD_PARAM,
     deserializeDesktopAuthPayload,
@@ -17,7 +18,7 @@ import { rememberSignUpTicks } from "../lib/legal-consent";
 import { CardPage } from "../components/shared/CardPage";
 import { log } from "../lib/log";
 import {
-    consumeDesktopAuthHandoff,
+    completeDesktopAuthHandoff,
     DESKTOP_AUTH_STATE_PARAM,
 } from "../platform/desktop-auth-handoff";
 import {
@@ -85,101 +86,39 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function DesktopAuthCallbackScreen({ redirectTo, location }: { redirectTo: string; location: { search: string; hash: string } }) {
     const navigate = useNavigate();
-    const { beginAuthRecovery, isAuthenticated } = useAuthState();
+    const { beginAuthRecovery } = useAuthState();
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+    const { search, hash } = location;
     useEffect(() => {
         let active = true;
-
-        void (async () => {
-            const callbackParams = getMergedCallbackParams(location);
-            const authState = callbackParams.get(DESKTOP_AUTH_STATE_PARAM);
-            const verifier = callbackParams.get("neon_auth_session_verifier");
-            const payload = callbackParams.get(DESKTOP_OAUTH_PAYLOAD_PARAM);
-
-            if (!authState) {
-                if (active) {
-                    setErrorMessage("The sign-in callback did not include a valid desktop auth state.");
-                }
-                return;
-            }
-
-            const validHandoff = await consumeDesktopAuthHandoff(authState, redirectTo);
-            if (!validHandoff) {
-                if (active) {
-                    setErrorMessage("This sign-in callback is stale, invalid, or has already been used.");
-                }
-                return;
-            }
-
-            if (verifier) {
-                try {
-                    const recovered = await beginAuthRecovery();
-
-                    if (!active) {
-                        return;
-                    }
-
-                    if (!recovered) {
-                        setErrorMessage("Cadence could not restore your session after the OAuth callback.");
-                        return;
-                    }
-
-                    navigate(redirectTo, { replace: true });
-                    return;
-                } catch (error) {
-                    if (active) {
-                        log.error("oauth-callback", "Couldn't restore your session after sign-in.", error);
-                        setErrorMessage(getErrorMessage(error, "Cadence could not restore your session after the OAuth callback."));
-                    }
-                    return;
-                }
-            }
-
-            if (!payload) {
-                if (active) {
-                    setErrorMessage("The sign-in callback did not include an OAuth verifier or desktop session payload.");
-                }
-                return;
-            }
-
-            try {
-                const desktopSession = deserializeDesktopAuthPayload(payload);
-
-                if (!active) {
-                    return;
-                }
-
-                if (!desktopSession) {
-                    setErrorMessage("Cadence could not restore your session after the OAuth callback.");
-                    return;
-                }
-
-                try {
-                    await writeDesktopAuthSession(desktopSession);
-                } catch (error) {
-                    log.warn("oauth-callback", "desktop session persistence failed; continuing with live auth session", error);
-                }
-
-                navigate(redirectTo, { replace: true });
-            } catch (error) {
-                if (active) {
-                    log.error("oauth-callback", "Couldn't restore your session after sign-in.", error);
-                    setErrorMessage(getErrorMessage(error, "Cadence could not restore your session after the OAuth callback."));
-                }
-            }
-        })();
-
-        return () => {
-            active = false;
-        };
-    }, [beginAuthRecovery, location, navigate, redirectTo]);
-
-    useEffect(() => {
-        if (isAuthenticated) {
-            navigate(redirectTo, { replace: true });
+        const params = getMergedCallbackParams({ search, hash });
+        const state = params.get(DESKTOP_AUTH_STATE_PARAM);
+        if (!state) {
+            setErrorMessage("This sign-in link is incomplete. Please sign in again.");
+            return;
         }
-    }, [isAuthenticated, navigate, redirectTo]);
+        void completeDesktopAuthHandoff(state, redirectTo, async () => {
+            if (params.get("neon_auth_session_verifier")) {
+                // A request begun before the browser returned may still be settling.
+                // Once it has settled, retry a fresh session read, without replaying the handoff.
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    if (await beginAuthRecovery()) return;
+                    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500));
+                }
+                throw new Error("Cadence couldn't restore your session. Please sign in again.");
+            }
+            const payload = params.get(DESKTOP_OAUTH_PAYLOAD_PARAM);
+            const stored = payload ? deserializeDesktopAuthPayload(payload) : null;
+            if (!stored || jwtExpiry(stored.jwt) <= Date.now()) throw new Error("This sign-in link is incomplete. Please sign in again.");
+            await writeDesktopAuthSession(stored);
+        }).then(() => {
+            if (active) navigate(redirectTo, { replace: true });
+        }).catch(() => {
+            if (active) setErrorMessage("Cadence couldn't finish signing in. Please try again.");
+        });
+        return () => { active = false; };
+    }, [beginAuthRecovery, search, hash, navigate, redirectTo]);
 
     return (
         <CardPage
@@ -459,12 +398,12 @@ export default function AuthPage() {
     }, [isSignUp, ready]);
 
     useEffect(() => {
-        if (!authReady || !isAuthenticated) {
+        if (!authReady || !isAuthenticated || (IS_DESKTOP_RUNTIME && isCallback)) {
             return;
         }
 
         navigate(redirectTo, { replace: true });
-    }, [authReady, isAuthenticated, navigate, redirectTo]);
+    }, [authReady, isAuthenticated, isCallback, navigate, redirectTo]);
 
     useEffect(() => {
         const wrapper = document.querySelector(".neon-auth-wrapper");

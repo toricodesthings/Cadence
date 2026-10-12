@@ -340,6 +340,10 @@ export const userSettingsSchema = z.object({
             before: z.string(),
             chats: z.enum(["pending", "done"]),
             notes: z.enum(["pending", "done"]),
+            /** Facts saved or updated so far, when it finished, and nights in a row that broke. */
+            learned: z.number().int().optional(),
+            doneAt: z.string().optional(),
+            failedNights: z.number().int().optional(),
         }).nullable().optional(),
         adaptiveTone: z.boolean().optional(),
     }).optional(),
@@ -601,7 +605,7 @@ export const SETTINGS_DEFAULTS = {
         memoryChoiceAt: null as string | null,
         memoryConsentVersion: null as string | null,
         memoryEpoch: 0,
-        memoryBackfill: null as { since: string; before: string; chats: "pending" | "done"; notes: "pending" | "done" } | null,
+        memoryBackfill: null as { since: string; before: string; chats: "pending" | "done"; notes: "pending" | "done"; learned?: number; doneAt?: string; failedNights?: number } | null,
         adaptiveTone: true,
     },
 } as const satisfies Record<string, unknown>;

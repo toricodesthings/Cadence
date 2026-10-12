@@ -2,18 +2,23 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const memory = vi.hoisted(() => ({
-    page: { mode: null as string | null, choiceAt: null, inactive: true, facts: [] as unknown[], forgotten: [] as unknown[] },
+    page: { mode: null as string | null, choiceAt: null, inactive: true, catchUp: null as object | null, facts: [] as unknown[], forgotten: [] as unknown[] },
     setMode: vi.fn(),
     forget: vi.fn(),
     restore: vi.fn(),
 }));
 
 vi.mock("../../../../app/hooks/ai/use-memory", () => ({
-    useMemoryPage: () => ({ data: memory.page, isLoading: false }),
+    useMemoryPage: () => ({ data: memory.page, isLoading: false, isFetching: false }),
     useSetMemoryMode: () => ({ mutate: memory.setMode, isPending: false }),
     useForgetMemory: () => ({ mutate: memory.forget, mutateAsync: async (input: unknown) => memory.forget(input), isPending: false }),
     useRestoreMemory: () => ({ mutate: memory.restore, isPending: false }),
     useClearMemory: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+vi.mock("@tanstack/react-query", async (original) => ({
+    ...(await original<typeof import("@tanstack/react-query")>()),
+    useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
 
 import { Tooltip } from "../../../../app/components/primitives";
@@ -23,7 +28,7 @@ import { RememberReceipt } from "../../../../app/components/assistant/widgets/Re
 
 beforeEach(() => {
     vi.clearAllMocks();
-    memory.page = { mode: null, choiceAt: null, inactive: true, facts: [], forgotten: [] };
+    memory.page = { mode: null, choiceAt: null, inactive: true, catchUp: null, facts: [], forgotten: [] };
 });
 
 describe("MemoryPicker", () => {
@@ -32,6 +37,16 @@ describe("MemoryPicker", () => {
         expect(screen.getByRole("radio", { name: /Basic/ }).getAttribute("aria-checked")).toBe("true");
         fireEvent.click(screen.getByRole("button", { name: "Continue" }));
         expect(memory.setMode).toHaveBeenCalledWith("basic");
+    });
+
+    it("is one tab stop whose arrows move between the choices", () => {
+        render(<MemoryPicker />);
+        const basic = screen.getByRole("radio", { name: /Basic/ });
+        expect(basic.tabIndex).toBe(0);
+        expect(screen.getByRole("radio", { name: /Full/ }).tabIndex).toBe(-1);
+        fireEvent.keyDown(basic, { key: "ArrowDown" });
+        expect(screen.getByRole("radio", { name: /Full/ }).getAttribute("aria-checked")).toBe("true");
+        expect(document.activeElement).toBe(screen.getByRole("radio", { name: /Full/ }));
     });
 
     it("takes Full when picked, and Off is a quiet link rather than a card", () => {
@@ -95,6 +110,19 @@ describe("MemoryOverlay", () => {
         expect(memory.setMode).toHaveBeenCalledWith("basic");
     });
 
+    it("shows Full's catch-up as a rough bar while it reads, then what it learned", () => {
+        memory.page = { ...memory.page, mode: "full", inactive: false, catchUp: { progress: 0.45, learned: 3, doneAt: null } };
+        const { unmount } = renderOverlay({});
+        expect(screen.getByRole("progressbar", { name: "Reading your last 3 months" }).getAttribute("aria-valuenow")).toBe("45");
+        expect(screen.getByText(/3 things so far/)).toBeTruthy();
+        unmount();
+
+        memory.page = { ...memory.page, catchUp: { progress: 1, learned: 1, doneAt: "2026-10-12T07:30:00.000Z" } };
+        renderOverlay({});
+        expect(screen.queryByRole("progressbar")).toBeNull();
+        expect(screen.getByText("Done: I read your last 3 months and learned 1 thing.")).toBeTruthy();
+    });
+
     it("only offers search once there is a lot to search", () => {
         memory.page = { ...memory.page, mode: "basic", inactive: false, facts: Array.from({ length: 31 }, (_, i) => fact({ id: `f${i}`, content: `item ${i}` })) };
         renderOverlay({});
@@ -106,6 +134,7 @@ describe("RememberReceipt", () => {
     const part = (output: object, state = "output-available") => ({ state, input: {}, output });
 
     it("shows what was remembered and takes a save back with no trace", () => {
+        memory.page.facts = [{ id: "f1" }];
         render(<RememberReceipt ctx={{ part: part({ ok: true, action: "saved", id: "f1", text: "Friday evenings stay free" }), toolName: "remember" } as never} />);
         expect(screen.getByRole("status").textContent).toContain("Remembered: Friday evenings stay free");
         fireEvent.click(screen.getByRole("button", { name: "Undo" }));
@@ -113,7 +142,14 @@ describe("RememberReceipt", () => {
         expect(screen.getByRole("status").textContent).toContain("Not saved");
     });
 
+    it("says a save that is gone (undone after a reload, or forgotten since) is no longer remembered, with no Undo", () => {
+        render(<RememberReceipt ctx={{ part: part({ ok: true, action: "saved", id: "f1", text: "Works afternoons" }), toolName: "remember" } as never} />);
+        expect(screen.getByRole("status").textContent).toContain("No longer remembered: Works afternoons");
+        expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    });
+
     it("says a repeat was already known and offers no Undo, which would delete the older fact", () => {
+        memory.page.facts = [{ id: "f1" }];
         render(<RememberReceipt ctx={{ part: part({ ok: true, action: "kept", id: "f1", text: "Friday evenings stay free" }), toolName: "remember" } as never} />);
         expect(screen.getByRole("status").textContent).toContain("Already remembered: Friday evenings stay free");
         expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();

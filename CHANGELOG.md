@@ -25,6 +25,10 @@ Cadence remembers, so you don't have to.
 - The Terms and Privacy Policy describe memory, and ask you to accept the new version.
 - The old on/off memory switch in Settings is now the Off, Basic or Full choice.
 
+### Fixed
+
+- Desktop sign-in recovers from expired sessions and browser handoffs without needing to restart the app.
+
 ## [0.31.0] - 2026-10-12
 
 Your captures come pre-sorted.

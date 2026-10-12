@@ -96,6 +96,23 @@ describe("use-auth-state", () => {
         expect(result.current.authReady).toBe(true);
     });
 
+    it("does not let a recovery that finishes after sign-out restore the old account", async () => {
+        authMocks.useSessionMock.mockReturnValue({ data: null, isPending: false });
+        authMocks.signOutMock.mockResolvedValue({ error: null });
+        const pending = Promise.withResolvers<{ data: { user: { id: string }; session: { token: string } } }>();
+        authMocks.getSessionMock.mockReturnValue(pending.promise);
+        const { result } = renderHook(() => useAuthState(), { wrapper });
+        let recovery!: Promise<boolean>;
+        act(() => { recovery = result.current.beginAuthRecovery(); });
+        await act(async () => result.current.completeSignOut());
+        await act(async () => {
+            pending.resolve({ data: { user: { id: "old-account" }, session: { token: "old-token" } } });
+            expect(await recovery).toBe(false);
+        });
+        expect(result.current.session).toBeNull();
+        expect(result.current.status).toBe("anonymous");
+    });
+
     it("signs out through the shared auth-state helper", async () => {
         const refetch = vi.fn();
         authMocks.useSessionMock.mockReturnValue({

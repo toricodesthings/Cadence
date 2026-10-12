@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Search, SendHorizontal } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { formatInZone } from "@cadence/domain/time";
-import type { MemoryFact, MemoryKind, MemoryMode } from "@cadence/contracts/memory";
+import type { MemoryFact, MemoryKind, MemoryMode, MemoryPage } from "@cadence/contracts/memory";
 import * as ScrollArea from "../primitives/ScrollArea";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button, Tip } from "../primitives";
@@ -36,6 +36,34 @@ const SOURCE_LINE: Record<MemoryFact["source"], string> = {
 
 const since = (fact: MemoryFact) => `since ${formatInZone(fact.saidOn, "UTC", { month: "short", year: "numeric" })} · ${SOURCE_LINE[fact.source]}`;
 
+const things = (n: number) => `${n} ${n === 1 ? "thing" : "things"}`;
+
+/** Full's read of the last 3 months: a rough bar while it runs (a little each night), then what it learned, for a week. */
+function CatchUp({ progress, learned, doneAt }: NonNullable<MemoryPage["catchUp"]>) {
+    if (doneAt) {
+        return (
+            <p role="status" className="rounded-2xl border border-accent-primary/20 bg-accent-primary/8 p-3 text-[13px] leading-relaxed text-twilight-text-soft">
+                {learned > 0 ? `Done: I read your last 3 months and learned ${things(learned)}.` : "Done: I read your last 3 months. Nothing new to add yet."}
+            </p>
+        );
+    }
+    return (
+        <div role="status" className="flex flex-col gap-2 rounded-2xl border border-accent-primary/20 bg-accent-primary/8 p-3 text-[13px] leading-relaxed text-twilight-text-soft">
+            <p>Getting to know you: reading your last 3 months, a little each night.{learned > 0 ? ` ${things(learned)} so far.` : ""}</p>
+            <div
+                role="progressbar"
+                aria-label="Reading your last 3 months"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(progress * 100)}
+                className="h-1.5 overflow-hidden rounded-full bg-twilight-surface"
+            >
+                <div className="h-full rounded-full bg-accent-primary transition-[width] duration-700" style={{ width: `${Math.round(progress * 100)}%` }} />
+            </div>
+        </div>
+    );
+}
+
 /**
  * "What Cadence knows": everything remembered, in plain sentences. Tapping an item shows where it came
  * from and a Forget button (one tap, with Undo). Every other change goes through the pinned chat box,
@@ -51,6 +79,15 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
     const [openId, setOpenId] = useState<string | null>(null);
     const [query, setQuery] = useState("");
     const [draft, setDraft] = useState("");
+    const backRef = useRef<HTMLButtonElement>(null);
+
+    // Opened from Settings, the closing dialog hands focus back to its trigger after this mounts: take it once that's done.
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            if (!document.activeElement || document.activeElement === document.body) backRef.current?.focus();
+        }, 350);
+        return () => window.clearTimeout(timer);
+    }, []);
 
     const facts = data?.facts ?? [];
     const shown = useMemo(() => {
@@ -80,7 +117,7 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
             animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
             transition={{ duration: 0.3, ease: EASE_OUT_EXPO }}
-            className="absolute inset-0 z-10 flex flex-col bg-panel/95 backdrop-blur-xl"
+            className="absolute inset-0 z-10 flex flex-col bg-panel"
             role="dialog"
             aria-label="What Cadence knows"
         >
@@ -88,6 +125,7 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
                 <Tip label="Back to conversation" side="bottom">
                     <button
                         type="button"
+                        ref={backRef}
                         onClick={onClose}
                         autoFocus
                         className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
@@ -100,137 +138,136 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
             </header>
 
             <ScrollArea.Root className="min-h-0 flex-1">
-                <ScrollArea.Viewport className="flex flex-col gap-5 px-3 py-4">
-                    <div role="radiogroup" aria-label="How much to remember" className="flex gap-1 rounded-full border border-twilight-border bg-twilight-surface/40 p-1">
-                        {MODES.map(({ mode, label }) => (
-                            <button
-                                key={mode}
-                                type="button"
-                                role="radio"
-                                aria-checked={data?.mode === mode}
-                                disabled={setMode.isPending}
-                                onClick={() => data?.mode !== mode && setMode.mutate(mode)}
-                                className={cn(
-                                    "min-h-9 flex-1 cursor-pointer rounded-full text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50",
-                                    data?.mode === mode ? "bg-accent-primary/15 text-twilight-text" : "text-twilight-text-soft hover:text-twilight-text",
-                                )}
-                            >
-                                {label}
-                            </button>
-                        ))}
-                    </div>
-
-                    {data?.gettingToKnowYou ? (
-                        <p role="status" className="rounded-2xl border border-accent-primary/20 bg-accent-primary/8 p-3 text-[13px] leading-relaxed text-twilight-text-soft">
-                            Getting to know you: reading your last 3 months. It happens over the next few nights.
-                        </p>
-                    ) : null}
-
-                    {data?.inactive && facts.length > 0 ? (
-                        <p className="rounded-2xl border border-twilight-border bg-twilight-surface/40 p-3 text-[13px] leading-relaxed text-twilight-text-soft">
-                            Memory is off, so none of this is used. It’s kept until you clear it.{" "}
-                            <button type="button" onClick={() => setMode.mutate("basic")} className="cursor-pointer font-medium text-accent-primary hover:underline">
-                                Turn on
-                            </button>
-                        </p>
-                    ) : null}
-
-                    {facts.length > SEARCH_AFTER ? (
-                        <label className="flex min-h-11 items-center gap-2 rounded-full border border-twilight-border bg-twilight-surface/40 px-3 text-sm text-twilight-text">
-                            <Search size={15} aria-hidden className="shrink-0 text-twilight-text-muted" />
-                            <input
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                placeholder="Search what I know"
-                                aria-label="Search what I know"
-                                className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-twilight-text-muted"
-                            />
-                        </label>
-                    ) : null}
-
-                    {isLoading ? null : facts.length === 0 ? (
-                        <p className="py-8 text-center text-sm text-twilight-text-soft">
-                            {data?.mode === "off" ? "Memory is off. Nothing is being learned." : "Nothing yet. Just talk to me and I’ll pick things up."}
-                        </p>
-                    ) : (
-                        GROUPS.map((group) => {
-                            const items = shown.filter((f) => group.kinds.includes(f.kind));
-                            if (items.length === 0) return null;
-                            return (
-                                <section key={group.title} aria-label={group.title} className="flex flex-col gap-1.5">
-                                    <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-twilight-text-muted">{group.title}</h3>
-                                    <ul className="flex flex-col gap-1.5">
-                                        {items.map((fact) => {
-                                            const open = openId === fact.id;
-                                            return (
-                                                <li key={fact.id} className="surface-item rounded-2xl">
-                                                    <button
-                                                        type="button"
-                                                        aria-expanded={open}
-                                                        onClick={() => setOpenId(open ? null : fact.id)}
-                                                        className="flex min-h-11 w-full cursor-pointer items-start gap-2 rounded-2xl px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                                                    >
-                                                        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                                                            <span className="text-sm leading-snug text-twilight-text">{fact.content}</span>
-                                                            <span className="text-[11px] text-twilight-text-muted">{since(fact)}</span>
-                                                        </span>
-                                                        <ChevronRight size={15} aria-hidden className={cn("mt-1 shrink-0 text-twilight-text-muted transition-transform", open && "rotate-90")} />
-                                                    </button>
-                                                    {open ? (
-                                                        <div className="flex items-center justify-end gap-2 px-3 pb-2.5">
-                                                            <Button variant="ghost" size="sm" onClick={() => onForget(fact)}>
-                                                                Forget
-                                                            </Button>
-                                                        </div>
-                                                    ) : null}
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
-                                </section>
-                            );
-                        })
-                    )}
-
-                    {(data?.forgotten.length ?? 0) > 0 ? (
-                        <section aria-label="Things you asked me to forget" className="flex flex-col gap-1.5">
-                            <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-twilight-text-muted">Things you asked me to forget</h3>
-                            <ul className="flex flex-wrap gap-1.5">
-                                {data!.forgotten.map((item) => (
-                                    <li key={item.id} className="rounded-full border border-twilight-border px-2.5 py-1 text-xs text-twilight-text-soft">
-                                        {item.label}
-                                    </li>
-                                ))}
-                            </ul>
-                        </section>
-                    ) : null}
-
-                    {facts.length > 0 || (data?.forgotten.length ?? 0) > 0 ? (
-                        <AlertDialog.Root>
-                            <AlertDialog.Trigger asChild>
-                                <button type="button" className="mx-auto min-h-11 cursor-pointer px-3 text-[13px] text-twilight-text-muted underline-offset-4 hover:text-twilight-text hover:underline">
-                                    Clear everything
+                <ScrollArea.Viewport className="px-3 py-4">
+                    {/* The viewport wraps its children in a block, so the column lives on its own element. */}
+                    <div className="flex flex-col gap-5">
+                        <div role="radiogroup" aria-label="How much to remember" className="flex gap-1 rounded-full border border-twilight-border bg-twilight-surface/40 p-1">
+                            {MODES.map(({ mode, label }) => (
+                                <button
+                                    key={mode}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={data?.mode === mode}
+                                    disabled={setMode.isPending}
+                                    onClick={() => data?.mode !== mode && setMode.mutate(mode)}
+                                    className={cn(
+                                        "min-h-9 flex-1 cursor-pointer rounded-full text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50",
+                                        data?.mode === mode ? "bg-accent-primary/15 text-twilight-text" : "text-twilight-text-soft hover:text-twilight-text",
+                                    )}
+                                >
+                                    {label}
                                 </button>
-                            </AlertDialog.Trigger>
-                            <AlertDialog.Content>
-                                <AlertDialog.Header>
-                                    <AlertDialog.Title>Clear everything I know?</AlertDialog.Title>
-                                    <AlertDialog.Description>Every remembered item is deleted for good, along with what you asked me to forget. Your chats stay.</AlertDialog.Description>
-                                </AlertDialog.Header>
-                                <AlertDialog.Footer>
-                                    <AlertDialog.Cancel asChild>
-                                        <Button variant="ghost" size="md">Cancel</Button>
-                                    </AlertDialog.Cancel>
-                                    <AlertDialog.Action asChild>
-                                        <Button variant="ghost" size="md" onClick={() => clear.mutate(false)}>Clear</Button>
-                                    </AlertDialog.Action>
-                                    <AlertDialog.Action asChild>
-                                        <Button variant="danger" size="md" onClick={() => clear.mutate(true)}>Clear and turn off</Button>
-                                    </AlertDialog.Action>
-                                </AlertDialog.Footer>
-                            </AlertDialog.Content>
-                        </AlertDialog.Root>
-                    ) : null}
+                            ))}
+                        </div>
+
+                        {data?.catchUp ? <CatchUp {...data.catchUp} /> : null}
+
+                        {data?.inactive && facts.length > 0 ? (
+                            <p className="rounded-2xl border border-twilight-border bg-twilight-surface/40 p-3 text-[13px] leading-relaxed text-twilight-text-soft">
+                                Memory is off, so none of this is used. It’s kept until you clear it.{" "}
+                                <button type="button" onClick={() => setMode.mutate("basic")} className="cursor-pointer font-medium text-accent-primary hover:underline">
+                                    Turn on
+                                </button>
+                            </p>
+                        ) : null}
+
+                        {facts.length > SEARCH_AFTER ? (
+                            <label className="flex min-h-11 items-center gap-2 rounded-full border border-twilight-border bg-twilight-surface/40 px-3 text-sm text-twilight-text">
+                                <Search size={15} aria-hidden className="shrink-0 text-twilight-text-muted" />
+                                <input
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    placeholder="Search what I know"
+                                    aria-label="Search what I know"
+                                    className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-twilight-text-muted"
+                                />
+                            </label>
+                        ) : null}
+
+                        {isLoading ? null : facts.length === 0 ? (
+                            <p className="py-8 text-center text-sm text-twilight-text-soft">
+                                {data?.mode === "off" ? "Memory is off. Nothing is being learned." : "Nothing yet. Just talk to me and I’ll pick things up."}
+                            </p>
+                        ) : (
+                            GROUPS.map((group) => {
+                                const items = shown.filter((f) => group.kinds.includes(f.kind));
+                                if (items.length === 0) return null;
+                                return (
+                                    <section key={group.title} aria-label={group.title} className="flex flex-col gap-1.5">
+                                        <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-twilight-text-muted">{group.title}</h3>
+                                        <ul className="flex flex-col gap-1.5">
+                                            {items.map((fact) => {
+                                                const open = openId === fact.id;
+                                                return (
+                                                    <li key={fact.id} className="surface-item rounded-2xl">
+                                                        <button
+                                                            type="button"
+                                                            aria-expanded={open}
+                                                            onClick={() => setOpenId(open ? null : fact.id)}
+                                                            className="flex min-h-11 w-full cursor-pointer items-start gap-2 rounded-2xl px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                                                        >
+                                                            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                                                <span className="text-sm leading-snug text-twilight-text">{fact.content}</span>
+                                                                <span className="text-[11px] text-twilight-text-muted">{since(fact)}</span>
+                                                            </span>
+                                                            <ChevronRight size={15} aria-hidden className={cn("mt-1 shrink-0 text-twilight-text-muted transition-transform", open && "rotate-90")} />
+                                                        </button>
+                                                        {open ? (
+                                                            <div className="flex items-center justify-end gap-2 px-3 pb-2.5">
+                                                                <Button variant="ghost" size="sm" onClick={() => onForget(fact)}>
+                                                                    Forget
+                                                                </Button>
+                                                            </div>
+                                                        ) : null}
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </section>
+                                );
+                            })
+                        )}
+
+                        {(data?.forgotten.length ?? 0) > 0 ? (
+                            <section aria-label="Things you asked me to forget" className="flex flex-col gap-1.5">
+                                <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-twilight-text-muted">Things you asked me to forget</h3>
+                                <ul className="flex flex-wrap gap-1.5">
+                                    {data!.forgotten.map((item) => (
+                                        <li key={item.id} className="rounded-full border border-twilight-border px-2.5 py-1 text-xs text-twilight-text-soft">
+                                            {item.label}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </section>
+                        ) : null}
+
+                        {facts.length > 0 || (data?.forgotten.length ?? 0) > 0 ? (
+                            <AlertDialog.Root>
+                                <AlertDialog.Trigger asChild>
+                                    <button type="button" className="mx-auto min-h-11 cursor-pointer px-3 text-[13px] text-twilight-text-muted underline-offset-4 hover:text-twilight-text hover:underline">
+                                        Clear everything
+                                    </button>
+                                </AlertDialog.Trigger>
+                                <AlertDialog.Content>
+                                    <AlertDialog.Header>
+                                        <AlertDialog.Title>Clear everything I know?</AlertDialog.Title>
+                                        <AlertDialog.Description>Every remembered item is deleted for good, along with what you asked me to forget. Your chats stay.</AlertDialog.Description>
+                                    </AlertDialog.Header>
+                                    <AlertDialog.Footer>
+                                        <AlertDialog.Cancel asChild>
+                                            <Button variant="ghost" size="md">Cancel</Button>
+                                        </AlertDialog.Cancel>
+                                        <AlertDialog.Action asChild>
+                                            <Button variant="ghost" size="md" onClick={() => clear.mutate(false)}>Clear</Button>
+                                        </AlertDialog.Action>
+                                        <AlertDialog.Action asChild>
+                                            <Button variant="danger" size="md" onClick={() => clear.mutate(true)}>Clear and turn off</Button>
+                                        </AlertDialog.Action>
+                                    </AlertDialog.Footer>
+                                </AlertDialog.Content>
+                            </AlertDialog.Root>
+                        ) : null}
+                    </div>
                 </ScrollArea.Viewport>
                 <ScrollArea.Scrollbar>
                     <ScrollArea.Thumb />

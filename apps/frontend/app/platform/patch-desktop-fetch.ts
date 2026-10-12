@@ -52,7 +52,7 @@ if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && Boolean((wi
         await tauriFetchReady;
 
         if (!tauriFetchFn) {
-            log.warn("desktop-fetch", "tauriFetch unavailable, falling back", url);
+            log.warn("desktop-fetch", "Desktop auth transport unavailable");
             return nativeFetch(input, init);
         }
 
@@ -64,8 +64,8 @@ if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && Boolean((wi
         // Headers go in `init`: a `Request` silently drops Origin and Referer.
         try {
             return await tauriFetchFn(input, { ...init, headers });
-        } catch (err) {
-            log.warn("desktop-fetch", "tauriFetch threw, falling back", url, err);
+        } catch {
+            log.warn("desktop-fetch", "Desktop auth transport failed");
             return nativeFetch(input, init);
         }
     } as typeof fetch;

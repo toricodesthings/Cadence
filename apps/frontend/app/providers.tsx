@@ -61,9 +61,64 @@ function Link({
 export function Providers({ children }: { children: ReactNode }) {
     return (
         <AuthStateProvider>
+            <DesktopAuthCallbacks />
             <ProvidersInner>{children}</ProvidersInner>
         </AuthStateProvider>
     );
+}
+
+function DesktopAuthCallbacks() {
+    const navigate = useNavigate();
+    // Desktop deep-link callbacks only. On the web the browser is already on
+    // /auth/callback, and re-navigating there after the account remount cancels
+    // the in-flight redirect into the workspace (seen on slower mobile loads).
+    useEffect(() => {
+        if (!IS_DESKTOP_RUNTIME) return;
+
+        let unlisten: (() => void) | undefined;
+        let active = true;
+
+        const handleCallback = (url: URL) => {
+            const params = new URLSearchParams(url.search);
+            const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
+
+            if (hash.includes("=")) {
+                const hashParams = new URLSearchParams(hash);
+                hashParams.forEach((value, key) => {
+                    if (!params.has(key)) {
+                        params.set(key, value);
+                    }
+                });
+            }
+
+            params.set("redirectTo", normalizeRedirectTo(params.get("redirectTo")));
+
+            const search = params.toString();
+            navigate(search ? `/auth/callback?${search}` : "/auth/callback", { replace: true });
+        };
+
+        void getCurrentAuthCallback().then((url) => {
+            if (active && url) {
+                handleCallback(url);
+            }
+        });
+
+        void listenForAuthCallback((url) => {
+            if (active) {
+                handleCallback(url);
+            }
+        }).then((dispose) => {
+            if (active) unlisten = dispose;
+            else dispose();
+        });
+
+        return () => {
+            active = false;
+            unlisten?.();
+        };
+    }, [navigate]);
+
+    return null;
 }
 
 function ProvidersInner({ children }: { children: ReactNode }) {
@@ -75,24 +130,8 @@ function ProvidersInner({ children }: { children: ReactNode }) {
 
 function AccountProviders({ children }: { children: ReactNode }) {
     const navigate = useNavigate();
-    const { beginAuthRecovery, completeSignOut, session, authReady } = useAuthState();
+    const { session, authReady } = useAuthState();
     const hasCheckedForUpdates = useRef(false);
-
-    // Keep fresh references for the QueryClient closure (created once in useState).
-    const authRecoveryRef = useRef(beginAuthRecovery);
-    const signOutRef = useRef(completeSignOut);
-    const navigateRef = useRef(navigate);
-    authRecoveryRef.current = beginAuthRecovery;
-    signOutRef.current = completeSignOut;
-    navigateRef.current = navigate;
-
-    // Prevent concurrent/re-entrant recovery attempts from triggering a loop
-    // when multiple queries fail with auth errors simultaneously.
-    const recoveryInFlight = useRef(false);
-
-    // Track queries that have already been retried after recovery to prevent
-    // per-query recovery loops (query fails → recovery → retry → fails → …).
-    const retriedAfterRecovery = useRef(new Set<string>());
 
     // Only retry errors the backend marks as retryable (429, 5xx).
     // Auth errors and validation errors are never retried. A rate-limited read
@@ -118,7 +157,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
         () =>
             new QueryClient({
                 queryCache: new QueryCache({
-                    onError: async (error, query) => {
+                    onError: (error, query) => {
                         reportError(error, "query");
                         const queryKeyStr = JSON.stringify(query.queryKey);
                         if (!(error instanceof ApiErrorResponse) || !error.isAuthError) {
@@ -126,34 +165,6 @@ function AccountProviders({ children }: { children: ReactNode }) {
                             return;
                         }
 
-                        log.debug("query", `auth error for ${queryKeyStr}`, error.code);
-
-                        // Coalesce concurrent auth failures into a single recovery attempt.
-                        if (recoveryInFlight.current) return;
-
-                        // If this specific query already failed once after a recovery
-                        // attempt, don't loop — the issue isn't session-level.
-                        if (retriedAfterRecovery.current.has(queryKeyStr)) {
-                            log.debug("query", `${queryKeyStr} already retried after recovery, not looping`);
-                            return;
-                        }
-
-                        recoveryInFlight.current = true;
-                        try {
-                            const recovered = await authRecoveryRef.current();
-                            if (recovered) {
-                                // Retry just this query — NOT all queries.
-                                retriedAfterRecovery.current.add(queryKeyStr);
-                                queryClient.invalidateQueries({ queryKey: query.queryKey });
-                                // Allow a fresh retry after a cooldown.
-                                setTimeout(() => retriedAfterRecovery.current.delete(queryKeyStr), 10_000);
-                            } else if (error.code !== "AUTH_PROVIDER_UNAVAILABLE" && navigator.onLine) {
-                                await signOutRef.current();
-                                navigateRef.current("/auth/sign-in", { replace: true });
-                            }
-                        } finally {
-                            recoveryInFlight.current = false;
-                        }
                     },
                 }),
                 mutationCache: new MutationCache({ onError: (error) => reportError(error, "mutation") }),
@@ -199,54 +210,6 @@ function AccountProviders({ children }: { children: ReactNode }) {
             stop?.();
         };
     }, [queryClient, userId]);
-
-    // Desktop deep-link callbacks only. On the web the browser is already on
-    // /auth/callback, and re-navigating there after the account remount cancels
-    // the in-flight redirect into the workspace (seen on slower mobile loads).
-    useEffect(() => {
-        if (!IS_DESKTOP_RUNTIME) return;
-
-        let unlisten: (() => void) | undefined;
-        let active = true;
-
-        const handleCallback = (url: URL) => {
-            const params = new URLSearchParams(url.search);
-            const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
-
-            if (hash.includes("=")) {
-                const hashParams = new URLSearchParams(hash);
-                hashParams.forEach((value, key) => {
-                    if (!params.has(key)) {
-                        params.set(key, value);
-                    }
-                });
-            }
-
-            params.set("redirectTo", normalizeRedirectTo(params.get("redirectTo")));
-
-            const search = params.toString();
-            navigate(search ? `/auth/callback?${search}` : "/auth/callback", { replace: true });
-        };
-
-        void getCurrentAuthCallback().then((url) => {
-            if (active && url) {
-                handleCallback(url);
-            }
-        });
-
-        void listenForAuthCallback((url) => {
-            if (active) {
-                handleCallback(url);
-            }
-        }).then((dispose) => {
-            unlisten = dispose;
-        });
-
-        return () => {
-            active = false;
-            unlisten?.();
-        };
-    }, [navigate]);
 
     useEffect(() => installDesktopE2EBridge(), []);
 
@@ -391,10 +354,6 @@ function AccountProviders({ children }: { children: ReactNode }) {
                     navigate={(path) => navigate(path)}
                     replace={(path) => navigate(path, { replace: true })}
                     onSessionChange={() => {
-                        // Skip broad invalidation while auth recovery is in
-                        // progress — recovery may trigger onSessionChange via
-                        // getSession(), which would cascade into a refetch loop.
-                        if (recoveryInFlight.current) return;
                         queryClient.invalidateQueries();
                     }}
                     Link={Link}

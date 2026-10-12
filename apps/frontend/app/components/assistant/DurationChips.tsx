@@ -10,8 +10,9 @@ const CHOICES: ReadonlyArray<{ minutes: number; label: string }> = [
 
 /** "How long did it take?": optional quick picks on completion (Full). Skipping does nothing and costs nothing. */
 export function DurationChips({ id, title, onPick }: { id: string | number; title: string; onPick: (minutes: number) => void }) {
+    // The Cadence toast is the card: no surface of its own, or it shows a border inside a border.
     return (
-        <div role="group" aria-label="How long did it take?" className="surface-floating flex w-full max-w-sm flex-col gap-2 rounded-2xl p-3 text-sm text-twilight-text">
+        <div role="group" aria-label="How long did it take?" className="flex w-full max-w-sm flex-col gap-2 text-sm text-twilight-text">
             <p className="leading-snug">
                 How long did <span className="font-medium">{toastName(title, 40)}</span> take?
             </p>

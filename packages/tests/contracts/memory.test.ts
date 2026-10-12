@@ -22,7 +22,7 @@ describe("memory contracts", () => {
         expect(memoryFactSchema.safeParse(fact).success).toBe(true);
         expect(memoryFactSchema.safeParse({ ...fact, content: "x".repeat(301) }).success).toBe(false);
         expect(memoryFactSchema.safeParse({ ...fact, saidOn: "2026-08-12T00:00:00Z" }).success).toBe(false);
-        expect(memoryPageSchema.safeParse({ mode: null, choiceAt: null, inactive: true, gettingToKnowYou: false, facts: [], forgotten: [] }).success).toBe(true);
+        expect(memoryPageSchema.safeParse({ mode: null, choiceAt: null, inactive: true, catchUp: null, facts: [], forgotten: [] }).success).toBe(true);
     });
 
     it("names the activity kinds only Full learns, and the three tools that exist only with memory on", () => {

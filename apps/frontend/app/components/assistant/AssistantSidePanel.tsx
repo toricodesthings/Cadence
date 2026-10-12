@@ -220,6 +220,8 @@ export function AssistantSidePanel({
     // text. Escape hides the menu until the text changes.
     const [usageOpen, setUsageOpen] = useState(false);
     const { data: memoryPage } = useMemoryPage();
+    // The first-start question covers the panel: nothing behind it takes focus or a key until it is answered.
+    const choosingMemory = memoryPage?.mode === null;
     const [slashIndex, setSlashIndex] = useState(0);
     const [slashDismissed, setSlashDismissed] = useState(false);
     const [slashMenuForced, setSlashMenuForced] = useState(false);
@@ -236,6 +238,12 @@ export function AssistantSidePanel({
     const [threadTitle, setThreadTitle] = useState<string | null>(null);
     const scrollViewportRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    // Answering it hands focus to the composer, not to <body>.
+    const wasChoosingRef = useRef(choosingMemory);
+    useEffect(() => {
+        if (wasChoosingRef.current && !choosingMemory) textareaRef.current?.focus();
+        wasChoosingRef.current = choosingMemory;
+    }, [choosingMemory]);
     // Whether the user is parked near the bottom of the thread. Auto-scroll only
     // follows the stream when true, so scrolling up to re-read history mid-stream
     // is never yanked back down.
@@ -935,6 +943,7 @@ export function AssistantSidePanel({
             if (e.key !== "Escape") return;
             if (memoryOpen) {
                 setMemoryOpen(false);
+                textareaRef.current?.focus(); // as its Back button does
             } else if (usageOpen) {
                 closeUsage();
             } else if (historyOpen) {
@@ -1055,7 +1064,7 @@ export function AssistantSidePanel({
             aria-label={`${assistantName} assistant conversation`}
         >
             {/* Header — styled like a conversation thread header */}
-            <header className="flex h-(--shell-header-h) shrink-0 items-center justify-between border-b border-twilight-border px-4">
+            <header inert={choosingMemory} className="flex h-(--shell-header-h) shrink-0 items-center justify-between border-b border-twilight-border px-4">
                 <div className="flex items-center gap-3">
                     <div className="relative">
                         <div className="flex h-9 w-9 min-w-9 items-center justify-center rounded-full bg-accent-primary/12 text-accent-primary ring-1 ring-accent-primary/20 glow-accent">
@@ -1141,7 +1150,7 @@ export function AssistantSidePanel({
             </div>
 
             {/* Message thread */}
-            <div className="relative flex min-h-0 flex-1 flex-col">
+            <div inert={choosingMemory} className="relative flex min-h-0 flex-1 flex-col">
             <ScrollArea.Root className="flex-1 min-h-0">
                 <ScrollArea.Viewport ref={scrollViewportRef} className={coarse ? "px-3 py-5" : "px-4 py-6"}>
                     <div className="flex flex-col gap-5">
@@ -1309,6 +1318,7 @@ export function AssistantSidePanel({
 
             {/* Composer */}
             <form
+                inert={choosingMemory}
                 onSubmit={handleSubmit}
                 // The mobile sheet shell already pads for the home indicator.
                 className="shrink-0 px-3 pb-3 pt-2"
