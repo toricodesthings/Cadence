@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.30.8] - 2026-10-11
+
 ### Fixed
 
 - Ctrl/⌘+Enter in Capture adds the task straight to its place, without showing it as a thought first.
