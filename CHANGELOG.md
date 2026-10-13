@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.33.0-0] - 2026-10-12
+
 Go straight from a task or routine to the app you need.
 
 ### Added
