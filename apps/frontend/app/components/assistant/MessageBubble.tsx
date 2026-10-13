@@ -8,7 +8,7 @@ import { MessageActions } from "./MessageActions";
 import { AssistantSigil } from "./AssistantSigil";
 import { ChatImages } from "./ChatImage";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
-import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 
 /** Conversation avatar — the sigil for the assistant, the signed-in user's photo
  * (or initial) for them. `min-w-8` is load-bearing: without it a flex child's
@@ -98,7 +98,7 @@ export function ChatMessage({
     images?: string[];
 }) {
     const reduceMotion = useReducedMotion();
-    const coarse = useIsCoarsePointer();
+    const { isTouch } = useShellMode();
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(text);
     const editRef = useRef<HTMLTextAreaElement>(null);
@@ -129,7 +129,7 @@ export function ChatMessage({
     const regenerate = canRegenerate ? onRegenerate : undefined;
     const edit = canEdit ? () => setEditing(true) : undefined;
     // Touch reaches actions by long-press; only the latest reply keeps a row.
-    const showRow = !editing && (!coarse || (latest && !isUser)) && (text.length > 0 || meta);
+    const showRow = !editing && (!isTouch || (latest && !isUser)) && (text.length > 0 || meta);
 
     const body = isUser ? (
         <div className="flex max-w-[85%] flex-col items-end gap-1.5">
@@ -154,13 +154,13 @@ export function ChatMessage({
                     if (e.key === "Escape") {
                         e.preventDefault();
                         setEditing(false);
-                    } else if (e.key === "Enter" && !e.shiftKey && !coarse) {
+                    } else if (e.key === "Enter" && !e.shiftKey && !isTouch) {
                         e.preventDefault();
                         commitEdit();
                     }
                 }}
                 rows={1}
-                className={`max-h-[200px] w-full resize-none bg-transparent leading-relaxed text-twilight-text focus:outline-none ${coarse ? "text-base" : "text-[14px]"}`}
+                className={`max-h-[200px] w-full resize-none bg-transparent leading-relaxed text-twilight-text focus:outline-none ${isTouch ? "text-base" : "text-[14px]"}`}
                 aria-label="Edit your message"
             />
             <div className="mt-2 flex items-center justify-end gap-2">
@@ -205,9 +205,9 @@ export function ChatMessage({
                         }}
                     >
                         <ContextMenu.Trigger
-                            disabled={!coarse || !text}
+                            disabled={!isTouch || !text}
                             className={`flex w-full min-w-0 transition-transform duration-200 ${isUser ? "justify-end" : "justify-start"} ${
-                                coarse ? "select-none [-webkit-touch-callout:none] data-[state=open]:scale-[0.97]" : ""
+                                isTouch ? "select-none [-webkit-touch-callout:none] data-[state=open]:scale-[0.97]" : ""
                             }`}
                         >
                             {body}

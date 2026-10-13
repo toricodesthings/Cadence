@@ -26,6 +26,7 @@ import {
     stopStreamSchema,
 } from "@cadence/contracts/ai";
 import { getAgentInstance } from "./agent";
+import { createRunDiagnostics } from "./run-diagnostics";
 import { turnContexts, withTurnContext } from "./prompt/prompt-composer";
 import { getModelId, pickChatModel } from "./model-router";
 import {
@@ -153,6 +154,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // One `ai_turn` line per turn (written in onEnd), every time in ms since the request arrived.
     const requestStartedAt: number = (c as Context<any>).get("requestStartedAt");
     const since = () => Date.now() - requestStartedAt;
+    const diagnosticClockStart = performance.now();
+    const diagnosticArrivalOffset = since();
+    const diagnostics = createRunDiagnostics(() => diagnosticArrivalOffset + performance.now() - diagnosticClockStart);
     const turnTiming: { setupMs?: number; ttftMs?: number; firstTextMs?: number } = {};
 
     // Latest user message (load-by-id). Role is pinned to "user" at the schema
@@ -188,6 +192,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // + CF short-window limiters — a Redis blip degrades, never bricks chat (§9.5).
     // Images: ownership check (400 IMAGE_NOT_FOUND) + how many are new sends; a
     // regenerate/retry/edit re-sends images already sent, which count zero.
+    const endAdmission = diagnostics.beginPhase("admission");
     const { newCount: newImages } = imageIds.length
         ? await withRls(db, userId, (tx) => resolveTurnImages(tx, userId, body.conversationId, imageIds))
         : { newCount: 0 };
@@ -229,11 +234,12 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         }
     }
 
+    endAdmission();
     // The agent (user settings, memories, prompt, tools) needs nothing from the turn's
     // persistence, so build it alongside instead of after. Awaited below; the catch only
     // stops an unhandled rejection if persistence throws first.
     // The client's zone is synced to users.time_zone first, so every tool and the clock read the one stored zone.
-    const agentReady = withRls(db, userId, async (tx) => {
+    const agentReady = diagnostics.measure("zoneRecallQuery", () => withRls(db, userId, async (tx) => {
         const timezone = await syncUserZone(tx, userId, body.timezone);
         // What recall looks up: this message plus the one before it, so "yes, do that" keeps its subject.
         let previous: string | undefined;
@@ -243,10 +249,11 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             // recall falls back to this message alone
         }
         return { timezone, queryText: [previous, incomingText].filter(Boolean).join("\n") || undefined };
-    }).then(({ timezone, queryText }) => getAgentInstance(c.env, userId, {
+    })).then(({ timezone, queryText }) => getAgentInstance(c.env, userId, {
         timezone,
         queryText,
         requestId,
+        diagnostics,
         currentDate: body.currentDate,
         locale: body.locale,
         approvalMode: body.approvalMode,
@@ -260,7 +267,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // active_stream_id is set in the SAME transaction as the user turn, so the moment
     // a refreshing client can read the user message it can also resume — closing the
     // window that made a *fast* refresh (right after send) miss the live stream.
-    const { conversationId, history, continues, needsTitle } = await withRls(db, userId, async (tx) => {
+    const { conversationId, history, continues, needsTitle, continuation } = await diagnostics.measure("historyPersist", () => withRls(db, userId, async (tx) => {
         if (!incoming) {
             // Approval answers land on the stored assistant message, never on one the
             // client sends: only its waiting parts change, signatures stay the server's.
@@ -271,7 +278,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             const answered = last?.role === "assistant" ? applyApprovals(rowToUIMessage(last), body.approvals!) : null;
             if (!answered) throw new AppError(409, "CONFLICT", "Nothing here is waiting for approval.");
             if (redis) await setActiveStream(tx, userId, conversation!.id, streamId);
-            return { conversationId: conversation!.id, history: [...rows.slice(0, -1).map(rowToUIMessage), answered], continues: true, needsTitle: false };
+            return { conversationId: conversation!.id, history: [...rows.slice(0, -1).map(rowToUIMessage), answered], continues: true, needsTitle: false, continuation: "approval" };
         }
         const { id, title } = await resolveOrCreateConversation(tx, userId, { conversationId: body.conversationId, model: modelId });
         // Explicit message EDIT: the client kept rows up to the anchor and
@@ -298,8 +305,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         // the anchor row (and a kept reply) are the only prior rows.
         const isFirstTurn = isRerun ? priorRows.length <= (kept ? 2 : 1) : priorRows.length === 0;
         const history = priorRows.map((row) => (row.id === kept?.id ? kept : rowToUIMessage(row)));
-        return { conversationId: id, history, continues: !!kept, needsTitle: isFirstTurn && !title };
-    });
+        return { conversationId: id, history, continues: !!kept, needsTitle: isFirstTurn && !title,
+            continuation: kept ? "kept_write" : body.editAnchorId !== undefined ? "edit" : isRerun ? "rerun" : "message" };
+    }));
 
     // Auto-title (first turn only): generate a short title in PARALLEL with the reply
     // and persist it via waitUntil — so it lands BEFORE the assistant finishes, never
@@ -325,6 +333,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         // Open the chunk-log immediately (before the slower agent build) so a quick
         // resume finds a live log, not just the DB pointer. Best-effort: a Redis
         // failure degrades to non-resumable (onFinish still clears active_stream_id).
+        const endResume = diagnostics.beginPhase("resumeInit");
         try {
             await openStream(redis, userKey, streamId, {
                 conversationId,
@@ -334,6 +343,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             });
         } catch {
             logger.warn("ai", "ai_redis_unavailable", { op: "openStream" });
+        } finally {
+            endResume();
         }
     }
 
@@ -361,7 +372,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // Recent `cadence-image:` references become data URLs for the model; older or
     // expired ones a text stub. Memory extraction and the stored reply keep the
     // references (never base64).
-    const { messages: modelMessages, hydrated: imageCount } = await hydrateImages(uiMessages, c.env.USER_ASSETS, userKey, recentFrom);
+    const { messages: modelMessages, hydrated: imageCount } = await diagnostics.measure("images", () => hydrateImages(uiMessages, c.env.USER_ASSETS, userKey, recentFrom));
 
     const { agent, promptHash, turnContext } = await agentReady;
     // Each recent user message replays the context it was sent with (stored, from the DB rows
@@ -484,7 +495,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
           })
         : agentStream;
 
-    // TTFT as the client sees it: the first token (thinking or answer) and the first answer text.
+    // Backend delivery milestones; these do not measure client receipt or paint.
     const timedStream = responseStream.pipeThrough(
         new TransformStream({
             transform(chunk, controller) {
@@ -503,6 +514,11 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             requestId,
             userHash,
             conversationId,
+            replyId: assistantMessageId,
+            runId: diagnostics.runId,
+            continuation,
+            promptHash,
+            diagnostics: diagnostics.snapshot(),
             model: modelId,
             outcome,
             steps: message.parts.filter((p) => p.type === "step-start").length,

@@ -5,9 +5,10 @@ import { HabitEditor } from "../../../app/components/habits/HabitEditor";
 import { addDays } from "@cadence/domain/time";
 import { setUserZone, today } from "../../../app/lib/utils/user-zone";
 import { Provider } from "../../../app/components/primitives/Tooltip";
+import { stubTouch } from "../../helpers";
 
 const { update, remove, pause, resume, close, resolve } = vi.hoisted(() => ({ update: vi.fn(), remove: vi.fn(), pause: vi.fn(), resume: vi.fn(), close: vi.fn(), resolve: vi.fn() }));
-vi.mock("../../../app/hooks/ui/use-coarse-pointer", () => ({ useIsCoarsePointer: () => true }));
+stubTouch(true);
 vi.mock("../../../app/hooks/habits/use-update-habit", () => ({ useUpdateHabit: () => ({ mutate: update }) }));
 vi.mock("../../../app/hooks/habits/use-delete-habit", () => ({ useDeleteHabit: () => ({ mutate: remove }) }));
 vi.mock("../../../app/hooks/habits/use-pause-habit", () => ({ usePauseHabit: () => ({ pause }), useResumeHabit: () => ({ resume }) }));

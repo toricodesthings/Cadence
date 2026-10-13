@@ -20,7 +20,7 @@
  * Level → console method → CF severity, and when to use each:
  *   error → console.error → "error"   5xx, unhandled throws, dependency outages
  *   warn  → console.warn  → "warning" 4xx client faults, invalid input, best-effort failures
- *   info  → console.info  → "info"    `ai_turn`, the daily `cron_summary`, and consent-checked `frontend_startup`
+ *   info  → console.info  → "info"    `ai_turn`, the hourly `cron_summary`, and consent-checked `frontend_startup`
  *
  * Happy paths (2xx/3xx) MUST NOT log — Cloudflare already emits an invocation
  * log per request (`invocation_logs`), so success coverage is free. Keep this

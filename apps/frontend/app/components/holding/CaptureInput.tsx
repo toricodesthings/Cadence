@@ -16,6 +16,7 @@ import type { InboxItem } from "@cadence/contracts/inbox";
 import { MOD_KEY } from "../../lib/constants/keys";
 import { DeadlineTrigger } from "../tasks/DeadlineTrigger";
 import { isFloatingFocus } from "../../lib/utils/dom";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { ScheduleUpdates } from "../tasks/QuickScheduleSurface";
 import type { DraftFields } from "@cadence/domain/nlp-draft";
 
@@ -74,6 +75,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     const nlpEnabled = settings?.tasks?.intelligence?.nlpEnabled !== false;
     const dateStyle = settings?.dateTime?.dateStyle ?? "mdy";
     const confidenceThreshold = settings?.tasks?.intelligence?.confidenceThreshold ?? "medium";
+    const { isTouch } = useShellMode();
     const savedCapture = useRef<InboxItem | undefined>(undefined);
     // A day set in the picker (or cleared there: "No date"). Picked beats typed.
     const [pick, setPick] = useState<DayPick | null>(null);
@@ -216,12 +218,34 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     };
     // After picking, focus is back in the field, so Enter saves (not reopens the picker).
     const dayControl = <DeadlineTrigger schedule={schedule} onChange={(next) => setPick({ for: value, schedule: next })} returnFocus={focusField} />;
+    // No day yet: this (or ⌘↵) still saves it as a task, undated. Touch has no ⌘, so it says it in words.
+    const taskControl = asTask ? null : (
+        <Button
+            variant="ghost"
+            size="none"
+            disabled={!value.trim() || busy}
+            aria-keyshortcuts="Meta+Enter Control+Enter"
+            // Keep focus in the field, so the inline row can't fold mid-click.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => void save(true)}
+            className={`shrink-0 gap-1 rounded-lg font-sans text-xs font-medium ${isTouch ? "min-h-9 px-2" : "px-1.5 py-1"}`}
+        >
+            {isTouch ? <><Plus size={13} aria-hidden="true" />As task</> : (
+                <>
+                    <kbd className={KEYCAP}>{MOD_KEY}</kbd>
+                    <kbd className={KEYCAP}>↵</kbd>
+                    <span className="ml-0.5">as task</span>
+                </>
+            )}
+        </Button>
+    );
     const submitLabel = busy ? (asTask ? "Adding…" : "Capturing…") : asTask ? "Add task" : "Capture";
     return {
         value,
         input,
         asTask,
         dayControl,
+        taskControl,
         submitLabel,
         splitCount: pasted && lines.length > 1 ? lines.length : 0,
         error,
@@ -254,7 +278,10 @@ export function useCaptureComposer({
         reset: draft.reset,
         footer: (
             <>
-                <div className="mr-auto">{draft.dayControl}</div>
+                <div className="mr-auto flex min-w-0 items-center gap-1">
+                    {draft.dayControl}
+                    {draft.taskControl}
+                </div>
                 <ComposerSubmit
                     onSubmit={() => void draft.save()}
                     submitLabel={draft.submitLabel}
@@ -368,13 +395,8 @@ export function CaptureInput() {
                     ) : (
                         <div className="flex min-w-0 items-center gap-3">
                             {draft.dayControl}
-                            {/* No day yet: ⌘↵ still saves it as a task, undated. */}
-                            {draft.asTask ? null : (
-                                <p aria-hidden="true" className="inline-flex items-center gap-1 text-xs text-twilight-text-muted opacity-0 transition-opacity duration-300 group-focus-within:opacity-100">
-                                    <kbd className={KEYCAP}>{MOD_KEY}</kbd>
-                                    <kbd className={KEYCAP}>↵</kbd>
-                                    <span className="ml-0.5">as task</span>
-                                </p>
+                            {draft.taskControl && (
+                                <div className="opacity-0 transition-opacity duration-300 group-focus-within:opacity-100">{draft.taskControl}</div>
                             )}
                         </div>
                     )}

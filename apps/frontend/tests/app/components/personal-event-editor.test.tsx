@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PersonalEventEditor } from "../../../app/components/events/PersonalEventEditor";
 import { Provider } from "../../../app/components/primitives/Tooltip";
 import type { PersonalEvent } from "../../../app/types/settings";
+import { stubTouch } from "../../helpers";
 
-vi.mock("../../../app/hooks/ui/use-coarse-pointer", () => ({ useIsCoarsePointer: () => true }));
+stubTouch(true);
 vi.mock("../../../app/components/shared/EmojiPickerPopover", () => ({
     EmojiPickerPopover: ({ children }: { children: React.ReactNode }) => children,
 }));

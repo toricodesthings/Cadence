@@ -11,7 +11,7 @@ vi.mock("../../../app/hooks/inbox/use-process-inbox-to-task", () => ({ useProces
 vi.mock("../../../app/hooks/projects/use-projects", () => ({ useProjects: () => ({ data: [] }) }));
 vi.mock("../../../app/hooks/tags/use-tags", () => ({ useTags: () => ({ data: [] }) }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: undefined }) }));
-vi.mock("../../../app/hooks/ui/use-shell-mode", () => ({ useShellMode: () => ({ isCompact: true, isPhone: true, isWide: false }) }));
+vi.mock("../../../app/hooks/ui/use-shell-mode", () => ({ useShellMode: () => ({ isCompact: true, isPhone: true, isWide: false, isTouch: true }) }));
 function Host({ onSaved = vi.fn() }: { onSaved?: () => void }) {
     const { reset: _reset, ...draft } = useCaptureComposer({ onSaved });
     return <Composer open inline onClose={() => {}} {...draft} />;
@@ -119,6 +119,15 @@ describe("Capture composer", () => {
         await waitFor(() => expect(process).toHaveBeenCalled());
         expect(process.mock.calls[0][0]).toMatchObject({ dueDate: null, scheduledStart: null, endDate: null });
         expect(process.mock.calls[0][0].title).toContain("friday");
+    });
+    it("touch has no ⌘↵: As task saves the thought as an undated task", async () => {
+        create.mockResolvedValue({ id: "one" });
+        process.mockResolvedValue({ id: "task" });
+        render(<Host />);
+        fireEvent.change(screen.getByRole("textbox"), { target: { value: "Renew passport" } });
+        fireEvent.click(await screen.findByRole("button", { name: "As task" }));
+        await waitFor(() => expect(process).toHaveBeenCalled());
+        expect(process.mock.calls[0][0]).toMatchObject({ title: "Renew passport", dueDate: null, scheduledStart: null });
     });
     it("a picked day holds while the draft is edited, not once it's replaced", () => {
         expect(pickHolds("", "anything typed after picking")).toBe(true);

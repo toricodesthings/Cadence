@@ -75,6 +75,8 @@ export function UtilitySheet({
             {flush ? children : <div className={`mx-auto w-full max-w-3xl ${scrollable ? "space-y-5" : "flex min-h-0 flex-1 flex-col"}`}>{children}</div>}
         </div>
 
-        {footer ? <div className="shrink-0">{footer}</div> : null}
+        {/* A footer button keeps focus in the field: a blur would close the keyboard and move the footer
+            out from under the finger before the tap lands. */}
+        {footer ? <div className="shrink-0" onMouseDown={(e) => { if ((e.target as Element).closest("button")) e.preventDefault(); }}>{footer}</div> : null}
     </ResponsiveOverlayPanel>;
 }

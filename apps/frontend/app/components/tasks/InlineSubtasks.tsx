@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Check, ChevronRight, GripVertical, Plus, X } from "lucide-react";
 import type { Subtask } from "@cadence/contracts/subtask";
 import { useCreateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
-import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { Reveal } from "../shared/Reveal";
 import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
@@ -108,8 +108,8 @@ function InlineSubtaskItem({
     dragHandleProps: SortableSubtaskRenderProps["dragHandleProps"];
     isDragging: boolean;
 }) {
-    const coarse = useIsCoarsePointer();
-    const reveal = coarse ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100 group-focus-within/sub:opacity-100";
+    const { isTouch } = useShellMode();
+    const reveal = isTouch ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100 group-focus-within/sub:opacity-100";
     return (
         <motion.div
             initial={{ opacity: 0, height: 0 }}

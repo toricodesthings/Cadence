@@ -5,7 +5,7 @@ import type { GenericMenu } from "../primitives/menu-styles";
 import { MoreHorizontal, Pencil, Trash2, Archive, ArchiveRestore, Pause, Play } from "lucide-react";
 import { useRoutineActions } from "../../hooks/habits/use-routine-actions";
 import { trackUsageEvent } from "../../lib/api/track-event";
-import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { Habit } from "@cadence/contracts/habit";
 
 /** The ⋯ button on a routine row or card. */
@@ -35,8 +35,8 @@ export function HabitMenu({ habit, onEdit }: { habit: Habit; onEdit: () => void 
 /** Right-click on a routine row or card: the same items as the ⋯ menu. Desktop only: touch uses ⋯. */
 export function HabitContextMenu({ habit, onEdit, children }: { habit: Habit; onEdit: () => void; children: React.ReactNode }) {
     const actions = useRoutineActions(habit);
-    const coarse = useIsCoarsePointer();
-    if (coarse) return <>{children}</>;
+    const { isTouch } = useShellMode();
+    if (isTouch) return <>{children}</>;
     return (
         <>
             <ContextMenu.Root onOpenChange={(isOpen) => {

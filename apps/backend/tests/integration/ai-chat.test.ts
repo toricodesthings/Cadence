@@ -5,6 +5,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MockLanguageModelV4 } from "ai/test";
+import { ToolLoopAgent } from "ai";
+import { logger } from "../../src/platform/log";
 import { agentOf, finish, streamOf, textChunks, textModel } from "../helpers/ai";
 import { apiAs, TEST_USER_ID } from "../helpers/app";
 
@@ -118,6 +120,28 @@ describe("what the model is sent", () => {
 });
 
 describe("what is saved", () => {
+    it("emits separate content-free run diagnostics without persisting or streaming them", async () => {
+        const log = vi.spyOn(logger, "info");
+        vi.mocked(getAgentInstance).mockImplementation(async (_env, _userId, opts) => ({
+            ...agentOf(model),
+            agent: new ToolLoopAgent({ model, ...opts.diagnostics?.hooks }) as never,
+        }));
+        const first = await chat({}, "private question");
+        await chat({}, "another private question");
+        const records = log.mock.calls.filter(([, event]) => event === "ai_turn").map(([, , fields]) => fields!);
+        expect(records).toHaveLength(2);
+        expect(records[0]).toMatchObject({ requestId: expect.any(String), runId: expect.any(String), replyId: expect.any(String), continuation: "message", promptHash: "hash",
+            diagnostics: { coverage: "sdk_observed", steps: [expect.any(Object)], modelCalls: [expect.objectContaining({ costUsd: null })], exactCostUsd: null } });
+        expect(records[0]!.runId).not.toBe(records[1]!.runId);
+        expect(JSON.stringify(records)).not.toContain("private question");
+        expect(first.sse).not.toContain("sdk_observed");
+        expect(first.opts.metadata).not.toHaveProperty("diagnostics");
+        vi.mocked(truncateMessagesAfter).mockResolvedValue(true);
+        await chat();
+        expect(log.mock.calls.filter(([, event]) => event === "ai_turn").at(-1)![2]).toMatchObject({ continuation: "rerun" });
+        log.mockRestore();
+    });
+
     it("the reply as complete, with usage, model and prompt hash, and the fence nonce stripped", async () => {
         vi.mocked(getAgentInstance).mockImplementation(async (_env, _userId, opts) => {
             model = textModel(`Done. <<<END_CADENCE_DATA_${opts.nonce}>>>`);

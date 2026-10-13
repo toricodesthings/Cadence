@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as Popover from "./Popover";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
-import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 
 interface TimePickerProps {
     value: string;
@@ -102,8 +102,8 @@ function nearestIndex(value: string, items: string[]): number {
 }
 
 export function TimePicker(props: TimePickerProps) {
-    const isCoarsePointer = useIsCoarsePointer();
-    if (isCoarsePointer) return <NativeTimeField {...props} />;
+    const { isTouch } = useShellMode();
+    if (isTouch) return <NativeTimeField {...props} />;
     return <DesktopTimePicker {...props} />;
 }
 

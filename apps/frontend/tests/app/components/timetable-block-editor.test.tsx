@@ -3,10 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TimetableBlockEditor } from "../../../app/components/tasks/TimetableBlockEditor";
 import { Provider } from "../../../app/components/primitives/Tooltip";
 import { setUserZone } from "../../../app/lib/utils/user-zone";
+import { stubTouch } from "../../helpers";
 
 const mutate = vi.fn();
 vi.mock("../../../app/hooks/tasks/use-update-task", () => ({ useUpdateTask: () => ({ mutate }) }));
-vi.mock("../../../app/hooks/ui/use-coarse-pointer", () => ({ useIsCoarsePointer: () => true }));
+stubTouch(true);
 
 // Tue 2026-10-27 09:00-10:30 EDT, weekly on Tuesdays.
 const task = {

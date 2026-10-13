@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { CaptureRow } from "../../../app/components/holding/CaptureRow";
 import type { InboxItem } from "@cadence/contracts/inbox";
+import { stubTouch } from "../../helpers";
 const mocks = vi.hoisted(() => ({ process: vi.fn(), status: vi.fn() }));
 vi.mock("../../../app/hooks/inbox/use-process-inbox-to-task", () => ({ useProcessInboxToTask: () => ({ mutate: mocks.process }), todayISO: () => "2026-09-23", tomorrowISO: () => "2026-09-24" }));
 vi.mock("../../../app/hooks/inbox/use-capture-actions", () => ({ useCaptureActions: () => ({ setStatus: mocks.status }) }));
@@ -13,7 +14,7 @@ vi.mock("../../../app/hooks/tags/use-tags", () => ({ useTags: () => ({ data: [] 
 vi.mock("../../../app/hooks/tags/use-task-tags", () => ({ useAddTaskTag: () => ({ mutate: vi.fn() }) }));
 vi.mock("../../../app/hooks/inbox/use-update-inbox-item", () => ({ useUpdateInboxItem: () => ({ mutate: vi.fn() }) }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: null }) }));
-vi.mock("../../../app/hooks/ui/use-coarse-pointer", () => ({ useIsCoarsePointer: () => false }));
+stubTouch(false);
 vi.mock("../../../app/components/holding/PlaceSheet", () => ({ PlaceDraggable: ({ children }: any) => children, usePlaceTask: () => vi.fn() }));
 vi.mock("../../../app/components/primitives/Tooltip", () => ({ Tip: ({ children }: any) => children }));
 const item = { id: "10000000-0000-4000-8000-000000000001", rawText: "Dentist tomorrow at 3pm", captureStatus: "clarifying", createdAt: new Date().toISOString() } as InboxItem;

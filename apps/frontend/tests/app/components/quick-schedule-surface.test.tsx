@@ -3,8 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QuickScheduleSurface } from "../../../app/components/tasks/QuickScheduleSurface";
 import { Provider } from "../../../app/components/primitives/Tooltip";
 import { setUserZone } from "../../../app/lib/utils/user-zone";
+import { stubTouch } from "../../helpers";
 
-vi.mock("../../../app/hooks/ui/use-coarse-pointer", () => ({ useIsCoarsePointer: () => false }));
+stubTouch(false);
 
 const props = { dueDate: null, scheduledStart: null, recurrenceRule: null };
 const NONE = { endDate: null, scheduledStart: null, scheduledEnd: null, recurrenceRule: null };

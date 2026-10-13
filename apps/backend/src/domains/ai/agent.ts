@@ -21,6 +21,7 @@ import { isMemoryTool } from "@cadence/contracts/ai-tools";
 import { loadProfile, recallFacts, type ProfileLine } from "./memory/memory-store";
 import type { Env } from "../../types/env";
 import { loadSnapshot, userClock } from "./turn";
+import type { RunDiagnostics } from "./run-diagnostics";
 
 /** Served by OpenRouter when the chat model is unavailable or rate-limited. */
 const FALLBACK_CHAT_MODEL = "google/gemini-3.7-flash";
@@ -88,6 +89,7 @@ export interface AgentBuildOptions {
     nonce: string;           // per-request data-fence nonce (safety/injection-policy)
     queryText?: string;      // the person's last two messages: what recall looks up
     requestId?: string;      // tags the turn's side-call log lines (embedding)
+    diagnostics?: RunDiagnostics;
     waitUntil?: (promise: Promise<unknown>) => void; // keeps post-commit metrics alive
 }
 
@@ -141,17 +143,18 @@ async function loadMemoryContext(
     today: string,
     queryText: string | undefined,
     requestId: string | undefined,
+    diagnostics?: RunDiagnostics,
 ): Promise<ProfileLine[]> {
     if (!isLearning(persona.memoryMode)) return [];
     const db = getDbClient(env);
     let profile: ProfileLine[] = [];
     try {
         // The query's embedding (an HTTP call) runs while the profile loads.
-        const embedding = queryText && queryText.length >= MIN_RECALL_CHARS ? embedText(env, queryText, { requestId, userHash }).catch(() => null) : null;
-        profile = await withRls(db, userId, (tx) => loadProfile(tx, userId, today));
+        const embedding = queryText && queryText.length >= MIN_RECALL_CHARS ? measurePhase(diagnostics, "embedding", () => embedText(env, queryText, { requestId, userHash })).catch(() => null) : null;
+        profile = await measurePhase(diagnostics, "profile", () => withRls(db, userId, (tx) => loadProfile(tx, userId, today)));
         if (!queryText || !embedding) return profile;
         const embedded = await embedding;
-        const recalled = await withRls(db, userId, (tx) =>
+        const recalled = await measurePhase(diagnostics, "recall", () => withRls(db, userId, (tx) =>
             recallFacts(tx, userId, {
                 text: queryText,
                 embedding: embedded?.embedding ?? null,
@@ -159,7 +162,7 @@ async function loadMemoryContext(
                 today,
                 exclude: new Set(profile.map((p) => p.id)),
             }),
-        );
+        ));
         return [...profile, ...recalled];
     } catch (error) {
         logger.warn("ai", "memory_context_failed", { userHash, issues: issuesFromError(error) });
@@ -168,6 +171,11 @@ async function loadMemoryContext(
 }
 
 type ChatTools = Omit<ReturnType<typeof buildToolRegistry>, "get_habit_status_today">;
+
+/** Evals and MCP keep their existing uninstrumented path. */
+function measurePhase<T>(diagnostics: RunDiagnostics | undefined, name: Parameters<RunDiagnostics["measure"]>[0], work: () => Promise<T>): Promise<T> {
+    return diagnostics ? diagnostics.measure(name, work) : work();
+}
 
 /**
  * The chat model's tools: the registry less what Today at a glance already answers each turn
@@ -219,7 +227,7 @@ export async function getAgentInstance(
     const modelId = opts.modelId ?? getModelId(env);
     const userHash = await hashIdentifier(userId);
     const clock = userClock(opts.timezone, opts.currentDate);
-    const { burnoutIndex, persona, weekStart } = await loadUserContext(env, userId);
+    const { burnoutIndex, persona, weekStart } = await measurePhase(opts.diagnostics, "settings", () => loadUserContext(env, userId));
     const agentCtx: AgentContext = {
         timezone: clock.timezone,
         currentDate: clock.now.toISOString(),
@@ -234,10 +242,11 @@ export async function getAgentInstance(
     const tools = buildToolRegistry(env, userId, agentCtx);
     const memoryOn = isLearning(persona.memoryMode);
     const [memories, snapshot] = await Promise.all([
-        loadMemoryContext(env, userId, userHash, persona, clock.today, opts.queryText, opts.requestId),
-        loadSnapshot(tools, clock.today),
+        loadMemoryContext(env, userId, userHash, persona, clock.today, opts.queryText, opts.requestId, opts.diagnostics),
+        measurePhase(opts.diagnostics, "snapshot", () => loadSnapshot(tools, clock.today)),
     ]);
 
+    const endPrompt = opts.diagnostics?.beginPhase("prompt");
     const { instructions, turnContext } = composePrompt(
         PROMPT_BLOCKS,
         {
@@ -254,6 +263,7 @@ export async function getAgentInstance(
         },
         opts.nonce,
     );
+    endPrompt?.();
 
     const agent = new ToolLoopAgent({
         model: getModel(env, modelId, userHash),
@@ -266,7 +276,8 @@ export async function getAgentInstance(
         // Approvals are HMAC-signed at issue, so an edited or forged one fails closed.
         toolApproval: approvalFor(opts.approvalMode),
         experimental_toolApprovalSecret: env.TOOL_APPROVAL_SECRET,
+        ...opts.diagnostics?.hooks,
     });
 
-    return { agent, modelId, promptHash: await getPromptHash(chatTools(tools, memoryOn), isClaude(modelId), memoryOn), turnContext };
+    return { agent, modelId, promptHash: await measurePhase(opts.diagnostics, "promptHash", () => getPromptHash(chatTools(tools, memoryOn), isClaude(modelId), memoryOn)), turnContext };
 }

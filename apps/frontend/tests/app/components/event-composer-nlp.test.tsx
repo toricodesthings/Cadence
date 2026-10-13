@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, configure } from "@testing-library/
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PersonalEventEditorDialog } from "../../../app/components/events/PersonalEventEditorDialog";
 import { Provider } from "../../../app/components/primitives/Tooltip";
+import { stubTouch } from "../../helpers";
 
 // Real parser and real composers: under four parallel zone runs a wait needs more than the 1s default.
 configure({ asyncUtilTimeout: 5000 });
@@ -9,7 +10,7 @@ configure({ asyncUtilTimeout: 5000 });
 const saveThought = vi.fn();
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { tasks: { intelligence: {} }, dateTime: { dateStyle: "mdy" } } }) }));
 vi.mock("../../../app/hooks/inbox/use-create-inbox-item", () => ({ useCreateInboxItem: () => ({ mutate: saveThought }) }));
-vi.mock("../../../app/hooks/ui/use-coarse-pointer", () => ({ useIsCoarsePointer: () => true }));
+stubTouch(true);
 vi.mock("../../../app/components/shared/EmojiPickerPopover", () => ({ EmojiPickerPopover: ({ children }: { children: React.ReactNode }) => children }));
 
 const onSubmit = vi.fn();

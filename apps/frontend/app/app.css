@@ -2744,11 +2744,12 @@ button.surface-control:not(:disabled):hover {
 .mobile-icon-button:active { background: var(--color-twilight-surface); }
 /* Phone: header controls and every labelled icon-only button (only an svg, plus
    an optional .sr-only) are iOS-style glass capsules. Icon+text buttons carry a
-   gap-* class; swatches and toggles are radios/pressed, so both stay as they are.
+   gap-* class; swatches and toggles are radios/pressed, so both stay as they are;
+   in-content arrows (a calendar's month nav) opt out with .glass-none.
    The fill is a background-image so a control's own tint still shows through. */
 @media (max-width: 767px) {
   .header-glass button,
-  button:is([aria-label], :has(> .sr-only)):has(> svg):not(.glass-inset, :has(> :not(svg, .sr-only)), [class*="gap-"], [role="radio"], [role="checkbox"], [aria-checked], [aria-pressed], [role="toolbar"] button) {
+  button:is([aria-label], :has(> .sr-only)):has(> svg):not(.glass-inset, .glass-none, :has(> :not(svg, .sr-only)), [class*="gap-"], [role="radio"], [role="checkbox"], [aria-checked], [aria-pressed], [role="toolbar"] button) {
     border: 1px solid color-mix(in srgb, var(--color-twilight-text) 14%, transparent);
     border-radius: 9999px;
     background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-twilight-text) 9%, transparent), color-mix(in srgb, var(--color-twilight-text) 3%, transparent));

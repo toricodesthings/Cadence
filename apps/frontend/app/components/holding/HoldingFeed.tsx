@@ -1,4 +1,4 @@
-import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { Inbox, CalendarClock, ChevronRight, StickyNote, Trash2, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { BucketedCollectionView, BucketedSectionHeader } from "../shared/BucketedCollectionView";
@@ -44,7 +44,7 @@ export function HoldingFeed({
     view?: "list" | "kanban";
 }) {
     const feed = useCaptureFeed();
-    const coarse = useIsCoarsePointer();
+    const { isTouch } = useShellMode();
     const { lightest } = useWeekLoad(today());
     const { captureOrder, activeDefinition } = useFocusViewStore();
     const { data: settings } = useSettings();
@@ -403,7 +403,7 @@ export function HoldingFeed({
                     {rows(feed.notes)}
                 </Fold>
             )}
-            {!coarse && (
+            {!isTouch && (
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-twilight-text-muted">
                     {SHORTCUTS.map(([key, label]) => (
                         <span key={key} className="inline-flex items-center gap-1.5">

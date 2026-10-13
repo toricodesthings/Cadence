@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- On phones and tablets, "As task" in the capture sheet saves a thought straight away as a task with no day.
+
+### Fixed
+
+- Cadence keeps its desktop layout on tall, narrow monitors, with no touch drag sheets when using a mouse.
+- On phones, the date picker opens as a sheet, and "Add date" in the capture sheet no longer ignores taps.
+
 ## [0.33.0] - 2026-10-13
 
 ### Added

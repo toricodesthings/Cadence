@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import * as Popover from "../primitives/Popover";
-import * as Dialog from "../primitives/Dialog";
+import { UtilitySheet } from "../shared/UtilitySheet";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { Instant, LocalDate } from "@cadence/domain/time";
 import { QuickScheduleSurface, type ScheduleUpdates } from "./QuickScheduleSurface";
 
 interface DeadlinePickerPopoverProps {
-    children: React.ReactNode;
+    /** One element: the trigger. */
+    children: React.ReactElement<React.HTMLAttributes<HTMLElement>>;
     /** A day: the deadline, or the first day of an all-day span. Never a time. */
     dueDate: LocalDate | null;
     /** Inclusive last day of an all-day span. */
@@ -44,16 +45,20 @@ export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
     const moment = variant === "moment";
     const onCloseAutoFocus = returnFocus ? (event: Event) => { event.preventDefault(); returnFocus(); } : undefined;
     if (shell.isPhone) {
+        // A phone gets the sheet every compact panel uses; its trigger only opens it.
         return (
-            <Dialog.Dialog open={open} onOpenChange={setOpen}>
-                <Dialog.DialogTrigger asChild>{children}</Dialog.DialogTrigger>
-                <Dialog.DialogContent className="max-w-lg overflow-hidden p-0 sm:max-w-lg" onCloseAutoFocus={onCloseAutoFocus}>
-                    <div className="border-b border-twilight-border/40 px-5 py-4">
-                        <Dialog.DialogHeader className="text-left">
-                            <Dialog.DialogTitle>{moment ? "Remind me" : "Schedule task"}</Dialog.DialogTitle>
-                            <Dialog.DialogDescription>{moment ? "Choose a day and time." : "Choose a date, time, range, or recurrence."}</Dialog.DialogDescription>
-                        </Dialog.DialogHeader>
-                    </div>
+            <>
+                {React.cloneElement(children, {
+                    "aria-haspopup": "dialog",
+                    "aria-expanded": open,
+                    onClick: (event: React.MouseEvent<HTMLElement>) => { children.props.onClick?.(event); setOpen(true); },
+                })}
+                <UtilitySheet
+                    title={moment ? "Remind me" : "Schedule task"}
+                    open={open}
+                    onClose={() => setOpen(false)}
+                    flush
+                >
                     <QuickScheduleSurface
                         dueDate={dueDate}
                         endDate={endDate}
@@ -65,8 +70,8 @@ export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
                         onRequestClose={() => setOpen(false)}
                         variant={variant}
                     />
-                </Dialog.DialogContent>
-            </Dialog.Dialog>
+                </UtilitySheet>
+            </>
         );
     }
 

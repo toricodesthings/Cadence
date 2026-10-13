@@ -7,7 +7,7 @@ import { TimePicker } from "../primitives/TimePicker";
 import { timeAction, useResolveHabit } from "../../hooks/habits/use-resolve-habit";
 import { formatTime, formatWallTime } from "../../lib/utils/date-format";
 import { getUserZone, today } from "../../lib/utils/user-zone";
-import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 
 /** "8:00 AM, 2:00 PM and 8:00 PM" in the user's time format. */
 export function listTimes(times: readonly string[]): string {
@@ -83,7 +83,7 @@ export function RoutineTimeChecklist({ habit, date, log }: {
     log?: HabitLog;
 }) {
     const { mutate: resolve } = useResolveHabit(habit.id);
-    const coarse = useIsCoarsePointer();
+    const { isTouch } = useShellMode();
     const times = habit.times ?? [];
     const marks = timeMarksOn(times, log);
     const mark = (time: string, next: "COMPLETED" | "SKIPPED") => {
@@ -93,7 +93,7 @@ export function RoutineTimeChecklist({ habit, date, log }: {
         const action = timeAction(time, clearing ? "PENDING" : next, date < today() ? atLocal(date, time, getUserZone()) : undefined);
         resolve({ targetDate: date, ...action });
         // The mark shows in place; only touch, where a stray tap is likely, gets an Undo toast (as the day cells do).
-        if (!coarse) return;
+        if (!isTouch) return;
         toast.message(clearing ? "Cleared" : next === "COMPLETED" ? `Done at ${formatTime(action.at)}` : "Skipped", {
             description: `${habit.title} · ${formatWallTime(time)}`,
             action: { label: "Undo", onClick: () => resolve({ targetDate: date, ...timeAction(time, previous?.status ?? "PENDING", previous?.at ?? undefined) }) },

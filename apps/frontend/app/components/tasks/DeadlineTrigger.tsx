@@ -33,7 +33,7 @@ export function DeadlineTrigger({ schedule, onChange, returnFocus, compact = fal
                 type="button"
                 data-no-dnd="true"
                 aria-label={set ? `Date: ${label}. Click to change` : "Add task date"}
-                className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 ${compact ? "text-[10px]" : "text-[11px]"} font-medium transition-colors duration-200 ${set
+                className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 pointer-coarse:min-h-9 ${compact ? "text-[10px]" : "text-[11px]"} font-medium transition-colors duration-200 ${set
                     ? "bg-accent-primary/10 text-accent-primary"
                     : "text-twilight-text-muted/90 hover:bg-white/[0.04] hover:text-twilight-text-soft"}`}
             >

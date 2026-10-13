@@ -167,7 +167,6 @@ export const aiMemories = pgTable('ai_memories', {
     return {
         userStatusIdx: index('ai_memories_user_status_idx').on(table.userId, table.status),
         hashUnique: uniqueIndex('ai_memories_user_hash_unique').on(table.userId, table.contentHash).where(sql`${table.status} = 'active'`),
-        searchIdx: index('ai_memories_search_idx').using('gin', table.search),
         sourceConversationIdx: index('ai_memories_source_conversation_id_idx').on(table.sourceConversationId).where(sql`${table.sourceConversationId} IS NOT NULL`),
         rlsPolicy: pgPolicy("ai_memories_owner_access", {
             as: "permissive",
@@ -274,7 +273,6 @@ export const aiImages = pgTable('ai_images', {
     diagnosticsSharedAt: timestamptz('diagnostics_shared_at'),   // the user shared it with an error report
 }, (table) => ({
     dedupUnique: uniqueIndex('ai_images_user_convo_hash_unique').on(table.userId, table.conversationId, table.contentHash),
-    lastUsedIdx: index('ai_images_last_used_idx').on(table.lastUsedAt),
     rlsPolicy: pgPolicy('ai_images_owner_access', {
         as: 'permissive', for: 'all', using: rlsUsing, withCheck: rlsUsing,
     }),
@@ -802,8 +800,7 @@ export const usageEvents = pgTable(
             .notNull(),
     },
     (table) => ({
-        userIdIdx: index("usage_events_user_id_idx").on(table.userId),
-        createdAtIdx: index("usage_events_created_at_idx").on(table.createdAt), // retention sweep
+        userCreatedIdx: index("usage_events_user_created_idx").on(table.userId, table.createdAt), // per-person retention sweep
         rlsPolicy: pgPolicy("usage_events_owner_access", {
             as: "permissive",
             for: "all",
@@ -840,7 +837,6 @@ export const notificationState = pgTable(
     (table) => ({
         userObjectTriggerIdx: uniqueIndex("notification_state_user_object_trigger_unique")
             .on(table.userId, table.objectId, table.triggerId),
-        deferredUntilIdx: index("notification_state_deferred_until_idx").on(table.deferredUntil),
         rlsPolicy: pgPolicy("notification_state_owner_access", {
             as: "permissive",
             for: "all",
@@ -881,7 +877,6 @@ export const devices = pgTable(
         userInstallIdx: uniqueIndex("devices_user_install_unique").on(table.userId, table.installId),
         // A push endpoint belongs to one account at a time (push_release_endpoint hands it over).
         endpointIdx: uniqueIndex("devices_endpoint_unique").on(table.endpoint).where(sql`${table.endpoint} IS NOT NULL`),
-        userIdx: index("devices_user_idx").on(table.userId),
         rlsPolicy: pgPolicy("devices_owner_access", {
             as: "permissive",
             for: "all",
@@ -913,7 +908,7 @@ export const pushDeliveries = pgTable(
     },
     (table) => ({
         occurrenceIdx: uniqueIndex("push_deliveries_device_occurrence_unique").on(table.deviceId, table.occurrenceKey),
-        createdIdx: index("push_deliveries_created_idx").on(table.createdAt),
+        userCreatedIdx: index("push_deliveries_user_created_idx").on(table.userId, table.createdAt), // per-person prune
         rlsPolicy: pgPolicy("push_deliveries_owner_access", {
             as: "permissive",
             for: "all",

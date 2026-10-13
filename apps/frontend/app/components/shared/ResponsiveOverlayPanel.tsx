@@ -57,7 +57,8 @@ export function ResponsiveOverlayPanel({
     layer = "route",
 }: ResponsiveOverlayPanelProps) {
     const shell = useShellMode();
-    const isMobile = shell.isCompact;
+    // A bottom sheet (with its drag handle) is a touch gesture: a mouse gets the side panel at any width.
+    const isMobile = shell.isCompact && shell.isTouch;
     const isFocus = mode === "focus";
     const isPeekMobile = isMobile && !isFocus;
     const dragControls = useDragControls();

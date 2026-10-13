@@ -22,7 +22,6 @@ import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { useRightPanelStore } from "../stores/right-panel-store";
 import { useAssistantStore } from "../stores/assistant-store";
 import { useCaptureFeed } from "../hooks/inbox/use-capture-feed";
-import { useIsCoarsePointer } from "../hooks/ui/use-coarse-pointer";
 const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then((m) => ({ default: m.FocusViewBar })));
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
@@ -32,7 +31,6 @@ import { SortMenu } from "../components/shared/SortMenu";
 
 export default function HomeRoute() {
     const shell = useShellMode();
-    const coarse = useIsCoarsePointer();
     const { view, setView } = useRouteViewMode("capture");
     // Board is a desktop layout; compact shells always get rows.
     const board = !shell.isCompact && view === "kanban";
@@ -194,20 +192,20 @@ export default function HomeRoute() {
                 <PageContent width="default">
                     <LocationNotice />
                     <div className="group/capture">
-                        <CaptureGreeting className={`mb-2 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0 ${coarse ? "pl-3 sm:pl-4" : "pl-4"}`} />
-                        {!coarse && <CaptureInput />}
+                        <CaptureGreeting className={`mb-2 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0 ${shell.isTouch ? "pl-3 sm:pl-4" : "pl-4"}`} />
+                        {!shell.isTouch && <CaptureInput />}
                     </div>
                 </PageContent>
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col">{feed}</div>
             </> : <ScrollAreaWrapper><PageContent width="default">
                 {!shell.isCompact && <LocationNotice />}
-                <div className={`group/capture pt-1 ${coarse ? "mb-3" : "mb-6"}`}>
-                    <CaptureGreeting className={`mb-2 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0 ${coarse ? "pl-3 sm:pl-4" : "pl-4"}`} />
-                    {!coarse && <CaptureInput />}
+                <div className={`group/capture pt-1 ${shell.isTouch ? "mb-3" : "mb-6"}`}>
+                    <CaptureGreeting className={`mb-2 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0 ${shell.isTouch ? "pl-3 sm:pl-4" : "pl-4"}`} />
+                    {!shell.isTouch && <CaptureInput />}
                 </div>
                 {feed}
             </PageContent></ScrollAreaWrapper>}
-            {coarse && <>
+            {shell.isTouch && <>
                 <input ref={focusProxy} tabIndex={-1} aria-hidden="true" className="pointer-events-none fixed bottom-0 left-0 h-px w-px opacity-0" />
                 <ContextualAddOrb directCapture onOpen={() => { focusProxy.current?.focus(); setCaptureOpen(true); }} />
                 {/* Every return already saved, so closing is "Done", not a discard. */}

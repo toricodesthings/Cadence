@@ -2,13 +2,14 @@ import * as React from "react";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import * as Popover from "../primitives/Popover";
 import { CalendarGrid } from "../calendar/CalendarGrid";
-import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { LocalDate } from "@cadence/domain/time";
 import { formatMonthName, formatMonthYear, formatShortDateLabel, isoDay, isoMonthStart } from "../../lib/utils/date-format";
 import { today } from "../../lib/utils/user-zone";
 import { COMPOSER_FIELD } from "./Composer";
 
-const NAV_BTN = "touch-target flex cursor-pointer items-center justify-center rounded-lg text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
+// Plain tinted chevrons, as in the iOS calendar: arrows inside a card are not chrome, so no glass.
+const NAV_BTN = "glass-none touch-target flex cursor-pointer items-center justify-center rounded-lg text-accent-primary transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 const NO_MARKS = new Set<number>();
 
 /**
@@ -101,7 +102,7 @@ interface DatePickerProps {
  * (iOS wheel, Android calendar); pointer devices get a `MonthCalendar` popover.
  */
 export function DatePicker(props: DatePickerProps) {
-    return useIsCoarsePointer() ? <NativeDateField {...props} /> : <DesktopDatePicker {...props} />;
+    return useShellMode().isTouch ? <NativeDateField {...props} /> : <DesktopDatePicker {...props} />;
 }
 
 function NativeDateField({ value, onChange, label, clearLabel, disabled, className, children }: DatePickerProps) {

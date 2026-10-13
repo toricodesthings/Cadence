@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import type { Habit, HabitLog, HabitStatus } from "@cadence/contracts/habit";
 import * as Popover from "../primitives/Popover";
 import { useResolveHabit } from "../../hooks/habits/use-resolve-habit";
-import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { isRoutinePaused, routineTone } from "../../lib/utils/habits";
 import { formatShortDateLabel } from "../../lib/utils/date-format";
 import { RoutineMark } from "./RoutineMark";
@@ -64,7 +64,7 @@ export function RoutineDayCell({
     onEdit?: () => void;
 }) {
     const { mutate: resolve } = useResolveHabit(habit.id);
-    const isCoarsePointer = useIsCoarsePointer();
+    const { isTouch } = useShellMode();
     const [menuOpen, setMenuOpen] = useState(false);
     const [blooming, setBlooming] = useState(false);
     const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,7 +91,7 @@ export function RoutineDayCell({
     }
 
     const timed = Boolean(habit.times?.length);
-    const set = (next: HabitStatus, undoable = isCoarsePointer) => {
+    const set = (next: HabitStatus, undoable = isTouch) => {
         if (timed) return setMenuOpen(true);
         const previous = status ?? "PENDING";
         if (next === previous && (next !== "PENDING" || !log.stepStatus)) return; // clearing still drops a partly done day's steps

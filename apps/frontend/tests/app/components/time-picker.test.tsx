@@ -2,8 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TimePicker } from "../../../app/components/primitives/TimePicker";
 import { setDateFormatConfig } from "../../../app/lib/utils/date-format";
+import { stubTouch } from "../../helpers";
 
-vi.mock("../../../app/hooks/ui/use-coarse-pointer", () => ({ useIsCoarsePointer: () => false }));
+stubTouch(false);
 
 Element.prototype.scrollIntoView = vi.fn();
 

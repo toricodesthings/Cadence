@@ -62,7 +62,7 @@ import { CONVERSATION_TITLE_DATA_TYPE, type ConversationTitleData } from "@caden
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 import { log } from "../../lib/log";
 import { useOnlineStatus } from "../../hooks/core/use-online-status";
-import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 
 /** Three soft bouncing dots — the "assistant is typing…" affordance. */
 function TypingDots({ name }: { name: string }) {
@@ -189,7 +189,7 @@ export function AssistantSidePanel({
         approvalMode,
         setApprovalMode,
     } = useAssistantStore();
-    const coarse = useIsCoarsePointer();
+    const { isTouch } = useShellMode();
     const { session } = useAuthState();
     const userImage = session?.user?.image;
     const userInitial = (session?.user?.name || session?.user?.email || "U")[0]!.toUpperCase();
@@ -1152,7 +1152,7 @@ export function AssistantSidePanel({
             {/* Message thread */}
             <div inert={choosingMemory} className="relative flex min-h-0 flex-1 flex-col">
             <ScrollArea.Root className="flex-1 min-h-0">
-                <ScrollArea.Viewport ref={scrollViewportRef} className={coarse ? "px-3 py-5" : "px-4 py-6"}>
+                <ScrollArea.Viewport ref={scrollViewportRef} className={isTouch ? "px-3 py-5" : "px-4 py-6"}>
                     <div className="flex flex-col gap-5">
                         {messages.length === 0 ? (
                             <div className="flex flex-col items-center justify-center px-2 py-12 text-center">
@@ -1421,7 +1421,7 @@ export function AssistantSidePanel({
                                     setSlashIndex((i) => (Math.min(i, n - 1) + (e.key === "ArrowDown" ? 1 : n - 1)) % n);
                                     return;
                                 }
-                                if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && !coarse)) {
+                                if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && !isTouch)) {
                                     e.preventDefault();
                                     runSlashCommand(activeSlash);
                                     return;
@@ -1436,7 +1436,7 @@ export function AssistantSidePanel({
                                 }
                             }
                             // Touch keyboards: Return is a newline; the send button sends.
-                            if (e.key === "Enter" && !e.shiftKey && !coarse) {
+                            if (e.key === "Enter" && !e.shiftKey && !isTouch) {
                                 e.preventDefault();
                                 handleSubmit();
                             }
@@ -1452,7 +1452,7 @@ export function AssistantSidePanel({
                         placeholder={`Message ${assistantName}…`}
                         aria-label={`Message ${assistantName}`}
                         // ≥16px on touch prevents iOS Safari from zooming on focus.
-                        className={`block max-h-[140px] w-full resize-none bg-transparent px-4 pb-1 pt-3 leading-relaxed text-twilight-text placeholder:text-twilight-text-muted focus:outline-none ${coarse || isMobile ? "mb-2.5 text-base" : "text-[14px]"}`}
+                        className={`block max-h-[140px] w-full resize-none bg-transparent px-4 pb-1 pt-3 leading-relaxed text-twilight-text placeholder:text-twilight-text-muted focus:outline-none ${isTouch || isMobile ? "mb-2.5 text-base" : "text-[14px]"}`}
                     />
 
                     <div className="flex items-center gap-1 px-2 pb-2">

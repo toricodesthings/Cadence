@@ -7,6 +7,7 @@
 import * as RadixTooltip from "@radix-ui/react-tooltip";
 import { forwardRef, useState, useRef, type ReactNode } from "react";
 import { FLOATING_SURFACE } from "./menu-styles";
+import { isTouchFirst } from "../../hooks/ui/use-shell-mode";
 
 /* ── Re-exports ─────────────────────────────────────────────────── */
 export const Provider = RadixTooltip.Provider;
@@ -54,7 +55,7 @@ export interface TipProps {
 /** Touch screens have no hover: a tip only follows keyboard focus, never a sheet's initial focus. */
 const focusedWithoutKeyboard = () =>
     typeof window !== "undefined" &&
-    window.matchMedia?.("(hover: none)").matches &&
+    isTouchFirst() &&
     !document.activeElement?.matches(":focus-visible");
 
 export function Tip({ label, side = "right", children }: TipProps) {

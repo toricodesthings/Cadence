@@ -24,7 +24,6 @@ import { useCaptureActions } from "../../hooks/inbox/use-capture-actions";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
-import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
 import { MonthCalendar } from "../shared/DatePicker";
 import type { Instant, LocalDate } from "@cadence/domain/time";
 import { placementLabel, relativeTime, toDay } from "../../lib/utils/date-format";
@@ -82,7 +81,6 @@ export function CaptureRow({
     const [tagOver, setTagOver] = useState(false);
     const placeTask = usePlaceTask();
     const shell = useShellMode();
-    const coarse = useIsCoarsePointer();
     const stacked = stackedProp || shell.isPhone;
     const { data: settings } = useSettings();
     const quiet = settings?.tasks.intelligence?.lowStimulationMode;
@@ -343,7 +341,7 @@ export function CaptureRow({
                         {!stacked &&
                             (detected
                                 ? pill(detected, true)
-                                : !coarse &&
+                                : !shell.isTouch &&
                                   item?.captureStatus !== "kept" &&
                                   pill(
                                       lightest,
