@@ -222,6 +222,10 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             // fail-open keeps per-turn caps + the 60s CF limiter as backstops (§9.5).
             logger.warn("ai", "ai_ratelimit_unavailable", { requestId, userHash, op: "admit" });
             if (limits.failClosed) return aiRateLimitResponse(c, { retryAfterS: 30, limits });
+            // Fail-open must not mean unmetered: a tight per-person limiter stands in while the budget is blind.
+            if (c.env.RATE_LIMITER_AI && !(await c.env.RATE_LIMITER_AI.limit({ key: userId })).success) {
+                return aiRateLimitResponse(c, { retryAfterS: 30, limits });
+            }
         }
     }
 

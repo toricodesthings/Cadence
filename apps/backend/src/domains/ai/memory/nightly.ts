@@ -17,7 +17,11 @@ import { derivePatterns, deriveDurations, retentionCutoff, type SignalRow } from
 import { embedTexts, getEmbeddingModelId } from "./embedding";
 import { backfillForUser } from "./backfill";
 import { aiMemorySignals } from "../../../db/schema";
-import { and, eq, gte, lt } from "drizzle-orm";
+import { MAX_SIGNALS_PER_DAY } from "./memory.service";
+
+/** Newest first: 28 days of a person at the daily cap fit, so only an old backlog is cut. */
+const MAX_SIGNALS_READ = MAX_SIGNALS_PER_DAY * 30;
+import { and, desc, eq, gte, lt } from "drizzle-orm";
 
 /** Two same-kind facts closer than this (cosine distance) are asked about, not merged blindly. */
 const NEAR_DUPLICATE_DISTANCE = 0.15;
@@ -65,6 +69,8 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
                       .select({ kind: aiMemorySignals.kind, on: aiMemorySignals.on, bucket: aiMemorySignals.bucket, subject: aiMemorySignals.subject, minutes: aiMemorySignals.minutes })
                       .from(aiMemorySignals)
                       .where(and(eq(aiMemorySignals.userId, userId), gte(aiMemorySignals.on, retentionCutoff(today))))
+                      .orderBy(desc(aiMemorySignals.on))
+                      .limit(MAX_SIGNALS_READ)
                 : [];
             return { state, today, expired, decayed, pairs, signals };
         });

@@ -9,6 +9,7 @@
  */
 import { eq } from "drizzle-orm";
 import { users } from "../../db/schema";
+import { withinDailyBudget } from "../../platform/daily-budget";
 import { logger } from "../../platform/log";
 import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
@@ -31,6 +32,8 @@ export const DECISION_THRESHOLDS: Record<string, Partial<Record<DecisionKind, nu
 const ENDPOINT = "https://openrouter.ai/api/alpha/decisions";
 const MAX_OPTIONS = 255;
 const TIMEOUT_MS = 6_000;
+/** Model decisions per person per day, all kinds together. Past it the app shows today's screen without the suggestion. */
+export const DAILY_DECISIONS = 200;
 
 export function decisionModel(env: Env): string | null {
     if (!env.OPENROUTER_API_KEY) return null;
@@ -74,6 +77,8 @@ export async function decideChoice(
     const model = decisionModel(env);
     const candidates = input.candidates.slice(0, MAX_OPTIONS);
     if (!model || candidates.length === 0) return null;
+    // Counted before the fetch so a flood can't spend tokens. No userHash = not a person's call (the eval).
+    if (input.userHash && !(await withinDailyBudget(env, "decision", input.userHash, DAILY_DECISIONS))) return null;
 
     const startedAt = Date.now();
     const finish = (

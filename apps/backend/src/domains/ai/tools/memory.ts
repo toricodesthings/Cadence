@@ -5,6 +5,7 @@ import { MEMORY_CONTENT_MAX, MEMORY_KINDS, MEMORY_LABEL_MAX, type MemoryReceipt 
 import { localDateSchema } from "@cadence/contracts/common";
 import { getDbClient } from "../../../platform/db";
 import { withRls } from "../../../platform/rls";
+import { withinDailyBudget } from "../../../platform/daily-budget";
 import { logger, hashIdentifier, issuesFromError } from "../../../platform/log";
 import { aiMemories } from "../../../db/schema";
 import type { Env } from "../../../types/env";
@@ -16,11 +17,14 @@ import { embedTexts, getEmbeddingModelId } from "../memory/embedding";
 import { consolidate } from "../memory/consolidate";
 import { SAME_FACT_DISTANCE } from "../memory/learn";
 import { isLearning, readMemoryState } from "../memory/memory-mode";
-import { forgetFact, insertFact, nearestFacts, recallFacts, reinforceFact, searchPastChats, updateFact } from "../memory/memory-store";
+import { MEMORY_CAP, countActive, forgetFact, insertFact, nearestFacts, recallFacts, reinforceFact, searchPastChats, updateFact } from "../memory/memory-store";
 import { atLocal, dayOf, type Zone } from "@cadence/domain/time";
 
 /** Only what a person can say outright: patterns and durations are computed from activity. */
 const SAYABLE_KINDS = MEMORY_KINDS.filter((kind) => kind !== "pattern" && kind !== "duration") as [string, ...string[]];
+
+/** Saves and updates per person per day: each costs an embedding and a chat-model call, and a save is pinned for good. */
+const DAILY_REMEMBERS = 50;
 
 /** The most facts one topic search will name before the model has to ask which one. */
 const TOPIC_MATCHES = 5;
@@ -142,6 +146,12 @@ export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
                 if (isInstructionShaped(text)) return bad("That reads as an instruction to the assistant, not a fact about the user's life.");
                 if (input.action === "update" && !input.id) return bad("Say which one to update (id).");
                 if (input.action === "save" && !input.kind) return bad("Say what kind of fact this is.");
+
+                // Abuse guards, before any model spend: pinned saves never evict, so the ceiling must hold here too.
+                if (input.action === "save" && (await withRls(db, userId, (tx) => countActive(tx, userId))) >= MEMORY_CAP.ceiling) {
+                    return bad("Memory is full; tell the user to forget something first.");
+                }
+                if (!(await withinDailyBudget(env, "remember", userHash, DAILY_REMEMBERS))) return bad("Too many saves today; try again tomorrow.");
 
                 // The embedding is an HTTP call: outside any transaction, and best-effort (the fact still saves).
                 const model = getEmbeddingModelId(env);

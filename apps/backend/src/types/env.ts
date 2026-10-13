@@ -70,6 +70,8 @@ export interface Env {
     RATE_LIMITER_READ: RateLimit;
     RATE_LIMITER_WRITE: RateLimit;
     RATE_LIMITER_ADMIN: RateLimit;
+    /** Chat's stand-in while the Upstash budget is unreachable (optional: absence leaves only the write limiter). */
+    RATE_LIMITER_AI?: RateLimit;
 
     // ── AI ──
     OPENROUTER_API_KEY?: string;

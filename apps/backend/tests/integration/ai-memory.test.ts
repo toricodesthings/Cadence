@@ -364,6 +364,18 @@ describe("the remember tool", () => {
         expect(await facts(userId)).toEqual([expect.objectContaining({ seen_count: 2 })]);
     });
 
+    it("refuses a new save once memory holds the ceiling, but still updates", async () => {
+        await setMode("basic");
+        await sql(
+            `INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence, content_hash)
+             SELECT $1, 'life', 'fact ' || g, '2026-08-12', '2026-08-12', 'chat', 'stated', 'h' || g FROM generate_series(1, 500) g`,
+            [userId],
+        );
+        const full = await run({ action: "save", kind: "life", text: "One more thing" });
+        expect(full).toMatchObject({ ok: false });
+        expect(await facts(userId)).toHaveLength(500);
+    });
+
     it("forgets by topic, and asks which one when several match", async () => {
         await setMode("basic");
         await insertFact(userId, "Takes the 7:40 bus to work");
@@ -617,6 +629,15 @@ describe("Full: learning from what the person does", () => {
         expect(await signals()).toEqual([expect.objectContaining({ kind: "duration", subject: "write essay", minutes: 45 })]);
         expect((await memory("POST", "/duration", { taskId: crypto.randomUUID(), minutes: 45 })).status).toBe(404);
         expect((await memory("POST", "/duration", { taskId: id, minutes: 0 })).status).toBe(400);
+    });
+
+    it("stops recording signals past the day's cap, however many are sent", async () => {
+        await setMode("full");
+        const { recordPersonActivity, MAX_SIGNALS_PER_DAY } = await import("../../src/domains/ai/memory/memory.service");
+        const burst = Array.from({ length: MAX_SIGNALS_PER_DAY + 20 }, () => ({ kind: "complete" as const }));
+        await recordPersonActivity(env, userId, burst);
+        await recordPersonActivity(env, userId, burst);
+        expect(await signals()).toHaveLength(MAX_SIGNALS_PER_DAY);
     });
 
     it("records a routine check-in the person made, by the routine's name and weekday", async () => {

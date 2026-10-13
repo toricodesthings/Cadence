@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { formatInZone, todayIn } from "@cadence/domain/time";
 import { aiMemorySignals, habits } from "../../../db/schema";
 import { getDbClient } from "../../../platform/db";
@@ -20,6 +20,9 @@ export type PersonActivity =
     | { kind: "complete" }
     | { kind: "routine"; habitId: string; day: string }
     | { kind: "duration"; subject: string; minutes: number };
+
+/** Signals kept per person per day: real use is a few dozen; a script posting /duration in a loop must not grow the table or the nightly read. */
+export const MAX_SIGNALS_PER_DAY = 150;
 
 /**
  * Records changes the person made themselves, for the patterns and durations Full learns. Best-effort and
@@ -48,7 +51,12 @@ export async function recordPersonActivity(env: Env, userId: string, activities:
                     rows.push({ userId, kind: "duration", on: today, bucket: "report", subject: durationGroup(activity.subject), minutes: Math.round(activity.minutes) });
                 }
             }
-            if (rows.length) await tx.insert(aiMemorySignals).values(rows);
+            if (rows.length) {
+                const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(aiMemorySignals)
+                    .where(and(eq(aiMemorySignals.userId, userId), eq(aiMemorySignals.on, today)));
+                const room = Math.max(0, MAX_SIGNALS_PER_DAY - n);
+                if (room > 0) await tx.insert(aiMemorySignals).values(rows.slice(0, room));
+            }
         });
     } catch (error) {
         logger.warn("ai", "memory_signal_failed", { issues: issuesFromError(error) });

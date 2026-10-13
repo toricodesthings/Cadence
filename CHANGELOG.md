@@ -8,6 +8,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 Memory keeps up, however many people use it.
 
+### Added
+
+- Routine details have an Open app submenu with a MyFitnessPal link.
+
 ### Changed
 
 - Memory learns from your chats and tidies up each night on time, even when lots of people are using Cadence.

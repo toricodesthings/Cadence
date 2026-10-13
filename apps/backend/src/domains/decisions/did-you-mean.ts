@@ -17,6 +17,9 @@ import { decideChoice, decisionModel, smartPlacementOn, type DecisionKind } from
 import instructions from "../../prompts/decisions/did-you-mean.md";
 
 const INSTRUCTIONS = instructions.trimEnd();
+// Bound what one request can pull into the Worker: newest candidates, notes cut to what spelling checks need.
+const MAX_DOCUMENTS = 500;
+const NOTES_CHARS = 2000;
 
 export async function didYouMean(
     env: Env,
@@ -35,8 +38,12 @@ export async function didYouMean(
             ne(tasks.interactionMode, "timetable"),
         );
         // Broad SQL retrieval only; shared search verifies every term across the canonical fields.
-        const documents = await tx.select({ id: tasks.id, title: tasks.title, ...taskPlaceColumns, ...taskSearchColumns })
-            .from(tasks).where(and(base, taskSearch(query, Object.values(taskPlaceColumns), true).condition));
+        const documents = await tx.select({
+            id: tasks.id, title: tasks.title, ...taskPlaceColumns, ...taskSearchColumns,
+            notes: sql<string>`left(${taskSearchColumns.notes}, ${NOTES_CHARS})`,
+        })
+            .from(tasks).where(and(base, taskSearch(query, Object.values(taskPlaceColumns), true).condition))
+            .orderBy(desc(tasks.updatedAt), desc(tasks.id)).limit(MAX_DOCUMENTS);
         const hits = createSearchIndex(documents.map((doc) => ({ ...doc, list: doc.listName ?? "", section: doc.sectionName ?? "" })))
             .search(query, { fuzzy: true });
         const byId = new Map(documents.map((doc) => [doc.id, doc]));

@@ -32,16 +32,20 @@ function matchesTerm(column: SQLWrapper, term: string, fuzzy: boolean): SQL {
             sql`to_tsvector('english', coalesce(${column}, '')) @@ plainto_tsquery('english', ${term})`,
             fuzzy && canApproximate(term) ? sql`word_similarity(${term}, coalesce(${column}, '')) >= 0.2` : undefined,
             // A broad candidate prefix only: the shared index verifies full word forms before returning anything.
-            sql`${column} ~* ${`\\m${processTerm(term).slice(0, Math.max(1, processTerm(term).length - 2))}[[:alpha:]]*\\M`}`,
+            // Short terms skip it and the prefix keeps ≥3 letters: "ab" → "a[[:alpha:]]*" matched almost every row (abuse guard).
+            term.length >= 4 ? sql`${column} ~* ${`\\m${processTerm(term).slice(0, Math.max(3, processTerm(term).length - 2))}[[:alpha:]]*\\M`}` : undefined,
         )!;
     }
     // Non-word text, including LIKE wildcards, stays literal.
     return ilike(sql`${column}`, `%${term.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`);
 }
 
+/** Each term fans out over ~7 unindexed columns; a 200-char query must not make that unbounded. */
+const MAX_SEARCH_TERMS = 8;
+
 /** All terms must match the same task. Reuse the identifier subset when offering a fuzzy suggestion. */
 export function taskSearch(query: string, places: SQLWrapper[], fuzzy = false) {
-    const terms = searchTerms(query);
+    const terms = searchTerms(query).slice(0, MAX_SEARCH_TERMS);
     const match = (term: string) => or(
         ...[tasks.title, ...Object.values(taskSearchColumns), ...places].map((column) => matchesTerm(column, term, fuzzy)),
     );

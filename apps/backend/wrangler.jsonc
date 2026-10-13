@@ -77,6 +77,11 @@
       "name": "RATE_LIMITER_ADMIN",
       "namespace_id": "2026031504",
       "simple": { "limit": 30, "period": 60 }
+    },
+    {
+      "name": "RATE_LIMITER_AI",
+      "namespace_id": "2026031505",
+      "simple": { "limit": 6, "period": 60 }
     }
   ],
 
@@ -184,6 +189,11 @@
           "name": "RATE_LIMITER_ADMIN",
           "namespace_id": "2026031514",
           "simple": { "limit": 30, "period": 60 }
+        },
+        {
+          "name": "RATE_LIMITER_AI",
+          "namespace_id": "2026031515",
+          "simple": { "limit": 6, "period": 60 }
         }
       ],
       "queues": {

@@ -128,6 +128,15 @@ describe("S2: did you mean", () => {
         expect(sent[0].questions.pick.criteria.o1).toBe("Book dentist appointment");
     });
 
+    it("survives a many-term query and doesn't prefix-match on a two-letter word", async () => {
+        await tasks("POST", "", { title: "Renew lease", orderIndex: 0 });
+        modelPicks(null);
+        const long = Array.from({ length: 60 }, (_, i) => `word${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}`).join(" ");
+        expect((await search("POST", "/did-you-mean", { query: long.slice(0, 200) })).status).toBe(200);
+        // "re" must not stand in for every word starting with r: no candidate means no model call.
+        expect((await search("POST", "/did-you-mean", { query: "re" })).status).toBe(200);
+    });
+
     it("answers null when the switch is off", async () => {
         await tasks("POST", "", { title: "Renew lease", orderIndex: 0 });
         await apiAs(userId, "/settings", (await import("../../src/domains/settings/settings.route")).settingsRoutes)("PATCH", "", { tasks: { intelligence: { smartPlacement: false } } });
