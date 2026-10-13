@@ -201,7 +201,7 @@ export type { ToolIO } from "./domains/ai/tools/index";
 
 import { runHourlyCron } from "./cron/overdue-check";
 import { runPushDispatch } from "./domains/push/dispatch";
-import { runMemoryJob } from "./domains/ai/memory/memory-job";
+import { handleMemoryBatch, runMemoryJob } from "./domains/ai/memory/memory-job";
 
 const PUSH_CRON = "* * * * *";
 
@@ -228,5 +228,9 @@ export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     // Two triggers: every minute sends due device reminders and runs the memory job, every hour does the sweeps.
     ctx.waitUntil(event.cron === PUSH_CRON ? Promise.all([runPushDispatch(env), runMemoryJob(env)]) : runHourlyCron(env));
+  },
+  // Memory's per-person work (domains/ai/memory/queue.ts). The dead-letter queue has no consumer: read it in the dashboard.
+  async queue(batch: MessageBatch<unknown>, env: Env) {
+    await handleMemoryBatch(batch, env);
   },
 };

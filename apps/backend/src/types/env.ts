@@ -53,6 +53,10 @@ export interface Env {
     /** `mailto:` or https contact the push services can reach. Defaults to the support address. */
     VAPID_SUBJECT?: string;
 
+    // ── Memory work ──
+    /** Queue the crons fan memory's per-person work onto. When absent, the crons run it in-process. */
+    MEMORY_QUEUE?: Queue<import("../domains/ai/memory/queue").MemoryMessage>;
+
     // ── MCP (outside assistants) ──
     /** OAuth provider storage (clients, grants, token hashes). When absent, MCP answers 503. */
     OAUTH_KV?: KVNamespace;

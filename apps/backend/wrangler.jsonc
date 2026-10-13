@@ -80,6 +80,22 @@
     }
   ],
 
+  // Memory's per-person work (nightly pass, learning) fans out here from the crons.
+  // max_concurrency caps load on Neon and OpenRouter; failures retry, then land in the dead-letter queue.
+  "queues": {
+    "producers": [{ "binding": "MEMORY_QUEUE", "queue": "cadence-memory" }],
+    "consumers": [
+      {
+        "queue": "cadence-memory",
+        "max_batch_size": 5,
+        "max_concurrency": 5,
+        "max_retries": 3,
+        "retry_delay": 60,
+        "dead_letter_queue": "cadence-memory-dlq"
+      }
+    ]
+  },
+
   "triggers": {
     "crons": ["0 * * * *", "* * * * *"]
   },
@@ -114,6 +130,8 @@
   "env": {
     "dev": {
       "name": "cadence-backend-dev",
+      // Never inherit production's custom domains: a dev deploy would take them over.
+      "routes": [],
       "placement": { "region": "aws:us-east-2" },
       "hyperdrive": [
         {
@@ -168,6 +186,19 @@
           "simple": { "limit": 30, "period": 60 }
         }
       ],
+      "queues": {
+        "producers": [{ "binding": "MEMORY_QUEUE", "queue": "cadence-memory-dev" }],
+        "consumers": [
+          {
+            "queue": "cadence-memory-dev",
+            "max_batch_size": 5,
+            "max_concurrency": 5,
+            "max_retries": 3,
+            "retry_delay": 60,
+            "dead_letter_queue": "cadence-memory-dlq-dev"
+          }
+        ]
+      },
       "triggers": {
         "crons": ["0 * * * *", "* * * * *"]
       }

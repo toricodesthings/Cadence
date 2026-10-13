@@ -3,6 +3,7 @@ import { todayIn } from "@cadence/domain/time";
 import { getDbClient, type DbClient } from "../platform/db";
 import { tasks, taskMetrics, mutationDedup, aiImages, usageEvents } from "../db/schema";
 import { nightlyForUser } from "../domains/ai/memory/nightly";
+import { sendMemoryMessages } from "../domains/ai/memory/queue";
 import { aiImageKey, deleteImageObjects, IMAGE_RETENTION_DAYS, ORPHAN_HOURS } from "../domains/ai/images/chat-images";
 import { withRls } from "../platform/rls";
 import { computeWorkloadSignals, overdueOn } from "../platform/metrics";
@@ -118,8 +119,11 @@ export async function pruneUsageEvents(env: Env, now: Date = new Date()) {
  */
 export async function runMemoryNightly(env: Env, now: Date = new Date()) {
     const db = getDbClient(env);
+    const userIds = await cronUserIds(db, now, MEMORY_NIGHTLY_HOUR);
+    // With a queue each person is their own message; the consumer logs the changes (`memory_queue`).
+    if (await sendMemoryMessages(env, userIds.map((userId) => ({ kind: "nightly" as const, userId, at: now.toISOString() })))) return undefined;
     let changed = 0;
-    for (const userId of await cronUserIds(db, now, MEMORY_NIGHTLY_HOUR)) {
+    for (const userId of userIds) {
         const result = await nightlyForUser(env, userId, now);
         changed += result ? result.expired + result.decayed + result.merged + result.evicted + result.activity : 0;
     }
