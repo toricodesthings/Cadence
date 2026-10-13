@@ -42,8 +42,7 @@ import {
 import type { EffortLevel, TaskPriority, TaskState } from "@cadence/contracts/task";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
 import { DetailTitle } from "../shared/DetailTitle";
-import { AppLinkField } from "../shared/AppLinkField";
-import { AppLaunchLink } from "../shared/AppLaunchLink";
+import { AppPane } from "../shared/AppPane";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import {
     CARD, PANEL_TRIGGER, PanelTrigger, PanelHeader, DetailGroup, FieldBlock, FieldRow, ValueSelect, VALUE_BTN,
@@ -81,7 +80,7 @@ export function TaskEditor({
     const removeTagAssoc = useRemoveTaskTag();
 
     const [waitingOn, setWaitingOn] = useState(task?.waitingOn ?? "");
-    const [activePanel, setActivePanel] = useState<"notes" | "subtasks" | "details">("notes");
+    const [activePanel, setActivePanel] = useState<"app" | "notes" | "subtasks" | "details">("notes");
     const [reminderOpen, setReminderOpen] = useState(false);
     const { data: settings } = useSettings();
     const morningTime = settings?.notifications?.morningTime ?? "09:00";
@@ -237,7 +236,19 @@ export function TaskEditor({
                         <DetailTitle value={task.title} label="Task title" textareaRef={titleTextareaRef}
                             onSave={(title) => updateTask.mutate({ id: task.id, title })} />
 
-                        <AppLaunchLink appId={task.linkedAppId} />
+                        {/* A Fixed block has no app to add; one that already has an app keeps the pane to open, change or remove it. */}
+                        {!isPassiveTimetable || task.linkedAppId || task.linkedUrl ? (
+                            <AppPane
+                                value={task.linkedAppId}
+                                url={task.linkedUrl}
+                                title={task.title}
+                                kind="task"
+                                hint={isRecurringTask(task) ? "Used for every occurrence" : undefined}
+                                open={activePanel === "app"}
+                                onOpenChange={(open) => setActivePanel(open ? "app" : "notes")}
+                                onChange={(patch) => updateTask.mutate({ id: getTaskSeriesId(task), ...patch })}
+                            />
+                        ) : null}
 
                         {/* ── Notes pane ── */}
                         {activePanel !== "notes" ? (
@@ -517,17 +528,6 @@ export function TaskEditor({
                                                 options={[{ value: "", label: "None" }, ...(projects ?? []).map((p) => ({ value: p.id, label: p.name }))]}
                                             />
                                         </FieldRow>
-
-                                        {/* A Fixed block has no app to add; one that already has an app keeps the field to change or remove it. */}
-                                        {!isPassiveTimetable || task.linkedAppId ? (
-                                            <AppLinkField
-                                                value={task.linkedAppId}
-                                                title={task.title}
-                                                kind="task"
-                                                hint={isRecurringTask(task) ? "Used for every occurrence" : undefined}
-                                                onChange={(linkedAppId) => updateTask.mutate({ id: getTaskSeriesId(task), linkedAppId })}
-                                            />
-                                        ) : null}
 
                                         {sections.length > 0 ? (
                                             <FieldRow icon={Columns3} label="Section">

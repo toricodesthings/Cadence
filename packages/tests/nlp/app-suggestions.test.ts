@@ -7,6 +7,10 @@ const APPS: AppDescriptor[] = [
     { id: "myfitnesspal", category: "food", names: ["MyFitnessPal", "MFP"] },
     { id: "outlook", category: "email", names: ["Outlook"] },
     { id: "spotify", category: "music", names: ["Spotify"] },
+    { id: "whatsapp", category: "chat", names: ["WhatsApp"] },
+    { id: "zoom", category: "meetings", names: ["Zoom"] },
+    { id: "apple-health", category: "health", names: ["Apple Health"] },
+    { id: "shortcuts", category: "automation", names: ["Shortcuts"] },
 ];
 const ids = (title: string) => suggestApps(title, APPS)?.ids ?? null;
 
@@ -20,6 +24,10 @@ describe("suggestApps", () => {
         ["Listen to music", ["spotify"]],
         ["Review my calendar", ["google-calendar"]],
         ["Open MFP", ["myfitnesspal"]],
+        ["Reply to messages", ["whatsapp"]],
+        ["Join the team call", ["zoom"]],
+        ["Log meds", ["apple-health"]],
+        ["Run morning shortcut", ["shortcuts"]],
     ])("%s", (title, expected) => expect(ids(title)).toEqual(expected));
 
     it.each([

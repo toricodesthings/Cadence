@@ -1,13 +1,16 @@
 import type { MutationOp } from "./offline-wal";
 import { formatShortDate, formatWallTime } from "../utils/date-format";
 import { appEntry } from "../app-links/catalog";
+import { resolveWebsite } from "../../platform/app-links";
 
 const quote = (text: string | undefined | null) => (text ? `“${text.length > 60 ? `${text.slice(0, 57)}…` : text}”` : "");
-/** "App: Gmail" for a change that only sets an app, never the stored id. */
+const LINK_KEYS = new Set(["linkedAppId", "linkedUrl", "expectedUpdatedAt"]);
+/** "App: Gmail" / "Website: example.com" for a change that only sets what it opens, never the stored id or full address. */
 const appChange = (payload: Record<string, unknown>): string | null => {
-    if (!("linkedAppId" in payload) || Object.keys(payload).some((key) => key !== "linkedAppId" && key !== "expectedUpdatedAt")) return null;
-    const id = payload.linkedAppId;
-    return typeof id === "string" ? `App: ${appEntry(id)?.label ?? "an app"}` : "App removed";
+    if (!("linkedAppId" in payload || "linkedUrl" in payload) || Object.keys(payload).some((key) => !LINK_KEYS.has(key))) return null;
+    if (typeof payload.linkedAppId === "string") return `App: ${appEntry(payload.linkedAppId)?.label ?? "an app"}`;
+    if (typeof payload.linkedUrl === "string") return `Website: ${resolveWebsite(payload.linkedUrl)?.label ?? "a website"}`;
+    return "App removed";
 };
 const plural = (count: number, one: string) => `${count} ${one}${count === 1 ? "" : "s"}`;
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { APP_LINK_IDS } from "@cadence/contracts/app-link";
 import { APP_CATALOG, appEntry } from "../../../app/lib/app-links/catalog";
 import { createAppSearch, pickerSections, suggestForTitle } from "../../../app/lib/app-links/picker";
@@ -11,13 +11,15 @@ describe("catalogue", () => {
         expect(APP_CATALOG.map((entry) => entry.id).sort()).toEqual([...APP_LINK_IDS].sort());
         for (const entry of APP_CATALOG) {
             expect(entry.initials.length).toBeGreaterThan(0);
-            for (const route of Object.values(entry.routes)) expect(route.href).toMatch(/^(https:\/\/|mfp:\/\/)/);
+            for (const route of Object.values(entry.routes)) expect(route.href).toMatch(route.opens === "website" ? /^https:\/\// : /^[a-z][a-z0-9+.-]*:/);
         }
     });
 
-    it("only MyFitnessPal's iPhone route is verified", () => {
-        const verified = APP_CATALOG.flatMap((entry) => Object.entries(entry.routes).filter(([, route]) => route.verified).map(([platform]) => `${entry.id}:${platform}`));
-        expect(verified).toEqual(["myfitnesspal:ios"]);
+    it("every shipped route is proven, and each app reaches an iPhone natively", () => {
+        for (const entry of APP_CATALOG) {
+            expect(Object.values(entry.routes).every((route) => route.verified)).toBe(true);
+            expect(entry.routes.ios?.opens).toBe("app");
+        }
     });
 
     it("an unknown id has no entry", () => expect(appEntry("future-app")).toBeUndefined());
@@ -29,7 +31,7 @@ describe("picker order", () => {
         const sections = pickerSections(APP_CATALOG, "spotify", suggested, "routine");
         expect(sections.map((section) => section.heading)).toEqual([undefined, "For email", "Other apps"]);
         expect(sections[0].apps.map((app) => app.id)).toEqual(["spotify"]);
-        expect(sections[1].apps.map((app) => app.id)).toEqual(["gmail", "outlook"]);
+        expect(sections[1].apps.map((app) => app.id)).toEqual(["apple-mail", "gmail", "outlook"]);
         expect(ids(sections)).toHaveLength(APP_CATALOG.length);
         expect(new Set(ids(sections)).size).toBe(APP_CATALOG.length);
     });
@@ -67,12 +69,13 @@ describe("picker search", () => {
     });
 
     it("an unsupported name finds nothing, and never a near miss", () => {
-        expect(hits("apple mail")).toEqual([]);
+        expect(hits("fax machine")).toEqual([]);
         expect(hits("zz")).toEqual([]);
     });
 
     it("one or two letters match name prefixes only", () => {
         expect(hits("sp")).toEqual(["spotify"]);
+        expect(hits("wh")).toEqual(["whatsapp"]);
         expect(hits("e")).not.toContain("gmail"); // "e" is in its terms ("email") but not a name prefix
     });
 
@@ -84,6 +87,15 @@ describe("launch resolution", () => {
         for (const entry of APP_CATALOG) {
             for (const route of Object.values(entry.routes)) expect(route.href).not.toMatch(/[?&](q|query|title|text|subject|to|email)=/);
         }
+    });
+
+    it("on an iPhone, email apps open natively with their website held back for a manual retry", () => {
+        const ua = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)");
+        expect(resolveAppLaunch(appEntry("gmail")!)).toEqual({ href: "googlegmail://", opens: "app", website: "https://mail.google.com/" });
+        expect(resolveAppLaunch(appEntry("outlook")!)).toMatchObject({ href: "ms-outlook://", opens: "app" });
+        expect(resolveAppLaunch(appEntry("apple-mail")!)).toEqual({ href: "message://", opens: "app", website: null });
+        ua.mockRestore();
+        expect(resolveAppLaunch(appEntry("apple-mail")!)).toBeNull(); // no website elsewhere: left out of the picker
     });
 
     it("a website route says it opens a website", () => {

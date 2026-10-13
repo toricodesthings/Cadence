@@ -211,6 +211,7 @@ export async function duplicateTask(tx: Tx, userId: string, id: string, title?: 
             priority: original.priority,
             effort: original.effort,
             linkedAppId: original.linkedAppId,
+            linkedUrl: original.linkedUrl,
             isPinned: false,
             reminderAt: null,
             reminderSilenced: false,

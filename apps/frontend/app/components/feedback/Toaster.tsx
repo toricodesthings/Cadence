@@ -1,5 +1,6 @@
 import { LoaderCircle, CircleAlert, CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { Toaster as SonnerToaster } from "sonner";
 
 import { CADENCE_TOAST_DURATION, installCadenceToastTheme } from "../../lib/utils/cadence-toast";
@@ -7,10 +8,23 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 
 installCadenceToastTheme();
 
+/**
+ * Mounted in its own body child, which modal overlays leave out of their inert sweep: an Undo raised from
+ * inside an open sheet must stay tappable above it.
+ */
 export function Toaster() {
     const shell = useShellMode();
+    const [host, setHost] = useState<HTMLElement | null>(null);
+    useEffect(() => {
+        const element = document.createElement("div");
+        element.dataset.cadenceToaster = "";
+        document.body.appendChild(element);
+        setHost(element);
+        return () => { element.remove(); };
+    }, []);
+    if (!host) return null;
 
-    return (
+    return createPortal(
         <SonnerToaster
             /* Compact shells drop the toast at the top, clear of the dock and the
                thumb zone, and let it be flicked away in any direction. */
@@ -57,6 +71,7 @@ export function Toaster() {
                 loading: <LoaderCircle size={16} strokeWidth={2} className="animate-spin" />,
                 close: <X size={14} strokeWidth={2} />,
             }}
-        />
+        />,
+        host,
     );
 }

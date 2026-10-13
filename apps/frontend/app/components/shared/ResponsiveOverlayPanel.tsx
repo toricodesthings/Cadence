@@ -95,7 +95,7 @@ export function ResponsiveOverlayPanel({
         if (portalNode) {
             const bodyChildren = Array.from(document.body.children);
             inertStateRef.current = bodyChildren
-                .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== portalNode)
+                .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== portalNode && !("cadenceToaster" in element.dataset))
                 .map((element) => {
                     const previous = {
                         element,

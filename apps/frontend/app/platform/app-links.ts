@@ -1,3 +1,4 @@
+import { parseWebsite } from "@cadence/contracts/app-link";
 import type { AppEntry, AppRoute } from "../lib/app-links/catalog";
 import { IS_DESKTOP_RUNTIME } from "./runtime";
 
@@ -29,4 +30,14 @@ export function resolveAppLaunch(entry: AppEntry): AppLaunch | null {
     const primary = native ?? website;
     if (!primary) return null;
     return { href: primary.href, opens: primary.opens, website: primary.opens === "app" ? website?.href ?? null : null };
+}
+
+/**
+ * A saved website, re-checked before it becomes a link (never trusting what came back from the server or a
+ * cache). The label is the host as the URL parser writes it: an international name shows as punycode, so a
+ * look-alike address can't pass for another site.
+ */
+export function resolveWebsite(stored: string | null | undefined): { href: string; label: string } | null {
+    const href = stored ? parseWebsite(stored) : null;
+    return href ? { href, label: new URL(href).hostname.replace(/^www\./, "") } : null;
 }

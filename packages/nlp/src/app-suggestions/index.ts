@@ -2,7 +2,7 @@
 // an action next to an object ("check email", "log calories"), or an app's own name. It only ever orders a
 // picker; nothing here selects an app.
 
-export type AppCategory = "email" | "food" | "calendar" | "maps" | "music" | "notes" | "video";
+export type AppCategory = "email" | "food" | "calendar" | "maps" | "music" | "notes" | "video" | "chat" | "meetings" | "health" | "automation";
 
 /** An app as the caller offers it: `names` holds its name and aliases. */
 export interface AppDescriptor {
@@ -27,6 +27,10 @@ const RULES: Record<AppCategory, { actions: string; objects: string }> = {
     music: { actions: "listen to|play|put on|queue", objects: "music|playlists?|songs?|albums?" },
     notes: { actions: "write|take|update|review|organi[sz]e|jot", objects: "notes|notebook" },
     video: { actions: "watch|catch up on", objects: "videos?|tutorials?|lectures?" },
+    chat: { actions: "check|read|answer|reply to|catch up on|go through|send", objects: "messages|texts|chats?|dms" },
+    meetings: { actions: "join|start|host|hop on|get on", objects: "calls?|meetings?|stand-?ups?|video calls?" },
+    health: { actions: "log|track|record", objects: "meds|medications?|weight|sleep|symptoms|water|steps" },
+    automation: { actions: "run|start", objects: "shortcuts?|automations?" },
 };
 
 // "Don't check email", "never", "stop": the person is steering away from it. Research wording names the topic, not the act.

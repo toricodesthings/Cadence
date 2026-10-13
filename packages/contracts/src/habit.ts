@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { instantSchema, localDateSchema } from "./common";
-import { linkedAppIdSchema } from "./app-link";
+import { linkedAppIdSchema, linkedUrlSchema } from "./app-link";
 
 export const habitStatusSchema = z.enum(["COMPLETED", "SKIPPED", "PENDING"]);
 export type HabitStatus = z.infer<typeof habitStatusSchema>;
@@ -57,6 +57,8 @@ export const insertHabitSchema = z.object({
     times: routineTimesSchema.nullable().optional(),
     /** The one app this routine opens; null removes it, omitted leaves it. */
     linkedAppId: linkedAppIdSchema.nullable().optional(),
+    /** Or the one website it opens (https only); the client keeps at most one of the two. */
+    linkedUrl: linkedUrlSchema.nullable().optional(),
 });
 export type InsertHabit = z.input<typeof insertHabitSchema>;
 
@@ -113,6 +115,7 @@ export const habitRowSchema = z.object({
     steps: z.array(z.object({ id: z.string(), title: z.string() })).nullable(),
     times: z.array(z.string()).nullable(),
     linkedAppId: z.string().nullable(),
+    linkedUrl: z.string().nullable(),
     createdAt: instantSchema,
     updatedAt: instantSchema,
 });
@@ -149,6 +152,8 @@ export type HabitLog = z.infer<typeof habitLogSchema>;
 export const habitSchema = habitRowSchema.extend({
     /** Absent on data cached before the field existed. */
     linkedAppId: z.string().nullable().optional(),
+    /** Re-checked with `parseWebsite` before any link renders. */
+    linkedUrl: z.string().nullable().optional(),
     tagIds: z.array(z.uuid()).optional(),
     logs: z.array(habitLogSchema).optional(),
     isDueToday: z.boolean().optional(),

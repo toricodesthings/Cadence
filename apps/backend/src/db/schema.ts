@@ -388,6 +388,7 @@ export const tasks = pgTable('tasks', {
     effortChosenAt: timestamptz('effort_chosen_at'),
     notBefore: date('hidden_until', { mode: 'string' }), // Hidden until this day
     linkedAppId: text('linked_app_id'), // The one app this task opens (a frontend catalogue id); never a URL
+    linkedUrl: text('linked_url'), // Or the one website it opens: a normalised https URL (contracts `parseWebsite`)
 
     createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
     updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
@@ -403,6 +404,7 @@ export const tasks = pgTable('tasks', {
         overdueIdx: index('tasks_overdue_idx').on(table.dueDate).where(sql`${table.state} = 'ACTIVE'`),
         projectIdIdx: index('tasks_project_id_idx').on(table.projectId),
         sectionIdIdx: index('tasks_section_id_idx').on(table.sectionId),
+        linkedUrlCheck: check('tasks_linked_url_check', sql`linked_url IS NULL OR (linked_url LIKE 'https://%' AND length(linked_url) <= 2048)`),
         effortCheck: check('tasks_effort_check', sql`effort IS NULL OR effort BETWEEN 1 AND 3`),
         effortOriginCheck: check('tasks_effort_origin_check', sql`effort_origin IS NULL OR (effort IS NOT NULL AND effort_origin IN ('manual', 'accepted'))`),
         // The evidence read: one account's own recorded choices, newest first.
@@ -587,6 +589,8 @@ export const habits = pgTable(
 
         // The one app this routine opens (a frontend catalogue id); never a URL
         linkedAppId: text('linked_app_id'),
+        // Or the one website it opens: a normalised https URL (contracts `parseWebsite`)
+        linkedUrl: text('linked_url'),
 
         createdAt: timestamptz('created_at')
             .default(sql`now()`)
@@ -599,6 +603,7 @@ export const habits = pgTable(
         return {
             userIdIdx: index('habits_user_id_idx').on(table.userId),
             projectIdIdx: index('habits_project_id_idx').on(table.projectId),
+            linkedUrlCheck: check('habits_linked_url_check', sql`linked_url IS NULL OR (linked_url LIKE 'https://%' AND length(linked_url) <= 2048)`),
             rlsPolicy: pgPolicy("habits_owner_access", {
                 as: "permissive",
                 for: "all",

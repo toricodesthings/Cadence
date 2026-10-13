@@ -73,7 +73,8 @@ export function useTask(taskId: string | null | undefined) {
         return undefined;
     }, [queryClient, taskId]);
     const cached = useSyncExternalStore(
-        useCallback((onChange) => queryClient.getQueryCache().subscribe(onChange), [queryClient]),
+        // Data changes only: observer events fire while other components render a new query, and would update this one mid-render.
+        useCallback((onChange) => queryClient.getQueryCache().subscribe((event) => { if (event.type === "updated" || event.type === "removed") onChange(); }), [queryClient]),
         findCached,
         findCached,
     );

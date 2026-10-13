@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { instantSchema, localDateSchema, paginationSchema, zoneSchema } from "./common";
-import { linkedAppIdSchema } from "./app-link";
+import { linkedAppIdSchema, linkedUrlSchema } from "./app-link";
 import { DATE_STYLES, SOURCE_SURFACES, type CanonicalNlpEnvelope } from "@cadence/nlp/core";
 
 // ── Enums / shared scalars ──
@@ -66,6 +66,8 @@ export const insertTaskSchema = z.object({
     notBefore: localDateSchema.nullable().optional(),
     /** The one app this task opens; null removes it, omitted leaves it. */
     linkedAppId: linkedAppIdSchema.nullable().optional(),
+    /** Or the one website it opens (https only); the client keeps at most one of the two. */
+    linkedUrl: linkedUrlSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
     tagIds: z.array(z.uuid()).max(50).optional(),
     nlp: canonicalNlpEnvelopeSchema.optional(),
@@ -97,6 +99,7 @@ export const updateTaskSchema = z.object({
     effortOrigin: effortOriginSchema.optional(),
     notBefore: localDateSchema.nullable().optional(),
     linkedAppId: linkedAppIdSchema.nullable().optional(),
+    linkedUrl: linkedUrlSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
     expectedUpdatedAt: z.string().optional(),
 });
@@ -163,6 +166,7 @@ export const taskRowSchema = z.object({
     effortChosenAt: instantSchema.nullable(),
     notBefore: localDateSchema.nullable(),
     linkedAppId: z.string().nullable(),
+    linkedUrl: z.string().nullable(),
     createdAt: instantSchema,
     updatedAt: instantSchema,
 });
@@ -182,6 +186,8 @@ export const taskSchema = taskRowSchema.omit({ effortOrigin: true, effortChosenA
     notBefore: localDateSchema.nullable().optional(),
     /** Any stored id, even one this build doesn't know; absent on data cached before the field existed. */
     linkedAppId: z.string().nullable().optional(),
+    /** Re-checked with `parseWebsite` before any link renders. */
+    linkedUrl: z.string().nullable().optional(),
     tagIds: z.array(z.uuid()),
     isHabit: z.boolean().optional(),
     seriesId: z.uuid().optional(),

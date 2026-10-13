@@ -10,17 +10,19 @@ import { habitCache } from "./optimistic-helpers";
 import { getTaskSeriesId, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 import { fromTimeValue, toTimeValue } from "../../lib/utils/date-format";
 import { today as getToday } from "../../lib/utils/user-zone";
-import { linkedAppIdSchema, type LinkedAppId } from "@cadence/contracts/app-link";
+import { linkedAppIdSchema, parseWebsite, type LinkedAppId } from "@cadence/contracts/app-link";
 import { toastError } from "../../lib/utils/error-toast";
 
 /**
  * The saved app to carry across a conversion. An id this build can't send would drop the choice, so the
  * conversion stops first, before anything is created or trashed.
  */
-function appToCarry(stored: string | null | undefined): { ok: true; id: LinkedAppId | null } | { ok: false } {
-    if (!stored) return { ok: true, id: null };
+function appToCarry(stored: string | null | undefined, url: string | null | undefined): { ok: true; id: LinkedAppId | null; url: string | null } | { ok: false } {
+    // A website the check refuses was never valid to store; it is not carried.
+    const website = url ? parseWebsite(url) : null;
+    if (!stored) return { ok: true, id: null, url: website };
     const parsed = linkedAppIdSchema.safeParse(stored);
-    if (parsed.success) return { ok: true, id: parsed.data };
+    if (parsed.success) return { ok: true, id: parsed.data, url: null };
     toastError(new Error("unknown app"), "Couldn't convert: this item's app needs a newer Cadence");
     return { ok: false };
 }
@@ -58,7 +60,7 @@ export function useConvertRepeat() {
 
     const taskToRoutine = async (task: Task) => {
         if (!task.recurrenceRule) return;
-        const app = appToCarry(task.linkedAppId);
+        const app = appToCarry(task.linkedAppId, task.linkedUrl);
         if (!app.ok) return;
         const taskId = getTaskSeriesId(task);
         const habit = await createHabit.mutateAsync({
@@ -69,6 +71,7 @@ export function useConvertRepeat() {
             projectId: task.projectId,
             tagIds: task.tagIds ?? [],
             linkedAppId: app.id,
+            linkedUrl: app.url,
         });
         await setTaskState(taskId, "ARCHIVED");
         settle();
@@ -86,7 +89,7 @@ export function useConvertRepeat() {
     };
 
     const routineToTask = async (habit: Habit, kind: "fixed" | "task") => {
-        const app = appToCarry(habit.linkedAppId);
+        const app = appToCarry(habit.linkedAppId, habit.linkedUrl);
         if (!app.ok) return;
         const today = getToday();
         const timing = habit.targetTime
@@ -104,6 +107,7 @@ export function useConvertRepeat() {
             projectId: habit.projectId,
             tagIds: habit.tagIds ?? [],
             linkedAppId: app.id,
+            linkedUrl: app.url,
             ...timing,
         });
         await setHabitArchived(habit.id, true);

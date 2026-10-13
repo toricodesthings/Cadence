@@ -124,7 +124,7 @@ interface** — the parity guard only covers the Row subset.
   `ApiError` envelope + `ERROR_CODES`/`ErrorCode` (every code the API sends;
   `AppError` and `DomainError` take one), and the time scalars
   `instantSchema`/`localDateSchema`/`wallTimeSchema`/`zoneSchema` (plus `isZone`).
-- **app-link** the stable ids of the apps a task or routine can open (`linkedAppId`); labels, initials and URLs stay in the frontend catalogue. `@cadence/nlp/app-suggestions` ranks them from a title (pure phrase rules; abstains on negation or ambiguity).
+- **app-link** the stable ids of the apps a task or routine can open (`linkedAppId`; labels, initials and URLs stay in the frontend catalogue), and `parseWebsite`/`linkedUrlSchema` for a typed website (`linkedUrl`): https only, no credentials, a dotted host, ≤2048 chars, stored in the parser's normal form. `@cadence/nlp/app-suggestions` ranks them from a title (pure phrase rules; abstains on negation or ambiguity).
 - **task** also holds the `GET /tasks` filters (`taskFiltersSchema`,
   `taskListQuerySchema`); **events** the usage-event names, batch cap and strict frontend-performance and error samples with bounded endpoint/status/error and build/revision dimensions (legacy defaults to revision 1);
   **proxy** the weather/geocoding/holiday queries and responses;

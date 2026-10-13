@@ -620,3 +620,19 @@ describe("effort evidence", () => {
         expect(await evidence(otherTasks)).toEqual([]);
     });
 });
+
+describe("what a task opens", () => {
+    it("stores only a normalised https website, copies it, and the database refuses anything else", async () => {
+        const task = await create({ title: "Read the plan" });
+        for (const linkedUrl of ["javascript:alert(1)", "http://example.com/", "https://user:pw@example.com/", "https://example.com"]) {
+            expect((await tasks("PATCH", `/${task.id}`, { linkedUrl })).status, linkedUrl).toBe(400);
+        }
+        const saved = await tasks("PATCH", `/${task.id}`, { linkedUrl: "https://example.com/plan", linkedAppId: null });
+        expect(saved.status).toBe(200);
+        expect(saved.body.data).toMatchObject({ linkedUrl: "https://example.com/plan", linkedAppId: null });
+        expect((await tasks("POST", `/${task.id}/duplicate`)).body.data.linkedUrl).toBe("https://example.com/plan");
+
+        await expect(asOwner((pg) => pg.query("UPDATE tasks SET linked_url = 'javascript:alert(1)' WHERE id = $1", [task.id]))).rejects.toThrow(/tasks_linked_url_check/);
+        expect((await tasks("PATCH", `/${task.id}`, { linkedUrl: null })).body.data.linkedUrl).toBeNull();
+    });
+});

@@ -80,6 +80,8 @@ describe("a queued app change", () => {
         const titleOf = () => "Check emails";
         expect(describeChange({ type: "update_task", id: "t", payload: { linkedAppId: "google-calendar" } }, titleOf)).toBe("App: Google Calendar on “Check emails”");
         expect(describeChange({ type: "update_habit", id: "h", payload: { linkedAppId: null } }, titleOf)).toBe("App removed on “Check emails”");
+        expect(describeChange({ type: "update_task", id: "t", payload: { linkedAppId: null, linkedUrl: "https://www.example.com/a/long/private/path" } }, titleOf)).toBe("Website: example.com on “Check emails”");
+        expect(describeChange({ type: "update_task", id: "t", payload: { linkedAppId: null, linkedUrl: null } }, titleOf)).toBe("App removed on “Check emails”");
         expect(describeChange({ type: "update_task", id: "t", payload: { linkedAppId: "gmail", title: "x" } }, titleOf)).toBe("Edit “Check emails”");
     });
 });

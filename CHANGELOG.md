@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Gmail, Outlook, WhatsApp, Slack, Zoom and more open straight in their app on iPhone; elsewhere, their website opens.
+- A task or routine can open a website you type instead of an app, in your browser with one tap.
+
+### Changed
+
+- The app has its own pane in task and routine details, with an Open button right beside its name.
+
+### Fixed
+
+- Undo in a notice can be tapped again while a task or routine is open on a phone.
+
 ## [0.33.0-0] - 2026-10-12
 
 Go straight from a task or routine to the app you need.

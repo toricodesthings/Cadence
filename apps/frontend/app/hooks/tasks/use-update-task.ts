@@ -84,8 +84,10 @@ export function useUpdateTask() {
                 { queryKey: queryKeys.tasks.all },
                 (old) => transformListCache(old, (items) => items.map((t) => {
                     if (t.id === id) return { ...t, ...updates };
-                    // An app belongs to the whole series: its cached occurrences show it too.
-                    if ("linkedAppId" in updates && t.seriesId === id) return { ...t, linkedAppId: updates.linkedAppId };
+                    // An app or website belongs to the whole series: its cached occurrences show it too.
+                    if (t.seriesId === id && ("linkedAppId" in updates || "linkedUrl" in updates)) {
+                        return { ...t, ...("linkedAppId" in updates && { linkedAppId: updates.linkedAppId }), ...("linkedUrl" in updates && { linkedUrl: updates.linkedUrl }) };
+                    }
                     return t;
                 })),
             );
