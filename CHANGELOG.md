@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-10-13
+
 ### Added
 
 - On phones and tablets, "As task" in the capture sheet saves a thought straight away as a task with no day.
