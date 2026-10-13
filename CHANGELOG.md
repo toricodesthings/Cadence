@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-10-13
+
 ### Added
 
 - Gmail, Outlook, WhatsApp, Slack, Zoom and more open straight in their app on iPhone; elsewhere, their website opens.
