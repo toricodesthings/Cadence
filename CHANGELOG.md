@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Memory keeps up, however many people use it.
+
+### Changed
+
+- Memory learns from your chats and tidies up each night on time, even when lots of people are using Cadence.
+
 ## [0.32.1] - 2026-10-12
 
 ### Changed
