@@ -1,0 +1,1 @@
+- [{{id}}] (source month: {{month}}{{flags}}) {{text}}

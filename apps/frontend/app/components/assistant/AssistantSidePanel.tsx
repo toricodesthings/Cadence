@@ -1387,7 +1387,7 @@ export function AssistantSidePanel({
                                         type="button"
                                         onClick={() => removeAttachment(a.id)}
                                         aria-label={`Remove attached image ${i + 1}`}
-                                        className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-twilight-deep text-twilight-text-soft ring-1 ring-white/15 transition-colors hover:text-twilight-text cursor-pointer"
+                                        className="glass-none absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-twilight-deep text-twilight-text-soft ring-1 ring-white/15 transition-colors hover:text-twilight-text cursor-pointer"
                                     >
                                         <X size={12} aria-hidden />
                                     </button>

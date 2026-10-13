@@ -1,7 +1,7 @@
 import { useTasks } from "../../hooks/tasks/use-tasks";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
-import { CalendarRange, Inbox, CheckCircle2, Trash2, LayoutDashboard, Calendar, CalendarHeart, Flame, Sprout, Plus } from "lucide-react";
+import { CalendarRange, Inbox, CheckCircle2, Trash2, LayoutDashboard, Plus } from "lucide-react";
 import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
 import * as Separator from "../primitives/Separator";
 import * as Collapsible from "../primitives/Collapsible";
@@ -19,16 +19,9 @@ import { CreateTagInline } from "./CreateTagInline";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useTagFilterStore } from "../../stores/tag-filter-store";
 import { useSettings } from "../../hooks/core/use-settings";
-import { useRoutineDueCount } from "../../hooks/habits/use-routine-due-count";
 
 /** Main sidebar panel with live projects and inbox count */
-export function SidebarPanel({
-    showWorkspaceNav = false,
-    onSearchOpen,
-}: {
-    showWorkspaceNav?: boolean;
-    onSearchOpen?: () => void;
-}) {
+export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
     const [listsOpen, setListsOpen] = useState(true);
     const { data: projects, isLoading: projectsLoading } = useProjects();
     const { data: listTasks } = useTasks({ state: "ACTIVE", enabled: Boolean(projects?.length) });
@@ -89,8 +82,6 @@ export function SidebarPanel({
         <Skeleton className="h-4 w-6 rounded-xl bg-white/[0.04]" />
     ) : captureCount;
 
-    const routineDueCount = useRoutineDueCount();
-
     return (
         <div
             id="sidebar-panel"
@@ -106,50 +97,6 @@ export function SidebarPanel({
             )}
             <ScrollAreaWrapper>
                 <div className="min-w-0 px-3 py-5">
-                    {/* Primary nav */}
-                    {showWorkspaceNav && (
-                        <>
-                            <nav aria-label="Workspace destinations" className="mb-5 flex flex-col gap-0.5">
-                                <NavLink
-                                    icon={Calendar}
-                                    label="Schedule"
-                                    href="/schedule"
-                                    activeColor="text-accent-nav-schedule"
-                                    activeBg="bg-accent-nav-schedule/15"
-                                    hoverColor="group-hover:text-accent-nav-schedule/70"
-                                />
-                                <NavLink
-                                    icon={CalendarHeart}
-                                    label="Events"
-                                    href="/events"
-                                    activeColor="text-accent-nav-schedule"
-                                    activeBg="bg-accent-nav-schedule/12"
-                                    hoverColor="group-hover:text-accent-nav-schedule/80"
-                                />
-                                <NavLink
-                                    icon={Flame}
-                                    label="Routines"
-                                    href="/routines"
-                                    count={routineDueCount}
-                                    countLabel="due today"
-                                    activeColor="text-accent-nav-habits"
-                                    activeBg="bg-accent-nav-habits/15"
-                                    hoverColor="group-hover:text-accent-nav-habits"
-                                />
-                                <NavLink
-                                    icon={Sprout}
-                                    label="Weekly Reset"
-                                    href="/weekly-review"
-                                    activeColor="text-accent-nav-upcoming"
-                                    activeBg="bg-accent-nav-upcoming/15"
-                                    hoverColor="group-hover:text-accent-nav-upcoming/70"
-                                />
-                            </nav>
-
-                            <Separator.Root className="h-px bg-twilight-border my-5" aria-hidden="true" />
-                        </>
-                    )}
-
                     {/* Primary nav */}
                     <nav aria-label="Main navigation" className="flex flex-col gap-0.5">
                         <NavLink

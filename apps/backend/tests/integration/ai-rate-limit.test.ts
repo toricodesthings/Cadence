@@ -15,7 +15,7 @@ vi.mock("../../src/platform/db", () => ({ getDbClient: () => ({}) }));
 vi.mock("../../src/platform/rls", () => ({
     withRls: (_db: unknown, _userId: string, fn: (tx: unknown) => unknown) => fn({}),
 }));
-vi.mock("../../src/platform/user-zone", () => ({ syncUserZone: async (_tx: unknown, _userId: string, zone: string) => zone }));
+vi.mock("../../src/platform/user-zone", () => ({ syncUserZoneWithSettings: async (_tx: unknown, _userId: string, zone: string) => ({ timezone: zone, settings: {} }) }));
 vi.mock("../../src/platform/redis", () => ({ getRedis: () => null, getRateLimitRedis: getRateLimitRedisMock }));
 vi.mock("../../src/domains/ai/persistence/conversation-repo");
 vi.mock("../../src/domains/ai/agent");

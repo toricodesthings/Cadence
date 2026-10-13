@@ -439,43 +439,52 @@ export interface ProfileLine {
  * Patterns and durations are never in it: they come through recall. Built deterministically with no model call.
  */
 export async function loadProfile(tx: Tx, userId: string, today: string): Promise<ProfileLine[]> {
-    const columns = {
-        id: aiMemories.id,
-        content: aiMemories.content,
-        saidOn: aiMemories.saidOn,
-        lastSeenOn: aiMemories.lastSeenOn,
-        sensitive: aiMemories.sensitive,
-    };
-    const live = or(isNull(aiMemories.validThrough), sql`${aiMemories.validThrough} >= ${today}::date`);
-    const core = await tx
-        .select(columns)
-        .from(aiMemories)
-        .where(and(
-            active(userId),
-            live,
-            or(
-                eq(aiMemories.pinned, true),
-                inArray(aiMemories.kind, ["preference", "quirk", "constraint"]),
-                and(eq(aiMemories.kind, "life"), sql`${aiMemories.validThrough} <= ${today}::date + ${PROFILE_LIFE_WINDOW_DAYS}::int`),
-            ),
-        ))
-        .orderBy(desc(aiMemories.pinned), desc(aiMemories.lastSeenOn));
-    const lines = withinBudget(core, today);
-    let used = lines.reduce((n, l) => n + l.content.length, 0);
-    if (used >= PROFILE_CHAR_BUDGET) return lines;
+    return (await loadProfileCoverage(tx, userId, today)).lines;
+}
 
-    const taken = new Set(core.map((r) => r.id));
-    const rest = await tx
-        .select(columns)
-        .from(aiMemories)
-        .where(and(active(userId), live, inArray(aiMemories.kind, ["life", "assist"])))
-        .orderBy(desc(aiMemories.lastSeenOn))
-        .limit(60);
-    for (const line of withinBudget(rest.filter((r) => !taken.has(r.id)), today, PROFILE_CHAR_BUDGET - used)) {
-        lines.push(line);
-        used += line.content.length;
+type ProfileRow = Pick<FactRow, "id" | "content" | "saidOn" | "lastSeenOn" | "sensitive">;
+
+/** Profile and exact recall coverage from ONE statement snapshot, under the caller's RLS identity. */
+export async function loadProfileCoverage(tx: Tx, userId: string, today: string): Promise<{ lines: ProfileLine[]; hasRecallCandidates: boolean }> {
+    const fields = sql`jsonb_build_object('id', id, 'content', content, 'saidOn', said_on, 'lastSeenOn', last_seen_on, 'sensitive', sensitive)`;
+    const [row] = await tx.select({ core: sql<ProfileRow[]>`core`, rest: sql<ProfileRow[]>`rest`, eligible_count: sql<number>`eligible_count` }).from(sql`(
+        WITH eligible AS MATERIALIZED (
+            SELECT id, kind, pinned, content, said_on, last_seen_on, sensitive, valid_through
+            FROM ${aiMemories}
+            WHERE user_id = ${userId} AND status = 'active'
+                AND (valid_through IS NULL OR valid_through >= ${today}::date)
+        ), core AS (
+            SELECT * FROM eligible
+            WHERE pinned OR kind IN ('preference', 'quirk', 'constraint')
+                OR (kind = 'life' AND valid_through <= ${today}::date + ${PROFILE_LIFE_WINDOW_DAYS}::int)
+            ORDER BY pinned DESC, last_seen_on DESC
+        ), rest AS (
+            SELECT * FROM eligible WHERE kind IN ('life', 'assist')
+            ORDER BY last_seen_on DESC LIMIT 60
+        )
+        SELECT
+            (SELECT coalesce(jsonb_agg(${fields} ORDER BY pinned DESC, last_seen_on DESC), '[]'::jsonb) FROM core) AS core,
+            (SELECT coalesce(jsonb_agg(${fields} ORDER BY last_seen_on DESC), '[]'::jsonb) FROM rest) AS rest,
+            (SELECT count(*)::int FROM eligible) AS eligible_count
+    ) AS coverage`);
+    const lines = withinBudget(row.core, today);
+    const used = lines.reduce((n, l) => n + l.content.length, 0);
+    if (used < PROFILE_CHAR_BUDGET) {
+        // Exclude all core rows, including those too large to fit: retain existing selection semantics.
+        const taken = new Set(row.core.map((r) => r.id));
+        lines.push(...withinBudget(row.rest.filter((r) => !taken.has(r.id)), today, PROFILE_CHAR_BUDGET - used));
     }
-    return lines;
+    return { lines, hasRecallCandidates: row.eligible_count > lines.length };
+}
+
+/** Revalidate only the facts a stored context actually used; additions do not invalidate its prefix. */
+export async function loadContextFacts(tx: Tx, userId: string, ids: string[], today: string): Promise<ProfileLine[]> {
+    if (!ids.length) return [];
+    const rows = await tx.select({ id: aiMemories.id, content: aiMemories.content, saidOn: aiMemories.saidOn,
+        lastSeenOn: aiMemories.lastSeenOn, sensitive: aiMemories.sensitive }).from(aiMemories)
+        .where(and(active(userId), inArray(aiMemories.id, ids),
+            or(isNull(aiMemories.validThrough), sql`${aiMemories.validThrough} >= ${today}::date`)));
+    return withinBudget(rows, today, Number.POSITIVE_INFINITY);
 }
 
 function withinBudget(rows: { id: string; content: string; saidOn: string; lastSeenOn: string; sensitive: boolean }[], today: string, budget = PROFILE_CHAR_BUDGET): ProfileLine[] {

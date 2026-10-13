@@ -2,7 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
-import { tasks, habits } from "../../../db/schema";
+import { tasks } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
@@ -10,10 +10,10 @@ import { safeExecute, clampLimit } from "./index";
 import { placeNameColumns } from "./tasks";
 import { inDayWindow } from "../../tasks/tasks.service";
 import { expandScheduleScopedTasks, taskDay } from "@cadence/domain/task-recurrence";
-import { isPausedOn } from "@cadence/domain/repeats";
 import { addDays } from "@cadence/domain/time";
 import { toMinimalTask } from "./projections";
-import { expandOccurrences } from "../../habits/habits.service";
+import { readSnapshotRoutines, routinesDue, type SnapshotRoutineReader } from "./routine-reads";
+export { routinesDue } from "./routine-reads";
 
 /** Hard cap on the span a single schedule-window read may cover. */
 const MAX_RANGE_DAYS = 62;
@@ -42,26 +42,10 @@ const scheduleColumns = {
     reminderAt: tasks.reminderAt,
 } as const;
 
-/** Routines with the days they're due in [from, to], skipping paused days; none due → left out. */
-export function routinesDue(
-    rows: { id: string; title: string; recurrenceRule: string; targetTime: string | null; times?: string[] | null; createdAt: string; pausedUntil: string | null }[],
-    from: string,
-    to: string,
-    today: string,
-    timeZone = "UTC",
-) {
-    return rows.flatMap((row) => {
-        const days = expandOccurrences(row.recurrenceRule, row.createdAt, from, to, timeZone)
-            .filter((day) => !isPausedOn(row.pausedUntil, day, today));
-        // A routine at set times reports them instead of one usual time.
-        return days.length ? [{ id: row.id, title: row.title, days, ...(row.times?.length ? { times: row.times } : { targetTime: row.targetTime }) }] : [];
-    });
-}
-
 /** Rows a window reads before expansion: plenty for ~2 months, a guard against runaway data. */
 const WINDOW_ROW_GUARD = 500;
 
-export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
+export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readRoutines?: SnapshotRoutineReader) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_schedule_window: tool({
         description:
@@ -105,20 +89,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .where(and(open, isNotNull(tasks.recurrenceRule)))
                         .limit(WINDOW_ROW_GUARD);
 
-                    const habitRows = await tx
-                        .select({
-                            id: habits.id,
-                            title: habits.title,
-                            recurrenceRule: habits.recurrenceRule,
-                            targetTime: habits.targetTime,
-                            times: habits.times,
-                            createdAt: habits.createdAt,
-                            pausedUntil: habits.pausedUntil,
-                        })
-                        .from(habits)
-                        .where(and(eq(habits.userId, userId), eq(habits.archived, false)))
-                        .orderBy(habits.sortOrder)
-                        .limit(50);
+                    const habitRows = await (readRoutines ? readRoutines(tx) : readSnapshotRoutines(tx, userId));
 
                     // Same expansion as GET /tasks for a day window: each occurrence of a
                     // repeating series lands on its own day, in the series' zone.

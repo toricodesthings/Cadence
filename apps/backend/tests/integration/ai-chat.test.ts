@@ -5,8 +5,13 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MockLanguageModelV4 } from "ai/test";
-import { ToolLoopAgent } from "ai";
+import { tool, ToolLoopAgent } from "ai";
+import { z } from "zod";
 import { logger } from "../../src/platform/log";
+import * as redisAccess from "../../src/platform/redis";
+import * as resumeStore from "../../src/domains/ai/streaming/resume-store";
+import * as images from "../../src/domains/ai/images/chat-images";
+import { FakeRedis } from "../helpers/fake-redis";
 import { agentOf, finish, streamOf, textChunks, textModel } from "../helpers/ai";
 import { apiAs, TEST_USER_ID } from "../helpers/app";
 
@@ -14,17 +19,19 @@ vi.mock("../../src/platform/db", () => ({ getDbClient: () => ({}) }));
 vi.mock("../../src/platform/rls", () => ({
     withRls: async (_db: unknown, _userId: string, fn: (tx: unknown) => unknown) => fn({}),
 }));
-vi.mock("../../src/platform/user-zone", () => ({ syncUserZone: async (_tx: unknown, _userId: string, zone: string) => zone }));
+vi.mock("../../src/platform/user-zone", () => ({ syncUserZoneWithSettings: async (_tx: unknown, _userId: string, zone: string) => ({ timezone: zone, settings: {} }) }));
 vi.mock("../../src/platform/redis", () => ({ getRedis: () => null, getRateLimitRedis: () => null }));
 vi.mock("../../src/domains/ai/persistence/conversation-repo");
 vi.mock("../../src/domains/ai/agent");
 
 import {
     deleteAllMessages,
+    getConversation,
     loadConversationMessages,
     resolveOrCreateConversation,
     saveAssistantMessage,
     setTitleIfEmpty,
+    setActiveStream,
     setTurnContext,
     truncateMessagesAfter,
 } from "../../src/domains/ai/persistence/conversation-repo";
@@ -65,6 +72,43 @@ const sentToModel = () =>
     model.doStreamCalls[0].prompt.map((m) => [m.role, Array.isArray(m.content) ? m.content.map((c: any) => c.text ?? "").join(" ") : m.content]);
 
 describe("what the model is sent", () => {
+    it("starts image hydration while resume initialization is pending, and waits for both before the model", async () => {
+        const ready = Promise.withResolvers<void>();
+        const redis = vi.spyOn(redisAccess, "getRedis").mockReturnValue(new FakeRedis() as never);
+        const open = vi.spyOn(resumeStore, "openStream").mockImplementation(() => ready.promise);
+        const hydrate = vi.spyOn(images, "hydrateImages").mockImplementation(async (messages) => ({ messages, hydrated: 0 }));
+        const result = chat();
+        await vi.waitFor(() => expect(hydrate).toHaveBeenCalledOnce());
+        expect(open).toHaveBeenCalledOnce();
+        expect(setActiveStream).not.toHaveBeenCalled();
+        expect(model.doStreamCalls).toHaveLength(0);
+        ready.resolve();
+        await result;
+        expect(setActiveStream).toHaveBeenCalledOnce();
+        expect(model.doStreamCalls).toHaveLength(1);
+        redis.mockRestore(); open.mockRestore(); hydrate.mockRestore();
+    });
+
+    it("streams without publishing a resume pointer when opening the log fails", async () => {
+        const redis = vi.spyOn(redisAccess, "getRedis").mockReturnValue(new FakeRedis() as never);
+        const open = vi.spyOn(resumeStore, "openStream").mockRejectedValue(new Error("unavailable"));
+        try {
+            const result = await chat();
+            expect(result.sse).toContain("text-delta");
+            expect(setActiveStream).not.toHaveBeenCalled();
+        } finally { redis.mockRestore(); open.mockRestore(); }
+    });
+
+    it("loads the normal history once, while reloads after an actual rerun remain authoritative", async () => {
+        await chat();
+        expect(loadConversationMessages).toHaveBeenCalledTimes(1);
+        vi.mocked(loadConversationMessages).mockClear();
+        vi.mocked(truncateMessagesAfter).mockResolvedValue(true);
+        await chat();
+        expect(loadConversationMessages).toHaveBeenCalledTimes(2);
+        expect(getAgentInstance).toHaveBeenLastCalledWith(expect.anything(), TEST_USER_ID, expect.objectContaining({ settings: {}, timezone: "UTC" }));
+    });
+
     it("history without stored system rows, the new message once, and the turn context on it", async () => {
         vi.mocked(loadConversationMessages).mockResolvedValue([
             row("m1", "user", "earlier ask"),
@@ -116,6 +160,44 @@ describe("what the model is sent", () => {
         await chat();
 
         expect(sentToModel().filter(([role]) => role === "user")).toHaveLength(1);
+    });
+});
+
+describe("continuation preparation", () => {
+    it.each(["approval", "kept-write"])("passes the stored context to agent construction for %s", async (kind) => {
+        const context = "The original Tuesday context.";
+        vi.mocked(getConversation).mockResolvedValue({ id: CONV_ID, title: "Existing" } as never);
+        const user = { id: "m-new", role: "user", parts: [{ type: "text", text: "Make a tag" }], metadata: { turnContext: context } };
+        const part = { type: "tool-create_tag", toolCallId: "call", input: { name: "Errands" },
+            ...(kind === "approval" ? { state: "approval-requested", approval: { id: "approval-1" } }
+                : { state: "output-available", output: { id: "tag-1" } }) };
+        vi.mocked(loadConversationMessages).mockResolvedValue([user,
+            { id: "reply-1", role: "assistant", status: "failed", parts: [part], metadata: {} }] as never);
+        const execute = vi.fn();
+        vi.mocked(getAgentInstance).mockImplementation(async (_env, _id, opts) => {
+            expect(await opts.reusedTurnContext).toBe(context);
+            return agentOf(model, { turnContext: context, tools: { create_tag: tool({ inputSchema: z.object({ name: z.string() }), execute }) } });
+        });
+        const { reply } = await chat(kind === "approval" ? { message: undefined, approvals: [{ id: "approval-1", approved: false }] } : {});
+        expect(reply.id).toBe("reply-1");
+        expect(execute).not.toHaveBeenCalled();
+        expect(setTurnContext).not.toHaveBeenCalled();
+        expect(sentToModel().flat().join(" ")).toContain(context);
+    });
+
+    it("falls back to fresh preparation for a legacy continuation without stored context", async () => {
+        vi.mocked(loadConversationMessages).mockResolvedValue([
+            row("m-new", "user", "Make a tag"),
+            { id: "reply-1", role: "assistant", status: "failed", parts: [
+                { type: "tool-create_tag", toolCallId: "call", state: "output-available", input: { name: "Errands" }, output: { id: "tag-1" } },
+            ], metadata: {} },
+        ] as never);
+        vi.mocked(getAgentInstance).mockImplementation(async (_env, _id, opts) => {
+            expect(await opts.reusedTurnContext).toBeUndefined();
+            return agentOf(model, { turnContext: "Fresh context", tools: { create_tag: tool({ inputSchema: z.object({ name: z.string() }), execute: vi.fn() }) } });
+        });
+        await chat();
+        expect(setTurnContext).toHaveBeenCalledWith({}, TEST_USER_ID, CONV_ID, "m-new", "Fresh context");
     });
 });
 

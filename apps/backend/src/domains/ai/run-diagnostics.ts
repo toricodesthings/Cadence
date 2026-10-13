@@ -7,7 +7,7 @@ import { version } from "../../../../../package.json";
 
 /** Server-only, content-free observations. Not a billing ledger or upstream routing trace. */
 type Span = { startMs: number; endMs?: number };
-type Phase = "admission" | "zoneRecallQuery" | "historyPersist" | "settings" | "profile" | "embedding" | "recall" | "snapshot" | "images" | "resumeInit" | "prompt" | "promptHash";
+type Phase = "admission" | "zoneRecallQuery" | "historyPersist" | "settings" | "profile" | "embedding" | "recall" | "snapshot" | "images" | "resumeInit" | "contextValidation" | "prompt" | "promptHash";
 type Usage = {
     inputTokens: number | null; ordinaryInputTokens: number | null;
     cacheReadTokens: number | null; cacheWriteTokens: number | null;
@@ -27,11 +27,13 @@ const identifier = (value: unknown): string | null => typeof value === "string" 
 const numeric = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 
 function usageFields(usage: LanguageModelUsage): Usage {
+    const input = numeric(usage.inputTokens), read = numeric(usage.inputTokenDetails?.cacheReadTokens), write = numeric(usage.inputTokenDetails?.cacheWriteTokens);
     return {
-        inputTokens: numeric(usage.inputTokens),
-        ordinaryInputTokens: numeric(usage.inputTokenDetails?.noCacheTokens),
-        cacheReadTokens: numeric(usage.inputTokenDetails?.cacheReadTokens),
-        cacheWriteTokens: numeric(usage.inputTokenDetails?.cacheWriteTokens),
+        inputTokens: input,
+        // Some provider noCache counters include cache writes. Keep the categories disjoint.
+        ordinaryInputTokens: input !== null && read !== null && write !== null && input >= read + write ? input - read - write : null,
+        cacheReadTokens: read,
+        cacheWriteTokens: write,
         outputTokens: numeric(usage.outputTokens),
         reasoningTokens: numeric(usage.outputTokenDetails?.reasoningTokens),
     };
@@ -53,6 +55,7 @@ export function createRunDiagnostics(clock: () => number) {
     let stepOrdinal: number | null = null;
     let generationEndMs: number | null = null;
     let droppedEntries = 0;
+    let memory: { variant: "exact" | "parallel"; hasRecallCandidates: boolean; profileFacts: number } | undefined;
     const runId = crypto.randomUUID();
     const now = () => numeric(clock()) ?? 0;
 
@@ -127,7 +130,7 @@ export function createRunDiagnostics(clock: () => number) {
         const completeCost = modelCalls.length > 0 && droppedEntries === 0 && modelCalls.every((call) => call.endMs !== undefined && call.costUsd !== null);
         return {
             revision: 1, runId, appRelease: version,
-            coverage: "sdk_observed" as const, generationEndMs, droppedEntries,
+            coverage: "sdk_observed" as const, generationEndMs, droppedEntries, memoryCoverage: memory && { ...memory },
             exactCostUsd: completeCost ? modelCalls.reduce((sum, call) => sum + call.costUsd!, 0) : null,
             phases: phases.map((entry) => ({ ...entry })),
             steps: steps.map((entry) => ({ ...entry })),
@@ -135,7 +138,9 @@ export function createRunDiagnostics(clock: () => number) {
             tools: tools.map((entry) => ({ ...entry })),
         };
     }
-    return { runId, beginPhase, measure, hooks, snapshot };
+    return { runId, beginPhase, measure, hooks, snapshot,
+        memoryCoverage(value: NonNullable<typeof memory>) { memory = { ...value }; },
+    };
 }
 
 export type RunDiagnostics = ReturnType<typeof createRunDiagnostics>;

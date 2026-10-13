@@ -1,6 +1,11 @@
 /** Per-turn context shared by the chat agent and the MCP server: the user's clock and today's snapshot. */
 import { isZone, todayIn, toZonedIso } from "@cadence/domain/time";
-import type { buildToolRegistry } from "./tools/index";
+import { calendarTools } from "./tools/calendar";
+import { habitTools } from "./tools/habits";
+import { readSnapshotRoutines, type SnapshotRoutineReader } from "./tools/routine-reads";
+import type { Env } from "../../types/env";
+import type { AgentContext, buildToolRegistry } from "./tools/index";
+import type { projectEvents } from "./tools/events";
 
 type SnapshotTools = Pick<ReturnType<typeof buildToolRegistry>,
     "get_schedule_window" | "get_tasks" | "get_habit_status_today" | "get_inbox_items" | "get_events">;
@@ -10,7 +15,7 @@ type SnapshotTools = Pick<ReturnType<typeof buildToolRegistry>,
  * so "plan my afternoon" needs no read step. Same tools and shapes the model
  * already knows; a failed read is left out. Small caps keep it ~1k tokens.
  */
-export async function loadSnapshot(tools: SnapshotTools, today: string): Promise<string> {
+export async function loadSnapshot(tools: SnapshotTools, today: string, eventsSnapshot?: ReturnType<typeof projectEvents>): Promise<string> {
     const read = async (t: { execute?: unknown }, input: object): Promise<any> => {
         const result = await (t.execute as (input: object, options: object) => Promise<unknown>)(input, { toolCallId: "snapshot", messages: [] });
         return (result as { ok?: boolean })?.ok === false ? undefined : result;
@@ -20,7 +25,7 @@ export async function loadSnapshot(tools: SnapshotTools, today: string): Promise
         read(tools.get_tasks, { dueWindow: "overdue", limit: 5 }),
         read(tools.get_habit_status_today, {}),
         read(tools.get_inbox_items, { includeProcessed: false, limit: 5 }),
-        read(tools.get_events, {}),
+        eventsSnapshot ?? read(tools.get_events, {}),
     ]);
     const targetTime = new Map<string, string | null>(schedule?.routines.map((r: any) => [r.id, r.targetTime]));
     return JSON.stringify({
@@ -30,6 +35,21 @@ export async function loadSnapshot(tools: SnapshotTools, today: string): Promise
         capture,
         events: events?.events.filter((e: { daysUntil: number }) => e.daysUntil <= 7),
     });
+}
+
+/** Share only this prefetch's routine read; later model tool calls always read fresh rows.
+ * Keep section transactions isolated: a failed schedule query cannot abort status or inbox reads.
+ */
+export function loadAgentSnapshot(env: Env, userId: string, ctx: AgentContext, tools: SnapshotTools, events: ReturnType<typeof projectEvents>) {
+    let pending: ReturnType<SnapshotRoutineReader> | undefined;
+    const readRoutines: SnapshotRoutineReader = (tx) => pending ??= Promise.resolve(readSnapshotRoutines(tx, userId)).catch((error) => {
+        pending = undefined; // safeExecute may retry a transient failure with a fresh transaction
+        throw error;
+    });
+    return loadSnapshot({ ...tools,
+        get_schedule_window: calendarTools(env, userId, ctx, readRoutines).get_schedule_window,
+        get_habit_status_today: habitTools(env, userId, ctx, readRoutines).get_habit_status_today,
+    }, ctx.today, events);
 }
 
 /**

@@ -12,7 +12,7 @@ import { AI_ERROR_CODES, CONVERSATION_TITLE_DATA_TYPE } from "@cadence/contracts
 import { apiValidator } from "../../platform/validation";
 import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
-import { syncUserZone } from "../../platform/user-zone";
+import { syncUserZoneWithSettings } from "../../platform/user-zone";
 import { getRequestId, setRequestErrorCode } from "../../platform/request-log";
 import { logger, hashIdentifier, issuesFromError, shorten } from "../../platform/log";
 import { getIdempotencyKey } from "../../platform/idempotency";
@@ -26,8 +26,13 @@ import {
     stopStreamSchema,
 } from "@cadence/contracts/ai";
 import { getAgentInstance } from "./agent";
+import { loadContextFacts } from "./memory/memory-store";
+import { validateStoredContexts } from "./memory/context-reuse";
+import { isLearning, memoryStateOf } from "./memory/memory-mode";
+import { userClock } from "./turn";
+import type { Tx } from "../../types/db";
 import { createRunDiagnostics } from "./run-diagnostics";
-import { turnContexts, withTurnContext } from "./prompt/prompt-composer";
+import { storedTurnContext, turnContexts, withTurnContext } from "./prompt/prompt-composer";
 import { getModelId, pickChatModel } from "./model-router";
 import {
     resolveOrCreateConversation,
@@ -181,7 +186,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     // Resumption + hard abort (doc Update 4). Null when unconfigured/disabled →
     // every Redis path below no-ops and streaming behaves exactly as before.
-    const redis = getRedis(c.env);
+    let redis = getRedis(c.env);
     const userKey = userHash; // = sha256(userId); the tenant key for Redis (§15.1)
     const streamId = generateId();
 
@@ -235,12 +240,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     }
 
     endAdmission();
-    // The agent (user settings, memories, prompt, tools) needs nothing from the turn's
-    // persistence, so build it alongside instead of after. Awaited below; the catch only
-    // stops an unhandled rejection if persistence throws first.
-    // The client's zone is synced to users.time_zone first, so every tool and the clock read the one stored zone.
-    const agentReady = diagnostics.measure("zoneRecallQuery", () => withRls(db, userId, async (tx) => {
-        const timezone = await syncUserZone(tx, userId, body.timezone);
+    // Zone/settings preparation overlaps history; continuation context is chosen from stored rows.
+    const settingsReady = diagnostics.measure("zoneRecallQuery", () => withRls(db, userId, async (tx) => {
+        const { timezone, settings } = await syncUserZoneWithSettings(tx, userId, body.timezone);
         // What recall looks up: this message plus the one before it, so "yes, do that" keeps its subject.
         let previous: string | undefined;
         try {
@@ -248,26 +250,61 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         } catch {
             // recall falls back to this message alone
         }
-        return { timezone, queryText: [previous, incomingText].filter(Boolean).join("\n") || undefined };
-    })).then(({ timezone, queryText }) => getAgentInstance(c.env, userId, {
-        timezone,
-        queryText,
-        requestId,
-        diagnostics,
-        currentDate: body.currentDate,
-        locale: body.locale,
-        approvalMode: body.approvalMode,
-        modelId,
-        nonce,
-        waitUntil: (promise) => c.executionCtx.waitUntil(promise),
+        return { timezone, settings, queryText: [previous, incomingText].filter(Boolean).join("\n") || undefined };
     }));
-    agentReady.catch(() => {});
+    settingsReady.catch(() => {});
+    const storedHistoryReady = Promise.withResolvers<{ history: ChatMessage[]; continues: boolean }>();
+    storedHistoryReady.promise.catch(() => {});
+    async function prepareHistory<T extends { conversationId: string; history: ChatMessage[]; continues: boolean }>(tx: Tx, result: T) {
+        const { conversationId, history, continues } = result;
+        storedHistoryReady.resolve(result);
+        const assistantMessageId = continues ? history.at(-1)!.id : generateId();
+        // Tool-specialized UIMessage typing is internal to the SDK; the runtime shapes
+        // are genuine UIMessages reconstructed from the DB + the validated incoming turn.
+        // The incoming id is filtered from history (a rerun's anchor row is already
+        // there) and system-role rows are dropped defensively — no persisted row may
+        // ever re-enter model context with system authority. Older turns' read rows
+        // shrink to ids (compactOldReads).
+        // Open calls in earlier turns replay as declined; an approval answer keeps the
+        // message it answers as is, so the SDK runs what was approved.
+        const turn = continues
+            ? [...settleUnanswered(history.slice(0, -1)), history.at(-1)!]
+            : [...settleUnanswered(history.filter((m) => m.id !== incoming!.id)), incoming!];
+        // A turn that switched models (model-router) must not replay the previous
+        // model's thought signatures — they belong to a family this one never used.
+        // Older turns compact together once every few turns (`recentStart`), so the
+        // replayed history only grows between those steps and stays prompt-cached.
+        const replayed = startAtUser(turn.filter((m) => m.role !== "system"));
+        const recentFrom = recentStart(replayed);
+        const uiMessages = compactOldReads(
+            dropForeignReasoning(dropUnsignedReasoning(replayed), modelId),
+            recentFrom,
+        ) as ChatMessage[];
+        // Recent `cadence-image:` references become data URLs for the model; older or
+        // expired ones a text stub. Memory extraction and the stored reply keep the
+        // references (never base64).
+        const imagesReady = diagnostics.measure("images", () => hydrateImages(uiMessages, c.env.USER_ASSETS, userKey, recentFrom));
+        imagesReady.catch(() => {}); // transaction failure must not leave a detached rejection
+        if (redis) {
+            const endResume = diagnostics.beginPhase("resumeInit");
+            try {
+                await openStream(redis, userKey, streamId, { conversationId, userId, messageId: assistantMessageId, model: modelId });
+            } catch {
+                logger.warn("ai", "ai_redis_unavailable", { op: "openStream" });
+                redis = null; // no pointer to an uninitialized log; ordinary streaming still works
+            } finally {
+                endResume();
+            }
+            if (redis) await setActiveStream(tx, userId, conversationId, streamId);
+        }
+        return { ...result, assistantMessageId, uiMessages, recentFrom, imagesReady };
+    }
 
     // Persist the user turn + reconstruct history (RLS). The DB is the source of truth.
     // active_stream_id is set in the SAME transaction as the user turn, so the moment
     // a refreshing client can read the user message it can also resume — closing the
     // window that made a *fast* refresh (right after send) miss the live stream.
-    const { conversationId, history, continues, needsTitle, continuation } = await diagnostics.measure("historyPersist", () => withRls(db, userId, async (tx) => {
+    const historyReady = diagnostics.measure("historyPersist", () => withRls(db, userId, async (tx) => {
         if (!incoming) {
             // Approval answers land on the stored assistant message, never on one the
             // client sends: only its waiting parts change, signatures stay the server's.
@@ -277,8 +314,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             const last = rows.at(-1);
             const answered = last?.role === "assistant" ? applyApprovals(rowToUIMessage(last), body.approvals!) : null;
             if (!answered) throw new AppError(409, "CONFLICT", "Nothing here is waiting for approval.");
-            if (redis) await setActiveStream(tx, userId, conversation!.id, streamId);
-            return { conversationId: conversation!.id, history: [...rows.slice(0, -1).map(rowToUIMessage), answered], continues: true, needsTitle: false, continuation: "approval" };
+            return prepareHistory(tx, { conversationId: conversation!.id, history: [...rows.slice(0, -1).map(rowToUIMessage), answered], continues: true, needsTitle: false, continuation: "approval" });
         }
         const { id, title } = await resolveOrCreateConversation(tx, userId, { conversationId: body.conversationId, model: modelId });
         // Explicit message EDIT: the client kept rows up to the anchor and
@@ -293,21 +329,44 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         // after it BEFORE loading history, or the superseded assistant reply
         // leaks back into model context and resurrects on reload.
         // A retry of a reply that failed after changing something continues that reply instead.
-        const kept = body.editAnchorId === undefined
-            ? keepFinishedWrites(await loadConversationMessages(tx, userId, id, { historyWindow: true }), incoming.id)
-            : null;
+        const firstRows = body.editAnchorId === undefined
+            ? await loadConversationMessages(tx, userId, id, { historyWindow: true }) : undefined;
+        const kept = firstRows ? keepFinishedWrites(firstRows, incoming.id) : null;
         const isRerun = await truncateMessagesAfter(tx, userId, id, kept?.id ?? incoming.id);
-        const priorRows = await loadConversationMessages(tx, userId, id, { historyWindow: true });
+        const priorRows = !isRerun && !kept && firstRows
+            ? firstRows : await loadConversationMessages(tx, userId, id, { historyWindow: true });
         await appendUserMessage(tx, userId, id, incoming, { clientMessageId });
         await markSent(tx, userId, imageIds);
-        if (redis) await setActiveStream(tx, userId, id, streamId);
         // First user turn on a still-untitled thread → auto-title it. On a rerun
         // the anchor row (and a kept reply) are the only prior rows.
         const isFirstTurn = isRerun ? priorRows.length <= (kept ? 2 : 1) : priorRows.length === 0;
         const history = priorRows.map((row) => (row.id === kept?.id ? kept : rowToUIMessage(row)));
-        return { conversationId: id, history, continues: !!kept, needsTitle: isFirstTurn && !title,
-            continuation: kept ? "kept_write" : body.editAnchorId !== undefined ? "edit" : isRerun ? "rerun" : "message" };
+        return prepareHistory(tx, { conversationId: id, history, continues: !!kept, needsTitle: isFirstTurn && !title,
+            continuation: kept ? "kept_write" : body.editAnchorId !== undefined ? "edit" : isRerun ? "rerun" : "message" });
     }));
+
+    historyReady.catch(storedHistoryReady.reject);
+    const validatedHistory = Promise.all([storedHistoryReady.promise, settingsReady]).then(async ([result, settings]) => {
+        const clock = userClock(settings.timezone, body.currentDate);
+        return diagnostics.measure("contextValidation", () => validateStoredContexts(result.history, isLearning(memoryStateOf(settings.settings).mode),
+            (ids) => withRls(db, userId, (tx) => loadContextFacts(tx, userId, ids, clock.today))));
+    });
+    validatedHistory.catch(() => {});
+    const reusedContext = storedHistoryReady.promise.then(async (result) => {
+        if (!result.continues) return undefined; // new turns can build while history commits and old contexts validate
+        const history = await validatedHistory;
+        return storedTurnContext([...history].reverse().find((m) => m.role === "user") ?? { role: "assistant" });
+    });
+    reusedContext.catch(() => {});
+    const agentReady = settingsReady.then(({ timezone, settings, queryText }) => getAgentInstance(c.env, userId, {
+        timezone, settings, queryText, reusedTurnContext: reusedContext,
+        requestId, diagnostics, currentDate: body.currentDate, locale: body.locale,
+        approvalMode: body.approvalMode, modelId, nonce,
+        waitUntil: (promise) => c.executionCtx.waitUntil(promise),
+    }));
+    agentReady.catch(() => {});
+    const { conversationId, continues, needsTitle, continuation, assistantMessageId, uiMessages, recentFrom, imagesReady } = await historyReady;
+    const history = await validatedHistory;
 
     // Auto-title (first turn only): generate a short title in PARALLEL with the reply
     // and persist it via waitUntil — so it lands BEFORE the assistant finishes, never
@@ -323,56 +382,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
           })()
         : null;
 
-    // Mint the assistant id up-front so the streamed `start` frame, the persisted
-    // row PK, and any resume all reference ONE id (PK-upsert stays idempotent, §7.7).
-    // An approval answer, or a retry that kept a failed reply's writes, continues that
-    // assistant message under its own id.
-    const assistantMessageId = continues ? history.at(-1)!.id : generateId();
-
-    if (redis) {
-        // Open the chunk-log immediately (before the slower agent build) so a quick
-        // resume finds a live log, not just the DB pointer. Best-effort: a Redis
-        // failure degrades to non-resumable (onFinish still clears active_stream_id).
-        const endResume = diagnostics.beginPhase("resumeInit");
-        try {
-            await openStream(redis, userKey, streamId, {
-                conversationId,
-                userId,
-                messageId: assistantMessageId,
-                model: modelId,
-            });
-        } catch {
-            logger.warn("ai", "ai_redis_unavailable", { op: "openStream" });
-        } finally {
-            endResume();
-        }
-    }
-
-    // Tool-specialized UIMessage typing is internal to the SDK; the runtime shapes
-    // are genuine UIMessages reconstructed from the DB + the validated incoming turn.
-    // The incoming id is filtered from history (a rerun's anchor row is already
-    // there) and system-role rows are dropped defensively — no persisted row may
-    // ever re-enter model context with system authority. Older turns' read rows
-    // shrink to ids (compactOldReads).
-    // Open calls in earlier turns replay as declined; an approval answer keeps the
-    // message it answers as is, so the SDK runs what was approved.
-    const turn = continues
-        ? [...settleUnanswered(history.slice(0, -1)), history.at(-1)!]
-        : [...settleUnanswered(history.filter((m) => m.id !== incoming!.id)), incoming!];
-    // A turn that switched models (model-router) must not replay the previous
-    // model's thought signatures — they belong to a family this one never used.
-    // Older turns compact together once every few turns (`recentStart`), so the
-    // replayed history only grows between those steps and stays prompt-cached.
-    const replayed = startAtUser(turn.filter((m) => m.role !== "system"));
-    const recentFrom = recentStart(replayed);
-    const uiMessages = compactOldReads(
-        dropForeignReasoning(dropUnsignedReasoning(replayed), modelId),
-        recentFrom,
-    ) as ChatMessage[];
-    // Recent `cadence-image:` references become data URLs for the model; older or
-    // expired ones a text stub. Memory extraction and the stored reply keep the
-    // references (never base64).
-    const { messages: modelMessages, hydrated: imageCount } = await diagnostics.measure("images", () => hydrateImages(uiMessages, c.env.USER_ASSETS, userKey, recentFrom));
+    const { messages: modelMessages, hydrated: imageCount } = await imagesReady;
 
     const { agent, promptHash, turnContext } = await agentReady;
     // Each recent user message replays the context it was sent with (stored, from the DB rows
@@ -560,12 +570,13 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                     const FLUSH_BYTES = 16 * 1024;
                     let buf = "";
                     let lastFlush = Date.now();
+                    const logRedis = redis;
                     const flush = async () => {
                         if (!buf) return;
                         const blob = buf;
                         buf = "";
                         lastFlush = Date.now();
-                        const { abortRequested } = await flushChunks(redis, userKey, streamId, blob).catch(() => ({
+                        const { abortRequested } = await flushChunks(logRedis, userKey, streamId, blob).catch(() => ({
                             abortRequested: false,
                         }));
                         if (abortRequested) abortController.abort(new Error("AI_ABORTED"));

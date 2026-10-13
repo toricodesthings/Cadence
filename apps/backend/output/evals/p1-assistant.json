@@ -1,0 +1,56 @@
+{
+  "optimization": {
+    "promptPackaging": "baseline",
+    "cacheVariant": "5m-5m"
+  },
+  "at": "2026-10-13T19:32:47.092Z",
+  "model": "anthropic/claude-haiku-5.5",
+  "passed": 3,
+  "total": 3,
+  "cost": 0.001439025,
+  "report": [
+    {
+      "name": "what's due today, at 11:30 PM",
+      "level": "simple",
+      "passed": true,
+      "problems": [],
+      "steps": 1,
+      "tokens": 21649,
+      "cached": 20955,
+      "written": 643,
+      "cost": 0.000313825,
+      "ms": 1462,
+      "calls": []
+    },
+    {
+      "name": "set times: log the dose they name",
+      "level": "simple",
+      "passed": true,
+      "problems": [],
+      "steps": 2,
+      "tokens": 43706,
+      "cached": 42590,
+      "written": 919,
+      "cost": 0.0006368750000000001,
+      "ms": 3129,
+      "calls": [
+        "log_habit"
+      ]
+    },
+    {
+      "name": "set times: between doses, ask which",
+      "level": "simple",
+      "passed": true,
+      "problems": [],
+      "steps": 1,
+      "tokens": 22022,
+      "cached": 20955,
+      "written": 675,
+      "cost": 0.000488325,
+      "ms": 4181,
+      "calls": [
+        "ask_user"
+      ]
+    }
+  ]
+}

@@ -35,7 +35,7 @@ import { nightlyForUser } from "../../src/domains/ai/memory/nightly";
 import { learnFromNote } from "../../src/domains/ai/memory/note-learn";
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
 import { habitRoutes } from "../../src/domains/habits/habits.route";
-import { loadProfile, recallFacts } from "../../src/domains/ai/memory/memory-store";
+import { loadProfile, loadProfileCoverage, recallFacts } from "../../src/domains/ai/memory/memory-store";
 import { withRls } from "../../src/platform/rls";
 import { getTestDb } from "../helpers/db";
 
@@ -402,14 +402,55 @@ describe("the remember tool", () => {
 describe("recall", () => {
     const today = "2026-10-12";
     const profile = () => withRls(getTestDb(), userId, (tx) => loadProfile(tx, userId, today));
+    const coverage = () => withRls(getTestDb(), userId, (tx) => loadProfileCoverage(tx, userId, today));
     const recall = (text: string, exclude: string[] = []) =>
         withRls(getTestDb(), userId, (tx) => recallFacts(tx, userId, { text, embedding: null, model: "m", today, exclude: new Set(exclude) }));
     const add = (kind: string, content: string, extra: { validThrough?: string; pinned?: boolean; lastSeenOn?: string; confidence?: string } = {}) =>
         sql(
             `INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence, valid_through, pinned)
-             VALUES ($1, $2::memory_kind, $3, '2026-06-01', $4, 'chat', $5::memory_confidence, $6, $7)`,
+             VALUES ($1, $2::memory_kind, $3, '2026-06-01', $4, 'chat', $5::memory_confidence, $6, $7) RETURNING id`,
             [userId, kind, content, extra.lastSeenOn ?? "2026-06-01", extra.confidence ?? "stated", extra.validThrough ?? null, extra.pinned ?? false],
         );
+
+    it("establishes exact coverage for empty and fully covered memories in one statement", async () => {
+        expect(await coverage()).toEqual({ lines: [], hasRecallCandidates: false });
+        for (const kind of ["preference", "quirk", "constraint", "life", "assist"]) await add(kind, `Short ${kind} fact`);
+        const result = await withRls(getTestDb(), userId, async (tx) => {
+            const select = vi.spyOn(tx, "select");
+            const result = await loadProfileCoverage(tx, userId, today);
+            expect(select).toHaveBeenCalledOnce();
+            select.mockRestore();
+            return result;
+        });
+        expect(result.hasRecallCandidates).toBe(false);
+        expect(result.lines).toHaveLength(5);
+        expect(await profile()).toEqual(result.lines);
+    });
+
+    it("treats over-budget core and filler-cap facts as candidates, even when nothing fits", async () => {
+        for (let i = 0; i < 4; i++) await add("preference", `${i}${"x".repeat(799)}`);
+        const big = await coverage();
+        expect(big.lines).toHaveLength(2);
+        expect(big.hasRecallCandidates).toBe(true);
+        await sql("DELETE FROM ai_memories WHERE user_id = $1", [userId]);
+        for (let i = 0; i < 61; i++) await add("life", `Fact ${i}`);
+        expect(await coverage()).toMatchObject({ hasRecallCandidates: true });
+        expect((await profile()).length).toBe(60);
+    });
+
+    it("keeps every recall-only kind eligible and ignores expired, forgotten and other-user facts", async () => {
+        await add("life", "Expired", { validThrough: "2026-10-11" });
+        const [forgotten] = await add("constraint", "Forgotten");
+        await sql("UPDATE ai_memories SET status = 'forgotten' WHERE id = $1", [forgotten.id]);
+        await insertFact(await createUser(), "Other person's active fact");
+        expect(await coverage()).toEqual({ lines: [], hasRecallCandidates: false });
+        for (const kind of ["pattern", "duration"]) {
+            await add(kind, `Recall-only ${kind}`);
+            expect(await coverage()).toEqual({ lines: [], hasRecallCandidates: true });
+        }
+        await add("pattern", "Pinned pattern", { pinned: true });
+        expect((await coverage()).lines.map((l) => l.content)).toEqual(["Pinned pattern"]);
+    });
 
     it("puts pinned facts, preferences, quirks, constraints and coming life facts first, then fills what is left with life and what helped", async () => {
         await setMode("basic");

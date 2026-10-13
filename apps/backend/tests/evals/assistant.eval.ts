@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { createUser, getTestDb, startTestDb } from "../helpers/db";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 import { getAgentInstance } from "../../src/domains/ai/agent";
+import { optimizationOptions } from "./optimization-options";
 import { getModelId, pickChatModel } from "../../src/domains/ai/model-router";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
 import type { Env } from "../../src/types/env";
@@ -39,6 +40,7 @@ function devVars(): Record<string, string> {
     }
 }
 const vars = { ...devVars(), ...process.env } as Record<string, string | undefined>;
+const optimization = optimizationOptions(vars);
 const env = { OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY, AI_CHAT_MODEL: vars.AI_CHAT_MODEL, AI_CHAT_MODEL_BASIC: vars.AI_CHAT_MODEL_BASIC ?? "deepseek/deepseek-v4.1-flash" } as unknown as Env;
 /** Caps each scenario's repeat count (EVAL_RUNS=1: one pass each, for iterating). */
 const maxRuns = Number(vars.EVAL_RUNS) || Infinity;
@@ -91,7 +93,7 @@ async function converse(userId: string, turns: string[], now = NOW, routed = fal
             for (const m of messages) if (m.role === "assistant" && Array.isArray(m.content)) m.content = m.content.filter((p: any) => p.type !== "reasoning");
         }
         models.push(modelId);
-        const { agent, turnContext } = await getAgentInstance(env, userId, { timezone: TZ, currentDate: now, approvalMode: "full", nonce: "evalnonce", modelId });
+        const { agent, turnContext } = await getAgentInstance(env, userId, { ...optimization, timezone: TZ, currentDate: now, approvalMode: "full", nonce: "evalnonce", modelId });
         // Like production: each user message keeps the context it was sent with, so later turns replay
         // it unchanged and read the earlier ones from the prompt cache.
         messages.push({ role: "user", content: `${turn}\n\n${turnContext}` });
@@ -728,7 +730,7 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
         process.stdout.write(`\nAssistant evals (${env.AI_CHAT_MODEL ?? "default model"}): ${passed}/${report.length} passed · ${sum.tokens} tok, ${cachedShare(sum as Totals)} cached · $${sum.cost.toFixed(4)}\n${rows.join("\n")}\n\n`);
         const dir = join(__dirname, "../../../../output/evals");
         mkdirSync(dir, { recursive: true });
-        writeFileSync(join(dir, "assistant.json"), JSON.stringify({ at: new Date().toISOString(), model: env.AI_CHAT_MODEL ?? "default", passed, total: report.length, cost: sum.cost, report }, null, 2));
+        writeFileSync(join(dir, "assistant.json"), JSON.stringify({ optimization, at: new Date().toISOString(), model: env.AI_CHAT_MODEL ?? "default", passed, total: report.length, cost: sum.cost, report }, null, 2));
     });
 
     for (const scenario of SCENARIOS) {

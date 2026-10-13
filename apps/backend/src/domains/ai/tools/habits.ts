@@ -9,7 +9,7 @@ import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, once } from "./index";
 import { toMinimalHabit } from "./projections";
-import { routinesDue } from "./calendar";
+import { readSnapshotRoutines, routinesDue, type SnapshotRoutineReader } from "./routine-reads";
 import { habitDays } from "@cadence/domain/repeats";
 import { createHabit, deleteHabit, moveHabit, resolveHabit, updateHabit } from "../../habits/habits.service";
 import { habitTargetTimesSchema, insertHabitSchema, MAX_ROUTINE_STEPS, routineStepSchema, routineTimesSchema, stepStatusSchema } from "@cadence/contracts/habit";
@@ -94,7 +94,7 @@ const routineColumns = {
     createdAt: habits.createdAt,
 } as const;
 
-export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
+export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRoutines?: SnapshotRoutineReader) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_habits: tool({
         description:
@@ -155,21 +155,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                 const today = ctx.today;
                 const db = getDbClient(env);
                 return withRls(db, userId, async (tx) => {
-                    const rows = await tx
-                        .select({
-                            id: habits.id,
-                            title: habits.title,
-                            recurrenceRule: habits.recurrenceRule,
-                            targetTime: habits.targetTime,
-                            createdAt: habits.createdAt,
-                            pausedUntil: habits.pausedUntil,
-                            steps: habits.steps,
-                            times: habits.times,
-                        })
-                        .from(habits)
-                        .where(and(eq(habits.userId, userId), eq(habits.archived, false)))
-                        .orderBy(habits.sortOrder)
-                        .limit(50);
+                    const rows = await (readRoutines ? readRoutines(tx) : readSnapshotRoutines(tx, userId));
 
                     const logs = await tx
                         .select({ habitId: habitLogs.habitId, status: habitLogs.status, stepStatus: habitLogs.stepStatus, timeMarks: habitLogs.timeMarks })

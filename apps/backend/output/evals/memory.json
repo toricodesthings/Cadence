@@ -1,13 +1,26 @@
 {
-  "at": "2026-10-12T20:50:28.812Z",
+  "optimization": {
+    "promptPackaging": "static-memory",
+    "cacheVariant": "5m-5m"
+  },
+  "at": "2026-10-13T19:09:40.419Z",
   "model": "anthropic/claude-haiku-5.5",
   "runs": 3,
-  "recallWithModel": {
-    "found": 0.9666666666666667,
-    "missed": [
-      "r29"
-    ],
-    "autoOnly": 0.9666666666666667,
-    "recallCalls": 2
-  }
+  "agesAgo": [
+    {
+      "usesFact": true,
+      "mentionsJune": false,
+      "text": "Sept 17 to 19, 2027 is Friday to Sunday, and Saturday the 18th is your sister Maya's wedding, so I'd build the plan around that. Nothing is on the schedule yet. What should the weekend be mostly about?"
+    },
+    {
+      "usesFact": true,
+      "mentionsJune": true,
+      "text": "The weekend is clear: nothing is scheduled for Friday 17 to Sunday 19 September 2027. You mentioned in June that your sister Maya's wedding is Saturday 18 September, so I'd build the plan around that day.\n\nWhat do you want the weekend to cover?"
+    },
+    {
+      "usesFact": true,
+      "mentionsJune": false,
+      "text": "The weekend of Friday 17 to Sunday 19 September 2027 is empty so far. Your sister Maya's wedding is on Saturday the 18th, so I'd build the plan around that. What should the weekend cover?"
+    }
+  ]
 }

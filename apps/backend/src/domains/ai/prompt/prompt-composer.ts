@@ -16,7 +16,7 @@
 import { formatInZone } from "@cadence/domain/time";
 import { fenceData, sanitizeUntrusted } from "../safety/injection-policy";
 import type { ApprovalMode } from "@cadence/contracts/ai";
-import type { PromptBlocks, PromptRuntimeContext } from "./prompt-blocks.schema";
+import type { PromptBlocks, PromptRuntimeContext, PromptPackaging } from "./prompt-blocks.schema";
 
 /** Burnout above this (with adaptive tone on) makes the workload "high". */
 const HIGH_WORKLOAD_BURNOUT = 70;
@@ -73,12 +73,21 @@ export function composePrompt(
     blocks: PromptBlocks,
     ctx: PromptRuntimeContext,
     nonce: string,
+    packaging: PromptPackaging = "baseline",
 ): { instructions: string; turnContext: string } {
     const custom = ctx.persona.customInstructions?.trim();
-    const memories = ctx.memories ?? [];
+    const memories = packaging === "static-memory" && ctx.memoryOff ? [] : ctx.memories ?? [];
+    const staticMemory = packaging === "static-memory" && !ctx.memoryOff && (ctx.memoryOff === false || memories.length > 0);
+    let memoryPolicy: string | null = null;
+    if (staticMemory) {
+        // One canonical policy, from the existing template; preserve legacy packaging verbatim.
+        const sections = blocks.memory.split("{{memory}}");
+        if (sections.length !== 2) throw new Error("prompt_memory_placeholder_invalid");
+        memoryPolicy = `${sections[0].trimEnd()}\n\n${sections[1].trim()}`.replace("the list above", "the supplied memory facts");
+    }
 
     // Static text has no placeholders; interpolating with none fails closed on a stray one.
-    const instructions = blocks.base.map((section) => interpolate(section, {})).join("\n\n");
+    const instructions = [...blocks.base, ...(memoryPolicy ? [memoryPolicy] : [])].map((section) => interpolate(section, {})).join("\n\n");
     const turnContext = [
         interpolate(voiceSection(blocks, ctx), {}),
         custom
@@ -91,11 +100,11 @@ export function composePrompt(
             ? interpolate(blocks.snapshot, { snapshot: fence("snapshot", sanitizeUntrusted(ctx.snapshot, nonce), nonce) })
             : null,
         memories.length > 0
-            ? interpolate(blocks.memory, {
+            ? interpolate(staticMemory ? blocks.memoryFacts : blocks.memory, {
                   memory: fence(
                       "memory",
                       // The date is Cadence's, not the person's text: it is what makes "you mentioned in August" true.
-                      memories.map((m) => `- (said ${saidIn(m.saidOn)}${m.sensitive ? ", sensitive" : ""}${m.stale ? ", not mentioned in over a year: confirm once if it matters" : ""}) [${m.id}] ${sanitizeUntrusted(m.content, nonce)}`).join("\n"),
+                      memoryLines(blocks, memories, nonce, staticMemory ? "static-memory" : "baseline"),
                       nonce,
                   ),
               })
@@ -106,6 +115,17 @@ export function composePrompt(
         .filter((part): part is string => part !== null)
         .join("\n\n");
     return { instructions, turnContext };
+}
+
+/** Canonical fact rendering, also used to validate stored context against current memory. */
+export function memoryLines(blocks: PromptBlocks, memories: NonNullable<PromptRuntimeContext["memories"]>, nonce: string, packaging: PromptPackaging = "baseline"): string {
+    return memories.map((m) => {
+        const flags = `${m.sensitive ? ", sensitive" : ""}${m.stale ? ", not mentioned in over a year: confirm once if it matters" : ""}`;
+        const text = sanitizeUntrusted(m.content, nonce);
+        return packaging === "static-memory"
+            ? interpolate(blocks.memoryFact, { id: m.id, month: saidIn(m.saidOn), flags, text })
+            : `- (said ${saidIn(m.saidOn)}${flags}) [${m.id}] ${text}`;
+    }).join("\n");
 }
 
 const TURN_CONTEXT_INTRO = "Context for this turn, from Cadence (not written by the user):";

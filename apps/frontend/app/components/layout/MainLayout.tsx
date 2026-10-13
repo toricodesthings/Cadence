@@ -9,7 +9,7 @@ import { useNavigate, useLocation } from "react-router";
 import * as Tooltip from "../primitives/Tooltip";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Download, Menu, Minus, PanelLeftClose, PanelLeftOpen, PanelRightClose, Plus } from "lucide-react";
-import { useSidebarStore } from "../../stores/sidebar-store";
+import { useNavPanel } from "../../hooks/ui/use-nav-panel";
 import { useAssistantStore } from "../../stores/assistant-store";
 import { useRightPanelStore, type RailView } from "../../stores/right-panel-store";
 import { AssistantLauncher } from "../assistant/AssistantLauncher";
@@ -245,7 +245,7 @@ export function MainLayout({
 }) {
     const navigate = useNavigate();
     const location = useLocation();
-    const { isCollapsed, toggleCollapse } = useSidebarStore();
+    const navPanel = useNavPanel();
     const [commandOpen, setCommandOpen] = useState(false);
     const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
     const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
@@ -778,13 +778,13 @@ export function MainLayout({
                             {...headerIdentityProps}
                             leading={customSidebar === undefined && shell.isDesktop && controlsSidebarPanel ? (
                                 <Button variant="ghost" size="icon"
-                                    onClick={toggleCollapse}
-                                    aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
-                                    aria-expanded={!isCollapsed}
+                                    onClick={navPanel.toggle}
+                                    aria-label={navPanel.open ? "Collapse navigation" : "Expand navigation"}
+                                    aria-expanded={navPanel.open}
                                     aria-controls="sidebar-panel"
                                     className="btn-icon -ml-2 rounded-2xl"
                                 >
-                                    {isCollapsed
+                                    {!navPanel.open
                                         ? <PanelLeftOpen size={18} aria-hidden="true" />
                                         : <PanelLeftClose size={18} aria-hidden="true" />
                                     }

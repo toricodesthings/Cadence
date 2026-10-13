@@ -24,7 +24,7 @@ interface ResponsiveOverlayPanelProps {
     layer?: "route" | "room";
 }
 
-const SWIPE_THRESHOLD = 80;
+export const SWIPE_THRESHOLD = 80;
 const FOCUSABLE_SELECTOR = [
     "a[href]",
     "button:not([disabled])",

@@ -5,11 +5,11 @@ import { getDbClient } from "../../platform/db";
 import { users, userMetrics } from "../../db/schema";
 import { withRls } from "../../platform/rls";
 import { logger, hashIdentifier, issuesFromError } from "../../platform/log";
-import { SETTINGS_DEFAULTS } from "@cadence/contracts/settings";
+import { SETTINGS_DEFAULTS, type UserSettings } from "@cadence/contracts/settings";
 import { buildToolRegistry, type AgentContext } from "./tools/index";
 import { PROMPT_BLOCKS } from "./prompt/prompt-blocks";
 import { composePrompt, isWorkloadHigh } from "./prompt/prompt-composer";
-import type { AssistantPersona, PromptRuntimeContext } from "./prompt/prompt-blocks.schema";
+import type { AssistantPersona, PromptRuntimeContext, PromptPackaging } from "./prompt/prompt-blocks.schema";
 import { HELP_TOPICS } from "./tools/help";
 import { approvalFor } from "./safety/approval";
 import type { ApprovalMode } from "@cadence/contracts/ai";
@@ -18,9 +18,11 @@ import { getModelId } from "./model-router";
 import { embedText, getEmbeddingModelId } from "./memory/embedding";
 import { isLearning } from "./memory/memory-mode";
 import { isMemoryTool } from "@cadence/contracts/ai-tools";
-import { loadProfile, recallFacts, type ProfileLine } from "./memory/memory-store";
+import { loadProfileCoverage, recallFacts, type ProfileLine } from "./memory/memory-store";
 import type { Env } from "../../types/env";
-import { loadSnapshot, userClock } from "./turn";
+import { loadAgentSnapshot, userClock } from "./turn";
+import { projectEvents } from "./tools/events";
+import { normalizeSettings } from "../settings/settings.route";
 import type { RunDiagnostics } from "./run-diagnostics";
 
 /** Served by OpenRouter when the chat model is unavailable or rate-limited. */
@@ -33,7 +35,12 @@ const FALLBACK_CHAT_MODEL = "google/gemini-3.7-flash";
 const REASONING_EFFORT = "medium";
 
 /** A provider prompt-cache breakpoint (5-minute TTL, refreshed by every hit). */
-const CACHE_BREAKPOINT = { type: "ephemeral" } as const;
+const STATIC_CACHE_BREAKPOINT = { type: "ephemeral" } as const;
+const TURN_CACHE_BREAKPOINT = { type: "ephemeral" } as const;
+const HOUR_CACHE_BREAKPOINT = { type: "ephemeral", ttl: "1h" } as const;
+
+/** Offline/eval candidates; chat routes stay 5m/5m until the gap/cost experiment passes. */
+export type CacheVariant = "5m-5m" | "1h-5m" | "1h-1h";
 
 /**
  * A Claude model. Anthropic caches only behind explicit breakpoints (the other chat models cache
@@ -52,14 +59,14 @@ function isClaude(modelId: string): boolean {
  * gets the top-level automatic breakpoint, which follows the end of the conversation
  * so each tool-loop step reads the step before it from cache.
  */
-export function chatModelSettings(env: Env, modelId: string, userHash: string): OpenRouterChatSettings {
+export function chatModelSettings(env: Env, modelId: string, userHash: string, cacheVariant: CacheVariant = "5m-5m"): OpenRouterChatSettings {
     const breakpoints = isClaude(modelId);
     return {
         models: [...new Set([modelId, getModelId(env), FALLBACK_CHAT_MODEL])],
         reasoning: { effort: REASONING_EFFORT },
         provider: { order: [breakpoints ? "Anthropic" : "DeepInfra"], allow_fallbacks: true },
         user: userHash,
-        ...(breakpoints && { cache_control: CACHE_BREAKPOINT }),
+        ...(breakpoints && { cache_control: cacheVariant === "1h-1h" ? HOUR_CACHE_BREAKPOINT : TURN_CACHE_BREAKPOINT }),
     };
 }
 
@@ -68,15 +75,15 @@ export function chatModelSettings(env: Env, modelId: string, userHash: string): 
  * breakpoint: tools render before the system prompt, so this caches both (~15k
  * tokens, identical for every user and turn) whatever happens later in the messages.
  */
-export function chatInstructions(instructions: string, modelId: string): string | SystemModelMessage {
+export function chatInstructions(instructions: string, modelId: string, cacheVariant: CacheVariant = "5m-5m"): string | SystemModelMessage {
     if (!isClaude(modelId)) return instructions;
-    return { role: "system", content: instructions, providerOptions: { openrouter: { cacheControl: CACHE_BREAKPOINT } } };
+    return { role: "system", content: instructions, providerOptions: { openrouter: { cacheControl: cacheVariant === "5m-5m" ? STATIC_CACHE_BREAKPOINT : HOUR_CACHE_BREAKPOINT } } };
 }
 
 /** Language model via OpenRouter's native provider (Chat Completions, reasoning round-trip). */
-function getModel(env: Env, modelId: string, userHash: string) {
+function getModel(env: Env, modelId: string, userHash: string, cacheVariant: CacheVariant) {
     const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY || "dummy" });
-    return openrouter(modelId, chatModelSettings(env, modelId, userHash));
+    return openrouter(modelId, chatModelSettings(env, modelId, userHash, cacheVariant));
 }
 
 /** Options resolved by the route before assembling the agent for one turn. */
@@ -90,17 +97,24 @@ export interface AgentBuildOptions {
     queryText?: string;      // the person's last two messages: what recall looks up
     requestId?: string;      // tags the turn's side-call log lines (embedding)
     diagnostics?: RunDiagnostics;
+    reusedTurnContext?: Promise<string | undefined>; // server-validated continuation only
+    settings?: UserSettings; // authoritative row already loaded during zone synchronization
+    promptPackaging?: PromptPackaging; // offline/eval candidate; routes keep the baseline until behavior/cost gates pass
+    cacheVariant?: CacheVariant; // fixed per isolated evaluation conversation, never chosen by a chat request
     waitUntil?: (promise: Promise<unknown>) => void; // keeps post-commit metrics alive
 }
 
-/**
- * Load the user's burnout index + assistant settings inside RLS. They pick the
- * voice, the workload modifier and the Environment values.
- */
+/** Resolve the persona and week convention from one authoritative settings row. */
+function assistantContext(settings: UserSettings): { persona: AssistantPersona; weekStart: PromptRuntimeContext["weekStart"]; settings: UserSettings } {
+    return { settings, persona: { ...SETTINGS_DEFAULTS.assistant, ...settings.assistant } as AssistantPersona,
+        weekStart: settings.dateTime?.weekStart ?? "Sunday" };
+}
+
 async function loadUserContext(
     env: Env,
     userId: string,
-): Promise<{ burnoutIndex: number | null; persona: AssistantPersona; weekStart: PromptRuntimeContext["weekStart"] }> {
+    settings?: UserSettings,
+): Promise<{ burnoutIndex: number | null; persona: AssistantPersona; weekStart: PromptRuntimeContext["weekStart"]; settings: UserSettings }> {
     const db = getDbClient(env);
     return withRls(db, userId, async (tx) => {
         const [metricsRow] = await tx
@@ -109,19 +123,14 @@ async function loadUserContext(
             .where(eq(userMetrics.userId, userId))
             .limit(1);
 
-        const [userRow] = await tx
+        const [userRow] = settings !== undefined ? [{ settings }] : await tx
             .select({ settings: users.settings })
             .from(users)
             .where(eq(users.id, userId))
             .limit(1);
 
-        // Merge stored assistant settings over defaults → a complete persona.
-        const stored = (userRow?.settings as Record<string, any> | undefined)?.assistant ?? {};
-        const persona = { ...SETTINGS_DEFAULTS.assistant, ...stored } as AssistantPersona;
-        const weekStart = ((userRow?.settings as any)?.dateTime?.weekStart ?? "Sunday") as PromptRuntimeContext["weekStart"];
-
         // No metrics row (or a null index) means no evidence yet — unknown, not a low score.
-        return { burnoutIndex: metricsRow?.currentBurnoutIndex ?? null, persona, weekStart };
+        return { burnoutIndex: metricsRow?.currentBurnoutIndex ?? null, ...assistantContext(userRow?.settings ?? {}) };
     });
 }
 
@@ -144,19 +153,27 @@ async function loadMemoryContext(
     queryText: string | undefined,
     requestId: string | undefined,
     diagnostics?: RunDiagnostics,
+    exactCoverage = false,
 ): Promise<ProfileLine[]> {
     if (!isLearning(persona.memoryMode)) return [];
     const db = getDbClient(env);
     let profile: ProfileLine[] = [];
     try {
-        // The query's embedding (an HTTP call) runs while the profile loads.
-        const embedding = queryText && queryText.length >= MIN_RECALL_CHARS ? measurePhase(diagnostics, "embedding", () => embedText(env, queryText, { requestId, userHash })).catch(() => null) : null;
-        profile = await measurePhase(diagnostics, "profile", () => withRls(db, userId, (tx) => loadProfile(tx, userId, today)));
-        if (!queryText || !embedding) return profile;
-        const embedded = await embedding;
+        const canRecall = !!queryText && queryText.length >= MIN_RECALL_CHARS;
+        const embed = () => measurePhase(diagnostics, "embedding", () => embedText(env, queryText!, { requestId, userHash })).catch(() => null);
+        // Default-to-baseline rollout: preserve the profile/HTTP overlap until the
+        // candidate-present latency gate has been measured for the exact variant.
+        const parallelEmbedding = !exactCoverage && canRecall ? embed() : null;
+        const coverage = await measurePhase(diagnostics, "profile", () => withRls(db, userId, (tx) => loadProfileCoverage(tx, userId, today)));
+        profile = coverage.lines;
+        diagnostics?.memoryCoverage({ variant: exactCoverage ? "exact" : "parallel", hasRecallCandidates: coverage.hasRecallCandidates, profileFacts: profile.length });
+        if (!canRecall || (exactCoverage && !coverage.hasRecallCandidates)) return profile;
+        // No DB transaction stays open during this HTTP call. Candidate-present memories keep
+        // hybrid recall and lexical fallback; the profile gate is an explicit measured dependency.
+        const embedded = await (parallelEmbedding ?? embed());
         const recalled = await measurePhase(diagnostics, "recall", () => withRls(db, userId, (tx) =>
             recallFacts(tx, userId, {
-                text: queryText,
+                text: queryText!,
                 embedding: embedded?.embedding ?? null,
                 model: embedded?.spend.model ?? getEmbeddingModelId(env),
                 today,
@@ -198,14 +215,14 @@ const promptHashes = new Map<string, Promise<string>>();
  * assistant message so a behavior change can be traced to a prompt or tool edit.
  * Static per deploy and schema variant.
  */
-function getPromptHash(tools: ToolSet, variant: boolean, memoryOn: boolean): Promise<string> {
-    const key = `${variant}:${memoryOn}`;
+function getPromptHash(tools: ToolSet, variant: boolean, memoryOn: boolean, packaging: PromptPackaging): Promise<string> {
+    const key = `${variant}:${memoryOn}:${packaging}`;
     let hash = promptHashes.get(key);
     if (!hash) {
         hash = (async () => {
             const toolDefs = await Promise.all(Object.entries(tools).map(async ([name, t]) =>
                 [name, t.description, await asSchema(t.inputSchema).jsonSchema]));
-            return hashIdentifier(JSON.stringify([PROMPT_BLOCKS, HELP_TOPICS, toolDefs]));
+            return hashIdentifier(JSON.stringify([PROMPT_BLOCKS, HELP_TOPICS, toolDefs, packaging]));
         })();
         promptHashes.set(key, hash);
     }
@@ -227,7 +244,11 @@ export async function getAgentInstance(
     const modelId = opts.modelId ?? getModelId(env);
     const userHash = await hashIdentifier(userId);
     const clock = userClock(opts.timezone, opts.currentDate);
-    const { burnoutIndex, persona, weekStart } = await measurePhase(opts.diagnostics, "settings", () => loadUserContext(env, userId));
+    const userContext = measurePhase(opts.diagnostics, "settings", () => loadUserContext(env, userId, opts.settings));
+    userContext.catch(() => {}); // construction can fail before Promise.all attaches below
+    // With authoritative settings already available, metrics need only finish before
+    // prompt composition. Independent profile/snapshot work can start immediately.
+    const { persona, weekStart, settings } = opts.settings !== undefined ? assistantContext(opts.settings) : await userContext;
     const agentCtx: AgentContext = {
         timezone: clock.timezone,
         currentDate: clock.now.toISOString(),
@@ -241,9 +262,11 @@ export async function getAgentInstance(
     };
     const tools = buildToolRegistry(env, userId, agentCtx);
     const memoryOn = isLearning(persona.memoryMode);
-    const [memories, snapshot] = await Promise.all([
-        loadMemoryContext(env, userId, userHash, persona, clock.today, opts.queryText, opts.requestId, opts.diagnostics),
-        measurePhase(opts.diagnostics, "snapshot", () => loadSnapshot(tools, clock.today)),
+    const reused = await opts.reusedTurnContext;
+    const [{ burnoutIndex }, memories, snapshot] = await Promise.all([
+        userContext,
+        reused ? [] : loadMemoryContext(env, userId, userHash, persona, clock.today, opts.queryText, opts.requestId, opts.diagnostics, env.AI_MEMORY_COVERAGE_GATE === "true"),
+        reused ? undefined : measurePhase(opts.diagnostics, "snapshot", () => loadAgentSnapshot(env, userId, agentCtx, tools, projectEvents(normalizeSettings(settings), clock.today))),
     ]);
 
     const endPrompt = opts.diagnostics?.beginPhase("prompt");
@@ -262,12 +285,13 @@ export async function getAgentInstance(
             memoryOff: !memoryOn,
         },
         opts.nonce,
+        opts.promptPackaging,
     );
     endPrompt?.();
 
     const agent = new ToolLoopAgent({
-        model: getModel(env, modelId, userHash),
-        instructions: chatInstructions(instructions, modelId),
+        model: getModel(env, modelId, userHash, opts.cacheVariant ?? "5m-5m"),
+        instructions: chatInstructions(instructions, modelId, opts.cacheVariant),
         tools: chatTools(tools, memoryOn),
         // A question to the user ends the turn: their reply is the next message.
         stopWhen: [isStepCount(MAX_TOOL_STEPS), hasToolCall("ask_user")],
@@ -279,5 +303,5 @@ export async function getAgentInstance(
         ...opts.diagnostics?.hooks,
     });
 
-    return { agent, modelId, promptHash: await measurePhase(opts.diagnostics, "promptHash", () => getPromptHash(chatTools(tools, memoryOn), isClaude(modelId), memoryOn)), turnContext };
+    return { agent, modelId, promptHash: await measurePhase(opts.diagnostics, "promptHash", () => getPromptHash(chatTools(tools, memoryOn), isClaude(modelId), memoryOn, opts.promptPackaging ?? "baseline")), turnContext: reused ?? turnContext };
 }

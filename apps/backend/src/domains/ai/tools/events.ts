@@ -11,7 +11,7 @@ import type { Tx } from "../../../types/db";
 import type { AgentContext } from "./index";
 import { safeExecute, once } from "./index";
 import { normalizeSettings } from "../../settings/settings.route";
-import { personalEventSchema, type PersonalEvent } from "@cadence/contracts/settings";
+import { personalEventSchema, type PersonalEvent, type SettingsView } from "@cadence/contracts/settings";
 
 /** The /events page's cap (`calendar.personalEvents.items`). */
 const MAX_EVENTS = 50;
@@ -80,6 +80,16 @@ function findEvent(items: PersonalEvent[], id: string) {
     return event;
 }
 
+/** Same event projection for fresh tool reads and the request's already-loaded snapshot settings. */
+export function projectEvents(settings: SettingsView, today: string) {
+    const { enabled, items } = settings.calendar.personalEvents;
+    return {
+        today,
+        shownOnCalendar: enabled ? undefined : false,
+        events: (items as PersonalEvent[]).map((event) => toMinimalEvent(event, today)).sort((a, b) => a.daysUntil - b.daysUntil),
+    };
+}
+
 export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── W ──────────────────────────────────────────────────────────────────
     create_event: tool({
@@ -138,12 +148,7 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
         execute: async () =>
             safeExecute("get_events", userId, async () => {
                 const settings = await withRls(getDbClient(env), userId, (tx) => readSettings(tx, userId));
-                const { enabled, items } = settings.calendar.personalEvents;
-                return {
-                    today: ctx.today,
-                    shownOnCalendar: enabled ? undefined : false,
-                    events: (items as PersonalEvent[]).map((event) => toMinimalEvent(event, ctx.today)).sort((a, b) => a.daysUntil - b.daysUntil),
-                };
+                return projectEvents(settings, ctx.today);
             }),
     }),
 

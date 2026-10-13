@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { IconRail } from "./IconRail";
 import { SidebarPanel } from "./SidebarPanel";
 import { useSidebarStore } from "../../stores/sidebar-store";
+import { useNavPanel } from "../../hooks/ui/use-nav-panel";
 import type { ShellMode } from "../../hooks/ui/use-shell-mode";
 
 /** Resize bounds — one honest minimum (`--sidebar-min-width`) shared by the
@@ -27,25 +28,31 @@ export function Sidebar({
     const isSchedule = location.pathname === "/schedule";
     const isHabits = location.pathname === "/routines";
     const isEvents = location.pathname === "/events";
-    const { isCollapsed, toggleCollapse, width, setWidth } = useSidebarStore();
+    const { width, setWidth, setDrawerOpen } = useSidebarStore();
+    const panel = useNavPanel();
     const [isResizing, setIsResizing] = useState(false);
     const showPersistentPanel = !isSchedule && !isHabits && !isEvents;
-    const showWorkspaceNav = mode !== "wide";
     const sidebarMotionTransition = isResizing
         ? { duration: 0 }
         : { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
 
-    // Keyboard shortcut: Cmd/Ctrl + [ toggles sidebar
+    // Keyboard shortcut: Cmd/Ctrl + [ toggles sidebar; Escape closes the laptop drawer.
+    const { toggle, close } = panel;
+    const drawerOpen = panel.overlay && panel.open;
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && e.key === "[") {
                 e.preventDefault();
-                toggleCollapse();
+                toggle();
+            } else if (drawerOpen && e.key === "Escape" && !e.defaultPrevented) {
+                close();
             }
         };
         window.addEventListener("keydown", handler);
         return () => window.removeEventListener("keydown", handler);
-    }, [toggleCollapse]);
+    }, [toggle, close, drawerOpen]);
+    // A drawer has done its job once you go somewhere.
+    useEffect(() => { setDrawerOpen(false); }, [location.pathname, location.search, setDrawerOpen]);
 
     const startResizing = useCallback((e: React.MouseEvent) => {
         setIsResizing(true);
@@ -58,13 +65,13 @@ export function Sidebar({
 
     const resize = useCallback((e: MouseEvent) => {
         if (isResizing) {
-            const railOffset = mode === "wide" ? 56 : 0;
-            const newWidth = e.clientX - railOffset;
+            // The rail (56px) always sits left of the panel.
+            const newWidth = e.clientX - 56;
             if (newWidth >= SIDEBAR_MIN_WIDTH && newWidth <= SIDEBAR_MAX_WIDTH) {
                 setWidth(newWidth);
             }
         }
-    }, [isResizing, mode, setWidth]);
+    }, [isResizing, setWidth]);
 
     useEffect(() => {
         if (isResizing) {
@@ -88,15 +95,15 @@ export function Sidebar({
 
     if (mode === "phone" || mode === "tablet") return null;
 
-    const panelOpen = showPersistentPanel && !isCollapsed;
+    // Full-bleed routes (Schedule, Routines, Events) keep the docked panel out; a drawer is asked for, so it opens anywhere.
+    const panelOpen = panel.overlay ? panel.open : showPersistentPanel && panel.open;
 
-    // Laptop nav lives in the panel, so the rail only stands in while the panel is
-    // hidden (collapsed, or a full-bleed route); otherwise there'd be no way to navigate.
+    // The rail always carries the destinations; the panel holds only what it alone has (lists, tags), never a copy.
     return (
-        <aside className="layer-shell-base relative flex h-full shrink-0" aria-label="Application navigation">
-            {(mode === "wide" || !panelOpen) && (
-                <IconRail onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
-            )}
+        <aside className={`${drawerOpen ? "layer-floating-bar" : "layer-shell-base"} relative flex h-full shrink-0`} aria-label="Application navigation">
+            <IconRail onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
+            {/* Outside the drawer (the rail stays live): a click closes it. */}
+            {drawerOpen ? <div className="fixed inset-y-0 left-14 right-0" onClick={close} aria-hidden="true" /> : null}
             <AnimatePresence initial={false}>
                 {panelOpen && (
                     <motion.div
@@ -107,9 +114,9 @@ export function Sidebar({
                         exit={{ width: 0 }}
                         transition={sidebarMotionTransition}
                         style={{ overflow: "hidden", willChange: "width" }}
-                        className={mode === "wide"
-                            ? "relative shrink-0 group/sidebar"
-                            : "photo-shell-surface sticky top-0 relative h-full shrink-0 self-start border-r border-twilight-border bg-twilight-surface/35 backdrop-blur-xl"}
+                        className={panel.overlay
+                            ? "glass-surface absolute left-full top-0 h-full border-r border-twilight-border shadow-2xl shadow-black/40"
+                            : "relative shrink-0 group/sidebar"}
                     >
                         <motion.div
                             initial={{ x: -32, opacity: 0 }}
@@ -119,7 +126,7 @@ export function Sidebar({
                             className="relative h-full w-full"
                             style={{ willChange: "transform, opacity" }}
                         >
-                            <SidebarPanel showWorkspaceNav={showWorkspaceNav} onSearchOpen={onSearchOpen} />
+                            <SidebarPanel onSearchOpen={onSearchOpen} />
 
                             <div
                                 onMouseDown={startResizing}

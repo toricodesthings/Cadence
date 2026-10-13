@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Refreshing immediately after sending an assistant message reconnects once its reply stream is ready.
+- Photos open full screen, centred and fitted to the screen, instead of in a small panel.
+- On phones, dialogs open as sheets you can drag closed, and their close button no longer covers the title.
+- On phones, emoji and colour pickers open as sheets; the emoji picker matches your theme and closes once you pick.
+- Narrower desktop windows keep the icon rail; the sidebar opens over the page and no longer repeats the rail's links.
+
 ## [0.33.1] - 2026-10-13
 
 ### Added

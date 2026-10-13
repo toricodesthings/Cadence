@@ -2776,6 +2776,11 @@ button.surface-control:not(:disabled):hover {
     padding-bottom: 0;
   }
 }
+/* A dialog's corner X never sits on its title. A phone sheet whose footer has its
+   own Cancel drops the X: one way out, said once (the grabber and backdrop still close it). */
+[data-cadence-dialog-content]:has(> [data-dialog-x]) [data-dialog-header] { padding-right: 3rem; }
+[data-dialog-sheet]:has([data-dialog-footer]) > [data-dialog-x] { display: none; }
+[data-dialog-sheet]:has([data-dialog-footer]) [data-dialog-header] { padding-right: 0; }
 /* The floating dock leaves a visible gap to the screen's bottom edge. */
 .mobile-tab-bar.safe-bottom { padding-bottom: max(0.875rem, env(safe-area-inset-bottom)); }
 body:has(.compact-navigation-shell) .mobile-floating-action {

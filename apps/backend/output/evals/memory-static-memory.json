@@ -1,0 +1,19 @@
+{
+  "optimization": {
+    "promptPackaging": "static-memory",
+    "cacheVariant": "5m-5m"
+  },
+  "at": "2026-10-13T19:03:18.135Z",
+  "model": "anthropic/claude-haiku-5.5",
+  "runs": 1,
+  "agesAgo": [
+    {
+      "usesFact": true,
+      "mentionsJune": false,
+      "text": "The weekend of Friday 17 to Sunday 19 September 2027 is completely empty so far. Your sister Maya's wedding is on Saturday the 18th, which I'll plan around. What should the plan cover?"
+    }
+  ],
+  "callbackTone": {
+    "problems": []
+  }
+}

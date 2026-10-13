@@ -6,6 +6,10 @@ Cadence carries executive function for people who struggle with it: ADHD, autism
 
 Before touching an area, read its guide: `apps/frontend/AGENTS.md`, `apps/backend/AGENTS.md`, `apps/desktop/AGENTS.md`, `apps/landing/AGENTS.md`, `packages/AGENTS.md`. Tests live in each app's `tests/` and in `packages/tests/` (mirrors `packages/`), never next to source.
 
+## MANIFESTO
+
+Cadence has a manifesto, [`docs/MANIFESTO.md`](docs/MANIFESTO.md). It's clear and intentional with almost no exceptions. Read before making changes to understand the guiding principles behind the code but especially the frontend.
+
 ## Find code with the graph first
 
 If `graphify-out/graph.json` exists (a local, git-ignored knowledge graph of `apps/` + `packages/`, refreshed by a post-commit hook), use it before grepping for anything cross-file:

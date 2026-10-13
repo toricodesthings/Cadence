@@ -3,8 +3,11 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
+import { motion, useDragControls } from "framer-motion";
 import { cn } from "../../lib/utils";
-import { DIALOG_CONTENT, DIALOG_DESCRIPTION, DIALOG_FOOTER, DIALOG_HEADER, DIALOG_OVERLAY, DIALOG_TITLE } from "./dialog-styles";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { SWIPE_THRESHOLD } from "../shared/ResponsiveOverlayPanel";
+import { DIALOG_CONTENT, DIALOG_DESCRIPTION, DIALOG_FOOTER, DIALOG_HEADER, DIALOG_OVERLAY, DIALOG_SHEET, DIALOG_TITLE } from "./dialog-styles";
 
 const Dialog = DialogPrimitive.Root;
 
@@ -42,25 +45,59 @@ DialogCloseButton.displayName = "DialogCloseButton";
 
 const DialogContent = React.forwardRef<
     React.ElementRef<typeof DialogPrimitive.Content>,
-    React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { hideCloseButton?: boolean }
->(({ className, children, hideCloseButton, ...props }, ref) => (
-    <DialogPortal>
-        <DialogOverlay />
-        <DialogPrimitive.Content
-            ref={ref}
-            data-cadence-dialog-content="true"
-            aria-describedby={undefined}
-            className={cn(
-                DIALOG_CONTENT,
-                className
-            )}
-            {...props}
-        >
+    React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+        hideCloseButton?: boolean;
+        /** False for a surface that is full screen at every size (the photo viewer). */
+        phoneSheet?: boolean;
+    }
+>(({ className, children, hideCloseButton, phoneSheet = true, ...props }, ref) => {
+    // A touch phone gets a docked sheet: drag the grabber down to dismiss, as every compact sheet does.
+    const { isPhone, isTouch } = useShellMode();
+    const sheet = phoneSheet && isPhone && isTouch;
+    const dragControls = useDragControls();
+    const close = React.useRef<HTMLButtonElement>(null);
+    const content = (
+        <>
+            {sheet ? (
+                <div onPointerDown={(event) => dragControls.start(event)} style={{ touchAction: "none" }} className="absolute inset-x-0 top-0 flex h-8 cursor-grab items-center justify-center active:cursor-grabbing" aria-hidden="true">
+                    <div className="h-1 w-10 rounded-full bg-twilight-text-muted/40" />
+                </div>
+            ) : null}
             {children}
-            {!hideCloseButton && <DialogCloseButton className="absolute right-4 top-4 sm:right-6 sm:top-5" />}
-        </DialogPrimitive.Content>
-    </DialogPortal>
-));
+            {!hideCloseButton && <DialogCloseButton data-dialog-x className={sheet ? "absolute right-4 top-7" : "absolute right-4 top-4 sm:right-6 sm:top-5"} />}
+            {sheet ? <DialogPrimitive.Close ref={close} hidden tabIndex={-1} aria-hidden="true" /> : null}
+        </>
+    );
+    return (
+        <DialogPortal>
+            <DialogOverlay />
+            <DialogPrimitive.Content
+                ref={ref}
+                data-cadence-dialog-content="true"
+                data-dialog-sheet={sheet || undefined}
+                aria-describedby={undefined}
+                asChild={sheet}
+                className={cn(DIALOG_CONTENT, className, sheet && DIALOG_SHEET)}
+                {...props}
+            >
+                {sheet ? (
+                    <motion.div
+                        drag="y"
+                        dragListener={false}
+                        dragControls={dragControls}
+                        dragConstraints={{ top: 0, bottom: 0 }}
+                        dragElastic={{ top: 0, bottom: 0.6 }}
+                        onDragEnd={(_, info) => {
+                            if (info.offset.y > SWIPE_THRESHOLD || info.velocity.y > 300) close.current?.click();
+                        }}
+                    >
+                        {content}
+                    </motion.div>
+                ) : content}
+            </DialogPrimitive.Content>
+        </DialogPortal>
+    );
+});
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({
@@ -68,7 +105,8 @@ const DialogHeader = ({
     ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
     <div
-        className={cn(DIALOG_HEADER, className)}
+        data-dialog-header
+        className={cn(DIALOG_HEADER, "text-left", className)}
         {...props}
     />
 );
@@ -79,6 +117,7 @@ const DialogFooter = ({
     ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
     <div
+        data-dialog-footer
         className={cn(DIALOG_FOOTER, className)}
         {...props}
     />

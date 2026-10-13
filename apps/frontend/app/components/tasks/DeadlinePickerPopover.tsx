@@ -1,7 +1,5 @@
 import React, { useState } from "react";
-import * as Popover from "../primitives/Popover";
-import { UtilitySheet } from "../shared/UtilitySheet";
-import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { PickerSurface } from "../shared/PickerSurface";
 import type { Instant, LocalDate } from "@cadence/domain/time";
 import { QuickScheduleSurface, type ScheduleUpdates } from "./QuickScheduleSurface";
 
@@ -38,66 +36,38 @@ export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
     onOpenChange,
     returnFocus,
 }) => {
-    const shell = useShellMode();
     const [ownOpen, setOwnOpen] = useState(false);
     const open = controlledOpen ?? ownOpen;
     const setOpen = (next: boolean) => { setOwnOpen(next); onOpenChange?.(next); };
     const moment = variant === "moment";
     const onCloseAutoFocus = returnFocus ? (event: Event) => { event.preventDefault(); returnFocus(); } : undefined;
-    if (shell.isPhone) {
-        // A phone gets the sheet every compact panel uses; its trigger only opens it.
-        return (
-            <>
-                {React.cloneElement(children, {
-                    "aria-haspopup": "dialog",
-                    "aria-expanded": open,
-                    onClick: (event: React.MouseEvent<HTMLElement>) => { children.props.onClick?.(event); setOpen(true); },
-                })}
-                <UtilitySheet
-                    title={moment ? "Remind me" : "Schedule task"}
-                    open={open}
-                    onClose={() => setOpen(false)}
-                    flush
-                >
-                    <QuickScheduleSurface
-                        dueDate={dueDate}
-                        endDate={endDate}
-                        scheduledStart={scheduledStart}
-                        scheduledEnd={scheduledEnd}
-                        recurrenceRule={recurrenceRule}
-                        isOpen={open}
-                        onChange={onChange}
-                        onRequestClose={() => setOpen(false)}
-                        variant={variant}
-                    />
-                </UtilitySheet>
-            </>
-        );
-    }
-
     return (
-        <Popover.Root open={open} onOpenChange={setOpen}>
-            <Popover.Trigger asChild>{children}</Popover.Trigger>
-            <Popover.Content
-                className="w-[320px] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overscroll-contain p-0"
-                side="bottom"
-                align="start"
-                role="dialog"
-                aria-label={moment ? "Reminder picker" : "Deadline picker"}
-                onCloseAutoFocus={onCloseAutoFocus}
-            >
-                <QuickScheduleSurface
-                    dueDate={dueDate}
-                    endDate={endDate}
-                    scheduledStart={scheduledStart}
-                    scheduledEnd={scheduledEnd}
-                    recurrenceRule={recurrenceRule}
-                    isOpen={open}
-                    onChange={onChange}
-                    onRequestClose={() => setOpen(false)}
-                    variant={variant}
-                />
-            </Popover.Content>
-        </Popover.Root>
+        <PickerSurface
+            trigger={children}
+            title={moment ? "Remind me" : "Schedule task"}
+            open={open}
+            onOpenChange={setOpen}
+            flush
+            contentProps={{
+                className: "w-[320px] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overscroll-contain p-0",
+                side: "bottom",
+                align: "start",
+                role: "dialog",
+                "aria-label": moment ? "Reminder picker" : "Deadline picker",
+                onCloseAutoFocus,
+            }}
+        >
+            <QuickScheduleSurface
+                dueDate={dueDate}
+                endDate={endDate}
+                scheduledStart={scheduledStart}
+                scheduledEnd={scheduledEnd}
+                recurrenceRule={recurrenceRule}
+                isOpen={open}
+                onChange={onChange}
+                onRequestClose={() => setOpen(false)}
+                variant={variant}
+            />
+        </PickerSurface>
     );
 };

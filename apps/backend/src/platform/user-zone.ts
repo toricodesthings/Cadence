@@ -20,11 +20,16 @@ export async function userZone(tx: Tx, userId: string): Promise<Zone> {
  * pins, which wins over a device report). An unrecognised report is ignored. Returns the zone now stored.
  */
 export async function syncUserZone(tx: Tx, userId: string, reported: unknown): Promise<Zone> {
+    return (await syncUserZoneWithSettings(tx, userId, reported)).timezone;
+}
+
+/** Same synchronization, returning its authoritative settings row for request-scoped reuse. */
+export async function syncUserZoneWithSettings(tx: Tx, userId: string, reported: unknown) {
     const [row] = await tx.select({ zone: users.timeZone, settings: users.settings }).from(users).where(eq(users.id, userId));
     const current = storedZone(row?.zone);
     // "device" follows the device; anything unrecognised is not a pin.
     const pinned = row?.settings?.dateTime?.timezone;
     const next = isZone(pinned) ? pinned : isZone(reported) ? reported : current;
     if (next !== current) await tx.update(users).set({ timeZone: next }).where(eq(users.id, userId));
-    return next;
+    return { timezone: next, settings: row?.settings ?? {} };
 }

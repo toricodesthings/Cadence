@@ -62,6 +62,31 @@ describe("isWorkloadHigh", () => {
 });
 
 describe("composePrompt", () => {
+    it("keeps baseline packaging unchanged and moves invariant memory policy into the candidate's static prefix", () => {
+        const context = ctx({ memoryOff: false, memories: [{ id: "fact-1", content: "Keep Fridays free", saidOn: "2026-08-12", sensitive: true, stale: true }] });
+        const baseline = composePrompt(PROMPT_BLOCKS, context, "N", "baseline");
+        expect(baseline).toEqual(parts(context));
+        const candidate = composePrompt(PROMPT_BLOCKS, context, "N", "static-memory");
+        expect(candidate.instructions).toContain("Never bring up a fact marked sensitive unless they do.");
+        expect(candidate.instructions).toContain("the supplied memory facts");
+        expect(candidate.instructions).not.toContain("Keep Fridays free");
+        expect(candidate.turnContext).toContain("[fact-1] (source month: August 2026");
+        expect(candidate.turnContext).toContain("SANITIZED(Keep Fridays free)");
+        expect(candidate.turnContext).toContain("sensitive, not mentioned in over a year: confirm once if it matters");
+        expect(candidate.turnContext).not.toContain("Never bring up a fact marked sensitive");
+        const next = composePrompt(PROMPT_BLOCKS, ctx({ memoryOff: false, memories: [], now: "new time" }), "N2", "static-memory");
+        expect(next.instructions).toBe(candidate.instructions);
+    });
+
+    it("keeps off instructions coherent in the candidate, even when an old context carries memory", () => {
+        const off = composePrompt(PROMPT_BLOCKS, ctx({ memoryOff: true, memories: [{ id: "old", content: "Old fact", saidOn: "2026-08-12", sensitive: false }] }), "N", "static-memory");
+        expect(off.instructions).not.toContain("Never bring up a fact marked sensitive");
+        expect(off.turnContext).toContain("Memory is off for this person");
+        expect(off.turnContext).not.toContain("Old fact");
+        const old = { id: "old", role: "user", metadata: { turnContext: "Stored legacy policy and facts" } };
+        expect(turnContexts([old], "new", off.turnContext, false).contexts.get("old")).toBe("Stored legacy policy and facts");
+    });
+
     it("orders static base → voice → Environment, with no old separators or caps titles", () => {
         const out = compose(ctx());
         const order = ["## Identity", "## Rules", "## Changes", "## Reading intent", "## Using tools", "## Replies", "## Cadence primer", "## Voice", "## Environment"]

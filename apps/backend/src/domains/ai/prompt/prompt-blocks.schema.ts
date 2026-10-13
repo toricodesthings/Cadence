@@ -7,6 +7,8 @@ import type { UserSettings } from "@cadence/contracts/settings";
 import type { ProfileLine } from "../memory/memory-store";
 
 type AssistantSettings = NonNullable<UserSettings["assistant"]>;
+/** Internal benchmark variants; the production caller defaults to the existing packaging. */
+export type PromptPackaging = "baseline" | "static-memory";
 
 export type Voice = NonNullable<AssistantSettings["persona"]>;
 
@@ -21,6 +23,9 @@ export interface PromptBlocks {
     environment: string;
     snapshot: string;
     memory: string;
+    /** Data-only templates for the static-policy evaluation variant. */
+    memoryFacts: string;
+    memoryFact: string;
     /** Said instead of the memory block while the person has memory off. */
     memoryOff: string;
 }

@@ -22,6 +22,7 @@ import { consolidate } from "../../src/domains/ai/memory/consolidate";
 import { embedTexts, getEmbeddingModelId } from "../../src/domains/ai/memory/embedding";
 import { insertFact, loadProfile, recallFacts } from "../../src/domains/ai/memory/memory-store";
 import { getAgentInstance } from "../../src/domains/ai/agent";
+import { optimizationOptions } from "./optimization-options";
 import { withRls } from "../../src/platform/rls";
 import { users } from "../../src/db/schema";
 import { eq } from "drizzle-orm";
@@ -37,12 +38,14 @@ function devVars(): Record<string, string> {
     }
 }
 const vars = { ...devVars(), ...process.env } as Record<string, string | undefined>;
+const optimization = optimizationOptions(vars);
 const env = {
     OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY,
     AI_CHAT_MODEL: vars.AI_CHAT_MODEL,
     AI_CHAT_MODEL_BASIC: vars.AI_CHAT_MODEL_BASIC,
     AI_DECISION_MODEL: vars.AI_DECISION_MODEL,
     AI_EMBEDDING_MODEL: vars.AI_EMBEDDING_MODEL,
+    AI_MEMORY_COVERAGE_GATE: vars.AI_MEMORY_COVERAGE_GATE,
 } as unknown as Env;
 const live = Boolean(env.OPENROUTER_API_KEY);
 const RUNS = Number(vars.MEMORY_EVAL_RUNS) || 3;
@@ -52,7 +55,7 @@ const TODAY = "2026-10-12";
 beforeAll(startTestDb);
 afterAll(() => {
     mkdirSync(join(__dirname, "../../output/evals"), { recursive: true });
-    writeFileSync(join(__dirname, "../../output/evals/memory.json"), JSON.stringify({ at: new Date().toISOString(), model: env.AI_CHAT_MODEL, runs: RUNS, ...report }, null, 2));
+    writeFileSync(join(__dirname, "../../output/evals/memory.json"), JSON.stringify({ optimization, at: new Date().toISOString(), model: env.AI_CHAT_MODEL, runs: RUNS, ...report }, null, 2));
 });
 
 describe.skipIf(!live)("memory · extraction precision", () => {
@@ -153,7 +156,7 @@ describe.skipIf(!live)("memory · recall with the model in the loop", () => {
         const results: { id: string; auto: boolean; viaTool: boolean; calls: number }[] = [];
         for (let i = 0; i < RECALL_CASES.length; i += 5) {
             results.push(...(await Promise.all(RECALL_CASES.slice(i, i + 5).map(async (c) => {
-                const { agent, turnContext } = await getAgentInstance(env, userId, {
+                const { agent, turnContext } = await getAgentInstance(env, userId, { ...optimization,
                     timezone: "America/Toronto", currentDate: "2026-10-12T14:00:00.000Z", approvalMode: "ask", nonce: "evalnonce", queryText: c.request,
                 });
                 const result = await agent.generate({ messages: [{ role: "user", content: `${c.request}\n\n${turnContext}` }] });
@@ -174,7 +177,7 @@ describe.skipIf(!live)("memory · the ages-ago test", () => {
         // Stated in June, 4 months ago; the request names September, so "June" can only come from the callback.
         const { userId } = await seedPerson([{ content: "Sister Maya's wedding is September 18, 2027", kind: "life", saidOn: "2026-06-12" }]);
         const runs = await Promise.all(Array.from({ length: RUNS }, async () => {
-            const { agent, turnContext } = await getAgentInstance(env, userId, {
+            const { agent, turnContext } = await getAgentInstance(env, userId, { ...optimization,
                 timezone: "America/Toronto",
                 currentDate: "2026-10-12T14:00:00.000Z",
                 approvalMode: "full",
@@ -203,7 +206,7 @@ describe.skipIf(!live)("memory · the remember tool", () => {
             }
         });
         const request = turns.at(-1)!.content;
-        const { agent, turnContext } = await getAgentInstance(env, userId, {
+        const { agent, turnContext } = await getAgentInstance(env, userId, { ...optimization,
             timezone: "America/Toronto", currentDate: "2026-10-12T14:00:00.000Z", approvalMode: "ask", nonce: "evalnonce", queryText: request,
         });
         const messages = turns.map((turn, i) => (i === turns.length - 1 ? { ...turn, content: `${request}\n\n${turnContext}` } : turn));
@@ -322,7 +325,7 @@ describe.skipIf(!live)("memory · callback tone", () => {
                 await insertFact(tx, userId, { kind: f.kind as never, content: f.content, embedding: vectors[i], embeddingModel: model, saidOn: f.saidOn, source: "chat", confidence: "stated", sensitive: f.sensitive });
             }
         });
-        const { agent, turnContext } = await getAgentInstance(env, userId, {
+        const { agent, turnContext } = await getAgentInstance(env, userId, { ...optimization,
             timezone: "America/Toronto", currentDate: "2026-10-12T14:00:00.000Z", approvalMode: "full", nonce: "evalnonce", queryText: request,
         });
         return (await agent.generate({ messages: [{ role: "user", content: `${request}\n\n${turnContext}` }] })).text;

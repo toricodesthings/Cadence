@@ -1,0 +1,16 @@
+{
+  "optimization": {
+    "promptPackaging": "baseline",
+    "cacheVariant": "5m-5m"
+  },
+  "at": "2026-10-13T19:05:52.207Z",
+  "model": "anthropic/claude-haiku-5.5",
+  "runs": 1,
+  "agesAgo": [
+    {
+      "usesFact": true,
+      "mentionsJune": true,
+      "text": "I've put a plan for Friday 17 to Sunday 19 September 2027 on your calendar. Your sister Maya's wedding is on Saturday the 18th, which you mentioned in June, so the weekend centres on that day. Is it still the 18th?\n\n- **Friday 17:** pack, pick and press your outfit, sort Maya's gift and card, and confirm your travel and arrival time.\n- **Saturday 18:** Maya's wedding day. I added a note to eat bef"
+    }
+  ]
+}

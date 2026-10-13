@@ -25,6 +25,8 @@ import workloadHigh from "../../../prompts/assistant/voice/workload-high.md";
 import customInstructions from "../../../prompts/assistant/user/custom-instructions.md";
 import environment from "../../../prompts/assistant/user/environment.md";
 import memory from "../../../prompts/assistant/user/memory.md";
+import memoryFacts from "../../../prompts/assistant/user/memory-facts.md";
+import memoryFact from "../../../prompts/assistant/user/memory-fact.md";
 import memoryOff from "../../../prompts/assistant/user/memory-off.md";
 import snapshot from "../../../prompts/assistant/user/snapshot.md";
 
@@ -38,5 +40,7 @@ export const PROMPT_BLOCKS: PromptBlocks = {
     environment: t(environment),
     snapshot: t(snapshot),
     memory: t(memory),
+    memoryFacts: t(memoryFacts),
+    memoryFact: t(memoryFact),
     memoryOff: t(memoryOff),
 };
