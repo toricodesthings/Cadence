@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.32.2] - 2026-10-12
+
 Memory keeps up, however many people use it.
 
 ### Added
