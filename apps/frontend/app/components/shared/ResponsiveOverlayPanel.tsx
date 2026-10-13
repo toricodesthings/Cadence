@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
+import { useKeyboardInset } from "../../hooks/ui/use-keyboard-inset";
 
 interface ResponsiveOverlayPanelProps {
     ariaLabel: string;
@@ -63,6 +64,10 @@ export function ResponsiveOverlayPanel({
     const isPeekMobile = isMobile && !isFocus;
     const dragControls = useDragControls();
     const reducedMotion = useReducedMotionSetting();
+    // The keyboard never covers a sheet: it rides on top, footer controls (day, submit) just above the keys,
+    // as in the writing room. iOS keeps fixed elements in the layout viewport, under the keyboard.
+    const { inset: keyboard } = useKeyboardInset(open && isMobile);
+    const aboveKeyboard = keyboard ? `calc(100dvh - ${keyboard}px - max(0.5rem, env(safe-area-inset-top)))` : null;
     const labelId = useId();
     const panelRef = useRef<HTMLElement | null>(null);
     const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -95,7 +100,7 @@ export function ResponsiveOverlayPanel({
 
         if (portalNode) {
             const bodyChildren = Array.from(document.body.children);
-            inertStateRef.current = bodyChildren
+            const swept = bodyChildren
                 .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== portalNode && !("cadenceToaster" in element.dataset))
                 .map((element) => {
                     const previous = {
@@ -107,6 +112,12 @@ export function ResponsiveOverlayPanel({
                     element.setAttribute("aria-hidden", "true");
                     return previous;
                 });
+            // The open overlay is always live. A sheet nested in another mounts its root as the outer one opens,
+            // so the outer sweep can catch it; left inert, the inner sheet would swallow every touch with no way out.
+            const own = { element: portalNode, ariaHidden: portalNode.getAttribute("aria-hidden"), inert: portalNode.inert };
+            portalNode.inert = false;
+            portalNode.removeAttribute("aria-hidden");
+            inertStateRef.current = [...swept, own];
         }
 
         const frame = window.requestAnimationFrame(() => {
@@ -215,7 +226,16 @@ export function ResponsiveOverlayPanel({
                             dragConstraints={{ top: 0 }}
                             dragElastic={0.15}
                             onDragEnd={isPeekMobile ? handleDragEnd : undefined}
-                            style={isPeekMobile ? { height: fit ? "auto" : "min(92dvh, 52rem)", maxHeight: "min(92dvh, 52rem)", width: "100%", maxWidth: shell.isTablet ? "48rem" : undefined, marginInline: "auto" } : undefined}
+                            style={isPeekMobile
+                                ? {
+                                    height: fit ? "auto" : aboveKeyboard ?? "min(92dvh, 52rem)",
+                                    maxHeight: aboveKeyboard ?? "min(92dvh, 52rem)",
+                                    bottom: keyboard || undefined,
+                                    width: "100%",
+                                    maxWidth: shell.isTablet ? "48rem" : undefined,
+                                    marginInline: "auto",
+                                }
+                                : isMobile && keyboard ? { bottom: keyboard } : undefined}
                             className={[
                                 `mobile-sheet-shell ${layer === "room" ? "layer-room-sheet" : "layer-route-overlay"} surface-route-overlay fixed flex w-full flex-col shadow-2xl shadow-black/40`,
                                 isMobile

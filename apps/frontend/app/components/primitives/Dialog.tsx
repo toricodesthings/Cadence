@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { motion, useDragControls } from "framer-motion";
 import { cn } from "../../lib/utils";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { useKeyboardInset } from "../../hooks/ui/use-keyboard-inset";
 import { SWIPE_THRESHOLD } from "../shared/ResponsiveOverlayPanel";
 import { DIALOG_CONTENT, DIALOG_DESCRIPTION, DIALOG_FOOTER, DIALOG_HEADER, DIALOG_OVERLAY, DIALOG_SHEET, DIALOG_TITLE } from "./dialog-styles";
 
@@ -56,6 +57,8 @@ const DialogContent = React.forwardRef<
     const sheet = phoneSheet && isPhone && isTouch;
     const dragControls = useDragControls();
     const close = React.useRef<HTMLButtonElement>(null);
+    // Like every sheet, it rides the keyboard instead of hiding its fields and buttons under it.
+    const { inset: keyboard } = useKeyboardInset(sheet);
     const content = (
         <>
             {sheet ? (
@@ -82,6 +85,7 @@ const DialogContent = React.forwardRef<
             >
                 {sheet ? (
                     <motion.div
+                        style={keyboard ? { bottom: keyboard, maxHeight: `calc(100dvh - ${keyboard}px - max(0.5rem, env(safe-area-inset-top)))`, paddingBottom: "1rem" } : undefined}
                         drag="y"
                         dragListener={false}
                         dragControls={dragControls}

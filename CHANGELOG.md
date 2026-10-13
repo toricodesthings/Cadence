@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- On iPhone, opening the date picker from the capture sheet no longer freezes Cadence.
+- On phones, sheets sit above the keyboard, so their buttons and pickers stay in reach while you type.
+
 ## [0.33.2] - 2026-10-13
 
 ### Fixed
