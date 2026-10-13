@@ -6,6 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Go straight from a task or routine to the app you need.
+
+### Added
+
+- Choose an app for any task or routine and open it with one tap from its details.
+
+### Changed
+
+- The MyFitnessPal link is no longer on every routine; pick it only on the routines that need it.
+
 ## [0.32.2] - 2026-10-12
 
 Memory keeps up, however many people use it.

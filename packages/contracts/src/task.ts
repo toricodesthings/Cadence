@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { instantSchema, localDateSchema, paginationSchema, zoneSchema } from "./common";
+import { linkedAppIdSchema } from "./app-link";
 import { DATE_STYLES, SOURCE_SURFACES, type CanonicalNlpEnvelope } from "@cadence/nlp/core";
 
 // ── Enums / shared scalars ──
@@ -63,6 +64,8 @@ export const insertTaskSchema = z.object({
     effortOrigin: effortOriginSchema.optional(),
     /** Hide until this day. */
     notBefore: localDateSchema.nullable().optional(),
+    /** The one app this task opens; null removes it, omitted leaves it. */
+    linkedAppId: linkedAppIdSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
     tagIds: z.array(z.uuid()).max(50).optional(),
     nlp: canonicalNlpEnvelopeSchema.optional(),
@@ -93,6 +96,7 @@ export const updateTaskSchema = z.object({
     effort: effortLevelSchema.nullable().optional(),
     effortOrigin: effortOriginSchema.optional(),
     notBefore: localDateSchema.nullable().optional(),
+    linkedAppId: linkedAppIdSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
     expectedUpdatedAt: z.string().optional(),
 });
@@ -158,6 +162,7 @@ export const taskRowSchema = z.object({
     effortOrigin: z.string().nullable(),
     effortChosenAt: instantSchema.nullable(),
     notBefore: localDateSchema.nullable(),
+    linkedAppId: z.string().nullable(),
     createdAt: instantSchema,
     updatedAt: instantSchema,
 });
@@ -175,6 +180,8 @@ export const taskSchema = taskRowSchema.omit({ effortOrigin: true, effortChosenA
     waitingOn: z.string().nullable().optional(),
     waitingReminder: instantSchema.nullable().optional(),
     notBefore: localDateSchema.nullable().optional(),
+    /** Any stored id, even one this build doesn't know; absent on data cached before the field existed. */
+    linkedAppId: z.string().nullable().optional(),
     tagIds: z.array(z.uuid()),
     isHabit: z.boolean().optional(),
     seriesId: z.uuid().optional(),

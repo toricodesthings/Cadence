@@ -12,7 +12,8 @@
     "./ranking": "./src/ranking/index.ts",
     "./focus-views": "./src/focus-views/index.ts",
     "./focus-views/apply": "./src/focus-views/apply.ts",
-    "./effort": "./src/effort/index.ts"
+    "./effort": "./src/effort/index.ts",
+    "./app-suggestions": "./src/app-suggestions/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { instantSchema, localDateSchema } from "./common";
+import { linkedAppIdSchema } from "./app-link";
 
 export const habitStatusSchema = z.enum(["COMPLETED", "SKIPPED", "PENDING"]);
 export type HabitStatus = z.infer<typeof habitStatusSchema>;
@@ -54,6 +55,8 @@ export const insertHabitSchema = z.object({
     steps: routineStepsSchema.nullable().optional(),
     /** Set times each day; null/absent = the usual single `targetTime`. Replaces `targetTime` and `targetTimes` when set. */
     times: routineTimesSchema.nullable().optional(),
+    /** The one app this routine opens; null removes it, omitted leaves it. */
+    linkedAppId: linkedAppIdSchema.nullable().optional(),
 });
 export type InsertHabit = z.input<typeof insertHabitSchema>;
 
@@ -109,6 +112,7 @@ export const habitRowSchema = z.object({
     notes: z.string().nullable(),
     steps: z.array(z.object({ id: z.string(), title: z.string() })).nullable(),
     times: z.array(z.string()).nullable(),
+    linkedAppId: z.string().nullable(),
     createdAt: instantSchema,
     updatedAt: instantSchema,
 });
@@ -143,6 +147,8 @@ export type HabitLog = z.infer<typeof habitLogSchema>;
 
 // ── Habit entity — row + weekly-endpoint enrichment ──
 export const habitSchema = habitRowSchema.extend({
+    /** Absent on data cached before the field existed. */
+    linkedAppId: z.string().nullable().optional(),
     tagIds: z.array(z.uuid()).optional(),
     logs: z.array(habitLogSchema).optional(),
     isDueToday: z.boolean().optional(),

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import * as Popover from "../primitives/Popover";
 import { addDays, weekdayOf, type LocalDate } from "@cadence/domain/time";
-import { Archive, ArchiveRestore, ArrowUpRight, Bell, CalendarClock, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock3, FolderOpen, ListChecks, Repeat2, Palette, Pause, Play, SlidersHorizontal, Smartphone, StickyNote, Tag, Target, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Bell, CalendarClock, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock3, FolderOpen, ListChecks, Repeat2, Palette, Pause, Play, SlidersHorizontal, StickyNote, Tag, Target, Trash2 } from "lucide-react";
 import type { Habit } from "@cadence/contracts/habit";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
 import { useRoutineActions } from "../../hooks/habits/use-routine-actions";
@@ -12,6 +12,8 @@ import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import { DetailTitle } from "../shared/DetailTitle";
 import { CARD, PANEL_TRIGGER, PanelHeader, PanelTrigger, DetailGroup, FieldBlock, FieldRow, ValueSelect } from "../shared/DetailPanelSections";
 import { Swatches } from "../shared/Swatches";
+import { AppLinkField } from "../shared/AppLinkField";
+import { AppLaunchLink } from "../shared/AppLaunchLink";
 import { DatePicker } from "../shared/DatePicker";
 import { TagField } from "../tasks/TagField";
 import { CadencePicker } from "./CadencePicker";
@@ -84,7 +86,7 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
     detailMode?: "peek" | "focus";
     onDetailModeChange?: (mode: "peek" | "focus") => void;
 }) {
-    const [section, setSection] = useState<"apps" | "notes" | "steps" | "details" | "history" | null>(habit.notes?.trim() || habit.description?.trim() ? "notes" : null);
+    const [section, setSection] = useState<"notes" | "steps" | "details" | "history" | null>(habit.notes?.trim() || habit.description?.trim() ? "notes" : null);
     const [notes, setNotes] = useState(habit.notes ?? "");
     const [purpose, setPurpose] = useState(habit.description ?? "");
     const [month, setMonth] = useState<LocalDate>(() => isoMonthStart(Number(todayDay().slice(0, 4)), Number(todayDay().slice(5, 7)) - 1));
@@ -159,21 +161,7 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                     ) : null}
                 </div>
 
-                {section !== "apps" ? <PanelTrigger icon={Smartphone} title="Open app" summary="MyFitnessPal" onOpen={() => setSection("apps")} /> : null}
-                <Reveal open={section === "apps"}>
-                    <section className={`${CARD} space-y-2 px-4 py-3`} aria-label="Open app">
-                        <PanelHeader title="Open app" onDone={() => setSection(null)} />
-                        {/* MFP's iOS SDK documents the mfp scheme: github.com/myfitnesspal/ios-sdk-public.
-                            Keep a direct link so the phone handles the original tap without a popup or async handoff. */}
-                        <Button asChild variant="ghost" size="md" className="w-full justify-between">
-                            <a href="mfp://" aria-label="Open MyFitnessPal">
-                                MyFitnessPal
-                                <ArrowUpRight size={16} aria-hidden="true" />
-                            </a>
-                        </Button>
-                        <p className="text-xs text-twilight-text-muted">MyFitnessPal needs to be installed on this device.</p>
-                    </section>
-                </Reveal>
+                <AppLaunchLink appId={habit.linkedAppId} />
 
                 {section !== "notes" ? <PanelTrigger icon={StickyNote} title="Notes" summary={purpose.trim() || notes.trim() || "Why it matters, reflections, context"} onOpen={() => setSection("notes")} /> : null}
                 <Reveal open={section === "notes"}>
@@ -270,6 +258,7 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                                     options={[{ value: "", label: "None" }, ...projects.map((p) => ({ value: p.id, label: p.name }))]}
                                 />
                             </FieldRow>
+                            <AppLinkField value={habit.linkedAppId} title={habit.title} kind="routine" onChange={(linkedAppId) => update({ linkedAppId })} />
                             <FieldBlock icon={Tag} label="Tags">
                                 <TagField
                                     tagIds={tagIds}

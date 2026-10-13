@@ -1,7 +1,14 @@
 import type { MutationOp } from "./offline-wal";
 import { formatShortDate, formatWallTime } from "../utils/date-format";
+import { appEntry } from "../app-links/catalog";
 
 const quote = (text: string | undefined | null) => (text ? `“${text.length > 60 ? `${text.slice(0, 57)}…` : text}”` : "");
+/** "App: Gmail" for a change that only sets an app, never the stored id. */
+const appChange = (payload: Record<string, unknown>): string | null => {
+    if (!("linkedAppId" in payload) || Object.keys(payload).some((key) => key !== "linkedAppId" && key !== "expectedUpdatedAt")) return null;
+    const id = payload.linkedAppId;
+    return typeof id === "string" ? `App: ${appEntry(id)?.label ?? "an app"}` : "App removed";
+};
 const plural = (count: number, one: string) => `${count} ${one}${count === 1 ? "" : "s"}`;
 
 /**
@@ -14,6 +21,8 @@ export function describeChange(op: MutationOp, titleOf: (id: string) => string |
         case "create_task": return `Add ${quote(op.payload.title)}`;
         case "update_task": {
             const { state, scheduledStart, dueDate } = op.payload;
+            const app = appChange(op.payload);
+            if (app) return `${app} on ${task(op.id)}`;
             if (state === "COMPLETE") return `Complete ${task(op.id)}`;
             if (state === "ARCHIVED") return `Move ${task(op.id)} to Trash`;
             if (state === "ACTIVE") return `Restore ${task(op.id)}`;
@@ -35,7 +44,7 @@ export function describeChange(op: MutationOp, titleOf: (id: string) => string |
         case "update_inbox_section": return "Edit a Capture section";
         case "delete_inbox_section": return "Delete a Capture section";
         case "create_habit": return `Add routine ${quote(String(op.payload.title ?? ""))}`;
-        case "update_habit": return `Edit ${quote(titleOf(op.id)) || "a routine"}`;
+        case "update_habit": return appChange(op.payload) ? `${appChange(op.payload)} on ${quote(titleOf(op.id)) || "a routine"}` : `Edit ${quote(titleOf(op.id)) || "a routine"}`;
         case "delete_habit": return `Delete ${quote(titleOf(op.id)) || "a routine"}`;
         case "resolve_habit": return `Log ${quote(titleOf(op.id)) || "a routine"} for ${formatShortDate(op.payload.targetDate)}${op.payload.time ? ` at ${formatWallTime(op.payload.time)}` : ""}`;
         case "upsert_note": return `Edit the note on ${task(op.taskId)}`;

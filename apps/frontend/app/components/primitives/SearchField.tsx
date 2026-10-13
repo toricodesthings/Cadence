@@ -37,6 +37,8 @@ export interface SearchFieldProps
     size?: SearchFieldSize;
     /** Shows a spinner in place of the clear button while a lookup runs. */
     loading?: boolean;
+    /** False hides the Clear button, for a surface that offers its own Clear action beside the field. */
+    clearable?: boolean;
     /** Runs after the clear button empties the box (focus returns to the input first). */
     onClear?: () => void;
     /** Extra controls inside the box, after the clear button (match counts, shortcut hints). */
@@ -46,13 +48,13 @@ export interface SearchFieldProps
 }
 
 export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(function SearchField(
-    { value, onValueChange, variant = "field", size = "md", loading = false, onClear, trailing, className, disabled, ...inputProps },
+    { value, onValueChange, variant = "field", size = "md", loading = false, clearable = true, onClear, trailing, className, disabled, ...inputProps },
     ref,
 ) {
     const inputRef = useRef<HTMLInputElement>(null);
     useImperativeHandle(ref, () => inputRef.current as HTMLInputElement);
     const dims = SIZE[size];
-    const showClear = value.length > 0 && !disabled && !loading;
+    const showClear = clearable && value.length > 0 && !disabled && !loading;
 
     return (
         <div

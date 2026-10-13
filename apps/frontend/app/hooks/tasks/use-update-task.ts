@@ -82,7 +82,12 @@ export function useUpdateTask() {
 
             queryClient.setQueriesData<Task[]>(
                 { queryKey: queryKeys.tasks.all },
-                (old) => transformListCache(old, (items) => items.map((t) => (t.id === id ? { ...t, ...updates } : t))),
+                (old) => transformListCache(old, (items) => items.map((t) => {
+                    if (t.id === id) return { ...t, ...updates };
+                    // An app belongs to the whole series: its cached occurrences show it too.
+                    if ("linkedAppId" in updates && t.seriesId === id) return { ...t, linkedAppId: updates.linkedAppId };
+                    return t;
+                })),
             );
 
             return { snapshot };

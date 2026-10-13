@@ -10,6 +10,20 @@ import { habitCache } from "./optimistic-helpers";
 import { getTaskSeriesId, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 import { fromTimeValue, toTimeValue } from "../../lib/utils/date-format";
 import { today as getToday } from "../../lib/utils/user-zone";
+import { linkedAppIdSchema, type LinkedAppId } from "@cadence/contracts/app-link";
+import { toastError } from "../../lib/utils/error-toast";
+
+/**
+ * The saved app to carry across a conversion. An id this build can't send would drop the choice, so the
+ * conversion stops first, before anything is created or trashed.
+ */
+function appToCarry(stored: string | null | undefined): { ok: true; id: LinkedAppId | null } | { ok: false } {
+    if (!stored) return { ok: true, id: null };
+    const parsed = linkedAppIdSchema.safeParse(stored);
+    if (parsed.success) return { ok: true, id: parsed.data };
+    toastError(new Error("unknown app"), "Couldn't convert: this item's app needs a newer Cadence");
+    return { ok: false };
+}
 
 /** Fixed happens to you, a Routine lets go when missed, a Task carries over. */
 export type RepeatKind = "fixed" | "routine" | "task";
@@ -44,6 +58,8 @@ export function useConvertRepeat() {
 
     const taskToRoutine = async (task: Task) => {
         if (!task.recurrenceRule) return;
+        const app = appToCarry(task.linkedAppId);
+        if (!app.ok) return;
         const taskId = getTaskSeriesId(task);
         const habit = await createHabit.mutateAsync({
             title: task.title,
@@ -52,6 +68,7 @@ export function useConvertRepeat() {
             notes: task.content ?? null,
             projectId: task.projectId,
             tagIds: task.tagIds ?? [],
+            linkedAppId: app.id,
         });
         await setTaskState(taskId, "ARCHIVED");
         settle();
@@ -69,6 +86,8 @@ export function useConvertRepeat() {
     };
 
     const routineToTask = async (habit: Habit, kind: "fixed" | "task") => {
+        const app = appToCarry(habit.linkedAppId);
+        if (!app.ok) return;
         const today = getToday();
         const timing = habit.targetTime
             ? (() => {
@@ -84,6 +103,7 @@ export function useConvertRepeat() {
             content: habit.notes ?? null,
             projectId: habit.projectId,
             tagIds: habit.tagIds ?? [],
+            linkedAppId: app.id,
             ...timing,
         });
         await setHabitArchived(habit.id, true);

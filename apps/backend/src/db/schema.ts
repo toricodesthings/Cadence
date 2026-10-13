@@ -387,6 +387,7 @@ export const tasks = pgTable('tasks', {
     effortOrigin: text('effort_origin'),
     effortChosenAt: timestamptz('effort_chosen_at'),
     notBefore: date('hidden_until', { mode: 'string' }), // Hidden until this day
+    linkedAppId: text('linked_app_id'), // The one app this task opens (a frontend catalogue id); never a URL
 
     createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
     updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
@@ -583,6 +584,9 @@ export const habits = pgTable(
 
         // A routine at set times: its daily "HH:mm" times, ascending; null = the usual targetTime
         times: jsonb('times').$type<string[]>(),
+
+        // The one app this routine opens (a frontend catalogue id); never a URL
+        linkedAppId: text('linked_app_id'),
 
         createdAt: timestamptz('created_at')
             .default(sql`now()`)
