@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-10-14
+
 ### Added
 
 - Right-click a Schedule block for Done, Move to tomorrow, Pick day, or Skip and Clear for a routine.
