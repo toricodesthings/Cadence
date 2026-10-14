@@ -376,8 +376,7 @@ export const desktopRuntime = {
         oauthCallbackUrl.searchParams.set(DESKTOP_AUTH_STATE_PARAM, authState);
         const origin = getDesktopAuthRequestOrigin();
 
-        const authClientAny = redirectlessAuthClient as any;
-        const result = await authClientAny.signIn.social({
+        const result = await redirectlessAuthClient.signIn.social({
             provider,
             callbackURL: oauthCallbackUrl.toString(),
             disableRedirect: true,
@@ -508,7 +507,7 @@ export const desktopRuntime = {
             get: async <T>(key: string): Promise<T | undefined> => {
                 return (await store.get<T>(key)) ?? undefined;
             },
-            set: async (key: string, value: any): Promise<void> => {
+            set: async (key: string, value: unknown): Promise<void> => {
                 await store.set(key, value);
                 await save();
             },

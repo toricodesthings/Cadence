@@ -2,11 +2,11 @@ import { create } from "zustand";
 
 const DEFAULT_COMPLETION_DELAY_MS = 1500;
 
-type PendingTaskCompletion = {
+interface PendingTaskCompletion {
     startedAt: number;
     commitAt: number;
     durationMs: number;
-};
+}
 
 interface TaskCompletionState {
     pendingById: Record<string, PendingTaskCompletion>;

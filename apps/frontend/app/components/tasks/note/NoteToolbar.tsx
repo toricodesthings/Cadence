@@ -27,7 +27,7 @@ export function ToolButton({ id, pressed, disabled, onClick, children, label, cl
             <button
                 type="button"
                 aria-label={label}
-                aria-pressed={pressed === undefined ? undefined : pressed}
+                aria-pressed={pressed}
                 disabled={disabled}
                 style={TONE}
                 // Keep the caret and selection where they are.

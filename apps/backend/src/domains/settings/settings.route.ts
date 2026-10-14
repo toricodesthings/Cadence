@@ -63,7 +63,7 @@ export function migrateLegacySettings<T>(stored: T): T {
  * - Migrates legacy `calendar.holidays` location fields into `location`
  */
 export function normalizeSettings(stored: Record<string, any>): SettingsView {
-    const merged = deepMerge(SETTINGS_DEFAULTS, migrateLegacySettings(stored));
+    const merged = deepMerge<SettingsView>(SETTINGS_DEFAULTS, migrateLegacySettings(stored));
 
     // Migrate legacy preferredView → tasks.defaultView
     if (stored.preferredView && !stored.tasks?.defaultView) {
@@ -109,7 +109,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 .limit(1);
 
             const normalized = normalizeSettings((user?.settings ?? {}) as Record<string, any>);
-            const merged = deepMerge(normalized, {
+            const merged = deepMerge<SettingsView>(normalized, {
                 tasks: {
                     intelligence: {
                         dismissedEntityIds: [],
@@ -215,7 +215,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
 
             // Normalize stored settings first, then merge in patch
             const normalized = normalizeSettings((user?.settings || {}) as Record<string, any>);
-            const merged = deepMerge(normalized, sanitizeBackgroundPatch(normalized, body));
+            const merged = deepMerge<SettingsView>(normalized, sanitizeBackgroundPatch(normalized, body));
 
             return tx
                 .update(users)

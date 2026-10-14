@@ -2,7 +2,7 @@ import { Check } from "lucide-react";
 import { TAG_PALETTE } from "../../lib/constants/colors";
 import { resolveTagColor } from "../../lib/utils/color-resolver";
 
-export type SwatchOption = { value: string; color: string; label: string };
+export interface SwatchOption { value: string; color: string; label: string }
 
 export const TAG_SWATCHES: SwatchOption[] = TAG_PALETTE.map((c) => ({ value: c, color: resolveTagColor(c), label: c === "default" ? "Default" : c }));
 

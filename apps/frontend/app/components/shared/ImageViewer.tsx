@@ -1,14 +1,14 @@
 import { ChevronLeft, ChevronRight, ImageOff, Loader2, X } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "../primitives/Dialog";
 
-export type ViewerImage = {
+export interface ViewerImage {
     key: string;
     title: string;
     /** Null while it loads (or when it can't); only the shown image needs one. */
     src: string | null;
     bytes?: number;
     failed?: boolean;
-};
+}
 
 export function formatBytes(bytes: number): string {
     return bytes >= 1_000_000 ? `${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1000))} KB`;

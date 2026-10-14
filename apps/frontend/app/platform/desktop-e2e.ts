@@ -42,7 +42,7 @@ export function installDesktopE2EBridge() {
     || import.meta.env.VITE_DESKTOP_E2E !== "true"
     || typeof window === "undefined"
   ) {
-    return () => {};
+    return () => undefined;
   }
 
   window.__CADENCE_DESKTOP_E2E__ = {

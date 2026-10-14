@@ -5,7 +5,7 @@ export class DomainError extends Error {
     constructor(
         public readonly code: ErrorCode,       // e.g. "INVALID_TASK_SCHEDULE"
         message: string,
-        public readonly status: number = 400,  // HTTP-ish hint; apps may ignore
+        public readonly status = 400,  // HTTP-ish hint; apps may ignore
     ) {
         super(message);
         this.name = "DomainError";

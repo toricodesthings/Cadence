@@ -2,22 +2,22 @@ import { DomainError } from "./errors";
 import { addDays, atLocal, dayOf, daysBetween, isLocalDate, isZone, wallTimeOf, type Instant, type LocalDate, type Zone } from "./time";
 
 /** What a task write may carry. All-day is simply "no start". */
-export type TaskTemporalFields = {
+export interface TaskTemporalFields {
     dueDate?: string | null;
     endDate?: string | null;
     scheduledStart?: string | null;
     scheduledEnd?: string | null;
     zone?: string | null;
-};
+}
 
 /** The stored temporal shape of a task: days are LocalDates, timed values are instants plus the zone they were planned in. */
-export type TaskTemporal = {
+export interface TaskTemporal {
     dueDate: LocalDate | null;
     endDate: LocalDate | null;
     scheduledStart: Instant | null;
     scheduledEnd: Instant | null;
     zone: Zone | null;
-};
+}
 
 export type TaskReadShape = "unscheduled" | "day" | "days" | "timed";
 

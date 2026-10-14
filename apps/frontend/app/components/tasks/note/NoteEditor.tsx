@@ -74,7 +74,7 @@ export function NoteEditor({
     const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const pendingRemote = useRef<string | null>(null);
     const remoteTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-    const settleRemote = useRef<() => void>(() => {});
+    const settleRemote = useRef<() => void>(() => undefined);
     const editorRef = useRef<Editor | null>(null);
     const handlers = useRef({ onSave, onFind, onUnfaithful });
     handlers.current = { onSave, onFind, onUnfaithful };
@@ -276,7 +276,7 @@ export function NoteEditor({
         editor.view.dom.addEventListener("compositionend", settle);
         return () => {
             clearTimeout(remoteTimer.current);
-            settleRemote.current = () => {};
+            settleRemote.current = () => undefined;
             editor.view.dom.removeEventListener("compositionend", settle);
             detach();
         };

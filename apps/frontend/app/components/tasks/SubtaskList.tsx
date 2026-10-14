@@ -5,7 +5,7 @@ import { useSubtasks, useCreateSubtask, useUpdateSubtask, useDeleteSubtask, useR
 import { TaskCheckbox } from "./TaskCheckbox";
 import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
 
-type EditableItem = { id: string; title: string; orderIndex: number; isComplete?: boolean };
+interface EditableItem { id: string; title: string; orderIndex: number; isComplete?: boolean }
 
 interface EditableSubtaskRowProps<T extends EditableItem> extends SortableSubtaskRenderProps<T> {
     onDelete: (id: string) => void;

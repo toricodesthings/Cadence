@@ -8,7 +8,7 @@ import type { Task } from "@cadence/contracts/task";
 import { toastError } from "../../lib/utils/error-toast";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
-type TaskTagVars = { taskId: string; tagId: string };
+interface TaskTagVars { taskId: string; tagId: string }
 
 /** Shared optimistic add/remove: the task's `tagIds` flip at once so pickers tick without waiting. */
 function useTaskTagMutation(adding: boolean, request: (vars: TaskTagVars) => Promise<unknown>) {

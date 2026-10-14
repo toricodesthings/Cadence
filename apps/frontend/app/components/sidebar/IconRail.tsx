@@ -336,7 +336,7 @@ export function IconRail({
             <nav aria-label="Primary navigation" className="flex flex-col items-center gap-1 w-full px-2">
                 {NAV_LINKS.map(({ to, icon: Icon, label, activeColor, activeBg, hoverColor, hoverBg, notificationFn }) => {
                     const isActive = location.pathname === to;
-                    const showDot = to !== "/routines" && notificationFn && notificationFn();
+                    const showDot = to !== "/routines" && notificationFn?.();
                     const count = to === "/" ? captureCount : to === "/routines" ? routineDueCount : 0;
                     return (
                         <Tip key={to} label={label} side="right">
@@ -652,7 +652,7 @@ export function IconRail({
                         <div className="p-1">
                             <DropdownMenu.Item
                                 onSelect={() => {
-                                    void signOut().catch((error) => {
+                                    void signOut().catch((error: unknown) => {
                                         toast.error(
                                             error instanceof Error
                                                 ? error.message

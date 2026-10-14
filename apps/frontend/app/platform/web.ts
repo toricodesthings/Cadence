@@ -17,12 +17,12 @@ function normalizeNotificationPermission(permission: string): NotificationPermis
 
 export const webRuntime = {
     target: "web" as const,
-    async getNotificationPermission(): Promise<NotificationPermissionState> {
+    getNotificationPermission(): Promise<NotificationPermissionState> {
         if (typeof window === "undefined" || !("Notification" in window)) {
-            return "default";
+            return Promise.resolve("default");
         }
 
-        return normalizeNotificationPermission(Notification.permission);
+        return Promise.resolve(normalizeNotificationPermission(Notification.permission));
     },
     async requestNotificationPermission(): Promise<NotificationPermissionState> {
         if (typeof window === "undefined" || !("Notification" in window)) {
@@ -48,23 +48,20 @@ export const webRuntime = {
         browserNotification.onclick = () => window.focus();
         window.setTimeout(() => browserNotification.close(), 8_000);
     },
-    async openExternalUrl(url: string): Promise<void> {
-        if (typeof window === "undefined") {
-            return;
-        }
-
-        window.open(url, "_blank", "noopener,noreferrer");
+    openExternalUrl(url: string): Promise<void> {
+        if (typeof window !== "undefined") window.open(url, "_blank", "noopener,noreferrer");
+        return Promise.resolve();
     },
     getAuthCallbackUrl,
-    async getCurrentAuthCallback(): Promise<URL | null> {
+    getCurrentAuthCallback(): Promise<URL | null> {
         if (typeof window === "undefined" || window.location.pathname !== "/auth/callback") {
-            return null;
+            return Promise.resolve(null);
         }
 
-        return new URL(window.location.href);
+        return Promise.resolve(new URL(window.location.href));
     },
-    async listenForAuthCallback(): Promise<() => void> {
-        return () => { };
+    listenForAuthCallback(): Promise<() => void> {
+        return Promise.resolve(() => undefined);
     },
     async beginSocialSignIn(provider: SocialProvider, callbackURL?: string): Promise<void> {
         await authClient.signIn.social({
@@ -83,11 +80,11 @@ export const webRuntime = {
     async platformFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
         return fetch(input, init);
     },
-    async checkForAppUpdate(): Promise<AvailableAppUpdate | null> {
-        return null;
+    checkForAppUpdate(): Promise<AvailableAppUpdate | null> {
+        return Promise.resolve(null);
     },
-    async getNativeStore() {
-        return null;
+    getNativeStore() {
+        return Promise.resolve(null);
     },
     async resizeWindow() {
         // No-op for web

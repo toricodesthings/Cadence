@@ -30,7 +30,7 @@ if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && Boolean((wi
         .then((mod) => {
             tauriFetchFn = mod.fetch as typeof fetch;
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
             log.error("desktop-fetch", "Couldn't load the desktop network layer, so sign-in may not work.", err);
         });
 

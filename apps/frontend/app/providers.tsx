@@ -292,7 +292,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
 
     // Ask the browser not to evict the saved workspace and queued changes (best effort).
     useEffect(() => {
-        if (!IS_DESKTOP_RUNTIME && userId) void navigator.storage?.persist?.().catch(() => {});
+        if (!IS_DESKTOP_RUNTIME && userId) void navigator.storage?.persist?.().catch(() => undefined);
     }, [userId]);
 
     const accountPersister = useMemo(() => session?.user.id ? createIDBPersister() : null, [session?.user.id]);
@@ -301,9 +301,9 @@ function AccountProviders({ children }: { children: ReactNode }) {
         () => ({
             // Do not discard the saved account cache while auth is unresolved.
             persister: accountPersister ?? {
-                persistClient: async () => {},
-                restoreClient: async () => undefined,
-                removeClient: async () => {},
+                persistClient: () => Promise.resolve(),
+                restoreClient: () => Promise.resolve(undefined),
+                removeClient: () => Promise.resolve(),
             },
             maxAge: OFFLINE_CACHE_MAX_AGE,
             // Bump QUERY_CACHE_VERSION when cached server data changes shape; old caches are dropped.
@@ -322,13 +322,8 @@ function AccountProviders({ children }: { children: ReactNode }) {
             providers: ["google", "github"],
             ...(IS_DESKTOP_RUNTIME
                 ? {
-                    signIn: async ({
-                        provider,
-                        callbackURL,
-                    }: {
-                        provider: string;
-                        callbackURL?: string;
-                    }) => {
+                    signIn: async (params: unknown) => {
+                        const { provider, callbackURL } = params as { provider: string; callbackURL?: string };
                         if (provider !== "google" && provider !== "github") {
                             await authClient.signIn.social({
                                 provider,
@@ -357,7 +352,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
                         queryClient.invalidateQueries();
                     }}
                     Link={Link}
-                    social={social as any}
+                    social={social}
                     multiSession={false}
                     apiKey={false}
                     magicLink={false}

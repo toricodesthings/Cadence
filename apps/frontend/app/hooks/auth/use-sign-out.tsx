@@ -31,10 +31,10 @@ export function useSignOut() {
             if (dropQueue) {
                 discardNoteSessions();
                 await clearWal();
-                if (session) await clearNoteJournal(session.user.id).catch(() => {});
+                if (session) await clearNoteJournal(session.user.id).catch(() => undefined);
             }
             // This device stops getting the account's reminders while signed out (best effort: a forced sign-out can't ask; the next account to register the browser takes it over).
-            await forgetThisDevice(client).catch(() => {});
+            await forgetThisDevice(client).catch(() => undefined);
             // The next account on this device starts on Capture with no badge.
             forgetRoute();
             await syncAppBadge(0);

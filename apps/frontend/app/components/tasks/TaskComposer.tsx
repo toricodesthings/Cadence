@@ -242,8 +242,8 @@ export function useTaskComposer({
                         priority={null}
                         projectId={resolvedProjectId}
                         tagIds={resolvedTagIds}
-                        onScheduleChange={() => {}}
-                        onPriorityChange={() => {}}
+                        onScheduleChange={() => undefined}
+                        onPriorityChange={() => undefined}
                         onProjectChange={setManualProject}
                         onToggleTag={(tagId) => tagId !== lockedTag?.id && setManualTags((current) => {
                             const shown = current ?? nlp.fields.tagIds;

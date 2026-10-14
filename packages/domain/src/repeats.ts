@@ -92,7 +92,7 @@ export function stepMarksOn(
 }
 
 /** A routine at set times: one mark per "HH:MM". `at` is when it happened; null on a day logged whole. */
-export type TimeMarkOn = { status: StepMark; at: string | null };
+export interface TimeMarkOn { status: StepMark; at: string | null }
 
 /**
  * A routine's times on a day: its set times when it has them (they replace the

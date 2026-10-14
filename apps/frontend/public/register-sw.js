@@ -8,9 +8,9 @@ if ("serviceWorker" in navigator) {
                     registration.active?.postMessage({ type: "cadence-precache" });
                 }
             };
-            navigator.serviceWorker.ready.then(warm).catch(function() {});
-            window.addEventListener("online", function() { warm(); void registration.update().catch(function() {}); });
+            navigator.serviceWorker.ready.then(warm).catch(function() { /* best effort; retried next load */ });
+            window.addEventListener("online", function() { warm(); void registration.update().catch(function() { /* best effort; retried next load */ }); });
             document.addEventListener("visibilitychange", warm);
-        }).catch(function() {});
+        }).catch(function() { /* best effort; retried next load */ });
     });
 }

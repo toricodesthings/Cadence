@@ -4,7 +4,7 @@ import { useRef, useCallback, useEffect } from "react";
  * Returns a debounced version of a callback. Fires only after `delay` ms of
  * inactivity since the last call. The returned function is stable (memoized).
  */
-export function useDebouncedCallback<T extends (...args: any[]) => any>(
+export function useDebouncedCallback<T extends (...args: never[]) => void>(
     callback: T,
     delay: number
 ): (...args: Parameters<T>) => void {

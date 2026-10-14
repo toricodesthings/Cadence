@@ -9,7 +9,7 @@ import { NAV_GROUP, NAV_GROUP_LABEL, NavigationRow } from "../layout/NavigationR
 import { SettingsContent, SETTINGS_CATEGORIES } from "./SettingsContent";
 import { SignOutButton } from "./SignOutButton";
 
-type MenuGroup = { label: string; items: Array<{ id: string; label: string; icon: LucideIcon }> };
+interface MenuGroup { label: string; items: Array<{ id: string; label: string; icon: LucideIcon }> }
 
 /** The menu's categories under their headings; Profile and About sit apart, and phones skip Shortcuts. */
 function menuGroups(isPhone: boolean): MenuGroup[] {

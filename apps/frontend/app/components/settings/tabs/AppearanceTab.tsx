@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import type { UserSettings } from "../../../types/settings";
 import { Switch } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
@@ -202,7 +203,7 @@ export function AppearanceTab() {
                     <SegmentedControl
                         value={appearance.motion}
                         onChange={(val) =>
-                            updateSettings.mutate({ appearance: { motion: val as any } })
+                            updateSettings.mutate({ appearance: { motion: val as UserSettings["appearance"]["motion"] } })
                         }
                         options={[
                             { value: "system", label: "System" },
@@ -232,7 +233,7 @@ export function AppearanceTab() {
                     <SegmentedControl
                         value={appearance.density}
                         onChange={(val) =>
-                            updateSettings.mutate({ appearance: { density: val as any } })
+                            updateSettings.mutate({ appearance: { density: val as UserSettings["appearance"]["density"] } })
                         }
                         options={[
                             { value: "comfortable", label: "Comfortable" },

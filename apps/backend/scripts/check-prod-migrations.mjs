@@ -12,7 +12,7 @@ if (!url) {
 }
 
 const journal = JSON.parse(readFileSync(new URL("drizzle/meta/_journal.json", here), "utf8")).entries;
-const sql = postgres(url, { max: 1, connect_timeout: 10, onnotice: () => {} });
+const sql = postgres(url, { max: 1, connect_timeout: 10, onnotice: () => undefined });
 try {
     // Same rule as drizzle's migrator: anything newer than the last applied entry is pending.
     const [row] = await sql`select max(created_at)::float8 as last from drizzle.__drizzle_migrations`;

@@ -39,7 +39,7 @@ function isAsset(type, response) {
 
 // Offline support is best effort: a quota/write failure must not break loading.
 function store(cache, request, response) {
-    return cache.put(request, response).catch(() => {});
+    return cache.put(request, response).catch(() => undefined);
 }
 
 let assetWarming;
@@ -73,7 +73,7 @@ async function refreshShell() {
 self.addEventListener("message", (event) => {
     if (event.data?.type === "cadence-precache") event.waitUntil(caches.open(CACHE_NAME).then(warmAssets));
     if (event.data?.type === "cadence-refresh-shell") {
-        event.waitUntil(refreshShell().catch(() => {}).finally(() => event.ports[0]?.postMessage("done")));
+        event.waitUntil(refreshShell().catch(() => undefined).finally(() => event.ports[0]?.postMessage("done")));
     }
 });
 
@@ -189,7 +189,7 @@ self.addEventListener("fetch", (event) => {
                 // the app's update toast. The fresh shell is saved for the next visit.
                 const saved = await cache.match("/");
                 const network = (async () => (await event.preloadResponse) || fetch(request))();
-                event.waitUntil(network.then((fresh) => isHtml(fresh) ? store(cache, "/", fresh.clone()) : undefined).catch(() => {}));
+                event.waitUntil(network.then((fresh) => isHtml(fresh) ? store(cache, "/", fresh.clone()) : undefined).catch(() => undefined));
                 if (saved && isHtml(saved)) return saved;
                 return await network;
             } catch {

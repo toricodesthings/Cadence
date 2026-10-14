@@ -33,13 +33,13 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
     const [renameOpen, setRenameOpen] = useState(false);
     const [renameValue, setRenameValue] = useState("");
     const [colorValue, setColorValue] = useState("luminous-amber");
-    const [emojiValue, setEmojiValue] = useState(emoji || "");
+    const [emojiValue, setEmojiValue] = useState(emoji ?? "");
     const [isCustomColor, setIsCustomColor] = useState(false);
 
     const handleRenameOpen = () => {
         setRenameValue(label);
         setColorValue(color);
-        setEmojiValue(emoji || "");
+        setEmojiValue(emoji ?? "");
         setIsCustomColor(color.startsWith("#"));
         setRenameOpen(true);
     };

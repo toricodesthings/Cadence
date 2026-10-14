@@ -78,7 +78,7 @@ export function SectionedTaskList({
             if (!task.sectionId) {
                 ungrouped.push(task);
             } else {
-                const list = map.get(task.sectionId) || [];
+                const list = map.get(task.sectionId) ?? [];
                 list.push(task);
                 map.set(task.sectionId, list);
             }
@@ -170,7 +170,7 @@ export function SectionedTaskList({
         <div className={`flex flex-col gap-3 ${shell.isCompact ? "pb-2" : "gap-1"}`}>
             {/* Unsectioned tasks (no section) */}
             {(ungroupedTasks.length > 0 || hasCustomSections) && (
-                <div className={`${shell.isCompact ? sectionSurfaceClass : "mt-4"}`}>
+                <div className={shell.isCompact ? sectionSurfaceClass : "mt-4"}>
                     <div className="flex items-center gap-2 group">
                         <div className="flex items-center gap-2 flex-1 py-1.5 text-left">
                             <span className="text-[13px] font-display font-semibold uppercase tracking-[0.16em] text-twilight-text">
@@ -205,7 +205,7 @@ export function SectionedTaskList({
 
             {/* User-defined sections */}
             {sections.map((section) => {
-                const sectionTasks = sectionTaskMap.get(section.id) || [];
+                const sectionTasks = sectionTaskMap.get(section.id) ?? [];
                 const isCollapsed = collapsedSections.has(section.id);
                 const isEditing = editingSection === section.id;
 

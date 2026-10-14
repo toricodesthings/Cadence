@@ -243,7 +243,7 @@ export function AddTaskInput({
                         projectId={projectId ?? parsedInput.fields.projectId}
                         tagIds={parsedInput.fields.tagIds}
                         onScheduleChange={(updates) => setDeadline(updates)}
-                        onPriorityChange={() => {}}
+                        onPriorityChange={() => undefined}
                         onProjectChange={(value) => setManualProject(value)}
                         onToggleTag={(tagId) =>
                             setManualTags((current) => {

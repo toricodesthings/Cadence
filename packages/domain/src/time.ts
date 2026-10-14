@@ -188,7 +188,7 @@ export const floatingDay = (date: Date): LocalDate => date.toISOString().slice(0
 
 export type SeriesStart = { day: LocalDate } | { instant: Instant; end?: Instant | null };
 
-export type SeriesOccurrence = { day: LocalDate; start: Instant | null; end: Instant | null };
+export interface SeriesOccurrence { day: LocalDate; start: Instant | null; end: Instant | null }
 
 const UNTIL = /(^|;)UNTIL=([^;]+)/i;
 

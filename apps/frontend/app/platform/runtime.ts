@@ -24,7 +24,7 @@ export interface PlatformNotification {
 
 export interface NativeStoreAdapter {
     get: <T>(key: string) => Promise<T | undefined>;
-    set: (key: string, value: any) => Promise<void>;
+    set: (key: string, value: unknown) => Promise<void>;
     del: (key: string) => Promise<void>;
 }
 
@@ -65,7 +65,7 @@ const loadPlatformRuntime = (() => {
 export const IS_DESKTOP_RUNTIME = RUNTIME_TARGET === "desktop";
 
 export function normalizeRedirectTo(value?: string | null): string {
-    if (!value || !value.startsWith("/")) {
+    if (!value?.startsWith("/")) {
         return "/";
     }
 

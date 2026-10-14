@@ -85,7 +85,7 @@ function ReviewListItem({
                         <button
                             type="button"
                             disabled={Boolean(pendingActionKey)}
-                            onClick={() => void onRunAction(key, async () => { await act.onClick(); })}
+                            onClick={() => onRunAction(key, async () => { await act.onClick(); })}
                             aria-label={act.label}
                             className={`touch-target inline-flex items-center justify-center gap-1.5 rounded-xl text-xs font-medium transition-colors disabled:opacity-40 ${
                                 isPrimary ? "px-3.5" : "px-2.5"
@@ -540,7 +540,7 @@ export default function WeeklyReview() {
                                                     actions={[
                                                         { label: "Activate Today", shortLabel: "Today", icon: Sun, onClick: () => handleWaitingAction(task, "today"), variant: "cardPrimary" },
                                                         { label: "Activate Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => handleWaitingAction(task, "tomorrow") },
-                                                        { label: "Keep Waiting", shortLabel: "Keep", icon: Check, onClick: async () => { setKeptWaitingIds((prev) => new Set(prev).add(task.id)); } },
+                                                        { label: "Keep Waiting", shortLabel: "Keep", icon: Check, onClick: () => { setKeptWaitingIds((prev) => new Set(prev).add(task.id)); } },
                                                         { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => handleWaitingAction(task, "delete"), variant: "cardDanger" },
                                                     ]}
                                                     pendingActionKey={pendingActionKey}

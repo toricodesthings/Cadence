@@ -7,7 +7,7 @@ import { hasDesktopWindow } from "./runtime";
 
 const CADENCE_KEYRING_SERVICE = "com.cadence.desktop";
 
-async function ensureKeyringReady() {
+function ensureKeyringReady() {
     return hasDesktopWindow();
 }
 
@@ -20,7 +20,7 @@ function decodeSecret(value: Uint8Array) {
 }
 
 export async function readDesktopSecureSecret(key: string): Promise<string | null> {
-    if (!(await ensureKeyringReady())) {
+    if (!ensureKeyringReady()) {
         return null;
     }
 
@@ -33,7 +33,7 @@ export async function readDesktopSecureSecret(key: string): Promise<string | nul
 }
 
 export async function writeDesktopSecureSecret(key: string, value: string): Promise<boolean> {
-    if (!(await ensureKeyringReady())) {
+    if (!ensureKeyringReady()) {
         return false;
     }
 
@@ -46,7 +46,7 @@ export async function writeDesktopSecureSecret(key: string, value: string): Prom
 }
 
 export async function clearDesktopSecureSecret(key: string): Promise<void> {
-    if (!(await ensureKeyringReady())) {
+    if (!ensureKeyringReady()) {
         return;
     }
 

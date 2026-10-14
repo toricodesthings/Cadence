@@ -19,7 +19,7 @@ const PILL = "inline-flex items-center gap-1.5 rounded-full border border-white/
 /** Which build this is, by UA: the Tauri app, a phone/tablet browser (incl. iPadOS, which reports as a Mac), or a desktop browser. */
 function detectPlatform() {
     if (IS_DESKTOP_RUNTIME) return { label: "Desktop app", Icon: Monitor };
-    const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+    const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.userAgent.includes("Macintosh") && navigator.maxTouchPoints > 1);
     return mobile ? { label: "Mobile", Icon: Smartphone } : { label: "Browser", Icon: Globe };
 }
 

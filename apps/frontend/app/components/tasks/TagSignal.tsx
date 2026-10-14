@@ -1,7 +1,7 @@
 import type { Tag } from "@cadence/contracts/tag";
 
 export function getTagTone(tag?: Tag) {
-    if (!tag || !tag.color || tag.color === "default") {
+    if (!tag?.color || tag.color === "default") {
         return {
             backgroundColor: "rgba(255,255,255,0.04)",
             borderColor: "rgba(255,255,255,0.08)",

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Tag as TagIcon, ChevronRight, Plus, Check } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
+import type { GenericMenu } from "../primitives/menu-styles";
 import * as ScrollArea from "../primitives/ScrollArea";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useCreateTag } from "../../hooks/tags/use-create-tag";
@@ -15,14 +16,14 @@ interface TagPickerSubmenuProps {
     activeTagIds: string[];
     onAdd: (tagId: string) => void;
     onRemove: (tagId: string) => void;
-    MenuComponents?: any;
+    MenuComponents?: GenericMenu;
 }
 
 export interface TagPickerListProps {
     activeTagIds: string[];
     onAdd: (tagId: string) => void;
     onRemove: (tagId: string) => void;
-    MenuComponents?: any;
+    MenuComponents?: GenericMenu;
 }
 
 export const TagPickerList: React.FC<TagPickerListProps> = ({

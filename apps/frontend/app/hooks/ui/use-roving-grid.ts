@@ -1,6 +1,6 @@
 import { useCallback, useState, type FocusEvent, type KeyboardEvent } from "react";
 
-type Cell = { row: number; col: number };
+interface Cell { row: number; col: number }
 
 const STEPS: Record<string, [number, number]> = {
     ArrowLeft: [0, -1],

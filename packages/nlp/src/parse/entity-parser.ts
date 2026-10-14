@@ -123,7 +123,7 @@ export function parseWaitingOn(input: string): EntityParseResult {
   const entities: ParsedEntity[] = [];
   const consumedRanges: Array<{ start: number; end: number }> = [];
 
-  const match = input.match(WAITING_PATTERN) || input.match(WAITING_SIMPLE);
+  const match = input.match(WAITING_PATTERN) ?? input.match(WAITING_SIMPLE);
   // "Not waiting on Sam anymore": a release, not a dependency — leave it literal.
   if (match && isNegatedBefore(input, match.index ?? 0)) return { entities, consumedRanges };
   if (match) {

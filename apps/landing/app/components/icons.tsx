@@ -1,6 +1,6 @@
 /** Decorative inline icons (sized and coloured by the surrounding text). */
 
-type IconProps = { className?: string };
+interface IconProps { className?: string }
 
 export function ArrowIcon({ className }: IconProps) {
   return (

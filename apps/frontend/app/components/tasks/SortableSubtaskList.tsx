@@ -18,7 +18,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { ReactNode } from "react";
 
 /** Anything ordered by `orderIndex`: subtasks, or a routine's steps (their array position). */
-type Sortable = { id: string; orderIndex: number; __optimisticKey?: string };
+interface Sortable { id: string; orderIndex: number; __optimisticKey?: string }
 
 function getRenderableSubtaskKey(subtask: Sortable) {
     return subtask.__optimisticKey ?? subtask.id;
@@ -27,7 +27,7 @@ function getRenderableSubtaskKey(subtask: Sortable) {
 function computeSubtaskMidpointIndex(prevIndex: number | null, nextIndex: number | null): number {
     if (prevIndex === null && nextIndex === null) return 0;
     if (prevIndex === null) return nextIndex! - 1;
-    if (nextIndex === null) return prevIndex! + 1;
+    if (nextIndex === null) return prevIndex + 1;
     return (prevIndex + nextIndex) / 2;
 }
 

@@ -37,7 +37,7 @@ const NEAR_TREES = grove(NEAR_W, 110, 14, 190, 28, 71) + grove(NEAR_W, 610, 5, 5
   grove(NEAR_E, 1290, 5, 46, 23, 103) + grove(NEAR_E, 1630, 6, 64, 25, 107) + grove(NEAR_E, 1760, 14, 200, 30, 79);
 
 /** A house: walls under a gable with eaves, its windows set in the wall facing us. */
-type House = { body: string; windows: Pt[]; ridge: string; chimney?: Pt };
+interface House { body: string; windows: Pt[]; ridge: string; chimney?: Pt }
 
 function house(line: readonly Pt[], x: number, w: number, h: number, sink: number, panes: number): House {
   const b = yAt(line, x) + 6 + sink;

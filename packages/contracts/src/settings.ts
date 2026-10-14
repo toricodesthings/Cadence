@@ -381,22 +381,22 @@ export type SettingsView = DeepRequired<Omit<UserSettings, "preferredView">>;
 /** Recursively make every property in a Zod object schema optional. */
 function deepPartial(schema: z.ZodType): z.ZodType {
     if (schema instanceof z.ZodObject) {
-        const shape = (schema as z.ZodObject<any>).shape;
+        const shape = schema.shape;
         const out: Record<string, z.ZodType> = {};
         for (const [k, v] of Object.entries(shape)) {
             out[k] = deepPartial(v as z.ZodType).optional();
         }
         const partial = z.object(out);
         // A strict object stays strict, so a field a patch may not carry is a 400, not a silent drop.
-        return (schema as any)._zod.def.catchall instanceof z.ZodNever ? partial.strict() : partial;
+        return schema._zod.def.catchall instanceof z.ZodNever ? partial.strict() : partial;
     }
-    if (schema instanceof z.ZodOptional) return deepPartial((schema as any).unwrap()).optional();
-    if (schema instanceof z.ZodNullable) return deepPartial((schema as any).unwrap()).nullable();
-    if (schema instanceof z.ZodArray) return z.array(deepPartial((schema as any).element));
+    if (schema instanceof z.ZodOptional) return deepPartial(schema.unwrap() as z.ZodType).optional();
+    if (schema instanceof z.ZodNullable) return deepPartial(schema.unwrap() as z.ZodType).nullable();
+    if (schema instanceof z.ZodArray) return z.array(deepPartial(schema.element as z.ZodType));
     return schema;
 }
 
-function isPlainObject(value: unknown): value is Record<string, any> {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -404,8 +404,8 @@ function isPlainObject(value: unknown): value is Record<string, any> {
  * Deep-merge `source` over `target`: objects merge key by key, arrays and scalars
  * replace. Lays stored settings or a patch over `SETTINGS_DEFAULTS` in both apps.
  */
-export function deepMerge(target: any, source: any): any {
-    const output = Object.assign({}, target);
+export function deepMerge<R = Record<string, unknown>>(target: unknown, source: unknown): R {
+    const output: Record<string, unknown> = Object.assign({}, target);
     if (isPlainObject(target) && isPlainObject(source)) {
         for (const key of Object.keys(source)) {
             // Defense in depth: never let merge keys reach the object prototype.
@@ -417,7 +417,7 @@ export function deepMerge(target: any, source: any): any {
                 : source[key];
         }
     }
-    return output;
+    return output as R;
 }
 
 // Patch schema — recursively partial version of the canonical schema.

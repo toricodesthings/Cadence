@@ -78,7 +78,7 @@ export function useWeeklyReviewActions(currentStep: number) {
         for (const h of habits) {
             const logs = h.logs ?? [];
             total += logs.length;
-            completed += logs.filter((l: any) => l.status === "COMPLETED").length;
+            completed += logs.filter((l) => l.status === "COMPLETED").length;
         }
         return { total, completed };
     }, [habits]);
@@ -91,9 +91,9 @@ export function useWeeklyReviewActions(currentStep: number) {
                 return {
                     id: h.id,
                     title: h.title,
-                    completedThisWeek: logs.filter((l: any) => l.status === "COMPLETED").length,
-                    skippedThisWeek: logs.filter((l: any) => l.status === "SKIPPED").length,
-                    pendingThisWeek: logs.filter((l: any) => l.status === "PENDING").length,
+                    completedThisWeek: logs.filter((l) => l.status === "COMPLETED").length,
+                    skippedThisWeek: logs.filter((l) => l.status === "SKIPPED").length,
+                    pendingThisWeek: logs.filter((l) => l.status === "PENDING").length,
                     totalThisWeek: logs.length,
                     hasTargetTime: !!h.targetTime,
                 };

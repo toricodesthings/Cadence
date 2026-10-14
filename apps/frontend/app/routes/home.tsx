@@ -38,7 +38,7 @@ export default function HomeRoute() {
     const [captureOpen, setCaptureOpen] = useState(false);
     // The draft lives with the page, so closing the sheet keeps it and needs no discard prompt.
     const { reset: _resetCapture, ...captureComposer } = useCaptureComposer({
-        onSaved: () => {},
+        onSaved: () => undefined,
     });
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [selectedInboxItemId, setSelectedInboxItemId] = useState<string | null>(null);

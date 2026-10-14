@@ -21,10 +21,10 @@ const REDUCED_MS = 260;
 const RES = 0.5;
 
 type RGB = readonly [number, number, number];
-type Palette = { lit: RGB; body: RGB; shade: RGB; deep: RGB };
+interface Palette { lit: RGB; body: RGB; shade: RGB; deep: RGB }
 type Tones = readonly [top: RGB, mid: RGB, low: RGB];
 
-type Bank = {
+interface Bank {
   name: "back" | "mid" | "front";
   seed: number;
   /** Share of the body's cells that hold a cluster; the rim is always whole. */
@@ -32,7 +32,7 @@ type Bank = {
   /** A shaded ground under the clusters, so the farthest bank never shows sky. */
   ground: boolean;
   tones: (p: Palette) => Tones;
-};
+}
 
 const mix = (a: RGB, b: RGB, t: number): RGB => [
   a[0] + (b[0] - a[0]) * t,
@@ -73,7 +73,7 @@ function readPalette(): Palette {
   return { lit, body, shade, deep };
 }
 
-type Puff = { x: number; y: number; r: number };
+interface Puff { x: number; y: number; r: number }
 
 /** A soft ellipse of one colour, melting to nothing at its rim. */
 function glow(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, c: RGB, a: number) {
@@ -203,7 +203,7 @@ function paintBank(cv: HTMLCanvasElement, bank: Bank, pal: Palette, vw: number, 
   out.drawImage(buf, 0, 0);
 }
 
-type Sky = { vw: number; vh: number; pal: Palette };
+interface Sky { vw: number; vh: number; pal: Palette }
 
 function CloudBank({ bank, sky }: { bank: Bank; sky: Sky }) {
   const ref = useRef<HTMLCanvasElement>(null);

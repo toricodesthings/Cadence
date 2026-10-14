@@ -2,6 +2,7 @@ import { COLLECTION_ROW_SURFACE, COLLECTION_ROW_HOVER, COLLECTION_ROW_SELECTED, 
 import { ThoughtMark } from "./ThoughtMark";
 import { getTagTone } from "./TagSignal";
 import { useState, useId } from "react";
+import type { DraggableAttributes, DraggableSyntheticListeners } from "@dnd-kit/core";
 import {
     Calendar,
     Pin,
@@ -47,8 +48,8 @@ interface TaskCardProps {
     /** dnd-kit drag handle props — scopes drag to an explicit grip handle */
     dragHandleProps?: {
         ref: (node: HTMLElement | null) => void;
-        listeners: Record<string, Function> | undefined;
-        attributes: Record<string, any>;
+        listeners: DraggableSyntheticListeners;
+        attributes: DraggableAttributes;
     };
 }
 
@@ -81,14 +82,14 @@ const EFFORT_LABELS: Record<1 | 2 | 3, string> = {
 
 const OVERDUE_RATIONALE_LABEL = "This task is past its due date";
 
-type CollapsedSignal = {
+interface CollapsedSignal {
     key: string;
     icon: LucideIcon;
     label: string;
     className: string;
     style?: React.CSSProperties;
     accentDots?: string[];
-};
+}
 
 /** Presentational task card — composes TaskCheckbox + TaskContextMenu + inline subtasks */
 export function TaskCard({
@@ -270,8 +271,8 @@ export function TaskCard({
             className={`
                 ${COLLECTION_ROW_SURFACE} flex cursor-pointer
                 ${isBoardCard
-                    ? `${isCompactCard ? "items-center gap-2 px-3.5 py-3" : "items-start gap-2 px-3.5 py-3.5"}`
-                    : `${isCompactCard ? "items-center gap-2.5 px-4 py-3.5 sm:px-5 sm:py-3.5" : "items-start gap-2.5 px-4 py-4 sm:px-5 sm:py-5"}`
+                    ? (isCompactCard ? "items-center gap-2 px-3.5 py-3" : "items-start gap-2 px-3.5 py-3.5")
+                    : (isCompactCard ? "items-center gap-2.5 px-4 py-3.5 sm:px-5 sm:py-3.5" : "items-start gap-2.5 px-4 py-4 sm:px-5 sm:py-5")
                 }
                 ${task.state === "WAITING" ? "border-moonlit/25" : ""}
                 ${isPassiveTimetable ? PASSIVE_TIMETABLE_CARD_CLASS : ""}
@@ -440,7 +441,7 @@ export function TaskCard({
             </div>
 
             {/* Context menu — subtly visible, full opacity on hover */}
-            <div data-no-dnd="true" className={`${isBoardCard ? "absolute right-1.5 top-2 pointer-coarse:right-2 pointer-fine:top-2.5 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity" : `pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}`}>
+            <div data-no-dnd="true" className={isBoardCard ? "absolute right-1.5 top-2 pointer-coarse:right-2 pointer-fine:top-2.5 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity" : `pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}>
                 <TaskContextMenu task={task} onAddSubtask={holdingContext ? undefined : subtaskUi.startAdding} onRename={handleRename} holdingContext={holdingContext} />
             </div>
 

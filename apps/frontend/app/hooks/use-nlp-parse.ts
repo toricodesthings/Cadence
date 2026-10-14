@@ -53,7 +53,7 @@ export function useParseModule(needed: boolean): ParseFn | null {
         let pending = true;
         const settle = () => { if (pending) { pending = false; trackRender(-1); } };
         trackRender(1);
-        void ensureParseModule().then(() => { if (active) setParse(() => parseModuleCache!.parse); }).catch(() => {}).finally(settle);
+        void ensureParseModule().then(() => { if (active) setParse(() => parseModuleCache!.parse); }).catch(() => undefined).finally(settle);
         return () => { active = false; settle(); };
     }, [needed, parse, trackRender]);
     return parse;

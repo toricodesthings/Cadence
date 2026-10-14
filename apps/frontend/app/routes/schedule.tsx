@@ -641,7 +641,7 @@ export default function Schedule() {
         });
     }, [moveTaskToDay, todayIso, updateTask]);
 
-    const handleCompleteTask = useCallback(async (taskId: string) => {
+    const handleCompleteTask = useCallback((taskId: string) => {
         if (taskId.startsWith("habit-")) {
             const [_, habitId, targetDate] = taskId.split("--", 3);
             const realId = habitId.replace("habit-", "");
@@ -656,7 +656,7 @@ export default function Schedule() {
         updateTask({ id: taskId, state: "COMPLETE" });
     }, [updateTask, resolveHabit, allVisibleTasks]);
 
-    const handleArchiveTask = useCallback(async (taskId: string) => {
+    const handleArchiveTask = useCallback((taskId: string) => {
         if (taskId.startsWith("habit-")) {
             const [_, habitId, targetDate] = taskId.split("--", 3);
             const realId = habitId.replace("habit-", "");
@@ -674,7 +674,7 @@ export default function Schedule() {
 
     const handleResizeTask = useCallback((taskId: string, durationMinutes: number) => {
         const task = allVisibleTasks.get(taskId);
-        if (!task || !task.scheduledStart) return;
+        if (!task?.scheduledStart) return;
         const newEnd = new Date(new Date(task.scheduledStart).getTime() + durationMinutes * 60_000);
         updateTask({ id: taskId, scheduledEnd: newEnd.toISOString() });
     }, [updateTask, allVisibleTasks]);

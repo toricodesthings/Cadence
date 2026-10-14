@@ -33,16 +33,16 @@ export function useTaskNote(taskId: string | null) {
     const [held, setHeld] = useState<NoteSession | null>(null);
     useEffect(() => {
         if (!ready) return setHeld(null);
-        const acquired = acquireNoteSession(queryClient, userId!, ownerId!, () => legacy.current);
+        const acquired = acquireNoteSession(queryClient, userId, ownerId, () => legacy.current);
         setHeld(acquired);
         void acquired.load();
-        return () => releaseNoteSession(userId!, ownerId!);
+        return () => releaseNoteSession(userId, ownerId);
     }, [ready, queryClient, userId, ownerId]);
     // Between a task/account switch and the effect above, never hand out the previous owner's session.
     const session = held && held.owner === ownerId && held.userId === userId ? held : null;
 
     const state = useSyncExternalStore(
-        (cb) => session?.subscribe(cb) ?? (() => {}),
+        (cb) => session?.subscribe(cb) ?? (() => undefined),
         () => session?.getSnapshot() ?? null,
         () => null,
     );

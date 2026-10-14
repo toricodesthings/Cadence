@@ -25,7 +25,7 @@ export function AITab() {
         setIsClearingHistory(true);
 
         try {
-            const res = await client.api.settings["intelligence-history"]["clear"].$post({});
+            const res = await client.api.settings["intelligence-history"].clear.$post({});
             await unwrapResponse(res);
             updateSettings.mutate({
                 tasks: {

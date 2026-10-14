@@ -1,4 +1,5 @@
 import { Switch } from "../../primitives";
+import type { UserSettings } from "../../../types/settings";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
@@ -63,7 +64,7 @@ export function IntegrationsTab() {
                                 <Select
                                     value={integrations.googleCalendar.syncMode}
                                     onValueChange={(val) =>
-                                        updateSettings.mutate({ integrations: { googleCalendar: { syncMode: val as any } } })
+                                        updateSettings.mutate({ integrations: { googleCalendar: { syncMode: val as UserSettings["integrations"]["googleCalendar"]["syncMode"] } } })
                                     }
                                 >
                                     <SelectTrigger>
@@ -115,7 +116,7 @@ export function IntegrationsTab() {
                                 <Select
                                     value={integrations.appleCalendar.syncMode}
                                     onValueChange={(val) =>
-                                        updateSettings.mutate({ integrations: { appleCalendar: { syncMode: val as any } } })
+                                        updateSettings.mutate({ integrations: { appleCalendar: { syncMode: val as UserSettings["integrations"]["appleCalendar"]["syncMode"] } } })
                                     }
                                 >
                                     <SelectTrigger>

@@ -10,6 +10,8 @@ import { authClient, authError } from "../../../lib/auth-client";
 import { queryKeys } from "../../../lib/api/query-keys";
 import { useLinkedAccounts } from "../../../hooks/auth/use-linked-accounts";
 import { beginSocialLink, getAuthCallbackUrl } from "../../../platform/runtime";
+
+type AuthSession = NonNullable<Awaited<ReturnType<typeof authClient.listSessions>>["data"]>[number];
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { useAuthState } from "../../../hooks/auth/use-auth-state";
 import * as Dialog from "../../primitives/Dialog";
@@ -87,11 +89,11 @@ function BirthdayEditorModal({
     onSave: (val: string | null) => Promise<void>;
 }) {
     const [open, setOpen] = useState(false);
-    const [val, setVal] = useState(initialValue || "");
+    const [val, setVal] = useState(initialValue ?? "");
     const [loading, setLoading] = useState(false);
 
     return (
-        <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (isOpen) setVal(initialValue || ""); }}>
+        <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (isOpen) setVal(initialValue ?? ""); }}>
             <Dialog.DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="min-h-11 min-w-11 opacity-100 transition-opacity">
                     {initialValue ? "Edit" : "Set"}
@@ -136,7 +138,7 @@ function BirthdayEditorModal({
                                 setLoading(false);
                             }
                         }}
-                        disabled={loading || val === (initialValue || "")}
+                        disabled={loading || val === (initialValue ?? "")}
                     >
                         {loading ? "Saving..." : "Save"}
                     </Button>
@@ -442,7 +444,7 @@ function OAuthConnectionsBlock() {
 const SESSION_LIST_FRESH_MS = 24 * 60 * 60 * 1000;
 
 function SessionsBlock() {
-    const [sessions, setSessions] = useState<any[] | null>(null);
+    const [sessions, setSessions] = useState<AuthSession[] | null>(null);
     const [isPending, setIsPending] = useState(true);
     const [loadError, setLoadError] = useState(false);
     const { session: currentSession } = useAuthState();
@@ -488,7 +490,7 @@ function SessionsBlock() {
                 ) : loadError ? (
                     <p className="text-sm text-warm-white/50">Couldn't load your devices. Try again in a moment.</p>
                 ) : sessions && sessions.length > 0 ? (
-                    sessions.map((sess: any) => {
+                    sessions.map((sess) => {
                         const isCurrent = sess.id === currentSession?.session.id;
                         return (
                             <div key={sess.id} className={`flex justify-between items-center gap-3 group/session [&>div:first-child]:min-w-0 [&>div:first-child]:break-words ${isCurrent ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-twilight-border'} border rounded-lg p-3 transition-colors`}>
@@ -657,7 +659,7 @@ export function AccountTab() {
         }
     };
 
-    const handleUpdateSettings = async (field: "pronouns" | "birthday", value: string | null) => {
+    const handleUpdateSettings = (field: "pronouns" | "birthday", value: string | null) => {
         updateSettings.mutate({ profile: { ...profileSettings, [field]: value } });
     };
 
@@ -740,7 +742,7 @@ export function AccountTab() {
                             <FieldEditorModal
                                 title="Add Pronouns"
                                 initialValue={profileSettings.pronouns || ""}
-                                onSave={async (val) => await handleUpdateSettings("pronouns", val)}
+                                onSave={(val) => Promise.resolve(handleUpdateSettings("pronouns", val))}
                                 placeholder="they/them"
                             />
                         </div>
@@ -764,7 +766,7 @@ export function AccountTab() {
                             </div>
                             <BirthdayEditorModal
                                 initialValue={profileSettings.birthday}
-                                onSave={async (val) => await handleUpdateSettings("birthday", val)}
+                                onSave={(val) => Promise.resolve(handleUpdateSettings("birthday", val))}
                             />
                         </div>
                     </div>

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import type { UserSettings } from "../../../types/settings";
+type TaskSettings = UserSettings["tasks"];
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { Switch } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
@@ -31,7 +33,7 @@ export function TasksTab() {
                         <Select
                             value={taskSettings.defaultDueDate || "None"}
                             onValueChange={(val) =>
-                                updateSettings.mutate({ tasks: { defaultDueDate: val === "None" ? null : val as any } })
+                                updateSettings.mutate({ tasks: { defaultDueDate: val === "None" ? null : val as TaskSettings["defaultDueDate"] } })
                             }
                         >
                             <SelectTrigger>
@@ -55,7 +57,7 @@ export function TasksTab() {
                         <Select
                             value={taskSettings.defaultPriority}
                             onValueChange={(val) =>
-                                updateSettings.mutate({ tasks: { defaultPriority: val as any } })
+                                updateSettings.mutate({ tasks: { defaultPriority: val as TaskSettings["defaultPriority"] } })
                             }
                         >
                             <SelectTrigger>
@@ -80,7 +82,7 @@ export function TasksTab() {
                         <Select
                             value={taskSettings.defaultDurationMinutes?.toString() ?? "none"}
                             onValueChange={(val) =>
-                                updateSettings.mutate({ tasks: { defaultDurationMinutes: val === "none" ? null : Number(val) as any } })
+                                updateSettings.mutate({ tasks: { defaultDurationMinutes: val === "none" ? null : Number(val) as TaskSettings["defaultDurationMinutes"] } })
                             }
                         >
                             <SelectTrigger>
@@ -106,7 +108,7 @@ export function TasksTab() {
                         <Select
                             value={taskSettings.newTaskPlacement}
                             onValueChange={(val) =>
-                                updateSettings.mutate({ tasks: { newTaskPlacement: val as any } })
+                                updateSettings.mutate({ tasks: { newTaskPlacement: val as TaskSettings["newTaskPlacement"] } })
                             }
                         >
                             <SelectTrigger>
@@ -130,7 +132,7 @@ export function TasksTab() {
                         <Select
                             value={taskSettings.defaultView}
                             onValueChange={(val) =>
-                                updateSettings.mutate({ tasks: { defaultView: val as any } })
+                                updateSettings.mutate({ tasks: { defaultView: val as TaskSettings["defaultView"] } })
                             }
                         >
                             <SelectTrigger>
@@ -268,13 +270,13 @@ export function TasksTab() {
                     className="items-start"
                 >
                     <div className="flex flex-wrap gap-2 sm:max-w-[28rem]">
-                        {[
+                        {([
                             { value: "date", label: "Date" },
                             { value: "priority", label: "Priority" },
                             { value: "project", label: "List" },
                             { value: "tag", label: "Tag" },
-                        ].map((action) => {
-                            const active = quickAddActions.includes(action.value as any);
+                        ] as const).map((action) => {
+                            const active = quickAddActions.includes(action.value);
 
                             return (
                                 <button
@@ -283,8 +285,8 @@ export function TasksTab() {
                                     onClick={() => {
                                         const next = active
                                             ? quickAddActions.filter((item) => item !== action.value)
-                                            : [...quickAddActions, action.value as any];
-                                        updateSettings.mutate({ tasks: { quickAdd: { actions: next as any } } });
+                                            : [...quickAddActions, action.value];
+                                        updateSettings.mutate({ tasks: { quickAdd: { actions: next } } });
                                     }}
                                     className={`min-h-10 rounded-xl border px-3 text-sm transition-colors ${
                                         active

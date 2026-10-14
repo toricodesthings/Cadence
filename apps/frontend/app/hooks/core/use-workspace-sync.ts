@@ -23,7 +23,7 @@ export function useWorkspaceSync() {
                 void checkForAppUpdate().then((update) => {
                     publishAvailableDesktopUpdate(update);
                     if (update) announceDesktopUpdate(update);
-                }).catch(() => {});
+                }).catch(() => undefined);
             }
         } catch (error) {
             toastError(error, "Couldn't sync");

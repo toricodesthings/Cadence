@@ -3,7 +3,7 @@ import { useIsRestoring, useQueryClient, type Query } from "@tanstack/react-quer
 import { startupMark, startupRoute } from "../../lib/startup-timing";
 
 const SLOW_START_MS = 4_000;
-export const StartupRenderContext = createContext<(change: number) => void>(() => {});
+export const StartupRenderContext = createContext<(change: number) => void>(() => undefined);
 export const StartupReadyContext = createContext(true);
 
 type QueryKey = readonly unknown[];

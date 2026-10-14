@@ -1,12 +1,13 @@
 import React from "react";
 import { Folder, ChevronRight } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
+import type { GenericMenu } from "../primitives/menu-styles";
 import { useProjects } from "../../hooks/projects/use-projects";
 
 interface MoveToSubmenuProps {
     currentProjectId: string | null;
     onSelect: (projectId: string | null) => void;
-    MenuComponents?: any;
+    MenuComponents?: GenericMenu;
 }
 
 export const MoveToSubmenu: React.FC<MoveToSubmenuProps> = ({

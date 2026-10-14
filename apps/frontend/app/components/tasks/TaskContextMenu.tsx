@@ -245,7 +245,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                     </Menu.Item>
 
                     <MoveToSubmenu
-                        MenuComponents={Menu as GenericMenu}
+                        MenuComponents={Menu}
                         currentProjectId={task.projectId}
                         onSelect={(projectId) => updateTask.mutate({ id: task.id, projectId })}
                     />
@@ -320,20 +320,20 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
 
             {/* ── Organization ── */}
             <TagPickerSubmenu
-                MenuComponents={Menu as GenericMenu}
+                MenuComponents={Menu}
                 activeTagIds={task.tagIds ?? []}
                 onAdd={(tagId) => addTaskTag.mutate({ taskId: task.id, tagId })}
                 onRemove={(tagId) => removeTaskTag.mutate({ taskId: task.id, tagId })}
             />
 
             <MoveToSubmenu
-                MenuComponents={Menu as GenericMenu}
+                MenuComponents={Menu}
                 currentProjectId={task.projectId}
                 onSelect={(projectId) => updateTask.mutate({ id: task.id, projectId })}
             />
 
             <MoveToSectionSubmenu
-                MenuComponents={Menu as GenericMenu}
+                MenuComponents={Menu}
                 currentProjectId={task.projectId}
                 currentSectionId={task.sectionId ?? null}
                 onSelect={(sectionId) => updateTask.mutate({ id: task.id, sectionId })}

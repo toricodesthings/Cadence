@@ -7,7 +7,7 @@ import { cssVars, n1, pt, rng, type Pt } from "~/lib/geometry";
  * gradients animated on opacity.
  */
 
-type Star = { x: number; y: number; r: number; warm: boolean };
+interface Star { x: number; y: number; r: number; warm: boolean }
 
 /** Upper-left, where the boughs' moonlit rims say the light comes from. */
 const MOON: Pt = [420, 230];

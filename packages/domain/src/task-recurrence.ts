@@ -1,14 +1,14 @@
 import { addDays, dayOf, daysBetween, expandSeries, parseRecurrenceRule, nextOccurrence, type Instant, type SeriesStart, type LocalDate, type Zone } from "./time";
 
 /** The day window (LocalDates, inclusive) and paging needed to expand schedule-scoped repeating tasks. */
-export type ScheduleScopeFilters = {
+export interface ScheduleScopeFilters {
     from?: LocalDate;
     to?: LocalDate;
     limit?: number;
     offset?: number;
-};
+}
 
-type TaskRow = {
+interface TaskRow {
     id: string;
     title: string;
     dueDate: LocalDate | null;
@@ -23,7 +23,7 @@ type TaskRow = {
     isPinned: boolean;
     tagIds?: string[];
     [key: string]: unknown;
-};
+}
 
 export type RecurringTaskInstance<T extends TaskRow> = T & {
     seriesId?: string;
