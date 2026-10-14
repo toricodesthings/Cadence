@@ -16,10 +16,10 @@
 		"test:integration": "vitest run tests/integration",
 		"test:security": "vitest run tests/security",
 		"test:watch": "vitest",
-		"eval": "vitest run --config vitest.evals.config.ts",
-		"eval:assistant": "vitest run --config vitest.evals.config.ts tests/evals/assistant.eval.ts",
-		"eval:memory": "vitest run --config vitest.evals.config.ts tests/evals/memory.eval.ts",
-		"eval:decisions": "vitest run --config vitest.evals.config.ts tests/evals/decisions.eval.ts",
+		"eval": "node scripts/run-evals.mjs smoke",
+		"eval:assistant": "node scripts/run-evals.mjs assistant",
+		"eval:memory": "node scripts/run-evals.mjs memory",
+		"eval:decisions": "node scripts/run-evals.mjs decisions",
 		"typecheck": "tsc --noEmit",
 		"lint": "node scripts/check-domains.mjs && oxlint .",
 		"db:generate": "drizzle-kit generate",
@@ -27,7 +27,10 @@
 		"db:migrate": "drizzle-kit migrate",
 		"db:migrate:prod": "DB_TARGET=prod drizzle-kit migrate",
 		"db:check:prod": "node scripts/check-prod-migrations.mjs",
-		"db:studio": "drizzle-kit studio"
+		"db:studio": "drizzle-kit studio",
+		"eval:smoke": "node scripts/run-evals.mjs smoke",
+		"eval:full": "node scripts/run-evals.mjs full",
+		"eval:embeddings": "node scripts/run-evals.mjs embeddings"
 	},
 	"dependencies": {
 		"@cadence/contracts": "workspace:*",

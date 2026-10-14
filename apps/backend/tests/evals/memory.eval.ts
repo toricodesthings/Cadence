@@ -1,7 +1,7 @@
 /**
  * Memory evals (0.32.0 §12): the real extraction, consolidation and recall against a real model, on
  * synthetic people. Costs a little, so it never runs with `pnpm test`: `pnpm eval:memory`
- * (OPENROUTER_API_KEY in the environment or `.dev.vars`; MEMORY_EVAL_RUNS=1 for a quick pass). Every stochastic scenario runs 3 times and every run is scored.
+ * (OPENROUTER_API_KEY in the environment or `.dev.vars`; MEMORY_EVAL_RUNS=1 for a quick pass). Iteration runs once; `pnpm eval:full` repeats stochastic scenarios 3 times.
  *
  * Gates:
  *  - extraction: 0 invented or injected facts saved; recall of stated facts ≥ 90%
@@ -9,10 +9,10 @@
  *  - recall: the required fact is in the context (profile + recall) ≥ 95% of 30 requests over 300 facts
  *  - "ages ago": a fact stated 4 months and 300 facts earlier is used with the right month
  *  - remember: "remember …" saves, "forget …" forgets, a save that was undone is saved again, and memory off saves nothing
- * Writes `output/evals/memory.json`.
+ * Writes root `output/evals/memory-<profile>.json`.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createUser, getTestDb, startTestDb } from "../helpers/db";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
@@ -26,18 +26,13 @@ import { optimizationOptions } from "./optimization-options";
 import { withRls } from "../../src/platform/rls";
 import { users } from "../../src/db/schema";
 import { eq } from "drizzle-orm";
+import { createFixtureEmbedder } from "./fixture-embeddings";
+import { evaluationOptions, evaluationVars } from "./run-options";
 import type { Env } from "../../src/types/env";
 import { EXTRACTION_CASES, FILLER_FACTS, MATCH_CASES, RECALL_CASES } from "./memory-data";
 
-function devVars(): Record<string, string> {
-    try {
-        return Object.fromEntries(readFileSync(join(__dirname, "../../.dev.vars"), "utf8").split("\n")
-            .map((line) => line.match(/^\s*([A-Z0-9_]+)\s*=\s*"?(.*?)"?\s*$/)).filter(Boolean).map((m) => [m![1], m![2]]));
-    } catch {
-        return {};
-    }
-}
-const vars = { ...devVars(), ...process.env } as Record<string, string | undefined>;
+const vars = evaluationVars();
+const evaluation = evaluationOptions(vars);
 const optimization = optimizationOptions(vars);
 const env = {
     OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY,
@@ -48,14 +43,17 @@ const env = {
     AI_MEMORY_COVERAGE_GATE: vars.AI_MEMORY_COVERAGE_GATE,
 } as unknown as Env;
 const live = Boolean(env.OPENROUTER_API_KEY);
-const RUNS = Number(vars.MEMORY_EVAL_RUNS) || 3;
+const RUNS = evaluation.memoryRuns;
+const fixtureEmbeddings = createFixtureEmbedder((texts) => embedTexts(env, texts));
 const report: Record<string, unknown> = {};
 const TODAY = "2026-10-12";
 
 beforeAll(startTestDb);
 afterAll(() => {
-    mkdirSync(join(__dirname, "../../output/evals"), { recursive: true });
-    writeFileSync(join(__dirname, "../../output/evals/memory.json"), JSON.stringify({ optimization, at: new Date().toISOString(), model: env.AI_CHAT_MODEL, runs: RUNS, ...report }, null, 2));
+    if (!Object.keys(report).length) return;
+    const dir = join(__dirname, "../../../../output/evals");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `memory-${evaluation.embeddingDimensions ? "embeddings" : evaluation.profile}.json`), JSON.stringify({ evaluation, optimization, at: new Date().toISOString(), model: env.AI_CHAT_MODEL, runs: RUNS, ...report }, null, 2));
 });
 
 describe.skipIf(!live)("memory · extraction precision", () => {
@@ -106,8 +104,7 @@ async function seedPerson(named: { content: string; kind: string; saidOn: string
     const userId = await createUser();
     const model = getEmbeddingModelId(env);
     const contents = [...FILLER_FACTS, ...named.map((n) => n.content)];
-    const vectors: number[][] = [];
-    for (let i = 0; i < contents.length; i += 64) vectors.push(...(await embedTexts(env, contents.slice(i, i + 64))));
+    const vectors = [...await fixtureEmbeddings(FILLER_FACTS), ...await fixtureEmbeddings(named.map((n) => n.content))];
     await withRls(getTestDb(), userId, async (tx: any) => {
         await tx.update(users).set({ settings: { assistant: { memoryMode: "basic", memoryEpoch: 1 } } }).where(eq(users.id, userId));
         for (const [i, content] of contents.entries()) {
@@ -198,7 +195,7 @@ describe.skipIf(!live)("memory · the remember tool", () => {
     type Turn = { role: "user" | "assistant"; content: string };
     async function actions(mode: "basic" | "off", facts: string[], turns: Turn[]) {
         const userId = await createUser();
-        const vectors = facts.length ? await embedTexts(env, facts) : [];
+        const vectors = facts.length ? await fixtureEmbeddings(facts) : [];
         await withRls(getTestDb(), userId, async (tx: any) => {
             await tx.update(users).set({ settings: { assistant: { memoryMode: mode, memoryEpoch: 1 } } }).where(eq(users.id, userId));
             for (const [i, content] of facts.entries()) {
@@ -318,7 +315,7 @@ describe.skipIf(!live)("memory · callback tone", () => {
     async function reply(facts: { kind: string; content: string; sensitive?: boolean; saidOn: string }[], request: string) {
         const userId = await createUser();
         const model = getEmbeddingModelId(env);
-        const vectors = await embedTexts(env, facts.map((f) => f.content));
+        const vectors = await fixtureEmbeddings(facts.map((f) => f.content));
         await withRls(getTestDb(), userId, async (tx: any) => {
             await tx.update(users).set({ settings: { assistant: { memoryMode: "basic", memoryEpoch: 1 } } }).where(eq(users.id, userId));
             for (const [i, f] of facts.entries()) {
@@ -363,7 +360,7 @@ describe.skipIf(!live)("memory · callback tone", () => {
     });
 });
 
-describe.skipIf(!live)("memory · embedding size (§8: 512 vs 768 vs 1536)", () => {
+describe.skipIf(!live || !evaluation.embeddingDimensions)("memory · embedding size (§8: 512 vs 768 vs 1536)", () => {
     it("dense recall alone, by dimensions: the fact is in the top 8 of 310", async () => {
         const { embedMany } = await import("ai");
         const { createOpenRouter } = await import("@openrouter/ai-sdk-provider");

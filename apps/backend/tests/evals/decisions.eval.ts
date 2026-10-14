@@ -1,35 +1,29 @@
 /**
  * Decision-model evals (S1 placement, S2 did-you-mean): the adapter against a real decision model, on
- * synthetic rosters. Each case runs with its option order shuffled (and labels re-cased) so a model that
+ * synthetic rosters. Iteration runs once; full validation also re-cases labels and reshuffles, so a model that
  * leans on position or spelling shows up. Costs a little, so it never runs with `pnpm test`:
  * `AI_DECISION_MODEL=<dated id> pnpm eval:decisions` (OPENROUTER_API_KEY in env or `.dev.vars`).
  *
  * Prints, per kind: outcomes, latency, cost, shown-and-wrong rate, coverage (shown and right among cases that have a right answer),
  * the best threshold that meets the gate, and a local word-overlap baseline on the same cases. Writes
- * `output/evals/decisions-<model>.json`. The gates (plan 0.31.0): S1 wrong ≤ 5% and coverage ≥ 60%;
+ * root `output/evals/decisions-<model>-<profile>.json`. The gates (plan 0.31.0): S1 wrong ≤ 5% and coverage ≥ 60%;
  * S2 right ≥ 70% where one exists and wrong ≤ 10% where none does.
  */
 import { afterAll, describe, expect, it } from "vitest";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DECISION_THRESHOLDS, decideChoice, type DecisionKind } from "../../src/domains/decisions/decision";
+import { evaluationOptions, evaluationVars } from "./run-options";
 import type { Env } from "../../src/types/env";
 import { PLACEMENT_CASES, SEARCH_CASES, ROSTER, TASKS } from "./decisions-data";
 import placementPrompt from "../../src/prompts/decisions/placement.md";
 import didYouMeanPrompt from "../../src/prompts/decisions/did-you-mean.md";
 
-function devVars(): Record<string, string> {
-    try {
-        return Object.fromEntries(readFileSync(join(__dirname, "../../.dev.vars"), "utf8").split("\n")
-            .map((line) => line.match(/^\s*([A-Z0-9_]+)\s*=\s*"?(.*?)"?\s*$/)).filter(Boolean).map((m) => [m![1], m![2]]));
-    } catch {
-        return {};
-    }
-}
-const vars = devVars();
+const vars = evaluationVars();
+const evaluation = evaluationOptions(vars);
 const env = {
-    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY ?? vars.OPENROUTER_API_KEY,
-    AI_DECISION_MODEL: process.env.AI_DECISION_MODEL ?? vars.AI_DECISION_MODEL,
+    OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY,
+    AI_DECISION_MODEL: vars.AI_DECISION_MODEL,
 } as Env;
 const live = Boolean(env.OPENROUTER_API_KEY && env.AI_DECISION_MODEL);
 
@@ -91,7 +85,7 @@ const baselinePick = (r: Row) => r.base;
 async function run(kind: Extract<DecisionKind, "placement" | "search">, cases: typeof PLACEMENT_CASES | typeof SEARCH_CASES, options: { id: string; label: string }[], instructions: string) {
     const rows: Row[] = [];
     for (const [index, c] of cases.entries()) {
-        for (const pass of [1, 2]) {
+        for (let pass = 1; pass <= Math.min(evaluation.decisionRuns, 2); pass++) {
             const shuffledOptions = shuffled(options, index * 7 + pass).map((o) => ({ ...o, label: pass === 2 ? o.label.toUpperCase() : o.label }));
             const decision = await decideChoice(env, { kind, state: c.text, instructions, candidates: shuffledOptions });
             rows.push({
@@ -122,12 +116,15 @@ describe.skipIf(!live)("decisions", () => {
     });
     afterAll(() => {
         const report = {
+            profile: evaluation.profile,
+            runs: Math.min(evaluation.decisionRuns, 2),
             model: env.AI_DECISION_MODEL,
             placement: results.placement && summarize(results.placement, { wrong: 0.05, right: 0.6 }),
             search: results.search && summarize(results.search, { wrong: 0.1, right: 0.7 }),
         };
-        mkdirSync("output/evals", { recursive: true });
-        writeFileSync(`output/evals/decisions-${env.AI_DECISION_MODEL!.replace(/[^a-z0-9.]+/gi, "_")}.json`, JSON.stringify(report, null, 2));
+        const dir = join(__dirname, "../../../../output/evals");
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, `decisions-${env.AI_DECISION_MODEL!.replace(/[^a-z0-9.]+/gi, "_")}-${evaluation.profile}.json`), JSON.stringify(report, null, 2));
         console.info(JSON.stringify(report, null, 2));
     });
 });

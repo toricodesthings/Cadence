@@ -6,9 +6,9 @@
  *
  * Costs model tokens, so it never runs with `pnpm test`: `pnpm eval:assistant`
  * (needs OPENROUTER_API_KEY in the environment or `.dev.vars`; AI_CHAT_MODEL
- * picks another model; EVAL_RUNS=1 runs every scenario once for a quick, cheaper
- * pass; `-t "<name>"` picks scenarios). Prints a summary with each scenario's
- * cached share and cost, and writes `output/evals/assistant.json`.
+ * picks another model; iteration runs each scenario once; `pnpm eval:full`
+ * restores repeated checks; `-t "<name>"` picks scenarios). Prints a summary with each scenario's
+ * cached share and cost, and writes root `output/evals/assistant-<profile>.json`.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -19,6 +19,7 @@ import { getAgentInstance } from "../../src/domains/ai/agent";
 import { optimizationOptions } from "./optimization-options";
 import { getModelId, pickChatModel } from "../../src/domains/ai/model-router";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
+import { evaluationOptions, evaluationVars } from "./run-options";
 import type { Env } from "../../src/types/env";
 import { withRls } from "../../src/platform/rls";
 import { habits } from "../../src/db/schema";
@@ -32,26 +33,19 @@ const NOW = "2026-09-23T14:00:00.000Z";
 const TODAY = "2026-09-23";
 
 /** `.dev.vars` values, for a local run without exported variables. */
-function devVars(): Record<string, string> {
-    try {
-        return Object.fromEntries(readFileSync(join(__dirname, "../../.dev.vars"), "utf8").split("\n")
-            .map((line) => line.match(/^\s*([A-Z0-9_]+)\s*=\s*"?(.*?)"?\s*$/)).filter(Boolean).map((m) => [m![1], m![2]]));
-    } catch {
-        return {};
-    }
-}
-const vars = { ...devVars(), ...process.env } as Record<string, string | undefined>;
+const vars = evaluationVars();
+const evaluation = evaluationOptions(vars);
 const optimization = optimizationOptions(vars);
-const comparePrompts = vars.AI_EVAL_COMPARE_PROMPTS === "true";
-const reportName = vars.AI_EVAL_REPORT_NAME ?? (comparePrompts ? "assistant-p2" : "assistant");
+const comparePrompts = evaluation.profile !== "smoke" && vars.AI_EVAL_COMPARE_PROMPTS === "true";
+const reportName = vars.AI_EVAL_REPORT_NAME ?? `${comparePrompts ? "assistant-p2" : "assistant"}-${evaluation.profile}`;
 if (!/^[a-z0-9-]+$/i.test(reportName)) throw new Error("Invalid AI_EVAL_REPORT_NAME");
 const variants = comparePrompts ? [
     { promptPackaging: "baseline" as const, cacheVariant: "5m-5m" as const },
     { promptPackaging: "static-memory" as const, cacheVariant: "5m-5m" as const },
 ] : [optimization];
 const env = { OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY, AI_CHAT_MODEL: vars.AI_CHAT_MODEL, AI_CHAT_MODEL_BASIC: vars.AI_CHAT_MODEL_BASIC ?? "deepseek/deepseek-v4.1-flash" } as unknown as Env;
-/** Caps each scenario's repeat count (EVAL_RUNS=1: one pass each, for iterating). */
-const maxRuns = Number(vars.EVAL_RUNS) || Infinity;
+/** Iteration defaults to one pass; full restores each scenario's repeat count. */
+const maxRuns = evaluation.assistantRuns;
 
 type Call = { step: number; name: string; input: any; output: any };
 type Tools = ReturnType<typeof toolsFor> & { userId?: string };
@@ -59,6 +53,7 @@ interface Run { calls: Call[]; text: string; models: string[]; servedModels: str
 interface Scenario {
     name: string;
     level: "simple" | "medium" | "complex";
+    smoke?: boolean;
     memoryMode?: "basic" | "full";
     seed?: (t: Tools) => Promise<Record<string, any>>;
     turns: (string | { text: string; image: string })[];
@@ -285,6 +280,7 @@ const SCENARIOS: Scenario[] = [
     },
     {
         name: "version search: duplicate identifiers need clarification",
+        smoke: true,
         level: "medium",
         runs: 3,
         seed: async (t) => {
@@ -301,6 +297,7 @@ const SCENARIOS: Scenario[] = [
     },
     {
         name: "add a timed task",
+        smoke: true,
         level: "simple",
         turns: ["add call mom tomorrow at 6pm"],
         check: async (run, t) => {
@@ -493,6 +490,7 @@ const SCENARIOS: Scenario[] = [
     },
     {
         name: "undo the last change",
+        smoke: true,
         level: "complex",
         seed: async (t) => {
             await t("create_tasks", { tasks: [{ title: "Water plants", dueDate: TODAY }, { title: "Stretch", dueDate: TODAY }] });
@@ -539,6 +537,7 @@ const SCENARIOS: Scenario[] = [
     },
     {
         name: "set times: log the dose they name",
+        smoke: true,
         level: "simple",
         runs: 3,
         seed: async (t) => t("create_habit", { title: "Pills", recurrenceRule: "FREQ=DAILY", times: ["07:30", "12:30", "19:30"] }),
@@ -789,6 +788,7 @@ const SCENARIOS: Scenario[] = [
     },
     {
         name: "router: a real ask takes over for good",
+        smoke: true,
         level: "simple",
         routed: true,
         turns: ["hey", "add buy milk tomorrow", "thanks!"],
@@ -802,7 +802,10 @@ const SCENARIOS: Scenario[] = [
 
 // ── Runner ──────────────────────────────────────────────────────────────────
 type Totals = Pick<Run, "steps" | "tokens" | "inputTokens" | "outputTokens" | "cached" | "written" | "cost" | "unknownCostSteps" | "failedRuns" | "ms">;
-const report: ({ name: string; packaging: string; level: string; passed: boolean; problems: string[]; calls: string[]; models: string[]; servedModels: string[] } & Totals)[] = [];
+const selected = SCENARIOS.filter((scenario) => evaluation.profile !== "smoke" || scenario.smoke);
+const report: ({ name: string; runs: number; packaging: string; level: string; passed: boolean; problems: string[]; calls: string[]; models: string[]; servedModels: string[] } & Totals)[] = [];
+const warmups: Run[] = [];
+let failedWarmups = 0;
 /** The share of input read from the prompt cache (input includes cached tokens). */
 const cachedShare = (r: Totals) => (r.tokens ? `${Math.round((r.cached / r.tokens) * 100)}%`.padStart(4) : "  -");
 
@@ -811,22 +814,25 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
         await startTestDb();
         // One turn first writes the static prefix (tools + system prompt, the same for every
         // scenario) to the prompt cache; otherwise the concurrent first turns all miss and each pays to write it.
-        for (const variant of variants) await converse(await createUser({ zone: TZ }), ["hi"], NOW, false, variant);
+        for (const variant of variants) {
+            try { warmups.push(await converse(await createUser({ zone: TZ }), ["hi"], NOW, false, variant)); }
+            catch (error) { failedWarmups++; throw error; }
+        }
     });
     afterAll(() => {
         const passed = report.filter((r) => r.passed).length;
-        const sum = report.reduce((a, r) => ({ cost: a.cost + r.cost, tokens: a.tokens + r.tokens, cached: a.cached + r.cached }), { cost: 0, tokens: 0, cached: 0 });
+        const sum = [...warmups, ...report].reduce((a, r) => ({ cost: a.cost + r.cost, tokens: a.tokens + r.tokens, cached: a.cached + r.cached }), { cost: 0, tokens: 0, cached: 0 });
         const rows = report.map((r) => `${r.passed ? "PASS" : "FAIL"}  ${r.level.padEnd(7)} ${r.name.padEnd(46)} [${r.packaging}] ${String(r.steps).padStart(2)} steps ${String(r.tokens).padStart(6)} tok ${cachedShare(r)} cached ${r.unknownCostSteps || r.failedRuns ? "unknown cost" : `$${r.cost.toFixed(4)}`} ${(r.ms / 1000).toFixed(1).padStart(5)}s  ${r.calls.join(" → ")}${r.problems.length ? `\n      ✗ ${r.problems.join("\n      ✗ ")}` : ""}`);
-        process.stdout.write(`\nAssistant evals (${env.AI_CHAT_MODEL ?? "default model"}): ${passed}/${report.length} passed · ${sum.tokens} tok, ${cachedShare(sum as Totals)} cached · known cost $${sum.cost.toFixed(4)}\n${rows.join("\n")}\n\n`);
+        process.stdout.write(`\nAssistant evals [${evaluation.profile}] (${env.AI_CHAT_MODEL ?? "default model"}): ${passed}/${report.length} passed · ${sum.tokens} tok, ${cachedShare(sum as Totals)} cached · known cost $${sum.cost.toFixed(4)}\n${rows.join("\n")}\n\n`);
         const dir = join(__dirname, "../../../../output/evals");
         mkdirSync(dir, { recursive: true });
-        const unknown = report.reduce((n, r) => n + r.unknownCostSteps, 0);
-        const failedRuns = report.reduce((n, r) => n + r.failedRuns, 0);
-        writeFileSync(join(dir, `${reportName}.json`), JSON.stringify({ variants, at: new Date().toISOString(), model: env.AI_CHAT_MODEL ?? "default", passed, total: report.length, cost: unknown || failedRuns ? null : sum.cost, knownCost: sum.cost, unknownCostSteps: unknown, failedRuns,
+        const unknown = [...warmups, ...report].reduce((n, r) => n + r.unknownCostSteps, 0);
+        const failedRuns = report.reduce((n, r) => n + r.failedRuns, failedWarmups);
+        writeFileSync(join(dir, `${reportName}.json`), JSON.stringify({ profile: evaluation.profile, repetitionLimit: maxRuns, availableScenarios: SCENARIOS.length, warmupKnownCost: warmups.reduce((n, r) => n + r.cost, 0), selectedScenarios: selected.length, variants, at: new Date().toISOString(), model: env.AI_CHAT_MODEL ?? "default", passed, total: report.length, cost: unknown || failedRuns ? null : sum.cost, knownCost: sum.cost, unknownCostSteps: unknown, failedRuns,
             report: report.map((r) => ({ ...r, cost: r.unknownCostSteps || r.failedRuns ? null : r.cost, knownCost: r.cost })) }, null, 2));
     });
 
-    for (const [index, scenario] of SCENARIOS.entries()) for (const variant of (index % 2 ? [...variants].reverse() : variants)) {
+    for (const [index, scenario] of selected.entries()) for (const variant of (index % 2 ? [...variants].reverse() : variants)) {
         it.concurrent(`${scenario.name} [${variant.promptPackaging}]`, async () => {
             const total: Totals = { steps: 0, tokens: 0, inputTokens: 0, outputTokens: 0, cached: 0, written: 0, cost: 0, unknownCostSteps: 0, failedRuns: 0, ms: 0 };
             const problems: string[] = [];
@@ -851,7 +857,7 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
                 for (const key of Object.keys(total) as (keyof Totals)[]) total[key] += run[key];
                 calls = [...new Set(run.calls.map((c) => c.step))].map((step) => run.calls.filter((c) => c.step === step).map((c) => c.name).join("+"));
             }
-            report.push({ name: scenario.name, packaging: variant.promptPackaging ?? "baseline", level: scenario.level, passed: problems.length === 0, problems, ...total, calls, models: [...models], servedModels: [...servedModels] });
+            report.push({ name: scenario.name, runs, packaging: variant.promptPackaging ?? "baseline", level: scenario.level, passed: problems.length === 0, problems, ...total, calls, models: [...models], servedModels: [...servedModels] });
             expect(problems).toEqual([]);
         });
     }
