@@ -1,3 +1,17 @@
 ---
 exclude_paths:
   - ".agents/**"
+engines:
+  lizard:
+    exclude_paths:
+      - "**/tests/**"
+      - "**/*.test.ts"
+      - "**/*.test.tsx"
+  eslint-8:
+    exclude_paths:
+      - "**/tests/**"
+      - "**/*.test.ts"
+      - "**/*.test.tsx"
+  semgrep:
+    exclude_paths:
+      - "**/package.json"
