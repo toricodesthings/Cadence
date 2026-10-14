@@ -9,7 +9,7 @@ import { SETTINGS_DEFAULTS, type UserSettings } from "@cadence/contracts/setting
 import { buildToolRegistry, type AgentContext } from "./tools/index";
 import { PROMPT_BLOCKS } from "./prompt/prompt-blocks";
 import { composePrompt, isWorkloadHigh } from "./prompt/prompt-composer";
-import type { AssistantPersona, PromptRuntimeContext, PromptPackaging } from "./prompt/prompt-blocks.schema";
+import { DEFAULT_PROMPT_PACKAGING, type AssistantPersona, type PromptRuntimeContext, type PromptPackaging } from "./prompt/prompt-blocks.schema";
 import { HELP_TOPICS } from "./tools/help";
 import { approvalFor } from "./safety/approval";
 import type { ApprovalMode } from "@cadence/contracts/ai";
@@ -99,7 +99,7 @@ export interface AgentBuildOptions {
     diagnostics?: RunDiagnostics;
     reusedTurnContext?: Promise<string | undefined>; // server-validated continuation only
     settings?: UserSettings; // authoritative row already loaded during zone synchronization
-    promptPackaging?: PromptPackaging; // offline/eval candidate; routes keep the baseline until behavior/cost gates pass
+    promptPackaging?: PromptPackaging; // internal evaluation override; chat requests use the compact default
     cacheVariant?: CacheVariant; // fixed per isolated evaluation conversation, never chosen by a chat request
     waitUntil?: (promise: Promise<unknown>) => void; // keeps post-commit metrics alive
 }
@@ -241,6 +241,7 @@ export async function getAgentInstance(
     opts: AgentBuildOptions,
 ): Promise<{ agent: ToolLoopAgent<never, ChatTools>; modelId: string; promptHash: string; turnContext: string }> {
     const locale = opts.locale ?? "en";
+    const packaging = opts.promptPackaging ?? DEFAULT_PROMPT_PACKAGING;
     const modelId = opts.modelId ?? getModelId(env);
     const userHash = await hashIdentifier(userId);
     const clock = userClock(opts.timezone, opts.currentDate);
@@ -285,7 +286,7 @@ export async function getAgentInstance(
             memoryOff: !memoryOn,
         },
         opts.nonce,
-        opts.promptPackaging,
+        packaging,
     );
     endPrompt?.();
 
@@ -303,5 +304,5 @@ export async function getAgentInstance(
         ...opts.diagnostics?.hooks,
     });
 
-    return { agent, modelId, promptHash: await measurePhase(opts.diagnostics, "promptHash", () => getPromptHash(chatTools(tools, memoryOn), isClaude(modelId), memoryOn, opts.promptPackaging ?? "baseline")), turnContext: reused ?? turnContext };
+    return { agent, modelId, promptHash: await measurePhase(opts.diagnostics, "promptHash", () => getPromptHash(chatTools(tools, memoryOn), isClaude(modelId), memoryOn, packaging)), turnContext: reused ?? turnContext };
 }

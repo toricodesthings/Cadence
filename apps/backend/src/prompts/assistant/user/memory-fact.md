@@ -1,1 +1,1 @@
-- [{{id}}] (source month: {{month}}{{flags}}) {{text}}
+- (said {{month}}{{flags}}) [{{id}}] {{text}}

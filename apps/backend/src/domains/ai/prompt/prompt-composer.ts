@@ -4,7 +4,7 @@
  * produces byte-identical output, which provider prompt caching relies on.
  *
  * Two outputs, sections joined by a blank line:
- *   instructions (system prompt): base sections only — byte-identical for every user and turn,
+ *   instructions (system prompt): base sections, plus compact memory policy when enabled — stable per variant,
  *     so provider prefix caching holds it (with the tool definitions) warm across everyone.
  *   turnContext: voice (+ workload modifier) · custom instructions · Environment · snapshot · memory
  *     — per-user and per-turn, appended to the user message by `withTurnContext` and kept server-side
@@ -16,7 +16,7 @@
 import { formatInZone } from "@cadence/domain/time";
 import { fenceData, sanitizeUntrusted } from "../safety/injection-policy";
 import type { ApprovalMode } from "@cadence/contracts/ai";
-import type { PromptBlocks, PromptRuntimeContext, PromptPackaging } from "./prompt-blocks.schema";
+import { DEFAULT_PROMPT_PACKAGING, type PromptBlocks, type PromptRuntimeContext, type PromptPackaging } from "./prompt-blocks.schema";
 
 /** Burnout above this (with adaptive tone on) makes the workload "high". */
 const HIGH_WORKLOAD_BURNOUT = 70;
@@ -47,12 +47,12 @@ function voiceSection(blocks: PromptBlocks, ctx: PromptRuntimeContext): string {
     return ctx.workloadHigh ? `${voice}\n${blocks.workloadHigh}` : voice;
 }
 
-function environmentSection(blocks: PromptBlocks, ctx: PromptRuntimeContext, nonce: string): string {
+function environmentSection(blocks: PromptBlocks, ctx: PromptRuntimeContext, nonce: string, packaging: PromptPackaging): string {
     const { persona } = ctx;
     const assistantName = persona.assistantName?.trim() || "Emilie";
     const nickname = persona.nickname?.trim();
     const names = [`Your name: ${assistantName}`, ...(nickname ? [`User's name: ${nickname}`] : [])].join("\n");
-    return interpolate(blocks.environment, {
+    return interpolate(packaging === "static-memory" ? blocks.compactEnvironment : blocks.environment, {
         names: fence("names", sanitizeUntrusted(names, nonce), nonce),
         emoji: persona.emoji ? "only to mirror the user" : "never",
         proactiveSuggestions: persona.proactiveSuggestions ? "on" : "off",
@@ -73,21 +73,16 @@ export function composePrompt(
     blocks: PromptBlocks,
     ctx: PromptRuntimeContext,
     nonce: string,
-    packaging: PromptPackaging = "baseline",
+    packaging: PromptPackaging = DEFAULT_PROMPT_PACKAGING,
 ): { instructions: string; turnContext: string } {
     const custom = ctx.persona.customInstructions?.trim();
     const memories = packaging === "static-memory" && ctx.memoryOff ? [] : ctx.memories ?? [];
     const staticMemory = packaging === "static-memory" && !ctx.memoryOff && (ctx.memoryOff === false || memories.length > 0);
-    let memoryPolicy: string | null = null;
-    if (staticMemory) {
-        // One canonical policy, from the existing template; preserve legacy packaging verbatim.
-        const sections = blocks.memory.split("{{memory}}");
-        if (sections.length !== 2) throw new Error("prompt_memory_placeholder_invalid");
-        memoryPolicy = `${sections[0].trimEnd()}\n\n${sections[1].trim()}`.replace("the list above", "the supplied memory facts");
-    }
+    const memoryPolicy = staticMemory ? blocks.memoryPolicy : null;
 
     // Static text has no placeholders; interpolating with none fails closed on a stray one.
-    const instructions = [...blocks.base, ...(memoryPolicy ? [memoryPolicy] : [])].map((section) => interpolate(section, {})).join("\n\n");
+    const base = packaging === "static-memory" ? blocks.compactBase : blocks.base;
+    const instructions = [...base, ...(memoryPolicy ? [memoryPolicy] : [])].map((section) => interpolate(section, {})).join("\n\n");
     const turnContext = [
         interpolate(voiceSection(blocks, ctx), {}),
         custom
@@ -95,7 +90,7 @@ export function composePrompt(
                   customInstructions: fence("custom_instructions", sanitizeUntrusted(custom, nonce), nonce),
               })
             : null,
-        environmentSection(blocks, ctx, nonce),
+        environmentSection(blocks, ctx, nonce, packaging),
         ctx.snapshot
             ? interpolate(blocks.snapshot, { snapshot: fence("snapshot", sanitizeUntrusted(ctx.snapshot, nonce), nonce) })
             : null,

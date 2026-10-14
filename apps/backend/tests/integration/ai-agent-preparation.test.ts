@@ -6,6 +6,7 @@ import { getAgentInstance } from "../../src/domains/ai/agent";
 import { createRunDiagnostics } from "../../src/domains/ai/run-diagnostics";
 import type { Env } from "../../src/types/env";
 import type { UserSettings } from "@cadence/contracts/settings";
+import type { PromptPackaging } from "../../src/domains/ai/prompt/prompt-blocks.schema";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -34,15 +35,32 @@ async function fact(kind: string, content: string) {
     return asOwner((pg) => pg.query(`INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence)
         VALUES ($1, $2::memory_kind, $3, '2026-10-01', '2026-10-01', 'chat', 'stated')`, [userId, kind, content]));
 }
-async function prepare(queryText = "Help me plan this afternoon", overrides: Partial<Env> = {}, provided: UserSettings = settings) {
+async function prepare(queryText = "Help me plan this afternoon", overrides: Partial<Env> = {}, provided: UserSettings = settings, promptPackaging?: PromptPackaging) {
     const diagnostics = createRunDiagnostics(() => performance.now());
     const result = await getAgentInstance({ ...env, ...overrides }, userId, {
-        timezone: "America/Toronto", currentDate: now, queryText, nonce: "fixture", approvalMode: "full", settings: provided, diagnostics,
+        timezone: "America/Toronto", currentDate: now, queryText, nonce: "fixture", approvalMode: "full", settings: provided, diagnostics, promptPackaging,
     });
     return { ...result, diagnostics: diagnostics.snapshot() };
 }
 
 describe("exact preparation", () => {
+    it("defaults to compact packaging and keeps baseline tools and stored contexts compatible", async () => {
+        await fact("constraint", "Keep Friday evenings free");
+        const baseline = await prepare(undefined, {}, settings, "baseline");
+        const candidate = await prepare();
+        const explicit = await prepare(undefined, {}, settings, "static-memory");
+        expect(candidate.turnContext).toBe(explicit.turnContext);
+        expect(candidate.promptHash).toBe(explicit.promptHash);
+        expect(candidate.promptHash).not.toBe(baseline.promptHash);
+        expect(candidate.turnContext.length).toBeLessThan(baseline.turnContext.length);
+        expect(Object.keys(candidate.agent.tools)).toEqual(Object.keys(baseline.agent.tools));
+        expect(candidate.turnContext).toContain("Keep Friday evenings free");
+        // Old revisions replay verbatim. A new packaging choice is not a consent/fact change.
+        const history = [{ role: "user", metadata: { turnContext: baseline.turnContext } }];
+        const replay = await validateStoredContexts(history, true, (ids) => withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13")));
+        expect(replay).toEqual(history);
+    });
+
     it("avoids embedding and recall for an empty or fully covered memory without losing facts", async () => {
         await prepare();
         expect(embedText).not.toHaveBeenCalled();

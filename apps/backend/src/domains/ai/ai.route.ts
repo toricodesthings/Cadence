@@ -62,7 +62,7 @@ import { buildResumeStream } from "./streaming/replay";
 import { applyApprovals, keepFinishedWrites, compactOldReads, dropForeignReasoning, dropUnsignedReasoning, recentStart, rowToUIMessage, settleUnanswered, toClientMessage } from "./persistence/message-mapper";
 import { makeFenceNonce, stripNonce } from "./safety/injection-policy";
 import { assertMessageWithinCaps, startAtUser } from "./safety/input-guard";
-import { buildStreamError, streamErrorToText, AI_ERROR_MESSAGES } from "./safety/stream-error";
+import { buildStreamError, streamErrorCause, streamErrorToText, AI_ERROR_MESSAGES } from "./safety/stream-error";
 import {
     resolveLimits,
     estimateReserve,
@@ -403,6 +403,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         startAbortWatcher({ redis, userKey, streamId, controller: abortController, signal: abortController.signal });
     }
 
+    // The SDK calls onError again while consuming its own serialized error part.
+    // Keep the first terminal error: one classification and one log per turn.
+    let reportedStreamError: string | undefined;
     const agentStream = await createAgentUIStream({
         agent,
         uiMessages: withTurnContext(modelMessages as { id: string; role: string; parts: unknown[] }[], contexts, recentFrom),
@@ -419,9 +422,11 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 : undefined;
         },
         onError: (error) => {
+            if (reportedStreamError !== undefined) return reportedStreamError;
             const streamError = buildStreamError(error, requestId);
+            reportedStreamError = streamErrorToText(streamError);
             // Server-side only: the provider's status + reason (never reaches the client).
-            const upstream = error as { statusCode?: unknown; responseBody?: unknown };
+            const upstream = streamErrorCause(error) as { statusCode?: unknown; responseBody?: unknown };
             // Provider outages, timeouts and our own bugs are errors; the rest (rate limits, stops) warn.
             const level = ["AI_TIMEOUT", "AI_UPSTREAM_UNAVAILABLE", "INTERNAL_ERROR"].includes(streamError.code) ? "error" : "warn";
             logger[level]("ai", "ai_stream_error", {
@@ -434,7 +439,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 upstreamBody: typeof upstream?.responseBody === "string" ? shorten(upstream.responseBody) : undefined,
                 issues: issuesFromError(error),
             });
-            return streamErrorToText(streamError);
+            return reportedStreamError;
         },
         onEnd: async ({ responseMessage, isAborted, finishReason, outcome }) => {
             const totalMs = since();

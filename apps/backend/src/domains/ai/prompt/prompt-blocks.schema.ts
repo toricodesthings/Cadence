@@ -7,20 +7,25 @@ import type { UserSettings } from "@cadence/contracts/settings";
 import type { ProfileLine } from "../memory/memory-store";
 
 type AssistantSettings = NonNullable<UserSettings["assistant"]>;
-/** Internal benchmark variants; the production caller defaults to the existing packaging. */
+/** Internal comparison variants; production uses compact packaging. */
 export type PromptPackaging = "baseline" | "static-memory";
+export const DEFAULT_PROMPT_PACKAGING: PromptPackaging = "static-memory";
 
 export type Voice = NonNullable<AssistantSettings["persona"]>;
 
 /** The block set: static base sections in order, then the per-user/per-turn templates. */
 export interface PromptBlocks {
     base: string[];
+    /** Deduplicated workflow; legacy base stays available for comparison and rollback. */
+    compactBase: string[];
+    memoryPolicy: string;
     voices: Record<Voice, string>;
     /** Appended to the voice when the workload is high (adaptive tone). */
     workloadHigh: string;
     /** Templates with {{placeholders}} resolved by the composer. */
     customInstructions: string;
     environment: string;
+    compactEnvironment: string;
     snapshot: string;
     memory: string;
     /** Data-only templates for the static-policy evaluation variant. */

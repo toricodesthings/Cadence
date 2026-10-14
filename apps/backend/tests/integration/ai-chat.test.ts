@@ -5,7 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MockLanguageModelV4 } from "ai/test";
-import { tool, ToolLoopAgent } from "ai";
+import { APICallError, RetryError, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 import { logger } from "../../src/platform/log";
 import * as redisAccess from "../../src/platform/redis";
@@ -286,6 +286,48 @@ describe("edits", () => {
 });
 
 describe("tool calls", () => {
+    it("preserves a completed write when its follow-up is rate-limited and continues it on retry", async () => {
+        const execute = vi.fn(async () => ({ tasks: [{ id: "task-1", title: "Trade-in" }] }));
+        const cause = new APICallError({ message: "temporarily rate-limited", url: "https://example.test", requestBodyValues: {}, statusCode: 429, responseBody: "private provider response" });
+        let unavailable = true;
+        model = new MockLanguageModelV4({ doStream: async ({ prompt }) => {
+            if (!prompt.some((message) => message.role === "tool")) {
+                return streamOf({ type: "tool-call", toolCallId: "saved-task", toolName: "create_tasks", input: "{}" }, finish("tool-calls"));
+            }
+            if (unavailable) throw new RetryError({ message: "Failed after 3 attempts", reason: "maxRetriesExceeded", errors: [cause, cause, cause] });
+            return streamOf(...textChunks("Your task is scheduled."), finish());
+        } });
+        vi.mocked(getAgentInstance).mockImplementation(async () => agentOf(model, {
+            turnContext: "Today is Tuesday.",
+            tools: { create_tasks: tool({ inputSchema: z.object({}), execute }) },
+        }));
+        const warn = vi.spyOn(logger, "warn");
+        const error = vi.spyOn(logger, "error");
+        try {
+            const failed = await chat();
+            expect(failed.opts.status).toBe("failed");
+            expect(failed.sse).toContain("AI_RATE_LIMITED");
+            expect(failed.sse).not.toMatch(/INTERNAL_ERROR|private provider response/);
+            expect(failed.reply.parts).toContainEqual(expect.objectContaining({ type: "tool-create_tasks", state: "output-available", toolCallId: "saved-task" }));
+            expect(warn.mock.calls.filter(([, event]) => event === "ai_stream_error")).toEqual([
+                ["ai", "ai_stream_error", expect.objectContaining({ code: "AI_RATE_LIMITED", upstreamStatus: 429 })],
+            ]);
+            expect(error.mock.calls.filter(([, event]) => event === "ai_stream_error")).toHaveLength(0);
+
+            vi.mocked(loadConversationMessages).mockResolvedValue([
+                { ...row("m-new", "user", "hello there") as object, metadata: { turnContext: "Today is Tuesday." } },
+                { ...failed.reply, status: failed.opts.status },
+            ] as never);
+            unavailable = false;
+            const recovered = await chat();
+            expect(recovered.opts.status).toBe("complete");
+            expect(recovered.reply.id).toBe(failed.reply.id);
+            expect(recovered.reply.parts.at(-1)).toMatchObject({ type: "text", text: "Your task is scheduled." });
+            expect(execute).toHaveBeenCalledOnce();
+            expect(truncateMessagesAfter).toHaveBeenLastCalledWith({}, TEST_USER_ID, CONV_ID, failed.reply.id);
+        } finally { warn.mockRestore(); error.mockRestore(); }
+    });
+
     it("a model that calls a tool gets its result back and answers on the second step", async () => {
         const execute = vi.fn(async () => ({ count: 3 }));
         model = new MockLanguageModelV4({

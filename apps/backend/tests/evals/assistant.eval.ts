@@ -22,6 +22,7 @@ import { buildToolRegistry } from "../../src/domains/ai/tools";
 import type { Env } from "../../src/types/env";
 import { withRls } from "../../src/platform/rls";
 import { habits } from "../../src/db/schema";
+import { insertFact } from "../../src/domains/ai/memory/memory-store";
 import { eq } from "drizzle-orm";
 import { todayIn } from "@cadence/domain/time";
 
@@ -41,18 +42,26 @@ function devVars(): Record<string, string> {
 }
 const vars = { ...devVars(), ...process.env } as Record<string, string | undefined>;
 const optimization = optimizationOptions(vars);
+const comparePrompts = vars.AI_EVAL_COMPARE_PROMPTS === "true";
+const reportName = vars.AI_EVAL_REPORT_NAME ?? (comparePrompts ? "assistant-p2" : "assistant");
+if (!/^[a-z0-9-]+$/i.test(reportName)) throw new Error("Invalid AI_EVAL_REPORT_NAME");
+const variants = comparePrompts ? [
+    { promptPackaging: "baseline" as const, cacheVariant: "5m-5m" as const },
+    { promptPackaging: "static-memory" as const, cacheVariant: "5m-5m" as const },
+] : [optimization];
 const env = { OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY, AI_CHAT_MODEL: vars.AI_CHAT_MODEL, AI_CHAT_MODEL_BASIC: vars.AI_CHAT_MODEL_BASIC ?? "deepseek/deepseek-v4.1-flash" } as unknown as Env;
 /** Caps each scenario's repeat count (EVAL_RUNS=1: one pass each, for iterating). */
 const maxRuns = Number(vars.EVAL_RUNS) || Infinity;
 
 type Call = { step: number; name: string; input: any; output: any };
 type Tools = ReturnType<typeof toolsFor> & { userId?: string };
-interface Run { calls: Call[]; text: string; models: string[]; steps: number; tokens: number; cached: number; written: number; cost: number; ms: number }
+interface Run { calls: Call[]; text: string; models: string[]; servedModels: string[]; steps: number; tokens: number; inputTokens: number; outputTokens: number; cached: number; written: number; cost: number; unknownCostSteps: number; failedRuns: number; ms: number }
 interface Scenario {
     name: string;
     level: "simple" | "medium" | "complex";
+    memoryMode?: "basic" | "full";
     seed?: (t: Tools) => Promise<Record<string, any>>;
-    turns: string[];
+    turns: (string | { text: string; image: string })[];
     /** The user's clock for this scenario (default: NOW). */
     now?: string;
     /** Pick each turn's model with the router, as the chat route does (default: always the standard model). */
@@ -77,26 +86,30 @@ function toolsFor(userId: string, now = NOW) {
     };
 }
 
-async function converse(userId: string, turns: string[], now = NOW, routed = false): Promise<Run> {
+async function converse(userId: string, turns: Scenario["turns"], now = NOW, routed = false, variant = optimization): Promise<Run> {
     const calls: Call[] = [];
     const messages: any[] = [];
     let text = "";
     const models: string[] = [];
+    const servedModels: string[] = [];
     let steps = 0;
-    let tokens = 0, cached = 0, written = 0, cost = 0;
+    let tokens = 0, inputTokens = 0, outputTokens = 0, cached = 0, written = 0, cost = 0, unknownCostSteps = 0;
     const started = Date.now();
     for (const turn of turns) {
+        const request = typeof turn === "string" ? turn : turn.text;
+        const image = typeof turn === "string" ? null : readFileSync(join(__dirname, "../fixtures/ai", turn.image));
         // Like the chat route: the thread's model so far decides whether it may still go basic.
-        const modelId = routed ? pickChatModel(env, { text: turn, imageCount: 0 }, models.at(-1)) : getModelId(env);
+        const modelId = routed ? pickChatModel(env, { text: request, imageCount: image ? 1 : 0 }, models.at(-1)) : getModelId(env);
         // Like dropForeignReasoning: a model never replays another model's reasoning.
         if (models.length && models.at(-1) !== modelId) {
             for (const m of messages) if (m.role === "assistant" && Array.isArray(m.content)) m.content = m.content.filter((p: any) => p.type !== "reasoning");
         }
         models.push(modelId);
-        const { agent, turnContext } = await getAgentInstance(env, userId, { ...optimization, timezone: TZ, currentDate: now, approvalMode: "full", nonce: "evalnonce", modelId });
+        const { agent, turnContext } = await getAgentInstance(env, userId, { ...variant, timezone: TZ, currentDate: now, approvalMode: "full", nonce: "evalnonce", modelId });
         // Like production: each user message keeps the context it was sent with, so later turns replay
         // it unchanged and read the earlier ones from the prompt cache.
-        messages.push({ role: "user", content: `${turn}\n\n${turnContext}` });
+        const textContent = `${request}\n\n${turnContext}`;
+        messages.push({ role: "user", content: image ? [{ type: "file", data: image, mediaType: "image/png" }, { type: "text", text: textContent }] : textContent });
         const result = await agent.generate({ messages });
         for (const [i, step] of result.steps.entries()) {
             for (const call of step.toolCalls) {
@@ -106,10 +119,17 @@ async function converse(userId: string, turns: string[], now = NOW, routed = fal
         }
         steps += result.steps.length;
         tokens += result.totalUsage?.totalTokens ?? 0;
+        inputTokens += result.totalUsage?.inputTokens ?? 0;
+        outputTokens += result.totalUsage?.outputTokens ?? 0;
         cached += result.totalUsage?.inputTokenDetails?.cacheReadTokens ?? 0;
         written += result.totalUsage?.inputTokenDetails?.cacheWriteTokens ?? 0;
         // What OpenRouter billed, per step.
-        cost += result.steps.reduce((sum, step: any) => sum + (step.providerMetadata?.openrouter?.usage?.cost ?? 0), 0);
+        for (const step of result.steps) {
+            servedModels.push(step.response.modelId ?? "unknown");
+            const observed = (step.providerMetadata as any)?.openrouter?.usage?.cost;
+            if (typeof observed === "number" && Number.isFinite(observed)) cost += observed;
+            else unknownCostSteps++;
+        }
         // A question asked with `ask_user` reads like one the reply typed: its question and options.
         const asked = calls.filter((c) => c.name === "ask_user" && c.step >= steps - result.steps.length)
             .map((c) => `${c.input?.question ?? ""} ${(c.input?.options ?? []).map((o: any) => o.label).join(" / ")}`);
@@ -118,7 +138,7 @@ async function converse(userId: string, turns: string[], now = NOW, routed = fal
         // `result.response.messages` is the last step only, which left later turns without the ids.
         messages.push(...result.steps.flatMap((step) => step.response.messages));
     }
-    return { calls, text, models, steps, tokens, cached, written, cost, ms: Date.now() - started };
+    return { calls, text, models, servedModels, steps, tokens, inputTokens, outputTokens, cached, written, cost, unknownCostSteps, failedRuns: 0, ms: Date.now() - started };
 }
 
 // ── Checks ──────────────────────────────────────────────────────────────────
@@ -147,6 +167,76 @@ async function seedVersionTasks(t: Tools) {
 }
 
 const SCENARIOS: Scenario[] = [
+    ...(["basic", "full"] as const).map((memoryMode): Scenario => ({
+        name: `production-shaped thread: routine writes then scheduling with ${memoryMode} memory`,
+        level: "complex",
+        memoryMode,
+        seed: async (t) => {
+            await t("create_habit", { title: "Workout", recurrenceRule: "FREQ=DAILY" });
+            await t("create_habit", { title: "Yoga", recurrenceRule: "FREQ=DAILY" });
+            await t("create_habit", { title: "Log calories", recurrenceRule: "FREQ=DAILY", times: ["22:00"] });
+            await backdateRoutines(t.userId!);
+            await withRls(getTestDb(), t.userId!, async (tx) => {
+                for (const content of ["Prefers concise replies", "Studies computer science", "Keeps study notes in course lists", "Exam is on Friday morning"]) {
+                    await insertFact(tx, t.userId!, { kind: "life", content, saidOn: "2026-09-01", source: "chat", confidence: "stated" });
+                }
+            });
+            return {};
+        },
+        turns: ["I finished Workout.", "What else do I have today?", "Yoga is finished too.", "I need to turn in my watch for trade-in on Friday after my exam."],
+        check: async (run, t) => {
+            const statuses = (await t("get_habit_status_today")).statuses as any[];
+            const completed = statuses.filter((s) => /Workout|Yoga/.test(s.title));
+            const tasks = await openTasks(t);
+            const watch = tasks.find((task) => /watch|trade/i.test(task.title));
+            return [
+                ...need(completed.length === 2 && completed.every((s) => s.status === "COMPLETED"), "both requested routines logged"),
+                ...need(tasks.length === 1 && watch?.dueDate === "2026-09-25", "one trade-in task on Friday"),
+                ...need(called(run, "create_tasks").length === 1 && called(run, "log_habit").length === 2, "writes executed once without duplicates"),
+                ...need(!called(run, "remember").length, "passing request is not an explicit memory save"),
+            ];
+        },
+    })),
+    {
+        name: "note: read version and preserve unrequested lines",
+        level: "medium",
+        seed: async (t) => t("create_tasks", { tasks: [{ title: "Trip checklist", note: "Passport: ready\nFlight: pending\nHotel: booked" }] }),
+        turns: ["In my Trip checklist note, change only 'Flight: pending' to 'Flight: booked'."],
+        check: async (run, t) => {
+            const [task] = await openTasks(t);
+            const detail = await t("get_task_detail", { taskId: task.id });
+            const read = called(run, "get_task_detail")[0];
+            const write = called(run, "update_tasks")[0];
+            return [
+                ...need(!!read && !!write && read.step < write.step, "note read before its update"),
+                ...need(write?.input.patch.noteVersion === read?.output.note.version, "read note version accompanies write"),
+                ...need(detail.note.text.includes("Passport: ready\nFlight: booked\nHotel: booked"), "unrequested lines preserved"),
+            ];
+        },
+    },
+    {
+        name: "image: deadline, evidence and empty section; retain image for a later question",
+        level: "complex",
+        runs: 3,
+        seed: async (t) => t("create_project", { name: "University", sections: ["COMP2000", "COMP3005"] }),
+        turns: [{ text: "Add this university assignment where it belongs, using the details shown.", image: "p2-assignment.png" }, "What deadline time did that image give?"],
+        check: async (run, t, seeded) => {
+            const rows = await openTasks(t);
+            const task = rows[0];
+            const detail = task ? await t("get_task_detail", { taskId: task.id }) : null;
+            const create = called(run, "create_tasks");
+            return [
+                ...need(rows.length === 1, "one assignment, not separate tasks for its steps"),
+                ...need(task?.projectId === seeded.projectId && task?.sectionId === seeded.sections[0].sectionId, "placed in the named empty section"),
+                ...need(task?.dueDate === "2026-10-20" && !task?.scheduledStart, "deadline is a day, not a scheduled block"),
+                ...need(task?.priority === 3, "visible High priority saved"),
+                ...need(/11:59|23:59/.test(detail?.note?.text ?? ""), "visible deadline time preserved in note"),
+                ...need(detail?.subtasks.length === 2 && detail.subtasks.every((s: any) => !/read brief/i.test(s.title)), "only the two unchecked steps saved"),
+                ...need(create.length === 1 && JSON.stringify(create[0]?.input).includes("fromImage"), "image evidence accompanies the write, with no duplicate task"),
+                ...need(/11:59|23:59/.test(run.text), "later question can still inspect the original image"),
+            ];
+        },
+    },
     {
         name: "task search: complete two loosely named tasks without identifiers",
         level: "medium",
@@ -711,8 +801,8 @@ const SCENARIOS: Scenario[] = [
 ];
 
 // ── Runner ──────────────────────────────────────────────────────────────────
-type Totals = { steps: number; tokens: number; cached: number; written: number; cost: number; ms: number };
-const report: ({ name: string; level: string; passed: boolean; problems: string[]; calls: string[] } & Totals)[] = [];
+type Totals = Pick<Run, "steps" | "tokens" | "inputTokens" | "outputTokens" | "cached" | "written" | "cost" | "unknownCostSteps" | "failedRuns" | "ms">;
+const report: ({ name: string; packaging: string; level: string; passed: boolean; problems: string[]; calls: string[]; models: string[]; servedModels: string[] } & Totals)[] = [];
 /** The share of input read from the prompt cache (input includes cached tokens). */
 const cachedShare = (r: Totals) => (r.tokens ? `${Math.round((r.cached / r.tokens) * 100)}%`.padStart(4) : "  -");
 
@@ -721,35 +811,47 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
         await startTestDb();
         // One turn first writes the static prefix (tools + system prompt, the same for every
         // scenario) to the prompt cache; otherwise the concurrent first turns all miss and each pays to write it.
-        await converse(await createUser({ zone: TZ }), ["hi"]);
+        for (const variant of variants) await converse(await createUser({ zone: TZ }), ["hi"], NOW, false, variant);
     });
     afterAll(() => {
         const passed = report.filter((r) => r.passed).length;
         const sum = report.reduce((a, r) => ({ cost: a.cost + r.cost, tokens: a.tokens + r.tokens, cached: a.cached + r.cached }), { cost: 0, tokens: 0, cached: 0 });
-        const rows = report.map((r) => `${r.passed ? "PASS" : "FAIL"}  ${r.level.padEnd(7)} ${r.name.padEnd(46)} ${String(r.steps).padStart(2)} steps ${String(r.tokens).padStart(6)} tok ${cachedShare(r)} cached $${r.cost.toFixed(4)} ${(r.ms / 1000).toFixed(1).padStart(5)}s  ${r.calls.join(" → ")}${r.problems.length ? `\n      ✗ ${r.problems.join("\n      ✗ ")}` : ""}`);
-        process.stdout.write(`\nAssistant evals (${env.AI_CHAT_MODEL ?? "default model"}): ${passed}/${report.length} passed · ${sum.tokens} tok, ${cachedShare(sum as Totals)} cached · $${sum.cost.toFixed(4)}\n${rows.join("\n")}\n\n`);
+        const rows = report.map((r) => `${r.passed ? "PASS" : "FAIL"}  ${r.level.padEnd(7)} ${r.name.padEnd(46)} [${r.packaging}] ${String(r.steps).padStart(2)} steps ${String(r.tokens).padStart(6)} tok ${cachedShare(r)} cached ${r.unknownCostSteps || r.failedRuns ? "unknown cost" : `$${r.cost.toFixed(4)}`} ${(r.ms / 1000).toFixed(1).padStart(5)}s  ${r.calls.join(" → ")}${r.problems.length ? `\n      ✗ ${r.problems.join("\n      ✗ ")}` : ""}`);
+        process.stdout.write(`\nAssistant evals (${env.AI_CHAT_MODEL ?? "default model"}): ${passed}/${report.length} passed · ${sum.tokens} tok, ${cachedShare(sum as Totals)} cached · known cost $${sum.cost.toFixed(4)}\n${rows.join("\n")}\n\n`);
         const dir = join(__dirname, "../../../../output/evals");
         mkdirSync(dir, { recursive: true });
-        writeFileSync(join(dir, "assistant.json"), JSON.stringify({ optimization, at: new Date().toISOString(), model: env.AI_CHAT_MODEL ?? "default", passed, total: report.length, cost: sum.cost, report }, null, 2));
+        const unknown = report.reduce((n, r) => n + r.unknownCostSteps, 0);
+        const failedRuns = report.reduce((n, r) => n + r.failedRuns, 0);
+        writeFileSync(join(dir, `${reportName}.json`), JSON.stringify({ variants, at: new Date().toISOString(), model: env.AI_CHAT_MODEL ?? "default", passed, total: report.length, cost: unknown || failedRuns ? null : sum.cost, knownCost: sum.cost, unknownCostSteps: unknown, failedRuns,
+            report: report.map((r) => ({ ...r, cost: r.unknownCostSteps || r.failedRuns ? null : r.cost, knownCost: r.cost })) }, null, 2));
     });
 
-    for (const scenario of SCENARIOS) {
-        it.concurrent(scenario.name, async () => {
-            const total: Totals = { steps: 0, tokens: 0, cached: 0, written: 0, cost: 0, ms: 0 };
+    for (const [index, scenario] of SCENARIOS.entries()) for (const variant of (index % 2 ? [...variants].reverse() : variants)) {
+        it.concurrent(`${scenario.name} [${variant.promptPackaging}]`, async () => {
+            const total: Totals = { steps: 0, tokens: 0, inputTokens: 0, outputTokens: 0, cached: 0, written: 0, cost: 0, unknownCostSteps: 0, failedRuns: 0, ms: 0 };
             const problems: string[] = [];
             let calls: string[] = [];
+            const models = new Set<string>(), servedModels = new Set<string>();
             const runs = Math.min(scenario.runs ?? 1, maxRuns);
             for (let attempt = 1; attempt <= runs; attempt++) {
-                const userId = await createUser({ zone: TZ });
+                const userId = await createUser({ zone: TZ, ...(scenario.memoryMode && { settings: { assistant: { memoryMode: scenario.memoryMode, memoryEpoch: 1 } } }) });
                 const t = Object.assign(toolsFor(userId, scenario.now), { userId });
                 const seeded = (await scenario.seed?.(t)) ?? {};
-                const run = await converse(userId, scenario.turns, scenario.now, scenario.routed);
+                let run: Run;
+                try { run = await converse(userId, scenario.turns, scenario.now, scenario.routed, variant); }
+                catch (error) {
+                    total.failedRuns++;
+                    problems.push(`run ${attempt}: generation failed (${error instanceof Error ? error.name : "unknown error"}); usage/cost unknown`);
+                    continue;
+                }
+                run.models.forEach((id) => models.add(id));
+                run.servedModels.forEach((id) => servedModels.add(id));
                 const found = [...(await scenario.check(run, t, seeded)), ...failedCalls(run).filter((p) => !p.startsWith("get_"))];
                 problems.push(...found.map((p) => (runs > 1 ? `run ${attempt}: ${p}` : p)));
                 for (const key of Object.keys(total) as (keyof Totals)[]) total[key] += run[key];
                 calls = [...new Set(run.calls.map((c) => c.step))].map((step) => run.calls.filter((c) => c.step === step).map((c) => c.name).join("+"));
             }
-            report.push({ name: scenario.name, level: scenario.level, passed: problems.length === 0, problems, ...total, calls });
+            report.push({ name: scenario.name, packaging: variant.promptPackaging ?? "baseline", level: scenario.level, passed: problems.length === 0, problems, ...total, calls, models: [...models], servedModels: [...servedModels] });
             expect(problems).toEqual([]);
         });
     }

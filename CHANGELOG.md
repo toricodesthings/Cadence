@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ### Fixed
 
+- Assistant rate-limit failures now show the correct retry message, including after a task has been saved.
 - On iPhone, opening the date picker from the capture sheet no longer freezes Cadence.
 - On phones, sheets sit above the keyboard, so their buttons and pickers stay in reach while you type.
 

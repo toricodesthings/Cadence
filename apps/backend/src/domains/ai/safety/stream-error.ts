@@ -13,7 +13,7 @@
  */
 
 import { AI_ERROR_CODES, type AiErrorCode, type StreamError } from "@cadence/contracts/ai";
-import { InvalidToolInputError, NoSuchToolError } from "ai";
+import { InvalidToolInputError, NoSuchToolError, RetryError } from "ai";
 import { AppError } from "../../../platform/errors";
 
 /**
@@ -22,7 +22,7 @@ import { AppError } from "../../../platform/errors";
  */
 export const AI_ERROR_MESSAGES: Record<AiErrorCode, string> = {
     INVALID_REQUEST: "That request couldn't be processed. Please adjust it and try again.",
-    AI_RATE_LIMITED: "You're moving a little fast. Give it a moment, then try again.",
+    AI_RATE_LIMITED: "The assistant is busy right now. Give it a moment, then try again.",
     AI_IMAGE_LIMITED: "You've sent all the images you can for today. Your text can still go on its own.",
     IMAGE_NOT_FOUND: "That image is no longer available.",
     AI_TIMEOUT: "That took longer than expected. Please try again.",
@@ -72,6 +72,17 @@ function describe(error: unknown): string {
 }
 
 /**
+ * The SDK wraps exhausted provider attempts. Classify and log the last cause,
+ * retaining a bound in case a malformed wrapper points back to itself.
+ */
+export function streamErrorCause(error: unknown): unknown {
+    for (let depth = 0; depth < 8 && RetryError.isInstance(error); depth++) {
+        error = error.lastError;
+    }
+    return error;
+}
+
+/**
  * Map an arbitrary thrown/stream error into a user-safe `StreamError`. Detection
  * order:
  *  1. `AppError` → reuse its code/message/isRetryable (it is already user-safe).
@@ -81,6 +92,7 @@ function describe(error: unknown): string {
  *  5. Anything else → `INTERNAL_ERROR` (raw text is never reflected).
  */
 export function buildStreamError(error: unknown, requestId?: string): StreamError {
+    error = streamErrorCause(error);
     if (error instanceof AppError) {
         return {
             code: error.code,

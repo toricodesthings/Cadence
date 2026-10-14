@@ -41,7 +41,7 @@ function ctx(overrides: Partial<PromptRuntimeContext> = {}, personaOverrides: Pa
     };
 }
 
-const parts = (c: PromptRuntimeContext) => composePrompt(PROMPT_BLOCKS, c, "N");
+const parts = (c: PromptRuntimeContext) => composePrompt(PROMPT_BLOCKS, c, "N", "baseline");
 /** The whole prompt the model sees: static instructions, then the turn context. */
 const compose = (c: PromptRuntimeContext) => {
     const { instructions, turnContext } = parts(c);
@@ -67,10 +67,12 @@ describe("composePrompt", () => {
         const baseline = composePrompt(PROMPT_BLOCKS, context, "N", "baseline");
         expect(baseline).toEqual(parts(context));
         const candidate = composePrompt(PROMPT_BLOCKS, context, "N", "static-memory");
+        expect(composePrompt(PROMPT_BLOCKS, context, "N")).toEqual(candidate);
         expect(candidate.instructions).toContain("Never bring up a fact marked sensitive unless they do.");
         expect(candidate.instructions).toContain("the supplied memory facts");
         expect(candidate.instructions).not.toContain("Keep Fridays free");
-        expect(candidate.turnContext).toContain("[fact-1] (source month: August 2026");
+        expect(candidate.turnContext).toContain("(said August 2026");
+        expect(candidate.turnContext).toContain("[fact-1]");
         expect(candidate.turnContext).toContain("SANITIZED(Keep Fridays free)");
         expect(candidate.turnContext).toContain("sensitive, not mentioned in over a year: confirm once if it matters");
         expect(candidate.turnContext).not.toContain("Never bring up a fact marked sensitive");
@@ -205,7 +207,7 @@ describe("composePrompt", () => {
 
     it("throws naming the token on an unknown placeholder", () => {
         const blocks = { ...PROMPT_BLOCKS, base: ["Hello {{bogusToken}}"] };
-        expect(() => composePrompt(blocks, ctx(), "N")).toThrowError(/bogusToken/);
+        expect(() => composePrompt(blocks, ctx(), "N", "baseline")).toThrowError(/bogusToken/);
     });
 });
 
