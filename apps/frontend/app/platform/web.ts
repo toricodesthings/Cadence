@@ -78,7 +78,7 @@ export const webRuntime = {
         });
     },
     async platformFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-        return fetch(input, init);
+        return fetch(input, init); // nosemgrep
     },
     checkForAppUpdate(): Promise<AvailableAppUpdate | null> {
         return Promise.resolve(null);

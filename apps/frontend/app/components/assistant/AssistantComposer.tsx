@@ -54,9 +54,7 @@ export function AssistantComposer({
     onStop: () => Promise<void>;
     onCommand: (command: SlashCommand) => void;
 }) {
-    const { approvalMode, setApprovalMode } = useAssistantStore();
-    const { attachments, uploading, readyImages, addImages, removeAttachment } = images;
-    const [viewing, setViewing] = useState<number | null>(null);
+    const { attachments, uploading, readyImages, addImages } = images;
     const fileInputRef = useRef<HTMLInputElement>(null);
     const pendingMessage = useAssistantStore(s => s.pendingMessage);
     const clearPendingMessage = useAssistantStore(s => s.clearPendingMessage);
@@ -90,6 +88,25 @@ export function AssistantComposer({
             setSlashMode("forced");
         }
         setSlashIndex(0);
+    };
+
+    /** Keys the open slash menu takes over; true when the key was handled. */
+    const handleSlashKey = (e: React.KeyboardEvent, active: SlashCommand): boolean => {
+        const n = slashCommands.length;
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            const step = e.key === "ArrowDown" ? 1 : n - 1;
+            setSlashIndex((i) => (Math.min(i, n - 1) + step) % n);
+        } else if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && !isTouch)) {
+            runSlashCommand(active);
+        } else if (e.key === "Escape") {
+            // Only the menu closes, not the panel.
+            e.stopPropagation();
+            setSlashMode("dismissed");
+        } else {
+            return false;
+        }
+        e.preventDefault();
+        return true;
     };
 
     const handleSubmit = (e?: React.FormEvent) => {
@@ -145,52 +162,7 @@ export function AssistantComposer({
                     addImages(e.dataTransfer.files);
                 }}
             >
-                {attachments.length > 0 ? (
-                    <div className="flex gap-2 overflow-x-auto px-3 pt-3">
-                        {attachments.map((a, i) => (
-                            <div key={a.id} className="relative shrink-0">
-                                <button
-                                    type="button"
-                                    onClick={() => setViewing(i)}
-                                    aria-label={`View attached image ${i + 1}`}
-                                    className="block cursor-zoom-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                                >
-                                    <img
-                                        src={a.url}
-                                        alt={`Attached image ${i + 1}`}
-                                        className={`h-16 w-16 rounded-xl object-cover ring-1 ${a.status === "failed" ? "ring-feedback-error/60 opacity-50" : "ring-white/10"}`}
-                                    />
-                                </button>
-                                {a.status !== "ready" ? (
-                                    <span
-                                        className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-twilight-deep/45"
-                                        role="status"
-                                        aria-label={a.status === "uploading" ? "Uploading image" : "Image didn’t attach"}
-                                    >
-                                        {a.status === "uploading" ? (
-                                            <Loader2 size={18} className="animate-spin text-twilight-text" aria-hidden />
-                                        ) : (
-                                            <AlertCircle size={18} className="text-feedback-error" aria-hidden />
-                                        )}
-                                    </span>
-                                ) : null}
-                                <button
-                                    type="button"
-                                    onClick={() => removeAttachment(a.id)}
-                                    aria-label={`Remove attached image ${i + 1}`}
-                                    className="glass-none absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-twilight-deep text-twilight-text-soft ring-1 ring-white/15 transition-colors hover:text-twilight-text cursor-pointer"
-                                >
-                                    <X size={12} aria-hidden />
-                                </button>
-                            </div>
-                        ))}
-                        <ImageViewer
-                            images={attachments.map((a) => ({ key: a.id, title: a.name, src: a.url, bytes: a.bytes }))}
-                            index={viewing !== null && viewing < attachments.length ? viewing : null}
-                            onIndexChange={setViewing}
-                        />
-                    </div>
-                ) : null}
+                <AttachmentStrip images={images} />
 
                 <textarea
                     ref={textareaRef}
@@ -204,26 +176,7 @@ export function AssistantComposer({
                     aria-controls={activeSlash ? SLASH_MENU_ID : undefined}
                     aria-activedescendant={activeSlash ? slashOptionId(activeSlash.id) : undefined}
                     onKeyDown={(e) => {
-                        if (activeSlash) {
-                            const n = slashCommands.length;
-                            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                                e.preventDefault();
-                                setSlashIndex((i) => (Math.min(i, n - 1) + (e.key === "ArrowDown" ? 1 : n - 1)) % n);
-                                return;
-                            }
-                            if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && !isTouch)) {
-                                e.preventDefault();
-                                runSlashCommand(activeSlash);
-                                return;
-                            }
-                            if (e.key === "Escape") {
-                                // Only the menu closes, not the panel.
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setSlashMode("dismissed");
-                                return;
-                            }
-                        }
+                        if (activeSlash && handleSlashKey(e, activeSlash)) return;
                         // Touch keyboards: Return is a newline; the send button sends.
                         if (e.key === "Enter" && !e.shiftKey && !isTouch) {
                             e.preventDefault();
@@ -286,67 +239,11 @@ export function AssistantComposer({
                         </button>
                     </Tip>
 
-                    {/* Approval mode — Ask first (default), Auto (all but permanent deletes) or Full. */}
-                    <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                            <button
-                                type="button"
-                                aria-label={`Approval mode: ${APPROVAL_MODES[approvalMode].label}`}
-                                className={`flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium transition-colors cursor-pointer ${
-                                    approvalMode !== "ask"
-                                        ? "bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/22"
-                                        : "text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
-                                }`}
-                            >
-                                {APPROVAL_MODES[approvalMode].icon}
-                                {APPROVAL_MODES[approvalMode].label}
-                                <ChevronDown size={12} className="opacity-60" aria-hidden />
-                            </button>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Content side="top" align="start" className="w-[260px]">
-                            <DropdownMenu.RadioGroup
-                                value={approvalMode}
-                                onValueChange={(v) => setApprovalMode(v as ApprovalMode)}
-                            >
-                                {(Object.keys(APPROVAL_MODES) as ApprovalMode[]).map((mode) => (
-                                    <DropdownMenu.RadioItem key={mode} value={mode}>
-                                        <span className="flex flex-col">
-                                            <span>{APPROVAL_MODES[mode].label}</span>
-                                            <span className="text-[11px] font-normal text-twilight-text-muted">
-                                                {APPROVAL_MODES[mode].hint(assistantName)}
-                                            </span>
-                                        </span>
-                                    </DropdownMenu.RadioItem>
-                                ))}
-                            </DropdownMenu.RadioGroup>
-                        </DropdownMenu.Content>
-                    </DropdownMenu.Root>
+                    <ApprovalModeMenu assistantName={assistantName} />
 
                     <div className="flex-1" />
 
-                    {isStreaming ? (
-                        <Tip label="Stop generating" side="top">
-                            <button
-                                type="button"
-                                onClick={() => void onStop()}
-                                className="flex h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-full border border-feedback-error/30 bg-feedback-error/15 text-feedback-error transition-all hover:scale-[1.04] active:scale-[0.97] cursor-pointer"
-                                aria-label="Stop generating"
-                            >
-                                <span className="h-2.5 w-2.5 rounded-sm bg-feedback-error" />
-                            </button>
-                        </Tip>
-                    ) : (
-                        <Tip label={uploading ? "Waiting for images to attach" : "Send message"} side="top">
-                            <button
-                                type="submit"
-                                disabled={(!input.trim() && readyImages.length === 0) || !online || uploading}
-                                className="flex h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[var(--primary-foreground)] shadow-[0_6px_18px_-6px_var(--accent-primary)] transition-all hover:scale-[1.04] active:scale-[0.96] disabled:pointer-events-none disabled:bg-white/[0.06] disabled:text-twilight-text-muted disabled:shadow-none cursor-pointer"
-                                aria-label="Send message"
-                            >
-                                <ArrowUp size={18} strokeWidth={2.4} aria-hidden />
-                            </button>
-                        </Tip>
-                    )}
+                    <SendButton isStreaming={isStreaming} onStop={onStop} disabled={(!input.trim() && readyImages.length === 0) || !online || uploading} uploading={uploading} />
                 </div>
             </div>
             {/* Footer: the low-budget hint takes the line over the AI disclaimer
@@ -355,5 +252,133 @@ export function AssistantComposer({
                 {usageNotice ?? `${assistantName} is AI and can make mistakes.`}
             </p>
         </form>
+    );
+}
+
+function AttachmentStrip({ images }: { images: ChatAttachments }) {
+    const { attachments, removeAttachment } = images;
+    const [viewing, setViewing] = useState<number | null>(null);
+    if (attachments.length === 0) return null;
+    return (
+        <div className="flex gap-2 overflow-x-auto px-3 pt-3">
+            {attachments.map((a, i) => (
+                <div key={a.id} className="relative shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => setViewing(i)}
+                        aria-label={`View attached image ${i + 1}`}
+                        className="block cursor-zoom-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                    >
+                        <img
+                            src={a.url}
+                            alt={`Attached image ${i + 1}`}
+                            className={`h-16 w-16 rounded-xl object-cover ring-1 ${a.status === "failed" ? "ring-feedback-error/60 opacity-50" : "ring-white/10"}`}
+                        />
+                    </button>
+                    {a.status !== "ready" ? <AttachmentStatus uploading={a.status === "uploading"} /> : null}
+                    <button
+                        type="button"
+                        onClick={() => removeAttachment(a.id)}
+                        aria-label={`Remove attached image ${i + 1}`}
+                        className="glass-none absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-twilight-deep text-twilight-text-soft ring-1 ring-white/15 transition-colors hover:text-twilight-text cursor-pointer"
+                    >
+                        <X size={12} aria-hidden />
+                    </button>
+                </div>
+            ))}
+            <ImageViewer
+                images={attachments.map((a) => ({ key: a.id, title: a.name, src: a.url, bytes: a.bytes }))}
+                index={viewing !== null && viewing < attachments.length ? viewing : null}
+                onIndexChange={setViewing}
+            />
+        </div>
+    );
+}
+
+function AttachmentStatus({ uploading }: { uploading: boolean }) {
+    return (
+        <span
+            className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-twilight-deep/45"
+            role="status"
+            aria-label={uploading ? "Uploading image" : "Image didn’t attach"}
+        >
+            {uploading ? (
+                <Loader2 size={18} className="animate-spin text-twilight-text" aria-hidden />
+            ) : (
+                <AlertCircle size={18} className="text-feedback-error" aria-hidden />
+            )}
+        </span>
+    );
+}
+
+/** Approval mode — Ask first (default), Auto (all but permanent deletes) or Full. */
+function ApprovalModeMenu({ assistantName }: { assistantName: string }) {
+    const { approvalMode, setApprovalMode } = useAssistantStore();
+    return (
+        <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+                <button
+                    type="button"
+                    aria-label={`Approval mode: ${APPROVAL_MODES[approvalMode].label}`}
+                    className={`flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium transition-colors cursor-pointer ${
+                        approvalMode !== "ask"
+                            ? "bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/22"
+                            : "text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                    }`}
+                >
+                    {APPROVAL_MODES[approvalMode].icon}
+                    {APPROVAL_MODES[approvalMode].label}
+                    <ChevronDown size={12} className="opacity-60" aria-hidden />
+                </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content side="top" align="start" className="w-[260px]">
+                <DropdownMenu.RadioGroup value={approvalMode} onValueChange={(v) => setApprovalMode(v as ApprovalMode)}>
+                    {(Object.keys(APPROVAL_MODES) as ApprovalMode[]).map((mode) => (
+                        <DropdownMenu.RadioItem key={mode} value={mode}>
+                            <span className="flex flex-col">
+                                <span>{APPROVAL_MODES[mode].label}</span>
+                                <span className="text-[11px] font-normal text-twilight-text-muted">
+                                    {APPROVAL_MODES[mode].hint(assistantName)}
+                                </span>
+                            </span>
+                        </DropdownMenu.RadioItem>
+                    ))}
+                </DropdownMenu.RadioGroup>
+            </DropdownMenu.Content>
+        </DropdownMenu.Root>
+    );
+}
+
+function SendButton({ isStreaming, onStop, disabled, uploading }: {
+    isStreaming: boolean;
+    onStop: () => Promise<void>;
+    disabled: boolean;
+    uploading: boolean;
+}) {
+    if (isStreaming) {
+        return (
+            <Tip label="Stop generating" side="top">
+                <button
+                    type="button"
+                    onClick={() => void onStop()}
+                    className="flex h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-full border border-feedback-error/30 bg-feedback-error/15 text-feedback-error transition-all hover:scale-[1.04] active:scale-[0.97] cursor-pointer"
+                    aria-label="Stop generating"
+                >
+                    <span className="h-2.5 w-2.5 rounded-sm bg-feedback-error" />
+                </button>
+            </Tip>
+        );
+    }
+    return (
+        <Tip label={uploading ? "Waiting for images to attach" : "Send message"} side="top">
+            <button
+                type="submit"
+                disabled={disabled}
+                className="flex h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[var(--primary-foreground)] shadow-[0_6px_18px_-6px_var(--accent-primary)] transition-all hover:scale-[1.04] active:scale-[0.96] disabled:pointer-events-none disabled:bg-white/[0.06] disabled:text-twilight-text-muted disabled:shadow-none cursor-pointer"
+                aria-label="Send message"
+            >
+                <ArrowUp size={18} strokeWidth={2.4} aria-hidden />
+            </button>
+        </Tip>
     );
 }

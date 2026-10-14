@@ -126,12 +126,12 @@ export function stripNonce(text: string, nonce: string): string {
     if (nonce) {
         const noncePart = escapeRegExp(nonce);
         // Always strip full fence tokens carrying the nonce.
-        result = result.replace(new RegExp(`<<<\\s*(?:END_)?CADENCE_DATA_${noncePart}[^>]*>>>`, "gi"), "");
+        result = result.replace(new RegExp(`<<<\\s*(?:END_)?CADENCE_DATA_${noncePart}[^>]*>>>`, "gi"), ""); // nosemgrep
         // Only strip a BARE nonce remnant when the nonce is long enough to be a
         // real token — a short value (e.g. a 1-char test stub) would over-match
         // ordinary letters. Real nonces are 32 hex chars (see makeFenceNonce).
         if (nonce.length >= 8) {
-            result = result.replace(new RegExp(noncePart, "g"), "");
+            result = result.split(nonce).join("");
         }
     }
     // Also drop any generic fence markers (with or without a nonce) so untrusted

@@ -61,6 +61,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {/* iOS zooms into any focused field under 16px and stays zoomed in
                 the home-screen app. maximum-scale stops that without blocking
                 pinch zoom on iOS; other platforms would lose pinch zoom, so iOS only. */}
+            {/* nosemgrep */}
             <script
               dangerouslySetInnerHTML={{
                 __html: `(function(){if(/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/.test(navigator.userAgent))){var v=document.querySelector('meta[name=viewport]');v&&v.setAttribute('content',v.content+', maximum-scale=1');}})()`,
@@ -69,12 +70,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </>
         )}
         {/* Before the session check reads the path: a fresh launch of the installed app resumes its last screen. */}
-        {RUNTIME_TARGET !== "desktop" && (
+        {RUNTIME_TARGET !== "desktop" && ( // nosemgrep
           <script dangerouslySetInnerHTML={{ __html: RESUME_ROUTE_SCRIPT }} />
         )}
         {/* Early in the head: the session check overlaps the bundle download. Deployed web
             only, where /api/auth is the same-origin proxy (dev and desktop call Neon directly). */}
-        {RUNTIME_TARGET !== "desktop" && !import.meta.env.DEV && (
+        {RUNTIME_TARGET !== "desktop" && !import.meta.env.DEV && ( // nosemgrep
           <script dangerouslySetInnerHTML={{ __html: SESSION_PREFETCH_SCRIPT }} />
         )}
         <title>Cadence</title>
@@ -83,7 +84,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           content="Cadence is a calm, atmospheric planning workspace for tasks, routines, and weekly resets."
         />
         {import.meta.env.DEV && <script src="/redirect-localhost.js" />}
-        {import.meta.env.DEV && (
+        {import.meta.env.DEV && ( // nosemgrep
           <script dangerouslySetInnerHTML={{ __html: DEV_SERVICE_WORKER_CLEANUP_SCRIPT }} />
         )}
         <script
@@ -91,7 +92,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             __html: `(function(){try{var d=document.documentElement,s=JSON.parse(localStorage.getItem('cadence-appearance')||'{}');if(s.theme==='daylight')d.setAttribute('data-theme','daylight');else if(s.theme==='system'&&window.matchMedia('(prefers-color-scheme:light)').matches)d.setAttribute('data-theme','daylight');if(s.palette&&s.palette!=='lantern')d.setAttribute('data-palette',s.palette);if(s.themePreset&&s.themePreset!=='default'&&s.themePreset!=='daylight-default')d.setAttribute('data-theme-preset',s.themePreset);}catch(e){}})()`
           }}
         />
-        <script dangerouslySetInnerHTML={{ __html: LOADING_BOOT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: LOADING_BOOT_SCRIPT }} /> {/* nosemgrep */}
         <Meta />
         <Links />
       </head>

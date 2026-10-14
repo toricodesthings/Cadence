@@ -54,14 +54,15 @@ export async function verifyPresence(
     if (!identity.email || (!proof.password && !proof.otp)) {
         throw new AppError(403, "REAUTH_FAILED", "Confirm it's you with your password or an emailed code");
     }
+    // Our own Neon Auth host from env; only the JSON body carries user input.
     const base = authBaseUrl(env);
     const res = proof.password
-        ? await fetch(`${base}/sign-in/email`, {
+        ? await fetch(`${base}/sign-in/email`, { // nosemgrep
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email: identity.email, password: proof.password, rememberMe: false }),
         })
-        : await fetch(`${base}/email-otp/check-verification-otp`, {
+        : await fetch(`${base}/email-otp/check-verification-otp`, { // nosemgrep
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email: identity.email, type: "sign-in", otp: proof.otp }),
@@ -82,7 +83,7 @@ export async function deleteAuthUser(env: Env, userId: string): Promise<void> {
     // Defense in depth: `sub` is signed by Neon Auth, but it goes into an admin URL, so only a plain UUID may
     if (!z.uuid().safeParse(userId).success) throw new AppError(400, "VALIDATION_ERROR", "Invalid account id");
     const res = await fetch(
-        `https://console.neon.tech/api/v2/projects/${encodeURIComponent(NEON_PROJECT_ID)}/branches/${encodeURIComponent(NEON_BRANCH_ID)}/auth/users/${userId}`,
+        `https://console.neon.tech/api/v2/projects/${encodeURIComponent(NEON_PROJECT_ID)}/branches/${encodeURIComponent(NEON_BRANCH_ID)}/auth/users/${userId}`, // nosemgrep
         { method: "DELETE", headers: { Authorization: `Bearer ${NEON_API_KEY}` } },
     );
     if (!res.ok && res.status !== 404) {

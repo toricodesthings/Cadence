@@ -89,7 +89,7 @@ const RANK = { low: 0, medium: 1, high: 2 } as const;
 
 const isNone = (v: unknown) => v === null || v === undefined || (Array.isArray(v) && v.length === 0);
 
-const TIME_ONLY = /^\s*(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s*$/i;
+const TIME_ONLY = /^\s*(?:at\s+)?\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?\s*$/i;
 
 /** What an entity fills, in fields. */
 function fieldOf(e: ParsedEntity, ctx: DraftContext): DraftField | null {

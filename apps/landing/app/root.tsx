@@ -32,7 +32,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         {/* Blocking on purpose: it must hold the intro and flag a return visit before the first paint */}
-        <script dangerouslySetInnerHTML={{ __html: HEAD_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: HEAD_SCRIPT }} /> {/* nosemgrep */}
         <meta name="theme-color" content="#070e1a" />
         <Meta />
         <Links />

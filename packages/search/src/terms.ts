@@ -11,11 +11,14 @@ export function searchTerms(text: string): string[] {
     }))];
 }
 
+/** "v0.31.0" or "0.31.0". Linear: each `.` separates digit runs, so nothing can backtrack. */
+export const isVersion = (term: string): boolean => /^v?\d+(?:\.\d+)+$/i.test(term); // nosemgrep
+
 export const isIdentifier = (term: string): boolean => /\p{N}/u.test(term);
 
 export function processTerm(term: string): string {
     // v0.31.0 and 0.31.0 name the same release, but prereleases and extra components don't.
-    if (/^v?\d+(?:\.\d+)+$/i.test(term)) return term.replace(/^v/i, "");
+    if (isVersion(term)) return term.replace(/^v/i, "");
     if (!/^[a-z]+$/.test(term)) return term;
     // Porter otherwise merges university/universe and organization/organ.
     // Preserve these derivational families while still matching their ordinary inflections.
@@ -29,7 +32,7 @@ export function processTerm(term: string): string {
 export const canApproximate = (term: string): boolean => /^[a-z]{5,}$/.test(term);
 
 export function identifierPattern(term: string): string {
-    const version = /^v?\d+(?:\.\d+)+$/i.test(term);
+    const version = isVersion(term);
     const literal = (version ? term.replace(/^v/i, "") : term).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return `(^|[^[:alnum:]_.+-])${version ? "v?" : ""}${literal}($|[^[:alnum:]_.+-]|[.]([^[:digit:]]|$))`;
 }

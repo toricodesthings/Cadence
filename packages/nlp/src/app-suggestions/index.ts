@@ -37,12 +37,13 @@ const RULES: Record<AppCategory, { actions: string; objects: string }> = {
 const ABSTAIN = /\b(don'?t|do not|never|stop|avoid|without|instead of|no more|skip|research|compare|comparison|alternatives?|versus|vs)\b/i;
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const word = (pattern: string) => new RegExp(`(?:^|[^a-z0-9])(?:${pattern})(?![a-z0-9])`, "i");
+// Patterns come from the constant RULES table above, never from input.
+const word = (pattern: string) => new RegExp(`(?:^|[^a-z0-9])(?:${pattern})(?![a-z0-9])`, "i"); // nosemgrep
 
 const CATEGORY_PATTERNS = Object.entries(RULES).map(([category, { actions, objects }]) => ({
     category: category as AppCategory,
     // The action, then at most three filler words, then the object: "check my work inbox".
-    pattern: new RegExp(`(?:^|[^a-z0-9])(?:${actions})(?:\\s+[a-z0-9'’-]+){0,3}?\\s+(?:${objects})(?![a-z0-9])`, "i"),
+    pattern: new RegExp(`(?:^|[^a-z0-9])(?:${actions})(?:\\s+[a-z0-9'’-]+){0,3}?\\s+(?:${objects})(?![a-z0-9])`, "i"), // nosemgrep
 }));
 
 export function suggestApps(title: string, apps: readonly AppDescriptor[]): AppSuggestion | null {

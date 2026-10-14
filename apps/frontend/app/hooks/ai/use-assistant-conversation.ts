@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getToolName, lastAssistantMessageIsCompleteWithApprovalResponses, type UIMessage } from "ai";
+import { getToolName, lastAssistantMessageIsCompleteWithApprovalResponses, type ChatStatus, type UIMessage } from "ai";
 import { CONVERSATION_TITLE_DATA_TYPE, type ConversationTitleData, type ConversationListItem, type ConversationDetail } from "@cadence/contracts/ai";
 import { deriveFallbackTitle } from "@cadence/domain/ai-title";
 import { useAssistantStore } from "../../stores/assistant-store";
@@ -27,6 +27,33 @@ type ConversationSnapshot = {
     messages: UIMessage[];
 };
 
+// Dev timing skips already-streamed parts when an approval continues the same reply.
+type TurnTiming = { t0: number; skipParts: number; headersMs?: number; ttftMs?: number; firstTextMs?: number };
+
+const ms = (value?: number) => (value === undefined ? "–" : `${value}ms`);
+
+function stampFirstTokens(turn: TurnTiming, parts: UIMessage["parts"], since: number) {
+    for (const part of parts) {
+        if ((part.type !== "reasoning" && part.type !== "text") || !part.text) continue;
+        turn.ttftMs ??= since;
+        if (part.type === "text") turn.firstTextMs ??= since;
+    }
+}
+
+/** Dev only: stamps the turn's first-token times and logs it once it ends. Returns the turn still in flight. */
+function trackTurnTiming(current: TurnTiming | null, status: ChatStatus, last: UIMessage | undefined): TurnTiming | null {
+    const fromAssistant = last?.role === "assistant" ? last.parts : [];
+    const turn = current ?? (status === "submitted" ? { t0: performance.now(), skipParts: fromAssistant.length } : null);
+    if (!turn) return null;
+    const parts = fromAssistant.slice(turn.skipParts);
+    const since = Math.round(performance.now() - turn.t0);
+    stampFirstTokens(turn, parts, since);
+    if (status !== "ready" && status !== "error") return turn;
+    const toolCalls = parts.filter(isAssistantToolPart).length;
+    log.debug("ai-turn", `${status} · headers ${ms(turn.headersMs)} · ttft ${ms(turn.ttftMs)} · first text ${ms(turn.firstTextMs)} · total ${since}ms · ${toolCalls} tool calls`);
+    return null;
+}
+
 /** Owns the active chat session and its persisted/cross-tab lifecycle. */
 export function useAssistantConversation({ online, onNotice, clearAttachments, onTurnSubmitted }: {
     online: boolean;
@@ -48,14 +75,7 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
         }
     }, [assistantPanelOpen, activeConversationId, startNewConversation]);
 
-    // Dev timing skips already-streamed parts when an approval continues the same reply.
-    const turnTimingRef = useRef<{
-        t0: number;
-        skipParts: number;
-        headersMs?: number;
-        ttftMs?: number;
-        firstTextMs?: number;
-    } | null>(null);
+    const turnTimingRef = useRef<TurnTiming | null>(null);
 
     // Writes run on the server mid-turn, so the workspace refreshes as each one lands
     // (and once more on finish for any the stream didn't show); each write refreshes once.
@@ -132,25 +152,7 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
     }, [status, messages, refreshAfterWrites]);
 
     useEffect(() => {
-        if (!import.meta.env.DEV) return;
-        const last = messages.at(-1);
-        if (status === "submitted" && !turnTimingRef.current) {
-            turnTimingRef.current = { t0: performance.now(), skipParts: last?.role === "assistant" ? last.parts.length : 0 };
-        }
-        const turn = turnTimingRef.current;
-        if (!turn) return;
-        const parts = last?.role === "assistant" ? last.parts.slice(turn.skipParts) : [];
-        const since = Math.round(performance.now() - turn.t0);
-        for (const part of parts) {
-            if ((part.type === "reasoning" || part.type === "text") && part.text) turn.ttftMs ??= since;
-            if (part.type === "text" && part.text) turn.firstTextMs ??= since;
-        }
-        if (status === "ready" || status === "error") {
-            const ms = (value?: number) => (value === undefined ? "–" : `${value}ms`);
-            const toolCalls = parts.filter(isAssistantToolPart).length;
-            log.debug("ai-turn", `${status} · headers ${ms(turn.headersMs)} · ttft ${ms(turn.ttftMs)} · first text ${ms(turn.firstTextMs)} · total ${since}ms · ${toolCalls} tool calls`);
-            turnTimingRef.current = null;
-        }
+        if (import.meta.env.DEV) turnTimingRef.current = trackTurnTiming(turnTimingRef.current, status, messages.at(-1));
     }, [status, messages]);
 
     // Stop includes the server stream id to avoid aborting a newer turn.

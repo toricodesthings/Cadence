@@ -163,17 +163,18 @@ const RECURRENCE_PATTERNS: RecurrencePattern[] = [
 const DAY_NAME = "(?:mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)s?";
 
 /** An exception clause whose days we can express: "except weekends", "but not Friday", "except Saturday and Sunday". */
-const DAY_EXCEPTION = new RegExp(
-  `^\\s*,?\\s*(?:except|but(?:\\s+not)?|excluding|other\\s+than)\\s+(?:the\\s+)?(weekends?|weekdays?|${DAY_NAME}(?:\\s*(?:,|and|or)\\s*${DAY_NAME})*)\\b`,
+// Checked linear (recheck).
+const DAY_EXCEPTION = new RegExp( // nosemgrep
+  `^\\s*(?:,\\s*)?(?:except|but(?:\\s+not)?|excluding|other\\s+than)\\s+(?:the\\s+)?(weekends?|weekdays?|${DAY_NAME}(?:\\s*(?:,|and|or)\\s*${DAY_NAME})*)\\b`,
   "i",
 );
 
 /** Any exception marker, even one we cannot express — a partial rule must never contradict it silently. */
-const EXCEPTION_MARKER = /^\s*,?\s*(?:except|but(?:\s+not)?|excluding|other\s+than)\b/i;
+const EXCEPTION_MARKER = /^\s*(?:,\s*)?(?:except|but(?:\s+not)?|excluding|other\s+than)\b/i;
 
 /** The full exception phrase, bounded by the next cue word, punctuation, or end of input. */
 const EXCEPTION_PHRASE =
-  /^\s*,?\s*(?:except|but\s+not|excluding|other\s+than)\s+.+?(?=\s+(?:at|on|by|before|after|until|till|tomorrow|today|tonight|next|this|every|remind|waiting|p[1-4])\b|\s*[,;]|$)/i;
+  /^\s*(?:,\s*)?(?:except|but\s+not|excluding|other\s+than)\s+\S.*?(?=\s(?:at|on|by|before|after|until|till|tomorrow|today|tonight|next|this|every|remind|waiting|p[1-4])\b|[,;]|$)/i;
 
 const ALL_DAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 

@@ -1,5 +1,5 @@
 import MiniSearch from "minisearch";
-import { canApproximate, indexTerms, processTerm, searchTerms } from "./terms";
+import { canApproximate, indexTerms, isVersion, processTerm, searchTerms } from "./terms";
 
 /** Pure searchable data; apps own loading, permissions, routes and display wording. */
 export interface SearchDocument {
@@ -50,7 +50,7 @@ export function createSearchIndex(documents: readonly SearchDocument[]) {
                 ...engine.search(query, options),
                 ...engine.search(query, {
                     ...options,
-                    processTerm: (term) => /^v?\d+(?:\.\d+)+$/.test(term) ? processTerm(term) : term,
+                    processTerm: (term) => isVersion(term) ? processTerm(term) : term,
                 }),
             ] : [];
             const merged = new Map([...expanded, ...exact].map((hit) => [String(hit.id), hit]));

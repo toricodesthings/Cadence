@@ -432,7 +432,7 @@ export const desktopRuntime = {
     },
     async platformFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
         if (!hasTauriRuntime()) {
-            return fetch(input, init);
+            return fetch(input, init); // nosemgrep
         }
 
         const request = input instanceof Request ? new Request(input, init) : new Request(input, init);

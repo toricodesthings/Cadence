@@ -65,7 +65,7 @@ export function findSectionMention(text: string, sections: readonly NamedSection
     const names = [...new Set(sections.map((s) => s.name.trim()).filter(Boolean))].sort((a, b) => b.length - a.length);
     for (const name of names) {
         const suffix = namesADay(name) ? "\\s+section" : "(?:\\s+section)?";
-        const m = new RegExp(`\\b(?:in|into|to|under)\\s+(?:the\\s+)?${escape(name)}${suffix}(?![\\p{L}\\p{N}])`, "iu").exec(text);
+        const m = new RegExp(`\\b(?:in|into|to|under)\\s+(?:the\\s+)?${escape(name)}${suffix}(?![\\p{L}\\p{N}])`, "iu").exec(text); // nosemgrep
         if (m) return { start: m.index, end: m.index + m[0].length, candidates: sections.filter((s) => s.name.trim().toLowerCase() === name.toLowerCase()) };
     }
     return null;

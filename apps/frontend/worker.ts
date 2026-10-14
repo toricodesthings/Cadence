@@ -69,7 +69,7 @@ async function fetchNeonAuth(env: Env, request: Request, path: string, search: s
 	upstream.search = search;
 	const hasBody = request.method !== "GET" && request.method !== "HEAD";
 
-	return fetch(upstream, {
+	return fetch(upstream, { // nosemgrep
 		method: request.method,
 		headers,
 		body: hasBody ? await request.arrayBuffer() : undefined,

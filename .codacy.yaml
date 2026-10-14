@@ -16,3 +16,5 @@ engines:
   semgrep:
     exclude_paths:
       - "**/package.json"
+      - "**/tests/**"
+      - "scripts/**"

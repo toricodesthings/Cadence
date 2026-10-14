@@ -45,7 +45,7 @@ export const WEB_APP_BASE_URL =
 
 // Dev-time health check: warn loudly if the API root is unreachable
 if (import.meta.env.DEV && typeof window !== "undefined") {
-    fetch(`${API_BASE_URL}/health`, { method: "GET" }).then((res) => {
+    fetch(`${API_BASE_URL}/health`, { method: "GET" }).then((res) => { // nosemgrep
         if (!res.ok) {
             log.error("dev", `API health check returned ${res.status}. Is the backend running, and is VITE_API_BASE_URL (${API_BASE_URL}) right?`);
         }

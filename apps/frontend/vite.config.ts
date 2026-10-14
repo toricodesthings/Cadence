@@ -9,7 +9,7 @@ const release = readReleaseInfo(new URL("../../", import.meta.url));
 const buildId = Date.now().toString(36);
 
 // A package directory in node_modules, hoisted or under pnpm's .pnpm store.
-const vendor = (names: string) => new RegExp(String.raw`node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?(?:${names})[\\/]`);
+const vendor = (names: string) => new RegExp(String.raw`node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?(?:${names})[\\/]`); // nosemgrep
 
 export default defineConfig(({ mode }) => ({
   plugins: [

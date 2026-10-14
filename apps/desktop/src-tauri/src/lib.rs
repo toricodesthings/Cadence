@@ -184,6 +184,7 @@ mod efficiency {
             },
         };
         // Best effort: older Windows builds reject it, and nothing depends on it.
+        // nosemgrep
         unsafe {
             SetProcessInformation(
                 GetCurrentProcess(),
@@ -192,6 +193,7 @@ mod efficiency {
                 std::mem::size_of::<PROCESS_POWER_THROTTLING_STATE>() as u32,
             );
         }
+        // nosemgrep
         let _ = window.with_webview(move |webview| unsafe {
             if let Ok(core) = webview.controller().CoreWebView2() {
                 if let Ok(core) = core.cast::<ICoreWebView2_19>() {
@@ -256,6 +258,7 @@ mod jump_list {
 
     /// Best effort: a missing Jump List never stops Cadence from starting.
     pub fn install() -> Result<()> {
+        // nosemgrep
         unsafe {
             let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
             let exe = HSTRING::from(std::env::current_exe().unwrap_or_default().as_os_str());

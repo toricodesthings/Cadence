@@ -2,7 +2,9 @@
 
 ## Build for executive dysfunction
 
-Cadence carries executive function for people who struggle with it: ADHD, autism, burnout, overloaded schedules. Every change must make the user's next step **easier**. That means fewer decisions, less to scan or read, less to remember, nothing said twice, and nothing that needs setup before it helps. Ease must never come from removing capability. Keep the feature and move its weight off the user: good defaults, progressive disclosure, direct manipulation, and the baseline kept quiet so exceptions stand out. Before calling anything done, ask: *on a bad day, half-asleep, could someone use this without thinking?* If not, it isn't done. This rule outranks convenience in the code.
+Cadence carries executive function for people who struggle with it: attention-deficit disorder, autism, burnout, overloaded schedules. Every change must make the user's next step **easier**. That means fewer decisions, less to scan or read, less to remember, nothing said twice, and nothing that needs setup before it helps.
+
+Ease must never come from removing capability. Keep the feature and move its weight off the user: good defaults, progressive disclosure, direct manipulation, and the baseline kept quiet so exceptions stand out. Before calling anything done, ask: *on a bad day, half-asleep, could someone use this without thinking?* If not, it isn't done. This rule outranks convenience in the code.
 
 Before touching an area, read its guide: `apps/frontend/AGENTS.md`, `apps/backend/AGENTS.md`, `apps/desktop/AGENTS.md`, `apps/landing/AGENTS.md`, `packages/AGENTS.md`. Tests live in each app's `tests/` and in `packages/tests/` (mirrors `packages/`), never next to source.
 
@@ -34,23 +36,28 @@ The graph tracks structure, not behaviour, and lags uncommitted edits. Open the 
 
 Every date or time value is exactly one of four types. Name the type in the contract, and never convert between types outside `@cadence/domain/time`.
 
-- **Instant:** `timestamptz` / ISO with offset (`instantSchema`). Timed starts and ends, reminders, audit times.
+- **Instant:** `timestamptz` / timestamp string with offset (`instantSchema`). Timed starts and ends, reminders, audit times.
 - **LocalDate:** `date` / `YYYY-MM-DD` (`localDateSchema`). All-day days, deadlines (a deadline is a day), multi-day ends, hide-until, routine days. Never stored or compared as an instant.
 - **WallTime:** `HH:MM`, always with the day and zone it belongs to (routine times).
-- **Zone:** IANA name. The user's is `users.time_zone`, read on the server only through `userZone`; the client keeps it in sync with the device unless Settings pins one.
+- **Zone:** a time zone name such as `America/Toronto`. The user's is `users.time_zone`, read on the server only through `userZone`; the client keeps it in sync with the device unless Settings pins one.
 
-Today is `todayIn(zone)`, a day is `dayOf(instant, zone)`, a time on a day is `atLocal(day, time, zone)`, and repeating series expand with `expandSeries` in their zone (same local time across DST). Display goes through `formatInZone`. Banned (`scripts/check-time.mjs`): slicing a timestamp for a day, `toISOString()` for a day, `new Date("…T00:00")`-style parsing, `getTimezoneOffset`, `Date` local getters in day logic, `AT TIME ZONE 'UTC'`, and date-or-datetime union fields. The `test:tz` matrix runs the suites in four zones.
+Today is `todayIn(zone)`, a day is `dayOf(instant, zone)`, a time on a day is `atLocal(day, time, zone)`, and repeating series expand with `expandSeries` in their zone (same local time across DST). Display goes through `formatInZone`.
+
+Banned (`scripts/check-time.mjs`): slicing a timestamp for a day, `toISOString()` for a day, `new Date("…T00:00")`-style parsing, `getTimezoneOffset`, `Date` local getters in day logic, `AT TIME ZONE 'UTC'`, and date-or-datetime union fields. The `test:tz` matrix runs the suites in four zones.
 
 ## Versions and releases
 
 - The version lives **only** in the root `package.json`. The app label, in-app changelog, and desktop/Tauri/Cargo versions are derived at build time. Never type a version anywhere else.
-- `CHANGELOG.md` (root, committed, [Keep a Changelog](https://keepachangelog.com)) is the one changelog, and the in-app changelog is built from it. When a change is user-visible, add one plain-language, one-line bullet (≤120 characters; the build enforces it) under `## [Unreleased]` in `### Added`, `### Changed`, `### Removed`, or `### Fixed`. Every release needs a one-line summary under its heading (its title in the app). Internal-only work gets no bullet.
-- Semver: MAJOR = big release or breaking change · MINOR = a feature added, changed, or removed · PATCH = fixes, tweaks, dependency bumps.
-- Never bump versions or create tags by hand. `pnpm release` does both (release-it): it stamps `[Unreleased]` with the version, bumps `package.json`, syncs desktop, commits, tags `vX.Y.Z`, and pushes. The tag triggers the desktop release build. Only run it when the user asks.
+- `CHANGELOG.md` (root, committed, [Keep a Changelog](https://keepachangelog.com)) is the one changelog; the in-app changelog is built from it.
+- A user-visible change gets one plain-language, one-line bullet (≤120 characters; the build enforces it) under `## [Unreleased]` in `### Added`, `### Changed`, `### Removed`, or `### Fixed`. Internal-only work gets none.
+- Every release needs a one-line summary under its heading (its title in the app).
+- Semver: major = big release or breaking change · minor = a feature added, changed, or removed · patch = fixes, tweaks, dependency bumps.
+- Never bump versions or create tags by hand. `pnpm release` (release-it) does it all: stamps `[Unreleased]`, bumps `package.json`, syncs desktop, commits, tags `vX.Y.Z`, and pushes.
+- The tag triggers the desktop release build, so run `pnpm release` only when the user asks.
 
 ## Docs and planning live in `/docs` (local only, git-ignored)
 
 - Start at `docs/README.md`. Never create docs under `apps/*/` or `packages/*/`.
-- A MINOR or MAJOR update gets one planning file: `docs/updates/X.Y.Z.md` (copy `docs/updates/TEMPLATE.md`). Audits, reviews, and follow-ups are sections in that file, never new files. Once it ships, move it to `docs/archive/X.Y.Z/` and edit the affected AGENTS.md lines.
+- A minor or major update gets one planning file: `docs/updates/X.Y.Z.md` (copy `docs/updates/TEMPLATE.md`). Audits, reviews, and follow-ups are sections in that file, never new files. Once it ships, move it to `docs/archive/X.Y.Z/` and edit the affected AGENTS.md lines.
 - `docs/archive/` is frozen history. Don't edit it or treat it as current.
 - Never link to `/docs` from committed files. It doesn't exist on GitHub.

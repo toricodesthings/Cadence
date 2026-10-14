@@ -11,7 +11,8 @@ const NEGATION_BEFORE =
 
 /** True when the text right before `start` negates whatever cue begins at `start`. */
 export function isNegatedBefore(text: string, start: number): boolean {
-    return NEGATION_BEFORE.test(text.slice(Math.max(0, start - 48), start));
+    // Checked linear (recheck).
+    return NEGATION_BEFORE.test(text.slice(Math.max(0, start - 48), start)); // nosemgrep
 }
 
 /**
