@@ -23,10 +23,7 @@ const CHANNEL_NAME = "cadence:ai:chat";
  * channel exists in the tab (e.g. React StrictMode's double-mount in dev), which
  * BroadcastChannel's own "don't echo to the sender" rule does not cover.
  */
-const TAB_ID =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : Math.random().toString(36).slice(2);
+const TAB_ID = crypto.randomUUID();
 
 export type ChatBroadcastType = "stream-started" | "stream-finished" | "title-updated";
 

@@ -28,13 +28,8 @@ function isPendingDesktopAuthHandoff(value: unknown): value is PendingDesktopAut
 }
 
 function createStateToken() {
-    if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
-        const bytes = new Uint8Array(24);
-        crypto.getRandomValues(bytes);
-        return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
-    }
-
-    return `${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+    const bytes = crypto.getRandomValues(new Uint8Array(24));
+    return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
 }
 
 async function readPendingDesktopAuthHandoff() {
