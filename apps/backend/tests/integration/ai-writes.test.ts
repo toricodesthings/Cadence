@@ -308,24 +308,24 @@ describe("captures", () => {
 describe("events and routine emoji", () => {
     it("adds, reads, changes and deletes events in the user's settings, and only theirs", async () => {
         const settings = apiAs(userId, "/settings", settingsRoutes);
-        const { eventId } = await call("create_event", { label: "Mom's birthday", monthDay: "03-14", emoji: "🎂", startedOn: "1966-03-14" });
-        await call("create_event", { label: "Anniversary", monthDay: "09-30" });
+        const { id: eventId } = await call("save_event", { patch: { label: "Mom's birthday", monthDay: "03-14", emoji: "🎂", startedOn: "1966-03-14" } });
+        await call("save_event", { patch: { label: "Anniversary", monthDay: "09-30" } });
         // Replaying a call adds nothing.
-        await call("create_event", { label: "Dup", monthDay: "01-01" }, "fixed");
-        await call("create_event", { label: "Dup", monthDay: "01-01" }, "fixed");
+        await call("save_event", { patch: { label: "Dup", monthDay: "01-01" } }, "fixed");
+        await call("save_event", { patch: { label: "Dup", monthDay: "01-01" } }, "fixed");
 
         const { events } = await call("get_events", {});
         expect(events.map((e: any) => e.label)).toEqual(["Anniversary", "Dup", "Mom's birthday"]);
         expect(events[0]).toMatchObject({ next: "2026-09-30", daysUntil: 7 });
         expect(events[2]).toMatchObject({ id: eventId, emoji: "🎂", next: "2027-03-14", years: 61 });
 
-        expect(await call("update_event", { eventId, patch: { emoji: "🌷", notify: false, color: "rose" } })).toMatchObject({ emoji: "🌷", notify: false, color: "rose", label: "Mom's birthday" });
+        expect(await call("save_event", { eventId, patch: { emoji: "🌷", notify: false, color: "rose" } })).toMatchObject({ emoji: "🌷", notify: false, color: "rose", label: "Mom's birthday" });
         expect(await call("delete_event", { eventId })).toEqual({ deleted: "Mom's birthday" });
         const items = (await settings("GET", "")).body.data.calendar.personalEvents.items;
         expect(items.map((e: any) => e.label)).toEqual(["Anniversary", "Dup"]);
         expect(items[0]).toMatchObject({ emoji: null, notify: true, startedOn: null });
 
-        expect((await call("update_event", { eventId, patch: { label: "x" } })).ok).toBe(false);
+        expect((await call("save_event", { eventId, patch: { label: "x" } })).ok).toBe(false);
         const other = await createUser();
         const otherTools = buildToolRegistry({} as never, other, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
         expect((await otherTools.get_events.execute({}, { toolCallId: "o1", messages: [] })).events).toEqual([]);

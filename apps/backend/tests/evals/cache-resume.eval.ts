@@ -9,7 +9,7 @@ import { getModelId } from "../../src/domains/ai/model-router";
 import { addStepSpend } from "../../src/domains/ai/safety/rate-limit";
 import type { Env } from "../../src/types/env";
 import { evaluationVars } from "./run-options";
-import { cacheFixture } from "./cache-fixture";
+import { cacheFixture, waitForCacheDeadline } from "./cache-fixture";
 
 const vars = evaluationVars();
 const resumeId = vars.AI_EVAL_CACHE_RESUME;
@@ -38,8 +38,7 @@ it.skipIf(!env.OPENROUTER_API_KEY || !resumeId)("measures expiry of all three ex
         unknownCosts: rows.filter((r) => typeof r.costUsd !== "number").length,
     }, null, 2));
     report();
-    const waitMs = deadline - Date.now();
-    if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+    await waitForCacheDeadline(deadline);
     for (const anchor of anchors) {
         const f = cacheFixture(env, resumeId!, anchor.variant, true, "b");
         const at = Date.now();
@@ -56,12 +55,13 @@ it.skipIf(!env.OPENROUTER_API_KEY || !resumeId)("measures expiry of all three ex
                 include: { responseBody: true }, maxOutputTokens: 64, maxRetries: 0, abortSignal: AbortSignal.timeout(30_000),
             });
             const body = result.response.body as { provider?: string } | undefined;
-            Object.assign(row, { complete: true, costUsd: addStepSpend({}, result).costUsd ?? null,
+            Object.assign(row, { costUsd: addStepSpend({}, result).costUsd ?? null,
                 provider: body?.provider ?? null, servedModel: result.response.modelId ?? null, generationId: result.response.id ?? null,
                 input: result.usage.inputTokens ?? null, cached: result.usage.inputTokenDetails?.cacheReadTokens ?? null,
                 written: result.usage.inputTokenDetails?.cacheWriteTokens ?? null, output: result.usage.outputTokens ?? null,
                 elapsedMs: performance.now() - started });
             expect(result.toolCalls).toHaveLength(0);
+            row.complete = true;
         } finally { report(); }
     }
     expect(rows).toHaveLength(3);

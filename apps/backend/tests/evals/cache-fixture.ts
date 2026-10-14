@@ -7,6 +7,15 @@ import { PROMPT_BLOCKS } from "../../src/domains/ai/prompt/prompt-blocks";
 import type { Env } from "../../src/types/env";
 import type { AssistantPersona } from "../../src/domains/ai/prompt/prompt-blocks.schema";
 
+/** Recheck wall time: a long timer alone is insufficient if the host clock changes. */
+export async function waitForCacheDeadline(deadline: number, clock = Date.now, pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))) {
+    for (;;) {
+        const remaining = deadline - clock();
+        if (remaining <= 0) return;
+        await pause(Math.min(remaining, 60_000));
+    }
+}
+
 /** Shared by initial and delayed probes so a checkpoint reuses the same static bytes. */
 export function cacheFixture(env: Env, run: string, variant: CacheVariant, memoryOn: boolean, epoch = "a", persona: Partial<AssistantPersona> = {}) {
     const prompt = composePrompt(PROMPT_BLOCKS, {

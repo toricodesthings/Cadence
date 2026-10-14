@@ -92,42 +92,32 @@ export function projectEvents(settings: SettingsView, today: string) {
 
 export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── W ──────────────────────────────────────────────────────────────────
-    create_event: tool({
+    save_event: tool({
         description:
-            "Adds a yearly personal event (birthday, anniversary) to Events. Returns its eventId.",
-        inputSchema: eventInput,
-        execute: async (input, { toolCallId }) =>
-            safeExecute("create_event", userId, async () =>
-                withRls(getDbClient(env), userId, (tx) =>
-                    once(tx, userId, toolCallId, async () => {
-                        const event: PersonalEvent = {
-                            id: crypto.randomUUID().slice(0, 12),
-                            label: input.label,
-                            monthDay: input.monthDay,
-                            emoji: input.emoji ?? null,
-                            notify: input.notify ?? true,
-                            startedOn: input.startedOn ?? null,
-                            ...(input.color && { color: input.color }),
-                        };
-                        await writeEvents(tx, userId, (items) => [...items, event]);
-                        // The dedup row points at the user: events live in their settings.
-                        return { result: { eventId: event.id, next: nextOccurrence(event.monthDay, ctx.today) }, id: userId };
-                    }),
-                ),
-            ),
-    }),
-
-    // ── U ──────────────────────────────────────────────────────────────────
-    update_event: tool({
-        description: "Changes an event's label, date, emoji or colour (null removes either), reminder or start date. Send only what changes.",
+            "Adds or changes a yearly personal event (birthday, anniversary) on Events. Without eventId it adds one " +
+            "(label and monthDay needed); with eventId it changes only what the patch sends. Returns the event.",
         inputSchema: z.object({
-            eventId: z.string().min(1).max(24),
+            eventId: z.string().min(1).max(24).optional().describe("The event to change; omit to add one."),
             patch: eventInput.partial(),
-        }),
+        }).refine((v) => v.eventId !== undefined || (v.patch.label !== undefined && v.patch.monthDay !== undefined), "A new event needs a label and monthDay"),
         execute: async ({ eventId, patch }, { toolCallId }) =>
-            safeExecute("update_event", userId, async () =>
+            safeExecute("save_event", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
+                        if (eventId === undefined) {
+                            const event: PersonalEvent = {
+                                id: crypto.randomUUID().slice(0, 12),
+                                label: patch.label!,
+                                monthDay: patch.monthDay!,
+                                emoji: patch.emoji ?? null,
+                                notify: patch.notify ?? true,
+                                startedOn: patch.startedOn ?? null,
+                                ...(patch.color && { color: patch.color }),
+                            };
+                            await writeEvents(tx, userId, (items) => [...items, event]);
+                            // The dedup row points at the user: events live in their settings.
+                            return { result: toMinimalEvent(event, ctx.today), id: userId };
+                        }
                         let updated!: PersonalEvent;
                         await writeEvents(tx, userId, (items) => {
                             updated = { ...findEvent(items, eventId), ...patch };

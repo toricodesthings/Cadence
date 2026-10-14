@@ -214,7 +214,7 @@ describe("focus views", () => {
             { title: "Quick client thing", projectId, priority: 3, effort: 1 },
             { title: "Other", priority: 4, effort: 1 },
         ]);
-        const { focusViewId } = await call("create_focus_view", { name: "Client quick wins", filters: { projectIds: [projectId], effortMax: 1 }, pinned: true });
+        const { id: focusViewId } = await call("save_focus_view", { name: "Client quick wins", filters: { projectIds: [projectId], effortMax: 1 }, pinned: true });
         expect((await call("get_focus_views", {})).views).toEqual([
             { id: focusViewId, name: "Client quick wins", pinned: true, filters: { projectIds: [projectId], effortMax: 1 } },
         ]);
@@ -222,7 +222,7 @@ describe("focus views", () => {
         expect(shown.view).toEqual({ name: "Client quick wins" });
         expect(titles(shown.tasks)).toEqual(["Quick client thing"]);
 
-        await call("update_focus_view", { focusViewId, name: "Client", filters: { effortMax: null, priorityMin: 4 } });
+        await call("save_focus_view", { focusViewId, name: "Client", filters: { effortMax: null, priorityMin: 4 } });
         expect(titles((await call("get_tasks", { focusViewId })).tasks)).toEqual(["Big client thing"]);
         expect(await call("delete_focus_view", { focusViewId, name: "Client" })).toEqual({ deleted: "Client" });
         expect((await call("get_focus_views", {})).views).toEqual([]);

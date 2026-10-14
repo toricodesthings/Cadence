@@ -6,6 +6,7 @@
     "ui-design@claude-code-workflows": true,
     "playwright@claude-plugins-official": true,
     "marketing-skills@marketingskills": true,
-    "claude-security@claude-plugins-official": true
+    "claude-security@claude-plugins-official": true,
+    "codacy@anthropic-plugin-directory": true
   }
 }

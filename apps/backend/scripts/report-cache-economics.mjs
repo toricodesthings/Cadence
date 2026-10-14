@@ -63,7 +63,7 @@ const complete = comparison.every((r) => r.complete);
 const cheaper = complete ? comparison.filter((r) => r.weightedCostUsd < baseline.weightedCostUsd).map((r) => r.variant) : [];
 const report = { at: new Date().toISOString(), evidence: "observed-gap-weighted synthetic request cost index; not a production invoice or browser latency measurement",
     sources: { matchedId, probeId, production: "p3-production-gaps.json", expiry: expiryName },
-    history: { ...history, from: production.from, to: production.to, users: new Set(production.rows.map((r) => r.user_hash)).size },
+    history: { ...history, from: production.from, to: production.to, allObservedUsers: new Set(production.rows.map((r) => r.user_hash)).size },
     reference, complete, comparison, sensitivity,
     conclusion: !complete ? "incomplete-strata-retain-baseline" : cheaper.length ? "cheaper-candidates-need-latency-acceptance" : "retain-5m-5m",
     cheaper, rawKnownSpendUsd: trials.some((r) => r.sdkCostUsd !== null) ? trials.reduce((sum, r) => sum + (r.sdkCostUsd ?? 0), 0) : null,

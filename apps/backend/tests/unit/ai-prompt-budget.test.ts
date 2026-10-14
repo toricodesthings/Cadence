@@ -39,7 +39,7 @@ describe("serialized prompt budget", () => {
         expect(candidate.turnContext).toContain("sensitive");
         expect(candidate.turnContext).toContain("not mentioned in over a year");
         expect(candidate.turnContext).toContain(context.snapshot);
-        expect(definitions).toHaveLength(46);
+        expect(definitions).toHaveLength(44);
         expect(definitions.every((d) => d.schema)).toBe(true);
         // Measure the actual native-provider serialization, not an estimate of schema bytes.
         const bodies: any[] = [];

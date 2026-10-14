@@ -249,8 +249,8 @@ describe("writes", () => {
     it("publishes writes without reads and marks the overwriting and deleting ones destructive", async () => {
         const tools = (await mcp("tools/list")).body.result.tools;
         const hint = (name: string) => tools.find((t: any) => t.name === name).annotations.destructiveHint;
-        expect([hint("create_tasks"), hint("create_event"), hint("update_tasks"), hint("delete_tasks"), hint("delete_event")]).toEqual([
-            false, false, true, true, true,
+        expect([hint("create_tasks"), hint("save_event"), hint("update_tasks"), hint("delete_tasks"), hint("delete_event")]).toEqual([
+            false, true, true, true, true,
         ]);
         expect((await call(mcp, "get_tasks")).isError).toBe(true);
     });
@@ -269,7 +269,7 @@ describe("writes", () => {
 
     it("reaches every area, like Cadence's assistant", async () => {
         const project = await call(mcp, "create_project", { name: "Home", operationKey: "op-project-1" });
-        const event = await call(mcp, "create_event", { label: "Mum's birthday", monthDay: "03-14", operationKey: "op-event-01" });
+        const event = await call(mcp, "save_event", { patch: { label: "Mum's birthday", monthDay: "03-14" }, operationKey: "op-event-01" });
         const routine = await call(mcp, "create_habit", { title: "Stretch", recurrenceRule: "FREQ=DAILY", emoji: null, operationKey: "op-habit-01" });
         expect([project, event, routine].map((r) => r.isError)).toEqual([false, false, false]);
         const rows = await asOwner((pg) =>

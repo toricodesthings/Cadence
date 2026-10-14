@@ -8,7 +8,7 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { z } from "zod";
 import { chatInstructions, chatModelSettings, type CacheVariant } from "../../src/domains/ai/agent";
 import { addStepSpend, readMeteredTokens } from "../../src/domains/ai/safety/rate-limit";
-import { cacheFixture } from "../evals/cache-fixture";
+import { cacheFixture, waitForCacheDeadline } from "../evals/cache-fixture";
 import type { Env } from "../../src/types/env";
 
 const env = { AI_CHAT_MODEL: "anthropic/claude-haiku-5.5", OPENROUTER_API_KEY: "k" } as Env;
@@ -43,6 +43,16 @@ async function send(modelId: string, variant?: CacheVariant, messages: ModelMess
 afterEach(() => vi.unstubAllGlobals());
 
 describe("prompt caching on the wire", () => {
+    it("rechecks the real deadline after early wakeups or a backwards clock adjustment", async () => {
+        let now = 0;
+        const pauses: number[] = [];
+        await waitForCacheDeadline(120_000, () => now, async (ms) => {
+            pauses.push(ms);
+            now += pauses.length === 1 ? 10_000 : ms;
+        });
+        expect(now).toBe(120_000);
+        expect(pauses).toEqual([60_000, 60_000, 50_000]);
+    });
     it.each(["5m-5m", "1h-5m", "1h-1h"] as const)("keeps routing/reasoning/tools constant for the %s benchmark variant", async (variant) => {
         const { body } = await send("anthropic/claude-haiku-5.5", variant);
         expect(body.messages[0].content[0].cache_control).toEqual(variant === "5m-5m" ? { type: "ephemeral" } : { type: "ephemeral", ttl: "1h" });

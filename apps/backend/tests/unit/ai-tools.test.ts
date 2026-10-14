@@ -188,11 +188,22 @@ describe("tool registry", () => {
         const field = async (name: string, path: string[]) => path.reduce((node: any, key) => node.properties[key], await asSchema(tools[name].inputSchema).jsonSchema);
         expect((await field("create_project", ["colorAccent"])).enum).toEqual([...ACCENT_COLORS]);
         expect((await field("create_habit", ["colorAccent"])).enum).toEqual(["lantern", ...ACCENT_COLORS]);
-        const event = await field("create_event", ["color"]);
+        const event = await field("save_event", ["patch", "color"]);
         expect(event.enum ?? event.anyOf.find((b: any) => b.enum).enum).toEqual(expect.arrayContaining([...ACCENT_COLORS]));
         expect((await field("create_tag", ["color"])).enum).toEqual([...TAG_COLOR_NAMES]);
         expect(toMinimalTag({ id: "t", name: "x", color: "#79c0ff" }).color).toBe("blue");
         expect(toMinimalTag({ id: "t", name: "x", color: "#123456" }).color).toBe("#123456");
+    });
+
+    it("save_* tools make a new item only from its required fields, and change one by id", async () => {
+        const tools = buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23", nullableOptionals: false }) as any;
+        const ok = async (name: string, input: object) => (await asSchema(tools[name].inputSchema).validate!(input)).success;
+        expect(await ok("save_event", { patch: { label: "Mum" } })).toBe(false);
+        expect(await ok("save_event", { patch: { label: "Mum", monthDay: "03-14" } })).toBe(true);
+        expect(await ok("save_event", { eventId: "e1", patch: { emoji: "🌷" } })).toBe(true);
+        expect(await ok("save_focus_view", { filters: { effortMax: 1 } })).toBe(false);
+        expect(await ok("save_focus_view", { name: "Quick", filters: { effortMax: 1 } })).toBe(true);
+        expect(await ok("save_focus_view", { focusViewId: "00000000-0000-4000-8000-000000000001", pinned: true })).toBe(true);
     });
 
     it("drops the placeholders a fill-every-field model sends, and keeps real values", async () => {
@@ -315,7 +326,7 @@ describe("which calls wait for a tap", () => {
         expect(approval("auto", "delete_tasks", { tasks: ids(1) })).toBe("user-approval");
         expect(needsTap("delete_event", { eventId: "e" })).toBe(true);
         expect(needsTap("delete_section", { sectionId: "s" })).toBe(true);
-        expect(needsTap("update_event", { eventId: "e", patch: { emoji: "🎂" } })).toBe(false);
+        expect(needsTap("save_event", { eventId: "e", patch: { emoji: "🎂" } })).toBe(false);
         expect(needsTap("edit_subtasks", { add: ["a"] })).toBe(false);
         expect(needsTap("edit_subtasks", { remove: [{ subtaskId: "s" }] })).toBe(true);
         expect(needsTap("update_tasks", { taskIds: ids(1), patch: { appendNote: "more" } })).toBe(false);

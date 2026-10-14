@@ -42,6 +42,8 @@ export function productionCacheWeights(rows: ProductionReply[], model: string) {
     const weights: CacheWeights = { cold: 0, warm: 0, "other-conversation": 0, "6-minute-return": 0, "61-minute-return": 0 };
     const previous = new Map<string, number>();
     const conversations = new Set<string>();
+    const identities = new Set<string>();
+    const users = new Set<string>();
     let otherModels = 0, unknown = 0, initialZeroReadPrefixes = 0;
     const gaps: { stage: CacheStage; gapMs: number | null }[] = [];
     for (const row of [...rows].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))) {
@@ -60,9 +62,11 @@ export function productionCacheWeights(rows: ProductionReply[], model: string) {
         gaps.push({ stage, gapMs });
         previous.set(prefix, at);
         conversations.add(conversation);
+        identities.add(`${row.user_hash}:${row.conversation_hash}`);
+        users.add(row.user_hash);
     }
     return { weights, included: gaps.length, unknown, otherModels, firstObservedPrefixes: weights.cold, initialZeroReadPrefixes,
-        prefixes: previous.size, conversations: conversations.size, gaps };
+        prefixes: previous.size, conversations: identities.size, conversationPrefixes: conversations.size, users: users.size, gaps };
 }
 
 /** Reweight measured stratum charges; this is a synthetic cost index, not a production invoice. */

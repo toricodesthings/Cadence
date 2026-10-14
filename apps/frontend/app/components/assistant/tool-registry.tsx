@@ -82,11 +82,9 @@ const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRend
     create_habit: { label: "Added a routine", render: (ctx) => <CreateHabitCard ctx={ctx} /> },
     update_habit: { label: "Changed a routine", render: (ctx) => <UpdateHabitCard ctx={ctx} /> },
     delete_habit: { label: "Deleted a routine", render: (ctx) => <DeleteHabitCard ctx={ctx} /> },
-    create_event: { label: "Added an event", render: (ctx) => <CreateEventCard ctx={ctx} /> },
-    update_event: { label: "Changed an event", render: (ctx) => <UpdateEventCard ctx={ctx} /> },
+    save_event: { label: "Saved an event", render: (ctx) => ctx.part?.input?.eventId ? <UpdateEventCard ctx={ctx} /> : <CreateEventCard ctx={ctx} /> },
     delete_event: { label: "Deleted an event", render: (ctx) => <DeleteEventCard ctx={ctx} /> },
-    create_focus_view: { label: "Saved a focus view", render: (ctx) => <CreateFocusViewCard ctx={ctx} /> },
-    update_focus_view: { label: "Changed a focus view", render: (ctx) => <UpdateFocusViewCard ctx={ctx} /> },
+    save_focus_view: { label: "Saved a focus view", render: (ctx) => ctx.part?.input?.focusViewId ? <UpdateFocusViewCard ctx={ctx} /> : <CreateFocusViewCard ctx={ctx} /> },
     delete_focus_view: { label: "Deleted a focus view", render: (ctx) => <DeleteFocusViewCard ctx={ctx} /> },
 
     // ── remember → one-line receipt with Undo, never an approval ───────────
@@ -103,6 +101,10 @@ const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRend
 const RETIRED_WRITES: Record<string, (ctx: RetiredRenderContext) => React.ReactNode> = {
     structure_inbox_item: (ctx) => <InboxStructureCard ctx={ctx} />,
     structure_captures: (ctx) => <StructureCapturesCard ctx={ctx} />,
+    create_event: (ctx) => <CreateEventCard ctx={ctx} />,
+    update_event: (ctx) => <UpdateEventCard ctx={ctx} />,
+    create_focus_view: (ctx) => <CreateFocusViewCard ctx={ctx} />,
+    update_focus_view: (ctx) => <UpdateFocusViewCard ctx={ctx} />,
 };
 
 /**

@@ -97,40 +97,29 @@ export const focusViewTools = (env: Env, userId: string, _ctx: AgentContext) => 
         }),
 
         // ── W ──────────────────────────────────────────────────────────────────
-        create_focus_view: tool({
-            description: "Saves a focus view: a name and the filters it sets (the rest stay open). Returns its focusViewId.",
+        save_focus_view: tool({
+            description:
+                "Saves a focus view. Without focusViewId it makes a new one from a name and the filters it sets (the rest stay open). " +
+                "With focusViewId it renames, pins or unpins it, or changes only the filters sent. Returns the view.",
             inputSchema: z.object({
-                name: savedFocusViewInputSchema.shape.name,
-                filters: filtersSchema,
-                pinned: z.boolean().optional().describe("Pin it to the top of the views."),
-            }),
-            execute: async ({ name, filters, pinned }, { toolCallId }) =>
-                safeExecute("create_focus_view", userId, async () =>
-                    withRls(getDbClient(env), userId, (tx) =>
-                        once(tx, userId, toolCallId, async () => {
-                            const [row] = await tx
-                                .insert(savedFocusViews)
-                                .values({ userId, name, definition: { ...DEFAULT_DEFINITION, ...filters }, isPinned: pinned ?? false, source: "composed" })
-                                .returning();
-                            return { result: { focusViewId: row.id, name: row.name }, id: row.id };
-                        }),
-                    ),
-                ),
-        }),
-
-        // ── U ──────────────────────────────────────────────────────────────────
-        update_focus_view: tool({
-            description: "Renames, pins or unpins a focus view, or changes filters: only the filters sent change.",
-            inputSchema: z.object({
-                focusViewId: z.uuid(),
+                focusViewId: z.uuid().optional().describe("The view to change; omit to make a new one."),
                 name: savedFocusViewInputSchema.shape.name.optional(),
                 filters: filtersSchema.optional(),
-                pinned: z.boolean().optional(),
-            }).refine((v) => v.name !== undefined || v.filters !== undefined || v.pinned !== undefined, "Nothing to change"),
+                pinned: z.boolean().optional().describe("Pin it to the top of the views."),
+            })
+                .refine((v) => v.focusViewId !== undefined || (v.name !== undefined && v.filters !== undefined), "A new view needs a name and filters")
+                .refine((v) => v.name !== undefined || v.filters !== undefined || v.pinned !== undefined, "Nothing to change"),
             execute: async ({ focusViewId, name, filters, pinned }, { toolCallId }) =>
-                safeExecute("update_focus_view", userId, async () =>
+                safeExecute("save_focus_view", userId, async () =>
                     withRls(getDbClient(env), userId, (tx) =>
                         once(tx, userId, toolCallId, async () => {
+                            if (focusViewId === undefined) {
+                                const [row] = await tx
+                                    .insert(savedFocusViews)
+                                    .values({ userId, name: name!, definition: { ...DEFAULT_DEFINITION, ...filters }, isPinned: pinned ?? false, source: "composed" })
+                                    .returning();
+                                return { result: toMinimalFocusView(row), id: row.id };
+                            }
                             const current = await find(tx, focusViewId);
                             const [row] = await tx
                                 .update(savedFocusViews)

@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 ### Changed
 
 - The assistant skips unnecessary memory lookups when it already has all your saved facts.
+- Connected AI apps add and change events and focus views with one tool each: save_event and save_focus_view.
 
 ## [0.33.3] - 2026-10-13
 

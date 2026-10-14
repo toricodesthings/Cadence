@@ -42,3 +42,7 @@ npm-debug.log*
 /.playwright-cli/
 /output/playwright/
 /output/evals/
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

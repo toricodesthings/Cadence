@@ -4,7 +4,7 @@
  */
 import { FolderPlus, TagIcon, Repeat, Check, CalendarHeart, AlertCircle, Trash2, Columns3 } from "lucide-react";
 import { IdentityBlock } from "./ProposalCard";
-import { ApprovalCard, type ToolRenderContext } from "./ApprovalCard";
+import { ApprovalCard, type RetiredRenderContext, type ToolRenderContext } from "./ApprovalCard";
 import { useHabitLookup, useSectionLookup, useTagsLookup } from "./card-lookups";
 import { TaskDestination } from "./TaskDestination";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
@@ -219,8 +219,9 @@ function eventSubtitle(draft: EventDraft) {
     return parts.join(" · ") || undefined;
 }
 
-export function CreateEventCard({ ctx }: { ctx: ToolRenderContext<"create_event"> }) {
-    const draft: EventDraft = ctx.part?.input ?? {};
+export function CreateEventCard({ ctx }: { ctx: ToolRenderContext<"save_event"> | RetiredRenderContext }) {
+    // Older threads hold create_event, whose fields sat at the top level.
+    const draft: EventDraft = ctx.part?.input?.patch ?? ctx.part?.input ?? {};
     const title = eventTitle(draft, "this event");
     return (
         <ApprovalCard
@@ -237,7 +238,7 @@ export function CreateEventCard({ ctx }: { ctx: ToolRenderContext<"create_event"
     );
 }
 
-export function UpdateEventCard({ ctx }: { ctx: ToolRenderContext<"update_event"> }) {
+export function UpdateEventCard({ ctx }: { ctx: ToolRenderContext<"save_event"> | RetiredRenderContext }) {
     const lookupEvent = useEventLookup();
     const input = ctx.part?.input ?? {};
     const current = lookupEvent(input.eventId ?? "");

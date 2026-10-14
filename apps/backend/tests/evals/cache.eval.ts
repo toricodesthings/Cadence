@@ -17,7 +17,7 @@ import { addStepSpend } from "../../src/domains/ai/safety/rate-limit";
 import type { Env } from "../../src/types/env";
 import { evaluationVars } from "./run-options";
 import { summarizeCacheTrials, type CacheTrial } from "./cache-economics";
-import { cacheFixture } from "./cache-fixture";
+import { cacheFixture, waitForCacheDeadline } from "./cache-fixture";
 
 const vars = evaluationVars();
 const env = { OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY, AI_CHAT_MODEL: vars.AI_CHAT_MODEL } as Env;
@@ -84,7 +84,6 @@ it.skipIf(!env.OPENROUTER_API_KEY)("compares isolated cache TTL variants across 
                 maxOutputTokens: 64, maxRetries: 0, abortSignal: AbortSignal.timeout(30_000),
             });
             const body = result.response.body as { provider?: string; usage?: { cache_creation?: { ephemeral_5m_input_tokens?: number; ephemeral_1h_input_tokens?: number } } } | undefined;
-            row.complete = true;
             row.generationId = result.response.id ?? null;
             row.servedModel = result.response.modelId ?? null;
             const metadataProvider = result.providerMetadata?.openrouter?.provider;
@@ -97,6 +96,7 @@ it.skipIf(!env.OPENROUTER_API_KEY)("compares isolated cache TTL variants across 
             row.write5m = numeric(body?.usage?.cache_creation?.ephemeral_5m_input_tokens);
             row.write1h = numeric(body?.usage?.cache_creation?.ephemeral_1h_input_tokens);
             expect(result.toolCalls).toHaveLength(0);
+            row.complete = true;
             return result.response.messages;
         } finally {
             row.elapsedMs = performance.now() - before;
@@ -109,7 +109,7 @@ it.skipIf(!env.OPENROUTER_API_KEY)("compares isolated cache TTL variants across 
     for (const stage of stages) {
         if (stage === "6-minute-return") {
             console.log("Waiting six actual minutes without cache keepalives");
-            await new Promise((resolve) => setTimeout(resolve, 360_000));
+            await waitForCacheDeadline(Date.now() + 360_000);
         }
         for (let repetition = 0; repetition < repetitions; repetition++) {
             // Rotate the provider-call order: each variant occupies every position once.

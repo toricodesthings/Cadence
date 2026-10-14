@@ -4,7 +4,7 @@
  */
 import { AlertCircle, Check, Filter, FolderPen, Tag as TagIcon, Trash2 } from "lucide-react";
 import { IdentityBlock, TagPill } from "./ProposalCard";
-import { ApprovalCard, type ToolRenderContext } from "./ApprovalCard";
+import { ApprovalCard, type RetiredRenderContext, type ToolRenderContext } from "./ApprovalCard";
 import { useTagsLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { useProjects } from "../../../hooks/projects/use-projects";
@@ -164,7 +164,7 @@ function useFilterSummary(filters: ViewFilters = {}) {
     ].filter(Boolean).join(" · ") || undefined;
 }
 
-export function CreateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"create_focus_view"> }) {
+export function CreateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"save_focus_view"> | RetiredRenderContext }) {
     const input = ctx.part?.input ?? {};
     const name: string = input.name ?? "this view";
     const summary = useFilterSummary(input.filters);
@@ -183,7 +183,7 @@ export function CreateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"create_fo
     );
 }
 
-export function UpdateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"update_focus_view"> }) {
+export function UpdateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"save_focus_view"> | RetiredRenderContext }) {
     const { data: views } = useFocusViews();
     const input = ctx.part?.input ?? {};
     const current = views?.find((view) => view.id === input.focusViewId)?.name;

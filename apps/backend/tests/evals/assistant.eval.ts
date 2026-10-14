@@ -479,7 +479,7 @@ const SCENARIOS: Scenario[] = [
         level: "medium",
         seed: async (t) => {
             await t("create_tasks", { tasks: [{ title: "Quick email", effort: 1 }, { title: "Big migration", effort: 3 }] });
-            await t("create_focus_view", { name: "Quick wins", filters: { effortMax: 1 } });
+            await t("save_focus_view", { name: "Quick wins", filters: { effortMax: 1 } });
             return {};
         },
         turns: ["what's in my quick wins view?"],

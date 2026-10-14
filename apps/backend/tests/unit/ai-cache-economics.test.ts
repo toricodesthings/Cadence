@@ -32,7 +32,7 @@ describe("production gap weighting", () => {
     it("uses shared-prefix gaps across conversations/users and resets for a new prompt fingerprint", () => {
         const result = productionCacheWeights([row(0), row(1), row(2, "b", "prefix", "other"), row(8), row(69), row(70, "a", "new")], "anthropic/configured");
         expect(result.weights).toEqual({ cold: 2, warm: 1, "other-conversation": 1, "6-minute-return": 1, "61-minute-return": 1 });
-        expect(result).toMatchObject({ included: 6, prefixes: 2, conversations: 3, unknown: 0 });
+        expect(result).toMatchObject({ included: 6, prefixes: 2, conversations: 2, conversationPrefixes: 3, users: 2, unknown: 0 });
     });
     it("does not turn missing identity/timing/model into cold requests or mix unrelated models", () => {
         const result = productionCacheWeights([row(0, "a", null), { ...row(1), at: "invalid" }, { ...row(2), served_model: null },
