@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.33.4] - 2026-10-14
+
 ### Changed
 
 - The assistant skips unnecessary memory lookups when it already has all your saved facts.
