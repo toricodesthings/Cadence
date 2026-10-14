@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Schedule display switches keep clear labels and toggle correctly beside their settings buttons.
+
 ## [0.33.5] - 2026-10-14
 
 ### Added

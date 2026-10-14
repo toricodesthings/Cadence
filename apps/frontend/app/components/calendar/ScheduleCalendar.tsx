@@ -44,7 +44,7 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
     const { handleSelectTask } = selection;
     const { handleCompleteTask, handleArchiveTask, handleResizeTask, setReadyOpen } = actions;
     const { handleAddAt, handleGridClick, handleAddTaskToolbar, handleAddEventToolbar } = creation;
-    const draftPlacement = creation.creation?.draftPlacement ?? null;
+    const draftPlacement = creation.popover?.draftPlacement ?? null;
     const { reducedMotion, dragProps } = swipe;
     const slideCustom = useMemo<SlideCustom>(() => ({ direction, distance: reducedMotion || zoom ? 0 : 32, zoom: reducedMotion ? 0 : zoom }),
         [direction, reducedMotion, zoom]);

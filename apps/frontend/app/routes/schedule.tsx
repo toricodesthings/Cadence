@@ -70,7 +70,7 @@ export default function Schedule() {
                     </div>
                 ) : null}
                 <AnimatePresence>
-                    {creation.creation ? <CalendarEventPopover info={creation.creation.info} initialTab={creation.creation.tab} onClose={creation.close} /> : null}
+                    {creation.popover ? <CalendarEventPopover info={creation.popover.info} initialTab={creation.popover.tab} onClose={creation.close} /> : null}
                 </AnimatePresence>
                 <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.18, 0.72, 0.32, 1)" }}>
                     {drag.activeDragTask ? <CalendarTaskChipOverlay task={drag.activeDragTask} /> : null}

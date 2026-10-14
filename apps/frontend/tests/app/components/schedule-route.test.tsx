@@ -106,7 +106,10 @@ describe("schedule route composition", () => {
         setup("day");
         fireEvent.click(screen.getByRole("switch", { name: "Tasks" }));
         expect(mocks.settings).toHaveBeenCalledWith({ calendar: { clutter: { showAllDay: false, showTimedTasks: false } } });
-        fireEvent.click(screen.getByRole("switch", { name: /^Holidays/ }));
+        fireEvent.click(screen.getByRole("switch", { name: "Holidays" }));
+        expect(mocks.holidays).toHaveBeenCalledWith(false);
+        mocks.holidays.mockClear();
+        fireEvent.click(screen.getByText("Holidays"));
         expect(mocks.holidays).toHaveBeenCalledWith(false);
         expect(mocks.events).not.toHaveBeenCalled();
     });

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { Feather, Wrench } from "lucide-react";
 import { Switch } from "../primitives/Switch";
@@ -98,9 +98,10 @@ function ToggleRow({ phone, label, checked, onChange, extra }: {
     onChange: (value: boolean) => void;
     extra?: ReactNode;
 }) {
-    const control = <Switch checked={checked} onCheckedChange={onChange} />;
+    const switchId = useId();
+    const control = <Switch id={switchId} aria-label={label} checked={checked} onCheckedChange={onChange} />;
     return (
-        <label className={phone
+        <label htmlFor={switchId} className={phone
             ? "flex min-h-11 items-center justify-between gap-3 rounded-xl px-2 text-sm text-twilight-text"
             : "flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft"}>
             <span>{label}</span>

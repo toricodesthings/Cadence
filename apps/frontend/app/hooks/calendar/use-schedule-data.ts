@@ -11,10 +11,11 @@ import { usePersonalEvents } from "./use-personal-events";
 import type { CalendarViewMode } from "../../components/calendar/ScheduleHeader";
 import { SETTINGS_DEFAULTS } from "../../types/settings";
 import { applyCalendarClutterFilters, recordByDay, scheduleRanges } from "../../lib/utils/calendar/schedule-model";
+import { canDragScheduleTask } from "../../lib/utils/calendar/schedule-drop";
 import { dayLoad, groupByDate, scheduleKind, taskDays } from "../../lib/utils/calendar/schedule-day";
 import { getDaysInMonth, getWeekDays, isoDay } from "../../lib/utils/date-format";
 import { parseYMD } from "../../lib/utils/calendar/calendar-math";
-import { isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance } from "../../lib/utils/task/task-scheduling";
+import { isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 
 const EMPTY_TASKS: Task[] = [];
 
@@ -120,7 +121,7 @@ export function useScheduleData({ currentDate, viewMode, todayIso, isPhone }: {
 
     /** Today's open, movable tasks: what "Lighten today" may offer. Never fixed blocks or routines. */
     const lightenCandidates = useMemo(() => (phoneGroups.get(todayIso) ?? []).filter((task) =>
-        scheduleKind(task) === "task" && task.state !== "COMPLETE" && !isRecurringTask(task) && !isRecurringTaskInstance(task),
+        scheduleKind(task) === "task" && task.state !== "COMPLETE" && canDragScheduleTask(task),
     ), [phoneGroups, todayIso]);
 
     return {
