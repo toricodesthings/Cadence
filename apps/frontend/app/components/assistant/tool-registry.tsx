@@ -1,6 +1,7 @@
 import React from "react";
-import { getToolName } from "ai";
-import { ToolActivityChip, WriteConfirmChip } from "./ToolActivityChip";
+import { isAssistantToolPart, type AssistantToolPart } from "../../lib/ai/messages";
+import type { UIMessage } from "ai";
+import { ToolActivityChip, WriteConfirmChip, type ToolCall } from "./ToolActivityChip";
 import { ProposalCard } from "./widgets/ProposalCard";
 import { TaskBatchCard } from "./widgets/TaskBatchCard";
 import { UpdateTasksCard } from "./widgets/UpdateTasksCard";
@@ -186,24 +187,54 @@ export function isInFlight(part: { state?: string } | undefined): boolean {
 }
 
 /** Ran and failed: thrown or rejected (`output-error`), or a tool's own `{ ok: false }`. */
-export function isFailed(part: { state?: string; output?: { ok?: unknown } } | undefined): boolean {
-    return part?.state === "output-error" || (part?.state === "output-available" && part.output?.ok === false);
+export function isFailed(part: { state?: string; output?: unknown } | undefined): boolean {
+    const output = part?.output;
+    return part?.state === "output-error" || (part?.state === "output-available" &&
+        !!output && typeof output === "object" && "ok" in output && output.ok === false);
 }
 
 /** Safely extract a tool name from a part, tolerating non-tool parts. */
 export function safeToolName(part: { type?: string }): string | undefined {
     if (typeof part?.type !== "string" || !part.type.startsWith("tool-")) return undefined;
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return getToolName(part as any);
-    } catch {
-        // Fallback: strip the "tool-" prefix.
-        return part.type.slice("tool-".length);
-    }
+    return part.type.slice("tool-".length);
 }
 
 /** True when a part is a read-class tool part (used for grouped chip collection). */
 export function isReadToolPart(part: { type?: string }): boolean {
     const name = safeToolName(part);
     return !!name && isToolName(name) && TOOL_CATALOG[name].kind === "read";
+}
+
+export type MessageSegment =
+    | { kind: "text"; text: string }
+    | { kind: "reads"; calls: ToolCall[]; pending: boolean }
+    | { kind: "card"; part: AssistantToolPart };
+
+/** Merge adjacent text/read parts in stream order; writes and questions stand alone. */
+export function buildSegments(parts: UIMessage["parts"]): MessageSegment[] {
+    const segments: MessageSegment[] = [];
+    for (const part of parts) {
+        const last = segments.at(-1);
+        if (part.type === "text") {
+            if (!part.text) continue;
+            if (last?.kind === "text") last.text += `\n\n${part.text}`;
+            else segments.push({ kind: "text", text: part.text });
+        } else if (isAssistantToolPart(part)) {
+            if (!isReadToolPart(part)) {
+                segments.push({ kind: "card", part });
+                continue;
+            }
+            const name = safeToolName(part);
+            const label = (name && getToolDescriptor(name)?.label) || "Looked something up";
+            const pending = isInFlight(part);
+            const call: ToolCall = { label, tool: name, input: part.input, pending, failed: isFailed(part) };
+            if (last?.kind === "reads") {
+                last.calls.push(call);
+                last.pending ||= pending;
+            } else {
+                segments.push({ kind: "reads", calls: [call], pending });
+            }
+        }
+    }
+    return segments;
 }

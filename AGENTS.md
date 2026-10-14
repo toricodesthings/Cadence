@@ -22,7 +22,7 @@ The graph tracks structure, not behaviour, and lags uncommitted edits. Open the 
 
 ## Commands (repo root)
 
-`pnpm dev` (backend + frontend) · `pnpm typecheck` · `pnpm lint` (runs `check:time` first) · `pnpm test` · `pnpm test:tz` (suites in four zones). Per-app commands are in each guide.
+`pnpm dev` (backend + frontend) · `pnpm typecheck` · `pnpm lint` (runs `check:time` first; rules live in root `.oxlintrc.json`, which Codacy also reads) · `pnpm test` · `pnpm test:tz` (suites in four zones). Per-app commands are in each guide.
 
 ## AGENTS.md files are the current truth
 

@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "react"],
+  "categories": { "correctness": "warn" },
+  "rules": {
+    "react-hooks/rules-of-hooks": "warn",
+    "react-hooks/exhaustive-deps": "warn",
+    "react/refs": "off",
+    "react/set-state-in-effect": "off",
+    "react/immutability": "off",
+    "react/static-components": "off",
+    "react/purity": "off",
+    "react/preserve-manual-memoization": "off",
+    "react/use-memo": "off",
+    "react/globals": "off"
+  }
+}
