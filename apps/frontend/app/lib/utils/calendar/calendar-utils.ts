@@ -23,25 +23,28 @@ function taskTop(task: Task): number {
     return (minutesFromMidnight(task.scheduledStart) / 60) * HOUR_HEIGHT;
 }
 
+/** Height (px) of a routine marker and of the shortest span, so nothing renders as a blank sliver */
+export const MARKER_HEIGHT = 24;
+
 /** Calculate the height (px) for a task chip based on its duration or estimate */
 function taskHeight(task: Task): number {
-    if (task.scheduledStart && task.scheduledEnd) {
-        const start = new Date(task.scheduledStart).getTime();
-        const end = new Date(task.scheduledEnd).getTime();
-        const mins = Math.max(30, (end - start) / 60_000);
-        return (mins / 60) * HOUR_HEIGHT;
-    }
-    const mins = task.durationEstimate ?? 60;
-    return (Math.max(30, mins) / 60) * HOUR_HEIGHT;
+    const mins = task.scheduledStart && task.scheduledEnd
+        ? (new Date(task.scheduledEnd).getTime() - new Date(task.scheduledStart).getTime()) / 60_000
+        : task.durationEstimate ?? 60;
+    return Math.max(MARKER_HEIGHT, (mins / 60) * HOUR_HEIGHT);
 }
 
-export interface TimedTaskLayout {
+interface TimedLayoutBase {
     task: Task;
     top: number;
     height: number;
     column: number;
     columns: number;
 }
+
+export type TimedPointLayout = TimedLayoutBase & { points: [Task, ...Task[]] } & ({ marker: "row" } | { marker: "badge" });
+type TimedSpanLayout = TimedLayoutBase & { marker?: never; badge?: boolean };
+export type TimedTaskLayout = TimedPointLayout | TimedSpanLayout;
 
 type TimedTaskWithRange = {
     task: Task;
@@ -55,7 +58,7 @@ function getTaskRange(task: Task): TimedTaskWithRange {
     return {
         task,
         start,
-        end: Math.max(start + 15, rawEnd),
+        end: Math.max(start + (MARKER_HEIGHT / HOUR_HEIGHT) * 60, rawEnd),
     };
 }
 
@@ -83,9 +86,8 @@ function buildClusterLayouts(cluster: TimedTaskWithRange[]): TimedTaskLayout[] {
     }));
 }
 
-export function buildTimedTaskLayouts(tasks: Task[]): TimedTaskLayout[] {
-    const timed = tasks
-        .filter((task) => task.scheduledStart)
+function buildSpanLayouts(spans: Task[]): TimedTaskLayout[] {
+    const timed = spans
         .map(getTaskRange)
         .sort((a, b) => (a.start - b.start) || (a.end - b.end));
 
@@ -109,5 +111,35 @@ export function buildTimedTaskLayouts(tasks: Task[]): TimedTaskLayout[] {
         layouts.push(...buildClusterLayouts(cluster));
     }
 
+    return layouts;
+}
+
+/**
+ * One day's timed items. Routines are points that never take column width from a span:
+ * points whose bands overlap share one marker, and a marker over a span docks as a badge on it.
+ */
+export function buildTimedTaskLayouts(tasks: Task[]): TimedTaskLayout[] {
+    const timed = tasks.filter((task) => task.scheduledStart);
+    const layouts = buildSpanLayouts(timed.filter((task) => !task.isHabit));
+
+    const points = timed
+        .filter((task) => task.isHabit)
+        .map((task) => ({ task, top: taskTop(task) }))
+        .sort((a, b) => a.top - b.top);
+    const groups: { top: number; tasks: [Task, ...Task[]] }[] = [];
+    for (const point of points) {
+        const last = groups[groups.length - 1];
+        if (last && point.top - last.top < MARKER_HEIGHT) last.tasks.push(point.task);
+        else groups.push({ top: point.top, tasks: [point.task] });
+    }
+
+    for (const group of groups) {
+        const covered = layouts.filter((span): span is TimedSpanLayout => span.marker === undefined && group.top < span.top + span.height && group.top + MARKER_HEIGHT > span.top);
+        covered.forEach((span) => { span.badge = true; });
+        layouts.push({
+            task: group.tasks[0], top: group.top, height: MARKER_HEIGHT, column: 0, columns: 1,
+            marker: covered.length ? "badge" : "row", points: group.tasks,
+        });
+    }
     return layouts;
 }

@@ -5,7 +5,7 @@ import { isLocalDate } from "@cadence/domain/time";
 import { useTasks } from "../tasks/use-tasks";
 import { useSettings } from "../core/use-settings";
 import { useHolidayOverlay } from "../environment/use-holiday-overlay";
-import { useVirtualHabitTasks } from "../habits/use-virtual-habit-tasks";
+import { parseVirtualHabitId, useVirtualHabitTasks } from "../habits/use-virtual-habit-tasks";
 import { useHabitsRange } from "../habits/use-habits";
 import { usePersonalEvents } from "./use-personal-events";
 import type { CalendarViewMode } from "../../components/calendar/ScheduleHeader";
@@ -13,7 +13,7 @@ import { SETTINGS_DEFAULTS } from "../../types/settings";
 import { applyCalendarClutterFilters, recordByDay, scheduleRanges } from "../../lib/utils/calendar/schedule-model";
 import { canDragScheduleTask } from "../../lib/utils/calendar/schedule-drop";
 import { dayLoad, groupByDate, scheduleKind, taskDays } from "../../lib/utils/calendar/schedule-day";
-import { getDaysInMonth, getWeekDays, isoDay } from "../../lib/utils/date-format";
+import { getDaysInMonth, getWeekDays, isoDay, WEEK_START_INDEX } from "../../lib/utils/date-format";
 import { parseYMD } from "../../lib/utils/calendar/calendar-math";
 import { isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 
@@ -27,14 +27,16 @@ export function useScheduleData({ currentDate, viewMode, todayIso, isPhone }: {
 }) {
     const { y: year, m: month } = parseYMD(currentDate);
     const isPhoneDay = isPhone && viewMode === "day";
-    const ranges = useMemo(() => scheduleRanges(currentDate), [currentDate]);
+    const { data: userSettings } = useSettings();
+    const weekStartsOn = WEEK_START_INDEX[userSettings?.dateTime?.weekStart ?? "Sunday"];
+    const ranges = useMemo(() => scheduleRanges(currentDate, weekStartsOn), [currentDate, weekStartsOn]);
     const periodRange = ranges[viewMode];
     // Phone Day keeps the week strip populated. The query key stays the same as before.
     const queryRange = isPhoneDay ? ranges.week : periodRange;
     const { data: tasks = EMPTY_TASKS } = useTasks({ state: "ACTIVE", range: { from: queryRange.start, to: queryRange.end } });
-    const weekDates = useMemo(() => getWeekDays(currentDate), [currentDate]);
+    // From settings, never the module default, so the grid and the header read one week.
+    const weekDates = useMemo(() => getWeekDays(currentDate, weekStartsOn), [currentDate, weekStartsOn]);
     const holidayOverlay = useHolidayOverlay({ ...queryRange, viewMode });
-    const { data: userSettings } = useSettings();
     const calendarClutter = userSettings?.calendar?.clutter ?? SETTINGS_DEFAULTS.calendar.clutter;
     const birthdayDate = useMemo<LocalDate | null>(() => {
         const bd = userSettings?.profile?.birthday;
@@ -112,7 +114,7 @@ export function useScheduleData({ currentDate, viewMode, todayIso, isPhone }: {
     );
 
     const routineEmoji = useCallback(
-        (task: Task) => (task.isHabit ? habitById.get(task.id.split("--")[0].replace(/^habit-/, ""))?.emoji ?? null : null),
+        (task: Task) => (task.isHabit ? habitById.get(parseVirtualHabitId(task.id)?.habitId ?? "")?.emoji ?? null : null),
         [habitById],
     );
 
@@ -125,7 +127,7 @@ export function useScheduleData({ currentDate, viewMode, todayIso, isPhone }: {
     ), [phoneGroups, todayIso]);
 
     return {
-        visibleTasks, visibleHabitTasks, allVisibleTasks, tasksByDay, datesWithTasks, weekTasksByDate, weekDates,
+        visibleTasks, visibleHabitTasks, allVisibleTasks, tasksByDay, datesWithTasks, weekTasksByDate, weekDates, weekStartsOn,
         periodRange, holidayOverlay, holidaysByDateRecord, birthdayDate, personalEvents, personalEventsByDateRecord,
         personalEventDateCounts, userSettings, calendarClutter, phoneGroups, phoneMarkers, weekLoads,
         habitById, routineEmoji, readyTasks, lightenCandidates,

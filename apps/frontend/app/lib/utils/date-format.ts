@@ -107,6 +107,25 @@ export function formatTime(instant: Instant): string {
         : format(instant, { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
+/**
+ * A block's time in the short form calendars use: "8:35 – 9:55am", "11:35am – 12:55pm", "11am" (12h),
+ * "08:35 – 09:55" (24h). The meridiem shows once unless it changes; ":00" is dropped.
+ */
+export function formatChipTime(start: Instant, end?: Instant | null): string {
+    const [sh, sm] = toTimeValue(start).split(":").map(Number);
+    const [eh, em] = end ? toTimeValue(end).split(":").map(Number) : [];
+    if (_config.timeDisplay === "24h") {
+        const clock = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+        return eh === undefined ? clock(sh, sm) : `${clock(sh, sm)} \u2013 ${clock(eh, em)}`;
+    }
+    const clock = (h: number, m: number) => `${h % 12 || 12}${m ? `:${String(m).padStart(2, "0")}` : ""}`;
+    const mer = (h: number) => (h < 12 ? "am" : "pm");
+    if (eh === undefined) return `${clock(sh, sm)}${mer(sh)}`;
+    return mer(sh) === mer(eh)
+        ? `${clock(sh, sm)} \u2013 ${clock(eh, em)}${mer(eh)}`
+        : `${clock(sh, sm)}${mer(sh)} \u2013 ${clock(eh, em)}${mer(eh)}`;
+}
+
 /** "9:30 AM" / "09:30" from a wall time (a routine's time of day: no day or zone involved). */
 export function formatWallTime(time: WallTime): string {
     const [h, m] = time.split(":").map(Number);
@@ -234,7 +253,7 @@ export function isoDay(year: number, month: number, day: number): LocalDate {
 
 export const getMonthDateRange = (year: number, month: number) => monthRange(isoMonthStart(year, month));
 
-export const getWeekDateRange = (day: LocalDate) => weekRange(day, WEEK_START_NAME[_config.weekStartsOn]);
+export const getWeekDateRange = (day: LocalDate, weekStartsOn: 0 | 1 | 6 = _config.weekStartsOn) => weekRange(day, WEEK_START_NAME[weekStartsOn]);
 
 export const getYearDateRange = (year: number) => ({ start: isoDay(year, 0, 1), end: isoDay(year, 11, 31) });
 

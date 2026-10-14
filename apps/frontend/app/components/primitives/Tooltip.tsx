@@ -50,6 +50,8 @@ export interface TipProps {
     side?: "top" | "right" | "bottom" | "left";
     /** A single focusable/hoverable element — receives the trigger via asChild. */
     children: ReactNode;
+    /** Suppress the preview while keeping the trigger mounted (for example, during a drag). */
+    disabled?: boolean;
 }
 
 /** Touch screens have no hover: a tip only follows keyboard focus, never a sheet's initial focus. */
@@ -58,18 +60,18 @@ const focusedWithoutKeyboard = () =>
     isTouchFirst() &&
     !document.activeElement?.matches(":focus-visible");
 
-export function Tip({ label, side = "right", children }: TipProps) {
+export function Tip({ label, side = "right", children, disabled = false }: TipProps) {
     const [open, setOpen] = useState(false);
     const touch = useRef(false);
     return (
-        <Root open={open} onOpenChange={(next) => setOpen(next && !touch.current && !focusedWithoutKeyboard())}>
+        <Root open={open && !disabled} onOpenChange={(next) => setOpen(next && !disabled && !touch.current && !focusedWithoutKeyboard())}>
             <Trigger asChild onPointerDown={(event) => { touch.current = event.pointerType === "touch"; if (touch.current) setOpen(false); }} onPointerMove={(event) => { if (event.pointerType === "mouse") touch.current = false; }}>{children}</Trigger>
-            <Portal>
+            {!disabled && <Portal>
                 <Content side={side}>
                     {label}
                     <Arrow className="fill-twilight-surface" />
                 </Content>
-            </Portal>
+            </Portal>}
         </Root>
     );
 }

@@ -6,9 +6,27 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Right-click a Schedule block for Done, Move to tomorrow, Pick day, or Skip and Clear for a routine.
+- Hovering a Schedule block shows its details and lights up the rest of its series that week.
+- Open a routine from Schedule in place, showing the day you clicked, or jump to it in Routines.
+
+### Changed
+
+- Week view is calmer: routines sit as small markers, blocks fit their words, and multi-day items are one bar.
+- Anytime routines sit in one row of marks under the all-day lane; tap one to check it off.
+- Check off a task or routine from the ring on its block; Trash moved to the right-click menu.
+- Schedule's Previous, Today and Next move to the bottom-right corner on laptops; one Add button opens Task or Event.
+- Routines use the flame icon everywhere; the repeat arrows now mean a repeating task.
+- Header icon buttons for Place, notifications, sort and settings now share one look.
+
 ### Fixed
 
 - Schedule display switches keep clear labels and toggle correctly beside their settings buttons.
+- Hour labels in Day and Week view now sit on their own hour line instead of one hour late.
+- Week view's header range matches the columns when your week starts on Sunday.
+- Short blocks and short windows no longer clip titles to a blank sliver.
 
 ## [0.33.5] - 2026-10-14
 

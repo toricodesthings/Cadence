@@ -2,7 +2,7 @@
  * Cards for the single-item writes: `create_project`, `create_tag`, `log_habit`,
  * and the routine, event and section writes (design §4.1).
  */
-import { FolderPlus, TagIcon, Repeat, Check, CalendarHeart, AlertCircle, Trash2, Columns3 } from "lucide-react";
+import { FolderPlus, TagIcon, Flame, Check, CalendarHeart, AlertCircle, Trash2, Columns3 } from "lucide-react";
 import { IdentityBlock } from "./ProposalCard";
 import { ApprovalCard, type RetiredRenderContext, type ToolRenderContext } from "./ApprovalCard";
 import { useHabitLookup, useSectionLookup, useTagsLookup } from "./card-lookups";
@@ -69,7 +69,7 @@ export function LogHabitCard({ ctx }: { ctx: ToolRenderContext<"log_habit"> }) {
         <ApprovalCard
             ctx={ctx}
             eyebrow="LOG ROUTINE"
-            eyebrowGlyph={Repeat}
+            eyebrowGlyph={Flame}
             ariaLabel={`Log routine: ${habitName}`}
             primaryLabel="Log it"
             primaryGlyph={Check}
@@ -129,7 +129,7 @@ export function CreateHabitCard({ ctx }: { ctx: ToolRenderContext<"create_habit"
         <ApprovalCard
             ctx={ctx}
             eyebrow="NEW ROUTINE"
-            eyebrowGlyph={Repeat}
+            eyebrowGlyph={Flame}
             ariaLabel={`New routine: ${name}`}
             primaryLabel="Create"
             primaryGlyph={Check}
@@ -157,7 +157,7 @@ export function UpdateHabitCard({ ctx }: { ctx: ToolRenderContext<"update_habit"
         <ApprovalCard
             ctx={ctx}
             eyebrow="CHANGE ROUTINE"
-            eyebrowGlyph={Repeat}
+            eyebrowGlyph={Flame}
             ariaLabel={`Change routine: ${name}`}
             primaryLabel="Save"
             primaryGlyph={Check}

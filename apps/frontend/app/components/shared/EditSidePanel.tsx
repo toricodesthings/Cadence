@@ -1,6 +1,7 @@
 import { lazy } from "react";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import type { Habit } from "@cadence/contracts/habit";
+import type { LocalDate } from "@cadence/domain/time";
 import type { PersonalEvent } from "../../types/settings";
 import { StartupSuspense } from "./StartupSuspense";
 
@@ -17,7 +18,7 @@ type EditorProps = {
 } & (
     | { kind: "capture"; item: InboxItem; onOpenFullEditor?: (taskId: string) => void }
     | { kind: "task"; taskId: string }
-    | { kind: "habit"; habit: Habit }
+    | { kind: "habit"; habit: Habit; /** The day a Schedule click was on; the check-in shows that day. */ day?: LocalDate; onOpenInRoutines?: () => void }
     | { kind: "event"; event: PersonalEvent; onChange: (patch: Partial<Omit<PersonalEvent, "id">>) => void; onDelete: () => void }
 );
 

@@ -36,15 +36,18 @@ export default function Schedule() {
     const swipe = usePeriodSwipe({ enabled: shell.isCompact && !drag.activeDragTask, onCommit: navigation.handleNavigate });
     useDocumentMeta("Schedule · Cadence", "View your week, day, month, and year with a calmer scheduling workspace built for focus.");
 
+    const habit = selection.selectedHabit ? data.habitById.get(selection.selectedHabit.id) ?? null : null;
     const sidePanel = (
         <EditSidePanelRail ariaLabel="Resize schedule detail panel" defaultWidth={360} minWidth={300} maxWidth={520}>
             {shell.isWide && selection.selectedTaskId ? (
-                <EditSidePanel kind="task" taskId={selection.selectedTaskId} onClose={() => selection.setSelectedTaskId(null)} />
+                <EditSidePanel kind="task" taskId={selection.selectedTaskId} onClose={selection.clearSelection} />
+            ) : shell.isWide && habit && selection.selectedHabit ? (
+                <EditSidePanel kind="habit" habit={habit} day={selection.selectedHabit.day} onOpenInRoutines={() => selection.openInRoutines(habit.id)} onClose={selection.clearSelection} />
             ) : null}
         </EditSidePanelRail>
     );
     return (
-        <MainLayout requireAuth hideHeader hideContextualOrb sidePanel={sidePanel} sidePanelActive={Boolean(selection.selectedTaskId)} sidePanelLabel="Task">
+        <MainLayout requireAuth hideHeader hideContextualOrb sidePanel={sidePanel} sidePanelActive={selection.hasSelection} sidePanelLabel={selection.selectedHabit ? "Routine" : "Task"}>
             <DndContext sensors={drag.sensors}
                 collisionDetection={(args) => {
                     const pointerCollisions = pointerWithin(args);

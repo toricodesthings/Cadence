@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { CalendarChipActionsContext, type CalendarChipActions } from "./CalendarItem";
 import { AnimatePresence, motion } from "framer-motion";
 import { slideVariants, type SlideCustom } from "../../lib/constants/motion";
 import { daysBetween } from "@cadence/domain/time";
@@ -7,6 +8,7 @@ import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
 import { YearView } from "./YearView";
 import { ScheduleHeader } from "./ScheduleHeader";
+import { PeriodDock } from "../layout/PeriodNav";
 import { ScheduleOptions } from "./ScheduleOptions";
 import { DayStrip } from "./phone/DayStrip";
 import { DayAgenda } from "./phone/DayAgenda";
@@ -37,15 +39,22 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
     const { year, month, currentDate, todayIso, viewMode, isPhoneDay, direction, zoom,
         handleViewMode, handleNavigate, handleToday, handleSelectDate, handleYearSelectMonth,
         openDay, setCurrentDate, selectStripDay, shiftStripWeek } = navigation;
-    const { periodRange, weekDates, weekLoads, phoneGroups, phoneMarkers, routineEmoji,
+    const { periodRange, weekDates, weekStartsOn, weekLoads, phoneGroups, phoneMarkers, routineEmoji,
         datesWithTasks, tasksByDay, holidayOverlay, birthdayDate, personalEvents, personalEventDateCounts,
         holidaysByDateRecord, personalEventsByDateRecord, weekTasksByDate, userSettings,
         readyTasks, visibleTasks, visibleHabitTasks } = data;
     const { handleSelectTask } = selection;
-    const { handleCompleteTask, handleArchiveTask, handleResizeTask, setReadyOpen } = actions;
-    const { handleAddAt, handleGridClick, handleAddTaskToolbar, handleAddEventToolbar } = creation;
+    const { handleResizeTask, setReadyOpen } = actions;
+    const { handleAddAt, handleGridClick, handleAddTaskToolbar } = creation;
     const draftPlacement = creation.popover?.draftPlacement ?? null;
     const { reducedMotion, dragProps } = swipe;
+    const chipActions = useMemo<CalendarChipActions>(() => ({
+        complete: actions.completeTask,
+        resolveRoutine: actions.resolveRoutine,
+        moveToTomorrow: actions.moveToTomorrow,
+        pickDay: actions.setPlaceTask,
+        openInRoutines: selection.openInRoutines,
+    }), [actions.completeTask, actions.resolveRoutine, actions.moveToTomorrow, actions.setPlaceTask, selection.openInRoutines]);
     const slideCustom = useMemo<SlideCustom>(() => ({ direction, distance: reducedMotion || zoom ? 0 : 32, zoom: reducedMotion ? 0 : zoom }),
         [direction, reducedMotion, zoom]);
     const { y: todayYear } = parseYMD(todayIso);
@@ -79,6 +88,7 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
                 : `year-${year}`;
 
     return (
+        <CalendarChipActionsContext.Provider value={chipActions}>
         <div className="h-full flex flex-col overflow-hidden">
             {/* Header */}
             <ScheduleHeader
@@ -86,12 +96,13 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
                 month={month}
                 currentDate={currentDate}
                 viewMode={viewMode}
+                weekStartsOn={weekStartsOn}
                 onViewMode={handleViewMode}
                 onNavigate={handleNavigate}
                 onToday={handleToday}
                 isCurrentPeriod={todayIso >= periodRange.start && todayIso <= periodRange.end}
                 onAddTask={handleAddTaskToolbar}
-                onAddEvent={handleAddEventToolbar}
+                hidePeriodNav={shell.isLaptop}
                 overflowContent={<ScheduleOptions phone={shell.isPhone} navigation={navigation} data={data} actions={actions} />}
                 compact={shell.isCompact}
                 phone={shell.isPhone ? phoneHeader : undefined}
@@ -163,8 +174,6 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
                                         variant="full"
                                         tasksByDay={tasksByDay}
                                         onSelectTask={handleSelectTask}
-                                        onCompleteTask={handleCompleteTask}
-                                        onArchiveTask={handleArchiveTask}
                                         onContextAdd={handleGridClick}
                                     />
                                 </div>
@@ -182,8 +191,6 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
                                         activeDropPreview={drag.activeDropPreview}
                                         draftPlacement={draftPlacement}
                                         onSelectTask={handleSelectTask}
-                                        onCompleteTask={handleCompleteTask}
-                                        onArchiveTask={handleArchiveTask}
                                         onResizeTask={handleResizeTask}
                                         onGridClick={handleGridClick}
                                         onJumpToDay={handleSelectDate}
@@ -218,8 +225,6 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
                                         activeDropPreview={drag.activeDropPreview}
                                         draftPlacement={draftPlacement}
                                         onSelectTask={handleSelectTask}
-                                        onCompleteTask={handleCompleteTask}
-                                        onArchiveTask={handleArchiveTask}
                                         onResizeTask={handleResizeTask}
                                         onGridClick={handleGridClick}
                                         startHour={userSettings?.calendar?.timelineStartHour}
@@ -248,7 +253,10 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
                 </motion.div>
 
             </div>
+            {shell.isLaptop ? (
+                <PeriodDock unit={viewMode} isCurrent={todayIso >= periodRange.start && todayIso <= periodRange.end} onNavigate={handleNavigate} onToday={handleToday} />
+            ) : null}
         </div>
-
+        </CalendarChipActionsContext.Provider>
     );
 }

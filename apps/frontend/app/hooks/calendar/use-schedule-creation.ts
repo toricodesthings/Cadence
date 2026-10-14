@@ -18,7 +18,7 @@ export function useScheduleCreation(currentDate: LocalDate) {
     const close = useCallback(() => setPopover(null), []);
     const handleGridClick = useCallback((info: CalendarEventInfo) => {
         const startMinute = info.startHour * 60 + info.startMinute;
-        setPopover({ info, tab: "task", draftPlacement: { dateStr: info.date, startMinute, endMinute: startMinute + 30 } });
+        setPopover({ info, tab: info.tab ?? "task", draftPlacement: info.tab === "event" ? null : { dateStr: info.date, startMinute, endMinute: startMinute + 30 } });
     }, []);
     const handleAddAt = useCallback((start: Instant, minutes: number) => {
         const [hour, minute] = toTimeValue(start).split(":").map(Number);
@@ -35,11 +35,6 @@ export function useScheduleCreation(currentDate: LocalDate) {
     }, [currentDate]);
     const handleAddTaskToolbar = useCallback(() => openTask(true), [openTask]);
     const handleAddTaskShortcut = useCallback(() => openTask(false), [openTask]);
-    const handleAddEventToolbar = useCallback(() => {
-        setPopover({ tab: "event", draftPlacement: null, info: {
-            date: currentDate, startHour: 9, startMinute: 0, isAllDay: true, ...anchor(),
-        } });
-    }, [currentDate]);
-    return { popover, close, handleGridClick, handleAddAt, handleAddTaskToolbar, handleAddTaskShortcut, handleAddEventToolbar };
+    return { popover, close, handleGridClick, handleAddAt, handleAddTaskToolbar, handleAddTaskShortcut };
 }
 export type ScheduleCreation = ReturnType<typeof useScheduleCreation>;

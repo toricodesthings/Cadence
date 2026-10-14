@@ -12,7 +12,6 @@ import { Download, Menu, Minus, PanelLeftClose, PanelLeftOpen, PanelRightClose, 
 import { useNavPanel } from "../../hooks/ui/use-nav-panel";
 import { useAssistantStore } from "../../stores/assistant-store";
 import { useRightPanelStore, type RailView } from "../../stores/right-panel-store";
-import { AssistantLauncher } from "../assistant/AssistantLauncher";
 import { ResponsiveOverlayPanel } from "../shared/ResponsiveOverlayPanel";
 import { RailViewToggle } from "./RailViewToggle";
 import { useKeyboardShortcuts } from "../../hooks/core/use-keyboard-shortcuts";
@@ -717,7 +716,7 @@ export function MainLayout({
             ) : null}
             {headerCenter}
             {headerRight}
-            {shell.isLaptop && <NotificationPreview side="bottom" />}
+            {shell.isLaptop && <NotificationPreview side="bottom" placement="header" />}
             {closeRailControl}
         </>
     ) : null;
@@ -939,11 +938,6 @@ export function MainLayout({
                         setQuickAddOpen(true);
                     }}
                 />
-            ) : null}
-            {/* Laptop uses a launcher; compact shells use the centered taskbar action.
-                Suppressed on the weekly ritual, mirroring the ⌘I hotkey guard. */}
-            {shell.isLaptop && !railOnly && !isUtilityPage && location.pathname !== "/weekly-review" ? (
-                <AssistantLauncher besideOrb={shell.isPhone && !hideContextualOrb} />
             ) : null}
         </>
     );

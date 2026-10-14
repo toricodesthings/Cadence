@@ -2,16 +2,15 @@ import { useCallback, useMemo, useState } from "react";
 import type { Task } from "@cadence/contracts/task";
 import { addDays, type LocalDate } from "@cadence/domain/time";
 import { rescheduleToDay } from "@cadence/domain/task-temporal";
+import { parseVirtualHabitId } from "../habits/use-virtual-habit-tasks";
 import { useUpdateTask } from "../tasks/use-update-task";
 import { timeAction, useResolveHabit } from "../habits/use-resolve-habit";
 import { useTaskCompletionStore } from "../../stores/task-completion-store";
-import { isRecurringTask, isRecurringTaskInstance } from "../../lib/utils/task/task-scheduling";
 import { temporalOf } from "../../lib/utils/calendar/schedule-model";
 import { taskDays } from "../../lib/utils/calendar/schedule-day";
 import { getUserZone } from "../../lib/utils/user-zone";
 import { formatShortDateLabel } from "../../lib/utils/date-format";
 import { toast } from "sonner";
-import { toastUndo } from "../../lib/utils/undo-toast";
 
 export function useScheduleTaskActions(allVisibleTasks: ReadonlyMap<string, Task>, todayIso: LocalDate, handleSelectTask: (id: string) => void) {
     const { mutate: updateTask } = useUpdateTask();
@@ -30,25 +29,35 @@ export function useScheduleTaskActions(allVisibleTasks: ReadonlyMap<string, Task
         return prev;
     }, [updateTask]);
 
-    // ── Phone row actions ───────────────────────────────────────────────────
-    const completeRow = useCallback((task: Task) => {
-        if (task.isHabit) {
-            const [habitPart, targetDate, time] = task.id.split("--", 3);
-            return resolveHabitMutation.mutateAsync({
-                habitId: habitPart.replace(/^habit-/, ""),
-                targetDate,
-                // A block of a routine at set times is one time, not the day.
-                ...(time ? timeAction(time, task.state === "COMPLETE" ? "PENDING" : "COMPLETED") : { status: task.state === "COMPLETE" ? "PENDING" : "COMPLETED" }),
-            });
-        }
+    /** One routine day (or one of its times) to a status; the check-off, skip and clear of every surface. */
+    const resolveRoutine = useCallback((task: Task, status: "COMPLETED" | "SKIPPED" | "PENDING") => {
+        const parts = parseVirtualHabitId(task.id);
+        if (!parts) return;
+        return resolveHabitMutation.mutateAsync({
+            habitId: parts.habitId,
+            targetDate: parts.day,
+            // A block of a routine at set times is one time, not the day.
+            ...(parts.time ? timeAction(parts.time, status) : { status }),
+        });
+    }, [resolveHabitMutation]);
+
+    // ── Row and chip actions ────────────────────────────────────────────────
+    const completeTask = useCallback((task: Task) => {
         // Same short, cancellable countdown the checkbox shows.
         queueCompletion({ taskId: task.id, onCommit: () => updateTask({ id: task.id, state: "COMPLETE" }) });
-    }, [queueCompletion, resolveHabitMutation, updateTask]);
+    }, [queueCompletion, updateTask]);
+
+    const completeRow = useCallback((task: Task) => {
+        if (task.isHabit) return resolveRoutine(task, task.state === "COMPLETE" ? "PENDING" : "COMPLETED");
+        completeTask(task);
+    }, [completeTask, resolveRoutine]);
 
     const moveRowLater = useCallback((task: Task) => {
         const from = taskDays(task)[0] ?? todayIso;
         moveTaskToDay(task, addDays(from < todayIso ? todayIso : from, 1));
     }, [moveTaskToDay, todayIso]);
+
+    const moveToTomorrow = useCallback((task: Task) => moveTaskToDay(task, addDays(todayIso, 1)), [moveTaskToDay, todayIso]);
 
     const rowHandlers = useMemo(() => ({
         onOpen: (task: Task) => handleSelectTask(task.id),
@@ -70,20 +79,6 @@ export function useScheduleTaskActions(allVisibleTasks: ReadonlyMap<string, Task
         });
     }, [moveTaskToDay, todayIso, updateTask]);
 
-    // Routine chips expose no quick actions; their phone rows resolve marks above.
-    const setTaskState = useCallback((taskId: string, state: "COMPLETE" | "ARCHIVED") => {
-        if (taskId.startsWith("habit-")) return;
-        const task = allVisibleTasks.get(taskId);
-        if (task && (isRecurringTask(task) || isRecurringTaskInstance(task))) {
-            toast.message("Recurring blocks are edited as a series.");
-            return;
-        }
-        updateTask({ id: taskId, state });
-        if (state === "ARCHIVED") toastUndo("Task moved to Trash", () => updateTask({ id: taskId, state: "ACTIVE" }));
-    }, [allVisibleTasks, updateTask]);
-    const handleCompleteTask = useCallback((taskId: string) => setTaskState(taskId, "COMPLETE"), [setTaskState]);
-    const handleArchiveTask = useCallback((taskId: string) => setTaskState(taskId, "ARCHIVED"), [setTaskState]);
-
     const handleResizeTask = useCallback((taskId: string, durationMinutes: number) => {
         const task = allVisibleTasks.get(taskId);
         if (!task?.scheduledStart) return;
@@ -92,7 +87,7 @@ export function useScheduleTaskActions(allVisibleTasks: ReadonlyMap<string, Task
     }, [updateTask, allVisibleTasks]);
 
     return {
-        rowHandlers, moveTaskToDay, handleCompleteTask, handleArchiveTask, handleResizeTask, lightenToday,
+        rowHandlers, moveTaskToDay, completeTask, resolveRoutine, moveToTomorrow, handleResizeTask, lightenToday,
         placeTask, setPlaceTask, readyOpen, setReadyOpen, lightenOpen, setLightenOpen,
     };
 }

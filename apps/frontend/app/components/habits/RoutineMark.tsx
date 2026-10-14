@@ -1,6 +1,6 @@
-import { Repeat } from "lucide-react";
+import { Flame } from "lucide-react";
 
-/** A routine's mark: its emoji when it has one, otherwise the quiet repeat glyph. */
+/** A routine's mark: its emoji when it has one, otherwise the routine flame. */
 export function RoutineMark({ emoji, size = 14, className = "" }: { emoji?: string | null; size?: number; className?: string }) {
     if (emoji) {
         return (
@@ -9,5 +9,5 @@ export function RoutineMark({ emoji, size = 14, className = "" }: { emoji?: stri
             </span>
         );
     }
-    return <Repeat size={size} aria-hidden="true" className={`shrink-0 ${className}`} />;
+    return <Flame size={size} aria-hidden="true" className={`shrink-0 ${className}`} />;
 }

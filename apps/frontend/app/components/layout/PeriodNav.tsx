@@ -19,14 +19,15 @@ export function PeriodTodayButton({ isCurrent, onToday, compact = false }: { isC
 }
 
 /** Page header period nav: ‹ Today ›. `unit` names the step for the arrows ("week" → "Previous week"). */
-export function PeriodNav({ unit, isCurrent, onNavigate, onToday }: {
+export function PeriodNav({ unit, isCurrent, onNavigate, onToday, className = "" }: {
     unit: string;
     isCurrent: boolean;
     onNavigate: (delta: number) => void;
     onToday: () => void;
+    className?: string;
 }) {
     return (
-        <div className="flex items-center gap-1">
+        <div className={`flex items-center gap-1 ${className}`}>
             <Tip label={`Previous ${unit}`}>
                 <button type="button" onClick={() => onNavigate(-1)} className={ARROW} aria-label={`Previous ${unit}`}>
                     <ChevronLeft size={16} aria-hidden="true" />
@@ -38,6 +39,18 @@ export function PeriodNav({ unit, isCurrent, onNavigate, onToday }: {
                     <ChevronRight size={16} aria-hidden="true" />
                 </button>
             </Tip>
+        </div>
+    );
+}
+
+/**
+ * Laptop: ‹ Today › lives in the bottom-right corner, where the thumb-and-eye rest, so the header keeps its room.
+ * The same three controls as `PeriodNav`; overlays sit on a higher layer and simply cover it.
+ */
+export function PeriodDock(props: { unit: string; isCurrent: boolean; onNavigate: (delta: number) => void; onToday: () => void }) {
+    return (
+        <div className="layer-floating-bar fixed bottom-5 right-5">
+            <PeriodNav {...props} className="glass-surface rounded-full p-1 [&_.btn-icon]:rounded-full" />
         </div>
     );
 }

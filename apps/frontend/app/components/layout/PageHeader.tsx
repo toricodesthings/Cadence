@@ -10,6 +10,10 @@ export const PAGE_HEADER_SURFACE =
 export const HEADER_SELECT_TRIGGER =
     "surface-control h-11 w-auto min-w-[7.5rem] gap-2 rounded-xl border-twilight-border/30 px-3.5 text-sm font-medium text-twilight-text shadow-none";
 
+/** A header's icon-only control (sort, display options, Place, notifications, gear): one family at one size. */
+export const HEADER_ICON_BUTTON =
+    "surface-control inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-twilight-border/35 text-twilight-text-soft transition-colors hover:text-twilight-text cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
+
 export interface PageHeaderIdentityProps {
     icon?: ReactNode;
     eyebrow?: ReactNode;

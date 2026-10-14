@@ -35,16 +35,34 @@ beforeEach(() => {
 });
 
 describe("schedule active-range data", () => {
+    it("keeps query, routine, holiday and displayed bounds together when settings load and change", () => {
+        const { result, rerender } = renderHook(() => useScheduleData(input("week")));
+        const verify = (start: string, end: string) => {
+            expect(result.current.weekDates).toEqual(expect.arrayContaining([start, end]));
+            expect(result.current.weekDates[0]).toBe(start);
+            expect(result.current.periodRange).toEqual({ start, end });
+            expect(mocks.taskQuery).toHaveBeenCalledWith({ state: "ACTIVE", range: { from: start, to: end } });
+            expect(mocks.habitQuery).toHaveBeenLastCalledWith({ start, end, enabled: true });
+            expect(mocks.holidays).toHaveBeenLastCalledWith({ start, end, viewMode: "week" });
+        };
+        verify("2026-11-01", "2026-11-07");
+        mocks.settings = { dateTime: { weekStart: "Monday" } };
+        rerender();
+        verify("2026-11-02", "2026-11-08");
+        mocks.settings = { dateTime: { weekStart: "Saturday" } };
+        rerender();
+        verify("2026-10-31", "2026-11-06");
+    });
     it.each(["day", "week", "month", "year"] as const)("reads one task range for %s", (view) => {
         renderHook(() => useScheduleData(input(view)));
-        const range = scheduleRanges("2026-11-02")[view];
+        const range = scheduleRanges("2026-11-02", 0)[view];
         expect(mocks.taskQuery).toHaveBeenCalledWith({ state: "ACTIVE", range: { from: range.start, to: range.end } });
         expect(mocks.taskQuery.mock.calls.filter(([options]) => options.range)).toHaveLength(1);
         expect(mocks.holidays).toHaveBeenCalledWith({ ...range, viewMode: view });
     });
     it("keeps Phone Day's week populated while its visible period remains one day", () => {
         const { result } = renderHook(() => useScheduleData(input("day", true)));
-        const range = scheduleRanges("2026-11-02").week;
+        const range = scheduleRanges("2026-11-02", 0).week;
         expect(mocks.taskQuery).toHaveBeenCalledWith({ state: "ACTIVE", range: { from: range.start, to: range.end } });
         expect(mocks.habitQuery).toHaveBeenCalledWith({ ...range, enabled: true });
         expect(mocks.taskQuery).toHaveBeenCalledWith({ state: "ACTIVE", hasNoProject: true, hasNoDate: true, enabled: true });

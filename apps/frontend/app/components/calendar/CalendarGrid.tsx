@@ -32,8 +32,6 @@ interface CalendarGridProps {
      */
     tasksByDay?: Record<LocalDate, Task[]>;
     onSelectTask?: (taskId: string) => void;
-    onCompleteTask?: (taskId: string) => void;
-    onArchiveTask?: (taskId: string) => void;
     /** Right-click callback for creating a task via popover */
     onContextAdd?: (info: CalendarEventInfo) => void;
 }
@@ -52,8 +50,6 @@ export function CalendarGrid({
     variant = "compact",
     tasksByDay,
     onSelectTask,
-    onCompleteTask,
-    onArchiveTask,
     onContextAdd,
 }: CalendarGridProps) {
     const today = useToday();
@@ -109,8 +105,6 @@ export function CalendarGrid({
                         variant={variant}
                         tasks={day !== null ? (tasksByDay?.[day] ?? []) : []}
                         onSelectTask={onSelectTask}
-                        onCompleteTask={onCompleteTask}
-                        onArchiveTask={onArchiveTask}
                         onContextAdd={onContextAdd}
                     />
                 ))}

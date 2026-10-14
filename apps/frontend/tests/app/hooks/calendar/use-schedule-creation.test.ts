@@ -9,6 +9,14 @@ vi.mock("../../../../app/lib/api/track-event", () => ({ trackUsageEvent: track }
 beforeEach(() => { vi.clearAllMocks(); setUserZone("America/Toronto"); });
 
 describe("schedule creation", () => {
+    it("opens an event context action on Event without a task draft, then restores Task for a grid click", () => {
+        const { result } = renderHook(() => useScheduleCreation("2026-11-02"));
+        const info = { date: "2026-11-02", startHour: 9, startMinute: 30, anchorX: 100, anchorY: 140 };
+        act(() => result.current.handleGridClick({ ...info, tab: "event" }));
+        expect(result.current.popover).toMatchObject({ tab: "event", info, draftPlacement: null });
+        act(() => result.current.handleGridClick(info));
+        expect(result.current.popover).toMatchObject({ tab: "task", draftPlacement: { startMinute: 570 } });
+    });
     it("opens and closes a grid draft and its highlight together", () => {
         const { result } = renderHook(() => useScheduleCreation("2026-11-02"));
         act(() => result.current.handleGridClick({ date: "2026-11-02", startHour: 9, startMinute: 30, anchorX: 100, anchorY: 140 }));
@@ -21,8 +29,6 @@ describe("schedule creation", () => {
         act(() => result.current.handleAddAt("2026-11-02T14:30:00.000Z", 45));
         expect(result.current.popover).toMatchObject({ tab: "task", draftPlacement: null,
             info: { date: "2026-11-02", startHour: 9, startMinute: 30, durationMinutes: 45 } });
-        act(() => result.current.handleAddEventToolbar());
-        expect(result.current.popover).toMatchObject({ tab: "event", draftPlacement: null, info: { isAllDay: true } });
     });
     it("tracks toolbar creation without introducing analytics for the keyboard shortcut", () => {
         const { result } = renderHook(() => useScheduleCreation("2026-11-02"));
@@ -39,7 +45,7 @@ describe("schedule shortcuts", () => {
         const { result } = renderHook(() => {
             const creation = useScheduleCreation("2026-11-02");
             useScheduleShortcuts({ selectViewShortcut: view, handleToday: vi.fn(), handleNavigate: navigate },
-                creation, { selectedTaskId: "task", setSelectedTaskId: closeDetails });
+                creation, { hasSelection: true, clearSelection: closeDetails });
             return creation;
         });
         act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "c" })));
@@ -48,7 +54,7 @@ describe("schedule shortcuts", () => {
         expect(result.current.popover).toBeNull();
         expect(closeDetails).not.toHaveBeenCalled();
         act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
-        expect(closeDetails).toHaveBeenCalledWith(null);
+        expect(closeDetails).toHaveBeenCalled();
         act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "w" })));
         expect(view).toHaveBeenCalledWith("week");
         act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" })));

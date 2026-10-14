@@ -13,7 +13,7 @@ export function TimeGutter({ hourHeight }: { hourHeight: number }) {
     }
 
     return (
-        <div className="shrink-0 w-14 select-none" style={{ paddingTop: hourHeight }}>
+        <div className="shrink-0 w-14 select-none">
             {hours.map((h) => (
                 <div
                     key={h}

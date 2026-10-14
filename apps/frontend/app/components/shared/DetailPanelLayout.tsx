@@ -7,9 +7,11 @@ import { Button } from "../primitives/Button";
 const ICON_BUTTON = "btn-icon shrink-0 cursor-pointer text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
 /** Common editing surface for task, event and habit details, in the rail or an overlay. */
-export function DetailPanelLayout({ children, leading, title, onClose, closeLabel, mode = "peek", onModeChange }: {
+export function DetailPanelLayout({ children, leading, trailing, title, onClose, closeLabel, mode = "peek", onModeChange }: {
     children: ReactNode;
     leading: ReactNode;
+    /** Extra header actions, before expand and close. */
+    trailing?: ReactNode;
     title: string;
     onClose: () => void;
     closeLabel: string;
@@ -22,6 +24,7 @@ export function DetailPanelLayout({ children, leading, title, onClose, closeLabe
                 {leading}
                 <h2 className="ml-2 truncate font-sans text-lg font-semibold tracking-tight text-twilight-text">{title}</h2>
                 <div className="min-w-0 flex-1" />
+                {trailing}
                 {onModeChange ? (
                     <Tip label={mode === "focus" ? "Back to split view" : "Expand editor"} side="bottom">
                         <Button variant="ghost" size="icon" type="button" onClick={() => onModeChange(mode === "focus" ? "peek" : "focus")} aria-label={mode === "focus" ? "Back to split view" : "Expand editor"} className={ICON_BUTTON}>

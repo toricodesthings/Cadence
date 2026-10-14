@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import * as Popover from "../primitives/Popover";
+import { Tip } from "../primitives/Tooltip";
+import { weekdayName } from "../../lib/utils/calendar/calendar-math";
 import { addDays, weekdayOf, type LocalDate } from "@cadence/domain/time";
-import { Archive, ArchiveRestore, Bell, CalendarClock, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock3, FolderOpen, ListChecks, Repeat2, Palette, Pause, Play, SlidersHorizontal, StickyNote, Tag, Target, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowUpRight, Bell, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Clock3, FolderOpen, ListChecks, Repeat2, Palette, Pause, Play, SlidersHorizontal, StickyNote, Tag, Target, Trash2 } from "lucide-react";
 import type { Habit } from "@cadence/contracts/habit";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
 import { useRoutineActions } from "../../hooks/habits/use-routine-actions";
@@ -79,8 +81,12 @@ function useRoutineInRange(habit: Habit, range: { start: string; end: string }, 
     return data?.find((entry) => entry.id === habit.id);
 }
 
-export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeChange }: {
+export function HabitEditor({ habit, day, onOpenInRoutines, onClose, detailMode = "peek", onDetailModeChange }: {
     habit: Habit;
+    /** The day whose times/steps the check-in shows (a Schedule click); defaults to today. */
+    day?: LocalDate;
+    /** Given outside Routines, so the panel can lead there. */
+    onOpenInRoutines?: () => void;
     onClose: () => void;
     detailMode?: "peek" | "focus";
     onDetailModeChange?: (mode: "peek" | "focus") => void;
@@ -103,7 +109,9 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
     const { data: projects = [] } = useProjects();
 
     const today = useToday();
-    const week = useMemo(() => getWeekDays(today, weekStartsOn), [today, weekStartsOn]);
+    const checkDay = day ?? today;
+    const week = useMemo(() => getWeekDays(checkDay, weekStartsOn), [checkDay, weekStartsOn]);
+    const dayLabel = checkDay === today ? "Today's" : `${weekdayName(checkDay)}'s`;
     const thisWeek = useRoutineInRange(habit, { start: week[0], end: week[6] });
     const weekLogs = logsByDay(thisWeek ?? habit);
     const historyMonth = useRoutineInRange(habit, getMonthDateRange(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1), section === "history");
@@ -120,7 +128,15 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
 
     return (
         <div className="h-full min-w-0 overflow-hidden" role="complementary" aria-label="Routine details" style={{ "--routine-tone": routineTone(habit.colorAccent) } as CSSProperties}>
-            <DetailPanelLayout title="Routine" mode={detailMode} onModeChange={onDetailModeChange} onClose={onClose} closeLabel="Close routine details" leading={<RoutineMark size={20} className="text-[var(--routine-tone)]" />}>
+            <DetailPanelLayout title="Routine" mode={detailMode} onModeChange={onDetailModeChange} onClose={onClose} closeLabel="Close routine details" leading={<RoutineMark size={20} className="text-[var(--routine-tone)]" />}
+                trailing={onOpenInRoutines ? (
+                    <Tip label="Open in Routines" side="bottom">
+                        <Button variant="ghost" size="icon" type="button" aria-label="Open in Routines" onClick={onOpenInRoutines}
+                            className="btn-icon shrink-0 cursor-pointer text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+                            <ArrowUpRight size={16} aria-hidden="true" />
+                        </Button>
+                    </Tip>
+                ) : null}>
                 <DetailTitle value={habit.title} label="Routine title" maxLength={255} onSave={(title) => update({ title })} />
                 <div className={`${CARD} space-y-3 px-4 py-3`}>
                     <div className="flex items-center gap-3">
@@ -146,16 +162,16 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                             })}
                         </div>
                     )}
-                    {times && !habit.archived && weekLogs.get(today) ? (
+                    {times && !habit.archived && weekLogs.get(checkDay) ? (
                         <div className="border-t border-twilight-border/30 pt-1">
-                            <p className="pt-2 text-xs font-medium text-twilight-text-soft">Today's times</p>
-                            <RoutineTimeChecklist habit={habit} date={today} log={weekLogs.get(today)} />
+                            <p className="pt-2 text-xs font-medium text-twilight-text-soft">{dayLabel} times</p>
+                            <RoutineTimeChecklist habit={habit} date={checkDay} log={weekLogs.get(checkDay)} />
                         </div>
                     ) : null}
-                    {habit.steps?.length && !habit.archived && weekLogs.get(today) ? (
+                    {habit.steps?.length && !habit.archived && weekLogs.get(checkDay) ? (
                         <div className="border-t border-twilight-border/30 pt-1">
-                            <p className="pt-2 text-xs font-medium text-twilight-text-soft">Today's steps</p>
-                            <RoutineStepChecklist habit={habit} date={today} log={weekLogs.get(today)} />
+                            <p className="pt-2 text-xs font-medium text-twilight-text-soft">{dayLabel} steps</p>
+                            <RoutineStepChecklist habit={habit} date={checkDay} log={weekLogs.get(checkDay)} />
                         </div>
                     ) : null}
                 </div>
@@ -220,7 +236,7 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                                 <FieldRow icon={Clock3} label="Usual time">
                                     <TimePicker label="Routine usual time" value={habit.targetTime ?? ""} placeholder="Any time" clearable onChange={(value) => update({ targetTime: value || null })} className={VALUE_TIME} />
                                 </FieldRow>
-                                <FieldRow icon={CalendarClock} label="Times by day" hint="Different on some days">
+                                <FieldRow icon={CalendarRange} label="Times by day" hint="Different on some days">
                                     <Switch
                                         checked={dayTimesOpen}
                                         aria-label="Different times on some days"

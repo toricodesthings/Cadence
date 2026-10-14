@@ -23,7 +23,10 @@ vi.mock("../../../app/hooks/ui/use-period-swipe", () => ({ usePeriodSwipe: () =>
 vi.mock("../../../app/hooks/tasks/use-tasks", () => ({ useTasks: () => ({ data: mocks.tasks }) }));
 vi.mock("../../../app/hooks/tasks/use-update-task", () => ({ useUpdateTask: () => ({ mutate: vi.fn() }) }));
 vi.mock("../../../app/hooks/habits/use-resolve-habit", () => ({ useResolveHabit: () => ({ mutateAsync: vi.fn() }), timeAction: vi.fn() }));
-vi.mock("../../../app/hooks/habits/use-virtual-habit-tasks", () => ({ useVirtualHabitTasks: () => [] }));
+vi.mock("../../../app/hooks/habits/use-virtual-habit-tasks", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../../app/hooks/habits/use-virtual-habit-tasks")>()),
+    useVirtualHabitTasks: () => [],
+}));
 vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: () => ({ data: [] }) }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({
     useSettings: () => ({ data: SETTINGS_DEFAULTS }), useUpdateSettings: () => ({ mutate: mocks.settings }),

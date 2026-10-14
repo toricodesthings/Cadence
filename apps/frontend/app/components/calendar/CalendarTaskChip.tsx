@@ -1,53 +1,43 @@
-import { useState, useCallback, useEffect, useRef, type CSSProperties, type ReactElement } from "react";
-import { Check, Archive, GripVertical, Repeat, CalendarClock, Trash2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { CalendarItem, RoutineRing, calendarTone, useCalendarItemPresentation } from "./CalendarItem";
+import { scheduleKind, type ScheduleKind } from "../../lib/utils/calendar/schedule-day";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { motion } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { Task, TaskPriority } from "@cadence/contracts/task";
-import * as ContextMenu from "../primitives/ContextMenu";
-import { useArchiveTask } from "../../hooks/tasks/use-archive-task";
-import { getTaskSeriesId } from "../../lib/utils/task/task-scheduling";
-import { formatTime } from "../../lib/utils/date-format";
-import { isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance, supportsManualTaskCompletion } from "../../lib/utils/task/task-scheduling";
+import { TaskCheckbox } from "../tasks/TaskCheckbox";
+import { isRecurringTask, isRecurringTaskInstance } from "../../lib/utils/task/task-scheduling";
+import { formatChipTime } from "../../lib/utils/date-format";
 import { HOUR_HEIGHT } from "../../lib/utils/calendar/calendar-utils";
 import { CALENDAR_SLOT_MINUTES } from "../../lib/utils/calendar/calendar-dnd";
 import { syncNowSheen, useIsUnderNowLine } from "./CurrentTimeIndicator";
-import { RoutineMark } from "../habits/RoutineMark";
-import { routineTone } from "../../lib/utils/habits";
-import type { VirtualHabitTask } from "../../hooks/habits/use-virtual-habit-tasks";
 
-/** Tailwind classes for the chip background/border based on priority */
-const PRIORITY_PILL_BG: Record<TaskPriority, string> = {
-    0: "bg-white/[0.08] border-white/10",
-    1: "bg-[color-mix(in_srgb,var(--color-priority-low)_18%,transparent)] border-[color-mix(in_srgb,var(--color-priority-low)_35%,transparent)]",
-    2: "bg-[color-mix(in_srgb,var(--color-priority-medium)_18%,transparent)] border-[color-mix(in_srgb,var(--color-priority-medium)_35%,transparent)]",
-    3: "bg-[color-mix(in_srgb,var(--color-priority-high)_18%,transparent)] border-[color-mix(in_srgb,var(--color-priority-high)_35%,transparent)]",
-    4: "bg-[color-mix(in_srgb,var(--color-priority-urgent)_22%,transparent)] border-[color-mix(in_srgb,var(--color-priority-urgent)_40%,transparent)]",
-};
-
-const PRIORITY_TEXT: Record<TaskPriority, string> = {
-    0: "text-twilight-text-soft",
-    1: "text-[var(--color-priority-low)]",
-    2: "text-[var(--color-priority-medium)]",
-    3: "text-[var(--color-priority-high)]",
-    4: "text-[var(--color-priority-urgent)]",
-};
-
-const PRIORITY_LEFT_GLOW: Record<TaskPriority, string> = {
-    0: "bg-white/20",
+/** The priority is the edge bar and the wash, never the title's colour: accent is for "now". */
+const PRIORITY_BAR: Record<TaskPriority, string> = {
+    0: "bg-twilight-text-muted/40",
     1: "bg-[var(--color-priority-low)]",
     2: "bg-[var(--color-priority-medium)]",
     3: "bg-[var(--color-priority-high)]",
     4: "bg-[var(--color-priority-urgent)]",
 };
 
+const PRIORITY_WASH: Record<TaskPriority, string> = {
+    0: "",
+    1: "[--chip-wash:color-mix(in_srgb,var(--color-priority-low)_9%,transparent)]",
+    2: "[--chip-wash:color-mix(in_srgb,var(--color-priority-medium)_9%,transparent)]",
+    3: "[--chip-wash:color-mix(in_srgb,var(--color-priority-high)_10%,transparent)]",
+    4: "[--chip-wash:color-mix(in_srgb,var(--color-priority-urgent)_12%,transparent)]",
+};
+
+const FIXED_WASH = "[--chip-wash:color-mix(in_srgb,var(--color-moonlit)_6%,transparent)]";
+
+// ── The chip ────────────────────────────────────────────────────────────────
+
 export interface CalendarTaskChipProps {
     task: Task;
     /** "pill" = compact month-view inline chip; "block" = absolute-positioned week/day chip */
     variant: "pill" | "block";
     onSelect: (taskId: string) => void;
-    onComplete?: (taskId: string) => void;
-    onArchive?: (taskId: string) => void;
     /** Called when user finishes resize-drag on bottom edge. durationMinutes is the new total duration. */
     onResize?: (taskId: string, durationMinutes: number) => void;
     /** AI-suggested task — renders with shimmer border */
@@ -56,34 +46,25 @@ export interface CalendarTaskChipProps {
     style?: CSSProperties;
     /** The source cell id used in DnD drag data */
     sourceId?: string;
-    /** Pill in a Month cell: leads with its start time and drops the repeat/fixed glyphs (the summary already says it). */
+    /** Pill leads with its start time (Month cells and grouped routine lists). */
     month?: boolean;
     /** Pill sized to its words (Day's all-day lane) instead of filling its row */
     fit?: boolean;
+    /** Which side the hover card opens on */
+    tipSide?: "left" | "right";
+    /** A routine badge is docked on this block's right edge */
+    badge?: boolean;
 }
 
-function CalendarTaskMenu({ task, children }: { task: Task; children: ReactElement }) {
-    const archiveTask = useArchiveTask();
-    if (task.isHabit) return children;
-
-    const isSeries = isRecurringTask(task) || isRecurringTaskInstance(task);
-    return (
-        <ContextMenu.Root>
-            <ContextMenu.Trigger asChild onContextMenu={(event) => event.stopPropagation()}>
-                {children}
-            </ContextMenu.Trigger>
-            <ContextMenu.Content onClick={(event) => event.stopPropagation()}>
-                <ContextMenu.Item
-                    variant="danger"
-                    disabled={archiveTask.isPending}
-                    onSelect={() => archiveTask.mutate(getTaskSeriesId(task))}
-                    className="gap-2"
-                >
-                    <Trash2 size={16} aria-hidden="true" />
-                    {isSeries ? "Move series to Trash" : "Move to Trash"}
-                </ContextMenu.Item>
-            </ContextMenu.Content>
-        </ContextMenu.Root>
+/** The one leading mark: the app's checkbox for a task, the routine's ring, nothing for Fixed (its bar is its mark). */
+function LeadMark({ task, kind, compact }: { task: Task; kind: ScheduleKind; compact?: boolean }) {
+    if (kind === "fixed") return null;
+    return kind === "routine" ? (
+        <RoutineRing task={task} size={compact ? 18 : 22} />
+    ) : (
+        <span className="relative z-10 -my-1 -ml-1 flex shrink-0" onPointerDown={(e) => e.stopPropagation()}>
+            <TaskCheckbox task={task} compact />
+        </span>
     );
 }
 
@@ -91,134 +72,62 @@ export function CalendarTaskChip({
     task,
     variant,
     onSelect,
-    onComplete,
-    onArchive,
     onResize,
     isSuggested,
     style,
     sourceId,
     month = false,
     fit = false,
+    tipSide = "right",
+    badge = false,
 }: CalendarTaskChipProps) {
-    const [isHovered, setIsHovered] = useState(false);
-
     const priority = (task.priority ?? 0) as TaskPriority;
+    const kind = scheduleKind(task);
     const isRecurring = isRecurringTask(task) || isRecurringTaskInstance(task);
-    const isPassiveTimetable = isPassiveTimetableTask(task);
-    const allowQuickActions = !task.isHabit && !isRecurring && supportsManualTaskCompletion(task);
-    const isCompletedHabit = task.isHabit && task.state === "COMPLETE";
+    const isDone = task.state === "COMPLETE";
     const isUnderNowLine = useIsUnderNowLine(task.scheduledStart, task.scheduledEnd, variant === "block");
     const chipRef = useRef<HTMLDivElement | null>(null);
+    const presentation = useCalendarItemPresentation([task]);
+    const tone = calendarTone(task);
 
     const { listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: `task-${task.id}`,
         data: { taskId: task.id, sourceId: sourceId ?? null },
         disabled: Boolean(task.isHabit || isRecurring),
     });
+    const movable = !task.isHabit && !isRecurring;
     const isNowLive = isUnderNowLine && !isDragging;
-    useEffect(() => { if (isNowLive) syncNowSheen(chipRef.current); }, [isNowLive]);
+    useEffect(() => {
+        if (isNowLive) syncNowSheen(chipRef.current);
+    }, [isNowLive]);
 
     const dragStyle: CSSProperties = {
         transform: CSS.Translate.toString(transform),
-        opacity: isDragging ? 0.35 : 1,
+        ...presentation.style,
         ...style,
+        ...(isDragging ? { opacity: 0.35 } : {}),
     };
 
-    // ── PILL variant (Month view, All-Day row) ──────────────────────────────
-    if (variant === "pill") {
-        return (
-            <CalendarTaskMenu task={task}>
-                <motion.div
-                    ref={setNodeRef}
-                    style={dragStyle}
-                    {...listeners}
-                    data-task-chip
-                    className={`
-                        group relative flex items-center gap-2 ${fit ? "w-auto max-w-full" : "w-full"}
-                        rounded-full px-3 py-1.5 text-[13px] font-medium
-                        border backdrop-blur-md cursor-pointer select-none
-                        transition-[background-color,border-color,box-shadow,transform,opacity] duration-150
-                        ${isDragging ? "z-50 scale-[1.03] shadow-[0_8px_24px_rgba(0,0,0,0.4)]" : ""}
-                        ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
-                        ${task.isHabit ? `bg-accent-primary/5 shadow-sm ${isCompletedHabit ? "opacity-45" : ""}` : ""}
-                        ${isRecurring ? "bg-[rgba(126,184,212,0.08)] border-[rgba(126,184,212,0.18)]" : PRIORITY_PILL_BG[priority]}
-                    `}
-                    onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
-                    onMouseEnter={() => setIsHovered(true)}
-                    onMouseLeave={() => setIsHovered(false)}
-                    whileHover={{ scale: 1.01 }}
-                >
-                    {/* A routine shows its mark in its colour, as on Today; everything else a priority dot */}
-                    {task.isHabit ? (
-                        <span className="inline-flex shrink-0" style={{ color: routineTone((task as VirtualHabitTask).habitColor) }}>
-                            <RoutineMark emoji={(task as VirtualHabitTask).habitEmoji} size={11} />
-                        </span>
-                    ) : (
-                        <span className={`shrink-0 w-2 h-2 rounded-full ${PRIORITY_LEFT_GLOW[priority]}`} />
-                    )}
-
-                    {/* Title */}
-                    <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
-                        className={`min-w-0 ${fit ? "" : "flex-1"} truncate text-left ${PRIORITY_TEXT[priority]} cursor-pointer flex items-center gap-1`}
-                    >
-                        {month && task.scheduledStart ? <span className="shrink-0 tabular-nums text-twilight-text-soft">{formatTime(task.scheduledStart)}</span> : null}
-                        <span className="truncate">{task.title}</span>
-                        {!month && !task.isHabit && isRecurring && <Repeat size={10} className="text-moonlit/70 shrink-0" />}
-                        {!month && isPassiveTimetable && <CalendarClock size={10} className="shrink-0 text-moonlit" />}
-                    </button>
-
-                    {/* Hover quick actions */}
-                    <AnimatePresence>
-                        {isHovered && allowQuickActions && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.8 }}
-                                transition={{ duration: 0.1 }}
-                                className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 shrink-0 bg-twilight-surface/90 backdrop-blur-md rounded-full px-0.5"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {onComplete && (
-                                    <button
-                                        type="button"
-                                        onClick={() => onComplete(task.id)}
-                                        data-no-dnd="true"
-                                        className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
-                                    >
-                                        <Check size={9} className="text-twilight-text-muted" />
-                                    </button>
-                                )}
-                                {onArchive && (
-                                    <button
-                                        type="button"
-                                        onClick={() => onArchive(task.id)}
-                                        data-no-dnd="true"
-                                        className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
-                                    >
-                                        <Archive size={9} className="text-twilight-text-muted" />
-                                    </button>
-                                )}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </motion.div>
-            </CalendarTaskMenu>
-        );
-    }
-
-    // ── BLOCK variant (Week/Day view, absolutely positioned) ───────────────
-    const timeLabel = task.scheduledStart ? formatTime(task.scheduledStart) : null;
-    const endLabel = task.scheduledEnd ? formatTime(task.scheduledEnd) : null;
-
-    // Habit blocks should stay visually lighter than tasks without collapsing into unreadable ribbons.
-    const habitRibbon = task.isHabit;
+    const kindClasses =
+        kind === "routine"
+            ? "border-transparent"
+            : kind === "fixed"
+              ? `surface-chip border-twilight-border/30 ${FIXED_WASH}`
+              : `surface-chip border-twilight-border/30 ${PRIORITY_WASH[priority]}`;
+    const kindStyle: CSSProperties | undefined =
+        kind === "routine" ? { borderColor: `color-mix(in srgb, ${tone} 30%, transparent)` } : undefined;
+    const barClass = kind === "fixed" ? "bg-moonlit/80" : kind === "task" ? PRIORITY_BAR[priority] : "";
+    const titleClass = `${kind === "task" ? "text-twilight-text" : "text-twilight-text-soft"} ${isDone ? "line-through decoration-1" : ""}`;
+    const timeClass = kind === "fixed" ? "text-moonlit" : "text-twilight-text-muted";
+    const open = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onSelect(task.id);
+    };
 
     // ── Resize handle state ──
     const [resizeDeltaPx, setResizeDeltaPx] = useState(0);
     const resizeStartY = useRef<number | null>(null);
-    const canResize = !!onResize && !task.isHabit && !isRecurring && !isDragging;
+    const canResize = !!onResize && movable && !isDragging;
 
     const handleResizePointerDown = useCallback((e: React.PointerEvent) => {
         e.stopPropagation();
@@ -233,139 +142,151 @@ export function CalendarTaskChip({
         const delta = e.clientY - resizeStartY.current;
         // Snap to slot increments
         const slotPx = (CALENDAR_SLOT_MINUTES / 60) * HOUR_HEIGHT;
-        const snapped = Math.round(delta / slotPx) * slotPx;
-        setResizeDeltaPx(snapped);
+        setResizeDeltaPx(Math.round(delta / slotPx) * slotPx);
     }, []);
 
-    const handleResizePointerUp = useCallback((e: React.PointerEvent) => {
-        if (resizeStartY.current === null) return;
-        const delta = e.clientY - resizeStartY.current;
-        const slotPx = (CALENDAR_SLOT_MINUTES / 60) * HOUR_HEIGHT;
-        const snappedSlots = Math.round(delta / slotPx);
-        resizeStartY.current = null;
-        setResizeDeltaPx(0);
+    const handleResizePointerUp = useCallback(
+        (e: React.PointerEvent) => {
+            if (resizeStartY.current === null) return;
+            const delta = e.clientY - resizeStartY.current;
+            const slotPx = (CALENDAR_SLOT_MINUTES / 60) * HOUR_HEIGHT;
+            const snappedSlots = Math.round(delta / slotPx);
+            resizeStartY.current = null;
+            setResizeDeltaPx(0);
 
-        if (snappedSlots !== 0 && onResize && task.scheduledStart && task.scheduledEnd) {
-            const startMs = new Date(task.scheduledStart).getTime();
-            const endMs = new Date(task.scheduledEnd).getTime();
-            const currentDuration = Math.round((endMs - startMs) / 60_000);
-            const newDuration = Math.max(CALENDAR_SLOT_MINUTES, currentDuration + snappedSlots * CALENDAR_SLOT_MINUTES);
-            onResize(task.id, newDuration);
-        }
-    }, [onResize, task.id, task.scheduledStart, task.scheduledEnd]);
+            if (snappedSlots !== 0 && onResize && task.scheduledStart && task.scheduledEnd) {
+                const startMs = new Date(task.scheduledStart).getTime();
+                const endMs = new Date(task.scheduledEnd).getTime();
+                const currentDuration = Math.round((endMs - startMs) / 60_000);
+                onResize(
+                    task.id,
+                    Math.max(CALENDAR_SLOT_MINUTES, currentDuration + snappedSlots * CALENDAR_SLOT_MINUTES),
+                );
+            }
+        },
+        [onResize, task.id, task.scheduledStart, task.scheduledEnd],
+    );
 
+    // ── PILL variant (Month view, All-Day lane) ─────────────────────────────
+    if (variant === "pill") {
+        return (
+            <CalendarItem task={task} onSelect={onSelect} tipSide={tipSide} dragging={isDragging}>
+                <motion.div
+                    ref={(el) => {
+                        setNodeRef(el);
+                        chipRef.current = el;
+                    }}
+                    style={{ ...dragStyle, ...kindStyle }}
+                    {...listeners}
+                    data-task-chip
+                    data-dnd-draggable={movable}
+                    className={`
+                        group relative ${fit ? "w-fit max-w-full" : "w-full"}
+                        rounded-full border px-3 py-1.5 text-[13px] font-medium
+                        ${movable ? "cursor-grab" : "cursor-pointer"} select-none ${kind === "routine" ? "" : "bg-transparent"}
+                        transition-[background-color,border-color,box-shadow,opacity] duration-150
+                        ${kindClasses} ${presentation.className}
+                        ${isDragging ? "z-50 shadow-[0_8px_24px_rgba(0,0,0,0.4)]" : ""}
+                        ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
+                    `}
+                    onClick={open}
+                >
+                    <div className="flex min-w-0 items-center gap-2">
+                        <LeadMark task={task} kind={kind} compact />
+                        <button
+                            type="button"
+                            onClick={open}
+                            className={`flex min-w-0 ${fit ? "" : "flex-1"} cursor-pointer items-center gap-1 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60 ${titleClass}`}
+                        >
+                            {month && task.scheduledStart ? (
+                                <span className={`shrink-0 tabular-nums ${timeClass}`}>
+                                    {formatChipTime(task.scheduledStart)}
+                                </span>
+                            ) : null}
+                            <span className="truncate">{task.title}</span>
+                        </button>
+                    </div>
+                </motion.div>
+            </CalendarItem>
+        );
+    }
+
+    const startLabel = task.scheduledStart ? formatChipTime(task.scheduledStart) : null;
+    const rangeLabel = task.scheduledStart ? formatChipTime(task.scheduledStart, task.scheduledEnd) : null;
     const baseHeight = style?.height != null ? parseFloat(String(style.height)) : undefined;
-    const adjustedBaseHeight = habitRibbon && baseHeight != null
-        ? Math.max(30, baseHeight * 0.82)
-        : baseHeight;
-    const renderedHeight = adjustedBaseHeight != null
-        ? Math.max(habitRibbon ? 30 : 18, adjustedBaseHeight + resizeDeltaPx)
-        : undefined;
-    const isCompactBlock = renderedHeight != null && renderedHeight < (habitRibbon ? 38 : 42);
+    const renderedHeight = baseHeight != null ? Math.max(18, baseHeight + resizeDeltaPx) : undefined;
     const blockStyle: CSSProperties = {
         ...dragStyle,
+        ...kindStyle,
         ...(renderedHeight != null ? { height: `${renderedHeight}px` } : {}),
     };
 
     return (
-        <CalendarTaskMenu task={task}>
+        <CalendarItem task={task} onSelect={onSelect} tipSide={tipSide} dragging={isDragging}>
             <motion.div
-                ref={(el) => { setNodeRef(el); chipRef.current = el; }}
+                ref={(el) => {
+                    setNodeRef(el);
+                    chipRef.current = el;
+                }}
                 style={blockStyle}
                 {...listeners}
                 data-task-chip
+                data-dnd-draggable={movable}
                 className={`
-                    group absolute flex ${isCompactBlock ? "flex-row items-center" : "flex-col justify-center"} gap-1
-                    rounded-xl ${isCompactBlock ? "px-2.5 py-1" : "px-3 py-2"} border backdrop-blur-xl cursor-pointer select-none
-                    transition-[background-color,border-color,box-shadow,transform,opacity] duration-150 overflow-hidden
-                    shadow-[0_4px_16px_rgba(0,0,0,0.08)]
-                    ${isRecurring ? "bg-[rgba(126,184,212,0.10)] border-[rgba(126,184,212,0.22)]" : PRIORITY_PILL_BG[priority]}
-                    ${isDragging ? "z-50 scale-[1.02] shadow-[0_16px_48px_rgba(0,0,0,0.5)]" : "z-10"}
+                    cal-chip group absolute overflow-hidden rounded-xl border
+                    ${movable ? "cursor-grab" : "cursor-pointer"} select-none
+                    transition-[border-color,box-shadow,opacity] duration-150
+                    ${kindClasses} ${presentation.className}
+                    ${isDragging ? "z-50 shadow-[0_16px_48px_rgba(0,0,0,0.5)]" : "z-10"}
                     ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
                     ${isNowLive ? "cadence-now-live-chip" : ""}
-                    ${habitRibbon ? `border-l-2 border-accent-primary/45 border-twilight-border/25 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--accent-primary)_12%,transparent),color-mix(in_srgb,var(--accent-primary)_4%,transparent))] ${isCompletedHabit ? "opacity-55" : "opacity-100"} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]` : ""}
                 `}
-                onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
-                whileHover={{ zIndex: 20 }}
+                onClick={open}
             >
-                {/* Left accent bar */}
-                <div className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${PRIORITY_LEFT_GLOW[priority]}`} />
-
-                {/* Hover quick actions */}
-                <AnimatePresence>
-                    {isHovered && allowQuickActions && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -4 }}
-                            transition={{ duration: 0.12 }}
-                            className="absolute top-1.5 right-1.5 flex items-center gap-0.5"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <GripVertical size={11} className="text-twilight-text-muted/90" />
-                            {onComplete && (
-                                <button
-                                    type="button"
-                                    onClick={() => onComplete(task.id)}
-                                    data-no-dnd="true"
-                                    className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
-                                >
-                                    <Check size={10} className="text-twilight-text-muted" />
-                                </button>
-                            )}
-                            {onArchive && (
-                                <button
-                                    type="button"
-                                    onClick={() => onArchive(task.id)}
-                                    data-no-dnd="true"
-                                    className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
-                                >
-                                    <Archive size={10} className="text-twilight-text-muted" />
-                                </button>
-                            )}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                {/* Main click target */}
-                <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
-                    className={`w-full min-w-0 cursor-pointer text-left pl-2 ${isCompactBlock ? "flex items-center gap-2 overflow-hidden" : "flex flex-col gap-0.5"}`}
+                <div
+                    className={`cal-chip-row absolute inset-0 flex items-center gap-1.5 pl-3 ${badge ? "pr-12" : "pr-1.5"}`}
                 >
-                    <span className={`${isCompactBlock ? (habitRibbon ? "text-[12px]" : "text-[11px]") : "text-[13px]"} min-w-0 truncate font-medium leading-tight flex items-center gap-1 ${!isCompactBlock ? "flex-wrap" : ""} ${PRIORITY_TEXT[priority]}`}>
-                        {task.title}
-                        {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-accent-primary/50" : "text-moonlit/70"} shrink-0`} />}
-                        {isPassiveTimetable && <CalendarClock size={10} className="shrink-0 text-moonlit" />}
+                    {/* Edge bar: priority for a task, moonlit for Fixed */}
+                    {barClass ? (
+                        <div className={`absolute bottom-1.5 left-0 top-1.5 w-1 rounded-full ${barClass}`} />
+                    ) : null}
+                    <span className="cal-chip-lead flex shrink-0">
+                        <LeadMark task={task} kind={kind} />
                     </span>
-                    {timeLabel && !isCompactBlock && (
-                        <span className="text-[12px] text-twilight-text-muted/90 leading-tight">
-                            {timeLabel}{endLabel ? ` – ${endLabel}` : ""}
+                    <button
+                        type="button"
+                        onClick={open}
+                        aria-label={`Open details for ${task.title}`}
+                        className="cal-chip-body flex min-w-0 flex-1 cursor-[inherit] rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/60"
+                    >
+                        <span className={`cal-chip-title text-[12px] font-medium leading-tight ${titleClass}`}>
+                            {task.title}
                         </span>
-                    )}
-                    {timeLabel && isCompactBlock && (
-                        <span className={`shrink-0 ${habitRibbon ? "text-[10.5px] font-medium text-accent-primary/80" : "text-[10px] text-twilight-text-muted/70"}`}>
-                            {timeLabel}
-                        </span>
-                    )}
-                </button>
+                        {startLabel ? (
+                            <span className={`cal-chip-time-start text-[11px] leading-tight ${timeClass}`}>
+                                {startLabel}
+                            </span>
+                        ) : null}
+                        {rangeLabel ? (
+                            <span className={`cal-chip-time text-[11px] leading-tight ${timeClass}`}>{rangeLabel}</span>
+                        ) : null}
+                    </button>
+                </div>
 
                 {/* Bottom-edge resize handle */}
                 {canResize && (
                     <div
-                        className="absolute bottom-0 left-2 right-2 h-2 cursor-s-resize group/resize flex items-center justify-center"
+                        className="group/resize absolute z-20 bottom-0 left-2 right-2 flex h-2 cursor-s-resize items-center justify-center"
                         onPointerDown={handleResizePointerDown}
                         onPointerMove={handleResizePointerMove}
                         onPointerUp={handleResizePointerUp}
                         data-no-dnd="true"
                     >
-                        <div className="w-8 h-0.5 rounded-full bg-white/0 group-hover/resize:bg-white/30 transition-colors" />
+                        <div className="h-0.5 w-8 rounded-full bg-transparent transition-colors group-hover/resize:bg-twilight-text-muted/30" />
                     </div>
                 )}
             </motion.div>
-        </CalendarTaskMenu>
+        </CalendarItem>
     );
 }
 
@@ -376,14 +297,13 @@ export function CalendarTaskChipOverlay({ task }: { task: Task }) {
     return (
         <div
             className={`
-                flex items-center gap-2 border backdrop-blur-md shadow-[0_16px_48px_rgba(0,0,0,0.5)]
+                surface-chip flex items-center gap-2 border border-twilight-border/40 shadow-[0_16px_48px_rgba(0,0,0,0.5)]
                 ${isTimed ? "min-w-[16rem] rounded-2xl px-4 py-3 text-[14px] font-semibold" : "rounded-full px-3 py-1.5 text-[13px] font-medium"}
-                scale-[1.04]
-                ${PRIORITY_PILL_BG[priority]}
+                scale-[1.04] ${PRIORITY_WASH[priority]}
             `}
         >
-            <span className={`shrink-0 w-2 h-2 rounded-full ${PRIORITY_LEFT_GLOW[priority]}`} />
-            <span className={`truncate max-w-[180px] ${PRIORITY_TEXT[priority]}`}>{task.title}</span>
+            <span className={`h-2 w-2 shrink-0 rounded-full ${PRIORITY_BAR[priority]}`} />
+            <span className="max-w-[180px] truncate text-twilight-text">{task.title}</span>
         </div>
     );
 }

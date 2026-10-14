@@ -34,6 +34,8 @@ import { useAddPersonalEvent } from "./AddPersonalEventDialog";
 import type { EffortLevel, TaskInteractionMode, TaskPriority } from "@cadence/contracts/task";
 
 export interface CalendarEventInfo {
+    /** Context creation opens this tab; an ordinary grid click opens Task. */
+    tab?: "task" | "event";
     /** The day the draft sits on */
     date: LocalDate;
     startHour: number;

@@ -15,42 +15,42 @@ export function ScheduleOverlays({ shell, navigation, data, selection, actions }
     selection: ScheduleSelection;
     actions: ScheduleTaskActions;
 }) {
-    const { selectedTaskId, setSelectedTaskId, selectedHabitId, setSelectedHabitId,
+    const { selectedTaskId, selectedHabit: selectedHabitRef, clearSelection,
         mobileDetailMode, setMobileDetailMode, handleSelectTask } = selection;
     const { placeTask, setPlaceTask, readyOpen, setReadyOpen, lightenOpen, setLightenOpen, moveTaskToDay, lightenToday } = actions;
     const { readyTasks, lightenCandidates, habitById } = data;
     const { currentDate } = navigation;
-    const selectedHabit = selectedHabitId ? habitById.get(selectedHabitId) ?? null : null;
+    const selectedHabit = selectedHabitRef ? habitById.get(selectedHabitRef.id) ?? null : null;
     return <>
         {!shell.isWide && selectedTaskId && (
             <ResponsiveOverlayPanel
                 ariaLabel="Schedule task details"
                 open={Boolean(selectedTaskId)}
-                onClose={() => setSelectedTaskId(null)}
+                onClose={clearSelection}
                 mode={mobileDetailMode}
             >
                 <EditSidePanel kind="task"
                     taskId={selectedTaskId}
                     detailMode={mobileDetailMode}
                     onDetailModeChange={setMobileDetailMode}
-                    onClose={() => setSelectedTaskId(null)}
+                    onClose={clearSelection}
                 />
             </ResponsiveOverlayPanel>
         )}
-        {shell.isCompact && selectedHabit ? (
-            <ResponsiveOverlayPanel ariaLabel="Routine details" open onClose={() => setSelectedHabitId(null)} mode="peek">
-                <EditSidePanel kind="habit" habit={selectedHabit} onClose={() => setSelectedHabitId(null)} />
+        {!shell.isWide && selectedHabit && selectedHabitRef ? (
+            <ResponsiveOverlayPanel ariaLabel="Routine details" open onClose={clearSelection} mode="peek">
+                <EditSidePanel kind="habit" habit={selectedHabit} day={selectedHabitRef.day} onOpenInRoutines={() => selection.openInRoutines(selectedHabit.id)} onClose={clearSelection} />
             </ResponsiveOverlayPanel>
         ) : null}
+        <PlaceSheet
+            open={Boolean(placeTask)}
+            task={placeTask}
+            onClose={() => setPlaceTask(null)}
+            onOpenTask={handleSelectTask}
+            onPlace={(task, iso) => moveTaskToDay(task, iso)}
+        />
         {shell.isPhone ? (
             <>
-                <PlaceSheet
-                    open={Boolean(placeTask)}
-                    task={placeTask}
-                    onClose={() => setPlaceTask(null)}
-                    onOpenTask={handleSelectTask}
-                    onPlace={(task, iso) => moveTaskToDay(task, iso)}
-                />
                 <ReadyToPlaceSheet open={readyOpen} dateIso={currentDate} tasks={readyTasks} onClose={() => setReadyOpen(false)} />
                 <LightenTodaySheet open={lightenOpen} tasks={lightenCandidates} onClose={() => setLightenOpen(false)} onMove={lightenToday} />
             </>

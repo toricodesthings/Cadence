@@ -1,19 +1,19 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode } from "react";
+import { Tip } from "../primitives/Tooltip";
 import { SegmentedControl } from "../primitives/SegmentedControl";
-import { ChevronLeft, ChevronRight, Plus, Settings, CalendarHeart } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Settings } from "lucide-react";
 import {
     Snowflake, CloudSnow, Wind, CloudRain,
     SunDim, Sun, Waves, Flame,
     Leaf, Moon, CloudFog, Gift,
     type LucideIcon,
 } from "lucide-react";
-import { useRealtimeClock } from "../../hooks/ui/use-realtime-clock";
 import { addDays, formatInZone, type LocalDate } from "@cadence/domain/time";
 import { getDateFormatConfig, getWeekStart, MONTH_NAMES } from "../../lib/utils/date-format";
 import { dayOfMonth, parseYMD } from "../../lib/utils/calendar/calendar-math";
 import * as Popover from "../primitives/Popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../primitives/Select";
-import { HEADER_SELECT_TRIGGER, PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity, PhonePageHeader } from "../layout/PageHeader";
+import { HEADER_ICON_BUTTON, HEADER_SELECT_TRIGGER, PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity, PhonePageHeader } from "../layout/PageHeader";
 import { PeriodNav, PeriodTodayButton } from "../layout/PeriodNav";
 
 export type CalendarViewMode = "day" | "week" | "month" | "year";
@@ -37,15 +37,17 @@ export interface ScheduleHeaderProps {
     /** Current LocalDate (drives day label) */
     currentDate: LocalDate;
     viewMode: CalendarViewMode;
+    /** The week's first day, from settings, so the range here matches the grid. */
+    weekStartsOn: 0 | 1 | 6;
     onViewMode: (mode: CalendarViewMode) => void;
     onNavigate: (delta: number) => void;
     onToday: () => void;
     /** Today is inside the period on screen (greys out Today). */
     isCurrentPeriod: boolean;
-    /** Opens the event popover for creating a task */
+    /** Opens the composer on its Task tab; Event is one tab away inside. */
     onAddTask?: () => void;
-    /** Opens the schedule dialog on the personal event tab */
-    onAddEvent?: () => void;
+    /** Laptop moves ‹ Today › to the corner dock, so the header leaves it out. */
+    hidePeriodNav?: boolean;
     /** Overflow content (holiday + clutter controls) */
     overflowContent?: ReactNode;
     compact?: boolean;
@@ -64,87 +66,22 @@ export interface ScheduleHeaderProps {
 function buildSubtitleLabel(
     viewMode: CalendarViewMode,
     currentDate: LocalDate,
+    weekStartsOn: 0 | 1 | 6,
 ): string {
     const isDmy = getDateFormatConfig().dateStyle === "dmy";
     const locale = isDmy ? "en-GB" : "en-US";
     const show = (day: LocalDate, options: Intl.DateTimeFormatOptions) => formatInZone(day, "UTC", options, locale);
 
     if (viewMode === "week") {
-        const start = getWeekStart(currentDate);
+        // The title already holds the month and year, so the range is just the days.
+        const start = getWeekStart(currentDate, weekStartsOn);
         const end = addDays(start, 6);
         const startLabel = show(start, { month: "short", day: "numeric" });
-        if (parseYMD(start).m === parseYMD(end).m) {
-            return `Week of ${startLabel} \u2013 ${dayOfMonth(end)}, ${parseYMD(end).y}`;
-        }
-        return `Week of ${startLabel} \u2013 ${show(end, { month: "short", day: "numeric", year: "numeric" })}`;
+        if (parseYMD(start).m === parseYMD(end).m) return `${startLabel} \u2013 ${dayOfMonth(end)}`;
+        return `${startLabel} \u2013 ${show(end, { month: "short", day: "numeric" })}`;
     }
     // Day / month / year view — the current day label as warm context
     return show(currentDate, { weekday: "long", day: "numeric" });
-}
-
-/** Contextual add trigger — one button with task/event segmented chooser. */
-function ContextualAddTrigger({
-    onAddTask,
-    onAddEvent,
-}: {
-    onAddTask?: () => void;
-    onAddEvent?: () => void;
-}) {
-    const [mode, setMode] = useState<"task" | "event">(onAddTask ? "task" : "event");
-    const hasBoth = Boolean(onAddTask) && Boolean(onAddEvent);
-
-    const handleClick = () => {
-        if (mode === "task") onAddTask?.();
-        else onAddEvent?.();
-    };
-
-    if (!hasBoth) {
-        // Only one action — render as a single button
-        const isTask = Boolean(onAddTask);
-        return (
-            <button
-                type="button"
-                onClick={isTask ? onAddTask : onAddEvent}
-                className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-4 text-sm font-medium transition-colors cursor-pointer ${
-                    isTask
-                        ? "surface-control-accent border-accent-primary/20 text-accent-primary hover:border-accent-primary/30"
-                        : "surface-control-accent [--control-tone:var(--accent-nav-schedule)] border-accent-nav-schedule/20 text-accent-nav-schedule hover:border-accent-nav-schedule/30"
-                }`}
-            >
-                {isTask ? <Plus size={14} /> : <CalendarHeart size={14} />}
-                <span className="hidden lg:inline">{isTask ? "Add Task" : "Add Event"}</span>
-            </button>
-        );
-    }
-
-    return (
-        <div className="flex items-center gap-0">
-            {/* Segmented chooser */}
-            <SegmentedControl
-                ariaLabel="Add what"
-                value={mode}
-                onChange={setMode}
-                options={[
-                    { value: "task", label: "Task" },
-                    { value: "event", label: "Event", tone: "var(--accent-nav-schedule)" },
-                ]}
-                className="rounded-r-none border-r-0"
-            />
-            {/* Primary add button */}
-            <button
-                type="button"
-                onClick={handleClick}
-                className={`inline-flex min-h-11 items-center gap-1.5 rounded-r-xl border px-3.5 text-sm font-medium transition-colors cursor-pointer ${
-                    mode === "task"
-                        ? "border-accent-primary/20 bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25"
-                        : "border-accent-nav-schedule/20 bg-accent-nav-schedule/12 text-accent-nav-schedule hover:bg-accent-nav-schedule/18"
-                }`}
-                aria-label={mode === "task" ? "Add task" : "Add event"}
-            >
-                <Plus size={14} />
-            </button>
-        </div>
-    );
 }
 
 export function ScheduleHeader({
@@ -152,20 +89,20 @@ export function ScheduleHeader({
     month,
     currentDate,
     viewMode,
+    weekStartsOn,
     onViewMode,
     onNavigate,
     onToday,
     isCurrentPeriod,
     onAddTask,
-    onAddEvent,
+    hidePeriodNav = false,
     overflowContent,
     compact = false,
     phone,
 }: ScheduleHeaderProps) {
     const CurrentIcon = MONTH_ICONS[month];
     const mainHeading = viewMode === "year" ? String(year) : `${MONTH_NAMES[month]} ${year}`;
-    const subtitleLabel = buildSubtitleLabel(viewMode, currentDate);
-    const clock = useRealtimeClock();
+    const subtitleLabel = buildSubtitleLabel(viewMode, currentDate, weekStartsOn);
 
     if (phone) {
         // Phone: one row. Period changes are swipes and taps on the calendar
@@ -245,9 +182,9 @@ export function ScheduleHeader({
             accentColor="var(--accent-nav-schedule, var(--accent-primary))"
             eyebrow="Schedule"
             title={mainHeading}
-            meta={<><span>{subtitleLabel}</span><span aria-hidden="true" className="text-twilight-text-muted">·</span><span className="tabular-nums">{clock}</span></>}
+            meta={<span>{subtitleLabel}</span>}
             actions={<>
-                <PeriodNav unit={VIEW_LABELS[viewMode].toLowerCase()} isCurrent={isCurrentPeriod} onNavigate={onNavigate} onToday={onToday} />
+                {hidePeriodNav ? null : <PeriodNav unit={VIEW_LABELS[viewMode].toLowerCase()} isCurrent={isCurrentPeriod} onNavigate={onNavigate} onToday={onToday} />}
 
                 {/* Right: view switcher */}
                 <Select value={viewMode} onValueChange={(value) => onViewMode(value as CalendarViewMode)}>
@@ -264,10 +201,20 @@ export function ScheduleHeader({
                     </SelectContent>
                 </Select>
 
-                {/* Contextual add trigger */}
-                {(onAddTask || onAddEvent) && (
-                    <ContextualAddTrigger onAddTask={onAddTask} onAddEvent={onAddEvent} />
-                )}
+                {/* One Add: the composer opens on Task, Event is its second tab */}
+                {onAddTask ? (
+                    <Tip label="Add to schedule" side="bottom">
+                        <button
+                            type="button"
+                            onClick={onAddTask}
+                            aria-label="Add to schedule"
+                            className="surface-control-accent inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl border border-accent-primary/20 px-3.5 text-sm font-medium text-accent-primary transition-colors hover:border-accent-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        >
+                            <Plus size={14} aria-hidden="true" />
+                            <span className="hidden lg:inline">Add</span>
+                        </button>
+                    </Tip>
+                ) : null}
 
                 {/* Overflow menu for holiday/clutter controls */}
                 {overflowContent && (
@@ -275,10 +222,10 @@ export function ScheduleHeader({
                         <Popover.Trigger asChild>
                             <button
                                 type="button"
-                                className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                                className={HEADER_ICON_BUTTON}
                                 aria-label="Display & calendar options"
                             >
-                                <Settings size={16} />
+                                <Settings size={16} aria-hidden="true" />
                             </button>
                         </Popover.Trigger>
                         <Popover.Content side="bottom" align="end" className="w-80 p-3">

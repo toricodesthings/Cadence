@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Repeat } from "lucide-react";
+import { Flame } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 interface AgendaRowProps {
@@ -44,7 +44,7 @@ export function AgendaHabitDivider({ label }: { label: string }) {
     return (
         <div className="px-3 py-3">
             <div className="inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.18em] text-moonlit">
-                <Repeat size={14} aria-hidden="true" />
+                <Flame size={14} aria-hidden="true" />
                 <span>{label}</span>
             </div>
         </div>

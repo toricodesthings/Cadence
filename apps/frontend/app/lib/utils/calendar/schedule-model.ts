@@ -33,11 +33,11 @@ export function isCalendarViewModeValue(value: string | null): value is Calendar
     return value === "day" || value === "week" || value === "month" || value === "year";
 }
 
-export function scheduleRanges(currentDate: LocalDate) {
+export function scheduleRanges(currentDate: LocalDate, weekStartsOn?: 0 | 1 | 6) {
     const { y, m } = parseYMD(currentDate);
     return {
         day: { start: currentDate, end: currentDate },
-        week: getWeekDateRange(currentDate),
+        week: getWeekDateRange(currentDate, weekStartsOn),
         month: getMonthDateRange(y, m),
         year: getYearDateRange(y),
     };

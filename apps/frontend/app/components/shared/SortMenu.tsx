@@ -4,6 +4,7 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 import type { SortMode } from "../../lib/utils/task/sort-tasks";
 import type { ViewMode } from "../../hooks/ui/use-view-mode";
 import { ViewToggle } from "./ViewToggle";
+import { HEADER_ICON_BUTTON } from "../layout/PageHeader";
 
 interface SortMenuAction {
     label: string;
@@ -33,7 +34,7 @@ export function SortMenu({ mode, onModeChange, view, onViewChange, actions = [] 
             <DropdownMenu.Trigger asChild>
                 <button
                     aria-label={onModeChange ? "Sort & display options" : "Display options"}
-                    className="surface-control inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-twilight-border/35 text-twilight-text-soft transition-colors hover:text-twilight-text cursor-pointer"
+                    className={HEADER_ICON_BUTTON}
                 >
                     <EllipsisVertical size={18} aria-hidden="true" />
                 </button>

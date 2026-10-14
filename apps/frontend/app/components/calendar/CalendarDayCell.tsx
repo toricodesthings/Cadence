@@ -32,8 +32,6 @@ interface CalendarDayCellProps {
     /** Tasks for this cell (full variant only) */
     tasks?: Task[];
     onSelectTask?: (taskId: string) => void;
-    onCompleteTask?: (taskId: string) => void;
-    onArchiveTask?: (taskId: string) => void;
     /** Right-click callback for context menu / creating a task */
     onContextAdd?: (info: CalendarEventInfo) => void;
 }
@@ -53,8 +51,6 @@ export function CalendarDayCell({
     variant = "compact",
     tasks = [],
     onSelectTask,
-    onCompleteTask,
-    onArchiveTask,
     onContextAdd,
 }: CalendarDayCellProps) {
 
@@ -239,8 +235,6 @@ export function CalendarDayCell({
                             month
                             sourceId={`day-${dateStr}`}
                             onSelect={onSelectTask ?? (() => { })}
-                            onComplete={onCompleteTask}
-                            onArchive={onArchiveTask}
                         />
                     ))}
 
@@ -265,8 +259,6 @@ export function CalendarDayCell({
                                         month
                                         sourceId={`day-${dateStr}`}
                                         onSelect={onSelectTask ?? (() => { })}
-                                        onComplete={onCompleteTask}
-                                        onArchive={onArchiveTask}
                                     />
                                 ))}
                             </Popover.Content>

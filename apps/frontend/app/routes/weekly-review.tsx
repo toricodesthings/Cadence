@@ -4,7 +4,7 @@ export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteE
 import { MainLayout } from "../components/layout/MainLayout";
 import { Button } from "../components/primitives/Button";
 import { Tip } from "../components/primitives";
-import { ArrowRight, ArrowLeft, Clock, Check, Pause, Repeat, Sun, Sunrise, Moon, Trash2, LoaderCircle, PenLine, type LucideIcon } from "lucide-react";
+import { ArrowRight, ArrowLeft, Clock, Check, Pause, Flame, Sun, Sunrise, Moon, Trash2, LoaderCircle, PenLine, type LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { today } from "../lib/utils/user-zone";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
@@ -226,7 +226,7 @@ function HabitReviewRow({
         <div className="rounded-2xl border border-twilight-border/40 bg-twilight-surface/30 px-5 py-4">
             <div className="flex items-center gap-3 mb-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent-secondary/10 text-accent-secondary">
-                    <Repeat size={14} />
+                    <Flame size={14} />
                 </div>
                 <h4 className="text-sm font-medium text-twilight-text flex-1 truncate">{habit.title}</h4>
             </div>

@@ -72,6 +72,16 @@ describe("schedule drag lifecycle", () => {
 });
 
 describe("schedule task and routine actions", () => {
+    it("moves a future task to tomorrow with Undo while phone Later still advances its placed day", () => {
+        const original = task({ dueDate: "2026-11-10", endDate: "2026-11-12" });
+        const { result } = renderHook(() => useScheduleTaskActions(new Map([[original.id, original]]), "2026-11-02", vi.fn()));
+        act(() => result.current.moveToTomorrow(original));
+        expect(mocks.update).toHaveBeenLastCalledWith(expect.objectContaining({ id: "t", dueDate: "2026-11-03", endDate: "2026-11-05" }));
+        mocks.toast.mock.calls.at(-1)![1].action.onClick();
+        expect(mocks.update).toHaveBeenLastCalledWith(expect.objectContaining({ id: "t", dueDate: "2026-11-10", endDate: "2026-11-12" }));
+        act(() => result.current.rowHandlers.onLater(original));
+        expect(mocks.update).toHaveBeenLastCalledWith(expect.objectContaining({ dueDate: "2026-11-11", endDate: "2026-11-13" }));
+    });
     it("keeps ordinary phone completion cancellable until the queued commit", () => {
         const original = task();
         const { result } = renderHook(() => useScheduleTaskActions(new Map([[original.id, original]]), "2026-11-02", vi.fn()));
@@ -97,13 +107,13 @@ describe("schedule task and routine actions", () => {
         mocks.toast.mock.calls[0][1].action.onClick();
         expect(mocks.update).toHaveBeenLastCalledWith({ id: "t", dueDate: "2026-10-30", endDate: null, scheduledStart: null, scheduledEnd: null, zone: null });
     });
-    it("blocks series chip actions and keeps routine marks on the row path", () => {
+    it("skips one routine time from a chip's menu, and lets a repeating task's occurrence complete", async () => {
+        const routine = task({ id: "habit-r--2026-11-02--09:30", isHabit: true });
         const series = task({ recurrenceRule: "FREQ=WEEKLY" });
-        const { result } = renderHook(() => useScheduleTaskActions(new Map([[series.id, series]]), "2026-11-02", vi.fn()));
-        act(() => result.current.handleCompleteTask("t"));
-        act(() => result.current.handleArchiveTask("habit-r--2026-11-02"));
-        expect(mocks.update).not.toHaveBeenCalled();
-        expect(mocks.resolve).not.toHaveBeenCalled();
-        expect(mocks.toast).toHaveBeenCalledWith("Recurring blocks are edited as a series.");
+        const { result } = renderHook(() => useScheduleTaskActions(new Map([[routine.id, routine]]), "2026-11-02", vi.fn()));
+        await act(async () => { await result.current.resolveRoutine(routine, "SKIPPED"); });
+        expect(mocks.resolve).toHaveBeenCalledWith(expect.objectContaining({ habitId: "r", targetDate: "2026-11-02", time: "09:30", status: "SKIPPED" }));
+        act(() => result.current.completeTask(series));
+        expect(mocks.queue).toHaveBeenCalledWith(expect.objectContaining({ taskId: "t" }));
     });
 });

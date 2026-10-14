@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, CalendarClock, Flame, FolderOpen, ListChecks, Repeat, StickyNote, Tag } from "lucide-react";
+import { Bell, CalendarClock, Flame, FolderOpen, ListChecks, StickyNote, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useCreateHabit } from "../../hooks/habits/use-create-habit";
@@ -192,7 +192,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
         subtitle,
         isDirty,
         discardTitle: "Discard this routine?",
-        footer: <ComposerSubmit onSubmit={() => void submit()} submitLabel={isPending ? "Creating…" : "Create routine"} icon={Repeat} tone="habits" disabled={!title.trim() || isPending} />,
+        footer: <ComposerSubmit onSubmit={() => void submit()} submitLabel={isPending ? "Creating…" : "Create routine"} icon={Flame} tone="habits" disabled={!title.trim() || isPending} />,
         reset,
         children: (
             <>

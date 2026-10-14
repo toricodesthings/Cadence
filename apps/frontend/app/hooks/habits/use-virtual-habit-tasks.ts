@@ -9,6 +9,14 @@ import { fromTimeValue } from "../../lib/utils/date-format";
 export type VirtualHabitTask = Task & { habitEmoji?: string | null; habitColor?: string | null };
 import { getUserZone } from "../../lib/utils/user-zone";
 
+/** `habit-{id}--{day}[--{time}]` → its parts; null for a real task id. */
+export function parseVirtualHabitId(id: string): { habitId: string; day: LocalDate; time: string | null } | null {
+    if (!id.startsWith("habit-")) return null;
+    const [head, day, time] = id.split("--", 3);
+    if (!day) return null;
+    return { habitId: head.slice("habit-".length), day: day as LocalDate, time: time ?? null };
+}
+
 /**
  * Fetches habits for a date range and maps them to virtual Task objects
  * for rendering in calendar views alongside real tasks.

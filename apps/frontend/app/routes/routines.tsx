@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import { AnimatePresence, motion } from "framer-motion";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
@@ -28,8 +29,8 @@ import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useReducedMotionSetting } from "../hooks/ui/use-reduced-motion";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
-import { HEADER_SELECT_TRIGGER, PageHeader, PhonePageHeader, PhoneViewPicker } from "../components/layout/PageHeader";
-import { PeriodNav, PeriodTodayPill } from "../components/layout/PeriodNav";
+import { HEADER_ICON_BUTTON, HEADER_SELECT_TRIGGER, PageHeader, PhonePageHeader, PhoneViewPicker } from "../components/layout/PageHeader";
+import { PeriodDock, PeriodNav, PeriodTodayPill } from "../components/layout/PeriodNav";
 
 const HABITS_ACCENT = "var(--accent-nav-habits, var(--accent-primary))";
 const NAV_BUTTON = "btn-icon cursor-pointer rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text";
@@ -106,6 +107,31 @@ export default function Routines() {
         setRailView("context");
     };
 
+    // `?routine=` (Schedule's "Open in Routines") selects once and leaves no trace; an unknown id is dropped below.
+    const [searchParams, setSearchParams] = useSearchParams();
+    useEffect(() => {
+        const id = searchParams.get("routine");
+        if (!id) return;
+        setSelectedHabitId(id);
+        setRailView("context");
+        setSearchParams((params) => { params.delete("routine"); return params; }, { replace: true });
+    }, [searchParams, setSearchParams, setRailView]);
+
+    // ← / → change the period, as on Schedule; a grid or menu that wants the arrows keeps them.
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            const target = event.target;
+            if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
+            if (target instanceof HTMLElement && (target.isContentEditable || target.closest('[role="grid"], [role="menu"], [role="dialog"], [role="listbox"]'))) return;
+            event.preventDefault();
+            handleNavigate(event.key === "ArrowLeft" ? -1 : 1);
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [handleNavigate]);
+
     useEffect(() => {
         if (selectedHabitId && habits.length && !visibleHabits.some((habit) => habit.id === selectedHabitId)) {
             setSelectedHabitId(null);
@@ -149,7 +175,7 @@ export default function Routines() {
     const options = (
         <Popover.Root>
             <Popover.Trigger asChild>
-                <button type="button" className={NAV_BUTTON} aria-label="Routine view options">
+                <button type="button" className={HEADER_ICON_BUTTON} aria-label="Routine view options">
                     <Settings size={16} aria-hidden="true" />
                 </button>
             </Popover.Trigger>
@@ -221,9 +247,9 @@ export default function Routines() {
                             accentColor={HABITS_ACCENT}
                             eyebrow="Routines"
                             title={heading}
-                            meta={displayMode === "week" ? `Week of ${weekRange(weekDates)}` : undefined}
+                            meta={displayMode === "week" ? weekRange(weekDates) : undefined}
                             actions={<>
-                                <PeriodNav unit={periodWord} isCurrent={isCurrentPeriod} onNavigate={handleNavigate} onToday={handleToday} />
+                                {shell.isLaptop ? null : <PeriodNav unit={periodWord} isCurrent={isCurrentPeriod} onNavigate={handleNavigate} onToday={handleToday} />}
                                 <Select value={displayMode} onValueChange={(value) => setDisplay(value as DisplayMode)}>
                                     <SelectTrigger
                                         aria-label="Routine view"
@@ -292,6 +318,7 @@ export default function Routines() {
                     </ResponsiveOverlayPanel>
                 )}
 
+                {shell.isLaptop ? <PeriodDock unit={periodWord} isCurrent={isCurrentPeriod} onNavigate={handleNavigate} onToday={handleToday} /> : null}
                 <PeriodTodayPill show={shell.isPhone && !isCurrentPeriod} reducedMotion={reducedMotion} onToday={handleToday} />
                 {shell.isCompact ? <ContextualAddOrb directCapture directLabel="Add routine" onOpen={() => setIsCreateOpen(true)} /> : null}
             </div>

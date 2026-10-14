@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, type CSSProperties, type ReactNode } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import {
     CALENDAR_SLOT_COUNT,
@@ -35,14 +35,14 @@ function TimeSlotDropZone({
                 className={`
                     absolute inset-x-1.5 top-1/2 -translate-y-1/2 rounded-full border transition-[opacity,transform,box-shadow,background-color] duration-150
                     ${isHighlighted
-                        ? "opacity-100 scale-100 border-moonlit/50 bg-moonlit/10 shadow-[0_0_0_1px_rgba(142,197,252,0.12),0_0_18px_rgba(142,197,252,0.16)]"
+                        ? "opacity-100 scale-100 border-moonlit/50 bg-moonlit/10 shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-moonlit)_12%,transparent),0_0_18px_color-mix(in_srgb,var(--color-moonlit)_16%,transparent)]"
                         : "opacity-0 scale-95 border-transparent bg-transparent"
                     }
                 `}
                 style={{ height: Math.max(12, height - 8) }}
             />
             {isHighlighted && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-moonlit/35 bg-twilight/90 px-2 py-0.5 text-[10px] font-medium tracking-[0.08em] text-moonlit shadow-[0_8px_20px_rgba(0,0,0,0.22)]">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-moonlit/35 bg-panel/90 px-2 py-0.5 text-[10px] font-medium tracking-[0.08em] text-moonlit shadow-[0_8px_20px_rgba(0,0,0,0.22)]">
                     {getDropMinutesLabel(minutes)}
                 </span>
             )}
@@ -89,11 +89,13 @@ export function AllDayDropLane({
     className = "",
     children,
     isActive = false,
+    style,
 }: {
     dateStr: string;
     className?: string;
-    children: ReactNode;
+    children?: ReactNode;
     isActive?: boolean;
+    style?: CSSProperties;
 }) {
     const { setNodeRef, isOver } = useDroppable({ id: buildCalendarAllDayDropId(dateStr) });
     const isHighlighted = isOver || isActive;
@@ -101,10 +103,11 @@ export function AllDayDropLane({
     return (
         <div
             ref={setNodeRef}
+            style={style}
             className={`
                 relative rounded-2xl transition-[background-color,border-color,box-shadow] duration-150
                 ${isHighlighted
-                    ? "bg-moonlit/10 ring-1 ring-moonlit/35 shadow-[0_0_18px_rgba(142,197,252,0.12)]"
+                    ? "bg-moonlit/10 ring-1 ring-moonlit/35 shadow-[0_0_18px_color-mix(in_srgb,var(--color-moonlit)_12%,transparent)]"
                     : ""
                 }
                 ${className}
@@ -112,7 +115,7 @@ export function AllDayDropLane({
         >
             {children}
             {isHighlighted && (
-                <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-moonlit/30 bg-twilight/90 px-2 py-0.5 text-[10px] font-medium tracking-[0.08em] text-moonlit">
+                <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-moonlit/30 bg-panel/90 px-2 py-0.5 text-[10px] font-medium tracking-[0.08em] text-moonlit">
                     All day
                 </span>
             )}
@@ -134,7 +137,7 @@ export function TimedDropPreview({
 
     return (
         <div
-            className="pointer-events-none absolute inset-x-1 z-15 overflow-hidden rounded-2xl border border-moonlit/45 bg-moonlit/[0.08] shadow-[0_12px_30px_rgba(142,197,252,0.12)]"
+            className="pointer-events-none absolute inset-x-1 z-15 overflow-hidden rounded-2xl border border-moonlit/45 bg-moonlit/[0.08] shadow-[0_12px_30px_color-mix(in_srgb,var(--color-moonlit)_12%,transparent)]"
             style={{ top, height }}
             aria-hidden="true"
         >
@@ -162,7 +165,7 @@ export function AllDayDropPreview({
 
     return (
         <div
-            className="pointer-events-none inline-flex items-center rounded-full border border-moonlit/40 bg-moonlit/[0.08] px-3 py-1.5 text-[12px] font-medium text-moonlit shadow-[0_8px_24px_rgba(142,197,252,0.08)]"
+            className="pointer-events-none inline-flex items-center rounded-full border border-moonlit/40 bg-moonlit/[0.08] px-3 py-1.5 text-[12px] font-medium text-moonlit shadow-[0_8px_24px_color-mix(in_srgb,var(--color-moonlit)_8%,transparent)]"
             aria-hidden="true"
         >
             Drop as all-day

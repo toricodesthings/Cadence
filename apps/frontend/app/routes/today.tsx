@@ -4,7 +4,7 @@ import { useMemo, useState, lazy } from "react";
 import { useNavigate } from "react-router";
 import { DayEventRows } from "../components/events/DayEventRows";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import { EyeOff, Eye, Inbox, PanelRightClose, Sunrise, Repeat, CalendarClock } from "lucide-react";
+import { EyeOff, Eye, Inbox, PanelRightClose, Sunrise, Flame, CalendarClock } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { Tip } from "../components/primitives";
 import { RoutineAgendaList, routineAgendaItems } from "../components/shared/RoutineAgendaRow";
@@ -366,7 +366,7 @@ export default function TodayRoute() {
         ...(routinesCount > 0 ? [{
             key: "routines",
             title: "Routines",
-            icon: Repeat,
+            icon: Flame,
             accentClass: "text-moonlit",
             count: routinesHidden ? routinesCount : grouped.routinesOpen.length,
             headerAction: routinesToggle,

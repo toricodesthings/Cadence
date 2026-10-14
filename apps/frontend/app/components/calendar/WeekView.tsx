@@ -1,201 +1,18 @@
-import { useRef, useEffect, useMemo, useState, useCallback } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import { TimeGutter } from "./TimeGutter";
-import { CurrentTimeIndicator } from "./CurrentTimeIndicator";
-import { CalendarTaskChip } from "./CalendarTaskChip";
-import { AllDayDropLane, AllDayDropPreview, TimeSlotDropLayer, TimedDropPreview } from "./CalendarDropTargets";
-import * as Popover from "../primitives/Popover";
+import { CalendarHoverContext } from "./CalendarItem";
+import { TimedCalendarColumn } from "./TimedCalendarColumn";
+import { AllDayWeekLane } from "./AllDayWeekLane";
 import { Tip } from "../primitives";
-import * as ContextMenu from "../primitives/ContextMenu";
-import { Plus, CalendarHeart, Focus, ArrowRight } from "lucide-react";
-import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar/calendar-utils";
+import { HOUR_HEIGHT, DAY_GRID_HEIGHT } from "../../lib/utils/calendar/calendar-utils";
 import { useToday } from "../../lib/utils/user-zone";
 import { dayOfMonth, weekdayName } from "../../lib/utils/calendar/calendar-math";
-import { trackUsageEvent } from "../../lib/api/track-event";
-import { CALENDAR_SLOT_MINUTES, minutesToWallTime, type CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
+import { type CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { LocalDate } from "@cadence/domain/time";
 import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "@cadence/contracts/proxy";
 import type { PersonalEvent } from "../../types/settings";
-
-interface DroppableDayColumnProps {
-    dateStr: string; // "YYYY-MM-DD"
-    tasks: Task[];
-    isToday: boolean;
-    activeDropPreview?: CalendarDropPreview | null;
-    draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
-    onSelectTask: (id: string) => void;
-    onCompleteTask: (id: string) => void;
-    onArchiveTask: (id: string) => void;
-    onResizeTask?: (id: string, durationMinutes: number) => void;
-    onGridClick?: (info: CalendarEventInfo) => void;
-    onJumpToDay?: (dateStr: string) => void;
-}
-
-function DroppableDayColumn({
-    dateStr,
-    tasks,
-    isToday,
-    activeDropPreview,
-    draftPlacement,
-    onSelectTask,
-    onCompleteTask,
-    onArchiveTask,
-    onResizeTask,
-    onGridClick,
-    onJumpToDay,
-}: DroppableDayColumnProps) {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [contextSlot, setContextSlot] = useState<{ hours: number; mins: number } | null>(null);
-
-    const computeSlotFromEvent = useCallback((e: React.MouseEvent) => {
-        const rect = containerRef.current?.getBoundingClientRect();
-        if (!rect) return { hours: 9, mins: 0 };
-        const relY = e.clientY - rect.top;
-        const slotHeight = (CALENDAR_SLOT_MINUTES / 60) * HOUR_HEIGHT;
-        const totalMins = Math.round(relY / slotHeight) * CALENDAR_SLOT_MINUTES;
-        return {
-            hours: Math.max(0, Math.min(23, Math.floor(totalMins / 60))),
-            mins: totalMins % 60,
-        };
-    }, []);
-
-    const handleGridClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        // Ignore if clicking directly on a task chip
-        if ((e.target as HTMLElement).closest("[data-task-chip]")) return;
-        const { hours, mins } = computeSlotFromEvent(e);
-        onGridClick?.({
-            date: dateStr,
-            startHour: hours,
-            startMinute: mins,
-            anchorX: e.clientX,
-            anchorY: e.clientY,
-        });
-    };
-
-    const handleContextMenuOpen = (open: boolean) => {
-        if (!open) setContextSlot(null);
-        else trackUsageEvent("schedule.context_menu_opened", { object_type: "schedule_cell", input_method: "context_menu" });
-    };
-
-    const contextTimeLabel = contextSlot
-        ? `${String(contextSlot.hours).padStart(2, "0")}:${String(contextSlot.mins).padStart(2, "0")}`
-        : "";
-
-    return (
-        <ContextMenu.Root onOpenChange={handleContextMenuOpen}>
-            <ContextMenu.Trigger asChild>
-        <div
-            ref={containerRef}
-            onClick={handleGridClick}
-            onContextMenu={(e) => {
-                if ((e.target as HTMLElement).closest("[data-task-chip]")) return;
-                setContextSlot(computeSlotFromEvent(e));
-            }}
-            className={`
-                relative flex-1 min-w-0 border-l border-white/[0.07]
-                transition-colors duration-150 cursor-crosshair
-                ${isToday ? "bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent-primary)_6%,transparent),color-mix(in_srgb,var(--accent-primary)_2%,transparent)_32%,rgba(126,184,212,0.025)_72%,rgba(10,15,28,0.02))] shadow-[inset_1px_0_0_color-mix(in_srgb,var(--accent-primary)_10%,transparent),inset_-1px_0_0_color-mix(in_srgb,var(--accent-primary)_6%,transparent)]" : ""}
-                ${activeDropPreview?.dateStr === dateStr ? "bg-white/[0.015]" : ""}
-            `}
-            style={{ height: DAY_GRID_HEIGHT }}
-        >
-            <TimeSlotDropLayer
-                dateStr={dateStr}
-                activeMinutes={activeDropPreview?.kind === "timed" && activeDropPreview.dateStr === dateStr
-                    ? activeDropPreview.startMinutes ?? null
-                    : null}
-            />
-            {/* Hour grid lines */}
-            {Array.from({ length: 24 }, (_, h) => (
-                <div
-                    key={h}
-                    className="absolute left-0 right-0 border-t border-twilight-border/20"
-                    style={{ top: h * HOUR_HEIGHT }}
-                />
-            ))}
-
-            {/* Quarter-hour faint lines */}
-            {Array.from({ length: 24 * 4 }, (_, slot) => (
-                <div
-                    key={`quarter-${slot}`}
-                    className="absolute left-0 right-0 border-t border-white/[0.03] border-dashed"
-                    style={{ top: (slot * HOUR_HEIGHT) / 4 }}
-                />
-            ))}
-
-            {activeDropPreview?.kind === "timed" && activeDropPreview.dateStr === dateStr ? (
-                <TimedDropPreview preview={activeDropPreview} />
-            ) : null}
-
-            {/* Task chips — absolutely positioned */}
-            {buildTimedTaskLayouts(tasks).map((layout) => (
-                <CalendarTaskChip
-                    key={layout.task.id}
-                    task={layout.task}
-                    variant="block"
-                    sourceId={`day-${dateStr}`}
-                    onSelect={onSelectTask}
-                    onComplete={onCompleteTask}
-                    onArchive={onArchiveTask}
-                    onResize={onResizeTask}
-                    style={{
-                        top: layout.top,
-                        height: layout.height,
-                        left: `calc(${(layout.column / layout.columns) * 100}% + 0.25rem)`,
-                        width: `calc(${100 / layout.columns}% - 0.5rem)`,
-                    }}
-                />
-            ))}
-
-            {/* Ghost block preview for click-to-create */}
-            {draftPlacement && draftPlacement.dateStr === dateStr && (
-                <div
-                    className="absolute left-1 right-1 z-15 rounded-xl border border-dashed border-accent-primary/30 bg-accent-primary/10 backdrop-blur-sm pointer-events-none flex items-center px-3"
-                    style={{
-                        top: (draftPlacement.startMinute / 60) * HOUR_HEIGHT,
-                        height: ((draftPlacement.endMinute - draftPlacement.startMinute) / 60) * HOUR_HEIGHT,
-                    }}
-                >
-                    <span className="text-[12px] text-accent-primary/70 font-medium">
-                        {`${minutesToWallTime(draftPlacement.startMinute)} – ${minutesToWallTime(draftPlacement.endMinute)}`}
-                    </span>
-                </div>
-            )}
-
-        </div>
-            </ContextMenu.Trigger>
-            <ContextMenu.Content>
-                <ContextMenu.Item onSelect={() => {
-                    if (!contextSlot) return;
-                    onGridClick?.({ date: dateStr, startHour: contextSlot.hours, startMinute: contextSlot.mins, anchorX: 0, anchorY: 0 });
-                }}>
-                    <Plus size={14} aria-hidden="true" />
-                    Add task here {contextTimeLabel && <span className="ml-auto text-[11px] text-twilight-text-muted">{contextTimeLabel}</span>}
-                </ContextMenu.Item>
-                <ContextMenu.Item onSelect={() => {
-                    if (!contextSlot) return;
-                    onGridClick?.({ date: dateStr, startHour: contextSlot.hours, startMinute: contextSlot.mins, anchorX: 0, anchorY: 0 });
-                }}>
-                    <CalendarHeart size={14} aria-hidden="true" />
-                    Add event here
-                </ContextMenu.Item>
-                <ContextMenu.Item onSelect={() => {
-                    if (!contextSlot) return;
-                    onGridClick?.({ date: dateStr, startHour: contextSlot.hours, startMinute: contextSlot.mins, anchorX: 0, anchorY: 0 });
-                }}>
-                    <Focus size={14} aria-hidden="true" />
-                    Block focus time
-                </ContextMenu.Item>
-                <ContextMenu.Separator />
-                <ContextMenu.Item onSelect={() => onJumpToDay?.(dateStr)}>
-                    <ArrowRight size={14} aria-hidden="true" />
-                    Jump to day
-                </ContextMenu.Item>
-            </ContextMenu.Content>
-        </ContextMenu.Root>
-    );
-}
 
 export interface WeekViewProps {
     /** The 7 LocalDates of this week in the active configured order */
@@ -211,8 +28,6 @@ export interface WeekViewProps {
     /** Ghost block placement for click-to-create preview */
     draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
     onSelectTask: (id: string) => void;
-    onCompleteTask: (id: string) => void;
-    onArchiveTask: (id: string) => void;
     onResizeTask?: (id: string, durationMinutes: number) => void;
     /** Callback when user clicks an empty grid cell (opens event popover) */
     onGridClick?: (info: CalendarEventInfo) => void;
@@ -231,8 +46,6 @@ export function WeekView({
     activeDropPreview,
     draftPlacement,
     onSelectTask,
-    onCompleteTask,
-    onArchiveTask,
     onResizeTask,
     onGridClick,
     onJumpToDay,
@@ -248,15 +61,9 @@ export function WeekView({
         }
     }, [startHour]);
 
-    // Split tasks into all-day and timed
-    const allDayByDate = useMemo(() => {
-        const map: Record<string, Task[]> = {};
-        weekDates.forEach((ds) => {
-            // One-off tasks lead, so the single visible slot never goes to a daily routine anchor.
-            map[ds] = (tasksByDate[ds] ?? []).filter((t) => !t.scheduledStart).sort((a, b) => Number(!!a.isHabit) - Number(!!b.isHabit));
-        });
-        return map;
-    }, [weekDates, tasksByDate]);
+    // The series whose hover card is open: its chips light up, the rest dim.
+    const [hoveredSeries, setHoveredSeries] = useState<string | null>(null);
+    const hover = useMemo(() => ({ series: hoveredSeries, setSeries: setHoveredSeries }), [hoveredSeries]);
 
     const timedByDate = useMemo(() => {
         const map: Record<string, Task[]> = {};
@@ -267,37 +74,31 @@ export function WeekView({
     }, [weekDates, tasksByDate]);
 
     return (
+        <CalendarHoverContext.Provider value={hover}>
         <div className="surface-card m-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] sm:m-3">
-            {/* ── Day headers + All-Day row ── */}
-            <div className="shrink-0 flex border-b border-twilight-border/30">
-                {/* Gutter spacer with "All day" label */}
-                <div className="w-14 shrink-0 flex flex-col justify-end pb-2 pr-2.5">
-                    <span className="text-[10px] text-twilight-text-muted/90 uppercase tracking-widest text-right select-none">
-                        All day
-                    </span>
-                </div>
-
+            {/* ── Day headers ── */}
+            <div className="shrink-0 flex">
+                <div className="w-14 shrink-0" />
                 {weekDates.map((ds) => {
                     const isToday = ds === todayStr;
-                    const allDay = allDayByDate[ds] ?? [];
                     const dayLabel = weekdayName(ds, "short");
 
                     return (
                         <div
                             key={ds}
-                            className={`flex-1 min-w-0 border-l border-twilight-border/20 ${isToday ? "bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent-primary)_5%,transparent),color-mix(in_srgb,var(--accent-primary)_2%,transparent)_58%,transparent)] shadow-[inset_1px_0_0_color-mix(in_srgb,var(--accent-primary)_10%,transparent),inset_-1px_0_0_color-mix(in_srgb,var(--accent-primary)_5%,transparent)]" : ""}`}
+                            className={`flex-1 min-w-0 border-l border-twilight-border/20 ${isToday ? "calendar-today-column" : ""}`}
                         >
-                            {/* Day header */}
-                            <div className={`px-2 py-3 text-center ${isToday ? "text-accent-primary" : "text-twilight-text-muted"}`}>
+                            <div className={`px-2 py-3 text-center [@media(max-height:760px)]:py-1.5 ${isToday ? "text-accent-primary" : "text-twilight-text-muted"}`}>
+                                <div className="flex flex-col items-center [@media(max-height:760px)]:flex-row [@media(max-height:760px)]:justify-center [@media(max-height:760px)]:gap-1.5">
                                 <div className="text-[11px] uppercase tracking-widest font-medium text-twilight-text-muted">
                                     {dayLabel}
                                 </div>
-                                <div className="mt-0.5 flex items-center justify-center gap-1.5">
+                                <div className="mt-0.5 flex items-center justify-center gap-1.5 [@media(max-height:760px)]:mt-0">
                                     <div className={`
                                         font-display font-semibold leading-none
                                         flex h-8 w-8 items-center justify-center text-lg
                                         ${isToday
-                                            ? "rounded-full bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_15%,transparent)]"
+                                            ? "rounded-full bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary"
                                             : ""}
                                     `}>
                                         {dayOfMonth(ds)}
@@ -309,7 +110,7 @@ export function WeekView({
                                                 className="inline-flex h-4 w-4 items-center justify-center rounded-full text-solstice focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-solstice/60 cursor-pointer"
                                                 aria-label={`Holiday: ${holidaysByDate[ds].map((holiday) => holiday.name).join(", ")}`}
                                             >
-                                                <span className="h-2 w-2 rounded-full bg-solstice shadow-[0_0_8px_rgba(217,106,59,0.45)]" />
+                                                <span className="h-2 w-2 rounded-full bg-solstice" />
                                             </button>
                                         </Tip>
                                     )}
@@ -320,7 +121,7 @@ export function WeekView({
                                                 className="inline-flex h-4 w-4 items-center justify-center rounded-full text-violet focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet/60 cursor-pointer"
                                                 aria-label="Your birthday"
                                             >
-                                                <span className="h-2 w-2 rounded-full bg-violet shadow-[0_0_8px_rgba(155,114,207,0.45)]" />
+                                                <span className="h-2 w-2 rounded-full bg-violet" />
                                             </button>
                                         </Tip>
                                     )}
@@ -336,97 +137,64 @@ export function WeekView({
                                                         {personalEventsByDate[ds].length}
                                                     </span>
                                                 ) : (
-                                                    <span className="h-2 w-2 rounded-full bg-accent-nav-schedule shadow-[0_0_8px_color-mix(in_srgb,var(--accent-nav-schedule)_45%,transparent)]" />
+                                                    <span className="h-2 w-2 rounded-full bg-accent-nav-schedule" />
                                                 )}
                                             </button>
                                         </Tip>
                                     )}
                                 </div>
-                            </div>
-
-                            {/* All-day chips */}
-                            <AllDayDropLane
-                                dateStr={ds}
-                                className={`px-1 pb-1.5 ${isToday ? "rounded-b-[1rem] bg-white/[0.015]" : ""}`}
-                                isActive={activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === ds}
-                            >
-                                <div className="flex flex-col gap-[2px]">
-                                    {activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === ds ? (
-                                        <AllDayDropPreview preview={activeDropPreview} />
-                                    ) : null}
-                                    {allDay.slice(0, 1).map((t) => (
-                                        <CalendarTaskChip
-                                            key={t.id}
-                                            task={t}
-                                            variant="pill"
-                                            sourceId={`allday-${ds}`}
-                                            onSelect={onSelectTask}
-                                            onComplete={onCompleteTask}
-                                            onArchive={onArchiveTask}
-                                        />
-                                    ))}
-                                    {allDay.length > 1 && (
-                                        <Popover.Root>
-                                            <Popover.Trigger asChild>
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    className="text-[10px] leading-none text-twilight-text-muted hover:text-accent-primary transition-colors cursor-pointer pl-1 py-0.5 rounded-lg hover:bg-white/[0.04]"
-                                                >
-                                                    +{allDay.length - 1} more
-                                                </button>
-                                            </Popover.Trigger>
-                                            <Popover.Content side="bottom" align="start" className="w-64 p-2 flex flex-col gap-[3px]">
-                                                {allDay.slice(1).map((t) => (
-                                                    <CalendarTaskChip
-                                                        key={t.id}
-                                                        task={t}
-                                                        variant="pill"
-                                                        sourceId={`allday-${ds}`}
-                                                        onSelect={onSelectTask}
-                                                        onComplete={onCompleteTask}
-                                                        onArchive={onArchiveTask}
-                                                    />
-                                                ))}
-                                            </Popover.Content>
-                                        </Popover.Root>
-                                    )}
                                 </div>
-                            </AllDayDropLane>
+                            </div>
                         </div>
                     );
                 })}
             </div>
 
+            {/* ── All-day lane: bars across days, one-off tasks, a strip of routine marks ── */}
+            <div className="shrink-0 flex border-b border-twilight-border/30">
+                <div className="w-14 shrink-0 pr-2.5 pt-1">
+                    <span className="block text-right text-[10px] uppercase tracking-widest text-twilight-text-muted/90 select-none">
+                        All day
+                    </span>
+                </div>
+                <AllDayWeekLane
+                    weekDates={weekDates}
+                    tasksByDate={tasksByDate}
+                    todayStr={todayStr}
+                    activeDropPreview={activeDropPreview}
+                    onSelectTask={onSelectTask}
+                />
+            </div>
+
             {/* ── Scrollable time grid ── */}
-            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-20">
                 <div className="flex" style={{ height: DAY_GRID_HEIGHT }}>
                     {/* Time gutter */}
                     <TimeGutter hourHeight={HOUR_HEIGHT} />
 
                     {/* Day columns */}
-                    {weekDates.map((ds) => {
+                    {weekDates.map((ds, index) => {
                         return (
                             <div key={ds} className="relative flex-1 min-w-0">
-                                <DroppableDayColumn
+                                <TimedCalendarColumn
+                                    className="border-l border-twilight-border/25"
                                     dateStr={ds}
                                     tasks={timedByDate[ds] ?? []}
                                     isToday={ds === todayStr}
                                     activeDropPreview={activeDropPreview}
                                     draftPlacement={draftPlacement}
+                                    tipSide={index >= 5 ? "left" : "right"}
                                     onSelectTask={onSelectTask}
-                                    onCompleteTask={onCompleteTask}
-                                    onArchiveTask={onArchiveTask}
                                     onResizeTask={onResizeTask}
                                     onGridClick={onGridClick}
                                     onJumpToDay={onJumpToDay}
                                 />
-                                {ds === todayStr && <CurrentTimeIndicator />}
                             </div>
                         );
                     })}
                 </div>
             </div>
         </div>
+        </CalendarHoverContext.Provider>
     );
 }

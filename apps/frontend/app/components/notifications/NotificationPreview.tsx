@@ -7,9 +7,10 @@ import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
 import * as Popover from "../primitives/Popover";
 import { Tip } from "../primitives/Tooltip";
 import { NotificationRow } from "./NotificationRow";
+import { HEADER_ICON_BUTTON } from "../layout/PageHeader";
 
 /** Desktop's quick glance; compact shells open the full sheet directly. */
-export function NotificationPreview({ side = "right" }: { side?: "right" | "bottom" }) {
+export function NotificationPreview({ side = "right", placement = "rail" }: { side?: "right" | "bottom"; /** `rail` is the ghost icon in the icon rail; `header` is the page header's control family. */ placement?: "rail" | "header" }) {
     const [open, setOpen] = useState(false);
     const { notifications, unreadCount, markRead, dismiss } = useNotificationCenter();
     const { openNotifications } = useUtilityNavigation();
@@ -19,9 +20,11 @@ export function NotificationPreview({ side = "right" }: { side?: "right" | "bott
     const recent = [...notifications].sort((a, b) => Date.parse(b.triggerAt) - Date.parse(a.triggerAt)).slice(0, 3);
 
     return <Popover.Root modal={false} open={open} onOpenChange={setOpen}>
-        <Tip label="Notifications" side="right"><Popover.Trigger asChild>
+        <Tip label="Notifications" side={placement === "header" ? "bottom" : "right"}><Popover.Trigger asChild>
             <button ref={trigger} data-notification-trigger type="button" aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
-                className="btn-icon relative rounded-2xl text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-accent-primary">
+                className={placement === "header"
+                    ? `${HEADER_ICON_BUTTON} relative`
+                    : "btn-icon relative rounded-2xl text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-accent-primary"}>
                 <Bell size={18} aria-hidden="true" />
                 {unreadCount > 0 && <ActivityBadge count={unreadCount} className="absolute right-0.5 top-0.5" />}
             </button>

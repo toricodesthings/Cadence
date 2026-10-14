@@ -1,3 +1,4 @@
+import { HEADER_ICON_BUTTON } from "../components/layout/PageHeader";
 import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
 import { lazy, useState, useMemo, useCallback, useRef } from "react";
 import { StartupSuspense } from "../components/shared/StartupSuspense";
@@ -155,7 +156,7 @@ export default function HomeRoute() {
                 clearSelection();
                 setMobilePanelOpen(true);
             }}
-            className="btn-icon rounded-2xl"
+            className={HEADER_ICON_BUTTON}
             aria-label="Place"
         >
             <CalendarDays size={16} aria-hidden="true" />
