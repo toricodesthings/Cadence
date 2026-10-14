@@ -258,9 +258,11 @@ describe("finding a task the user half-remembers", () => {
         // "the comp assignment due today": no title holds "comp", the section does.
         const today = await call("get_tasks", { query: "comp assignment", dueWindow: "today" });
         expect(today.tasks).toMatchObject([{ id: target, title: "Assignment 1", list: "University", section: "COMP3005" }]);
-        expect((await call("get_tasks", { query: "Assignment 1 COMP 3005" })).tasks).toMatchObject([{ id: target }]);
+        expect((await call("get_tasks", { query: "Assignment 1 COMP3005" })).tasks).toMatchObject([{ id: target }]);
+        // Codes stay literal: inserting a space must not broaden an identifier match.
+        expect((await call("get_tasks", { query: "Assignment 1 COMP 3005" })).tasks).toEqual([]);
         expect((await call("get_tasks", { query: "comp assignment" })).count).toBe(2);
-        expect((await call("get_projects", { query: "comp 3005" })).projects).toMatchObject([{ id: projectId }]);
+        expect((await call("get_projects", { query: "COMP3005" })).projects).toMatchObject([{ id: projectId }]);
         // Today at a glance reads the schedule window: its rows carry the names too.
         const window = await call("get_schedule_window", { start: "2026-09-23", end: "2026-09-23" });
         expect(window.tasks).toMatchObject([{ id: target, list: "University", section: "COMP3005" }]);

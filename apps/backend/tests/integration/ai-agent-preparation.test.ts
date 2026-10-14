@@ -16,13 +16,14 @@ import { embedText } from "../../src/domains/ai/memory/embedding";
 
 import { validateStoredContexts } from "../../src/domains/ai/memory/context-reuse";
 import { loadContextFacts, forgetFact } from "../../src/domains/ai/memory/memory-store";
+import * as memoryStore from "../../src/domains/ai/memory/memory-store";
 import { loadAgentSnapshot, loadSnapshot, userClock } from "../../src/domains/ai/turn";
 import { buildToolRegistry } from "../../src/domains/ai/tools/index";
 import * as routineReads from "../../src/domains/ai/tools/routine-reads";
 
 let userId: string;
 const now = "2026-10-13T18:00:00Z";
-const env = { AI_MEMORY_COVERAGE_GATE: "true" } as Env;
+const env = {} as Env;
 const settings: UserSettings = { assistant: { memoryMode: "basic" }, dateTime: { weekStart: "Monday", timezone: "America/Toronto", timeDisplay: "12h" } };
 
 beforeAll(startTestDb);
@@ -35,10 +36,10 @@ async function fact(kind: string, content: string) {
     return asOwner((pg) => pg.query(`INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence)
         VALUES ($1, $2::memory_kind, $3, '2026-10-01', '2026-10-01', 'chat', 'stated')`, [userId, kind, content]));
 }
-async function prepare(queryText = "Help me plan this afternoon", overrides: Partial<Env> = {}, provided: UserSettings = settings, promptPackaging?: PromptPackaging) {
+async function prepare(queryText = "Help me plan this afternoon", memoryPreparation?: "parallel", provided: UserSettings = settings, promptPackaging?: PromptPackaging) {
     const diagnostics = createRunDiagnostics(() => performance.now());
-    const result = await getAgentInstance({ ...env, ...overrides }, userId, {
-        timezone: "America/Toronto", currentDate: now, queryText, nonce: "fixture", approvalMode: "full", settings: provided, diagnostics, promptPackaging,
+    const result = await getAgentInstance(env, userId, {
+        timezone: "America/Toronto", currentDate: now, queryText, nonce: "fixture", approvalMode: "full", settings: provided, diagnostics, promptPackaging, memoryPreparation,
     });
     return { ...result, diagnostics: diagnostics.snapshot() };
 }
@@ -46,9 +47,9 @@ async function prepare(queryText = "Help me plan this afternoon", overrides: Par
 describe("exact preparation", () => {
     it("defaults to compact packaging and keeps baseline tools and stored contexts compatible", async () => {
         await fact("constraint", "Keep Friday evenings free");
-        const baseline = await prepare(undefined, {}, settings, "baseline");
+        const baseline = await prepare(undefined, undefined, settings, "baseline");
         const candidate = await prepare();
-        const explicit = await prepare(undefined, {}, settings, "static-memory");
+        const explicit = await prepare(undefined, undefined, settings, "static-memory");
         expect(candidate.turnContext).toBe(explicit.turnContext);
         expect(candidate.promptHash).toBe(explicit.promptHash);
         expect(candidate.promptHash).not.toBe(baseline.promptHash);
@@ -83,22 +84,43 @@ describe("exact preparation", () => {
         expect(result.turnContext).toContain("Afternoon gardening works best");
         expect(result.diagnostics.memoryCoverage?.hasRecallCandidates).toBe(true);
         expect(result.diagnostics.phases.map((p) => p.name)).toContain("recall");
+        const profile = result.diagnostics.phases.find((p) => p.name === "profile")!;
+        const embedding = result.diagnostics.phases.find((p) => p.name === "embedding")!;
+        expect(embedding.startMs).toBeGreaterThanOrEqual(profile.endMs!);
+    });
+
+    it("still recalls facts excluded by the profile budget", async () => {
+        for (let i = 0; i < 4; i++) await fact("preference", `${i} Gardening ${"x".repeat(780)}`);
+        const result = await prepare("Help with gardening");
+        expect(result.diagnostics.memoryCoverage).toMatchObject({ variant: "exact", hasRecallCandidates: true, profileFacts: 2 });
+        expect(embedText).toHaveBeenCalledOnce();
+        expect(result.diagnostics.phases.map((p) => p.name)).toContain("recall");
+    });
+
+    it("does not start a speculative embedding when the profile read fails", async () => {
+        vi.spyOn(memoryStore, "loadProfileCoverage").mockRejectedValueOnce(new Error("profile unavailable"));
+        const result = await prepare();
+        expect(embedText).not.toHaveBeenCalled();
+        expect(result.turnContext).toContain("Today at a glance");
+        expect(result.diagnostics.memoryCoverage).toBeUndefined();
+        expect(Object.keys(result.agent.tools)).toContain("recall");
+        expect(result.diagnostics.phases.map((p) => p.name)).not.toContain("recall");
     });
 
     it("keeps the short-query and memory-off gates", async () => {
         await fact("pattern", "Afternoon gardening works best");
         await prepare("ok");
         expect(embedText).not.toHaveBeenCalled();
-        const result = await prepare("Help with afternoon gardening", {}, { ...settings, assistant: { memoryMode: "off" } });
+        const result = await prepare("Help with afternoon gardening", undefined, { ...settings, assistant: { memoryMode: "off" } });
         expect(embedText).not.toHaveBeenCalled();
         expect(result.turnContext).not.toContain("Afternoon gardening works best");
         expect(result.diagnostics.memoryCoverage).toBeUndefined();
         expect(Object.keys(result.agent.tools)).not.toContain("recall");
     });
 
-    it("defaults to the existing parallel path for rollback", async () => {
+    it("keeps the parallel path only as an explicit internal benchmark baseline", async () => {
         await fact("constraint", "Keep Friday evenings free");
-        const result = await prepare(undefined, { AI_MEMORY_COVERAGE_GATE: undefined });
+        const result = await prepare(undefined, "parallel");
         expect(embedText).toHaveBeenCalledOnce();
         expect(result.diagnostics.memoryCoverage?.variant).toBe("parallel");
         expect(result.turnContext).toContain("Keep Friday evenings free");
@@ -108,7 +130,7 @@ describe("exact preparation", () => {
         const synced = await withRls(getTestDb(), userId, (tx) => syncUserZoneWithSettings(tx, userId, "Europe/Paris"));
         expect(synced.timezone).toBe("America/Toronto");
         expect(synced.settings).toMatchObject(settings);
-        const result = await prepare(undefined, {}, synced.settings as typeof settings);
+        const result = await prepare(undefined, undefined, synced.settings as typeof settings);
         expect(result.turnContext).toContain("Monday");
         // Current tool reads remain fresh: the snapshot's reuse is not a global settings cache.
         expect(Object.keys(result.agent.tools)).toContain("get_events");
@@ -248,7 +270,7 @@ describe("exact preparation", () => {
             expect(outputs[0]).toBe(outputs[1]);
             samples.push(times);
         }
-        const directory = join(__dirname, "../../output/evals");
+        const directory = join(__dirname, "../../../../output/evals");
         mkdirSync(directory, { recursive: true });
         writeFileSync(join(directory, "snapshot-preparation-parity.json"), JSON.stringify({
             evidence: "local PGlite; 100 alternating pairs; 55 routines; unchanged isolated transactions; not production latency", samples,
@@ -257,9 +279,19 @@ describe("exact preparation", () => {
 
     it.skipIf(process.env.AI_PREPARATION_BENCHMARK !== "true")("preserves context across 100 paired covered and candidate-present preparations", async () => {
         await fact("constraint", "Keep Friday evenings free");
+        const embeddingDelayMs = 50;
+        vi.mocked(embedText).mockImplementation(async () => {
+            await new Promise((resolve) => setTimeout(resolve, embeddingDelayMs));
+            throw new Error("fixture provider unavailable");
+        });
         const report: Record<string, unknown> = {};
         for (const cohort of ["covered", "candidates"]) {
-            if (cohort === "candidates") await fact("pattern", "Afternoon gardening works best");
+            if (cohort === "candidates") {
+                await fact("pattern", "Afternoon gardening works best");
+                await asOwner((pg) => pg.query(`INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence)
+                    SELECT $1, 'pattern', 'Unrelated pattern ' || i, '2026-10-01', '2026-10-01', 'chat', 'stated'
+                    FROM generate_series(1, 100) i`, [userId]));
+            }
             const samples: { baselineMs: number; exactMs: number }[] = [];
             let baselineCalls = 0, exactCalls = 0;
             for (let i = 0; i < 100; i++) {
@@ -269,7 +301,7 @@ describe("exact preparation", () => {
                 for (const variant of variants) {
                     const before = vi.mocked(embedText).mock.calls.length;
                     const start = performance.now();
-                    result[variant] = await prepare("Help with afternoon gardening", { AI_MEMORY_COVERAGE_GATE: variant === "exact" ? "true" : undefined });
+                    result[variant] = await prepare("Help with afternoon gardening", variant === "baseline" ? "parallel" : undefined);
                     times[variant] = performance.now() - start;
                     const calls = vi.mocked(embedText).mock.calls.length - before;
                     if (variant === "exact") exactCalls += calls; else baselineCalls += calls;
@@ -282,10 +314,10 @@ describe("exact preparation", () => {
             expect(exactCalls).toBe(cohort === "covered" ? 0 : 100);
             report[cohort] = { pairs: 100, baselineCalls, exactCalls, samples };
         }
-        const directory = join(__dirname, "../../output/evals");
+        const directory = join(__dirname, "../../../../output/evals");
         mkdirSync(directory, { recursive: true });
         writeFileSync(join(directory, "preparation-parity.json"), JSON.stringify({
-            evidence: "local PGlite; mocked embedding failures; preparation only; not a production latency gate", ...report,
+            evidence: "local PGlite; delayed mocked embedding failures; preparation only; not production or browser latency", embeddingDelayMs, ...report,
         }, null, 2));
     }, 60_000);
 });

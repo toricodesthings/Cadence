@@ -39,8 +39,10 @@ const STATIC_CACHE_BREAKPOINT = { type: "ephemeral" } as const;
 const TURN_CACHE_BREAKPOINT = { type: "ephemeral" } as const;
 const HOUR_CACHE_BREAKPOINT = { type: "ephemeral", ttl: "1h" } as const;
 
-/** Offline/eval candidates; chat routes stay 5m/5m until the gap/cost experiment passes. */
-export type CacheVariant = "5m-5m" | "1h-5m" | "1h-1h";
+/** Isolated evaluation variants; longer TTLs carry a higher cold-write price. */
+export const CACHE_VARIANTS = ["5m-5m", "1h-5m", "1h-1h"] as const;
+export type CacheVariant = typeof CACHE_VARIANTS[number];
+export const DEFAULT_CACHE_VARIANT: CacheVariant = "5m-5m";
 
 /**
  * A Claude model. Anthropic caches only behind explicit breakpoints (the other chat models cache
@@ -59,7 +61,7 @@ function isClaude(modelId: string): boolean {
  * gets the top-level automatic breakpoint, which follows the end of the conversation
  * so each tool-loop step reads the step before it from cache.
  */
-export function chatModelSettings(env: Env, modelId: string, userHash: string, cacheVariant: CacheVariant = "5m-5m"): OpenRouterChatSettings {
+export function chatModelSettings(env: Env, modelId: string, userHash: string, cacheVariant: CacheVariant = DEFAULT_CACHE_VARIANT): OpenRouterChatSettings {
     const breakpoints = isClaude(modelId);
     return {
         models: [...new Set([modelId, getModelId(env), FALLBACK_CHAT_MODEL])],
@@ -75,7 +77,7 @@ export function chatModelSettings(env: Env, modelId: string, userHash: string, c
  * breakpoint: tools render before the system prompt, so this caches both (~15k
  * tokens, identical for every user and turn) whatever happens later in the messages.
  */
-export function chatInstructions(instructions: string, modelId: string, cacheVariant: CacheVariant = "5m-5m"): string | SystemModelMessage {
+export function chatInstructions(instructions: string, modelId: string, cacheVariant: CacheVariant = DEFAULT_CACHE_VARIANT): string | SystemModelMessage {
     if (!isClaude(modelId)) return instructions;
     return { role: "system", content: instructions, providerOptions: { openrouter: { cacheControl: cacheVariant === "5m-5m" ? STATIC_CACHE_BREAKPOINT : HOUR_CACHE_BREAKPOINT } } };
 }
@@ -101,6 +103,7 @@ export interface AgentBuildOptions {
     settings?: UserSettings; // authoritative row already loaded during zone synchronization
     promptPackaging?: PromptPackaging; // internal evaluation override; chat requests use the compact default
     cacheVariant?: CacheVariant; // fixed per isolated evaluation conversation, never chosen by a chat request
+    memoryPreparation?: "parallel"; // internal benchmark baseline; production always checks exact coverage
     waitUntil?: (promise: Promise<unknown>) => void; // keeps post-commit metrics alive
 }
 
@@ -153,7 +156,7 @@ async function loadMemoryContext(
     queryText: string | undefined,
     requestId: string | undefined,
     diagnostics?: RunDiagnostics,
-    exactCoverage = false,
+    exactCoverage = true,
 ): Promise<ProfileLine[]> {
     if (!isLearning(persona.memoryMode)) return [];
     const db = getDbClient(env);
@@ -161,8 +164,8 @@ async function loadMemoryContext(
     try {
         const canRecall = !!queryText && queryText.length >= MIN_RECALL_CHARS;
         const embed = () => measurePhase(diagnostics, "embedding", () => embedText(env, queryText!, { requestId, userHash })).catch(() => null);
-        // Default-to-baseline rollout: preserve the profile/HTTP overlap until the
-        // candidate-present latency gate has been measured for the exact variant.
+        // Only the internal benchmark starts HTTP speculatively. Production checks the
+        // coherent profile first, so a fully covered memory makes no embedding request.
         const parallelEmbedding = !exactCoverage && canRecall ? embed() : null;
         const coverage = await measurePhase(diagnostics, "profile", () => withRls(db, userId, (tx) => loadProfileCoverage(tx, userId, today)));
         profile = coverage.lines;
@@ -266,7 +269,7 @@ export async function getAgentInstance(
     const reused = await opts.reusedTurnContext;
     const [{ burnoutIndex }, memories, snapshot] = await Promise.all([
         userContext,
-        reused ? [] : loadMemoryContext(env, userId, userHash, persona, clock.today, opts.queryText, opts.requestId, opts.diagnostics, env.AI_MEMORY_COVERAGE_GATE === "true"),
+        reused ? [] : loadMemoryContext(env, userId, userHash, persona, clock.today, opts.queryText, opts.requestId, opts.diagnostics, opts.memoryPreparation !== "parallel"),
         reused ? undefined : measurePhase(opts.diagnostics, "snapshot", () => loadAgentSnapshot(env, userId, agentCtx, tools, projectEvents(normalizeSettings(settings), clock.today))),
     ]);
 
@@ -291,7 +294,7 @@ export async function getAgentInstance(
     endPrompt?.();
 
     const agent = new ToolLoopAgent({
-        model: getModel(env, modelId, userHash, opts.cacheVariant ?? "5m-5m"),
+        model: getModel(env, modelId, userHash, opts.cacheVariant ?? DEFAULT_CACHE_VARIANT),
         instructions: chatInstructions(instructions, modelId, opts.cacheVariant),
         tools: chatTools(tools, memoryOn),
         // A question to the user ends the turn: their reply is the next message.

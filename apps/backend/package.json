@@ -30,7 +30,11 @@
 		"db:studio": "drizzle-kit studio",
 		"eval:smoke": "node scripts/run-evals.mjs smoke",
 		"eval:full": "node scripts/run-evals.mjs full",
-		"eval:embeddings": "node scripts/run-evals.mjs embeddings"
+		"eval:embeddings": "node scripts/run-evals.mjs embeddings",
+		"eval:cache": "node scripts/run-evals.mjs cache",
+		"eval:cache:resume": "node scripts/run-evals.mjs cache-resume",
+		"eval:cache:matched": "node scripts/run-evals.mjs cache-matched",
+		"eval:cache:report": "node scripts/report-cache-economics.mjs"
 	},
 	"dependencies": {
 		"@cadence/contracts": "workspace:*",

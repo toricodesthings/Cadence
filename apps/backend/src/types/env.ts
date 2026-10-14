@@ -90,8 +90,6 @@ export interface Env {
     AI_DECISION_MODEL?: string;
     /** OpenRouter embedding model id — must support `dimensions` (requested at 512 for ai_memories.embedding). */
     AI_EMBEDDING_MODEL?: string;
-    /** Exact profile coverage elides recall HTTP work. Unset preserves parallel embedding until latency gates pass. */
-    AI_MEMORY_COVERAGE_GATE?: string;
 
     // ── AI stream resumption (Upstash Redis, REST) ──
     /** Upstash Redis REST endpoint. When absent, resumption is disabled (streaming still works). */

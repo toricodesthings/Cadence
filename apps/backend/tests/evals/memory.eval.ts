@@ -40,7 +40,6 @@ const env = {
     AI_CHAT_MODEL_BASIC: vars.AI_CHAT_MODEL_BASIC,
     AI_DECISION_MODEL: vars.AI_DECISION_MODEL,
     AI_EMBEDDING_MODEL: vars.AI_EMBEDDING_MODEL,
-    AI_MEMORY_COVERAGE_GATE: vars.AI_MEMORY_COVERAGE_GATE,
 } as unknown as Env;
 const live = Boolean(env.OPENROUTER_API_KEY);
 const RUNS = evaluation.memoryRuns;
