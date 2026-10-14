@@ -234,6 +234,11 @@ export async function duplicateTask(tx: Tx, userId: string, id: string, title?: 
 
 type StoredTemporal = Pick<TaskRow, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "zone">;
 
+/** A multi-day task's last day after its first day moves: the span is kept. */
+function movedEndDate(existing: StoredTemporal, dueDate: string | null | undefined) {
+    return dueDate && existing.dueDate && existing.endDate ? addDays(existing.endDate, daysBetween(existing.dueDate, dueDate)) : existing.endDate;
+}
+
 /**
  * A patch laid over the stored task, as the fields to validate. A time edit re-plans the task in the
  * user's zone; a day edit on a multi-day task moves its end by the same amount; turning a timed task
@@ -244,14 +249,12 @@ function mergeTemporal(existing: StoredTemporal, body: TaskPatch): TaskTemporalF
     const startsNull = body.scheduledStart === null;
     const timeEdit = has("scheduledStart") || has("scheduledEnd");
     const dueDate = has("dueDate") ? body.dueDate : existing.dueDate;
-    let endDate = has("endDate") ? body.endDate : existing.endDate;
-    if (!has("endDate") && has("dueDate") && body.dueDate && existing.dueDate && existing.endDate) {
-        endDate = addDays(existing.endDate, daysBetween(existing.dueDate, body.dueDate)); // keep the span
-    }
     const scheduledStart = has("scheduledStart") ? body.scheduledStart : existing.scheduledStart;
     // Leaving timed behind (start cleared) forgets the old end; becoming timed forgets the old end day.
     const scheduledEnd = has("scheduledEnd") ? body.scheduledEnd : startsNull ? null : existing.scheduledEnd;
-    if (scheduledStart && has("scheduledStart") && !has("endDate")) endDate = null;
+    const endDate = has("endDate") ? body.endDate
+        : scheduledStart && has("scheduledStart") ? null
+            : movedEndDate(existing, body.dueDate);
     return {
         dueDate,
         endDate,

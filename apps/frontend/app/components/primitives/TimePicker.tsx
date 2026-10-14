@@ -35,6 +35,36 @@ function formatTime(value: string, is24h: boolean): string {
     return `${h12}:${ms} ${period}`;
 }
 
+/** "9", "9:30", "930" or "0905" as [hour, minute], before any AM/PM. */
+function hourMinute(digits: string): [number, number] | null {
+    let h: number;
+    let m: number;
+    if (digits.includes(":")) {
+        const [hs, ms = ""] = digits.split(":");
+        if (!hs) return null;
+        h = Number(hs);
+        m = ms === "" ? 0 : Number(ms);
+    } else if (digits.length <= 2) {
+        h = Number(digits);
+        m = 0;
+    } else if (digits.length <= 4) {
+        h = Number(digits.slice(0, -2));
+        m = Number(digits.slice(-2));
+    } else {
+        return null;
+    }
+    return Number.isNaN(h) || Number.isNaN(m) || m > 59 ? null : [h, m];
+}
+
+/** The 24h hour: a period is honored; a bare 1–12 in 12h mode keeps the current value's AM/PM. */
+function to24Hour(h: number, period: "AM" | "PM" | null, current: string, is24h: boolean): number | null {
+    if (period) return h < 1 || h > 12 ? null : (h % 12) + (period === "PM" ? 12 : 0);
+    if (h > 23) return null;
+    if (is24h || h < 1 || h > 12) return h;
+    const curH = Number(current.split(":")[0]);
+    return (h % 12) + (Number.isNaN(curH) || curH < 12 ? 0 : 12);
+}
+
 /**
  * Forgiving parser: accepts "9", "9:30", "09:05", "930", "2:37pm", "9 p",
  * "14:30". Period is honored in both display modes. An ambiguous bare hour
@@ -51,35 +81,10 @@ function parseTimeInput(raw: string, current: string, is24h: boolean): string | 
     const cleaned = core.replace(/[^\d:]/g, "");
     if (!cleaned) return null;
 
-    let h: number;
-    let m: number;
-    if (cleaned.includes(":")) {
-        const [hs, ms = ""] = cleaned.split(":");
-        if (!hs) return null;
-        h = Number(hs);
-        m = ms === "" ? 0 : Number(ms);
-    } else if (cleaned.length <= 2) {
-        h = Number(cleaned);
-        m = 0;
-    } else if (cleaned.length <= 4) {
-        h = Number(cleaned.slice(0, -2));
-        m = Number(cleaned.slice(-2));
-    } else {
-        return null;
-    }
-    if (Number.isNaN(h) || Number.isNaN(m) || m > 59) return null;
-
-    if (period) {
-        if (h < 1 || h > 12) return null;
-        h = (h % 12) + (period === "PM" ? 12 : 0);
-    } else if (h > 23) {
-        return null;
-    } else if (!is24h && h >= 1 && h <= 12) {
-        const curH = Number(current.split(":")[0]);
-        const curPeriod = Number.isNaN(curH) || curH < 12 ? "AM" : "PM";
-        h = (h % 12) + (curPeriod === "PM" ? 12 : 0);
-    }
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    const parts = hourMinute(cleaned);
+    if (!parts) return null;
+    const h = to24Hour(parts[0], period, current, is24h);
+    return h === null ? null : `${String(h).padStart(2, "0")}:${String(parts[1]).padStart(2, "0")}`;
 }
 
 /** Index of the suggestion closest to the given "HH:mm" value. */

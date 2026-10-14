@@ -10,6 +10,32 @@ import { GRADIENT_PRESETS } from "../../lib/themes/gradient-presets";
 import { THEME_PRESET_MAP, type ThemePresetId } from "../../lib/themes/theme-presets";
 import { resolveLoadingSeason } from "../../lib/themes/season";
 
+/** Set an attribute on `<html>`, or remove it when the value is null (its default). */
+function useRootAttribute(name: string, value: string | null) {
+    useEffect(() => {
+        if (value === null) document.documentElement.removeAttribute(name);
+        else document.documentElement.setAttribute(name, value);
+    }, [name, value]);
+}
+
+/** Background tokens for a photo, a theme preset's suggested gradient, or a custom colour or gradient; null = the theme's own. */
+function customBackgroundTokens(
+    photoBase: string | null,
+    backgroundMode: string,
+    backgroundColor: string | null,
+    backgroundGradient: string | null,
+    themePreset: string,
+): Record<string, string> | null {
+    if (photoBase) return deriveCustomTokens(photoBase);
+    if (backgroundMode !== "theme" && backgroundColor) return deriveCustomTokens(backgroundColor);
+    const gradient = backgroundMode === "theme"
+        ? THEME_PRESET_MAP[themePreset as ThemePresetId]?.suggestedGradient
+        : GRADIENT_PRESETS.find((g) => g.id === backgroundGradient);
+    if (!gradient) return null;
+    const { color1, color2, direction } = gradient;
+    return { ...deriveCustomTokens(gradientBaseHex(color1, color2)), __gradient: buildGradientCSS(color1, color2, direction) };
+}
+
 /**
  * Syncs appearance settings to data attributes on `<html>`, driving
  * CSS custom property overrides in app.css.
@@ -30,20 +56,20 @@ import { resolveLoadingSeason } from "../../lib/themes/season";
 export function useThemeSync() {
     const { data: settings } = useSettings();
     const { layoutScale, scaleFactor } = useDesktopLayoutScale();
-    const theme = settings?.appearance?.theme ?? "twilight";
-    const motion = settings?.appearance?.motion ?? "system";
-    const accentIntensity = settings?.appearance?.accentIntensity ?? "balanced";
-    const density = settings?.appearance?.density ?? "comfortable";
-    const palette = settings?.appearance?.palette ?? "lantern";
-    const themePreset = settings?.appearance?.themePreset ?? "default";
-    const loadingSeason = settings?.appearance?.loadingSeason ?? "auto";
-    const backgroundMode = settings?.appearance?.backgroundMode ?? "theme";
-    const backgroundColor = settings?.appearance?.backgroundColor ?? null;
-    const backgroundGradient = settings?.appearance?.backgroundGradient ?? null;
-    const backgroundImage = settings?.appearance?.backgroundImage ?? null;
-    const timeDisplay = settings?.dateTime?.timeDisplay ?? "12h";
-    const dateStyle = settings?.dateTime?.dateStyle ?? "mdy";
-    const weekStart = settings?.dateTime?.weekStart ?? "Monday";
+    const {
+        theme = "twilight",
+        motion = "system",
+        accentIntensity = "balanced",
+        density = "comfortable",
+        palette = "lantern",
+        themePreset = "default",
+        loadingSeason = "auto",
+        backgroundMode = "theme",
+        backgroundColor = null,
+        backgroundGradient = null,
+        backgroundImage = null,
+    } = settings?.appearance ?? {};
+    const { timeDisplay = "12h", dateStyle = "mdy", weekStart = "Monday" } = settings?.dateTime ?? {};
 
     // ── Photo background ──
     // A photo decides its own light/dark and accents: the interface has to read
@@ -89,58 +115,12 @@ export function useThemeSync() {
         void syncNativeWindowTheme(effectiveTheme === "daylight" ? "daylight" : effectiveTheme === "system" ? "system" : "twilight");
     }, [effectiveTheme]);
 
-    // ── Motion sync ──
-    useEffect(() => {
-        const root = document.documentElement;
-
-        if (motion === "reduced") {
-            root.setAttribute("data-motion", "reduced");
-        } else if (motion === "full") {
-            root.setAttribute("data-motion", "full");
-        } else {
-            root.removeAttribute("data-motion");
-        }
-    }, [motion]);
-
-    // ── Accent intensity sync ──
-    useEffect(() => {
-        const root = document.documentElement;
-        if (accentIntensity === "balanced") {
-            root.removeAttribute("data-accent");
-        } else {
-            root.setAttribute("data-accent", accentIntensity);
-        }
-    }, [accentIntensity]);
-
-    // ── Density sync ──
-    useEffect(() => {
-        const root = document.documentElement;
-        if (density === "comfortable") {
-            root.removeAttribute("data-density");
-        } else {
-            root.setAttribute("data-density", density);
-        }
-    }, [density]);
-
-    // ── Palette sync ──
-    useEffect(() => {
-        const root = document.documentElement;
-        if (palette === "lantern") {
-            root.removeAttribute("data-palette");
-        } else {
-            root.setAttribute("data-palette", palette);
-        }
-    }, [palette]);
-
-    // ── Theme preset sync ──
-    useEffect(() => {
-        const root = document.documentElement;
-        if (themePreset === "default" || themePreset === "daylight-default") {
-            root.removeAttribute("data-theme-preset");
-        } else {
-            root.setAttribute("data-theme-preset", themePreset);
-        }
-    }, [themePreset]);
+    // ── Attributes, absent at their defaults ──
+    useRootAttribute("data-motion", motion === "system" ? null : motion);
+    useRootAttribute("data-accent", accentIntensity === "balanced" ? null : accentIntensity);
+    useRootAttribute("data-density", density === "comfortable" ? null : density);
+    useRootAttribute("data-palette", palette === "lantern" ? null : palette);
+    useRootAttribute("data-theme-preset", themePreset === "default" || themePreset === "daylight-default" ? null : themePreset);
 
     // ── Loading scene season (its own setting, never the theme) ──
     useEffect(() => {
@@ -148,31 +128,10 @@ export function useThemeSync() {
     }, [loadingSeason]);
 
     // ── Custom background sync ──
-    const customBgTokens = useMemo(() => {
-        if (photo) return deriveCustomTokens(photo.tone.base);
-
-        if (backgroundMode === "theme") {
-            // For theme mode, derive tokens from the preset's suggested gradient
-            const preset = THEME_PRESET_MAP[themePreset as ThemePresetId];
-            if (preset?.suggestedGradient) {
-                const { color1, color2, direction } = preset.suggestedGradient;
-                return { ...deriveCustomTokens(gradientBaseHex(color1, color2)), __gradient: buildGradientCSS(color1, color2, direction) };
-            }
-            return null;
-        }
-
-        // Custom mode
-        if (backgroundColor) {
-            return deriveCustomTokens(backgroundColor);
-        }
-        if (backgroundGradient) {
-            const preset = GRADIENT_PRESETS.find((g) => g.id === backgroundGradient);
-            if (preset) {
-                return { ...deriveCustomTokens(gradientBaseHex(preset.color1, preset.color2)), __gradient: buildGradientCSS(preset.color1, preset.color2, preset.direction) };
-            }
-        }
-        return null;
-    }, [photo, backgroundMode, backgroundColor, backgroundGradient, themePreset]);
+    const customBgTokens = useMemo(
+        () => customBackgroundTokens(photo?.tone.base ?? null, backgroundMode, backgroundColor, backgroundGradient, themePreset),
+        [photo, backgroundMode, backgroundColor, backgroundGradient, themePreset],
+    );
 
     useEffect(() => {
         const root = document.documentElement;

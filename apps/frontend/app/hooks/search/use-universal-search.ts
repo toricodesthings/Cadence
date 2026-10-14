@@ -76,6 +76,8 @@ const STATIC_PAGES: SearchResult[] = [
     { id: "page-trash", kind: "page", focusKind: "section", title: "Trash", context: "Archived tasks", route: "/trash", score: 0 },
 ];
 
+const DUE_WINDOW_LABELS = { overdue: "Overdue", today: "Today", this_week: "This week", this_month: "This month" } as const;
+
 function describeFocusView(definition: {
     states: string[];
     projectIds: string[];
@@ -91,17 +93,7 @@ function describeFocusView(definition: {
     missingStructureOnly: boolean;
 }): string {
     const parts: string[] = [];
-    if (definition.dueWindow) {
-        parts.push(
-            definition.dueWindow === "this_week"
-                ? "This week"
-                : definition.dueWindow === "this_month"
-                    ? "This month"
-                    : definition.dueWindow === "overdue"
-                        ? "Overdue"
-                        : "Today",
-        );
-    }
+    if (definition.dueWindow) parts.push(DUE_WINDOW_LABELS[definition.dueWindow]);
     if (definition.waitingOnly) parts.push("Waiting");
     if (definition.needsDate) parts.push("Needs a date");
     if (definition.needsProject) parts.push("Needs a list");
@@ -131,6 +123,120 @@ function resolveTaskRoute(task: Task): { route: string; context: string; scope?:
     if (effectiveDate && effectiveDate <= today) return { route: "/today", context: "Today", scope: effectiveDate < today ? "today-overdue" : "today" };
     if (effectiveDate && effectiveDate > today) return { route: "/upcoming", context: "Upcoming" };
     return { route: "/", context: "Capture", scope: "holding-unmanaged" };
+}
+
+// ── Match explanation ─────────────────────────────────────────────
+
+interface TaskDetail { id: string; headings: string[]; subtaskTitles: string[]; sectionName?: string }
+
+/** The title in `titles` that best matches the query, if any. */
+function bestMatch(titles: string[], query: string): string | undefined {
+    if (!titles.length) return undefined;
+    const [hit] = createSearchIndex(titles.map((title, i) => ({ id: String(i), title }))).search(query, { prefix: true, fuzzy: true });
+    return hit ? titles[Number(hit.id)] : undefined;
+}
+
+/** When a task matched on something other than its title, say where (and open a matched note at its heading). */
+function explainTaskMatch(result: SearchResult, fields: string[], detail: TaskDetail, query: string) {
+    if (fields.includes("title")) return;
+    if (fields.includes("subtasks")) {
+        const subtask = bestMatch(detail.subtaskTitles, query);
+        result.context += subtask ? ` · Subtask: ${subtask}` : " · Subtask";
+    } else if (fields.includes("section")) {
+        result.context += ` · Section: ${detail.sectionName}`;
+    } else if (fields.includes("notes")) {
+        const heading = bestMatch(detail.headings, query);
+        result.context += heading ? ` · Heading: ${heading}` : " · Notes";
+        result.noteAction = { taskId: detail.id, taskTitle: result.title, ...(heading && { scrollToHeading: heading }) };
+    } else if (fields.includes("tags")) {
+        result.context += " · Tag";
+    }
+}
+
+// ── Index entries ─────────────────────────────────────────────────
+
+/** One search result and what the index matches it on (`title` when it differs from the shown one). */
+interface Entry { result: SearchResult; fields?: Omit<SearchDocument, "id" | "title">; title?: string }
+
+interface TaskLookups {
+    projects: Map<string, string>;
+    sections: Map<string, string>;
+    tags: Map<string, string>;
+    notes: Map<string, (typeof EMPTY_NOTES)[number]>;
+    tasks: Map<string, Task>;
+    subtasks: typeof EMPTY_SUBTASKS;
+}
+
+function taskEntry(task: Task, lookups: TaskLookups): Entry & { detail: TaskDetail } {
+    const { route, context, scope } = resolveTaskRoute(task);
+    const owner = task.seriesId ?? task.id;
+    const dedicated = lookups.notes.get(owner);
+    const legacy = lookups.tasks.get(owner)?.content ?? task.content ?? "";
+    const subtaskTitles = (lookups.subtasks[task.id] ?? []).map((sub) => sub.title);
+    const sectionName = task.sectionId ? lookups.sections.get(task.sectionId) : undefined;
+    return {
+        result: {
+            id: `task-${task.id}`, kind: "task", focusKind: "task", title: task.title,
+            context, route, focusScope: scope,
+            score: task.state === "ACTIVE" ? 5 : task.state === "COMPLETE" || task.state === "ARCHIVED" ? -15 : 0,
+        },
+        fields: {
+            notes: dedicated ? dedicated.terms.join(" ") : legacy,
+            list: task.projectId ? lookups.projects.get(task.projectId) : undefined,
+            section: sectionName,
+            subtasks: subtaskTitles.join(" "),
+            tags: task.tagIds.map((id) => lookups.tags.get(id) ?? "").join(" "),
+        },
+        // Retain the original heading text for navigation; compact note tokens aren't display text.
+        detail: { id: task.id, headings: dedicated?.headings ?? noteHeadings(legacy), subtaskTitles, sectionName },
+    };
+}
+
+function habitEntry(habit: (typeof EMPTY_HABITS)[number]): Entry {
+    return {
+        result: {
+            id: `habit-${habit.id}`, kind: "habit", focusKind: "habit", title: habit.title,
+            context: habit.archived ? "Routines · Archived" : "Routines", route: "/routines", score: habit.archived ? -10 : 0,
+        },
+        fields: { notes: `${habit.description ?? ""} ${habit.notes ?? ""}` },
+    };
+}
+
+function captureEntry(item: (typeof EMPTY_INBOX)[number]): Entry {
+    const title = (item.analysis?.userOverrides as { title?: string } | undefined)?.title ?? item.rawText;
+    return {
+        result: {
+            id: `inbox-${item.id}`, kind: "inbox", focusKind: "inbox",
+            title: title.length > 80 ? title.slice(0, 80) + "…" : title,
+            context: item.captureStatus === "kept" ? "Capture · Note" : "Capture · Thought",
+            route: "/", focusScope: "holding-captures", score: 0,
+        },
+        fields: { notes: item.rawText },
+        title,
+    };
+}
+
+function projectEntry(project: (typeof EMPTY_PROJECTS)[number]): Entry {
+    return {
+        result: {
+            id: `project-${project.id}`, kind: "project", focusKind: "section",
+            title: project.emoji ? `${project.emoji} ${project.name}` : project.name,
+            context: "List", route: `/project/${project.id}`, score: 0,
+        },
+        title: project.name,
+    };
+}
+
+function focusViewEntry(view: ReturnType<typeof useFocusViewStore.getState>["savedViews"][number]): Entry {
+    const description = describeFocusView(view.definition);
+    return {
+        result: {
+            id: `focus-view-${view.id}`, kind: "focus-view", focusKind: "section", title: view.name,
+            context: `${view.isPinned ? "Pinned" : "Saved"} · ${description}`,
+            route: "/today", focusScope: "focus-view", score: 0,
+        },
+        fields: { notes: `${description} ${view.source === "preset" ? "Preset view" : "Custom view"}` },
+    };
 }
 
 // ── Main hook ─────────────────────────────────────────────────────
@@ -163,63 +269,26 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
     const savedFocusViews = useFocusViewStore((state) => state.savedViews);
 
     const indexed = useMemo(() => {
-        const projectMap = new Map(projects.map((p) => [p.id, p]));
-        const sectionMap = new Map(sections.map((section) => [section.id, section.name]));
-        const tagMap = new Map(tags.map((tag) => [tag.id, tag.name]));
-        const noteMap = new Map(searchNotes.map((note) => [note.taskId, note]));
-        const taskMap = new Map(tasks.map((task) => [task.id, task]));
-        const documents: SearchDocument[] = [];
-        const items = new Map<string, SearchResult>();
-        const taskDetails = new Map<string, { id: string; headings: string[]; subtaskTitles: string[]; sectionName?: string }>();
-        const add = (result: SearchResult, fields: Omit<SearchDocument, "id" | "title"> = {}, title = result.title) => {
-            items.set(result.id, result);
-            documents.push({ id: result.id, title, ...fields });
+        const lookups: TaskLookups = {
+            projects: new Map(projects.map((p) => [p.id, p.name])),
+            sections: new Map(sections.map((section) => [section.id, section.name])),
+            tags: new Map(tags.map((tag) => [tag.id, tag.name])),
+            notes: new Map(searchNotes.map((note) => [note.taskId, note])),
+            tasks: new Map(tasks.map((task) => [task.id, task])),
+            subtasks: subtasksByTaskId,
         };
-        for (const page of STATIC_PAGES) add(page);
-        for (const task of tasks) {
-            const { route, context, scope } = resolveTaskRoute(task);
-            const owner = task.seriesId ?? task.id;
-            const dedicated = noteMap.get(owner);
-            const legacy = taskMap.get(owner)?.content ?? task.content ?? "";
-            const notes = dedicated ? dedicated.terms.join(" ") : legacy;
-            const headings = dedicated?.headings ?? noteHeadings(legacy);
-            const subs = subtasksByTaskId[task.id] ?? [];
-            const sectionName = task.sectionId ? sectionMap.get(task.sectionId) : undefined;
-            add({
-                id: `task-${task.id}`, kind: "task", focusKind: "task", title: task.title,
-                context, route, focusScope: scope,
-                score: task.state === "ACTIVE" ? 5 : task.state === "COMPLETE" || task.state === "ARCHIVED" ? -15 : 0,
-            }, {
-                notes, list: task.projectId ? projectMap.get(task.projectId)?.name : undefined,
-                section: sectionName, subtasks: subs.map((sub) => sub.title).join(" "),
-                tags: task.tagIds.map((id) => tagMap.get(id) ?? "").join(" "),
-            });
-            // Retain the original heading text for navigation; compact note tokens aren't display text.
-            taskDetails.set(`task-${task.id}`, { id: task.id, headings, subtaskTitles: subs.map((sub) => sub.title), sectionName });
-        }
-        for (const habit of habits) add({
-            id: `habit-${habit.id}`, kind: "habit", focusKind: "habit", title: habit.title,
-            context: habit.archived ? "Routines · Archived" : "Routines", route: "/routines", score: habit.archived ? -10 : 0,
-        }, { notes: `${habit.description ?? ""} ${habit.notes ?? ""}` });
-        for (const item of inboxItems) {
-            if (!["clarifying", "kept"].includes(item.captureStatus)) continue;
-            const title = (item.analysis?.userOverrides as { title?: string } | undefined)?.title ?? item.rawText;
-            add({ id: `inbox-${item.id}`, kind: "inbox", focusKind: "inbox",
-                title: title.length > 80 ? title.slice(0, 80) + "…" : title,
-                context: item.captureStatus === "kept" ? "Capture · Note" : "Capture · Thought",
-                route: "/", focusScope: "holding-captures", score: 0,
-            }, { notes: item.rawText }, title);
-        }
-        for (const project of projects) add({
-            id: `project-${project.id}`, kind: "project", focusKind: "section",
-            title: project.emoji ? `${project.emoji} ${project.name}` : project.name,
-            context: "List", route: `/project/${project.id}`, score: 0,
-        }, {}, project.name);
-        for (const view of savedFocusViews) add({
-            id: `focus-view-${view.id}`, kind: "focus-view", focusKind: "section", title: view.name,
-            context: `${view.isPinned ? "Pinned" : "Saved"} · ${describeFocusView(view.definition)}`,
-            route: "/today", focusScope: "focus-view", score: 0,
-        }, { notes: `${describeFocusView(view.definition)} ${view.source === "preset" ? "Preset view" : "Custom view"}` });
+        const taskEntries = tasks.map((task) => taskEntry(task, lookups));
+        const entries: Entry[] = [
+            ...STATIC_PAGES.map((result) => ({ result })),
+            ...taskEntries,
+            ...habits.map(habitEntry),
+            ...inboxItems.filter((item) => ["clarifying", "kept"].includes(item.captureStatus)).map(captureEntry),
+            ...projects.map(projectEntry),
+            ...savedFocusViews.map(focusViewEntry),
+        ];
+        const items = new Map(entries.map(({ result }) => [result.id, result]));
+        const documents = entries.map(({ result, fields, title = result.title }): SearchDocument => ({ id: result.id, title, ...fields }));
+        const taskDetails = new Map(taskEntries.map(({ result, detail }) => [result.id, detail]));
         return { engine: createSearchIndex(documents), items, taskDetails };
     }, [tasks, subtasksByTaskId, sections, tags, searchNotes, habits, inboxItems, projects, savedFocusViews]);
 
@@ -246,24 +315,8 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
         }
         const hitMap = new Map(hits.map((hit) => [hit.id, hit]));
         for (const result of grouped.tasks) {
-            const hit = hitMap.get(result.id)!;
-            const item = result;
             const detail = indexed.taskDetails.get(result.id);
-            if (detail && !hit.fields.includes("title")) {
-                if (hit.fields.includes("subtasks")) {
-                    const subtask = createSearchIndex(detail.subtaskTitles.map((title, i) => ({ id: String(i), title })))
-                        .search(query, { prefix: true, fuzzy: true })[0];
-                    result.context += subtask ? ` · Subtask: ${detail.subtaskTitles[Number(subtask.id)]}` : " · Subtask";
-                }
-                else if (hit.fields.includes("section")) result.context += ` · Section: ${detail.sectionName}`;
-                else if (hit.fields.includes("notes")) {
-                    const heading = detail.headings.length ? createSearchIndex(detail.headings.map((title, i) => ({ id: String(i), title })))
-                        .search(query, { prefix: true, fuzzy: true })[0] : undefined;
-                    const matchedHeading = heading ? detail.headings[Number(heading.id)] : undefined;
-                    result.context += matchedHeading ? ` · Heading: ${matchedHeading}` : " · Notes";
-                    result.noteAction = { taskId: detail.id, taskTitle: item.title, ...(matchedHeading && { scrollToHeading: matchedHeading }) };
-                } else if (hit.fields.includes("tags")) result.context += " · Tag";
-            }
+            if (detail) explainTaskMatch(result, hitMap.get(result.id)!.fields, detail, query);
         }
         return grouped;
     }, [query, indexed]);

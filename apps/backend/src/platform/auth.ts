@@ -3,7 +3,7 @@ import type { Context } from "hono";
 import type { Env } from "../types/env";
 import { getDeploymentStage } from "../types/env";
 import { AppError, createErrorBody } from "./errors";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, jwtVerify, type JWTVerifyOptions } from "jose";
 import { getRequestId, setRequestErrorCode } from "./request-log";
 import { logger, hashIdentifier, issuesFromError } from "./log";
 import { getDbClient } from "./db";
@@ -105,6 +105,38 @@ async function ensureUserExists(env: Env, userId: string) {
     ensuredUsers.add(userId);
 }
 
+/** The remote key set for this URL, kept across requests. */
+function keySetFor(jwksUrl: string) {
+    if (!jwksCache || cachedUrl !== jwksUrl) {
+        jwksCache = createRemoteJWKSet(new URL(jwksUrl), {
+            cooldownDuration: 30000,
+            timeoutDuration: 5000,
+        });
+        cachedUrl = jwksUrl;
+    }
+    return jwksCache;
+}
+
+/** A failure fetching the key set is worth retrying; a bad token is not. */
+function isTransientKeyFailure(err: unknown) {
+    const { code, message } = (err ?? {}) as { code?: string; message?: string };
+    return code === "ERR_JOSE_GENERIC" || Boolean(message?.includes("fetch") || message?.includes("network"));
+}
+
+const MAX_VERIFY_ATTEMPTS = 3;
+
+/** Verify the token, retrying a transient key-set failure with backoff (200ms, then 400ms). */
+async function verifyToken(token: string, keySet: ReturnType<typeof createRemoteJWKSet>, options: JWTVerifyOptions) {
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return (await tracing.enterSpan("auth.verify", () => jwtVerify(token, keySet, options))).payload;
+        } catch (err) {
+            if (!isTransientKeyFailure(err) || attempt >= MAX_VERIFY_ATTEMPTS) throw err;
+            await new Promise((res) => setTimeout(res, Math.pow(2, attempt) * 100));
+        }
+    }
+}
+
 export const authMiddleware = createMiddleware<{
     Bindings: Env;
     Variables: AuthVariables;
@@ -137,38 +169,11 @@ export const authMiddleware = createMiddleware<{
             );
         }
 
-        if (!jwksCache || cachedUrl !== jwksUrl) {
-            jwksCache = createRemoteJWKSet(new URL(jwksUrl), {
-                cooldownDuration: 30000,
-                timeoutDuration: 5000,
-            });
-            cachedUrl = jwksUrl;
-        }
-
-        const keySet = jwksCache;
-        let payload;
-        let attempt = 0;
-        const maxRetries = 3;
-
-        while (attempt < maxRetries) {
-            try {
-                const result = await tracing.enterSpan("auth.verify", () => jwtVerify(token, keySet, {
-                    ...(expectedIssuer && { issuer: expectedIssuer }),
-                    ...(expectedAudience && { audience: expectedAudience }),
-                    clockTolerance: CLOCK_TOLERANCE_SECONDS,
-                }));
-                payload = result.payload;
-                break;
-            } catch (err: any) {
-                if (err.code === 'ERR_JOSE_GENERIC' || err.message?.includes('fetch') || err.message?.includes('network')) {
-                    attempt++;
-                    if (attempt >= maxRetries) throw err;
-                    await new Promise(res => setTimeout(res, Math.pow(2, attempt) * 100));
-                } else {
-                    throw err;
-                }
-            }
-        }
+        const payload = await verifyToken(token, keySetFor(jwksUrl), {
+            ...(expectedIssuer && { issuer: expectedIssuer }),
+            ...(expectedAudience && { audience: expectedAudience }),
+            clockTolerance: CLOCK_TOLERANCE_SECONDS,
+        });
 
         if (!payload?.sub) {
             throw new AppError(401, "UNAUTHORIZED", "Missing subject in token");

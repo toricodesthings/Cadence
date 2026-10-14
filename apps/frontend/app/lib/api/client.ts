@@ -139,88 +139,113 @@ function withSignal<T>(work: Promise<T>, signal?: AbortSignal | null): Promise<T
     });
 }
 
+/** Streams and uploads own their deadlines; everything else gets one. */
+function isBounded(url: string, body: BodyInit | null | undefined) {
+    return !(body instanceof FormData || body instanceof Blob) && !url.includes("/stream") && !url.includes("/ai/chat");
+}
+
+/** One call's request, as each send and token read needs it. */
+interface Attempt {
+    input: RequestInfo | URL;
+    init: RequestInit;
+    headers: Headers;
+    callerSignal: AbortSignal | null | undefined;
+    bounded: boolean;
+    generation: number;
+}
+
+// Any rejection means no answer (the desktop transport rejects with its own errors),
+// except a caller's own abort, like stopping an assistant reply.
+function send(a: Attempt): Promise<Response> {
+    return platformFetch(a.input instanceof Request ? a.input.clone() as typeof a.input : a.input, { ...a.init, headers: a.headers }).catch((error: unknown) => {
+        if (a.callerSignal?.aborted) throw a.callerSignal.reason;
+        throw error instanceof DOMException && error.name === "AbortError" && !a.bounded ? error : networkError();
+    });
+}
+
+/** The JWT, unless the account changed, the caller left, or the deadline passed meanwhile. */
+async function acquireToken(a: Attempt): Promise<string | null> {
+    if (a.callerSignal?.aborted) throw a.callerSignal.reason;
+    let token: string | null;
+    try { token = await withSignal(fetchAuthJwt(), a.init.signal); }
+    catch (error) {
+        if (a.callerSignal?.aborted) throw a.callerSignal.reason;
+        throw a.init.signal?.aborted ? networkError() : error;
+    }
+    if (a.generation !== _authGeneration) throw new DOMException("Account changed", "AbortError");
+    if (a.callerSignal?.aborted) throw a.callerSignal.reason;
+    if (a.init.signal?.aborted) throw networkError();
+    return token;
+}
+
+/**
+ * Retry an explicit auth rejection once, before any route work/stream began.
+ * Concurrent rejections of the same token share the replacement request.
+ */
+async function retryUnauthorized(a: Attempt, response: Response): Promise<Response> {
+    const rejected = a.headers.get("Authorization")?.slice(7);
+    if (_cachedJwt === rejected) {
+        _cachedJwt = null;
+        _cachedJwtExpiry = 0;
+    }
+    const token = await acquireToken(a);
+    if (token && token !== rejected && !(a.init.body instanceof ReadableStream)) {
+        await response.body?.cancel();
+        a.headers.set("Authorization", `Bearer ${token}`);
+        response = await send(a);
+    }
+    if (response.status === 401 && a.generation === _authGeneration) publishSessionExpiry();
+    return response;
+}
+
+/** Wait out a warm start's session check, start the deadline, then attach the JWT. */
+async function authorize(a: Attempt, method: string): Promise<void> {
+    if (sessionHold) {
+        // Before the deadline starts: the wait is for the session, not this request.
+        await withSignal(sessionHold.promise, a.callerSignal);
+        if (a.generation !== _authGeneration) throw new DOMException("Account changed", "AbortError");
+    }
+    // Streams and uploads own their deadlines. Ordinary reads always retain a deadline.
+    if (a.bounded) a.init.signal = a.callerSignal
+        ? AbortSignal.any([a.callerSignal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
+        : AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+
+    // The shared JWT cache is the common path. Session/keyring reads are
+    // fallbacks, not a prerequisite repeated before every API request.
+    const token = await acquireToken(a);
+    if (!token) {
+        publishSessionExpiry();
+        throw new ApiErrorResponse({
+            status: 401,
+            code: "UNAUTHORIZED",
+            message: "Authentication token is unavailable",
+        });
+    }
+    a.headers.set("Authorization", `Bearer ${token}`);
+    if (method.toUpperCase() === "GET") a.init.cache = "no-store";
+}
+
 export async function authenticatedFetch(
     input: RequestInfo | URL,
     init: AuthenticatedFetchOptions = {},
 ): Promise<Response> {
     const { authenticated = false, ...requestInit } = init;
-    const headers = new Headers(requestInit.headers ?? (input instanceof Request ? input.headers : undefined));
-    const method = requestInit.method ?? (input instanceof Request ? input.method : "GET");
-    const callerSignal = requestInit.signal ?? (input instanceof Request ? input.signal : undefined);
-    const heldGeneration = _authGeneration;
-    if (authenticated && sessionHold) {
-        // Before the deadline starts: the wait is for the session, not this request.
-        await withSignal(sessionHold.promise, callerSignal);
-        if (heldGeneration !== _authGeneration) throw new DOMException("Account changed", "AbortError");
-    }
-    // Streams and uploads own their deadlines. Ordinary reads always retain a deadline.
-    const requestUrl = String(input instanceof Request ? input.url : input);
-    const bounded = authenticated && !(requestInit.body instanceof FormData || requestInit.body instanceof Blob)
-        && !requestUrl.includes("/stream") && !requestUrl.includes("/ai/chat");
-    if (bounded) requestInit.signal = callerSignal
-        ? AbortSignal.any([callerSignal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
-        : AbortSignal.timeout(REQUEST_TIMEOUT_MS);
-
-    const generation = _authGeneration;
-    const acquireToken = async () => {
-        try { return await withSignal(fetchAuthJwt(), requestInit.signal); }
-        catch (error) {
-            if (callerSignal?.aborted) throw callerSignal.reason;
-            throw requestInit.signal?.aborted ? networkError() : error;
-        }
+    const request = input instanceof Request ? input : undefined;
+    const attempt: Attempt = {
+        input,
+        init: requestInit,
+        headers: new Headers(requestInit.headers ?? request?.headers),
+        callerSignal: requestInit.signal ?? request?.signal,
+        bounded: authenticated && isBounded(request?.url ?? String(input), requestInit.body),
+        generation: _authGeneration,
     };
-    if (authenticated) {
-        // The shared JWT cache is the common path. Session/keyring reads are
-        // fallbacks, not a prerequisite repeated before every API request.
-        if (callerSignal?.aborted) throw callerSignal.reason;
-        const token = await acquireToken();
-        if (generation !== _authGeneration) throw new DOMException("Account changed", "AbortError");
-        if (callerSignal?.aborted) throw callerSignal.reason;
-        if (requestInit.signal?.aborted) throw networkError();
+    if (!authenticated) return send(attempt);
 
-        if (!token) {
-            publishSessionExpiry();
-            throw new ApiErrorResponse({
-                status: 401,
-                code: "UNAUTHORIZED",
-                message: "Authentication token is unavailable",
-            });
-        }
-
-        headers.set("Authorization", `Bearer ${token}`);
-        if (method.toUpperCase() === "GET") {
-            requestInit.cache = "no-store";
-        }
-    }
-
-    // Any rejection means no answer (the desktop transport rejects with its own errors),
-    // except a caller's own abort, like stopping an assistant reply.
-    const send = () => platformFetch(input instanceof Request ? input.clone() as typeof input : input, { ...requestInit, headers }).catch((error: unknown) => {
-        throw callerSignal?.aborted ? callerSignal.reason : error instanceof DOMException && error.name === "AbortError" && !bounded ? error : networkError();
-    });
-    let response = await send();
-    if (authenticated && response.status === 401 && generation === _authGeneration) {
-        // Only retry an explicit auth rejection, before any route work/stream began.
-        // Concurrent rejections of the same token share the replacement request.
-        const rejected = headers.get("Authorization")?.slice(7);
-        if (_cachedJwt === rejected) {
-            _cachedJwt = null;
-            _cachedJwtExpiry = 0;
-        }
-        const token = await acquireToken();
-        if (generation !== _authGeneration) throw new DOMException("Account changed", "AbortError");
-        if (callerSignal?.aborted) throw callerSignal.reason;
-        if (requestInit.signal?.aborted) throw networkError();
-        if (token && token !== rejected && !(requestInit.body instanceof ReadableStream)) {
-            await response.body?.cancel();
-            headers.set("Authorization", `Bearer ${token}`);
-            response = await send();
-        }
-        if (response.status === 401 && generation === _authGeneration) publishSessionExpiry();
-    }
+    await authorize(attempt, requestInit.method ?? request?.method ?? "GET");
+    let response = await send(attempt);
+    if (response.status === 401 && attempt.generation === _authGeneration) response = await retryUnauthorized(attempt, response);
     // A captive portal answers API calls with its own HTML page.
-    if (authenticated && response.headers.get("content-type")?.includes("text/html")) throw networkError();
-
+    if (response.headers.get("content-type")?.includes("text/html")) throw networkError();
     return response;
 }
 

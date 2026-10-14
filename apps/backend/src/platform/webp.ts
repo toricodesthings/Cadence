@@ -61,6 +61,21 @@ export interface StillWebpOptions {
     label: string;
 }
 
+/** The RIFF chunks after the WebP header, each checked to end inside the file. */
+function readChunks(bytes: Uint8Array, label: string): Chunk[] {
+    const riffEnd = Math.min(bytes.length, readU32(bytes, 4) + 8);
+    const chunks: Chunk[] = [];
+    for (let offset = 12; offset + 8 <= riffEnd;) {
+        const type = fourcc(bytes, offset);
+        const size = readU32(bytes, offset + 4);
+        const end = offset + 8 + size;
+        if (end > riffEnd) throw unsupported(`${label} is truncated`);
+        chunks.push({ type, start: offset, end });
+        offset = end + (size % 2); // chunks are padded to an even length
+    }
+    return chunks;
+}
+
 /**
  * Validate a WebP and return a copy without metadata chunks, plus its size.
  * Throws `UNSUPPORTED_IMAGE` (415) for anything that is not one still WebP frame,
@@ -76,17 +91,7 @@ export function sanitizeStillWebp(
     const tooLarge = () => new AppError(413, "IMAGE_TOO_LARGE", `${label} can be at most ${maxDimension}px on a side`);
 
     if (bytes.length < 20 || fourcc(bytes, 0) !== "RIFF" || fourcc(bytes, 8) !== "WEBP") throw notStill();
-    const riffEnd = Math.min(bytes.length, readU32(bytes, 4) + 8);
-
-    const chunks: Chunk[] = [];
-    for (let offset = 12; offset + 8 <= riffEnd;) {
-        const type = fourcc(bytes, offset);
-        const size = readU32(bytes, offset + 4);
-        const end = offset + 8 + size;
-        if (end > riffEnd) throw unsupported(`${label} is truncated`);
-        chunks.push({ type, start: offset, end });
-        offset = end + (size % 2); // chunks are padded to an even length
-    }
+    const chunks = readChunks(bytes, label);
 
     if (chunks.some((chunk) => chunk.type === "ANIM" || chunk.type === "ANMF")) throw animated();
     const images = chunks.filter((chunk) => IMAGE_CHUNKS.has(chunk.type));

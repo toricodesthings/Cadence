@@ -53,6 +53,7 @@ import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { rankTasks } from "@cadence/nlp/ranking";
 import type { RankableTask } from "@cadence/nlp/ranking";
 import type { Task } from "@cadence/contracts/task";
+import type { Project } from "@cadence/contracts/project";
 
 const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then((m) => ({ default: m.FocusViewBar })));
 
@@ -145,6 +146,85 @@ function classifyUpcomingBucket(dateOnly: LocalDate, todayISO: LocalDate, tomorr
     return null;
 }
 
+type Buckets = Record<UpcomingBucketKey, UpcomingViewerItem[]>;
+type RangeHabit = NonNullable<ReturnType<typeof useHabitsRange>["data"]>[number];
+
+function taskItem(task: Task, day: LocalDate, project: Project | undefined): UpcomingViewerItem {
+    return {
+        id: task.id,
+        kind: "task",
+        title: task.title,
+        dueDate: day,
+        dateLabel: task.dueDate ? "Due" : "Scheduled",
+        sortAt: getTaskSortAt(task, day),
+        timeLabel: task.scheduledStart ? formatTime(task.scheduledStart) : null,
+        projectId: task.projectId,
+        projectName: project?.name ?? null,
+        projectColor: project?.colorAccent ?? null,
+        projectEmoji: project?.emoji ?? null,
+        task,
+        rationaleLabel: null,
+    };
+}
+
+/** A routine's open days, today and tomorrow only: a missed routine lets go, it never shows as overdue. */
+function habitItems(habit: RangeHabit, week: { today: LocalDate; tomorrow: LocalDate; nextWeek: LocalDate }): [UpcomingBucketKey, UpcomingViewerItem][] {
+    const logs = [...(habit.logs ?? [])].sort((a, b) => a.targetDate.localeCompare(b.targetDate));
+    return logs.flatMap((log): [UpcomingBucketKey, UpcomingViewerItem][] => {
+        const day = log.targetDate;
+        const bucket = log.status === "PENDING" && day ? classifyUpcomingBucket(day, week.today, week.tomorrow, week.nextWeek) : null;
+        if (bucket !== "today" && bucket !== "tomorrow") return [];
+        // A routine at set times lists at its next open time (its first on a later day).
+        const times = habit.times?.length ? habit.times : null;
+        const time = times
+            ? nextOpenTime(times, timeMarksOn(times, log), day === week.today ? wallTimeOf(new Date(), getUserZone()) : "00:00")
+            : routineTimeOn(habit, day);
+        return [[bucket, {
+            id: `habit-${habit.id}-${day}`,
+            kind: "habit",
+            title: habit.title,
+            dueDate: day,
+            dateLabel: "Due",
+            sortAt: Date.parse(fromTimeValue(day, time ?? "12:00")),
+            timeLabel: time ? `${times ? "Next at " : ""}${formatWallTime(time)}` : null,
+            projectId: null,
+            projectName: null,
+            projectColor: null,
+            projectEmoji: null,
+            task: null,
+            habitId: habit.id,
+            habitTargetDate: day,
+            emoji: habit.emoji,
+            rationaleLabel: null,
+        }]];
+    });
+}
+
+/** Smart sort: ranked tasks first, each with its reason, then routines in their place. */
+function rankBucket(items: UpcomingViewerItem[]): UpcomingViewerItem[] {
+    const tasks = items.filter((item): item is UpcomingViewerItem & { task: Task } => item.kind === "task" && Boolean(item.task));
+    const rankable: RankableTask[] = tasks.map(({ task }) => ({
+        id: task.id,
+        priority: task.priority,
+        isPinned: task.isPinned,
+        orderIndex: task.orderIndex,
+        state: task.state,
+        dueDate: task.dueDate,
+        scheduledStart: task.scheduledStart,
+        scheduledEnd: task.scheduledEnd,
+        effort: task.effort,
+        waitingOn: task.waitingOn ?? null,
+        notBefore: task.notBefore ?? null,
+        durationEstimate: task.durationEstimate,
+    }));
+    const byId = new Map(tasks.map((item) => [item.task.id, item]));
+    const ranked = rankTasks(rankable, { routeContext: "upcoming", clock: nlpClock(), dayOf: dayOfInstant }).flatMap((entry) => {
+        const item = byId.get(entry.task.id);
+        return item ? [{ ...item, rationaleLabel: getMaterialRankingLabel(entry.reasons) }] : [];
+    });
+    return [...ranked, ...items.filter((item) => item.kind !== "task")];
+}
+
 function UpcomingEmptyState({ title }: { title: string }) {
     return (
         <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
@@ -224,125 +304,26 @@ export default function Upcoming() {
         [projects],
     );
 
-    const groupedItems = useMemo<Record<UpcomingBucketKey, UpcomingViewerItem[]>>(() => {
-        const grouped: Record<UpcomingBucketKey, UpcomingViewerItem[]> = {
-            overdue: [],
-            today: [],
-            tomorrow: [],
-            nextWeek: [],
-        };
-
+    const groupedItems = useMemo<Buckets>(() => {
+        const week = { today: todayISO, tomorrow: tomorrowISO, nextWeek: nextWeekISO };
+        const grouped: Buckets = { overdue: [], today: [], tomorrow: [], nextWeek: [] };
         for (const task of tagFilteredTasks) {
-            if (isPassiveTimetableTask(task)) {
-                continue;
-            }
-
-            const dateOnly = getTaskTimelineAnchor(task, todayISO) ?? task.dueDate;
-            if (!dateOnly) continue;
-
-            const bucket = classifyUpcomingBucket(dateOnly, todayISO, tomorrowISO, nextWeekISO);
-            if (!bucket) continue;
-
-            const project = task.projectId ? projectById.get(task.projectId) ?? null : null;
-
-            grouped[bucket].push({
-                id: task.id,
-                kind: "task",
-                title: task.title,
-                dueDate: dateOnly,
-                dateLabel: task.dueDate ? "Due" : "Scheduled",
-                sortAt: getTaskSortAt(task, dateOnly),
-                timeLabel: task.scheduledStart ? formatTime(task.scheduledStart) : null,
-                projectId: task.projectId,
-                projectName: project?.name ?? null,
-                projectColor: project?.colorAccent ?? null,
-                projectEmoji: project?.emoji ?? null,
-                task,
-                rationaleLabel: null,
-            });
+            if (isPassiveTimetableTask(task)) continue;
+            const day = getTaskTimelineAnchor(task, todayISO) ?? task.dueDate;
+            const bucket = day && classifyUpcomingBucket(day, todayISO, tomorrowISO, nextWeekISO);
+            if (bucket) grouped[bucket].push(taskItem(task, day, task.projectId ? projectById.get(task.projectId) : undefined));
         }
-
         for (const habit of activeTagId ? [] : habits) {
-            const project = null;
-            const logs = [...(habit.logs ?? [])].sort((a, b) => a.targetDate.localeCompare(b.targetDate));
-
-            for (const log of logs) {
-                if (log.status !== "PENDING") continue;
-
-                const dateOnly = log.targetDate;
-                if (!dateOnly) continue;
-
-                const bucket = classifyUpcomingBucket(dateOnly, todayISO, tomorrowISO, nextWeekISO);
-                if (!bucket) continue;
-                // A missed routine lets go: it never shows as overdue.
-                if (bucket === "nextWeek" || bucket === "overdue") continue;
-
-                // A routine at set times lists at its next open time (its first on a later day).
-                const times = habit.times?.length ? habit.times : null;
-                const time = times
-                    ? nextOpenTime(times, timeMarksOn(times, log), dateOnly === todayISO ? wallTimeOf(new Date(), getUserZone()) : "00:00")
-                    : routineTimeOn(habit, dateOnly);
-                const habitTimeLabel = time ? `${times ? "Next at " : ""}${formatWallTime(time)}` : null;
-
-                grouped[bucket].push({
-                    id: `habit-${habit.id}-${dateOnly}`,
-                    kind: "habit",
-                    title: habit.title,
-                    dueDate: dateOnly,
-                    dateLabel: "Due",
-                    sortAt: Date.parse(fromTimeValue(dateOnly, time ?? "12:00")),
-                    timeLabel: habitTimeLabel,
-                    projectId: null,
-                    projectName: project,
-                    projectColor: null,
-                    projectEmoji: null,
-                    task: null,
-                    habitId: habit.id,
-                    habitTargetDate: log.targetDate,
-                    emoji: habit.emoji,
-                    rationaleLabel: null,
-                });
-            }
+            for (const [bucket, item] of habitItems(habit, week)) grouped[bucket].push(item);
         }
 
-        const useRanking = intelligenceEnabled && smartSortEnabled && sortMode === "smart";
-        if (useRanking) {
-            for (const bucket of Object.keys(grouped) as UpcomingBucketKey[]) {
-                const rankable: RankableTask[] = grouped[bucket]
-                    .filter((item): item is UpcomingViewerItem & { task: Task } => item.kind === "task" && Boolean(item.task))
-                    .map((item) => ({
-                        id: item.task!.id,
-                        priority: item.task!.priority,
-                        isPinned: item.task!.isPinned,
-                        orderIndex: item.task!.orderIndex,
-                        state: item.task!.state,
-                        dueDate: item.task!.dueDate,
-                        scheduledStart: item.task!.scheduledStart,
-                        scheduledEnd: item.task!.scheduledEnd,
-                        effort: item.task!.effort,
-                        waitingOn: item.task!.waitingOn ?? null,
-                        notBefore: item.task!.notBefore ?? null,
-                        durationEstimate: item.task!.durationEstimate,
-                    }));
-                const ranked = rankTasks(rankable, { routeContext: "upcoming", clock: nlpClock(), dayOf: dayOfInstant });
-                const sorted = ranked.flatMap((entry) => {
-                    const item = grouped[bucket].find((candidate) => candidate.task?.id === entry.task.id);
-                    if (!item) return [];
-                    const reasonLabel = getMaterialRankingLabel(entry.reasons);
-                    return [{ ...item, rationaleLabel: reasonLabel }];
-                });
-
-                const unranked = grouped[bucket].filter((item) => item.kind !== "task");
-                grouped[bucket] = [...sorted, ...unranked];
-                continue;
-            }
+        const buckets = Object.keys(grouped) as UpcomingBucketKey[];
+        if (intelligenceEnabled && smartSortEnabled && sortMode === "smart") {
+            for (const bucket of buckets) grouped[bucket] = rankBucket(grouped[bucket]);
         } else {
             const comparator = getUpcomingComparator(sortMode);
-            for (const bucket of Object.keys(grouped) as UpcomingBucketKey[]) {
-                grouped[bucket].sort(comparator);
-            }
+            for (const bucket of buckets) grouped[bucket].sort(comparator);
         }
-
         return grouped;
     }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO, intelligenceEnabled, smartSortEnabled]);
 

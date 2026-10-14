@@ -47,6 +47,9 @@ import { DAY_PILL, DAY_PILL_PLAIN, DAY_PILL_SUGGESTED, placeFields } from "./Cap
 import { toast } from "sonner";
 import { PendingMark } from "../shared/PendingMark";
 
+/** Explicit nulls: the server must not infer a day from the text. */
+const NO_DAY = { dueDate: null, scheduledStart: null, scheduledEnd: null };
+
 export function CaptureRow({
     item,
     task,
@@ -115,36 +118,31 @@ export function CaptureRow({
             if (when) void placeTask(task, toDay(when)).catch(() => {});
             return;
         }
-        process.mutate({
-            inboxItemId: object.id,
-            rawText: item!.rawText,
-            title: overrides?.title ?? (when || parse.tagIds.length ? parse.cleanedTitle || title : title),
-            ...(when
-                ? placeFields(when)
-                : {
-                      // explicit nulls: the server must not infer a day from the text
-                      dueDate: null,
-                      scheduledStart: null,
-                      scheduledEnd: null,
-                  }),
-            projectId: placement?.projectId ?? null,
-            sectionId: placement?.sectionId ?? null,
-            tagIds: overrides?.tagIds ?? parse.tagIds,
-            priority: parse.priority ?? 0,
-            durationEstimate: parse.durationMinutes,
-            waitingOn: parse.waitingOn,
-            reminderAt: parse.fields.reminderAt,
-            notBefore: parse.fields.notBefore,
-            complete,
-            nlp: resolvedNlp(
-                item!.rawText,
-                "inbox",
-                settings?.dateTime.dateStyle ?? "mdy",
-                (item?.analysis?.dismissedEntityIds ?? []) as string[],
-                overrides ?? {},
-            ),
-        });
+        process.mutate(capturePayload(when, complete));
     };
+    /** The capture as a task: its words read once, placed on `when` or explicitly on no day. */
+    const capturePayload = (when: LocalDate | Instant | undefined, complete: boolean) => ({
+        inboxItemId: object.id,
+        rawText: item!.rawText,
+        title: overrides?.title ?? (when || parse.tagIds.length ? parse.cleanedTitle || title : title),
+        ...(when ? placeFields(when) : NO_DAY),
+        projectId: placement?.projectId ?? null,
+        sectionId: placement?.sectionId ?? null,
+        tagIds: overrides?.tagIds ?? parse.tagIds,
+        priority: parse.priority ?? 0,
+        durationEstimate: parse.durationMinutes,
+        waitingOn: parse.waitingOn,
+        reminderAt: parse.fields.reminderAt,
+        notBefore: parse.fields.notBefore,
+        complete,
+        nlp: resolvedNlp(
+            item!.rawText,
+            "inbox",
+            settings?.dateTime.dateStyle ?? "mdy",
+            (item?.analysis?.dismissedEntityIds ?? []) as string[],
+            overrides ?? {},
+        ),
+    });
     const discard = () => {
         if (item) {
             void status.setStatus(item, "discarded").catch(() => {});
@@ -177,6 +175,63 @@ export function CaptureRow({
                 analysis: { ...item!.analysis, userOverrides: { ...overrides, tagIds: [...rowTagIds, tagId] } },
             });
     };
+    const startPress = (e: React.PointerEvent) => {
+        if (
+            e.pointerType !== "touch" ||
+            (e.target as HTMLElement).closest("button:not([data-capture-title])")
+        )
+            return;
+        longPressed.current = false;
+        timer.current = setTimeout(() => {
+            longPressed.current = true;
+            onToggleSelection?.();
+        }, 500);
+    };
+    const dragOver = (e: React.DragEvent) => {
+        if (!e.dataTransfer.types.includes(TAG_DRAG_TYPE)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        setTagOver(true);
+    };
+    const dragLeave = (e: React.DragEvent<HTMLElement>) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setTagOver(false);
+    };
+    const dropTag = (e: React.DragEvent) => {
+        const tagId = e.dataTransfer.getData(TAG_DRAG_TYPE);
+        if (!tagId) return;
+        e.preventDefault();
+        setTagOver(false);
+        addTag(tagId);
+    };
+    /** 1/2/3 place today, tomorrow or with no day; x ticks off; arrows and j/k move between rows. */
+    const keyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+        if ((e.target as HTMLElement).closest("[role=menu]")) return;
+        if (e.target !== e.currentTarget && !["1", "2", "3", "x"].includes(e.key)) return;
+        const actions: Record<string, () => void> = {
+            "1": () => place(todayISO()),
+            "2": () => place(tomorrowISO()),
+            "3": () => place(),
+            x: () =>
+                item
+                    ? place(undefined, true)
+                    : (e.currentTarget.querySelector("button") as HTMLButtonElement)?.click(),
+            Enter: onOpen,
+            Backspace: discard,
+            Delete: discard,
+            " ": () => onToggleSelection?.(),
+        };
+        if (["ArrowDown", "ArrowUp", "j", "k"].includes(e.key)) {
+            e.preventDefault();
+            const rows = [...document.querySelectorAll<HTMLElement>("[data-capture-row]")].filter(
+                (row) => row.getClientRects().length,
+            );
+            rows[rows.indexOf(e.currentTarget) + (["ArrowDown", "j"].includes(e.key) ? 1 : -1)]?.focus();
+        } else if (actions[e.key] && !disabled) {
+            e.preventDefault();
+            e.stopPropagation();
+            actions[e.key]();
+        }
+    };
     const detected = item && item.captureStatus !== "kept" ? (parse.scheduledStart ?? parse.dueDate) : null;
     const pill = (day: string, suggested: boolean, className = "") => (
         <Tip label={`Place on ${placementLabel(day)}`}>
@@ -206,71 +261,20 @@ export function CaptureRow({
                 onFocus={() => {
                     onFocusRow?.();
                 }}
-                onPointerDown={(e) => {
-                    if (
-                        e.pointerType !== "touch" ||
-                        (e.target as HTMLElement).closest("button:not([data-capture-title])")
-                    )
-                        return;
-                    longPressed.current = false;
-                    timer.current = setTimeout(() => {
-                        longPressed.current = true;
-                        onToggleSelection?.();
-                    }, 500);
-                }}
-                onDragOver={(e) => {
-                    if (!e.dataTransfer.types.includes(TAG_DRAG_TYPE)) return;
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "copy";
-                    setTagOver(true);
-                }}
-                onDragLeave={(e) => {
-                    if (!e.currentTarget.contains(e.relatedTarget as Node)) setTagOver(false);
-                }}
-                onDrop={(e) => {
-                    const tagId = e.dataTransfer.getData(TAG_DRAG_TYPE);
-                    if (!tagId) return;
-                    e.preventDefault();
-                    setTagOver(false);
-                    addTag(tagId);
-                }}
+                onPointerDown={startPress}
+                onDragOver={dragOver}
+                onDragLeave={dragLeave}
+                onDrop={dropTag}
                 onPointerUp={cancelPress}
                 onPointerCancel={cancelPress}
                 onPointerMove={cancelPress}
+                onKeyDown={keyDown}
                 onClickCapture={(e) => {
                     if (e.shiftKey || longPressed.current) {
                         e.preventDefault();
                         e.stopPropagation();
                         if (!longPressed.current) onToggleSelection?.();
                         longPressed.current = false;
-                    }
-                }}
-                onKeyDown={(e) => {
-                    if ((e.target as HTMLElement).closest("[role=menu]")) return;
-                    if (e.target !== e.currentTarget && !["1", "2", "3", "x"].includes(e.key)) return;
-                    const actions: Record<string, () => void> = {
-                        "1": () => place(todayISO()),
-                        "2": () => place(tomorrowISO()),
-                        "3": () => place(),
-                        x: () =>
-                            item
-                                ? place(undefined, true)
-                                : (e.currentTarget.querySelector("button") as HTMLButtonElement)?.click(),
-                        Enter: onOpen,
-                        Backspace: discard,
-                        Delete: discard,
-                        " ": () => onToggleSelection?.(),
-                    };
-                    if (["ArrowDown", "ArrowUp", "j", "k"].includes(e.key)) {
-                        e.preventDefault();
-                        const rows = [...document.querySelectorAll<HTMLElement>("[data-capture-row]")].filter(
-                            (row) => row.getClientRects().length,
-                        );
-                        rows[rows.indexOf(e.currentTarget) + (["ArrowDown", "j"].includes(e.key) ? 1 : -1)]?.focus();
-                    } else if (actions[e.key] && !disabled) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        actions[e.key]();
                     }
                 }}
                 className={`${COLLECTION_ROW_SURFACE} min-w-0 px-4 py-3.5 sm:px-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${selected ? `${COLLECTION_ROW_SELECTED} [--row-wash:color-mix(in_srgb,var(--accent-primary)_10%,transparent)] ring-accent-primary/15` : COLLECTION_ROW_HOVER} ${tagOver ? "ring-1 ring-accent-primary/40" : ""}`}

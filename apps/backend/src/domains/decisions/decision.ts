@@ -64,6 +64,16 @@ export interface DecisionResult {
     outcome: DecisionOutcome;
 }
 
+/** The winner is the largest probability; fall back to the answer's own `choice` when none are given. */
+function winner(answer: { choice?: unknown; probabilities?: Record<string, number> } | undefined) {
+    let best = typeof answer?.choice === "string" ? answer.choice : null;
+    let probability = best && answer?.probabilities ? answer.probabilities[best] ?? 0 : 0;
+    for (const [key, p] of Object.entries(answer?.probabilities ?? {})) {
+        if (typeof p === "number" && p > probability) [best, probability] = [key, p];
+    }
+    return { best, probability };
+}
+
 export async function decideChoice(
     env: Env,
     input: {
@@ -124,13 +134,7 @@ export async function decideChoice(
             usage?: { input_tokens?: number; cost?: number };
         };
         const meta = { servedModel: body.model, inputTokens: body.usage?.input_tokens, costUsd: body.usage?.cost };
-        const answer = body.answers?.pick;
-        // The winner is the largest probability; fall back to the answer's own `choice` when none are given.
-        let best = typeof answer?.choice === "string" ? answer.choice : null;
-        let probability = best && answer?.probabilities ? answer.probabilities[best] ?? 0 : 0;
-        for (const [key, p] of Object.entries(answer?.probabilities ?? {})) {
-            if (typeof p === "number" && p > probability) [best, probability] = [key, p];
-        }
+        const { best, probability } = winner(body.answers?.pick);
         if (!best || best === "none") return finish("abstained", { ...meta, probability });
         const index = keys.indexOf(best);
         if (index < 0) return finish("error", meta);

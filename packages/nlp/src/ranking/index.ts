@@ -80,6 +80,14 @@ export function rankTasks(
   return ranked;
 }
 
+/** The one signal a task's day gives: overdue, due today, or due within three days. */
+function dateSignal(day: string | null, today: string): [TaskRankReason, number] | null {
+  if (!day) return null;
+  if (day < today) return ["overdue", 40];
+  if (day === today) return ["due_today", 30];
+  return daysBetweenLocal(today, day) <= 3 ? ["due_soon", 15] : null;
+}
+
 function computeScore(
   task: RankableTask,
   now: Date,
@@ -88,83 +96,26 @@ function computeScore(
 ): { score: number; reasons: TaskRankReason[] } {
   let score = 0;
   const reasons: TaskRankReason[] = [];
+  const add = (points: number, reason?: TaskRankReason) => {
+    score += points;
+    if (reason) reasons.push(reason);
+  };
+  const day = task.dueDate ?? (task.scheduledStart ? options.dayOf(task.scheduledStart) : null);
 
-  const effectiveDateStr = task.dueDate ?? (task.scheduledStart ? options.dayOf(task.scheduledStart) : null);
-  const effectiveDate = effectiveDateStr;
-
-  // ── Not-before penalty: suppress tasks that shouldn't be shown yet ──
-  if (task.notBefore) {
-    if (task.notBefore > todayStr) {
-      score -= 50;
-      reasons.push("not_yet");
-    }
-  }
-
-  // ── Waiting penalty ──
-  if (task.waitingOn) {
-    score -= 20;
-    reasons.push("waiting");
-  }
-
-  // ── Overdue urgency ──
-  if (effectiveDateStr && effectiveDateStr < todayStr) {
-    score += 40;
-    reasons.push("overdue");
-  }
-
-  // ── Due today ──
-  if (effectiveDateStr === todayStr) {
-    score += 30;
-    reasons.push("due_today");
-  }
-
-  // ── Due soon (within 3 days) ──
-  if (effectiveDateStr && !reasons.includes("overdue") && !reasons.includes("due_today")) {
-    const daysUntil = daysBetweenLocal(todayStr, effectiveDateStr);
-    if (daysUntil > 0 && daysUntil <= 3) {
-      score += 15;
-      reasons.push("due_soon");
-    }
-  }
-
-  // ── Scheduled now ──
-  if (task.scheduledStart) {
-    const startTime = new Date(task.scheduledStart).getTime();
-    const diffMs = startTime - now.getTime();
-    if (diffMs >= -30 * 60 * 1000 && diffMs <= 60 * 60 * 1000) {
-      score += 35;
-      reasons.push("scheduled_now");
-    }
-  }
-
-  // ── Priority ──
-  if (task.priority >= 3) {
-    score += task.priority * 5;
-    reasons.push("high_priority");
-  } else if (task.priority > 0) {
-    score += task.priority * 2;
-  }
-
-  // ── Quick win ──
-  if (
-    task.effort === 1 ||
-    (task.durationEstimate && task.durationEstimate <= 15)
-  ) {
-    score += 8;
-    reasons.push("quick_win");
-  }
-
-  // ── Pinned ──
-  if (task.isPinned) {
-    score += 10;
-    reasons.push("pinned");
-  }
-
-  // ── Needs date (in today context, unscheduled tasks bubble up gently) ──
-  if (!effectiveDate && options.routeContext === "today") {
-    score += 2;
-    reasons.push("needs_date");
-  }
+  // Not yet (hidden until a later day) and waiting sink; urgency, focus and size rise.
+  if (task.notBefore && task.notBefore > todayStr) add(-50, "not_yet");
+  if (task.waitingOn) add(-20, "waiting");
+  const date = dateSignal(day, todayStr);
+  if (date) add(date[1], date[0]);
+  // Starting within the next hour, or started in the last half hour.
+  const startsIn = task.scheduledStart ? new Date(task.scheduledStart).getTime() - now.getTime() : NaN;
+  if (startsIn >= -30 * 60 * 1000 && startsIn <= 60 * 60 * 1000) add(35, "scheduled_now");
+  if (task.priority >= 3) add(task.priority * 5, "high_priority");
+  else if (task.priority > 0) add(task.priority * 2);
+  if (task.effort === 1 || (task.durationEstimate && task.durationEstimate <= 15)) add(8, "quick_win");
+  if (task.isPinned) add(10, "pinned");
+  // In Today, unscheduled tasks bubble up gently.
+  if (!day && options.routeContext === "today") add(2, "needs_date");
 
   return { score, reasons };
 }

@@ -10,6 +10,7 @@ import type { Tx } from "../../types/db";
 import { sourceSurfaceSchema } from "@cadence/contracts/task";
 import { temporalColumns, toTask, withTagIds } from "../tasks/tasks.service";
 import { userZone } from "../../platform/user-zone";
+import type { Zone } from "@cadence/domain/time";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "../tasks/task-nlp";
 import { writeNote } from "../notes/notes.service";
 
@@ -25,111 +26,22 @@ export async function processCapture(
     body: ProcessInboxItem,
     extras: { idempotencyKey?: string; subtasks?: string[]; note?: string } = {},
 ) {
-    const idempotencyKey = extras.idempotencyKey;
-    const title = body.title;
-    const scheduledDay = body.scheduledDay ?? undefined;
-    const scheduledEnd = body.scheduledEnd ?? undefined;
-    const projectId = body.projectId ?? undefined;
-    const tagIds = body.tagIds ?? undefined;
-    const priority = body.priority ?? undefined;
-    const durationEstimate = body.durationEstimate ?? undefined;
-    const recurrenceRule = body.recurrenceRule ?? undefined;
-    const waitingOn = body.waitingOn ?? undefined;
-    const nlp = body.nlp ?? undefined;
-
-    // Idempotency guard
+    const { idempotencyKey } = extras;
     const existingId = await checkIdempotency(tx, userId, idempotencyKey);
-    if (existingId) {
-        const [existing] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId))));
-        if (existing) return { task: existing, alreadyProcessed: true };
-    }
+    const replayed = existingId ? await findTask(tx, userId, existingId) : undefined;
+    if (replayed) return { task: replayed, alreadyProcessed: true };
 
-    // Verify inbox item exists and belongs to user
     const [item] = await tx.select().from(inboxItems).where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId))).for("update");
     throwIfNotFound(item, "Inbox item");
     // Already placed (double submit, second device): return that task, never a duplicate.
-    if (item.processed && item.placedTaskId) {
-        const [placed] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, item.placedTaskId), eq(tasks.userId, userId))));
-        if (placed) return { task: placed, alreadyProcessed: true };
-    }
+    const placed = item.processed && item.placedTaskId ? await findTask(tx, userId, item.placedTaskId) : undefined;
+    if (placed) return { task: placed, alreadyProcessed: true };
 
     const zone = await userZone(tx, userId);
-    const nlpRuntime = await loadNlpRuntime(tx, userId);
-    const envelope = nlp ?? {
-        rawInput: item.rawText,
-        sourceSurface: sourceSurfaceSchema.parse(item.sourceSurface ?? "inbox"),
-        dateStyle: ((nlpRuntime.settings as any).dateTime?.dateStyle ?? "mdy") as "mdy" | "dmy" | "ymd",
-        dismissedEntityIds: Array.from(nlpRuntime.dismissedEntityIds),
-        userOverrides: {},
-    };
-    const parsed = parseCanonicalNlpEnvelope(envelope, {
-        context: nlpRuntime.context,
-        clock: nlpRuntime.clock,
-    });
-    const confidenceThreshold = (((nlpRuntime.settings as any).tasks?.intelligence?.confidenceThreshold ?? "medium") as "high" | "medium" | "low");
-    // `resolved`: the client chose every field; store them as sent (an absent one is "none") and never re-read the words.
-    const sent = {
-        projectId: projectId ?? undefined,
-        tagIds: tagIds ?? [],
-        priority: priority ?? 0,
-        durationEstimate: durationEstimate ?? null,
-        waitingOn: waitingOn ?? null,
-        recurrenceRule: recurrenceRule ?? null,
-        dueDate: body.dueDate !== undefined ? body.dueDate : scheduledDay ?? null,
-        scheduledStart: body.scheduledStart ?? null,
-        scheduledEnd: scheduledEnd ?? null,
-    };
-    const inferred = nlp?.resolved ? sent : inferTaskFieldsFromParse(
-        parsed,
-        {
-            projectId,
-            tagIds,
-            priority,
-            durationEstimate,
-            waitingOn,
-            recurrenceRule,
-            // An explicit null stays null: it means "no date", not "not given".
-            dueDate: body.dueDate !== undefined ? body.dueDate : scheduledDay,
-            scheduledStart: body.scheduledStart,
-            scheduledEnd,
-        },
-        confidenceThreshold,
-        zone,
-    );
+    const { parsed, inferred } = await inferPlacement(tx, userId, item, body, zone);
 
-    // One placement: what the caller sent (a day, or a timed start), else what the parse found.
-    const temporalFields = temporalColumns(
-        {
-            dueDate: inferred.dueDate,
-            // A span's last day belongs to the day it was picked with; a different (inferred) day drops it.
-            endDate: body.endDate && inferred.dueDate === body.dueDate ? body.endDate : null,
-            scheduledStart: inferred.scheduledStart,
-            scheduledEnd: inferred.scheduledEnd,
-        },
-        zone,
-    );
-
-    const taskTagIds = Array.from(new Set(tagIds ?? inferred.tagIds ?? []));
-    const taskWaitingOn = inferred.waitingOn ?? waitingOn ?? null;
-    const taskValues = {
-        userId,
-        title,
-        orderIndex: 0,
-        // Waiting on someone is a state, not just a note: the task shows who only while WAITING.
-        state: body.complete ? "COMPLETE" as const : taskWaitingOn ? "WAITING" as const : "ACTIVE" as const,
-        origin: body.complete ? "thought" as const : null,
-        projectId: "projectId" in body ? body.projectId : inferred.projectId,
-        sectionId: body.sectionId ?? null,
-        priority: inferred.priority ?? priority ?? 0,
-        durationEstimate: inferred.durationEstimate ?? durationEstimate ?? null,
-        effort: body.effort ?? null,
-        recurrenceRule: inferred.recurrenceRule ?? recurrenceRule ?? null,
-        waitingOn: taskWaitingOn,
-        reminderAt: body.reminderAt ?? null,
-        notBefore: body.notBefore ?? null,
-        ...temporalFields,
-        ...(body.complete ? { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null, projectId: null, sectionId: null, recurrenceRule: null } : {}),
-    };
+    const taskValues = captureTaskValues(userId, body, inferred, zone);
+    const taskTagIds = Array.from(new Set(inferred.tagIds));
 
     validateTaskRecurrenceRule(taskValues.recurrenceRule, taskValues.zone ?? zone);
 
@@ -181,6 +93,100 @@ export async function processCapture(
     await recordMutation(tx, userId, idempotencyKey, task.id);
 
     return { task: toTask(task, taskTagIds), alreadyProcessed: false };
+}
+
+/** The task row a capture becomes. A ticked-off thought is done and placed nowhere. */
+function captureTaskValues(
+    userId: string,
+    body: ProcessInboxItem,
+    inferred: Awaited<ReturnType<typeof inferPlacement>>["inferred"],
+    zone: Zone,
+) {
+    // One placement: what the caller sent (a day, or a timed start), else what the parse found.
+    const temporalFields = temporalColumns(
+        {
+            dueDate: inferred.dueDate,
+            // A span's last day belongs to the day it was picked with; a different (inferred) day drops it.
+            endDate: body.endDate && inferred.dueDate === body.dueDate ? body.endDate : null,
+            scheduledStart: inferred.scheduledStart,
+            scheduledEnd: inferred.scheduledEnd,
+        },
+        zone,
+    );
+
+    const taskWaitingOn = inferred.waitingOn ?? null;
+    return {
+        userId,
+        title: body.title,
+        orderIndex: 0,
+        // Waiting on someone is a state, not just a note: the task shows who only while WAITING.
+        state: body.complete ? "COMPLETE" as const : taskWaitingOn ? "WAITING" as const : "ACTIVE" as const,
+        origin: body.complete ? "thought" as const : null,
+        projectId: "projectId" in body ? body.projectId : inferred.projectId,
+        sectionId: body.sectionId ?? null,
+        priority: inferred.priority ?? 0,
+        durationEstimate: inferred.durationEstimate ?? null,
+        effort: body.effort ?? null,
+        recurrenceRule: inferred.recurrenceRule ?? null,
+        waitingOn: taskWaitingOn,
+        reminderAt: body.reminderAt ?? null,
+        notBefore: body.notBefore ?? null,
+        ...temporalFields,
+        ...(body.complete ? { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null, projectId: null, sectionId: null, recurrenceRule: null } : {}),
+    };
+}
+
+async function findTask(tx: Tx, userId: string, taskId: string) {
+    const [task] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))));
+    return task;
+}
+
+/** The capture's fields: what the caller sent, else what its words say. */
+async function inferPlacement(
+    tx: Tx,
+    userId: string,
+    item: Pick<typeof inboxItems.$inferSelect, "rawText" | "sourceSurface">,
+    body: ProcessInboxItem,
+    zone: Zone,
+) {
+    const nlpRuntime = await loadNlpRuntime(tx, userId);
+    const { settings } = nlpRuntime;
+    const envelope = body.nlp ?? {
+        rawInput: item.rawText,
+        sourceSurface: sourceSurfaceSchema.parse(item.sourceSurface ?? "inbox"),
+        dateStyle: (settings.dateTime?.dateStyle ?? "mdy") as "mdy" | "dmy" | "ymd",
+        dismissedEntityIds: Array.from(nlpRuntime.dismissedEntityIds),
+        userOverrides: {},
+    };
+    const parsed = parseCanonicalNlpEnvelope(envelope, { context: nlpRuntime.context, clock: nlpRuntime.clock });
+    const explicit = {
+        projectId: body.projectId ?? undefined,
+        tagIds: body.tagIds ?? undefined,
+        priority: body.priority ?? undefined,
+        durationEstimate: body.durationEstimate ?? undefined,
+        waitingOn: body.waitingOn ?? undefined,
+        recurrenceRule: body.recurrenceRule ?? undefined,
+        // An explicit null stays null: it means "no date", not "not given".
+        dueDate: body.dueDate !== undefined ? body.dueDate : body.scheduledDay ?? undefined,
+        scheduledStart: body.scheduledStart,
+        scheduledEnd: body.scheduledEnd ?? undefined,
+    };
+    // `resolved`: the client chose every field; store them as sent (an absent one is "none") and never re-read the words.
+    const inferred = body.nlp?.resolved
+        ? {
+            ...explicit,
+            tagIds: explicit.tagIds ?? [],
+            dueDate: explicit.dueDate ?? null,
+            scheduledStart: explicit.scheduledStart ?? null,
+            scheduledEnd: explicit.scheduledEnd ?? null,
+        }
+        : inferTaskFieldsFromParse(
+            parsed,
+            explicit,
+            (settings.tasks?.intelligence?.confidenceThreshold ?? "medium") as "high" | "medium" | "low",
+            zone,
+        );
+    return { parsed, inferred };
 }
 
 // ── Update ────────────────────────────────────────────────────────────

@@ -78,6 +78,26 @@ export function resolveSection(mention: SectionMention | null, projectId: string
     return fits.length === 1 ? fits[0] : null;
 }
 
+/** What the words do to the work's day: clear it, nudge a follow-up, hide it until then, or move it. */
+function datePatch(
+    f: Draft["fields"],
+    verbs: { keepUnscheduled: boolean; keepWaiting: boolean; followUp: boolean; until: boolean },
+    zone: Zone,
+): InstructionPatch {
+    if (verbs.keepUnscheduled) return { dueDate: null, scheduledStart: null, scheduledEnd: null };
+    if (verbs.followUp) {
+        // A follow-up is a nudge on waiting work: it never changes the state or the day it is planned for.
+        if (f.scheduledStart) return { waitingReminder: f.scheduledStart };
+        return f.dueDate ? { waitingReminder: atLocal(f.dueDate, FOLLOW_UP_HOUR, zone) } : {};
+    }
+    if (verbs.keepWaiting || (verbs.until && f.dueDate && !f.scheduledStart)) {
+        // "until Monday" hides the work until then; it is not a deadline.
+        return f.dueDate ? { notBefore: f.dueDate } : {};
+    }
+    if (f.scheduledStart) return { scheduledStart: f.scheduledStart, scheduledEnd: f.scheduledEnd, dueDate: null };
+    return f.dueDate ? { dueDate: f.dueDate, scheduledStart: null, scheduledEnd: null } : {};
+}
+
 /**
  * What `text` means for existing work, given the draft read from it (dates, list, tags, priority, waiting, estimate)
  * and the section it named, already resolved (`resolveSection`).
@@ -95,28 +115,7 @@ export function instructionPatch(text: string, draft: Draft, zone: Zone, section
 
     for (const verb of [VERBS.keepUnscheduled, VERBS.keepWaiting, VERBS.activate, VERBS.followUp, VERBS.until]) rest = rest.replace(verb, " ");
 
-    if (keepUnscheduled) {
-        patch.dueDate = null;
-        patch.scheduledStart = null;
-        patch.scheduledEnd = null;
-    } else if (followUp) {
-        // A follow-up is a nudge on waiting work: it never changes the state or the day it is planned for.
-        if (f.scheduledStart) patch.waitingReminder = f.scheduledStart;
-        else if (f.dueDate) patch.waitingReminder = atLocal(f.dueDate, FOLLOW_UP_HOUR, zone);
-    } else if (keepWaiting || (until && f.dueDate && !f.scheduledStart)) {
-        // "until Monday" hides the work until then; it is not a deadline.
-        if (f.dueDate) patch.notBefore = f.dueDate;
-    } else {
-        if (f.scheduledStart) {
-            patch.scheduledStart = f.scheduledStart;
-            patch.scheduledEnd = f.scheduledEnd;
-            patch.dueDate = null;
-        } else if (f.dueDate) {
-            patch.dueDate = f.dueDate;
-            patch.scheduledStart = null;
-            patch.scheduledEnd = null;
-        }
-    }
+    Object.assign(patch, datePatch(f, { keepUnscheduled, keepWaiting, followUp, until }, zone));
 
     if (keepWaiting) patch.state = "WAITING";
     if (activate) patch.state = "ACTIVE";

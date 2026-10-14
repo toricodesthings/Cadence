@@ -1,5 +1,5 @@
 import { Sparkles, Calendar, Clock, Check, ListChecks, Image as ImageIcon, Lock, Repeat, Bell, EyeOff, Tag as TagIcon } from "lucide-react";
-import { IdentityBlock, MetaPill, TagPill } from "./ProposalCard";
+import { IdentityBlock, MetaPill, MetaPills, TagPill, type MaybePill } from "./ProposalCard";
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useTagsLookup } from "./card-lookups";
 import { TaskDestination } from "./TaskDestination";
@@ -84,34 +84,37 @@ export function TagNamePills({ names, mark }: { names?: string[]; mark?: "add" }
     return <>{names?.map((name) => <MetaPill key={name} icon={TagIcon}>{mark ? "+ " : ""}#{name}</MetaPill>)}</>;
 }
 
-/** Every field a draft sets, as pills: when, length, priority, effort, repeats, Fixed, reminder, hide-until, destination, tags. */
-export function DraftDetails({ draft }: { draft: TaskDraft }) {
-    const lookupTags = useTagsLookup();
+/** The draft's fields that read as pills: when, length, priority, effort, repeats, Fixed, reminder, hide-until. */
+function draftPills(draft: TaskDraft): MaybePill[] {
     const when = formatDraftWhen(draft);
     const priority = draft.priority ? PRIORITY_OPTIONS.find((o) => o.value === draft.priority) : undefined;
     const effort = draft.effort != null ? EFFORT_OPTIONS.find((o) => o.value === draft.effort) : undefined;
     const repeats = draft.recurrenceRule
         ? (getTaskRecurrenceSummary({ recurrenceRule: draft.recurrenceRule, scheduledStart: null, scheduledEnd: null })?.cadenceLabel ?? "Repeats")
         : null;
-    const tags = lookupTags(draft.tagIds ?? []);
     const reminder = formatWhen(draft.reminderAt);
     const hidden = formatWhen(draft.hideUntil);
-    if (!when && !draft.durationEstimate && !priority && !effort && !repeats && !draft.fixed && !reminder && !hidden
-        && !draft.projectId && !draft.sectionId && tags.length === 0 && !draft.tagNames?.length) return null;
+    return [
+        when && { icon: Calendar, label: when },
+        draft.durationEstimate && { icon: Clock, label: `${draft.durationEstimate}m block` },
+        priority && { icon: priority.icon, label: <span className={PRIORITY_CONFIG[priority.value].color}>{priority.label} priority</span> },
+        effort && { icon: effort.icon, label: `${effort.label} effort` },
+        repeats && { icon: Repeat, label: repeats },
+        draft.fixed && { icon: Lock, label: "Fixed" },
+        reminder && { icon: Bell, label: `Remind ${reminder}` },
+        hidden && { icon: EyeOff, label: `Hidden until ${hidden}` },
+    ];
+}
+
+/** Every field a draft sets, as pills: those above, then destination and tags. */
+export function DraftDetails({ draft }: { draft: TaskDraft }) {
+    const lookupTags = useTagsLookup();
+    const pills = draftPills(draft);
+    const tags = lookupTags(draft.tagIds ?? []);
+    if (!pills.some(Boolean) && !draft.projectId && !draft.sectionId && tags.length === 0 && !draft.tagNames?.length) return null;
     return (
         <div className="flex flex-wrap gap-1.5">
-            {when ? <MetaPill icon={Calendar}>{when}</MetaPill> : null}
-            {draft.durationEstimate ? <MetaPill icon={Clock}>{draft.durationEstimate}m block</MetaPill> : null}
-            {priority ? (
-                <MetaPill icon={priority.icon}>
-                    <span className={PRIORITY_CONFIG[draft.priority!].color}>{priority.label} priority</span>
-                </MetaPill>
-            ) : null}
-            {effort ? <MetaPill icon={effort.icon}>{effort.label} effort</MetaPill> : null}
-            {repeats ? <MetaPill icon={Repeat}>{repeats}</MetaPill> : null}
-            {draft.fixed ? <MetaPill icon={Lock}>Fixed</MetaPill> : null}
-            {reminder ? <MetaPill icon={Bell}>Remind {reminder}</MetaPill> : null}
-            {hidden ? <MetaPill icon={EyeOff}>Hidden until {hidden}</MetaPill> : null}
+            <MetaPills pills={pills} />
             <TaskDestination projectId={draft.projectId ?? undefined} sectionId={draft.sectionId ?? undefined} />
             {tags.map((tag) => (
                 <TagPill key={tag.id} tag={tag} />

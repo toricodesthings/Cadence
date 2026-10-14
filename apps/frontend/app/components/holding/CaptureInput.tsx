@@ -19,6 +19,8 @@ import { isFloatingFocus } from "../../lib/utils/dom";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { ScheduleUpdates } from "../tasks/QuickScheduleSurface";
 import type { DraftFields } from "@cadence/domain/nlp-draft";
+import type { LocalDate } from "@cadence/domain/time";
+import type { DateStyle } from "@cadence/nlp/core";
 
 /** A typed day turns a capture into a task only on one short line; a longer vent that names a day stays a thought. */
 const TASK_LINE_WORDS = 12;
@@ -47,6 +49,29 @@ export const pickHolds = (pickedFor: string, value: string): boolean => {
 const isDated = ({ dueDate, scheduledStart }: Pick<DraftFields, "dueDate" | "scheduledStart">) => Boolean(dueDate || scheduledStart);
 
 /** Read and write a tab-scoped draft; storage can be missing or blocked, and the draft still works without it. */
+/** A typed task as sent: what is shown is what is sent, and the server stores it as sent. */
+function taskPayload(id: string, text: string, draft: { cleanedTitle: string; fields: DraftFields }, endDate: LocalDate | null, dateStyle: DateStyle) {
+    const { fields } = draft;
+    return {
+        inboxItemId: id,
+        rawText: text,
+        title: draft.cleanedTitle || text,
+        dueDate: fields.dueDate,
+        endDate,
+        scheduledStart: fields.scheduledStart,
+        scheduledEnd: fields.scheduledEnd,
+        recurrenceRule: fields.recurrenceRule,
+        projectId: fields.projectId,
+        tagIds: fields.tagIds,
+        priority: fields.priority,
+        durationEstimate: fields.durationMinutes,
+        waitingOn: fields.waitingOn,
+        reminderAt: fields.reminderAt,
+        notBefore: fields.notBefore,
+        nlp: resolvedNlp(text, "inbox", dateStyle, [], {}),
+    };
+}
+
 function readDraft(key: string | undefined): string {
     if (!key) return "";
     try { return sessionStorage.getItem(key) ?? ""; } catch { return ""; }
@@ -125,24 +150,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
                 if (task) {
                     savedCapture.current = item ?? savedCapture.current;
                     // What is shown is what is sent, and the server stores it as sent.
-                    await process.mutateAsync({
-                        inboxItemId: id,
-                        rawText: text,
-                        title: draft.cleanedTitle || text,
-                        dueDate: draft.fields.dueDate,
-                        endDate,
-                        scheduledStart: draft.fields.scheduledStart,
-                        scheduledEnd: draft.fields.scheduledEnd,
-                        recurrenceRule: draft.fields.recurrenceRule,
-                        projectId: draft.fields.projectId,
-                        tagIds: draft.fields.tagIds,
-                        priority: draft.fields.priority,
-                        durationEstimate: draft.fields.durationMinutes,
-                        waitingOn: draft.fields.waitingOn,
-                        reminderAt: draft.fields.reminderAt,
-                        notBefore: draft.fields.notBefore,
-                        nlp: resolvedNlp(text, "inbox", dateStyle, [], {}),
-                    });
+                    await process.mutateAsync(taskPayload(id, text, draft, endDate, dateStyle));
                 }
                 savedCapture.current = undefined;
                 remaining = remaining.slice(1);

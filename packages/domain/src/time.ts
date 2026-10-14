@@ -223,6 +223,32 @@ function invalidRule(): never {
     throw new DomainError("INVALID_RECURRENCE_RULE", "Use a daily, weekly, monthly or yearly repeat with valid calendar fields");
 }
 
+/** BYSETPOS bounds per FREQ: positions select days within a period, never a timeset. */
+const SETPOS_MAX: Record<string, number> = { DAILY: 1, WEEKLY: 7, MONTHLY: 31, YEARLY: 366 };
+const positiveInt = (value: string) => /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) >= 1;
+/** Comma list of non-zero integers within ±max (1..max when `negative` is false). */
+const signedList = (value: string, max: number, negative = true) => value.split(",").every((item) =>
+    /^[+-]?\d+$/.test(item) && Number.isSafeInteger(Number(item)) && Number(item) !== 0 &&
+    Number(item) >= (negative ? -max : 1) && Number(item) <= max);
+/** Every RRULE field this contract accepts, each with its own check; any other field is invalid. */
+const RRULE_FIELDS: Record<string, (value: string, freq: string) => boolean> = {
+    FREQ: () => true,
+    UNTIL: () => true,
+    INTERVAL: positiveInt,
+    COUNT: positiveInt,
+    BYMONTH: (value) => signedList(value, 12, false),
+    BYMONTHDAY: (value) => signedList(value, 31),
+    BYYEARDAY: (value) => signedList(value, 366),
+    // Bound prefix work too: between's callback only sees in-range dates.
+    BYSETPOS: (value, freq) => signedList(value, SETPOS_MAX[freq]) && new Set(value.split(",").map(Number)).size === value.split(",").length,
+    BYWEEKNO: (value) => signedList(value, 53),
+    BYDAY: (value) => value.split(",").every((day) => {
+        const match = /^([+-]?\d+)?(MO|TU|WE|TH|FR|SA|SU)$/.exec(day);
+        return match !== null && (!match[1] || signedList(match[1], 53));
+    }),
+    WKST: (value) => /^(MO|TU|WE|TH|FR|SA|SU)$/.test(value),
+};
+
 /**
  * One day-based RRULE, shared by writes and stored-state reads. The series owns
  * its start, time and zone: embedded calendars and subdaily selectors are not
@@ -239,37 +265,10 @@ export function parseRecurrenceRule(rule: string, zone: Zone = "UTC") {
         if (fields.has(key)) invalidRule();
         fields.set(key, match[2]);
     }
-    if (!/^(DAILY|WEEKLY|MONTHLY|YEARLY)$/.test(fields.get("FREQ") ?? "")) invalidRule();
-    const signedList = (value: string, max: number, negative = true) => value.split(",").every((item) =>
-        /^[+-]?\d+$/.test(item) && Number.isSafeInteger(Number(item)) && Number(item) !== 0 &&
-        Number(item) >= (negative ? -max : 1) && Number(item) <= max);
+    const freq = fields.get("FREQ") ?? "";
+    if (!Object.hasOwn(SETPOS_MAX, freq)) invalidRule();
     for (const [key, value] of fields) {
-        switch (key) {
-            case "FREQ": case "UNTIL": break;
-            case "INTERVAL": case "COUNT":
-                if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < 1) invalidRule();
-                break;
-            case "BYMONTH": if (!signedList(value, 12, false)) invalidRule(); break;
-            case "BYMONTHDAY": if (!signedList(value, 31)) invalidRule(); break;
-            case "BYYEARDAY": if (!signedList(value, 366)) invalidRule(); break;
-            case "BYSETPOS": {
-                // Positions select days within a period, never a timeset. Bound
-                // prefix work too: between's callback only sees in-range dates.
-                const max = { DAILY: 1, WEEKLY: 7, MONTHLY: 31, YEARLY: 366 }[fields.get("FREQ")!]!;
-                const positions = value.split(",").map(Number);
-                if (!signedList(value, max) || new Set(positions).size !== positions.length) invalidRule();
-                break;
-            }
-            case "BYWEEKNO": if (!signedList(value, 53)) invalidRule(); break;
-            case "BYDAY":
-                if (!value.split(",").every((day) => {
-                    const match = /^([+-]?\d+)?(MO|TU|WE|TH|FR|SA|SU)$/.exec(day);
-                    return match && (!match[1] || signedList(match[1], 53));
-                })) invalidRule();
-                break;
-            case "WKST": if (!/^(MO|TU|WE|TH|FR|SA|SU)$/.test(value)) invalidRule(); break;
-            default: invalidRule();
-        }
+        if (!Object.hasOwn(RRULE_FIELDS, key) || !RRULE_FIELDS[key](value, freq)) invalidRule();
     }
     try {
         const { rule: bare, until } = splitUntil([...fields].map(([key, value]) => `${key}=${value}`).join(";"), zone);

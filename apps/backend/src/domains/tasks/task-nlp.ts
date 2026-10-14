@@ -1,5 +1,5 @@
 import { eq, and } from "drizzle-orm";
-import { type CanonicalNlpSnapshot, type ParsedEntity } from "@cadence/nlp";
+import { type CanonicalNlpSnapshot } from "@cadence/nlp";
 import { atLocal, isZone, todayIn, wallTimeOf, type Zone } from "@cadence/domain/time";
 import { users, projects, tags, taskNlpMetadata } from "../../db/schema";
 import type { Tx } from "../../types/db";
@@ -64,7 +64,6 @@ export function inferTaskFieldsFromParse(
     zone: Zone,
 ) {
     const thresholdRank = confidenceRank(confidenceThreshold);
-    const entityRank = (entity: ParsedEntity) => confidenceRank(entity.confidence);
     const parsedTagIds = new Set<string>();
     let parsedProjectId: string | null | undefined;
     let parsedPriority: number | undefined;
@@ -73,76 +72,54 @@ export function inferTaskFieldsFromParse(
     let parsedRecurrence: string | null | undefined;
     let parsedTemporal: { dueDate?: string; scheduledStart?: string } | undefined;
 
+    // Explicit fields win below, so the loop reads every confident entity.
     for (const entity of parsed.entities) {
-        if (entityRank(entity) < thresholdRank) continue;
-
+        if (confidenceRank(entity.confidence) < thresholdRank) continue;
+        const value = entity.normalizedValue as Record<string, unknown>;
         switch (entity.type) {
-            case "project": {
-                if (explicit.projectId !== undefined) continue;
-                const value = entity.normalizedValue as { resolvedId?: string; id?: string };
-                parsedProjectId = value.resolvedId ?? value.id ?? parsedProjectId;
+            case "project":
+                parsedProjectId = (value.resolvedId ?? value.id ?? parsedProjectId) as string | undefined;
                 break;
-            }
             case "tag": {
-                if (explicit.tagIds !== undefined) continue;
-                const value = entity.normalizedValue as { resolvedId?: string; id?: string };
-                const tagId = value.resolvedId ?? value.id;
+                const tagId = (value.resolvedId ?? value.id) as string | undefined;
                 if (tagId) parsedTagIds.add(tagId);
                 break;
             }
-            case "priority": {
-                if (explicit.priority !== undefined) continue;
-                parsedPriority = entity.normalizedValue as number;
-                break;
-            }
-            case "duration": {
-                if (explicit.durationEstimate !== undefined) continue;
-                const value = entity.normalizedValue as { minutes: number };
-                parsedDuration = value.minutes;
-                break;
-            }
-            case "waiting_on": {
-                if (explicit.waitingOn !== undefined) continue;
-                parsedWaitingOn = (entity.normalizedValue as { person: string }).person;
-                break;
-            }
-            case "recurrence": {
-                if (explicit.recurrenceRule !== undefined) continue;
-                const value = entity.normalizedValue as { rrule: string };
-                parsedRecurrence = value.rrule;
-                break;
-            }
+            case "priority": parsedPriority = entity.normalizedValue as number; break;
+            case "duration": parsedDuration = value.minutes as number; break;
+            case "waiting_on": parsedWaitingOn = value.person as string; break;
+            case "recurrence": parsedRecurrence = value.rrule as string; break;
             case "due_date":
             case "scheduled_start": {
-                if (
-                    explicit.dueDate !== undefined ||
-                    explicit.scheduledStart !== undefined ||
-                    explicit.scheduledEnd !== undefined ||
-                    explicit.scheduledDay !== undefined
-                ) {
-                    continue;
-                }
-
-                const value = entity.normalizedValue as { date: string; time: string | null; hasTime: boolean };
-                parsedTemporal = entity.type === "scheduled_start" && value.hasTime && value.time
-                    ? { scheduledStart: atLocal(value.date, value.time, zone) }
-                    : { dueDate: value.date };
+                const { date, time, hasTime } = value as { date: string; time: string | null; hasTime: boolean };
+                parsedTemporal = entity.type === "scheduled_start" && hasTime && time
+                    ? { scheduledStart: atLocal(date, time, zone) }
+                    : { dueDate: date };
                 break;
             }
         }
     }
 
+    // Any placement field given (even null) means the caller placed the task itself.
+    const placed = [explicit.dueDate, explicit.scheduledStart, explicit.scheduledEnd, explicit.scheduledDay]
+        .some((field) => field !== undefined);
+    const temporal = placed ? undefined : parsedTemporal;
     return {
-        projectId: explicit.projectId !== undefined ? explicit.projectId : parsedProjectId,
-        tagIds: explicit.tagIds !== undefined ? explicit.tagIds : Array.from(parsedTagIds),
-        priority: explicit.priority !== undefined ? explicit.priority : parsedPriority,
-        durationEstimate: explicit.durationEstimate !== undefined ? explicit.durationEstimate : parsedDuration,
-        waitingOn: explicit.waitingOn !== undefined ? explicit.waitingOn : parsedWaitingOn,
-        recurrenceRule: explicit.recurrenceRule !== undefined ? explicit.recurrenceRule : parsedRecurrence,
-        dueDate: explicit.dueDate !== undefined ? explicit.dueDate : parsedTemporal?.dueDate,
-        scheduledStart: explicit.scheduledStart !== undefined ? explicit.scheduledStart : parsedTemporal?.scheduledStart,
+        projectId: given(explicit.projectId, parsedProjectId),
+        tagIds: given(explicit.tagIds, Array.from(parsedTagIds)),
+        priority: given(explicit.priority, parsedPriority),
+        durationEstimate: given(explicit.durationEstimate, parsedDuration),
+        waitingOn: given(explicit.waitingOn, parsedWaitingOn),
+        recurrenceRule: given(explicit.recurrenceRule, parsedRecurrence),
+        dueDate: given(explicit.dueDate, temporal?.dueDate),
+        scheduledStart: given(explicit.scheduledStart, temporal?.scheduledStart),
         scheduledEnd: explicit.scheduledEnd,
     };
+}
+
+/** An explicit value, even null, wins over a parsed one. */
+function given<T, P>(explicit: T | undefined, parsed: P): T | P {
+    return explicit !== undefined ? explicit : parsed;
 }
 
 export async function persistNlpSnapshot(

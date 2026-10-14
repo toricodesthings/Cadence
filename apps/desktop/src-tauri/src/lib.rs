@@ -400,6 +400,123 @@ fn snapshot(path: &std::path::Path) -> std::io::Result<()> {
     std::fs::rename(&tmp, path.with_extension("dat.bak"))
 }
 
+/// Menu items that bring the main window forward and send it a command (with its value).
+#[cfg(desktop)]
+const MENU_COMMANDS: &[(&str, &str, Option<&str>)] = &[
+    ("file.quick_capture", "open-quick-capture", Some("task")),
+    ("window.quick_capture", "open-quick-capture", Some("task")),
+    ("file.settings", "show-settings", Some("account")),
+    ("file.sync_now", "sync-now", None),
+    ("file.check_updates", "show-settings", Some("privacy")),
+    ("view.search", "show-search", None),
+    ("view.command_palette", "show-command-palette", None),
+    ("view.sync_inspector", "show-sync-inspector", None),
+    ("view.zoom_in", "layout-scale-increase", None),
+    ("view.zoom_out", "layout-scale-decrease", None),
+    ("view.zoom_reset", "layout-scale-reset", None),
+    ("navigate.capture", "navigate-capture", None),
+    ("navigate.schedule", "navigate-schedule", None),
+    ("navigate.habits", "navigate-habits", None),
+    ("navigate.weekly_review", "navigate-weekly-review", None),
+    ("help.shortcuts", "show-shortcuts", None),
+    ("help.about", "show-settings", Some("about")),
+    ("help.feedback", "show-settings", Some("about")),
+];
+
+/// Windows: efficiency mode only while no Cadence window has focus, and closing the main window
+/// hides it while background delivery is on.
+fn on_window_event<R: Runtime>(window: &tauri::Window<R>, event: &tauri::WindowEvent) {
+    #[cfg(windows)]
+    if let tauri::WindowEvent::Focused(focused) = event {
+        // Efficient only while no Cadence window has focus: typing in Quick Capture
+        // must not leave the host throttled just because the main window lost focus.
+        let app = window.app_handle();
+        let any_focused = *focused
+            || app
+                .webview_windows()
+                .values()
+                .any(|w| w.is_focused().unwrap_or(false));
+        if let Some(main) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+            efficiency::set(&main, !any_focused);
+        }
+    }
+    #[cfg(windows)]
+    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        if window.label() == MAIN_WINDOW_LABEL
+            && background::should_hide_on_close(window.app_handle())
+        {
+            api.prevent_close();
+            let _ = window.hide();
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = (window, event);
+}
+
+/// Logging, the background host and jump list (Windows), the first show, then the menu, shortcuts and updater.
+fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(any(windows, target_os = "linux"))]
+    if cfg!(debug_assertions) {
+        let _ = app.deep_link().register_all();
+    }
+
+    app.handle().plugin(
+        tauri_plugin_log::Builder::default()
+            .level(if cfg!(debug_assertions) {
+                log::LevelFilter::Info
+            } else {
+                log::LevelFilter::Warn
+            })
+            .build(),
+    )?;
+
+    #[cfg(windows)]
+    background::setup(app)?;
+
+    #[cfg(windows)]
+    if let Err(error) = jump_list::install() {
+        log::warn!("jump list: {error}");
+    }
+
+    // The main window starts hidden (tauri.conf.json) so a login launch never flashes it.
+    #[cfg(windows)]
+    let show_main = !background::starts_hidden(app);
+    #[cfg(not(windows))]
+    let show_main = true;
+    if show_main {
+        if let Some(main) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+            main.show()?;
+        }
+    }
+
+    #[cfg(desktop)]
+    {
+        app.handle()
+            .plugin(tauri_plugin_global_shortcut::Builder::new().build())?;
+
+        let menu = build_app_menu(app.handle())?;
+        app.set_menu(menu)?;
+
+        app.on_menu_event(|app_handle, event| match event.id().0.as_str() {
+            "file.quit" => app_handle.exit(0),
+            "window.focus" => focus_main_window(app_handle),
+            id => {
+                if let Some(&(_, command, value)) =
+                    MENU_COMMANDS.iter().find(|(item, ..)| *item == id)
+                {
+                    focus_main_window(app_handle);
+                    emit_desktop_command(app_handle, command, value);
+                }
+            }
+        });
+
+        app.handle()
+            .plugin(tauri_plugin_updater::Builder::new().build())?;
+    }
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
@@ -462,158 +579,8 @@ pub fn run() {
             store_restore_if_corrupt,
             store_snapshot
         ])
-        .on_window_event(|window, event| {
-            #[cfg(windows)]
-            if let tauri::WindowEvent::Focused(focused) = event {
-                // Efficient only while no Cadence window has focus: typing in Quick Capture
-                // must not leave the host throttled just because the main window lost focus.
-                let app = window.app_handle();
-                let any_focused = *focused
-                    || app
-                        .webview_windows()
-                        .values()
-                        .any(|w| w.is_focused().unwrap_or(false));
-                if let Some(main) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-                    efficiency::set(&main, !any_focused);
-                }
-            }
-            #[cfg(windows)]
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == MAIN_WINDOW_LABEL
-                    && background::should_hide_on_close(window.app_handle())
-                {
-                    api.prevent_close();
-                    let _ = window.hide();
-                }
-            }
-            #[cfg(not(windows))]
-            let _ = (window, event);
-        })
-        .setup(|app| {
-            #[cfg(any(windows, target_os = "linux"))]
-            if cfg!(debug_assertions) {
-                let _ = app.deep_link().register_all();
-            }
-
-            app.handle().plugin(
-                tauri_plugin_log::Builder::default()
-                    .level(if cfg!(debug_assertions) {
-                        log::LevelFilter::Info
-                    } else {
-                        log::LevelFilter::Warn
-                    })
-                    .build(),
-            )?;
-
-            #[cfg(windows)]
-            background::setup(app)?;
-
-            #[cfg(windows)]
-            if let Err(error) = jump_list::install() {
-                log::warn!("jump list: {error}");
-            }
-
-            // The main window starts hidden (tauri.conf.json) so a login launch never flashes it.
-            #[cfg(windows)]
-            let show_main = !background::starts_hidden(app);
-            #[cfg(not(windows))]
-            let show_main = true;
-            if show_main {
-                if let Some(main) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-                    main.show()?;
-                }
-            }
-
-            #[cfg(desktop)]
-            {
-                app.handle()
-                    .plugin(tauri_plugin_global_shortcut::Builder::new().build())?;
-
-                let menu = build_app_menu(app.handle())?;
-                app.set_menu(menu)?;
-
-                app.on_menu_event(move |app_handle, event| match event.id().0.as_str() {
-                    "file.quick_capture" | "window.quick_capture" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "open-quick-capture", Some("task"));
-                    }
-                    "file.settings" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "show-settings", Some("account"));
-                    }
-                    "file.sync_now" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "sync-now", None);
-                    }
-                    "file.check_updates" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "show-settings", Some("privacy"));
-                    }
-                    "file.quit" => app_handle.exit(0),
-                    "view.search" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "show-search", None);
-                    }
-                    "view.command_palette" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "show-command-palette", None);
-                    }
-                    "view.sync_inspector" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "show-sync-inspector", None);
-                    }
-                    "view.zoom_in" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "layout-scale-increase", None);
-                    }
-                    "view.zoom_out" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "layout-scale-decrease", None);
-                    }
-                    "view.zoom_reset" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "layout-scale-reset", None);
-                    }
-                    "navigate.capture" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "navigate-capture", None);
-                    }
-                    "navigate.schedule" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "navigate-schedule", None);
-                    }
-                    "navigate.habits" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "navigate-habits", None);
-                    }
-                    "navigate.weekly_review" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "navigate-weekly-review", None);
-                    }
-                    "window.focus" => {
-                        focus_main_window(app_handle);
-                    }
-                    "help.shortcuts" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "show-shortcuts", None);
-                    }
-                    "help.about" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "show-settings", Some("about"));
-                    }
-                    "help.feedback" => {
-                        focus_main_window(app_handle);
-                        emit_desktop_command(app_handle, "show-settings", Some("about"));
-                    }
-                    _ => {}
-                });
-
-                app.handle()
-                    .plugin(tauri_plugin_updater::Builder::new().build())?;
-            }
-
-            Ok(())
-        })
+        .on_window_event(on_window_event)
+        .setup(setup)
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -202,6 +202,23 @@ function ribbon(spine: readonly Pt[], widths: readonly number[], scale: number):
   return `M${ux},${uy}${curveThrough(upper)}q${n1(ctrl[0] - end[0])},${n1(ctrl[1] - end[1])} ${n1(lx - end[0])},${n1(ly - end[1])}${curveThrough(lower)}Z`;
 }
 
+/** A limb's taper steps: each a prefix of its spine, the last the whole limb. */
+function taperSteps(spine: Pt[], tAt: number[], widths: number[], depth: number, ribbonLimb: boolean, indexAt: (t: number) => number): Step[] {
+  const n = STEPS[depth];
+  const steps: Step[] = [];
+  for (let k = 1; k <= n; k++) {
+    const end = k === n ? spine.length - 1 : indexAt(k / n);
+    const from = k === 1 ? 0 : indexAt((k - 1) / n);
+    const prefix = spine.slice(0, end + 1);
+    steps.push({
+      d: k === n ? null : ribbonLimb ? polyline(prefix) : smoothPath(prefix, depth >= 3),
+      len: k === n ? 1 : Math.round(tAt[end] * 1000) / 1000,
+      w: n1(widths[from]),
+    });
+  }
+  return steps;
+}
+
 export function generateBough(spec: BoughSpec): Bough {
   const rand = rng(spec.seed);
   const jit = (amp: number) => (rand() - 0.5) * 2 * amp;
@@ -222,93 +239,76 @@ export function generateBough(spec: BoughSpec): Bough {
     return [];
   }
 
+  /**
+   * Each spine point's width. A joined main limb is one slice of the journey's long taper, so it narrows
+   * evenly to its joint; a rejoining limb narrows only a little, since it ends in wood, not in air.
+   */
+  function limbWidths(tAt: number[], w0: number, depth: number, rejoin: boolean): number[] {
+    if (depth === 1 && joined) return tAt.map((t) => spec.wEnd! + (w0 - spec.wEnd!) * (1 - t));
+    if (rejoin) return tAt.map((t) => w0 * (1 - 0.3 * t));
+    return tAt.map((t) => w0 * taper(1 - t) + W_TIP[depth]);
+  }
+
+  /** A free twig's keys: it curls back toward its parent's heading, sags with reach, and an upward one droops at its end. */
+  function twigKeys(origin: Pt, tangent: Pt, total: number, fork: ForkSpec): Pt[] {
+    const angle = fork.angle ?? (fork.back ? 118 + rand() * 16 : 32 + rand() * 12);
+    const reach = total * (fork.len ?? 0.35 + rand() * 0.2);
+    let dir = rotate(tangent, rad(angle) * fork.side);
+    // Each twig curls back toward its parent's heading, so none stays straight.
+    const curl = -fork.side * rad(3 + rand() * 4);
+    const keys: Pt[] = [origin];
+    let cur = origin;
+    for (let s = 1; s <= 3; s++) {
+      dir = rotate(dir, curl);
+      if (fork.weep) dir = unit([dir[0] * 0.75, dir[1] * 0.75 + 0.5]);
+      cur = [cur[0] + (dir[0] * reach) / 3, cur[1] + (dir[1] * reach) / 3];
+      // Gravity: lateral reach sags.
+      const sag = 0.12 * Math.abs(cur[0] - origin[0]) * (s / 3);
+      keys.push([cur[0] + jit(reach * 0.04), cur[1] + sag + jit(reach * 0.04)]);
+    }
+    // Upward twigs droop back over their last stretch.
+    if (!fork.weep && dir[1] < -0.3) keys[3] = [keys[3][0], keys[3][1] + reach * 0.1];
+    return keys;
+  }
+
   function grow(keys: Pt[], w0: number, start: number, dur: number, depth: number, forks: ForkSpec[], rejoin = false) {
     const spine = smoothThrough(keys, SAMPLES[depth]);
     const cum = [0];
     for (let i = 1; i < spine.length; i++) cum.push(cum[i - 1] + len(sub(spine[i], spine[i - 1])));
     const total = cum[cum.length - 1];
     const tAt = cum.map((c) => c / total);
-    // A joined main limb is one slice of the journey's long taper, so it narrows evenly to its joint;
-    // a rejoining limb narrows only a little, since it ends in wood, not in air.
-    const widths = tAt.map((t) =>
-      depth === 1 && joined
-        ? spec.wEnd! + (w0 - spec.wEnd!) * (1 - t)
-        : rejoin
-          ? w0 * (1 - 0.3 * t)
-          : w0 * taper(1 - t) + W_TIP[depth],
-    );
+    const widths = limbWidths(tAt, w0, depth, rejoin);
     const indexAt = (t: number) => {
       let i = 0;
       while (i < tAt.length - 1 && tAt[i] < t) i++;
       return i;
     };
+    const knot = (at0: number) =>
+      KNOT.forEach((m, j) => {
+        const at = at0 - 1 + j;
+        if (at >= 0 && at < widths.length) widths[at] *= m;
+      });
 
-    // Forks first (their knots widen the parent before its outline is built).
-    const children: [Pt[], number, number, ForkSpec, number][] = [];
-    for (const fork of depth < MAX_DEPTH ? forks : []) {
+    // Forks first (their knots widen the parent before its outline is built). One that rejoins runs
+    // along its path back into the parent; a free one grows out as a twig.
+    const children = (depth < MAX_DEPTH ? forks : []).map((fork): [Pt[], number, number, ForkSpec, number] => {
       const k = indexAt(fork.t);
-      const knot = (at0: number) =>
-        KNOT.forEach((m, j) => {
-          const at = at0 - 1 + j;
-          if (at >= 0 && at < widths.length) widths[at] *= m;
-        });
       knot(k);
-      const origin = spine[k];
       const share = (fork.wShare ?? 0.55) / KNOT[1];
       if (fork.until !== undefined) {
         const j = indexAt(fork.until);
         knot(j);
-        children.push([
-          [origin, ...(fork.path ?? []), spine[j]],
-          widths[k] * share,
-          start + dur * fork.t,
-          fork,
-          dur * (fork.until - fork.t),
-        ]);
-        continue;
+        return [[spine[k], ...(fork.path ?? []), spine[j]], widths[k] * share, start + dur * fork.t, fork, dur * (fork.until - fork.t)];
       }
       const tangent = unit(sub(spine[Math.min(spine.length - 1, k + 1)], spine[Math.max(0, k - 1)]));
-      const angle = fork.angle ?? (fork.back ? 118 + rand() * 16 : 32 + rand() * 12);
-      const reach = total * (fork.len ?? 0.35 + rand() * 0.2);
-      let dir = rotate(tangent, rad(angle) * fork.side);
-      // Each twig curls back toward its parent's heading, so none stays straight.
-      const curl = -fork.side * rad(3 + rand() * 4);
-      const childKeys: Pt[] = [origin];
-      let cur = origin;
-      for (let s = 1; s <= 3; s++) {
-        dir = rotate(dir, curl);
-        if (fork.weep) dir = unit([dir[0] * 0.75, dir[1] * 0.75 + 0.5]);
-        cur = [cur[0] + (dir[0] * reach) / 3, cur[1] + (dir[1] * reach) / 3];
-        // Gravity: lateral reach sags.
-        const sag = 0.12 * Math.abs(cur[0] - origin[0]) * (s / 3);
-        childKeys.push([cur[0] + jit(reach * 0.04), cur[1] + sag + jit(reach * 0.04)]);
-      }
-      // Upward twigs droop back over their last stretch.
-      if (!fork.weep && dir[1] < -0.3) {
-        const last = childKeys[3];
-        childKeys[3] = [last[0], last[1] + reach * 0.1];
-      }
-      children.push([childKeys, widths[k] * share, start + dur * fork.t, fork, DUR[depth + 1]]);
-    }
+      return [twigKeys(spine[k], tangent, total, fork), widths[k] * share, start + dur * fork.t, fork, DUR[depth + 1]];
+    });
 
     const ribbonLimb = depth <= RIBBON_DEPTH && !(depth === 1 && spec.strokeTrunk);
-    const n = STEPS[depth];
-    const stepList: Step[] = [];
-    for (let k = 1; k <= n; k++) {
-      const end = k === n ? spine.length - 1 : indexAt(k / n);
-      const from = k === 1 ? 0 : indexAt((k - 1) / n);
-      const prefix = spine.slice(0, end + 1);
-      stepList.push({
-        d: k === n ? null : ribbonLimb ? polyline(prefix) : smoothPath(prefix, depth >= 3),
-        len: k === n ? 1 : Math.round(tAt[end] * 1000) / 1000,
-        w: n1(widths[from]),
-      });
-    }
-
     limbs.push({
       outline: ribbonLimb ? ribbon(spine, widths, 1) : null,
       spine: ribbonLimb ? polyline(spine) : smoothPath(spine, depth >= 3),
-      steps: stepList,
+      steps: taperSteps(spine, tAt, widths, depth, ribbonLimb, indexAt),
       w0: n1(widths[0]),
       depth,
       start: Math.round(start),

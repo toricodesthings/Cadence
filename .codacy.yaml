@@ -4,6 +4,7 @@ exclude_paths:
 engines:
   lizard:
     exclude_paths:
+      - "pnpm-lock.yaml"
       - "**/tests/**"
       - "**/*.test.ts"
       - "**/*.test.tsx"

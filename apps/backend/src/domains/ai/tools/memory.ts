@@ -3,7 +3,8 @@ import { z } from "zod";
 import { and, eq, ilike } from "drizzle-orm";
 import { MEMORY_CONTENT_MAX, MEMORY_KINDS, MEMORY_LABEL_MAX, type MemoryReceipt } from "@cadence/contracts/memory";
 import { localDateSchema } from "@cadence/contracts/common";
-import { getDbClient } from "../../../platform/db";
+import { getDbClient, type DbClient } from "../../../platform/db";
+import type { Tx } from "../../../types/db";
 import { withRls } from "../../../platform/rls";
 import { withinDailyBudget } from "../../../platform/daily-budget";
 import { logger, hashIdentifier, issuesFromError } from "../../../platform/log";
@@ -17,7 +18,7 @@ import { embedTexts, getEmbeddingModelId } from "../memory/embedding";
 import { consolidate } from "../memory/consolidate";
 import { SAME_FACT_DISTANCE } from "../memory/learn";
 import { isLearning, readMemoryState } from "../memory/memory-mode";
-import { MEMORY_CAP, countActive, forgetFact, insertFact, nearestFacts, recallFacts, reinforceFact, searchPastChats, updateFact } from "../memory/memory-store";
+import { MEMORY_CAP, type NearFact, countActive, forgetFact, insertFact, nearestFacts, recallFacts, reinforceFact, searchPastChats, updateFact } from "../memory/memory-store";
 import { atLocal, dayOf, type Zone } from "@cadence/domain/time";
 
 /** Only what a person can say outright: patterns and durations are computed from activity. */
@@ -34,6 +35,103 @@ type Outcome = MemoryReceipt | { ok: false; error: string; matches?: { id: strin
 
 const off = { ok: false as const, error: "Memory is off. Tell the user they can turn it on in Settings → Assistant → Memory. Nothing was saved." };
 
+const nothingChanged = (error: string) => ({ ok: false as const, error: `${error} Nothing was changed.` });
+
+/** Runs `work` only while memory is learning; otherwise says it's off. */
+async function whileLearning<T>(env: Env, userId: string, work: (db: DbClient) => Promise<T>): Promise<T | typeof off> {
+    const db = getDbClient(env);
+    const state = await withRls(db, userId, (tx) => readMemoryState(tx, userId));
+    return isLearning(state.mode) ? work(db) : off;
+}
+
+/** An embedding, or null when the call fails: words alone still work. */
+async function embedOrNull(env: Env, text: string, onError?: (error: unknown) => void): Promise<number[] | null> {
+    try {
+        const [embedding] = await embedTexts(env, [text], { inTurn: true });
+        return embedding;
+    } catch (error) {
+        onError?.(error);
+        return null;
+    }
+}
+
+const rememberInput = z.object({
+    action: z.enum(["save", "update", "forget"]),
+    kind: z.enum(SAYABLE_KINDS).optional().describe("save: preference, quirk, life, constraint or assist."),
+    text: z.string().trim().min(3).max(MEMORY_CONTENT_MAX).optional().describe("save / update: the fact."),
+    id: z.uuid().optional().describe("update / forget: the fact's id from the memory list."),
+    topic: z.string().trim().min(2).max(MEMORY_LABEL_MAX).optional().describe("forget: a few words naming it, when there is no id. Never repeat a sensitive detail."),
+    validThrough: localDateSchema.optional().describe("save / update: the last day it stays true, when it ends."),
+    sensitive: z.boolean().optional().describe("save: health, money or relationship detail the user asked you to keep."),
+});
+type RememberInput = z.infer<typeof rememberInput>;
+type Written = { result: Outcome; id: string };
+
+/** Forget by id, or by a topic that names exactly one fact. */
+async function forgetOne(tx: Tx, userId: string, input: RememberInput): Promise<Written> {
+    let id = input.id;
+    if (!id) {
+        const words = (input.topic ?? "").replace(/[\\%_]/g, (ch) => `\\${ch}`);
+        if (!words) return { result: nothingChanged("Say which one to forget (id or topic)."), id: userId };
+        const found = await tx
+            .select({ id: aiMemories.id, content: aiMemories.content })
+            .from(aiMemories)
+            .where(and(eq(aiMemories.userId, userId), eq(aiMemories.status, "active"), ilike(aiMemories.content, `%${words}%`)))
+            .limit(TOPIC_MATCHES + 1);
+        if (found.length === 0) return { result: nothingChanged("Nothing remembered matches that."), id: userId };
+        if (found.length > 1) {
+            return { result: { ok: false as const, error: "Several match. Ask which one; nothing was changed.", matches: found.map((f) => ({ id: f.id, text: f.content })) }, id: userId };
+        }
+        id = found[0].id;
+    }
+    const gone = await forgetFact(tx, userId, id, input.topic);
+    if (!gone) return { result: nothingChanged("That isn't remembered."), id: userId };
+    return { result: { ok: true, action: "forgot", id: gone.id, text: gone.content }, id: gone.id };
+}
+
+/** Why this save or update can't go ahead as given, if it can't. */
+function factProblem(input: RememberInput, text: string): string | null {
+    if (text.length < 3) return "Say what to remember.";
+    if (isInstructionShaped(text)) return "That reads as an instruction to the assistant, not a fact about the user's life.";
+    if (input.action === "update" && !input.id) return "Say which one to update (id).";
+    if (input.action === "save" && !input.kind) return "Say what kind of fact this is.";
+    return null;
+}
+
+/** The fact as it will be written: its words, embedding, and the nearest fact it may repeat. */
+type Fact = { text: string; embedding: number[] | null; model: string; near: NearFact[]; match: string | null | undefined };
+
+/** Keep a repeat, update the named or matched fact, or insert a new pinned one. */
+async function writeFact(tx: Tx, userId: string, input: RememberInput, today: string, fact: Fact): Promise<Written> {
+    const { text, embedding, model, near, match } = fact;
+    if (input.action === "update" || match) {
+        const id = input.id ?? match!;
+        const same = !input.id && near.find((n) => n.id === id)!.distance <= SAME_FACT_DISTANCE;
+        if (same) {
+            await reinforceFact(tx, userId, id, today);
+            return { result: { ok: true, action: "kept", id, text }, id };
+        }
+        const ok = await updateFact(tx, userId, id, { content: text, embedding, embeddingModel: model, today, validThrough: input.validThrough });
+        if (!ok) return { result: nothingChanged("That isn't remembered."), id: userId };
+        return { result: { ok: true, action: "updated", id, text }, id };
+    }
+    const saved = await insertFact(tx, userId, {
+        kind: input.kind as never,
+        content: text,
+        embedding,
+        embeddingModel: model,
+        saidOn: today,
+        validThrough: input.validThrough,
+        source: "explicit",
+        confidence: "stated",
+        sensitive: input.sensitive,
+        pinned: true, // an explicit save never decays
+    });
+    if (!saved) return { result: nothingChanged("The user asked to forget that earlier; ask before saving it again."), id: userId };
+    // An exact repeat was already known: Undo must not delete the older fact.
+    return { result: { ok: true, action: saved.created ? "saved" : "kept", id: saved.id, text }, id: saved.id };
+}
+
 export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
     // The person's own words come back as data: fenced in the app (an outside model owns its own defence, as with notes).
     const nonce = ctx.nonce ?? makeFenceNonce();
@@ -45,21 +143,13 @@ export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
             "Each result has the day it was first said (saidOn): use it to say \"you mentioned in August…\". Never call it just to be thorough.",
         inputSchema: z.object({ query: z.string().trim().min(2).max(200).describe("A few words: the topic, person or place.") }),
         execute: async ({ query }) =>
-            safeExecute("recall", userId, async () => {
-                const db = getDbClient(env);
-                const state = await withRls(db, userId, (tx) => readMemoryState(tx, userId));
-                if (!isLearning(state.mode)) return off;
-                let embedding: number[] | null = null;
-                try {
-                    [embedding] = await embedTexts(env, [query], { inTurn: true });
-                } catch {
-                    // words alone still work
-                }
+            safeExecute("recall", userId, () => whileLearning(env, userId, async (db) => {
+                const embedding = await embedOrNull(env, query);
                 const facts = await withRls(db, userId, (tx) =>
                     recallFacts(tx, userId, { text: query, embedding, model: getEmbeddingModelId(env), today: ctx.today, exclude: new Set() }),
                 );
                 return { ok: true as const, facts: facts.map((f) => ({ id: f.id, text: asData("memory", f.content), saidOn: f.saidOn, ...(f.sensitive && { sensitive: true }), ...(f.stale && { stale: true }) })) };
-            }),
+            })),
     }),
 
     search_past_chats: tool({
@@ -72,10 +162,7 @@ export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
             before: localDateSchema.optional().describe("Before this day."),
         }),
         execute: async ({ query, after, before }) =>
-            safeExecute("search_past_chats", userId, async () => {
-                const db = getDbClient(env);
-                const state = await withRls(db, userId, (tx) => readMemoryState(tx, userId));
-                if (!isLearning(state.mode)) return off;
+            safeExecute("search_past_chats", userId, () => whileLearning(env, userId, async (db) => {
                 const zone = ctx.timezone as Zone;
                 const hits = await withRls(db, userId, (tx) =>
                     searchPastChats(tx, userId, {
@@ -88,7 +175,7 @@ export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
                     ok: true as const,
                     chats: hits.map((h) => ({ conversationId: h.conversationId, title: h.title, day: dayOf(h.at, zone), snippet: asData("past_chat", h.snippet) })),
                 };
-            }),
+            })),
     }),
 
     remember: tool({
@@ -98,108 +185,34 @@ export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
             "once and the user sees \"Remembered: … · Undo\", so don't ask first. One fact per call, a short plain third-person sentence with any date " +
             "written out (2027-06-14). save needs kind and text. update needs id (from the memory list) and the new text. forget needs id, or topic " +
             "(a few words) when it isn't in the list; if several match you get them back to ask which.",
-        inputSchema: z.object({
-            action: z.enum(["save", "update", "forget"]),
-            kind: z.enum(SAYABLE_KINDS).optional().describe("save: preference, quirk, life, constraint or assist."),
-            text: z.string().trim().min(3).max(MEMORY_CONTENT_MAX).optional().describe("save / update: the fact."),
-            id: z.uuid().optional().describe("update / forget: the fact's id from the memory list."),
-            topic: z.string().trim().min(2).max(MEMORY_LABEL_MAX).optional().describe("forget: a few words naming it, when there is no id. Never repeat a sensitive detail."),
-            validThrough: localDateSchema.optional().describe("save / update: the last day it stays true, when it ends."),
-            sensitive: z.boolean().optional().describe("save: health, money or relationship detail the user asked you to keep."),
-        }),
+        inputSchema: rememberInput,
         execute: async (input, { toolCallId }) =>
-            safeExecute("remember", userId, async () => {
-                const db = getDbClient(env);
-                const state = await withRls(db, userId, (tx) => readMemoryState(tx, userId));
-                if (!isLearning(state.mode)) return off;
-                const userHash = await hashIdentifier(userId);
-                const bad = (error: string) => ({ ok: false as const, error: `${error} Nothing was changed.` });
-
+            safeExecute("remember", userId, () => whileLearning(env, userId, async (db) => {
                 if (input.action === "forget") {
-                    return withRls(db, userId, (tx) =>
-                        once<Outcome>(tx, userId, toolCallId, async () => {
-                            let id = input.id;
-                            if (!id) {
-                                const words = (input.topic ?? "").replace(/[\\%_]/g, (ch) => `\\${ch}`);
-                                if (!words) return { result: bad("Say which one to forget (id or topic)."), id: userId };
-                                const found = await tx
-                                    .select({ id: aiMemories.id, content: aiMemories.content })
-                                    .from(aiMemories)
-                                    .where(and(eq(aiMemories.userId, userId), eq(aiMemories.status, "active"), ilike(aiMemories.content, `%${words}%`)))
-                                    .limit(TOPIC_MATCHES + 1);
-                                if (found.length === 0) return { result: bad("Nothing remembered matches that."), id: userId };
-                                if (found.length > 1) {
-                                    return { result: { ok: false as const, error: "Several match. Ask which one; nothing was changed.", matches: found.map((f) => ({ id: f.id, text: f.content })) }, id: userId };
-                                }
-                                id = found[0].id;
-                            }
-                            const gone = await forgetFact(tx, userId, id, input.topic);
-                            if (!gone) return { result: bad("That isn't remembered."), id: userId };
-                            const receipt: MemoryReceipt = { ok: true, action: "forgot", id: gone.id, text: gone.content };
-                            return { result: receipt, id: gone.id };
-                        }),
-                    );
+                    return withRls(db, userId, (tx) => once<Outcome>(tx, userId, toolCallId, () => forgetOne(tx, userId, input)));
                 }
-
                 const text = cleanText(input.text ?? "");
-                if (text.length < 3) return bad("Say what to remember.");
-                if (isInstructionShaped(text)) return bad("That reads as an instruction to the assistant, not a fact about the user's life.");
-                if (input.action === "update" && !input.id) return bad("Say which one to update (id).");
-                if (input.action === "save" && !input.kind) return bad("Say what kind of fact this is.");
+                const problem = factProblem(input, text);
+                if (problem) return nothingChanged(problem);
 
                 // Abuse guards, before any model spend: pinned saves never evict, so the ceiling must hold here too.
+                const userHash = await hashIdentifier(userId);
                 if (input.action === "save" && (await withRls(db, userId, (tx) => countActive(tx, userId))) >= MEMORY_CAP.ceiling) {
-                    return bad("Memory is full; tell the user to forget something first.");
+                    return nothingChanged("Memory is full; tell the user to forget something first.");
                 }
-                if (!(await withinDailyBudget(env, "remember", userHash, DAILY_REMEMBERS))) return bad("Too many saves today; try again tomorrow.");
+                if (!(await withinDailyBudget(env, "remember", userHash, DAILY_REMEMBERS))) return nothingChanged("Too many saves today; try again tomorrow.");
 
                 // The embedding is an HTTP call: outside any transaction, and best-effort (the fact still saves).
                 const model = getEmbeddingModelId(env);
-                let embedding: number[] | null = null;
-                try {
-                    [embedding] = await embedTexts(env, [text], { inTurn: true });
-                } catch (error) {
-                    logger.warn("ai", "memory_embed_failed", { userHash, issues: issuesFromError(error) });
-                }
+                const embedding = await embedOrNull(env, text, (error) => logger.warn("ai", "memory_embed_failed", { userHash, issues: issuesFromError(error) }));
                 const near = embedding && input.action === "save"
-                    ? await withRls(db, userId, (tx) => nearestFacts(tx, userId, embedding!, model, input.kind as never))
+                    ? await withRls(db, userId, (tx) => nearestFacts(tx, userId, embedding, model, input.kind as never))
                     : [];
                 const [match] = await consolidate(env, userHash, [{ content: text, near }]);
-
                 return withRls(db, userId, (tx) =>
-                    once<Outcome>(tx, userId, toolCallId, async () => {
-                        if (input.action === "update" || match) {
-                            const id = input.id ?? match!;
-                            const same = !input.id && near.find((n) => n.id === id)!.distance <= SAME_FACT_DISTANCE;
-                            if (same) {
-                                await reinforceFact(tx, userId, id, ctx.today);
-                                const receipt: MemoryReceipt = { ok: true, action: "kept", id, text };
-                                return { result: receipt, id };
-                            }
-                            const ok = await updateFact(tx, userId, id, { content: text, embedding, embeddingModel: model, today: ctx.today, validThrough: input.validThrough });
-                            if (!ok) return { result: bad("That isn't remembered."), id: userId };
-                            const receipt: MemoryReceipt = { ok: true, action: "updated", id, text };
-                            return { result: receipt, id };
-                        }
-                        const saved = await insertFact(tx, userId, {
-                            kind: input.kind as never,
-                            content: text,
-                            embedding,
-                            embeddingModel: model,
-                            saidOn: ctx.today,
-                            validThrough: input.validThrough,
-                            source: "explicit",
-                            confidence: "stated",
-                            sensitive: input.sensitive,
-                            pinned: true, // an explicit save never decays
-                        });
-                        if (!saved) return { result: bad("The user asked to forget that earlier; ask before saving it again."), id: userId };
-                        // An exact repeat was already known: Undo must not delete the older fact.
-                        const receipt: MemoryReceipt = { ok: true, action: saved.created ? "saved" : "kept", id: saved.id, text };
-                        return { result: receipt, id: saved.id };
-                    }),
+                    once<Outcome>(tx, userId, toolCallId, () => writeFact(tx, userId, input, ctx.today, { text, embedding, model, near, match })),
                 );
-            }),
+            })),
     }),
 };
 };

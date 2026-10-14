@@ -191,26 +191,28 @@ export function resolveDraft(
 
 const isRelativeReminder = (e: ParsedEntity) => e.type === "reminder" && typeof (e.normalizedValue as { beforeMinutes?: unknown }).beforeMinutes === "number";
 
+/** A read date: a time of day alone, a timed start (and its end), or a day. */
+function applyDate(fields: DraftFields, type: "due_date" | "scheduled_start", v: DateValue, ctx: DraftContext, manual: Partial<DraftFields>) {
+    if (ctx.capabilities.has("timeOfDay") && !ctx.capabilities.has("scheduledStart")) {
+        fields.timeOfDay = v.time;
+        return;
+    }
+    if (type !== "scheduled_start" || !v.hasTime || !v.time) {
+        fields.dueDate = v.date;
+        return;
+    }
+    fields.scheduledStart = atLocal(v.date, v.time, ctx.zone);
+    if (!v.endTime || "scheduledEnd" in manual || !ctx.capabilities.has("scheduledEnd")) return;
+    const endDay = v.endDate ?? v.date;
+    const end = atLocal(endDay, v.endTime, ctx.zone);
+    // "10pm to 1am" ends the next day
+    fields.scheduledEnd = end <= fields.scheduledStart ? atLocal(addDays(endDay, 1), v.endTime, ctx.zone) : end;
+}
+
 function applyEntity(fields: DraftFields, e: ParsedEntity, ctx: DraftContext, manual: Partial<DraftFields>) {
     switch (e.type) {
         case "due_date":
-        case "scheduled_start": {
-            const v = e.normalizedValue as DateValue;
-            if (ctx.capabilities.has("timeOfDay") && !ctx.capabilities.has("scheduledStart")) {
-                fields.timeOfDay = v.time;
-            } else if (e.type === "scheduled_start" && v.hasTime && v.time) {
-                fields.scheduledStart = atLocal(v.date, v.time, ctx.zone);
-                if (v.endTime && !("scheduledEnd" in manual) && ctx.capabilities.has("scheduledEnd")) {
-                    let end = atLocal(v.endDate ?? v.date, v.endTime, ctx.zone);
-                    // "10pm to 1am" ends the next day
-                    if (end <= fields.scheduledStart) end = atLocal(addDays(v.endDate ?? v.date, 1), v.endTime, ctx.zone);
-                    fields.scheduledEnd = end;
-                }
-            } else {
-                fields.dueDate = v.date;
-            }
-            break;
-        }
+        case "scheduled_start": applyDate(fields, e.type, e.normalizedValue as DateValue, ctx, manual); break;
         case "not_before": fields.notBefore = (e.normalizedValue as DateValue).date; break;
         case "reminder": {
             const v = e.normalizedValue as DateValue;

@@ -11,15 +11,17 @@ interface Hunk {
     lines: string[];
 }
 
-function hunks(base: string[], other: string[]): Hunk[] {
+/** How many lines the two share at the start, then at the end (never overlapping the start). */
+function commonEnds(base: string[], other: string[]): [head: number, tail: number] {
     let head = 0;
     while (head < base.length && head < other.length && base[head] === other[head]) head++;
     let tail = 0;
     while (tail < base.length - head && tail < other.length - head && base[base.length - 1 - tail] === other[other.length - 1 - tail]) tail++;
-    const a = base.slice(head, base.length - tail);
-    const b = other.slice(head, other.length - tail);
+    return [head, tail];
+}
 
-    // Longest common subsequence of the differing middle.
+/** Longest-common-subsequence lengths of every suffix pair, row-major with width `b.length + 1`. */
+function lcsTable(a: string[], b: string[]): Uint32Array {
     const w = b.length + 1;
     const lcs = new Uint32Array((a.length + 1) * w);
     for (let i = a.length - 1; i >= 0; i--) {
@@ -27,6 +29,15 @@ function hunks(base: string[], other: string[]): Hunk[] {
             lcs[i * w + j] = a[i] === b[j] ? lcs[(i + 1) * w + j + 1] + 1 : Math.max(lcs[(i + 1) * w + j], lcs[i * w + j + 1]);
         }
     }
+    return lcs;
+}
+
+function hunks(base: string[], other: string[]): Hunk[] {
+    const [head, tail] = commonEnds(base, other);
+    const a = base.slice(head, base.length - tail);
+    const b = other.slice(head, other.length - tail);
+    const w = b.length + 1;
+    const lcs = lcsTable(a, b);
     const out: Hunk[] = [];
     let i = 0;
     let j = 0;

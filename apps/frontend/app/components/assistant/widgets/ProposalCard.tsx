@@ -247,6 +247,16 @@ export function MetaPill({ icon: Icon, children }: { icon: LucideIcon; children:
     );
 }
 
+/** One field a card shows, as a pill. */
+export interface Pill { icon: LucideIcon; label: React.ReactNode }
+/** A pill, or nothing for a field left alone. */
+export type MaybePill = Pill | null | false | 0 | "" | undefined;
+
+/** Pills in order; a field left alone shows nothing. */
+export function MetaPills({ pills }: { pills: MaybePill[] }) {
+    return <>{pills.map((pill, i) => (pill ? <MetaPill key={i} icon={pill.icon}>{pill.label}</MetaPill> : null))}</>;
+}
+
 /** A tag in its own colour; `mark` shows it being added or removed. */
 export function TagPill({ tag, mark }: { tag: Tag; mark?: "add" | "remove" }) {
     const color = resolveTagColor(tag.color, "var(--color-twilight-text-soft)");

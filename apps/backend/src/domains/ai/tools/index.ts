@@ -192,8 +192,13 @@ export function slimSchema(node: unknown): unknown {
             ? Object.fromEntries(Object.entries(value).map(([name, schema]) => [name, slimSchema(schema)]))
             : slimSchema(value);
     }
-    const { anyOf, ...rest } = out;
-    if (!Array.isArray(anyOf) || anyOf.length < 2) return out;
+    return foldAnyOf(out);
+}
+
+/** `anyOf` of same-type literals becomes an `enum`; `anyOf: [X, null]` becomes `type: [X, "null"]`. */
+function foldAnyOf(node: Record<string, any>): Record<string, any> {
+    const { anyOf, ...rest } = node;
+    if (!Array.isArray(anyOf) || anyOf.length < 2) return node;
     const literals = anyOf.every((b) => b && "const" in b && typeof b.type === "string" && b.type === anyOf[0].type && Object.keys(b).length === 2);
     if (literals) return { ...rest, type: anyOf[0].type, enum: anyOf.map((b) => b.const) };
     const nonNull = anyOf.filter((b) => b?.type !== "null");

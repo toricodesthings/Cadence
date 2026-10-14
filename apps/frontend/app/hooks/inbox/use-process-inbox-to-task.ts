@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
@@ -33,6 +33,18 @@ interface ProcessInboxParams extends ProcessInboxPayload {
 
 /** What is sent (and queued offline): everything but the client-side options. */
 const toPayload = ({ successLabel: _label, skipOptimisticRemoval: _skip, silent: _silent, ...payload }: ProcessInboxParams): ProcessInboxPayload => payload;
+
+/**
+ * Every placement says where it went: its list, or the view that shows its day. A Waiting or hidden task
+ * isn't in that view, so it gets the day alone.
+ */
+function whereItWent(task: Task, variables: ProcessInboxParams, queryClient: QueryClient): string {
+    const day = task.scheduledStart ?? task.dueDate ?? variables.scheduledStart ?? variables.scheduledDay ?? variables.dueDate;
+    const listName = task.projectId ? queryClient.getQueryData<Project[]>(queryKeys.projects.all)?.find((project) => project.id === task.projectId)?.name : null;
+    if (!day) return listName ? `In ${listName}` : "No day yet";
+    const shown = task.state === "ACTIVE" && !(task.notBefore && task.notBefore > today());
+    return shown ? placementReceipt(day, listName) : placementLabel(day);
+}
 
 /**
  * Process an inbox capture into a task (C5 structured capture model):
@@ -88,14 +100,7 @@ export function useProcessInboxToTask() {
             reconcileTaskInCaches(queryClient, _data, context?.optimisticId);
             queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });
             queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
-            const scheduledLabel = _data.scheduledStart ?? _data.dueDate ?? variables.scheduledStart ?? variables.scheduledDay ?? variables.dueDate;
-            const listName = _data.projectId ? queryClient.getQueryData<Project[]>(queryKeys.projects.all)?.find((project) => project.id === _data.projectId)?.name : null;
-            // Every placement says where it went: its list, or the view that shows its day. A Waiting or hidden task
-            // isn't in that view, so it gets the day alone.
-            const shown = _data.state === "ACTIVE" && !(_data.notBefore && _data.notBefore > today());
-            const label = variables.successLabel ?? (variables.complete ? "Ticked off"
-                : scheduledLabel ? (shown ? placementReceipt(scheduledLabel, listName) : placementLabel(scheduledLabel))
-                : listName ? `In ${listName}` : "No day yet");
+            const label = variables.successLabel ?? (variables.complete ? "Ticked off" : whereItWent(_data, variables, queryClient));
             if (variables.silent) return;
             // It left the screen, so the toast names it and says where it went.
             toastUndo(toastName(_data.title), () => unprocess.mutate({

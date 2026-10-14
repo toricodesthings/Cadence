@@ -1,11 +1,40 @@
 import { Pencil, Check, Calendar, Clock, Hourglass, Pin, Repeat, Bell, BellOff, Eye, EyeOff, Lock, Unlock, CalendarClock } from "lucide-react";
-import { IdentityBlock, MetaPill, TagPill } from "./ProposalCard";
+import { IdentityBlock, MetaPills, TagPill, type MaybePill, type Pill } from "./ProposalCard";
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useTagsLookup, useTaskTitleLookup, useTaskLookup } from "./card-lookups";
 import { TaskDestination } from "./TaskDestination";
 import { TagNamePills } from "./TaskBatchCard";
 import { NoteDiff, useNoteProposal } from "./note-proposal";
 import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "../../tasks/task-choice-options";
+
+type TaskPatch = NonNullable<NonNullable<NonNullable<ToolRenderContext<"update_tasks">["part"]>["input"]>["patch"]>;
+
+/** When it happens and for how long. */
+function timePills(patch: TaskPatch): MaybePill[] {
+    const when = "scheduledStart" in patch || "dueDate" in patch ? (formatWhen(patch.scheduledStart ?? patch.dueDate) ?? "No date") : null;
+    return [
+        when ? { icon: Calendar, label: when } : null,
+        patch.durationEstimate != null ? { icon: Clock, label: `${patch.durationEstimate}m block` } : null,
+    ];
+}
+
+/** Every other field the patch sets or clears, in words. */
+function changePills(patch: TaskPatch): MaybePill[] {
+    const priority = patch.priority != null ? PRIORITY_OPTIONS.find((o) => o.value === patch.priority) : undefined;
+    const effort = patch.effort != null ? EFFORT_OPTIONS.find((o) => o.value === patch.effort) : undefined;
+    const set = <T,>(value: T | undefined, pill: (value: T) => Pill) => (value === undefined ? null : pill(value));
+    return [
+        priority ? { icon: priority.icon, label: `${priority.label} priority` } : null,
+        effort ? { icon: effort.icon, label: `${effort.label} effort` } : null,
+        patch.waitingOn ? { icon: Hourglass, label: `Waiting on ${patch.waitingOn}` } : null,
+        set(patch.isPinned, (on) => ({ icon: Pin, label: on ? "Pin" : "Unpin" })),
+        set(patch.recurrenceRule, (rule) => ({ icon: Repeat, label: rule ? "Repeats" : "Stops repeating" })),
+        set(patch.reminderAt, (at) => (at ? { icon: Bell, label: `Remind ${formatWhen(at)}` } : { icon: BellOff, label: "No reminder" })),
+        set(patch.checkInAt, (at) => ({ icon: CalendarClock, label: at ? `Check in ${formatWhen(at)}` : "No check-in" })),
+        set(patch.hideUntil, (day) => (day ? { icon: EyeOff, label: `Hidden until ${formatWhen(day)}` } : { icon: Eye, label: "Always shown" })),
+        set(patch.fixed, (fixed) => ({ icon: fixed ? Lock : Unlock, label: fixed ? "Make it Fixed" : "Make it a task" })),
+    ];
+}
 
 /** Card for `update_tasks` (design §4.1): what changes, on one task or on rows the user can untick. */
 export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext<"update_tasks"> }) {
@@ -20,9 +49,6 @@ export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext<"update_tasks"
     const title = count === 1 ? lookupTitle(taskIds[0]) : `${count} tasks`;
     const notes = useNoteProposal(count === 1 ? taskIds[0] : undefined, patch);
 
-    const when = "scheduledStart" in patch || "dueDate" in patch ? (formatWhen(patch.scheduledStart ?? patch.dueDate) ?? "No date") : null;
-    const priority = patch.priority != null ? PRIORITY_OPTIONS.find((o) => o.value === patch.priority) : undefined;
-    const effort = patch.effort != null ? EFFORT_OPTIONS.find((o) => o.value === patch.effort) : undefined;
     const changesDestination = patch.projectId !== undefined || patch.sectionId !== undefined;
     const projectId = patch.projectId !== undefined ? patch.projectId : lookupTask(taskIds[0])?.projectId;
     const tags = [
@@ -55,24 +81,9 @@ export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext<"update_tasks"
                 </div>
             )}
             <div className="flex flex-wrap gap-1.5">
-                {when ? <MetaPill icon={Calendar}>{when}</MetaPill> : null}
-                {patch.durationEstimate != null ? <MetaPill icon={Clock}>{patch.durationEstimate}m block</MetaPill> : null}
+                <MetaPills pills={timePills(patch)} />
                 {changesDestination ? <TaskDestination projectId={projectId} sectionId={patch.sectionId} /> : null}
-                {priority ? <MetaPill icon={priority.icon}>{priority.label} priority</MetaPill> : null}
-                {effort ? <MetaPill icon={effort.icon}>{effort.label} effort</MetaPill> : null}
-                {patch.waitingOn ? <MetaPill icon={Hourglass}>Waiting on {patch.waitingOn}</MetaPill> : null}
-                {patch.isPinned !== undefined ? <MetaPill icon={Pin}>{patch.isPinned ? "Pin" : "Unpin"}</MetaPill> : null}
-                {patch.recurrenceRule !== undefined ? <MetaPill icon={Repeat}>{patch.recurrenceRule ? "Repeats" : "Stops repeating"}</MetaPill> : null}
-                {patch.reminderAt !== undefined ? (
-                    patch.reminderAt ? <MetaPill icon={Bell}>Remind {formatWhen(patch.reminderAt)}</MetaPill> : <MetaPill icon={BellOff}>No reminder</MetaPill>
-                ) : null}
-                {patch.checkInAt !== undefined ? (
-                    <MetaPill icon={CalendarClock}>{patch.checkInAt ? `Check in ${formatWhen(patch.checkInAt)}` : "No check-in"}</MetaPill>
-                ) : null}
-                {patch.hideUntil !== undefined ? (
-                    patch.hideUntil ? <MetaPill icon={EyeOff}>Hidden until {formatWhen(patch.hideUntil)}</MetaPill> : <MetaPill icon={Eye}>Always shown</MetaPill>
-                ) : null}
-                {patch.fixed !== undefined ? <MetaPill icon={patch.fixed ? Lock : Unlock}>{patch.fixed ? "Make it Fixed" : "Make it a task"}</MetaPill> : null}
+                <MetaPills pills={changePills(patch)} />
                 {tags.map(({ tag, added }) => (
                     <TagPill key={tag.id} tag={tag} mark={added ? "add" : "remove"} />
                 ))}

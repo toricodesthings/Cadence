@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { useIsRestoring, useQueryClient } from "@tanstack/react-query";
+import { useIsRestoring, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { StartupRenderContext, StartupReadyContext, useWorkspaceStartup } from "../../hooks/core/use-workspace-startup";
@@ -11,6 +11,54 @@ import { isWorkspacePath } from "../../lib/auth/workspace-path";
 import { Button } from "../primitives/Button";
 import { Loading } from "../shared/Loading";
 
+type CacheClass = "warm" | "cold" | "provisional" | "unknown";
+
+/** Warm when an active first-screen query holds data saved before this page load. */
+function cacheClassOf(client: QueryClient): "warm" | "cold" {
+    return client.getQueryCache().getAll().some((q) => q.isActive()
+        && ["tasks", "projects", "tags", "inbox", "habits", "subtasks"].includes(String(q.queryKey[0]))
+        && q.state.data !== undefined && q.state.dataUpdatedAt < performance.timeOrigin) ? "warm" : "cold";
+}
+
+/** The bounded categories every startup sample carries. */
+function sampleContext(route: ReturnType<typeof startupRoute>, cache: CacheClass) {
+    return { route, cache, platform: IS_DESKTOP_RUNTIME ? "desktop" : "web", viewport: window.innerWidth < 1120 ? "compact" : "wide" } as const;
+}
+
+function isOnScreen(img: HTMLImageElement) {
+    const r = img.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && r.top < window.innerHeight && r.bottom > 0 && r.left < window.innerWidth && r.right > 0;
+}
+
+/**
+ * Times the reveal: two painted frames, and the fonts and on-screen images (20s at most). `done` gets
+ * the assets' outcome, or "timeout". Returns a cancel that stops both.
+ */
+function measureReveal(done: (result: "timeout" | PromiseSettledResult<unknown>[]) => void): () => void {
+    startupMark("visible_assets.start");
+    startupMark("reveal_frame.start");
+    let frame = 0;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<"timeout">((resolve) => { timer = setTimeout(() => resolve("timeout"), 20_000); });
+    const frameReady = Promise.race([new Promise<void>((resolve) => {
+        frame = requestAnimationFrame(() => { frame = requestAnimationFrame(() => { startupMark("reveal_frame.ready"); resolve(); }); });
+    }), timeout]);
+    const assets = Promise.allSettled([
+        document.fonts?.ready ?? Promise.resolve(),
+        ...Array.from(document.querySelectorAll<HTMLImageElement>("img")).filter(isOnScreen).map((img) => img.decode?.() ?? Promise.resolve()),
+    ]);
+    const assetResult = Promise.race([assets, timeout]).then((result) => {
+        if (active) startupMark("visible_assets.ready");
+        return result;
+    });
+    void Promise.all([assetResult, frameReady]).then(([result]) => {
+        clearTimeout(timer);
+        if (active) done(result);
+    });
+    return () => { active = false; cancelAnimationFrame(frame); clearTimeout(timer); };
+}
+
 /** Lives above routes so startup completes once per signed-in account. */
 export function WorkspaceStartup({ children }: { children: ReactNode }) {
     const { pathname } = useLocation();
@@ -20,7 +68,7 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
     const restoring = useIsRestoring();
     const reported = useRef(false);
     const entryRoute = useRef(startupRoute(pathname));
-    const cacheClass = useRef<"warm" | "cold" | "provisional" | "unknown">("unknown");
+    const cacheClass = useRef<CacheClass>("unknown");
     const reportedFailures = useRef(new Set<string>());
     const { pending, state, slow, retry, trackRender } = useWorkspaceStartup(
         authReady && isAuthenticated && isWorkspacePath(pathname),
@@ -35,16 +83,12 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (!authReady || !isAuthenticated || !isWorkspacePath(pathname)) return;
-        if (!restoring && cacheClass.current === "unknown") {
-            cacheClass.current = client.getQueryCache().getAll().some((q) => q.isActive()
-                && ["tasks", "projects", "tags", "inbox", "habits", "subtasks"].includes(String(q.queryKey[0]))
-                && q.state.data !== undefined && q.state.dataUpdatedAt < performance.timeOrigin) ? "warm" : "cold";
-        }
+        if (!restoring && cacheClass.current === "unknown") cacheClass.current = cacheClassOf(client);
         if (pending) {
             startupMark("required_data.start");
             if (settings?.privacy?.usageDiagnostics && (state === "error" || state === "offline") && !reportedFailures.current.has(state)) {
                 reportedFailures.current.add(state);
-                const sample = startupFailureSample({ route: entryRoute.current, cache: cacheClass.current, platform: IS_DESKTOP_RUNTIME ? "desktop" : "web", viewport: window.innerWidth < 1120 ? "compact" : "wide" }, state === "offline" ? "network_unavailable" : "error");
+                const sample = startupFailureSample(sampleContext(entryRoute.current, cacheClass.current), state === "offline" ? "network_unavailable" : "error");
                 if (sample) trackPerformance([sample]);
             }
             return;
@@ -55,37 +99,16 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
         if (status === "provisional" && !reported.current) cacheClass.current = "provisional";
         if (!settings || settings.privacy.usageDiagnostics === false || reported.current) return;
         reported.current = true;
-        startupMark("visible_assets.start");
-        startupMark("reveal_frame.start");
-        let frame = 0;
-        let active = true;
         let delivered = false;
-        const images = Array.from(document.querySelectorAll<HTMLImageElement>("img"))
-            .filter((img) => { const r = img.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.top < window.innerHeight && r.bottom > 0 && r.left < window.innerWidth && r.right > 0; });
-        let timer: ReturnType<typeof setTimeout>;
-        const timeout = new Promise<"timeout">((resolve) => { timer = setTimeout(() => resolve("timeout"), 20_000); });
-        const frameReady = Promise.race([new Promise<void>((resolve) => {
-            frame = requestAnimationFrame(() => { frame = requestAnimationFrame(() => { startupMark("reveal_frame.ready"); resolve(); }); });
-        }), timeout]);
-        const assets = Promise.allSettled([
-            document.fonts?.ready ?? Promise.resolve(),
-            ...images.map((img) => img.decode?.() ?? Promise.resolve()),
-        ]);
-        const assetResult = Promise.race([assets, timeout]).then((result) => {
-            if (active) startupMark("visible_assets.ready");
-            return result;
-        });
-        void Promise.all([assetResult, frameReady]).then(([result]) => {
-            clearTimeout(timer);
-            if (!active) return;
-            const samples = collectStartupSamples({ route: entryRoute.current, cache: cacheClass.current, platform: IS_DESKTOP_RUNTIME ? "desktop" : "web", viewport: window.innerWidth < 1120 ? "compact" : "wide" });
+        const cancel = measureReveal((result) => {
+            const samples = collectStartupSamples(sampleContext(entryRoute.current, cacheClass.current));
             const visible = samples.find((s) => s.phase === "visible_assets");
             if (visible && result === "timeout") visible.outcome = "timeout";
             else if (visible && Array.isArray(result) && result.some((asset) => asset.status === "rejected")) visible.outcome = "error";
             trackPerformance(samples);
             delivered = true;
         });
-        return () => { active = false; cancelAnimationFrame(frame); clearTimeout(timer); if (!delivered) reported.current = false; };
+        return () => { cancel(); if (!delivered) reported.current = false; };
     }, [authReady, isAuthenticated, pending, state, pathname, client, restoring, settings?.privacy?.usageDiagnostics, Boolean(settings)]);
     const message = state === "offline"
         ? "You're offline. Connect to load this workspace."
