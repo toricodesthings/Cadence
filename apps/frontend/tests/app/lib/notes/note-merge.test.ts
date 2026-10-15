@@ -37,4 +37,10 @@ describe("mergeNotes", () => {
         const withCode = "intro\n\n```\ncode\n```\n\nend";
         expect(mergeNotes(withCode, withCode.replace("intro", "```\nintro"), withCode.replace("end", "fin")).ok).toBe(false);
     });
+
+    it("treats a huge rewrite against an edit as a conflict to review", () => {
+        const long = Array.from({ length: 1500 }, (_, i) => `line ${i}`).join("\n");
+        const rewrite = Array.from({ length: 1500 }, (_, i) => `other ${i}`).join("\n");
+        expect(mergeNotes(long, rewrite, long.replace("line 3\n", "edited\n")).ok).toBe(false);
+    });
 });

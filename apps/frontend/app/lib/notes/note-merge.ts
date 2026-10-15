@@ -3,6 +3,7 @@
  * Accepts only edits to separate places; anything that touches the same lines is a
  * conflict for the user to settle, never a guessed result.
  */
+import { diffArrays } from "diff";
 
 interface Hunk {
     /** Base lines [start, end) replaced by `lines`. */
@@ -11,55 +12,27 @@ interface Hunk {
     lines: string[];
 }
 
-/** How many lines the two share at the start, then at the end (never overlapping the start). */
-function commonEnds(base: string[], other: string[]): [head: number, tail: number] {
-    let head = 0;
-    while (head < base.length && head < other.length && base[head] === other[head]) head++;
-    let tail = 0;
-    while (tail < base.length - head && tail < other.length - head && base[base.length - 1 - tail] === other[other.length - 1 - tail]) tail++;
-    return [head, tail];
-}
+/** Past this many changed lines, two edits are a conflict to review, not a diff to compute. */
+const MAX_EDIT_LINES = 1000;
 
-/** Longest-common-subsequence lengths of every suffix pair, row-major with width `b.length + 1`. */
-function lcsTable(a: string[], b: string[]): Uint32Array {
-    const w = b.length + 1;
-    const lcs = new Uint32Array((a.length + 1) * w);
-    for (let i = a.length - 1; i >= 0; i--) {
-        for (let j = b.length - 1; j >= 0; j--) {
-            lcs[i * w + j] = a[i] === b[j] ? lcs[(i + 1) * w + j + 1] + 1 : Math.max(lcs[(i + 1) * w + j], lcs[i * w + j + 1]);
-        }
-    }
-    return lcs;
-}
-
-function hunks(base: string[], other: string[]): Hunk[] {
-    const [head, tail] = commonEnds(base, other);
-    const a = base.slice(head, base.length - tail);
-    const b = other.slice(head, other.length - tail);
-    const w = b.length + 1;
-    const lcs = lcsTable(a, b);
+function hunks(base: string[], other: string[]): Hunk[] | null {
+    const parts = diffArrays(base, other, { maxEditLength: MAX_EDIT_LINES });
+    if (!parts) return null;
     const out: Hunk[] = [];
-    let i = 0;
-    let j = 0;
+    let at = 0;
     let open: Hunk | null = null;
-    const close = () => {
-        if (open) out.push(open);
-        open = null;
-    };
-    while (i < a.length || j < b.length) {
-        if (i < a.length && j < b.length && a[i] === b[j]) {
-            close();
-            i++;
-            j++;
-        } else if (j < b.length && (i === a.length || lcs[i * w + j + 1] >= lcs[(i + 1) * w + j])) {
-            open ??= { start: head + i, end: head + i, lines: [] };
-            open.lines.push(b[j++]);
-        } else {
-            open ??= { start: head + i, end: head + i, lines: [] };
-            open.end = head + ++i;
+    for (const part of parts) {
+        if (!part.added && !part.removed) {
+            if (open) out.push(open);
+            open = null;
+            at += part.count;
+            continue;
         }
+        open ??= { start: at, end: at, lines: [] };
+        if (part.added) open.lines.push(...part.value);
+        else open.end = at += part.count;
     }
-    close();
+    if (open) out.push(open);
     return out;
 }
 
@@ -77,6 +50,7 @@ export function mergeNotes(base: string, local: string, remote: string): Merge {
     const baseLines = base.split("\n");
     const mine = hunks(baseLines, local.split("\n"));
     const theirs = hunks(baseLines, remote.split("\n"));
+    if (!mine || !theirs) return { ok: false };
     const all: Hunk[] = [];
     for (const h of mine) {
         const twin = theirs.find((t) => touches(h, t));
