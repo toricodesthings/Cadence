@@ -16,7 +16,7 @@ import { changedFacts, deleteDecayed, deleteExpired, evictOverCap, MEMORY_CAP, m
 import { derivePatterns, deriveDurations, retentionCutoff, type SignalRow } from "./signals";
 import { embedTexts, getEmbeddingModelId } from "./embedding";
 import { backfillForUser } from "./backfill";
-import { aiMemorySignals } from "../../../db/schema";
+import { aiMemorySignals, tasks } from "../../../db/schema";
 import { MAX_SIGNALS_PER_DAY } from "./memory.service";
 
 /** Newest first: 28 days of a person at the daily cap fit, so only an old backlog is cut. */
@@ -66,8 +66,9 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
             }
             const signals: SignalRow[] = state.mode === "full"
                 ? await tx
-                      .select({ kind: aiMemorySignals.kind, on: aiMemorySignals.on, bucket: aiMemorySignals.bucket, subject: aiMemorySignals.subject, minutes: aiMemorySignals.minutes })
+                      .select({ kind: aiMemorySignals.kind, on: aiMemorySignals.on, bucket: aiMemorySignals.bucket, subject: aiMemorySignals.subject, minutes: aiMemorySignals.minutes, title: tasks.title })
                       .from(aiMemorySignals)
+                      .leftJoin(tasks, eq(tasks.id, aiMemorySignals.taskId))
                       .where(and(eq(aiMemorySignals.userId, userId), gte(aiMemorySignals.on, retentionCutoff(today))))
                       .orderBy(desc(aiMemorySignals.on))
                       .limit(MAX_SIGNALS_READ)

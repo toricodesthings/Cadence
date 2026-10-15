@@ -7,6 +7,7 @@
  * rules are testable without a database.
  */
 import { addDays, dayOf, formatInZone, type LocalDate, type Zone } from "@cadence/domain/time";
+import { STOP } from "@cadence/nlp/effort";
 
 /** The window patterns are read over, and how long signals are kept. */
 export const PATTERN_WINDOW_DAYS = 28;
@@ -48,6 +49,8 @@ export interface SignalRow {
     bucket: string;
     subject: string | null;
     minutes: number | null;
+    /** A repeating task's current title: its group is `series:<id>`, which isn't a name. */
+    title?: string | null;
 }
 
 export interface DerivedFact {
@@ -110,9 +113,11 @@ export function derivePatterns(rows: SignalRow[], today: LocalDate): DerivedFact
 /** The median of 3 or more reports per group: "usually about 50 minutes (6 times)". */
 export function deriveDurations(rows: SignalRow[]): DerivedFact[] {
     const byGroup = new Map<string, number[]>();
+    const names = new Map<string, string>();
     for (const row of rows) {
         if (row.kind !== "duration" || !row.subject || !row.minutes) continue;
         byGroup.set(row.subject, [...(byGroup.get(row.subject) ?? []), row.minutes]);
+        if (row.title && row.subject.startsWith("series:")) names.set(row.subject, row.title);
     }
     const out: DerivedFact[] = [];
     for (const [group, minutes] of byGroup) {
@@ -123,24 +128,31 @@ export function deriveDurations(rows: SignalRow[]): DerivedFact[] {
         out.push({
             kind: "duration",
             key: `duration|${group}`,
-            content: `${cap(group)} usually takes about ${median} minutes (${minutes.length} times)`,
+            content: `${cap(names.get(group) ?? group)} usually takes about ${median} minutes (${minutes.length} times)`,
             value: { group, medianMinutes: median, n: minutes.length },
         });
     }
     return out;
 }
 
-/** The normalized "group" a task belongs to for durations: lowercase words of its title, trimmed to a short key. */
+/** Where a title stops being the thing and starts being its context: "Email Sam re: invoice", "Read - ch. 3", "Gym (legs)". */
+const CONTEXT_CUT = /\bre:|\s-\s|:|\(/;
+
+/**
+ * The normalized "group" a one-off task belongs to for durations: its first 3 meaningful words, lower case,
+ * with filler words and 1-2 digit numbers dropped ("Lab 3" is "Lab 4") but course-like numbers kept
+ * ("STAT 3503" is not "STAT 2509").
+ */
 export function durationGroup(title: string): string {
-    return title
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}\s]/gu, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .split(" ")
-        .slice(0, 4)
-        .join(" ");
+    const words = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
+    const meaningful = words(title.split(CONTEXT_CUT)[0]).filter((w) => !STOP.has(w) && !/^\d{1,2}$/.test(w));
+    // A title that is all context or filler ("Re: invoice", "The 3") still gets a group: its plain words.
+    return meaningful.length ? meaningful.slice(0, 3).join(" ") : words(title).slice(0, 4).join(" ");
 }
+
+/** A repeating task is one row that returns, so its reports group by the row; anything else by its title. */
+export const groupOfTask = (task: { id: string; title: string; recurrenceRule: string | null }): string =>
+    task.recurrenceRule ? `series:${task.id}` : durationGroup(task.title);
 
 /** The 90-day cut for pruning. */
 export const retentionCutoff = (today: LocalDate): LocalDate => addDays(today, -SIGNAL_RETENTION_DAYS);

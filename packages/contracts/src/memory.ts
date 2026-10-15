@@ -70,12 +70,26 @@ export const setMemoryModeSchema = z.object({
 });
 export type SetMemoryMode = z.infer<typeof setMemoryModeSchema>;
 
-/** `POST /ai/memory/duration`: how long a task took, as the person says. */
+/** `POST /ai/memory/duration`: how long a task took, as the person says. A second answer for the same completion replaces the first. */
 export const durationReportSchema = z.object({
     taskId: z.uuid(),
     minutes: z.number().int().min(1).max(24 * 60),
 });
 export type DurationReport = z.infer<typeof durationReportSchema>;
+
+/** `POST /ai/memory/duration/ask`: should the toast be shown for this just-completed task? */
+export const durationAskSchema = z.object({ taskId: z.uuid() });
+export const durationAskResultSchema = z.union([
+    z.object({ ask: z.literal(false) }),
+    z.object({ ask: z.literal(true), token: z.string(), reference: z.number().int().positive().nullable() }),
+]);
+export type DurationAskResult = z.infer<typeof durationAskResultSchema>;
+
+/** `POST /ai/memory/duration/shown`: the toast rendered, so today's question is spent. */
+export const durationShownSchema = z.object({ token: z.string().min(1).max(100) });
+
+/** `DELETE /ai/memory/duration` and `GET /ai/memory/duration?taskId=`: the report behind a task's "Took 45 min" row. */
+export const durationTaskSchema = z.object({ taskId: z.uuid() });
 
 /** `DELETE /ai/memory` query: also switch memory off. */
 export const clearMemoryQuerySchema = z.object({

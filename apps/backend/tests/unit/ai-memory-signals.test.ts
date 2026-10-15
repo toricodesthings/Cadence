@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { completionBucket, deriveDurations, derivePatterns, durationGroup, slotBucket, timeOfDay, type SignalRow } from "../../src/domains/ai/memory/signals";
+import { completionBucket, deriveDurations, derivePatterns, durationGroup, groupOfTask, slotBucket, timeOfDay, type SignalRow } from "../../src/domains/ai/memory/signals";
 
 const row = (kind: SignalRow["kind"], on: string, bucket: string, subject: string | null = null, minutes: number | null = null): SignalRow => ({ kind, on, bucket, subject, minutes });
 const TODAY = "2026-10-12";
@@ -67,7 +67,29 @@ describe("deriveDurations", () => {
         ]);
     });
 
-    it("groups by the first words of a title, without punctuation or case", () => {
-        expect(durationGroup("Lab Report: Titration, week 3!")).toBe("lab report titration week");
+    it.each([
+        ["Lab Report: Titration, week 3!", "lab report"], // cut at ":"
+        ["Email Sam re: invoice", "email sam"],
+        ["Email Sam re: trip", "email sam"],
+        ["Read - chapter 4", "read"],
+        ["Gym (legs)", "gym"],
+        ["Write the essay for my class", "write essay class"], // filler dropped, first 3 words
+        ["Lab 3", "lab"],
+        ["Lab 4", "lab"], // 1-2 digit numbers merge
+        ["STAT 3503 Practice Exam", "stat 3503 practice"],
+        ["STAT 2509 Practice Exam", "stat 2509 practice"], // course codes don't
+        ["(draft) report", "draft report"], // nothing before the cut: its plain words
+    ])("groups %j as %j", (title, group) => {
+        expect(durationGroup(title)).toBe(group);
+    });
+
+    it("groups a repeating task by its row", () => {
+        expect(groupOfTask({ id: "abc", title: "Pay rent", recurrenceRule: "FREQ=MONTHLY" })).toBe("series:abc");
+        expect(groupOfTask({ id: "abc", title: "Pay rent", recurrenceRule: null })).toBe("pay rent");
+    });
+
+    it("names a series' duration fact by its title", () => {
+        const rows = [10, 12, 14].map((m) => ({ ...row("duration", "2026-10-01", "report", "series:abc", m), title: "Pay rent" }));
+        expect(deriveDurations(rows)[0]).toEqual(expect.objectContaining({ key: "duration|series:abc", content: "Pay rent usually takes about 12 minutes (3 times)" }));
     });
 });

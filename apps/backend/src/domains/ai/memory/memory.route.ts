@@ -6,9 +6,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
-import { clearMemoryQuerySchema, durationReportSchema, setMemoryModeSchema, type MemoryPage } from "@cadence/contracts/memory";
+import { clearMemoryQuerySchema, durationAskSchema, durationReportSchema, durationShownSchema, durationTaskSchema, setMemoryModeSchema, type MemoryPage } from "@cadence/contracts/memory";
 import { uuidParamSchema } from "@cadence/contracts/common";
-import { aiMemorySignals, tasks, users } from "../../../db/schema";
+import { aiMemories, aiMemorySignals, users } from "../../../db/schema";
 import { getDbClient } from "../../../platform/db";
 import { withRls } from "../../../platform/rls";
 import { throwIfNotFound } from "../../../platform/errors";
@@ -19,6 +19,7 @@ import type { Env } from "../../../types/env";
 import { recordPersonActivity } from "./memory.service";
 import { isLearning, memoryStateOf, readMemoryState, type MemoryState } from "./memory-mode";
 import { catchUpOf, newBackfill, type Backfill } from "./backfill";
+import { answeredDuration, askDuration, dropGroupReports, dropReports, reportTarget, reportedMinutes, spendDuration } from "./duration";
 import { clearFacts, deleteFact, forgetFact, listFacts, listForgotten, restoreFact } from "./memory-store";
 
 const undoQuerySchema = z.object({ undo: z.enum(["true", "false"]).optional().transform((v) => v === "true") });
@@ -87,16 +88,46 @@ export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
     })
 
     // "How long did it take?": an optional answer from the person, kept for Full's durations. Nothing in the
-    // response depends on the mode, so asking never reveals it; Basic and Off record nothing.
+    // response depends on the mode, so asking never reveals it; Basic and Off record nothing. One report per
+    // completion: a second answer replaces the first.
     .post("/duration", apiValidator("json", durationReportSchema), async (c) => {
         const userId = c.get("userId");
         const { taskId, minutes } = c.req.valid("json");
-        const task = await withRls(getDbClient(c.env), userId, async (tx) => {
-            const [row] = await tx.select({ title: tasks.title }).from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
-            return row;
-        });
-        throwIfNotFound(task, "Task");
-        await recordPersonActivity(c.env, userId, [{ kind: "duration", subject: task!.title, minutes }]);
+        const target = await withRls(getDbClient(c.env), userId, (tx) => reportTarget(tx, userId, taskId));
+        throwIfNotFound(target, "Task");
+        await recordPersonActivity(c.env, userId, [{ kind: "duration", subject: target!.subject, minutes, taskId, on: target!.on }]);
+        await withRls(getDbClient(c.env), userId, (tx) => answeredDuration(tx, userId)).catch(() => undefined);
+        return c.json({ data: { ok: true } });
+    })
+
+    .get("/duration", apiValidator("query", durationTaskSchema), async (c) => {
+        const userId = c.get("userId");
+        const { taskId } = c.req.valid("query");
+        const minutes = await withRls(getDbClient(c.env), userId, (tx) => reportedMinutes(tx, userId, taskId));
+        return c.json({ data: { minutes } });
+    })
+
+    // Clearing the answer (the task's "Took 45 min" row).
+    .delete("/duration", apiValidator("json", durationTaskSchema), async (c) => {
+        const userId = c.get("userId");
+        const { taskId } = c.req.valid("json");
+        await withRls(getDbClient(c.env), userId, (tx) => dropReports(tx, userId, [taskId]));
+        return c.json({ data: { ok: true } });
+    })
+
+    // Should the toast be asked? The server owns the budget, so two devices never ask twice in a day.
+    .post("/duration/ask", apiValidator("json", durationAskSchema), async (c) => {
+        const userId = c.get("userId");
+        const { taskId } = c.req.valid("json");
+        const asked = await withRls(getDbClient(c.env), userId, (tx) => askDuration(tx, userId, taskId));
+        return c.json({ data: asked ? { ask: true as const, ...asked } : { ask: false as const } });
+    })
+
+    // The toast rendered: the day is spent.
+    .post("/duration/shown", apiValidator("json", durationShownSchema), async (c) => {
+        const userId = c.get("userId");
+        const { token } = c.req.valid("json");
+        await withRls(getDbClient(c.env), userId, (tx) => spendDuration(tx, userId, token));
         return c.json({ data: { ok: true } });
     })
 
@@ -121,7 +152,11 @@ export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
         const { id } = c.req.valid("param");
         const { undo } = c.req.valid("query");
         await withRls(getDbClient(c.env), userId, async (tx) => {
+            // Forgetting a duration drops the reports behind it (read first: forgetting clears the fact's value).
+            const [fact] = undo ? [] : await tx.select({ kind: aiMemories.kind, value: aiMemories.value }).from(aiMemories).where(and(eq(aiMemories.userId, userId), eq(aiMemories.id, id)));
+            const group = fact?.kind === "duration" ? (fact.value as { group?: unknown } | null)?.group : null;
             const done = undo ? await deleteFact(tx, userId, id) : !!(await forgetFact(tx, userId, id));
+            if (done && typeof group === "string") await dropGroupReports(tx, userId, [group]);
             throwIfNotFound(done || null, "Memory");
         });
         return c.json({ data: { id } });

@@ -25,6 +25,7 @@ const persona: AssistantPersona = {
     memoryConsentVersion: null,
     memoryEpoch: 0,
     memoryBackfill: null,
+    durationAsk: null,
     adaptiveTone: true,
 };
 

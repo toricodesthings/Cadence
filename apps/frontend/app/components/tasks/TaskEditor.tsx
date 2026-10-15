@@ -22,6 +22,7 @@ import { TagField } from "./TagField";
 import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags/use-task-tags";
 import { SubtaskList } from "./SubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
+import { TookRow } from "./TookRow";
 import { TimetableBlockEditor } from "./TimetableBlockEditor";
 import { RepeatKindPicker } from "../shared/RepeatKindPicker";
 import { getTaskRepeatKind, useConvertRepeat } from "../../hooks/habits/use-convert-repeat";
@@ -393,6 +394,8 @@ function TaskDetailsFields({ task, onDone, onClose }: { task: Task; onDone: () =
                     )}
                 </div>
             </FieldBlock>
+
+            {task.state === "COMPLETE" ? <TookRow taskId={task.id} enabled={settings?.assistant?.memoryMode === "full"} /> : null}
 
             <AnimatePresence>
                 {task.state === "WAITING" && (

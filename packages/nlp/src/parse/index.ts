@@ -12,6 +12,7 @@ import { parseDates } from "./date-parser.js";
 import { parseRecurrence } from "./recurrence-parser.js";
 import { parsePriority } from "./priority-parser.js";
 import { parseDuration, parseRelativeReminder, parseWaitingOn } from "./entity-parser.js";
+export { parseDuration };
 import { resolveProjectsAndTags } from "../resolve/index.js";
 import { buildCleanedTitle, quotedSegmentsOf } from "../title/index.js";
 

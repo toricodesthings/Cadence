@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- "How long did it take?" now fits any length, and a wrong tap is one tap to change.
+- Cadence asks how long things took less often, and only when the answer helps.
+
 ## [0.34.0] - 2026-10-14
 
 ### Added

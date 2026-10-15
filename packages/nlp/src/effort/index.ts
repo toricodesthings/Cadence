@@ -34,7 +34,7 @@ export const RANGE_SHARE = 0.85;
 export const RANGE_FLOOR = 0.25;
 
 const HALF_LIFE_DAYS = 120;
-const STOP = new Set(["a", "an", "the", "to", "for", "of", "and", "or", "with", "on", "at", "in", "my", "do", "up"]);
+export const STOP = new Set(["a", "an", "the", "to", "for", "of", "and", "or", "with", "on", "at", "in", "my", "do", "up"]);
 
 /** The words that carry a task's meaning: lower case, no punctuation, no filler, no numbering (Lab 3 is Lab 4). */
 export function meaningOf(title: string): Set<string> {

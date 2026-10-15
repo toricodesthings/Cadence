@@ -345,6 +345,8 @@ export const userSettingsSchema = z.object({
             doneAt: z.string().optional(),
             failedNights: z.number().int().optional(),
         }).nullable().optional(),
+        // "How long did it take?" budget (server-owned: written only by /ai/memory/duration/ask and /shown).
+        durationAsk: z.object({ lastOn: z.string().nullable(), misses: z.number().int().min(0) }).nullable().optional(),
         adaptiveTone: z.boolean().optional(),
     }).optional(),
     // Legacy field — accepted for backward compat; migrated to tasks.defaultView
@@ -422,7 +424,7 @@ export function deepMerge<R = Record<string, unknown>>(target: unknown, source: 
 
 // Patch schema — recursively partial version of the canonical schema.
 // The memory consent fields (and the backfill's progress) are written only by POST /ai/memory/mode and the memory jobs.
-const SERVER_OWNED_ASSISTANT = { memoryMode: true, memoryChoiceAt: true, memoryConsentVersion: true, memoryEpoch: true, memoryBackfill: true } as const;
+const SERVER_OWNED_ASSISTANT = { memoryMode: true, memoryChoiceAt: true, memoryConsentVersion: true, memoryEpoch: true, memoryBackfill: true, durationAsk: true } as const;
 const patchSource = userSettingsSchema.extend({
     assistant: userSettingsSchema.shape.assistant
         .unwrap()
@@ -606,6 +608,7 @@ export const SETTINGS_DEFAULTS = {
         memoryConsentVersion: null as string | null,
         memoryEpoch: 0,
         memoryBackfill: null as { since: string; before: string; chats: "pending" | "done"; notes: "pending" | "done"; learned?: number; doneAt?: string; failedNights?: number } | null,
+        durationAsk: null as { lastOn: string | null; misses: number } | null,
         adaptiveTone: true,
     },
 } as const satisfies Record<string, unknown>;

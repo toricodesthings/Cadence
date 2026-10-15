@@ -1,27 +1,37 @@
 import { toast } from "sonner";
+import type { DurationAskResult } from "@cadence/contracts/memory";
 import { DurationChips } from "../../components/assistant/DurationChips";
-import { today } from "../utils/user-zone";
 
-const ASKED_KEY = "cadence-duration-asked-on";
-const SHOWN_MS = 9_000;
-
-/** True the first time on each local day: the question is asked at most once a day. */
-function firstToday(): boolean {
-    try {
-        const day = today();
-        if (localStorage.getItem(ASKED_KEY) === day) return false;
-        localStorage.setItem(ASKED_KEY, day);
-        return true;
-    } catch {
-        return false; // no storage: never nag
-    }
+export interface DurationApi {
+    ask: (taskId: string) => Promise<DurationAskResult>;
+    shown: (token: string) => Promise<void>;
+    report: (input: { taskId: string; minutes: number }) => Promise<void>;
 }
 
 /**
- * After the person completes a task, in Full, ask how long it took: once a day at most, never required,
- * and skipping records nothing. `report` sends the answer.
+ * After the person completes a task, in Full, maybe ask how long it took. The server decides (its budget is one
+ * shown ask a day across devices, backing off when ignored) and spends the day only once the toast has rendered.
+ * Never required, and skipping records nothing; every failure is silent.
  */
-export function offerDuration(task: { id: string; title: string }, memoryMode: string | null | undefined, report: (input: { taskId: string; minutes: number }) => void) {
-    if (memoryMode !== "full" || !firstToday()) return;
-    toast.custom((id) => <DurationChips id={id} title={task.title} onPick={(minutes) => report({ taskId: task.id, minutes })} />, { duration: SHOWN_MS });
+export async function offerDuration(task: { id: string; title: string }, memoryMode: string | null | undefined, api: DurationApi): Promise<void> {
+    if (memoryMode !== "full") return;
+    try {
+        const result = await api.ask(task.id);
+        if (!result.ask) return;
+        toast.custom(
+            (id) => (
+                <DurationChips
+                    id={id}
+                    title={task.title}
+                    reference={result.reference}
+                    onShown={() => void api.shown(result.token).catch(() => undefined)}
+                    onPick={(minutes) => void api.report({ taskId: task.id, minutes }).catch(() => undefined)}
+                />
+            ),
+            // Closed by the toast itself, which waits while it is hovered or focused.
+            { duration: Infinity },
+        );
+    } catch {
+        // Quiet: a question that can't be asked is not worth an error.
+    }
 }

@@ -23,6 +23,7 @@
 		"typecheck": "tsc --noEmit",
 		"lint": "node scripts/check-domains.mjs && oxlint .",
 		"db:generate": "drizzle-kit generate",
+		"backfill:duration-groups": "esbuild scripts/backfill-duration-groups.ts --bundle --platform=node --format=esm --external:postgres --outfile=node_modules/.cache/backfill-duration-groups.mjs --log-level=warning && node --env-file=.dev.vars node_modules/.cache/backfill-duration-groups.mjs",
 		"db:check": "drizzle-kit check",
 		"db:migrate": "drizzle-kit migrate",
 		"db:migrate:prod": "DB_TARGET=prod drizzle-kit migrate",

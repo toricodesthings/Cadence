@@ -672,6 +672,82 @@ describe("Full: learning from what the person does", () => {
         expect((await memory("POST", "/duration", { taskId: id, minutes: 0 })).status).toBe(400);
     });
 
+    it("keeps one report per task per day: a second answer replaces the first, and clearing removes it", async () => {
+        const id = await newTask("2026-10-13T12:30:00Z");
+        await setMode("full");
+        await memory("POST", "/duration", { taskId: id, minutes: 45 });
+        await memory("POST", "/duration", { taskId: id, minutes: 60 });
+        expect(await signals()).toEqual([expect.objectContaining({ kind: "duration", minutes: 60 })]);
+        const [{ task_id }] = await sql("SELECT task_id FROM ai_memory_signals WHERE user_id = $1", [userId]);
+        expect(task_id).toBe(id);
+
+        expect((await memory("GET", `/duration?taskId=${id}`)).body).toEqual({ data: { minutes: 60 } });
+        await memory("DELETE", "/duration", { taskId: id });
+        expect(await signals()).toEqual([]);
+    });
+
+    it("drops the answer when the task leaves Done, in the same change", async () => {
+        const tasksApi = apiAs(userId, "/tasks", taskRoutes, env);
+        const id = await newTask("2026-10-13T12:30:00Z");
+        await setMode("full");
+        await tasksApi("PATCH", `/${id}`, { state: "COMPLETE" });
+        await memory("POST", "/duration", { taskId: id, minutes: 45 });
+        expect((await signals()).filter((s) => s.kind === "duration")).toHaveLength(1);
+        await tasksApi("PATCH", `/${id}`, { state: "ACTIVE" });
+        expect((await signals()).filter((s) => s.kind === "duration")).toEqual([]);
+    });
+
+    it("asks the server's way: once a day, only about finished, unhurried work, and 'shown' spends the day", async () => {
+        const tasksApi = apiAs(userId, "/tasks", taskRoutes, env);
+        const id = await newTask("2026-10-13T12:30:00Z");
+        await sql("UPDATE tasks SET created_at = now() - interval '1 hour' WHERE id = $1", [id]);
+        const ask = async (taskId: string) => (await memory("POST", "/duration/ask", { taskId })).body.data;
+
+        await setMode("basic");
+        await tasksApi("PATCH", `/${id}`, { state: "COMPLETE" });
+        expect(await ask(id)).toEqual({ ask: false }); // not Full
+
+        await setMode("full");
+        expect(await ask(id)).toEqual({ ask: true, token: expect.stringContaining(id), reference: null });
+        const { token } = await ask(id);
+        // Asking spends nothing: only the toast rendering does.
+        expect((await ask(id)).ask).toBe(true);
+        await memory("POST", "/duration/shown", { token });
+        expect(await ask(id)).toEqual({ ask: false });
+
+        // A task completed seconds after it was created is a list being written down.
+        const quick = await newTask("2026-10-13T12:30:00Z");
+        await sql("UPDATE users SET settings = settings #- '{assistant,durationAsk}' WHERE id = $1", [userId]);
+        await tasksApi("PATCH", `/${quick}`, { state: "COMPLETE" });
+        expect(await ask(quick)).toEqual({ ask: false });
+    });
+
+    it("backs off after unanswered asks, and an answer resets it", async () => {
+        const id = await newTask("2026-10-13T12:30:00Z");
+        await setMode("full");
+        const read = async () => (await sql("SELECT settings #> '{assistant,durationAsk}' AS ask FROM users WHERE id = $1", [userId]))[0].ask;
+        const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+        await memory("POST", "/duration/shown", { token: `${id}:${today}` });
+        expect(await read()).toEqual({ lastOn: today, misses: 1 });
+        await memory("POST", "/duration", { taskId: id, minutes: 30 });
+        expect(await read()).toEqual({ lastOn: today, misses: 0 });
+        // A token for another day spends nothing.
+        await memory("POST", "/duration/shown", { token: `${id}:2020-01-01` });
+        expect(await read()).toEqual({ lastOn: today, misses: 0 });
+    });
+
+    it("forgetting a duration fact drops the reports behind it", async () => {
+        await setMode("full");
+        const id = await newTask("2026-10-13T12:30:00Z");
+        await memory("POST", "/duration", { taskId: id, minutes: 50 });
+        const [{ id: factId }] = await sql(
+            `INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence, value)
+             VALUES ($1, 'duration', 'Write essay usually takes about 50 minutes (3 times)', '2026-10-13', '2026-10-13', 'activity', 'observed', '{"group":"write essay"}'::jsonb)
+             RETURNING id`, [userId]);
+        await memory("DELETE", `/${factId}`);
+        expect(await signals()).toEqual([]);
+    });
+
     it("stops recording signals past the day's cap, however many are sent", async () => {
         await setMode("full");
         const { recordPersonActivity, MAX_SIGNALS_PER_DAY } = await import("../../src/domains/ai/memory/memory.service");

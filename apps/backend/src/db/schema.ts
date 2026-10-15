@@ -188,9 +188,16 @@ export const aiMemorySignals = pgTable('ai_memory_signals', {
     bucket: text('bucket').notNull(),
     subject: text('subject'),                                     // a routine's name, or a task's group for durations
     minutes: integer('minutes'),                                  // duration reports only
+    // What a duration report is about: one report per thing done (a repeating task is one row, so the day is part of the key).
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+    habitId: uuid('habit_id').references(() => habits.id, { onDelete: 'cascade' }),
     createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
 }, (table) => ({
     userKindIdx: index('ai_memory_signals_user_kind_idx').on(table.userId, table.kind, table.on),
+    taskReportUnique: uniqueIndex('ai_memory_signals_task_report_unique').on(table.userId, table.taskId, table.on)
+        .where(sql`${table.kind} = 'duration' AND ${table.taskId} IS NOT NULL`),
+    habitReportUnique: uniqueIndex('ai_memory_signals_habit_report_unique').on(table.userId, table.habitId, table.on)
+        .where(sql`${table.kind} = 'duration' AND ${table.habitId} IS NOT NULL`),
     rlsPolicy: pgPolicy('ai_memory_signals_owner_access', { as: 'permissive', for: 'all', using: rlsUsing, withCheck: rlsUsing }),
 })).enableRLS();
 

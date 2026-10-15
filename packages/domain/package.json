@@ -14,7 +14,9 @@
     "./reminders": "./src/reminders.ts",
     "./nlp-draft": "./src/nlp-draft.ts",
     "./task-instruction": "./src/task-instruction.ts",
-    "./effort-evidence": "./src/effort-evidence.ts"
+    "./effort-evidence": "./src/effort-evidence.ts",
+    "./duration-ask": "./src/duration-ask.ts",
+    "./duration-chips": "./src/duration-chips.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

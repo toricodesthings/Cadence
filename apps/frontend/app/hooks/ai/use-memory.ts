@@ -87,11 +87,38 @@ export function useClearMemory() {
     });
 }
 
-/** Answers "How long did it take?" (Full). Quiet on both sides: no toast, and a failure is not worth interrupting for. */
-export function useReportDuration() {
+/** What the "How long did it take?" toast needs from the server. Quiet: a failure is never worth interrupting for. */
+export function useDurationApi() {
     const client = useApiClient();
+    return {
+        ask: async (taskId: string) => unwrapResponse(await client.api.ai.memory.duration.ask.$post({ json: { taskId } })),
+        shown: async (token: string) => void unwrapResponse(await client.api.ai.memory.duration.shown.$post({ json: { token } })),
+        report: async (input: { taskId: string; minutes: number }) => void unwrapResponse(await client.api.ai.memory.duration.$post({ json: input })),
+    };
+}
+
+/** The answer behind a done task's "Took 45 min" row; null when there is none (or memory isn't Full). */
+export function useReportedDuration(taskId: string, enabled: boolean) {
+    const client = useApiClient();
+    return useQuery({
+        queryKey: queryKeys.ai.duration(taskId),
+        enabled,
+        staleTime: 30_000,
+        queryFn: async () => (await unwrapResponse(await client.api.ai.memory.duration.$get({ query: { taskId } }))).minutes,
+    });
+}
+
+/** Changes or clears a task's answer from its detail; the cache follows at once. */
+export function useSetReportedDuration(taskId: string) {
+    const client = useApiClient();
+    const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (input: { taskId: string; minutes: number }) =>
-            unwrapResponse(await client.api.ai.memory.duration.$post({ json: input })),
+        mutationFn: async (minutes: number | null) => {
+            if (minutes === null) unwrapResponse(await client.api.ai.memory.duration.$delete({ json: { taskId } }));
+            else unwrapResponse(await client.api.ai.memory.duration.$post({ json: { taskId, minutes } }));
+            return minutes;
+        },
+        onSuccess: (minutes) => queryClient.setQueryData(queryKeys.ai.duration(taskId), minutes),
+        onError: (error) => toastError(error, "Couldn’t save that"),
     });
 }

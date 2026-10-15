@@ -3,6 +3,7 @@
  * caller's RLS transaction and returns rows; metrics run after commit through
  * `trackTaskChanges`.
  */
+import { dropDurationReports } from "../ai/memory/memory.service";
 import { and, asc, eq, inArray, isNull, notInArray, sql, type SQL } from "drizzle-orm";
 import { tracing } from "cloudflare:workers";
 import type { BatchReschedule, EffortLevel, InsertTask, Task, TaskPriority, TaskRow, TaskState, UpdateTask } from "@cadence/contracts/task";
@@ -316,6 +317,9 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
     const { effortOrigin, ...columns } = patch as typeof patch & { effortOrigin?: "manual" | "accepted" };
     const provenance = columns.effort !== undefined ? effortProvenance(columns.effort as number | null, effortOrigin) : {};
 
+    // Leaving Done takes the "how long did it take?" answer with it, in the same transaction.
+    if (body.state !== undefined && body.state !== "COMPLETE") await dropReportsOfCompleted(tx, userId, [id]);
+
     const [row] = await tracing.enterSpan("tasks.update.write", () => tx
         .update(tasks)
         .set({ ...columns, ...provenance, updatedAt: sql`NOW()` })
@@ -356,6 +360,12 @@ export async function updateTasks(
     return rows;
 }
 
+/** Of `ids`, the ones still Done: the only ones a "how long did it take?" answer can belong to. */
+async function dropReportsOfCompleted(tx: Tx, userId: string, ids: string[]) {
+    const done = await tx.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.userId, userId), inArray(tasks.id, ids), eq(tasks.state, "COMPLETE")));
+    await dropDurationReports(tx, userId, done.map((t) => t.id));
+}
+
 /** Move tasks to a state (Done, Trash, back to open, Waiting, with its check-in). Unknown ids are skipped. */
 export async function setTaskState(
     tx: Tx,
@@ -365,6 +375,7 @@ export async function setTaskState(
     waitingOn?: string | null,
     waitingReminder?: string | null,
 ) {
+    if (state !== "COMPLETE") await dropReportsOfCompleted(tx, userId, taskIds);
     return tx
         .update(tasks)
         .set({
