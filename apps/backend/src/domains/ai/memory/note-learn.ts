@@ -6,6 +6,7 @@
  */
 import { and, desc, eq, gt, lt, sql } from "drizzle-orm";
 import { todayIn } from "@cadence/domain/time";
+import removeMarkdown from "remove-markdown";
 import { aiMemoryNotes, taskNotes } from "../../../db/schema";
 import { getDbClient } from "../../../platform/db";
 import { withRls } from "../../../platform/rls";
@@ -40,8 +41,14 @@ export async function pendingNotes(tx: Tx, userId: string, now: Date, idleMinute
     return rows.map((r) => r.taskId);
 }
 
-/** Lines of a note worth reading, trimmed. */
-const linesOf = (body: string) => body.split("\n").map((l) => l.replace(/^[\s>#*\-\d.)]+/, "").trim()).filter((l) => l.length >= MIN_LINE_CHARS);
+/** Each readable line of a note as plain text, with the raw line it came from. */
+const readLines = (body: string) => body.split("\n").map((raw) => ({ raw, line: removeMarkdown(raw).trim() })).filter((l) => l.line.length >= MIN_LINE_CHARS);
+
+/** Lines of a note worth reading, as plain text. */
+export const linesOf = (body: string) => readLines(body).map((l) => l.line);
+
+// ponytail: hashes written before remove-markdown; costs one extra hash per line, delete once no ai_memory_notes row predates 0.34.2.
+const legacyLine = (raw: string) => raw.replace(/^[\s>#*\-\d.)]+/, "").trim();
 
 export async function learnFromNote(env: Env, userId: string, taskId: string, now: Date = new Date(), admit?: Admit): Promise<LearnResult | null> {
     const db = getDbClient(env);
@@ -57,9 +64,11 @@ export async function learnFromNote(env: Env, userId: string, taskId: string, no
     });
     if (!read) return null;
 
-    const lines = linesOf(read.body);
+    const kept = readLines(read.body);
+    const lines = kept.map((l) => l.line);
     const hashes = await Promise.all(lines.map((l) => contentHash(l)));
-    const fresh = lines.filter((_, i) => !read.seen.has(hashes[i]));
+    const legacy = await Promise.all(kept.map((l) => contentHash(legacyLine(l.raw))));
+    const fresh = lines.filter((_, i) => !read.seen.has(hashes[i]) && !read.seen.has(legacy[i]));
     // Moves only from the read this started from: an overlapping run that already moved it wins, and this one writes nothing.
     const advance = async (tx: Tx) => {
         const moved = await tx

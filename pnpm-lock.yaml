@@ -82,6 +82,9 @@ importers:
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
+      remove-markdown:
+        specifier: ^0.8.0
+        version: 0.8.0
       rrule:
         specifier: ^2.8.1
         version: 2.8.1(patch_hash=661fd4ea69e60f3cd4a46de4aaaf11c609023726d74ac10d51c3cf49fee0c8a1)
@@ -5118,6 +5121,9 @@ packages:
 
   remark-stringify@11.0.0:
     resolution: {integrity: sha512-1OSmLd3awB/t8qdoEOMazZkNsfVTeY4fTsgzcQFdXNq8ToTN4ZGwrMnlda4K6smTFKD+GRV6O48i6Z4iKgPPpw==}
+
+  remove-markdown@0.8.0:
+    resolution: {integrity: sha512-VP1v6BYAa6VlLPHzr3JpVDV+f2IHqLKBauXZm08alrB9rJC4mQ1IoePsWOzpJx8GTfFwF+j6fmCtI8DLh1qIdA==}
 
   require-from-string@2.0.2:
     resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
@@ -10300,6 +10306,8 @@ snapshots:
       '@types/mdast': 4.0.4
       mdast-util-to-markdown: 2.2.0
       unified: 11.0.5
+
+  remove-markdown@0.8.0: {}
 
   require-from-string@2.0.2: {}
 

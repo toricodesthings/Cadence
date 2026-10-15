@@ -5,7 +5,7 @@ describe("generateExcerpt", () => {
     it("strips markdown to a plain one-line preview", () => {
         const body = "## Key Points\n\n- **Retention** up 14%\n1. See [the dashboard](https://x.io)\n\nRun `npm test` first.";
 
-        expect(generateExcerpt(body)).toBe("Key Points Retention up 14% See the dashboard Run  first.");
+        expect(generateExcerpt(body)).toBe("Key Points Retention up 14% See the dashboard Run npm test first.");
     });
 
     it("cuts long text at a word boundary and marks the cut", () => {
@@ -35,5 +35,15 @@ describe("countWords / countHeadings", () => {
 
     it("counts only real headings (1–6 #s followed by a space, at line start)", () => {
         expect(countHeadings("# A\ntext #not\n###### F\n####### seven\n#nospace")).toBe(2);
+    });
+});
+
+describe("linesOf", () => {
+    it("keeps a leading year and strips markdown", async () => {
+        const { linesOf } = await import("../../src/domains/ai/memory/note-learn");
+        expect(linesOf("2027 is when my course finishes.\n**Bold** and [a link](https://x.test) here")).toEqual([
+            "2027 is when my course finishes.",
+            "Bold and a link here",
+        ]);
     });
 });

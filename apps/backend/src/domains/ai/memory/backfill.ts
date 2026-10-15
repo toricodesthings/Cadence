@@ -15,6 +15,7 @@ import type { Tx } from "../../../types/db";
 import type { Env } from "../../../types/env";
 import { learnFromReading } from "./learn";
 import { memoryStateOf } from "./memory-mode";
+import { linesOf } from "./note-learn";
 import { contentHash } from "./memory-store";
 import type { MemoryPage } from "@cadence/contracts/memory";
 
@@ -23,7 +24,6 @@ const READ_CHAR_BUDGET = 24_000;
 const BATCHES_PER_NIGHT = 4;
 /** The live job covers chats and notes this recent. */
 const LIVE_DAYS = 3;
-const MIN_LINE_CHARS = 12;
 /** Nights in a row a batch broke before the log says the person is stuck (an error, not a warning). */
 const STUCK_NIGHTS = 3;
 
@@ -173,7 +173,7 @@ export async function backfillForUser(env: Env, userId: string, now: Date = new 
                 const taken: { taskId: string; text: string; hashes: string[] }[] = [];
                 let used = 0;
                 for (const note of notes) {
-                    const lines = note.body.split("\n").map((l) => l.replace(/^[\s>#*\-\d.)]+/, "").trim()).filter((l) => l.length >= MIN_LINE_CHARS);
+                    const lines = linesOf(note.body);
                     const text = lines.join("\n");
                     const hashes = await Promise.all(lines.map((l) => contentHash(l)));
                     // A note with nothing to read is still marked read, so it isn't offered again.

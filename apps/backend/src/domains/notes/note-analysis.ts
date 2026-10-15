@@ -1,18 +1,9 @@
 /** Note analysis and metrics extraction helpers. */
+import removeMarkdown from "remove-markdown";
 
 /** Generate a plain-text excerpt from markdown (first ~120 chars). */
 export function generateExcerpt(body: string, maxLength = 120): string {
-    // Strip markdown syntax for a clean preview
-    const plain = body
-        .replace(/^#{1,6}\s+/gm, "") // headings
-        .replace(/\*{1,3}([^*]+)\*{1,3}/g, "$1") // bold/italic
-        .replace(/`{1,3}[^`]*`{1,3}/g, "") // inline code / code blocks
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // links
-        .replace(/^[-*+]\s+/gm, "") // list markers
-        .replace(/^\d+\.\s+/gm, "") // ordered list markers
-        .replace(/\n{2,}/g, " ") // collapse paragraph breaks
-        .replace(/\n/g, " ")
-        .trim();
+    const plain = removeMarkdown(body).replace(/\s+/g, " ").trim();
     if (plain.length <= maxLength) return plain;
     // Cut at word boundary
     const cut = plain.lastIndexOf(" ", maxLength);
