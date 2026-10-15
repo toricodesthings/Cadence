@@ -35,13 +35,13 @@ export function useUpdateHabit() {
             const snapshot = habitCache.snapshot(queryClient);
 
             let fullHabit: Habit | undefined;
-            queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.all, exact: true }).forEach(([_, data]) => {
+            queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.all, exact: true }).forEach(([, data]) => {
                 const found = data?.find(h => h.id === id);
                 if (found) fullHabit = found;
             });
             // Also search weekly caches — archived habits may only exist there
             if (!fullHabit) {
-                queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll }).forEach(([_, data]) => {
+                queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll }).forEach(([, data]) => {
                     const found = data?.find(h => h.id === id);
                     if (found) fullHabit = found;
                 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parse } from "@cadence/nlp";
 import { resolveDraft, EMPTY_DRAFT_FIELDS, type DraftField, type DraftFields } from "@cadence/domain/nlp-draft";
-import { CLOCK, CONTEXT, CORPUS, ZONE, type Case, type Fields, type Surface } from "./corpus";
+import { CLOCK, CONTEXT, CORPUS, ZONE, type Case, type Surface } from "./corpus";
 
 const CAPS: Record<Surface, ReadonlySet<DraftField>> = {
     task: new Set<DraftField>(["dueDate", "scheduledStart", "scheduledEnd", "recurrenceRule", "priority", "projectId", "tagIds", "waitingOn", "durationMinutes", "notBefore", "reminderAt"]),

@@ -3,7 +3,6 @@ import type { CreateTaskInput, UpdateTaskInput } from "@cadence/contracts/task";
 import type { CreateProjectInput, UpdateProject } from "@cadence/contracts/project";
 import type { CreateTagInput, UpdateTag } from "@cadence/contracts/tag";
 import type { ProcessInboxItem } from "@cadence/contracts/inbox";
-import type { CanonicalNlpEnvelope } from "@cadence/nlp/core";
 import type { Instant, LocalDate } from "@cadence/domain/time";
 import { IS_DESKTOP_RUNTIME, getNativeStore } from "../../platform/runtime";
 

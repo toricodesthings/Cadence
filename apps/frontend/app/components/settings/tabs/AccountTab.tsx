@@ -561,7 +561,7 @@ function AvatarEditModal({ onProfileUpdated }: { onProfileUpdated: () => Promise
             const base64Avatar = await compressImageToBase64(file);
             setPreviewImage(base64Avatar);
             setOpen(true);
-        } catch (error) {
+        } catch {
             toast.error("Error formatting uploaded image.");
         }
     };
@@ -582,7 +582,7 @@ function AvatarEditModal({ onProfileUpdated }: { onProfileUpdated: () => Promise
 
     return (
         <>
-            <label className="absolute inset-0 bg-black/60 opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer focus-within:ring-2 focus-within:ring-inset focus-within:ring-accent-primary">
+            <label className="absolute inset-0 rounded-full bg-black/60 opacity-0 transition-opacity flex flex-col items-center justify-center cursor-pointer group-hover/avatar:opacity-100 focus-within:opacity-100 focus-within:ring-2 focus-within:ring-inset focus-within:ring-accent-primary">
                 <Camera size={22} aria-hidden="true" />
                 <span className="text-[10px] font-semibold text-white uppercase tracking-wider mt-1">Change</span>
                 <input type="file" aria-label="Change profile picture" accept="image/jpeg,image/png,image/webp" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={handleFileUpload} />

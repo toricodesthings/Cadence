@@ -56,7 +56,7 @@ export function AssistantSidePanel({ width, onWidthChange, isMobile = false }: {
     const images = useChatAttachments({ conversationId: activeConversationId, imageAllowance, perMessage, onNotice: setInputNotice });
     const conversation = useAssistantConversation({ online, onNotice: setInputNotice,
         clearAttachments: images.clearAttachments, onTurnSubmitted: scrollToBottom });
-    const { messages, status, isStreaming, threadTitle, handleNewChat, handleSelectConversation } = conversation;
+    const { isStreaming, threadTitle, handleNewChat, handleSelectConversation } = conversation;
     const submitText = (text: string) => {
         const sent = conversation.submitText(text, images.readyImages, images.uploading);
         if (sent) setInput("");

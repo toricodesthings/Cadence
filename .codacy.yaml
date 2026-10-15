@@ -1,6 +1,8 @@
 ---
 exclude_paths:
   - ".agents/**"
+  - "**/tests/**"
+  - "apps/backend/drizzle/**"
 engines:
   lizard:
     exclude_paths:

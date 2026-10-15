@@ -141,9 +141,8 @@ export function routineAgendaItems(habits: Habit[], day: string): RoutineAgendaI
  * and the Routines page share it. `animate`: a checked row folds away instead
  * of vanishing (off under reduced motion).
  */
-export function RoutineAgendaList({ items, day, animate = false, columns = false, onOpen, onComplete }: {
+export function RoutineAgendaList({ items, animate = false, columns = false, onOpen, onComplete }: {
     items: RoutineAgendaItem[];
-    day: string;
     animate?: boolean;
     /** Wide screens: rows side by side, so a full-width band keeps each time next to its title. */
     columns?: boolean;

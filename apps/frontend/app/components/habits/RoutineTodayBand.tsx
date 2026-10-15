@@ -81,7 +81,6 @@ export function RoutineTodayBand({ habits, today, bloom, columns, onOpen }: {
                 <div className="pt-1">
                     <RoutineAgendaList
                         items={items}
-                        day={today}
                         animate={bloom}
                         columns={columns}
                         onOpen={onOpen}

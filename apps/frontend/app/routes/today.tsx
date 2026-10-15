@@ -312,7 +312,6 @@ export default function TodayRoute() {
         return (
             <RoutineAgendaList
                 items={[...grouped.routinesOpen, ...grouped.routinesDone]}
-                day={todayISO}
                 onOpen={openRoutine}
                 onComplete={(item) => resolveHabit.mutateAsync({ habitId: item.habitId, targetDate: todayISO, status: item.done ? "PENDING" : "COMPLETED" })}
             />
