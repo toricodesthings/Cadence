@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { encryptPayload, fromBase64Url, hasValidPushKeys, isAllowedPushEndpoint, pushPayload, sendWebPush, toBase64Url } from "../../src/domains/push/web-push";
+import { fromBase64Url, hasValidPushKeys, isAllowedPushEndpoint, pushPayload, sendWebPush, toBase64Url } from "../../src/domains/push/web-push";
 import type { Env } from "../../src/types/env";
 
 const concat = (...parts: Uint8Array[]) => Uint8Array.from(parts.flatMap((part) => [...part]));
@@ -33,16 +33,6 @@ async function vapidEnv(): Promise<Env> {
     const publicRaw = concat(new Uint8Array([4]), fromBase64Url(jwk.x!), fromBase64Url(jwk.y!));
     return { VAPID_PUBLIC_KEY: toBase64Url(publicRaw), VAPID_PRIVATE_KEY: jwk.d! } as Env;
 }
-
-describe("encryptPayload", () => {
-    it("is decryptable by the subscribed browser only", async () => {
-        const target = await browser();
-        const body = await encryptPayload(target.keys, '{"title":"Pay rent"}');
-        expect(await target.decrypt(body)).toBe('{"title":"Pay rent"}');
-        const other = await browser();
-        await expect(other.decrypt(body)).rejects.toThrow();
-    });
-});
 
 describe("pushPayload", () => {
     it("is a Declarative Web Push message that opens the app's own page, with the older flat fields", () => {
@@ -84,6 +74,7 @@ describe("sendWebPush", () => {
         const key = await crypto.subtle.importKey("raw", fromBase64Url(env.VAPID_PUBLIC_KEY!), { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
         expect(await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, fromBase64Url(signature), new TextEncoder().encode(`${head}.${claims}`))).toBe(true);
         expect(JSON.parse(new TextDecoder().decode(fromBase64Url(claims))).aud).toBe("https://fcm.googleapis.com");
+        expect((init.body as Uint8Array).length).toBe(4096);
         expect(JSON.parse(await target.decrypt(init.body as Uint8Array))).toMatchObject({ web_push: 8030, notification: { title: "t", tag: "k" }, route: "/project/1" });
         vi.unstubAllGlobals();
     });
