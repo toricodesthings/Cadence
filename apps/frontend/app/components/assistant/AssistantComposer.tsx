@@ -173,6 +173,7 @@ export function AssistantComposer({
                         setSlashMode("auto");
                         if (inputNotice) setInputNotice(null);
                     }}
+                    data-escape-owner={activeSlash ? "" : undefined}
                     aria-controls={activeSlash ? SLASH_MENU_ID : undefined}
                     aria-activedescendant={activeSlash ? slashOptionId(activeSlash.id) : undefined}
                     onKeyDown={(e) => {

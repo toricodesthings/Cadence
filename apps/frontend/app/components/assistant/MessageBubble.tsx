@@ -148,6 +148,7 @@ export function ChatMessage({
         <div className="w-full rounded-[20px] border border-accent-primary/40 bg-panel-raised px-3.5 py-2.5 shadow-sm">
             <textarea
                 ref={editRef}
+                data-escape-owner
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {

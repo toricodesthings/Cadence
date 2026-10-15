@@ -6,6 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Background photos can be pinched or scrolled to zoom while you frame them.
+
+### Fixed
+
+- Undo stays reachable by tap or keyboard while a dialog or sheet is open.
+- The assistant keeps its newest reply in view as images load, and respects reduced motion.
+- Note previews keep inline code, and memory reads note lines that begin with a number.
+
 ## [0.34.1] - 2026-10-15
 
 ### Changed

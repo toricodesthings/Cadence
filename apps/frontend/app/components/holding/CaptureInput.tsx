@@ -182,6 +182,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     const field = (rows: number, inline = false, spellCheck = true) => (
         <textarea
             ref={input}
+            data-escape-owner
             value={value}
             rows={rows}
             spellCheck={spellCheck}

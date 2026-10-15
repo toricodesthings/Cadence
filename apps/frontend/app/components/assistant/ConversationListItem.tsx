@@ -76,6 +76,7 @@ export function ConversationListItem({
             <div className="flex items-center gap-2 rounded-xl border-l-2 border-accent-primary bg-accent-primary/8 px-3 py-2">
                 <input
                     ref={inputRef}
+                    data-escape-owner
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => {

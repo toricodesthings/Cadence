@@ -28,7 +28,7 @@ export function DetailTitle({ value, onSave, onDraftChange, children, label, max
     return (
         <section className="shrink-0 rounded-[1.35rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4">
             <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">Title</p>
-            <textarea ref={ref} rows={1} value={draft} maxLength={maxLength} aria-label={label}
+            <textarea ref={ref} data-escape-owner rows={1} value={draft} maxLength={maxLength} aria-label={label}
                 onChange={(e) => { setDraft(e.target.value); onDraftChange?.(e.target.value); }}
                 onBlur={() => {
                     const next = draft.trim();

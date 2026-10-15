@@ -4,7 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../../app/components/primitives/Dialog";
 import { Toaster } from "../../../app/components/feedback/Toaster";
+import { ResponsiveOverlayPanel } from "../../../app/components/shared/ResponsiveOverlayPanel";
 
+vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { appearance: { motion: "reduced" } } }) }));
 vi.mock("../../../app/hooks/ui/use-shell-mode", () => ({ useShellMode: () => ({ isCompact: false, isTablet: false, isPhone: false, isTouch: false }) }));
 
 function Harness({ onClose }: { onClose: () => void }) {
@@ -53,5 +55,21 @@ describe("Toaster over an open dialog", () => {
 
         fireEvent.click(button);
         await waitFor(() => expect(undo).toHaveBeenCalledOnce());
+    });
+
+    it("does the same over a sheet", async () => {
+        const onClose = vi.fn();
+        render(<><ResponsiveOverlayPanel open onClose={onClose} ariaLabel="Sheet"><button>Inside</button></ResponsiveOverlayPanel><Toaster /></>);
+        await screen.findByRole("dialog", { name: "Sheet" });
+        act(() => { toast("Moved", { action: { label: "Undo", onClick: () => {} } }); });
+        const button = await screen.findByRole("button", { name: "Undo" });
+        const host = document.querySelector<HTMLElement>("[data-cadence-toaster]")!;
+        expect(host.closest("[aria-hidden='true']")).toBeNull();
+        fireEvent.pointerDown(button);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(onClose).not.toHaveBeenCalled();
+        act(() => button.focus());
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(document.activeElement).toBe(button);
     });
 });

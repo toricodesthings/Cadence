@@ -1,7 +1,8 @@
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { AnimatePresence, motion, useDragControls, type PanInfo } from "framer-motion";
 import { X } from "lucide-react";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useRef } from "react";
+import { ToasterFocusBranch } from "../primitives/Dialog";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 import { useKeyboardInset } from "../../hooks/ui/use-keyboard-inset";
@@ -26,24 +27,6 @@ interface ResponsiveOverlayPanelProps {
 }
 
 export const SWIPE_THRESHOLD = 80;
-const FOCUSABLE_SELECTOR = [
-    "a[href]",
-    "button:not([disabled])",
-    "textarea:not([disabled])",
-    "input:not([disabled])",
-    "select:not([disabled])",
-    "[tabindex]:not([tabindex='-1'])",
-].join(", ");
-
-let overlayLockCount = 0;
-
-function getFocusableElements(container: HTMLElement | null) {
-    if (!container) return [];
-
-    return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-        (element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true",
-    );
-}
 
 export function ResponsiveOverlayPanel({
     ariaLabel,
@@ -68,86 +51,7 @@ export function ResponsiveOverlayPanel({
     // as in the writing room. iOS keeps fixed elements in the layout viewport, under the keyboard.
     const { inset: keyboard } = useKeyboardInset(open && isMobile);
     const aboveKeyboard = keyboard ? `calc(100dvh - ${keyboard}px - max(0.5rem, env(safe-area-inset-top)))` : null;
-    const labelId = useId();
     const panelRef = useRef<HTMLElement | null>(null);
-    const restoreFocusRef = useRef<HTMLElement | null>(null);
-    const inertStateRef = useRef<Array<{ element: HTMLElement; ariaHidden: string | null; inert: boolean }>>([]);
-    const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
-
-    useEffect(() => {
-        if (typeof document === "undefined") return;
-
-        const node = document.createElement("div");
-        node.dataset.cadenceOverlayRoot = "true";
-        document.body.appendChild(node);
-        setPortalNode(node);
-
-        return () => {
-            node.remove();
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!open || typeof document === "undefined") return;
-
-        restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        overlayLockCount += 1;
-
-        const previousOverflow = document.body.style.overflow;
-        const previousOverscroll = document.body.style.overscrollBehavior;
-        document.body.style.overflow = "hidden";
-        document.body.style.overscrollBehavior = "contain";
-
-        if (portalNode) {
-            const bodyChildren = Array.from(document.body.children);
-            const swept = bodyChildren
-                .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== portalNode && !("cadenceToaster" in element.dataset))
-                .map((element) => {
-                    const previous = {
-                        element,
-                        ariaHidden: element.getAttribute("aria-hidden"),
-                        inert: element.inert,
-                    };
-                    element.inert = true;
-                    element.setAttribute("aria-hidden", "true");
-                    return previous;
-                });
-            // The open overlay is always live. A sheet nested in another mounts its root as the outer one opens,
-            // so the outer sweep can catch it; left inert, the inner sheet would swallow every touch with no way out.
-            const own = { element: portalNode, ariaHidden: portalNode.getAttribute("aria-hidden"), inert: portalNode.inert };
-            portalNode.inert = false;
-            portalNode.removeAttribute("aria-hidden");
-            inertStateRef.current = [...swept, own];
-        }
-
-        const frame = window.requestAnimationFrame(() => {
-            const focusables = getFocusableElements(panelRef.current);
-            const heading = panelRef.current?.querySelector<HTMLElement>("[data-sheet-heading]");
-            (panelRef.current?.querySelector<HTMLElement>("[data-initial-focus]") ?? heading ?? focusables[0] ?? panelRef.current)?.focus();
-        });
-
-        return () => {
-            window.cancelAnimationFrame(frame);
-
-            inertStateRef.current.forEach(({ element, ariaHidden, inert }) => {
-                element.inert = inert;
-                if (ariaHidden === null) {
-                    element.removeAttribute("aria-hidden");
-                } else {
-                    element.setAttribute("aria-hidden", ariaHidden);
-                }
-            });
-            inertStateRef.current = [];
-
-            overlayLockCount = Math.max(overlayLockCount - 1, 0);
-            if (overlayLockCount === 0) {
-                document.body.style.overflow = previousOverflow;
-                document.body.style.overscrollBehavior = previousOverscroll;
-            }
-
-            restoreFocusRef.current?.focus?.();
-        };
-    }, [open, portalNode]);
 
     const handleDragEnd = useCallback(
         (_: unknown, info: PanInfo) => {
@@ -158,137 +62,118 @@ export function ResponsiveOverlayPanel({
         [onClose],
     );
 
-    const handleKeyDown = useCallback(
-        (event: React.KeyboardEvent<HTMLElement>) => {
-            // Nested portalled editors own their keyboard and dismissal behavior.
-            if (event.defaultPrevented || !panelRef.current?.contains(event.target as Node)) return;
-            if (event.key === "Escape") {
-                event.preventDefault();
-                onClose();
-                return;
-            }
-
-            if (event.key !== "Tab") {
-                return;
-            }
-
-            const focusables = getFocusableElements(panelRef.current);
-            if (focusables.length === 0) {
-                event.preventDefault();
-                panelRef.current?.focus();
-                return;
-            }
-
-            const currentIndex = focusables.indexOf(document.activeElement as HTMLElement);
-            const nextIndex = event.shiftKey
-                ? (currentIndex <= 0 ? focusables.length - 1 : currentIndex - 1)
-                : (currentIndex === focusables.length - 1 ? 0 : currentIndex + 1);
-
-            event.preventDefault();
-            focusables[nextIndex]?.focus();
-        },
-        [onClose],
-    );
-
-    const overlay = useMemo(() => {
-        if (!portalNode) return null;
-
-        return createPortal(
+    return (
+        <DialogPrimitive.Root open={open} onOpenChange={(next) => !next && onClose()}>
             <AnimatePresence>
                 {open && (
-                    <>
-                        <motion.div
-                            key="overlay"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className={`${layer === "room" ? "layer-room-sheet-backdrop" : "layer-route-backdrop"} fixed inset-0 bg-twilight-void/85`}
-                            onClick={onClose}
-                        />
+                    <DialogPrimitive.Portal forceMount>
+                        <DialogPrimitive.Overlay forceMount asChild>
+                            <motion.div
+                                key="overlay"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className={`${layer === "room" ? "layer-room-sheet-backdrop" : "layer-route-backdrop"} fixed inset-0 bg-twilight-void/85`}
+                            />
+                        </DialogPrimitive.Overlay>
 
-                        <motion.aside
-                            key="panel"
-                            ref={panelRef}
-                            initial={reducedMotion ? { opacity: 0 } : isMobile ? { opacity: 0, y: isFocus ? 16 : "100%" } : { opacity: 0, x: 28 }}
-                            animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, x: 0 }}
-                            exit={reducedMotion ? { opacity: 0 } : isMobile ? { opacity: 0, y: isFocus ? 16 : "100%" } : { opacity: 0, x: 28 }}
-                            transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.32, 0.72, 0, 1] }}
-                            role="dialog"
-                            aria-modal="true"
-                            aria-labelledby={showHeader && title ? labelId : undefined}
-                            aria-label={showHeader && title ? undefined : ariaLabel}
-                            tabIndex={-1}
-                            onKeyDown={handleKeyDown}
-                            drag={isPeekMobile ? "y" : false}
-                            dragControls={dragControls}
-                            dragListener={false}
-                            dragSnapToOrigin
-                            dragConstraints={{ top: 0 }}
-                            dragElastic={0.15}
-                            onDragEnd={isPeekMobile ? handleDragEnd : undefined}
-                            style={isPeekMobile
-                                ? {
-                                    height: fit ? "auto" : aboveKeyboard ?? "min(92dvh, 52rem)",
-                                    maxHeight: aboveKeyboard ?? "min(92dvh, 52rem)",
-                                    bottom: keyboard || undefined,
-                                    width: "100%",
-                                    maxWidth: shell.isTablet ? "48rem" : undefined,
-                                    marginInline: "auto",
-                                }
-                                : isMobile && keyboard ? { bottom: keyboard } : undefined}
-                            className={[
-                                `mobile-sheet-shell ${layer === "room" ? "layer-room-sheet" : "layer-route-overlay"} surface-route-overlay fixed flex w-full flex-col shadow-2xl shadow-black/40`,
-                                isMobile
-                                    ? isFocus
-                                        ? "safe-bottom safe-top inset-0 border-none"
-                                        : `safe-bottom fixed inset-x-0 bottom-0 top-auto ${fit ? "" : "h-[min(92dvh,48rem)]"} rounded-t-[2rem] border-t border-twilight-border`
-                                    : "safe-bottom safe-top inset-y-0 right-0 border-l border-twilight-border",
-                            ].join(" ")}
+                        <DialogPrimitive.Content
+                            forceMount
+                            asChild
+                            aria-describedby={undefined}
+                            onOpenAutoFocus={(event) => {
+                                const panel = panelRef.current;
+                                const target = panel?.querySelector<HTMLElement>("[data-initial-focus]") ?? panel?.querySelector<HTMLElement>("[data-sheet-heading]");
+                                if (!target) return;
+                                event.preventDefault();
+                                target.focus();
+                            }}
+                            // Radix sees Escape before any child; a control that keeps Escape for itself says so.
+                            onEscapeKeyDown={(event) => {
+                                if ((event.target as Element | null)?.closest?.("[data-escape-owner]")) event.preventDefault();
+                            }}
                         >
-                            {isPeekMobile && (
-                                <div data-sheet-handle onPointerDown={(event) => dragControls.start(event)} style={{ touchAction: "none" }} className="flex h-8 shrink-0 cursor-grab items-center justify-center active:cursor-grabbing" aria-hidden="true">
-                                    <div className="h-1 w-10 rounded-full bg-twilight-text-soft/40" />
-                                </div>
-                            )}
-
-                            {showHeader && title ? (
-                                <div className="mobile-sheet-header flex items-center justify-between gap-3 border-b border-twilight-border px-4 py-4 sm:px-5">
-                                    <div>
-                                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-twilight-text-soft">
-                                            Workspace details
-                                        </p>
-                                        <h2 id={labelId} data-sheet-heading tabIndex={-1} className="mt-1 font-display text-xl font-semibold text-twilight-text">
-                                            {title}
-                                        </h2>
+                            <motion.aside
+                                key="panel"
+                                ref={panelRef}
+                                initial={reducedMotion ? { opacity: 0 } : isMobile ? { opacity: 0, y: isFocus ? 16 : "100%" } : { opacity: 0, x: 28 }}
+                                animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, x: 0 }}
+                                exit={reducedMotion ? { opacity: 0 } : isMobile ? { opacity: 0, y: isFocus ? 16 : "100%" } : { opacity: 0, x: 28 }}
+                                transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.32, 0.72, 0, 1] }}
+                                drag={isPeekMobile ? "y" : false}
+                                dragControls={dragControls}
+                                dragListener={false}
+                                dragSnapToOrigin
+                                dragConstraints={{ top: 0 }}
+                                dragElastic={0.15}
+                                onDragEnd={isPeekMobile ? handleDragEnd : undefined}
+                                style={isPeekMobile
+                                    ? {
+                                        height: fit ? "auto" : aboveKeyboard ?? "min(92dvh, 52rem)",
+                                        maxHeight: aboveKeyboard ?? "min(92dvh, 52rem)",
+                                        bottom: keyboard || undefined,
+                                        width: "100%",
+                                        maxWidth: shell.isTablet ? "48rem" : undefined,
+                                        marginInline: "auto",
+                                    }
+                                    : isMobile && keyboard ? { bottom: keyboard } : undefined}
+                                className={[
+                                    `mobile-sheet-shell ${layer === "room" ? "layer-room-sheet" : "layer-route-overlay"} surface-route-overlay fixed flex w-full flex-col shadow-2xl shadow-black/40`,
+                                    isMobile
+                                        ? isFocus
+                                            ? "safe-bottom safe-top inset-0 border-none"
+                                            : `safe-bottom fixed inset-x-0 bottom-0 top-auto ${fit ? "" : "h-[min(92dvh,48rem)]"} rounded-t-[2rem] border-t border-twilight-border`
+                                        : "safe-bottom safe-top inset-y-0 right-0 border-l border-twilight-border",
+                                ].join(" ")}
+                            >
+                                {isPeekMobile && (
+                                    <div data-sheet-handle onPointerDown={(event) => dragControls.start(event)} style={{ touchAction: "none" }} className="flex h-8 shrink-0 cursor-grab items-center justify-center active:cursor-grabbing" aria-hidden="true">
+                                        <div className="h-1 w-10 rounded-full bg-twilight-text-soft/40" />
                                     </div>
+                                )}
 
-                                    <button
-                                        type="button"
-                                        onClick={onClose}
-                                        aria-label={`Close ${title}`}
-                                        className="btn-icon text-twilight-text-muted hover:bg-white/[0.05] hover:text-twilight-text"
-                                    >
-                                        <X size={18} aria-hidden="true" />
-                                    </button>
-                                </div>
-                            ) : null}
+                                {showHeader && title ? null : (
+                                    <DialogPrimitive.Title className="sr-only">{ariaLabel}</DialogPrimitive.Title>
+                                )}
 
-                            {fill ? (
-                                <div className="flex min-h-0 flex-1 flex-col">
-                                    {children}
-                                </div>
-                            ) : (
-                                <div className="mobile-sheet-body scrollbar-thin">
-                                    {children}
-                                </div>
-                            )}
-                        </motion.aside>
-                    </>
+                                {showHeader && title ? (
+                                    <div className="mobile-sheet-header flex items-center justify-between gap-3 border-b border-twilight-border px-4 py-4 sm:px-5">
+                                        <div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-twilight-text-soft">
+                                                Workspace details
+                                            </p>
+                                            <DialogPrimitive.Title data-sheet-heading tabIndex={-1} className="mt-1 font-display text-xl font-semibold text-twilight-text">
+                                                {title}
+                                            </DialogPrimitive.Title>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={onClose}
+                                            aria-label={`Close ${title}`}
+                                            className="btn-icon text-twilight-text-muted hover:bg-white/[0.05] hover:text-twilight-text"
+                                        >
+                                            <X size={18} aria-hidden="true" />
+                                        </button>
+                                    </div>
+                                ) : null}
+
+                                <ToasterFocusBranch />
+
+                                {fill ? (
+                                    <div className="flex min-h-0 flex-1 flex-col">
+                                        {children}
+                                    </div>
+                                ) : (
+                                    <div className="mobile-sheet-body scrollbar-thin">
+                                        {children}
+                                    </div>
+                                )}
+                            </motion.aside>
+                        </DialogPrimitive.Content>
+                    </DialogPrimitive.Portal>
                 )}
-            </AnimatePresence>,
-            portalNode,
-        );
-    }, [ariaLabel, children, dragControls, fill, fit, handleDragEnd, handleKeyDown, isFocus, layer, isMobile, isPeekMobile, labelId, onClose, open, portalNode, reducedMotion, shell.isTablet, showHeader, title]);
-
-    return overlay;
+            </AnimatePresence>
+        </DialogPrimitive.Root>
+    );
 }

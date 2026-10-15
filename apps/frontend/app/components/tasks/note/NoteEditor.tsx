@@ -298,6 +298,7 @@ export function NoteEditor({
         <div
             onClick={onWrapperClick}
             data-note-surface={variant}
+            data-escape-owner={slash ? "" : undefined}
             data-hint={commandHint && empty ? "" : undefined}
             className={cn("note-editor relative", className)}
         >
