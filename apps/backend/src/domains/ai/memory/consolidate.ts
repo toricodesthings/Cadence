@@ -6,7 +6,7 @@
  * Why not the decision model (as placement uses): on the eval it abstains whenever the value changed
  * ("works afternoons now" vs "works mornings"), which is the case that matters most; see tests/evals/memory.eval.ts.
  */
-import { generateText } from "ai";
+import { generateText, Output } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { z } from "zod";
 import { logger } from "../../../platform/log";
@@ -51,10 +51,11 @@ export async function consolidate(env: Env, userHash: string, items: Consolidati
 
     try {
         const startedAt = Date.now();
-        const { text, usage, providerMetadata, response } = await generateText({
+        const { output, usage, providerMetadata, response } = await generateText({
             model: createOpenRouter({ apiKey: env.OPENROUTER_API_KEY })(getModelId(env), { user: userHash }),
             instructions: CONSOLIDATE_INSTRUCTIONS,
             prompt,
+            output: Output.object({ schema: replySchema }),
             temperature: 0,
             maxOutputTokens: 400,
             maxRetries: 1,
@@ -68,11 +69,8 @@ export async function consolidate(env: Env, userHash: string, items: Consolidati
             ms: Date.now() - startedAt,
             ...addStepSpend({}, { providerMetadata, response }),
         });
-        const json = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
-        const parsed = replySchema.safeParse(json);
-        if (!parsed.success) return none;
         const out = [...none];
-        for (const m of parsed.data.matches) {
+        for (const m of output.matches) {
             const target = withNear[m.new - 1];
             const id = m.known ? byKey.get(m.known) : undefined;
             // Only a fact that was offered for that item can be named.

@@ -24,6 +24,22 @@ const rawFactSchema = z.object({
 });
 const rawSchema = z.object({ facts: z.array(z.unknown()) });
 
+/**
+ * The shape the model must produce (structured output). Every field is required and nullable, with no
+ * min/max/format: strict modes reject optional fields and most constraint keywords. The real limits stay in
+ * `rawFactSchema`, checked per candidate.
+ */
+export const extractReplySchema = z.object({
+    facts: z.array(z.object({
+        from: z.string(),
+        kind: memoryKindSchema,
+        text: z.string(),
+        validThrough: z.string().nullable(),
+        minutes: z.number().int().nullable(),
+        flags: z.array(z.string()),
+    })),
+});
+
 export interface Candidate {
     /** The person's message it came from. */
     messageId: string;
@@ -63,16 +79,8 @@ export function cleanText(text: string): string {
  * the model saw to the person's real message ids; a candidate citing anything else is dropped,
  * so nothing from assistant text, tools or invented sources gets in. Fails closed on any shape error.
  */
-export function acceptCandidates(reply: string, messages: ReadonlyMap<string, string>): Candidate[] {
-    let json: unknown;
-    try {
-        const start = reply.indexOf("{");
-        const end = reply.lastIndexOf("}");
-        json = JSON.parse(reply.slice(start, end + 1));
-    } catch {
-        return [];
-    }
-    const parsed = rawSchema.safeParse(json);
+export function acceptCandidates(reply: unknown, messages: ReadonlyMap<string, string>): Candidate[] {
+    const parsed = rawSchema.safeParse(reply);
     if (!parsed.success) return [];
 
     const out: Candidate[] = [];

@@ -9,7 +9,7 @@
  */
 // oxlint-disable-next-line triple-slash-reference -- the frontend typecheck compiles this file without backend src/types
 /// <reference path="../../../types/text-modules.d.ts" />
-import { generateText } from "ai";
+import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { and, asc, eq, gt, sql } from "drizzle-orm";
 import { todayIn } from "@cadence/domain/time";
@@ -22,7 +22,7 @@ import { getModelId } from "../model-router";
 import { addStepSpend } from "../safety/rate-limit";
 import type { Env } from "../../../types/env";
 import type { Tx } from "../../../types/db";
-import { acceptCandidates } from "./candidates";
+import { acceptCandidates, extractReplySchema } from "./candidates";
 import { consolidate } from "./consolidate";
 import { embedTexts, getEmbeddingModelId } from "./embedding";
 import { fenceMemoryState, isLearning, readMemoryState, type MemoryState } from "./memory-mode";
@@ -250,28 +250,37 @@ export async function learnFromConversation(env: Env, userId: string, conversati
     }
 }
 
-/** The model's raw JSON reply for these messages ("" on any failure: nothing is learned and the cursor stays). */
-export async function extract(env: Env, userHash: string, today: string, reading: string): Promise<string> {
+/** The model's structured reply for these messages (null when it produced nothing readable: nothing is learned, the cursor moves). Timeouts and network errors throw, so the reading is retried. */
+export async function extract(env: Env, userHash: string, today: string, reading: string): Promise<unknown> {
     if (!env.OPENROUTER_API_KEY) throw new Error("no model");
     const modelId = getModelId(env);
     const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY });
     const startedAt = Date.now();
-    const { text, usage, providerMetadata, response } = await generateText({
-        model: openrouter(modelId, { user: userHash }),
-        instructions: extractPrompt.trimEnd(),
-        prompt: `Today is ${today}.\n\n${reading}`,
-        temperature: 0,
-        maxOutputTokens: 1_200,
-        maxRetries: 1,
-        abortSignal: AbortSignal.timeout(EXTRACT_TIMEOUT_MS),
-    });
-    logger.info("ai", "ai_memory_extract", {
-        userHash,
-        model: modelId,
-        inputTokens: usage?.inputTokens,
-        outputTokens: usage?.outputTokens,
-        ms: Date.now() - startedAt,
-        ...addStepSpend({}, { providerMetadata, response }),
-    });
-    return text;
+    const log = (usage: { inputTokens?: number; outputTokens?: number } | undefined, step: { providerMetadata?: unknown; response?: { modelId?: string } }) =>
+        logger.info("ai", "ai_memory_extract", {
+            userHash,
+            model: modelId,
+            inputTokens: usage?.inputTokens,
+            outputTokens: usage?.outputTokens,
+            ms: Date.now() - startedAt,
+            ...addStepSpend({}, step),
+        });
+    try {
+        const { output, usage, providerMetadata, response } = await generateText({
+            model: openrouter(modelId, { user: userHash }),
+            instructions: extractPrompt.trimEnd(),
+            prompt: `Today is ${today}.\n\n${reading}`,
+            output: Output.object({ schema: extractReplySchema }),
+            temperature: 0,
+            maxOutputTokens: 1_200,
+            maxRetries: 1,
+            abortSignal: AbortSignal.timeout(EXTRACT_TIMEOUT_MS),
+        });
+        log(usage, { providerMetadata, response });
+        return output;
+    } catch (error) {
+        if (!NoObjectGeneratedError.isInstance(error)) throw error;
+        log(error.usage, { response: error.response });
+        return null;
+    }
 }

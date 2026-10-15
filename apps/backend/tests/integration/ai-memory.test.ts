@@ -11,7 +11,7 @@ vi.mock("ai", async (importOriginal) => ({
     ...(await importOriginal<typeof import("ai")>()),
     generateText: vi.fn(async () => {
         await model.beforeWrite?.();
-        return { text: model.reply, usage: {}, providerMetadata: {}, response: {} };
+        return { output: JSON.parse(model.reply), usage: {}, providerMetadata: {}, response: {} };
     }),
 }));
 vi.mock("../../src/domains/ai/memory/embedding", async (importOriginal) => ({
@@ -888,7 +888,7 @@ describe("Full: the 90-day catch-up", () => {
         const { generateText } = await import("ai");
         vi.mocked(generateText).mockImplementation((async (args: { prompt: string }) => {
             seen.push(args.prompt);
-            return { text: "{\"facts\":[]}", usage: {}, providerMetadata: {}, response: {} };
+            return { output: { facts: [] }, usage: {}, providerMetadata: {}, response: {} };
         }) as never);
 
         await nightlyForUser(env, userId, now);
@@ -918,7 +918,7 @@ describe("Full: the 90-day catch-up", () => {
         expect(await progress()).toMatchObject({ chats: "pending", failedNights: 3 });
         expect(error).toHaveBeenCalledWith("ai", "memory_backfill_stuck", expect.objectContaining({ failedNights: 3 }));
 
-        vi.mocked(generateText).mockResolvedValue({ text: "{\"facts\":[]}", usage: {}, providerMetadata: {}, response: {} } as never);
+        vi.mocked(generateText).mockResolvedValue({ output: { facts: [] }, usage: {}, providerMetadata: {}, response: {} } as never);
         await nightlyForUser(env, userId, now);
         expect(await progress()).toMatchObject({ failedNights: 0, doneAt: now.toISOString() });
         error.mockRestore();

@@ -3,11 +3,11 @@ import { acceptCandidates, isInstructionShaped } from "../../src/domains/ai/memo
 import { buildReading } from "../../src/domains/ai/memory/learn";
 
 const labels = new Map([["m1", "msg-1"], ["m2", "msg-2"]]);
-const reply = (...facts: object[]) => JSON.stringify({ facts });
+const reply = (...facts: object[]) => ({ facts });
 
 describe("acceptCandidates", () => {
     it("keeps a plain fact and maps its label to the person's real message id", () => {
-        const out = acceptCandidates(`\`\`\`json\n${reply({ from: "m2", kind: "life", text: "Exam season through 2026-12-18", validThrough: "2026-12-18" })}\n\`\`\``, labels);
+        const out = acceptCandidates(reply({ from: "m2", kind: "life", text: "Exam season through 2026-12-18", validThrough: "2026-12-18" }), labels);
         expect(out).toEqual([{ messageId: "msg-2", kind: "life", content: "Exam season through 2026-12-18", validThrough: "2026-12-18" }]);
     });
 
@@ -24,9 +24,9 @@ describe("acceptCandidates", () => {
         expect(out.map((c) => c.content)).toEqual(["Says gym for the climbing gym"]);
     });
 
-    it("fails closed on anything that isn't the expected JSON", () => {
-        expect(acceptCandidates("no json here", labels)).toEqual([]);
-        expect(acceptCandidates('{"facts": "nope"}', labels)).toEqual([]);
+    it("fails closed on anything that isn't the expected shape", () => {
+        expect(acceptCandidates(null, labels)).toEqual([]);
+        expect(acceptCandidates({ facts: "nope" }, labels)).toEqual([]);
         expect(acceptCandidates(reply({ from: "m1", kind: "nonsense", text: "fine text" }), labels)).toEqual([]);
     });
 
