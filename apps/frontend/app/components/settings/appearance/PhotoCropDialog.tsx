@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Cropper, { type Area, type MediaSize, type Point, type Size } from "react-easy-crop";
 import { Loader2, Move, ZoomIn } from "lucide-react";
 import {
     Dialog,
@@ -16,6 +17,9 @@ import { RangeSlider } from "./RangeSlider";
 const CROP_ASPECT = 16 / 9;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
+/** The crop area is the whole frame, so it only needs a moonlit edge and today's faint thirds; the package's own colours stay hidden. */
+const CROP_AREA = { border: "1px solid var(--color-moonlit-soft)", boxShadow: "none", color: "transparent" } as const;
+const CROP_AREA_CLASS = "before:!border-white/15 after:!border-white/15 opacity-40";
 
 interface PhotoCropDialogProps {
     /** The file someone just picked, or null when the dialog is closed. */
@@ -26,11 +30,6 @@ interface PhotoCropDialogProps {
     onConfirm: (cropped: File) => Promise<void>;
 }
 
-interface Size {
-    width: number;
-    height: number;
-}
-
 /**
  * Preview, pan and zoom a picked photo before anything is uploaded.
  *
@@ -38,14 +37,13 @@ interface Size {
  * decoded locally, and the confirmed crop is what gets compressed and sent.
  */
 export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: PhotoCropDialogProps) {
-    const frameRef = useRef<HTMLDivElement>(null);
-    const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
-
     const [source, setSource] = useState<CropSource | null>(null);
     const [failed, setFailed] = useState(false);
-    const [frame, setFrame] = useState<Size>({ width: 0, height: 0 });
+    const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(MIN_ZOOM);
-    const [offset, setOffset] = useState({ x: 0, y: 0 });
+    const [area, setArea] = useState<Area | null>(null);
+    const [cropSize, setCropSize] = useState<Size | null>(null);
+    const [media, setMedia] = useState<MediaSize | null>(null);
     const [cropping, setCropping] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const confirming = useRef(false);
@@ -59,7 +57,9 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
 
         setFailed(false);
         setZoom(MIN_ZOOM);
-        setOffset({ x: 0, y: 0 });
+        setCrop({ x: 0, y: 0 });
+        setArea(null);
+        setMedia(null);
 
         loadCropSource(file)
             .then((next) => {
@@ -78,102 +78,13 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
         };
     }, [file]);
 
-    // The frame is fluid, so the geometry has to follow its measured width.
-    useEffect(() => {
-        const element = frameRef.current;
-        if (!element) return;
-        const observer = new ResizeObserver(([entry]) => {
-            const { width } = entry.contentRect;
-            setFrame({ width, height: width / CROP_ASPECT });
-        });
-        observer.observe(element);
-        return () => observer.disconnect();
-    }, [source]);
-
-    // Scale that just covers the frame, before the zoom multiplier.
-    const coverScale =
-        source && frame.width > 0
-            ? Math.max(frame.width / source.width, frame.height / source.height)
-            : 1;
-    const scale = coverScale * zoom;
-    const displayWidth = (source?.width ?? 0) * scale;
-    const displayHeight = (source?.height ?? 0) * scale;
-
-    /** Keep the frame fully covered — the image can never be dragged off an edge. */
-    const clamp = useCallback(
-        (next: { x: number; y: number }, atScale: number) => {
-            if (!source) return { x: 0, y: 0 };
-            const maxX = Math.max(0, (source.width * atScale - frame.width) / 2);
-            const maxY = Math.max(0, (source.height * atScale - frame.height) / 2);
-            return {
-                x: Math.min(maxX, Math.max(-maxX, next.x)),
-                y: Math.min(maxY, Math.max(-maxY, next.y)),
-            };
-        },
-        [source, frame.width, frame.height],
-    );
-    const position = clamp(offset, scale);
-
-    const changeZoom = useCallback(
-        (next: number) => {
-            if (busy) return;
-            const clampedZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
-            setZoom(clampedZoom);
-            // Zooming out can leave the image short of an edge; pull it back in.
-            setOffset((current) => clamp(current, coverScale * clampedZoom));
-        },
-        [clamp, coverScale, busy],
-    );
-
-    const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-        if (!source || busy || dragRef.current || event.button !== 0) return;
-        event.currentTarget.setPointerCapture(event.pointerId);
-        dragRef.current = {
-            pointerId: event.pointerId,
-            startX: event.clientX,
-            startY: event.clientY,
-            originX: position.x,
-            originY: position.y,
-        };
-    };
-
-    const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-        const drag = dragRef.current;
-        if (busy || !drag || drag.pointerId !== event.pointerId) return;
-        setOffset(
-            clamp(
-                {
-                    x: drag.originX + (event.clientX - drag.startX),
-                    y: drag.originY + (event.clientY - drag.startY),
-                },
-                scale,
-            ),
-        );
-    };
-
-    const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
-        if (dragRef.current?.pointerId !== event.pointerId) return;
-        dragRef.current = null;
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-            event.currentTarget.releasePointerCapture(event.pointerId);
-        }
-    };
-
     const handleConfirm = async () => {
-        if (!source || frame.width === 0 || busy || confirming.current) return;
+        if (!source || !area || busy || confirming.current) return;
         confirming.current = true;
         setError(null);
         setCropping(true);
         try {
-            const width = frame.width / scale;
-            const height = frame.height / scale;
-            const rect = {
-                x: Math.min(Math.max(0, displayWidth / 2 - position.x - frame.width / 2) / scale, source.width - width),
-                y: Math.min(Math.max(0, displayHeight / 2 - position.y - frame.height / 2) / scale, source.height - height),
-                width,
-                height,
-            };
-            await onConfirm(await cropImage(source, rect));
+            await onConfirm(await cropImage(source, area));
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : "Could not set your background. Please try again.");
         } finally {
@@ -181,6 +92,10 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
             setCropping(false);
         }
     };
+
+    // How far the photo can slide on each axis before the frame would show an edge.
+    const extentOf = (axis: "x" | "y") =>
+        media && cropSize ? Math.max(0, ((axis === "x" ? media.width * zoom - cropSize.width : media.height * zoom - cropSize.height)) / 2) : 0;
 
     return (
         <Dialog open={file !== null} onOpenChange={(open) => !open && !busy && onCancel()}>
@@ -192,27 +107,25 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
                     </DialogDescription>
                 </DialogHeader>
 
-                <div
-                    ref={frameRef}
-                    onPointerDown={handlePointerDown}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={endDrag}
-                    onPointerCancel={endDrag}
-                    className="relative aspect-[16/9] w-full touch-none select-none overflow-hidden rounded-2xl bg-twilight-deep ring-1 ring-white/10"
-                    style={{ cursor: source ? "grab" : "default" }}
-                >
+                <div className="relative aspect-[16/9] w-full touch-none select-none overflow-hidden rounded-2xl bg-twilight-deep ring-1 ring-white/10">
                     {source ? (
-                        <img
-                            src={source.url}
-                            alt="Preview of your background crop"
-                            draggable={false}
-                            className="pointer-events-none absolute left-1/2 top-1/2"
-                            style={{
-                                width: displayWidth,
-                                height: displayHeight,
-                                maxWidth: "none",
-                                transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px)`,
-                            }}
+                        <Cropper
+                            image={source.url}
+                            aspect={CROP_ASPECT}
+                            objectFit="cover"
+                            crop={crop}
+                            zoom={zoom}
+                            minZoom={MIN_ZOOM}
+                            maxZoom={MAX_ZOOM}
+                            onCropChange={setCrop}
+                            onZoomChange={setZoom}
+                            onCropComplete={(_, pixels) => setArea(pixels)}
+                            onCropSizeChange={setCropSize}
+                            onMediaLoaded={setMedia}
+                            showGrid
+                            mediaProps={{ alt: "Preview of your background crop", draggable: false }}
+                            style={{ cropAreaStyle: CROP_AREA }}
+                            classes={{ cropAreaClassName: CROP_AREA_CLASS }}
                         />
                     ) : (
                         <div className="absolute inset-0 flex items-center justify-center text-[12px] text-twilight-text-muted">
@@ -224,15 +137,6 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
                                     Opening your photo…
                                 </span>
                             )}
-                        </div>
-                    )}
-
-                    {/* Rule-of-thirds guides, so the frame reads as a crop. */}
-                    {source && (
-                        <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3 opacity-40">
-                            {Array.from({ length: 9 }, (_, cell) => (
-                                <div key={cell} className="border border-white/15" />
-                            ))}
                         </div>
                     )}
 
@@ -255,20 +159,20 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
                             value={Math.round(zoom * 100)}
                             min={MIN_ZOOM * 100}
                             max={MAX_ZOOM * 100}
-                            onChange={(value) => changeZoom(value / 100)}
+                            onChange={(value) => setZoom(value / 100)}
                         />
                     </div>
                     {source && (["x", "y"] as const).map((axis) => {
-                        const extent = Math.max(0, ((axis === "x" ? displayWidth - frame.width : displayHeight - frame.height)) / 2);
+                        const extent = extentOf(axis);
                         if (extent < 1) return null;
                         return (
                             <RangeSlider
                                 key={axis}
                                 label={axis === "x" ? "Horizontal position" : "Vertical position"}
-                                value={Math.round((position[axis] / extent) * 100)}
+                                value={Math.round((crop[axis] / extent) * 100)}
                                 min={-100}
                                 max={100}
-                                onChange={(value) => setOffset({ ...position, [axis]: value / 100 * extent })}
+                                onChange={(value) => setCrop({ ...crop, [axis]: value / 100 * extent })}
                             />
                         );
                     })}
@@ -284,7 +188,7 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
                     <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>
                         Cancel
                     </Button>
-                    <Button type="button" onClick={handleConfirm} disabled={!source || !frame.width || busy}>
+                    <Button type="button" onClick={handleConfirm} disabled={!source || !area || busy}>
                         Set background
                     </Button>
                 </DialogFooter>

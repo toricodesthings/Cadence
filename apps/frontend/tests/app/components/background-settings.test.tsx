@@ -15,6 +15,29 @@ vi.mock("../../../app/lib/utils/image", () => ({
     cropImage: mocks.crop,
 }));
 
+// jsdom never loads the image, so the cropper is a stub that reports what the real one does once it has:
+// the media size, the frame size, and the pixel area for the current zoom (centred, in source pixels).
+vi.mock("react-easy-crop", async () => {
+    const { useEffect } = await import("react");
+    return {
+        default: ({ image, zoom, mediaProps, onMediaLoaded, onCropSizeChange, onCropComplete }: {
+            image: string; zoom: number; mediaProps?: { alt?: string };
+            onMediaLoaded: (m: object) => void; onCropSizeChange: (s: object) => void; onCropComplete: (a: object, p: object) => void;
+        }) => {
+            useEffect(() => {
+                onMediaLoaded({ width: 480, height: 270, naturalWidth: 1600, naturalHeight: 900 });
+                onCropSizeChange({ width: 480, height: 270 });
+            }, []);
+            useEffect(() => {
+                const width = 1600 / zoom;
+                const height = 900 / zoom;
+                onCropComplete({}, { x: (1600 - width) / 2, y: (900 - height) / 2, width, height });
+            }, [zoom]);
+            return <img src={image} alt={mediaProps?.alt} />;
+        },
+    };
+});
+
 function setup() {
     return render(<MemoryRouter><BackgroundSettings
         backgroundMode="theme" backgroundColor={null} backgroundGradient={null} backgroundImage={null}
@@ -31,11 +54,6 @@ beforeEach(() => {
     vi.clearAllMocks();
     mocks.upload.mockResolvedValue({});
     mocks.crop.mockResolvedValue(new File(["crop"], "background.webp", { type: "image/webp" }));
-    vi.stubGlobal("ResizeObserver", class {
-        observe() { this.callback([{ contentRect: { width: 480 } }]); }
-        disconnect() {}
-        constructor(private callback: (entries: unknown[]) => void) {}
-    });
 });
 
 describe("Background photo confirmation", () => {
