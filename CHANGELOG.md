@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- The profile picture's Change overlay appears only while hovering over it, and is centred.
+
 ## [0.34.4] - 2026-10-15
 
 ### Added
