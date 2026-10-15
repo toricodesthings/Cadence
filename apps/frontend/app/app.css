@@ -2877,6 +2877,25 @@ body:has(.compact-navigation-shell) .mobile-floating-action {
     0 6px 18px -4px color-mix(in srgb, var(--accent-primary) 40%, transparent),
     0 2px 6px -1px rgba(2, 6, 14, 0.40);
 }
+/* Unread reply: the sigil's small star drifts onto the ring and rounds into a bead,
+   cut out of the ring by a halo in the button's own colour. */
+.sigil-satellite {
+  transform: translate(30px, -30px);
+  transition: transform var(--duration-expressive, 450ms) var(--ease-out-expo);
+}
+.sigil-satellite[data-notice] { transform: translate(58px, -58px); }
+.sigil-satellite-star,
+.sigil-satellite-bead {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform var(--duration-expressive, 450ms) var(--ease-out-expo), opacity var(--duration-smooth, 300ms) ease;
+}
+.sigil-satellite-bead { stroke: var(--accent-primary); transform: scale(0); opacity: 0; }
+.sigil-satellite[data-notice] .sigil-satellite-star { transform: rotate(45deg) scale(0); opacity: 0; }
+.sigil-satellite[data-notice] .sigil-satellite-bead { transform: scale(1); opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) :is(.sigil-satellite, .sigil-satellite-star, .sigil-satellite-bead) { transition: none; }
+}
 [data-radix-popper-content-wrapper]:has([role="tooltip"]) { pointer-events: none; }
 
 .mobile-focus-options button { min-height: 44px; }

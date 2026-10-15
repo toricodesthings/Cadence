@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- The assistant's icon shows when a reply came in while you were away.
+
 ## [0.34.3] - 2026-10-15
 
 ### Changed

@@ -11,6 +11,7 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Download, Menu, Minus, PanelLeftClose, PanelLeftOpen, PanelRightClose, Plus } from "lucide-react";
 import { useNavPanel } from "../../hooks/ui/use-nav-panel";
 import { useAssistantStore } from "../../stores/assistant-store";
+import { useAssistantReplyWatcher } from "../../hooks/ai/use-assistant-reply-watcher";
 import { useRightPanelStore, type RailView } from "../../stores/right-panel-store";
 import { ResponsiveOverlayPanel } from "../shared/ResponsiveOverlayPanel";
 import { RailViewToggle } from "./RailViewToggle";
@@ -258,6 +259,7 @@ export function MainLayout({
     const railOnly = navigationMode === "rail";
     const isUtilityPage = location.pathname === "/browse";
     const { assistantPanelOpen, assistantPanelWidth, setAssistantPanelWidth, toggleAssistantPanel } = useAssistantStore();
+    useAssistantReplyWatcher();
     const { railView, setRailView } = useRightPanelStore();
     const handleAssistantToggle = useCallback(() => {
         if (railOnly) {

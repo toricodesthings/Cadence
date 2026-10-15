@@ -45,7 +45,7 @@ export function useConversations() {
  * present. Returns the conversation metadata + the reconstructed UIMessage[]
  * ready to hand to `setMessages`.
  */
-export function useConversationMessages(id: string | null) {
+export function useConversationMessages(id: string | null, refetchInterval: number | false = false) {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();
 
@@ -53,6 +53,7 @@ export function useConversationMessages(id: string | null) {
         queryKey: id ? queryKeys.ai.conversation(id) : ["ai", "conversation", "none"],
         enabled: authReady && isAuthenticated && !!id,
         staleTime: 5_000,
+        refetchInterval,
         // Reopening the panel always asks the server: a turn may have run (or still be
         // running) while it was closed, and the cached copy can't know.
         refetchOnMount: "always",

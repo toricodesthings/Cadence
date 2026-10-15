@@ -61,7 +61,7 @@ beforeEach(() => {
     chat.status = "ready";
     mocks.history = { data: undefined, error: null, isFetching: false };
     mocks.stopServer.mockResolvedValue(undefined);
-    useAssistantStore.setState({ assistantPanelOpen: true, activeConversationId: "conv-1" });
+    useAssistantStore.setState({ assistantPanelOpen: true, activeConversationId: "conv-1", pendingReply: null, replyUnread: false });
 });
 
 describe("assistant conversation lifecycle", () => {
@@ -99,6 +99,23 @@ describe("assistant conversation lifecycle", () => {
         chat.status = "ready";
         rerender({ online: true });
         expect(mocks.broadcast).not.toHaveBeenCalled();
+    });
+
+    it("marks a reply unread when it lands unseen, and hands one still coming to the watcher", () => {
+        const { rerender, unmount } = setup();
+        chat.status = "streaming";
+        rerender({ online: true });
+        useAssistantStore.setState({ assistantPanelOpen: false });
+        chat.status = "ready";
+        rerender({ online: true });
+        expect(useAssistantStore.getState().replyUnread).toBe(true);
+
+        useAssistantStore.setState({ replyUnread: false });
+        chat.status = "streaming";
+        rerender({ online: true });
+        unmount();
+        expect(useAssistantStore.getState().pendingReply?.conversationId).toBe("conv-1");
+        expect(useAssistantStore.getState().replyUnread).toBe(false);
     });
 
     it("refetches on reconnect without replaying a finished reply", () => {

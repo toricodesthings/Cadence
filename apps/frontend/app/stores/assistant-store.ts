@@ -25,6 +25,12 @@ interface AssistantState {
      * full: every proposal from a live turn commits itself. Sent with each turn.
      */
     approvalMode: ApprovalMode;
+    /** A thread whose reply was still coming when the panel closed; watched until it lands. */
+    pendingReply: { conversationId: string; since: number } | null;
+    /** A reply arrived while the panel was closed or the tab hidden, and hasn't been seen. */
+    replyUnread: boolean;
+    setPendingReply: (conversationId: string) => void;
+    setReplyUnread: (unread: boolean) => void;
     toggleAssistantPanel: () => void;
     setAssistantPanelOpen: (open: boolean) => void;
     setAssistantPanelWidth: (width: number) => void;
@@ -48,6 +54,10 @@ export const useAssistantStore = create<AssistantState>()(
             historyOpen: false,
             memoryOpen: false,
             approvalMode: "ask",
+            pendingReply: null,
+            replyUnread: false,
+            setPendingReply: (conversationId) => set({ pendingReply: { conversationId, since: Date.now() } }),
+            setReplyUnread: (replyUnread) => set({ replyUnread, pendingReply: null }),
             toggleAssistantPanel: () => set((s) => ({ assistantPanelOpen: !s.assistantPanelOpen })),
             setAssistantPanelOpen: (open) => set({ assistantPanelOpen: open }),
             setAssistantPanelWidth: (width) => set({ assistantPanelWidth: width }),
@@ -72,6 +82,8 @@ export const useAssistantStore = create<AssistantState>()(
                 // Persist the active thread so reopening resumes it (§5.3).
                 activeConversationId: state.activeConversationId,
                 approvalMode: state.approvalMode,
+                pendingReply: state.pendingReply,
+                replyUnread: state.replyUnread,
             }),
         }
     )

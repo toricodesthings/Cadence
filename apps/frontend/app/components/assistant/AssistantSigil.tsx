@@ -13,8 +13,11 @@ const QUARTERS = [0, 90, 180, 270];
  * diamond at its heart) held still, with the AI star shining inside. Drawn in
  * `currentColor` so it takes whatever tone its host gives it, and weighted for
  * icon sizes (14–48px) rather than the landing's hairlines.
+ *
+ * With `notice` (the dock's unread reply), the small star drifts out to the ring and
+ * rounds into a bead that breaks it; `false` keeps the morph ready to run either way.
  */
-export function AssistantSigil({ size = 16, ...props }: { size?: number } & SVGAttributes<SVGSVGElement>) {
+export function AssistantSigil({ size = 16, notice, ...props }: { size?: number; notice?: boolean } & SVGAttributes<SVGSVGElement>) {
     return (
         <svg
             {...props}
@@ -32,7 +35,14 @@ export function AssistantSigil({ size = 16, ...props }: { size?: number } & SVGA
             ))}
             <path d="M0,-56 56,0 0,56 -56,0Z" strokeWidth="7" strokeLinejoin="round" opacity="0.45" />
             <path d={star(0, 4, 44, 0.14)} fill="currentColor" stroke="none" />
-            <path d={star(30, -30, 13, 0.14)} fill="currentColor" stroke="none" />
+            {notice === undefined ? (
+                <path d={star(30, -30, 13, 0.14)} fill="currentColor" stroke="none" />
+            ) : (
+                <g className="sigil-satellite" data-notice={notice || undefined}>
+                    <path className="sigil-satellite-star" d={star(0, 0, 13, 0.14)} fill="currentColor" stroke="none" />
+                    <circle className="sigil-satellite-bead" r="17" fill="currentColor" strokeWidth="14" paintOrder="stroke" />
+                </g>
+            )}
         </svg>
     );
 }

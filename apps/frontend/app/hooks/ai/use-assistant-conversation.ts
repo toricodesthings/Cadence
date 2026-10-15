@@ -314,9 +314,24 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
         if (id && loadedThreadRef.current === id) syncMessagesToCache(id, messages);
     }, [status, messages, syncMessagesToCache]);
 
+    const prevStatusRef = useRef(status);
+    // A reply that lands unseen (panel closed, tab hidden) marks the assistant unread; one still
+    // coming when the panel unmounts is handed to `useAssistantReplyWatcher`. Runs before the
+    // effect below moves prevStatusRef on.
+    useEffect(() => {
+        if (status !== "ready" && status !== "error") return;
+        if (prevStatusRef.current !== "streaming" && prevStatusRef.current !== "submitted") return;
+        if (document.hidden || !useAssistantStore.getState().assistantPanelOpen) useAssistantStore.getState().setReplyUnread(true);
+    }, [status]);
+    useEffect(() => () => {
+        const convId = conversationIdRef.current;
+        if (convId && (statusRef.current === "submitted" || statusRef.current === "streaming")) {
+            useAssistantStore.getState().setPendingReply(convId);
+        }
+    }, []);
+
     // On a completed streamed turn (streaming → ready), the thread now exists
     // server-side and its sidebar row (title/order) may have changed.
-    const prevStatusRef = useRef(status);
     useEffect(() => {
         const prev = prevStatusRef.current;
         prevStatusRef.current = status;

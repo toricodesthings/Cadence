@@ -138,7 +138,7 @@ export function IconRail({
     // Dialog states
     const [wipeConfirmOpen, setWipeConfirmOpen] = useState(false);
 
-    const { assistantPanelOpen, toggleAssistantPanel } = useAssistantStore();
+    const { assistantPanelOpen, toggleAssistantPanel, replyUnread } = useAssistantStore();
 
     const routineDueCount = useRoutineDueCount();
 
@@ -368,7 +368,7 @@ export function IconRail({
             <Tip label="Ask Assistant" side="right">
                 <button
                     onClick={onAssistantOpen ?? toggleAssistantPanel}
-                    aria-label="Toggle AI Assistant Panel"
+                    aria-label={replyUnread ? "Toggle AI Assistant Panel, new reply" : "Toggle AI Assistant Panel"}
                     className={`
                         btn-icon relative rounded-2xl transition-all duration-200 outline-none
                         ${assistantPanelOpen 
@@ -378,6 +378,7 @@ export function IconRail({
                     `}
                 >
                     <Sparkles size={18} aria-hidden="true" className={assistantPanelOpen ? "animate-pulse" : ""} />
+                    {replyUnread && !assistantPanelOpen && <ActivityBadge className="absolute right-1 top-1" />}
                 </button>
             </Tip>
 
