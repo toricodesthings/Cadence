@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Photo and custom backgrounds keep their own hue more faithfully, with gradients that blend more smoothly.
+
+### Fixed
+
+- Accent colours in daylight mode, and violet buttons, are now easier to read.
+
 ## [0.34.2] - 2026-10-15
 
 ### Changed

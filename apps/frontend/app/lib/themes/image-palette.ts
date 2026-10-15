@@ -8,8 +8,8 @@
  * on, so a photo can never push the interface below the readable floor.
  */
 
-import { converter, wcagContrast } from "culori/fn";
-import { hexToRgb, relativeLuminance, rgbToHex } from "./background-tokens";
+import { wcagContrast } from "culori/fn";
+import { chromaOf, hexOf, hexToRgb, hueOf, lightnessOf, relativeLuminance, rgbToHex, withLightness } from "./background-tokens";
 
 export interface PhotoPalette {
     /** Average tone of the photo; surfaces and text tokens derive from it. */
@@ -27,30 +27,6 @@ const MAX_BLUR_PX = 40;
 
 function clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
-}
-
-// ── HSL conversion ──
-
-const toHsl = converter("hsl");
-
-export function hexToHsl(hex: string): [number, number, number] {
-    const { h, s, l } = toHsl(hex)!;
-    return [h ?? 0, s, l]; // culori leaves greys without a hue; Cadence uses 0
-}
-
-// Kept as is: culori's HSL→RGB rounds exact .5 channel ties the other way, which shifts photo tokens by one level.
-export function hslToHex(hue: number, saturation: number, lightness: number): string {
-    const h = ((hue % 360) + 360) % 360;
-    const c = (1 - Math.abs(2 * lightness - 1)) * saturation;
-    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-    const m = lightness - c / 2;
-    const [r, g, b] = h < 60 ? [c, x, 0]
-        : h < 120 ? [x, c, 0]
-            : h < 180 ? [0, c, x]
-                : h < 240 ? [0, x, c]
-                    : h < 300 ? [x, 0, c]
-                        : [c, 0, x];
-    return rgbToHex([(r + m) * 255, (g + m) * 255, (b + m) * 255]);
 }
 
 function withAlpha(hex: string, alpha: number): string {
@@ -90,11 +66,11 @@ export function extractPhotoPalette(pixels: Uint8ClampedArray, maxSwatches = 6):
     const scored = [...bins.values()]
         .map((bin) => {
             const hex = rgbToHex([bin.r / bin.count, bin.g / bin.count, bin.b / bin.count]);
-            const [hue, saturation, lightness] = hexToHsl(hex);
+            const hue = hueOf(hex);
             // Favour colour that a person would call colourful, in the middle of
             // the lightness range; frequency is a tiebreaker, not the driver.
-            const colourfulness = Math.min(saturation / 0.45, 1);
-            const usableLightness = 1 - Math.abs(lightness - 0.55) / 0.55;
+            const colourfulness = Math.min(chromaOf(hex) / 0.1, 1);
+            const usableLightness = 1 - Math.abs(lightnessOf(hex) - 0.7) / 0.5;
             const frequency = Math.sqrt(bin.count / totals.count);
             return { hex, hue, score: colourfulness * Math.max(usableLightness, 0) * (0.35 + 0.65 * frequency) };
         })
@@ -116,8 +92,7 @@ export function extractPhotoPalette(pixels: Uint8ClampedArray, maxSwatches = 6):
 
     if (swatches.length === 0) {
         // A colourless photo: lift its own average into something usable.
-        const [hue, saturation] = hexToHsl(dominant);
-        swatches.push(hslToHex(hue, Math.max(saturation, 0.35), 0.6));
+        swatches.push(hexOf(0.7, 0.08, hueOf(dominant)));
     }
 
     return { dominant, swatches };
@@ -143,13 +118,14 @@ export function derivePhotoTone(dominant: string, brightness: number): PhotoTone
     const scale = clamp(brightness, 20, 120) / 100;
     const lit = rgbToHex(hexToRgb(dominant).map((channel) => channel * scale) as [number, number, number]);
     const isDark = relativeLuminance(lit) <= DARK_SURFACE_MAX_LUMINANCE;
-    const [hue, saturation, lightness] = hexToHsl(lit);
+    const lightness = lightnessOf(lit);
 
     // Push the surface tone well clear of the midtones so text never lands in
-    // the unreadable middle, keeping the photo's hue.
+    // the unreadable middle, keeping the photo's hue. Fixed perceived lightness
+    // (OKLab L) keeps every hue equally deep.
     const base = isDark
-        ? hslToHex(hue, Math.min(saturation, 0.5), Math.min(lightness, 0.1))
-        : hslToHex(hue, Math.min(saturation, 0.35), Math.max(lightness, 0.92));
+        ? hexOf(Math.min(lightness, 0.2), Math.min(chromaOf(lit), 0.05), hueOf(lit))
+        : hexOf(Math.max(lightness, 0.95), Math.min(chromaOf(lit), 0.035), hueOf(lit));
 
     return {
         base,
@@ -158,19 +134,24 @@ export function derivePhotoTone(dominant: string, brightness: number): PhotoTone
     };
 }
 
-/** Raise or lower an accent's lightness until it reads against `surface`. */
+/** Raise or lower an accent's lightness (OKLCH) until it reads against `surface`; hue and chroma stay. */
 export function ensureAccentContrast(accent: string, surface: string): string {
-    const [hue, saturation, lightness] = hexToHsl(accent);
+    if (wcagContrast(accent, surface) >= MIN_ACCENT_CONTRAST) return accent;
     const towardLight = relativeLuminance(surface) <= DARK_SURFACE_MAX_LUMINANCE;
-
-    let candidate = accent;
-    let currentLightness = lightness;
-    for (let step = 0; step < 20; step += 1) {
-        if (wcagContrast(candidate, surface) >= MIN_ACCENT_CONTRAST) return candidate;
-        currentLightness = clamp(currentLightness + (towardLight ? 0.04 : -0.04), 0.06, 0.96);
-        candidate = hslToHex(hue, saturation, currentLightness);
+    let near = lightnessOf(accent); // fails
+    let far = towardLight ? 0.97 : 0.05; // the extreme
+    if (wcagContrast(withLightness(accent, far), surface) < MIN_ACCENT_CONTRAST) return withLightness(accent, far);
+    for (let i = 0; i < 14; i += 1) {
+        const mid = (near + far) / 2;
+        if (wcagContrast(withLightness(accent, mid), surface) >= MIN_ACCENT_CONTRAST) far = mid;
+        else near = mid;
     }
-    return candidate;
+    return withLightness(accent, far);
+}
+
+/** Text colour for a filled accent: whichever of white or navy reads better. */
+export function onAccent(primary: string): string {
+    return wcagContrast(primary, "#ffffff") >= wcagContrast(primary, "#0f1d32") ? "#ffffff" : "#0f1d32";
 }
 
 /** The accent used when the user hasn't picked one: the first swatch that reads. */
@@ -184,10 +165,12 @@ export function autoAccent(swatches: string[], surface: string): string {
  */
 export function derivePhotoAccentTokens(accent: string, swatches: string[], tone: PhotoTone): Record<string, string> {
     const primary = ensureAccentContrast(accent, tone.base);
-    const [hue, saturation, lightness] = hexToHsl(primary);
+    const l = lightnessOf(primary);
+    const c = chromaOf(primary);
+    const h = hueOf(primary);
     const alternates = swatches.filter((swatch) => swatch !== accent);
-    const secondary = ensureAccentContrast(alternates[0] ?? hslToHex(hue + 150, saturation, lightness), tone.base);
-    const tertiary = ensureAccentContrast(alternates[1] ?? hslToHex(hue - 35, saturation * 0.8, lightness), tone.base);
+    const secondary = ensureAccentContrast(alternates[0] ?? hexOf(l, c, h + 150), tone.base);
+    const tertiary = ensureAccentContrast(alternates[1] ?? hexOf(l, c * 0.8, h - 35), tone.base);
     const softness = tone.isDark ? 1 : 0.85;
 
     return {
@@ -200,7 +183,7 @@ export function derivePhotoAccentTokens(accent: string, swatches: string[], tone
         "--accent-tertiary-soft": withAlpha(tertiary, 0.12 * softness),
         "--accent-glow": withAlpha(primary, tone.isDark ? 0.18 : 0.14),
         "--accent-surface": withAlpha(primary, tone.isDark ? 0.025 : 0.02),
-        "--accent-on-primary": wcagContrast(primary, "#ffffff") >= 3.5 ? "#ffffff" : "#0f1d32",
+        "--accent-on-primary": onAccent(primary),
     };
 }
 

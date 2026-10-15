@@ -190,7 +190,7 @@
  *   --color-twilight-text (#1e293b) on --color-twilight-void (#f8f6f3) → 12.6:1
  *   --color-twilight-text-soft (#475569) on --color-twilight-void (#f8f6f3) → 6.4:1
  *   --color-twilight-text-muted (#64748b) on --color-twilight-void (#f8f6f3) → 4.6:1
- *   --color-lantern (#b45309) on --color-twilight-void (#f8f6f3) → 5.1:1
+ *   --color-lantern (#964200) on every panel surface → ≥ 4.5:1 (guarded by accent-palettes.test.ts)
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 [data-theme="daylight"] {
@@ -218,26 +218,26 @@
   --color-twilight-border-light: rgba(0, 0, 0, 0.08);
 
   /* ── Accents — slightly deeper for light-bg contrast (WCAG AA on cream) ── */
-  --color-lantern: #b45309;
-  --color-lantern-soft: rgba(180, 83, 9, 0.10);
-  --color-lantern-dim: rgba(180, 83, 9, 0.05);
-  --color-moonlit: #0e7490;
-  --color-moonlit-soft: rgba(14, 116, 144, 0.10);
-  --color-solstice: #c2410c;
+  --color-lantern: #964200;
+  --color-lantern-soft: rgba(150, 66, 0, 0.10);
+  --color-lantern-dim: rgba(150, 66, 0, 0.05);
+  --color-moonlit: #00637d;
+  --color-moonlit-soft: rgba(0, 99, 125, 0.10);
+  --color-solstice: #a53300;
   --color-sapphire: #1d4ed8;
-  --color-ember-red: #c2410c;
-  --color-forest-green: #15803d;
-  --color-violet: #7c3aed;
-  --color-personal: #be185d;
-  --color-personal-soft: rgba(190, 24, 93, 0.10);
+  --color-ember-red: #a53300;
+  --color-forest-green: #00692e;
+  --color-violet: #7129de;
+  --color-personal: #b40255;
+  --color-personal-soft: rgba(180, 2, 85, 0.10);
 
   /* ── Feedback ── */
-  --color-feedback-success: #15803d;
+  --color-feedback-success: #00692e;
   --color-feedback-error: #dc2626;
 
   /* ── Priority ── */
-  --color-priority-low: #2563eb;
-  --color-priority-medium: #b45309;
+  --color-priority-low: #114ed5;
+  --color-priority-medium: #964200;
   --color-priority-high: #d97706;
   --color-priority-urgent: #dc2626;
   --color-priority-urgent-glow: rgba(220, 38, 38, 0.15);
@@ -246,7 +246,7 @@
   --color-nav-planner: var(--color-lantern);
   --color-nav-schedule: var(--color-moonlit);
   --color-nav-upcoming: #059669;
-  --color-nav-inbox: #7c3aed;
+  --color-nav-inbox: #7129de;
   --color-nav-completed: #16a34a;
 
   /* ── Auth UI bridge ── */
@@ -267,8 +267,8 @@
   --ring: color-mix(in srgb, var(--accent-primary) 35%, transparent);
 
   /* ── Focus / notification tokens ── */
-  --color-focus-aura: rgba(180, 83, 9, 0.22);
-  --color-focus-aura-soft: rgba(180, 83, 9, 0.10);
+  --color-focus-aura: rgba(150, 66, 0, 0.22);
+  --color-focus-aura-soft: rgba(150, 66, 0, 0.10);
   --color-notification-unread: var(--accent-primary);
   --color-notification-reminder: var(--accent-primary);
   --color-notification-system: var(--color-moonlit);
@@ -296,16 +296,16 @@
 
 /* Daylight + accent intensity combos */
 [data-theme="daylight"][data-accent="soft"] {
-  --color-lantern-soft: rgba(180, 83, 9, 0.05);
-  --color-lantern-dim: rgba(180, 83, 9, 0.02);
-  --color-moonlit-soft: rgba(14, 116, 144, 0.05);
+  --color-lantern-soft: rgba(150, 66, 0, 0.05);
+  --color-lantern-dim: rgba(150, 66, 0, 0.02);
+  --color-moonlit-soft: rgba(0, 99, 125, 0.05);
   --ring: color-mix(in srgb, var(--accent-primary) 20%, transparent);
 }
 
 [data-theme="daylight"][data-accent="vivid"] {
-  --color-lantern-soft: rgba(180, 83, 9, 0.18);
-  --color-lantern-dim: rgba(180, 83, 9, 0.08);
-  --color-moonlit-soft: rgba(14, 116, 144, 0.18);
+  --color-lantern-soft: rgba(150, 66, 0, 0.18);
+  --color-lantern-dim: rgba(150, 66, 0, 0.08);
+  --color-moonlit-soft: rgba(0, 99, 125, 0.18);
   --ring: color-mix(in srgb, var(--accent-primary) 50%, transparent);
 }
 
@@ -338,10 +338,10 @@
 }
 
 [data-theme="daylight"] {
-  --accent-tertiary: #8b5e3c;
-  --accent-tertiary-soft: rgba(139, 94, 60, 0.08);
-  --accent-glow: rgba(180, 83, 9, 0.14);
-  --accent-surface: rgba(180, 83, 9, 0.02);
+  --accent-tertiary: #7d5030;
+  --accent-tertiary-soft: rgba(125, 80, 48, 0.08);
+  --accent-glow: rgba(150, 66, 0, 0.14);
+  --accent-surface: rgba(150, 66, 0, 0.02);
   --accent-on-primary: #ffffff;
 }
 
@@ -359,15 +359,15 @@
   --accent-on-primary: #0f1d32;
 }
 [data-theme="daylight"][data-palette="ember"] {
-  --accent-primary: #c2410c;
-  --accent-primary-soft: rgba(194, 65, 12, 0.08);
-  --accent-primary-dim: rgba(194, 65, 12, 0.04);
-  --accent-secondary: #3d7a64;
-  --accent-secondary-soft: rgba(61, 122, 100, 0.08);
-  --accent-tertiary: #9e5a30;
-  --accent-tertiary-soft: rgba(158, 90, 48, 0.08);
-  --accent-glow: rgba(194, 65, 12, 0.14);
-  --accent-surface: rgba(194, 65, 12, 0.02);
+  --accent-primary: #a53300;
+  --accent-primary-soft: rgba(165, 51, 0, 0.08);
+  --accent-primary-dim: rgba(165, 51, 0, 0.04);
+  --accent-secondary: #286551;
+  --accent-secondary-soft: rgba(40, 101, 81, 0.08);
+  --accent-tertiary: #8b491f;
+  --accent-tertiary-soft: rgba(139, 73, 31, 0.08);
+  --accent-glow: rgba(165, 51, 0, 0.14);
+  --accent-surface: rgba(165, 51, 0, 0.02);
   --accent-on-primary: #ffffff;
 }
 
@@ -385,15 +385,15 @@
   --accent-on-primary: #0f1d32;
 }
 [data-theme="daylight"][data-palette="rose"] {
-  --accent-primary: #be185d;
-  --accent-primary-soft: rgba(190, 24, 93, 0.08);
-  --accent-primary-dim: rgba(190, 24, 93, 0.04);
-  --accent-secondary: #18816f;
-  --accent-secondary-soft: rgba(24, 129, 111, 0.08);
-  --accent-tertiary: #8a6d2f;
-  --accent-tertiary-soft: rgba(138, 109, 47, 0.08);
-  --accent-glow: rgba(190, 24, 93, 0.14);
-  --accent-surface: rgba(190, 24, 93, 0.02);
+  --accent-primary: #b40255;
+  --accent-primary-soft: rgba(180, 2, 85, 0.08);
+  --accent-primary-dim: rgba(180, 2, 85, 0.04);
+  --accent-secondary: #006758;
+  --accent-secondary-soft: rgba(0, 103, 88, 0.08);
+  --accent-tertiary: #725615;
+  --accent-tertiary-soft: rgba(114, 86, 21, 0.08);
+  --accent-glow: rgba(180, 2, 85, 0.14);
+  --accent-surface: rgba(180, 2, 85, 0.02);
   --accent-on-primary: #ffffff;
 }
 
@@ -408,18 +408,18 @@
   --accent-tertiary-soft: rgba(212, 168, 130, 0.12);
   --accent-glow: rgba(167, 139, 250, 0.18);
   --accent-surface: rgba(167, 139, 250, 0.025);
-  --accent-on-primary: #ffffff;
+  --accent-on-primary: #0f1d32;
 }
 [data-theme="daylight"][data-palette="violet"] {
-  --accent-primary: #7c3aed;
-  --accent-primary-soft: rgba(124, 58, 237, 0.08);
-  --accent-primary-dim: rgba(124, 58, 237, 0.04);
-  --accent-secondary: #2d7a52;
-  --accent-secondary-soft: rgba(45, 122, 82, 0.08);
-  --accent-tertiary: #9e6830;
-  --accent-tertiary-soft: rgba(158, 104, 48, 0.08);
-  --accent-glow: rgba(124, 58, 237, 0.14);
-  --accent-surface: rgba(124, 58, 237, 0.02);
+  --accent-primary: #7129de;
+  --accent-primary-soft: rgba(113, 41, 222, 0.08);
+  --accent-primary-dim: rgba(113, 41, 222, 0.04);
+  --accent-secondary: #166742;
+  --accent-secondary-soft: rgba(22, 103, 66, 0.08);
+  --accent-tertiary: #834e12;
+  --accent-tertiary-soft: rgba(131, 78, 18, 0.08);
+  --accent-glow: rgba(113, 41, 222, 0.14);
+  --accent-surface: rgba(113, 41, 222, 0.02);
   --accent-on-primary: #ffffff;
 }
 
@@ -437,15 +437,15 @@
   --accent-on-primary: #0f1d32;
 }
 [data-theme="daylight"][data-palette="sapphire"] {
-  --accent-primary: #2563eb;
-  --accent-primary-soft: rgba(37, 99, 235, 0.08);
-  --accent-primary-dim: rgba(37, 99, 235, 0.04);
-  --accent-secondary: #8a6d3a;
-  --accent-secondary-soft: rgba(138, 109, 58, 0.08);
+  --accent-primary: #114ed5;
+  --accent-primary-soft: rgba(17, 78, 213, 0.08);
+  --accent-primary-dim: rgba(17, 78, 213, 0.04);
+  --accent-secondary: #725623;
+  --accent-secondary-soft: rgba(114, 86, 35, 0.08);
   --accent-tertiary: #8a3d62;
   --accent-tertiary-soft: rgba(138, 61, 98, 0.08);
-  --accent-glow: rgba(37, 99, 235, 0.14);
-  --accent-surface: rgba(37, 99, 235, 0.02);
+  --accent-glow: rgba(17, 78, 213, 0.14);
+  --accent-surface: rgba(17, 78, 213, 0.02);
   --accent-on-primary: #ffffff;
 }
 
@@ -454,24 +454,24 @@
   --accent-primary: #5dba72;
   --accent-primary-soft: rgba(93, 186, 114, 0.12);
   --accent-primary-dim: rgba(93, 186, 114, 0.06);
-  --accent-secondary: #ba7a5d;
-  --accent-secondary-soft: rgba(186, 122, 93, 0.12);
-  --accent-tertiary: #7a8fd4;
-  --accent-tertiary-soft: rgba(122, 143, 212, 0.12);
+  --accent-secondary: #c78768;
+  --accent-secondary-soft: rgba(199, 135, 104, 0.12);
+  --accent-tertiary: #7e94d9;
+  --accent-tertiary-soft: rgba(126, 148, 217, 0.12);
   --accent-glow: rgba(93, 186, 114, 0.18);
   --accent-surface: rgba(93, 186, 114, 0.025);
   --accent-on-primary: #0f1d32;
 }
 [data-theme="daylight"][data-palette="jade"] {
-  --accent-primary: #15803d;
-  --accent-primary-soft: rgba(21, 128, 61, 0.08);
-  --accent-primary-dim: rgba(21, 128, 61, 0.04);
+  --accent-primary: #00692e;
+  --accent-primary-soft: rgba(0, 105, 46, 0.08);
+  --accent-primary-dim: rgba(0, 105, 46, 0.04);
   --accent-secondary: #804225;
   --accent-secondary-soft: rgba(128, 66, 37, 0.08);
   --accent-tertiary: #3d4f9e;
   --accent-tertiary-soft: rgba(61, 79, 158, 0.08);
-  --accent-glow: rgba(21, 128, 61, 0.14);
-  --accent-surface: rgba(21, 128, 61, 0.02);
+  --accent-glow: rgba(0, 105, 46, 0.14);
+  --accent-surface: rgba(0, 105, 46, 0.02);
   --accent-on-primary: #ffffff;
 }
 
@@ -492,10 +492,10 @@
   --accent-primary: #92400e;
   --accent-primary-soft: rgba(146, 64, 14, 0.08);
   --accent-primary-dim: rgba(146, 64, 14, 0.04);
-  --accent-secondary: #1a7a9b;
-  --accent-secondary-soft: rgba(26, 122, 155, 0.08);
-  --accent-tertiary: #8a7a2f;
-  --accent-tertiary-soft: rgba(138, 122, 47, 0.08);
+  --accent-secondary: #006281;
+  --accent-secondary-soft: rgba(0, 98, 129, 0.08);
+  --accent-tertiary: #695a02;
+  --accent-tertiary-soft: rgba(105, 90, 2, 0.08);
   --accent-glow: rgba(146, 64, 14, 0.14);
   --accent-surface: rgba(146, 64, 14, 0.02);
   --accent-on-primary: #ffffff;
@@ -515,15 +515,15 @@
   --accent-on-primary: #0f1d32;
 }
 [data-theme="daylight"][data-palette="frost"] {
-  --accent-primary: #0e7490;
-  --accent-primary-soft: rgba(14, 116, 144, 0.08);
-  --accent-primary-dim: rgba(14, 116, 144, 0.04);
-  --accent-secondary: #8a6830;
-  --accent-secondary-soft: rgba(138, 104, 48, 0.08);
-  --accent-tertiary: #4a5e8a;
-  --accent-tertiary-soft: rgba(74, 94, 138, 0.08);
-  --accent-glow: rgba(14, 116, 144, 0.14);
-  --accent-surface: rgba(14, 116, 144, 0.02);
+  --accent-primary: #00637d;
+  --accent-primary-soft: rgba(0, 99, 125, 0.08);
+  --accent-primary-dim: rgba(0, 99, 125, 0.04);
+  --accent-secondary: #76541b;
+  --accent-secondary-soft: rgba(118, 84, 27, 0.08);
+  --accent-tertiary: #475a86;
+  --accent-tertiary-soft: rgba(71, 90, 134, 0.08);
+  --accent-glow: rgba(0, 99, 125, 0.14);
+  --accent-surface: rgba(0, 99, 125, 0.02);
   --accent-on-primary: #ffffff;
 }
 
@@ -881,19 +881,19 @@
 
 /* Daylight selection */
 [data-theme="daylight"] ::selection {
-  background: rgba(180, 83, 9, 0.15);
+  background: rgba(150, 66, 0, 0.15);
   color: var(--color-twilight-text);
 }
 
 /* Daylight focus ring */
 [data-theme="daylight"] *:focus-visible {
-  box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.40);
+  box-shadow: 0 0 0 2px rgba(150, 66, 0, 0.40);
 }
 
 [data-theme="daylight"] input[type="text"]:focus-visible,
 [data-theme="daylight"] input:not([type]):focus-visible,
 [data-theme="daylight"] textarea:focus-visible {
-  box-shadow: 0 0 0 1px rgba(180, 83, 9, 0.25);
+  box-shadow: 0 0 0 1px rgba(150, 66, 0, 0.25);
 }
 
 [data-theme="daylight"] [role="form"] input:focus-visible,
@@ -1061,11 +1061,11 @@
     background:
       /* Warm amber glow — top-right */
       radial-gradient(ellipse 70% 50% at 92% 8%,
-        rgba(180, 83, 9, 0.04) 0%,
+        rgba(150, 66, 0, 0.04) 0%,
         transparent 50%),
       /* Sand warmth — bottom-center */
       radial-gradient(ellipse 80% 40% at 50% 100%,
-        rgba(180, 83, 9, 0.03) 0%,
+        rgba(150, 66, 0, 0.03) 0%,
         transparent 50%),
       /* Cream base */
       linear-gradient(175deg,
@@ -2566,7 +2566,7 @@ button.surface-control:not(:disabled):hover {
 }
 
 [data-theme="daylight"] .neon-auth-wrapper input:focus {
-  box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.35) !important;
+  box-shadow: 0 0 0 2px rgba(150, 66, 0, 0.35) !important;
   border-color: var(--accent-primary) !important;
 }
 
@@ -2656,7 +2656,7 @@ button.surface-control:not(:disabled):hover {
 
 /* Glow utilities for daylight — subtle on light backgrounds */
 [data-theme="daylight"] .glow-lantern {
-  box-shadow: 0 0 24px rgba(180, 83, 9, 0.06), 0 0 80px rgba(180, 83, 9, 0.03);
+  box-shadow: 0 0 24px rgba(150, 66, 0, 0.06), 0 0 80px rgba(150, 66, 0, 0.03);
 }
 
 /*

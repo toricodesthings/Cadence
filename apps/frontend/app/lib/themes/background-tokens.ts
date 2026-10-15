@@ -4,12 +4,42 @@
  * Computes derived CSS tokens from a user-selected background color,
  * including luminance-adaptive text color, surface shifts, and border opacity.
  */
-import { modeHsl, modeLrgb, modeRgb, useMode, wcagLuminance } from "culori/fn";
+import {
+    clampChroma,
+    converter,
+    formatHex,
+    interpolate,
+    modeHsl,
+    modeLrgb,
+    modeOklab,
+    modeOklch,
+    modeRgb,
+    samples,
+    useMode,
+    wcagLuminance,
+} from "culori/fn";
 
 // Registered once here: image-palette.ts imports this file, so registration always runs first.
 useMode(modeRgb);
 useMode(modeLrgb);
 useMode(modeHsl);
+useMode(modeOklab);
+useMode(modeOklch);
+
+const toOklch = converter("oklch");
+
+/** A colour from OKLCH parts, pulled into sRGB by shrinking chroma only. */
+export const hexOf = (l: number, c: number, h: number): string =>
+    formatHex(clampChroma({ mode: "oklch", l, c, h: ((h % 360) + 360) % 360 }, "oklch"));
+/** The same hue and chroma at another lightness. */
+export const withLightness = (hex: string, l: number): string => {
+    const { c, h } = toOklch(hex)!;
+    return hexOf(l, c, h ?? 0);
+};
+export const lightnessOf = (hex: string): number => toOklch(hex)!.l;
+export const chromaOf = (hex: string): number => toOklch(hex)!.c;
+/** Greys have no hue; Cadence uses 0. */
+export const hueOf = (hex: string): number => toOklch(hex)!.h ?? 0;
 
 /** Parse hex (#RRGGBB) to [r, g, b] in 0-255 range */
 export function hexToRgb(hex: string): [number, number, number] {
@@ -34,12 +64,9 @@ export function rgbToHex(channels: [number, number, number] | number[]): string 
  */
 export const relativeLuminance = (hex: string): number => wcagLuminance(hex);
 
-/** Shift lightness of a color by a relative amount (-1 to +1) */
+/** Shift perceived lightness (OKLab L) by an amount, keeping hue and chroma. */
 function shiftLightness(hex: string, amount: number): string {
-    const [r, g, b] = hexToRgb(hex);
-    const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
-    const shift = amount * 255;
-    return `#${[r, g, b].map((c) => clamp(c + shift).toString(16).padStart(2, "0")).join("")}`;
+    return withLightness(hex, Math.max(0, Math.min(1, lightnessOf(hex) + amount)));
 }
 
 /**
@@ -56,9 +83,9 @@ export function deriveCustomTokens(hex: string): Record<string, string> {
 
     return {
         "--color-bg-custom": hex,
-        "--color-bg-deep": shiftLightness(hex, -0.04),
-        "--color-bg-surface": shiftLightness(hex, 0.05),
-        "--color-bg-elevated": shiftLightness(hex, 0.09),
+        "--color-bg-deep": shiftLightness(hex, -0.03),
+        "--color-bg-surface": shiftLightness(hex, 0.04),
+        "--color-bg-elevated": shiftLightness(hex, 0.07),
         "--color-bg-text": textHex,
         "--color-bg-text-soft": `rgba(${textBase}, 0.7)`,
         "--color-bg-text-muted": `rgba(${textBase}, 0.45)`,
@@ -76,11 +103,9 @@ function gradientMidpointLuminance(hex1: string, hex2: string): number {
 
 /** Base color for a gradient background: its midpoint keeps the hue; light gradients are pulled toward a neutral light base. */
 export function gradientBaseHex(hex1: string, hex2: string): string {
-    const a = hexToRgb(hex1);
-    const b = hexToRgb(hex2);
-    const mid = a.map((channel, i) => (channel + b[i]) / 2);
-    if (gradientMidpointLuminance(hex1, hex2) <= 0.18) return rgbToHex(mid);
-    return rgbToHex(mid.map((channel) => channel * 0.3 + 245 * 0.7));
+    const mid = formatHex(interpolate([hex1, hex2], "oklab")(0.5))!;
+    if (gradientMidpointLuminance(hex1, hex2) <= 0.18) return mid;
+    return formatHex(interpolate([mid, "#f5f5f5"], "oklab")(0.7))!;
 }
 
 /** Build a CSS linear-gradient value from two colors and an angle */
@@ -89,5 +114,6 @@ export function buildGradientCSS(
     color2: string,
     direction: number
 ): string {
-    return `linear-gradient(${direction}deg, ${color1}, ${color2})`;
+    const stops = samples(5).map(interpolate([color1, color2], "oklab")).map((c) => formatHex(c)!);
+    return `linear-gradient(${direction}deg, ${stops.join(", ")})`;
 }
