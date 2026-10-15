@@ -1,6 +1,7 @@
 import { LoaderCircle, CircleAlert, CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { DismissableLayerBranch } from "@radix-ui/react-dismissable-layer";
 import { Toaster as SonnerToaster } from "sonner";
 
 import { CADENCE_TOAST_DURATION, installCadenceToastTheme } from "../../lib/utils/cadence-toast";
@@ -9,8 +10,9 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 installCadenceToastTheme();
 
 /**
- * Mounted in its own body child, which modal overlays leave out of their inert sweep: an Undo raised from
- * inside an open sheet must stay tappable above it.
+ * Mounted in its own body child, registered as a Radix dismissable-layer branch with pointer events on:
+ * an open dialog or sheet sets `pointer-events: none` on the body and treats outside taps as dismissals,
+ * and neither may apply to an Undo raised from inside it.
  */
 export function Toaster() {
     const shell = useShellMode();
@@ -18,6 +20,7 @@ export function Toaster() {
     useEffect(() => {
         const element = document.createElement("div");
         element.dataset.cadenceToaster = "";
+        element.style.pointerEvents = "auto";
         document.body.appendChild(element);
         setHost(element);
         return () => { element.remove(); };
@@ -25,53 +28,55 @@ export function Toaster() {
     if (!host) return null;
 
     return createPortal(
-        <SonnerToaster
-            /* Compact shells drop the toast at the top, clear of the dock and the
-               thumb zone, and let it be flicked away in any direction. */
-            position={shell.isCompact ? "top-center" : "bottom-right"}
-            theme="dark"
-            expand={false}
-            visibleToasts={shell.isCompact ? 3 : 5}
-            gap={shell.isCompact ? 8 : 12}
-            duration={CADENCE_TOAST_DURATION}
-            offset={24}
-            mobileOffset={{ top: "max(0.5rem, env(safe-area-inset-top))", left: "0.75rem", right: "0.75rem" }}
-            swipeDirections={shell.isCompact ? ["top", "left", "right"] : ["right"]}
-            style={{ "--width": shell.isCompact ? "100%" : "26.5rem" } as CSSProperties}
-            containerAriaLabel="Cadence notifications"
-            toastOptions={{
-                unstyled: true,
-                closeButton: false,
-                style: {
-                    "--cadence-toast-duration": `${CADENCE_TOAST_DURATION}ms`,
-                    "--cadence-toast-progress-opacity": "1",
-                } as CSSProperties,
-                classNames: {
-                    toast: "cadence-toast",
-                    icon: "cadence-toast__icon",
-                    content: "cadence-toast__content",
-                    title: "cadence-toast__title",
-                    description: "cadence-toast__description",
-                    actionButton: "cadence-toast__action",
-                    cancelButton: "cadence-toast__cancel",
-                    closeButton: "cadence-toast__close",
-                    loader: "cadence-toast__loader",
-                    success: "cadence-toast--success",
-                    error: "cadence-toast--error",
-                    info: "cadence-toast--info",
-                    warning: "cadence-toast--warning",
-                    loading: "cadence-toast--loading",
-                },
-            }}
-            icons={{
-                success: <CheckCircle2 size={16} strokeWidth={2} />,
-                error: <CircleAlert size={16} strokeWidth={2} />,
-                info: <Info size={16} strokeWidth={2} />,
-                warning: <TriangleAlert size={16} strokeWidth={2} />,
-                loading: <LoaderCircle size={16} strokeWidth={2} className="animate-spin" />,
-                close: <X size={14} strokeWidth={2} />,
-            }}
-        />,
+        <DismissableLayerBranch>
+            <SonnerToaster
+                /* Compact shells drop the toast at the top, clear of the dock and the
+                   thumb zone, and let it be flicked away in any direction. */
+                position={shell.isCompact ? "top-center" : "bottom-right"}
+                theme="dark"
+                expand={false}
+                visibleToasts={shell.isCompact ? 3 : 5}
+                gap={shell.isCompact ? 8 : 12}
+                duration={CADENCE_TOAST_DURATION}
+                offset={24}
+                mobileOffset={{ top: "max(0.5rem, env(safe-area-inset-top))", left: "0.75rem", right: "0.75rem" }}
+                swipeDirections={shell.isCompact ? ["top", "left", "right"] : ["right"]}
+                style={{ "--width": shell.isCompact ? "100%" : "26.5rem" } as CSSProperties}
+                containerAriaLabel="Cadence notifications"
+                toastOptions={{
+                    unstyled: true,
+                    closeButton: false,
+                    style: {
+                        "--cadence-toast-duration": `${CADENCE_TOAST_DURATION}ms`,
+                        "--cadence-toast-progress-opacity": "1",
+                    } as CSSProperties,
+                    classNames: {
+                        toast: "cadence-toast",
+                        icon: "cadence-toast__icon",
+                        content: "cadence-toast__content",
+                        title: "cadence-toast__title",
+                        description: "cadence-toast__description",
+                        actionButton: "cadence-toast__action",
+                        cancelButton: "cadence-toast__cancel",
+                        closeButton: "cadence-toast__close",
+                        loader: "cadence-toast__loader",
+                        success: "cadence-toast--success",
+                        error: "cadence-toast--error",
+                        info: "cadence-toast--info",
+                        warning: "cadence-toast--warning",
+                        loading: "cadence-toast--loading",
+                    },
+                }}
+                icons={{
+                    success: <CheckCircle2 size={16} strokeWidth={2} />,
+                    error: <CircleAlert size={16} strokeWidth={2} />,
+                    info: <Info size={16} strokeWidth={2} />,
+                    warning: <TriangleAlert size={16} strokeWidth={2} />,
+                    loading: <LoaderCircle size={16} strokeWidth={2} className="animate-spin" />,
+                    close: <X size={14} strokeWidth={2} />,
+                }}
+            />
+        </DismissableLayerBranch>,
         host,
     );
 }
