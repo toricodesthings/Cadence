@@ -4,6 +4,12 @@
  * Computes derived CSS tokens from a user-selected background color,
  * including luminance-adaptive text color, surface shifts, and border opacity.
  */
+import { modeHsl, modeLrgb, modeRgb, useMode, wcagLuminance } from "culori/fn";
+
+// Registered once here: image-palette.ts imports this file, so registration always runs first.
+useMode(modeRgb);
+useMode(modeLrgb);
+useMode(modeHsl);
 
 /** Parse hex (#RRGGBB) to [r, g, b] in 0-255 range */
 export function hexToRgb(hex: string): [number, number, number] {
@@ -22,20 +28,11 @@ export function rgbToHex(channels: [number, number, number] | number[]): string 
         .join("")}`;
 }
 
-/** Linearize a single sRGB channel (0-255 → 0-1 linear) */
-function linearize(c: number): number {
-    const s = c / 255;
-    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-}
-
 /**
  * Compute WCAG relative luminance from a hex color.
  * Returns a value between 0 (black) and 1 (white).
  */
-export function relativeLuminance(hex: string): number {
-    const [r, g, b] = hexToRgb(hex);
-    return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b);
-}
+export const relativeLuminance = (hex: string): number => wcagLuminance(hex);
 
 /** Shift lightness of a color by a relative amount (-1 to +1) */
 function shiftLightness(hex: string, amount: number): string {

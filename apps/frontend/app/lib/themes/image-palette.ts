@@ -8,6 +8,7 @@
  * on, so a photo can never push the interface below the readable floor.
  */
 
+import { converter, wcagContrast } from "culori/fn";
 import { hexToRgb, relativeLuminance, rgbToHex } from "./background-tokens";
 
 export interface PhotoPalette {
@@ -28,32 +29,16 @@ function clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
 }
 
-function contrastRatio(a: string, b: string): number {
-    const [lighter, darker] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
-    return (lighter + 0.05) / (darker + 0.05);
-}
-
 // ── HSL conversion ──
 
+const toHsl = converter("hsl");
+
 export function hexToHsl(hex: string): [number, number, number] {
-    const [r, g, b] = hexToRgb(hex).map((c) => c / 255);
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const delta = max - min;
-    const lightness = (max + min) / 2;
-
-    if (delta === 0) return [0, 0, lightness];
-
-    const saturation = delta / (1 - Math.abs(2 * lightness - 1));
-    const hue = max === r
-        ? ((g - b) / delta + (g < b ? 6 : 0))
-        : max === g
-            ? (b - r) / delta + 2
-            : (r - g) / delta + 4;
-
-    return [hue * 60, saturation, lightness];
+    const { h, s, l } = toHsl(hex)!;
+    return [h ?? 0, s, l]; // culori leaves greys without a hue; Cadence uses 0
 }
 
+// Kept as is: culori's HSL→RGB rounds exact .5 channel ties the other way, which shifts photo tokens by one level.
 export function hslToHex(hue: number, saturation: number, lightness: number): string {
     const h = ((hue % 360) + 360) % 360;
     const c = (1 - Math.abs(2 * lightness - 1)) * saturation;
@@ -181,7 +166,7 @@ export function ensureAccentContrast(accent: string, surface: string): string {
     let candidate = accent;
     let currentLightness = lightness;
     for (let step = 0; step < 20; step += 1) {
-        if (contrastRatio(candidate, surface) >= MIN_ACCENT_CONTRAST) return candidate;
+        if (wcagContrast(candidate, surface) >= MIN_ACCENT_CONTRAST) return candidate;
         currentLightness = clamp(currentLightness + (towardLight ? 0.04 : -0.04), 0.06, 0.96);
         candidate = hslToHex(hue, saturation, currentLightness);
     }
@@ -215,7 +200,7 @@ export function derivePhotoAccentTokens(accent: string, swatches: string[], tone
         "--accent-tertiary-soft": withAlpha(tertiary, 0.12 * softness),
         "--accent-glow": withAlpha(primary, tone.isDark ? 0.18 : 0.14),
         "--accent-surface": withAlpha(primary, tone.isDark ? 0.025 : 0.02),
-        "--accent-on-primary": contrastRatio(primary, "#ffffff") >= 3.5 ? "#ffffff" : "#0f1d32",
+        "--accent-on-primary": wcagContrast(primary, "#ffffff") >= 3.5 ? "#ffffff" : "#0f1d32",
     };
 }
 
