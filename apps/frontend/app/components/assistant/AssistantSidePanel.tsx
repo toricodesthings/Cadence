@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
+import { useStickToBottom } from "use-stick-to-bottom";
 import { CHAT_IMAGE_LIMITS } from "@cadence/contracts/ai";
 import { ResizableSidePanel } from "../shared/ResizableSidePanel";
 import { AssistantHeader } from "./AssistantHeader";
@@ -18,6 +19,7 @@ import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useOnlineStatus } from "../../hooks/core/use-online-status";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 import { useStepOutOfAssistant } from "../../hooks/ai/use-step-out-of-assistant";
 import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
 import { SETTINGS_DEFAULTS } from "../../types/settings";
@@ -48,14 +50,9 @@ export function AssistantSidePanel({ width, onWidthChange, isMobile = false }: {
     const { data: memoryPage } = useMemoryPage();
     const choosingMemory = memoryPage?.mode === null;
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const scrollViewportRef = useRef<HTMLDivElement>(null);
-    const isNearBottomRef = useRef(true);
-    const [showJump, setShowJump] = useState(false);
-    const scrollToBottom = useCallback(() => {
-        const el = scrollViewportRef.current;
-        if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-        isNearBottomRef.current = true;
-    }, []);
+    const reducedMotion = useReducedMotionSetting();
+    const stick = useStickToBottom({ initial: "instant", resize: reducedMotion ? "instant" : "smooth" });
+    const scrollToBottom = useCallback(() => void stick.scrollToBottom(reducedMotion ? "instant" : "smooth"), [stick.scrollToBottom, reducedMotion]);
     const images = useChatAttachments({ conversationId: activeConversationId, imageAllowance, perMessage, onNotice: setInputNotice });
     const conversation = useAssistantConversation({ online, onNotice: setInputNotice,
         clearAttachments: images.clearAttachments, onTurnSubmitted: scrollToBottom });
@@ -95,29 +92,10 @@ export function AssistantSidePanel({ width, onWidthChange, isMobile = false }: {
             openAssistantSettings();
         }
     };
-    // Track whether the viewport is parked near the bottom (within ~120px).
-    useEffect(() => {
-        const el = scrollViewportRef.current;
-        if (!el) return;
-        const onScroll = () => {
-            const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-            isNearBottomRef.current = distanceFromBottom < 120;
-            setShowJump(distanceFromBottom > 320);
-        };
-        el.addEventListener("scroll", onScroll, { passive: true });
-        return () => el.removeEventListener("scroll", onScroll);
-    }, []);
-
     // Clear a stale notice once the user is back online / edits the draft.
     useEffect(() => {
         if (online) setInputNotice((n) => (n?.startsWith("You’re offline") ? null : n));
     }, [online]);
-
-    // Keep the latest message in view as the stream grows — but only if the user
-    // hasn't scrolled up to read earlier turns.
-    useEffect(() => {
-        if (isNearBottomRef.current) scrollToBottom();
-    }, [messages, status, scrollToBottom]);
 
     // Move focus into the composer when the panel opens (desktop only — auto-
     // focusing on mobile would pop the keyboard over the conversation). Restore
@@ -175,8 +153,8 @@ export function AssistantSidePanel({ width, onWidthChange, isMobile = false }: {
             </div>
             <AssistantThread conversation={conversation} assistantName={assistantName}
                 userImage={userImage} userInitial={userInitial} isTouch={isTouch}
-                choosingMemory={choosingMemory} scrollViewportRef={scrollViewportRef}
-                showJump={showJump} scrollToBottom={scrollToBottom} submitText={submitText} />
+                choosingMemory={choosingMemory} scrollRef={stick.scrollRef} contentRef={stick.contentRef}
+                showJump={!stick.isAtBottom} scrollToBottom={scrollToBottom} submitText={submitText} />
             <AssistantComposer assistantName={assistantName} isTouch={isTouch} isMobile={isMobile}
                 choosingMemory={choosingMemory} isStreaming={isStreaming} online={online}
                 input={input} onInputChange={setInput} inputNotice={inputNotice} setInputNotice={setInputNotice} imageAllowance={imageAllowance}

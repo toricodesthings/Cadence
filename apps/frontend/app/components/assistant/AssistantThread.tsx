@@ -1,4 +1,4 @@
-import { useMemo, type RefObject } from "react";
+import { useMemo, type Ref } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowDown, Sunrise, AlarmClock, Inbox } from "lucide-react";
 import * as ScrollArea from "../primitives/ScrollArea";
@@ -171,7 +171,8 @@ export function AssistantThread({
     userInitial,
     isTouch,
     choosingMemory,
-    scrollViewportRef,
+    scrollRef,
+    contentRef,
     showJump,
     scrollToBottom,
     submitText
@@ -182,7 +183,8 @@ export function AssistantThread({
     userInitial: string;
     isTouch: boolean;
     choosingMemory: boolean;
-    scrollViewportRef: RefObject<HTMLDivElement | null>;
+    scrollRef: Ref<HTMLDivElement>;
+    contentRef: Ref<HTMLDivElement>;
     showJump: boolean;
     scrollToBottom: () => void;
     submitText: (text: string) => void;
@@ -196,8 +198,8 @@ export function AssistantThread({
     return (
         <div inert={choosingMemory} className="relative flex min-h-0 flex-1 flex-col">
         <ScrollArea.Root className="flex-1 min-h-0">
-            <ScrollArea.Viewport ref={scrollViewportRef} className={isTouch ? "px-3 py-5" : "px-4 py-6"}>
-                <div className="flex flex-col gap-5">
+            <ScrollArea.Viewport ref={scrollRef} className={isTouch ? "px-3 py-5" : "px-4 py-6"}>
+                <div ref={contentRef} className="flex flex-col gap-5">
                     {messages.length === 0 ? <EmptyThread assistantName={assistantName} submitText={submitText} /> : null}
 
                     <AnimatePresence initial={false}>

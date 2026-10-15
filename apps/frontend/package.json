@@ -86,6 +86,7 @@
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
     "tauri-plugin-keyring-api": "^0.1.1",
+    "use-stick-to-bottom": "^1.1.6",
     "zod": "^4.6.5",
     "zustand": "^5.0.15"
   },
