@@ -2,24 +2,18 @@ import { and, count, eq, inArray, ne, sql } from "drizzle-orm";
 import type { InsertProject, UpdateProject } from "@cadence/contracts/project";
 import { projects, tasks } from "../../db/schema";
 import { throwIfNotFound } from "../../platform/errors";
-import { checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
+import { createOnce } from "../../platform/idempotency";
 import type { Tx } from "../../types/db";
 
 /** Create a project. A replayed idempotency key returns the first one. */
 export async function createProject(tx: Tx, userId: string, body: InsertProject, idempotencyKey?: string) {
-    const existingId = await checkIdempotency(tx, userId, idempotencyKey);
-    if (existingId) {
-        const [existing] = await tx.select().from(projects).where(and(eq(projects.id, existingId), eq(projects.userId, userId)));
-        if (existing) return existing;
-    }
-
-    const [row] = await insertWithClientId(() => tx
-        .insert(projects)
-        .values({ ...body, userId })
-        .returning());
-
-    await recordMutation(tx, userId, idempotencyKey, row.id);
-    return row;
+    return createOnce(
+        tx,
+        userId,
+        idempotencyKey,
+        (id) => tx.select().from(projects).where(and(eq(projects.id, id), eq(projects.userId, userId))),
+        () => tx.insert(projects).values({ ...body, userId }).returning(),
+    );
 }
 
 /** Rename a project or change its emoji/colour. 404 when it isn't the caller's. */

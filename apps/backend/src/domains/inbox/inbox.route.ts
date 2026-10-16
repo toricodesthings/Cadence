@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { eq, and, desc } from "drizzle-orm";
-import { checkIdempotency, getIdempotencyKey, insertWithClientId, recordMutation } from "../../platform/idempotency";
+import { getIdempotencyKey, createOnce } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { withCallerRls } from "../../platform/caller-rls";
 import { inboxItems, inboxSections } from "../../db/schema";
@@ -34,22 +34,17 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const body = c.req.valid("json");
         const idempotencyKey = getIdempotencyKey(c);
 
-        const item = await withCallerRls(c, async (tx) => {
-            const existingId = await checkIdempotency(tx, userId, idempotencyKey);
-            if (existingId) {
-                const [existing] = await tx.select().from(inboxItems).where(and(eq(inboxItems.id, existingId), eq(inboxItems.userId, userId)));
-                if (existing) return existing;
-            }
-
-            await assertOwnership(tx, userId, { inboxSectionId: body.sectionId });
-            const [row] = await insertWithClientId(() => tx
-                .insert(inboxItems)
-                .values({ ...body, userId })
-                .returning());
-
-            await recordMutation(tx, userId, idempotencyKey, row.id);
-            return row;
-        });
+        const item = await withCallerRls(c, (tx) =>
+            createOnce(
+                tx,
+                userId,
+                idempotencyKey,
+                (id) => tx.select().from(inboxItems).where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId))),
+                async () => {
+                    await assertOwnership(tx, userId, { inboxSectionId: body.sectionId });
+                    return tx.insert(inboxItems).values({ ...body, userId }).returning();
+                },
+            ));
 
         // Pick a list and section in the background; Save never waits. A replayed save already has its analysis.
         if (!item.analysis) c.executionCtx.waitUntil(suggestPlacement(c.env, userId, item.id));
@@ -61,19 +56,13 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const idempotencyKey = getIdempotencyKey(c);
 
         const section = await withCallerRls(c, async (tx, userId) => {
-            const existingId = await checkIdempotency(tx, userId, idempotencyKey);
-            if (existingId) {
-                const [existing] = await tx.select().from(inboxSections).where(and(eq(inboxSections.id, existingId), eq(inboxSections.userId, userId)));
-                if (existing) return existing;
-            }
-
-            const [row] = await insertWithClientId(() => tx
-                .insert(inboxSections)
-                .values({ ...body, userId })
-                .returning());
-
-            await recordMutation(tx, userId, idempotencyKey, row.id);
-            return row;
+            return createOnce(
+                tx,
+                userId,
+                idempotencyKey,
+                (id) => tx.select().from(inboxSections).where(and(eq(inboxSections.id, id), eq(inboxSections.userId, userId))),
+                () => tx.insert(inboxSections).values({ ...body, userId }).returning(),
+            );
         });
 
         return c.json({ data: section }, 201);

@@ -17,6 +17,7 @@ import type { AuthVariables } from "../../platform/auth";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import { taskTagSchema } from "@cadence/contracts/tag";
 import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, taskBatchQuerySchema, updateTaskSchema } from "@cadence/contracts/task";
+import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
 import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, rescheduleTasks, setTaskState, slotsOf, temporalColumns, toTask, trackTaskChanges, updateTask, withTagIds, type TaskSlot } from "./tasks.service";
@@ -27,24 +28,30 @@ const taskTagParamSchema = z.object({
     tagId: z.uuid(),
 });
 
-const nlpReparseSchema = z.object({
+const nlpInputFields = {
     rawInput: z.string().max(2000),
     sourceSurface: sourceSurfaceSchema.optional(),
     dateStyle: z.enum(["mdy", "dmy", "ymd"]).optional(),
     dismissedEntityIds: z.array(z.string().min(1).max(100)).optional(),
     userOverrides: z.record(z.string(), z.unknown()).optional(),
-    nlp: z.object({
-        rawInput: z.string().max(2000),
-        sourceSurface: sourceSurfaceSchema.optional(),
-        dateStyle: z.enum(["mdy", "dmy", "ymd"]).optional(),
-        dismissedEntityIds: z.array(z.string().min(1).max(100)).optional(),
-        userOverrides: z.record(z.string(), z.unknown()).optional(),
-    }).optional(),
+};
+
+const nlpReparseSchema = z.object({
+    ...nlpInputFields,
+    nlp: z.object(nlpInputFields).optional(),
     parseResult: z.record(z.string(), z.unknown()).optional(),
     cleanedTitle: z.string().max(500).optional(),
     confidenceTier: z.enum(["high", "medium", "low"]).optional(),
     parserVersion: z.string().max(20).optional(),
 });
+
+/** The task an earlier attempt of this same request already made, if any. */
+async function replayedTask(tx: Tx, userId: string, idempotencyKey: string | undefined) {
+    const existingId = await checkIdempotency(tx, userId, idempotencyKey);
+    if (!existingId) return undefined;
+    const [existing] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId))));
+    return existing;
+}
 
 export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/:id/duplicate", apiValidator("param", uuidParamSchema), async (c) => {
@@ -52,11 +59,8 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const idempotencyKey = getIdempotencyKey(c);
 
         const duplicate = await withCallerRls(c, async (tx, userId) => {
-            const existingId = await checkIdempotency(tx, userId, idempotencyKey);
-            if (existingId) {
-                const [existing] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId))));
-                if (existing) return existing;
-            }
+            const replayed = await replayedTask(tx, userId, idempotencyKey);
+            if (replayed) return replayed;
 
             const dup = await duplicateTask(tx, userId, id);
             await recordMutation(tx, userId, idempotencyKey, dup.id);
@@ -106,6 +110,15 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                             clock: nlpRuntime.clock,
             });
 
+            const values = {
+                rawInput: parsed.rawInput,
+                sourceSurface: parsed.sourceSurface,
+                parseResult: parsed as unknown as Record<string, unknown>,
+                cleanedTitle: parsed.cleanedTitle,
+                confidenceTier: parsed.overallConfidence ?? "medium",
+                parserVersion: parsed.parserVersion,
+                isCurrent: true,
+            } as const;
             const [row] = await (async () => {
                 const existing = await tx
                     .select()
@@ -116,34 +129,13 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 if (existing[0]) {
                     const [updated] = await tx
                         .update(taskNlpMetadata)
-                        .set({
-                            rawInput: parsed.rawInput,
-                            sourceSurface: parsed.sourceSurface,
-                            parseResult: parsed as unknown as Record<string, unknown>,
-                            cleanedTitle: parsed.cleanedTitle,
-                            confidenceTier: parsed.overallConfidence ?? "medium",
-                            parserVersion: parsed.parserVersion,
-                            isCurrent: true,
-                        })
+                        .set(values)
                         .where(and(eq(taskNlpMetadata.taskId, id), eq(taskNlpMetadata.userId, userId)))
                         .returning();
                     return [updated];
                 }
 
-                return tx
-                    .insert(taskNlpMetadata)
-                    .values({
-                        taskId: id,
-                        userId,
-                        rawInput: parsed.rawInput,
-                        sourceSurface: parsed.sourceSurface,
-                        parseResult: parsed as unknown as Record<string, unknown>,
-                        cleanedTitle: parsed.cleanedTitle,
-                        confidenceTier: parsed.overallConfidence ?? "medium",
-                        parserVersion: parsed.parserVersion,
-                        isCurrent: true,
-                    })
-                    .returning();
+                return tx.insert(taskNlpMetadata).values({ taskId: id, userId, ...values }).returning();
             })();
             await recordMutation(tx, userId, idempotencyKey, row.id);
             return row;
@@ -159,11 +151,8 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
         const task = await withRls(db, userId, async (tx) => {
                 // Idempotency: return existing result if this mutation was already processed
-                const existingId = await checkIdempotency(tx, userId, idempotencyKey);
-                if (existingId) {
-                    const [existing] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId))));
-                    if (existing) return existing;
-                }
+                const replayed = await replayedTask(tx, userId, idempotencyKey);
+                if (replayed) return replayed;
 
                 const nlpRuntime = nlp
                     ? await loadNlpRuntime(tx, userId)

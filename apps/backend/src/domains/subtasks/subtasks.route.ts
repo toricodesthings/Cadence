@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { assertTaskOwnership } from "../../platform/ownership";
 import { eq, and, asc, inArray } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
-import { getIdempotencyKey, checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
+import { getIdempotencyKey, createOnce } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
 import { withCallerRls } from "../../platform/caller-rls";
 import { subtasks } from "../../db/schema";
@@ -43,25 +43,13 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const item = await withCallerRls(c, async (tx, userId) => {
             await assertTaskOwnership(tx, userId, taskId);
 
-            const existingId = await checkIdempotency(tx, userId, idempotencyKey);
-            if (existingId) {
-                const [existing] = await tx.select().from(subtasks).where(and(eq(subtasks.id, existingId), eq(subtasks.userId, userId)));
-                if (existing) return existing;
-            }
-
-            const [row] = await insertWithClientId(() => tx
-                .insert(subtasks)
-                .values({
-                    id: body.id,
-                    taskId,
-                    userId,
-                    title: body.title,
-                    orderIndex: body.orderIndex,
-                })
-                .returning());
-
-            await recordMutation(tx, userId, idempotencyKey, row.id);
-            return row;
+            return createOnce(
+                tx,
+                userId,
+                idempotencyKey,
+                (id) => tx.select().from(subtasks).where(and(eq(subtasks.id, id), eq(subtasks.userId, userId))),
+                () => tx.insert(subtasks).values({ id: body.id, taskId, userId, title: body.title, orderIndex: body.orderIndex }).returning(),
+            );
         });
 
         return c.json({ data: item }, 201);

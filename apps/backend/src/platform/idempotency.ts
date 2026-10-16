@@ -85,3 +85,25 @@ export async function insertWithClientId<T>(insert: () => Promise<T>): Promise<T
         throw error;
     }
 }
+
+/**
+ * Create one row per idempotency key: a replay gets the row the first attempt made.
+ * `find` reads a row by id (owner-scoped); `insert` makes the new one.
+ */
+export async function createOnce<R extends { id: string }>(
+    tx: Tx,
+    userId: string,
+    idempotencyKey: string | undefined,
+    find: (id: string) => Promise<R[]>,
+    insert: () => Promise<R[]>,
+): Promise<R> {
+    const existingId = await checkIdempotency(tx, userId, idempotencyKey);
+    if (existingId) {
+        const [existing] = await find(existingId);
+        if (existing) return existing;
+    }
+
+    const [row] = await insertWithClientId(insert);
+    await recordMutation(tx, userId, idempotencyKey, row.id);
+    return row;
+}

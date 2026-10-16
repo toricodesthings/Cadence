@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { eq, and, asc, sql } from "drizzle-orm";
-import { getIdempotencyKey, checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
+import { getIdempotencyKey, createOnce } from "../../platform/idempotency";
 import { withCallerRls } from "../../platform/caller-rls";
 import { taskSections } from "../../db/schema";
 import type { Env } from "../../types/env";
@@ -21,19 +21,13 @@ export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                 await assertProjectOwnership(tx, userId, body.projectId);
             }
 
-            const existingId = await checkIdempotency(tx, userId, idempotencyKey);
-            if (existingId) {
-                const [existing] = await tx.select().from(taskSections).where(and(eq(taskSections.id, existingId), eq(taskSections.userId, userId)));
-                if (existing) return existing;
-            }
-
-            const [row] = await insertWithClientId(() => tx
-                .insert(taskSections)
-                .values({ ...body, userId })
-                .returning());
-
-            await recordMutation(tx, userId, idempotencyKey, row.id);
-            return row;
+            return createOnce(
+                tx,
+                userId,
+                idempotencyKey,
+                (id) => tx.select().from(taskSections).where(and(eq(taskSections.id, id), eq(taskSections.userId, userId))),
+                () => tx.insert(taskSections).values({ ...body, userId }).returning(),
+            );
         });
 
         return c.json({ data: section }, 201);
