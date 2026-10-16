@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.34.8] - 2026-10-16
+
 ### Added
 
 - Settings › Assistant can start each app session with a new chat instead of the last conversation.
