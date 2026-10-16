@@ -1,4 +1,5 @@
 import { TaskRouteControls } from "../components/shared/TaskRouteControls";
+import { useTaskIntelligence } from "../hooks/core/use-task-intelligence";
 import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
 import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -31,17 +32,14 @@ import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
 import { useSectionNav } from "../hooks/ui/use-section-nav";
-import { useSettings } from "../hooks/core/use-settings";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { addDays, wallTimeOf, type LocalDate } from "@cadence/domain/time";
 import { dayOfInstant, formatShortDate, formatTime, formatWallTime, fromTimeValue, nlpClock } from "../lib/utils/date-format";
 import { getUserZone, useToday } from "../lib/utils/user-zone";
 import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task/task-scheduling";
-import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
+import { rankTasksForRoute } from "../lib/utils/ranking-reasons";
 import type { SortMode } from "../lib/utils/task/sort-tasks";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
-import { rankTasks } from "@cadence/nlp/ranking";
-import type { RankableTask } from "@cadence/nlp/ranking";
 import type { Task } from "@cadence/contracts/task";
 import type { Project } from "@cadence/contracts/project";
 
@@ -192,25 +190,9 @@ function habitItems(habit: RangeHabit, week: { today: LocalDate; tomorrow: Local
 /** Smart sort: ranked tasks first, each with its reason, then routines in their place. */
 function rankBucket(items: UpcomingViewerItem[]): UpcomingViewerItem[] {
     const tasks = items.filter((item): item is UpcomingViewerItem & { task: Task } => item.kind === "task" && Boolean(item.task));
-    const rankable: RankableTask[] = tasks.map(({ task }) => ({
-        id: task.id,
-        priority: task.priority,
-        isPinned: task.isPinned,
-        orderIndex: task.orderIndex,
-        state: task.state,
-        dueDate: task.dueDate,
-        scheduledStart: task.scheduledStart,
-        scheduledEnd: task.scheduledEnd,
-        effort: task.effort,
-        waitingOn: task.waitingOn ?? null,
-        notBefore: task.notBefore ?? null,
-        durationEstimate: task.durationEstimate,
-    }));
     const byId = new Map(tasks.map((item) => [item.task.id, item]));
-    const ranked = rankTasks(rankable, { routeContext: "upcoming", clock: nlpClock(), dayOf: dayOfInstant }).flatMap((entry) => {
-        const item = byId.get(entry.task.id);
-        return item ? [{ ...item, rationaleLabel: getMaterialRankingLabel(entry.reasons) }] : [];
-    });
+    const { tasks: rankedTasks, rationaleByTaskId } = rankTasksForRoute(tasks.map(({ task }) => task), "upcoming");
+    const ranked = rankedTasks.map((task) => ({ ...byId.get(task.id)!, rationaleLabel: rationaleByTaskId[task.id] ?? null }));
     return [...ranked, ...items.filter((item) => item.kind !== "task")];
 }
 
@@ -235,10 +217,7 @@ export default function Upcoming() {
 
     const { mutate: resolveHabit } = useResolveHabit();
     const shell = useShellMode();
-    const { data: userSettings } = useSettings();
-    const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
-    const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
-    const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
+    const { smartSortEnabled, intelligenceEnabled, focusViewsEnabled } = useTaskIntelligence();
 
     const todayISO = useToday();
     const tomorrowISO = addDays(todayISO, 1);

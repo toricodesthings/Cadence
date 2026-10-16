@@ -1,4 +1,6 @@
-import type { TaskRankReason } from "@cadence/nlp/ranking";
+import { rankTasks, type RankableTask, type TaskRankReason } from "@cadence/nlp/ranking";
+import type { Task } from "@cadence/contracts/task";
+import { dayOfInstant, nlpClock } from "./date-format";
 
 /** §11.6: One-sentence reasoning for Today and Upcoming rationale display */
 const REASON_SENTENCES: Record<TaskRankReason, string> = {
@@ -32,4 +34,29 @@ export function getMaterialRankingLabel(reasons: TaskRankReason[]): string | nul
     const materialReason = reasons.find((r) => MATERIAL_REASONS.has(r));
     if (!materialReason) return null;
     return REASON_SENTENCES[materialReason];
+}
+
+type RankRoute = NonNullable<Parameters<typeof rankTasks>[1]["routeContext"]>;
+
+/** Smart-sorts a route's tasks, returning them in rank order and the one-line reason for each that moved. */
+export function rankTasksForRoute(tasks: Task[], routeContext: RankRoute) {
+    const rankable: RankableTask[] = tasks.map((t) => ({
+        id: t.id,
+        priority: t.priority,
+        isPinned: t.isPinned,
+        orderIndex: t.orderIndex,
+        state: t.state,
+        dueDate: t.dueDate,
+        scheduledStart: t.scheduledStart,
+        scheduledEnd: t.scheduledEnd,
+        effort: t.effort,
+        waitingOn: t.waitingOn ?? null,
+        notBefore: t.notBefore ?? null,
+        durationEstimate: t.durationEstimate,
+    }));
+    const ranked = rankTasks(rankable, { routeContext, clock: nlpClock(), dayOf: dayOfInstant });
+    const rationaleByTaskId: Record<string, string | null> = {};
+    for (const item of ranked) rationaleByTaskId[item.task.id] = getMaterialRankingLabel(item.reasons);
+    const idOrder = new Map(ranked.map((r, i) => [r.task.id, i]));
+    return { tasks: [...tasks].sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0)), rationaleByTaskId };
 }

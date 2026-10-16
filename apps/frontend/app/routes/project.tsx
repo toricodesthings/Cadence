@@ -1,4 +1,5 @@
 import { TaskRouteControls } from "../components/shared/TaskRouteControls";
+import { useTaskIntelligence } from "../hooks/core/use-task-intelligence";
 import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
 import { useState, useCallback, useMemo } from "react";
 import { MainLayout } from "../components/layout/MainLayout";
@@ -21,11 +22,8 @@ import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
-import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
+import { rankTasksForRoute } from "../lib/utils/ranking-reasons";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
-import { rankTasks } from "@cadence/nlp/ranking";
-import type { RankableTask } from "@cadence/nlp/ranking";
-import { useSettings } from "../hooks/core/use-settings";
 import { resolveAccentColor } from "../lib/utils/color-resolver";
 import { PageContent } from "../components/layout/PageLayout";
 import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
@@ -110,10 +108,7 @@ export default function ProjectView() {
     const { data: rawTasks, isLoading } = useTasks({ projectId, state: "ACTIVE" });
     const { activeTagId } = useTagFilterStore();
     const { activeDefinition } = useFocusViewStore();
-    const { data: userSettings } = useSettings();
-    const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
-    const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
-    const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
+    const { smartSortEnabled, intelligenceEnabled, focusViewsEnabled } = useTaskIntelligence();
     const { sortMode, setSortMode } = useSortMode();
 
     useRouteFocus();
@@ -139,39 +134,11 @@ export default function ProjectView() {
         let filtered = activeTagId
             ? (rawTasks ?? []).filter(t => t.tagIds.includes(activeTagId))
             : (rawTasks ?? []);
-        const rationaleByTaskId: Record<string, string | null> = {};
         if (activeDefinition && intelligenceEnabled && focusViewsEnabled) {
             filtered = applyFocusView(filtered, activeDefinition, { clock: nlpClock(), dayOf: dayOfInstant });
         }
-        if (intelligenceEnabled && smartSortEnabled && sortMode === "smart") {
-            const rankable: RankableTask[] = filtered.map((t) => ({
-                id: t.id,
-                priority: t.priority,
-                isPinned: t.isPinned,
-                orderIndex: t.orderIndex,
-                state: t.state,
-                dueDate: t.dueDate,
-                scheduledStart: t.scheduledStart,
-                scheduledEnd: t.scheduledEnd,
-                effort: t.effort,
-                waitingOn: t.waitingOn ?? null,
-                notBefore: t.notBefore ?? null,
-                durationEstimate: t.durationEstimate,
-            }));
-            const ranked = rankTasks(rankable, { routeContext: "project", clock: nlpClock(), dayOf: dayOfInstant });
-            for (const item of ranked) {
-                rationaleByTaskId[item.task.id] = getMaterialRankingLabel(item.reasons);
-            }
-            const idOrder = new Map(ranked.map((r, i) => [r.task.id, i]));
-            return {
-                tasks: [...filtered].sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0)),
-                rationaleByTaskId,
-            };
-        }
-        return {
-            tasks: sortTasks(filtered, sortMode),
-            rationaleByTaskId,
-        };
+        if (intelligenceEnabled && smartSortEnabled && sortMode === "smart") return rankTasksForRoute(filtered, "project");
+        return { tasks: sortTasks(filtered, sortMode), rationaleByTaskId: {} as Record<string, string | null> };
     }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, smartSortEnabled, projectId, todayISO]);
 
     const handleRenameOpen = () => setRenameOpen(true);

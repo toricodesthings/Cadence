@@ -1,4 +1,5 @@
 import { TaskRouteControls } from "../components/shared/TaskRouteControls";
+import { useTaskIntelligence } from "../hooks/core/use-task-intelligence";
 import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
@@ -36,11 +37,8 @@ import { dayOfInstant, nlpClock } from "../lib/utils/date-format";
 import { getUserZone, useToday } from "../lib/utils/user-zone";
 import { getPassiveTimetableOccurrenceAnchor, getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task/task-scheduling";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
-import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
+import { rankTasksForRoute } from "../lib/utils/ranking-reasons";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
-import { rankTasks } from "@cadence/nlp/ranking";
-import type { RankableTask } from "@cadence/nlp/ranking";
-import { useSettings } from "../hooks/core/use-settings";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import type { Task } from "@cadence/contracts/task";
 
@@ -80,10 +78,7 @@ export default function TodayRoute() {
     const todayISO = useToday();
     const { activeTagId } = useTagFilterStore();
     const { activeDefinition } = useFocusViewStore();
-    const { data: userSettings } = useSettings();
-    const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
-    const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
-    const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
+    const { smartSortEnabled, intelligenceEnabled, focusViewsEnabled } = useTaskIntelligence();
 
     const personalEvents = usePersonalEvents(Number(todayISO.slice(0, 4)));
     const todayEvents = personalEvents.enabled ? personalEvents.getEventsForDate(todayISO) : [];
@@ -137,26 +132,9 @@ export default function TodayRoute() {
 
         const sortBucket = (bucket: Task[]): Task[] => {
             if (!useRanking) return sortTasks(bucket, sortMode);
-            const rankable: RankableTask[] = bucket.map((t) => ({
-                id: t.id,
-                priority: t.priority,
-                isPinned: t.isPinned,
-                orderIndex: t.orderIndex,
-                state: t.state,
-                dueDate: t.dueDate,
-                scheduledStart: t.scheduledStart,
-                scheduledEnd: t.scheduledEnd,
-                effort: t.effort,
-                waitingOn: t.waitingOn ?? null,
-                notBefore: t.notBefore ?? null,
-                durationEstimate: t.durationEstimate,
-            }));
-            const ranked = rankTasks(rankable, { routeContext: "today", clock: nlpClock(), dayOf: dayOfInstant });
-            for (const item of ranked) {
-                rationaleByTaskId[item.task.id] = getMaterialRankingLabel(item.reasons);
-            }
-            const idOrder = new Map(ranked.map((r, i) => [r.task.id, i]));
-            return [...bucket].sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
+            const ranked = rankTasksForRoute(bucket, "today");
+            Object.assign(rationaleByTaskId, ranked.rationaleByTaskId);
+            return ranked.tasks;
         };
 
         return {
