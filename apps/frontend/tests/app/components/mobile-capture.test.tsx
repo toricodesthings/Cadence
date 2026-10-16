@@ -67,6 +67,8 @@ describe("Capture composer", () => {
         fireEvent.change(input, { target: { value: "Call Maya tomorrow" } });
         fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
         await screen.findByRole("alert");
+        // The alert can render a beat before the failed save settles; a retry inside it is ignored, as it should be.
+        await waitFor(() => expect(input.readOnly).toBe(false));
         fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
         await waitFor(() => expect(input.value).toBe(""));
         expect(create).toHaveBeenCalledTimes(1);

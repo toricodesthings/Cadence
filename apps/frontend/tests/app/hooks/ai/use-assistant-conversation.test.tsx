@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CONVERSATION_TITLE_DATA_TYPE } from "@cadence/contracts/ai";
 import { queryKeys } from "../../../../app/lib/api/query-keys";
 import { imageFilePart } from "../../../../app/lib/ai/messages";
+import { liveChatHandlers } from "../../../../app/lib/ai/live-chat";
 import { useAssistantStore } from "../../../../app/stores/assistant-store";
 
 const chat = vi.hoisted(() => ({
@@ -14,11 +15,15 @@ const chat = vi.hoisted(() => ({
     addToolApprovalResponse: vi.fn(), stop: vi.fn(), resumeStream: vi.fn(),
 }));
 const mocks = vi.hoisted(() => ({
-    history: { data: undefined as unknown, error: null as unknown, isFetching: false },
-    readHistory: vi.fn(), options: vi.fn(), makeTransport: vi.fn(),
+    history: { data: undefined as unknown, error: null as unknown, isFetching: false, isLoading: false },
+    settings: undefined as unknown,
+    readHistory: vi.fn(), makeTransport: vi.fn(),
     broadcast: vi.fn(), remote: vi.fn(), refresh: vi.fn(), stopServer: vi.fn(),
 }));
-vi.mock("@ai-sdk/react", () => ({ useChat: (options: unknown) => { mocks.options(options); return chat; } }));
+vi.mock("@ai-sdk/react", () => ({
+    useChat: () => chat,
+    Chat: class { stop() {} },
+}));
 vi.mock("../../../../app/hooks/ai/use-conversations", () => ({
     useConversationMessages: (id: string | null) => { mocks.readHistory(id); return mocks.history; },
 }));
@@ -26,6 +31,7 @@ vi.mock("../../../../app/hooks/ai/use-conversation-broadcast", () => ({
     useConversationBroadcast: (handler: unknown) => { mocks.remote(handler); return mocks.broadcast; },
 }));
 vi.mock("../../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => ({}) }));
+vi.mock("../../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: mocks.settings }) }));
 vi.mock("../../../../app/lib/ai/chat-transport", () => ({ makeChatTransport: mocks.makeTransport }));
 vi.mock("../../../../app/lib/api/client", () => ({ authenticatedFetch: vi.fn() }));
 vi.mock("../../../../app/lib/api/workspace-cache", () => ({ hardRefreshWorkspaceCaches: mocks.refresh }));
@@ -59,9 +65,10 @@ beforeEach(() => {
     vi.clearAllMocks();
     chat.messages = [];
     chat.status = "ready";
-    mocks.history = { data: undefined, error: null, isFetching: false };
+    mocks.history = { data: undefined, error: null, isFetching: false, isLoading: false };
+    mocks.settings = undefined;
     mocks.stopServer.mockResolvedValue(undefined);
-    useAssistantStore.setState({ assistantPanelOpen: true, activeConversationId: "conv-1", pendingReply: null, replyUnread: false });
+    useAssistantStore.setState({ assistantPanelOpen: true, activeConversationId: "conv-1", replyUnread: false });
 });
 
 describe("assistant conversation lifecycle", () => {
@@ -70,11 +77,31 @@ describe("assistant conversation lifecycle", () => {
         const { result } = setup();
         expect(result.current.activeConversationId).toBeTruthy();
         expect(mocks.readHistory.mock.calls.every(([id]) => id === null)).toBe(true);
-        expect(mocks.options.mock.calls.at(-1)![0].resume).toBe(false);
+    });
+
+    it("shows the last thread loading, never the empty welcome, until its messages are in", () => {
+        mocks.history = { data: undefined, error: null, isFetching: true, isLoading: true };
+        const { result, rerender } = setup();
+        expect(result.current.restoring).toBe(true);
+        // History landed; the chat is seeded on the next pass.
+        mocks.history = { data: snapshot(), error: null, isFetching: false, isLoading: false };
+        rerender({ online: true });
+        expect(result.current.restoring).toBe(true);
+        chat.messages = [user()];
+        rerender({ online: true });
+        expect(result.current.restoring).toBe(false);
+    });
+
+    it("starts a new chat on the first open when continuing the last one is off", () => {
+        mocks.settings = { assistant: { resumeLastChat: false } };
+        mocks.history = { data: undefined, error: null, isFetching: true, isLoading: true };
+        const { result } = setup();
+        expect(result.current.activeConversationId).not.toBe("conv-1");
+        expect(result.current.restoring).toBe(false);
     });
 
     it("waits for fresh history before resuming a live stream, and resumes it once", () => {
-        mocks.history = { data: snapshot("stream-1"), error: null, isFetching: true };
+        mocks.history = { data: snapshot("stream-1"), error: null, isFetching: true, isLoading: false };
         const { rerender } = setup();
         expect(chat.setMessages).toHaveBeenCalledWith([user()]);
         expect(chat.resumeStream).not.toHaveBeenCalled();
@@ -101,21 +128,19 @@ describe("assistant conversation lifecycle", () => {
         expect(mocks.broadcast).not.toHaveBeenCalled();
     });
 
-    it("marks a reply unread when it lands unseen, and hands one still coming to the watcher", () => {
-        const { rerender, unmount } = setup();
-        chat.status = "streaming";
-        rerender({ online: true });
-        useAssistantStore.setState({ assistantPanelOpen: false });
-        chat.status = "ready";
-        rerender({ online: true });
-        expect(useAssistantStore.getState().replyUnread).toBe(true);
-
-        useAssistantStore.setState({ replyUnread: false });
-        chat.status = "streaming";
-        rerender({ online: true });
-        unmount();
-        expect(useAssistantStore.getState().pendingReply?.conversationId).toBe("conv-1");
+    it("marks a reply unread when it finishes unseen, even after the panel unmounts", () => {
+        const { unmount } = setup();
+        const finish = (isAbort = false) =>
+            liveChatHandlers.current!.onFinish({ message: user("a1"), messages: [user(), user("a1")], isAbort, isDisconnect: false, isError: false });
+        finish();
         expect(useAssistantStore.getState().replyUnread).toBe(false);
+
+        unmount();
+        useAssistantStore.setState({ assistantPanelOpen: false });
+        finish(true);
+        expect(useAssistantStore.getState().replyUnread).toBe(false);
+        finish();
+        expect(useAssistantStore.getState().replyUnread).toBe(true);
     });
 
     it("refetches on reconnect without replaying a finished reply", () => {
@@ -167,7 +192,7 @@ describe("assistant conversation lifecycle", () => {
         chat.status = "streaming";
         setup();
         expect(mocks.refresh).toHaveBeenCalledTimes(1);
-        act(() => mocks.options.mock.calls.at(-1)![0].onFinish({ message: chat.messages[0] }));
+        act(() => liveChatHandlers.current!.onFinish({ message: chat.messages[0], messages: chat.messages, isAbort: false, isDisconnect: false, isError: false }));
         expect(mocks.refresh).toHaveBeenCalledTimes(1);
     });
 
@@ -188,7 +213,7 @@ describe("assistant conversation lifecycle", () => {
         const { result, cache } = setup();
         cache.setQueryData(queryKeys.ai.conversations, [{ id: "conv-1", title: null }]);
         cache.setQueryData(queryKeys.ai.conversation("conv-1"), snapshot());
-        act(() => mocks.options.mock.calls.at(-1)![0].onData({
+        act(() => liveChatHandlers.current!.onData({
             type: CONVERSATION_TITLE_DATA_TYPE, data: { conversationId: "conv-1", title: "New title" },
         }));
         expect(result.current.threadTitle).toBe("New title");

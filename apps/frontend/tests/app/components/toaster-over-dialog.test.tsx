@@ -6,6 +6,8 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../../
 import { Toaster } from "../../../app/components/feedback/Toaster";
 import { ResponsiveOverlayPanel } from "../../../app/components/shared/ResponsiveOverlayPanel";
 
+// jsdom has no pointer capture; Sonner's swipe handling calls it on pointer down.
+Element.prototype.setPointerCapture ??= () => {};
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { appearance: { motion: "reduced" } } }) }));
 vi.mock("../../../app/hooks/ui/use-shell-mode", () => ({ useShellMode: () => ({ isCompact: false, isTablet: false, isPhone: false, isTouch: false }) }));
 

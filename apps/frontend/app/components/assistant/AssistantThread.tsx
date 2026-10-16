@@ -2,6 +2,7 @@ import { useMemo, type Ref } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowDown, Sunrise, AlarmClock, Inbox } from "lucide-react";
 import * as ScrollArea from "../primitives/ScrollArea";
+import { Skeleton } from "../primitives/Skeleton";
 import { ChatMessage, ChatAvatar, AssistantText } from "./MessageBubble";
 import { AssistantSigil } from "./AssistantSigil";
 import { ReadReceipt } from "./ReadReceipt";
@@ -71,6 +72,34 @@ function EmptyThread({ assistantName, submitText }: { assistantName: string; sub
                 ))}
             </div>
         </div>
+    );
+}
+
+/**
+ * The last conversation on its way back: its shape (their lines left, yours right) instead of the welcome screen.
+ * Fades in only after a beat, so a quick load never flashes it.
+ */
+function RestoringThread({ reduceMotion }: { reduceMotion: boolean | null }) {
+    const lines = (widths: string[]) => widths.map((w) => <Skeleton key={w} className={`h-3 rounded-full ${w}`} />);
+    return (
+        <motion.div
+            role="status"
+            aria-label="Loading your last conversation"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: reduceMotion ? 0 : 0.15, duration: reduceMotion ? 0 : 0.4, ease: EASE_OUT_EXPO }}
+            className="flex flex-col gap-6 pt-2"
+        >
+            <div className="flex items-start gap-2.5">
+                <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
+                <div className="flex flex-1 flex-col gap-2 pt-1">{lines(["w-[85%]", "w-[70%]", "w-[45%]"])}</div>
+            </div>
+            <Skeleton className="ml-auto h-10 w-[55%] rounded-[20px] rounded-br-md bg-accent-primary/10" />
+            <div className="flex items-start gap-2.5">
+                <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
+                <div className="flex flex-1 flex-col gap-2 pt-1">{lines(["w-[78%]", "w-[60%]"])}</div>
+            </div>
+        </motion.div>
     );
 }
 
@@ -200,7 +229,11 @@ export function AssistantThread({
         <ScrollArea.Root className="flex-1 min-h-0">
             <ScrollArea.Viewport ref={scrollRef} className={isTouch ? "px-3 py-5" : "px-4 py-6"}>
                 <div ref={contentRef} className="flex flex-col gap-5">
-                    {messages.length === 0 ? <EmptyThread assistantName={assistantName} submitText={submitText} /> : null}
+                    {conversation.restoring ? (
+                        <RestoringThread reduceMotion={reduceMotion} />
+                    ) : messages.length === 0 ? (
+                        <EmptyThread assistantName={assistantName} submitText={submitText} />
+                    ) : null}
 
                     <AnimatePresence initial={false}>
                         {messages.map((message, index) => (

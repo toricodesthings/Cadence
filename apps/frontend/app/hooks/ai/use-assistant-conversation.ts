@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getToolName, lastAssistantMessageIsCompleteWithApprovalResponses, type ChatStatus, type UIMessage } from "ai";
@@ -8,10 +8,12 @@ import { useAssistantStore } from "../../stores/assistant-store";
 import { useConversationMessages } from "./use-conversations";
 import { useConversationBroadcast, type ChatBroadcastType } from "./use-conversation-broadcast";
 import { useApiClient } from "../auth/use-api-client";
+import { useSettings } from "../core/use-settings";
 import type { ReadyAttachment } from "./use-chat-attachments";
 import { TOOL_CATALOG, isToolName } from "@cadence/contracts/ai-tools";
 import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
 import { makeChatTransport } from "../../lib/ai/chat-transport";
+import { firstOpenFor, liveChat, liveChatHandlers } from "../../lib/ai/live-chat";
 import { checkMessageText } from "../../lib/ai/input-guard";
 import { parseStreamErrorText, streamErrorFromError, type StreamError } from "../../lib/ai/stream-error";
 import { imageIdsOf, imageFilePart, isAssistantToolPart, lastMessageIndex } from "../../lib/ai/messages";
@@ -64,6 +66,7 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
     const { assistantPanelOpen, activeConversationId, startNewConversation, setActiveConversation } = useAssistantStore();
     const queryClient = useQueryClient();
     const client = useApiClient();
+    const resumeLastChat = useSettings().data?.assistant?.resumeLastChat !== false;
     const [isFreshThread, setIsFreshThread] = useState(false);
     const [threadTitle, setThreadTitle] = useState<string | null>(null);
     // Ensure a thread id exists before the first send. The store persists it, but
@@ -123,26 +126,34 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
         [aiFetch],
     );
 
-    // Resume is manual: automatically attaching after our own turn would replay its reply.
     // The ref keeps transient title callbacks current without rebuilding the session.
     const handleTitleDataRef = useRef<(data: ConversationTitleData) => void>(() => {});
 
+    liveChatHandlers.current = {
+        transport,
+        // Continue the same reply only once every approval has an answer.
+        sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+        // Runs even after the panel closed. Writes run on the server, so a reply that changed anything refreshes the
+        // workspace; the cache gets the finished thread so reopening doesn't flash an older copy; an unseen reply
+        // (panel closed, tab hidden) marks the assistant unread.
+        onFinish: ({ message, messages: finished, isAbort }) => {
+            refreshAfterWrites(message);
+            if (isAbort) return;
+            const convId = conversationIdRef.current;
+            if (convId) syncMessagesToCache(convId, finished);
+            const store = useAssistantStore.getState();
+            if (document.hidden || !store.assistantPanelOpen) store.setReplyUnread(true);
+        },
+        // Transient title data updates the header and sidebar.
+        onData: (part) => {
+            if (part.type === CONVERSATION_TITLE_DATA_TYPE) {
+                handleTitleDataRef.current(part.data as ConversationTitleData);
+            }
+        },
+    };
+    // Resume is manual (`resume` defaults off): automatically attaching after our own turn would replay its reply.
     const { messages, sendMessage, regenerate, setMessages, addToolApprovalResponse, status, stop, error, resumeStream } =
-        useChat({
-            transport,
-            id: activeConversationId ?? undefined,
-            resume: false,
-            // Continue the same reply only once every approval has an answer.
-            sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
-            // Writes run on the server now, so a reply that changed anything refreshes the workspace.
-            onFinish: ({ message }) => refreshAfterWrites(message),
-            // Transient title data updates the header and sidebar.
-            onData: (part) => {
-                if (part.type === CONVERSATION_TITLE_DATA_TYPE) {
-                    handleTitleDataRef.current(part.data as ConversationTitleData);
-                }
-            },
-        });
+        useChat({ chat: liveChat(queryClient, activeConversationId ?? "none") });
 
     const isStreaming = status === "submitted" || status === "streaming";
 
@@ -236,7 +247,7 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
     );
 
     // Fresh client-minted threads have no server row to fetch yet.
-    const { data: history, error: historyError, isFetching: historyFetching } = useConversationMessages(
+    const { data: history, error: historyError, isFetching: historyFetching, isLoading: historyLoading } = useConversationMessages(
         assistantPanelOpen && !isFreshThread ? activeConversationId : null,
     );
     // The persisted thread is gone server-side (deleted elsewhere, DB reset) — start fresh
@@ -315,21 +326,6 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
     }, [status, messages, syncMessagesToCache]);
 
     const prevStatusRef = useRef(status);
-    // A reply that lands unseen (panel closed, tab hidden) marks the assistant unread; one still
-    // coming when the panel unmounts is handed to `useAssistantReplyWatcher`. Runs before the
-    // effect below moves prevStatusRef on.
-    useEffect(() => {
-        if (status !== "ready" && status !== "error") return;
-        if (prevStatusRef.current !== "streaming" && prevStatusRef.current !== "submitted") return;
-        if (document.hidden || !useAssistantStore.getState().assistantPanelOpen) useAssistantStore.getState().setReplyUnread(true);
-    }, [status]);
-    useEffect(() => () => {
-        const convId = conversationIdRef.current;
-        if (convId && (statusRef.current === "submitted" || statusRef.current === "streaming")) {
-            useAssistantStore.getState().setPendingReply(convId);
-        }
-    }, []);
-
     // On a completed streamed turn (streaming → ready), the thread now exists
     // server-side and its sidebar row (title/order) may have changed.
     useEffect(() => {
@@ -390,6 +386,16 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
         setThreadTitle(null);
         startNewConversation();
     }, [messages, syncMessagesToCache, setMessages, startNewConversation, clearAttachments]);
+
+    // "Continue last conversation" off (Settings › Assistant): the first open after the app starts is a new chat.
+    // Later opens keep whatever is on screen. Before paint, so the last thread never flashes its loading state.
+    useLayoutEffect(() => {
+        if (firstOpenFor(queryClient) && !resumeLastChat && activeConversationId) handleNewChat();
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, on the panel's first open
+
+    // The last thread is on its way: the thread shows its shape instead of the empty welcome, which would
+    // otherwise sit there until the old messages pop in.
+    const restoring = messages.length === 0 && !isFreshThread && (historyLoading || (history?.messages.length ?? 0) > 0);
 
     const submitText = (raw: string, readyImages: readonly ReadyAttachment[], uploading: boolean): boolean => {
         const text = raw.trim();
@@ -517,7 +523,7 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
     const imageError = streamError && lastUserImages.length > 0 ? streamError.code : null;
 
     return {
-        messages, status, isStreaming, threadTitle, activeConversationId,
+        messages, status, isStreaming, restoring, threadTitle, activeConversationId,
         submitText, handleNewChat, handleSelectConversation, handleStop,
         handleEdit, handleRetry, regenerateLocal, answerApproval, replyToQuestion,
         streamError, imageError, sendWithoutImages, shareImages,

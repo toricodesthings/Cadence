@@ -258,6 +258,16 @@ export function AssistantTab() {
             {/* ── Conversations ── */}
             <SettingsSection title="Conversations">
                 <SettingsRow
+                    title="Continue last conversation"
+                    description="When you first open the assistant after starting Cadence, pick up where you left off. Off starts a new chat; past ones stay in history."
+                >
+                    <Switch
+                        checked={assistant.resumeLastChat}
+                        onCheckedChange={(value) => updateAssistant({ resumeLastChat: value })}
+                    />
+                </SettingsRow>
+
+                <SettingsRow
                     title="Archived conversations"
                     description="Archive a conversation from its row in the assistant's history. Clearing the archive deletes every archived conversation for good, with its messages and photos."
                 >

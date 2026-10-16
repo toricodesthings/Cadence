@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Settings › Assistant can start each app session with a new chat instead of the last conversation.
+
+### Changed
+
+- The assistant shows a soft loading shape while your last conversation comes back, instead of a blank welcome.
+
+### Fixed
+
+- Closing the assistant mid-reply no longer loses the reply: it keeps arriving and shows the new-reply mark.
+- The "How long did it take?" prompt now closes on its own after you answer.
+
 ## [0.34.7] - 2026-10-16
 
 ### Changed

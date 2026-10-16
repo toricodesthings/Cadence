@@ -348,6 +348,8 @@ export const userSettingsSchema = z.object({
         // "How long did it take?" budget (server-owned: written only by /ai/memory/duration/ask and /shown).
         durationAsk: z.object({ lastOn: z.string().nullable(), misses: z.number().int().min(0) }).nullable().optional(),
         adaptiveTone: z.boolean().optional(),
+        // Opening the assistant after the app starts shows the last conversation (true) or a new one (false).
+        resumeLastChat: z.boolean().optional(),
     }).optional(),
     // Legacy field — accepted for backward compat; migrated to tasks.defaultView
     preferredView: z.enum(["list", "kanban"]).optional(),
@@ -610,5 +612,6 @@ export const SETTINGS_DEFAULTS = {
         memoryBackfill: null as { since: string; before: string; chats: "pending" | "done"; notes: "pending" | "done"; learned?: number; doneAt?: string; failedNights?: number } | null,
         durationAsk: null as { lastOn: string | null; misses: number } | null,
         adaptiveTone: true,
+        resumeLastChat: true,
     },
 } as const satisfies Record<string, unknown>;

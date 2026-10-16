@@ -1,29 +1,18 @@
 import { useEffect } from "react";
 import { useAssistantStore } from "../../stores/assistant-store";
-import { useConversationMessages } from "./use-conversations";
 
 /**
- * Keeps the assistant's unread mark honest while its panel is closed: a reply still
- * coming when the panel closed is polled until it lands, and the mark clears once the
- * panel is open in a visible tab. Mounted once by the shell.
+ * Clears the assistant's unread mark once its panel is open in a visible tab. The mark itself is set when a reply
+ * finishes unseen (`use-assistant-conversation`'s `onFinish`, which keeps running after the panel closes). Mounted
+ * once by the shell.
  */
 export function useAssistantReplyWatcher() {
-    const { assistantPanelOpen, pendingReply, setReplyUnread } = useAssistantStore();
-    const { data, dataUpdatedAt } = useConversationMessages(
-        assistantPanelOpen ? null : (pendingReply?.conversationId ?? null),
-        3_000,
-    );
-
-    useEffect(() => {
-        if (!pendingReply || !data || dataUpdatedAt <= pendingReply.since) return;
-        if (!data.conversation?.activeStreamId) setReplyUnread(true);
-    }, [pendingReply, data, dataUpdatedAt, setReplyUnread]);
+    const { assistantPanelOpen, setReplyUnread } = useAssistantStore();
 
     useEffect(() => {
         if (!assistantPanelOpen) return;
         const seen = () => {
-            const { replyUnread, pendingReply: pending } = useAssistantStore.getState();
-            if (!document.hidden && (replyUnread || pending)) setReplyUnread(false);
+            if (!document.hidden && useAssistantStore.getState().replyUnread) setReplyUnread(false);
         };
         seen();
         document.addEventListener("visibilitychange", seen);

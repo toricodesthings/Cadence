@@ -27,6 +27,7 @@ const persona: AssistantPersona = {
     memoryBackfill: null,
     durationAsk: null,
     adaptiveTone: true,
+    resumeLastChat: true,
 };
 
 function ctx(overrides: Partial<PromptRuntimeContext> = {}, personaOverrides: Partial<AssistantPersona> = {}): PromptRuntimeContext {
