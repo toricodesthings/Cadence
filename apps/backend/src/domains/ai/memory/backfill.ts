@@ -5,6 +5,7 @@
  * 3 days, or anything behind a conversation's cursor) are skipped, so nothing is learned twice.
  */
 import { and, desc, eq, gt, gte, isNull, lt, or, sql } from "drizzle-orm";
+import { textOf } from "./message-text";
 import { todayIn } from "@cadence/domain/time";
 import { aiConversations, aiMemoryNotes, aiMessages, taskNotes, users } from "../../../db/schema";
 import { getDbClient } from "../../../platform/db";
@@ -69,13 +70,6 @@ export function catchUpOf(backfill: Backfill | null | undefined, now: Date): Mem
     const read = Math.min(Math.max((start - Date.parse(backfill.before)) / (BACKFILL_DAYS * DAY_MS), 0), 1);
     return { progress: 0.05 + 0.8 * read, learned, doneAt: null };
 }
-
-const textOf = (parts: unknown): string =>
-    (Array.isArray(parts) ? parts : [])
-        .map((p) => (p && typeof p === "object" && (p as { type?: unknown }).type === "text" ? String((p as { text?: unknown }).text ?? "") : ""))
-        .filter(Boolean)
-        .join("\n")
-        .trim();
 
 async function saveBackfill(tx: Tx, userId: string, backfill: Backfill): Promise<void> {
     await tx

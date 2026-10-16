@@ -1,12 +1,12 @@
 import { Hono } from "hono";
+import { assertTaskOwnership } from "../../platform/ownership";
 import { eq, and } from "drizzle-orm";
 import { withCallerRls } from "../../platform/caller-rls";
-import { tasks, taskNotes } from "../../db/schema";
+import { taskNotes } from "../../db/schema";
 import { upsertNoteSchema } from "@cadence/contracts/note";
 import { taskIdParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
-import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import { writeNote } from "./notes.service";
 import { AppError } from "../../platform/errors";
@@ -45,13 +45,7 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { taskId } = c.req.valid("param");
 
         const note = await withCallerRls(c, async (tx, userId) => {
-            // Ensure parent task exists and belongs to user
-            const [parent] = await tx
-                .select({ id: tasks.id })
-                .from(tasks)
-                .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
-
-            throwIfNotFound(parent, "Task");
+            await assertTaskOwnership(tx, userId, taskId);
 
             const [row] = await tx
                 .select()

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { assertTaskOwnership } from "../../platform/ownership";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseCanonicalNlpEnvelope, type CanonicalNlpEnvelope } from "@cadence/nlp";
@@ -80,11 +81,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 if (existing) return existing;
             }
 
-            const [task] = await tx
-                .select({ id: tasks.id })
-                .from(tasks)
-                .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
-            throwIfNotFound(task, "Task");
+            await assertTaskOwnership(tx, userId, id);
 
             const nlpRuntime = await loadNlpRuntime(tx, userId);
             const fallbackEnvelope = {
@@ -253,12 +250,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { tagId } = c.req.valid("json");
 
         const association = await withCallerRls(c, async (tx, userId) => {
-            const [task] = await tx
-                .select({ id: tasks.id })
-                .from(tasks)
-                .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
-
-            throwIfNotFound(task, "Task");
+            await assertTaskOwnership(tx, userId, id);
 
             const [tag] = await tx
                 .select({ id: tags.id })
@@ -407,12 +399,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { id } = c.req.valid("param");
 
         const associations = await withCallerRls(c, async (tx, userId) => {
-            const [task] = await tx
-                .select({ id: tasks.id })
-                .from(tasks)
-                .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
-
-            throwIfNotFound(task, "Task");
+            await assertTaskOwnership(tx, userId, id);
 
             return tx
                 .select({
@@ -454,12 +441,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { id: taskId, tagId } = c.req.valid("param");
 
         const deleted = await withCallerRls(c, async (tx, userId) => {
-            const [task] = await tx
-                .select({ id: tasks.id })
-                .from(tasks)
-                .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
-
-            throwIfNotFound(task, "Task");
+            await assertTaskOwnership(tx, userId, taskId);
 
             const [row] = await tx
                 .delete(taskTags)

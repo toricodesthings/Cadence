@@ -1,6 +1,6 @@
-import { eq, inArray } from "drizzle-orm";
-import { inboxSections, projects, tags, taskSections } from "../db/schema";
-import { AppError } from "./errors";
+import { and, eq, inArray } from "drizzle-orm";
+import { inboxSections, projects, tags, taskSections, tasks } from "../db/schema";
+import { AppError, throwIfNotFound } from "./errors";
 import type { Tx } from "../types/db";
 
 /**
@@ -79,4 +79,13 @@ export async function assertOwnership(
     if (refs.inboxSectionId) checks.push(assertRowOwnership(tx, inboxSections, userId, refs.inboxSectionId, "Inbox section"));
     if (refs.tagIds?.length) checks.push(assertTagsOwnership(tx, userId, refs.tagIds));
     await Promise.all(checks);
+}
+
+/** The task must exist and be this user's; otherwise 404, as if it were absent. */
+export async function assertTaskOwnership(tx: Tx, userId: string, taskId: string) {
+    const [task] = await tx
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+    throwIfNotFound(task, "Task");
 }

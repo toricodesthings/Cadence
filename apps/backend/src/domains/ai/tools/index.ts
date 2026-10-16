@@ -141,21 +141,23 @@ export function clampLimit(limit: number | undefined, fallback = 20): number {
  * The integration in agent.ts spreads the result into `streamText({ tools })`.
  */
 export function buildToolRegistry(env: Env, userId: string, ctx: AgentContext) {
-    return withoutPatterns(ctx.nullableOptionals !== false, {
-        ...taskTools(env, userId, ctx),
-        ...projectTools(env, userId, ctx),
-        ...tagTools(env, userId, ctx),
-        ...habitTools(env, userId, ctx),
-        ...inboxTools(env, userId, ctx),
-        ...calendarTools(env, userId, ctx),
-        ...eventTools(env, userId, ctx),
-        ...metricTools(env, userId, ctx),
-        ...focusViewTools(env, userId, ctx),
-        ...helpTools(),
-        ...askTools(),
-        ...memoryTools(env, userId, ctx),
-    });
+    return withoutPatterns(ctx.nullableOptionals !== false, { ...coreTools(env, userId, ctx), ...askTools() });
 }
+
+/** Every tool the in-app assistant and MCP share (the assistant adds its ask tool). */
+export const coreTools = (env: Env, userId: string, ctx: AgentContext) => ({
+    ...taskTools(env, userId, ctx),
+    ...projectTools(env, userId, ctx),
+    ...tagTools(env, userId, ctx),
+    ...habitTools(env, userId, ctx),
+    ...inboxTools(env, userId, ctx),
+    ...calendarTools(env, userId, ctx),
+    ...eventTools(env, userId, ctx),
+    ...metricTools(env, userId, ctx),
+    ...focusViewTools(env, userId, ctx),
+    ...helpTools(),
+    ...memoryTools(env, userId, ctx),
+});
 
 /** Each tool's input and output as the chat UI receives them (the cards type their tool parts with it). */
 export type ToolIO = InferUITools<ReturnType<typeof buildToolRegistry>>;

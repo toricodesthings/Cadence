@@ -1,10 +1,11 @@
 import { Hono } from "hono";
+import { assertTaskOwnership } from "../../platform/ownership";
 import { eq, and, asc, inArray } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { getIdempotencyKey, checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
 import { withCallerRls } from "../../platform/caller-rls";
-import { tasks, subtasks } from "../../db/schema";
+import { subtasks } from "../../db/schema";
 import { insertSubtaskSchema, bulkSubtasksSchema, subtasksByTaskQuerySchema, updateSubtaskSchema, reorderSubtaskSchema } from "@cadence/contracts/subtask";
 import { uuidParamSchema, taskIdParamSchema } from "@cadence/contracts/common";
 import type { Context } from "hono";
@@ -40,12 +41,7 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const idempotencyKey = getIdempotencyKey(c);
 
         const item = await withCallerRls(c, async (tx, userId) => {
-            const [parent] = await tx
-                .select({ id: tasks.id })
-                .from(tasks)
-                .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
-
-            throwIfNotFound(parent, "Task");
+            await assertTaskOwnership(tx, userId, taskId);
 
             const existingId = await checkIdempotency(tx, userId, idempotencyKey);
             if (existingId) {
@@ -106,13 +102,7 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const { taskId } = c.req.valid("param");
 
         const items = await withCallerRls(c, async (tx, userId) => {
-            // Ensure parent task exists and belongs to user
-            const [parent] = await tx
-                .select({ id: tasks.id })
-                .from(tasks)
-                .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
-
-            throwIfNotFound(parent, "Task");
+            await assertTaskOwnership(tx, userId, taskId);
 
             return tx
                 .select()

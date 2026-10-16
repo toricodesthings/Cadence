@@ -7,7 +7,7 @@ import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit } from "./index";
-import { placeNameColumns } from "./tasks";
+import { taskCoreColumns } from "./tasks";
 import { inDayWindow } from "../../tasks/tasks.service";
 import { expandScheduleScopedTasks, taskDay } from "@cadence/domain/task-recurrence";
 import { addDays } from "@cadence/domain/time";
@@ -20,26 +20,9 @@ const MAX_RANGE_DAYS = 62;
 
 /** The task columns a schedule window projects. */
 const scheduleColumns = {
-    ...placeNameColumns,
-    id: tasks.id,
-    title: tasks.title,
-    state: tasks.state,
-    dueDate: tasks.dueDate,
-    endDate: tasks.endDate,
+    ...taskCoreColumns,
     zone: tasks.zone,
-    scheduledStart: tasks.scheduledStart,
-    scheduledEnd: tasks.scheduledEnd,
-    durationEstimate: tasks.durationEstimate,
-    priority: tasks.priority,
-    effort: tasks.effort,
-    projectId: tasks.projectId,
-    sectionId: tasks.sectionId,
-    waitingOn: tasks.waitingOn,
-    interactionMode: tasks.interactionMode,
-    recurrenceRule: tasks.recurrenceRule,
     orderIndex: tasks.orderIndex,
-    isPinned: tasks.isPinned,
-    reminderAt: tasks.reminderAt,
 } as const;
 
 /** Rows a window reads before expansion: plenty for ~2 months, a guard against runaway data. */

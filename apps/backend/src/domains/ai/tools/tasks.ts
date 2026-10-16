@@ -51,8 +51,8 @@ import { taskSearch, taskSearchColumns, taskPlaceColumns } from "../../tasks/tas
  */
 export const placeNameColumns = taskPlaceColumns;
 
-/** Columns returned by the minimal task projection — selected once, reused. */
-const minimalTaskColumns = {
+/** The task columns every read tool projects. */
+export const taskCoreColumns = {
     ...placeNameColumns,
     id: tasks.id,
     title: tasks.title,
@@ -71,6 +71,11 @@ const minimalTaskColumns = {
     recurrenceRule: tasks.recurrenceRule,
     isPinned: tasks.isPinned,
     reminderAt: tasks.reminderAt,
+} as const;
+
+/** Columns returned by the minimal task projection — selected once, reused. */
+const minimalTaskColumns = {
+    ...taskCoreColumns,
     waitingReminder: tasks.waitingReminder,
     notBefore: tasks.notBefore,
 } as const;

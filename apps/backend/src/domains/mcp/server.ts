@@ -8,19 +8,8 @@ import { mcpConnections, users } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
 import { appOrigin, type Env } from "../../types/env";
-import { dropPatterns, type AgentContext } from "../ai/tools/index";
+import { coreTools, dropPatterns, type AgentContext } from "../ai/tools/index";
 import { memoryIsOn } from "../ai/memory/memory.service";
-import { taskTools } from "../ai/tools/tasks";
-import { projectTools } from "../ai/tools/projects";
-import { tagTools } from "../ai/tools/tags";
-import { habitTools } from "../ai/tools/habits";
-import { inboxTools } from "../ai/tools/inbox";
-import { calendarTools } from "../ai/tools/calendar";
-import { eventTools } from "../ai/tools/events";
-import { metricTools } from "../ai/tools/metrics";
-import { focusViewTools } from "../ai/tools/focus-views";
-import { helpTools } from "../ai/tools/help";
-import { memoryTools } from "../ai/tools/memory";
 import { loadSnapshot, userClock } from "../ai/turn";
 import { formatInZone } from "@cadence/domain/time";
 import { userZone } from "../../platform/user-zone";
@@ -107,19 +96,7 @@ const ok = (value: unknown): CallToolResult => ({ content: [{ type: "text", text
 const fail = (message: string): CallToolResult => ({ isError: true, content: [{ type: "text", text: message }] });
 
 /** The factories' tools; the catalog picks from these. Full zod schemas (patterns included). */
-const allTools = (env: Env, userId: string, ctx: AgentContext) => ({
-    ...taskTools(env, userId, ctx),
-    ...projectTools(env, userId, ctx),
-    ...tagTools(env, userId, ctx),
-    ...habitTools(env, userId, ctx),
-    ...inboxTools(env, userId, ctx),
-    ...calendarTools(env, userId, ctx),
-    ...eventTools(env, userId, ctx),
-    ...metricTools(env, userId, ctx),
-    ...focusViewTools(env, userId, ctx),
-    ...helpTools(),
-    ...memoryTools(env, userId, ctx),
-});
+const allTools = coreTools;
 
 type AnyTool = { description?: string; inputSchema: unknown; execute?: (input: unknown, options: object) => Promise<any> };
 

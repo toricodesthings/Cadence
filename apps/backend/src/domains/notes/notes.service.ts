@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
-import { tasks, taskNotes } from "../../db/schema";
-import { AppError, assertNoConflict, throwIfNotFound } from "../../platform/errors";
+import { assertTaskOwnership } from "../../platform/ownership";
+import { taskNotes } from "../../db/schema";
+import { AppError, assertNoConflict } from "../../platform/errors";
 import type { Tx } from "../../types/db";
 import { countHeadings, countWords, generateExcerpt } from "./note-analysis";
 
@@ -20,11 +21,7 @@ export async function writeNote(
     body: string,
     guard: { expectedVersion?: number; expectedUpdatedAt?: string } = {},
 ) {
-    const [parent] = await tx
-        .select({ id: tasks.id })
-        .from(tasks)
-        .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
-    throwIfNotFound(parent, "Task");
+    await assertTaskOwnership(tx, userId, taskId);
 
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`note:${userId}:${taskId}`}, 0))`);
 

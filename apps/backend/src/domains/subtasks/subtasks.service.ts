@@ -1,6 +1,7 @@
 import { and, eq, inArray, max } from "drizzle-orm";
-import { subtasks, tasks } from "../../db/schema";
-import { AppError, throwIfNotFound } from "../../platform/errors";
+import { assertTaskOwnership } from "../../platform/ownership";
+import { subtasks } from "../../db/schema";
+import { AppError } from "../../platform/errors";
 import type { Tx } from "../../types/db";
 
 /**
@@ -26,11 +27,7 @@ export async function editSubtasks(
         order?: string[];
     },
 ) {
-    const [parent] = await tx
-        .select({ id: tasks.id })
-        .from(tasks)
-        .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
-    throwIfNotFound(parent, "Task");
+    await assertTaskOwnership(tx, userId, taskId);
 
     const ids = [...new Set([...update.map((item) => item.subtaskId), ...remove.map((item) => item.subtaskId), ...order])];
     if (ids.length) {

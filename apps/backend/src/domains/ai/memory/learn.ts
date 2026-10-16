@@ -10,6 +10,7 @@
 // oxlint-disable-next-line triple-slash-reference -- the frontend typecheck compiles this file without backend src/types
 /// <reference path="../../../types/text-modules.d.ts" />
 import { generateText, NoObjectGeneratedError, Output } from "ai";
+import { textOf } from "./message-text";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { and, asc, eq, gt, sql } from "drizzle-orm";
 import { todayIn } from "@cadence/domain/time";
@@ -53,13 +54,6 @@ export function buildReading(rows: { id: string; text: string }[]): { text: stri
     });
     return { text: lines.join("\n\n"), labels };
 }
-
-const textOf = (parts: unknown): string =>
-    (Array.isArray(parts) ? parts : [])
-        .map((p) => (p && typeof p === "object" && (p as { type?: unknown }).type === "text" ? String((p as { text?: unknown }).text ?? "") : ""))
-        .filter(Boolean)
-        .join("\n")
-        .trim();
 
 export interface LearnResult {
     saved: number;
