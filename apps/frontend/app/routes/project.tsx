@@ -1,12 +1,11 @@
-import { StartupSuspense as Suspense } from "../components/shared/StartupSuspense";
-import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
-import { useState, useCallback, useMemo, lazy } from "react";
+import { TaskRouteControls } from "../components/shared/TaskRouteControls";
+import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
+import { useState, useCallback, useMemo } from "react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { FolderKanban, Pencil, Trash2, Repeat, Check, X, Plus, LayoutList } from "lucide-react";
 import { useParams, useNavigate } from "react-router";
 import { useProjects } from "../hooks/projects/use-projects";
-import { useUpdateProject } from "../hooks/projects/use-update-project";
 import { useDeleteProject } from "../hooks/projects/use-delete-project";
 import { useTasks } from "../hooks/tasks/use-tasks";
 import { useTagFilterStore } from "../stores/tag-filter-store";
@@ -19,23 +18,15 @@ import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { AddTaskInput } from "../components/tasks/AddTaskInput";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
-import { ViewToggle } from "../components/shared/ViewToggle";
-import { SortMenu } from "../components/shared/SortMenu";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { ControlsSheet } from "../components/shared/ControlsSheet";
-import { SORT_MODE_OPTIONS, SortOptionList } from "../components/shared/SortOptionList";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
 import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { rankTasks } from "@cadence/nlp/ranking";
 import type { RankableTask } from "@cadence/nlp/ranking";
-const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then(m => ({ default: m.FocusViewBar })));
 import { useSettings } from "../hooks/core/use-settings";
-import * as Dialog from "../components/primitives/Dialog";
-import { Button } from "../components/primitives/Button";
 import { resolveAccentColor } from "../lib/utils/color-resolver";
-import { EmojiPickerPopover } from "../components/shared/EmojiPickerPopover";
 import { PageContent } from "../components/layout/PageLayout";
 import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
@@ -47,7 +38,7 @@ import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
 import { addDays } from "@cadence/domain/time";
 import { dayOfInstant, nlpClock } from "../lib/utils/date-format";
 import { useToday } from "../lib/utils/user-zone";
-import { ProjectColorPicker } from "../components/shared/ProjectColorPicker";
+import { EditListDialog } from "../components/shared/EditListDialog";
 import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { ProjectSectionsSheet, ProjectTaskSheet, UNSECTIONED_ID } from "../components/tasks/ProjectSheets";
 
@@ -101,24 +92,13 @@ export default function ProjectView() {
     const { projectId } = useParams();
     const navigate = useNavigate();
     const { data: projects } = useProjects();
-    const updateProject = useUpdateProject();
     const deleteProject = useDeleteProject();
     const shell = useShellMode();
     const { view, setView } = useRouteViewMode("project");
-    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-    const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
-    const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
+    const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection();
 
-    useTaskDetailsRequest((taskId) => {
-        setSelectedTaskId(taskId);
-        setMobileDetailMode("peek");
-        setMobilePanelOpen(true);
-    });
 
     const [renameOpen, setRenameOpen] = useState(false);
-    const [renameValue, setRenameValue] = useState("");
-    const [colorValue, setColorValue] = useState("luminous-amber");
-    const [emojiValue, setEmojiValue] = useState("");
     const [addOpen, setAddOpen] = useState(false);
     const [sectionsFocus, setSectionsFocus] = useState<string | null>(null);
     const { data: sections = [] } = useSections(projectId);
@@ -194,26 +174,7 @@ export default function ProjectView() {
         };
     }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, smartSortEnabled, projectId, todayISO]);
 
-    const handleRenameOpen = () => {
-        setRenameValue(project?.name ?? "");
-        setColorValue(project?.colorAccent ?? "luminous-amber");
-        setEmojiValue(project?.emoji ?? "");
-        setRenameOpen(true);
-    };
-
-    const handleRenameSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        const trimmed = renameValue.trim();
-        if (!trimmed || !projectId) return;
-
-        updateProject.mutate({
-            id: projectId,
-            name: trimmed,
-            colorAccent: colorValue,
-            emoji: emojiValue || null,
-        });
-        setRenameOpen(false);
-    };
+    const handleRenameOpen = () => setRenameOpen(true);
 
     const handleDelete = () => {
         if (!projectId) return;
@@ -236,17 +197,6 @@ export default function ProjectView() {
             requestAnimationFrame(() => btn.click());
         }
     }, []);
-
-    const handleSelectTask = (taskId: string) => {
-        setSelectedTaskId((current) => {
-            const next = current === taskId ? null : taskId;
-            if (next && !shell.isWide) {
-                setMobileDetailMode("peek");
-                setMobilePanelOpen(true);
-            }
-            return next;
-        });
-    };
 
     const sidePanel = (
         <EditSidePanelRail ariaLabel="Resize task panel" minWidth={300} maxWidth={500}>
@@ -284,39 +234,7 @@ export default function ProjectView() {
 
     return (
         <>
-            {/* Rename dialog */}
-            <Dialog.Dialog open={renameOpen} onOpenChange={setRenameOpen}>
-                <Dialog.DialogContent className="sm:max-w-sm" hideCloseButton>
-                    <Dialog.DialogHeader>
-                        <Dialog.DialogTitle>Rename list</Dialog.DialogTitle>
-                        <Dialog.DialogDescription>
-                            Enter a new name for <span className="text-twilight-text">{project?.name}</span>.
-                        </Dialog.DialogDescription>
-                    </Dialog.DialogHeader>
-                    <form onSubmit={handleRenameSubmit} className="flex flex-col gap-4">
-                        <div className="flex gap-2 mb-3">
-                            <EmojiPickerPopover emoji={emojiValue} onSelect={setEmojiValue} />
-                            <input
-                                autoFocus
-                                value={renameValue}
-                                onChange={(e) => setRenameValue(e.target.value)}
-                                placeholder="List name"
-                                className="flex-1 w-full rounded-xl bg-white/[0.06] border border-twilight-border px-4 py-2.5 text-sm text-twilight-text placeholder:text-twilight-text-muted/80 outline-none focus:border-accent-primary/40 transition-colors"
-                                onKeyDown={(e) => e.key === "Escape" && setRenameOpen(false)}
-                            />
-                        </div>
-                        <ProjectColorPicker value={colorValue} onChange={setColorValue} />
-                        <Dialog.DialogFooter>
-                            <Button type="button" variant="ghost" size="md" onClick={() => setRenameOpen(false)}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" variant="cardPrimary" size="md" disabled={!renameValue.trim()}>
-                                Save changes
-                            </Button>
-                        </Dialog.DialogFooter>
-                    </form>
-                </Dialog.DialogContent>
-            </Dialog.Dialog>
+            {project && <EditListDialog open={renameOpen} onOpenChange={setRenameOpen} list={{ id: project.id, name: project.name, colorAccent: project.colorAccent ?? "luminous-amber", emoji: project.emoji }} />}
 
             <MainLayout
                 requireAuth
@@ -326,107 +244,22 @@ export default function ProjectView() {
                 onCloseSidePanel={() => setSelectedTaskId(null)}
                 sidePanelLabel="Task"
                 compactHeaderRightInline
-                headerRight={project ? (shell.isCompact ? (
-                    <div className="flex items-center gap-2">
-                    <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
-                    <ControlsSheet
+                headerRight={project ? (
+                    <TaskRouteControls
                         routeKey={`project:${projectId ?? "unknown"}`}
                         title={project.name}
-                        sections={[
-                            {
-                                id: "view",
-                                label: "View",
-                                content: (
-                                    <div className="space-y-3">
-                                        <ViewToggle view={view} onViewChange={setView} compact />
-                                    </div>
-                                ),
-                            },
-                            {
-                                id: "sort",
-                                label: "Sort",
-                                display: "drill" as const,
-                                summary: SORT_MODE_OPTIONS.find((option) => option.value === sortMode)?.label,
-                                content: <SortOptionList mode={sortMode} onModeChange={setSortMode} />,
-                            },
-                            {
-                                id: "project",
-                                label: "List",
-                                content: (
-                                    <div className="space-y-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setAddOpen(true)}
-                                            className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
-                                        >
-                                            <Plus size={15} aria-hidden="true" />
-                                            New task
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setSectionsFocus("")}
-                                            className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
-                                        >
-                                            <LayoutList size={15} aria-hidden="true" />
-                                            Sections
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleRenameOpen}
-                                            className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
-                                        >
-                                            <Pencil size={15} aria-hidden="true" />
-                                            Rename / edit list
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleDelete}
-                                            className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 text-sm font-medium text-red-400"
-                                        >
-                                            <Trash2 size={15} aria-hidden="true" />
-                                            Delete list
-                                        </button>
-                                    </div>
-                                ),
-                            },
+                        view={view}
+                        onViewChange={setView}
+                        sortMode={sortMode}
+                        onSortModeChange={setSortMode}
+                        actionsLabel="List"
+                        actions={[
+                            { label: "New task", icon: Plus, onSelect: focusAddTask, compact: { onSelect: () => setAddOpen(true) } },
+                            { label: "Add section", icon: LayoutList, onSelect: triggerAddSection, compact: { label: "Sections", onSelect: () => setSectionsFocus("") } },
+                            { label: "Rename / Edit list", icon: Pencil, onSelect: handleRenameOpen, compact: { label: "Rename / edit list" } },
+                            { label: "Delete list", icon: Trash2, onSelect: handleDelete, danger: true },
                         ]}
                     />
-                    </div>
-                ) : (
-                    <div className="flex items-center gap-2">
-                        <ActiveFilterBar placement="header" />
-                        <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
-                        <SortMenu
-                            mode={sortMode}
-                            onModeChange={setSortMode}
-                            view={view}
-                            onViewChange={setView}
-                            actions={[
-                                {
-                                    label: "New task",
-                                    icon: Plus,
-                                    onSelect: focusAddTask,
-                                },
-                                {
-                                    label: "Add section",
-                                    icon: LayoutList,
-                                    onSelect: triggerAddSection,
-                                },
-                                {
-                                    label: "Rename / Edit list",
-                                    icon: Pencil,
-                                    onSelect: handleRenameOpen,
-                                },
-                                {
-                                    label: "Delete list",
-                                    icon: Trash2,
-                                    onSelect: handleDelete,
-                                    danger: true,
-                                },
-                            ]}
-                        />
-                    </div>
-                )
                 ) : undefined}
                 pageTitle={project?.name ?? "List"}
                 shellHeader={{

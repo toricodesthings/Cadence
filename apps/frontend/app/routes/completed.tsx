@@ -1,5 +1,4 @@
-import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
-import { useState } from "react";
+import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
@@ -17,26 +16,9 @@ import { useShellMode } from "../hooks/ui/use-shell-mode";
 export default function CompletedView() {
     const shell = useShellMode();
     const { data: tasks, isLoading, isFetching, loadMore } = usePagedTasks("COMPLETE");
-    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-    const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
-    const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
-
-    useTaskDetailsRequest((taskId) => {
-        setSelectedTaskId(taskId);
-        setMobileDetailMode("peek");
-        setMobilePanelOpen(true);
-    });
+    const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection();
 
 
-    const handleSelectTask = (id: string) => {
-        const nextId = id === selectedTaskId ? null : id;
-        setSelectedTaskId(nextId);
-
-        if (!shell.isWide) {
-            setMobileDetailMode("peek");
-            setMobilePanelOpen(Boolean(nextId));
-        }
-    };
 
     const sidePanel = (
         <EditSidePanelRail ariaLabel="Resize completed sidebar">

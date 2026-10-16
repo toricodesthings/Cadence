@@ -1,5 +1,5 @@
 import { HEADER_ICON_BUTTON } from "../components/layout/PageHeader";
-import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
+import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
 import { lazy, useState, useMemo, useCallback, useRef } from "react";
 import { StartupSuspense } from "../components/shared/StartupSuspense";
 import { CalendarDays, Inbox, PanelRightClose, PanelRightOpen } from "lucide-react";
@@ -40,17 +40,9 @@ export default function HomeRoute() {
     const { reset: _resetCapture, ...captureComposer } = useCaptureComposer({
         onSaved: () => undefined,
     });
-    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [selectedInboxItemId, setSelectedInboxItemId] = useState<string | null>(null);
-    const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
-    const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
+    const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection(() => setSelectedInboxItemId(null));
 
-    useTaskDetailsRequest((taskId) => {
-        setSelectedTaskId(taskId);
-        setMobileDetailMode("peek");
-        setMobilePanelOpen(true);
-        setSelectedInboxItemId(null);
-    });
 
     const captureFeed = useCaptureFeed();
     const inboxItems = [...captureFeed.inboxItems, ...captureFeed.notes];
@@ -91,16 +83,6 @@ export default function HomeRoute() {
     );
 
     // Opening the open task or capture again closes it (and the compact sheet).
-    const handleSelectTask = (taskId: string) => {
-        const next = taskId === selectedTaskId ? null : taskId;
-        setSelectedInboxItemId(null);
-        setSelectedTaskId(next);
-        if (!shell.isWide) {
-            setMobileDetailMode("peek");
-            setMobilePanelOpen(Boolean(next));
-        }
-    };
-
     const handleClarifyInboxItem = (itemId: string) => {
         const next = itemId === selectedInboxItemId ? null : itemId;
         setSelectedTaskId(null);

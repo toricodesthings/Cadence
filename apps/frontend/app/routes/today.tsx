@@ -1,10 +1,10 @@
-import { StartupSuspense as Suspense } from "../components/shared/StartupSuspense";
-import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
-import { useMemo, useState, lazy } from "react";
+import { TaskRouteControls } from "../components/shared/TaskRouteControls";
+import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
+import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { DayEventRows } from "../components/events/DayEventRows";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import { EyeOff, Eye, Inbox, PanelRightClose, Sunrise, Flame, CalendarClock } from "lucide-react";
+import { EyeOff, Eye, Inbox, Sunrise, Flame, CalendarClock } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { Tip } from "../components/primitives";
 import { RoutineAgendaList, routineAgendaItems } from "../components/shared/RoutineAgendaRow";
@@ -18,10 +18,6 @@ import { TaskList } from "../components/tasks/TaskList";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";
 import { PageContent } from "../components/layout/PageLayout";
-import { ViewToggle } from "../components/shared/ViewToggle";
-import { SortMenu } from "../components/shared/SortMenu";
-import { ControlsSheet } from "../components/shared/ControlsSheet";
-import { SORT_MODE_OPTIONS, SortOptionList } from "../components/shared/SortOptionList";
 import { useTasks } from "../hooks/tasks/use-tasks";
 import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
@@ -44,7 +40,6 @@ import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { rankTasks } from "@cadence/nlp/ranking";
 import type { RankableTask } from "@cadence/nlp/ranking";
-const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then(m => ({ default: m.FocusViewBar })));
 import { useSettings } from "../hooks/core/use-settings";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import type { Task } from "@cadence/contracts/task";
@@ -74,15 +69,8 @@ export default function TodayRoute() {
     const navigate = useNavigate();
     const { view, setView } = useRouteViewMode("today");
     const { sortMode, setSortMode } = useSortMode();
-    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-    const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
-    const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
+    const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection();
 
-    useTaskDetailsRequest((taskId) => {
-        setSelectedTaskId(taskId);
-        setMobileDetailMode("peek");
-        setMobilePanelOpen(true);
-    });
 
     const [hideRoutines, setHideRoutines] = useDeviceFlag(ROUTINES_STORAGE_KEY);
     const [hideFixed, setHideFixed] = useDeviceFlag(FIXED_STORAGE_KEY);
@@ -195,14 +183,6 @@ export default function TodayRoute() {
         return items;
     }, [grouped, todayISO]);
 
-    const handleSelectTask = (taskId: string) => {
-        setSelectedTaskId((current) => (current === taskId ? null : taskId));
-        if (!shell.isWide) {
-            setMobileDetailMode("peek");
-            setMobilePanelOpen(true);
-        }
-    };
-
 
     const openRoutine = (habitId: string) => {
         navigate(`/routines?${buildFocusSearchParams({ focusKind: "habit", focusId: habitId })}`);
@@ -220,59 +200,16 @@ export default function TodayRoute() {
         </EditSidePanelRail>
     );
 
-    const headerRight = shell.isCompact ? (
-        <div className="flex items-center gap-2">
-            <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
-            <ControlsSheet
+    const headerRight = (
+        <TaskRouteControls
             routeKey="today"
             title="Today controls"
-            sections={[
-                {
-                    id: "view",
-                    label: "View",
-                    content: <ViewToggle view={view} onViewChange={setView} compact />,
-                },
-                {
-                    id: "sort",
-                    label: "Sort",
-                    display: "drill" as const,
-                    summary: SORT_MODE_OPTIONS.find((option) => option.value === sortMode)?.label,
-                    content: <SortOptionList mode={sortMode} onModeChange={setSortMode} />,
-                },
-                ...(selectedTaskId ? [{
-                    id: "details",
-                    label: "Details",
-                    content: (
-                        <button
-                            type="button"
-                            onClick={() => setMobilePanelOpen(true)}
-                            className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
-                        >
-                            <PanelRightClose size={16} aria-hidden="true" />
-                            Open task details
-                        </button>
-                    ),
-                }] : []),
-            ]}
+            view={view}
+            onViewChange={setView}
+            sortMode={sortMode}
+            onSortModeChange={setSortMode}
+            onOpenDetails={selectedTaskId ? () => setMobilePanelOpen(true) : undefined}
         />
-        </div>
-    ) : (
-        <div className="flex items-center gap-2">
-            <ActiveFilterBar placement="header" />
-            <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
-            <SortMenu mode={sortMode} onModeChange={setSortMode} view={view} onViewChange={setView} />
-            {!shell.isWide && selectedTaskId ? (
-                <button
-                    type="button"
-                    onClick={() => setMobilePanelOpen(true)}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-twilight-border px-4 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-                    aria-label="Open task details"
-                >
-                    <PanelRightClose size={16} aria-hidden="true" />
-                    Details
-                </button>
-            ) : null}
-        </div>
     );
 
     const routinesHidden = !shell.isCompact && hideRoutines;

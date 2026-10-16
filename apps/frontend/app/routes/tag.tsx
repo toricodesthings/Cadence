@@ -22,7 +22,7 @@ import { useUpdateTag } from "../hooks/tags/use-update-tag";
 import { useDeleteTag } from "../hooks/tags/use-delete-tag";
 import { useTasks } from "../hooks/tasks/use-tasks";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
-import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
+import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
 import { resolveTagColor } from "../lib/utils/color-resolver";
@@ -47,20 +47,13 @@ export default function TagView() {
     const updateTag = useUpdateTag();
     const deleteTag = useDeleteTag();
     const { data: activeTasks, isLoading } = useTasks({ state: "ACTIVE" });
-    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-    const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
-    const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
+    const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection();
     const [addOpen, setAddOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [name, setName] = useState("");
     const [color, setColor] = useState("default");
 
     useRouteFocus();
-    useTaskDetailsRequest((taskId) => {
-        setSelectedTaskId(taskId);
-        setMobileDetailMode("peek");
-        setMobilePanelOpen(true);
-    });
 
     const tag = tags?.find((t) => t.id === tagId);
     const accent = resolveTagColor(tag?.color, "var(--color-twilight-text-soft)");
@@ -85,17 +78,6 @@ export default function TagView() {
     const handleDelete = () => {
         deleteTag.mutate({ id: tagId, name: tag?.name ?? "tag" });
         navigate("/");
-    };
-
-    const handleSelectTask = (taskId: string) => {
-        setSelectedTaskId((current) => {
-            const next = current === taskId ? null : taskId;
-            if (next && !shell.isWide) {
-                setMobileDetailMode("peek");
-                setMobilePanelOpen(true);
-            }
-            return next;
-        });
     };
 
     if (tags && !tag) {

@@ -1,15 +1,11 @@
 import { PlainNavCount } from "./PlainNavCount";
-import { ProjectColorPicker } from "../shared/ProjectColorPicker";
+import { EditListDialog } from "../shared/EditListDialog";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ContextMenu from "../primitives/ContextMenu";
-import * as Dialog from "../primitives/Dialog";
-import { Button } from "../primitives/Button";
-import { useUpdateProject } from "../../hooks/projects/use-update-project";
 import { useDeleteProject } from "../../hooks/projects/use-delete-project";
-import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
 import { trackUsageEvent } from "../../lib/api/track-event";
 
 interface ProjectLinkProps {
@@ -25,34 +21,10 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
     const location = useLocation();
     const navigate = useNavigate();
     const active = location.pathname === href;
-    const updateProject = useUpdateProject();
     const deleteProject = useDeleteProject();
 
     const [renameOpen, setRenameOpen] = useState(false);
-    const [renameValue, setRenameValue] = useState("");
-    const [colorValue, setColorValue] = useState("luminous-amber");
-    const [emojiValue, setEmojiValue] = useState(emoji ?? "");
-
-    const handleRenameOpen = () => {
-        setRenameValue(label);
-        setColorValue(color);
-        setEmojiValue(emoji ?? "");
-        setRenameOpen(true);
-    };
-
-    const handleRenameSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        const trimmed = renameValue.trim();
-        if (trimmed) {
-            updateProject.mutate({
-                id,
-                name: trimmed,
-                colorAccent: colorValue,
-                emoji: emojiValue || null,
-            });
-        }
-        setRenameOpen(false);
-    };
+    const openRename = () => setRenameOpen(true);
 
     const handleDelete = () => {
         deleteProject.mutate({ id, name: label });
@@ -61,39 +33,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
 
     return (
         <>
-            {/* Rename dialog */}
-            <Dialog.Dialog open={renameOpen} onOpenChange={setRenameOpen}>
-                <Dialog.DialogContent className="sm:max-w-sm" hideCloseButton>
-                    <Dialog.DialogHeader>
-                        <Dialog.DialogTitle>Rename / Edit list</Dialog.DialogTitle>
-                        <Dialog.DialogDescription>
-                            Enter a new name or style for <span className="text-twilight-text">{label}</span>.
-                        </Dialog.DialogDescription>
-                    </Dialog.DialogHeader>
-                    <form onSubmit={handleRenameSubmit} className="flex flex-col gap-4">
-                        <div className="flex gap-2">
-                            <EmojiPickerPopover emoji={emojiValue} onSelect={setEmojiValue} />
-                            <input
-                                autoFocus
-                                value={renameValue}
-                                onChange={(e) => setRenameValue(e.target.value)}
-                                placeholder="List name"
-                                className="flex-1 w-full rounded-xl bg-white/[0.06] border border-twilight-border px-4 py-2.5 text-sm text-twilight-text placeholder:text-twilight-text-muted/80 outline-none focus:border-accent-primary/40 transition-colors"
-                                onKeyDown={(e) => e.key === "Escape" && setRenameOpen(false)}
-                            />
-                        </div>
-                        <ProjectColorPicker value={colorValue} onChange={setColorValue} />
-                        <Dialog.DialogFooter>
-                            <Button type="button" variant="ghost" size="md" onClick={() => setRenameOpen(false)}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" variant="cardPrimary" size="md" disabled={!renameValue.trim()}>
-                                Save changes
-                            </Button>
-                        </Dialog.DialogFooter>
-                    </form>
-                </Dialog.DialogContent>
-            </Dialog.Dialog>
+            <EditListDialog open={renameOpen} onOpenChange={setRenameOpen} list={{ id, name: label, colorAccent: color, emoji }} />
 
             {/* Row */}
             <ContextMenu.Root onOpenChange={(isOpen) => {
@@ -136,7 +76,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                     <DropdownMenu.Content align="end" side="right">
                         <DropdownMenu.Item
                             className="flex items-center gap-2 text-[13px]"
-                            onSelect={handleRenameOpen}
+                            onSelect={openRename}
                         >
                             <Pencil size={12} aria-hidden="true" />
                             Rename
@@ -154,7 +94,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
             </div>
             </ContextMenu.Trigger>
             <ContextMenu.Content>
-                <ContextMenu.Item onSelect={handleRenameOpen}>
+                <ContextMenu.Item onSelect={openRename}>
                     <div className="flex items-center gap-2">
                         <Pencil size={16} />
                         <span>Rename / Edit</span>

@@ -1,15 +1,9 @@
-import { StartupSuspense as Suspense } from "../components/shared/StartupSuspense";
-import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
-import { useMemo, useState, lazy } from "react";
+import { TaskRouteControls } from "../components/shared/TaskRouteControls";
+import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
+import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { DayEventRows, type DayEvent } from "../components/events/DayEventRows";
-import {
-    Inbox,
-    CalendarRange,
-    Layers3,
-    PanelRightClose,
-    Sunrise,
-} from "lucide-react";
+import { Inbox, CalendarRange, Layers3, Sunrise } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { AgendaHabitDivider } from "../components/shared/AgendaRow";
 import { RoutineAgendaRow } from "../components/shared/RoutineAgendaRow";
@@ -23,10 +17,6 @@ import { EmptyState } from "../components/tasks/EmptyState";
 import { TaskList } from "../components/tasks/TaskList";
 import { FURTHER_OUT_OPEN_PARAM, useFurtherOutSection, type FurtherOutItem } from "../components/upcoming/FurtherOutSection";
 import { PageContent } from "../components/layout/PageLayout";
-import { ViewToggle } from "../components/shared/ViewToggle";
-import { SortMenu } from "../components/shared/SortMenu";
-import { ControlsSheet } from "../components/shared/ControlsSheet";
-import { SORT_MODE_OPTIONS, SortOptionList } from "../components/shared/SortOptionList";
 import { useTasks } from "../hooks/tasks/use-tasks";
 import { useProjects } from "../hooks/projects/use-projects";
 import { useHabitsRange } from "../hooks/habits/use-habits";
@@ -55,7 +45,6 @@ import type { RankableTask } from "@cadence/nlp/ranking";
 import type { Task } from "@cadence/contracts/task";
 import type { Project } from "@cadence/contracts/project";
 
-const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then((m) => ({ default: m.FocusViewBar })));
 
 type UpcomingBucketKey = "overdue" | "today" | "tomorrow" | "nextWeek";
 
@@ -241,15 +230,8 @@ export default function Upcoming() {
     const navigate = useNavigate();
     const { view, setView } = useRouteViewMode("upcoming");
     const { sortMode, setSortMode } = useSortMode();
-    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-    const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
-    const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
+    const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection();
 
-    useTaskDetailsRequest((taskId) => {
-        setSelectedTaskId(taskId);
-        setMobileDetailMode("peek");
-        setMobilePanelOpen(true);
-    });
 
     const { mutate: resolveHabit } = useResolveHabit();
     const shell = useShellMode();
@@ -336,14 +318,6 @@ export default function Upcoming() {
 
     const totalVisible = groupedItems.overdue.length + groupedItems.today.length + groupedItems.tomorrow.length + groupedItems.nextWeek.length + furtherItems.length;
     const isLoading = tasksLoading || habitsLoading;
-
-    const handleSelectTask = (taskId: string) => {
-        setSelectedTaskId((current) => (current === taskId ? null : taskId));
-        if (!shell.isWide) {
-            setMobileDetailMode("peek");
-            setMobilePanelOpen(true);
-        }
-    };
 
     const handleCompleteHabit = (item: UpcomingViewerItem) => {
         if (item.kind !== "habit" || !item.habitId || !item.habitTargetDate) return;
@@ -459,48 +433,16 @@ export default function Upcoming() {
             onCloseSidePanel={() => setSelectedTaskId(null)}
             sidePanelLabel="Task"
             compactHeaderRightInline
-            headerRight={shell.isCompact ? (
-                <div className="flex items-center gap-2">
-                <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
-                <ControlsSheet
+            headerRight={(
+                <TaskRouteControls
                     routeKey="upcoming"
                     title="Upcoming controls"
-                    sections={[
-                        {
-                            id: "view",
-                            label: "View",
-                            content: <ViewToggle view={view} onViewChange={setView} compact />,
-                        },
-                        {
-                            id: "sort",
-                            label: "Sort",
-                            display: "drill" as const,
-                            summary: SORT_MODE_OPTIONS.find((option) => option.value === sortMode)?.label,
-                            content: <SortOptionList mode={sortMode} onModeChange={setSortMode} />,
-                        },
-                        ...(selectedTaskId ? [{
-                            id: "details",
-                            label: "Details",
-                            content: (
-                                <button
-                                    type="button"
-                                    onClick={() => setMobilePanelOpen(true)}
-                                    className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
-                                >
-                                    <PanelRightClose size={16} aria-hidden="true" />
-                                    Open task details
-                                </button>
-                            ),
-                        }] : []),
-                    ]}
+                    view={view}
+                    onViewChange={setView}
+                    sortMode={sortMode}
+                    onSortModeChange={setSortMode}
+                    onOpenDetails={selectedTaskId ? () => setMobilePanelOpen(true) : undefined}
                 />
-                </div>
-            ) : (
-                <div className="flex items-center gap-2">
-                    <ActiveFilterBar placement="header" />
-                    <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
-                    <SortMenu mode={sortMode} onModeChange={setSortMode} view={view} onViewChange={setView} />
-                </div>
             )}
             shellHeader={{
                 title: "Upcoming",
