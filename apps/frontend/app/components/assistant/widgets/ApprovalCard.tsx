@@ -8,7 +8,7 @@
  * then proposes the rest again as a new card.
  */
 import { useState, type ComponentProps, type ReactNode } from "react";
-import { Check } from "lucide-react";
+import { AlertCircle, Check, Trash2 } from "lucide-react";
 import type { ToolIO } from "@cadence/backend";
 import type { ToolName } from "@cadence/contracts/ai-tools";
 import { ProposalCard } from "./ProposalCard";
@@ -115,6 +115,24 @@ export function ApprovalCard({
         >
             {children}
         </ProposalCard>
+    );
+}
+
+type ApprovalCardProps = ComponentProps<typeof ApprovalCard>;
+
+/** A permanent delete: danger framing, "Keep it" to decline. Auto mode still waits for this tap. */
+export function DeleteApprovalCard({ primaryLabel = "Delete it", ...props }: Omit<ApprovalCardProps, "tone" | "eyebrowGlyph" | "primaryGlyph" | "primaryVariant" | "declineLabel" | "declinedText" | "primaryLabel"> & { primaryLabel?: string }) {
+    return (
+        <ApprovalCard
+            tone="danger"
+            eyebrowGlyph={AlertCircle}
+            primaryLabel={primaryLabel}
+            primaryGlyph={Trash2}
+            primaryVariant="cardDanger"
+            declineLabel="Keep it"
+            declinedText="Kept it."
+            {...props}
+        />
     );
 }
 

@@ -2,9 +2,9 @@
  * Cards for the single-item writes: `create_project`, `create_tag`, `log_habit`,
  * and the routine, event and section writes (design §4.1).
  */
-import { FolderPlus, TagIcon, Flame, Check, CalendarHeart, AlertCircle, Trash2, Columns3 } from "lucide-react";
+import { FolderPlus, TagIcon, Flame, Check, CalendarHeart, Columns3 } from "lucide-react";
 import { IdentityBlock } from "./ProposalCard";
-import { ApprovalCard, type RetiredRenderContext, type ToolRenderContext } from "./ApprovalCard";
+import { ApprovalCard, DeleteApprovalCard, type RetiredRenderContext, type ToolRenderContext } from "./ApprovalCard";
 import { useHabitLookup, useSectionLookup, useTagsLookup } from "./card-lookups";
 import { TaskDestination } from "./TaskDestination";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
@@ -178,22 +178,15 @@ export function DeleteHabitCard({ ctx }: { ctx: ToolRenderContext<"delete_habit"
     const persona = useAssistantPersona();
     const name: string = ctx.part?.input?.title ?? ctx.part?.output?.deleted ?? "this routine";
     return (
-        <ApprovalCard
+        <DeleteApprovalCard
             ctx={ctx}
-            tone="danger"
             eyebrow="DELETE ROUTINE"
-            eyebrowGlyph={AlertCircle}
             ariaLabel={`Delete routine: ${name}`}
-            primaryLabel="Delete it"
-            primaryGlyph={Trash2}
-            primaryVariant="cardDanger"
-            declineLabel="Keep it"
             doneText={`Deleted “${name}” and its history.`}
-            declinedText="Kept it."
         >
             <IdentityBlock title={name} tone="danger" />
             {persona.terse ? null : <p className="text-xs text-twilight-text-soft">Its history and streaks go too. Archive keeps them.</p>}
-        </ApprovalCard>
+        </DeleteApprovalCard>
     );
 }
 
@@ -268,21 +261,14 @@ export function DeleteEventCard({ ctx }: { ctx: ToolRenderContext<"delete_event"
     const lookupEvent = useEventLookup();
     const name = lookupEvent(ctx.part?.input?.eventId ?? "")?.label ?? ctx.part?.output?.deleted ?? "this event";
     return (
-        <ApprovalCard
+        <DeleteApprovalCard
             ctx={ctx}
-            tone="danger"
             eyebrow="DELETE EVENT"
-            eyebrowGlyph={AlertCircle}
             ariaLabel={`Delete event: ${name}`}
-            primaryLabel="Delete it"
-            primaryGlyph={Trash2}
-            primaryVariant="cardDanger"
-            declineLabel="Keep it"
             doneText={`Deleted “${name}”.`}
-            declinedText="Kept it."
         >
             <IdentityBlock title={name} tone="danger" />
-        </ApprovalCard>
+        </DeleteApprovalCard>
     );
 }
 
@@ -336,21 +322,14 @@ export function DeleteSectionCard({ ctx }: { ctx: ToolRenderContext<"delete_sect
     const output = ctx.part?.output;
     const name = lookupSection(ctx.part?.input?.sectionId ?? "")?.name ?? output?.deleted ?? "this section";
     return (
-        <ApprovalCard
+        <DeleteApprovalCard
             ctx={ctx}
-            tone="danger"
             eyebrow="DELETE SECTION"
-            eyebrowGlyph={AlertCircle}
             ariaLabel={`Delete section: ${name}`}
-            primaryLabel="Delete it"
-            primaryGlyph={Trash2}
-            primaryVariant="cardDanger"
-            declineLabel="Keep it"
             doneText={`Deleted “${name}”${output?.tasksUnsectioned ? `; ${output.tasksUnsectioned} tasks now have no section` : ""}.`}
-            declinedText="Kept it."
         >
             <IdentityBlock title={name} tone="danger" />
             {persona.terse ? null : <p className="text-xs text-twilight-text-soft">Its tasks stay in the list, with no section.</p>}
-        </ApprovalCard>
+        </DeleteApprovalCard>
     );
 }

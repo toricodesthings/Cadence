@@ -2,9 +2,9 @@
  * Cards for organizing writes: `update_project`/`delete_project`,
  * `update_tag`/`delete_tag`, and the saved focus view writes.
  */
-import { AlertCircle, Check, Filter, FolderPen, Tag as TagIcon, Trash2 } from "lucide-react";
+import { Check, Filter, FolderPen, Tag as TagIcon } from "lucide-react";
 import { IdentityBlock, TagPill } from "./ProposalCard";
-import { ApprovalCard, type RetiredRenderContext, type ToolRenderContext } from "./ApprovalCard";
+import { ApprovalCard, DeleteApprovalCard, type RetiredRenderContext, type ToolRenderContext } from "./ApprovalCard";
 import { useTagsLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { useProjects } from "../../../hooks/projects/use-projects";
@@ -54,24 +54,18 @@ export function DeleteProjectCard({ ctx }: { ctx: ToolRenderContext<"delete_proj
         output?.tasksUnlisted ? `${output.tasksUnlisted} tasks kept with no list.` : null,
     ].filter(Boolean).join(" ");
     return (
-        <ApprovalCard
+        <DeleteApprovalCard
             ctx={ctx}
-            tone="danger"
             eyebrow="DELETE LIST"
-            eyebrowGlyph={AlertCircle}
             ariaLabel={`Delete list: ${name}`}
             primaryLabel="Delete list"
-            primaryGlyph={Trash2}
-            primaryVariant="cardDanger"
-            declineLabel="Keep it"
             doneText={done}
-            declinedText="Kept it."
         >
             <IdentityBlock title={name} tone="danger" />
             <p className="text-xs text-twilight-text-soft">
                 {trash ? "Its sections go too; its open tasks move to Trash (restorable)." : "Its sections go too; its tasks stay, with no list."}
             </p>
-        </ApprovalCard>
+        </DeleteApprovalCard>
     );
 }
 
@@ -105,22 +99,15 @@ export function DeleteTagCard({ ctx }: { ctx: ToolRenderContext<"delete_tag"> })
     const persona = useAssistantPersona();
     const name: string = ctx.part?.input?.name ?? ctx.part?.output?.deleted ?? "this tag";
     return (
-        <ApprovalCard
+        <DeleteApprovalCard
             ctx={ctx}
-            tone="danger"
             eyebrow="DELETE TAG"
-            eyebrowGlyph={AlertCircle}
             ariaLabel={`Delete tag: ${name}`}
-            primaryLabel="Delete it"
-            primaryGlyph={Trash2}
-            primaryVariant="cardDanger"
-            declineLabel="Keep it"
             doneText={`Deleted #${name}.`}
-            declinedText="Kept it."
         >
             <IdentityBlock title={`#${name}`} tone="danger" />
             {persona.terse ? null : <p className="text-xs text-twilight-text-soft">It comes off every task and routine; they stay.</p>}
-        </ApprovalCard>
+        </DeleteApprovalCard>
     );
 }
 
@@ -213,20 +200,13 @@ export function UpdateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"save_focu
 export function DeleteFocusViewCard({ ctx }: { ctx: ToolRenderContext<"delete_focus_view"> }) {
     const name: string = ctx.part?.input?.name ?? ctx.part?.output?.deleted ?? "this view";
     return (
-        <ApprovalCard
+        <DeleteApprovalCard
             ctx={ctx}
-            tone="danger"
             eyebrow="DELETE FOCUS VIEW"
-            eyebrowGlyph={AlertCircle}
             ariaLabel={`Delete focus view: ${name}`}
-            primaryLabel="Delete it"
-            primaryGlyph={Trash2}
-            primaryVariant="cardDanger"
-            declineLabel="Keep it"
             doneText={`Deleted the “${name}” view.`}
-            declinedText="Kept it."
         >
             <IdentityBlock title={name} tone="danger" />
-        </ApprovalCard>
+        </DeleteApprovalCard>
     );
 }

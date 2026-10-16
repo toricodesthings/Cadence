@@ -4,8 +4,8 @@
  * as rows the user can untick.
  */
 import { useState } from "react";
-import { ArrowDownUp, CalendarClock, Check, CheckCircle2, Copy, AlertCircle, Trash2, Hourglass, RotateCcw, type LucideIcon } from "lucide-react";
-import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
+import { ArrowDownUp, CalendarClock, Check, CheckCircle2, Copy, Trash2, Hourglass, RotateCcw, type LucideIcon } from "lucide-react";
+import { ApprovalCard, DeleteApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useTaskTitleLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { formatInZone } from "@cadence/domain/time";
@@ -100,23 +100,17 @@ export function DeleteTasksCard({ ctx }: { ctx: ToolRenderContext<"delete_tasks"
     const kept = titles.length - off.size;
 
     return (
-        <ApprovalCard
+        <DeleteApprovalCard
             ctx={ctx}
-            tone="danger"
             eyebrow={titles.length > 1 ? `DELETE ${titles.length} TASKS` : "DELETE TASK"}
-            eyebrowGlyph={AlertCircle}
             ariaLabel={`Delete: ${titles.join(", ")}`}
             primaryLabel={titles.length > 1 ? `Delete ${kept}` : "Delete it"}
-            primaryGlyph={Trash2}
-            primaryVariant="cardDanger"
-            declineLabel="Keep it"
             removed={removed(titles)}
             doneText={titles.length > 1 ? `Deleted ${ctx.part?.output?.deleted ?? titles.length}.` : `Deleted “${titles[0]}”.`}
-            declinedText="Kept it."
         >
             <TaskRows rows={titles} off={off} onToggle={onToggle} />
             {persona.terse ? null : <p className="text-xs text-twilight-text-soft">These won’t come back.</p>}
-        </ApprovalCard>
+        </DeleteApprovalCard>
     );
 }
 

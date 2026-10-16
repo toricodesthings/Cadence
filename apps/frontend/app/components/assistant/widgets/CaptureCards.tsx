@@ -2,8 +2,8 @@
  * Cards for Capture writes: `update_captures` (keep, discard, tick off, back to
  * New, new words) and `delete_captures`.
  */
-import { AlertCircle, Archive, Check, CheckCircle2, Inbox, NotebookPen, RotateCcw, Trash2, Pencil } from "lucide-react";
-import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
+import { Archive, Check, CheckCircle2, Inbox, NotebookPen, RotateCcw, Pencil } from "lucide-react";
+import { ApprovalCard, DeleteApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { useCaptureLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 
@@ -54,19 +54,13 @@ export function DeleteCapturesCard({ ctx }: { ctx: ToolRenderContext<"delete_cap
     const texts = (ctx.part?.input?.items ?? []).map((item) => item.text);
     const kept = texts.length - off.size;
     return (
-        <ApprovalCard
+        <DeleteApprovalCard
             ctx={ctx}
-            tone="danger"
             eyebrow={texts.length > 1 ? `DELETE ${texts.length} CAPTURES` : "DELETE CAPTURE"}
-            eyebrowGlyph={AlertCircle}
             ariaLabel={`Delete captures: ${texts.join(", ")}`}
             primaryLabel={texts.length > 1 ? `Delete ${kept}` : "Delete it"}
-            primaryGlyph={Trash2}
-            primaryVariant="cardDanger"
-            declineLabel="Keep it"
             removed={removed(texts)}
             doneText={`Deleted ${ctx.part?.output?.deleted ?? texts.length} for good.`}
-            declinedText="Kept it."
         >
             <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5">
                 {texts.map((text, i) => (
@@ -76,7 +70,7 @@ export function DeleteCapturesCard({ ctx }: { ctx: ToolRenderContext<"delete_cap
                 ))}
             </div>
             {persona.terse ? null : <p className="text-xs text-twilight-text-soft">These won’t come back. Discard is the one you can undo.</p>}
-        </ApprovalCard>
+        </DeleteApprovalCard>
     );
 }
 
