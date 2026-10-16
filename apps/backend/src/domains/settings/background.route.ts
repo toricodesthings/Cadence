@@ -10,12 +10,11 @@ import {
 } from "@cadence/contracts/settings";
 import { users } from "../../db/schema";
 import type { AuthVariables } from "../../platform/auth";
-import { getDbClient } from "../../platform/db";
 import { AppError, throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { hashIdentifier, logger } from "../../platform/log";
 import { getRequestId } from "../../platform/request-log";
-import { withRls } from "../../platform/rls";
+import { withCallerRls } from "../../platform/caller-rls";
 import { apiValidator } from "../../platform/validation";
 import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
@@ -100,9 +99,8 @@ export const backgroundRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
             });
             const bucket = requireBucket(c.env);
             const idempotencyKey = getIdempotencyKey(c);
-            const db = getDbClient(c.env);
-
-            const replayed = await withRls(db, userId, async (tx) =>
+    
+            const replayed = await withCallerRls(c, async (tx) =>
                 (await checkIdempotency(tx, userId, idempotencyKey)) ? readSettings(tx, userId) : null,
             );
             if (replayed) return c.json({ data: replayed }, 201);
@@ -115,7 +113,7 @@ export const backgroundRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
 
             let settings: SettingsView;
             try {
-                settings = await withRls(db, userId, async (tx) => {
+                settings = await withCallerRls(c, async (tx) => {
                     const current = await readSettings(tx, userId);
                     const previous = current.appearance?.backgroundImage ?? null;
                     const saved = await writeSettings(tx, userId, {
@@ -175,12 +173,11 @@ export const backgroundRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
     .delete("/", async (c) => {
         const userId = c.get("userId");
         const bucket = requireBucket(c.env);
-        const db = getDbClient(c.env);
 
         // Storage first: if it fails, settings still point at the photo and the user can retry.
         await deleteBackgrounds(bucket, userId);
 
-        const settings = await withRls(db, userId, async (tx) => {
+        const settings = await withCallerRls(c, async (tx) => {
             const current = await readSettings(tx, userId);
             const appearance = current.appearance ?? {};
             return writeSettings(tx, userId, {

@@ -1,9 +1,8 @@
 import { tracing } from "cloudflare:workers";
 import { Hono } from "hono";
 import { eq, and, inArray, gte, lte, desc } from "drizzle-orm";
-import { getDbClient } from "../../platform/db";
 import { getIdempotencyKey } from "../../platform/idempotency";
-import { withRls } from "../../platform/rls";
+import { withCallerRls } from "../../platform/caller-rls";
 import { daysBetween, todayIn } from "@cadence/domain/time";
 import { userZone } from "../../platform/user-zone";
 import { habits, habitLogs, habitTags } from "../../db/schema";
@@ -21,9 +20,8 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
-        const db = getDbClient(c.env);
 
-        const result = await withRls(db, userId, (tx) => resolveHabit(tx, userId, id, body));
+        const result = await withCallerRls(c, (tx) => resolveHabit(tx, userId, id, body));
         // A check-in the person made in the app: a signal for memory (Full), never one from the assistant.
         if (body.status === "COMPLETED") {
             c.executionCtx.waitUntil(recordPersonActivity(c.env, userId, [{ kind: "routine", habitId: id, day: body.targetDate }]));
@@ -32,30 +30,26 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         return c.json({ data: result }, 200);
     })
     .post("/", apiValidator("json", insertHabitSchema), async (c) => {
-        const userId = c.get("userId");
         const idempotencyKey = getIdempotencyKey(c);
-        const db = getDbClient(c.env);
 
-        const habit = await withRls(db, userId, (tx) => createHabit(tx, userId, c.req.valid("json"), idempotencyKey));
+        const habit = await withCallerRls(c, (tx, userId) => createHabit(tx, userId, c.req.valid("json"), idempotencyKey));
 
         // Fetch tag IDs for the response
-        const tags = await withRls(db, userId, async (tx) => {
+        const tags = await withCallerRls(c, async (tx) => {
             return tx.select({ tagId: habitTags.tagId }).from(habitTags).where(eq(habitTags.habitId, habit.id));
         });
 
         return c.json({ data: { ...habit, tagIds: tags.map(t => t.tagId) } }, 201);
     })
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateHabitSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        const updated = await withRls(db, userId, (tx) => updateHabit(tx, userId, id, c.req.valid("json")));
+        const updated = await withCallerRls(c, (tx, userId) => updateHabit(tx, userId, id, c.req.valid("json")));
 
         throwIfNotFound(updated, "Habit");
 
         // Fetch current tag IDs
-        const tags = await withRls(db, userId, async (tx) => {
+        const tags = await withCallerRls(c, async (tx) => {
             return tx.select({ tagId: habitTags.tagId }).from(habitTags).where(eq(habitTags.habitId, id));
         });
 
@@ -63,11 +57,9 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
     })
     // Base list parity: `/` and `/weekly` both use the same `archived` semantics.
     .get("/", apiValidator("query", habitListQuerySchema), async (c) => {
-        const userId = c.get("userId");
         const { archived } = c.req.valid("query");
-        const db = getDbClient(c.env);
 
-        const allHabits = await withRls(db, userId, async (tx) => {
+        const allHabits = await withCallerRls(c, async (tx, userId) => {
             return tx
                 .select()
                 .from(habits)
@@ -79,11 +71,9 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         return c.json({ data: allHabits });
     })
     .get("/weekly", apiValidator("query", weeklyHabitsQuerySchema), async (c) => {
-        const userId = c.get("userId");
         const { start, end, archived } = c.req.valid("query");
-        const db = getDbClient(c.env);
 
-        const snapshot = await withRls(db, userId, async (tx) => {
+        const snapshot = await withCallerRls(c, async (tx, userId) => {
             const zone = await userZone(tx, userId);
             const userHabits = await tx
                 .select()
@@ -128,11 +118,9 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         return c.json({ data: result });
     })
     .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        const habit = await withRls(db, userId, async (tx) => {
+        const habit = await withCallerRls(c, async (tx, userId) => {
             const [row] = await tx
                 .select()
                 .from(habits)
@@ -145,10 +133,8 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         return c.json({ data: habit });
     })
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        const deleted = await withRls(db, userId, (tx) => deleteHabit(tx, userId, id));
+        const deleted = await withCallerRls(c, (tx, userId) => deleteHabit(tx, userId, id));
         return c.json({ data: deleted });
     });

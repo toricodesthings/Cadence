@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { eq, and } from "drizzle-orm";
-import { getDbClient } from "../../platform/db";
-import { withRls } from "../../platform/rls";
+import { withCallerRls } from "../../platform/caller-rls";
 import { tasks, taskNotes } from "../../db/schema";
 import { upsertNoteSchema } from "@cadence/contracts/note";
 import { taskIdParamSchema } from "@cadence/contracts/common";
@@ -20,16 +19,14 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         apiValidator("param", taskIdParamSchema),
         apiValidator("json", upsertNoteSchema),
         async (c) => {
-            const userId = c.get("userId");
             const { taskId } = c.req.valid("param");
             const { body, expectedVersion, expectedUpdatedAt } = c.req.valid("json");
-            const db = getDbClient(c.env);
-            const key = getIdempotencyKey(c);
+                const key = getIdempotencyKey(c);
             const fingerprint = key ? JSON.stringify([taskId, body, expectedVersion ?? null, expectedUpdatedAt ?? null]) : "";
 
             // A retry under the same key replays the first answer (not whatever is latest now);
             // the same key with a different edit is a client bug.
-            const result = await withRls(db, userId, async (tx) => {
+            const result = await withCallerRls(c, async (tx, userId) => {
                 if (key && (await checkIdempotency(tx, userId, key))) {
                     const first = (await storedResult(tx, userId, key)) as { fingerprint: string; row: Awaited<ReturnType<typeof writeNote>> };
                     if (first.fingerprint !== fingerprint) throw new AppError(422, "VALIDATION_ERROR", "That operation id was already used for a different edit");
@@ -45,11 +42,9 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     )
     // GET /tasks/:taskId/note — lazy load note body
     .get("/tasks/:taskId/note", apiValidator("param", taskIdParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { taskId } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        const note = await withRls(db, userId, async (tx) => {
+        const note = await withCallerRls(c, async (tx, userId) => {
             // Ensure parent task exists and belongs to user
             const [parent] = await tx
                 .select({ id: tasks.id })

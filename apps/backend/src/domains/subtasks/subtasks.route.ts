@@ -3,6 +3,7 @@ import { eq, and, asc, inArray } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { getIdempotencyKey, checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
+import { withCallerRls } from "../../platform/caller-rls";
 import { tasks, subtasks } from "../../db/schema";
 import { insertSubtaskSchema, bulkSubtasksSchema, subtasksByTaskQuerySchema, updateSubtaskSchema, reorderSubtaskSchema } from "@cadence/contracts/subtask";
 import { uuidParamSchema, taskIdParamSchema } from "@cadence/contracts/common";
@@ -34,13 +35,11 @@ async function subtasksByTask(c: SubtaskContext, taskIds: string[]) {
 
 export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/tasks/:taskId/subtasks", apiValidator("param", taskIdParamSchema), apiValidator("json", insertSubtaskSchema), async (c) => {
-        const userId = c.get("userId");
         const { taskId } = c.req.valid("param");
         const body = c.req.valid("json");
         const idempotencyKey = getIdempotencyKey(c);
-        const db = getDbClient(c.env);
 
-        const item = await withRls(db, userId, async (tx) => {
+        const item = await withCallerRls(c, async (tx, userId) => {
             const [parent] = await tx
                 .select({ id: tasks.id })
                 .from(tasks)
@@ -72,12 +71,10 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         return c.json({ data: item }, 201);
     })
     .patch("/subtasks/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateSubtaskSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
-        const db = getDbClient(c.env);
 
-        const updated = await withRls(db, userId, async (tx) => {
+        const updated = await withCallerRls(c, async (tx, userId) => {
             const [row] = await tx
                 .update(subtasks)
                 .set(body)
@@ -90,12 +87,10 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         return c.json({ data: updated });
     })
     .patch("/subtasks/:id/reorder", apiValidator("param", uuidParamSchema), apiValidator("json", reorderSubtaskSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const { orderIndex } = c.req.valid("json");
-        const db = getDbClient(c.env);
 
-        const updated = await withRls(db, userId, async (tx) => {
+        const updated = await withCallerRls(c, async (tx, userId) => {
             const [row] = await tx
                 .update(subtasks)
                 .set({ orderIndex })
@@ -108,11 +103,9 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         return c.json({ data: updated });
     })
     .get("/tasks/:taskId/subtasks", apiValidator("param", taskIdParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { taskId } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        const items = await withRls(db, userId, async (tx) => {
+        const items = await withCallerRls(c, async (tx, userId) => {
             // Ensure parent task exists and belongs to user
             const [parent] = await tx
                 .select({ id: tasks.id })
@@ -135,11 +128,9 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
     // Desktop builds bundle the frontend, so ones released before the GET still call this.
     .post("/subtasks/bulk", apiValidator("json", bulkSubtasksSchema), (c) => subtasksByTask(c, c.req.valid("json").taskIds))
     .delete("/subtasks/:id", apiValidator("param", uuidParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        const deleted = await withRls(db, userId, async (tx) => {
+        const deleted = await withCallerRls(c, async (tx, userId) => {
             const [row] = await tx
                 .delete(subtasks)
                 .where(and(eq(subtasks.id, id), eq(subtasks.userId, userId)))

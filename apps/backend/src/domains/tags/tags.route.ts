@@ -1,8 +1,7 @@
 import { Hono } from "hono";
 import { eq, and } from "drizzle-orm";
-import { getDbClient } from "../../platform/db";
 import { getIdempotencyKey } from "../../platform/idempotency";
-import { withRls } from "../../platform/rls";
+import { withCallerRls } from "../../platform/caller-rls";
 import { tags } from "../../db/schema";
 import { insertTagSchema, updateTagSchema } from "@cadence/contracts/tag";
 import { uuidParamSchema } from "@cadence/contracts/common";
@@ -16,12 +15,10 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     // ── Create ──
     .post("/", apiValidator("json", insertTagSchema), async (c) => {
-        const userId = c.get("userId");
         const body = c.req.valid("json");
         const idempotencyKey = getIdempotencyKey(c);
-        const db = getDbClient(c.env);
 
-        const tag = await withRls(db, userId, (tx) => createTag(tx, userId, body, idempotencyKey));
+        const tag = await withCallerRls(c, (tx, userId) => createTag(tx, userId, body, idempotencyKey));
 
         return c.json({ data: tag }, 201);
     })
@@ -32,12 +29,10 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         apiValidator("param", uuidParamSchema),
         apiValidator("json", updateTagSchema),
         async (c) => {
-            const userId = c.get("userId");
             const { id } = c.req.valid("param");
             const body = c.req.valid("json");
-            const db = getDbClient(c.env);
 
-            const updated = await withRls(db, userId, (tx) => updateTag(tx, userId, id, body));
+            const updated = await withCallerRls(c, (tx, userId) => updateTag(tx, userId, id, body));
 
             return c.json({ data: updated });
         },
@@ -45,10 +40,8 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     // ── Read (List) ──
     .get("/", async (c) => {
-        const userId = c.get("userId");
-        const db = getDbClient(c.env);
 
-        const userTags = await withRls(db, userId, (tx) =>
+        const userTags = await withCallerRls(c, (tx, userId) =>
             tx
                 .select()
                 .from(tags)
@@ -61,11 +54,9 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     // ── Read (Single) ──
     .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        const [tag] = await withRls(db, userId, (tx) =>
+        const [tag] = await withCallerRls(c, (tx, userId) =>
             tx
                 .select()
                 .from(tags)
@@ -79,11 +70,9 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     // ── Delete ──
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        const deleted = await withRls(db, userId, (tx) => deleteTag(tx, userId, id));
+        const deleted = await withCallerRls(c, (tx, userId) => deleteTag(tx, userId, id));
 
         return c.json({ data: deleted });
     });

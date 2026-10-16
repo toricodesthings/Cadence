@@ -1,8 +1,7 @@
 import { Hono } from "hono";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { getDbClient } from "../../platform/db";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
-import { withRls } from "../../platform/rls";
+import { withCallerRls } from "../../platform/caller-rls";
 import { inboxItems, notificationState, savedFocusViews, taskNlpMetadata, users } from "../../db/schema";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
@@ -79,10 +78,8 @@ const toNotificationState = (row: NotificationStateRow): NotificationState => ({
 
 export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/intelligence-history/clear", async (c) => {
-        const userId = c.get("userId");
-        const db = getDbClient(c.env);
 
-        await withRls(db, userId, async (tx) => {
+        await withCallerRls(c, async (tx, userId) => {
             await tx.delete(taskNlpMetadata).where(eq(taskNlpMetadata.userId, userId));
             await tx.delete(notificationState).where(eq(notificationState.userId, userId));
 
@@ -127,12 +124,10 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         return c.json({ data: { cleared: true } });
     })
     .post("/focus-views", apiValidator("json", savedFocusViewInputSchema), async (c) => {
-        const userId = c.get("userId");
         const body = c.req.valid("json");
         const idempotencyKey = getIdempotencyKey(c);
-        const db = getDbClient(c.env);
 
-        const view = await withRls(db, userId, async (tx) => {
+        const view = await withCallerRls(c, async (tx, userId) => {
             const existingId = await checkIdempotency(tx, userId, idempotencyKey);
             if (existingId) {
                 const [existing] = await tx.select().from(savedFocusViews).where(and(eq(savedFocusViews.id, existingId), eq(savedFocusViews.userId, userId)));
@@ -158,11 +153,9 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         "/notification-state",
         apiValidator("json", upsertNotificationStateSchema),
         async (c) => {
-            const userId = c.get("userId");
             const body = c.req.valid("json");
-            const db = getDbClient(c.env);
-
-            const row = await withRls(db, userId, async (tx) => {
+    
+            const row = await withCallerRls(c, async (tx, userId) => {
                 const presentationCount = body.presentationCountIncrement ?? 0;
 
                 const [updated] = await tx
@@ -201,11 +194,9 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         },
     )
     .patch("/", apiValidator("json", settingsPatchSchema), async (c) => {
-        const userId = c.get("userId");
         const body = c.req.valid("json");
-        const db = getDbClient(c.env);
 
-        const [updated] = await withRls(db, userId, async (tx) => {
+        const [updated] = await withCallerRls(c, async (tx, userId) => {
             const [user] = await tx
                 .select({ settings: users.settings })
                 .from(users)
@@ -232,13 +223,11 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         return c.json({ data: normalizedResult });
     })
     .patch("/focus-views/:id", apiValidator("param", uuidParamSchema), apiValidator("json", savedFocusViewPatchSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
         const idempotencyKey = getIdempotencyKey(c);
-        const db = getDbClient(c.env);
 
-        const view = await withRls(db, userId, async (tx) => {
+        const view = await withCallerRls(c, async (tx, userId) => {
             const [existing] = await tx
                 .select({ id: savedFocusViews.id })
                 .from(savedFocusViews)
@@ -261,10 +250,8 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         return c.json({ data: toSavedFocusView(view) });
     })
     .get("/", async (c) => {
-        const userId = c.get("userId");
-        const db = getDbClient(c.env);
 
-        const [user] = await withRls(db, userId, async (tx) =>
+        const [user] = await withCallerRls(c, async (tx, userId) =>
             tx
                 .select({ settings: users.settings })
                 .from(users)
@@ -276,10 +263,8 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         return c.json({ data: normalized });
     })
     .get("/notification-state", async (c) => {
-        const userId = c.get("userId");
-        const db = getDbClient(c.env);
 
-        const items = await withRls(db, userId, (tx) =>
+        const items = await withCallerRls(c, (tx, userId) =>
             tx
                 .select()
                 .from(notificationState)
@@ -290,10 +275,8 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         return c.json({ data: items.map(toNotificationState) });
     })
     .get("/focus-views", async (c) => {
-        const userId = c.get("userId");
-        const db = getDbClient(c.env);
 
-        const items = await withRls(db, userId, (tx) =>
+        const items = await withCallerRls(c, (tx, userId) =>
             tx
                 .select()
                 .from(savedFocusViews)
@@ -304,11 +287,9 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         return c.json({ data: items.map(toSavedFocusView) });
     })
     .delete("/focus-views/:id", apiValidator("param", uuidParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        const [deleted] = await withRls(db, userId, (tx) =>
+        const [deleted] = await withCallerRls(c, (tx, userId) =>
             tx
                 .delete(savedFocusViews)
                 .where(and(eq(savedFocusViews.id, id), eq(savedFocusViews.userId, userId)))

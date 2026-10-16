@@ -7,6 +7,7 @@ import { getDbClient } from "../../platform/db";
 import { throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
+import { withCallerRls } from "../../platform/caller-rls";
 import { readEffortEvidence, readTaskBatch, readTasks } from "./tasks.read";
 import { hasTaskTemporalMutation } from "@cadence/domain/task-temporal";
 import { computeGappedOrderIndex } from "@cadence/domain/ordering";
@@ -46,12 +47,10 @@ const nlpReparseSchema = z.object({
 
 export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/:id/duplicate", apiValidator("param", uuidParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const idempotencyKey = getIdempotencyKey(c);
-        const db = getDbClient(c.env);
 
-        const duplicate = await withRls(db, userId, async (tx) => {
+        const duplicate = await withCallerRls(c, async (tx, userId) => {
             const existingId = await checkIdempotency(tx, userId, idempotencyKey);
             if (existingId) {
                 const [existing] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId))));
@@ -66,13 +65,11 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         return c.json({ data: duplicate }, 201);
     })
     .post("/:id/reparse", apiValidator("param", uuidParamSchema), apiValidator("json", nlpReparseSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
         const idempotencyKey = getIdempotencyKey(c);
-        const db = getDbClient(c.env);
 
-        const metadata = await withRls(db, userId, async (tx) => {
+        const metadata = await withCallerRls(c, async (tx, userId) => {
             // Idempotency guard: return existing NLP metadata if already processed
             const dedupId = await checkIdempotency(tx, userId, idempotencyKey);
             if (dedupId) {
@@ -252,12 +249,10 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         return c.json({ data: task }, 201);
     })
     .post("/:id/tags", apiValidator("param", uuidParamSchema), apiValidator("json", taskTagSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const { tagId } = c.req.valid("json");
-        const db = getDbClient(c.env);
 
-        const association = await withRls(db, userId, async (tx) => {
+        const association = await withCallerRls(c, async (tx, userId) => {
             const [task] = await tx
                 .select({ id: tasks.id })
                 .from(tasks)
@@ -324,12 +319,10 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         return c.json({ data: updated });
     })
     .patch("/:id/reorder", apiValidator("param", uuidParamSchema), apiValidator("json", reorderTaskSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const { orderIndex, orderedTaskIds } = c.req.valid("json");
-        const db = getDbClient(c.env);
 
-        const updated = await withRls(db, userId, async (tx) => {
+        const updated = await withCallerRls(c, async (tx, userId) => {
             // If the client sent the full ordered list, rebalance all affected tasks
             if (orderedTaskIds && orderedTaskIds.length > 1) {
                 // Batch all reorder updates into a single UPDATE with CASE. The cast is
@@ -378,11 +371,9 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         return c.json({ data: updatedTasks });
     })
     .get("/", apiValidator("query", taskListQuerySchema), async (c) => {
-        const userId = c.get("userId");
         const query = c.req.valid("query");
-        const db = getDbClient(c.env);
 
-        const items = await withRls(db, userId, (tx) => readTasks(tx, userId, query));
+        const items = await withCallerRls(c, (tx, userId) => readTasks(tx, userId, query));
 
         c.header("Cache-Control", "private, no-store");
         return c.json({ data: items });
@@ -401,11 +392,9 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         return c.json({ data: items });
     })
     .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        const [task] = await withRls(db, userId, async (tx) =>
+        const [task] = await withCallerRls(c, async (tx, userId) =>
             withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)))),
         );
 
@@ -415,11 +404,9 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         return c.json({ data: task });
     })
     .get("/:id/tags", apiValidator("param", uuidParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        const associations = await withRls(db, userId, async (tx) => {
+        const associations = await withCallerRls(c, async (tx, userId) => {
             const [task] = await tx
                 .select({ id: tasks.id })
                 .from(tasks)
@@ -444,37 +431,29 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         return c.json({ data: associations });
     })
     .post("/batch/delete", apiValidator("json", batchDeleteSchema), async (c) => {
-        const userId = c.get("userId");
         const { taskIds } = c.req.valid("json");
-        const db = getDbClient(c.env);
 
-        const deleted = await withRls(db, userId, (tx) => deleteTasks(tx, userId, taskIds));
+        const deleted = await withCallerRls(c, (tx, userId) => deleteTasks(tx, userId, taskIds));
         return c.json({ data: deleted.map((row) => toTask(row, [])) });
     })
     // Empty Trash. Registered before `/:id` so "trash" never reaches the id route.
     .delete("/trash", async (c) => {
-        const userId = c.get("userId");
-        const db = getDbClient(c.env);
 
-        const deleted = await withRls(db, userId, (tx) => deleteTrashedTasks(tx, userId));
+        const deleted = await withCallerRls(c, (tx, userId) => deleteTrashedTasks(tx, userId));
         return c.json({ data: { deleted } });
     })
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        const [deleted] = await withRls(db, userId, (tx) => deleteTasks(tx, userId, [id]));
+        const [deleted] = await withCallerRls(c, (tx, userId) => deleteTasks(tx, userId, [id]));
 
         throwIfNotFound(deleted, "Task");
         return c.json({ data: toTask(deleted, []) });
     })
     .delete("/:id/tags/:tagId", apiValidator("param", taskTagParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { id: taskId, tagId } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        const deleted = await withRls(db, userId, async (tx) => {
+        const deleted = await withCallerRls(c, async (tx, userId) => {
             const [task] = await tx
                 .select({ id: tasks.id })
                 .from(tasks)

@@ -12,6 +12,7 @@ import { AI_ERROR_CODES, CONVERSATION_TITLE_DATA_TYPE } from "@cadence/contracts
 import { apiValidator } from "../../platform/validation";
 import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
+import { withCallerRls } from "../../platform/caller-rls";
 import { syncUserZoneWithSettings } from "../../platform/user-zone";
 import { getRequestId, setRequestErrorCode } from "../../platform/request-log";
 import { logger, hashIdentifier, issuesFromError, shorten } from "../../platform/log";
@@ -173,13 +174,12 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // `cadence-image:` references (bytes were uploaded first, POST /ai/images).
     const imageIds = incoming ? imageIdsIn(incoming.parts) : [];
 
-    const db = getDbClient(c.env);
     const nonce = makeFenceNonce();
     const routed = { text: incomingText, imageCount: imageIds.length };
     let modelId = pickChatModel(c.env, routed);
     // A thread already on the standard model stays there (model-router), so only a basic pick reads the thread's last model.
     if (body.conversationId && modelId !== getModelId(c.env)) {
-        const previous = await withRls(db, userId, (tx) => getConversation(tx, userId, body.conversationId!)).catch(() => null);
+        const previous = await withCallerRls(c, (tx) => getConversation(tx, userId, body.conversationId!)).catch(() => null);
         modelId = pickChatModel(c.env, routed, previous?.model);
     }
     const clientMessageId = body.clientMessageId ?? getIdempotencyKey(c);
@@ -199,7 +199,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // regenerate/retry/edit re-sends images already sent, which count zero.
     const endAdmission = diagnostics.beginPhase("admission");
     const { newCount: newImages } = imageIds.length
-        ? await withRls(db, userId, (tx) => resolveTurnImages(tx, userId, body.conversationId, imageIds))
+        ? await withCallerRls(c, (tx) => resolveTurnImages(tx, userId, body.conversationId, imageIds))
         : { newCount: 0 };
     const rlRedis = getRateLimitRedis(c.env);
     const reserved = estimateReserve(incomingText.length, limits, imageIds.length);
@@ -241,7 +241,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     endAdmission();
     // Zone/settings preparation overlaps history; continuation context is chosen from stored rows.
-    const settingsReady = diagnostics.measure("zoneRecallQuery", () => withRls(db, userId, async (tx) => {
+    const settingsReady = diagnostics.measure("zoneRecallQuery", () => withCallerRls(c, async (tx) => {
         const { timezone, settings } = await syncUserZoneWithSettings(tx, userId, body.timezone);
         // What recall looks up: this message plus the one before it, so "yes, do that" keeps its subject.
         let previous: string | undefined;
@@ -304,7 +304,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // active_stream_id is set in the SAME transaction as the user turn, so the moment
     // a refreshing client can read the user message it can also resume — closing the
     // window that made a *fast* refresh (right after send) miss the live stream.
-    const historyReady = diagnostics.measure("historyPersist", () => withRls(db, userId, async (tx) => {
+    const historyReady = diagnostics.measure("historyPersist", () => withCallerRls(c, async (tx) => {
         if (!incoming) {
             // Approval answers land on the stored assistant message, never on one the
             // client sends: only its waiting parts change, signatures stay the server's.
@@ -349,7 +349,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     const validatedHistory = Promise.all([storedHistoryReady.promise, settingsReady]).then(async ([result, settings]) => {
         const clock = userClock(settings.timezone, body.currentDate);
         return diagnostics.measure("contextValidation", () => validateStoredContexts(result.history, isLearning(memoryStateOf(settings.settings).mode),
-            (ids) => withRls(db, userId, (tx) => loadContextFacts(tx, userId, ids, clock.today))));
+            (ids) => withCallerRls(c, (tx) => loadContextFacts(tx, userId, ids, clock.today))));
     });
     validatedHistory.catch(() => {});
     const reusedContext = storedHistoryReady.promise.then(async (result) => {
@@ -376,7 +376,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         ? (async () => {
               const { title, spend } = await generateConversationTitle(c.env, incomingText, imageIds.length > 0, { requestId, userHash });
               c.executionCtx.waitUntil(
-                  withRls(db, userId, (tx) => setTitleIfEmpty(tx, userId, conversationId, title)).catch(() => {}),
+                  withCallerRls(c, (tx) => setTitleIfEmpty(tx, userId, conversationId, title)).catch(() => {}),
               );
               return { title, spend };
           })()
@@ -450,7 +450,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             try {
                 const titleSpend = (await titlePromise)?.spend; // always resolves, ≤4s
                 const cleaned = stripNonceFromMessage(responseMessage as any, nonce);
-                await withRls(db, userId, async (tx) => {
+                await withCallerRls(c, async (tx) => {
                     await saveAssistantMessage(tx, userId, conversationId, cleaned, {
                         status,
                         metadata: { ...cleaned.metadata, ...spend, titleSpend },
@@ -471,7 +471,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 const streamState =
                     status === "complete" ? "done" : status === "failed" ? "error" : "aborted";
                 await closeStream(redis, userKey, streamId, streamState).catch(() => {});
-                await withRls(db, userId, (tx) =>
+                await withCallerRls(c, (tx) =>
                     finalizeActiveStream(tx, userId, conversationId, streamId, status),
                 ).catch(() => {});
             }
@@ -693,12 +693,10 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     apiValidator("param", uuidParamSchema),
     apiValidator("json", conversationPatchSchema),
     async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const patch = c.req.valid("json");
-        const db = getDbClient(c.env);
 
-        const conversation = await withRls(db, userId, async (tx) => {
+        const conversation = await withCallerRls(c, async (tx, userId) => {
             await renameOrArchiveConversation(tx, userId, id, patch);
             return getConversation(tx, userId, id);
         });
@@ -721,11 +719,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     })
     // ── Read: list threads / load one thread's messages ──────────────────
     .get("/conversations", apiValidator("query", listConversationsQuerySchema), async (c) => {
-    const userId = c.get("userId");
     const { limit, cursor } = c.req.valid("query");
-    const db = getDbClient(c.env);
 
-    const conversations = await withRls(db, userId, (tx) => listConversations(tx, userId, { limit, cursor }));
+    const conversations = await withCallerRls(c, (tx, userId) => listConversations(tx, userId, { limit, cursor }));
 
     c.header("Cache-Control", "private, max-age=0, stale-while-revalidate=5");
     return c.json({ data: { conversations } });
@@ -735,12 +731,10 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     apiValidator("param", uuidParamSchema),
     apiValidator("query", conversationMessagesQuerySchema),
     async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const { limit, before } = c.req.valid("query");
-        const db = getDbClient(c.env);
 
-        const result = await withRls(db, userId, async (tx) => {
+        const result = await withCallerRls(c, async (tx, userId) => {
             const conversation = await getConversation(tx, userId, id);
             throwIfNotFound(conversation, "Conversation");
             const rows = await loadConversationMessages(tx, userId, id, { limit, beforeOrderIndex: before });
@@ -755,15 +749,14 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // Registered before `/conversations/:id` so "archived" never reaches the id route.
     .delete("/conversations/archived", async (c) => {
         const userId = c.get("userId");
-        const db = getDbClient(c.env);
 
         // Storage first, as for one thread: if it fails, the rows stay and the clear can be retried.
-        const imageIds = await withRls(db, userId, (tx) => listArchivedImageIds(tx, userId));
+        const imageIds = await withCallerRls(c, (tx) => listArchivedImageIds(tx, userId));
         if (imageIds.length > 0 && c.env.USER_ASSETS) {
             const userKey = await hashIdentifier(userId);
             await deleteImageObjects(c.env.USER_ASSETS, imageIds.map((imageId) => aiImageKey(userKey, imageId)));
         }
-        const deleted = await withRls(db, userId, (tx) => deleteArchivedConversations(tx, userId));
+        const deleted = await withCallerRls(c, (tx) => deleteArchivedConversations(tx, userId));
 
         return c.json({ data: { deleted } });
     })
@@ -771,15 +764,14 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .delete("/conversations/:id", apiValidator("param", uuidParamSchema), async (c) => {
     const userId = c.get("userId");
     const { id } = c.req.valid("param");
-    const db = getDbClient(c.env);
 
     // Its images go with it. Storage first: if that fails, the rows stay and the delete can be retried.
-    const imageIds = await withRls(db, userId, (tx) => listConversationImageIds(tx, userId, id));
+    const imageIds = await withCallerRls(c, (tx) => listConversationImageIds(tx, userId, id));
     if (imageIds.length > 0 && c.env.USER_ASSETS) {
         const userKey = await hashIdentifier(userId);
         await deleteImageObjects(c.env.USER_ASSETS, imageIds.map((imageId) => aiImageKey(userKey, imageId)));
     }
-    await withRls(db, userId, (tx) => deleteConversation(tx, userId, id));
+    await withCallerRls(c, (tx) => deleteConversation(tx, userId, id));
 
     return c.json({ data: { id, deleted: true } });
 });

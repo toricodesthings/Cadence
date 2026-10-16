@@ -1,8 +1,7 @@
 import { Hono } from "hono";
 import { eq, and, asc, sql } from "drizzle-orm";
-import { getDbClient } from "../../platform/db";
 import { getIdempotencyKey, checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
-import { withRls } from "../../platform/rls";
+import { withCallerRls } from "../../platform/caller-rls";
 import { taskSections } from "../../db/schema";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
@@ -14,12 +13,10 @@ import { createSectionSchema, updateSectionSchema, sectionQuerySchema } from "@c
 
 export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/", apiValidator("json", createSectionSchema), async (c) => {
-        const userId = c.get("userId");
         const body = c.req.valid("json");
         const idempotencyKey = getIdempotencyKey(c);
-        const db = getDbClient(c.env);
 
-        const section = await withRls(db, userId, async (tx) => {
+        const section = await withCallerRls(c, async (tx, userId) => {
             if (body.projectId) {
                 await assertProjectOwnership(tx, userId, body.projectId);
             }
@@ -42,12 +39,10 @@ export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         return c.json({ data: section }, 201);
     })
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateSectionSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
-        const db = getDbClient(c.env);
 
-        const updated = await withRls(db, userId, async (tx) => {
+        const updated = await withCallerRls(c, async (tx, userId) => {
             const [row] = await tx
                 .update(taskSections)
                 .set(body)
@@ -64,7 +59,6 @@ export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const userId = c.get("userId");
         const { projectId } = c.req.valid("query");
         const projectIdValue = projectId ?? null;
-        const db = getDbClient(c.env);
 
         const conditions = [eq(taskSections.userId, userId)];
         if (projectIdValue) {
@@ -73,7 +67,7 @@ export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
             conditions.push(sql`${taskSections.projectId} IS NULL`);
         }
 
-        const rows = await withRls(db, userId, async (tx) =>
+        const rows = await withCallerRls(c, async (tx) =>
             tx
                 .select()
                 .from(taskSections)
@@ -84,11 +78,9 @@ export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         return c.json({ data: rows });
     })
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
-        const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const db = getDbClient(c.env);
 
-        await withRls(db, userId, async (tx) => {
+        await withCallerRls(c, async (tx, userId) => {
             const result = await tx
                 .delete(taskSections)
                 .where(and(eq(taskSections.id, id), eq(taskSections.userId, userId)))

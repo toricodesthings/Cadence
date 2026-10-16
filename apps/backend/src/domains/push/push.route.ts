@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
+import { withCallerRls } from "../../platform/caller-rls";
 import { devices } from "../../db/schema";
 import { AppError, throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
@@ -107,9 +108,7 @@ export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     })
     // One explicit test through this device's real delivery path. It ignores quiet hours and saved preferences.
     .post("/test", apiValidator("json", pushTestSchema), async (c) => {
-        const userId = c.get("userId");
-        const db = getDbClient(c.env);
-        const [device] = await withRls(db, userId, (tx) =>
+        const [device] = await withCallerRls(c, (tx, userId) =>
             tx.select().from(devices).where(and(eq(devices.userId, userId), eq(devices.installId, c.req.valid("json").installId))));
         throwIfNotFound(device, "Device");
         if (!device.endpoint || !device.p256dh || !device.auth) {
@@ -123,7 +122,7 @@ export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             route: null,
             tag: "cadence-test",
         });
-        if (outcome === "gone") await withRls(db, userId, (tx) => tx.delete(devices).where(eq(devices.id, device.id)));
+        if (outcome === "gone") await withCallerRls(c, (tx) => tx.delete(devices).where(eq(devices.id, device.id)));
         const result: PushTestResult = { outcome };
         return c.json({ data: result }, 200);
     });
