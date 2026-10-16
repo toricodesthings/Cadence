@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
 import { usageEvents, users } from "../../db/schema";
@@ -22,6 +22,23 @@ async function isTrackingAllowed(db: DbClient, userId: string, setting: "usageDi
 
     if (!user?.settings) return false;
     return user.settings.privacy?.[setting] !== false;
+}
+
+/** Stores usage events in the background, only for people who opted into diagnostics. */
+async function recordUsage(c: Context<{ Bindings: Env; Variables: AuthVariables }, any, any>, events: { event: string; metadata?: Record<string, unknown> | null }[]) {
+    const userId = c.get("userId");
+    const db = getDbClient(c.env);
+    if (!(await isTrackingAllowed(db, userId))) {
+        return c.json({ data: { tracked: false } }, 200);
+    }
+
+    c.executionCtx.waitUntil(
+        withRls(db, userId, async (tx) => {
+            await tx.insert(usageEvents).values(events.map((e) => ({ userId, event: e.event, metadata: e.metadata ?? null })));
+        }),
+    );
+
+    return c.json({ data: { tracked: true } }, 201);
 }
 
 export const eventRoutes = new Hono<{
@@ -54,55 +71,12 @@ export const eventRoutes = new Hono<{
         return c.json({ data: { tracked: true } }, 201);
     })
     // POST /api/events — record a single event
-    .post(
-    "/",
-    apiValidator("json", trackEventSchema),
-    async (c) => {
-        const userId = c.get("userId");
+    .post("/", apiValidator("json", trackEventSchema), async (c) => {
         const { event, metadata } = c.req.valid("json");
-
-        // Check if user has opted into usage diagnostics
-        const db = getDbClient(c.env);
-        const allowed = await isTrackingAllowed(db, userId);
-        if (!allowed) {
-            return c.json({ data: { tracked: false } }, 200);
-        }
-
-        c.executionCtx.waitUntil(
-            withRls(db, userId, async (tx) => {
-                await tx.insert(usageEvents).values({ userId, event, metadata: metadata ?? null });
-            }),
-        );
-
-        return c.json({ data: { tracked: true } }, 201);
-    },
-    )
+        return recordUsage(c, [{ event, metadata }]);
+    })
     // POST /api/events/batch — record multiple events
-    .post(
-    "/batch",
-    apiValidator("json", trackBatchSchema),
-    async (c) => {
-        const userId = c.get("userId");
+    .post("/batch", apiValidator("json", trackBatchSchema), async (c) => {
         const { events } = c.req.valid("json");
-
-        const db = getDbClient(c.env);
-        const allowed = await isTrackingAllowed(db, userId);
-        if (!allowed) {
-            return c.json({ data: { tracked: false } }, 200);
-        }
-
-        c.executionCtx.waitUntil(
-            withRls(db, userId, async (tx) => {
-                await tx.insert(usageEvents).values(
-                    events.map((e) => ({
-                        userId,
-                        event: e.event,
-                        metadata: e.metadata ?? null,
-                    })),
-                );
-            }),
-        );
-
-        return c.json({ data: { tracked: true } }, 201);
-    },
-    );
+        return recordUsage(c, events);
+    });

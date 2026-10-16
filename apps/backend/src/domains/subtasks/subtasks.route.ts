@@ -34,6 +34,21 @@ async function subtasksByTask(c: SubtaskContext, taskIds: string[]) {
     return c.json({ data });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function updateSubtask(c: Context<{ Bindings: Env; Variables: AuthVariables }, any, any>, id: string, values: Partial<typeof subtasks.$inferInsert>) {
+    const updated = await withCallerRls(c, async (tx, userId) => {
+        const [row] = await tx
+            .update(subtasks)
+            .set(values)
+            .where(and(eq(subtasks.id, id), eq(subtasks.userId, userId)))
+            .returning();
+        return row;
+    });
+
+    throwIfNotFound(updated, "Subtask");
+    return c.json({ data: updated });
+}
+
 export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/tasks/:taskId/subtasks", apiValidator("param", taskIdParamSchema), apiValidator("json", insertSubtaskSchema), async (c) => {
         const { taskId } = c.req.valid("param");
@@ -58,33 +73,13 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
 
-        const updated = await withCallerRls(c, async (tx, userId) => {
-            const [row] = await tx
-                .update(subtasks)
-                .set(body)
-                .where(and(eq(subtasks.id, id), eq(subtasks.userId, userId)))
-                .returning();
-            return row;
-        });
-
-        throwIfNotFound(updated, "Subtask");
-        return c.json({ data: updated });
+        return updateSubtask(c, id, body);
     })
     .patch("/subtasks/:id/reorder", apiValidator("param", uuidParamSchema), apiValidator("json", reorderSubtaskSchema), async (c) => {
         const { id } = c.req.valid("param");
         const { orderIndex } = c.req.valid("json");
 
-        const updated = await withCallerRls(c, async (tx, userId) => {
-            const [row] = await tx
-                .update(subtasks)
-                .set({ orderIndex })
-                .where(and(eq(subtasks.id, id), eq(subtasks.userId, userId)))
-                .returning();
-            return row;
-        });
-
-        throwIfNotFound(updated, "Subtask");
-        return c.json({ data: updated });
+        return updateSubtask(c, id, { orderIndex });
     })
     .get("/tasks/:taskId/subtasks", apiValidator("param", taskIdParamSchema), async (c) => {
         const { taskId } = c.req.valid("param");

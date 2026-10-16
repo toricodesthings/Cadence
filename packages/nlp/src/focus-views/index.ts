@@ -41,7 +41,7 @@ export interface FocusViewPreset {
 
 // ── Default definition ──
 
-const DEFAULT_DEFINITION: FocusViewDefinition = {
+export const DEFAULT_DEFINITION: FocusViewDefinition = {
   states: ["ACTIVE"],
   projectIds: [],
   tagIds: [],

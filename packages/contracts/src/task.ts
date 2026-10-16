@@ -32,6 +32,16 @@ export const canonicalNlpEnvelopeSchema = z.object({
     resolved: z.boolean().optional(),
 }) satisfies z.ZodType<CanonicalNlpEnvelope>; // nlp owns the type; this fails tsc if they drift
 
+/** The date and time fields a task can be written with, the same on create and update. */
+const taskWhenFields = {
+    dueDate: localDateSchema.nullable().optional(),
+    endDate: localDateSchema.nullable().optional(),
+    scheduledStart: instantSchema.nullable().optional(),
+    scheduledEnd: instantSchema.nullable().optional(),
+    zone: zoneSchema.nullable().optional(),
+    durationEstimate: z.number().int().min(1).max(1440).nullable().optional(),
+};
+
 // ── Input schemas (moved verbatim from backend tasks.schema.ts) ──
 export const insertTaskSchema = z.object({
     /** Client-chosen id, so a task made offline can be edited before it syncs. */
@@ -42,12 +52,7 @@ export const insertTaskSchema = z.object({
     orderIndex: z.number(),
     // A day (all-day or a deadline), or a timed block (instants plus the zone it was planned in).
     // All-day = no scheduledStart.
-    dueDate: localDateSchema.nullable().optional(),
-    endDate: localDateSchema.nullable().optional(),
-    scheduledStart: instantSchema.nullable().optional(),
-    scheduledEnd: instantSchema.nullable().optional(),
-    zone: zoneSchema.nullable().optional(),
-    durationEstimate: z.number().int().min(1).max(1440).nullable().optional(),
+    ...taskWhenFields,
     timezoneLocked: z.boolean().default(false),
     projectId: z.uuid().nullable().optional(),
     priority: taskPrioritySchema.default(0),
@@ -79,12 +84,7 @@ export const updateTaskSchema = z.object({
     content: z.string().max(50_000).nullable().optional(),
     state: taskStateSchema.optional(),
     orderIndex: z.number().optional(),
-    dueDate: localDateSchema.nullable().optional(),
-    endDate: localDateSchema.nullable().optional(),
-    scheduledStart: instantSchema.nullable().optional(),
-    scheduledEnd: instantSchema.nullable().optional(),
-    zone: zoneSchema.nullable().optional(),
-    durationEstimate: z.number().int().min(1).max(1440).nullable().optional(),
+    ...taskWhenFields,
     timezoneLocked: z.boolean().optional(),
     projectId: z.uuid().nullable().optional(),
     priority: taskPrioritySchema.optional(),

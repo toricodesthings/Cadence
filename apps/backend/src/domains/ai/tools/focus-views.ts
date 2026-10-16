@@ -9,24 +9,8 @@ import type { Env } from "../../../types/env";
 import type { Tx } from "../../../types/db";
 import type { AgentContext } from "./index";
 import { safeExecute, once } from "./index";
+import { DEFAULT_DEFINITION } from "@cadence/nlp/focus-views";
 import { focusViewDefinitionSchema, savedFocusViewInputSchema, type FocusViewDefinitionInput } from "@cadence/contracts/settings";
-
-/** A new view's filters before the model's; the app's composer starts from the same. */
-const DEFAULT_DEFINITION: FocusViewDefinitionInput = {
-    states: ["ACTIVE"],
-    projectIds: [],
-    tagIds: [],
-    needsDate: false,
-    needsProject: false,
-    priorityMin: null,
-    effortMin: null,
-    effortMax: null,
-    durationMaxMinutes: null,
-    dueWindow: null,
-    waitingOnly: false,
-    missingStructureOnly: false,
-    sortMode: "smart",
-};
 
 const d = focusViewDefinitionSchema.shape;
 const filtersSchema = z.object({
