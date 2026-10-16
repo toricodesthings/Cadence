@@ -1,4 +1,6 @@
-import { X, Calendar, CheckSquare, Trash2, Sun, Moon, ArrowRight, Archive, FolderOpen, Hash } from "lucide-react";
+import type { ComponentProps } from "react";
+import { cn } from "../../lib/utils";
+import { X, type LucideIcon, Calendar, CheckSquare, Trash2, Sun, Moon, ArrowRight, Archive, FolderOpen, Hash } from "lucide-react";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useBatchStateTransition, useBatchDeleteTasks, useBatchRescheduleTasks, useTrashTasks } from "../../hooks/tasks/use-batch-state";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
@@ -11,6 +13,15 @@ import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { addDays } from "@cadence/domain/time";
 import { today } from "../../lib/utils/user-zone";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
+
+function BarButton({ icon: Icon, label, className, ...rest }: { icon: LucideIcon; label: string } & Omit<ComponentProps<typeof Button>, "children" | "variant" | "size">) {
+    return (
+        <Button variant="ghost" size="sm" className={cn("shrink-0 text-twilight-text-soft hover:text-white", className)} {...rest}>
+            <Icon size={14} className="opacity-80" />
+            {label}
+        </Button>
+    );
+}
 
 export function FloatingActionBar() {
     const { selectedTaskIds, clearSelection } = useTaskSelectionStore();
@@ -93,56 +104,16 @@ export function FloatingActionBar() {
 
             {/* Actions */}
             <div className="flex items-center gap-1 px-1">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleMarkComplete}
-                    className="shrink-0 text-twilight-text-soft hover:text-white"
-                >
-                    <CheckSquare size={14} className="opacity-80" />
-                    Complete
-                </Button>
+                <BarButton icon={CheckSquare} label="Complete" onClick={handleMarkComplete} />
 
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleArchive}
-                    className="shrink-0 text-twilight-text-soft hover:text-white"
-                >
-                    <Archive size={14} className="opacity-80" />
-                    Archive
-                </Button>
+                <BarButton icon={Archive} label="Archive" onClick={handleArchive} />
 
                 {/* Quick reschedule presets */}
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleQuickReschedule(0)}
-                    className="shrink-0 text-twilight-text-soft hover:text-white"
-                >
-                    <Sun size={14} className="opacity-80" />
-                    Today
-                </Button>
+                <BarButton icon={Sun} label="Today" onClick={() => handleQuickReschedule(0)} />
 
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleQuickReschedule(1)}
-                    className="shrink-0 text-twilight-text-soft hover:text-white"
-                >
-                    <Moon size={14} className="opacity-80" />
-                    Tomorrow
-                </Button>
+                <BarButton icon={Moon} label="Tomorrow" onClick={() => handleQuickReschedule(1)} />
 
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleQuickReschedule(7)}
-                    className="shrink-0 text-twilight-text-soft hover:text-white hidden sm:flex"
-                >
-                    <ArrowRight size={14} className="opacity-80" />
-                    Next week
-                </Button>
+                <BarButton icon={ArrowRight} label="Next week" onClick={() => handleQuickReschedule(7)} className="hidden sm:flex" />
 
                 <DeadlinePickerPopover
                     dueDate={null}
@@ -150,18 +121,12 @@ export function FloatingActionBar() {
                     recurrenceRule={null}
                     onChange={handleReschedule}
                 >
-                    <Button variant="ghost" size="sm" className="shrink-0 text-twilight-text-soft hover:text-white">
-                        <Calendar size={14} className="opacity-80" />
-                        Reschedule
-                    </Button>
+                    <BarButton icon={Calendar} label="Reschedule" />
                 </DeadlinePickerPopover>
 
                 <Popover.Root>
                     <Popover.Trigger asChild>
-                        <Button variant="ghost" size="sm" className="shrink-0 text-twilight-text-soft hover:text-white">
-                            <FolderOpen size={14} className="opacity-80" />
-                            Move
-                        </Button>
+                        <BarButton icon={FolderOpen} label="Move" />
                     </Popover.Trigger>
                     <Popover.Content className="w-52 p-1">
                         <div className="space-y-1">
@@ -189,10 +154,7 @@ export function FloatingActionBar() {
 
                 <Popover.Root>
                     <Popover.Trigger asChild>
-                        <Button variant="ghost" size="sm" className="shrink-0 text-twilight-text-soft hover:text-white">
-                            <Hash size={14} className="opacity-80" />
-                            Tag
-                        </Button>
+                        <BarButton icon={Hash} label="Tag" />
                     </Popover.Trigger>
                     <Popover.Content className="w-52 p-1">
                         <div className="max-h-64 space-y-1 overflow-auto">

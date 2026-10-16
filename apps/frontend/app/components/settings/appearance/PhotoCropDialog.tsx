@@ -30,6 +30,32 @@ interface PhotoCropDialogProps {
     onConfirm: (cropped: File) => Promise<void>;
 }
 
+function StageNotice({ failed }: { failed: boolean }) {
+    return (
+        <div className="absolute inset-0 flex items-center justify-center text-[12px] text-twilight-text-muted">
+            {failed ? (
+                "Cadence couldn't read that image."
+            ) : (
+                <span className="flex items-center gap-2">
+                    <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                    Opening your photo…
+                </span>
+            )}
+        </div>
+    );
+}
+
+function BusyOverlay({ uploading }: { uploading: boolean }) {
+    return (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/55 backdrop-blur-sm">
+            <span className="flex items-center gap-2 text-[12px] font-medium text-white">
+                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                {uploading ? "Uploading…" : "Preparing your photo…"}
+            </span>
+        </div>
+    );
+}
+
 /**
  * Preview, pan and zoom a picked photo before anything is uploaded.
  *
@@ -128,26 +154,10 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
                             classes={{ cropAreaClassName: CROP_AREA_CLASS }}
                         />
                     ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-[12px] text-twilight-text-muted">
-                            {failed ? (
-                                "Cadence couldn't read that image."
-                            ) : (
-                                <span className="flex items-center gap-2">
-                                    <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                                    Opening your photo…
-                                </span>
-                            )}
-                        </div>
+                        <StageNotice failed={failed} />
                     )}
 
-                    {busy && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/55 backdrop-blur-sm">
-                            <span className="flex items-center gap-2 text-[12px] font-medium text-white">
-                                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                                {isUploading ? "Uploading…" : "Preparing your photo…"}
-                            </span>
-                        </div>
-                    )}
+                    {busy && <BusyOverlay uploading={isUploading} />}
                 </div>
 
                 <fieldset disabled={!source || busy} className="flex min-w-0 flex-col gap-3">

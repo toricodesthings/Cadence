@@ -91,47 +91,11 @@ interface CollapsedSignal {
     accentDots?: string[];
 }
 
-/** Presentational task card — composes TaskCheckbox + TaskContextMenu + inline subtasks */
-export function TaskCard({
-    task,
-    tags = [],
-    subtasks = [],
-    isDragging = false,
-    isSelected,
-    isDropTarget = false,
-    onSelect,
-    variant = "list",
-    holdingContext,
-    rationaleLabel,
-    dragHandleProps,
-}: TaskCardProps) {
-    const isComplete = task.state === "COMPLETE";
-    const priorityConfig = PRIORITY_CONFIG[task.priority];
-    const showUrgentIcon = task.priority >= 3;
-    const PriorityIcon = PRIORITY_OPTIONS[task.priority].icon;
+type ScheduleSummary = ReturnType<typeof getTaskScheduleSummary>;
 
-    const { toggleTask, selectedTaskIds } = useTaskSelectionStore();
-    const shell = useShellMode();
-    const todayDay = useToday();
-
-    const subtaskUi = useInlineSubtasks(task.id);
-    const subtaskPanelId = useId();
-
-    // Override isSelected if managed by global store
-    const isGloballySelected = selectedTaskIds.has(task.id);
-    const isTaskSelected = isGloballySelected || isSelected;
-
-    const scheduleSummary = getTaskScheduleSummary(task);
+/** The one line a card leads with, plus the quieter chips under it. */
+function getTaskCues(task: Task, tags: Tag[], scheduleSummary: ScheduleSummary, isPassiveTimetable: boolean) {
     const scheduleLabel = scheduleSummary.primaryLabel;
-    const isPassiveTimetable = isPassiveTimetableTask(task);
-    const isPastDue = Boolean(
-        !isPassiveTimetable
-        && scheduleSummary.anchorDate
-        && scheduleSummary.anchorDate < todayDay
-        && task.state !== "COMPLETE"
-        && task.state !== "ARCHIVED",
-    );
-    const orderedSubtasks = [...subtasks].sort((a, b) => a.orderIndex - b.orderIndex);
     const tagSummary = tags.length === 1 ? tags[0]?.name ?? "1 tag" : `${tags.length} tags`;
     const primaryTagTone = getTagTone(tags[0]);
     const tagAccentDots = tags
@@ -227,6 +191,51 @@ export function TaskCard({
     ];
 
     const secondarySignals = secondarySignalCandidates.filter((signal): signal is CollapsedSignal => signal !== null);
+    return { primaryCue, secondarySignals };
+}
+
+/** Presentational task card — composes TaskCheckbox + TaskContextMenu + inline subtasks */
+export function TaskCard({
+    task,
+    tags = [],
+    subtasks = [],
+    isDragging = false,
+    isSelected,
+    isDropTarget = false,
+    onSelect,
+    variant = "list",
+    holdingContext,
+    rationaleLabel,
+    dragHandleProps,
+}: TaskCardProps) {
+    const isComplete = task.state === "COMPLETE";
+    const priorityConfig = PRIORITY_CONFIG[task.priority];
+    const showUrgentIcon = task.priority >= 3;
+    const PriorityIcon = PRIORITY_OPTIONS[task.priority].icon;
+
+    const { toggleTask, selectedTaskIds } = useTaskSelectionStore();
+    const shell = useShellMode();
+    const todayDay = useToday();
+
+    const subtaskUi = useInlineSubtasks(task.id);
+    const subtaskPanelId = useId();
+
+    // Override isSelected if managed by global store
+    const isGloballySelected = selectedTaskIds.has(task.id);
+    const isTaskSelected = isGloballySelected || isSelected;
+
+    const scheduleSummary = getTaskScheduleSummary(task);
+    const scheduleLabel = scheduleSummary.primaryLabel;
+    const isPassiveTimetable = isPassiveTimetableTask(task);
+    const isPastDue = Boolean(
+        !isPassiveTimetable
+        && scheduleSummary.anchorDate
+        && scheduleSummary.anchorDate < todayDay
+        && task.state !== "COMPLETE"
+        && task.state !== "ARCHIVED",
+    );
+    const orderedSubtasks = [...subtasks].sort((a, b) => a.orderIndex - b.orderIndex);
+    const { primaryCue, secondarySignals } = getTaskCues(task, tags, scheduleSummary, isPassiveTimetable);
 
     const visibleSignals = secondarySignals.slice(0, shell.isPhone ? 2 : 3);
     const hasCollapsedSupport = Boolean(primaryCue || visibleSignals.length > 0 || orderedSubtasks.length > 0);

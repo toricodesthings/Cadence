@@ -66,6 +66,60 @@ interface TimetableBlockEditorProps {
     task: Pick<Task, "id" | "scheduledStart" | "scheduledEnd" | "recurrenceRule">;
 }
 
+function RepeatDays({ activeDays, onToggle }: { activeDays: Set<string>; onToggle: (day: string) => void }) {
+    return (
+        <div className="flex flex-col gap-1.5" role="group" aria-label="Repeat days">
+            <span className={ROW_LABEL}>
+                <CalendarRange size={ROW_ICON_SIZE} className={ROW_ICON} aria-hidden="true" />
+                On
+            </span>
+            <div className="flex gap-1">
+                {DAY_ORDER.map((day, index) => (
+                    <button
+                        key={day}
+                        type="button"
+                        aria-pressed={activeDays.has(day)}
+                        aria-label={`Repeat on ${day}`}
+                        onClick={() => onToggle(day)}
+                        className={`${DAY_CHIP_BASE} ${activeDays.has(day) ? DAY_CHIP_ACTIVE : DAY_CHIP_IDLE}`}
+                    >
+                        {DAY_LETTERS[index]}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function EndControl({ end, onChange, onClear, onAdd }: { end: Instant | null | undefined; onChange: (time: WallTime) => void; onClear: () => void; onAdd: () => void }) {
+    return end ? (
+        <div className="relative">
+            <TimePicker
+                value={toTimeValue(end)}
+                onChange={onChange}
+            />
+            <Tip label="Remove end time" side="left">
+                <button
+                    type="button"
+                    onClick={onClear}
+                    aria-label="Remove end time"
+                    className="absolute -right-1.5 -top-1.5 flex h-4.5 w-4.5 cursor-pointer items-center justify-center rounded-full border border-feedback-error/40 bg-feedback-error/15 text-feedback-error transition-colors hover:bg-feedback-error/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-feedback-error/50"
+                >
+                    <X size={10} aria-hidden="true" />
+                </button>
+            </Tip>
+        </div>
+    ) : (
+        <button
+            type="button"
+            onClick={onAdd}
+            className="min-h-10 cursor-pointer rounded-lg px-2.5 text-[13px] text-accent-primary transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+        >
+            Add end time
+        </button>
+    );
+}
+
 export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task }) => {
     const updateTask = useUpdateTask();
 
@@ -202,32 +256,7 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
                         <Clock size={ROW_ICON_SIZE} className={ROW_ICON} aria-hidden="true" />
                         Ends
                     </span>
-                    {task.scheduledEnd ? (
-                        <div className="relative">
-                            <TimePicker
-                                value={toTimeValue(task.scheduledEnd)}
-                                onChange={handleEndChange}
-                            />
-                            <Tip label="Remove end time" side="left">
-                                <button
-                                    type="button"
-                                    onClick={handleClearEnd}
-                                    aria-label="Remove end time"
-                                    className="absolute -right-1.5 -top-1.5 flex h-4.5 w-4.5 cursor-pointer items-center justify-center rounded-full border border-feedback-error/40 bg-feedback-error/15 text-feedback-error transition-colors hover:bg-feedback-error/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-feedback-error/50"
-                                >
-                                    <X size={10} aria-hidden="true" />
-                                </button>
-                            </Tip>
-                        </div>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={handleAddEnd}
-                            className="min-h-10 cursor-pointer rounded-lg px-2.5 text-[13px] text-accent-primary transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                        >
-                            Add end time
-                        </button>
-                    )}
+                    <EndControl end={task.scheduledEnd} onChange={handleEndChange} onClear={handleClearEnd} onAdd={handleAddEnd} />
                 </div>
                 {durationLabel ? (
                     <p className="px-0.5 text-right text-[11px] tabular-nums text-twilight-text-muted/90" aria-live="polite">
@@ -237,26 +266,7 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
             </div>
 
             {freq === "WEEKLY" ? (
-                <div className="flex flex-col gap-1.5" role="group" aria-label="Repeat days">
-                    <span className={ROW_LABEL}>
-                        <CalendarRange size={ROW_ICON_SIZE} className={ROW_ICON} aria-hidden="true" />
-                        On
-                    </span>
-                    <div className="flex gap-1">
-                        {DAY_ORDER.map((day, index) => (
-                            <button
-                                key={day}
-                                type="button"
-                                aria-pressed={activeDays.has(day)}
-                                aria-label={`Repeat on ${day}`}
-                                onClick={() => toggleDay(day)}
-                                className={`${DAY_CHIP_BASE} ${activeDays.has(day) ? DAY_CHIP_ACTIVE : DAY_CHIP_IDLE}`}
-                            >
-                                {DAY_LETTERS[index]}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                <RepeatDays activeDays={activeDays} onToggle={toggleDay} />
             ) : null}
 
             <div className="flex flex-col gap-0.5">

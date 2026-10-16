@@ -52,6 +52,51 @@ function AccentSwatch({
     );
 }
 
+function AccentPicker({ image, onAdjust }: Pick<PhotoBackgroundPanelProps, "image" | "onAdjust">) {
+    const swatches = image.swatches.slice(0, 6);
+
+    return (
+        <div className="flex flex-col gap-2">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-twilight-text-muted">
+                Photo accent
+            </span>
+            <div className="flex flex-wrap gap-2">
+                <AccentSwatch
+                    color={null}
+                    label="Pick automatically"
+                    selected={image.accent === null}
+                    onSelect={() => onAdjust({ accent: null })}
+                />
+                {swatches.map((swatch) => (
+                    <AccentSwatch
+                        key={swatch}
+                        color={swatch}
+                        label={`Use ${swatch}`}
+                        selected={image.accent === swatch}
+                        onSelect={() => onAdjust({ accent: swatch })}
+                    />
+                ))}
+                <Tip label="Choose any accent color" side="top">
+                    <label className={cn(
+                        "relative flex h-11 w-11 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-twilight-border-light focus-within:ring-2 focus-within:ring-accent-primary",
+                        image.accent && !swatches.includes(image.accent) && "ring-2 ring-accent-primary",
+                    )} style={image.accent && !swatches.includes(image.accent) ? { background: image.accent } : undefined}>
+                        <span className="rounded bg-twilight-deep/90 p-1 text-twilight-text"><Pipette size={16} aria-hidden="true" /></span>
+                        <input
+                            type="color"
+                            aria-label="Custom photo accent"
+                            value={image.accent ?? image.swatches[0] ?? image.dominant}
+                            onChange={(event) => onAdjust({ accent: event.target.value })}
+                            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        />
+                    </label>
+                </Tip>
+            </div>
+            <p className="text-xs text-twilight-text-muted">Choose a color from your photo, or pick any color with the eyedropper. Cadence adjusts it for readable contrast.</p>
+        </div>
+    );
+}
+
 export function PhotoBackgroundPanel({
     image,
     uploading,
@@ -79,7 +124,6 @@ export function PhotoBackgroundPanel({
 
     // ── Stored photo ──
     const blur = blurPixels(image.blur);
-    const swatches = image.swatches.slice(0, 6);
 
     return (
         <div className="flex flex-col gap-4">
@@ -134,44 +178,7 @@ export function PhotoBackgroundPanel({
                 </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-                <span className="text-[11px] font-medium uppercase tracking-wide text-twilight-text-muted">
-                    Photo accent
-                </span>
-                <div className="flex flex-wrap gap-2">
-                    <AccentSwatch
-                        color={null}
-                        label="Pick automatically"
-                        selected={image.accent === null}
-                        onSelect={() => onAdjust({ accent: null })}
-                    />
-                    {swatches.map((swatch) => (
-                        <AccentSwatch
-                            key={swatch}
-                            color={swatch}
-                            label={`Use ${swatch}`}
-                            selected={image.accent === swatch}
-                            onSelect={() => onAdjust({ accent: swatch })}
-                        />
-                    ))}
-                    <Tip label="Choose any accent color" side="top">
-                        <label className={cn(
-                            "relative flex h-11 w-11 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-twilight-border-light focus-within:ring-2 focus-within:ring-accent-primary",
-                            image.accent && !swatches.includes(image.accent) && "ring-2 ring-accent-primary",
-                        )} style={image.accent && !swatches.includes(image.accent) ? { background: image.accent } : undefined}>
-                            <span className="rounded bg-twilight-deep/90 p-1 text-twilight-text"><Pipette size={16} aria-hidden="true" /></span>
-                            <input
-                                type="color"
-                                aria-label="Custom photo accent"
-                                value={image.accent ?? image.swatches[0] ?? image.dominant}
-                                onChange={(event) => onAdjust({ accent: event.target.value })}
-                                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                            />
-                        </label>
-                    </Tip>
-                </div>
-                <p className="text-xs text-twilight-text-muted">Choose a color from your photo, or pick any color with the eyedropper. Cadence adjusts it for readable contrast.</p>
-            </div>
+            <AccentPicker image={image} onAdjust={onAdjust} />
 
             <div className="grid gap-4 sm:grid-cols-2">
                 <RangeSlider

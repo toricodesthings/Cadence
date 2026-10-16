@@ -35,6 +35,53 @@ const SORT_LABELS: Record<PersonalEventSortMode, string> = {
     reminders: "Reminders first",
 };
 
+function SortMenu({ value, onChange }: { value: PersonalEventSortMode; onChange: (mode: PersonalEventSortMode) => void }) {
+    return (
+        <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+                <button
+                    type="button"
+                    aria-label={`Sort events: ${SORT_LABELS[value]}`}
+                    className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 self-start rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 text-[13px] text-twilight-text-soft transition-colors hover:bg-accent-nav-schedule/8 hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-nav-schedule/40 data-[state=open]:text-twilight-text sm:self-auto"
+                >
+                    <ArrowDownUp size={13} aria-hidden="true" className="text-accent-nav-schedule" />
+                    {SORT_LABELS[value]}
+                    <ChevronDown size={14} aria-hidden="true" className="text-twilight-text-muted" />
+                </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end" aria-label="Sort events">
+                <DropdownMenu.RadioGroup value={value} onValueChange={(next) => onChange(next as PersonalEventSortMode)}>
+                    {(Object.keys(SORT_LABELS) as PersonalEventSortMode[]).map((value) => (
+                        <DropdownMenu.RadioItem key={value} value={value}>{SORT_LABELS[value]}</DropdownMenu.RadioItem>
+                    ))}
+                </DropdownMenu.RadioGroup>
+            </DropdownMenu.Content>
+        </DropdownMenu.Root>
+    );
+}
+
+function EmptyEvents({ onAdd }: { onAdd: () => void }) {
+    return (
+        <section className="rounded-[1.9rem] border border-white/[0.08] bg-white/[0.03] px-6 py-16">
+            <div className="mx-auto flex max-w-md flex-col items-center text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[1.6rem] border border-accent-nav-schedule/20 bg-accent-nav-schedule/10 text-accent-nav-schedule">
+                    <CalendarHeart size={28} aria-hidden="true" />
+                </div>
+                <p className="mt-6 text-base font-medium text-twilight-text">
+                    No personal events yet.
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-twilight-text-soft">
+                    Add birthdays, anniversaries, and other yearly dates you want to keep in view.
+                </p>
+                <Button type="button" variant="cardPrimary" size="md" onClick={onAdd} className={`mt-6 ${ADD_EVENT_CLASS}`}>
+                    <CalendarPlus size={16} aria-hidden="true" />
+                    Add event
+                </Button>
+            </div>
+        </section>
+    );
+}
+
 export default function EventsRoute() {
     const navigate = useNavigate();
     const shell = useShellMode();
@@ -149,47 +196,12 @@ export default function EventsRoute() {
                         </div>
 
                         {events.length > 0 ? (
-                            <DropdownMenu.Root>
-                                <DropdownMenu.Trigger asChild>
-                                    <button
-                                        type="button"
-                                        aria-label={`Sort events: ${SORT_LABELS[sortMode]}`}
-                                        className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 self-start rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 text-[13px] text-twilight-text-soft transition-colors hover:bg-accent-nav-schedule/8 hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-nav-schedule/40 data-[state=open]:text-twilight-text sm:self-auto"
-                                    >
-                                        <ArrowDownUp size={13} aria-hidden="true" className="text-accent-nav-schedule" />
-                                        {SORT_LABELS[sortMode]}
-                                        <ChevronDown size={14} aria-hidden="true" className="text-twilight-text-muted" />
-                                    </button>
-                                </DropdownMenu.Trigger>
-                                <DropdownMenu.Content align="end" aria-label="Sort events">
-                                    <DropdownMenu.RadioGroup value={sortMode} onValueChange={(value) => setSortMode(value as PersonalEventSortMode)}>
-                                        {(Object.keys(SORT_LABELS) as PersonalEventSortMode[]).map((value) => (
-                                            <DropdownMenu.RadioItem key={value} value={value}>{SORT_LABELS[value]}</DropdownMenu.RadioItem>
-                                        ))}
-                                    </DropdownMenu.RadioGroup>
-                                </DropdownMenu.Content>
-                            </DropdownMenu.Root>
+                            <SortMenu value={sortMode} onChange={setSortMode} />
                         ) : null}
                     </section>
 
                     {events.length === 0 ? (
-                        <section className="rounded-[1.9rem] border border-white/[0.08] bg-white/[0.03] px-6 py-16">
-                            <div className="mx-auto flex max-w-md flex-col items-center text-center">
-                                <div className="flex h-16 w-16 items-center justify-center rounded-[1.6rem] border border-accent-nav-schedule/20 bg-accent-nav-schedule/10 text-accent-nav-schedule">
-                                    <CalendarHeart size={28} aria-hidden="true" />
-                                </div>
-                                <p className="mt-6 text-base font-medium text-twilight-text">
-                                    No personal events yet.
-                                </p>
-                                <p className="mt-2 text-sm leading-relaxed text-twilight-text-soft">
-                                    Add birthdays, anniversaries, and other yearly dates you want to keep in view.
-                                </p>
-                                <Button type="button" variant="cardPrimary" size="md" onClick={openCreate} className={`mt-6 ${ADD_EVENT_CLASS}`}>
-                                    <CalendarPlus size={16} aria-hidden="true" />
-                                    Add event
-                                </Button>
-                            </div>
-                        </section>
+                        <EmptyEvents onAdd={openCreate} />
                     ) : (
                         <section className="grid gap-4 pb-8 sm:grid-cols-2 xl:grid-cols-3">
                             {events.map((item) => (

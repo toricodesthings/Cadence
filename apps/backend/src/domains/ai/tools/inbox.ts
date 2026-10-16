@@ -15,6 +15,26 @@ import { deleteCaptures, processCapture, unprocessCapture, updateCapture } from 
 import { insertInboxItemSchema } from "@cadence/contracts/inbox";
 import { suggestPlacement } from "../../decisions/placement";
 
+const selectInboxPage = (tx: Parameters<Parameters<typeof withRls>[2]>[0], userId: string, includeProcessed: boolean, limit: number, offset: number) =>
+    tx
+        .select({
+            id: inboxItems.id,
+            rawText: inboxItems.rawText,
+            captureKind: inboxItems.captureKind,
+            captureStatus: inboxItems.captureStatus,
+            processed: inboxItems.processed,
+            placedTaskId: inboxItems.placedTaskId,
+        })
+        .from(inboxItems)
+        .where(
+            includeProcessed
+                ? eq(inboxItems.userId, userId)
+                : and(eq(inboxItems.userId, userId), inArray(inboxItems.captureStatus, ["clarifying", "kept"])),
+        )
+        .orderBy(desc(inboxItems.createdAt), desc(inboxItems.id))
+        .limit(limit)
+        .offset(offset);
+
 export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_inbox_items: tool({
@@ -30,26 +50,7 @@ export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
             safeExecute("get_inbox_items", userId, async () => {
                 const cap = clampLimit(limit);
                 const db = getDbClient(env);
-                const rows = await withRls(db, userId, async (tx) =>
-                    tx
-                        .select({
-                            id: inboxItems.id,
-                            rawText: inboxItems.rawText,
-                            captureKind: inboxItems.captureKind,
-                            captureStatus: inboxItems.captureStatus,
-                            processed: inboxItems.processed,
-                            placedTaskId: inboxItems.placedTaskId,
-                        })
-                        .from(inboxItems)
-                        .where(
-                            includeProcessed
-                                ? eq(inboxItems.userId, userId)
-                                : and(eq(inboxItems.userId, userId), inArray(inboxItems.captureStatus, ["clarifying", "kept"])),
-                        )
-                        .orderBy(desc(inboxItems.createdAt), desc(inboxItems.id))
-                        .limit(cap + 1)
-                        .offset(offset),
-                );
+                const rows = await withRls(db, userId, (tx) => selectInboxPage(tx, userId, includeProcessed, cap + 1, offset));
                 const more = rows.length > cap;
                 return { items: rows.slice(0, cap).map(toMinimalInboxItem), ...(more && { more, nextOffset: offset + cap }) };
             }),

@@ -22,6 +22,39 @@ interface ProjectLinkProps {
     count?: number;
 }
 
+function ColorSwatches({ value, isCustom, onPick }: { value: string; isCustom: boolean; onPick: (value: string, custom: boolean) => void }) {
+    return (
+        <div className="flex gap-2 items-center flex-wrap">
+            {PROJECT_ACCENT_OPTIONS.map((opt) => (
+                <Tip key={opt.value} label={opt.label} side="top">
+                    <button
+                        type="button"
+                        onClick={() => onPick(opt.value, false)}
+                        className={`w-5 h-5 rounded-full transition-[transform,opacity] duration-150 cursor-pointer ${value === opt.value && !isCustom
+                            ? "ring-2 ring-offset-2 ring-offset-twilight-surface scale-110"
+                            : "opacity-60 hover:opacity-100"
+                            }`}
+                        style={{ backgroundColor: opt.varName }}
+                    />
+                </Tip>
+            ))}
+            <Tip label="Custom Hex Color" side="top">
+                <div className="relative flex items-center justify-center w-5 h-5 rounded-full ring-1 ring-twilight-border overflow-hidden cursor-pointer">
+                    <input
+                        type="color"
+                        value={value.startsWith("#") ? value : PROJECT_FALLBACK_COLOR}
+                        onChange={(e) => onPick(e.target.value, true)}
+                        className="absolute inset-[-10px] w-[200%] h-[200%] cursor-pointer"
+                    />
+                    {isCustom && (
+                        <div className="absolute inset-0 ring-2 ring-offset-2 ring-offset-twilight-surface ring-twilight-text/50 rounded-full pointer-events-none" />
+                    )}
+                </div>
+            </Tip>
+        </div>
+    );
+}
+
 /** Reusable project list item with color dot and quick-action menu */
 export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLinkProps) {
     const location = useLocation();
@@ -86,40 +119,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                                 onKeyDown={(e) => e.key === "Escape" && setRenameOpen(false)}
                             />
                         </div>
-                        <div className="flex gap-2 items-center flex-wrap">
-                            {PROJECT_ACCENT_OPTIONS.map((opt) => (
-                                <Tip key={opt.value} label={opt.label} side="top">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setColorValue(opt.value);
-                                            setIsCustomColor(false);
-                                        }}
-                                        className={`w-5 h-5 rounded-full transition-[transform,opacity] duration-150 cursor-pointer ${colorValue === opt.value && !isCustomColor
-                                            ? "ring-2 ring-offset-2 ring-offset-twilight-surface scale-110"
-                                            : "opacity-60 hover:opacity-100"
-                                            }`}
-                                        style={{ backgroundColor: opt.varName }}
-                                    />
-                                </Tip>
-                            ))}
-                            <Tip label="Custom Hex Color" side="top">
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full ring-1 ring-twilight-border overflow-hidden cursor-pointer">
-                                <input
-                                    type="color"
-                                    value={colorValue.startsWith("#") ? colorValue : PROJECT_FALLBACK_COLOR}
-                                    onChange={(e) => {
-                                        setColorValue(e.target.value);
-                                        setIsCustomColor(true);
-                                    }}
-                                    className="absolute inset-[-10px] w-[200%] h-[200%] cursor-pointer"
-                                />
-                                {isCustomColor && (
-                                    <div className="absolute inset-0 ring-2 ring-offset-2 ring-offset-twilight-surface ring-twilight-text/50 rounded-full pointer-events-none" />
-                                )}
-                            </div>
-                            </Tip>
-                        </div>
+                        <ColorSwatches value={colorValue} isCustom={isCustomColor} onPick={(value, custom) => { setColorValue(value); setIsCustomColor(custom); }} />
                         <Dialog.DialogFooter>
                             <Button type="button" variant="ghost" size="md" onClick={() => setRenameOpen(false)}>
                                 Cancel

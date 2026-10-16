@@ -374,9 +374,7 @@ export default function Upcoming() {
 
         const taskItems = items.filter((item) => item.kind === "task" && item.task);
         const habitItems = items.filter((item) => item.kind === "habit");
-        const rationaleByTaskId = Object.fromEntries(
-            taskItems.map((item) => [item.task!.id, item.rationaleLabel]),
-        );
+        const rationaleByTaskId = Object.fromEntries(taskItems.map((item) => [item.task!.id, item.rationaleLabel]));
 
         return (
             <div className="flex flex-col gap-3">
@@ -393,9 +391,7 @@ export default function Upcoming() {
 
                 {habitItems.length > 0 ? (
                     <>
-                        {taskItems.length > 0 ? (
-                            <AgendaHabitDivider label="Routines" />
-                        ) : null}
+                        {taskItems.length > 0 ? <AgendaHabitDivider label="Routines" /> : null}
                         <div className="flex flex-col divide-y divide-white/[0.05]">
                             {habitItems.map((item) => (
                                 <RoutineAgendaRow

@@ -67,6 +67,135 @@ const timeField = (label: string, value: string, onChange: (value: string) => vo
     </div>
 );
 
+type SectionProps = { notif: Notif; set: (patch: Partial<Notif>) => void };
+
+const lead = (none = "At time") => [[0, none], [5, "5 min"], [10, "10 min"], [15, "15 min"], [30, "30 min"], [60, "1 hr"]] as const;
+
+function TaskAlerts({ notif, set }: SectionProps) {
+    return (
+        <>
+            <SettingsSection title="Tasks">
+                <SettingsRow title="Task reminders">
+                    <Switch checked={notif.taskReminders} aria-label="Task reminders" onCheckedChange={(taskReminders) => set({ taskReminders })} />
+                </SettingsRow>
+                {notif.taskReminders && (
+                    <SettingsRow title="Waiting follow-ups">
+                        <Switch checked={notif.followUps} aria-label="Waiting follow-ups" onCheckedChange={(followUps) => set({ followUps })} />
+                    </SettingsRow>
+                )}
+                <SettingsRow title="Due dates">
+                    <Switch checked={notif.dueDateAlerts} aria-label="Due dates" onCheckedChange={(dueDateAlerts) => set({ dueDateAlerts })} />
+                </SettingsRow>
+                {notif.dueDateAlerts && (
+                    <>
+                        <SettingsRow title="Heads-up before">
+                            <ChipRow label="Heads-up before a due date" value={notif.dueHeadsUpDays}
+                                options={[[0, "None"], [1, "1 day"], [2, "2 days"], [7, "1 week"]] as const}
+                                onChange={(dueHeadsUpDays) => set({ dueHeadsUpDays })} />
+                        </SettingsRow>
+                        <SettingsRow title="Keep overdue for">
+                            <ChipRow label="How long overdue tasks stay listed" value={notif.overdueDays}
+                                options={[[0, "Due day"], [1, "1 day"], [3, "3 days"], [7, "1 week"]] as const}
+                                onChange={(overdueDays) => set({ overdueDays })} />
+                        </SettingsRow>
+                    </>
+                )}
+            </SettingsSection>
+        </>
+    );
+}
+
+function ScheduleAlerts({ notif, set }: SectionProps) {
+    return (
+        <>
+            <SettingsSection title="Schedule">
+                <SettingsRow title="Timed blocks">
+                    <Switch checked={notif.scheduleAlerts} aria-label="Timed blocks" onCheckedChange={(scheduleAlerts) => set({ scheduleAlerts })} />
+                </SettingsRow>
+                {notif.scheduleAlerts && (
+                    <>
+                        <SettingsRow title="Before a block">
+                            <ChipRow label="Alert before a timed block" value={notif.blockLeadMinutes} options={lead("At start")}
+                                onChange={(blockLeadMinutes) => set({ blockLeadMinutes })} />
+                        </SettingsRow>
+                        <SettingsRow title="Before Fixed blocks">
+                            <ChipRow label="Alert before a Fixed block" value={notif.fixedLeadMinutes}
+                                options={[[0, "At start"], [15, "15 min"], [30, "30 min"], [60, "1 hr"], [120, "2 hr"]] as const}
+                                onChange={(fixedLeadMinutes) => set({ fixedLeadMinutes })} />
+                        </SettingsRow>
+                    </>
+                )}
+            </SettingsSection>
+        </>
+    );
+}
+
+function RoutineAlerts({ notif, set }: SectionProps) {
+    return (
+        <>
+            <SettingsSection title="Routines">
+                <SettingsRow title="Routine reminders">
+                    <Switch checked={notif.habitReminders} aria-label="Routine reminders" onCheckedChange={(habitReminders) => set({ habitReminders })} />
+                </SettingsRow>
+                {notif.habitReminders && (
+                    <>
+                        <SettingsRow title="Before target time">
+                            <ChipRow label="Alert before a routine's time" value={notif.habitReminderLeadMinutes} options={lead()}
+                                onChange={(habitReminderLeadMinutes) => set({ habitReminderLeadMinutes })} />
+                        </SettingsRow>
+                        <SettingsRow title="Group several at once">
+                            <Switch checked={notif.bundleMissedRoutinePrompts} aria-label="Group several routine reminders" onCheckedChange={(bundleMissedRoutinePrompts) => set({ bundleMissedRoutinePrompts })} />
+                        </SettingsRow>
+                    </>
+                )}
+            </SettingsSection>
+        </>
+    );
+}
+
+function QuietSections({ notif, set, paused, pauseFor, pauseUntilMorning }: SectionProps & { paused: boolean; pauseFor: (hours: number) => void; pauseUntilMorning: () => void }) {
+    return (
+        <>
+            <SettingsSection title="Quiet">
+                <SettingsRow title="Pause">
+                    {paused ? (
+                        <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                            <span className="text-sm text-twilight-text-soft">Until {formatShortDateTime(notif.pausedUntil!)}</span>
+                            <Button variant="secondary" onClick={() => set({ pausedUntil: null })}>Resume</Button>
+                        </div>
+                    ) : (
+                        <div className="flex flex-wrap gap-2 sm:justify-end">
+                            <Button variant="secondary" onClick={() => pauseFor(1)}>1 hour</Button>
+                            <Button variant="secondary" onClick={pauseUntilMorning}>Until tomorrow</Button>
+                        </div>
+                    )}
+                </SettingsRow>
+                <SettingsRow title="Quiet hours" description="Reminders wait in Cadence; any still ahead alert when it ends.">
+                    <Switch checked={notif.quietHoursEnabled} aria-label="Quiet hours" onCheckedChange={(quietHoursEnabled) => set({ quietHoursEnabled })} />
+                </SettingsRow>
+                {notif.quietHoursEnabled && (
+                    <SettingsRow title="From – to">
+                        <div className="flex w-full items-center gap-2 sm:justify-end">
+                            {timeField("Quiet hours start", notif.quietHoursStart ?? "22:00", (quietHoursStart) => set({ quietHoursStart }))}
+                            <span aria-hidden="true" className="text-twilight-text-soft">→</span>
+                            {timeField("Quiet hours end", notif.quietHoursEnd ?? "07:00", (quietHoursEnd) => set({ quietHoursEnd }))}
+                        </div>
+                    </SettingsRow>
+                )}
+            </SettingsSection>
+
+            <SettingsSection title="My day">
+                <SettingsRow title="Morning" description="Due-date and event alerts, Defer to tomorrow.">
+                    {timeField("Morning", notif.morningTime, (morningTime) => set({ morningTime }))}
+                </SettingsRow>
+                <SettingsRow title="Evening" description="Defer to this evening.">
+                    {timeField("Evening", notif.eveningTime, (eveningTime) => set({ eveningTime }))}
+                </SettingsRow>
+            </SettingsSection>
+        </>
+    );
+}
+
 export function NotificationsTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
@@ -84,7 +213,6 @@ export function NotificationsTab() {
         const zone = getUserZone();
         set({ pausedUntil: atLocal(addDays(todayIn(zone), 1), notif.morningTime, zone) });
     };
-    const lead = (none = "At time") => [[0, none], [5, "5 min"], [10, "10 min"], [15, "15 min"], [30, "30 min"], [60, "1 hr"]] as const;
 
     return (
         <div className="flex flex-col gap-10">
@@ -123,69 +251,11 @@ export function NotificationsTab() {
 
             <DeviceList />
 
-            <SettingsSection title="Tasks">
-                <SettingsRow title="Task reminders">
-                    <Switch checked={notif.taskReminders} aria-label="Task reminders" onCheckedChange={(taskReminders) => set({ taskReminders })} />
-                </SettingsRow>
-                {notif.taskReminders && (
-                    <SettingsRow title="Waiting follow-ups">
-                        <Switch checked={notif.followUps} aria-label="Waiting follow-ups" onCheckedChange={(followUps) => set({ followUps })} />
-                    </SettingsRow>
-                )}
-                <SettingsRow title="Due dates">
-                    <Switch checked={notif.dueDateAlerts} aria-label="Due dates" onCheckedChange={(dueDateAlerts) => set({ dueDateAlerts })} />
-                </SettingsRow>
-                {notif.dueDateAlerts && (
-                    <>
-                        <SettingsRow title="Heads-up before">
-                            <ChipRow label="Heads-up before a due date" value={notif.dueHeadsUpDays}
-                                options={[[0, "None"], [1, "1 day"], [2, "2 days"], [7, "1 week"]] as const}
-                                onChange={(dueHeadsUpDays) => set({ dueHeadsUpDays })} />
-                        </SettingsRow>
-                        <SettingsRow title="Keep overdue for">
-                            <ChipRow label="How long overdue tasks stay listed" value={notif.overdueDays}
-                                options={[[0, "Due day"], [1, "1 day"], [3, "3 days"], [7, "1 week"]] as const}
-                                onChange={(overdueDays) => set({ overdueDays })} />
-                        </SettingsRow>
-                    </>
-                )}
-            </SettingsSection>
+            <TaskAlerts notif={notif} set={set} />
 
-            <SettingsSection title="Schedule">
-                <SettingsRow title="Timed blocks">
-                    <Switch checked={notif.scheduleAlerts} aria-label="Timed blocks" onCheckedChange={(scheduleAlerts) => set({ scheduleAlerts })} />
-                </SettingsRow>
-                {notif.scheduleAlerts && (
-                    <>
-                        <SettingsRow title="Before a block">
-                            <ChipRow label="Alert before a timed block" value={notif.blockLeadMinutes} options={lead("At start")}
-                                onChange={(blockLeadMinutes) => set({ blockLeadMinutes })} />
-                        </SettingsRow>
-                        <SettingsRow title="Before Fixed blocks">
-                            <ChipRow label="Alert before a Fixed block" value={notif.fixedLeadMinutes}
-                                options={[[0, "At start"], [15, "15 min"], [30, "30 min"], [60, "1 hr"], [120, "2 hr"]] as const}
-                                onChange={(fixedLeadMinutes) => set({ fixedLeadMinutes })} />
-                        </SettingsRow>
-                    </>
-                )}
-            </SettingsSection>
+            <ScheduleAlerts notif={notif} set={set} />
 
-            <SettingsSection title="Routines">
-                <SettingsRow title="Routine reminders">
-                    <Switch checked={notif.habitReminders} aria-label="Routine reminders" onCheckedChange={(habitReminders) => set({ habitReminders })} />
-                </SettingsRow>
-                {notif.habitReminders && (
-                    <>
-                        <SettingsRow title="Before target time">
-                            <ChipRow label="Alert before a routine's time" value={notif.habitReminderLeadMinutes} options={lead()}
-                                onChange={(habitReminderLeadMinutes) => set({ habitReminderLeadMinutes })} />
-                        </SettingsRow>
-                        <SettingsRow title="Group several at once">
-                            <Switch checked={notif.bundleMissedRoutinePrompts} aria-label="Group several routine reminders" onCheckedChange={(bundleMissedRoutinePrompts) => set({ bundleMissedRoutinePrompts })} />
-                        </SettingsRow>
-                    </>
-                )}
-            </SettingsSection>
+            <RoutineAlerts notif={notif} set={set} />
 
             <SettingsSection title="Yearly events">
                 <SettingsRow title="Notify" description="Each event's bell turns it on.">
@@ -195,42 +265,7 @@ export function NotificationsTab() {
                 </SettingsRow>
             </SettingsSection>
 
-            <SettingsSection title="Quiet">
-                <SettingsRow title="Pause">
-                    {paused ? (
-                        <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-                            <span className="text-sm text-twilight-text-soft">Until {formatShortDateTime(notif.pausedUntil!)}</span>
-                            <Button variant="secondary" onClick={() => set({ pausedUntil: null })}>Resume</Button>
-                        </div>
-                    ) : (
-                        <div className="flex flex-wrap gap-2 sm:justify-end">
-                            <Button variant="secondary" onClick={() => pauseFor(1)}>1 hour</Button>
-                            <Button variant="secondary" onClick={pauseUntilMorning}>Until tomorrow</Button>
-                        </div>
-                    )}
-                </SettingsRow>
-                <SettingsRow title="Quiet hours" description="Reminders wait in Cadence; any still ahead alert when it ends.">
-                    <Switch checked={notif.quietHoursEnabled} aria-label="Quiet hours" onCheckedChange={(quietHoursEnabled) => set({ quietHoursEnabled })} />
-                </SettingsRow>
-                {notif.quietHoursEnabled && (
-                    <SettingsRow title="From – to">
-                        <div className="flex w-full items-center gap-2 sm:justify-end">
-                            {timeField("Quiet hours start", notif.quietHoursStart ?? "22:00", (quietHoursStart) => set({ quietHoursStart }))}
-                            <span aria-hidden="true" className="text-twilight-text-soft">→</span>
-                            {timeField("Quiet hours end", notif.quietHoursEnd ?? "07:00", (quietHoursEnd) => set({ quietHoursEnd }))}
-                        </div>
-                    </SettingsRow>
-                )}
-            </SettingsSection>
-
-            <SettingsSection title="My day">
-                <SettingsRow title="Morning" description="Due-date and event alerts, Defer to tomorrow.">
-                    {timeField("Morning", notif.morningTime, (morningTime) => set({ morningTime }))}
-                </SettingsRow>
-                <SettingsRow title="Evening" description="Defer to this evening.">
-                    {timeField("Evening", notif.eveningTime, (eveningTime) => set({ eveningTime }))}
-                </SettingsRow>
-            </SettingsSection>
+            <QuietSections notif={notif} set={set} paused={paused} pauseFor={pauseFor} pauseUntilMorning={pauseUntilMorning} />
         </div>
     );
 }

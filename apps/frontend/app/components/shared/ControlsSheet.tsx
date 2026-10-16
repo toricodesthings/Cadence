@@ -29,6 +29,21 @@ interface ControlsSheetProps {
 
 const SECTION_LABEL = "px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted";
 
+function DrillRow({ section, onOpen }: { section: ControlsSheetSection; onOpen: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onOpen}
+            aria-haspopup="menu"
+            className="touch-target flex min-h-12 w-full items-center gap-2 rounded-2xl border border-twilight-border/30 bg-twilight-base/40 px-3.5 text-sm font-medium text-twilight-text transition-colors hover:bg-white/[0.05]"
+        >
+            <span className="flex-1 text-left">{section.label}</span>
+            {section.summary ? <span className="text-twilight-text-soft">{section.summary}</span> : null}
+            <ChevronRight size={16} aria-hidden="true" className="text-twilight-text-muted" />
+        </button>
+    );
+}
+
 export function ControlsSheet({
     routeKey,
     title,
@@ -86,17 +101,7 @@ export function ControlsSheet({
                                 {description ? <p className="px-1 pt-1 text-sm text-twilight-text-soft">{description}</p> : null}
 
                                 {sections.map((section) => section.display === "drill" ? (
-                                    <button
-                                        key={section.id}
-                                        type="button"
-                                        onClick={() => setDrillId(section.id)}
-                                        aria-haspopup="menu"
-                                        className="touch-target flex min-h-12 w-full items-center gap-2 rounded-2xl border border-twilight-border/30 bg-twilight-base/40 px-3.5 text-sm font-medium text-twilight-text transition-colors hover:bg-white/[0.05]"
-                                    >
-                                        <span className="flex-1 text-left">{section.label}</span>
-                                        {section.summary ? <span className="text-twilight-text-soft">{section.summary}</span> : null}
-                                        <ChevronRight size={16} aria-hidden="true" className="text-twilight-text-muted" />
-                                    </button>
+                                    <DrillRow key={section.id} section={section} onOpen={() => setDrillId(section.id)} />
                                 ) : (
                                     <section key={section.id} aria-label={section.label} className="space-y-2">
                                         <h3 className={SECTION_LABEL}>{section.label}</h3>

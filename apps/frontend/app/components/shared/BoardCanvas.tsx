@@ -35,6 +35,49 @@ interface BoardCanvasProps {
     compactTrailing?: React.ReactNode;
 }
 
+type ColumnHeaderProps = Pick<BoardColumn, "title" | "count" | "description" | "headerAction" | "titleHidden">;
+
+function ColumnHeader({ title, count, description, headerAction, titleHidden }: ColumnHeaderProps) {
+    return (
+        <div className="flex items-start justify-between gap-3 px-5 pb-1 pt-4">
+            <div className="min-w-0">
+                {titleHidden ? null : (
+                    <div className="flex h-6 items-center gap-2">
+                        <h3 className="font-display text-base font-semibold text-twilight-text">{title}</h3>
+                        <span className="rounded-full border border-twilight-border/40 bg-white/[0.03] px-2.5 py-0.5 text-[11px] tabular-nums text-twilight-text-soft">
+                            {count}
+                        </span>
+                    </div>
+                )}
+                {description ? (
+                    <div className={`text-sm leading-relaxed text-twilight-text-soft ${titleHidden ? "" : "mt-1"}`}>
+                        {description}
+                    </div>
+                ) : null}
+            </div>
+            {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
+        </div>
+    );
+}
+
+function CollapsedRail({ title, count, icon, onExpand }: Pick<BoardColumn, "title" | "count" | "icon" | "onExpand">) {
+    // One button, the whole rail: icon on the open header's line, the count under it.
+    return (
+        <Tip label={`Show ${title} (${count})`} side="right">
+            <button
+                type="button"
+                onClick={onExpand}
+                aria-label={`Show ${title} (${count})`}
+                className="surface-card animate-in fade-in flex h-full min-h-0 w-full cursor-pointer flex-col items-center gap-1.5 rounded-[24px] px-3 pt-4 text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                data-lift
+            >
+                <span className="flex h-6 items-center">{icon}</span>
+                <span className="text-[12px] tabular-nums">{count}</span>
+            </button>
+        </Tip>
+    );
+}
+
 function BoardColumnShell({
     title,
     count,
@@ -47,45 +90,12 @@ function BoardColumnShell({
     onExpand,
     titleHidden = false,
 }: BoardColumn) {
-    if (collapsed) {
-        // One button, the whole rail: icon on the open header's line, the count under it.
-        return (
-            <Tip label={`Show ${title} (${count})`} side="right">
-                <button
-                    type="button"
-                    onClick={onExpand}
-                    aria-label={`Show ${title} (${count})`}
-                    className="surface-card animate-in fade-in flex h-full min-h-0 w-full cursor-pointer flex-col items-center gap-1.5 rounded-[24px] px-3 pt-4 text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                    data-lift
-                >
-                    <span className="flex h-6 items-center">{icon}</span>
-                    <span className="text-[12px] tabular-nums">{count}</span>
-                </button>
-            </Tip>
-        );
-    }
+    if (collapsed) return <CollapsedRail title={title} count={count} icon={icon} onExpand={onExpand} />;
 
     return (
         <section className="surface-card animate-in fade-in flex h-full min-h-0 flex-col rounded-[28px]">
             {!titleHidden || description || headerAction ? (
-                <div className="flex items-start justify-between gap-3 px-5 pb-1 pt-4">
-                    <div className="min-w-0">
-                        {titleHidden ? null : (
-                            <div className="flex h-6 items-center gap-2">
-                                <h3 className="font-display text-base font-semibold text-twilight-text">{title}</h3>
-                                <span className="rounded-full border border-twilight-border/40 bg-white/[0.03] px-2.5 py-0.5 text-[11px] tabular-nums text-twilight-text-soft">
-                                    {count}
-                                </span>
-                            </div>
-                        )}
-                        {description ? (
-                            <div className={`text-sm leading-relaxed text-twilight-text-soft ${titleHidden ? "" : "mt-1"}`}>
-                                {description}
-                            </div>
-                        ) : null}
-                    </div>
-                    {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
-                </div>
+                <ColumnHeader title={title} count={count} description={description} headerAction={headerAction} titleHidden={titleHidden} />
             ) : null}
 
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 scrollbar-thin">

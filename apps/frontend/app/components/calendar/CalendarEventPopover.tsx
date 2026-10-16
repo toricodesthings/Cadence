@@ -124,13 +124,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     }, [initialTab]);
 
     useEffect(() => {
-        const id = requestAnimationFrame(() => {
-            if (tab === "task") {
-                taskTitleRef.current?.focus();
-            } else {
-                event.titleRef.current?.focus();
-            }
-        });
+        const id = requestAnimationFrame(() => (tab === "task" ? taskTitleRef : event.titleRef).current?.focus());
         return () => cancelAnimationFrame(id);
     }, [tab, event.titleRef]);
 
