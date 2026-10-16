@@ -107,33 +107,34 @@ export function DurationChips({
 }) {
     const [saved, setSaved] = useState<number | null>(null);
     const [changing, setChanging] = useState(false);
-    const [paused, setPaused] = useState(false);
-    const holds = useRef(0);
-    const hold = (delta: number) => {
-        holds.current = Math.max(0, holds.current + delta);
-        setPaused(holds.current > 0);
-    };
+    const box = useRef<HTMLDivElement>(null);
 
     useEffect(onShown, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, when it renders
 
-    // Re-armed by every stage change, and waiting while hovered or focused.
+    // Re-armed by every stage change. Hover and focus are read live when it fires, not counted from events: a chip
+    // that unmounts while focused (picking, Shorter/Longer) never blurs, which left a count stuck and the toast open.
     useEffect(() => {
-        if (paused || changing) return;
-        const timer = setTimeout(() => toast.dismiss(id), saved === null ? ASK_MS : SAVED_MS);
+        if (changing) return; // choosing again: no countdown
+        let timer: ReturnType<typeof setTimeout>;
+        const arm = (ms: number) => {
+            timer = setTimeout(() => {
+                const el = box.current;
+                if (el && (el.matches(":hover") || el.contains(document.activeElement))) arm(1_000);
+                else toast.dismiss(id);
+            }, ms);
+        };
+        arm(saved === null ? ASK_MS : SAVED_MS);
         return () => clearTimeout(timer);
-    }, [id, paused, changing, saved]);
+    }, [id, changing, saved]);
 
     const name = toastName(title, 40);
     return (
         // The Cadence toast is the card: no surface of its own, or it shows a border inside a border.
         <div
+            ref={box}
             role="group"
             aria-label="How long did it take?"
             className="flex w-full max-w-sm flex-col gap-2 text-sm text-twilight-text"
-            onPointerEnter={() => hold(1)}
-            onPointerLeave={() => hold(-1)}
-            onFocus={() => hold(1)}
-            onBlur={() => hold(-1)}
         >
             {saved !== null && !changing ? (
                 <p className="flex flex-wrap items-center gap-x-2 leading-snug" role="status">
