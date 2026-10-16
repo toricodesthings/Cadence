@@ -41,6 +41,10 @@ interface ToolDescriptor {
     render?: (ctx: ToolRenderContext<never>) => React.ReactNode;
 }
 
+/** A write card that takes only the tool's context. */
+const card = <N extends ToolName>(Card: React.ComponentType<{ ctx: ToolRenderContext<N> }>) =>
+    (ctx: ToolRenderContext<N>) => <Card ctx={ctx} />;
+
 const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRenderContext<N>) => React.ReactNode } } = {
     // ── read → activity chip ──────────────────────────────────────────────
     get_tasks: { label: "Checked your tasks" },
@@ -60,42 +64,42 @@ const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRend
     search_past_chats: { label: "Looked through your past chats" },
 
     // ── write → approval cards ────────────────────────────────────────────
-    create_tasks: { label: "Added tasks", render: (ctx) => <TaskBatchCard ctx={ctx} /> },
-    duplicate_tasks: { label: "Copied tasks", render: (ctx) => <DuplicateTasksCard ctx={ctx} /> },
-    update_tasks: { label: "Changed tasks", render: (ctx) => <UpdateTasksCard ctx={ctx} /> },
-    reorder_tasks: { label: "Reordered tasks", render: (ctx) => <ReorderTasksCard ctx={ctx} /> },
-    edit_subtasks: { label: "Changed a checklist", render: (ctx) => <SubtaskEditCard ctx={ctx} /> },
-    set_task_state: { label: "Moved tasks", render: (ctx) => <SetStateCard ctx={ctx} /> },
-    delete_tasks: { label: "Deleted tasks", render: (ctx) => <DeleteTasksCard ctx={ctx} /> },
-    reschedule_tasks: { label: "Rescheduled tasks", render: (ctx) => <RescheduleCard ctx={ctx} /> },
-    update_captures: { label: "Changed captures", render: (ctx) => <UpdateCapturesCard ctx={ctx} /> },
-    delete_captures: { label: "Deleted captures", render: (ctx) => <DeleteCapturesCard ctx={ctx} /> },
-    create_project: { label: "Made a list", render: (ctx) => <CreateProjectCard ctx={ctx} /> },
-    update_project: { label: "Changed a list", render: (ctx) => <UpdateProjectCard ctx={ctx} /> },
-    delete_project: { label: "Deleted a list", render: (ctx) => <DeleteProjectCard ctx={ctx} /> },
-    create_sections: { label: "Added sections", render: (ctx) => <CreateSectionsCard ctx={ctx} /> },
-    update_section: { label: "Changed a section", render: (ctx) => <UpdateSectionCard ctx={ctx} /> },
-    delete_section: { label: "Deleted a section", render: (ctx) => <DeleteSectionCard ctx={ctx} /> },
-    create_tag: { label: "Made a tag", render: (ctx) => <CreateTagCard ctx={ctx} /> },
-    update_tag: { label: "Changed a tag", render: (ctx) => <UpdateTagCard ctx={ctx} /> },
-    delete_tag: { label: "Deleted a tag", render: (ctx) => <DeleteTagCard ctx={ctx} /> },
-    log_habit: { label: "Logged a routine", render: (ctx) => <LogHabitCard ctx={ctx} /> },
-    create_habit: { label: "Added a routine", render: (ctx) => <CreateHabitCard ctx={ctx} /> },
-    update_habit: { label: "Changed a routine", render: (ctx) => <UpdateHabitCard ctx={ctx} /> },
-    delete_habit: { label: "Deleted a routine", render: (ctx) => <DeleteHabitCard ctx={ctx} /> },
+    create_tasks: { label: "Added tasks", render: card(TaskBatchCard) },
+    duplicate_tasks: { label: "Copied tasks", render: card(DuplicateTasksCard) },
+    update_tasks: { label: "Changed tasks", render: card(UpdateTasksCard) },
+    reorder_tasks: { label: "Reordered tasks", render: card(ReorderTasksCard) },
+    edit_subtasks: { label: "Changed a checklist", render: card(SubtaskEditCard) },
+    set_task_state: { label: "Moved tasks", render: card(SetStateCard) },
+    delete_tasks: { label: "Deleted tasks", render: card(DeleteTasksCard) },
+    reschedule_tasks: { label: "Rescheduled tasks", render: card(RescheduleCard) },
+    update_captures: { label: "Changed captures", render: card(UpdateCapturesCard) },
+    delete_captures: { label: "Deleted captures", render: card(DeleteCapturesCard) },
+    create_project: { label: "Made a list", render: card(CreateProjectCard) },
+    update_project: { label: "Changed a list", render: card(UpdateProjectCard) },
+    delete_project: { label: "Deleted a list", render: card(DeleteProjectCard) },
+    create_sections: { label: "Added sections", render: card(CreateSectionsCard) },
+    update_section: { label: "Changed a section", render: card(UpdateSectionCard) },
+    delete_section: { label: "Deleted a section", render: card(DeleteSectionCard) },
+    create_tag: { label: "Made a tag", render: card(CreateTagCard) },
+    update_tag: { label: "Changed a tag", render: card(UpdateTagCard) },
+    delete_tag: { label: "Deleted a tag", render: card(DeleteTagCard) },
+    log_habit: { label: "Logged a routine", render: card(LogHabitCard) },
+    create_habit: { label: "Added a routine", render: card(CreateHabitCard) },
+    update_habit: { label: "Changed a routine", render: card(UpdateHabitCard) },
+    delete_habit: { label: "Deleted a routine", render: card(DeleteHabitCard) },
     save_event: { label: "Saved an event", render: (ctx) => ctx.part?.input?.eventId ? <UpdateEventCard ctx={ctx} /> : <CreateEventCard ctx={ctx} /> },
-    delete_event: { label: "Deleted an event", render: (ctx) => <DeleteEventCard ctx={ctx} /> },
+    delete_event: { label: "Deleted an event", render: card(DeleteEventCard) },
     save_focus_view: { label: "Saved a focus view", render: (ctx) => ctx.part?.input?.focusViewId ? <UpdateFocusViewCard ctx={ctx} /> : <CreateFocusViewCard ctx={ctx} /> },
-    delete_focus_view: { label: "Deleted a focus view", render: (ctx) => <DeleteFocusViewCard ctx={ctx} /> },
+    delete_focus_view: { label: "Deleted a focus view", render: card(DeleteFocusViewCard) },
 
     // ── remember → one-line receipt with Undo, never an approval ───────────
-    remember: { label: "Remembered", render: (ctx) => <RememberReceipt ctx={ctx} /> },
+    remember: { label: "Remembered", render: card(RememberReceipt) },
 
     // ── capture → quiet confirmation chip ─────────────────────────────────
     capture_to_inbox: { label: "Saved to your inbox" },
 
     // ── ask → a question to tap or type an answer to ──────────────────────
-    ask_user: { label: "Asked you", render: (ctx) => <AskCard ctx={ctx} /> },
+    ask_user: { label: "Asked you", render: card(AskCard) },
 };
 
 /** Writes the server no longer offers, still in older threads: the capture ones render settled, the rest through their successor's card. */

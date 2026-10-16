@@ -1,12 +1,11 @@
+import { OverlayPanel } from "./OverlayPanel";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Search, SendHorizontal } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
+import { ChevronRight, Search, SendHorizontal } from "lucide-react";
 import { formatInZone } from "@cadence/domain/time";
 import type { MemoryFact, MemoryKind, MemoryMode, MemoryPage } from "@cadence/contracts/memory";
 import * as ScrollArea from "../primitives/ScrollArea";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button, Tip } from "../primitives";
-import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 import { useClearMemory, useForgetMemory, useMemoryPage, useRestoreMemory, useSetMemoryMode } from "../../hooks/ai/use-memory";
 import { toastName, toastUndo } from "../../lib/utils/undo-toast";
 import { cn } from "../../lib/utils";
@@ -70,7 +69,6 @@ function CatchUp({ progress, learned, doneAt }: NonNullable<MemoryPage["catchUp"
  * so there is no editor and no review queue. Same envelope as the usage overlay.
  */
 export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: (text: string) => void }) {
-    const reduceMotion = useReducedMotion();
     const { data, isLoading } = useMemoryPage();
     const setMode = useSetMemoryMode();
     const forget = useForgetMemory();
@@ -112,31 +110,7 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
     };
 
     return (
-        <motion.div
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
-            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
-            transition={{ duration: 0.3, ease: EASE_OUT_EXPO }}
-            className="absolute inset-0 z-10 flex flex-col bg-panel"
-            role="dialog"
-            aria-label="What Cadence knows"
-        >
-            <header className="flex h-(--shell-header-h) shrink-0 items-center gap-2 border-b border-twilight-border px-4">
-                <Tip label="Back to conversation" side="bottom">
-                    <button
-                        type="button"
-                        ref={backRef}
-                        onClick={onClose}
-                        autoFocus
-                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                        aria-label="Back to conversation"
-                    >
-                        <ChevronLeft size={18} />
-                    </button>
-                </Tip>
-                <h2 className="font-display text-lg font-semibold tracking-tight text-twilight-text">What Cadence knows</h2>
-            </header>
-
+        <OverlayPanel label="What Cadence knows" title="What Cadence knows" onClose={onClose} backRef={backRef}>
             <ScrollArea.Root className="min-h-0 flex-1">
                 <ScrollArea.Viewport className="px-3 py-4">
                     {/* The viewport wraps its children in a block, so the column lives on its own element. */}
@@ -300,6 +274,6 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
                     </button>
                 </Tip>
             </form>
-        </motion.div>
+        </OverlayPanel>
     );
 }

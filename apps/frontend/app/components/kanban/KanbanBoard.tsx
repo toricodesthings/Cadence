@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { groupTasksBySection } from "../../lib/utils/task/group-by-section";
 import {
     DndContext, DragOverlay, closestCorners,
     KeyboardSensor, PointerSensor, useSensor, useSensors,
@@ -233,23 +234,7 @@ export function KanbanBoard({
         useSensor(KeyboardSensor),
     );
 
-    // Group tasks by sectionId
-    const { ungroupedTasks, sectionTaskMap } = useMemo(() => {
-        const ungrouped: Task[] = [];
-        const map = new Map<string, Task[]>();
-
-        for (const task of tasks) {
-            if (!task.sectionId) {
-                ungrouped.push(task);
-            } else {
-                const list = map.get(task.sectionId) || [];
-                list.push(task);
-                map.set(task.sectionId, list);
-            }
-        }
-
-        return { ungroupedTasks: ungrouped, sectionTaskMap: map };
-    }, [tasks]);
+    const { ungroupedTasks, sectionTaskMap } = useMemo(() => groupTasksBySection(tasks), [tasks]);
 
     const visibleColumns = useMemo(() => {
         const columns: Array<{

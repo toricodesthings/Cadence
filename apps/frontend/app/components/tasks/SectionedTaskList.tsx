@@ -1,9 +1,11 @@
-import { useState, useMemo, useRef, useCallback } from "react";
-import { ChevronDown, ChevronRight, Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
+import { ChevronDown, ChevronRight, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TaskList } from "../tasks/TaskList";
 import { useSections, useCreateSection, useUpdateSection, useDeleteSection } from "../../hooks/sections/use-sections";
 import { AddTaskInput } from "./AddTaskInput";
+import { AddSectionControl } from "./AddSectionControl";
+import { groupTasksBySection } from "../../lib/utils/task/group-by-section";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
@@ -56,9 +58,6 @@ export function SectionedTaskList({
 
     const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
     const [editingSection, setEditingSection] = useState<string | null>(null);
-    const [newSectionName, setNewSectionName] = useState("");
-    const [isAddingSection, setIsAddingSection] = useState(false);
-    const newSectionInputRef = useRef<HTMLInputElement>(null);
 
     const toggleCollapse = useCallback((sectionId: string) => {
         setCollapsedSections((prev) => {
@@ -69,32 +68,13 @@ export function SectionedTaskList({
         });
     }, []);
 
-    // Group tasks by sectionId
-    const { ungroupedTasks, sectionTaskMap } = useMemo(() => {
-        const ungrouped: Task[] = [];
-        const map = new Map<string, Task[]>();
+    const { ungroupedTasks, sectionTaskMap } = useMemo(() => groupTasksBySection(tasks), [tasks]);
 
-        for (const task of tasks) {
-            if (!task.sectionId) {
-                ungrouped.push(task);
-            } else {
-                const list = map.get(task.sectionId) ?? [];
-                list.push(task);
-                map.set(task.sectionId, list);
-            }
-        }
-
-        return { ungroupedTasks: ungrouped, sectionTaskMap: map };
-    }, [tasks]);
-
-    const handleCreateSection = () => {
-        if (!newSectionName.trim()) return;
+    const handleCreateSection = (name: string) => {
         const nextOrder = sections.length > 0
             ? Math.max(...sections.map((s) => s.orderIndex)) + 1
             : 1;
-        createSection.mutate({ name: newSectionName.trim(), orderIndex: nextOrder });
-        setNewSectionName("");
-        setIsAddingSection(false);
+        createSection.mutate({ name, orderIndex: nextOrder });
     };
 
     const handleRenameSection = (section: TaskSection, name: string) => {
@@ -116,44 +96,7 @@ export function SectionedTaskList({
                     rationaleByTaskId={rationaleByTaskId}
                 />
 
-                {inlineAdd && <div className="mt-4">
-                    {isAddingSection ? (
-                        <div className="flex items-center gap-2 px-4">
-                            <input
-                                ref={newSectionInputRef}
-                                autoFocus
-                                value={newSectionName}
-                                onChange={(e) => setNewSectionName(e.target.value)}
-                                placeholder="Section name..."
-                                className="flex-1 bg-transparent text-[13px] text-twilight-text outline-none border-b border-twilight-border/40 pb-1 placeholder:text-twilight-text-muted/40"
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleCreateSection();
-                                    if (e.key === "Escape") {
-                                        setIsAddingSection(false);
-                                        setNewSectionName("");
-                                    }
-                                }}
-                                onBlur={() => {
-                                    if (newSectionName.trim()) handleCreateSection();
-                                    else {
-                                        setIsAddingSection(false);
-                                        setNewSectionName("");
-                                    }
-                                }}
-                            />
-                        </div>
-                    ) : (
-                        <button
-                            type="button"
-                            data-add-section-trigger
-                            onClick={() => setIsAddingSection(true)}
-                            className="flex items-center gap-2 text-[12px] text-twilight-text-muted/50 hover:text-twilight-text-muted transition-colors cursor-pointer px-4 py-2"
-                        >
-                            <Plus size={14} />
-                            Add section
-                        </button>
-                    )}
-                </div>}
+                {inlineAdd && <AddSectionControl onCreate={handleCreateSection} />}
                 {addSectionChip}
 
                 {footer}
@@ -329,44 +272,7 @@ export function SectionedTaskList({
             })}
 
             {/* Add section button */}
-            {inlineAdd && <div className="mt-4">
-                {isAddingSection ? (
-                    <div className="flex items-center gap-2 px-4">
-                        <input
-                            ref={newSectionInputRef}
-                            autoFocus
-                            value={newSectionName}
-                            onChange={(e) => setNewSectionName(e.target.value)}
-                            placeholder="Section name..."
-                            className="flex-1 bg-transparent text-[13px] text-twilight-text outline-none border-b border-twilight-border/40 pb-1 placeholder:text-twilight-text-muted/40"
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") handleCreateSection();
-                                if (e.key === "Escape") {
-                                    setIsAddingSection(false);
-                                    setNewSectionName("");
-                                }
-                            }}
-                            onBlur={() => {
-                                if (newSectionName.trim()) handleCreateSection();
-                                else {
-                                    setIsAddingSection(false);
-                                    setNewSectionName("");
-                                }
-                            }}
-                        />
-                    </div>
-                ) : (
-                    <button
-                        type="button"
-                        data-add-section-trigger
-                        onClick={() => setIsAddingSection(true)}
-                        className="flex items-center gap-2 text-[12px] text-twilight-text-muted/50 hover:text-twilight-text-muted transition-colors cursor-pointer px-4 py-2"
-                    >
-                        <Plus size={14} />
-                        Add section
-                    </button>
-                )}
-            </div>}
+            {inlineAdd && <AddSectionControl onCreate={handleCreateSection} />}
             {addSectionChip}
 
             {footer}

@@ -276,6 +276,43 @@ function firstCadenceUrl(urls: Iterable<string>): URL | null {
 
 const restoredStores = new Set<string>();
 
+/** Runs a social flow through the local OAuth listener: starts it, asks the auth server for the provider URL, and opens it in the system browser. */
+async function beginSocialRedirect(
+    action: "sign-in" | "linking",
+    callbackURL: string | undefined,
+    request: (args: { callbackURL: string; disableRedirect: true; fetchOptions: { throw: true; headers: { origin: string } } }) => Promise<unknown>,
+): Promise<void> {
+    if (!hasTauriRuntime()) {
+        throw new Error(`Desktop social ${action} requires the Tauri runtime.`);
+    }
+
+    const target = callbackURL
+        ? new URL(callbackURL).searchParams.get("redirectTo")
+        : undefined;
+    await ensureOauthListeners();
+    await stopOauthServer();
+
+    const authState = await prepareDesktopAuthHandoff(target ?? "/");
+
+    const port = await startOauthServer({
+        ports: OAUTH_CALLBACK_PORTS,
+        response: OAUTH_CALLBACK_SUCCESS_HTML,
+    });
+    oauthServerPort = port;
+
+    const oauthCallbackUrl = new URL("/auth/callback", `http://localhost:${port}`);
+    oauthCallbackUrl.searchParams.set("redirectTo", target ?? "/");
+    oauthCallbackUrl.searchParams.set(DESKTOP_AUTH_STATE_PARAM, authState);
+
+    const result = await request({
+        callbackURL: oauthCallbackUrl.toString(),
+        disableRedirect: true,
+        fetchOptions: { throw: true, headers: { origin: getDesktopAuthRequestOrigin() } },
+    });
+
+    await openUrl(extractAuthRedirectUrl(result));
+}
+
 export const desktopRuntime = {
     target: "desktop" as const,
     async getNotificationPermission(): Promise<NotificationPermissionState> {
@@ -353,82 +390,10 @@ export const desktopRuntime = {
         };
     },
     async beginSocialSignIn(provider: SocialProvider, callbackURL?: string): Promise<void> {
-        if (!hasTauriRuntime()) {
-            throw new Error("Desktop social sign-in requires the Tauri runtime.");
-        }
-
-        const target = callbackURL
-            ? new URL(callbackURL).searchParams.get("redirectTo")
-            : undefined;
-        await ensureOauthListeners();
-        await stopOauthServer();
-
-        const authState = await prepareDesktopAuthHandoff(target ?? "/");
-
-        const port = await startOauthServer({
-            ports: OAUTH_CALLBACK_PORTS,
-            response: OAUTH_CALLBACK_SUCCESS_HTML,
-        });
-        oauthServerPort = port;
-
-        const oauthCallbackUrl = new URL("/auth/callback", `http://localhost:${port}`);
-        oauthCallbackUrl.searchParams.set("redirectTo", target ?? "/");
-        oauthCallbackUrl.searchParams.set(DESKTOP_AUTH_STATE_PARAM, authState);
-        const origin = getDesktopAuthRequestOrigin();
-
-        const result = await redirectlessAuthClient.signIn.social({
-            provider,
-            callbackURL: oauthCallbackUrl.toString(),
-            disableRedirect: true,
-            fetchOptions: {
-                throw: true,
-                headers: {
-                    origin,
-                },
-            },
-        });
-
-        const redirectUrl = extractAuthRedirectUrl(result);
-
-        await openUrl(redirectUrl);
+        await beginSocialRedirect("sign-in", callbackURL, (args) => redirectlessAuthClient.signIn.social({ provider, ...args }));
     },
     async beginSocialLink(provider: SocialProvider, callbackURL?: string): Promise<void> {
-        if (!hasTauriRuntime()) {
-            throw new Error("Desktop social linking requires the Tauri runtime.");
-        }
-
-        const target = callbackURL
-            ? new URL(callbackURL).searchParams.get("redirectTo")
-            : undefined;
-        await ensureOauthListeners();
-        await stopOauthServer();
-
-        const authState = await prepareDesktopAuthHandoff(target ?? "/");
-
-        const port = await startOauthServer({
-            ports: OAUTH_CALLBACK_PORTS,
-            response: OAUTH_CALLBACK_SUCCESS_HTML,
-        });
-        oauthServerPort = port;
-
-        const oauthCallbackUrl = new URL("/auth/callback", `http://localhost:${port}`);
-        oauthCallbackUrl.searchParams.set("redirectTo", target ?? "/");
-        oauthCallbackUrl.searchParams.set(DESKTOP_AUTH_STATE_PARAM, authState);
-        const origin = getDesktopAuthRequestOrigin();
-        const authClientAny = redirectlessAuthClient as any;
-        const result = await authClientAny.linkSocial({
-            provider,
-            callbackURL: oauthCallbackUrl.toString(),
-            disableRedirect: true,
-            fetchOptions: {
-                throw: true,
-                headers: {
-                    origin,
-                },
-            },
-        });
-
-        await openUrl(extractAuthRedirectUrl(result));
+        await beginSocialRedirect("linking", callbackURL, (args) => (redirectlessAuthClient as any).linkSocial({ provider, ...args }));
     },
     async platformFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
         if (!hasTauriRuntime()) {

@@ -372,23 +372,9 @@ export function HoldingFeed({
                     accentClass="text-twilight-text-soft"
                     count={ordered.tasks.length}
                 />
-                <div className="space-y-2">
-                    {ordered.tasks.map((task) => (
-                        <CaptureRow
-                            key={task.id}
-                            task={task}
-                            subtasks={subtasksByTaskId[task.id]}
-                            lightest={lightest}
-                            onOpen={() => onSelectTask(task.id)}
-                            selected={selected.has(task.id)}
-                            onToggleSelection={() => toggle(task.id)}
-                            tabIndex={activeId === task.id ? 0 : -1}
-                            onFocusRow={() => setFocusedId(task.id)}
-                        />
-                    ))}
-                </div>
+                <div className="space-y-2">{taskRows}</div>
                 {!ordered.tasks.length && (
-                    <p className="py-4 text-sm text-twilight-text-muted">No tasks waiting for a day.</p>
+                    empty("No tasks waiting for a day.")
                 )}
             </section>
             {ordered.older.length > 0 && (

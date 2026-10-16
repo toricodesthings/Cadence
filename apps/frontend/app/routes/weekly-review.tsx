@@ -280,6 +280,16 @@ function StepDone({ label, onNext }: { label: string; onNext: () => void }) {
 
 /* ──────────────────────────── Page ──────────────────────────── */
 
+function SkipToNext({ onSkip }: { onSkip: () => void }) {
+    return (
+        <div className="mt-6 flex justify-end">
+            <Button variant="ghost" size="sm" onClick={onSkip}>
+                Skip to next step <ArrowRight size={14} />
+            </Button>
+        </div>
+    );
+}
+
 export default function WeeklyReview() {
     const shell = useShellMode();
     const navigate = useNavigate();
@@ -456,13 +466,7 @@ export default function WeeklyReview() {
                                 ) : (
                                     <StepDone label="Inbox is clear." onNext={handleNext} />
                                 )}
-                                {inboxItems.length > 0 && (
-                                    <div className="mt-6 flex justify-end">
-                                        <Button variant="ghost" size="sm" onClick={handleNext}>
-                                            Skip to next step <ArrowRight size={14} />
-                                        </Button>
-                                    </div>
-                                )}
+                                {inboxItems.length > 0 && <SkipToNext onSkip={handleNext} />}
                             </motion.div>
                         )}
 
@@ -539,13 +543,7 @@ export default function WeeklyReview() {
                                 {selectedTasks.length > 0 && (
                                     <BatchBar count={selectedTasks.length} onApply={applyToSelected} onClear={() => setSelectedIds(new Set())} />
                                 )}
-                                {(unscheduledTasks.length > 0 || visibleWaiting.length > 0) && (
-                                    <div className="mt-6 flex justify-end">
-                                        <Button variant="ghost" size="sm" onClick={handleNext}>
-                                            Skip to next step <ArrowRight size={14} />
-                                        </Button>
-                                    </div>
-                                )}
+                                {(unscheduledTasks.length > 0 || visibleWaiting.length > 0) && <SkipToNext onSkip={handleNext} />}
                             </motion.div>
                         )}
 
@@ -592,13 +590,7 @@ export default function WeeklyReview() {
                                         onNext={handleNext}
                                     />
                                 )}
-                                {unreviewedHabits.length > 0 && (
-                                    <div className="mt-6 flex justify-end">
-                                        <Button variant="ghost" size="sm" onClick={handleNext}>
-                                            Skip to next step <ArrowRight size={14} />
-                                        </Button>
-                                    </div>
-                                )}
+                                {unreviewedHabits.length > 0 && <SkipToNext onSkip={handleNext} />}
                             </motion.div>
                         )}
 

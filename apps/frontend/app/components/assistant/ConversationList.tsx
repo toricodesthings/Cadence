@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { ChevronLeft, Plus, AlertCircle, ChevronRight, ChevronDown } from "lucide-react";
+import { Plus, AlertCircle, ChevronRight, ChevronDown } from "lucide-react";
 import { AssistantSigil } from "./AssistantSigil";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import * as ScrollArea from "../primitives/ScrollArea";
-import { Tip } from "../primitives";
 import { Button } from "../primitives/Button";
+import { OverlayPanel } from "./OverlayPanel";
 import { Skeleton } from "../primitives/Skeleton";
 import { useConversations } from "../../hooks/ai/use-conversations";
 import {
@@ -49,32 +49,7 @@ export function ConversationList({
     const archived = (conversations ?? []).filter((c) => c.archived);
 
     return (
-        <motion.div
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
-            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
-            transition={{ duration: 0.3, ease: EASE_OUT_EXPO }}
-            className="absolute inset-0 z-10 flex flex-col bg-panel"
-            role="dialog"
-            aria-label="Saved conversations"
-        >
-            {/* Header — mirrors the panel header geometry */}
-            <header className="flex h-(--shell-header-h) shrink-0 items-center justify-between border-b border-twilight-border px-4">
-                <div className="flex items-center gap-2">
-                    <Tip label="Back to conversation" side="bottom">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="flex h-9 w-9 items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text cursor-pointer"
-                            aria-label="Back to conversation"
-                        >
-                            <ChevronLeft size={18} />
-                        </button>
-                    </Tip>
-                    <h2 className="font-display text-lg font-semibold tracking-tight text-twilight-text">
-                        Conversations
-                    </h2>
-                </div>
+        <OverlayPanel label="Saved conversations" title="Conversations" onClose={onClose} autoFocusBack={false} action={(
                 <Button
                     variant="cardPrimary"
                     size="none"
@@ -84,8 +59,7 @@ export function ConversationList({
                     <Plus size={14} />
                     New chat
                 </Button>
-            </header>
-
+            )}>
             <ScrollArea.Root className="min-h-0 flex-1">
                 <ScrollArea.Viewport className="px-2 py-2">
                     {isLoading ? (
@@ -198,6 +172,6 @@ export function ConversationList({
                     <ScrollArea.Thumb />
                 </ScrollArea.Scrollbar>
             </ScrollArea.Root>
-        </motion.div>
+        </OverlayPanel>
     );
 }
