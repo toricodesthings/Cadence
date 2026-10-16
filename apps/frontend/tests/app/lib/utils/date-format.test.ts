@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-    fromPickerDate,
     fromTimeValue,
     getDaysInMonth,
     getFirstDayOfWeek,
     getWeekDays,
-    pickerDate,
     placementReceipt,
     relativeTime,
     toTimeValue,
@@ -15,11 +13,6 @@ import { setUserZone } from "../../../../app/lib/utils/user-zone";
 
 describe("date-format shared helpers", () => {
     beforeEach(() => setUserZone("America/Toronto"));
-
-    it("pickerDate and fromPickerDate round-trip a LocalDate through a widget Date", () => {
-        expect(fromPickerDate(pickerDate("2026-09-21"))).toBe("2026-09-21");
-        expect(fromPickerDate(new Date(2026, 8, 21, 23, 59))).toBe("2026-09-21");
-    });
 
     it("builds month grids for Monday- and Sunday-first weeks", () => {
         // 1 Sep 2026 is a Tuesday.

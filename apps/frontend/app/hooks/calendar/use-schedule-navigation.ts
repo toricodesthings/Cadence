@@ -6,6 +6,7 @@ import { today, useToday } from "../../lib/utils/user-zone";
 import { addMonthsToDay, addYearsToDay, parseYMD } from "../../lib/utils/calendar/calendar-math";
 import { isoMonthStart } from "../../lib/utils/date-format";
 import { isCalendarViewModeValue } from "../../lib/utils/calendar/schedule-model";
+import { useDeviceValue } from "../ui/use-device-flag";
 
 export function useScheduleNavigation({ isPhone, isDesktop }: { isPhone: boolean; isDesktop: boolean }) {
     const [searchParams] = useSearchParams();
@@ -13,24 +14,21 @@ export function useScheduleNavigation({ isPhone, isDesktop }: { isPhone: boolean
     const { y: year, m: month } = parseYMD(todayIso);
     // ── Persisted view mode per device class ────────────────────────────────
     const deviceClass = isPhone ? "phone" : isDesktop ? "desktop" : "tablet";
-    const storageKey = `cadence-schedule-view-${deviceClass}`;
     const defaultView: CalendarViewMode = isPhone ? "day" : isDesktop ? "month" : "week";
-    const [storedViewMode, setViewModeRaw] = useState<CalendarViewMode>(() => {
+    const [stored, store] = useDeviceValue(`cadence-schedule-view-${deviceClass}`);
+    // A `?view=` link wins until the user picks a view.
+    const [linkedView, setLinkedView] = useState(() => {
         const queryView = searchParams.get("view");
-        if (isCalendarViewModeValue(queryView)) return queryView;
-        try {
-            const stored = localStorage.getItem(storageKey);
-            if (isCalendarViewModeValue(stored)) return stored;
-        } catch { /* noop */ }
-        return defaultView;
+        return isCalendarViewModeValue(queryView) ? queryView : null;
     });
+    const storedViewMode: CalendarViewMode = linkedView ?? (isCalendarViewModeValue(stored) ? stored : defaultView);
     // Phones zoom Day → Month → Year; Week's strip lives inside Day there.
     const viewMode: CalendarViewMode = isPhone && storedViewMode === "week" ? "day" : storedViewMode;
     const isPhoneDay = isPhone && viewMode === "day";
     const setViewMode = useCallback((mode: CalendarViewMode) => {
-        setViewModeRaw(mode);
-        try { localStorage.setItem(storageKey, mode); } catch { /* noop */ }
-    }, [storageKey]);
+        setLinkedView(null);
+        store(mode);
+    }, [store]);
 
     const [currentDate, setCurrentDate] = useState<LocalDate>(() => {
         const queryDate = searchParams.get("date");

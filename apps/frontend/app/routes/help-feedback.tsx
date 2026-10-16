@@ -10,7 +10,6 @@ export default function HelpFeedbackRoute() {
         <MainLayout
             navigationMode="rail"
             pageTitle="Help & Feedback"
-            pageDescription="Find your way around Cadence, one feature at a time."
         >
             <HelpPage />
         </MainLayout>

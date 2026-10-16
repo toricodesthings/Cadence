@@ -28,42 +28,29 @@ const DialogTrigger = DialogPrimitive.Trigger;
 
 const DialogPortal = DialogPrimitive.Portal;
 
-const DialogOverlay = React.forwardRef<
-    React.ElementRef<typeof DialogPrimitive.Overlay>,
-    React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
->(({ className, ...props }, ref) => (
+const DialogOverlay = ({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Overlay>) => (
     <DialogPrimitive.Overlay
-        ref={ref}
         className={cn(DIALOG_OVERLAY, className)}
         {...props}
     />
-));
-DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
+);
 
 /** The dialog's X button; use it directly when a layout places close inside its own header. */
-const DialogCloseButton = React.forwardRef<
-    React.ElementRef<typeof DialogPrimitive.Close>,
-    React.ComponentPropsWithoutRef<typeof DialogPrimitive.Close>
->(({ className, ...props }, ref) => (
+const DialogCloseButton = ({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Close>) => (
     <DialogPrimitive.Close
-        ref={ref}
         className={cn("btn-icon shrink-0 cursor-pointer text-twilight-text-muted opacity-70 transition-[opacity,background-color] duration-150 hover:bg-white/[0.06] hover:text-twilight-text hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:pointer-events-none", className)}
         {...props}
     >
         <X className="h-4 w-4" aria-hidden="true" />
         <span className="sr-only">Close</span>
     </DialogPrimitive.Close>
-));
-DialogCloseButton.displayName = "DialogCloseButton";
+);
 
-const DialogContent = React.forwardRef<
-    React.ElementRef<typeof DialogPrimitive.Content>,
-    React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
-        hideCloseButton?: boolean;
-        /** False for a surface that is full screen at every size (the photo viewer). */
-        phoneSheet?: boolean;
-    }
->(({ className, children, hideCloseButton, phoneSheet = true, ...props }, ref) => {
+const DialogContent = ({ className, children, hideCloseButton, phoneSheet = true, ...props }: React.ComponentProps<typeof DialogPrimitive.Content> & {
+    hideCloseButton?: boolean;
+    /** False for a surface that is full screen at every size (the photo viewer). */
+    phoneSheet?: boolean;
+}) => {
     // A touch phone gets a docked sheet: drag the grabber down to dismiss, as every compact sheet does.
     const { isPhone, isTouch } = useShellMode();
     const sheet = phoneSheet && isPhone && isTouch;
@@ -88,7 +75,6 @@ const DialogContent = React.forwardRef<
         <DialogPortal>
             <DialogOverlay />
             <DialogPrimitive.Content
-                ref={ref}
                 data-cadence-dialog-content="true"
                 data-dialog-sheet={sheet || undefined}
                 aria-describedby={undefined}
@@ -114,8 +100,7 @@ const DialogContent = React.forwardRef<
             </DialogPrimitive.Content>
         </DialogPortal>
     );
-});
-DialogContent.displayName = DialogPrimitive.Content.displayName;
+};
 
 const DialogHeader = ({
     className,
@@ -127,7 +112,6 @@ const DialogHeader = ({
         {...props}
     />
 );
-DialogHeader.displayName = "DialogHeader";
 
 const DialogFooter = ({
     className,
@@ -139,31 +123,20 @@ const DialogFooter = ({
         {...props}
     />
 );
-DialogFooter.displayName = "DialogFooter";
 
-const DialogTitle = React.forwardRef<
-    React.ElementRef<typeof DialogPrimitive.Title>,
-    React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ className, ...props }, ref) => (
+const DialogTitle = ({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) => (
     <DialogPrimitive.Title
-        ref={ref}
         className={cn(DIALOG_TITLE, className)}
         {...props}
     />
-));
-DialogTitle.displayName = DialogPrimitive.Title.displayName;
+);
 
-const DialogDescription = React.forwardRef<
-    React.ElementRef<typeof DialogPrimitive.Description>,
-    React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => (
+const DialogDescription = ({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Description>) => (
     <DialogPrimitive.Description
-        ref={ref}
         className={cn(DIALOG_DESCRIPTION, className)}
         {...props}
     />
-));
-DialogDescription.displayName = DialogPrimitive.Description.displayName;
+);
 
 export {
     Dialog,

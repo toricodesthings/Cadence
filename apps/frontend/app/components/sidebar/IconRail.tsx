@@ -33,7 +33,7 @@ import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
 import { useRoutineDueCount } from "../../hooks/habits/use-routine-due-count";
 import { NotificationPreview } from "../notifications/NotificationPreview";
-import { getDateFormatConfig } from "../../lib/utils/date-format";
+import { formatTime } from "../../lib/utils/date-format";
 import { useAdminCapabilities } from "../../hooks/auth/use-admin-capabilities";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useSignOut } from "../../hooks/auth/use-sign-out";
@@ -689,10 +689,7 @@ export function IconRail({
 /** Sync button with rotating icon while syncing */
 function SyncButton() {
     const { sync, isSyncing, lastSyncedAt } = useWorkspaceSync();
-    const is24h = getDateFormatConfig().timeDisplay === "24h";
-    const tooltipText = lastSyncedAt
-        ? `Sync · Last synced ${lastSyncedAt.toLocaleTimeString(is24h ? "en-GB" : [], { hour: "numeric", minute: "2-digit", hour12: !is24h })}`
-        : "Sync";
+    const tooltipText = lastSyncedAt ? `Sync · Last synced ${formatTime(lastSyncedAt.toISOString())}` : "Sync";
 
     return (
         <Tip label={isSyncing ? "Syncing…" : tooltipText} side="right">

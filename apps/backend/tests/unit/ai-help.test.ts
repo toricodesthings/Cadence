@@ -21,11 +21,11 @@ describe("get_cadence_help", () => {
         expect(HELP_TOPICS.capture).toContain("Keep with no day never infers a day");
         expect(HELP_TOPICS.capture).toContain("Notes stay notes");
         expect(HELP_TOPICS.capture).toContain("Undo brings it back to Capture");
-        expect(PROMPT_BLOCKS.base.join("\n")).toContain("called `project` in tools");
+        expect(PROMPT_BLOCKS.base.join("\n")).toContain("Lists (`project`)");
     });
 
     it("links only to real in-app places (guide + primer)", () => {
-        const all = [...Object.values(HELP_TOPICS), PROMPT_BLOCKS.base.join("\n"), PROMPT_BLOCKS.compactBase.join("\n")].flatMap(links);
+        const all = [...Object.values(HELP_TOPICS), PROMPT_BLOCKS.base.join("\n")].flatMap(links);
         expect(all.length).toBeGreaterThan(20);
         for (const href of all) {
             if (href.startsWith("?settings=")) expect(SETTINGS_TABS).toContain(href.slice("?settings=".length));

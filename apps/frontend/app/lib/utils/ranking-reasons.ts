@@ -1,19 +1,5 @@
 import type { TaskRankReason } from "@cadence/nlp/ranking";
 
-/** §11.6: Short jargon labels for compact UI (e.g., badges) */
-const REASON_LABELS: Record<TaskRankReason, string> = {
-    overdue: "Overdue",
-    due_today: "Due today",
-    due_soon: "Due soon",
-    quick_win: "Quick win",
-    high_priority: "High priority",
-    needs_date: "Needs a date",
-    waiting: "Waiting",
-    not_yet: "Not before",
-    pinned: "Pinned",
-    scheduled_now: "Scheduled now",
-};
-
 /** §11.6: One-sentence reasoning for Today and Upcoming rationale display */
 const REASON_SENTENCES: Record<TaskRankReason, string> = {
     overdue: "This task is past its due date",
@@ -37,11 +23,6 @@ const MATERIAL_REASONS: Set<TaskRankReason> = new Set([
     "scheduled_now",
     "waiting",
 ]);
-
-export function getRankingReasonLabel(reasons: TaskRankReason[]): string | null {
-    if (reasons.length === 0) return null;
-    return REASON_LABELS[reasons[0]];
-}
 
 /**
  * §11.6: Return a one-sentence rationale ONLY when ranking

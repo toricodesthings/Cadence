@@ -3,8 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { CalendarRange, Inbox, CheckCircle2, Trash2, LayoutDashboard, Plus } from "lucide-react";
 import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
-import * as Separator from "../primitives/Separator";
-import * as Collapsible from "../primitives/Collapsible";
+import { Reveal } from "../shared/Reveal";
 import { NavLink } from "./NavLink";
 import { ProjectLink } from "./ProjectLink";
 import { CreateProjectPopover } from "./CreateProjectPopover";
@@ -127,23 +126,23 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                         />
                     </nav>
 
-                    <Separator.Root className="h-px bg-twilight-border my-5" aria-hidden="true" />
+                    <div className="h-px bg-twilight-border my-5" aria-hidden="true" />
 
                     {/* Projects */}
-                    <Collapsible.Root open={listsOpen} onOpenChange={setListsOpen}>
+                    <div>
                         <div className="flex items-center justify-between px-3 mb-2">
-                            <Collapsible.Trigger asChild>
-                                <button
-                                    className="text-[12px] font-semibold text-twilight-text-muted uppercase tracking-[0.12em] hover:text-twilight-text-soft transition-colors cursor-pointer"
-                                    aria-expanded={listsOpen}
-                                    aria-controls="projects-list"
-                                >
-                                    Lists
-                                </button>
-                            </Collapsible.Trigger>
+                            <button
+                                type="button"
+                                onClick={() => setListsOpen(!listsOpen)}
+                                className="text-[12px] font-semibold text-twilight-text-muted uppercase tracking-[0.12em] hover:text-twilight-text-soft transition-colors cursor-pointer"
+                                aria-expanded={listsOpen}
+                                aria-controls="projects-list"
+                            >
+                                Lists
+                            </button>
                             <CreateProjectPopover />
                         </div>
-                        <Collapsible.Content id="projects-list">
+                        <Reveal open={listsOpen} id="projects-list">
                             {projectsLoading ? (
                                 <div className="px-3 py-2 flex flex-col gap-3" aria-label="Loading lists">
                                     <Skeleton className="h-4 w-3/4 rounded-xl" />
@@ -169,19 +168,24 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                                     ))}
                                 </div>
                             )}
-                        </Collapsible.Content>
-                    </Collapsible.Root>
+                        </Reveal>
+                    </div>
 
-                    <Separator.Root className="h-px bg-twilight-border my-5" aria-hidden="true" />
+                    <div className="h-px bg-twilight-border my-5" aria-hidden="true" />
 
                     {/* Tags */}
-                    <Collapsible.Root open={tagsOpen} onOpenChange={setTagsOpen}>
+                    <div>
                         <div className="flex items-center justify-between px-3 mb-2">
-                            <Collapsible.Trigger asChild>
-                                <Button variant="ghost" size="sm" className="text-[12px] font-semibold text-twilight-text-muted uppercase tracking-[0.12em] p-0 h-auto hover:bg-transparent hover:text-twilight-text-soft">
-                                    Tags
-                                </Button>
-                            </Collapsible.Trigger>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setTagsOpen(!tagsOpen)}
+                                aria-expanded={tagsOpen}
+                                aria-controls="tags-list"
+                                className="text-[12px] font-semibold text-twilight-text-muted uppercase tracking-[0.12em] p-0 h-auto hover:bg-transparent hover:text-twilight-text-soft"
+                            >
+                                Tags
+                            </Button>
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -192,7 +196,7 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                                 <Plus size={16} />
                             </Button>
                         </div>
-                        <Collapsible.Content>
+                        <Reveal open={tagsOpen} id="tags-list">
                             {/* Mini search */}
                             {tags.length > 5 && (
                                 <div className="px-3 mb-2">
@@ -224,10 +228,10 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                                     onCancel={() => setShowCreateTag(false)}
                                 />
                             )}
-                        </Collapsible.Content>
-                    </Collapsible.Root>
+                        </Reveal>
+                    </div>
 
-                    <Separator.Root className="h-px bg-twilight-border my-5" aria-hidden="true" />
+                    <div className="h-px bg-twilight-border my-5" aria-hidden="true" />
 
                     {/* Bottom nav */}
                     <nav aria-label="Secondary navigation" className="flex flex-col gap-0.5">

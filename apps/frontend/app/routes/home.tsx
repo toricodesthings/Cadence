@@ -24,7 +24,6 @@ import { useRightPanelStore } from "../stores/right-panel-store";
 import { useAssistantStore } from "../stores/assistant-store";
 import { useCaptureFeed } from "../hooks/inbox/use-capture-feed";
 const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then((m) => ({ default: m.FocusViewBar })));
-import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
@@ -59,10 +58,6 @@ export default function HomeRoute() {
     const { holdingPanelOpen, holdingPanelWidth, setHoldingPanelWidth, toggleHoldingPanel, railView } = useRightPanelStore();
     const { assistantPanelOpen, toggleAssistantPanel } = useAssistantStore();
 
-    useDocumentMeta(
-        "Capture · Cadence",
-        "Capture anything. Clarify later. Place when ready.",
-    );
 
     useRouteFocus({ onFocusMatch: ({ focusKind, focusId }) => { if (focusKind === "inbox" && focusId) { setSelectedInboxItemId(focusId); setMobilePanelOpen(true); } } });
 

@@ -469,7 +469,6 @@ export default function ProjectView() {
                 )
                 ) : undefined}
                 pageTitle={project?.name ?? "List"}
-                pageDescription="Work through a focused list view without leaving the Cadence shell."
                 shellHeader={{
                     title: project?.name ?? "List",
                     eyebrow: "List",

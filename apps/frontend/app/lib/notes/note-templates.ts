@@ -119,10 +119,3 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
 `,
   },
 ];
-
-/**
- * Returns a template by its ID.
- */
-export function getTemplate(id: string): NoteTemplate | undefined {
-  return NOTE_TEMPLATES.find((t) => t.id === id);
-}

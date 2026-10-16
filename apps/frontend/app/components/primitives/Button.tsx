@@ -8,7 +8,7 @@
  * Supports `asChild` via @radix-ui/react-slot so callers can render
  * links, motion components, etc. while inheriting all Button styles.
  */
-import { forwardRef, type ButtonHTMLAttributes } from "react";
+import { type ButtonHTMLAttributes } from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cn } from "../../lib/utils";
 
@@ -68,16 +68,12 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 /* ── Component ──────────────────────────────────────────────────── */
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-    ({ variant = "primary", size = "md", asChild = false, className = "", ...props }, ref) => {
-        const Comp = asChild ? Slot : "button";
-        return (
-            <Comp
-                ref={ref}
-                className={cn(base, variants[variant], sizes[size], className)}
-                {...props}
-            />
-        );
-    },
-);
-Button.displayName = "Button";
+export const Button = ({ variant = "primary", size = "md", asChild = false, className = "", ...props }: ButtonProps & { ref?: React.Ref<HTMLButtonElement> }) => {
+    const Comp = asChild ? Slot : "button";
+    return (
+        <Comp
+            className={cn(base, variants[variant], sizes[size], className)}
+            {...props}
+        />
+    );
+};

@@ -3,7 +3,7 @@ import { getDbClient, type DbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
 import { AppError } from "../../platform/errors";
 import { isAdminUser } from "../../platform/auth";
-import { scenarios, DEFAULT_SCENARIO } from "./scenarios";
+import { seed } from "./scenarios";
 import {
     aiConversations,
     aiMemories,
@@ -108,18 +108,11 @@ export const debugRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
     .post("/seed", async (c) => {
     const { userId } = requireAdmin(c);
     const db = getDbClient(c.env);
-    const scenarioKey = (c.req.query("scenario") ?? DEFAULT_SCENARIO).toLowerCase();
-
-    const scenario = scenarios[scenarioKey];
-    if (!scenario) {
-        const available = Object.keys(scenarios).join(", ");
-        throw new AppError(400, "INVALID_SCENARIO", `Unknown scenario "${scenarioKey}". Available: ${available}`);
-    }
 
     try {
         await withRls(db, userId, async (tx) => {
             await clearUserData(tx, userId);
-            await scenario.seed(tx, userId);
+            await seed(tx, userId);
         });
     } catch (err: unknown) {
         const cause = err instanceof Error && err.cause ? err.cause : null;
@@ -133,9 +126,7 @@ export const debugRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         return c.json({
             data: {
-                message: `Seeded workspace with "${scenario.name}" scenario.`,
-                scenario: scenarioKey,
-                version: scenario.version,
+                message: "Seeded workspace with the Active Power User scenario.",
             },
         });
     })

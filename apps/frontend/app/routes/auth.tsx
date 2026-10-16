@@ -1,7 +1,7 @@
 import { AuthView } from "@neondatabase/auth/react/ui";
 import { Loader2 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { useDocumentMeta } from "../hooks/core/use-document-meta";
+import { useDocumentTitle } from "../hooks/core/use-document-title";
 import { useEffect, useState } from "react";
 import { authClient } from "../lib/auth-client";
 import { jwtExpiry } from "../lib/auth/session";
@@ -382,16 +382,7 @@ export default function AuthPage() {
         ?? (typeof state === "object" && state && "from" in state ? String(state.from) : "/"),
     );
 
-    useDocumentMeta(
-        isCallback
-            ? "Finishing Sign In · Cadence"
-            : `${isSignUp ? "Create Account" : "Sign In"} · Cadence`,
-        isCallback
-            ? "Completing your Cadence sign-in flow."
-            : isSignUp
-                ? "Create your Cadence account and enter a calm workspace for tasks, routines, and weekly resets."
-                : "Sign in to Cadence and return to your calm planning workspace.",
-    );
+    useDocumentTitle(`${isCallback ? "Finishing Sign In" : isSignUp ? "Create Account" : "Sign In"} · Cadence`);
 
     useEffect(() => {
         if (isSignUp) rememberSignUpTicks(ready);

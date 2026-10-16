@@ -266,9 +266,9 @@ sync. Add to it when you add a `TaskReadShape` branch.
   (enforced by `tsc --noEmit`, which includes `tests/`).
 - **Compile-time route parity:** `apps/frontend/tests/app/lib/api/rpc-parity.test.ts`
   pins what each read route sends (inferred through the RPC client) to its entity.
-- **Dependency boundaries:** `packages/check-imports.mjs`, run by each package's
-  `lint` script (and the turbo `lint` task) with the packages above it as extra
-  forbidden specifiers. It fails on any forbidden import specifier.
+- **Dependency boundaries:** `packages/oxlint.config.ts` (`no-restricted-imports` per package,
+  with the packages above it as extra forbidden specifiers), run by each package's
+  `lint` script and the turbo `lint` task. It fails on any forbidden import specifier.
 - **Per-package gates:** `pnpm --filter @cadence/<pkg> typecheck | lint`, and `pnpm --filter @cadence/package-tests test <pkg>` (vitest path filter). Tests live in `packages/tests/<pkg>/<module>.test.ts` (contracts: size limits and update-carries-only-sent-fields are API promises); apps never re-test package rules.
 - **Whole workspace:** `pnpm typecheck` (turbo, all packages + apps).
 

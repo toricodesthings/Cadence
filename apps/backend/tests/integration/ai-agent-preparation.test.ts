@@ -6,7 +6,6 @@ import { getAgentInstance } from "../../src/domains/ai/agent";
 import { createRunDiagnostics } from "../../src/domains/ai/run-diagnostics";
 import type { Env } from "../../src/types/env";
 import type { UserSettings } from "@cadence/contracts/settings";
-import type { PromptPackaging } from "../../src/domains/ai/prompt/prompt-blocks.schema";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -36,28 +35,20 @@ async function fact(kind: string, content: string) {
     return asOwner((pg) => pg.query(`INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence)
         VALUES ($1, $2::memory_kind, $3, '2026-10-01', '2026-10-01', 'chat', 'stated')`, [userId, kind, content]));
 }
-async function prepare(queryText = "Help me plan this afternoon", memoryPreparation?: "parallel", provided: UserSettings = settings, promptPackaging?: PromptPackaging) {
+async function prepare(queryText = "Help me plan this afternoon", provided: UserSettings = settings) {
     const diagnostics = createRunDiagnostics(() => performance.now());
     const result = await getAgentInstance(env, userId, {
-        timezone: "America/Toronto", currentDate: now, queryText, nonce: "fixture", approvalMode: "full", settings: provided, diagnostics, promptPackaging, memoryPreparation,
+        timezone: "America/Toronto", currentDate: now, queryText, nonce: "fixture", approvalMode: "full", settings: provided, diagnostics,
     });
     return { ...result, diagnostics: diagnostics.snapshot() };
 }
 
 describe("exact preparation", () => {
-    it("defaults to compact packaging and keeps baseline tools and stored contexts compatible", async () => {
+    it("keeps stored contexts valid when the facts are unchanged", async () => {
         await fact("constraint", "Keep Friday evenings free");
-        const baseline = await prepare(undefined, undefined, settings, "baseline");
-        const candidate = await prepare();
-        const explicit = await prepare(undefined, undefined, settings, "static-memory");
-        expect(candidate.turnContext).toBe(explicit.turnContext);
-        expect(candidate.promptHash).toBe(explicit.promptHash);
-        expect(candidate.promptHash).not.toBe(baseline.promptHash);
-        expect(candidate.turnContext.length).toBeLessThan(baseline.turnContext.length);
-        expect(Object.keys(candidate.agent.tools)).toEqual(Object.keys(baseline.agent.tools));
-        expect(candidate.turnContext).toContain("Keep Friday evenings free");
-        // Old revisions replay verbatim. A new packaging choice is not a consent/fact change.
-        const history = [{ role: "user", metadata: { turnContext: baseline.turnContext } }];
+        const current = await prepare();
+        expect(current.turnContext).toContain("Keep Friday evenings free");
+        const history = [{ role: "user", metadata: { turnContext: current.turnContext } }];
         const replay = await validateStoredContexts(history, true, (ids) => withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13")));
         expect(replay).toEqual(history);
     });
@@ -71,7 +62,7 @@ describe("exact preparation", () => {
         expect(embedText).not.toHaveBeenCalled();
         expect(result.turnContext).toContain("Keep Friday evenings free");
         expect(result.turnContext).toContain("Preparing for an exam next week");
-        expect(result.diagnostics.memoryCoverage).toEqual({ variant: "exact", hasRecallCandidates: false, profileFacts: 2 });
+        expect(result.diagnostics.memoryCoverage).toEqual({ hasRecallCandidates: false, profileFacts: 2 });
         expect(result.diagnostics.phases.map((p) => p.name)).not.toContain("embedding");
         expect(result.diagnostics.phases.map((p) => p.name)).not.toContain("recall");
     });
@@ -92,7 +83,7 @@ describe("exact preparation", () => {
     it("still recalls facts excluded by the profile budget", async () => {
         for (let i = 0; i < 4; i++) await fact("preference", `${i} Gardening ${"x".repeat(780)}`);
         const result = await prepare("Help with gardening");
-        expect(result.diagnostics.memoryCoverage).toMatchObject({ variant: "exact", hasRecallCandidates: true, profileFacts: 2 });
+        expect(result.diagnostics.memoryCoverage).toMatchObject({ hasRecallCandidates: true, profileFacts: 2 });
         expect(embedText).toHaveBeenCalledOnce();
         expect(result.diagnostics.phases.map((p) => p.name)).toContain("recall");
     });
@@ -111,26 +102,18 @@ describe("exact preparation", () => {
         await fact("pattern", "Afternoon gardening works best");
         await prepare("ok");
         expect(embedText).not.toHaveBeenCalled();
-        const result = await prepare("Help with afternoon gardening", undefined, { ...settings, assistant: { memoryMode: "off" } });
+        const result = await prepare("Help with afternoon gardening", { ...settings, assistant: { memoryMode: "off" } });
         expect(embedText).not.toHaveBeenCalled();
         expect(result.turnContext).not.toContain("Afternoon gardening works best");
         expect(result.diagnostics.memoryCoverage).toBeUndefined();
         expect(Object.keys(result.agent.tools)).not.toContain("recall");
     });
 
-    it("keeps the parallel path only as an explicit internal benchmark baseline", async () => {
-        await fact("constraint", "Keep Friday evenings free");
-        const result = await prepare(undefined, "parallel");
-        expect(embedText).toHaveBeenCalledOnce();
-        expect(result.diagnostics.memoryCoverage?.variant).toBe("parallel");
-        expect(result.turnContext).toContain("Keep Friday evenings free");
-    });
-
     it("reuses synchronized settings and preserves a pinned zone", async () => {
         const synced = await withRls(getTestDb(), userId, (tx) => syncUserZoneWithSettings(tx, userId, "Europe/Paris"));
         expect(synced.timezone).toBe("America/Toronto");
         expect(synced.settings).toMatchObject(settings);
-        const result = await prepare(undefined, undefined, synced.settings as typeof settings);
+        const result = await prepare(undefined, synced.settings as typeof settings);
         expect(result.turnContext).toContain("Monday");
         // Current tool reads remain fresh: the snapshot's reuse is not a global settings cache.
         expect(Object.keys(result.agent.tools)).toContain("get_events");
@@ -274,50 +257,6 @@ describe("exact preparation", () => {
         mkdirSync(directory, { recursive: true });
         writeFileSync(join(directory, "snapshot-preparation-parity.json"), JSON.stringify({
             evidence: "local PGlite; 100 alternating pairs; 55 routines; unchanged isolated transactions; not production latency", samples,
-        }, null, 2));
-    }, 60_000);
-
-    it.skipIf(process.env.AI_PREPARATION_BENCHMARK !== "true")("preserves context across 100 paired covered and candidate-present preparations", async () => {
-        await fact("constraint", "Keep Friday evenings free");
-        const embeddingDelayMs = 50;
-        vi.mocked(embedText).mockImplementation(async () => {
-            await new Promise((resolve) => setTimeout(resolve, embeddingDelayMs));
-            throw new Error("fixture provider unavailable");
-        });
-        const report: Record<string, unknown> = {};
-        for (const cohort of ["covered", "candidates"]) {
-            if (cohort === "candidates") {
-                await fact("pattern", "Afternoon gardening works best");
-                await asOwner((pg) => pg.query(`INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence)
-                    SELECT $1, 'pattern', 'Unrelated pattern ' || i, '2026-10-01', '2026-10-01', 'chat', 'stated'
-                    FROM generate_series(1, 100) i`, [userId]));
-            }
-            const samples: { baselineMs: number; exactMs: number }[] = [];
-            let baselineCalls = 0, exactCalls = 0;
-            for (let i = 0; i < 100; i++) {
-                const variants = i % 2 ? ["exact", "baseline"] : ["baseline", "exact"];
-                const result: Record<string, Awaited<ReturnType<typeof prepare>>> = {};
-                const times: Record<string, number> = {};
-                for (const variant of variants) {
-                    const before = vi.mocked(embedText).mock.calls.length;
-                    const start = performance.now();
-                    result[variant] = await prepare("Help with afternoon gardening", variant === "baseline" ? "parallel" : undefined);
-                    times[variant] = performance.now() - start;
-                    const calls = vi.mocked(embedText).mock.calls.length - before;
-                    if (variant === "exact") exactCalls += calls; else baselineCalls += calls;
-                }
-                expect(result.exact.turnContext).toBe(result.baseline.turnContext);
-                expect(Object.keys(result.exact.agent.tools)).toEqual(Object.keys(result.baseline.agent.tools));
-                samples.push({ baselineMs: times.baseline, exactMs: times.exact });
-            }
-            expect(baselineCalls).toBe(100);
-            expect(exactCalls).toBe(cohort === "covered" ? 0 : 100);
-            report[cohort] = { pairs: 100, baselineCalls, exactCalls, samples };
-        }
-        const directory = join(__dirname, "../../../../output/evals");
-        mkdirSync(directory, { recursive: true });
-        writeFileSync(join(directory, "preparation-parity.json"), JSON.stringify({
-            evidence: "local PGlite; delayed mocked embedding failures; preparation only; not production or browser latency", embeddingDelayMs, ...report,
         }, null, 2));
     }, 60_000);
 });

@@ -11,7 +11,7 @@
  *
  * Not for pickers: the search inside a long `Select` is `SearchSelect`.
  */
-import { forwardRef, useImperativeHandle, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { useImperativeHandle, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import { LoaderCircle, Search, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -47,10 +47,7 @@ export interface SearchFieldProps
     className?: string;
 }
 
-export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(function SearchField(
-    { value, onValueChange, variant = "field", size = "md", loading = false, clearable = true, onClear, trailing, className, disabled, ...inputProps },
-    ref,
-) {
+export function SearchField({ value, onValueChange, variant = "field", size = "md", loading = false, clearable = true, onClear, trailing, className, disabled, ref, ...inputProps }: SearchFieldProps & { ref?: React.Ref<HTMLInputElement> }) {
     const inputRef = useRef<HTMLInputElement>(null);
     useImperativeHandle(ref, () => inputRef.current as HTMLInputElement);
     const dims = SIZE[size];
@@ -107,7 +104,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
             {trailing}
         </div>
     );
-});
+}
 
 export interface SearchTriggerProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
     /** What the faux box says while empty. */
@@ -118,14 +115,10 @@ export interface SearchTriggerProps extends Omit<ButtonHTMLAttributes<HTMLButton
 }
 
 /** A button that looks like a `SearchField` and opens search elsewhere. */
-export const SearchTrigger = forwardRef<HTMLButtonElement, SearchTriggerProps>(function SearchTrigger(
-    { label = "Search…", size = "md", shortcut, className, type = "button", ...props },
-    ref,
-) {
+export function SearchTrigger({ label = "Search…", size = "md", shortcut, className, type = "button", ...props }: SearchTriggerProps & { ref?: React.Ref<HTMLButtonElement> }) {
     const dims = SIZE[size];
     return (
         <button
-            ref={ref}
             type={type}
             className={cn(
                 "flex w-full min-w-0 cursor-pointer items-center text-left text-twilight-text-muted hover:border-twilight-border hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50",
@@ -141,4 +134,4 @@ export const SearchTrigger = forwardRef<HTMLButtonElement, SearchTriggerProps>(f
             {shortcut ? <kbd className="shrink-0 font-sans text-[11px] text-twilight-text-muted">{shortcut}</kbd> : null}
         </button>
     );
-});
+}

@@ -52,7 +52,6 @@ export default defineConfig(({ mode }) => ({
       "framer-motion",
       "react-markdown",
       "remark-gfm",
-      "date-fns",
       "lucide-react",
       "sonner",
       "zustand",

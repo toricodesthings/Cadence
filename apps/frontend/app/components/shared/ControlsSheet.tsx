@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { ChipScroller } from "./ChipScroller";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { useDeviceValue } from "../../hooks/ui/use-device-flag";
 import { Tip } from "../primitives/Tooltip";
 import * as Popover from "../primitives/Popover";
 import * as Dialog from "../primitives/Dialog";
@@ -37,28 +38,12 @@ export function ControlsSheet({
     triggerClassName = "",
 }: ControlsSheetProps) {
     const shell = useShellMode();
-    const storageKey = useMemo(() => `cadence-controls-sheet:${routeKey}`, [routeKey]);
     const [open, setOpen] = useState(false);
-    const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id ?? "");
+    const [persisted, setActiveSectionId] = useDeviceValue(`cadence-controls-sheet:${routeKey}`);
     const [drillId, setDrillId] = useState<string | null>(null);
     const reduceMotion = useReducedMotion();
 
-    useEffect(() => {
-        if (!sections.length) return;
-
-        const persisted = typeof window !== "undefined" ? window.localStorage.getItem(storageKey) : null;
-        const nextSectionId = persisted && sections.some((section) => section.id === persisted)
-            ? persisted
-            : sections[0].id;
-        setActiveSectionId(nextSectionId);
-    }, [sections, storageKey]);
-
-    useEffect(() => {
-        if (!activeSectionId || typeof window === "undefined") return;
-        window.localStorage.setItem(storageKey, activeSectionId);
-    }, [activeSectionId, storageKey]);
-
-    const activeSection = sections.find((section) => section.id === activeSectionId) ?? sections[0];
+    const activeSection = sections.find((section) => section.id === persisted) ?? sections[0];
 
     if (shell.isCompact) {
         // A popover, not a sheet: these are two or three switches, so a full

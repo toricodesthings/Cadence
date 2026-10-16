@@ -5,7 +5,7 @@
  * Domain components import from here — never from @radix-ui/react-tooltip directly.
  */
 import * as RadixTooltip from "@radix-ui/react-tooltip";
-import { forwardRef, useState, useRef, type ReactNode } from "react";
+import { useState, useRef, type ReactNode } from "react";
 import { FLOATING_SURFACE } from "./menu-styles";
 import { isTouchFirst } from "../../hooks/ui/use-shell-mode";
 
@@ -17,12 +17,8 @@ const Portal = RadixTooltip.Portal;
 const Arrow = RadixTooltip.Arrow;
 
 /* ── Content ────────────────────────────────────────────────────── */
-const Content = forwardRef<
-    HTMLDivElement,
-    RadixTooltip.TooltipContentProps
->(({ className = "", sideOffset = 10, ...props }, ref) => (
+const Content = ({ className = "", sideOffset = 10, ...props }: RadixTooltip.TooltipContentProps & { ref?: React.Ref<HTMLDivElement> }) => (
     <RadixTooltip.Content
-        ref={ref}
         sideOffset={sideOffset}
         className={[
             FLOATING_SURFACE,
@@ -35,8 +31,7 @@ const Content = forwardRef<
         ].join(" ")}
         {...props}
     />
-));
-Content.displayName = "Tooltip.Content";
+);
 
 /* ── Tip ────────────────────────────────────────────────────────────
  * The canonical one-liner tooltip for interactive, icon-only controls
@@ -56,7 +51,6 @@ export interface TipProps {
 
 /** Touch screens have no hover: a tip only follows keyboard focus, never a sheet's initial focus. */
 const focusedWithoutKeyboard = () =>
-    typeof window !== "undefined" &&
     isTouchFirst() &&
     !document.activeElement?.matches(":focus-visible");
 

@@ -2,21 +2,7 @@
  * §13.1 Acceptance: Ranking reason labels and materiality
  */
 import { describe, it, expect } from "vitest";
-import {
-    getRankingReasonLabel,
-    getMaterialRankingLabel,
-} from "../../../../app/lib/utils/ranking-reasons";
-
-describe("getRankingReasonLabel", () => {
-    it("returns null for empty reasons", () => {
-        expect(getRankingReasonLabel([])).toBeNull();
-    });
-
-    it("uses the first reason when multiple are provided", () => {
-        const label = getRankingReasonLabel(["overdue", "high_priority"]);
-        expect(label).toBe("Overdue");
-    });
-});
+import { getMaterialRankingLabel } from "../../../../app/lib/utils/ranking-reasons";
 
 describe("getMaterialRankingLabel", () => {
     it("returns null for non-material reasons", () => {

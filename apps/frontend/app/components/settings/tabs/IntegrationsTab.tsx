@@ -1,10 +1,18 @@
-import { Switch } from "../../primitives";
+import type { ReactNode } from "react";
 import type { UserSettings } from "../../../types/settings";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
-import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
+import { SettingsSection } from "../layout/SettingsLayout";
+import { SelectSetting, SwitchSetting, type SettingOption } from "../layout/SettingRows";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
 import { ConnectedAssistants } from "../ConnectedAssistants";
+
+type Integrations = UserSettings["integrations"];
+type SyncMode = Integrations["googleCalendar"]["syncMode"];
+
+const SYNC_OPTIONS: SettingOption[] = [
+    { value: "one_way", label: "One-way" },
+    { value: "two_way", label: "Two-way" },
+];
 
 function StatusBadge({ connected }: { connected: boolean }) {
     return (
@@ -18,11 +26,27 @@ function StatusBadge({ connected }: { connected: boolean }) {
     );
 }
 
+function IntegrationCard({ name, connected, children }: { name: string; connected: boolean; children: ReactNode }) {
+    return (
+        <div className="rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-5">
+            <div className="flex items-center gap-3 mb-4">
+                <h4 className="text-base font-medium text-twilight-text">{name}</h4>
+                <StatusBadge connected={connected} />
+            </div>
+            <div className="flex flex-col gap-4">{children}</div>
+        </div>
+    );
+}
+
 export function IntegrationsTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
 
     const integrations = settings?.integrations ?? SETTINGS_DEFAULTS.integrations;
+    // One typed patch per integration key keeps each switch to a single line.
+    const patch = <K extends keyof Integrations>(key: K, value: Partial<Integrations[K]>) =>
+        updateSettings.mutate({ integrations: { [key]: value } as Partial<Integrations> });
+    const { googleCalendar, appleCalendar, notion, obsidian, ics } = integrations;
 
     return (
         <div className="flex flex-col gap-10">
@@ -36,201 +60,96 @@ export function IntegrationsTab() {
             </h3>
 
             <div className="opacity-50 pointer-events-none" aria-disabled="true">
-
-            {/* ── Calendar sync preferences ── */}
-            <SettingsSection title="Calendar sync preferences">
-                <div className="rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-5">
-                    <div className="flex items-center gap-3 mb-4">
-                        <h4 className="text-base font-medium text-twilight-text">Google Calendar</h4>
-                        <StatusBadge connected={integrations.googleCalendar.enabled} />
-                    </div>
-                    <div className="flex flex-col gap-4">
-                        <SettingsRow
+                <SettingsSection title="Calendar sync preferences">
+                    <IntegrationCard name="Google Calendar" connected={googleCalendar.enabled}>
+                        <SwitchSetting
                             title="Enable sync"
                             description="Sync Cadence tasks to a dedicated Google Calendar."
-                        >
-                            <Switch
-                                checked={integrations.googleCalendar.enabled}
-                                onCheckedChange={(val) =>
-                                    updateSettings.mutate({ integrations: { googleCalendar: { enabled: val } } })
-                                }
-                            />
-                        </SettingsRow>
-                        <SettingsRow
+                            checked={googleCalendar.enabled}
+                            onChange={(val) => patch("googleCalendar", { enabled: val })}
+                        />
+                        <SelectSetting
                             title="Sync direction"
                             description="Choose one-way (Cadence → Google) or two-way sync."
-                        >
-                            <div className="w-full sm:max-w-[14rem]">
-                                <Select
-                                    value={integrations.googleCalendar.syncMode}
-                                    onValueChange={(val) =>
-                                        updateSettings.mutate({ integrations: { googleCalendar: { syncMode: val as UserSettings["integrations"]["googleCalendar"]["syncMode"] } } })
-                                    }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="one_way">One-way</SelectItem>
-                                        <SelectItem value="two_way">Two-way</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </SettingsRow>
-                        <SettingsRow
+                            value={googleCalendar.syncMode}
+                            options={SYNC_OPTIONS}
+                            widthClass="sm:max-w-[14rem]"
+                            onChange={(val) => patch("googleCalendar", { syncMode: val as SyncMode })}
+                        />
+                        <SwitchSetting
                             title="Include completed tasks"
                             description="Sync completed tasks alongside active ones."
-                        >
-                            <Switch
-                                checked={integrations.googleCalendar.includeCompleted}
-                                onCheckedChange={(val) =>
-                                    updateSettings.mutate({ integrations: { googleCalendar: { includeCompleted: val } } })
-                                }
-                            />
-                        </SettingsRow>
-                    </div>
-                </div>
+                            checked={googleCalendar.includeCompleted}
+                            onChange={(val) => patch("googleCalendar", { includeCompleted: val })}
+                        />
+                    </IntegrationCard>
 
-                <div className="rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-5">
-                    <div className="flex items-center gap-3 mb-4">
-                        <h4 className="text-base font-medium text-twilight-text">Apple Calendar</h4>
-                        <StatusBadge connected={integrations.appleCalendar.enabled} />
-                    </div>
-                    <div className="flex flex-col gap-4">
-                        <SettingsRow
+                    <IntegrationCard name="Apple Calendar" connected={appleCalendar.enabled}>
+                        <SwitchSetting
                             title="Enable sync"
                             description="Sync Cadence tasks to Apple Calendar via iCloud."
-                        >
-                            <Switch
-                                checked={integrations.appleCalendar.enabled}
-                                onCheckedChange={(val) =>
-                                    updateSettings.mutate({ integrations: { appleCalendar: { enabled: val } } })
-                                }
-                            />
-                        </SettingsRow>
-                        <SettingsRow
+                            checked={appleCalendar.enabled}
+                            onChange={(val) => patch("appleCalendar", { enabled: val })}
+                        />
+                        <SelectSetting
                             title="Sync direction"
                             description="Choose one-way or two-way sync."
-                        >
-                            <div className="w-full sm:max-w-[14rem]">
-                                <Select
-                                    value={integrations.appleCalendar.syncMode}
-                                    onValueChange={(val) =>
-                                        updateSettings.mutate({ integrations: { appleCalendar: { syncMode: val as UserSettings["integrations"]["appleCalendar"]["syncMode"] } } })
-                                    }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="one_way">One-way</SelectItem>
-                                        <SelectItem value="two_way">Two-way</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </SettingsRow>
-                    </div>
-                </div>
-            </SettingsSection>
+                            value={appleCalendar.syncMode}
+                            options={SYNC_OPTIONS}
+                            widthClass="sm:max-w-[14rem]"
+                            onChange={(val) => patch("appleCalendar", { syncMode: val as SyncMode })}
+                        />
+                    </IntegrationCard>
+                </SettingsSection>
 
-            {/* ── Notes & knowledge preferences ── */}
-            <SettingsSection title="Notes & knowledge preferences">
-                <div className="rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-5">
-                    <div className="flex items-center gap-3 mb-4">
-                        <h4 className="text-base font-medium text-twilight-text">Notion</h4>
-                        <StatusBadge connected={integrations.notion.enabled} />
-                    </div>
-                    <div className="flex flex-col gap-4">
-                        <SettingsRow
+                <SettingsSection title="Notes & knowledge preferences">
+                    <IntegrationCard name="Notion" connected={notion.enabled}>
+                        <SwitchSetting
                             title="Enable Notion integration"
                             description="Allow Cadence to create and link items in Notion."
-                        >
-                            <Switch
-                                checked={integrations.notion.enabled}
-                                onCheckedChange={(val) =>
-                                    updateSettings.mutate({ integrations: { notion: { enabled: val } } })
-                                }
-                            />
-                        </SettingsRow>
-                        <SettingsRow
+                            checked={notion.enabled}
+                            onChange={(val) => patch("notion", { enabled: val })}
+                        />
+                        <SwitchSetting
                             title="Create backlinks"
                             description="Automatically add backlinks from Notion pages to Cadence tasks."
-                        >
-                            <Switch
-                                checked={integrations.notion.createBacklinks}
-                                onCheckedChange={(val) =>
-                                    updateSettings.mutate({ integrations: { notion: { createBacklinks: val } } })
-                                }
-                            />
-                        </SettingsRow>
-                    </div>
-                </div>
+                            checked={notion.createBacklinks}
+                            onChange={(val) => patch("notion", { createBacklinks: val })}
+                        />
+                    </IntegrationCard>
 
-                <div className="rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-5">
-                    <div className="flex items-center gap-3 mb-4">
-                        <h4 className="text-base font-medium text-twilight-text">Obsidian</h4>
-                        <StatusBadge connected={integrations.obsidian.enabled} />
-                    </div>
-                    <div className="flex flex-col gap-4">
-                        <SettingsRow
+                    <IntegrationCard name="Obsidian" connected={obsidian.enabled}>
+                        <SwitchSetting
                             title="Enable Obsidian integration"
                             description="Allow Cadence to interact with your Obsidian vault."
-                        >
-                            <Switch
-                                checked={integrations.obsidian.enabled}
-                                onCheckedChange={(val) =>
-                                    updateSettings.mutate({ integrations: { obsidian: { enabled: val } } })
-                                }
-                            />
-                        </SettingsRow>
-                        <SettingsRow
+                            checked={obsidian.enabled}
+                            onChange={(val) => patch("obsidian", { enabled: val })}
+                        />
+                        <SwitchSetting
                             title="Append task links"
                             description="Add links to Cadence tasks at the end of related Obsidian notes."
-                        >
-                            <Switch
-                                checked={integrations.obsidian.appendTaskLinks}
-                                onCheckedChange={(val) =>
-                                    updateSettings.mutate({ integrations: { obsidian: { appendTaskLinks: val } } })
-                                }
-                            />
-                        </SettingsRow>
-                    </div>
-                </div>
-            </SettingsSection>
+                            checked={obsidian.appendTaskLinks}
+                            onChange={(val) => patch("obsidian", { appendTaskLinks: val })}
+                        />
+                    </IntegrationCard>
+                </SettingsSection>
 
-            {/* ── Calendar feed preferences ── */}
-            <SettingsSection title="Calendar feed preferences">
-                <div className="rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-5">
-                    <div className="flex items-center gap-3 mb-4">
-                        <h4 className="text-base font-medium text-twilight-text">ICS Calendar Feed</h4>
-                        <StatusBadge connected={integrations.ics.enabled} />
-                    </div>
-                    <div className="flex flex-col gap-4">
-                        <SettingsRow
+                <SettingsSection title="Calendar feed preferences">
+                    <IntegrationCard name="ICS Calendar Feed" connected={ics.enabled}>
+                        <SwitchSetting
                             title="Enable ICS feed"
                             description="Generate a read-only ICS feed URL for subscribing in any calendar app."
-                        >
-                            <Switch
-                                checked={integrations.ics.enabled}
-                                onCheckedChange={(val) =>
-                                    updateSettings.mutate({ integrations: { ics: { enabled: val } } })
-                                }
-                            />
-                        </SettingsRow>
-                        <SettingsRow
+                            checked={ics.enabled}
+                            onChange={(val) => patch("ics", { enabled: val })}
+                        />
+                        <SwitchSetting
                             title="Include routines"
                             description="Add routines to the ICS feed alongside tasks."
-                        >
-                            <Switch
-                                checked={integrations.ics.includeHabits}
-                                onCheckedChange={(val) =>
-                                    updateSettings.mutate({ integrations: { ics: { includeHabits: val } } })
-                                }
-                            />
-                        </SettingsRow>
-                    </div>
-                </div>
-            </SettingsSection>
+                            checked={ics.includeHabits}
+                            onChange={(val) => patch("ics", { includeHabits: val })}
+                        />
+                    </IntegrationCard>
+                </SettingsSection>
             </div>
         </div>
     );

@@ -16,7 +16,7 @@
 import { formatInZone } from "@cadence/domain/time";
 import { fenceData, sanitizeUntrusted } from "../safety/injection-policy";
 import type { ApprovalMode } from "@cadence/contracts/ai";
-import { DEFAULT_PROMPT_PACKAGING, type PromptBlocks, type PromptRuntimeContext, type PromptPackaging } from "./prompt-blocks.schema";
+import type { PromptBlocks, PromptRuntimeContext } from "./prompt-blocks.schema";
 
 /** Burnout above this (with adaptive tone on) makes the workload "high". */
 const HIGH_WORKLOAD_BURNOUT = 70;
@@ -47,12 +47,12 @@ function voiceSection(blocks: PromptBlocks, ctx: PromptRuntimeContext): string {
     return ctx.workloadHigh ? `${voice}\n${blocks.workloadHigh}` : voice;
 }
 
-function environmentSection(blocks: PromptBlocks, ctx: PromptRuntimeContext, nonce: string, packaging: PromptPackaging): string {
+function environmentSection(blocks: PromptBlocks, ctx: PromptRuntimeContext, nonce: string): string {
     const { persona } = ctx;
     const assistantName = persona.assistantName?.trim() || "Emilie";
     const nickname = persona.nickname?.trim();
     const names = [`Your name: ${assistantName}`, ...(nickname ? [`User's name: ${nickname}`] : [])].join("\n");
-    return interpolate(packaging === "static-memory" ? blocks.compactEnvironment : blocks.environment, {
+    return interpolate(blocks.environment, {
         names: fence("names", sanitizeUntrusted(names, nonce), nonce),
         emoji: persona.emoji ? "only to mirror the user" : "never",
         proactiveSuggestions: persona.proactiveSuggestions ? "on" : "off",
@@ -73,16 +73,14 @@ export function composePrompt(
     blocks: PromptBlocks,
     ctx: PromptRuntimeContext,
     nonce: string,
-    packaging: PromptPackaging = DEFAULT_PROMPT_PACKAGING,
 ): { instructions: string; turnContext: string } {
     const custom = ctx.persona.customInstructions?.trim();
-    const memories = packaging === "static-memory" && ctx.memoryOff ? [] : ctx.memories ?? [];
-    const staticMemory = packaging === "static-memory" && !ctx.memoryOff && (ctx.memoryOff === false || memories.length > 0);
+    const memories = ctx.memoryOff ? [] : ctx.memories ?? [];
+    const staticMemory = !ctx.memoryOff && (ctx.memoryOff === false || memories.length > 0);
     const memoryPolicy = staticMemory ? blocks.memoryPolicy : null;
 
     // Static text has no placeholders; interpolating with none fails closed on a stray one.
-    const base = packaging === "static-memory" ? blocks.compactBase : blocks.base;
-    const instructions = [...base, ...(memoryPolicy ? [memoryPolicy] : [])].map((section) => interpolate(section, {})).join("\n\n");
+    const instructions = [...blocks.base, ...(memoryPolicy ? [memoryPolicy] : [])].map((section) => interpolate(section, {})).join("\n\n");
     const turnContext = [
         interpolate(voiceSection(blocks, ctx), {}),
         custom
@@ -90,16 +88,16 @@ export function composePrompt(
                   customInstructions: fence("custom_instructions", sanitizeUntrusted(custom, nonce), nonce),
               })
             : null,
-        environmentSection(blocks, ctx, nonce, packaging),
+        environmentSection(blocks, ctx, nonce),
         ctx.snapshot
             ? interpolate(blocks.snapshot, { snapshot: fence("snapshot", sanitizeUntrusted(ctx.snapshot, nonce), nonce) })
             : null,
         memories.length > 0
-            ? interpolate(staticMemory ? blocks.memoryFacts : blocks.memory, {
+            ? interpolate(blocks.memoryFacts, {
                   memory: fence(
                       "memory",
                       // The date is Cadence's, not the person's text: it is what makes "you mentioned in August" true.
-                      memoryLines(blocks, memories, nonce, staticMemory ? "static-memory" : "baseline"),
+                      memoryLines(blocks, memories, nonce),
                       nonce,
                   ),
               })
@@ -113,13 +111,11 @@ export function composePrompt(
 }
 
 /** Canonical fact rendering, also used to validate stored context against current memory. */
-export function memoryLines(blocks: PromptBlocks, memories: NonNullable<PromptRuntimeContext["memories"]>, nonce: string, packaging: PromptPackaging = "baseline"): string {
+export function memoryLines(blocks: PromptBlocks, memories: NonNullable<PromptRuntimeContext["memories"]>, nonce: string): string {
     return memories.map((m) => {
         const flags = `${m.sensitive ? ", sensitive" : ""}${m.stale ? ", not mentioned in over a year: confirm once if it matters" : ""}`;
         const text = sanitizeUntrusted(m.content, nonce);
-        return packaging === "static-memory"
-            ? interpolate(blocks.memoryFact, { id: m.id, month: saidIn(m.saidOn), flags, text })
-            : `- (said ${saidIn(m.saidOn)}${flags}) [${m.id}] ${text}`;
+        return interpolate(blocks.memoryFact, { id: m.id, month: saidIn(m.saidOn), flags, text });
     }).join("\n");
 }
 

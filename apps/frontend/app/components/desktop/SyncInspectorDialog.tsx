@@ -4,6 +4,7 @@ import { useMutationOutbox } from "../../lib/api/mutation-outbox";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
 import { useAvailableDesktopUpdate } from "../../platform/desktop-update-state";
 import { useOnlineStatus } from "../../hooks/core/use-online-status";
+import { formatTime } from "../../lib/utils/date-format";
 
 export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
     const isOnline = useOnlineStatus();
@@ -38,7 +39,7 @@ export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onO
                             Last activity
                         </div>
                         <p className="mt-3 text-sm text-twilight-text-soft">
-                            {lastSyncedAt ? `Manual sync completed at ${lastSyncedAt.toLocaleTimeString()}.` : "No manual sync has been run in this session."}
+                            {lastSyncedAt ? `Manual sync completed at ${formatTime(lastSyncedAt.toISOString())}.` : "No manual sync has been run in this session."}
                         </p>
                     </div>
 

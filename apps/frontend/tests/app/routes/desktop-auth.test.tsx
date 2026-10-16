@@ -11,7 +11,7 @@ import { rememberIdentity } from "../../../app/lib/auth/offline-identity";
 const mocks = vi.hoisted(() => ({ useSession: vi.fn(), getSession: vi.fn(), signOut: vi.fn() }));
 vi.mock("../../../app/lib/auth-client", () => ({ authClient: mocks }));
 vi.mock("@neondatabase/auth/react/ui", () => ({ AuthView: () => null }));
-vi.mock("../../../app/hooks/core/use-document-meta", () => ({ useDocumentMeta: vi.fn() }));
+vi.mock("../../../app/hooks/core/use-document-title", () => ({ useDocumentTitle: vi.fn() }));
 vi.mock("../../../app/platform/runtime", async (importOriginal) => ({
     ...await importOriginal<typeof import("../../../app/platform/runtime")>(),
     IS_DESKTOP_RUNTIME: true,

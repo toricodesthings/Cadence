@@ -26,10 +26,7 @@ export async function validateStoredContexts<M extends { role: string; metadata?
         if (!memoryOn) valid = !fence && (!context.includes("## Memory") || context.endsWith(PROMPT_BLOCKS.memoryOff));
         else if (fence) {
             const current = ids.flatMap((id) => byId.get(id) ?? []);
-            valid = ids.length > 0 && current.length === ids.length && (
-                memoryLines(PROMPT_BLOCKS, current, fence[1]) === fence[2] ||
-                memoryLines(PROMPT_BLOCKS, current, fence[1], "static-memory") === fence[2]
-            );
+            valid = ids.length > 0 && current.length === ids.length && memoryLines(PROMPT_BLOCKS, current, fence[1]) === fence[2];
         } else valid = !context.includes("## Memory");
         if (valid) return message;
         const { turnContext: _removed, ...metadata } = message.metadata as Record<string, unknown>;

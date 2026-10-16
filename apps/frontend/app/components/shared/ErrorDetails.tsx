@@ -10,7 +10,7 @@ import { errorRef, reportError } from "../../lib/log";
 export function ErrorDetails({ error }: { error: unknown }) {
     useEffect(() => reportError(error, "render"), [error]);
     const [copied, setCopied] = useState(false);
-    const ref = `${errorRef(error)} · ${typeof window === "undefined" ? "" : window.location.pathname}`;
+    const ref = `${errorRef(error)} · ${window.location.pathname}`;
     const stack = import.meta.env.DEV && error instanceof Error ? error.stack : undefined;
 
     const copy = async () => {

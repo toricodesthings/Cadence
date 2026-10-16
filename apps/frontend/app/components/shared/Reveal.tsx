@@ -10,7 +10,7 @@ import { EASE_OUT_EXPO } from "../../lib/constants/motion";
  */
 export function Reveal({ open, children, id, className = "" }: { open: boolean; children: ReactNode; id?: string; className?: string }) {
     const prefersReduced = useReducedMotion();
-    const setting = typeof document === "undefined" ? undefined : document.documentElement.dataset.motion;
+    const setting = document.documentElement.dataset.motion;
     const reduced = setting === "reduced" || (setting !== "full" && Boolean(prefersReduced));
     return (
         <AnimatePresence initial={false}>

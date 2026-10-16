@@ -6,18 +6,13 @@
  * {{placeholders}}; an unknown one throws (caught by the tests).
  *
  * Base order is load-bearing (authority, then cacheable prefix): identity, rules,
- * changes, reading intent, using tools, recipes, replies, Cadence primer. The compact
- * candidate shares authority/replies and replaces overlapping workflows with one block.
+ * changes, workflow, replies.
  */
 import type { PromptBlocks } from "./prompt-blocks.schema";
 import identity from "../../../prompts/assistant/base/identity.md";
 import rules from "../../../prompts/assistant/base/rules.md";
 import changes from "../../../prompts/assistant/base/changes.md";
-import readingIntent from "../../../prompts/assistant/base/reading-intent.md";
-import usingTools from "../../../prompts/assistant/base/using-tools.md";
-import recipes from "../../../prompts/assistant/base/recipes.md";
 import replies from "../../../prompts/assistant/base/replies.md";
-import cadencePrimer from "../../../prompts/assistant/base/cadence-primer.md";
 import workflow from "../../../prompts/assistant/base/workflow.md";
 import memoryPolicy from "../../../prompts/assistant/base/memory-policy.md";
 import secretary from "../../../prompts/assistant/voice/secretary.md";
@@ -27,8 +22,6 @@ import companion from "../../../prompts/assistant/voice/companion.md";
 import workloadHigh from "../../../prompts/assistant/voice/workload-high.md";
 import customInstructions from "../../../prompts/assistant/user/custom-instructions.md";
 import environment from "../../../prompts/assistant/user/environment.md";
-import compactEnvironment from "../../../prompts/assistant/user/environment-compact.md";
-import memory from "../../../prompts/assistant/user/memory.md";
 import memoryFacts from "../../../prompts/assistant/user/memory-facts.md";
 import memoryFact from "../../../prompts/assistant/user/memory-fact.md";
 import memoryOff from "../../../prompts/assistant/user/memory-off.md";
@@ -38,16 +31,13 @@ const t = (text: string) => text.trimEnd();
 const authority = [identity, rules, changes];
 
 export const PROMPT_BLOCKS: PromptBlocks = {
-    base: [...authority, readingIntent, usingTools, recipes, replies, cadencePrimer].map(t),
-    compactBase: [...authority, workflow, replies].map(t),
+    base: [...authority, workflow, replies].map(t),
     memoryPolicy: t(memoryPolicy),
     voices: { secretary: t(secretary), coach: t(coach), minimalist: t(minimalist), companion: t(companion) },
     workloadHigh: t(workloadHigh),
     customInstructions: t(customInstructions),
     environment: t(environment),
-    compactEnvironment: t(compactEnvironment),
     snapshot: t(snapshot),
-    memory: t(memory),
     memoryFacts: t(memoryFacts),
     memoryFact: t(memoryFact),
     memoryOff: t(memoryOff),

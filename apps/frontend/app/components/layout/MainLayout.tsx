@@ -1,4 +1,3 @@
-import { StartupSuspense as Suspense } from "../shared/StartupSuspense";
 import { Button } from "../primitives/Button";
 import { Sidebar } from "../sidebar/Sidebar";
 import { IconRail } from "../sidebar/IconRail";
@@ -19,11 +18,11 @@ import { useKeyboardShortcuts } from "../../hooks/core/use-keyboard-shortcuts";
 import { Loading } from "../shared/Loading";
 import { DeferredMount } from "../shared/DeferredMount";
 import type { CSSProperties } from "react";
-import { lazy, Suspense as PlainSuspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useOfflineWindow } from "../../hooks/core/use-offline-window";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
-import { useDocumentMeta } from "../../hooks/core/use-document-meta";
+import { useDocumentTitle } from "../../hooks/core/use-document-title";
 import { useFocusViews } from "../../hooks/core/use-focus-views";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useNotificationCenter } from "../../hooks/notifications/use-notification-center";
@@ -82,43 +81,16 @@ const ASSISTANT_PANEL_MOTION = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as cons
  * the open/close so the swap reads as a glide rather than a cut. */
 const RAIL_SWITCH_MOTION = { duration: 0.34, ease: [0.16, 1, 0.3, 1] as const };
 
-const PAGE_META: Record<string, { title: string; description: string }> = {
-    "/": {
-        title: "Capture",
-        description: "Capture anything, clarify later, and place when ready.",
-    },
-    "/today": {
-        title: "Today",
-        description: "Review overdue work and today's commitments in one calm, focused viewer.",
-    },
-    "/schedule": {
-        title: "Schedule",
-        description: "View your week, day, month, and year with a calmer scheduling workspace built for focus.",
-    },
-    "/events": {
-        title: "Events",
-        description: "Manage yearly recurring milestones in one calm library while keeping Schedule as the date context layer.",
-    },
-    "/upcoming": {
-        title: "Upcoming",
-        description: "Review the horizon of upcoming tasks and prepare what needs attention next.",
-    },
-    "/completed": {
-        title: "Completed",
-        description: "Review what has been finished and cleared from the active workspace.",
-    },
-    "/trash": {
-        title: "Trash",
-        description: "Inspect archived and discarded tasks without cluttering the main planning flow.",
-    },
-    "/routines": {
-        title: "Routines",
-        description: "Keep up the routines you care about, one calm week at a time.",
-    },
-    "/weekly-review": {
-        title: "Weekly Reset",
-        description: "Process inbox items, unscheduled work, waiting tasks, and routines in one weekly ritual.",
-    },
+const PAGE_TITLES: Record<string, string> = {
+    "/": "Capture",
+    "/today": "Today",
+    "/schedule": "Schedule",
+    "/events": "Events",
+    "/upcoming": "Upcoming",
+    "/completed": "Completed",
+    "/trash": "Trash",
+    "/routines": "Routines",
+    "/weekly-review": "Weekly Reset",
 };
 
 /** The assistant panel's glass surface, shown while its code loads. */
@@ -215,7 +187,6 @@ export function MainLayout({
     hideContextualOrb = false,
     navigationMode = "workspace",
     pageTitle,
-    pageDescription,
     shellHeader,
 }: {
     children: React.ReactNode,
@@ -240,7 +211,6 @@ export function MainLayout({
     /** Focused pages keep only the shared icon rail, at every shell size. */
     navigationMode?: "workspace" | "rail",
     pageTitle?: string,
-    pageDescription?: string,
     shellHeader?: ShellHeaderConfig,
 }) {
     const navigate = useNavigate();
@@ -397,21 +367,9 @@ export function MainLayout({
             if (ids.length === 0) return;
             trashTasks(ids, clearSelection);
         },
-        onLayoutScaleIncrease: () => {
-            if (IS_DESKTOP_RUNTIME) {
-                void stepLayoutScale(1);
-            }
-        },
-        onLayoutScaleDecrease: () => {
-            if (IS_DESKTOP_RUNTIME) {
-                void stepLayoutScale(-1);
-            }
-        },
-        onLayoutScaleReset: () => {
-            if (IS_DESKTOP_RUNTIME) {
-                void setLayoutScale(DESKTOP_LAYOUT_SCALE_DEFAULT);
-            }
-        },
+        onLayoutScaleIncrease: () => IS_DESKTOP_RUNTIME && void stepLayoutScale(1),
+        onLayoutScaleDecrease: () => IS_DESKTOP_RUNTIME && void stepLayoutScale(-1),
+        onLayoutScaleReset: () => IS_DESKTOP_RUNTIME && void setLayoutScale(DESKTOP_LAYOUT_SCALE_DEFAULT),
         onShortcutReference: () => setShortcutsRefOpen((o) => !o),
     });
 
@@ -487,53 +445,25 @@ export function MainLayout({
         let unlistenQuickCapture: (() => void) | undefined;
         let active = true;
 
-        const handleCommand = (payload: DesktopCommandPayload) => {
-            if (!active) {
-                return;
-            }
-
-            switch (payload.command) {
-                case "show-command-palette":
-                case "show-search":
-                    setCommandOpen(true);
-                    break;
-                case "open-quick-capture":
-                    void openQuickCaptureWindow((payload.value as QuickAddTab | undefined) ?? "task");
-                    break;
-                case "show-settings":
-                    navigate(`?settings=${payload.value ?? "account"}`);
-                    break;
-                case "show-shortcuts":
-                    navigate("?settings=shortcuts");
-                    break;
-                case "show-sync-inspector":
-                    setSyncInspectorOpen(true);
-                    break;
-                case "sync-now":
-                    void sync();
-                    break;
-                case "navigate-capture":
-                    navigate("/");
-                    break;
-                case "navigate-schedule":
-                    navigate("/schedule");
-                    break;
-                case "navigate-habits":
-                    navigate("/routines");
-                    break;
-                case "navigate-weekly-review":
-                    navigate("/weekly-review");
-                    break;
-                case "layout-scale-increase":
-                    void stepLayoutScale(1);
-                    break;
-                case "layout-scale-decrease":
-                    void stepLayoutScale(-1);
-                    break;
-                case "layout-scale-reset":
-                    void setLayoutScale(DESKTOP_LAYOUT_SCALE_DEFAULT);
-                    break;
-            }
+        const handleCommand = ({ command, value }: DesktopCommandPayload) => {
+            if (!active) return;
+            const actions: Partial<Record<DesktopCommandPayload["command"], () => unknown>> = {
+                "show-command-palette": () => setCommandOpen(true),
+                "show-search": () => setCommandOpen(true),
+                "open-quick-capture": () => openQuickCaptureWindow((value as QuickAddTab | undefined) ?? "task"),
+                "show-settings": () => navigate(`?settings=${value ?? "account"}`),
+                "show-shortcuts": () => navigate("?settings=shortcuts"),
+                "show-sync-inspector": () => setSyncInspectorOpen(true),
+                "sync-now": () => sync(),
+                "navigate-capture": () => navigate("/"),
+                "navigate-schedule": () => navigate("/schedule"),
+                "navigate-habits": () => navigate("/routines"),
+                "navigate-weekly-review": () => navigate("/weekly-review"),
+                "layout-scale-increase": () => stepLayoutScale(1),
+                "layout-scale-decrease": () => stepLayoutScale(-1),
+                "layout-scale-reset": () => setLayoutScale(DESKTOP_LAYOUT_SCALE_DEFAULT),
+            };
+            void actions[command]?.();
         };
 
         void listenForDesktopCommands(handleCommand).then(async (dispose) => {
@@ -568,25 +498,10 @@ export function MainLayout({
         void configureGlobalQuickCaptureShortcut(preferences.quickCaptureShortcutEnabled);
     }, [preferences.quickCaptureShortcutEnabled]);
 
-    const pageMeta = useMemo(() => {
-        if (location.pathname.startsWith("/project/")) {
-            return {
-                title: "List",
-                description: "Work through a focused list view without leaving the Cadence shell.",
-            };
-        }
-
-        return PAGE_META[location.pathname] ?? {
-            title: "Cadence",
-            description: "Cadence is a calm planning workspace for tasks, routines, and weekly resets.",
-        };
-    }, [location.pathname]);
     const controlsSidebarPanel = shell.isPhone || !["/schedule", "/routines", "/events"].includes(location.pathname);
 
-    const resolvedPageTitle = pageTitle ?? pageMeta.title;
-    const resolvedPageDescription = pageDescription ?? pageMeta.description;
-
-    useDocumentMeta(`${resolvedPageTitle} · Cadence`, resolvedPageDescription);
+    const resolvedPageTitle = pageTitle ?? (location.pathname.startsWith("/project/") ? "List" : PAGE_TITLES[location.pathname] ?? "Cadence");
+    useDocumentTitle(`${resolvedPageTitle} · Cadence`);
 
     if (forceLoading || (requireAuth && (status === "bootstrapping" || status === "refreshing"))) {
         return <Loading />;
@@ -870,12 +785,12 @@ export function MainLayout({
                                         >
                                             {/* Optional, even when persisted open: never part of startup.
                                                 The glass shell holds the rail at reveal; the chat fills in. */}
-                                            <PlainSuspense fallback={<AssistantShell width={assistantPanelWidth + 4} />}>
+                                            <Suspense fallback={<AssistantShell width={assistantPanelWidth + 4} />}>
                                                 <AssistantSidePanel
                                                     width={assistantPanelWidth}
                                                     onWidthChange={setAssistantPanelWidth}
                                                 />
-                                            </PlainSuspense>
+                                            </Suspense>
                                         </motion.div>
                                     </motion.div>
                                 ) : null}
@@ -894,42 +809,24 @@ export function MainLayout({
                             onClose={toggleAssistantPanel}
                             fill
                         >
-                            <PlainSuspense fallback={<AssistantShell />}>
+                            <Suspense fallback={<AssistantShell />}>
                                 <AssistantSidePanel width={400} isMobile />
-                            </PlainSuspense>
+                            </Suspense>
                         </ResponsiveOverlayPanel>
                     ) : null}
                 </div>
             </div>
 
-            <Suspense fallback={null}>
-                <DeferredMount active={!railOnly && selectedTaskIds.size > 0}><FloatingActionBar /></DeferredMount>
-            </Suspense>
-            <Suspense fallback={null}>
-                <DeferredMount active={!railOnly && noteRoomOpen}><TaskNoteRoom /></DeferredMount>
-            </Suspense>
-            <Suspense fallback={null}>
-                <DeferredMount active={commandOpen}><CommandPalette open={commandOpen} onOpenChange={setCommandOpen} /></DeferredMount>
-            </Suspense>
-            <Suspense fallback={null}>
-                <DeferredMount active={workspaceMenuOpen}><WorkspaceMenuSheet open={workspaceMenuOpen} onClose={() => setWorkspaceMenuOpen(false)} /></DeferredMount>
-            </Suspense>
-            <Suspense fallback={null}>
-                <DeferredMount active={mobileSearchOpen}><MobileSearchSheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen} /></DeferredMount>
-            </Suspense>
-            <Suspense fallback={null}>
-                <DeferredMount active={shortcutsRefOpen}><ShortcutReference open={shortcutsRefOpen} onOpenChange={setShortcutsRefOpen} /></DeferredMount>
-            </Suspense>
-            <Suspense fallback={null}>
-                <DeferredMount active={quickAddOpen}><QuickAddSurface open={quickAddOpen} onOpenChange={setQuickAddOpen} initialTab={quickAddInitialTab} /></DeferredMount>
-            </Suspense>
-            <Suspense fallback={null}>
-                <DeferredMount active={new URLSearchParams(location.search).has("settings")}><SettingsDialog /></DeferredMount>
-                <LegalConsentGate />
-            </Suspense>
-            <Suspense fallback={null}>
-                <DeferredMount active={new URLSearchParams(location.search).has("notifications")}><NotificationsSheet /></DeferredMount>
-            </Suspense>
+            <DeferredMount active={!railOnly && selectedTaskIds.size > 0}><FloatingActionBar /></DeferredMount>
+            <DeferredMount active={!railOnly && noteRoomOpen}><TaskNoteRoom /></DeferredMount>
+            <DeferredMount active={commandOpen}><CommandPalette open={commandOpen} onOpenChange={setCommandOpen} /></DeferredMount>
+            <DeferredMount active={workspaceMenuOpen}><WorkspaceMenuSheet open={workspaceMenuOpen} onClose={() => setWorkspaceMenuOpen(false)} /></DeferredMount>
+            <DeferredMount active={mobileSearchOpen}><MobileSearchSheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen} /></DeferredMount>
+            <DeferredMount active={shortcutsRefOpen}><ShortcutReference open={shortcutsRefOpen} onOpenChange={setShortcutsRefOpen} /></DeferredMount>
+            <DeferredMount active={quickAddOpen}><QuickAddSurface open={quickAddOpen} onOpenChange={setQuickAddOpen} initialTab={quickAddInitialTab} /></DeferredMount>
+            <DeferredMount active={new URLSearchParams(location.search).has("settings")}><SettingsDialog /></DeferredMount>
+            <LegalConsentGate />
+            <DeferredMount active={new URLSearchParams(location.search).has("notifications")}><NotificationsSheet /></DeferredMount>
             {IS_DESKTOP_RUNTIME ? (
                 <SyncInspectorDialog open={syncInspectorOpen} onOpenChange={setSyncInspectorOpen} />
             ) : null}

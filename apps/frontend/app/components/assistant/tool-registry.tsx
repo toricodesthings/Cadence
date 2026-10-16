@@ -11,11 +11,11 @@ import {
     CreateEventCard, CreateProjectCard, CreateSectionsCard, CreateTagCard, DeleteEventCard, DeleteHabitCard, DeleteSectionCard,
     CreateHabitCard, LogHabitCard, UpdateEventCard, UpdateHabitCard, UpdateSectionCard,
 } from "./widgets/SmallCards";
-import { DeleteCapturesCard, InboxStructureCard, StructureCapturesCard, UpdateCapturesCard } from "./widgets/CaptureCards";
+import { DeleteCapturesCard, UpdateCapturesCard } from "./widgets/CaptureCards";
 import {
     CreateFocusViewCard, DeleteFocusViewCard, DeleteProjectCard, DeleteTagCard, UpdateFocusViewCard, UpdateProjectCard, UpdateTagCard,
 } from "./widgets/OrganizeCards";
-import type { RetiredRenderContext, ToolRenderContext } from "./widgets/ApprovalCard";
+import { outcomeOf, type RetiredRenderContext, type ToolRenderContext } from "./widgets/ApprovalCard";
 import { AskCard } from "./widgets/AskCard";
 import { RememberReceipt } from "./widgets/RememberReceipt";
 import { Sparkles } from "lucide-react";
@@ -98,10 +98,9 @@ const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRend
     ask_user: { label: "Asked you", render: (ctx) => <AskCard ctx={ctx} /> },
 };
 
-/** Writes the server no longer offers, still in older threads: they render with their old card. */
+/** Writes the server no longer offers, still in older threads: the capture ones render settled, the rest through their successor's card. */
+const RETIRED_CAPTURE_WRITES = new Set(["structure_inbox_item", "structure_captures"]);
 const RETIRED_WRITES: Record<string, (ctx: RetiredRenderContext) => React.ReactNode> = {
-    structure_inbox_item: (ctx) => <InboxStructureCard ctx={ctx} />,
-    structure_captures: (ctx) => <StructureCapturesCard ctx={ctx} />,
     create_event: (ctx) => <CreateEventCard ctx={ctx} />,
     update_event: (ctx) => <UpdateEventCard ctx={ctx} />,
     create_focus_view: (ctx) => <CreateFocusViewCard ctx={ctx} />,
@@ -109,8 +108,8 @@ const RETIRED_WRITES: Record<string, (ctx: RetiredRenderContext) => React.ReactN
 };
 
 /**
- * Proposals from before 0.19 (the client wrote them, then saved a decision). Old
- * threads still hold them, so they render settled and read-only: applied or not.
+ * Proposals from before 0.19 (the client wrote them, then saved a decision) and retired
+ * writes. Old threads still hold them, so they render settled and read-only: applied or not.
  */
 function RetiredProposal({ applied }: { applied: boolean }) {
     const label = "Earlier suggestion";
@@ -158,6 +157,7 @@ export function ToolPart({
     const toolName = safeToolName(part);
     const descriptor = getToolDescriptor(toolName);
     if (toolName?.startsWith("propose_")) return <RetiredProposal applied={part?.output?.decision === "commit"} />;
+    if (toolName && RETIRED_CAPTURE_WRITES.has(toolName)) return <RetiredProposal applied={outcomeOf(part, true) === "done"} />;
     const retired = toolName ? RETIRED_WRITES[toolName] : undefined;
     if (retired) return <>{retired({ part, toolName: toolName!, answer, stale })}</>;
 

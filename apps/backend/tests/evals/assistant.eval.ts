@@ -36,13 +36,9 @@ const TODAY = "2026-09-23";
 const vars = evaluationVars();
 const evaluation = evaluationOptions(vars);
 const optimization = optimizationOptions(vars);
-const comparePrompts = evaluation.profile !== "smoke" && vars.AI_EVAL_COMPARE_PROMPTS === "true";
-const reportName = vars.AI_EVAL_REPORT_NAME ?? `${comparePrompts ? "assistant-p2" : "assistant"}-${evaluation.profile}`;
+const reportName = vars.AI_EVAL_REPORT_NAME ?? `assistant-${evaluation.profile}`;
 if (!/^[a-z0-9-]+$/i.test(reportName)) throw new Error("Invalid AI_EVAL_REPORT_NAME");
-const variants = comparePrompts ? [
-    { promptPackaging: "baseline" as const, cacheVariant: "5m-5m" as const },
-    { promptPackaging: "static-memory" as const, cacheVariant: "5m-5m" as const },
-] : [optimization];
+const variants = [optimization];
 const env = { OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY, AI_CHAT_MODEL: vars.AI_CHAT_MODEL, AI_CHAT_MODEL_BASIC: vars.AI_CHAT_MODEL_BASIC ?? "deepseek/deepseek-v4.1-flash" } as unknown as Env;
 /** Iteration defaults to one pass; full restores each scenario's repeat count. */
 const maxRuns = evaluation.assistantRuns;
@@ -803,7 +799,7 @@ const SCENARIOS: Scenario[] = [
 // ── Runner ──────────────────────────────────────────────────────────────────
 type Totals = Pick<Run, "steps" | "tokens" | "inputTokens" | "outputTokens" | "cached" | "written" | "cost" | "unknownCostSteps" | "failedRuns" | "ms">;
 const selected = SCENARIOS.filter((scenario) => evaluation.profile !== "smoke" || scenario.smoke);
-const report: ({ name: string; runs: number; packaging: string; level: string; passed: boolean; problems: string[]; calls: string[]; models: string[]; servedModels: string[] } & Totals)[] = [];
+const report: ({ name: string; runs: number; level: string; passed: boolean; problems: string[]; calls: string[]; models: string[]; servedModels: string[] } & Totals)[] = [];
 const warmups: Run[] = [];
 let failedWarmups = 0;
 /** The share of input read from the prompt cache (input includes cached tokens). */
@@ -822,7 +818,7 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
     afterAll(() => {
         const passed = report.filter((r) => r.passed).length;
         const sum = [...warmups, ...report].reduce((a, r) => ({ cost: a.cost + r.cost, tokens: a.tokens + r.tokens, cached: a.cached + r.cached }), { cost: 0, tokens: 0, cached: 0 });
-        const rows = report.map((r) => `${r.passed ? "PASS" : "FAIL"}  ${r.level.padEnd(7)} ${r.name.padEnd(46)} [${r.packaging}] ${String(r.steps).padStart(2)} steps ${String(r.tokens).padStart(6)} tok ${cachedShare(r)} cached ${r.unknownCostSteps || r.failedRuns ? "unknown cost" : `$${r.cost.toFixed(4)}`} ${(r.ms / 1000).toFixed(1).padStart(5)}s  ${r.calls.join(" → ")}${r.problems.length ? `\n      ✗ ${r.problems.join("\n      ✗ ")}` : ""}`);
+        const rows = report.map((r) => `${r.passed ? "PASS" : "FAIL"}  ${r.level.padEnd(7)} ${r.name.padEnd(46)} ${String(r.steps).padStart(2)} steps ${String(r.tokens).padStart(6)} tok ${cachedShare(r)} cached ${r.unknownCostSteps || r.failedRuns ? "unknown cost" : `$${r.cost.toFixed(4)}`} ${(r.ms / 1000).toFixed(1).padStart(5)}s  ${r.calls.join(" → ")}${r.problems.length ? `\n      ✗ ${r.problems.join("\n      ✗ ")}` : ""}`);
         process.stdout.write(`\nAssistant evals [${evaluation.profile}] (${env.AI_CHAT_MODEL ?? "default model"}): ${passed}/${report.length} passed · ${sum.tokens} tok, ${cachedShare(sum as Totals)} cached · known cost $${sum.cost.toFixed(4)}\n${rows.join("\n")}\n\n`);
         const dir = join(__dirname, "../../../../output/evals");
         mkdirSync(dir, { recursive: true });
@@ -833,7 +829,7 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
     });
 
     for (const [index, scenario] of selected.entries()) for (const variant of (index % 2 ? [...variants].reverse() : variants)) {
-        it.concurrent(`${scenario.name} [${variant.promptPackaging}]`, async () => {
+        it.concurrent(`${scenario.name}`, async () => {
             const total: Totals = { steps: 0, tokens: 0, inputTokens: 0, outputTokens: 0, cached: 0, written: 0, cost: 0, unknownCostSteps: 0, failedRuns: 0, ms: 0 };
             const problems: string[] = [];
             let calls: string[] = [];
@@ -857,7 +853,7 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
                 for (const key of Object.keys(total) as (keyof Totals)[]) total[key] += run[key];
                 calls = [...new Set(run.calls.map((c) => c.step))].map((step) => run.calls.filter((c) => c.step === step).map((c) => c.name).join("+"));
             }
-            report.push({ name: scenario.name, runs, packaging: variant.promptPackaging ?? "baseline", level: scenario.level, passed: problems.length === 0, problems, ...total, calls, models: [...models], servedModels: [...servedModels] });
+            report.push({ name: scenario.name, runs, level: scenario.level, passed: problems.length === 0, problems, ...total, calls, models: [...models], servedModels: [...servedModels] });
             expect(problems).toEqual([]);
         });
     }

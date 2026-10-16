@@ -108,7 +108,7 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
 
     // Phone keyboard: strip and panels ride it; a panel takes its place at the last height.
     const { inset, last } = useKeyboardInset(phone);
-    const panelHeight = Math.min(Math.max(last.current || 320, 280), Math.round((typeof window === "undefined" ? 800 : window.innerHeight) / 2));
+    const panelHeight = Math.min(Math.max(last.current || 320, 280), Math.round(window.innerHeight / 2));
     const effectiveInset = phone ? (panel ? panelHeight : inset) : 0;
 
     // ── words (debounced: never per keystroke) ──

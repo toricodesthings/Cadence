@@ -2,7 +2,7 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { Inbox, CalendarClock, ChevronRight, StickyNote, Trash2, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { BucketedCollectionView, BucketedSectionHeader } from "../shared/BucketedCollectionView";
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
@@ -50,7 +50,7 @@ export function HoldingFeed({
     const { data: settings } = useSettings();
     const [selected, setSelected] = useState<Set<string>>(() => new Set());
     const [focusedId, setFocusedId] = useState<string | null>(null);
-    const [busy, setBusy] = useState(false);
+    const [busy, startBusy] = useTransition();
     const process = useProcessInboxToTask();
     const { data: projects = [] } = useProjects();
     const unprocess = useUnprocessInbox();
@@ -137,66 +137,64 @@ export function HoldingFeed({
             nlp: { rawInput: item.rawText, sourceSurface: "inbox" as const, dateStyle, dismissedEntityIds, userOverrides: overrides },
         };
     };
-    const bulk = async (date?: LocalDate, discard = false) => {
+    const bulk = (date?: LocalDate, discard = false) => {
         if (busy) return;
-        setBusy(true);
-        try {
-            const parseText = await loadParse();
-            for (const item of [...feed.thoughts, ...feed.older, ...feed.notes].filter((i) => selected.has(i.id))) {
-                if (discard) await status.setStatus(item, "discarded");
-                else await process.mutateAsync({ ...asTask(item, parseText), ...(date ? { scheduledDay: date } : NO_DAY) });
-                setSelected((old) => {
-                    const next = new Set(old);
-                    next.delete(item.id);
-                    return next;
-                });
-            }
-            for (const task of feed.tasks.filter((t) => selected.has(t.id))) {
-                if (discard) {
-                    await updateTask.mutateAsync({ id: task.id, state: "ARCHIVED" });
-                    toast.message("Discarded", {
-                        action: {
-                            label: "Undo",
-                            onClick: () => updateTask.mutate({ id: task.id, state: task.state }),
-                        },
+        startBusy(async () => {
+            try {
+                const parseText = await loadParse();
+                for (const item of [...feed.thoughts, ...feed.older, ...feed.notes].filter((i) => selected.has(i.id))) {
+                    if (discard) await status.setStatus(item, "discarded");
+                    else await process.mutateAsync({ ...asTask(item, parseText), ...(date ? { scheduledDay: date } : NO_DAY) });
+                    setSelected((old) => {
+                        const next = new Set(old);
+                        next.delete(item.id);
+                        return next;
                     });
-                } else if (date) await placeTask(task, date);
-                setSelected((old) => {
-                    const next = new Set(old);
-                    next.delete(task.id);
-                    return next;
-                });
+                }
+                for (const task of feed.tasks.filter((t) => selected.has(t.id))) {
+                    if (discard) {
+                        await updateTask.mutateAsync({ id: task.id, state: "ARCHIVED" });
+                        toast.message("Discarded", {
+                            action: {
+                                label: "Undo",
+                                onClick: () => updateTask.mutate({ id: task.id, state: task.state }),
+                            },
+                        });
+                    } else if (date) await placeTask(task, date);
+                    setSelected((old) => {
+                        const next = new Set(old);
+                        next.delete(task.id);
+                        return next;
+                    });
+                }
+            } catch {
+                toast.error("Some items couldn't be changed. They remain selected.");
             }
-        } catch {
-            toast.error("Some items couldn't be changed. They remain selected.");
-        } finally {
-            setBusy(false);
-        }
+        });
     };
     // Thoughts that already carry a list (and section): the user's pick, or the server's suggestion.
     const sortable = [...feed.thoughts, ...feed.older].filter((item) => placementFor(item));
-    const sortAll = async () => {
+    const sortAll = () => {
         if (busy || sortable.length === 0) return;
-        setBusy(true);
-        const placed: { item: InboxItem; taskId: string }[] = [];
-        try {
-            const parseText = await loadParse();
-            for (const item of sortable) {
-                // Sorting never picks a day.
-                const task = await process.mutateAsync({ ...asTask(item, parseText), ...NO_DAY, silent: true });
-                if (task) placed.push({ item, taskId: task.id });
+        startBusy(async () => {
+            const placed: { item: InboxItem; taskId: string }[] = [];
+            try {
+                const parseText = await loadParse();
+                for (const item of sortable) {
+                    // Sorting never picks a day.
+                    const task = await process.mutateAsync({ ...asTask(item, parseText), ...NO_DAY, silent: true });
+                    if (task) placed.push({ item, taskId: task.id });
+                }
+            } catch {
+                toast.error("Some thoughts couldn't be sorted. They stay in New.");
             }
-        } catch {
-            toast.error("Some thoughts couldn't be sorted. They stay in New.");
-        } finally {
-            setBusy(false);
-        }
-        if (placed.length)
-            toastUndo(
-                `Sorted ${placed.length} ${placed.length === 1 ? "thought" : "thoughts"}`,
-                () => placed.forEach(({ item, taskId }) => unprocess.mutate({ id: item.id, taskId, item })),
-                { description: "Placed in their lists, no day yet" },
-            );
+            if (placed.length)
+                toastUndo(
+                    `Sorted ${placed.length} ${placed.length === 1 ? "thought" : "thoughts"}`,
+                    () => placed.forEach(({ item, taskId }) => unprocess.mutate({ id: item.id, taskId, item })),
+                    { description: "Placed in their lists, no day yet" },
+                );
+        });
     };
     const available = [...ordered.thoughts, ...ordered.tasks, ...ordered.older, ...feed.notes];
     const activeId = available.some((item) => item.id === focusedId) ? focusedId : available[0]?.id;
@@ -228,14 +226,14 @@ export function HoldingFeed({
             </span>
             {/* Phone: count and actions share the top line, the day pills get their own below. */}
             <div className="order-last basis-full sm:order-none sm:basis-auto">
-                <CaptureDayChips lightest={lightest} onPlace={(day) => void bulk(toDay(day))} disabled={busy} />
+                <CaptureDayChips lightest={lightest} onPlace={(day) => bulk(toDay(day))} disabled={busy} />
             </div>
             <Button
                 disabled={busy}
                 variant="ghost"
                 size="sm"
                 className="ml-auto text-red-400/80 hover:bg-red-500/10 hover:text-red-300 sm:ml-0"
-                onClick={() => void bulk(undefined, true)}
+                onClick={() => bulk(undefined, true)}
             >
                 <Trash2 size={14} aria-hidden />
                 Discard
@@ -264,7 +262,7 @@ export function HoldingFeed({
     const thoughtsAction = (sortable.length > 0 || sortAction) && (
         <div className="flex flex-wrap items-center gap-2">
             {sortable.length > 0 && (
-                <Button variant="subtle" size="sm" className="shrink-0 px-2.5" disabled={busy} onClick={() => void sortAll()}>
+                <Button variant="subtle" size="sm" className="shrink-0 px-2.5" disabled={busy} onClick={() => sortAll()}>
                     Sort all
                 </Button>
             )}

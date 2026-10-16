@@ -5,45 +5,30 @@
  * Domain components import from here — never from @radix-ui/react-popover directly.
  */
 import * as RadixPopover from "@radix-ui/react-popover";
-import { forwardRef } from "react";
 import { FLOATING_MOTION, FLOATING_SURFACE } from "./menu-styles";
 
 /* ── Re-exports ─────────────────────────────────────────────────── */
 export const Root = RadixPopover.Root;
 export const Anchor = RadixPopover.Anchor;
 
-export const Trigger = forwardRef<
-    HTMLButtonElement,
-    RadixPopover.PopoverTriggerProps
->(({ className = "", ...props }, ref) => (
+export const Trigger = ({ className = "", ...props }: RadixPopover.PopoverTriggerProps & { ref?: React.Ref<HTMLButtonElement> }) => (
     <RadixPopover.Trigger
-        ref={ref}
         className={`cursor-pointer ${className}`}
         {...props}
     />
-));
-Trigger.displayName = "Popover.Trigger";
+);
 
-export const Close = forwardRef<
-    HTMLButtonElement,
-    RadixPopover.PopoverCloseProps
->(({ className = "", ...props }, ref) => (
+export const Close = ({ className = "", ...props }: RadixPopover.PopoverCloseProps & { ref?: React.Ref<HTMLButtonElement> }) => (
     <RadixPopover.Close
-        ref={ref}
         className={`cursor-pointer ${className}`}
         {...props}
     />
-));
-Close.displayName = "Popover.Close";
+);
 
 /* ── Content ────────────────────────────────────────────────────── */
-export const Content = forwardRef<
-    HTMLDivElement,
-    RadixPopover.PopoverContentProps
->(({ className = "", sideOffset = 8, onWheel, onTouchMove, ...props }, ref) => (
+export const Content = ({ className = "", sideOffset = 8, onWheel, onTouchMove, ...props }: RadixPopover.PopoverContentProps & { ref?: React.Ref<HTMLDivElement> }) => (
     <RadixPopover.Portal>
         <RadixPopover.Content
-            ref={ref}
             sideOffset={sideOffset}
             data-cadence-popover-content="true"
             // A modal Dialog's scroll lock cancels wheel/touchmove at `document`
@@ -60,5 +45,4 @@ export const Content = forwardRef<
             {...props}
         />
     </RadixPopover.Portal>
-));
-Content.displayName = "Popover.Content";
+);

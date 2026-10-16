@@ -1,15 +1,125 @@
 import { useState } from "react";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
+import { SelectSetting, SwitchSetting, type SettingOption } from "../layout/SettingRows";
 import { Button } from "../../primitives";
-import { Switch } from "../../primitives";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { toast } from "sonner";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { useApiClient } from "../../../hooks/auth/use-api-client";
 import { unwrapResponse } from "../../../lib/api/helpers";
-import { SETTINGS_DEFAULTS } from "../../../types/settings";
+import { SETTINGS_DEFAULTS, type UserSettings } from "../../../types/settings";
 import { ShieldCheck, Trash2 } from "lucide-react";
 import { toastError } from "../../../lib/utils/error-toast";
+
+const CONFIDENCE_OPTIONS: SettingOption[] = [
+    { value: "high", label: "High — only certain matches" },
+    { value: "medium", label: "Medium — balanced" },
+    { value: "low", label: "Low — show everything detected" },
+];
+const PRESENTATION_OPTIONS: SettingOption[] = [
+    { value: "compact", label: "Compact trigger" },
+    { value: "expanded", label: "Expanded tray by default" },
+];
+
+type Updater = ReturnType<typeof useUpdateSettings>;
+type Privacy = UserSettings["privacy"];
+type Intelligence = NonNullable<UserSettings["tasks"]["intelligence"]>;
+
+function PrivacySection({ privacy, updateSettings }: { privacy: Privacy; updateSettings: Updater }) {
+    const diagnosticsEnabled = privacy.usageDiagnostics;
+    return (
+        <SettingsSection title="Privacy">
+            <SwitchSetting
+                title="Usage diagnostics"
+                description="Allow Cadence to collect anonymous interaction patterns (routes visited, actions used, latencies). No task titles or personal text is ever stored."
+                checked={diagnosticsEnabled}
+                onChange={(val) => updateSettings.mutate({ privacy: { usageDiagnostics: val } })}
+            />
+            <SwitchSetting
+                title="Crash reports"
+                description="Send anonymous crash reports to help improve stability."
+                checked={privacy.crashReports ?? SETTINGS_DEFAULTS.privacy.crashReports}
+                onChange={(val) => updateSettings.mutate({ privacy: { crashReports: val } })}
+            />
+            <div className="rounded-lg border border-white/8 bg-white/3 p-4 text-sm text-twilight-text-soft">
+                <div className={`flex items-center gap-2 mb-2${diagnosticsEnabled ? " text-accent-primary" : ""}`}>
+                    <ShieldCheck size={16} />
+                    <span className="font-medium">{diagnosticsEnabled ? "What Cadence collects" : "No data collected"}</span>
+                </div>
+                <p>
+                    {diagnosticsEnabled
+                        ? "Routes visited, action types, capture-to-placement latency, parse confidence tiers, and interaction methods. Task titles, note content, and personal text are never collected."
+                        : "Usage diagnostics are off. Turn them on to help Cadence improve friction detection."}
+                </p>
+            </div>
+        </SettingsSection>
+    );
+}
+
+function ParsingSection({ intelligence, setIntel }: { intelligence: Intelligence; setIntel: (patch: Partial<Intelligence>) => void }) {
+    return (
+        <SettingsSection title="Natural Language Parsing">
+            <SwitchSetting
+                title="Enable NLP parsing"
+                description="Parse dates, priorities, tags, and list names from your capture and task input."
+                checked={intelligence.nlpEnabled}
+                onChange={(val) => setIntel({ nlpEnabled: val })}
+            />
+            <SwitchSetting
+                title="Suggest where captures go"
+                description="Sends a new capture's text, or a search that found nothing, with your list, section and task names, to an AI provider to suggest a destination or a match. Off sends nothing."
+                checked={intelligence.smartPlacement !== false}
+                onChange={(val) => setIntel({ smartPlacement: val })}
+            />
+            <SwitchSetting
+                title="Explanation verbosity"
+                description="Show parse explanation chips when Cadence detects dates, priorities, or context."
+                checked={intelligence.showExplanations}
+                onChange={(val) => setIntel({ showExplanations: val })}
+            />
+            <SelectSetting
+                title="Confidence threshold"
+                description="Only apply parsed values that meet this confidence level. Lower means more automation, higher means more manual control."
+                value={intelligence.confidenceThreshold}
+                options={CONFIDENCE_OPTIONS}
+                widthClass="sm:max-w-[14rem]"
+                onChange={(val) => setIntel({ confidenceThreshold: val as "high" | "medium" | "low" })}
+            />
+            <SwitchSetting
+                title="Low-stimulation mode"
+                description="Reduce parse chips, explanation density, and visual noise from intelligence features."
+                checked={intelligence.lowStimulationMode}
+                onChange={(val) => setIntel({ lowStimulationMode: val })}
+            />
+        </SettingsSection>
+    );
+}
+
+function RankingSection({ intelligence, setIntel }: { intelligence: Intelligence; setIntel: (patch: Partial<Intelligence>) => void }) {
+    return (
+        <SettingsSection title="Ranking & Focus Views">
+            <SwitchSetting
+                title="Smart sort"
+                description="Automatically rank tasks by urgency, due dates, effort, and pinned status. Fully deterministic — no AI involved."
+                checked={intelligence.smartSortEnabled}
+                onChange={(val) => setIntel({ smartSortEnabled: val })}
+            />
+            <SwitchSetting
+                title="Focus Views"
+                description="Enable Focus Views — deterministic filters like 'Quick Wins', 'Due Soon', 'Needs Dates' that help narrow your task list."
+                checked={intelligence.focusViewsEnabled}
+                onChange={(val) => setIntel({ focusViewsEnabled: val })}
+            />
+            <SelectSetting
+                title="Focus View presentation"
+                description="How Focus Views appear on task pages."
+                value={intelligence.focusViewPresentation ?? "compact"}
+                options={PRESENTATION_OPTIONS}
+                widthClass="sm:max-w-[14rem]"
+                onChange={(val) => setIntel({ focusViewPresentation: val as "compact" | "expanded" })}
+            />
+        </SettingsSection>
+    );
+}
 
 export function AITab() {
     const { data: settings } = useSettings();
@@ -18,7 +128,6 @@ export function AITab() {
     const [isClearingHistory, setIsClearingHistory] = useState(false);
 
     const privacy = settings?.privacy ?? SETTINGS_DEFAULTS.privacy;
-    const diagnosticsEnabled = privacy.usageDiagnostics;
     const intelligence = settings?.tasks?.intelligence ?? SETTINGS_DEFAULTS.tasks.intelligence;
 
     const handleClearHistory = async () => {
@@ -48,6 +157,8 @@ export function AITab() {
         }
     };
 
+    const setIntel = (patch: Partial<Intelligence>) => updateSettings.mutate({ tasks: { intelligence: patch } });
+
     return (
         <div className="flex flex-col gap-10">
             <h2 className="mb-2 flex items-center gap-2 text-2xl font-bold text-twilight-text">
@@ -59,180 +170,10 @@ export function AITab() {
                 found nothing, to an AI provider to suggest where it goes or what you meant.
             </p>
 
-            {/* ── Privacy & Diagnostics ── */}
-            <SettingsSection title="Privacy">
-                <SettingsRow
-                    title="Usage diagnostics"
-                    description="Allow Cadence to collect anonymous interaction patterns (routes visited, actions used, latencies). No task titles or personal text is ever stored."
-                >
-                    <Switch
-                        checked={diagnosticsEnabled}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ privacy: { usageDiagnostics: val } })
-                        }
-                    />
-                </SettingsRow>
+            <PrivacySection privacy={privacy} updateSettings={updateSettings} />
+            <ParsingSection intelligence={intelligence} setIntel={setIntel} />
+            <RankingSection intelligence={intelligence} setIntel={setIntel} />
 
-                <SettingsRow
-                    title="Crash reports"
-                    description="Send anonymous crash reports to help improve stability."
-                >
-                    <Switch
-                        checked={privacy.crashReports ?? SETTINGS_DEFAULTS.privacy.crashReports}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ privacy: { crashReports: val } })
-                        }
-                    />
-                </SettingsRow>
-
-                {diagnosticsEnabled ? (
-                    <div className="rounded-lg border border-white/8 bg-white/3 p-4 text-sm text-twilight-text-soft">
-                        <div className="flex items-center gap-2 mb-2 text-accent-primary">
-                            <ShieldCheck size={16} />
-                            <span className="font-medium">What Cadence collects</span>
-                        </div>
-                        <p>
-                            Routes visited, action types, capture-to-placement latency, parse confidence tiers, and interaction methods.
-                            Task titles, note content, and personal text are never collected.
-                        </p>
-                    </div>
-                ) : (
-                    <div className="rounded-lg border border-white/8 bg-white/3 p-4 text-sm text-twilight-text-soft">
-                        <div className="flex items-center gap-2 mb-2">
-                            <ShieldCheck size={16} />
-                            <span className="font-medium">No data collected</span>
-                        </div>
-                        <p>
-                            Usage diagnostics are off. Turn them on to help Cadence improve friction detection.
-                        </p>
-                    </div>
-                )}
-            </SettingsSection>
-
-            {/* ── NLP & Parsing ── */}
-            <SettingsSection title="Natural Language Parsing">
-                <SettingsRow
-                    title="Enable NLP parsing"
-                    description="Parse dates, priorities, tags, and list names from your capture and task input."
-                >
-                    <Switch
-                        checked={intelligence.nlpEnabled}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ tasks: { intelligence: { nlpEnabled: val } } })
-                        }
-                    />
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Suggest where captures go"
-                    description="Sends a new capture's text, or a search that found nothing, with your list, section and task names, to an AI provider to suggest a destination or a match. Off sends nothing."
-                >
-                    <Switch
-                        checked={intelligence.smartPlacement !== false}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ tasks: { intelligence: { smartPlacement: val } } })
-                        }
-                    />
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Explanation verbosity"
-                    description="Show parse explanation chips when Cadence detects dates, priorities, or context."
-                >
-                    <Switch
-                        checked={intelligence.showExplanations}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ tasks: { intelligence: { showExplanations: val } } })
-                        }
-                    />
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Confidence threshold"
-                    description="Only apply parsed values that meet this confidence level. Lower means more automation, higher means more manual control."
-                >
-                    <div className="w-full sm:max-w-[14rem]">
-                        <Select
-                            value={intelligence.confidenceThreshold}
-                            onValueChange={(val) =>
-                                updateSettings.mutate({ tasks: { intelligence: { confidenceThreshold: val as "high" | "medium" | "low" } } })
-                            }
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="high">High — only certain matches</SelectItem>
-                                <SelectItem value="medium">Medium — balanced</SelectItem>
-                                <SelectItem value="low">Low — show everything detected</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Low-stimulation mode"
-                    description="Reduce parse chips, explanation density, and visual noise from intelligence features."
-                >
-                    <Switch
-                        checked={intelligence.lowStimulationMode}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ tasks: { intelligence: { lowStimulationMode: val } } })
-                        }
-                    />
-                </SettingsRow>
-            </SettingsSection>
-
-            {/* ── Smart Sort & Focus Views ── */}
-            <SettingsSection title="Ranking & Focus Views">
-                <SettingsRow
-                    title="Smart sort"
-                    description="Automatically rank tasks by urgency, due dates, effort, and pinned status. Fully deterministic — no AI involved."
-                >
-                    <Switch
-                        checked={intelligence.smartSortEnabled}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ tasks: { intelligence: { smartSortEnabled: val } } })
-                        }
-                    />
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Focus Views"
-                    description="Enable Focus Views — deterministic filters like 'Quick Wins', 'Due Soon', 'Needs Dates' that help narrow your task list."
-                >
-                    <Switch
-                        checked={intelligence.focusViewsEnabled}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ tasks: { intelligence: { focusViewsEnabled: val } } })
-                        }
-                    />
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Focus View presentation"
-                    description="How Focus Views appear on task pages."
-                >
-                    <div className="w-full sm:max-w-[14rem]">
-                        <Select
-                            value={intelligence.focusViewPresentation ?? "compact"}
-                            onValueChange={(val) =>
-                                updateSettings.mutate({ tasks: { intelligence: { focusViewPresentation: val as "compact" | "expanded" } } })
-                            }
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="compact">Compact trigger</SelectItem>
-                                <SelectItem value="expanded">Expanded tray by default</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </SettingsRow>
-            </SettingsSection>
-
-            {/* ── Data Management ── */}
             <SettingsSection title="Data">
                 <SettingsRow
                     title="Clear intelligence history"

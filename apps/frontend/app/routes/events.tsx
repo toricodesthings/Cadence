@@ -15,7 +15,6 @@ import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRightPanelStore } from "../stores/right-panel-store";
 import { PersonalEventEditorDialog } from "../components/events/PersonalEventEditorDialog";
-import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useToday } from "../lib/utils/user-zone";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
@@ -52,10 +51,6 @@ export default function EventsRoute() {
     const editingEvent = personalEvents.items.find((event) => event.id === selectedEventId);
     const [sortMode, setSortMode] = useState<PersonalEventSortMode>("next");
 
-    useDocumentMeta(
-        "Events · Cadence",
-        "Manage yearly recurring personal events in a simple, focused card view.",
-    );
 
     useRouteFocus();
 

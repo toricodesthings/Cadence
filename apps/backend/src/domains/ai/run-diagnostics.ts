@@ -55,7 +55,7 @@ export function createRunDiagnostics(clock: () => number) {
     let stepOrdinal: number | null = null;
     let generationEndMs: number | null = null;
     let droppedEntries = 0;
-    let memory: { variant: "exact" | "parallel"; hasRecallCandidates: boolean; profileFacts: number } | undefined;
+    let memory: { hasRecallCandidates: boolean; profileFacts: number } | undefined;
     const runId = crypto.randomUUID();
     const now = () => numeric(clock()) ?? 0;
 

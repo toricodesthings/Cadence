@@ -13,7 +13,6 @@ import { LocationNotice } from "../components/location/LocationNotice";
 import { Tip } from "../components/primitives";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { usePeriodSwipe } from "../hooks/ui/use-period-swipe";
-import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useScheduleNavigation } from "../hooks/calendar/use-schedule-navigation";
 import { useScheduleData } from "../hooks/calendar/use-schedule-data";
 import { useScheduleSelection } from "../hooks/calendar/use-schedule-selection";
@@ -34,7 +33,6 @@ export default function Schedule() {
     const creation = useScheduleCreation(navigation.currentDate);
     useScheduleShortcuts(navigation, creation, selection);
     const swipe = usePeriodSwipe({ enabled: shell.isCompact && !drag.activeDragTask, onCommit: navigation.handleNavigate });
-    useDocumentMeta("Schedule · Cadence", "View your week, day, month, and year with a calmer scheduling workspace built for focus.");
 
     const habit = selection.selectedHabit ? data.habitById.get(selection.selectedHabit.id) ?? null : null;
     const sidePanel = (

@@ -66,8 +66,6 @@ import { wallTimeOf } from "@cadence/domain/time";
 import { userZone } from "../../../platform/user-zone";
 import { seedAiShowcaseConversation } from "./ai-showcase-conversation";
 
-export const SCENARIO_VERSION = "2.5.0";
-
 function getRequiredRow<T>(map: Map<string, T>, key: string, label: string): T {
     const row = map.get(key);
     if (!row) throw new Error(`Seed error: ${label} "${key}" not found`);

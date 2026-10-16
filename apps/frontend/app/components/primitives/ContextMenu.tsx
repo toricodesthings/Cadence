@@ -5,7 +5,6 @@
  * Mirrors the DropdownMenu styling for consistency.
  */
 import * as RadixContextMenu from "@radix-ui/react-context-menu";
-import { forwardRef } from "react";
 import { FLOATING_MOTION, MENU_ITEM, MENU_ITEM_DANGER, MENU_ROW, MENU_SEPARATOR, MENU_SUB_SLIDE, MENU_SURFACE } from "./menu-styles";
 
 /* ── Re-exports ─────────────────────────────────────────────────── */
@@ -15,12 +14,8 @@ export const Portal = RadixContextMenu.Portal;
 export const Sub = RadixContextMenu.Sub;
 
 /* ── SubTrigger ─────────────────────────────────────────────────── */
-export const SubTrigger = forwardRef<
-    HTMLDivElement,
-    RadixContextMenu.ContextMenuSubTriggerProps
->(({ className = "", children, ...props }, ref) => (
+export const SubTrigger = ({ className = "", children, ...props }: RadixContextMenu.ContextMenuSubTriggerProps & { ref?: React.Ref<HTMLDivElement> }) => (
     <RadixContextMenu.SubTrigger
-        ref={ref}
         className={[
             MENU_ROW,
             "text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text",
@@ -31,16 +26,11 @@ export const SubTrigger = forwardRef<
     >
         {children}
     </RadixContextMenu.SubTrigger>
-));
-SubTrigger.displayName = "ContextMenu.SubTrigger";
+);
 
 /* ── SubContent ─────────────────────────────────────────────────── */
-export const SubContent = forwardRef<
-    HTMLDivElement,
-    RadixContextMenu.ContextMenuSubContentProps
->(({ className = "", sideOffset = 4, ...props }, ref) => (
+export const SubContent = ({ className = "", sideOffset = 4, ...props }: RadixContextMenu.ContextMenuSubContentProps & { ref?: React.Ref<HTMLDivElement> }) => (
     <RadixContextMenu.SubContent
-        ref={ref}
         sideOffset={sideOffset}
         className={[
             MENU_SURFACE,
@@ -50,17 +40,12 @@ export const SubContent = forwardRef<
         ].join(" ")}
         {...props}
     />
-));
-SubContent.displayName = "ContextMenu.SubContent";
+);
 
 /* ── Content ────────────────────────────────────────────────────── */
-export const Content = forwardRef<
-    HTMLDivElement,
-    RadixContextMenu.ContextMenuContentProps
->(({ className = "", collisionPadding = 8, ...props }, ref) => (
+export const Content = ({ className = "", collisionPadding = 8, ...props }: RadixContextMenu.ContextMenuContentProps & { ref?: React.Ref<HTMLDivElement> }) => (
     <RadixContextMenu.Portal>
         <RadixContextMenu.Content
-            ref={ref}
             collisionPadding={collisionPadding}
             className={[
                 MENU_SURFACE,
@@ -71,14 +56,10 @@ export const Content = forwardRef<
             {...props}
         />
     </RadixContextMenu.Portal>
-));
-Content.displayName = "ContextMenu.Content";
+);
 
 /* ── Item ───────────────────────────────────────────────────────── */
-export const Item = forwardRef<
-    HTMLDivElement,
-    RadixContextMenu.ContextMenuItemProps & { variant?: "default" | "danger" }
->(({ className = "", variant = "default", ...props }, ref) => {
+export const Item = ({ className = "", variant = "default", ...props }: RadixContextMenu.ContextMenuItemProps & { variant?: "default" | "danger" } & { ref?: React.Ref<HTMLDivElement> }) => {
     const variants = {
         default:
             "text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text",
@@ -87,7 +68,6 @@ export const Item = forwardRef<
 
     return (
         <RadixContextMenu.Item
-            ref={ref}
             className={[
                 MENU_ITEM,
                 variants[variant],
@@ -96,18 +76,12 @@ export const Item = forwardRef<
             {...props}
         />
     );
-});
-Item.displayName = "ContextMenu.Item";
+};
 
 /* ── Separator ──────────────────────────────────────────────────── */
-export const Separator = forwardRef<
-    HTMLDivElement,
-    RadixContextMenu.ContextMenuSeparatorProps
->(({ className = "", ...props }, ref) => (
+export const Separator = ({ className = "", ...props }: RadixContextMenu.ContextMenuSeparatorProps & { ref?: React.Ref<HTMLDivElement> }) => (
     <RadixContextMenu.Separator
-        ref={ref}
         className={`${MENU_SEPARATOR} ${className}`}
         {...props}
     />
-));
-Separator.displayName = "ContextMenu.Separator";
+);

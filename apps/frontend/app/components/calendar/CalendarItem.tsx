@@ -1,6 +1,5 @@
 import {
     createContext,
-    forwardRef,
     useContext,
     useEffect,
     type ButtonHTMLAttributes,
@@ -109,14 +108,10 @@ export function RoutineRing({ task, size = 24 }: { task: Task; size?: number }) 
 }
 
 /** A visible details path beside a check-off mark; also serves as a popover trigger. */
-export const RoutineDetailsButton = forwardRef<
-    HTMLButtonElement,
-    ButtonHTMLAttributes<HTMLButtonElement> & { label: string }
->(({ label, children, ...props }, ref) => (
+export const RoutineDetailsButton = ({ label, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string } & { ref?: React.Ref<HTMLButtonElement> }) => (
     <Tip label={label}>
         <button
             {...props}
-            ref={ref}
             type="button"
             aria-label={label}
             onPointerDown={(e) => e.stopPropagation()}
@@ -125,8 +120,7 @@ export const RoutineDetailsButton = forwardRef<
             {children ?? <span aria-hidden="true">…</span>}
         </button>
     </Tip>
-));
-RoutineDetailsButton.displayName = "RoutineDetailsButton";
+);
 
 function ChipHoverCard({ task, tasks }: { task: Task; tasks: readonly Task[] }) {
     const { setSeries } = useContext(CalendarHoverContext);

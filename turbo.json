@@ -31,7 +31,7 @@
       ],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/packages/check-imports.mjs",
+        "$TURBO_ROOT$/packages/oxlint.config.ts",
         "$TURBO_ROOT$/.oxlintrc.json"
       ],
       "outputs": []

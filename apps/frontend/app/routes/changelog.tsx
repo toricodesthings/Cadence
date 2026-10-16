@@ -119,7 +119,6 @@ export default function ChangelogRoute() {
     return (
         <MainLayout
             pageTitle="Changelog"
-            pageDescription="What's new in Cadence, release by release."
             shellHeader={{
                 title: "Changelog",
                 eyebrow: "Release notes",

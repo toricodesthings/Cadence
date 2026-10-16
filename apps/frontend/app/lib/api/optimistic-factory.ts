@@ -40,5 +40,3 @@ export function createOptimisticHelpers(cacheKeys: readonly QueryKey[]) {
     },
   };
 }
-
-export type OptimisticCacheHelpers = ReturnType<typeof createOptimisticHelpers>;

@@ -1,8 +1,5 @@
 ## Environment
 {{names}}
-- Emoji: {{emoji}}
-- Proactive suggestions: {{proactiveSuggestions}}
-- Approval mode: {{approvalMode}}
-- Workload: {{workload}}
-- Timezone: {{timezone}} · week starts {{weekStart}} · locale {{locale}}
-- Now: {{now}}. Tool times use this offset.
+Emoji: {{emoji}} · proactive suggestions: {{proactiveSuggestions}} · approval mode: {{approvalMode}} · workload: {{workload}}
+Zone: {{timezone}} · week starts {{weekStart}} · locale: {{locale}}
+Now: {{now}} (tool times use this offset).

@@ -90,17 +90,13 @@ export function warmPlatformRuntime(): void {
     void loadPlatformRuntime();
 }
 
-export async function getNotificationPermission(): Promise<NotificationPermissionState> {
-    return (await loadPlatformRuntime()).getNotificationPermission();
-}
+/** One runtime method, callable before the adapter has loaded. */
+const call = <K extends keyof PlatformRuntime>(key: K) =>
+    (async (...args: unknown[]) => ((await loadPlatformRuntime())[key] as (...a: unknown[]) => unknown)(...args)) as PlatformRuntime[K];
 
-export async function requestNotificationPermission(): Promise<NotificationPermissionState> {
-    return (await loadPlatformRuntime()).requestNotificationPermission();
-}
-
-export async function sendPlatformNotification(notification: PlatformNotification): Promise<void> {
-    return (await loadPlatformRuntime()).sendNotification(notification);
-}
+export const getNotificationPermission = call("getNotificationPermission");
+export const requestNotificationPermission = call("requestNotificationPermission");
+export const sendPlatformNotification = call("sendNotification");
 
 export function getAuthCallbackUrl(redirectTo?: string): string {
     const target = normalizeRedirectTo(redirectTo ?? (typeof window === "undefined" ? "/" : `${window.location.pathname}${window.location.search}`));
@@ -118,38 +114,15 @@ export function getAuthCallbackUrl(redirectTo?: string): string {
     return base.toString();
 }
 
-export async function getCurrentAuthCallback(): Promise<URL | null> {
-    return (await loadPlatformRuntime()).getCurrentAuthCallback();
-}
-
-export async function listenForAuthCallback(listener: (url: URL) => void): Promise<() => void> {
-    return (await loadPlatformRuntime()).listenForAuthCallback(listener);
-}
-
-export async function beginSocialSignIn(provider: SocialProvider, callbackURL?: string): Promise<void> {
-    return (await loadPlatformRuntime()).beginSocialSignIn(provider, callbackURL);
-}
-
-export async function beginSocialLink(provider: SocialProvider, callbackURL?: string): Promise<void> {
-    return (await loadPlatformRuntime()).beginSocialLink(provider, callbackURL);
-}
-
+export const getCurrentAuthCallback = call("getCurrentAuthCallback");
+export const listenForAuthCallback = call("listenForAuthCallback");
+export const beginSocialSignIn = call("beginSocialSignIn");
+export const beginSocialLink = call("beginSocialLink");
 /** Opens a URL in the system browser (desktop) or a new tab (web). */
-export async function openExternalUrl(url: string): Promise<void> {
-    return (await loadPlatformRuntime()).openExternalUrl(url);
-}
-
-export async function platformFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-    return (await loadPlatformRuntime()).platformFetch(input, init);
-}
-
-export async function checkForAppUpdate(): Promise<AvailableAppUpdate | null> {
-    return (await loadPlatformRuntime()).checkForAppUpdate();
-}
-
-export async function getNativeStore(storeName: string): Promise<NativeStoreAdapter | null> {
-    return (await loadPlatformRuntime()).getNativeStore(storeName);
-}
+export const openExternalUrl = call("openExternalUrl");
+export const platformFetch = call("platformFetch");
+export const checkForAppUpdate = call("checkForAppUpdate");
+export const getNativeStore = call("getNativeStore");
 
 /** True inside a Tauri window of the desktop build. */
 export function hasDesktopWindow(): boolean {

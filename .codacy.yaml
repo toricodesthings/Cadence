@@ -10,6 +10,10 @@ engines:
       - "**/tests/**"
       - "**/*.test.ts"
       - "**/*.test.tsx"
+      # Static data / SVG / seed fixtures: long by nature, not complex.
+      - "apps/backend/src/domains/debug/scenarios/**"
+      - "apps/frontend/app/components/shared/loading/**"
+      - "apps/landing/app/lib/branch.ts"
   eslint-8:
     exclude_paths:
       - "**/tests/**"

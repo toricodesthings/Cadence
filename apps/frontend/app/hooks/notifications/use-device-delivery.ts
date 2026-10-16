@@ -72,7 +72,7 @@ export function useDeviceDelivery() {
     });
     const setDevices = useCallback((rows: Device[]) => queryClient.setQueryData(devicesKey, rows), [queryClient, devicesKey]);
 
-    const thisInstallId = typeof window === "undefined" ? "" : installId();
+    const thisInstallId = installId();
     const thisDevice = devices.find((device) => device.installId === thisInstallId);
 
     // Until the list loads (a cold start, no network), fall back to what this device last knew.

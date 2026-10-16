@@ -42,7 +42,7 @@ function ctx(overrides: Partial<PromptRuntimeContext> = {}, personaOverrides: Pa
     };
 }
 
-const parts = (c: PromptRuntimeContext) => composePrompt(PROMPT_BLOCKS, c, "N", "baseline");
+const parts = (c: PromptRuntimeContext) => composePrompt(PROMPT_BLOCKS, c, "N");
 /** The whole prompt the model sees: static instructions, then the turn context. */
 const compose = (c: PromptRuntimeContext) => {
     const { instructions, turnContext } = parts(c);
@@ -63,12 +63,9 @@ describe("isWorkloadHigh", () => {
 });
 
 describe("composePrompt", () => {
-    it("keeps baseline packaging unchanged and moves invariant memory policy into the candidate's static prefix", () => {
+    it("keeps the invariant memory policy in the static prefix and facts in the turn context", () => {
         const context = ctx({ memoryOff: false, memories: [{ id: "fact-1", content: "Keep Fridays free", saidOn: "2026-08-12", sensitive: true, stale: true }] });
-        const baseline = composePrompt(PROMPT_BLOCKS, context, "N", "baseline");
-        expect(baseline).toEqual(parts(context));
-        const candidate = composePrompt(PROMPT_BLOCKS, context, "N", "static-memory");
-        expect(composePrompt(PROMPT_BLOCKS, context, "N")).toEqual(candidate);
+        const candidate = parts(context);
         expect(candidate.instructions).toContain("Never bring up a fact marked sensitive unless they do.");
         expect(candidate.instructions).toContain("the supplied memory facts");
         expect(candidate.instructions).not.toContain("Keep Fridays free");
@@ -77,12 +74,12 @@ describe("composePrompt", () => {
         expect(candidate.turnContext).toContain("SANITIZED(Keep Fridays free)");
         expect(candidate.turnContext).toContain("sensitive, not mentioned in over a year: confirm once if it matters");
         expect(candidate.turnContext).not.toContain("Never bring up a fact marked sensitive");
-        const next = composePrompt(PROMPT_BLOCKS, ctx({ memoryOff: false, memories: [], now: "new time" }), "N2", "static-memory");
+        const next = composePrompt(PROMPT_BLOCKS, ctx({ memoryOff: false, memories: [], now: "new time" }), "N2");
         expect(next.instructions).toBe(candidate.instructions);
     });
 
     it("keeps off instructions coherent in the candidate, even when an old context carries memory", () => {
-        const off = composePrompt(PROMPT_BLOCKS, ctx({ memoryOff: true, memories: [{ id: "old", content: "Old fact", saidOn: "2026-08-12", sensitive: false }] }), "N", "static-memory");
+        const off = composePrompt(PROMPT_BLOCKS, ctx({ memoryOff: true, memories: [{ id: "old", content: "Old fact", saidOn: "2026-08-12", sensitive: false }] }), "N");
         expect(off.instructions).not.toContain("Never bring up a fact marked sensitive");
         expect(off.turnContext).toContain("Memory is off for this person");
         expect(off.turnContext).not.toContain("Old fact");
@@ -92,7 +89,7 @@ describe("composePrompt", () => {
 
     it("orders static base → voice → Environment, with no old separators or caps titles", () => {
         const out = compose(ctx());
-        const order = ["## Identity", "## Rules", "## Changes", "## Reading intent", "## Using tools", "## Replies", "## Cadence primer", "## Voice", "## Environment"]
+        const order = ["## Identity", "## Rules", "## Changes", "## Cadence", "## Replies", "## Voice", "## Environment"]
             .map((h) => out.indexOf(h));
         expect(order.every((i) => i >= 0)).toBe(true);
         expect([...order].sort((a, b) => a - b)).toEqual(order);
@@ -102,8 +99,8 @@ describe("composePrompt", () => {
 
     it("keeps the instructions byte-identical across users and turns, with nothing volatile in them", () => {
         const a = parts(ctx({ snapshot: "{}", memories: [{ id: "1", content: "m", saidOn: "2026-08-12", sensitive: false }] }, { customInstructions: "Be brief" }));
-        const b = parts(ctx({ now: "2026-09-24 08:00 -04:00 (Thursday)", approvalMode: "full" }, { persona: "coach", assistantName: "Jeeves" }));
-        expect(a.instructions).toBe(PROMPT_BLOCKS.base.join("\n\n"));
+        const b = parts(ctx({ now: "2026-09-24 08:00 -04:00 (Thursday)", approvalMode: "full", memoryOff: false }, { persona: "coach", assistantName: "Jeeves" }));
+        expect(a.instructions).toBe([...PROMPT_BLOCKS.base, PROMPT_BLOCKS.memoryPolicy].join("\n\n"));
         expect(b.instructions).toBe(a.instructions);
         expect(a.instructions).not.toMatch(/\{\{|FENCE_N|## Voice|## Environment|## Today at a glance/);
         expect(a.turnContext).not.toBe(b.turnContext);
@@ -153,14 +150,14 @@ describe("composePrompt", () => {
     });
 
     it("renders the approval mode and other Environment values as plain text", () => {
-        expect(compose(ctx({ approvalMode: "ask" }))).toContain("- Approval mode: ask first");
-        expect(compose(ctx({ approvalMode: "full" }))).toContain("- Approval mode: full");
+        expect(compose(ctx({ approvalMode: "ask" }))).toContain("approval mode: ask first");
+        expect(compose(ctx({ approvalMode: "full" }))).toContain("approval mode: full");
         const out = compose(ctx({}, { emoji: false, proactiveSuggestions: false }));
-        expect(out).toContain("- Emoji: never");
-        expect(out).toContain("- Proactive suggestions: off");
-        expect(out).toContain("- Workload: normal");
-        expect(out).toContain("- Timezone: America/Toronto · week starts Monday · locale en-CA");
-        expect(out).toContain("- Now: 2026-09-23 14:05 -04:00 (Wednesday).");
+        expect(out).toContain("Emoji: never");
+        expect(out).toContain("proactive suggestions: off");
+        expect(out).toContain("workload: normal");
+        expect(out).toContain("Zone: America/Toronto · week starts Monday · locale: en-CA");
+        expect(out).toContain("Now: 2026-09-23 14:05 -04:00 (Wednesday)");
     });
 
     it("sends only the chosen voice, unfenced, falling back to Secretary", () => {
@@ -174,7 +171,7 @@ describe("composePrompt", () => {
     it("appends the workload modifier to the voice instead of replacing it", () => {
         const out = compose(ctx({ workloadHigh: true }, { persona: "minimalist" }));
         expect(out).toContain(`${PROMPT_BLOCKS.voices.minimalist}\n${PROMPT_BLOCKS.workloadHigh}`);
-        expect(out).toContain("- Workload: high");
+        expect(out).toContain("workload: high");
         expect(compose(ctx())).not.toContain(PROMPT_BLOCKS.workloadHigh);
     });
 
@@ -188,13 +185,13 @@ describe("composePrompt", () => {
     it("fences memory content and omits the section without memories", () => {
         const out = compose(ctx({ memories: [{ id: "1", content: "prefers mornings", saidOn: "2026-08-12", sensitive: false }] }));
         expect(out).toContain('kind="memory" trust="untrusted">>>\n- (said August 2026) [1] SANITIZED(prefers mornings)');
-        expect(out.indexOf("## Memory")).toBeGreaterThan(out.indexOf("## Environment"));
-        expect(compose(ctx())).not.toContain("## Memory");
+        expect(out.indexOf("## Memory facts")).toBeGreaterThan(out.indexOf("## Environment"));
+        expect(compose(ctx())).not.toContain("## Memory facts");
     });
 
     it("tells the model memory is off, only when the feature exists and the person hasn't turned it on", () => {
         expect(compose(ctx({ memoryOff: true }))).toContain("Memory is off for this person");
-        expect(compose(ctx({ memoryOff: true, memories: [{ id: "1", content: "m", saidOn: "2026-08-12", sensitive: true }] }))).toContain("(said August 2026, sensitive)");
+        expect(compose(ctx({ memoryOff: true, memories: [{ id: "1", content: "m", saidOn: "2026-08-12", sensitive: true }] }))).not.toContain("(said August 2026");
         expect(compose(ctx())).not.toContain("Memory is off");
     });
 
@@ -202,13 +199,13 @@ describe("composePrompt", () => {
         const out = compose(ctx({ snapshot: '{"overdue":[]}', memories: [{ id: "1", content: "m", saidOn: "2026-08-12", sensitive: false }] }));
         expect(out).toContain('kind="snapshot" trust="untrusted">>>\nSANITIZED({"overdue":[]})');
         expect(out.indexOf("## Today at a glance")).toBeGreaterThan(out.indexOf("## Environment"));
-        expect(out.indexOf("## Today at a glance")).toBeLessThan(out.indexOf("## Memory"));
+        expect(out.indexOf("## Today at a glance")).toBeLessThan(out.indexOf("## Memory facts"));
         expect(compose(ctx())).not.toContain("## Today at a glance");
     });
 
     it("throws naming the token on an unknown placeholder", () => {
         const blocks = { ...PROMPT_BLOCKS, base: ["Hello {{bogusToken}}"] };
-        expect(() => composePrompt(blocks, ctx(), "N", "baseline")).toThrowError(/bogusToken/);
+        expect(() => composePrompt(blocks, ctx(), "N")).toThrowError(/bogusToken/);
     });
 });
 

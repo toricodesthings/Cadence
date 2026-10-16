@@ -25,7 +25,6 @@ import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { ChevronLeft, ChevronRight, Plus, Flame, Settings } from "lucide-react";
-import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useReducedMotionSetting } from "../hooks/ui/use-reduced-motion";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
@@ -138,7 +137,6 @@ export default function Routines() {
         }
     }, [selectedHabitId, habits.length, visibleHabits]);
 
-    useDocumentMeta("Routines · Cadence", "Keep up the routines you care about, one calm week at a time.");
 
     useRouteFocus({
         onFocusMatch: (params) => {

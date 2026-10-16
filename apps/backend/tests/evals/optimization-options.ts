@@ -1,11 +1,8 @@
 import { CACHE_VARIANTS, DEFAULT_CACHE_VARIANT, type AgentBuildOptions, type CacheVariant } from "../../src/domains/ai/agent";
-import { DEFAULT_PROMPT_PACKAGING } from "../../src/domains/ai/prompt/prompt-blocks.schema";
 
 /** Fixed for the entire evaluation process: every turn of a conversation uses one variant. */
-export function optimizationOptions(vars: Record<string, string | undefined>): Pick<AgentBuildOptions, "promptPackaging" | "cacheVariant"> {
-    const packaging = vars.AI_EVAL_PROMPT_PACKAGING ?? DEFAULT_PROMPT_PACKAGING;
+export function optimizationOptions(vars: Record<string, string | undefined>): Pick<AgentBuildOptions, "cacheVariant"> {
     const ttl = vars.AI_EVAL_CACHE_VARIANT ?? DEFAULT_CACHE_VARIANT;
-    if (packaging !== "baseline" && packaging !== "static-memory") throw new Error("Invalid AI_EVAL_PROMPT_PACKAGING");
     if (!CACHE_VARIANTS.includes(ttl as CacheVariant)) throw new Error("Invalid AI_EVAL_CACHE_VARIANT");
-    return { promptPackaging: packaging, cacheVariant: ttl as CacheVariant };
+    return { cacheVariant: ttl as CacheVariant };
 }

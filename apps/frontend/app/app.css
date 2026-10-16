@@ -1276,41 +1276,6 @@ a:active {
   transition-duration: 80ms;
 }
 
-/* ── Collapsible (custom keyframes for height animation) ── */
-@keyframes collapsible-open {
-  from {
-    height: 0;
-    opacity: 0;
-  }
-
-  to {
-    height: var(--radix-collapsible-content-height);
-    opacity: 1;
-  }
-}
-
-@keyframes collapsible-close {
-  from {
-    height: var(--radix-collapsible-content-height);
-    opacity: 1;
-  }
-
-  to {
-    height: 0;
-    opacity: 0;
-  }
-}
-
-[data-radix-collapsible-content][data-state="open"] {
-  animation: collapsible-open 350ms var(--ease-out-expo) forwards;
-  overflow: hidden;
-}
-
-[data-radix-collapsible-content][data-state="closed"] {
-  animation: collapsible-close 250ms var(--ease-out-quart) forwards;
-  overflow: hidden;
-}
-
 /* WorkspaceStartup mounts the route hidden under the loading screen. Hidden content can't animate
    on the compositor, so its loops (skeleton shimmer, pulses) would tick the main thread every frame
    while the app boots. They resume on reveal. */

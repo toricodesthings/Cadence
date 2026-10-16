@@ -8,7 +8,6 @@ import {
     addDays,
     atLocal,
     dayOf,
-    daysBetween,
     formatInZone,
     isLocalDate,
     monthRange,
@@ -78,27 +77,7 @@ export function blockEnd(day: LocalDate, start: Instant, time: WallTime): Instan
     return Date.parse(sameDay) > Date.parse(start) ? sameDay : fromTimeValue(addDays(day, 1), time);
 }
 
-/**
- * A calendar widget (react-day-picker, native inputs) speaks `Date`. This pair is the only crossing:
- * a LocalDate shows as that day at device-local midnight, and the picked `Date` reads back by its
- * y/m/d. Both are picker plumbing, never day logic.
- */
-export const pickerDate = (day: LocalDate): Date => {
-    const [y, m, d] = day.split("-").map(Number);
-    return new Date(y, m - 1, d);
-};
-export const fromPickerDate = (date: Date): LocalDate =>
-    `${String(date.getFullYear()).padStart(4, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; // time-ok: a picked Date's y/m/d
-
 // ─── Formatting ──────────────────────────────────────────────────────────────
-
-/** "Thursday, February 26" or "Thursday, 26 February" (dmy). */
-export function formatDateLabel(day: LocalDate): string {
-    const weekday = format(day, { weekday: "long" });
-    const month = format(day, { month: "long" });
-    const date = format(day, { day: "numeric" });
-    return dmy() ? `${weekday}, ${date} ${month}` : `${weekday}, ${month} ${date}`;
-}
 
 /** A time from an instant: "9:30 AM" (12h) or "09:30" (24h). */
 export function formatTime(instant: Instant): string {
@@ -207,12 +186,6 @@ export function getWeekStart(day: LocalDate, weekStartsOn: 0 | 1 | 6 = _config.w
 export function getWeekDays(day: LocalDate, weekStartsOn?: 0 | 1 | 6): LocalDate[] {
     const start = getWeekStart(day, weekStartsOn);
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
-}
-
-/** Every day of the month containing `day`. */
-export function getMonthDays(day: LocalDate): LocalDate[] {
-    const { start, end } = monthRange(day);
-    return Array.from({ length: daysBetween(start, end) + 1 }, (_, i) => addDays(start, i));
 }
 
 export const MONTH_NAMES = [

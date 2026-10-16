@@ -7,21 +7,10 @@
  * sidebar list + load-by-id history.
  */
 import { useQuery } from "@tanstack/react-query";
-import type { UIMessage } from "ai";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { useAuthState } from "../auth/use-auth-state";
-
-/**
- * A persisted message row reconstructed by the backend. The server reconstructs
- * full `parts` (including resolved tool cards) so a reloaded thread re-renders
- * proposals in their settled state. `metadata.status` may carry "failed" for
- * failed-turn recovery (§8.3).
- */
-export interface StoredUIMessage extends UIMessage {
-    metadata?: Record<string, unknown>;
-}
 
 /** List the signed-in user's conversations, newest-first. */
 export function useConversations() {

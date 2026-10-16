@@ -25,7 +25,6 @@ import { SORT_MODE_OPTIONS, SortOptionList } from "../components/shared/SortOpti
 import { useTasks } from "../hooks/tasks/use-tasks";
 import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
-import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useDeviceFlag } from "../hooks/ui/use-device-flag";
 import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
@@ -102,10 +101,6 @@ export default function TodayRoute() {
     const todayEvents = personalEvents.enabled ? personalEvents.getEventsForDate(todayISO) : [];
     const todayDayEvents = todayEvents.map((evt) => ({ ...evt, dateStr: todayISO }));
 
-    useDocumentMeta(
-        "Today · Cadence",
-        "Where you need to be, what's still open, and the routines you're keeping up today.",
-    );
 
     useRouteFocus();
 

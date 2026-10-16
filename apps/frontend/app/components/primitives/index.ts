@@ -11,11 +11,9 @@
 export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from "./Button";
 export { ActivityBadge } from "./ActivityBadge";
 export * as AlertDialog from "./AlertDialog";
-export * as Collapsible from "./Collapsible";
 export * as DropdownMenu from "./DropdownMenu";
 export * as Popover from "./Popover";
 export * as ScrollArea from "./ScrollArea";
-export * as Separator from "./Separator";
 export * as Tooltip from "./Tooltip";
 export { Tip, type TipProps } from "./Tooltip";
 export * as Dialog from "./Dialog";

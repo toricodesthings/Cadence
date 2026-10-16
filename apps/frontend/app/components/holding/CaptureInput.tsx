@@ -3,7 +3,7 @@ import { resolvedNlp } from "../../lib/utils/task/resolved-nlp";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useSettings } from "../../hooks/core/use-settings";
-import { useState, useRef, useEffect, useLayoutEffect, useContext, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useContext, useTransition, type KeyboardEvent } from "react";
 import { Inbox, MessageSquare, Plus } from "lucide-react";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
 import { useProcessInboxToTask } from "../../hooks/inbox/use-process-inbox-to-task";
@@ -88,7 +88,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         } catch { /* the draft just won't outlive the page */ }
     }, [storageKey, value]);
     const [count, setCount] = useState(0);
-    const [busy, setBusy] = useState(false);
+    const [busy, startSave] = useTransition();
     const [error, setError] = useState(false);
     const [pasted, setPasted] = useState(false);
     const input = useRef<HTMLTextAreaElement>(null);
@@ -129,50 +129,49 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         .map((s) => s.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").trim())
         .filter(Boolean);
     /** Saves the draft: a task when it has a day (or `forceTask`, ⌘↵), else a thought; `split` saves each line as a thought. */
-    const save = async (forceTask = false, split = false) => {
+    const save = (forceTask = false, split = false) => {
         if (!value.trim() || busy) return;
-        setBusy(true);
-        setError(false);
-        const original = value;
-        let remaining = split ? lines : [value.trim()];
-        try {
-            // Decide on what Enter saves. The parser still loading (a cold open, typing fast) is the one wait,
-            // and only for a draft that could be a task.
-            const mayBeTask = !split && (forceTask || picked !== null || isTaskLine(value));
-            const draft = !mayBeTask ? null : nlp.ready ? nlp : await nlp.finalize();
-            const task = draft !== null && (forceTask || isDated(draft.fields));
-            while (remaining.length) {
-                const text = remaining[0];
-                // Offline the create is queued and returns nothing, but the id is ours,
-                // so "as task" can still be queued right behind it.
-                const id = savedCapture.current?.id ?? crypto.randomUUID();
-                const item = savedCapture.current ?? (await create.mutateAsync({ id, rawText: text, placing: task }));
-                if (task) {
-                    savedCapture.current = item ?? savedCapture.current;
-                    // What is shown is what is sent, and the server stores it as sent.
-                    await process.mutateAsync(taskPayload(id, text, draft, endDate, dateStyle));
+        startSave(async () => {
+            setError(false);
+            const original = value;
+            let remaining = split ? lines : [value.trim()];
+            try {
+                // Decide on what Enter saves. The parser still loading (a cold open, typing fast) is the one wait,
+                // and only for a draft that could be a task.
+                const mayBeTask = !split && (forceTask || picked !== null || isTaskLine(value));
+                const draft = !mayBeTask ? null : nlp.ready ? nlp : await nlp.finalize();
+                const task = draft !== null && (forceTask || isDated(draft.fields));
+                while (remaining.length) {
+                    const text = remaining[0];
+                    // Offline the create is queued and returns nothing, but the id is ours,
+                    // so "as task" can still be queued right behind it.
+                    const id = savedCapture.current?.id ?? crypto.randomUUID();
+                    const item = savedCapture.current ?? (await create.mutateAsync({ id, rawText: text, placing: task }));
+                    if (task) {
+                        savedCapture.current = item ?? savedCapture.current;
+                        // What is shown is what is sent, and the server stores it as sent.
+                        await process.mutateAsync(taskPayload(id, text, draft, endDate, dateStyle));
+                    }
+                    savedCapture.current = undefined;
+                    remaining = remaining.slice(1);
+                    setCount((c) => c + 1);
+                    if (!split || !remaining.length) onSaved?.(item);
                 }
-                savedCapture.current = undefined;
-                remaining = remaining.slice(1);
-                setCount((c) => c + 1);
-                if (!split || !remaining.length) onSaved?.(item);
+                setValue((current) => (current === original ? "" : current));
+                setPick(null);
+                setPasted(false);
+                input.current?.focus();
+            } catch {
+                setError(true);
+                if (split) setValue(remaining.join("\n"));
             }
-            setValue((current) => (current === original ? "" : current));
-            setPick(null);
-            setPasted(false);
-            input.current?.focus();
-        } catch {
-            setError(true);
-            if (split) setValue(remaining.join("\n"));
-        } finally {
-            setBusy(false);
-        }
+        });
     };
     const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
         if (event.nativeEvent.isComposing) return;
         if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
-            void save(event.metaKey || event.ctrlKey);
+            save(event.metaKey || event.ctrlKey);
         }
         if (event.key === "Escape") {
             event.stopPropagation();
@@ -208,7 +207,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     const feedback = (
         <>
             {pasted && lines.length > 1 && (
-                <Button variant="secondary" size="md" disabled={busy} onClick={() => void save(false, true)}>
+                <Button variant="secondary" size="md" disabled={busy} onClick={() => save(false, true)}>
                     Add as {lines.length} thoughts?
                 </Button>
             )}
@@ -236,7 +235,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             aria-keyshortcuts="Meta+Enter Control+Enter"
             // Keep focus in the field, so the inline row can't fold mid-click.
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => void save(true)}
+            onClick={() => save(true)}
             className={`shrink-0 gap-1 rounded-lg font-sans text-xs font-medium ${isTouch ? "min-h-9 px-2" : "px-1.5 py-1"}`}
         >
             {isTouch ? <><Plus size={13} aria-hidden="true" />As task</> : (
@@ -292,7 +291,7 @@ export function useCaptureComposer({
                     {draft.taskControl}
                 </div>
                 <ComposerSubmit
-                    onSubmit={() => void draft.save()}
+                    onSubmit={() => draft.save()}
                     submitLabel={draft.submitLabel}
                     icon={draft.asTask ? Plus : Inbox}
                     disabled={!draft.value.trim() || draft.busy}
@@ -415,7 +414,7 @@ export function CaptureInput() {
                         disabled={!ready}
                         // Keep focus in the field (Safari doesn't focus a clicked button), so the row can't fold mid-click.
                         onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => void draft.save()}
+                        onClick={() => draft.save()}
                         className="h-9 min-h-9 shrink-0 rounded-full px-4 text-[13px]"
                     >
                         {draft.submitLabel}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { LEGAL_VERSION } from "@cadence/contracts/settings";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
@@ -19,7 +19,7 @@ export function LegalConsentGate() {
     const { data: settings, dataUpdatedAt } = useSettings();
     const { mutateAsync } = useUpdateSettings();
     const [ticked, setTicked] = useState(false);
-    const [pending, setPending] = useState(false);
+    const [pending, startTransition] = useTransition();
     const autoRecorded = useRef(false);
 
     const needed = !!settings && dataUpdatedAt > 0 && settings.privacy.legalVersion !== LEGAL_VERSION;
@@ -36,16 +36,13 @@ export function LegalConsentGate() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [needed]);
 
-    const accept = async () => {
-        setPending(true);
+    const accept = () => startTransition(async () => {
         try {
             await record(new Date().toISOString());
         } catch (error) {
             toastError(error, "Couldn't save that. Try again.");
-        } finally {
-            setPending(false);
         }
-    };
+    });
 
     return (
         <AlertDialog.Root open={needed}>

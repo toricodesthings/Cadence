@@ -7,7 +7,7 @@ export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteE
 import { Button } from "../components/primitives/Button";
 import { Switch } from "../components/primitives/Switch";
 import { CardPage, EASE, rise, stagger } from "../components/shared/CardPage";
-import { useDocumentMeta } from "../hooks/core/use-document-meta";
+import { useDocumentTitle } from "../hooks/core/use-document-title";
 import { useAuthState } from "../hooks/auth/use-auth-state";
 import { useAnswerConnectRequest, useConnectRequest } from "../hooks/core/use-connections";
 import { useReducedMotionSetting } from "../hooks/ui/use-reduced-motion";
@@ -22,7 +22,7 @@ const SUCCESS_HOLD_MS = 1500;
  * asking and what they'd get, then sends the browser back to the MCP origin.
  */
 export default function ConnectRoute() {
-    useDocumentMeta("Connect an assistant · Cadence", "Let an assistant you use read or add to your Cadence.");
+    useDocumentTitle("Connect an assistant · Cadence");
     const { search, pathname } = useLocation();
     const navigate = useNavigate();
     const { authReady, isAuthenticated, session } = useAuthState();

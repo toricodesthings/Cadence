@@ -13,7 +13,7 @@ export function useKeyboardInset(active: boolean) {
     const last = useRef(0);
 
     useEffect(() => {
-        const vv = typeof window === "undefined" ? undefined : window.visualViewport;
+        const vv = window.visualViewport;
         if (!active || !vv) {
             setInset(0);
             return;

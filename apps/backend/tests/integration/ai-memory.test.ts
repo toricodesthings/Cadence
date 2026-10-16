@@ -858,16 +858,6 @@ describe("Full: learning from task notes", () => {
         expect(prompt.prompt).toContain("My sister prefers early flights");
         expect(prompt.prompt).not.toContain("carsick");
     });
-
-    it("counts a line as read when only its pre-0.34.2 hash was stored", async () => {
-        await setMode("full");
-        const { contentHash } = await import("../../src/domains/ai/memory/memory-store");
-        const taskId = await note("- 1. Remember I get carsick on buses");
-        const legacy = await contentHash("Remember I get carsick on buses");
-        await sql("INSERT INTO ai_memory_notes (user_id, task_id, line_hashes, read_at) VALUES ($1, $2, $3, '2026-10-11T10:00:00Z')", [userId, taskId, [legacy]]);
-        await sql("UPDATE task_notes SET updated_at = '2026-10-12T10:00:00Z' WHERE task_id = $1", [taskId]);
-        expect(await learnFromNote(env, userId, taskId, now)).toBeNull();
-    });
 });
 
 describe("Full: the 90-day catch-up", () => {

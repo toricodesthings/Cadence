@@ -25,7 +25,3 @@ export const createHabitSchema = insertHabitSchema
         // Product rule: routines use the list palette (or the default tint).
         colorAccent: z.string().refine((value) => ROUTINE_SWATCHES.some((option) => option.value === value), "Pick one of the colours"),
     });
-
-// z.input keeps defaulted fields optional so the form values type
-// matches what the form actually submits.
-export type CreateHabitValues = z.input<typeof createHabitSchema>;

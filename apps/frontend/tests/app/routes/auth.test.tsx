@@ -20,8 +20,8 @@ vi.mock("@neondatabase/auth/react/ui", () => ({
     ),
 }));
 
-vi.mock("../../../app/hooks/core/use-document-meta", () => ({
-    useDocumentMeta: vi.fn(),
+vi.mock("../../../app/hooks/core/use-document-title", () => ({
+    useDocumentTitle: vi.fn(),
 }));
 
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({

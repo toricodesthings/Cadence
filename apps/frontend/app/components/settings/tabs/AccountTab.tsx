@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useTransition } from "react";
 import { formatInZone } from "@cadence/domain/time";
 import { formatShortDateTime } from "../../../lib/utils/date-format";
 import { getUserZone } from "../../../lib/utils/user-zone";
 import { Camera, UserRound } from "lucide-react";
 import { Button, Input } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authClient, authError } from "../../../lib/auth-client";
 import { queryKeys } from "../../../lib/api/query-keys";
 import { useLinkedAccounts } from "../../../hooks/auth/use-linked-accounts";
@@ -36,7 +36,7 @@ function FieldEditorModal({
 }) {
     const [open, setOpen] = useState(false);
     const [val, setVal] = useState(initialValue);
-    const [loading, setLoading] = useState(false);
+    const [loading, startSave] = useTransition();
 
     return (
         <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (isOpen) setVal(initialValue); }}>
@@ -62,15 +62,10 @@ function FieldEditorModal({
                     <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
                     <Button
                         variant="primary"
-                        onClick={async () => {
-                            setLoading(true);
-                            try {
-                                await onSave(val);
-                                setOpen(false);
-                            } finally {
-                                setLoading(false);
-                            }
-                        }}
+                        onClick={() => startSave(async () => {
+                            await onSave(val);
+                            setOpen(false);
+                        })}
                         disabled={loading || val === initialValue}
                     >
                         {loading ? "Saving..." : "Save Changes"}
@@ -90,7 +85,7 @@ function BirthdayEditorModal({
 }) {
     const [open, setOpen] = useState(false);
     const [val, setVal] = useState(initialValue ?? "");
-    const [loading, setLoading] = useState(false);
+    const [loading, startSave] = useTransition();
 
     return (
         <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (isOpen) setVal(initialValue ?? ""); }}>
@@ -112,15 +107,10 @@ function BirthdayEditorModal({
                         <Button
                             variant="ghost"
                             className="text-red-400 hover:text-red-300 mr-auto"
-                            onClick={async () => {
-                                setLoading(true);
-                                try {
-                                    await onSave(null);
-                                    setOpen(false);
-                                } finally {
-                                    setLoading(false);
-                                }
-                            }}
+                            onClick={() => startSave(async () => {
+                                await onSave(null);
+                                setOpen(false);
+                            })}
                             disabled={loading}
                         >
                             Clear
@@ -129,15 +119,10 @@ function BirthdayEditorModal({
                     <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
                     <Button
                         variant="primary"
-                        onClick={async () => {
-                            setLoading(true);
-                            try {
-                                await onSave(val || null);
-                                setOpen(false);
-                            } finally {
-                                setLoading(false);
-                            }
-                        }}
+                        onClick={() => startSave(async () => {
+                            await onSave(val || null);
+                            setOpen(false);
+                        })}
                         disabled={loading || val === (initialValue ?? "")}
                     >
                         {loading ? "Saving..." : "Save"}
@@ -174,7 +159,7 @@ function PasswordModal({ email, hasPassword }: { email: string; hasPassword: boo
     const [otp, setOtp] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [loading, startAction] = useTransition();
 
     const reset = () => {
         setUseCode(!hasPassword);
@@ -189,27 +174,25 @@ function PasswordModal({ email, hasPassword }: { email: string; hasPassword: boo
         && newPassword === confirmPassword
         && (useCode ? codeSent && otp.length > 0 : currentPassword.length > 0);
 
-    const sendCode = async () => {
-        setLoading(true);
+    const sendCode = () => startAction(async () => {
         const error = await authError(authClient.emailOtp.requestPasswordReset({ email }));
-        setLoading(false);
         if (error) return void toast.error(error.message || "Couldn't send the code");
         setCodeSent(true);
         toast.success(`Code sent to ${email}`);
-    };
+    });
 
-    const save = async (e: React.FormEvent) => {
+    const save = (e: React.FormEvent) => {
         e.preventDefault();
         if (!canSave) return;
-        setLoading(true);
-        const error = await authError(useCode
-            ? authClient.emailOtp.resetPassword({ email, otp, password: newPassword })
-            : authClient.changePassword({ currentPassword, newPassword, revokeOtherSessions: true }));
-        setLoading(false);
-        if (error) return void toast.error(error.message || "Couldn't save your password");
-        toast.success(hasPassword ? "Password changed" : "Password set. You can also sign in with your email now.");
-        setOpen(false);
-        void queryClient.invalidateQueries({ queryKey: queryKeys.auth.accounts });
+        startAction(async () => {
+            const error = await authError(useCode
+                ? authClient.emailOtp.resetPassword({ email, otp, password: newPassword })
+                : authClient.changePassword({ currentPassword, newPassword, revokeOtherSessions: true }));
+            if (error) return void toast.error(error.message || "Couldn't save your password");
+            toast.success(hasPassword ? "Password changed" : "Password set. You can also sign in with your email now.");
+            setOpen(false);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.auth.accounts });
+        });
     };
 
     return (
@@ -308,7 +291,7 @@ function OAuthConnectionsBlock() {
     const queryClient = useQueryClient();
     const { data: allAccounts, isPending } = useLinkedAccounts();
     const accounts = allAccounts?.filter((a) => a.providerId !== "credential");
-    const [loading, setLoading] = useState(false);
+    const [loading, startAction] = useTransition();
 
     const obfuscateId = (id: string) => {
         if (!id) return "";
@@ -386,13 +369,11 @@ function OAuthConnectionsBlock() {
                                 variant="ghost"
                                 size="sm"
                                 className="text-red-400/60 hover:text-red-400 hover:bg-red-400/10 h-8 font-medium"
-                                onClick={async () => {
-                                    setLoading(true);
+                                onClick={() => startAction(async () => {
                                     const error = await authError(authClient.unlinkAccount({ providerId: acc.providerId }));
-                                    setLoading(false);
                                     if (error) toast.error(error.message || "Failed to unlink account");
                                     else void queryClient.invalidateQueries({ queryKey: queryKeys.auth.accounts });
-                                }}
+                                })}
                                 disabled={loading}
                             >
                                 Disconnect
@@ -444,36 +425,34 @@ function OAuthConnectionsBlock() {
 const SESSION_LIST_FRESH_MS = 24 * 60 * 60 * 1000;
 
 function SessionsBlock() {
-    const [sessions, setSessions] = useState<AuthSession[] | null>(null);
-    const [isPending, setIsPending] = useState(true);
-    const [loadError, setLoadError] = useState(false);
+    const queryClient = useQueryClient();
     const { session: currentSession } = useAuthState();
-    const [loading, setLoading] = useState(false);
+    const [loading, startAction] = useTransition();
     const signedInAt = new Date(String(currentSession?.session.createdAt ?? "")).getTime();
     const canList = !(Date.now() - signedInAt >= SESSION_LIST_FRESH_MS);
+    // Session rows carry tokens: memory only, never the persisted cache.
+    const { data: sessions, isPending: queryPending, isError: loadError } = useQuery({
+        queryKey: queryKeys.auth.sessions,
+        queryFn: async () => {
+            const res = await authClient.listSessions();
+            if (res.error) throw new Error("listSessions failed");
+            return res.data ?? [];
+        },
+        enabled: canList,
+        meta: { persist: false },
+    });
+    const isPending = canList && queryPending;
+    const setSessions = (next: (current: AuthSession[]) => AuthSession[]) =>
+        queryClient.setQueryData<AuthSession[]>(queryKeys.auth.sessions, (current) => current && next(current));
 
-    React.useEffect(() => {
-        if (!canList) {
-            setIsPending(false);
-            return;
-        }
-        setIsPending(true);
-        authClient.listSessions().then((res) => {
-            if (res.error) setLoadError(true);
-            else setSessions(res.data ?? []);
-        }).catch(() => setLoadError(true)).finally(() => setIsPending(false));
-    }, [canList]);
-
-    const revokeOthers = async () => {
-        setLoading(true);
+    const revokeOthers = () => startAction(async () => {
         const error = await authError(authClient.revokeOtherSessions());
-        setLoading(false);
         if (error) toast.error("Couldn't sign out your other devices");
         else {
             toast.success("Signed out of every other device");
-            setSessions((current) => current?.filter((s) => s.id === currentSession?.session.id) ?? null);
+            setSessions((current) => current.filter((s) => s.id === currentSession?.session.id));
         }
-    };
+    });
 
     return (
         <div className="flex flex-col gap-3">
@@ -511,13 +490,11 @@ function SessionsBlock() {
                                         variant="ghost"
                                         size="sm"
                                         className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                                        onClick={async () => {
-                                            setLoading(true);
+                                        onClick={() => startAction(async () => {
                                             const error = await authError(authClient.revokeSession({ token: sess.token }));
-                                            setLoading(false);
                                             if (error) toast.error("Failed to log out device");
-                                            else setSessions(sessions.filter(s => s.id !== sess.id));
-                                        }}
+                                            else setSessions((current) => current.filter((s) => s.id !== sess.id));
+                                        })}
                                         disabled={loading}
                                     >
                                         Log Out
@@ -542,7 +519,7 @@ function SessionsBlock() {
 function AvatarEditModal({ onProfileUpdated }: { onProfileUpdated: () => Promise<void> }) {
     const [open, setOpen] = useState(false);
     const [previewImage, setPreviewImage] = useState<string>("");
-    const [loading, setLoading] = useState(false);
+    const [loading, startSave] = useTransition();
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -566,18 +543,18 @@ function AvatarEditModal({ onProfileUpdated }: { onProfileUpdated: () => Promise
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = () => {
         if (!previewImage) return;
-        setLoading(true);
-        const error = await authError(authClient.updateUser({ image: previewImage }));
-        setLoading(false);
-        if (error) {
-            toast.error(error.message || "Failed to update profile picture");
-        } else {
-            await onProfileUpdated();
-            setOpen(false);
-            setPreviewImage("");
-        }
+        startSave(async () => {
+            const error = await authError(authClient.updateUser({ image: previewImage }));
+            if (error) {
+                toast.error(error.message || "Failed to update profile picture");
+            } else {
+                await onProfileUpdated();
+                setOpen(false);
+                setPreviewImage("");
+            }
+        });
     };
 
     return (

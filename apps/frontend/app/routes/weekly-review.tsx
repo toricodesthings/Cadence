@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
@@ -7,8 +7,8 @@ import { Tip } from "../components/primitives";
 import { ArrowRight, ArrowLeft, Clock, Check, Pause, Flame, Sun, Sunrise, Moon, Trash2, LoaderCircle, PenLine, type LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { today } from "../lib/utils/user-zone";
-import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
+import { useDeviceValue } from "../hooks/ui/use-device-flag";
 import { useWeeklyReviewActions } from "../hooks/core/use-weekly-review-actions";
 import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
 import { WeeklyResetSidebar, STEPS } from "../components/weekly-review/WeeklyResetSidebar";
@@ -285,29 +285,11 @@ export default function WeeklyReview() {
     const navigate = useNavigate();
     const showSidebar = shell.isWide || shell.isLaptop;
 
-    // Persist step across leave/resume
-    const [currentStep, setCurrentStepRaw] = useState(() => {
-        try {
-            const saved = localStorage.getItem(STEP_STORAGE_KEY);
-            if (saved) {
-                const n = parseInt(saved, 10);
-                if (n >= 0 && n < STEPS.length) return n;
-            }
-        } catch { /* noop */ }
-        return 0;
-    });
-    const setCurrentStep = useCallback((step: number | ((prev: number) => number)) => {
-        setCurrentStepRaw((prev) => {
-            const next = typeof step === "function" ? step(prev) : step;
-            try { localStorage.setItem(STEP_STORAGE_KEY, String(next)); } catch { /* noop */ }
-            return next;
-        });
-    }, []);
+    // The step survives leaving and coming back.
+    const [savedStep, saveStep] = useDeviceValue(STEP_STORAGE_KEY);
+    const currentStep = Math.max(0, STEPS.findIndex((_, i) => String(i) === savedStep));
+    const setCurrentStep = (step: number) => saveStep(String(step));
 
-    useDocumentMeta(
-        "Weekly Reset · Cadence",
-        "Process inbox items, unscheduled work, waiting tasks, and routines in one weekly ritual.",
-    );
 
     const {
         inboxItems,
@@ -356,7 +338,7 @@ export default function WeeklyReview() {
     const handleFinish = () => {
         trackUsageEvent("weekly_reset.completed", { route: "weekly-review" });
         localStorage.setItem("cadence_last_weekly_reset", today());
-        try { localStorage.removeItem(STEP_STORAGE_KEY); } catch { /* noop */ }
+        saveStep(null);
         navigate("/today");
     };
 

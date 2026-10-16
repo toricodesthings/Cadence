@@ -9,7 +9,7 @@ import { SETTINGS_DEFAULTS, type UserSettings } from "@cadence/contracts/setting
 import { buildToolRegistry, type AgentContext } from "./tools/index";
 import { PROMPT_BLOCKS } from "./prompt/prompt-blocks";
 import { composePrompt, isWorkloadHigh } from "./prompt/prompt-composer";
-import { DEFAULT_PROMPT_PACKAGING, type AssistantPersona, type PromptRuntimeContext, type PromptPackaging } from "./prompt/prompt-blocks.schema";
+import type { AssistantPersona, PromptRuntimeContext } from "./prompt/prompt-blocks.schema";
 import { HELP_TOPICS } from "./tools/help";
 import { approvalFor } from "./safety/approval";
 import type { ApprovalMode } from "@cadence/contracts/ai";
@@ -101,9 +101,7 @@ export interface AgentBuildOptions {
     diagnostics?: RunDiagnostics;
     reusedTurnContext?: Promise<string | undefined>; // server-validated continuation only
     settings?: UserSettings; // authoritative row already loaded during zone synchronization
-    promptPackaging?: PromptPackaging; // internal evaluation override; chat requests use the compact default
     cacheVariant?: CacheVariant; // fixed per isolated evaluation conversation, never chosen by a chat request
-    memoryPreparation?: "parallel"; // internal benchmark baseline; production always checks exact coverage
     waitUntil?: (promise: Promise<unknown>) => void; // keeps post-commit metrics alive
 }
 
@@ -156,7 +154,6 @@ async function loadMemoryContext(
     queryText: string | undefined,
     requestId: string | undefined,
     diagnostics?: RunDiagnostics,
-    exactCoverage = true,
 ): Promise<ProfileLine[]> {
     if (!isLearning(persona.memoryMode)) return [];
     const db = getDbClient(env);
@@ -164,16 +161,14 @@ async function loadMemoryContext(
     try {
         const canRecall = !!queryText && queryText.length >= MIN_RECALL_CHARS;
         const embed = () => measurePhase(diagnostics, "embedding", () => embedText(env, queryText!, { requestId, userHash })).catch(() => null);
-        // Only the internal benchmark starts HTTP speculatively. Production checks the
-        // coherent profile first, so a fully covered memory makes no embedding request.
-        const parallelEmbedding = !exactCoverage && canRecall ? embed() : null;
+        // The coherent profile is checked first, so a fully covered memory makes no embedding request.
         const coverage = await measurePhase(diagnostics, "profile", () => withRls(db, userId, (tx) => loadProfileCoverage(tx, userId, today)));
         profile = coverage.lines;
-        diagnostics?.memoryCoverage({ variant: exactCoverage ? "exact" : "parallel", hasRecallCandidates: coverage.hasRecallCandidates, profileFacts: profile.length });
-        if (!canRecall || (exactCoverage && !coverage.hasRecallCandidates)) return profile;
+        diagnostics?.memoryCoverage({ hasRecallCandidates: coverage.hasRecallCandidates, profileFacts: profile.length });
+        if (!canRecall || !coverage.hasRecallCandidates) return profile;
         // No DB transaction stays open during this HTTP call. Candidate-present memories keep
         // hybrid recall and lexical fallback; the profile gate is an explicit measured dependency.
-        const embedded = await (parallelEmbedding ?? embed());
+        const embedded = await embed();
         const recalled = await measurePhase(diagnostics, "recall", () => withRls(db, userId, (tx) =>
             recallFacts(tx, userId, {
                 text: queryText!,
@@ -218,14 +213,14 @@ const promptHashes = new Map<string, Promise<string>>();
  * assistant message so a behavior change can be traced to a prompt or tool edit.
  * Static per deploy and schema variant.
  */
-function getPromptHash(tools: ToolSet, variant: boolean, memoryOn: boolean, packaging: PromptPackaging): Promise<string> {
-    const key = `${variant}:${memoryOn}:${packaging}`;
+function getPromptHash(tools: ToolSet, variant: boolean, memoryOn: boolean): Promise<string> {
+    const key = `${variant}:${memoryOn}`;
     let hash = promptHashes.get(key);
     if (!hash) {
         hash = (async () => {
             const toolDefs = await Promise.all(Object.entries(tools).map(async ([name, t]) =>
                 [name, t.description, await asSchema(t.inputSchema).jsonSchema]));
-            return hashIdentifier(JSON.stringify([PROMPT_BLOCKS, HELP_TOPICS, toolDefs, packaging]));
+            return hashIdentifier(JSON.stringify([PROMPT_BLOCKS, HELP_TOPICS, toolDefs]));
         })();
         promptHashes.set(key, hash);
     }
@@ -244,7 +239,6 @@ export async function getAgentInstance(
     opts: AgentBuildOptions,
 ): Promise<{ agent: ToolLoopAgent<never, ChatTools>; modelId: string; promptHash: string; turnContext: string }> {
     const locale = opts.locale ?? "en";
-    const packaging = opts.promptPackaging ?? DEFAULT_PROMPT_PACKAGING;
     const modelId = opts.modelId ?? getModelId(env);
     const userHash = await hashIdentifier(userId);
     const clock = userClock(opts.timezone, opts.currentDate);
@@ -269,7 +263,7 @@ export async function getAgentInstance(
     const reused = await opts.reusedTurnContext;
     const [{ burnoutIndex }, memories, snapshot] = await Promise.all([
         userContext,
-        reused ? [] : loadMemoryContext(env, userId, userHash, persona, clock.today, opts.queryText, opts.requestId, opts.diagnostics, opts.memoryPreparation !== "parallel"),
+        reused ? [] : loadMemoryContext(env, userId, userHash, persona, clock.today, opts.queryText, opts.requestId, opts.diagnostics),
         reused ? undefined : measurePhase(opts.diagnostics, "snapshot", () => loadAgentSnapshot(env, userId, agentCtx, tools, projectEvents(normalizeSettings(settings), clock.today))),
     ]);
 
@@ -289,7 +283,6 @@ export async function getAgentInstance(
             memoryOff: !memoryOn,
         },
         opts.nonce,
-        packaging,
     );
     endPrompt?.();
 
@@ -307,5 +300,5 @@ export async function getAgentInstance(
         ...opts.diagnostics?.hooks,
     });
 
-    return { agent, modelId, promptHash: await measurePhase(opts.diagnostics, "promptHash", () => getPromptHash(chatTools(tools, memoryOn), isClaude(modelId), memoryOn, packaging)), turnContext: reused ?? turnContext };
+    return { agent, modelId, promptHash: await measurePhase(opts.diagnostics, "promptHash", () => getPromptHash(chatTools(tools, memoryOn), isClaude(modelId), memoryOn)), turnContext: reused ?? turnContext };
 }

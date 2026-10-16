@@ -65,6 +65,7 @@ export const queryKeys = {
     },
     auth: {
         accounts: ["auth", "accounts"] as const,
+        sessions: ["auth", "sessions"] as const,
     },
     dataExport: ["data-export"] as const,
     connections: {

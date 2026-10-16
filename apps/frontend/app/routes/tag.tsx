@@ -175,7 +175,6 @@ export default function TagView() {
                     </DropdownMenu.Root>
                 ) : undefined}
                 pageTitle={tag?.name ?? "Tag"}
-                pageDescription="Every active task carrying this tag."
                 shellHeader={{
                     title: tag?.name ?? "Tag",
                     eyebrow: "Tag",
