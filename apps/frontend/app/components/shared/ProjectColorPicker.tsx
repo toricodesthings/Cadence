@@ -21,7 +21,10 @@ export function ProjectColorPicker({ value, onChange }: { value: string; onChang
                 </Tip>
             ))}
             <Tip label="Custom Hex Color" side="top">
-                <div className="relative flex h-5 w-5 cursor-pointer items-center justify-center overflow-hidden rounded-full ring-1 ring-twilight-border">
+                <div
+                    className="relative flex h-5 w-5 cursor-pointer items-center justify-center overflow-hidden rounded-full ring-1 ring-twilight-border"
+                    style={isCustom ? { backgroundColor: value } : undefined}
+                >
                     <input
                         type="color"
                         value={isCustom ? value : PROJECT_FALLBACK_COLOR}

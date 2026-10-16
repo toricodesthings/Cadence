@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Upcoming shows a Details button on mid-width screens, like Today.
+- Tapping a selected task again closes its details instead of reopening the sheet on Today and Upcoming.
+- The create-list colour ring sits slightly differently.
+
 ## [0.34.6] - 2026-10-16
 
 ### Changed
