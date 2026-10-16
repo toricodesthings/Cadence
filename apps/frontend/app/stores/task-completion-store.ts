@@ -76,20 +76,6 @@ export const useTaskCompletionStore = create<TaskCompletionState>((set, get) => 
         });
     },
 
-    clearCompletion: (taskId) => {
-        const timerId = completionTimers.get(taskId);
-        if (timerId) {
-            clearTimeout(timerId);
-            completionTimers.delete(taskId);
-        }
-
-        completionCallbacks.delete(taskId);
-
-        set((state) => {
-            if (!state.pendingById[taskId]) return state;
-            const nextPending = { ...state.pendingById };
-            delete nextPending[taskId];
-            return { pendingById: nextPending };
-        });
-    },
+    // Cancelling and clearing are the same: drop the timer, its callback and the pending mark.
+    clearCompletion: (taskId) => get().cancelCompletion(taskId),
 }));

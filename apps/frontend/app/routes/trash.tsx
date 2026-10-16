@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ShowOlder } from "../components/shared/ShowOlder";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { UtilitySheet } from "../components/shared/UtilitySheet";
@@ -11,7 +12,7 @@ import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { PageContent } from "../components/layout/PageLayout";
 import { Button } from "../components/primitives/Button";
-import * as AlertDialog from "../components/primitives/AlertDialog";
+import { ConfirmDanger } from "../components/shared/ConfirmDanger";
 import { formatShortDate } from "../lib/utils/date-format";
 import type { Task } from "@cadence/contracts/task";
 
@@ -100,30 +101,20 @@ function EmptyTrashButton({ compact }: { compact: boolean }) {
     const online = useOnlineStatus();
 
     return (
-        <AlertDialog.Root open={open} onOpenChange={setOpen}>
-            <AlertDialog.Trigger asChild>
+        <ConfirmDanger
+            open={open}
+            onOpenChange={setOpen}
+            trigger={
                 <Button variant={compact ? "ghost" : "danger"} size="sm" disabled={!online || emptyTrash.isPending} className={compact ? "text-sm text-red-400 hover:text-red-300" : "gap-1.5"}>
                     {compact ? null : <Trash2 size={14} aria-hidden="true" />}
                     Empty Trash
                 </Button>
-            </AlertDialog.Trigger>
-            <AlertDialog.Content>
-                <AlertDialog.Header>
-                    <AlertDialog.Title>Empty Trash?</AlertDialog.Title>
-                    <AlertDialog.Description>
-                        Every task in Trash is deleted for good, with its subtasks and notes. It can&rsquo;t be undone.
-                    </AlertDialog.Description>
-                </AlertDialog.Header>
-                <AlertDialog.Footer>
-                    <AlertDialog.Cancel asChild>
-                        <Button variant="ghost" size="md">Cancel</Button>
-                    </AlertDialog.Cancel>
-                    <AlertDialog.Action asChild>
-                        <Button variant="danger" size="md" onClick={() => emptyTrash.mutate()}>Delete all</Button>
-                    </AlertDialog.Action>
-                </AlertDialog.Footer>
-            </AlertDialog.Content>
-        </AlertDialog.Root>
+            }
+            title="Empty Trash?"
+            description={<>Every task in Trash is deleted for good, with its subtasks and notes. It can&rsquo;t be undone.</>}
+            confirmLabel="Delete all"
+            onConfirm={() => emptyTrash.mutate()}
+        />
     );
 }
 
@@ -179,13 +170,7 @@ export default function TrashView() {
                             </p>
                         </div>
                     )}
-                    {loadMore && (
-                        <div className="mt-4 flex justify-center">
-                            <Button variant="ghost" size="sm" onClick={loadMore} disabled={isFetching}>
-                                {isFetching ? "Loading…" : "Show older"}
-                            </Button>
-                        </div>
-                    )}
+                    <ShowOlder loadMore={loadMore} isFetching={isFetching} />
                 </PageContent>
             </ScrollAreaWrapper>
 

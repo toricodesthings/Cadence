@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { MoreVertical, Pin, Copy, Trash2, Calendar, Bell, Sun, Moon, CalendarDays, ArrowRight, CalendarClock, X, ListChecks, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import type { GenericMenu } from "../primitives/menu-styles";
@@ -209,25 +209,32 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
         );
     }
 
+    /** A menu row that opens a second view instead of closing the menu. */
+    const submenuItem = (icon: ReactNode, label: string, hint: ReactNode, open: () => void) => (
+        <Menu.Item onSelect={(event) => { event.preventDefault(); open(); }}>
+            <div className="flex w-full items-center gap-2">
+                {icon}
+                <span>{label}</span>
+                <span className="ml-auto inline-flex items-center gap-2 text-[10px] text-twilight-text-muted/90">
+                    {hint}
+                    <ChevronRight size={13} aria-hidden="true" />
+                </span>
+            </div>
+        </Menu.Item>
+    );
+    const rescheduleItem = submenuItem(<CalendarClock size={16} />, "Reschedule", <span>r</span>, () => setMenuView("reschedule-presets"));
+    const reminderItem = submenuItem(
+        <Bell size={16} />,
+        task.reminderAt ? "Reminder" : "Set Reminder",
+        task.reminderAt && <span>{formatShortDateTime(task.reminderAt)}</span>,
+        handleOpenReminder,
+    );
+
     return (
         <>
             {holdingContext ? (
                 <>
-                    <Menu.Item
-                        onSelect={(event) => {
-                            event.preventDefault();
-                            setMenuView("reschedule-presets");
-                        }}
-                    >
-                        <div className="flex w-full items-center gap-2">
-                            <CalendarClock size={16} />
-                            <span>Reschedule</span>
-                            <span className="ml-auto inline-flex items-center gap-2 text-[10px] text-twilight-text-muted/90">
-                                <span>r</span>
-                                <ChevronRight size={13} aria-hidden="true" />
-                            </span>
-                        </div>
-                    </Menu.Item>
+                    {rescheduleItem}
 
                     <Menu.Item onClick={handleTogglePin}>
                         <div className="flex items-center gap-2">
@@ -261,37 +268,9 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
             ) : (
                 <>
             {/* ── Scheduling & Time ── */}
-            <Menu.Item
-                onSelect={(event) => {
-                    event.preventDefault();
-                    setMenuView("reschedule-presets");
-                }}
-            >
-                <div className="flex w-full items-center gap-2">
-                    <CalendarClock size={16} />
-                    <span>Reschedule</span>
-                    <span className="ml-auto inline-flex items-center gap-2 text-[10px] text-twilight-text-muted/90">
-                        <span>r</span>
-                        <ChevronRight size={13} aria-hidden="true" />
-                    </span>
-                </div>
-            </Menu.Item>
+            {rescheduleItem}
 
-            <Menu.Item
-                onSelect={(event) => {
-                    event.preventDefault();
-                    handleOpenReminder();
-                }}
-            >
-                <div className="flex w-full items-center gap-2">
-                    <Bell size={16} />
-                    <span>{task.reminderAt ? "Reminder" : "Set Reminder"}</span>
-                    <span className="ml-auto inline-flex items-center gap-2 text-[10px] text-twilight-text-muted/90">
-                        {task.reminderAt && <span>{formatShortDateTime(task.reminderAt)}</span>}
-                        <ChevronRight size={13} aria-hidden="true" />
-                    </span>
-                </div>
-            </Menu.Item>
+            {reminderItem}
 
             <Menu.Separator />
 

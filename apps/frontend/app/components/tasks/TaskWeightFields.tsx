@@ -1,5 +1,8 @@
 import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_ICON, EFFORT_OPTIONS, FIELD_LABEL, PRIORITY_ICON, PRIORITY_OPTIONS } from "./task-choice-options";
-import { X } from "lucide-react";
+import type { ComposerEffort } from "../../hooks/tasks/use-composer-effort";
+import { Clock3, X } from "lucide-react";
+import { TimePicker } from "../primitives";
+import type { WallTime } from "@cadence/domain/time";
 import type { EffortLevel, TaskPriority } from "@cadence/contracts/task";
 import type { EffortSuggestion } from "@cadence/nlp/effort";
 import { effortName, suggestionLabel, suggestionLevels } from "@cadence/domain/effort-evidence";
@@ -113,6 +116,29 @@ export function AcceptedEffort({ level, onUndo }: { level: 1 | 2 | 3; onUndo: ()
             >
                 <X size={11} aria-hidden="true" />
             </button>
+        </div>
+    );
+}
+
+/** The line under a composer's title: the Effort just accepted (with Undo), or a suggestion to use or dismiss. */
+export function ComposerEffortRow({ choice }: { choice: ComposerEffort }) {
+    if (choice.effort && choice.accepted) return <AcceptedEffort level={choice.effort} onUndo={choice.undoAccept} />;
+    if (choice.suggestion) return <EffortSuggestionRow suggestion={choice.suggestion} onUse={choice.accept} onDismiss={choice.dismiss} />;
+    return null;
+}
+
+/** Start and end times of a block, side by side. */
+export function TimeRangeFields({ start, end, onChange }: { start: WallTime; end: WallTime; onChange: (patch: { start?: WallTime; end?: WallTime }) => void }) {
+    return (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="space-y-1.5">
+                <span className={FIELD_LABEL}>Start</span>
+                <TimePicker value={start} onChange={(value) => onChange({ start: value })} icon={<Clock3 size={14} className="text-moonlit" />} />
+            </label>
+            <label className="space-y-1.5">
+                <span className={FIELD_LABEL}>End</span>
+                <TimePicker value={end} onChange={(value) => onChange({ end: value })} icon={<Clock3 size={14} className="text-moonlit" />} />
+            </label>
         </div>
     );
 }

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarHeart, CalendarRange, Clock3, StickyNote } from "lucide-react";
+import { CalendarHeart, CalendarRange, StickyNote } from "lucide-react";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { FIELD_LABEL } from "../tasks/task-choice-options";
-import { AcceptedEffort, EffortField, EffortSuggestionRow, PriorityField } from "../tasks/TaskWeightFields";
-import { useEffortSuggestion } from "../../hooks/tasks/use-effort-suggestion";
+import { ComposerEffortRow, EffortField, PriorityField, TimeRangeFields } from "../tasks/TaskWeightFields";
+import { useComposerEffort } from "../../hooks/tasks/use-composer-effort";
 import { DraftRow } from "../tasks/DraftRow";
 import { addDays, atLocal, untilClause, weekdayOf, type LocalDate } from "@cadence/domain/time";
 import { addMinutesToTime, formatShortDateLabel, formatWallTime } from "../../lib/utils/date-format";
@@ -15,7 +15,6 @@ import type { DraftField } from "@cadence/domain/nlp-draft";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useTypedWhen } from "../../hooks/use-typed-when";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
-import { TimePicker } from "../primitives";
 import { DatePicker } from "../shared/DatePicker";
 import {
     Composer,
@@ -101,12 +100,6 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const [hasEndDate, setHasEndDate] = useState(false);
     const [weekdayChoice, setWeekdays] = useState<WeekdayCode[] | null>(null);
     const [priority, setPriority] = useState<TaskPriority>(0);
-    const [effort, setEffortValue] = useState<EffortLevel>(null);
-    // Effort is the person's: a hand-set value (or clear) beats any suggestion, and one they accepted is recorded as accepted.
-    const [effortOrigin, setEffortOrigin] = useState<"manual" | "accepted" | null>(null);
-    const [effortTouched, setEffortTouched] = useState(false);
-    const [effortDismissed, setEffortDismissed] = useState(false);
-    const setEffort = (value: EffortLevel) => { setEffortValue(value); setEffortOrigin(value ? "manual" : null); setEffortTouched(true); };
     const [dismissed, setDismissed] = useState<string[]>([]);
     const [accepted, setAccepted] = useState<string[]>([]);
     const [literal, setLiteral] = useState(false);
@@ -154,7 +147,8 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const weekdays = weekdayChoice ?? typedDays ?? [toWeekdayCode(info.date)];
     const { date: whenStartDate, start: whenStartTime, end: whenEndTime } = typed.when;
     const submitTitle = nlp.cleanedTitle.trim() || title.trim();
-    const effortSuggestion = useEffortSuggestion({ title: submitTitle, projectId: null, chosen: effortTouched ? effort : undefined, dismissed: effortDismissed, literal, open: tab === "task" });
+    const effortChoice = useComposerEffort({ title: submitTitle, projectId: null, literal, open: tab === "task" });
+    const { effort } = effortChoice;
 
     const taskDirty = Boolean(title.trim() || notes.trim() || mode === "weekly" || hasEndDate || priority > 0 || effort !== null);
     const isDirty = taskDirty || event.isDirty;
@@ -186,12 +180,11 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                 recurrenceRule: recurrenceRule ?? undefined,
                 interactionMode: recurrenceRule ? interactionMode : "task",
                 priority: (priority || nlp.fields.priority) as TaskPriority,
-                effort,
-                ...(effort && effortOrigin && { effortOrigin }),
+                ...effortChoice.saved,
             },
             { onSuccess: onClose },
         );
-    }, [createTask, effort, effortOrigin, interactionMode, nlp.fields.priority, notes, onClose, priority, recurrenceRule, submitTitle, whenEndTime, whenStartDate, whenStartTime]);
+    }, [createTask, effortChoice.saved, interactionMode, nlp.fields.priority, notes, onClose, priority, recurrenceRule, submitTitle, whenEndTime, whenStartDate, whenStartTime]);
 
     const taskSubtitle = recurrenceRule ? (summary?.label ?? "Repeats every week") : formatTimeRange(whenStartTime, whenEndTime);
 
@@ -213,16 +206,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
 
     const whenFields = (
         <>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="space-y-1.5">
-                    <span className={FIELD_LABEL}>Start</span>
-                    <TimePicker value={whenStartTime} onChange={(start) => typed.edit({ start })} icon={<Clock3 size={14} className="text-moonlit" />} />
-                </label>
-                <label className="space-y-1.5">
-                    <span className={FIELD_LABEL}>End</span>
-                    <TimePicker value={whenEndTime} onChange={(end) => typed.edit({ end })} icon={<Clock3 size={14} className="text-moonlit" />} />
-                </label>
-            </div>
+            <TimeRangeFields start={whenStartTime} end={whenEndTime} onChange={typed.edit} />
 
             <div className={`grid gap-3 ${mode === "weekly" ? "grid-cols-2" : "grid-cols-1"}`}>
                 <div className="space-y-1.5">
@@ -299,15 +283,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                             onLiteral={setLiteral}
                         />
                     ) : null}
-                    {effort && effortOrigin === "accepted" ? (
-                        <AcceptedEffort level={effort} onUndo={() => { setEffortValue(null); setEffortOrigin(null); setEffortTouched(false); }} />
-                    ) : effortSuggestion ? (
-                        <EffortSuggestionRow
-                            suggestion={effortSuggestion}
-                            onUse={(level) => { setEffortValue(level); setEffortOrigin("accepted"); setEffortTouched(true); }}
-                            onDismiss={() => setEffortDismissed(true)}
-                        />
-                    ) : null}
+                    <ComposerEffortRow choice={effortChoice} />
 
                     <ComposerTabs
                         ariaLabel="Repeat"
@@ -353,7 +329,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                         </label>
 
                         <PriorityField value={priority} onChange={setPriority} />
-                        <EffortField value={effort} onChange={setEffort} />
+                        <EffortField value={effort} onChange={effortChoice.set} />
                     </ComposerMore>
                 </>
             ) : event.children}

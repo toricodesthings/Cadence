@@ -1,4 +1,5 @@
 import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
+import { ShowOlder } from "../components/shared/ShowOlder";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
@@ -6,7 +7,6 @@ import { CheckCircle2 } from "lucide-react";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { usePagedTasks } from "../hooks/tasks/use-tasks";
-import { Button } from "../components/primitives/Button";
 import { TaskCard } from "../components/tasks/TaskCard";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";
@@ -61,13 +61,7 @@ export default function CompletedView() {
                     ) : (
                         <EmptyState variant="completed" />
                     )}
-                    {loadMore && (
-                        <div className="mt-4 flex justify-center">
-                            <Button variant="ghost" size="sm" onClick={loadMore} disabled={isFetching}>
-                                {isFetching ? "Loading…" : "Show older"}
-                            </Button>
-                        </div>
-                    )}
+                    <ShowOlder loadMore={loadMore} isFetching={isFetching} />
                 </PageContent>
             </ScrollAreaWrapper>
 

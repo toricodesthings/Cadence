@@ -2,11 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { CheckSquare, Clock3, Plus, StickyNote } from "lucide-react";
 import { ChipScroller } from "../shared/ChipScroller";
 import { ComposerMore, ComposerSubmit, ComposerTitle, ComposerToggle, COMPOSER_FIELD, type ComposerDraft } from "../shared/Composer";
-import { TimePicker } from "../primitives";
 import { DatePicker } from "../shared/DatePicker";
 import { FIELD_LABEL } from "./task-choice-options";
-import { AcceptedEffort, EffortField, EffortSuggestionRow, PriorityField } from "./TaskWeightFields";
-import { useEffortSuggestion } from "../../hooks/tasks/use-effort-suggestion";
+import { ComposerEffortRow, EffortField, PriorityField, TimeRangeFields } from "./TaskWeightFields";
+import { useComposerEffort } from "../../hooks/tasks/use-composer-effort";
 import { QuickAddActionTray } from "./QuickAddActionTray";
 import { DraftRow } from "./DraftRow";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
@@ -70,12 +69,6 @@ export function useTaskComposer({
     const [title, setTitle] = useState("");
     const [notes, setNotes] = useState("");
     const [priority, setPriority] = useState<TaskPriority>(0);
-    const [effort, setEffortValue] = useState<EffortLevel>(null);
-    // Effort is the person's: a hand-set value (or clear) beats any suggestion, and one they accepted is recorded as accepted.
-    const [effortOrigin, setEffortOrigin] = useState<"manual" | "accepted" | null>(null);
-    const [effortDismissed, setEffortDismissed] = useState(false);
-    const setEffort = (value: EffortLevel) => { setEffortValue(value); setEffortOrigin(value ? "manual" : null); setEffortTouched(true); };
-    const [effortTouched, setEffortTouched] = useState(false);
     const [dismissedEntityIds, setDismissedEntityIds] = useState<string[]>([]);
     const [acceptedEntityIds, setAcceptedEntityIds] = useState<string[]>([]);
     const [literal, setLiteral] = useState(false);
@@ -116,10 +109,11 @@ export function useTaskComposer({
     const resolvedProjectId = project?.id ?? nlp.fields.projectId;
     const resolvedTagIds = Array.from(new Set([...(lockedTag ? [lockedTag.id] : []), ...nlp.fields.tagIds]));
     const submitTitle = nlp.cleanedTitle.trim() || title.trim();
-    const effortSuggestion = useEffortSuggestion({ title: submitTitle, projectId: resolvedProjectId, chosen: effortTouched ? effort : undefined, dismissed: effortDismissed, literal, open });
+    const effortChoice = useComposerEffort({ title: submitTitle, projectId: resolvedProjectId, literal, open });
+    const { effort } = effortChoice;
 
     const reset = () => {
-        setTitle(""); setNotes(""); setPriority(0); setEffortValue(null); setEffortOrigin(null); setEffortTouched(false); setEffortDismissed(false); setManualProject(undefined); setManualTags(undefined); setDismissedEntityIds([]); setAcceptedEntityIds([]); setLiteral(false);
+        setTitle(""); setNotes(""); setPriority(0); effortChoice.reset(); setManualProject(undefined); setManualTags(undefined); setDismissedEntityIds([]); setAcceptedEntityIds([]); setLiteral(false);
         typed.reset();
     };
 
@@ -168,8 +162,7 @@ export function useTaskComposer({
                 extra: {
                     orderIndex: settings?.tasks?.newTaskPlacement === "top" ? 0 : computeNextOrderIndex(siblings),
                     content: notes.trim() || null,
-                    effort,
-                    ...(effort && effortOrigin && { effortOrigin }),
+                    ...effortChoice.saved,
                     ...(project && target !== UNSECTIONED_ID && { sectionId: target }),
                 },
             }),
@@ -223,15 +216,7 @@ export function useTaskComposer({
                         onAccept={(id) => setAcceptedEntityIds((prev) => [...prev, id])}
                         onLiteral={setLiteral}
                     />
-                    {effort && effortOrigin === "accepted" ? (
-                        <AcceptedEffort level={effort} onUndo={() => { setEffortValue(null); setEffortOrigin(null); setEffortTouched(false); }} />
-                    ) : effortSuggestion ? (
-                        <EffortSuggestionRow
-                            suggestion={effortSuggestion}
-                            onUse={(level) => { setEffortValue(level); setEffortOrigin("accepted"); setEffortTouched(true); }}
-                            onDismiss={() => setEffortDismissed(true)}
-                        />
-                    ) : null}
+                    <ComposerEffortRow choice={effortChoice} />
                     <QuickAddActionTray
                         quickAddSettings={settings?.tasks?.quickAdd}
                         projectLocked={Boolean(project)}
@@ -280,16 +265,7 @@ export function useTaskComposer({
                             ariaLabel="All day"
                         >
                             {when.allDay ? null : (
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <label className="space-y-1.5">
-                                        <span className={FIELD_LABEL}>Start</span>
-                                        <TimePicker value={when.start} onChange={(start) => typed.edit({ start })} icon={<Clock3 size={14} className="text-moonlit" />} />
-                                    </label>
-                                    <label className="space-y-1.5">
-                                        <span className={FIELD_LABEL}>End</span>
-                                        <TimePicker value={when.end} onChange={(end) => typed.edit({ end })} icon={<Clock3 size={14} className="text-moonlit" />} />
-                                    </label>
-                                </div>
+                                <TimeRangeFields start={when.start} end={when.end} onChange={typed.edit} />
                             )}
                         </ComposerToggle>
                     ) : null}
@@ -309,7 +285,7 @@ export function useTaskComposer({
                     </label>
 
                     <PriorityField value={priority} onChange={setPriority} />
-                    <EffortField value={effort} onChange={setEffort} />
+                    <EffortField value={effort} onChange={effortChoice.set} />
                 </ComposerMore>
             </>
         ),

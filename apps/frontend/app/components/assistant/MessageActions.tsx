@@ -74,28 +74,16 @@ export function MessageActions({
         >
             <ActionButton label="Copy message" onClick={handleCopy}>
                 <AnimatePresence mode="wait" initial={false}>
-                    {copied ? (
-                        <motion.span
-                            key="check"
-                            initial={{ opacity: 0, scale: 0.6 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.6 }}
-                            transition={{ duration: 0.14 }}
-                            className="text-feedback-success"
-                        >
-                            <Check size={14} strokeWidth={2.5} />
-                        </motion.span>
-                    ) : (
-                        <motion.span
-                            key="copy"
-                            initial={{ opacity: 0, scale: 0.6 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.6 }}
-                            transition={{ duration: 0.14 }}
-                        >
-                            <Copy size={14} />
-                        </motion.span>
-                    )}
+                    <motion.span
+                        key={copied ? "check" : "copy"}
+                        initial={{ opacity: 0, scale: 0.6 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.6 }}
+                        transition={{ duration: 0.14 }}
+                        className={copied ? "text-feedback-success" : undefined}
+                    >
+                        {copied ? <Check size={14} strokeWidth={2.5} /> : <Copy size={14} />}
+                    </motion.span>
                 </AnimatePresence>
             </ActionButton>
 

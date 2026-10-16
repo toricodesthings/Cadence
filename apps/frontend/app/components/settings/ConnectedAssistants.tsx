@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Unplug } from "lucide-react";
 import type { McpConnection } from "@cadence/contracts/connections";
-import * as AlertDialog from "../primitives/AlertDialog";
+import { ConfirmDanger } from "../shared/ConfirmDanger";
 import { Button } from "../primitives/Button";
 import { SettingsSection } from "./layout/SettingsLayout";
 import { useConnections, useDisconnect } from "../../hooks/core/use-connections";
@@ -44,33 +44,20 @@ function ConnectionRow({ connection }: { connection: McpConnection }) {
                     {connection.lastUsedAt ? `Used ${relativeTime(connection.lastUsedAt, { suffix: " ago" })}` : "Not used yet"}
                 </p>
             </div>
-            <AlertDialog.Root open={open} onOpenChange={setOpen}>
-                <AlertDialog.Trigger asChild>
+            <ConfirmDanger
+                open={open}
+                onOpenChange={setOpen}
+                trigger={
                     <Button variant="ghost" size="sm" className="shrink-0 gap-1.5" disabled={disconnect.isPending}>
                         <Unplug size={14} aria-hidden />
                         Disconnect
                     </Button>
-                </AlertDialog.Trigger>
-                <AlertDialog.Content>
-                    <AlertDialog.Header>
-                        <AlertDialog.Title>Disconnect {connection.clientName}?</AlertDialog.Title>
-                        <AlertDialog.Description>
-                            It stops working with your Cadence right away. What it already read or added stays where it
-                            is. You can connect it again anytime.
-                        </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                        <AlertDialog.Cancel asChild>
-                            <Button variant="ghost" size="md">Cancel</Button>
-                        </AlertDialog.Cancel>
-                        <AlertDialog.Action asChild>
-                            <Button variant="danger" size="md" onClick={() => disconnect.mutate(connection.id)}>
-                                Disconnect
-                            </Button>
-                        </AlertDialog.Action>
-                    </AlertDialog.Footer>
-                </AlertDialog.Content>
-            </AlertDialog.Root>
+                }
+                title={<>Disconnect {connection.clientName}?</>}
+                description="It stops working with your Cadence right away. What it already read or added stays where it is. You can connect it again anytime."
+                confirmLabel="Disconnect"
+                onConfirm={() => disconnect.mutate(connection.id)}
+            />
         </div>
     );
 }
