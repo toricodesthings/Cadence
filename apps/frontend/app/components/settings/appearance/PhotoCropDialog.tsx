@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { BusyOverlay } from "../../shared/BusyOverlay";
 import Cropper, { type Area, type MediaSize, type Point, type Size } from "react-easy-crop";
 import { Loader2, Move, ZoomIn } from "lucide-react";
 import {
@@ -41,17 +42,6 @@ function StageNotice({ failed }: { failed: boolean }) {
                     Opening your photo…
                 </span>
             )}
-        </div>
-    );
-}
-
-function BusyOverlay({ uploading }: { uploading: boolean }) {
-    return (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/55 backdrop-blur-sm">
-            <span className="flex items-center gap-2 text-[12px] font-medium text-white">
-                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                {uploading ? "Uploading…" : "Preparing your photo…"}
-            </span>
         </div>
     );
 }
@@ -157,7 +147,7 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
                         <StageNotice failed={failed} />
                     )}
 
-                    {busy && <BusyOverlay uploading={isUploading} />}
+                    {busy && <BusyOverlay label={isUploading ? "Uploading…" : "Preparing your photo…"} />}
                 </div>
 
                 <fieldset disabled={!source || busy} className="flex min-w-0 flex-col gap-3">

@@ -34,7 +34,6 @@ const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewB
 import { useSettings } from "../hooks/core/use-settings";
 import * as Dialog from "../components/primitives/Dialog";
 import { Button } from "../components/primitives/Button";
-import { Tip } from "../components/primitives";
 import { resolveAccentColor } from "../lib/utils/color-resolver";
 import { EmojiPickerPopover } from "../components/shared/EmojiPickerPopover";
 import { PageContent } from "../components/layout/PageLayout";
@@ -48,7 +47,7 @@ import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
 import { addDays } from "@cadence/domain/time";
 import { dayOfInstant, nlpClock } from "../lib/utils/date-format";
 import { useToday } from "../lib/utils/user-zone";
-import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../lib/constants/colors";
+import { ProjectColorPicker } from "../components/shared/ProjectColorPicker";
 import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { ProjectSectionsSheet, ProjectTaskSheet, UNSECTIONED_ID } from "../components/tasks/ProjectSheets";
 
@@ -120,7 +119,6 @@ export default function ProjectView() {
     const [renameValue, setRenameValue] = useState("");
     const [colorValue, setColorValue] = useState("luminous-amber");
     const [emojiValue, setEmojiValue] = useState("");
-    const [isCustomColor, setIsCustomColor] = useState(false);
     const [addOpen, setAddOpen] = useState(false);
     const [sectionsFocus, setSectionsFocus] = useState<string | null>(null);
     const { data: sections = [] } = useSections(projectId);
@@ -200,7 +198,6 @@ export default function ProjectView() {
         setRenameValue(project?.name ?? "");
         setColorValue(project?.colorAccent ?? "luminous-amber");
         setEmojiValue(project?.emoji ?? "");
-        setIsCustomColor(project?.colorAccent?.startsWith("#") ?? false);
         setRenameOpen(true);
     };
 
@@ -308,44 +305,7 @@ export default function ProjectView() {
                                 onKeyDown={(e) => e.key === "Escape" && setRenameOpen(false)}
                             />
                         </div>
-                        <div className="flex gap-2 items-center flex-wrap">
-                            {PROJECT_ACCENT_OPTIONS.map((opt) => (
-                                <Tip key={opt.value} label={opt.label} side="top">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setColorValue(opt.value);
-                                            setIsCustomColor(false);
-                                        }}
-                                        className={`w-5 h-5 rounded-full transition-[transform,opacity] duration-150 cursor-pointer ${colorValue === opt.value && !isCustomColor
-                                            ? "ring-2 ring-offset-2 ring-offset-twilight-surface scale-110"
-                                            : "opacity-60 hover:opacity-100"
-                                            }`}
-                                        style={{ backgroundColor: opt.varName }}
-                                    />
-                                </Tip>
-                            ))}
-                            <Tip label="Custom Hex Color" side="top">
-                            <div
-                                className="relative flex items-center justify-center w-[22px] h-[22px] rounded-full overflow-hidden cursor-pointer ring-1 ring-white/10 hover:ring-white/20 transition-all"
-                                style={{ backgroundColor: colorValue.startsWith("#") ? colorValue : "transparent" }}
-                            >
-                                <div className="absolute inset-0 bg-twilight-surface/30 backdrop-blur-sm pointer-events-none" />
-                                <input
-                                    type="color"
-                                    value={colorValue.startsWith("#") ? colorValue : PROJECT_FALLBACK_COLOR}
-                                    onChange={(e) => {
-                                        setColorValue(e.target.value);
-                                        setIsCustomColor(true);
-                                    }}
-                                    className="absolute inset-[-10px] w-[200%] h-[200%] cursor-pointer opacity-0"
-                                />
-                                {isCustomColor && (
-                                    <div className="absolute inset-0 ring-2 ring-twilight-surface/50 rounded-full pointer-events-none" />
-                                )}
-                            </div>
-                            </Tip>
-                        </div>
+                        <ProjectColorPicker value={colorValue} onChange={setColorValue} />
                         <Dialog.DialogFooter>
                             <Button type="button" variant="ghost" size="md" onClick={() => setRenameOpen(false)}>
                                 Cancel

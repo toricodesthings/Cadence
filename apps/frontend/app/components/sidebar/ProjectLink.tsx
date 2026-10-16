@@ -1,4 +1,5 @@
 import { PlainNavCount } from "./PlainNavCount";
+import { ProjectColorPicker } from "../shared/ProjectColorPicker";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
@@ -6,12 +7,10 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ContextMenu from "../primitives/ContextMenu";
 import * as Dialog from "../primitives/Dialog";
 import { Button } from "../primitives/Button";
-import { Tip } from "../primitives";
 import { useUpdateProject } from "../../hooks/projects/use-update-project";
 import { useDeleteProject } from "../../hooks/projects/use-delete-project";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
 import { trackUsageEvent } from "../../lib/api/track-event";
-import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../../lib/constants/colors";
 
 interface ProjectLinkProps {
     id: string;
@@ -22,40 +21,6 @@ interface ProjectLinkProps {
     count?: number;
 }
 
-function ColorSwatches({ value, isCustom, onPick }: { value: string; isCustom: boolean; onPick: (value: string, custom: boolean) => void }) {
-    return (
-        <div className="flex gap-2 items-center flex-wrap">
-            {PROJECT_ACCENT_OPTIONS.map((opt) => (
-                <Tip key={opt.value} label={opt.label} side="top">
-                    <button
-                        type="button"
-                        onClick={() => onPick(opt.value, false)}
-                        className={`w-5 h-5 rounded-full transition-[transform,opacity] duration-150 cursor-pointer ${value === opt.value && !isCustom
-                            ? "ring-2 ring-offset-2 ring-offset-twilight-surface scale-110"
-                            : "opacity-60 hover:opacity-100"
-                            }`}
-                        style={{ backgroundColor: opt.varName }}
-                    />
-                </Tip>
-            ))}
-            <Tip label="Custom Hex Color" side="top">
-                <div className="relative flex items-center justify-center w-5 h-5 rounded-full ring-1 ring-twilight-border overflow-hidden cursor-pointer">
-                    <input
-                        type="color"
-                        value={value.startsWith("#") ? value : PROJECT_FALLBACK_COLOR}
-                        onChange={(e) => onPick(e.target.value, true)}
-                        className="absolute inset-[-10px] w-[200%] h-[200%] cursor-pointer"
-                    />
-                    {isCustom && (
-                        <div className="absolute inset-0 ring-2 ring-offset-2 ring-offset-twilight-surface ring-twilight-text/50 rounded-full pointer-events-none" />
-                    )}
-                </div>
-            </Tip>
-        </div>
-    );
-}
-
-/** Reusable project list item with color dot and quick-action menu */
 export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLinkProps) {
     const location = useLocation();
     const navigate = useNavigate();
@@ -67,13 +32,11 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
     const [renameValue, setRenameValue] = useState("");
     const [colorValue, setColorValue] = useState("luminous-amber");
     const [emojiValue, setEmojiValue] = useState(emoji ?? "");
-    const [isCustomColor, setIsCustomColor] = useState(false);
 
     const handleRenameOpen = () => {
         setRenameValue(label);
         setColorValue(color);
         setEmojiValue(emoji ?? "");
-        setIsCustomColor(color.startsWith("#"));
         setRenameOpen(true);
     };
 
@@ -119,7 +82,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                                 onKeyDown={(e) => e.key === "Escape" && setRenameOpen(false)}
                             />
                         </div>
-                        <ColorSwatches value={colorValue} isCustom={isCustomColor} onPick={(value, custom) => { setColorValue(value); setIsCustomColor(custom); }} />
+                        <ProjectColorPicker value={colorValue} onChange={setColorValue} />
                         <Dialog.DialogFooter>
                             <Button type="button" variant="ghost" size="md" onClick={() => setRenameOpen(false)}>
                                 Cancel

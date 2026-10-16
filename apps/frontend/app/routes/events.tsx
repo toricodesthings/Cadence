@@ -35,7 +35,7 @@ const SORT_LABELS: Record<PersonalEventSortMode, string> = {
     reminders: "Reminders first",
 };
 
-function SortMenu({ value, onChange }: { value: PersonalEventSortMode; onChange: (mode: PersonalEventSortMode) => void }) {
+function EventSortMenu({ value, onChange }: { value: PersonalEventSortMode; onChange: (mode: PersonalEventSortMode) => void }) {
     return (
         <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
@@ -196,7 +196,7 @@ export default function EventsRoute() {
                         </div>
 
                         {events.length > 0 ? (
-                            <SortMenu value={sortMode} onChange={setSortMode} />
+                            <EventSortMenu value={sortMode} onChange={setSortMode} />
                         ) : null}
                     </section>
 

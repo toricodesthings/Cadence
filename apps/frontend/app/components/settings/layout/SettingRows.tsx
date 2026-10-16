@@ -30,15 +30,17 @@ export function SelectSetting({ title, description, value, options, onChange, wi
     );
 }
 
-export function SwitchSetting({ title, description, checked, onChange }: {
+export function SwitchSetting({ title, description, checked, onChange, label = title }: {
     title: string;
-    description: string;
+    description?: string;
+    /** Spoken name when the visible title alone is ambiguous. */
+    label?: string;
     checked: boolean;
     onChange: (value: boolean) => void;
 }) {
     return (
         <SettingsRow title={title} description={description}>
-            <Switch checked={checked} onCheckedChange={onChange} />
+            <Switch checked={checked} aria-label={label} onCheckedChange={onChange} />
         </SettingsRow>
     );
 }

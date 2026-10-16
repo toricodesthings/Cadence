@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Check, Loader2, Lock, Sparkles, Trash2, Upload, Pipette } from "lucide-react";
+import { BusyOverlay } from "../../shared/BusyOverlay";
+import { Check, Lock, Sparkles, Trash2, Upload, Pipette } from "lucide-react";
 import { ExternalLink } from "../../shared/ExternalLink";
 import { CADENCE_PRIVACY_URL } from "../../../lib/constants/app-info";
 import type { BackgroundImage } from "@cadence/contracts/settings";
@@ -137,14 +138,7 @@ export function PhotoBackgroundPanel({
                             style={{ filter: `blur(${blur / 3}px) brightness(${image.brightness}%)` }}
                         />
                     )}
-                    {uploading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                            <span className="flex items-center gap-2 text-[12px] font-medium text-white">
-                                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                                Preparing your photo…
-                            </span>
-                        </div>
-                    )}
+                    {uploading && <BusyOverlay label="Preparing your photo…" />}
 
                     {/* Controls */}
                     <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/45 p-1 backdrop-blur-md">

@@ -4,6 +4,7 @@ import { SegmentedControl } from "../../primitives/SegmentedControl";
 import { SEGMENT_ACTIVE, SEGMENT_IDLE } from "../../primitives/SegmentedControl";
 import { Button } from "../../primitives/Button";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
+import { SwitchSetting } from "../layout/SettingRows";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS, type UserSettings } from "../../../types/settings";
 import { DeviceDeliveryRow, DeviceList } from "../../notifications/DeviceDelivery";
@@ -75,17 +76,11 @@ function TaskAlerts({ notif, set }: SectionProps) {
     return (
         <>
             <SettingsSection title="Tasks">
-                <SettingsRow title="Task reminders">
-                    <Switch checked={notif.taskReminders} aria-label="Task reminders" onCheckedChange={(taskReminders) => set({ taskReminders })} />
-                </SettingsRow>
+                <SwitchSetting title="Task reminders" checked={notif.taskReminders} onChange={(taskReminders) => set({ taskReminders })} />
                 {notif.taskReminders && (
-                    <SettingsRow title="Waiting follow-ups">
-                        <Switch checked={notif.followUps} aria-label="Waiting follow-ups" onCheckedChange={(followUps) => set({ followUps })} />
-                    </SettingsRow>
+                    <SwitchSetting title="Waiting follow-ups" checked={notif.followUps} onChange={(followUps) => set({ followUps })} />
                 )}
-                <SettingsRow title="Due dates">
-                    <Switch checked={notif.dueDateAlerts} aria-label="Due dates" onCheckedChange={(dueDateAlerts) => set({ dueDateAlerts })} />
-                </SettingsRow>
+                <SwitchSetting title="Due dates" checked={notif.dueDateAlerts} onChange={(dueDateAlerts) => set({ dueDateAlerts })} />
                 {notif.dueDateAlerts && (
                     <>
                         <SettingsRow title="Heads-up before">
@@ -109,9 +104,7 @@ function ScheduleAlerts({ notif, set }: SectionProps) {
     return (
         <>
             <SettingsSection title="Schedule">
-                <SettingsRow title="Timed blocks">
-                    <Switch checked={notif.scheduleAlerts} aria-label="Timed blocks" onCheckedChange={(scheduleAlerts) => set({ scheduleAlerts })} />
-                </SettingsRow>
+                <SwitchSetting title="Timed blocks" checked={notif.scheduleAlerts} onChange={(scheduleAlerts) => set({ scheduleAlerts })} />
                 {notif.scheduleAlerts && (
                     <>
                         <SettingsRow title="Before a block">
@@ -134,18 +127,14 @@ function RoutineAlerts({ notif, set }: SectionProps) {
     return (
         <>
             <SettingsSection title="Routines">
-                <SettingsRow title="Routine reminders">
-                    <Switch checked={notif.habitReminders} aria-label="Routine reminders" onCheckedChange={(habitReminders) => set({ habitReminders })} />
-                </SettingsRow>
+                <SwitchSetting title="Routine reminders" checked={notif.habitReminders} onChange={(habitReminders) => set({ habitReminders })} />
                 {notif.habitReminders && (
                     <>
                         <SettingsRow title="Before target time">
                             <ChipRow label="Alert before a routine's time" value={notif.habitReminderLeadMinutes} options={lead()}
                                 onChange={(habitReminderLeadMinutes) => set({ habitReminderLeadMinutes })} />
                         </SettingsRow>
-                        <SettingsRow title="Group several at once">
-                            <Switch checked={notif.bundleMissedRoutinePrompts} aria-label="Group several routine reminders" onCheckedChange={(bundleMissedRoutinePrompts) => set({ bundleMissedRoutinePrompts })} />
-                        </SettingsRow>
+                        <SwitchSetting title="Group several at once" label="Group several routine reminders" checked={notif.bundleMissedRoutinePrompts} onChange={(bundleMissedRoutinePrompts) => set({ bundleMissedRoutinePrompts })} />
                     </>
                 )}
             </SettingsSection>
@@ -170,9 +159,7 @@ function QuietSections({ notif, set, paused, pauseFor, pauseUntilMorning }: Sect
                         </div>
                     )}
                 </SettingsRow>
-                <SettingsRow title="Quiet hours" description="Reminders wait in Cadence; any still ahead alert when it ends.">
-                    <Switch checked={notif.quietHoursEnabled} aria-label="Quiet hours" onCheckedChange={(quietHoursEnabled) => set({ quietHoursEnabled })} />
-                </SettingsRow>
+                <SwitchSetting title="Quiet hours" description="Reminders wait in Cadence; any still ahead alert when it ends." checked={notif.quietHoursEnabled} onChange={(quietHoursEnabled) => set({ quietHoursEnabled })} />
                 {notif.quietHoursEnabled && (
                     <SettingsRow title="From – to">
                         <div className="flex w-full items-center gap-2 sm:justify-end">
