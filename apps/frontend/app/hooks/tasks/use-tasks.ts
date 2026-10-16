@@ -1,4 +1,5 @@
 import { useCallback, useState, useSyncExternalStore } from "react";
+import { useAuthedQuery } from "../auth/use-authed-query";
 import { keepPreviousData, queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import type { ApiClient } from "../../lib/api/client";
@@ -29,15 +30,12 @@ export function tasksQueryOptions(client: ApiClient, filters: UseTasksFilterInpu
 
 /** Fetch tasks with server-side filtering — drives Today, Upcoming, and Calendar views */
 export function useTasks(options: UseTasksOptions = {}) {
-    const client = useApiClient();
-    const { authReady, isAuthenticated } = useAuthState();
     const { enabled = true, keepPrevious, ...filterOptions } = options;
 
-    return useQuery({
+    return useAuthedQuery((client) => ({
         ...tasksQueryOptions(client, filterOptions),
-        enabled: enabled && authReady && isAuthenticated,
         placeholderData: keepPrevious ? keepPreviousData : undefined,
-    });
+    }), enabled);
 }
 
 const PAGE_SIZE = 100;

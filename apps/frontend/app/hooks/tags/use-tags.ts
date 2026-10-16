@@ -1,9 +1,8 @@
-import { queryOptions, useQuery } from "@tanstack/react-query";
-import { useApiClient } from "../auth/use-api-client";
+import { queryOptions } from "@tanstack/react-query";
+import { useAuthedQuery } from "../auth/use-authed-query";
 import type { ApiClient } from "../../lib/api/client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
-import { useAuthState } from "../auth/use-auth-state";
 
 /** Shared with the offline prefetch so their keys match. */
 export function tagsQueryOptions(client: ApiClient) {
@@ -19,11 +18,5 @@ export function tagsQueryOptions(client: ApiClient) {
 
 /** Fetch all user tags */
 export function useTags() {
-    const client = useApiClient();
-    const { authReady, isAuthenticated } = useAuthState();
-
-    return useQuery({
-        ...tagsQueryOptions(client),
-        enabled: authReady && isAuthenticated,
-    });
+    return useAuthedQuery((client) => tagsQueryOptions(client));
 }

@@ -5,7 +5,6 @@ import { queryKeys } from "../../lib/api/query-keys";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { taskCache } from "../tasks/optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
-import { toastError } from "../../lib/utils/error-toast";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 interface TaskTagVars { taskId: string; tagId: string }
@@ -31,11 +30,7 @@ function useTaskTagMutation(adding: boolean, request: (vars: TaskTagVars) => Pro
             );
             return { snapshot };
         },
-        onError: (err, _vars, context) => {
-            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toastError(err, adding ? "Couldn't add tag" : "Couldn't remove tag");
-            taskCache.invalidate(queryClient);
-        },
+        onError: (err, _vars, context) => taskCache.fail(queryClient, err, context, adding ? "Couldn't add tag" : "Couldn't remove tag"),
     });
 }
 

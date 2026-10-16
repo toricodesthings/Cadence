@@ -8,7 +8,6 @@ import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { isRecurringTask } from "../../lib/utils/task/task-scheduling";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
-import { toastError } from "../../lib/utils/error-toast";
 import { offerDuration } from "../../lib/ai/duration-prompt";
 import { useDurationApi } from "../ai/use-memory";
 import { useSettings } from "../core/use-settings";
@@ -107,10 +106,6 @@ export function useUpdateTask() {
             reconcileTaskInCaches(queryClient, task);
         },
 
-        onError: (err, _input, context) => {
-            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toastError(err, "Couldn't update task");
-            taskCache.invalidate(queryClient);
-        },
+        onError: (err, _input, context) => taskCache.fail(queryClient, err, context, "Couldn't update task"),
     });
 }

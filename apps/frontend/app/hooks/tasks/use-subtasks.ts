@@ -107,6 +107,26 @@ export function useSubtasksByTaskIds(taskIds: string[]) {
     });
 }
 
+/** `onMutate` for a subtask change: stop in-flight reads, remember the list, and show `edit` in the task's list and the bulk lists. */
+async function beginEdit(queryClient: QueryClient, taskId: string, edit: (items: CachedSubtask[]) => CachedSubtask[], initialize = false) {
+    await queryClient.cancelQueries({ queryKey: SUBTASKS_KEY(taskId) });
+    const previous = queryClient.getQueryData<Subtask[]>(SUBTASKS_KEY(taskId));
+    queryClient.setQueryData<CachedSubtask[]>(SUBTASKS_KEY(taskId), (old) => transformListCache(old, edit, { initialize }));
+    updateBulkSubtasksCaches(queryClient, taskId, edit);
+    return { previous };
+}
+
+function revertEdit(queryClient: QueryClient, taskId: string, context: { previous?: Subtask[] } | undefined) {
+    if (!context?.previous) return;
+    queryClient.setQueryData(SUBTASKS_KEY(taskId), context.previous);
+    updateBulkSubtasksCaches(queryClient, taskId, () => context.previous ?? []);
+}
+
+function settleEdit(queryClient: QueryClient, taskId: string, data: unknown, error: unknown) {
+    if (wasQueued(data, error)) return;
+    queryClient.invalidateQueries({ queryKey: SUBTASKS_KEY(taskId), exact: true });
+}
+
 export function useCreateSubtask(taskId: string) {
     const api = useApiClient();
     const queryClient = useQueryClient();
@@ -124,9 +144,6 @@ export function useCreateSubtask(taskId: string) {
             },
         ),
         onMutate: async (newSubtask) => {
-            await queryClient.cancelQueries({ queryKey: SUBTASKS_KEY(taskId) });
-            const previous = queryClient.getQueryData<Subtask[]>(SUBTASKS_KEY(taskId));
-
             const optimistic: CachedSubtask = {
                 id: clientIdFor(newSubtask),
                 taskId,
@@ -136,30 +153,17 @@ export function useCreateSubtask(taskId: string) {
                 createdAt: new Date().toISOString(),
                 __optimisticKey: `optimistic-${Date.now()}`,
             };
-
-            queryClient.setQueryData<CachedSubtask[]>(SUBTASKS_KEY(taskId), (old) => {
-                const list = [...(Array.isArray(old) ? old : []), optimistic];
-                return sortSubtasks(list);
-            });
-            updateBulkSubtasksCaches(queryClient, taskId, (old) => [...old, optimistic]);
-
+            const { previous } = await beginEdit(queryClient, taskId, (items) => sortSubtasks([...items, optimistic]), true);
             return { previous, optimisticId: optimistic.id };
         },
         onSuccess: (created, _newSubtask, context) => {
             if (created) reconcileSingleSubtaskCache(queryClient, taskId, created, context?.optimisticId);
         },
-        onError: (err, _new, context) => {
-            if (context?.previous) {
-                queryClient.setQueryData(SUBTASKS_KEY(taskId), context.previous);
-                updateBulkSubtasksCaches(queryClient, taskId, () => context.previous ?? []);
-            }
-
+        onError: (err, _vars, context) => {
+            revertEdit(queryClient, taskId, context);
             toastError(err, "Couldn't add subtask");
         },
-        onSettled: (data, error) => {
-            if (wasQueued(data, error)) return;
-            queryClient.invalidateQueries({ queryKey: SUBTASKS_KEY(taskId), exact: true });
-        },
+        onSettled: (data, error) => settleEdit(queryClient, taskId, data, error),
     });
 }
 
@@ -172,34 +176,13 @@ export function useUpdateSubtask(taskId: string) {
             ({ id, ...payload }) => ({ type: "update_subtask", id, payload }),
             async ({ id, ...updates }) => unwrapResponse(await api.api.subtasks[":id"].$patch({ param: { id }, json: updates })),
         ),
-        onMutate: async (variables) => {
-            await queryClient.cancelQueries({ queryKey: SUBTASKS_KEY(taskId) });
-            const previous = queryClient.getQueryData<Subtask[]>(SUBTASKS_KEY(taskId));
-
-            queryClient.setQueryData<Subtask[]>(SUBTASKS_KEY(taskId), (old) => {
-                return transformListCache(old, (items) =>
-                    items.map((st) => (st.id === variables.id ? { ...st, ...variables } : st)),
-                );
-            });
-            updateBulkSubtasksCaches(queryClient, taskId, (old) =>
-                old.map((st) => (st.id === variables.id ? { ...st, ...variables } : st)),
-            );
-
-            return { previous };
-        },
+        onMutate: (variables) =>
+            beginEdit(queryClient, taskId, (items) => items.map((st) => (st.id === variables.id ? { ...st, ...variables } : st))),
         onSuccess: (updated) => {
             if (updated) reconcileSingleSubtaskCache(queryClient, taskId, updated);
         },
-        onError: (_err, _variables, context) => {
-            if (context?.previous) {
-                queryClient.setQueryData(SUBTASKS_KEY(taskId), context.previous);
-                updateBulkSubtasksCaches(queryClient, taskId, () => context.previous ?? []);
-            }
-        },
-        onSettled: (data, error) => {
-            if (wasQueued(data, error)) return;
-            queryClient.invalidateQueries({ queryKey: SUBTASKS_KEY(taskId), exact: true });
-        },
+        onError: (_err, _vars, context) => revertEdit(queryClient, taskId, context),
+        onSettled: (data, error) => settleEdit(queryClient, taskId, data, error),
     });
 }
 
@@ -216,27 +199,9 @@ export function useDeleteSubtask(taskId: string) {
                 return true;
             },
         ),
-        onMutate: async (id) => {
-            await queryClient.cancelQueries({ queryKey: SUBTASKS_KEY(taskId) });
-            const previous = queryClient.getQueryData<Subtask[]>(SUBTASKS_KEY(taskId));
-
-            queryClient.setQueryData<Subtask[]>(SUBTASKS_KEY(taskId), (old) => {
-                return transformListCache(old, (items) => items.filter((st) => st.id !== id));
-            });
-            updateBulkSubtasksCaches(queryClient, taskId, (old) => old.filter((st) => st.id !== id));
-
-            return { previous };
-        },
-        onError: (_err, _id, context) => {
-            if (context?.previous) {
-                queryClient.setQueryData(SUBTASKS_KEY(taskId), context.previous);
-                updateBulkSubtasksCaches(queryClient, taskId, () => context.previous ?? []);
-            }
-        },
-        onSettled: (data, error) => {
-            if (wasQueued(data, error)) return;
-            queryClient.invalidateQueries({ queryKey: SUBTASKS_KEY(taskId), exact: true });
-        },
+        onMutate: (id) => beginEdit(queryClient, taskId, (items) => items.filter((st) => st.id !== id)),
+        onError: (_err, _vars, context) => revertEdit(queryClient, taskId, context),
+        onSettled: (data, error) => settleEdit(queryClient, taskId, data, error),
     });
 }
 
@@ -250,42 +215,19 @@ export function useReorderSubtasks(taskId: string) {
             async ({ id, newOrderIndex }) =>
                 unwrapResponse(await api.api.subtasks[":id"].reorder.$patch({ param: { id }, json: { orderIndex: newOrderIndex } })),
         ),
-        onMutate: async (variables) => {
-            await queryClient.cancelQueries({ queryKey: SUBTASKS_KEY(taskId) });
-            const previous = queryClient.getQueryData<Subtask[]>(SUBTASKS_KEY(taskId));
-
-            if (variables.optimisticSubtasks) {
-                queryClient.setQueryData<Subtask[]>(SUBTASKS_KEY(taskId), variables.optimisticSubtasks);
-                updateBulkSubtasksCaches(queryClient, taskId, () => variables.optimisticSubtasks ?? []);
-            } else {
-                queryClient.setQueryData<Subtask[]>(SUBTASKS_KEY(taskId), (old) => {
-                    return transformListCache(old, (items) =>
-                        items
-                            .map((st) => (st.id === variables.id ? { ...st, orderIndex: variables.newOrderIndex } : st))
-                            .sort((a, b) => a.orderIndex - b.orderIndex),
-                    );
-                });
-                updateBulkSubtasksCaches(queryClient, taskId, (old) =>
-                    old
-                        .map((st) => (st.id === variables.id ? { ...st, orderIndex: variables.newOrderIndex } : st))
-                        .sort((a, b) => a.orderIndex - b.orderIndex),
-                );
-            }
-
-            return { previous };
-        },
+        onMutate: (variables) =>
+            beginEdit(
+                queryClient,
+                taskId,
+                variables.optimisticSubtasks
+                    ? () => variables.optimisticSubtasks ?? []
+                    : (items) => items.map((st) => (st.id === variables.id ? { ...st, orderIndex: variables.newOrderIndex } : st)).sort((a, b) => a.orderIndex - b.orderIndex),
+                Boolean(variables.optimisticSubtasks),
+            ),
         onSuccess: (updated) => {
             if (updated) reconcileSingleSubtaskCache(queryClient, taskId, updated);
         },
-        onError: (_err, _variables, context) => {
-            if (context?.previous) {
-                queryClient.setQueryData(SUBTASKS_KEY(taskId), context.previous);
-                updateBulkSubtasksCaches(queryClient, taskId, () => context.previous ?? []);
-            }
-        },
-        onSettled: (data, error) => {
-            if (wasQueued(data, error)) return;
-            queryClient.invalidateQueries({ queryKey: SUBTASKS_KEY(taskId), exact: true });
-        },
+        onError: (_err, _vars, context) => revertEdit(queryClient, taskId, context),
+        onSettled: (data, error) => settleEdit(queryClient, taskId, data, error),
     });
 }

@@ -1,11 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
-import { queryKeys } from "../../lib/api/query-keys";
 import { taskCache } from "./optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
 import { removeTaskFromCaches } from "../../lib/api/cache-sync";
-import { transformListCache } from "../../lib/api/cache-guards";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
 
@@ -23,27 +21,13 @@ export function useDeleteTask() {
             },
         ),
 
-        onMutate: async (id) => {
-            await taskCache.cancel(queryClient);
-            const snapshot = taskCache.snapshot(queryClient);
-
-            queryClient.setQueriesData<Task[]>(
-                { queryKey: queryKeys.tasks.all },
-                (old) => transformListCache(old, (items) => items.filter((t) => t.id !== id)),
-            );
-
-            return { snapshot };
-        },
+        onMutate: (id) => taskCache.edit(queryClient, (items) => items.filter((t) => t.id !== id)),
 
         onSuccess: (_task, id) => {
             removeTaskFromCaches(queryClient, id);
         },
 
-        onError: (err, _input, context) => {
-            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toastError(err, "Couldn't delete task");
-            taskCache.invalidate(queryClient);
-        },
+        onError: (err, _input, context) => taskCache.fail(queryClient, err, context, "Couldn't delete task"),
     });
 }
 
@@ -55,17 +39,7 @@ export function useEmptyTrash() {
     return useMutation({
         mutationFn: async () => unwrapResponse(await client.api.tasks.trash.$delete()),
 
-        onMutate: async () => {
-            await taskCache.cancel(queryClient);
-            const snapshot = taskCache.snapshot(queryClient);
-
-            queryClient.setQueriesData<Task[]>(
-                { queryKey: queryKeys.tasks.all },
-                (old) => transformListCache(old, (items) => items.filter((t) => t.state !== "ARCHIVED")),
-            );
-
-            return { snapshot };
-        },
+        onMutate: () => taskCache.edit(queryClient, (items) => items.filter((t) => t.state !== "ARCHIVED")),
 
         onError: (err, _input, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);

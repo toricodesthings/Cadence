@@ -5,7 +5,6 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { taskCache } from "./optimistic-helpers";
 import type { Task, TaskState } from "@cadence/contracts/task";
 import { reconcileTaskInCaches, removeTaskFromCaches } from "../../lib/api/cache-sync";
-import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { chunk } from "../../lib/utils";
 import { toastError } from "../../lib/utils/error-toast";
@@ -33,25 +32,13 @@ export function useBatchStateTransition() {
             ({ taskIds, state }) => inBatches(taskIds, async (ids) =>
                 unwrapResponse(await client.api.tasks.batch.state.$patch({ json: { taskIds: ids, state } }))),
         ),
-        onMutate: async ({ taskIds, state }) => {
-            await taskCache.cancel(queryClient);
-            const snapshot = taskCache.snapshot(queryClient);
-            queryClient.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) =>
-                transformListCache(old, (items) =>
-                    items.map((task) => (taskIds.includes(task.id) ? { ...task, state } : task)),
-                ),
-            );
-            return { snapshot };
-        },
+        onMutate: ({ taskIds, state }) =>
+            taskCache.edit(queryClient, (items) => items.map((task) => (taskIds.includes(task.id) ? { ...task, state } : task))),
         onSuccess: (tasks) => {
             if (!tasks) return; // Queued offline
             tasks.forEach((task) => reconcileTaskInCaches(queryClient, task));
         },
-        onError: (err, _vars, context) => {
-            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toastError(err, "Couldn't update tasks");
-            taskCache.invalidate(queryClient);
-        },
+        onError: (err, _vars, context) => taskCache.fail(queryClient, err, context, "Couldn't update tasks"),
     });
 }
 
@@ -68,30 +55,19 @@ export function useBatchRescheduleTasks() {
             ({ taskIds, ...when }) => inBatches(taskIds, async (ids) =>
                 unwrapResponse(await client.api.tasks.batch.reschedule.$post({ json: { taskIds: ids, ...when } }))),
         ),
-        onMutate: async (input) => {
-            await taskCache.cancel(queryClient);
-            const snapshot = taskCache.snapshot(queryClient);
+        onMutate: (input) => {
             const zone = getUserZone();
             const moved = (task: Task): Task =>
                 "date" in input
                     ? { ...task, ...rescheduleToDay(task, input.date, zone) }
                     : { ...task, scheduledStart: input.scheduledStart, zone, endDate: null };
-            queryClient.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) =>
-                transformListCache(old, (items) =>
-                    items.map((task) => (input.taskIds.includes(task.id) ? moved(task) : task)),
-                ),
-            );
-            return { snapshot };
+            return taskCache.edit(queryClient, (items) => items.map((task) => (input.taskIds.includes(task.id) ? moved(task) : task)));
         },
         onSuccess: (tasks) => {
             if (!tasks) return; // Queued offline
             tasks.forEach((task) => reconcileTaskInCaches(queryClient, task));
         },
-        onError: (err, _vars, context) => {
-            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toastError(err, "Couldn't reschedule tasks");
-            taskCache.invalidate(queryClient);
-        },
+        onError: (err, _vars, context) => taskCache.fail(queryClient, err, context, "Couldn't reschedule tasks"),
     });
 }
 
@@ -112,16 +88,7 @@ export function useBatchDeleteTasks() {
             await undoWindow(`Deleted ${countLabel(input.taskIds.length)}`, { description: "They're gone for good once this closes." });
             return send(input);
         },
-        onMutate: async ({ taskIds }) => {
-            await taskCache.cancel(queryClient);
-            const snapshot = taskCache.snapshot(queryClient);
-            queryClient.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) =>
-                transformListCache(old, (items) =>
-                    items.filter((task) => !taskIds.includes(task.id)),
-                ),
-            );
-            return { snapshot };
-        },
+        onMutate: ({ taskIds }) => taskCache.edit(queryClient, (items) => items.filter((task) => !taskIds.includes(task.id))),
         onSuccess: (_results, { taskIds }) => {
             taskIds.forEach((taskId) => removeTaskFromCaches(queryClient, taskId));
         },

@@ -1,4 +1,5 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
+import { useAuthedQuery } from "../auth/use-authed-query";
 import { useApiClient } from "../auth/use-api-client";
 import type { ApiClient } from "../../lib/api/client";
 import { unwrapResponse } from "../../lib/api/helpers";
@@ -19,13 +20,7 @@ interface UseHabitsRangeOptions {
  * optimistic update covers them all.
  */
 export function useHabitsRange({ start, end, archived = false, enabled = true }: UseHabitsRangeOptions) {
-    const client = useApiClient();
-    const { authReady, isAuthenticated } = useAuthState();
-
-    return useQuery({
-        ...habitsRangeQueryOptions(client, { start, end, archived }),
-        enabled: enabled && !!start && !!end && authReady && isAuthenticated,
-    });
+    return useAuthedQuery((client) => habitsRangeQueryOptions(client, { start, end, archived }), enabled && !!start && !!end);
 }
 
 /** One range's query; shared with the offline prefetch so their keys match. */

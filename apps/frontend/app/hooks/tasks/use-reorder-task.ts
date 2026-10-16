@@ -6,7 +6,6 @@ import type { Task } from "@cadence/contracts/task";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
-import { toastError } from "../../lib/utils/error-toast";
 
 /** Reorder a task via fractional index — component handles optimistic array reorder */
 export function useReorderTask() {
@@ -58,10 +57,6 @@ export function useReorderTask() {
             if (!task) return; // Queued offline
             reconcileTaskInCaches(queryClient, task);
         },
-        onError: (err, _vars, context) => {
-            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toastError(err, "Couldn't reorder task");
-            taskCache.invalidate(queryClient);
-        },
+        onError: (err, _vars, context) => taskCache.fail(queryClient, err, context, "Couldn't reorder task"),
     });
 }

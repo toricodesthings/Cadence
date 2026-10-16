@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
@@ -280,6 +280,23 @@ function StepDone({ label, onNext }: { label: string; onNext: () => void }) {
 
 /* ──────────────────────────── Page ──────────────────────────── */
 
+function StepPanel({ title, intro, children }: { title: string; intro: ReactNode; children: ReactNode }) {
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="glass max-w-xl mx-auto w-full rounded-3xl p-4 sm:p-6"
+        >
+            <div className="mb-6">
+                <h2 className="text-lg font-display font-semibold text-twilight-text">{title}</h2>
+                <p className="text-sm text-twilight-text-soft mt-1">{intro}</p>
+            </div>
+            {children}
+        </motion.div>
+    );
+}
+
 function SkipToNext({ onSkip }: { onSkip: () => void }) {
     return (
         <div className="mt-6 flex justify-end">
@@ -434,21 +451,9 @@ export default function WeeklyReview() {
 
                         {/* ─── Step 1 · Inbox ─── */}
                         {currentStep === 1 && (
-                            <motion.div
-                                key="inbox"
-                                initial={{ opacity: 0, y: 12 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -12 }}
-                                className="glass max-w-xl mx-auto w-full rounded-3xl p-4 sm:p-6"
-                            >
-                                <div className="mb-6">
-                                    <h2 className="text-lg font-display font-semibold text-twilight-text">Captured thoughts</h2>
-                                    <p className="text-sm text-twilight-text-soft mt-1">
-                                        {inboxItems.length > 0
-                                            ? `${inboxItems.length} item${inboxItems.length > 1 ? "s" : ""} to sort through.`
-                                            : "Nothing here — inbox is clear."}
-                                    </p>
-                                </div>
+                            <StepPanel key="inbox" title="Captured thoughts" intro={inboxItems.length > 0
+                                    ? `${inboxItems.length} item${inboxItems.length > 1 ? "s" : ""} to sort through.`
+                                    : "Nothing here — inbox is clear."}>
                                 {inboxItems.length > 0 ? (
                                     <div className="flex flex-col gap-2">
                                         {inboxItems.map((item) => (
@@ -467,26 +472,14 @@ export default function WeeklyReview() {
                                     <StepDone label="Inbox is clear." onNext={handleNext} />
                                 )}
                                 {inboxItems.length > 0 && <SkipToNext onSkip={handleNext} />}
-                            </motion.div>
+                            </StepPanel>
                         )}
 
                         {/* ─── Step 2 · Stabilize (unscheduled + waiting) ─── */}
                         {currentStep === 2 && (
-                            <motion.div
-                                key="stabilize"
-                                initial={{ opacity: 0, y: 12 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -12 }}
-                                className="glass max-w-xl mx-auto w-full rounded-3xl p-4 sm:p-6"
-                            >
-                                <div className="mb-6">
-                                    <h2 className="text-lg font-display font-semibold text-twilight-text">Work to stabilize</h2>
-                                    <p className="text-sm text-twilight-text-soft mt-1">
-                                        {unscheduledTasks.length + visibleWaiting.length > 0
-                                            ? `${unscheduledTasks.length + visibleWaiting.length} item${(unscheduledTasks.length + visibleWaiting.length) > 1 ? "s" : ""} need a home or a decision.`
-                                            : "Everything is placed and accounted for."}
-                                    </p>
-                                </div>
+                            <StepPanel key="stabilize" title="Work to stabilize" intro={unscheduledTasks.length + visibleWaiting.length > 0
+                                    ? `${unscheduledTasks.length + visibleWaiting.length} item${(unscheduledTasks.length + visibleWaiting.length) > 1 ? "s" : ""} need a home or a decision.`
+                                    : "Everything is placed and accounted for."}>
                                 {unscheduledTasks.length > 0 && (
                                     <>
                                         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">Unscheduled</p>
@@ -544,28 +537,16 @@ export default function WeeklyReview() {
                                     <BatchBar count={selectedTasks.length} onApply={applyToSelected} onClear={() => setSelectedIds(new Set())} />
                                 )}
                                 {(unscheduledTasks.length > 0 || visibleWaiting.length > 0) && <SkipToNext onSkip={handleNext} />}
-                            </motion.div>
+                            </StepPanel>
                         )}
 
                         {/* ─── Step 3 · Habits ─── */}
                         {currentStep === 3 && (
-                            <motion.div
-                                key="habits"
-                                initial={{ opacity: 0, y: 12 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -12 }}
-                                className="glass max-w-xl mx-auto w-full rounded-3xl p-4 sm:p-6"
-                            >
-                                <div className="mb-6">
-                                    <h2 className="text-lg font-display font-semibold text-twilight-text">Routine check-in</h2>
-                                    <p className="text-sm text-twilight-text-soft mt-1">
-                                        {unreviewedHabits.length > 0
-                                            ? `${unreviewedHabits.length} routine${unreviewedHabits.length > 1 ? "s" : ""} to reflect on.`
-                                            : habitReviewItems.length > 0
-                                                ? "All routines reviewed."
-                                                : "No routines this week."}
-                                    </p>
-                                </div>
+                            <StepPanel key="habits" title="Routine check-in" intro={unreviewedHabits.length > 0
+                                    ? `${unreviewedHabits.length} routine${unreviewedHabits.length > 1 ? "s" : ""} to reflect on.`
+                                    : habitReviewItems.length > 0
+                                    ? "All routines reviewed."
+                                    : "No routines this week."}>
                                 {unreviewedHabits.length > 0 ? (
                                     <div className="flex flex-col gap-3">
                                         {unreviewedHabits.map((habit) => (
@@ -591,7 +572,7 @@ export default function WeeklyReview() {
                                     />
                                 )}
                                 {unreviewedHabits.length > 0 && <SkipToNext onSkip={handleNext} />}
-                            </motion.div>
+                            </StepPanel>
                         )}
 
                         {/* ─── Step 4 · Done ─── */}
