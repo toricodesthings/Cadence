@@ -20,7 +20,7 @@ import { mapPriorityNameToNumber, resolveDefaultDueDate } from "../../lib/utils/
 import { buildTypedTaskInput } from "../../lib/utils/task/typed-task-input";
 import { formatShortDateLabel, formatWallTime } from "../../lib/utils/date-format";
 import { trackUsageEvent } from "../../lib/api/track-event";
-import type { EffortLevel, Task, TaskPriority } from "@cadence/contracts/task";
+import type { Task, TaskPriority } from "@cadence/contracts/task";
 
 /** Id the project board uses for tasks without a section. */
 export const UNSECTIONED_ID = "ungrouped";

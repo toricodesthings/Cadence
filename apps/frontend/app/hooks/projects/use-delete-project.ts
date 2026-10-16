@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
-import type { Project } from "@cadence/contracts/project";
 import { removeProjectFromCaches } from "../../lib/api/cache-sync";
 import { projectCache } from "./optimistic-helpers";
 import { toastError } from "../../lib/utils/error-toast";
