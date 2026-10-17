@@ -5,6 +5,7 @@ import { TaskCard } from "./TaskCard";
 import type { Tag } from "@cadence/contracts/tag";
 import type { Subtask } from "@cadence/contracts/subtask";
 import type { Task } from "@cadence/contracts/task";
+import { SPRINGS } from "../../lib/constants/motion";
 
 interface SortableTaskCardProps {
     task: Task;
@@ -77,7 +78,7 @@ export function SortableTaskCard({
             }}
             transition={{
                 opacity: { duration: 0.3, ease: "easeOut" },
-                scale: { type: "spring", stiffness: 400, damping: 30 },
+                scale: SPRINGS.SNAP,
                 boxShadow: { duration: 0.2 },
             }}
         >

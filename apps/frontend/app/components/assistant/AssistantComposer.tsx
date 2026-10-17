@@ -362,7 +362,7 @@ function SendButton({ isStreaming, onStop, disabled, uploading }: {
                 <button
                     type="button"
                     onClick={() => void onStop()}
-                    className="flex h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-full border border-feedback-error/30 bg-feedback-error/15 text-feedback-error transition-all hover:scale-[1.04] active:scale-[0.97] cursor-pointer"
+                    className="flex h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-full border border-feedback-error/30 bg-feedback-error/15 text-feedback-error press cursor-pointer"
                     aria-label="Stop generating"
                 >
                     <span className="h-2.5 w-2.5 rounded-sm bg-feedback-error" />
@@ -375,7 +375,7 @@ function SendButton({ isStreaming, onStop, disabled, uploading }: {
             <button
                 type="submit"
                 disabled={disabled}
-                className="flex h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[var(--primary-foreground)] shadow-[0_6px_18px_-6px_var(--accent-primary)] transition-all hover:scale-[1.04] active:scale-[0.96] disabled:pointer-events-none disabled:bg-white/[0.06] disabled:text-twilight-text-muted disabled:shadow-none cursor-pointer"
+                className="flex h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-full accent-fill press disabled:pointer-events-none disabled:border-transparent disabled:bg-none disabled:bg-white/[0.06] disabled:text-twilight-text-muted disabled:shadow-none cursor-pointer"
                 aria-label="Send message"
             >
                 <ArrowUp size={18} strokeWidth={2.4} aria-hidden />

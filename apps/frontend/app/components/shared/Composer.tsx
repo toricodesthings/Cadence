@@ -175,7 +175,7 @@ export function ComposerSubmit({
 }) {
     return (
         <Button
-            variant="primary"
+            variant="subtle"
             size="md"
             onClick={onSubmit}
             disabled={disabled}

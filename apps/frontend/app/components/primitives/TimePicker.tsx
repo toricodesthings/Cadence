@@ -275,6 +275,7 @@ function DesktopTimePicker({ value, onChange, icon, className, label, disabled, 
                     role="listbox"
                     aria-label="Suggested times"
                     ref={listRef}
+                    data-sheet-no-drag
                     className="max-h-64 overflow-y-auto overscroll-contain"
                 >
                     {items.map((item, i) => {

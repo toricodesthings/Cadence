@@ -2,7 +2,6 @@ import type React from "react";
 import { ChevronDown } from "lucide-react";
 import { Button } from "../primitives/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../primitives/Select";
-import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { FIELD_LABEL } from "../tasks/task-choice-options";
 
 export const CARD = "rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.02]";
@@ -99,30 +98,14 @@ export function FieldRow({ icon: Icon, label, hint, children }: {
 /** Radix Select reserves "" for "no value", so the empty choice needs its own key. */
 const NONE = "__none";
 
-/** A FieldRow value that picks one option: the Select menu on desktop, the OS picker on compact. "" is the empty choice. */
+/** A FieldRow value that picks one option: the Cadence Select at every size. "" is the empty choice. */
 export function ValueSelect({ label, value, onChange, options }: {
     label: string;
     value: string;
     onChange: (value: string) => void;
     options: { value: string; label: string }[];
 }) {
-    const { isCompact } = useShellMode();
     const tone = value ? "text-twilight-text-soft" : "text-twilight-text-muted";
-    if (isCompact) {
-        return (
-            <span className="relative flex min-w-0 items-center">
-                <select
-                    aria-label={label}
-                    value={value}
-                    onChange={(e) => onChange(e.target.value)}
-                    className={`${VALUE_BTN} appearance-none truncate bg-transparent pr-8 ${tone}`}
-                >
-                    {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2.5 size-4 opacity-50" aria-hidden="true" />
-            </span>
-        );
-    }
     return (
         <Select value={value || NONE} onValueChange={(next) => onChange(next === NONE ? "" : next)}>
             <SelectTrigger

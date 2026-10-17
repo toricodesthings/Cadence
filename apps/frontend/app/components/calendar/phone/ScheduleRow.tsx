@@ -11,6 +11,7 @@ import { isTimed, scheduleKind, taskDays } from "../../../lib/utils/calendar/sch
 import { today } from "../../../lib/utils/user-zone";
 import { isRecurringTask, isRecurringTaskInstance } from "../../../lib/utils/task/task-scheduling";
 import { PendingMark } from "../../shared/PendingMark";
+import { SPRINGS } from "../../../lib/constants/motion";
 
 /** Past this, a release commits; a flick past `FLICK` commits sooner. */
 const COMMIT = 88;
@@ -179,7 +180,7 @@ export function ScheduleRow({ task, routineEmoji, past = false, dragActive = fal
                 onDragStart={() => { swiped.current = true; }}
                 onDragEnd={handleDragEnd}
                 animate={{ x: actionsOpen ? -ACTIONS_WIDTH : 0 }}
-                transition={reducedMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 38 }}
+                transition={reducedMotion ? { duration: 0 } : SPRINGS.GLIDE}
                 style={{ x }}
                 className="relative rounded-[26px]"
             >

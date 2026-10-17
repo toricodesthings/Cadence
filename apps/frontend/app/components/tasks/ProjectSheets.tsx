@@ -4,6 +4,7 @@ import { UtilitySheet } from "../shared/UtilitySheet";
 import { Composer } from "../shared/Composer";
 import { useTaskComposer, tasksIn, UNSECTIONED_ID } from "./TaskComposer";
 import { Tip } from "../primitives/Tooltip";
+import { Button } from "../primitives/Button";
 import { useSections, useCreateSection, useUpdateSection, useDeleteSection } from "../../hooks/sections/use-sections";
 import type { TaskSection } from "@cadence/contracts/section";
 import type { Task } from "@cadence/contracts/task";
@@ -147,9 +148,9 @@ export function ProjectSectionsSheet({ open, onClose, projectId, tasks, focus }:
                             aria-label="New section name"
                             className="min-h-12 min-w-0 flex-1 rounded-2xl border border-twilight-border bg-twilight-surface/40 px-4 text-base text-twilight-text placeholder:text-twilight-text-muted/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
                         />
-                        <button type="submit" disabled={!newName.trim()} className="min-h-12 shrink-0 cursor-pointer rounded-2xl bg-accent-primary px-5 font-medium text-[var(--primary-foreground)] disabled:opacity-50 active:opacity-80">
+                        <Button type="submit" disabled={!newName.trim()} className="min-h-12 shrink-0 rounded-2xl px-5">
                             Add
-                        </button>
+                        </Button>
                     </form>
                 }
             >

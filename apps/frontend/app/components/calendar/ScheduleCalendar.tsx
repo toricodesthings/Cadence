@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { CalendarChipActionsContext, type CalendarChipActions } from "./CalendarItem";
 import { AnimatePresence, motion } from "framer-motion";
-import { slideVariants, type SlideCustom } from "../../lib/constants/motion";
+import { slideVariants, type SlideCustom, SPRINGS } from "../../lib/constants/motion";
 import { daysBetween } from "@cadence/domain/time";
 import { CalendarGrid } from "./CalendarGrid";
 import { WeekView } from "./WeekView";
@@ -136,8 +136,8 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
                             animate="center"
                             exit="exit"
                             transition={reducedMotion ? { duration: 0 } : {
-                                x: { type: "spring", stiffness: 320, damping: 32 },
-                                scale: { type: "spring", stiffness: 380, damping: 34 },
+                                x: SPRINGS.GLIDE,
+                                scale: SPRINGS.GLIDE,
                                 opacity: { duration: 0.18 },
                             }}
                             className="absolute inset-0 flex flex-col"

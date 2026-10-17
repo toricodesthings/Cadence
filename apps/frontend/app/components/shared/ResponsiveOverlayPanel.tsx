@@ -1,11 +1,12 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AnimatePresence, motion, useDragControls, type PanInfo } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ToasterFocusBranch } from "../primitives/Dialog";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
-import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 import { useKeyboardInset } from "../../hooks/ui/use-keyboard-inset";
+import { useSheetGesture } from "../../hooks/ui/use-sheet-gesture";
+import { SPRINGS } from "../../lib/constants/motion";
 
 interface ResponsiveOverlayPanelProps {
     ariaLabel: string;
@@ -26,7 +27,8 @@ interface ResponsiveOverlayPanelProps {
     layer?: "route" | "room";
 }
 
-export const SWIPE_THRESHOLD = 80;
+/** Off-screen for a bottom sheet's enter and exit; the gesture's y is in px, so these are too. */
+const offscreen = () => (typeof window === "undefined" ? 800 : window.innerHeight);
 
 export function ResponsiveOverlayPanel({
     ariaLabel,
@@ -45,22 +47,15 @@ export function ResponsiveOverlayPanel({
     const isMobile = shell.isCompact && shell.isTouch;
     const isFocus = mode === "focus";
     const isPeekMobile = isMobile && !isFocus;
-    const dragControls = useDragControls();
-    const reducedMotion = useReducedMotionSetting();
     // The keyboard never covers a sheet: it rides on top, footer controls (day, submit) just above the keys,
     // as in the writing room. iOS keeps fixed elements in the layout viewport, under the keyboard.
     const { inset: keyboard } = useKeyboardInset(open && isMobile);
     const aboveKeyboard = keyboard ? `calc(100dvh - ${keyboard}px - max(0.5rem, env(safe-area-inset-top)))` : null;
     const panelRef = useRef<HTMLElement | null>(null);
-
-    const handleDragEnd = useCallback(
-        (_: unknown, info: PanInfo) => {
-            if (info.offset.y > SWIPE_THRESHOLD || info.velocity.y > 300) {
-                onClose();
-            }
-        },
-        [onClose],
-    );
+    const [panel, setPanel] = useState<HTMLElement | null>(null);
+    const attachPanel = useCallback((node: HTMLElement | null) => { panelRef.current = node; setPanel(node); }, []);
+    // Grab anywhere: the exit animates this same y, seeded with the throw's velocity.
+    const { y, backdropOpacity } = useSheetGesture({ element: panel, enabled: open && isPeekMobile, onDismiss: onClose });
 
     return (
         <DialogPrimitive.Root open={open} onOpenChange={(next) => !next && onClose()}>
@@ -73,8 +68,11 @@ export function ResponsiveOverlayPanel({
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className={`${layer === "room" ? "layer-room-sheet-backdrop" : "layer-route-backdrop"} fixed inset-0 bg-twilight-void/85`}
-                            />
+                                className={`${layer === "room" ? "layer-room-sheet-backdrop" : "layer-route-backdrop"} fixed inset-0`}
+                            >
+                                {/* Lightens as the sheet is pulled down; the outer layer keeps the enter/exit fade. */}
+                                <motion.div style={{ opacity: backdropOpacity }} className="absolute inset-0 bg-twilight-void/85" />
+                            </motion.div>
                         </DialogPrimitive.Overlay>
 
                         <DialogPrimitive.Content
@@ -95,20 +93,14 @@ export function ResponsiveOverlayPanel({
                         >
                             <motion.aside
                                 key="panel"
-                                ref={panelRef}
-                                initial={reducedMotion ? { opacity: 0 } : isMobile ? { opacity: 0, y: isFocus ? 16 : "100%" } : { opacity: 0, x: 28 }}
+                                ref={attachPanel}
+                                initial={isPeekMobile ? { y: offscreen() } : isMobile ? { opacity: 0, y: 16 } : { opacity: 0, x: 28 }}
                                 animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, x: 0 }}
-                                exit={reducedMotion ? { opacity: 0 } : isMobile ? { opacity: 0, y: isFocus ? 16 : "100%" } : { opacity: 0, x: 28 }}
-                                transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.32, 0.72, 0, 1] }}
-                                drag={isPeekMobile ? "y" : false}
-                                dragControls={dragControls}
-                                dragListener={false}
-                                dragSnapToOrigin
-                                dragConstraints={{ top: 0 }}
-                                dragElastic={0.15}
-                                onDragEnd={isPeekMobile ? handleDragEnd : undefined}
+                                exit={isPeekMobile ? { y: offscreen() } : isMobile ? { opacity: 0, y: 16 } : { opacity: 0, x: 28 }}
+                                transition={isPeekMobile ? SPRINGS.GLIDE : { duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
                                 style={isPeekMobile
                                     ? {
+                                        y,
                                         height: fit ? "auto" : aboveKeyboard ?? "min(92dvh, 52rem)",
                                         maxHeight: aboveKeyboard ?? "min(92dvh, 52rem)",
                                         bottom: keyboard || undefined,
@@ -122,12 +114,12 @@ export function ResponsiveOverlayPanel({
                                     isMobile
                                         ? isFocus
                                             ? "safe-bottom safe-top inset-0 border-none"
-                                            : `safe-bottom fixed inset-x-0 bottom-0 top-auto ${fit ? "" : "h-[min(92dvh,48rem)]"} rounded-t-[2rem] border-t border-twilight-border`
+                                            : `glass-edge safe-bottom fixed inset-x-0 bottom-0 top-auto ${fit ? "" : "h-[min(92dvh,48rem)]"} rounded-t-[2rem] border-t border-twilight-border`
                                         : "safe-bottom safe-top inset-y-0 right-0 border-l border-twilight-border",
                                 ].join(" ")}
                             >
                                 {isPeekMobile && (
-                                    <div data-sheet-handle onPointerDown={(event) => dragControls.start(event)} style={{ touchAction: "none" }} className="flex h-8 shrink-0 cursor-grab items-center justify-center active:cursor-grabbing" aria-hidden="true">
+                                    <div data-sheet-handle className="flex h-8 shrink-0 items-center justify-center" aria-hidden="true">
                                         <div className="h-1 w-10 rounded-full bg-twilight-text-soft/40" />
                                     </div>
                                 )}

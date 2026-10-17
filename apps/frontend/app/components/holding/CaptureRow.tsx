@@ -292,7 +292,7 @@ export function CaptureRow({
                                     disabled={disabled}
                                     onClick={() => place(undefined, true)}
                                     aria-label="Tick off thought"
-                                    className="h-8 w-8 shrink-0 rounded-full hover:bg-transparent active:scale-100"
+                                    className="h-8 w-8 shrink-0 rounded-full hover:bg-transparent press-none"
                                 >
                                     <span
                                         aria-hidden
@@ -314,7 +314,7 @@ export function CaptureRow({
                             data-capture-title
                             disabled={disabled}
                             onClick={onOpen}
-                            className={`block min-h-11 w-full min-w-0 rounded-lg px-1 text-left font-sans font-normal text-twilight-text hover:text-twilight-text active:scale-100 ${COLLECTION_ROW_TITLE}`}
+                            className={`block min-h-11 w-full min-w-0 rounded-lg px-1 text-left font-sans font-normal text-twilight-text hover:text-twilight-text press-none ${COLLECTION_ROW_TITLE}`}
                         >
                             <span className="line-clamp-3 break-words">{title}<PendingMark id={object.id} /></span>
                         </Button>

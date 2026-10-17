@@ -13,6 +13,7 @@ import { Tip } from "../primitives/Tooltip";
 import { ManageSectionsButton } from "./ProjectSheets";
 import type { TaskSection } from "@cadence/contracts/section";
 import type { Task } from "@cadence/contracts/task";
+import { SPRINGS } from "../../lib/constants/motion";
 
 interface SectionedTaskListProps {
     tasks: Task[];
@@ -239,7 +240,7 @@ export function SectionedTaskList({
                                     initial={{ height: 0, opacity: 0 }}
                                     animate={{ height: "auto", opacity: 1 }}
                                     exit={{ height: 0, opacity: 0 }}
-                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                    transition={SPRINGS.GLIDE}
                                     className="overflow-hidden"
                                 >
                                     {sectionTasks.length > 0 ? (

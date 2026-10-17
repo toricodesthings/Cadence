@@ -17,15 +17,14 @@ import { cn } from "../../lib/utils";
 const base = [
     "inline-flex items-center justify-center gap-2",
     "font-display font-semibold cursor-pointer",
-    "transition-all duration-200 outline-none",
+    "press outline-none",
     "focus-visible:ring-2 focus-visible:ring-accent-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-twilight-base",
     "disabled:pointer-events-none disabled:opacity-50",
-    "active:scale-[0.97]",
 ].join(" ");
 
 const variants = {
     primary:
-        "bg-accent-primary text-[var(--primary-foreground)] hover:bg-accent-primary/90 shadow-[0_0_24px_color-mix(in_srgb,var(--accent-primary)_25%,transparent)] glow-lantern",
+        "accent-fill",
     secondary:
         "bg-twilight-surface/80 border border-twilight-border text-twilight-text hover:bg-twilight-surface-hover hover:border-twilight-border-interactive",
     ghost:
@@ -48,8 +47,8 @@ const sizes = {
     none: "",
     sm: "min-h-11 rounded-lg px-3.5 text-xs",
     md: "min-h-11 rounded-xl px-5 text-sm",
-    lg: "min-h-12 rounded-2xl px-8 text-[15px]",
-    xl: "min-h-12 rounded-2xl px-8 text-[15px]",
+    lg: "min-h-12 rounded-2xl px-8 text-[15px] [--press-scale:1.025]",
+    xl: "min-h-12 rounded-2xl px-8 text-[15px] [--press-scale:1.025]",
     icon: "h-11 w-11 rounded-xl",
     card: "flex-col gap-3 p-4 rounded-2xl text-[13px] tracking-wide",
 } as const;

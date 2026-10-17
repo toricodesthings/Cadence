@@ -4,6 +4,7 @@ import { AssistantSigil } from "../assistant/AssistantSigil";
 import { motion } from "framer-motion";
 import { Tip } from "../primitives";
 import type { RailView } from "../../stores/right-panel-store";
+import { SPRINGS } from "../../lib/constants/motion";
 
 /**
  * Compact icon toggle pinned to the top-right of the shared right rail. Lets the
@@ -56,7 +57,7 @@ export function RailViewToggle({
                                 <motion.span
                                     layoutId="rail-toggle-active"
                                     className="absolute inset-0 rounded-full bg-accent-primary/18 ring-1 ring-accent-primary/25"
-                                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                                    transition={SPRINGS.GLIDE}
                                 />
                             ) : null}
                             <Icon size={id === "assistant" ? 19 : 16} className="relative" />

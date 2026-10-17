@@ -268,7 +268,7 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
                         type="submit"
                         disabled={!draft.trim()}
                         aria-label="Send"
-                        className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent-primary text-[var(--primary-foreground)] transition-opacity disabled:cursor-default disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full accent-fill press disabled:cursor-default disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                     >
                         <SendHorizontal size={17} aria-hidden />
                     </button>

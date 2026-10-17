@@ -64,7 +64,7 @@ export default function Schedule() {
                     <div className="layer-floating-bar pointer-events-none mobile-floating-action fixed bottom-5 right-4 flex flex-col items-end sm:right-5">
                         <Tip label="Add to schedule" side="left">
                             <button type="button" onClick={creation.handleAddTaskToolbar} aria-label="Add to schedule"
-                                className="pointer-events-auto flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border border-accent-primary/20 bg-accent-primary text-[var(--primary-foreground)] shadow-[0_24px_54px_color-mix(in_srgb,var(--accent-primary)_34%,transparent)] transition-transform hover:scale-[1.02] active:scale-[0.98]">
+                                className="pointer-events-auto flex h-14 w-14 cursor-pointer items-center justify-center rounded-full accent-fill press">
                                 <Plus size={20} aria-hidden="true" />
                             </button>
                         </Tip>

@@ -4,11 +4,12 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useFocusScopeBranch } from "@radix-ui/react-focus-scope";
 import { X } from "lucide-react";
-import { motion, useDragControls } from "framer-motion";
+import { animate, motion } from "framer-motion";
 import { cn } from "../../lib/utils";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useKeyboardInset } from "../../hooks/ui/use-keyboard-inset";
-import { SWIPE_THRESHOLD } from "../shared/ResponsiveOverlayPanel";
+import { useSheetGesture } from "../../hooks/ui/use-sheet-gesture";
+import { SPRINGS } from "../../lib/constants/motion";
 import { DIALOG_CONTENT, DIALOG_DESCRIPTION, DIALOG_FOOTER, DIALOG_HEADER, DIALOG_OVERLAY, DIALOG_SHEET, DIALOG_TITLE } from "./dialog-styles";
 
 const Dialog = DialogPrimitive.Root;
@@ -51,17 +52,32 @@ const DialogContent = ({ className, children, hideCloseButton, phoneSheet = true
     /** False for a surface that is full screen at every size (the photo viewer). */
     phoneSheet?: boolean;
 }) => {
-    // A touch phone gets a docked sheet: drag the grabber down to dismiss, as every compact sheet does.
+    // A touch phone gets a docked sheet: pull it down from anywhere to dismiss, as every compact sheet does.
     const { isPhone, isTouch } = useShellMode();
     const sheet = phoneSheet && isPhone && isTouch;
-    const dragControls = useDragControls();
     const close = React.useRef<HTMLButtonElement>(null);
+    const [sheetEl, setSheetEl] = React.useState<HTMLElement | null>(null);
+    const [thrown, setThrown] = React.useState(false);
+    const { y, backdropOpacity, height } = useSheetGesture({
+        element: sheetEl,
+        enabled: sheet,
+        // Carry the throw off screen, then close through Radix (onOpenChange) with no second exit animation.
+        onDismiss: (velocity) => {
+            setThrown(true);
+            void animate(y, height.current, { ...SPRINGS.GLIDE, velocity }).then(() => close.current?.click());
+        },
+    });
+    // Reopening starts at rest, not where the last throw left it.
+    const attachSheet = React.useCallback((node: HTMLElement | null) => {
+        setSheetEl(node);
+        if (node) { y.jump(0); setThrown(false); }
+    }, [y]);
     // Like every sheet, it rides the keyboard instead of hiding its fields and buttons under it.
     const { inset: keyboard } = useKeyboardInset(sheet);
     const content = (
         <>
             {sheet ? (
-                <div onPointerDown={(event) => dragControls.start(event)} style={{ touchAction: "none" }} className="absolute inset-x-0 top-0 flex h-8 cursor-grab items-center justify-center active:cursor-grabbing" aria-hidden="true">
+                <div className="absolute inset-x-0 top-0 flex h-8 items-center justify-center" aria-hidden="true">
                     <div className="h-1 w-10 rounded-full bg-twilight-text-muted/40" />
                 </div>
             ) : null}
@@ -73,26 +89,23 @@ const DialogContent = ({ className, children, hideCloseButton, phoneSheet = true
     );
     return (
         <DialogPortal>
-            <DialogOverlay />
+            {sheet ? (
+                <DialogPrimitive.Overlay asChild>
+                    <motion.div style={{ opacity: backdropOpacity }} className={DIALOG_OVERLAY} />
+                </DialogPrimitive.Overlay>
+            ) : <DialogOverlay />}
             <DialogPrimitive.Content
                 data-cadence-dialog-content="true"
                 data-dialog-sheet={sheet || undefined}
                 aria-describedby={undefined}
                 asChild={sheet}
-                className={cn(DIALOG_CONTENT, className, sheet && DIALOG_SHEET)}
+                className={cn(DIALOG_CONTENT, className, sheet && DIALOG_SHEET, thrown && "data-[state=closed]:animate-none")}
                 {...props}
             >
                 {sheet ? (
                     <motion.div
-                        style={keyboard ? { bottom: keyboard, maxHeight: `calc(100dvh - ${keyboard}px - max(0.5rem, env(safe-area-inset-top)))`, paddingBottom: "1rem" } : undefined}
-                        drag="y"
-                        dragListener={false}
-                        dragControls={dragControls}
-                        dragConstraints={{ top: 0, bottom: 0 }}
-                        dragElastic={{ top: 0, bottom: 0.6 }}
-                        onDragEnd={(_, info) => {
-                            if (info.offset.y > SWIPE_THRESHOLD || info.velocity.y > 300) close.current?.click();
-                        }}
+                        ref={attachSheet}
+                        style={{ y, ...(keyboard ? { bottom: keyboard, maxHeight: `calc(100dvh - ${keyboard}px - max(0.5rem, env(safe-area-inset-top)))`, paddingBottom: "1rem" } : {}) }}
                     >
                         {content}
                     </motion.div>

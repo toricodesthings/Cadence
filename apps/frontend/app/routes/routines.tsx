@@ -6,7 +6,7 @@ import { MainLayout } from "../components/layout/MainLayout";
 import { addDays, weekdayOf, type LocalDate } from "@cadence/domain/time";
 import { getWeekDays, getMonthDateRange, isoMonthStart, formatMonthYear, formatMonthName, formatShortDate, weekdayLabels, WEEK_START_INDEX } from "../lib/utils/date-format";
 import { useToday } from "../lib/utils/user-zone";
-import { slideVariants } from "../lib/constants/motion";
+import { slideVariants, SPRINGS } from "../lib/constants/motion";
 import { HabitsCanvas } from "../components/habits/HabitsCanvas";
 import { HabitsMonthView } from "../components/habits/HabitsMonthView";
 import { RoutineTodayBand } from "../components/habits/RoutineTodayBand";
@@ -283,7 +283,7 @@ export default function Routines() {
                                     initial="enter"
                                     animate="center"
                                     exit="exit"
-                                    transition={bloom ? { x: { type: "spring", stiffness: 320, damping: 32 }, opacity: { duration: 0.18 } } : { duration: 0 }}
+                                    transition={bloom ? { x: SPRINGS.GLIDE, opacity: { duration: 0.18 } } : { duration: 0 }}
                                     className="flex min-h-0 flex-1"
                                 >
                                     {displayMode === "week" ? (

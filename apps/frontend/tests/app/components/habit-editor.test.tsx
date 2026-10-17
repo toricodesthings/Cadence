@@ -30,9 +30,18 @@ const logs = [
 ];
 vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: () => ({ data: [{ ...habit, logs }] }) }));
 const habit = { id: "habit-1", title: "Walk", description: "Fresh air", notes: "Morning", recurrenceRule: "FREQ=DAILY", targetTime: "09:00", reminderEnabled: true, projectId: null, tagIds: ["tag-1"], pausedUntil: null, archived: false, totalCompletions: 8, currentStreak: 2, longestStreak: 5, createdAt: "2026-09-01T00:00:00Z" } as Habit;
+/** Pick from a Cadence Select (ValueSelect is the Radix menu at every size). */
+function choose(field: string, option: string) {
+    fireEvent.keyDown(screen.getByRole("combobox", { name: field }), { key: "Enter" });
+    fireEvent.click(screen.getByRole("option", { name: option }));
+}
 function setup(value = habit) { return render(<Provider><HabitEditor habit={value} onClose={close} /></Provider>); }
 beforeEach(() => {
     vi.clearAllMocks();
+    // jsdom has none of these; Radix Select reads them while opening.
+    Element.prototype.scrollIntoView = vi.fn();
+    Element.prototype.hasPointerCapture = vi.fn(() => false);
+    Element.prototype.releasePointerCapture = vi.fn();
     settings.current = { tasks: { showStreaks: true } };
 });
 
@@ -53,13 +62,13 @@ describe("HabitEditor", () => {
     it("retains cadence, time, reminders, project and pause controls", () => {
         setup();
         fireEvent.click(screen.getByRole("button", { name: /^Details/ }));
-        fireEvent.change(screen.getByRole("combobox", { name: "Routine cadence" }), { target: { value: "weekdays" } });
+        choose("Routine cadence", "Weekdays (Mon–Fri)");
         expect(update).toHaveBeenCalledWith({ id: habit.id, recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" });
         fireEvent.change(screen.getByLabelText("Routine usual time"), { target: { value: "10:30" } });
         expect(update).toHaveBeenCalledWith({ id: habit.id, targetTime: "10:30" });
         fireEvent.click(screen.getByRole("switch", { name: "Routine reminder" }));
         expect(update).toHaveBeenCalledWith({ id: habit.id, reminderEnabled: false });
-        fireEvent.change(screen.getByRole("combobox", { name: "List" }), { target: { value: "project-1" } });
+        choose("List", "Health");
         expect(update).toHaveBeenCalledWith({ id: habit.id, projectId: "project-1" });
         expect(screen.getByRole("button", { name: "Remove tag Daily" })).toBeTruthy();
         fireEvent.click(screen.getByRole("button", { name: "Pause" }));

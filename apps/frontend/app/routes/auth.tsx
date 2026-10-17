@@ -268,7 +268,7 @@ function DesktopAuthForm({ isSignUp, redirectTo }: { isSignUp: boolean; redirect
                 <Button
                     type="submit"
                     size="md"
-                    className="min-h-10 w-full rounded-[1rem] bg-accent-primary text-twilight-void font-semibold"
+                    className="min-h-10 w-full rounded-[1rem] font-semibold"
                     disabled={isSubmitting}
                 >
                     {isSubmitting
@@ -467,7 +467,7 @@ export default function AuthPage() {
                             footerLink: "hidden",
                             form: {
                                 button: "min-h-10 rounded-[1rem] text-sm font-medium",
-                                primaryButton: "min-h-10 rounded-[1rem] bg-accent-primary text-twilight-void font-semibold",
+                                primaryButton: "min-h-10 rounded-[1rem] accent-fill press font-semibold",
                                 providerButton: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 text-twilight-text",
                                 secondaryButton: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-transparent text-twilight-text-soft",
                                 input: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 text-twilight-text",

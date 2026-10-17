@@ -116,7 +116,7 @@ function DayTile({ iso, load, isToday, isPast, isSelected, dragging, onSelect }:
     return (
         <Button variant="ghost" size="none" ref={setNodeRef} type="button" onClick={onSelect} aria-pressed={isSelected}
             aria-label={`${dayLabel(iso)}, ${loadWord(load)}`}
-            className={`flex aspect-[4/5] min-h-14 flex-col gap-1 rounded-2xl border transition-[transform,background-color,border-color] duration-150 active:scale-100 ${tone} ${isPast ? "opacity-40" : ""}`}>
+            className={`flex aspect-[4/5] min-h-14 flex-col gap-1 rounded-2xl border transition-[transform,background-color,border-color] duration-150 press-none ${tone} ${isPast ? "opacity-40" : ""}`}>
             <span className={`text-[10px] font-semibold uppercase tracking-wider ${isToday ? "text-accent-primary" : "text-twilight-text-muted"}`}>
                 {formatWeekdayNarrow(iso)}
             </span>

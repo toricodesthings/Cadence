@@ -6,7 +6,8 @@
  */
 import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Check } from "lucide-react";
-import { FLOATING_MOTION, MENU_ITEM, MENU_ITEM_DANGER, MENU_ROW, MENU_SEPARATOR, MENU_SUB_SLIDE, MENU_SURFACE } from "./menu-styles";
+import { useOpeningReleaseGuard } from "../../hooks/ui/use-opening-release-guard";
+import { FLOATING_MORPH, MENU_HOVER, MENU_ITEM, MENU_ITEM_DANGER, MENU_ROW, MENU_SEPARATOR, MENU_SUB_SLIDE, MENU_SURFACE, morphFrom } from "./menu-styles";
 
 /* ── Re-exports (no styling needed) ─────────────────────────────── */
 export const Root = RadixDropdownMenu.Root;
@@ -20,8 +21,8 @@ export const SubTrigger = ({ className = "", children, ...props }: RadixDropdown
     <RadixDropdownMenu.SubTrigger
         className={[
             MENU_ROW,
-            "text-twilight-text-soft hover:bg-white/10 hover:text-accent-primary",
-            "data-[state=open]:bg-white/10 data-[state=open]:text-accent-primary",
+            "text-twilight-text-soft hover:text-accent-primary data-[state=open]:text-accent-primary",
+            MENU_HOVER,
             className,
         ].join(" ")}
         {...props}
@@ -37,7 +38,6 @@ export const SubContent = ({ className = "", sideOffset = 4, ...props }: RadixDr
         className={[
             MENU_SURFACE,
             "shadow-xl shadow-black/30 ring-1 ring-white/[0.06]",
-            FLOATING_MOTION,
             MENU_SUB_SLIDE,
             className,
         ].join(" ")}
@@ -47,28 +47,33 @@ export const SubContent = ({ className = "", sideOffset = 4, ...props }: RadixDr
 
 
 /* ── Content ────────────────────────────────────────────────────── */
-export const Content = ({ className = "", sideOffset = 4, collisionPadding = 8, ...props }: RadixDropdownMenu.DropdownMenuContentProps & { ref?: React.Ref<HTMLDivElement> }) => (
+export const Content = ({ className = "", sideOffset = 4, collisionPadding = 8, fromRadius, style, onCloseAutoFocus, ...props }: RadixDropdownMenu.DropdownMenuContentProps & { fromRadius?: string; ref?: React.Ref<HTMLDivElement> }) => {
+    const { reset, ...guard } = useOpeningReleaseGuard();
+    return (
     <RadixDropdownMenu.Portal>
         <RadixDropdownMenu.Content
+            {...guard}
+            onCloseAutoFocus={(event) => { reset(); onCloseAutoFocus?.(event); }}
             sideOffset={sideOffset}
             collisionPadding={collisionPadding}
+            style={morphFrom(fromRadius, sideOffset, style)}
             className={[
                 MENU_SURFACE,
                 "max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto overscroll-contain",
-                FLOATING_MOTION,
-                "data-[state=open]:slide-in-from-top-2 data-[state=closed]:slide-out-to-top-2",
+                FLOATING_MORPH,
                 className,
             ].join(" ")}
             {...props}
         />
     </RadixDropdownMenu.Portal>
-);
+    );
+};
 
 /* ── Item ───────────────────────────────────────────────────────── */
 export const Item = ({ className = "", variant = "default", ...props }: RadixDropdownMenu.DropdownMenuItemProps & { variant?: "default" | "danger" } & { ref?: React.Ref<HTMLDivElement> }) => {
     const variants = {
         default:
-            "text-twilight-text-soft hover:bg-white/10 hover:text-accent-primary focus:bg-white/10 focus:text-accent-primary cursor-pointer",
+            `text-twilight-text-soft hover:text-accent-primary focus:text-accent-primary cursor-pointer ${MENU_HOVER}`,
         danger: MENU_ITEM_DANGER,
     };
 
@@ -94,7 +99,7 @@ export const Separator = ({ className = "", ...props }: RadixDropdownMenu.Dropdo
 
 /** A selected menu choice, with the same focus and touch targets as other items. */
 export const RadioItem = ({ className = "", children, ...props }: RadixDropdownMenu.DropdownMenuRadioItemProps & { ref?: React.Ref<HTMLDivElement> }) => (
-    <RadixDropdownMenu.RadioItem className={`relative flex min-h-11 cursor-pointer items-center rounded-lg py-2 pl-9 pr-3 text-sm text-twilight-text-soft outline-none transition-colors focus:bg-accent-primary/10 focus:text-accent-primary data-[state=checked]:font-medium data-[state=checked]:text-accent-primary ${className}`} {...props}>
+    <RadixDropdownMenu.RadioItem className={`relative flex min-h-11 cursor-pointer items-center rounded-lg py-2 pl-9 pr-3 text-sm text-twilight-text-soft outline-none transition-colors ${MENU_HOVER} focus:text-accent-primary data-[state=checked]:font-medium data-[state=checked]:text-accent-primary ${className}`} {...props}>
         <span className="absolute left-3 flex size-4 items-center justify-center">
             <RadixDropdownMenu.ItemIndicator><Check size={15} aria-hidden="true" /></RadixDropdownMenu.ItemIndicator>
         </span>

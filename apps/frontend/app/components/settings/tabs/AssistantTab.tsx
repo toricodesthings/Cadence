@@ -108,7 +108,7 @@ export function AssistantTab() {
                                     onClick={() => selectPersona(option.value)}
                                     aria-pressed={isActive}
                                     className={cn(
-                                        "relative flex min-h-[7.5rem] cursor-pointer flex-col justify-between rounded-[1.4rem] border p-4 text-left transition-all duration-200 active:scale-[0.99]",
+                                        "relative flex min-h-[7.5rem] cursor-pointer flex-col justify-between rounded-[1.4rem] border p-4 text-left press",
                                         isActive
                                             ? "border-accent-primary/40 bg-accent-primary/12 text-twilight-text shadow-[0_0_0_1px_var(--color-accent-primary-soft)]"
                                             : "border-twilight-border bg-twilight-surface/40 text-twilight-text-soft hover:border-twilight-border-interactive hover:bg-twilight-surface-hover/60 hover:text-twilight-text",

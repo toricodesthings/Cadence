@@ -123,7 +123,7 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="relative aspect-[16/9] w-full touch-none select-none overflow-hidden rounded-2xl bg-twilight-deep ring-1 ring-white/10">
+                <div data-sheet-no-drag className="relative aspect-[16/9] w-full touch-none select-none overflow-hidden rounded-2xl bg-twilight-deep ring-1 ring-white/10">
                     {source ? (
                         <Cropper
                             image={source.url}

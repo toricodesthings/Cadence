@@ -3,6 +3,7 @@ import * as SelectPrimitive from "@radix-ui/react-select"
 import { Check, ChevronDown } from "lucide-react"
 
 import { cn } from "../../lib/utils"
+import { FLOATING_MORPH, MENU_HOVER, morphFrom } from "./menu-styles"
 
 const Select = SelectPrimitive.Root
 
@@ -11,7 +12,9 @@ const SelectValue = SelectPrimitive.Value
 const SelectTrigger = ({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Trigger>) => (
     <SelectPrimitive.Trigger
         className={cn(
-            "flex h-11 w-full items-center justify-between whitespace-nowrap rounded-xl border border-twilight-border-light bg-white/[0.05] px-3 py-2 text-sm text-twilight-text shadow-sm ring-offset-twilight-base placeholder:text-twilight-text-muted focus:outline-none focus:ring-1 focus:ring-accent-primary/40 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 cursor-pointer hover:bg-white/[0.08] transition-colors",
+            "flex h-11 w-full items-center justify-between whitespace-nowrap rounded-xl border border-twilight-border-light bg-white/[0.05] px-3 py-2 text-sm text-twilight-text shadow-sm ring-offset-twilight-base placeholder:text-twilight-text-muted focus:outline-none focus:ring-1 focus:ring-accent-primary/40 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 cursor-pointer hover:bg-white/[0.08] transition-[background-color,opacity]",
+            // On touch the open menu covers its trigger, so the trigger becomes the menu.
+            "pointer-coarse:data-[state=open]:opacity-0",
             className
         )}
         {...props}
@@ -23,16 +26,17 @@ const SelectTrigger = ({ className, children, ...props }: React.ComponentProps<t
     </SelectPrimitive.Trigger>
 );
 
-const SelectContent = ({ className, children, position = "popper", ...props }: React.ComponentProps<typeof SelectPrimitive.Content>) => (
+const SelectContent = ({ className, children, position = "popper", sideOffset = 4, fromRadius = "0.75rem", style, ...props }: React.ComponentProps<typeof SelectPrimitive.Content> & { fromRadius?: string }) => (
     <SelectPrimitive.Portal>
         <SelectPrimitive.Content
             className={cn(
-                "surface-select layer-floating-ui relative max-h-96 min-w-[8rem] overflow-hidden rounded-xl text-twilight-text shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
-                position === "popper" &&
-                "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+                "surface-floating glass-edge layer-floating-ui relative max-h-96 min-w-[8rem] overflow-hidden rounded-xl text-twilight-text",
+                position === "popper" && FLOATING_MORPH,
                 className
             )}
             position={position}
+            sideOffset={position === "popper" ? sideOffset : undefined}
+            style={morphFrom(fromRadius, sideOffset, style)}
             {...props}
         >
             <SelectPrimitive.Viewport
@@ -51,7 +55,8 @@ const SelectContent = ({ className, children, position = "popper", ...props }: R
 const SelectItem = ({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Item>) => (
     <SelectPrimitive.Item
         className={cn(
-            "relative flex w-full cursor-pointer select-none items-center rounded-lg py-2 pl-8 pr-2 text-sm outline-none focus:bg-white/[0.08] focus:text-accent-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+            "relative flex w-full cursor-pointer select-none items-center rounded-lg py-2 pl-8 pr-2 text-sm outline-none focus:text-accent-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+            MENU_HOVER,
             className
         )}
         {...props}

@@ -65,7 +65,7 @@ export function AskCard({ ctx }: { ctx: ToolRenderContext<"ask_user"> }) {
                             type="submit"
                             aria-label="Send answer"
                             disabled={!text.trim()}
-                            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-accent-primary text-[var(--primary-foreground)] transition-opacity disabled:cursor-default disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl accent-fill press disabled:cursor-default disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                         >
                             <ArrowUp size={16} aria-hidden="true" />
                         </button>

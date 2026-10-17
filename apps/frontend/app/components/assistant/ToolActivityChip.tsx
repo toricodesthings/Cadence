@@ -3,10 +3,10 @@ import { Check, ChevronRight, Loader2, Inbox, X } from "lucide-react";
 import { AssistantSigil } from "./AssistantSigil";
 import { motion, useReducedMotion } from "framer-motion";
 import { Reveal } from "../shared/Reveal";
-import { EASE_OUT_EXPO } from "../../lib/constants/motion";
+import { EASE_OUT_EXPO, SPRINGS } from "../../lib/constants/motion";
 
 /** A short spring used for icons popping in on settle (purposeful, not bouncy). */
-const SETTLE_POP = { type: "spring" as const, stiffness: 500, damping: 28 };
+const SETTLE_POP = SPRINGS.SNAP;
 
 /** One read call inside a grouped chip. */
 export interface ToolCall {

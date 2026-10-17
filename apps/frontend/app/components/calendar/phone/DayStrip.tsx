@@ -4,7 +4,7 @@ import { useDroppable } from "@dnd-kit/core";
 import type { LocalDate } from "@cadence/domain/time";
 import { dayHeading, dayOfMonth, weekdayName } from "../../../lib/utils/calendar/calendar-math";
 import { useToday } from "../../../lib/utils/user-zone";
-import { slideVariants, type SlideCustom } from "../../../lib/constants/motion";
+import { slideVariants, type SlideCustom, SPRINGS } from "../../../lib/constants/motion";
 import { loadDots } from "../../../lib/utils/calendar/schedule-day";
 import { loadWord } from "../../../lib/utils/task/day-load";
 import { usePeriodSwipe } from "../../../hooks/ui/use-period-swipe";
@@ -89,7 +89,7 @@ export function DayStrip({ weekDates, selectedIso, loads, markedDays, onSelect, 
                     initial="enter"
                     animate="center"
                     exit="exit"
-                    transition={reducedMotion ? { duration: 0 } : { x: { type: "spring", stiffness: 380, damping: 34 }, opacity: { duration: 0.15 } }}
+                    transition={reducedMotion ? { duration: 0 } : { x: SPRINGS.GLIDE, opacity: { duration: 0.15 } }}
                     className="grid grid-cols-7 gap-1"
                     role="group"
                     aria-label="Week"

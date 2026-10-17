@@ -1,0 +1,28 @@
+import { useRef, type SyntheticEvent } from "react";
+
+const fromTouch = (event: SyntheticEvent) => {
+    const type = (event.nativeEvent as PointerEvent).pointerType;
+    return type !== undefined && type !== "mouse";
+};
+
+/**
+ * On touch a menu opens on press and covers its trigger, so the finger that opened it lifts over
+ * an item. Until a press starts inside the menu, a touch release and the click it makes are not a
+ * choice. Keyboard selection (a click with no pointer, detail 0) and a mouse drag-to-select are untouched.
+ * Spread the returned handlers on the menu content.
+ */
+export function useOpeningReleaseGuard() {
+    const pressedInside = useRef(false);
+    const swallow = (event: SyntheticEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+    return {
+        onPointerDownCapture: () => { pressedInside.current = true; },
+        onPointerUpCapture: (event: React.PointerEvent) => { if (!pressedInside.current && fromTouch(event)) swallow(event); },
+        // A real click on an item always starts with a press inside; Safari's tap click carries no pointerType.
+        onClickCapture: (event: React.MouseEvent) => { if (!pressedInside.current && event.detail > 0) swallow(event); },
+        /** Call when the menu closes, so the next opening tap is guarded again. */
+        reset: () => { pressedInside.current = false; },
+    };
+}

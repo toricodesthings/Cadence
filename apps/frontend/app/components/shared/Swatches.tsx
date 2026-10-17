@@ -12,7 +12,7 @@ export function Swatches({ options, value, onChange }: { options: SwatchOption[]
         <div role="radiogroup" aria-label="Colour" className="grid grid-cols-8 gap-2">
             {options.map((o) => (
                 <button key={o.value} type="button" role="radio" aria-checked={value === o.value} aria-label={o.label} onClick={() => onChange(o.value)}
-                    className="flex aspect-square cursor-pointer items-center justify-center rounded-full transition-transform active:scale-95"
+                    className="flex aspect-square cursor-pointer items-center justify-center rounded-full press"
                     style={{ backgroundColor: o.color }}>
                     {value === o.value ? <Check size={16} className="text-[var(--primary-foreground)]" aria-hidden="true" /> : null}
                 </button>

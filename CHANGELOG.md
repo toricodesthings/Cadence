@@ -6,6 +6,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Menus and pickers now grow out of the button you tapped, and their glass picks up the colours beneath.
+- Sheets can be pulled down from anywhere, and a flick sends them away.
+- Hold and slide along the bottom bar to move between screens.
+- Buttons respond to your touch, and main buttons now match the rest of the glass.
+
 ## [0.34.8] - 2026-10-16
 
 ### Added

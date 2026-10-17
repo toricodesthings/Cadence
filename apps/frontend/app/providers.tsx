@@ -14,6 +14,9 @@ import { Toaster } from "./components/feedback/Toaster";
 import { WorkspaceStartup } from "./components/layout/WorkspaceStartup";
 import { OfflineBanner } from "./components/shared/OfflineBanner";
 import { Provider as TooltipProvider } from "./components/primitives/Tooltip";
+import { MotionConfig } from "framer-motion";
+import { useSettings } from "./hooks/core/use-settings";
+import { SPRINGS } from "./lib/constants/motion";
 import { getWalSnapshot, initWal } from "./lib/api/offline-wal";
 import { startWalSync } from "./lib/api/mutation-executor";
 import { log, reportError } from "./lib/log";
@@ -384,14 +387,25 @@ function AccountProviders({ children }: { children: ReactNode }) {
                     {authReady && session?.user.id && <BackgroundLayer key={session.user.id} />}
                     <div className="relative">
                         {/* App-wide so sheets and overlays mounted beside MainLayout can use `Tip`. */}
-                        <TooltipProvider delayDuration={300}>
-                            <WorkspaceStartup>{children}</WorkspaceStartup>
-                            <OfflineBanner />
-                        </TooltipProvider>
+                        <AppMotion>
+                            <TooltipProvider delayDuration={300}>
+                                <WorkspaceStartup>{children}</WorkspaceStartup>
+                                <OfflineBanner />
+                            </TooltipProvider>
+                        </AppMotion>
                     </div>
                     <Toaster />
                 </AuthUIBoundary>
             </div>
         </PersistQueryClientProvider>
     );
+}
+
+const REDUCED_MOTION = { reduced: "always", full: "never" } as const;
+
+/** One motion config for every framer component: the Motion setting (else the OS) and calm default physics. */
+function AppMotion({ children }: { children: ReactNode }) {
+    const motion = useSettings().data?.appearance?.motion;
+    const reducedMotion = motion === "reduced" || motion === "full" ? REDUCED_MOTION[motion] : "user";
+    return <MotionConfig reducedMotion={reducedMotion} transition={SPRINGS.GLIDE}>{children}</MotionConfig>;
 }

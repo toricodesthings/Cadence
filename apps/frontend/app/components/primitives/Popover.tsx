@@ -5,7 +5,7 @@
  * Domain components import from here — never from @radix-ui/react-popover directly.
  */
 import * as RadixPopover from "@radix-ui/react-popover";
-import { FLOATING_MOTION, FLOATING_SURFACE } from "./menu-styles";
+import { FLOATING_MORPH, FLOATING_SURFACE, morphFrom } from "./menu-styles";
 
 /* ── Re-exports ─────────────────────────────────────────────────── */
 export const Root = RadixPopover.Root;
@@ -26,10 +26,11 @@ export const Close = ({ className = "", ...props }: RadixPopover.PopoverClosePro
 );
 
 /* ── Content ────────────────────────────────────────────────────── */
-export const Content = ({ className = "", sideOffset = 8, onWheel, onTouchMove, ...props }: RadixPopover.PopoverContentProps & { ref?: React.Ref<HTMLDivElement> }) => (
+export const Content = ({ className = "", sideOffset = 8, onWheel, onTouchMove, fromRadius, style, ...props }: RadixPopover.PopoverContentProps & { fromRadius?: string; ref?: React.Ref<HTMLDivElement> }) => (
     <RadixPopover.Portal>
         <RadixPopover.Content
             sideOffset={sideOffset}
+            style={morphFrom(fromRadius, sideOffset, style)}
             data-cadence-popover-content="true"
             // A modal Dialog's scroll lock cancels wheel/touchmove at `document`
             // for anything outside it; this content is portaled out, so stop
@@ -38,8 +39,8 @@ export const Content = ({ className = "", sideOffset = 8, onWheel, onTouchMove, 
             onTouchMove={(e) => { e.stopPropagation(); onTouchMove?.(e); }}
             className={[
                 FLOATING_SURFACE,
-                "rounded-2xl p-4 shadow-2xl",
-                FLOATING_MOTION,
+                "glass-edge relative rounded-2xl p-4 shadow-2xl",
+                FLOATING_MORPH,
                 className,
             ].join(" ")}
             {...props}

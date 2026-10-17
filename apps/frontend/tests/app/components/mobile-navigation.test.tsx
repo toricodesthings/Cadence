@@ -7,6 +7,7 @@ import { NotificationCenter } from "../../../app/components/notifications/Notifi
 import { Provider as TooltipProvider } from "../../../app/components/primitives/Tooltip";
 import { Location } from "../../helpers";
 
+vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { appearance: { motion: "reduced" } } }) }));
 vi.mock("../../../app/hooks/habits/use-routine-due-count", () => ({ useRoutineDueCount: () => 0 }));
 
 const state = vi.hoisted(() => ({ signOut: vi.fn(), error: vi.fn(), forgetDevice: vi.fn() }));
@@ -49,6 +50,58 @@ describe("Compact navigation", () => {
         expect(screen.queryByRole("button", { name: "Search" })).toBeNull();
         fireEvent.click(screen.getByRole("button", { name: "Notifications, 5 unread" }));
         expect(screen.getByRole("status", { name: "Current location" }).textContent).toBe("/today?tag=work&notifications=true");
+    });
+
+    describe("dock lens", () => {
+        // Five slots, 60px each: Capture, Schedule, orb, Routines, Browse.
+        const slot = (el: Element, i: number) => Object.assign(el, { getBoundingClientRect: () => ({ left: i * 60, width: 60, right: i * 60 + 60, top: 0, bottom: 44, height: 44 }) });
+        function renderDock(path = "/") {
+            render(<MemoryRouter initialEntries={[path]}><TooltipProvider><Location /><MobileTabBar /></TooltipProvider></MemoryRouter>);
+            const nav = screen.getByRole("navigation", { name: "Primary navigation" });
+            const track = nav.firstElementChild!;
+            slot(track, 0);
+            Object.assign(track, { getBoundingClientRect: () => ({ left: 0, width: 300, right: 300, top: 0, bottom: 44, height: 44 }) });
+            const links = within(nav).getAllByRole("link");
+            links.forEach((link, i) => slot(link, i < 2 ? i : i + 1));
+            slot(track.querySelector("[data-lens-exclude]")!, 2);
+            return { links, location: () => screen.getByRole("status", { name: "Current location" }).textContent };
+        }
+        const touch = (type: "pointerDown" | "pointerMove" | "pointerUp", el: Element, clientX: number) =>
+            fireEvent[type](el, { pointerType: "touch", pointerId: 1, isPrimary: true, clientX });
+
+        it("a tap on Schedule navigates", () => {
+            const { links, location } = renderDock();
+            fireEvent.click(links[1]);
+            expect(location()).toBe("/schedule");
+        });
+
+        it("scrubbing from Capture to Routines goes to Routines once", () => {
+            const { links, location } = renderDock();
+            touch("pointerDown", links[0], 30);
+            touch("pointerMove", links[0], 120);
+            touch("pointerMove", links[0], 210);
+            touch("pointerUp", links[0], 210);
+            fireEvent.click(links[0]);
+            expect(location()).toBe("/routines");
+        });
+
+        it("letting go over the assistant cancels", () => {
+            const { links, location } = renderDock();
+            const assistant = screen.getByRole("button", { name: /Ask assistant/ });
+            const expanded = assistant.getAttribute("aria-expanded");
+            touch("pointerDown", links[0], 30);
+            touch("pointerMove", links[0], 150);
+            touch("pointerUp", links[0], 150);
+            expect(location()).toBe("/");
+            expect(assistant.getAttribute("aria-expanded")).toBe(expanded);
+        });
+
+        it("a mouse click still navigates", () => {
+            const { links, location } = renderDock();
+            fireEvent.pointerDown(links[3], { pointerType: "mouse", clientX: 270 });
+            fireEvent.click(links[3]);
+            expect(location()).toBe("/browse");
+        });
     });
 
     it("uses the existing sign-out cleanup and recovers from an error", async () => {

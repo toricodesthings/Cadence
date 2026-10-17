@@ -152,6 +152,10 @@
   --duration-normal: 200ms;
   --duration-smooth: 300ms;
   --duration-expressive: 450ms;
+  /* Springs, generated from SPRINGS in lib/constants/motion.ts (motion.test.ts enforces). */
+  --spring-snap: 400ms linear(0, 0.2271, 0.5535, 0.7826, 0.9088, 0.9679, 0.9918, 0.9997, 1.0015, 1.0013, 1.0008, 1, 1);
+  --spring-glide: 500ms linear(0, 0.0953, 0.2805, 0.4696, 0.6291, 0.7511, 0.8386, 0.8986, 0.9383, 0.9636, 0.9792, 0.9886, 0.9941, 0.9972, 0.9988, 0.9996, 1);
+  --spring-morph: 450ms linear(0, 0.0831, 0.2538, 0.4379, 0.601, 0.731, 0.8275, 0.8951, 0.9401, 0.9687, 0.9858, 0.9954, 1.0003, 1.0024, 1);
   --cadence-page-padding-y: 0.75rem;
   --cadence-page-padding-y-desktop: 0.75rem;
   --cadence-planner-gap: 1rem;
@@ -856,6 +860,10 @@
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) { --spring-snap: 1ms linear; --spring-glide: 1ms linear; --spring-morph: 1ms linear; }
 }
 
 [data-motion="full"] {
@@ -2134,22 +2142,114 @@ body:has(.layer-system-dialog, .layer-route-backdrop, .layer-room-sheet-backdrop
   box-shadow: 0 32px 72px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
-/* Menus, popovers and tooltips: see-through glass. The tint is low enough that the page reads
-   through the blur (photo mode raises it a step below, since a bright photo washes out text). */
+/* Press response: on touch a control swells under the finger (iOS 26); a fine pointer presses in
+   slightly, as macOS does. `scale` is the individual property, so it never fights a transform or framer x/y.
+   Wide controls set --press-scale lower; press-none keeps a control still. */
+@utility press {
+  transition: scale var(--spring-snap), filter var(--duration-fast) ease, color var(--duration-normal) ease,
+    background-color var(--duration-normal) ease, border-color var(--duration-normal) ease,
+    box-shadow var(--duration-normal) ease, opacity var(--duration-normal) ease;
+  @media (pointer: coarse) {
+    &:active:not(:disabled) { scale: var(--press-scale, 1.05); filter: brightness(var(--press-bright, 1.08)); }
+  }
+  @media (pointer: fine) {
+    &:active:not(:disabled) { scale: var(--press-fine, 0.98); }
+  }
+}
+@utility press-none {
+  --press-scale: 1;
+  --press-fine: 1;
+  --press-bright: 1;
+}
+.press:is(.w-full, [data-press="wide"]) { --press-scale: 1.025; }
+
+/* Glass edge: a 1px specular rim, light at the top-left, faint at the bottom-right. --edge-strength dims it.
+   It doesn't set position (that would fight fixed/absolute): the element must already be positioned. */
+@utility glass-edge {
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    padding: 1px;
+    opacity: var(--edge-strength, 1);
+    background: linear-gradient(160deg, rgb(255 255 255 / 0.38), rgb(255 255 255 / 0.06) 38%, transparent 62%, rgb(255 255 255 / 0.14));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+}
+[data-theme="daylight"] .glass-edge { --edge-strength: 0.75; }
+[data-bg-image="on"] .glass-edge { --edge-strength: 0.8; }
+
+/* Primary fills: a lit material in the accent tone (lighter top, rim, inner highlight, soft tinted
+   shadow), the same family as the glass beside it. Indicators (dots, progress, checks) stay flat. */
+@utility accent-fill {
+  --fill-tone: var(--accent-primary);
+  color: var(--primary-foreground);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--fill-tone), white var(--fill-lift, 14%)), var(--fill-tone) 58%, color-mix(in oklab, var(--fill-tone), black 6%));
+  border: 1px solid color-mix(in oklab, var(--fill-tone), white 20%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28), inset 0 -1px 0 rgb(0 0 0 / 0.12), 0 6px 18px -6px color-mix(in srgb, var(--fill-tone) 45%, transparent);
+  &:hover { --fill-lift: 20%; }
+}
+[data-theme="daylight"] .accent-fill {
+  --fill-lift: 8%;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.32), inset 0 -1px 0 rgb(0 0 0 / 0.08), 0 4px 12px -6px color-mix(in srgb, var(--fill-tone) 35%, transparent);
+}
+[data-theme="daylight"] .accent-fill:hover { --fill-lift: 12%; }
+
+/* Menus, popovers, selects and tooltips: see-through glass that takes the colour of the page
+   beneath it (saturated backdrop), never a mix the code picks. --floating-tint is the lowest fill that
+   keeps text legible over worst-case backdrops; accent-palettes.test.ts pins it (photo mode raises it). */
 @utility surface-floating {
-  background: color-mix(in srgb, var(--color-panel-raised) var(--floating-tint, 58%), transparent);
-  -webkit-backdrop-filter: blur(22px) saturate(1.5);
-  backdrop-filter: blur(22px) saturate(1.5);
+  background: color-mix(in srgb, var(--color-panel-raised) var(--floating-tint), transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(1.8) brightness(var(--floating-brightness));
+  backdrop-filter: blur(22px) saturate(1.8) brightness(var(--floating-brightness));
   border: 1px solid var(--color-twilight-border-light);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
+:root { --floating-tint: 74%; --floating-brightness: 0.92; }
+[data-theme="daylight"] { --floating-tint: 85%; --floating-brightness: 1.04; }
 
-/* Select dropdowns share the menus' glass. */
-@utility surface-select {
-  background: color-mix(in srgb, var(--color-panel-raised) var(--floating-tint, 58%), transparent);
-  -webkit-backdrop-filter: blur(22px) saturate(1.5);
-  backdrop-filter: blur(22px) saturate(1.5);
-  border: 1px solid var(--color-twilight-border-light);
+/* Menus, selects and popovers grow out of their trigger: a clip-path opens from the trigger's rect
+   (Radix's anchor size, at the corner data-side × data-align give) to the whole surface. On touch the
+   surface covers its trigger, so the trigger becomes the menu, as on iOS. Context menus anchor to a
+   point, so they grow from the cursor. Shadows are clipped during the grow and land when it ends. */
+.morph-surface {
+  --aw: var(--radix-popper-anchor-width, 100%);
+  --ah: var(--radix-popper-anchor-height, 100%);
+  --m-top: 0px;
+  --m-right: max(0px, 100% - var(--aw));
+  --m-bottom: max(0px, 100% - var(--ah));
+  --m-left: 0px;
+  animation: morph-in var(--spring-morph) backwards;
+}
+.morph-surface[data-align="end"] { --m-left: max(0px, 100% - var(--aw)); --m-right: 0px; }
+.morph-surface[data-align="center"] { --m-left: max(0px, (100% - var(--aw)) / 2); --m-right: var(--m-left); }
+.morph-surface[data-side="top"] { --m-top: max(0px, 100% - var(--ah)); --m-bottom: 0px; }
+.morph-surface:is([data-side="left"], [data-side="right"]) { --m-top: 0px; --m-bottom: max(0px, 100% - var(--ah)); }
+.morph-surface:is([data-side="left"], [data-side="right"])[data-align="end"] { --m-top: max(0px, 100% - var(--ah)); --m-bottom: 0px; }
+.morph-surface:is([data-side="left"], [data-side="right"])[data-align="center"] { --m-top: max(0px, (100% - var(--ah)) / 2); --m-bottom: var(--m-top); }
+.morph-surface[data-side="left"] { --m-left: max(0px, 100% - var(--aw)); --m-right: 0px; }
+.morph-surface[data-side="right"] { --m-left: 0px; --m-right: max(0px, 100% - var(--aw)); }
+.morph-surface[data-state="closed"] { animation: morph-out var(--spring-morph) forwards; }
+.morph-surface[data-state="open"] > * { animation: morph-rows var(--duration-normal) var(--ease-out-quart) 60ms backwards; }
+@keyframes morph-in {
+  from { clip-path: inset(var(--m-top) var(--m-right) var(--m-bottom) var(--m-left) round var(--morph-from-radius, 1rem)); opacity: 0.7; }
+  to { clip-path: inset(0 round var(--morph-to-radius, 0.75rem)); opacity: 1; }
+}
+@keyframes morph-out {
+  from { clip-path: inset(0 round var(--morph-to-radius, 0.75rem)); opacity: 1; }
+  to { clip-path: inset(var(--m-top) var(--m-right) var(--m-bottom) var(--m-left) round var(--morph-from-radius, 1rem)); opacity: 0; }
+}
+@keyframes morph-rows { from { opacity: 0; } }
+.morph-surface.rounded-2xl { --morph-to-radius: 1rem; }
+/* On phone most menu triggers are glass capsules; a fromRadius prop (Select's default) overrides it inline. */
+@media (max-width: 767px) { .morph-surface { --morph-from-radius: 9999px; } }
+@media (pointer: coarse) {
+  .morph-surface[data-side="bottom"] { translate: 0 calc(-1 * var(--ah) - var(--side-gap, 4px)); }
+  .morph-surface[data-side="top"] { translate: 0 calc(var(--ah) + var(--side-gap, 4px)); }
 }
 
 /* Shell chrome — page headers and right-rail panels: a darker, lightly blurred plane of the
@@ -2609,8 +2709,9 @@ button.surface-control:not(:disabled):hover {
   background: color-mix(in srgb, var(--color-twilight-surface) 86%, transparent);
 }
 
+/* A bright photo washes out text: the floating glass is at least as solid as the most solid theme. */
 [data-bg-image="on"] {
-  --floating-tint: 70%;
+  --floating-tint: 85%;
 }
 
 [data-bg-image="on"] .glass {
@@ -2772,13 +2873,17 @@ button.surface-control:not(:disabled):hover {
    The fill is a background-image so a control's own tint still shows through. */
 @media (max-width: 767px) {
   .header-glass button,
-  button:is([aria-label], :has(> .sr-only)):has(> svg):not(.glass-inset, .glass-none, :has(> :not(svg, .sr-only)), [class*="gap-"], [role="radio"], [role="checkbox"], [aria-checked], [aria-pressed], [role="toolbar"] button) {
+  button:is([aria-label], :has(> .sr-only)):has(> svg):not(.glass-inset, .glass-none, .accent-fill, :has(> :not(svg, .sr-only)), [class*="gap-"], [role="radio"], [role="checkbox"], [aria-checked], [aria-pressed], [role="toolbar"] button) {
     border: 1px solid color-mix(in srgb, var(--color-twilight-text) 14%, transparent);
     border-radius: 9999px;
     background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-twilight-text) 9%, transparent), color-mix(in srgb, var(--color-twilight-text) 3%, transparent));
     box-shadow: inset 0 1px 0 color-mix(in srgb, white 14%, transparent), 0 4px 14px rgb(0 0 0 / 0.16);
     -webkit-backdrop-filter: blur(12px) saturate(1.4);
     backdrop-filter: blur(12px) saturate(1.4);
+    transition: scale var(--spring-snap), filter var(--duration-fast) ease, color var(--duration-normal) ease, background-color var(--duration-normal) ease, opacity var(--duration-normal) ease;
+    @media (pointer: coarse) {
+      &:active:not(:disabled) { scale: 1.08; filter: brightness(1.08); }
+    }
   }
   /* In a tight row (schedule options, section headers, notification actions,
      toggles included) a 44px bubble crowds the row: a transparent border insets a 32px disc, same tap area. */
@@ -2831,16 +2936,22 @@ body:has(.compact-navigation-shell) .mobile-floating-action {
     0 4px 12px -4px rgba(2, 6, 14, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
+/* The dock's lens: the active tab's glass, held brighter while pressed. */
+.dock-lens {
+  --edge-strength: 0.7;
+  background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  transition: background-color var(--duration-fast) ease;
+}
+.mobile-dock[data-held] > .dock-lens {
+  --edge-strength: 1;
+  background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+}
+.dock-link { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 [data-theme="daylight"] .mobile-dock {
   box-shadow:
     0 16px 36px -14px rgba(94, 72, 41, 0.28),
     0 3px 10px -4px rgba(94, 72, 41, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.55);
-}
-.mobile-dock-assistant {
-  box-shadow:
-    0 6px 18px -4px color-mix(in srgb, var(--accent-primary) 40%, transparent),
-    0 2px 6px -1px rgba(2, 6, 14, 0.40);
 }
 /* Unread reply: the sigil's small star drifts onto the ring and rounds into a bead,
    cut out of the ring by a halo in the button's own colour. */

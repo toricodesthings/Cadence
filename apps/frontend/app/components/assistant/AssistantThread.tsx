@@ -64,7 +64,7 @@ function EmptyThread({ assistantName, submitText }: { assistantName: string; sub
                         key={prompt}
                         type="button"
                         onClick={() => submitText(prompt)}
-                        className="flex min-h-11 items-center gap-3 rounded-2xl border border-white/[0.06] bg-panel-raised/60 px-4 py-2.5 text-left text-[13px] text-twilight-text-soft transition-colors hover:border-accent-primary/30 hover:bg-accent-primary/8 hover:text-twilight-text active:scale-[0.99] cursor-pointer"
+                        className="flex min-h-11 items-center gap-3 rounded-2xl border border-white/[0.06] bg-panel-raised/60 px-4 py-2.5 text-left text-[13px] text-twilight-text-soft press hover:border-accent-primary/30 hover:bg-accent-primary/8 hover:text-twilight-text cursor-pointer"
                     >
                         <Icon size={16} className="shrink-0 text-accent-primary" aria-hidden />
                         {prompt}

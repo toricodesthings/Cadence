@@ -52,7 +52,7 @@ export function CreateProjectPopover() {
                 </div>
                 <ProjectColorPicker value={colorAccent} onChange={setColorAccent} />
                 <Button
-                    variant="primary"
+                    variant="subtle"
                     size="md"
                     onClick={handleSubmit}
                     disabled={!name.trim()}

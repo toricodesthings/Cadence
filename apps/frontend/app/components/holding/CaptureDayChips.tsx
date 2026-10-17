@@ -7,7 +7,7 @@ import { todayISO, tomorrowISO } from "../../hooks/inbox/use-process-inbox-to-ta
 
 /** Pill treatment shared with task signals: rounded, hairline border, 36px tall. */
 export const DAY_PILL =
-    "min-h-9 shrink-0 whitespace-nowrap rounded-full border px-3 text-xs font-medium active:scale-100";
+    "min-h-9 shrink-0 whitespace-nowrap rounded-full border px-3 text-xs font-medium press-none";
 export const DAY_PILL_SUGGESTED =
     "border-accent-primary/25 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/15";
 export const DAY_PILL_PLAIN =

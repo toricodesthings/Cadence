@@ -72,7 +72,7 @@ export function ContextualAddOrb({ onOpen, directCapture = false, directLabel = 
                 type="button"
                 onClick={() => directCapture ? onOpen("capture") : setOpen((value) => !value)}
                 aria-label={directCapture ? directLabel : open ? "Close quick add menu" : "Open quick add menu"}
-                className="pointer-events-auto relative flex h-14 w-14 items-center justify-center rounded-full border border-accent-primary/20 bg-accent-primary text-[var(--primary-foreground)] shadow-[0_24px_54px_color-mix(in_srgb,var(--accent-primary)_34%,transparent)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                className="pointer-events-auto relative flex h-14 w-14 items-center justify-center rounded-full accent-fill press"
             >
                 {open ? <X size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
             </button></Tip>

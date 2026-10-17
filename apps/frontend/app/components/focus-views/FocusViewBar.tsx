@@ -153,7 +153,7 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
                                         size="none"
                                         aria-pressed={captureOrder === order}
                                         onClick={() => { setCaptureOrder(order); setOpen(false); }}
-                                        className={`min-h-9 flex-1 rounded-lg px-2.5 font-sans text-[12px] font-medium capitalize active:scale-100 ${
+                                        className={`min-h-9 flex-1 rounded-lg px-2.5 font-sans text-[12px] font-medium capitalize press-none ${
                                             captureOrder === order
                                                 ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25 hover:bg-accent-primary/20 hover:text-accent-primary"
                                                 : "bg-white/[0.04] text-twilight-text-soft border border-twilight-border/20 hover:bg-white/[0.08]"
