@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-10-17
+
 ### Changed
 
 - Menus and pickers now grow out of the button you tapped, and their glass picks up the colours beneath.
