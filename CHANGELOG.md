@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-10-17
+
 ### Added
 
 - Tasks show how long they usually take you, based on your own answers.
