@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.36.1] - 2026-10-17
+
 ### Changed
 
 - With a mouse, menus and pickers pop in quickly again instead of growing out of their button.
