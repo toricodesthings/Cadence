@@ -159,6 +159,8 @@
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
   --morph-in: 200ms var(--ease-out-expo);
   --morph-out: 130ms var(--ease-out-quart);
+  --pop-in: 200ms var(--ease-out-quart);
+  --pop-out: 150ms ease-in;
   --sheet-in: 280ms var(--ease-sheet);
   --sheet-out: 200ms var(--ease-sheet);
   --cadence-page-padding-y: 0.75rem;
@@ -868,7 +870,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root:not([data-motion="full"]) { --spring-snap: 1ms linear; --spring-glide: 1ms linear; --morph-in: 1ms linear; --morph-out: 1ms linear; --sheet-in: 1ms linear; --sheet-out: 1ms linear; }
+  :root:not([data-motion="full"]) { --spring-snap: 1ms linear; --spring-glide: 1ms linear; --morph-in: 1ms linear; --morph-out: 1ms linear; --pop-in: 1ms linear; --pop-out: 1ms linear; --sheet-in: 1ms linear; --sheet-out: 1ms linear; }
 }
 
 [data-motion="full"] {
@@ -2217,10 +2219,11 @@ body:has(.layer-system-dialog, .layer-route-backdrop, .layer-room-sheet-backdrop
 :root { --floating-tint: 74%; --floating-brightness: 0.92; }
 [data-theme="daylight"] { --floating-tint: 85%; --floating-brightness: 1.04; }
 
-/* Menus, selects and popovers grow out of their trigger: a clip-path opens from the trigger's rect
-   (Radix's anchor size, at the corner data-side × data-align give) to the whole surface. On touch the
-   surface covers its trigger, so the trigger becomes the menu, as on iOS. Context menus anchor to a
-   point, so they grow from the cursor. Shadows are clipped during the grow and land when it ends. */
+/* On touch, menus, selects and popovers grow out of their trigger: a clip-path opens from the trigger's
+   rect (Radix's anchor size, at the corner data-side × data-align give) to the whole surface, which
+   covers its trigger, so the trigger becomes the menu, as on iOS. Context menus anchor to a point, so
+   they grow from the finger. Shadows are clipped during the grow and land when it ends. A mouse gets
+   the pop-in below. */
 .morph-surface {
   --aw: var(--radix-popper-anchor-width, 100%);
   --ah: var(--radix-popper-anchor-height, 100%);
@@ -2260,6 +2263,16 @@ body:has(.layer-system-dialog, .layer-route-backdrop, .layer-room-sheet-backdrop
      a Tooltip around the trigger overwrites its data-state). */
   :is([aria-haspopup="menu"]:not([role="menuitem"]), button[role="combobox"], [data-morph-trigger])[aria-expanded="true"] { opacity: 0; transition: opacity var(--morph-out); }
 }
+
+/* With a mouse the glass surface pops in from its trigger side instead (fade and scale, as before the
+   morph): a pointer is precise and the menu sits beside the trigger, so there is nothing to become. */
+@media not (pointer: coarse) {
+  .morph-surface { animation: menu-pop-in var(--pop-in) backwards; transform-origin: var(--radix-popper-transform-origin); }
+  .morph-surface[data-state="closed"] { animation: menu-pop-out var(--pop-out) forwards; }
+  .morph-surface[data-state="open"] > * { animation: none; }
+}
+@keyframes menu-pop-in { from { opacity: 0; scale: 0.95; } }
+@keyframes menu-pop-out { to { opacity: 0; scale: 0.95; } }
 
 /* Overlay panels (ResponsiveOverlayPanel) open and close on the compositor. The sheet drag writes
    `transform` and these write `translate`, so they add: a thrown sheet leaves from where the finger let go. */
