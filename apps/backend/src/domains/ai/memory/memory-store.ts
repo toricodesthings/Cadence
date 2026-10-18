@@ -5,11 +5,12 @@
  *
  * Content is untrusted user text: the prompt composer fences it. Never log content.
  */
-import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
 import { daysBetween } from "@cadence/domain/time";
-import { MEMORY_LABEL_MAX, type MemoryFact, type MemoryKind } from "@cadence/contracts/memory";
-import { aiConversations, aiMemories, aiMessages } from "../../../db/schema";
+import { FULL_ONLY_KINDS, MEMORY_LABEL_MAX, type MemoryFact, type MemoryKind, type MemoryMode } from "@cadence/contracts/memory";
+import { aiConversations, aiMemories, aiMessages, durationReports } from "../../../db/schema";
 import type { Tx } from "../../../types/db";
+import { hideGroupReports, showGroupReports } from "./duration";
 
 /** Active facts per mode; the nightly pass (P2) merges and evicts at the cap. Past it facts still save, up to the ceiling. */
 export const MEMORY_CAP = { basic: 150, full: 400, ceiling: 500 } as const;
@@ -59,6 +60,22 @@ const FACT_COLUMNS = {
 };
 
 const active = (userId: string) => and(eq(aiMemories.userId, userId), eq(aiMemories.status, "active"));
+
+/** Sources and kinds Basic may read: only what the person said (or told the chat), never what Full learned from activity. */
+const BASIC_SOURCES = ["explicit", "chat"] as const;
+
+/**
+ * The one predicate for what a mode may read. Full reads every active fact; Basic only what the person said.
+ * What Full learned stays stored when the person returns to Basic: it is unused until they return to Full.
+ */
+export const usableBy = (userId: string, mode: MemoryMode | null) =>
+    mode === "full" ? active(userId)
+        : and(active(userId), inArray(aiMemories.source, [...BASIC_SOURCES]), notInArray(aiMemories.kind, [...FULL_ONLY_KINDS]));
+
+/** `usableBy` as raw SQL for the profile's CTE. */
+const usableSql = (mode: MemoryMode | null) =>
+    mode === "full" ? sql`TRUE`
+        : sql`source IN ('explicit', 'chat') AND kind NOT IN (${sql.join(FULL_ONLY_KINDS.map((k) => sql`${k}`), sql`, `)})`;
 
 export interface NewFact {
     kind: MemoryKind;
@@ -208,18 +225,23 @@ export async function forgetFact(tx: Tx, userId: string, id: string, label?: str
             forgottenAt: sql`now()`,
             updatedAt: sql`now()`,
             // The model's topic, if it gave one: the scrub falls back to the kind's name.
-            value: sql`CASE WHEN ${label ?? null}::text IS NULL THEN NULL ELSE jsonb_build_object('label', ${label ?? null}::text) END`,
+            // A duration fact keeps its group, so Undo can bring its answers back with it.
+            value: sql`NULLIF(CASE WHEN ${label ?? null}::text IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('label', ${label ?? null}::text) END || CASE WHEN ${aiMemories.value} ? 'group' THEN jsonb_build_object('group', ${aiMemories.value} -> 'group') ELSE '{}'::jsonb END, '{}'::jsonb)`,
         })
         .where(and(eq(aiMemories.userId, userId), eq(aiMemories.id, id), eq(aiMemories.status, "active")))
-        .returning({ id: aiMemories.id, content: aiMemories.content });
-    return rows[0] ?? null;
+        .returning({ id: aiMemories.id, content: aiMemories.content, kind: aiMemories.kind, group: sql<string | null>`${aiMemories.value} ->> 'group'` });
+    const row = rows[0];
+    if (!row) return null;
+    // Forgetting a duration hides the answers behind it too, until Undo's window ends (every caller: page, chat, MCP).
+    if (row.kind === "duration" && row.group) await hideGroupReports(tx, userId, row.group);
+    return { id: row.id, content: row.content };
 }
 
 /** Undo: back to active inside the window. Returns the fact, or null when it's gone or the window passed. */
 export async function restoreFact(tx: Tx, userId: string, id: string): Promise<MemoryFact | null> {
     const rows = await tx
         .update(aiMemories)
-        .set({ status: "active", forgottenAt: null, value: null, updatedAt: sql`now()` })
+        .set({ status: "active", forgottenAt: null, value: sql`NULLIF(${aiMemories.value} - 'label', '{}'::jsonb)`, updatedAt: sql`now()` })
         .where(and(
             eq(aiMemories.userId, userId),
             eq(aiMemories.id, id),
@@ -227,7 +249,16 @@ export async function restoreFact(tx: Tx, userId: string, id: string): Promise<M
             sql`${aiMemories.forgottenAt} > now() - make_interval(mins => ${UNDO_WINDOW_MINUTES})`,
         ))
         .returning(FACT_COLUMNS);
-    return rows[0] ? toFact(rows[0]) : null;
+    if (!rows[0]) return null;
+    const group = rows[0].kind === "duration" ? await durationGroupOf(tx, userId, id) : null;
+    if (group) await showGroupReports(tx, userId, group); // Undo brings the fact's answers back with it
+    return toFact(rows[0]);
+}
+
+/** The group a duration fact stands for (kept through Forget so Undo can restore its answers), or null. */
+export async function durationGroupOf(tx: Tx, userId: string, id: string): Promise<string | null> {
+    const [row] = await tx.select({ group: sql<string | null>`${aiMemories.value} ->> 'group'` }).from(aiMemories).where(and(eq(aiMemories.userId, userId), eq(aiMemories.id, id), eq(aiMemories.kind, "duration")));
+    return row?.group ?? null;
 }
 
 /** Undo for a save: the fact was new, so it goes. Only what was just created (the receipt's own id). */
@@ -257,6 +288,11 @@ const KIND_LABEL: Record<MemoryKind, string> = {
  * kind's name. Its hash stays so the same words are never relearned; its embedding and value are dropped.
  */
 export async function scrubForgotten(tx: Tx, userId: string): Promise<number> {
+    // The answers behind a forgotten duration fact go with it once Undo can no longer bring it back.
+    await tx.delete(durationReports).where(and(
+        eq(durationReports.userId, userId),
+        sql`${durationReports.forgottenAt} <= now() - make_interval(mins => ${UNDO_WINDOW_MINUTES})`,
+    ));
     const rows = await tx
         .select({ id: aiMemories.id, kind: aiMemories.kind, value: aiMemories.value })
         .from(aiMemories)
@@ -405,12 +441,12 @@ export interface NearFact {
 }
 
 /** The closest active facts (of one kind, or any) by cosine distance: an exact scan over one person's few hundred small vectors. */
-export async function nearestFacts(tx: Tx, userId: string, embedding: number[], embeddingModel: string, kind: MemoryKind | null, limit = 8): Promise<NearFact[]> {
+export async function nearestFacts(tx: Tx, userId: string, embedding: number[], embeddingModel: string, kind: MemoryKind | null, limit = 8, mode?: MemoryMode | null): Promise<NearFact[]> {
     const distance = sql<number>`(${aiMemories.embedding} <=> ${`[${embedding.join(",")}]`}::halfvec)`;
     const rows = await tx
         .select({ id: aiMemories.id, kind: aiMemories.kind, content: aiMemories.content, distance })
         .from(aiMemories)
-        .where(and(active(userId), kind ? eq(aiMemories.kind, kind) : undefined, eq(aiMemories.embeddingModel, embeddingModel)))
+        .where(and(mode === undefined ? active(userId) : usableBy(userId, mode), kind ? eq(aiMemories.kind, kind) : undefined, eq(aiMemories.embeddingModel, embeddingModel)))
         .orderBy(distance)
         .limit(limit);
     return rows.map((row) => ({ ...row, distance: Number(row.distance) }));
@@ -438,20 +474,20 @@ export interface ProfileLine {
  * is filled with their other life facts and what helped, newest first, so the model simply knows them.
  * Patterns and durations are never in it: they come through recall. Built deterministically with no model call.
  */
-export async function loadProfile(tx: Tx, userId: string, today: string): Promise<ProfileLine[]> {
-    return (await loadProfileCoverage(tx, userId, today)).lines;
+export async function loadProfile(tx: Tx, userId: string, today: string, mode: MemoryMode | null): Promise<ProfileLine[]> {
+    return (await loadProfileCoverage(tx, userId, today, mode)).lines;
 }
 
 type ProfileRow = Pick<FactRow, "id" | "content" | "saidOn" | "lastSeenOn" | "sensitive">;
 
 /** Profile and exact recall coverage from ONE statement snapshot, under the caller's RLS identity. */
-export async function loadProfileCoverage(tx: Tx, userId: string, today: string): Promise<{ lines: ProfileLine[]; hasRecallCandidates: boolean }> {
+export async function loadProfileCoverage(tx: Tx, userId: string, today: string, mode: MemoryMode | null): Promise<{ lines: ProfileLine[]; hasRecallCandidates: boolean }> {
     const fields = sql`jsonb_build_object('id', id, 'content', content, 'saidOn', said_on, 'lastSeenOn', last_seen_on, 'sensitive', sensitive)`;
     const [row] = await tx.select({ core: sql<ProfileRow[]>`core`, rest: sql<ProfileRow[]>`rest`, eligible_count: sql<number>`eligible_count` }).from(sql`(
         WITH eligible AS MATERIALIZED (
             SELECT id, kind, pinned, content, said_on, last_seen_on, sensitive, valid_through
             FROM ${aiMemories}
-            WHERE user_id = ${userId} AND status = 'active'
+            WHERE user_id = ${userId} AND status = 'active' AND ${usableSql(mode)}
                 AND (valid_through IS NULL OR valid_through >= ${today}::date)
         ), core AS (
             SELECT * FROM eligible
@@ -478,11 +514,11 @@ export async function loadProfileCoverage(tx: Tx, userId: string, today: string)
 }
 
 /** Revalidate only the facts a stored context actually used; additions do not invalidate its prefix. */
-export async function loadContextFacts(tx: Tx, userId: string, ids: string[], today: string): Promise<ProfileLine[]> {
+export async function loadContextFacts(tx: Tx, userId: string, ids: string[], today: string, mode: MemoryMode | null): Promise<ProfileLine[]> {
     if (!ids.length) return [];
     const rows = await tx.select({ id: aiMemories.id, content: aiMemories.content, saidOn: aiMemories.saidOn,
         lastSeenOn: aiMemories.lastSeenOn, sensitive: aiMemories.sensitive }).from(aiMemories)
-        .where(and(active(userId), inArray(aiMemories.id, ids),
+        .where(and(usableBy(userId, mode), inArray(aiMemories.id, ids),
             or(isNull(aiMemories.validThrough), sql`${aiMemories.validThrough} >= ${today}::date`)));
     return withinBudget(rows, today, Number.POSITIVE_INFINITY);
 }
@@ -516,9 +552,9 @@ const FUSED_FROM_EACH = 20;
 export async function recallFacts(
     tx: Tx,
     userId: string,
-    input: { text: string; embedding: number[] | null; model: string; today: string; exclude: ReadonlySet<string>; limit?: number },
+    input: { text: string; embedding: number[] | null; model: string; today: string; exclude: ReadonlySet<string>; mode: MemoryMode | null; limit?: number },
 ): Promise<ProfileLine[]> {
-    const { text, embedding, model, today, exclude, limit = 8 } = input;
+    const { text, embedding, model, today, exclude, mode, limit = 8 } = input;
     // A turn is a sentence, not a search box: any shared word counts (OR), ranked by how many. Letters and digits only,
     // so the text can never be tsquery syntax.
     const terms = [...new Set(text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? [])].slice(0, 24).join(" | ");
@@ -526,11 +562,11 @@ export async function recallFacts(
         ? await tx
               .select({ id: aiMemories.id })
               .from(aiMemories)
-              .where(and(active(userId), sql`${aiMemories.search} @@ to_tsquery('english', ${terms})`))
+              .where(and(usableBy(userId, mode), sql`${aiMemories.search} @@ to_tsquery('english', ${terms})`))
               .orderBy(sql`ts_rank(${aiMemories.search}, to_tsquery('english', ${terms})) DESC`)
               .limit(FUSED_FROM_EACH)
         : [];
-    const dense = embedding ? await nearestFacts(tx, userId, embedding, model, null, FUSED_FROM_EACH) : [];
+    const dense = embedding ? await nearestFacts(tx, userId, embedding, model, null, FUSED_FROM_EACH, mode) : [];
 
     const score = new Map<string, number>();
     const add = (ids: string[]) => ids.forEach((id, rank) => score.set(id, (score.get(id) ?? 0) + 1 / (RRF_K + rank + 1)));
@@ -550,7 +586,7 @@ export async function recallFacts(
             validThrough: aiMemories.validThrough,
         })
         .from(aiMemories)
-        .where(and(active(userId), inArray(aiMemories.id, ids), or(isNull(aiMemories.validThrough), sql`${aiMemories.validThrough} >= ${today}::date`)));
+        .where(and(usableBy(userId, mode), inArray(aiMemories.id, ids), or(isNull(aiMemories.validThrough), sql`${aiMemories.validThrough} >= ${today}::date`)));
     const boosted = rows.map((row) => {
         const soon = row.validThrough && daysBetween(today, row.validThrough) <= PROFILE_LIFE_WINDOW_DAYS ? 0.01 : 0;
         return { row, score: (score.get(row.id) ?? 0) + Math.min(row.seenCount, 5) * 0.001 + soon };

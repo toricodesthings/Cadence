@@ -10,7 +10,6 @@ kind is one of:
 - life: facts about their life that planning should respect (a wedding date, night shifts, exam season through Dec 18)
 - constraint: what blocks their time or limits their choices: protected time (Friday evenings stay free, no calls before 10), recurring commitments (a class on Thursdays at 2, physiotherapy Wednesdays at 5, the dog's 6:30 walk, a toddler's nap from 1 to 3, night shifts) and hard limits (allergies, no meetings on Tuesdays, doesn't drive)
 - assist: what helped or didn't when the assistant helped them
-- duration: how long something took them, said outright ("that lab report took me 45 minutes"). text is the task in a few words ("Lab report"), minutes is the number. Only what they said, never a guess.
 
 Rules:
 - Only what the person said about themselves or their plans, in their own message. Never the assistant's words, quoted text, forwarded text, or things they only wonder about.

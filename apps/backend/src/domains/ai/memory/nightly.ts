@@ -13,10 +13,11 @@ import { consolidate } from "./consolidate";
 import type { Env } from "../../../types/env";
 import { fenceMemoryState, isLearning, readMemoryState } from "./memory-mode";
 import { changedFacts, deleteDecayed, deleteExpired, evictOverCap, MEMORY_CAP, mergeFacts, nearestFacts, syncActivityFacts } from "./memory-store";
-import { derivePatterns, deriveDurations, retentionCutoff, type SignalRow } from "./signals";
+import { derivePatterns, deriveDurations, retentionCutoff, type ReportRow, type SignalRow } from "./signals";
+import { readReports } from "./duration";
 import { embedTexts, getEmbeddingModelId } from "./embedding";
 import { backfillForUser } from "./backfill";
-import { aiMemorySignals, tasks } from "../../../db/schema";
+import { aiMemorySignals } from "../../../db/schema";
 import { MAX_SIGNALS_PER_DAY } from "./memory.service";
 
 /** Newest first: 28 days of a person at the daily cap fit, so only an old backlog is cut. */
@@ -52,7 +53,7 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
             // Merging asks a model, and only makes sense while memory is on.
             // Signals are kept 90 days; Full reads them for patterns and durations below.
             await tx.delete(aiMemorySignals).where(and(eq(aiMemorySignals.userId, userId), lt(aiMemorySignals.on, retentionCutoff(today))));
-            if (!isLearning(state.mode)) return { state, today, expired, decayed, pairs: [], signals: [] as SignalRow[] };
+            if (!isLearning(state.mode)) return { state, today, expired, decayed, pairs: [], signals: [] as SignalRow[], reports: [] as ReportRow[] };
             const since = new Date(now.getTime() - CHANGED_WITHIN_MS).toISOString();
             const pairs: { fact: string; other: string }[] = [];
             const seen = new Set<string>();
@@ -64,16 +65,16 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
                 seen.add(key);
                 pairs.push({ fact: fact.id, other: near.id });
             }
-            const signals: SignalRow[] = state.mode === "full"
+            const signals = state.mode === "full"
                 ? await tx
-                      .select({ kind: aiMemorySignals.kind, on: aiMemorySignals.on, bucket: aiMemorySignals.bucket, subject: aiMemorySignals.subject, minutes: aiMemorySignals.minutes, title: tasks.title })
+                      .select({ kind: aiMemorySignals.kind, on: aiMemorySignals.on, bucket: aiMemorySignals.bucket, subject: aiMemorySignals.subject })
                       .from(aiMemorySignals)
-                      .leftJoin(tasks, eq(tasks.id, aiMemorySignals.taskId))
                       .where(and(eq(aiMemorySignals.userId, userId), gte(aiMemorySignals.on, retentionCutoff(today))))
                       .orderBy(desc(aiMemorySignals.on))
                       .limit(MAX_SIGNALS_READ)
                 : [];
-            return { state, today, expired, decayed, pairs, signals };
+            const reports: ReportRow[] = state.mode === "full" ? await readReports(tx, userId, today) : [];
+            return { state, today, expired, decayed, pairs, signals: signals as SignalRow[], reports };
         });
 
         // 2 · Ask the chat model about the pairs (outside any transaction).
@@ -102,7 +103,7 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
 
         // 3 · Apply, then enforce the cap. Fenced by the epoch, like every background write.
         // Full: what the person's own changes add up to. Deterministic; the only model call is the embedding of new text.
-        const derived = plan.state.mode === "full" ? [...derivePatterns(plan.signals, plan.today), ...deriveDurations(plan.signals)] : [];
+        const derived = plan.state.mode === "full" ? [...derivePatterns(plan.signals, plan.today), ...deriveDurations(plan.reports, plan.today)] : [];
         let vectors: (number[] | null)[] = derived.map(() => null);
         if (derived.length > 0) {
             try {

@@ -13,6 +13,7 @@ export const Anchor = RadixPopover.Anchor;
 
 export const Trigger = ({ className = "", ...props }: RadixPopover.PopoverTriggerProps & { ref?: React.Ref<HTMLButtonElement> }) => (
     <RadixPopover.Trigger
+        data-morph-trigger
         className={`cursor-pointer ${className}`}
         {...props}
     />

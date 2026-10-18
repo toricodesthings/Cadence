@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({ patch: vi.fn() }));
 vi.mock("../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => ({ api: { tasks: { ":id": { $patch: api.patch } } } }) }));
 vi.mock("../../../app/lib/api/offline-mutation", () => ({ withOfflineSupport: (_op: unknown, online: unknown) => online, wasQueued: () => false }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: {} }) }));
+vi.mock("../../../app/hooks/ai/use-duration-guess", () => ({ useDurationGuesser: () => () => null, useDurationGuess: () => null }));
 vi.mock("../../../app/hooks/ai/use-memory", () => ({ useDurationApi: () => ({ ask: vi.fn(), shown: vi.fn(), report: vi.fn() }) }));
 vi.mock("../../../app/lib/utils/error-toast", () => ({ toastError: vi.fn() }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), message: vi.fn() }) }));

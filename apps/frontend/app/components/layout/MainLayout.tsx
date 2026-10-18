@@ -226,7 +226,8 @@ export function MainLayout({
     const [forceLoading, setForceLoading] = useState(false);
     const { status, isAuthenticated, beginAuthRecovery } = useAuthState();
     const shell = useShellMode();
-    const railOnly = navigationMode === "rail";
+    // Rail mode is a wide-screen layout; compact screens keep the phone header and dock.
+    const railOnly = navigationMode === "rail" && !shell.isCompact;
     const isUtilityPage = location.pathname === "/browse";
     const { assistantPanelOpen, assistantPanelWidth, setAssistantPanelWidth, toggleAssistantPanel } = useAssistantStore();
     useAssistantReplyWatcher();

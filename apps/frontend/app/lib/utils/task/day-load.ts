@@ -1,5 +1,6 @@
 import type { Task } from "@cadence/contracts/task";
 import { addDays, type LocalDate } from "@cadence/domain/time";
+import { taskMinutes } from "@cadence/domain/task-length";
 import { dayOfInstant } from "../date-format";
 
 /** What a task with no effort set weighs: unknown is not light, so it counts as a middling one. */
@@ -37,4 +38,30 @@ export function lightestDay(loads: Map<string, number>) {
 
 export function loadWord(load: number) {
     return load === 0 ? "free" : load <= 2 ? "light" : load <= 5 ? "steady" : "busy";
+}
+
+type Sized = Pick<Task, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "isHabit">;
+
+/**
+ * The known minutes of one day's listed tasks: a block, an estimate, or a supported guess. Tasks with none of those are
+ * counted as not sized (never as 60: that would be Cadence inventing a verdict). Routines and all-day multi-day
+ * tasks aren't counted at all. This is a note on the day, not a capacity: nothing here says a day is too full.
+ */
+export function dayMinutes<T extends Sized>(tasks: readonly T[], guessOf: (task: T) => { state: "tentative" | "supported"; minutes: number } | null) {
+    let minutes = 0;
+    let unsized = 0;
+    for (const task of tasks) {
+        if (task.isHabit || (!task.scheduledStart && task.endDate && task.endDate !== task.dueDate)) continue;
+        const guess = guessOf(task);
+        const known = (task.scheduledStart && task.scheduledEnd) || task.durationEstimate || guess?.state === "supported";
+        if (known) minutes += taskMinutes(task, guess);
+        else unsized++;
+    }
+    return { minutes, unsized };
+}
+
+/** "45 min", "4 h", "1 h 30 min": a day's minutes, to the nearest quarter hour once past an hour. */
+export function formatDayMinutes(minutes: number) {
+    const m = minutes < 60 ? minutes : Math.round(minutes / 15) * 15;
+    return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`;
 }

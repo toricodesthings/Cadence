@@ -1,12 +1,11 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { ToasterFocusBranch } from "../primitives/Dialog";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useKeyboardInset } from "../../hooks/ui/use-keyboard-inset";
 import { useSheetGesture } from "../../hooks/ui/use-sheet-gesture";
-import { SPRINGS } from "../../lib/constants/motion";
 
 interface ResponsiveOverlayPanelProps {
     ariaLabel: string;
@@ -26,9 +25,6 @@ interface ResponsiveOverlayPanelProps {
     /** `room`: opened from a full-screen room (e.g. the note room), so it stacks above it. */
     layer?: "route" | "room";
 }
-
-/** Off-screen for a bottom sheet's enter and exit; the gesture's y is in px, so these are too. */
-const offscreen = () => (typeof window === "undefined" ? 800 : window.innerHeight);
 
 export function ResponsiveOverlayPanel({
     ariaLabel,
@@ -54,118 +50,100 @@ export function ResponsiveOverlayPanel({
     const panelRef = useRef<HTMLElement | null>(null);
     const [panel, setPanel] = useState<HTMLElement | null>(null);
     const attachPanel = useCallback((node: HTMLElement | null) => { panelRef.current = node; setPanel(node); }, []);
-    // Grab anywhere: the exit animates this same y, seeded with the throw's velocity.
+    // Grab anywhere. Enter and exit are CSS (`.sheet-*` in app.css), so a throw leaves from the finger.
     const { y, backdropOpacity } = useSheetGesture({ element: panel, enabled: open && isPeekMobile, onDismiss: onClose });
 
     return (
         <DialogPrimitive.Root open={open} onOpenChange={(next) => !next && onClose()}>
-            <AnimatePresence>
-                {open && (
-                    <DialogPrimitive.Portal forceMount>
-                        <DialogPrimitive.Overlay forceMount asChild>
-                            <motion.div
-                                key="overlay"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className={`${layer === "room" ? "layer-room-sheet-backdrop" : "layer-route-backdrop"} fixed inset-0`}
-                            >
-                                {/* Lightens as the sheet is pulled down; the outer layer keeps the enter/exit fade. */}
-                                <motion.div style={{ opacity: backdropOpacity }} className="absolute inset-0 bg-twilight-void/85" />
-                            </motion.div>
-                        </DialogPrimitive.Overlay>
+            <DialogPrimitive.Portal>
+                <DialogPrimitive.Overlay className={`${layer === "room" ? "layer-room-sheet-backdrop" : "layer-route-backdrop"} sheet-fade fixed inset-0`}>
+                    {/* Lightens as the sheet is pulled down; the outer layer keeps the enter/exit fade. */}
+                    <motion.div style={{ opacity: backdropOpacity }} className="absolute inset-0 bg-twilight-void/85" />
+                </DialogPrimitive.Overlay>
 
-                        <DialogPrimitive.Content
-                            forceMount
-                            asChild
-                            aria-describedby={undefined}
-                            onOpenAutoFocus={(event) => {
-                                const panel = panelRef.current;
-                                const target = panel?.querySelector<HTMLElement>("[data-initial-focus]") ?? panel?.querySelector<HTMLElement>("[data-sheet-heading]");
-                                if (!target) return;
-                                event.preventDefault();
-                                target.focus();
-                            }}
-                            // Radix sees Escape before any child; a control that keeps Escape for itself says so.
-                            onEscapeKeyDown={(event) => {
-                                if ((event.target as Element | null)?.closest?.("[data-escape-owner]")) event.preventDefault();
-                            }}
-                        >
-                            <motion.aside
-                                key="panel"
-                                ref={attachPanel}
-                                initial={isPeekMobile ? { y: offscreen() } : isMobile ? { opacity: 0, y: 16 } : { opacity: 0, x: 28 }}
-                                animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, x: 0 }}
-                                exit={isPeekMobile ? { y: offscreen() } : isMobile ? { opacity: 0, y: 16 } : { opacity: 0, x: 28 }}
-                                transition={isPeekMobile ? SPRINGS.GLIDE : { duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
-                                style={isPeekMobile
-                                    ? {
-                                        y,
-                                        height: fit ? "auto" : aboveKeyboard ?? "min(92dvh, 52rem)",
-                                        maxHeight: aboveKeyboard ?? "min(92dvh, 52rem)",
-                                        bottom: keyboard || undefined,
-                                        width: "100%",
-                                        maxWidth: shell.isTablet ? "48rem" : undefined,
-                                        marginInline: "auto",
-                                    }
-                                    : isMobile && keyboard ? { bottom: keyboard } : undefined}
-                                className={[
-                                    `mobile-sheet-shell ${layer === "room" ? "layer-room-sheet" : "layer-route-overlay"} surface-route-overlay fixed flex w-full flex-col shadow-2xl shadow-black/40`,
-                                    isMobile
-                                        ? isFocus
-                                            ? "safe-bottom safe-top inset-0 border-none"
-                                            : `glass-edge safe-bottom fixed inset-x-0 bottom-0 top-auto ${fit ? "" : "h-[min(92dvh,48rem)]"} rounded-t-[2rem] border-t border-twilight-border`
-                                        : "safe-bottom safe-top inset-y-0 right-0 border-l border-twilight-border",
-                                ].join(" ")}
-                            >
-                                {isPeekMobile && (
-                                    <div data-sheet-handle className="flex h-8 shrink-0 items-center justify-center" aria-hidden="true">
-                                        <div className="h-1 w-10 rounded-full bg-twilight-text-soft/40" />
-                                    </div>
-                                )}
+                <DialogPrimitive.Content
+                    asChild
+                    aria-describedby={undefined}
+                    onOpenAutoFocus={(event) => {
+                        const panel = panelRef.current;
+                        const target = panel?.querySelector<HTMLElement>("[data-initial-focus]") ?? panel?.querySelector<HTMLElement>("[data-sheet-heading]");
+                        if (!target) return;
+                        event.preventDefault();
+                        target.focus();
+                    }}
+                    // Radix sees Escape before any child; a control that keeps Escape for itself says so.
+                    onEscapeKeyDown={(event) => {
+                        if ((event.target as Element | null)?.closest?.("[data-escape-owner]")) event.preventDefault();
+                    }}
+                >
+                    <motion.aside
+                        ref={attachPanel}
+                        style={isPeekMobile
+                            ? {
+                                y,
+                                height: fit ? "auto" : aboveKeyboard ?? "min(92dvh, 52rem)",
+                                maxHeight: aboveKeyboard ?? "min(92dvh, 52rem)",
+                                bottom: keyboard || undefined,
+                                width: "100%",
+                                maxWidth: shell.isTablet ? "48rem" : undefined,
+                                marginInline: "auto",
+                            }
+                            : isMobile && keyboard ? { bottom: keyboard } : undefined}
+                        className={[
+                            `mobile-sheet-shell ${isPeekMobile ? "sheet-up" : isMobile ? "sheet-rise" : "sheet-side"} ${layer === "room" ? "layer-room-sheet" : "layer-route-overlay"} surface-route-overlay fixed flex w-full flex-col shadow-2xl shadow-black/40`,
+                            isMobile
+                                ? isFocus
+                                    ? "safe-bottom safe-top inset-0 border-none"
+                                    : `glass-edge safe-bottom fixed inset-x-0 bottom-0 top-auto ${fit ? "" : "h-[min(92dvh,48rem)]"} rounded-t-[2rem] border-t border-twilight-border`
+                                : "safe-bottom safe-top inset-y-0 right-0 border-l border-twilight-border",
+                        ].join(" ")}
+                    >
+                        {isPeekMobile && (
+                            <div data-sheet-handle className="flex h-8 shrink-0 items-center justify-center" aria-hidden="true">
+                                <div className="h-1 w-10 rounded-full bg-twilight-text-soft/40" />
+                            </div>
+                        )}
 
-                                {showHeader && title ? null : (
-                                    <DialogPrimitive.Title className="sr-only">{ariaLabel}</DialogPrimitive.Title>
-                                )}
+                        {showHeader && title ? null : (
+                            <DialogPrimitive.Title className="sr-only">{ariaLabel}</DialogPrimitive.Title>
+                        )}
 
-                                {showHeader && title ? (
-                                    <div className="mobile-sheet-header flex items-center justify-between gap-3 border-b border-twilight-border px-4 py-4 sm:px-5">
-                                        <div>
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-twilight-text-soft">
-                                                Workspace details
-                                            </p>
-                                            <DialogPrimitive.Title data-sheet-heading tabIndex={-1} className="mt-1 font-display text-xl font-semibold text-twilight-text">
-                                                {title}
-                                            </DialogPrimitive.Title>
-                                        </div>
+                        {showHeader && title ? (
+                            <div className="mobile-sheet-header flex items-center justify-between gap-3 border-b border-twilight-border px-4 py-4 sm:px-5">
+                                <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-twilight-text-soft">
+                                        Workspace details
+                                    </p>
+                                    <DialogPrimitive.Title data-sheet-heading tabIndex={-1} className="mt-1 font-display text-xl font-semibold text-twilight-text">
+                                        {title}
+                                    </DialogPrimitive.Title>
+                                </div>
 
-                                        <button
-                                            type="button"
-                                            onClick={onClose}
-                                            aria-label={`Close ${title}`}
-                                            className="btn-icon text-twilight-text-muted hover:bg-white/[0.05] hover:text-twilight-text"
-                                        >
-                                            <X size={18} aria-hidden="true" />
-                                        </button>
-                                    </div>
-                                ) : null}
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    aria-label={`Close ${title}`}
+                                    className="btn-icon text-twilight-text-muted hover:bg-white/[0.05] hover:text-twilight-text"
+                                >
+                                    <X size={18} aria-hidden="true" />
+                                </button>
+                            </div>
+                        ) : null}
 
-                                <ToasterFocusBranch />
+                        <ToasterFocusBranch />
 
-                                {fill ? (
-                                    <div className="flex min-h-0 flex-1 flex-col">
-                                        {children}
-                                    </div>
-                                ) : (
-                                    <div className="mobile-sheet-body scrollbar-thin">
-                                        {children}
-                                    </div>
-                                )}
-                            </motion.aside>
-                        </DialogPrimitive.Content>
-                    </DialogPrimitive.Portal>
-                )}
-            </AnimatePresence>
+                        {fill ? (
+                            <div className="flex min-h-0 flex-1 flex-col">
+                                {children}
+                            </div>
+                        ) : (
+                            <div className="mobile-sheet-body scrollbar-thin">
+                                {children}
+                            </div>
+                        )}
+                    </motion.aside>
+                </DialogPrimitive.Content>
+            </DialogPrimitive.Portal>
         </DialogPrimitive.Root>
     );
 }

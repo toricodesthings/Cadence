@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { and, eq, ilike } from "drizzle-orm";
-import { MEMORY_CONTENT_MAX, MEMORY_KINDS, MEMORY_LABEL_MAX, type MemoryReceipt } from "@cadence/contracts/memory";
+import { MEMORY_CONTENT_MAX, MEMORY_KINDS, MEMORY_LABEL_MAX, type MemoryMode, type MemoryReceipt } from "@cadence/contracts/memory";
 import { localDateSchema } from "@cadence/contracts/common";
 import { getDbClient, type DbClient } from "../../../platform/db";
 import type { Tx } from "../../../types/db";
@@ -38,10 +38,10 @@ const off = { ok: false as const, error: "Memory is off. Tell the user they can 
 const nothingChanged = (error: string) => ({ ok: false as const, error: `${error} Nothing was changed.` });
 
 /** Runs `work` only while memory is learning; otherwise says it's off. */
-async function whileLearning<T>(env: Env, userId: string, work: (db: DbClient) => Promise<T>): Promise<T | typeof off> {
+async function whileLearning<T>(env: Env, userId: string, work: (db: DbClient, mode: MemoryMode) => Promise<T>): Promise<T | typeof off> {
     const db = getDbClient(env);
     const state = await withRls(db, userId, (tx) => readMemoryState(tx, userId));
-    return isLearning(state.mode) ? work(db) : off;
+    return isLearning(state.mode) ? work(db, state.mode) : off;
 }
 
 /** An embedding, or null when the call fails: words alone still work. */
@@ -143,10 +143,10 @@ export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
             "Each result has the day it was first said (saidOn): use it to say \"you mentioned in August…\". Never call it just to be thorough.",
         inputSchema: z.object({ query: z.string().trim().min(2).max(200).describe("A few words: the topic, person or place.") }),
         execute: async ({ query }) =>
-            safeExecute("recall", userId, () => whileLearning(env, userId, async (db) => {
+            safeExecute("recall", userId, () => whileLearning(env, userId, async (db, mode) => {
                 const embedding = await embedOrNull(env, query);
                 const facts = await withRls(db, userId, (tx) =>
-                    recallFacts(tx, userId, { text: query, embedding, model: getEmbeddingModelId(env), today: ctx.today, exclude: new Set() }),
+                    recallFacts(tx, userId, { text: query, embedding, model: getEmbeddingModelId(env), today: ctx.today, exclude: new Set(), mode }),
                 );
                 return { ok: true as const, facts: facts.map((f) => ({ id: f.id, text: asData("memory", f.content), saidOn: f.saidOn, ...(f.sensitive && { sensitive: true }), ...(f.stale && { stale: true }) })) };
             })),

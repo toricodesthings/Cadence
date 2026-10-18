@@ -13,8 +13,6 @@ const SelectTrigger = ({ className, children, ...props }: React.ComponentProps<t
     <SelectPrimitive.Trigger
         className={cn(
             "flex h-11 w-full items-center justify-between whitespace-nowrap rounded-xl border border-twilight-border-light bg-white/[0.05] px-3 py-2 text-sm text-twilight-text shadow-sm ring-offset-twilight-base placeholder:text-twilight-text-muted focus:outline-none focus:ring-1 focus:ring-accent-primary/40 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 cursor-pointer hover:bg-white/[0.08] transition-[background-color,opacity]",
-            // On touch the open menu covers its trigger, so the trigger becomes the menu.
-            "pointer-coarse:data-[state=open]:opacity-0",
             className
         )}
         {...props}

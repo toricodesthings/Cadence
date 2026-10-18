@@ -7,9 +7,11 @@ import { canDragScheduleTask, resolveScheduleDrop } from "../../lib/utils/calend
 import { temporalOf } from "../../lib/utils/calendar/schedule-model";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import { useUpdateTask } from "../tasks/use-update-task";
+import { useDurationGuesser } from "../ai/use-duration-guess";
 
 export function useScheduleDrag(tasks: ReadonlyMap<string, Task>) {
     const { mutate: updateTask } = useUpdateTask();
+    const guessOf = useDurationGuesser();
     const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
     const [activeDropId, setActiveDropId] = useState<string | null>(null);
     const sensors = useSensors(
@@ -33,20 +35,20 @@ export function useScheduleDrag(tasks: ReadonlyMap<string, Task>) {
         setActiveDropId(null);
     }, []);
     const activeDropPreview = useMemo(() => activeDragTask && activeDropId
-        ? resolveScheduleDrop(activeDragTask, activeDropId)?.preview ?? null : null, [activeDragTask, activeDropId]);
+        ? resolveScheduleDrop(activeDragTask, activeDropId, guessOf(activeDragTask))?.preview ?? null : null, [activeDragTask, activeDropId, guessOf]);
     const handleDragEnd = useCallback((event: DragEndEvent) => {
         handleDragCancel();
         const taskId = event.active.data.current?.taskId;
         if (typeof taskId !== "string" || !event.over) return;
         const task = findDraggedTask(taskId);
         if (!task) return;
-        const drop = resolveScheduleDrop(task, String(event.over.id));
+        const drop = resolveScheduleDrop(task, String(event.over.id), guessOf(task));
         if (!drop) return;
         const previous = temporalOf(task);
         updateTask({ id: taskId, ...drop.patch });
         trackUsageEvent("schedule.drop_completed", { input_method: "dnd", object_type: "task", outcome: drop.outcome });
         toast.message("Task moved", { action: { label: "Undo", onClick: () => updateTask({ id: taskId, ...previous }) } });
-    }, [handleDragCancel, findDraggedTask, updateTask]);
+    }, [handleDragCancel, findDraggedTask, updateTask, guessOf]);
     return { sensors, activeDragTask, activeDropPreview, handleDragStart, handleDragOver, handleDragCancel, handleDragEnd };
 }
 export type ScheduleDrag = ReturnType<typeof useScheduleDrag>;

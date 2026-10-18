@@ -6,11 +6,15 @@ export interface DurationAskState {
     lastOn: LocalDate | null;
     /** Toasts shown and not answered since the last answer. */
     misses: number;
+    /** The latest question reserved by `/ask`: it is how a retried `/shown` counts one miss. */
+    token?: string;
+    /** The last token whose miss was counted. */
+    shownToken?: string;
 }
 
-/** After 3 unanswered asks: every 3 days; after 6: weekly. An answer resets it. */
+/** After 3 unanswered asks: every 3 days; after 6: weekly; after 10: monthly. An answer resets it. */
 export function minDaysBetweenAsks(misses: number): number {
-    return misses >= 6 ? 7 : misses >= 3 ? 3 : 1;
+    return misses >= 10 ? 30 : misses >= 6 ? 7 : misses >= 3 ? 3 : 1;
 }
 
 /** One shown ask per person per local day, spaced further apart the more of them go unanswered. */
@@ -54,12 +58,19 @@ export function shouldAsk({ state, today, ageMs, history }: AskCandidate): boole
     return budgetOpen(state, today) && ageMs >= MIN_TASK_AGE_MS && !groupIsSettled(history);
 }
 
-/** The number the relative toast compares to: the estimate, else the timed block, else the group's median. */
-export function referenceMinutes(task: { durationEstimate: number | null; blockMinutes: number | null }, history: GroupHistory): number | null {
-    if (task.durationEstimate) return task.durationEstimate;
-    if (task.blockMinutes) return task.blockMinutes;
-    if (history.minutes.length === 0) return null;
-    const sorted = [...history.minutes].sort((a, b) => a - b);
-    const mid = sorted.length >> 1;
-    return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+/** The number the relative toast compares to: the person's own plan only (the estimate, else the timed block), never Cadence's guess. */
+export function referenceMinutes(task: { durationEstimate: number | null; blockMinutes: number | null }): number | null {
+    return task.durationEstimate || task.blockMinutes || null;
+}
+
+/** The length Cadence gives a block when it knows nothing else; not the person's plan, so never a reference. */
+const DEFAULT_BLOCK_MINUTES = 60;
+
+/**
+ * The reference the relative chips may show: the person's own plan, unless it is a length Cadence chose (the
+ * 60-minute default, or its own guess, rounded). Then the answer starts from absolute chips so our number
+ * doesn't anchor it.
+ */
+export function relativeReference(reference: number | null, guess: number | null): number | null {
+    return reference && reference !== DEFAULT_BLOCK_MINUTES && reference !== guess ? reference : null;
 }

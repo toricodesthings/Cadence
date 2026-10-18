@@ -4,12 +4,11 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useFocusScopeBranch } from "@radix-ui/react-focus-scope";
 import { X } from "lucide-react";
-import { animate, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useKeyboardInset } from "../../hooks/ui/use-keyboard-inset";
 import { useSheetGesture } from "../../hooks/ui/use-sheet-gesture";
-import { SPRINGS } from "../../lib/constants/motion";
 import { DIALOG_CONTENT, DIALOG_DESCRIPTION, DIALOG_FOOTER, DIALOG_HEADER, DIALOG_OVERLAY, DIALOG_SHEET, DIALOG_TITLE } from "./dialog-styles";
 
 const Dialog = DialogPrimitive.Root;
@@ -57,21 +56,8 @@ const DialogContent = ({ className, children, hideCloseButton, phoneSheet = true
     const sheet = phoneSheet && isPhone && isTouch;
     const close = React.useRef<HTMLButtonElement>(null);
     const [sheetEl, setSheetEl] = React.useState<HTMLElement | null>(null);
-    const [thrown, setThrown] = React.useState(false);
-    const { y, backdropOpacity, height } = useSheetGesture({
-        element: sheetEl,
-        enabled: sheet,
-        // Carry the throw off screen, then close through Radix (onOpenChange) with no second exit animation.
-        onDismiss: (velocity) => {
-            setThrown(true);
-            void animate(y, height.current, { ...SPRINGS.GLIDE, velocity }).then(() => close.current?.click());
-        },
-    });
-    // Reopening starts at rest, not where the last throw left it.
-    const attachSheet = React.useCallback((node: HTMLElement | null) => {
-        setSheetEl(node);
-        if (node) { y.jump(0); setThrown(false); }
-    }, [y]);
+    // A throw closes through Radix (onOpenChange); the CSS slide-out adds to the drag, so it leaves from the finger.
+    const { y, backdropOpacity } = useSheetGesture({ element: sheetEl, enabled: sheet, onDismiss: () => close.current?.click() });
     // Like every sheet, it rides the keyboard instead of hiding its fields and buttons under it.
     const { inset: keyboard } = useKeyboardInset(sheet);
     const content = (
@@ -99,12 +85,12 @@ const DialogContent = ({ className, children, hideCloseButton, phoneSheet = true
                 data-dialog-sheet={sheet || undefined}
                 aria-describedby={undefined}
                 asChild={sheet}
-                className={cn(DIALOG_CONTENT, className, sheet && DIALOG_SHEET, thrown && "data-[state=closed]:animate-none")}
+                className={cn(DIALOG_CONTENT, className, sheet && DIALOG_SHEET)}
                 {...props}
             >
                 {sheet ? (
                     <motion.div
-                        ref={attachSheet}
+                        ref={setSheetEl}
                         style={{ y, ...(keyboard ? { bottom: keyboard, maxHeight: `calc(100dvh - ${keyboard}px - max(0.5rem, env(safe-area-inset-top)))`, paddingBottom: "1rem" } : {}) }}
                     >
                         {content}

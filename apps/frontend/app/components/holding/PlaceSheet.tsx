@@ -17,7 +17,8 @@ import { taskDay } from "@cadence/domain/task-recurrence";
 import { formatShortDateLabel, formatWeekdayNarrow, placementLabel, placementReceipt } from "../../lib/utils/date-format";
 import { toastName, toastUndo } from "../../lib/utils/undo-toast";
 import { getUserZone, useToday } from "../../lib/utils/user-zone";
-import { dayLoads, lightestDay, loadWord } from "../../lib/utils/task/day-load";
+import { dayLoads, dayMinutes, formatDayMinutes, lightestDay, loadWord } from "../../lib/utils/task/day-load";
+import { useDurationGuesser } from "../../hooks/ai/use-duration-guess";
 
 export const dayLabel = (day: LocalDate) => formatShortDateLabel(day);
 
@@ -101,6 +102,9 @@ export function PlaceSheet({ open, task, onClose, onOpenTask, onPlace }: {
     const { tasks, loads, lightest } = useWeekLoad(stripStart, open);
     const selected = picked ?? (task && stripStart === todayIso ? lightest : stripStart);
     const dayTasks = tasks.filter((t) => taskDay(t, getUserZone()) === selected);
+    const guessOf = useDurationGuesser();
+    const { minutes, unsized } = dayMinutes(dayTasks, guessOf);
+    const sizedNote = minutes > 0 ? ` · about ${formatDayMinutes(minutes)}${unsized ? ` · ${unsized} not sized` : ""}` : "";
 
     const close = () => { onClose(); setPicked(null); setStripStart(todayIso); };
     const jump = (day: LocalDate) => { setStripStart(day); setPicked(day); };
@@ -112,7 +116,7 @@ export function PlaceSheet({ open, task, onClose, onOpenTask, onPlace }: {
                 <DatePicker label="Pick a date" value={selected} onChange={(date) => date && jump(date)} className="min-w-0 flex-1">
                     <Button variant="ghost" size="none" type="button" className="min-w-0 flex-1 flex-col items-start gap-0 rounded-xl text-left font-normal hover:bg-transparent">
                         <span className="block truncate font-display text-lg font-semibold text-twilight-text">{dayLabel(selected)}</span>
-                        <span className="text-sm text-twilight-text-soft">{loadWord(loads.get(selected) ?? 0)} day · tap to pick a date</span>
+                        <span className="text-sm text-twilight-text-soft">{loadWord(loads.get(selected) ?? 0)} day{sizedNote} · tap to pick a date</span>
                     </Button>
                 </DatePicker>
                 {selected !== todayIso && <Button variant="ghost" size="none" type="button" onClick={() => jump(todayIso)} className={`${CHIP} ${CHIP_IDLE} font-sans`}>Today</Button>}

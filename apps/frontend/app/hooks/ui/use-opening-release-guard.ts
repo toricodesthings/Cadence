@@ -2,7 +2,8 @@ import { useRef, type SyntheticEvent } from "react";
 
 const fromTouch = (event: SyntheticEvent) => {
     const type = (event.nativeEvent as PointerEvent).pointerType;
-    return type !== undefined && type !== "mouse";
+    // A keyboard click is a PointerEvent with pointerType "" in Chrome.
+    return type === "touch" || type === "pen";
 };
 
 /**
@@ -20,8 +21,9 @@ export function useOpeningReleaseGuard() {
     return {
         onPointerDownCapture: () => { pressedInside.current = true; },
         onPointerUpCapture: (event: React.PointerEvent) => { if (!pressedInside.current && fromTouch(event)) swallow(event); },
-        // A real click on an item always starts with a press inside; Safari's tap click carries no pointerType.
-        onClickCapture: (event: React.MouseEvent) => { if (!pressedInside.current && event.detail > 0) swallow(event); },
+        // A real click on an item always starts with a press inside. Safari's tap click carries no pointerType;
+        // Chrome's can carry detail 0.
+        onClickCapture: (event: React.MouseEvent) => { if (!pressedInside.current && (event.detail > 0 || fromTouch(event))) swallow(event); },
         /** Call when the menu closes, so the next opening tap is guarded again. */
         reset: () => { pressedInside.current = false; },
     };

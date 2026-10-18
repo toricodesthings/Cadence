@@ -4,7 +4,7 @@
  * so every mutation writes it back into the cache and nothing is merged client-side.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MEMORY_CONSENT_VERSION, type MemoryMode, type MemoryPage } from "@cadence/contracts/memory";
+import { MEMORY_CONSENT_VERSION, type DurationReport, type DurationReportView, type DurationValue, type MemoryMode, type MemoryPage } from "@cadence/contracts/memory";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
 import { unwrapResponse } from "../../lib/api/helpers";
@@ -29,6 +29,8 @@ function useRefreshPage() {
     const settings = useSettingsCache();
     return (page: MemoryPage) => {
         queryClient.setQueryData(queryKeys.ai.memory, page);
+        // Clear or a mode change: what was learned before is not this page's to show.
+        queryClient.removeQueries({ queryKey: queryKeys.ai.durationEvidence });
         const current = settings.read();
         if (current) settings.write({ ...current, assistant: { ...current.assistant, memoryMode: page.mode } });
     };
@@ -62,7 +64,10 @@ export function useForgetMemory() {
             if (context?.before) queryClient.setQueryData(queryKeys.ai.memory, context.before);
             toastError(error, "Couldn’t forget that");
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.memory }),
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.memory });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.durationEvidence }); // a duration fact's answers hide with it
+        },
     });
 }
 
@@ -71,7 +76,10 @@ export function useRestoreMemory() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (id: string) => unwrapResponse(await client.api.ai.memory[":id"].restore.$post({ param: { id } })),
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.memory }),
+        onSettled: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.memory });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.durationEvidence }); // a duration fact's answers hide with it
+        },
         onError: (error) => toastError(error, "Couldn’t bring that back"),
     });
 }
@@ -90,35 +98,53 @@ export function useClearMemory() {
 /** What the "How long did it take?" toast needs from the server. Quiet: a failure is never worth interrupting for. */
 export function useDurationApi() {
     const client = useApiClient();
+    const queryClient = useQueryClient();
     return {
         ask: async (taskId: string) => unwrapResponse(await client.api.ai.memory.duration.ask.$post({ json: { taskId } })),
         shown: async (token: string) => void unwrapResponse(await client.api.ai.memory.duration.shown.$post({ json: { token } })),
-        report: async (input: { taskId: string; minutes: number }) => void unwrapResponse(await client.api.ai.memory.duration.$post({ json: input })),
+        /** Resolves with what the server stored (null when it stored nothing), and rejects when it couldn't: "Saved" follows only the first. */
+        report: async (input: DurationReport) => {
+            const view = await unwrapResponse(await client.api.ai.memory.duration.$post({ json: input }));
+            // An open Took row shows the same answer the toast just saved.
+            if (view) {
+                queryClient.setQueryData(queryKeys.ai.duration(input.taskId, view.completedAt), view);
+                queryClient.setQueryData(queryKeys.ai.duration(input.taskId), view);
+            }
+            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.durationEvidence });
+            return view;
+        },
     };
 }
 
 /** The answer behind a done task's "Took 45 min" row; null when there is none (or memory isn't Full). */
-export function useReportedDuration(taskId: string, enabled: boolean) {
+export function useReportedDuration(taskId: string, completedAt: string | null | undefined, enabled: boolean) {
     const client = useApiClient();
     return useQuery({
-        queryKey: queryKeys.ai.duration(taskId),
+        queryKey: queryKeys.ai.duration(taskId, completedAt),
         enabled,
         staleTime: 30_000,
-        queryFn: async () => (await unwrapResponse(await client.api.ai.memory.duration.$get({ query: { taskId } }))).minutes,
+        queryFn: async () => unwrapResponse(await client.api.ai.memory.duration.$get({ query: { taskId, ...(completedAt && { completedAt }) } })),
     });
 }
 
-/** Changes or clears a task's answer from its detail; the cache follows at once. */
-export function useSetReportedDuration(taskId: string) {
+/**
+ * Changes or clears a task's answer from its detail. The row renders the stored view the server returns (`isPending`
+ * is "Saving…", `isError` is "Couldn't save · Retry"), never its own draft.
+ */
+export function useSetReportedDuration(taskId: string, completedAt: string | null | undefined) {
     const client = useApiClient();
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (minutes: number | null) => {
-            if (minutes === null) unwrapResponse(await client.api.ai.memory.duration.$delete({ json: { taskId } }));
-            else unwrapResponse(await client.api.ai.memory.duration.$post({ json: { taskId, minutes } }));
-            return minutes;
+        mutationFn: async (input: { value: DurationValue; anchored: boolean } | null): Promise<DurationReportView | null> => {
+            if (input === null) {
+                unwrapResponse(await client.api.ai.memory.duration.$delete({ json: { taskId, ...(completedAt && { completedAt }) } }));
+                return null;
+            }
+            return unwrapResponse(await client.api.ai.memory.duration.$post({ json: { taskId, ...(completedAt && { completedAt }), ...input } }));
         },
-        onSuccess: (minutes) => queryClient.setQueryData(queryKeys.ai.duration(taskId), minutes),
-        onError: (error) => toastError(error, "Couldn’t save that"),
+        onSuccess: (view) => {
+            queryClient.setQueryData(queryKeys.ai.duration(taskId, completedAt), view);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.durationEvidence });
+        },
     });
 }

@@ -10,6 +10,7 @@ import { isRecurringTask } from "../../lib/utils/task/task-scheduling";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { offerDuration } from "../../lib/ai/duration-prompt";
 import { useDurationApi } from "../ai/use-memory";
+import { useDurationGuesser } from "../ai/use-duration-guess";
 import { useSettings } from "../core/use-settings";
 
 /** Normalize date ranges so scheduledStart ≤ scheduledEnd */
@@ -44,6 +45,7 @@ export function useUpdateTask() {
     const queryClient = useQueryClient();
     const { data: settings } = useSettings();
     const durationApi = useDurationApi();
+    const guessOf = useDurationGuesser();
 
     /** The newest version any cache holds: an inactive list (another range, a restored cache) can lag behind. */
     function getExpectedUpdatedAt(id: string): string | undefined {
@@ -97,7 +99,7 @@ export function useUpdateTask() {
         onSuccess: (task, input) => {
             if (!task) return; // Queued offline
             // Full only; the server decides whether to ask. Never required.
-            if (input.state === "COMPLETE") void offerDuration(task, settings?.assistant?.memoryMode, durationApi);
+            if (input.state === "COMPLETE") void offerDuration(task, settings?.assistant?.memoryMode, durationApi, guessOf(task)?.minutes ?? null);
             if (input.effort !== undefined) void queryClient.invalidateQueries({ queryKey: queryKeys.effortEvidence });
             if (isRecurringTask(task)) {
                 taskCache.invalidate(queryClient);

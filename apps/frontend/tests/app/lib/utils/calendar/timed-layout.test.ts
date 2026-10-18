@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "@cadence/contracts/task";
-import { buildTimedTaskLayouts, MARKER_HEIGHT } from "../../../../../app/lib/utils/calendar/calendar-utils";
+import { buildTimedTaskLayouts, MIN_BLOCK_HEIGHT } from "../../../../../app/lib/utils/calendar/calendar-utils";
 
 const at = (id: string, start: string, end?: string, extra: Partial<Task> = {}) => ({
     id, title: id, scheduledStart: `2026-10-12T${start}:00-04:00`, scheduledEnd: end ? `2026-10-12T${end}:00-04:00` : null, ...extra,
@@ -28,7 +28,12 @@ describe("buildTimedTaskLayouts", () => {
         expect(two[0].points).toHaveLength(2);
     });
 
-    it("never renders a span shorter than a marker", () => {
-        expect(buildTimedTaskLayouts([at("call", "09:00", "09:15")])[0].height).toBe(MARKER_HEIGHT);
+    it("renders a short block at least 15 minutes tall, and lays it out at that height", () => {
+        expect(buildTimedTaskLayouts([at("call", "09:00", "09:05")])[0].height).toBe(MIN_BLOCK_HEIGHT);
+        // Back-to-back short blocks sit side by side: the later one never covers the earlier.
+        const out = buildTimedTaskLayouts([at("a", "09:00", "09:05"), at("b", "09:05", "09:35")]);
+        expect(out.map((l) => l.columns)).toEqual([2, 2]);
+        expect(buildTimedTaskLayouts([at("a", "09:00", "09:05"), at("b", "09:15", "09:45")]).map((l) => l.columns)).toEqual([1, 1]);
+        expect(buildTimedTaskLayouts([at("long", "09:00", "11:00")])[0].height).toBe(144);
     });
 });

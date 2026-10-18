@@ -46,8 +46,6 @@ export interface Candidate {
     kind: MemoryKind;
     content: string;
     validThrough: string | null;
-    /** Set on a duration report ("that took me 45 minutes"): `content` names the task. Only Full keeps these. */
-    minutes?: number;
 }
 
 /**
@@ -88,11 +86,10 @@ export function acceptCandidates(reply: unknown, messages: ReadonlyMap<string, s
     for (const entry of parsed.data.facts.slice(0, MAX_CANDIDATES)) {
         const fact = rawFactSchema.safeParse(entry);
         if (!fact.success) continue;
-        const { from, kind, validThrough, minutes, flags = [] } = fact.data;
+        const { from, kind, validThrough, flags = [] } = fact.data;
         const messageId = messages.get(from);
         const content = cleanText(fact.data.text);
-        const report = kind === "duration" && minutes != null;
-        if (!messageId || !(report || (EXTRACTED_KINDS as readonly string[]).includes(kind))) continue;
+        if (!messageId || !(EXTRACTED_KINDS as readonly string[]).includes(kind)) continue;
         if (content.length < 3 || content.length > MEMORY_CONTENT_MAX) continue;
         // Anything the model marked as not-a-plain-fact-about-the-person is dropped: sensitive details are saved
         // only when the person says "remember" (the remember tool), never from passive reading.
@@ -101,7 +98,7 @@ export function acceptCandidates(reply: unknown, messages: ReadonlyMap<string, s
         const key = content.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
-        out.push({ messageId, kind, content, validThrough: validThrough ?? null, ...(report && { minutes: minutes! }) });
+        out.push({ messageId, kind, content, validThrough: validThrough ?? null });
     }
     return out;
 }

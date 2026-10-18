@@ -29,7 +29,7 @@ import {
 import { getAgentInstance } from "./agent";
 import { loadContextFacts } from "./memory/memory-store";
 import { validateStoredContexts } from "./memory/context-reuse";
-import { isLearning, memoryStateOf } from "./memory/memory-mode";
+import { memoryStateOf } from "./memory/memory-mode";
 import { userClock } from "./turn";
 import type { Tx } from "../../types/db";
 import { createRunDiagnostics } from "./run-diagnostics";
@@ -348,8 +348,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     historyReady.catch(storedHistoryReady.reject);
     const validatedHistory = Promise.all([storedHistoryReady.promise, settingsReady]).then(async ([result, settings]) => {
         const clock = userClock(settings.timezone, body.currentDate);
-        return diagnostics.measure("contextValidation", () => validateStoredContexts(result.history, isLearning(memoryStateOf(settings.settings).mode),
-            (ids) => withCallerRls(c, (tx) => loadContextFacts(tx, userId, ids, clock.today))));
+        return diagnostics.measure("contextValidation", () => validateStoredContexts(result.history, memoryStateOf(settings.settings).mode,
+            (ids) => withCallerRls(c, (tx) => loadContextFacts(tx, userId, ids, clock.today, memoryStateOf(settings.settings).mode))));
     });
     validatedHistory.catch(() => {});
     const reusedContext = storedHistoryReady.promise.then(async (result) => {

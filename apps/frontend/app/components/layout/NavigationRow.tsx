@@ -9,9 +9,24 @@ export const NAV_GROUP_LABEL = "px-4 text-[11px] font-semibold uppercase trackin
 
 const ROW = "flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left text-[15px] text-twilight-text transition-colors hover:bg-white/[0.04] active:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
+/** Marks the coming view transition as a push (`data-nav-push` in app.css) until its slide ends. */
+function markPush() {
+    const root = document.documentElement;
+    root.dataset.navPush = "";
+    const clear = (event?: AnimationEvent) => {
+        if (event && event.animationName !== "push-in") return;
+        delete root.dataset.navPush;
+        root.removeEventListener("animationend", clear);
+    };
+    root.addEventListener("animationend", clear);
+    // No slide runs with reduced motion or off touch.
+    setTimeout(clear, 1000);
+}
+
 /**
  * One compact navigation row: a link with `to`, else a button. `leading`
- * replaces the icon (a list's emoji or colour dot); `tone` colours the icon.
+ * replaces the icon (a list's emoji or colour dot); `tone` colours the icon. A link pushes its page in
+ * from the right on touch (`::view-transition` in app.css), the mirror of iOS's swipe back.
  */
 export function NavigationRow({ to, icon: Icon, leading, tone, children, detail, onClick }: {
     to?: string; icon?: LucideIcon; leading?: ReactNode; tone?: string; children: ReactNode; detail?: ReactNode; onClick?: () => void;
@@ -26,6 +41,6 @@ export function NavigationRow({ to, icon: Icon, leading, tone, children, detail,
     </>;
     const style = { "--row-tone": tone ?? "var(--accent-primary)" } as CSSProperties;
     return to
-        ? <Link to={to} onClick={onClick} className={ROW} style={style}>{body}</Link>
+        ? <Link to={to} onClick={() => { markPush(); onClick?.(); }} viewTransition className={ROW} style={style}>{body}</Link>
         : <button type="button" onClick={onClick} className={ROW} style={style}>{body}</button>;
 }

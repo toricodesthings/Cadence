@@ -7,7 +7,7 @@ export const DIALOG_CONTENT =
 
 /** A touch phone's dialog: docked to the bottom edge as a sheet, at any phone width (landscape included). */
 export const DIALOG_SHEET =
-    "inset-x-0 bottom-0 max-h-[calc(100dvh-max(1rem,env(safe-area-inset-top)))] w-full rounded-b-none rounded-t-[28px] pt-9 pb-[max(1.5rem,env(safe-area-inset-bottom))] data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom sm:left-0 sm:top-auto sm:bottom-0 sm:max-w-none sm:translate-x-0 sm:translate-y-0";
+    "inset-x-0 bottom-0 max-h-[calc(100dvh-max(1rem,env(safe-area-inset-top)))] w-full rounded-b-none rounded-t-[28px] pt-9 pb-[max(1.5rem,env(safe-area-inset-bottom))] data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom duration-[280ms] data-[state=closed]:duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] sm:left-0 sm:top-auto sm:bottom-0 sm:max-w-none sm:translate-x-0 sm:translate-y-0";
 
 export const DIALOG_HEADER = "flex flex-col gap-1.5 text-center sm:text-left";
 export const DIALOG_FOOTER = "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end";

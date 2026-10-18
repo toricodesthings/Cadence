@@ -78,7 +78,8 @@ export function HelpPage() {
     return (
         <ScrollAreaWrapper>
             <PageContent width="wide" verticalPadding="none" className={`safe-bottom ${isPhone ? "py-6" : "py-10"}`}>
-                <header className="mb-10">
+                {/* On phone the shell header already names the page; the heading stays for focus and screen readers. */}
+                <header className={isPhone ? "sr-only" : "mb-10"}>
                     <div className="mb-4 flex items-center gap-2 text-accent-primary">
                         <LifeBuoy size={17} aria-hidden="true" />
                         <span className="text-xs font-medium">A little guidance</span>

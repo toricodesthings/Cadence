@@ -6,6 +6,28 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Tasks show how long they usually take you, based on your own answers.
+- A Takes row in task details sets how long something will take.
+
+### Changed
+
+- New calendar blocks fit how long the task usually takes, and short tasks keep their real length.
+- Place shows about how many hours a day already holds.
+- Sheets and menus open and close faster and more smoothly on phones.
+- On phones, pages opened from Browse slide in, and Help & Feedback uses the phone layout.
+
+### Removed
+
+- How long something took is learned from your answer on the finished task, no longer from chat.
+
+### Fixed
+
+- How long did it take? only says Saved once it is saved, and takes answers up to 24 hours or a range.
+- Answers about how long things took are no longer erased after three months.
+- Basic memory no longer uses what Full learned from your activity.
+
 ## [0.35.0] - 2026-10-17
 
 ### Changed

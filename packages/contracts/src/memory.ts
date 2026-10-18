@@ -70,26 +70,67 @@ export const setMemoryModeSchema = z.object({
 });
 export type SetMemoryMode = z.infer<typeof setMemoryModeSchema>;
 
-/** `POST /ai/memory/duration`: how long a task took, as the person says. A second answer for the same completion replaces the first. */
+/** How long something took, as the person said it: one number, or a range ("30-60"). */
+export const durationValueSchema = z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("point"), minutes: z.number().int().min(1).max(1440) }),
+    z.object({ kind: z.literal("range"), lowMinutes: z.number().int().min(1).max(1440), highMinutes: z.number().int().min(1).max(1440) })
+        .refine((v) => v.lowMinutes < v.highMinutes, "low must be below high"),
+]);
+export type DurationValue = z.infer<typeof durationValueSchema>;
+
+/**
+ * `POST /ai/memory/duration`. `completedAt` names the completion; only pre-0.36.0 desktop builds omit it (they bind to
+ * the task's current one) and send `minutes` instead of `value`. A second answer for the same completion replaces the first.
+ */
 export const durationReportSchema = z.object({
     taskId: z.uuid(),
-    minutes: z.number().int().min(1).max(24 * 60),
+    completedAt: instantSchema.optional(),
+    value: durationValueSchema.optional(),
+    minutes: z.number().int().min(1).max(1440).optional(),
+    /** The answer came from the relative stage ("About right", Shorter, Longer). */
+    anchored: z.boolean().default(false),
+    /** The question's token, when answering the question (resets the back-off). */
+    token: z.string().max(100).optional(),
+}).refine((r) => (r.value ? 1 : 0) + (r.minutes ? 1 : 0) === 1, "value or minutes");
+export type DurationReport = z.input<typeof durationReportSchema>;
+
+/** What the server stored: the Took row and the toast render this, never their own draft. */
+export const durationReportViewSchema = z.object({
+    taskId: z.uuid(),
+    completedAt: instantSchema,
+    lowMinutes: z.number().int(),
+    highMinutes: z.number().int(),
+    anchored: z.boolean(),
 });
-export type DurationReport = z.infer<typeof durationReportSchema>;
+export type DurationReportView = z.infer<typeof durationReportViewSchema>;
 
 /** `POST /ai/memory/duration/ask`: should the toast be shown for this just-completed task? */
 export const durationAskSchema = z.object({ taskId: z.uuid() });
 export const durationAskResultSchema = z.union([
     z.object({ ask: z.literal(false) }),
-    z.object({ ask: z.literal(true), token: z.string(), reference: z.number().int().positive().nullable() }),
+    z.object({ ask: z.literal(true), token: z.string(), completedAt: instantSchema, reference: z.number().int().positive().nullable() }),
 ]);
 export type DurationAskResult = z.infer<typeof durationAskResultSchema>;
 
-/** `POST /ai/memory/duration/shown`: the toast rendered, so today's question is spent. */
+/** `POST /ai/memory/duration/shown`: the toast rendered. One miss per token. */
 export const durationShownSchema = z.object({ token: z.string().min(1).max(100) });
 
-/** `DELETE /ai/memory/duration` and `GET /ai/memory/duration?taskId=`: the report behind a task's "Took 45 min" row. */
-export const durationTaskSchema = z.object({ taskId: z.uuid() });
+/** `GET|DELETE /ai/memory/duration`: one completion's report. Without `completedAt` it is the task's current completion. */
+export const durationTaskSchema = z.object({ taskId: z.uuid(), completedAt: instantSchema.optional() });
+
+/** `GET /ai/memory/duration-evidence`: the person's reports as estimator input (Full only, else []). Newest first, at most 1,000. */
+export const durationEvidenceRowSchema = z.object({
+    taskId: z.uuid(),
+    title: z.string(),
+    projectId: z.uuid().nullable(),
+    /** The task repeats: the same task id is the same thing. */
+    series: z.boolean(),
+    lowMinutes: z.number().int(),
+    highMinutes: z.number().int(),
+    anchored: z.boolean(),
+    saidOn: localDateSchema,
+});
+export type DurationEvidenceRow = z.infer<typeof durationEvidenceRowSchema>;
 
 /** `DELETE /ai/memory` query: also switch memory off. */
 export const clearMemoryQuerySchema = z.object({

@@ -75,10 +75,13 @@ export interface EntityParseResult {
   consumedRanges: Array<{ start: number; end: number }>;
 }
 
+/** The longest length a task title may carry ("1h call"); a "how long did it take?" answer passes 1,440. */
+const TITLE_MAX_MINUTES = 480;
+
 /**
  * Parse duration estimates from natural language.
  */
-export function parseDuration(input: string): EntityParseResult {
+export function parseDuration(input: string, { maxMinutes = TITLE_MAX_MINUTES }: { maxMinutes?: number } = {}): EntityParseResult {
   const entities: ParsedEntity[] = [];
   const consumedRanges: Array<{ start: number; end: number }> = [];
 
@@ -89,8 +92,7 @@ export function parseDuration(input: string): EntityParseResult {
     if (/\b(?:in|within|after)\s+$/i.test(input.slice(0, match.index ?? 0))) continue;
 
     const value = resolve(match);
-    // Only accept reasonable durations (1 min – 8 hours)
-    if (value.minutes < 1 || value.minutes > 480) continue;
+    if (value.minutes < 1 || value.minutes > maxMinutes) continue;
 
     const sourceText = match[0];
     const start = match.index ?? 0;

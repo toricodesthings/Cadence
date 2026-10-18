@@ -1,11 +1,12 @@
 import type { Task } from "@cadence/contracts/task";
 import { atLocal, wallTimeOf, type LocalDate, type Instant } from "@cadence/domain/time";
+import { taskMinutes } from "@cadence/domain/task-length";
+import type { DurationGuess } from "@cadence/nlp/duration";
 import { rescheduleToDay, type TaskTemporal } from "@cadence/domain/task-temporal";
 import { isRecurringTask, isRecurringTaskInstance } from "../task/task-scheduling";
 import { getUserZone } from "../user-zone";
 import { formatTime } from "../date-format";
 import { minutesFromMidnight } from "./calendar-utils";
-import { getTaskDurationMs } from "./calendar-math";
 import { temporalOf } from "./schedule-model";
 import { getDateFromTimedDropId, parseCalendarTimedDropId, type CalendarDropPreview } from "./calendar-dnd";
 
@@ -18,12 +19,15 @@ interface ScheduleDrop {
     preview: CalendarDropPreview;
 }
 
-/** One interpretation of the target for both the drag preview and the eventual write. */
-export function resolveScheduleDrop(task: Task, dropId: string): ScheduleDrop | null {
+/**
+ * One interpretation of the target for both the drag preview and the eventual write. `guess` sizes a block made
+ * now from an untimed task; an existing block is never resized by it.
+ */
+export function resolveScheduleDrop(task: Task, dropId: string, guess?: DurationGuess | null): ScheduleDrop | null {
     if (!canDragScheduleTask(task)) return null;
     const previous = temporalOf(task);
     const zone = getUserZone();
-    const durationMs = getTaskDurationMs(task);
+    const durationMs = taskMinutes(task, guess) * 60_000;
     const timedPreview = (dateStr: LocalDate, startMinutes: number, start: Instant): CalendarDropPreview => ({
         kind: "timed", dateStr, startMinutes,
         endMinutes: Math.min(24 * 60, startMinutes + Math.round(durationMs / 60_000)),

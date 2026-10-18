@@ -2,11 +2,12 @@
  * Full: what the person did themselves, and the patterns and durations that follow from it.
  *
  * Signals are written only for changes made in the app by the person (the route says so: the assistant,
- * MCP and imports never count), and only while the mode is Full. Patterns and durations are computed
- * from them deterministically in the nightly pass, with no model call. Pure functions here, so the
- * rules are testable without a database.
+ * MCP and imports never count), and only while the mode is Full. Patterns are computed from them, and
+ * durations from the person's answers (`duration_reports`), deterministically in the nightly pass, with no
+ * model call. Pure functions here, so the rules are testable without a database.
  */
 import { addDays, dayOf, formatInZone, type LocalDate, type Zone } from "@cadence/domain/time";
+import { estimateDuration, type DurationEvidence } from "@cadence/nlp/duration";
 import { STOP } from "@cadence/nlp/effort";
 
 /** The window patterns are read over, and how long signals are kept. */
@@ -16,8 +17,6 @@ export const SIGNAL_RETENTION_DAYS = 90;
 const MIN_EVENTS = 5;
 const MIN_DAYS = 3;
 const MIN_SHARE = 0.7;
-/** A typical duration needs this many reports. */
-const MIN_REPORTS = 3;
 
 export type TimeOfDay = "early" | "morning" | "afternoon" | "evening" | "late";
 
@@ -44,13 +43,10 @@ export function slotBucket(slot: { scheduledStart: string | null; dueDate: strin
 export const completionBucket = (instant: string, zone: Zone): string => timeOfDay(hourIn(instant, zone));
 
 export interface SignalRow {
-    kind: "reschedule" | "complete" | "routine" | "duration";
+    kind: "reschedule" | "complete" | "routine";
     on: LocalDate;
     bucket: string;
     subject: string | null;
-    minutes: number | null;
-    /** A repeating task's current title: its group is `series:<id>`, which isn't a name. */
-    title?: string | null;
 }
 
 export interface DerivedFact {
@@ -74,7 +70,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** Patterns over the last 28 days. A pattern needs real repetition; below the rule nothing is claimed. */
 export function derivePatterns(rows: SignalRow[], today: LocalDate): DerivedFact[] {
     const from = addDays(today, -(PATTERN_WINDOW_DAYS - 1));
-    const inWindow = rows.filter((r) => r.kind !== "duration" && r.on >= from && r.on <= today);
+    const inWindow = rows.filter((r) => r.on >= from && r.on <= today);
     const groups = new Map<string, SignalRow[]>();
     for (const row of inWindow) {
         // A routine's pattern is per routine; the others are one pattern each over all the person's changes.
@@ -110,26 +106,25 @@ export function derivePatterns(rows: SignalRow[], today: LocalDate): DerivedFact
     return out;
 }
 
-/** The median of 3 or more reports per group: "usually about 50 minutes (6 times)". */
-export function deriveDurations(rows: SignalRow[]): DerivedFact[] {
-    const byGroup = new Map<string, number[]>();
-    const names = new Map<string, string>();
-    for (const row of rows) {
-        if (row.kind !== "duration" || !row.subject || !row.minutes) continue;
-        byGroup.set(row.subject, [...(byGroup.get(row.subject) ?? []), row.minutes]);
-        if (row.title && row.subject.startsWith("series:")) names.set(row.subject, row.title);
-    }
+/** One answer to "how long did it take?" with the group it belongs to (`duration_reports`). */
+export interface ReportRow extends DurationEvidence {
+    group: string;
+}
+
+/** "Lab report usually takes about 45 minutes (based on 6 of your answers)": one fact per group the estimator is sure of. */
+export function deriveDurations(rows: readonly ReportRow[], today: LocalDate): DerivedFact[] {
+    const byGroup = new Map<string, ReportRow[]>();
+    for (const row of rows) byGroup.set(row.group, [...(byGroup.get(row.group) ?? []), row]);
     const out: DerivedFact[] = [];
-    for (const [group, minutes] of byGroup) {
-        if (minutes.length < MIN_REPORTS) continue;
-        const sorted = [...minutes].sort((a, b) => a - b);
-        const mid = sorted.length >> 1;
-        const median = sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+    for (const [group, answers] of byGroup) {
+        const newest = [...answers].sort((a, b) => b.day.localeCompare(a.day))[0];
+        const guess = estimateDuration({ taskId: newest.series ? newest.taskId : null, title: newest.title, projectId: null }, answers, today);
+        if (guess?.state !== "supported") continue;
         out.push({
             kind: "duration",
             key: `duration|${group}`,
-            content: `${cap(names.get(group) ?? group)} usually takes about ${median} minutes (${minutes.length} times)`,
-            value: { group, medianMinutes: median, n: minutes.length },
+            content: `${cap(newest.series ? newest.title : group)} usually takes about ${guess.minutes} minutes (based on ${guess.reports} of your answers)`,
+            value: { group, medianMinutes: guess.minutes, n: guess.reports },
         });
     }
     return out;

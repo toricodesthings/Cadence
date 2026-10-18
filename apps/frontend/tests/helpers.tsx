@@ -33,7 +33,7 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
         state: "ACTIVE", orderIndex: 1, dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null, notBefore: null,
         durationEstimate: null, timezoneLocked: false, priority: 0, isPinned: false, reminderAt: null,
         reminderSilenced: false, recurrenceRule: null, interactionMode: "task", effort: null, tagIds: [],
-        seriesId: undefined, isRecurringInstance: false, occurrenceStart: null, occurrenceEnd: null,
+        completedAt: null, seriesId: undefined, isRecurringInstance: false, occurrenceStart: null, occurrenceEnd: null,
         createdAt: "2026-03-09T00:00:00.000Z", updatedAt: "2026-03-09T00:00:00.000Z",
         ...overrides,
     };

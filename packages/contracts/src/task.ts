@@ -167,6 +167,8 @@ export const taskRowSchema = z.object({
     notBefore: localDateSchema.nullable(),
     linkedAppId: z.string().nullable(),
     linkedUrl: z.string().nullable(),
+    /** The moment the task entered Done (null while it isn't): with the id, one completion. */
+    completedAt: instantSchema.nullable(),
     createdAt: instantSchema,
     updatedAt: instantSchema,
 });

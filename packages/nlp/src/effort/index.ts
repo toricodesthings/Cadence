@@ -33,21 +33,23 @@ export const SINGLE_SHARE = 0.7;
 export const RANGE_SHARE = 0.85;
 export const RANGE_FLOOR = 0.25;
 
-const HALF_LIFE_DAYS = 120;
+/** Shared with the duration estimate: an answer's weight halves every this many days. */
+export const HALF_LIFE_DAYS = 120;
 export const STOP = new Set(["a", "an", "the", "to", "for", "of", "and", "or", "with", "on", "at", "in", "my", "do", "up"]);
 
-/** The words that carry a task's meaning: lower case, no punctuation, no filler, no numbering (Lab 3 is Lab 4). */
+/** The words that carry a task's meaning: lower case, no punctuation, no filler, no 1-2 digit numbering (Lab 3 is Lab 4; STAT 3503 is not STAT 2509). */
 export function meaningOf(title: string): Set<string> {
   const words = title
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
     .split(/[^a-z0-9]+/)
-    .filter((w) => w && !STOP.has(w) && !/^\d+$/.test(w));
+    .filter((w) => w && !STOP.has(w) && !/^\d{1,2}$/.test(w));
   return new Set(words);
 }
 
-function similarity(a: Set<string>, b: Set<string>): number {
+/** Jaccard overlap of two titles' meaningful words. */
+export function similarity(a: Set<string>, b: Set<string>): number {
   if (a.size === 0 || b.size === 0) return 0;
   let both = 0;
   for (const w of a) if (b.has(w)) both++;
@@ -71,6 +73,9 @@ export function suggestEffort(
     .filter(({ e, sim, age }) => sim >= MIN_SIMILARITY && age >= 0 && age <= EVIDENCE_WINDOW_DAYS && !(projectId && e.projectId && e.projectId !== projectId))
     .sort((x, y) => y.sim - x.sim || x.age - y.age)
     .slice(0, MAX_EVIDENCE);
+
+  // An accepted suggestion is evidence about the suggestion, not the task: at least one choice must be the person's own.
+  if (!matches.some(({ e }) => e.origin === "manual")) return null;
 
   const weight: Record<EffortLevel, number> = { 1: 0, 2: 0, 3: 0 };
   for (const { e, age } of matches) weight[e.level] += (e.origin === "manual" ? 1 : 0.5) * 0.5 ** (age / HALF_LIFE_DAYS);

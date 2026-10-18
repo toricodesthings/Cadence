@@ -52,6 +52,8 @@ export function useSheetGesture({ element, enabled, onDismiss }: { element: HTML
 
     useEffect(() => {
         if (!enabled || !element) return;
+        // A sheet that opens starts at rest, not where the last throw left it.
+        y.jump(0);
         let start: { x: number; y: number } | null = null;
         let blocked = false;
         let scroller: Element | null = null;

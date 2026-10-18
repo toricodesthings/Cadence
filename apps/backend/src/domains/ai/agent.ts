@@ -162,7 +162,7 @@ async function loadMemoryContext(
         const canRecall = !!queryText && queryText.length >= MIN_RECALL_CHARS;
         const embed = () => measurePhase(diagnostics, "embedding", () => embedText(env, queryText!, { requestId, userHash })).catch(() => null);
         // The coherent profile is checked first, so a fully covered memory makes no embedding request.
-        const coverage = await measurePhase(diagnostics, "profile", () => withRls(db, userId, (tx) => loadProfileCoverage(tx, userId, today)));
+        const coverage = await measurePhase(diagnostics, "profile", () => withRls(db, userId, (tx) => loadProfileCoverage(tx, userId, today, persona.memoryMode)));
         profile = coverage.lines;
         diagnostics?.memoryCoverage({ hasRecallCandidates: coverage.hasRecallCandidates, profileFacts: profile.length });
         if (!canRecall || !coverage.hasRecallCandidates) return profile;
@@ -176,6 +176,7 @@ async function loadMemoryContext(
                 model: embedded?.spend.model ?? getEmbeddingModelId(env),
                 today,
                 exclude: new Set(profile.map((p) => p.id)),
+                mode: persona.memoryMode,
             }),
         ));
         return [...profile, ...recalled];

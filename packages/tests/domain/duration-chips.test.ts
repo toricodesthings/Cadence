@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ABSOLUTE_CHIPS, formatMinutes, parseAnswer, relativeChips } from "@cadence/domain/duration-chips";
+import { ABSOLUTE_CHIPS, formatMinutes, formatValue, parseAnswer, relativeChips } from "@cadence/domain/duration-chips";
 
 describe("duration chips", () => {
     it("formats lengths", () => {
@@ -20,13 +20,36 @@ describe("duration chips", () => {
         expect(relativeChips(5, "shorter")).toEqual([]);
     });
 
-    it("reads the Other field", () => {
-        expect(parseAnswer("90")).toBe(90);
-        expect(parseAnswer("1h20")).toBe(80);
-        expect(parseAnswer("45 min")).toBe(45);
-        expect(parseAnswer("an hour and a half")).toBe(90);
-        expect(parseAnswer("soon")).toBeNull();
-        expect(parseAnswer("0")).toBeNull();
-        expect(parseAnswer("99999")).toBeNull();
+    it("reads the Other field: lengths up to 24 hours", () => {
+        const point = (minutes: number) => ({ kind: "point", minutes });
+        expect(parseAnswer("90")).toEqual(point(90));
+        expect(parseAnswer("1")).toEqual(point(1));
+        expect(parseAnswer("1h20")).toEqual(point(80));
+        expect(parseAnswer("1 hour 30 minutes")).toEqual(point(90));
+        expect(parseAnswer("1h 30")).toEqual(point(90));
+        expect(parseAnswer("2 hrs and 15 min")).toEqual(point(135));
+        expect(parseAnswer("45 min")).toEqual(point(45));
+        expect(parseAnswer("an hour and a half")).toEqual(point(90));
+        expect(parseAnswer("9h")).toEqual(point(540));
+        expect(parseAnswer("12 hours")).toEqual(point(720));
+        expect(parseAnswer("24h")).toEqual(point(1440));
+    });
+
+    it("reads finite ranges, the unit at the end going to a bare first number", () => {
+        const range = (lowMinutes: number, highMinutes: number) => ({ kind: "range", lowMinutes, highMinutes });
+        expect(parseAnswer("30-60")).toEqual(range(30, 60));
+        expect(parseAnswer("30–60 min")).toEqual(range(30, 60));
+        expect(parseAnswer("1-2h")).toEqual(range(60, 120));
+        expect(parseAnswer("30 to 60")).toEqual(range(30, 60));
+    });
+
+    it("rejects what is not a length", () => {
+        for (const text of ["soon", "0", "99999", "1441", "25h", "60-30", "30-30", "at least an hour", ""]) expect(parseAnswer(text), text).toBeNull();
+    });
+
+    it("writes a value", () => {
+        expect(formatValue({ kind: "point", minutes: 45 })).toBe("45 min");
+        expect(formatValue({ lowMinutes: 30, highMinutes: 60 })).toBe("30–60 min");
+        expect(formatValue({ lowMinutes: 45, highMinutes: 45 })).toBe("45 min");
     });
 });

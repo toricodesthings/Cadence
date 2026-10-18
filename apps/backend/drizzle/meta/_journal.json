@@ -162,6 +162,13 @@
       "when": 1792038182914,
       "tag": "0022_duration_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792263853881,
+      "tag": "0023_duration_reports_table",
+      "breakpoints": true
     }
   ]
 }

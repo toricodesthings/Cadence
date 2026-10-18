@@ -12,7 +12,7 @@ by every client (`apps/backend`, `apps/frontend`, and downstream
 ```
 packages/
   search/     Conservative token search / ranking.     deps: minisearch, stemmer
-  nlp/        NLP parse / resolve / title / effort / rank / focus-views.   deps: chrono-node, fuse.js
+  nlp/        NLP parse / resolve / title / effort / duration / rank / focus-views.   deps: chrono-node, fuse.js
   contracts/  Zod schemas → inferred types (wire shapes). deps: zod, @cadence/nlp
   domain/     Pure domain logic (no I/O, no framework).   deps: rrule, @cadence/contracts, @cadence/nlp
   tests/      @cadence/package-tests: every package test, mirroring each package's src/
@@ -114,7 +114,7 @@ interface** — the parity guard only covers the Row subset.
   `streamErrorSchema` + `AI_ERROR_CODES` (status + retryability; each client
   keeps its own wording), chat image limits + `cadence-image:` URL helpers, message role/status enums, and the
   `TaskProposalPart`/`DangerConfirmPart` widget payloads); **ai-tools** is `TOOL_CATALOG`, every assistant tool name with its kind (read/write/capture/ask) and `destructive` flag, read by the backend tools, MCP and the chat UI (`isMemoryTool` names the three that exist only while memory is on); **memory** holds the wire shapes of
-  assistant memory (mode, fact, page, receipt, duration report; `MEMORY_CONSENT_VERSION`). Everything that
+  assistant memory (mode, fact, page, receipt, duration value/report/view/evidence; `MEMORY_CONSENT_VERSION`). Everything that
   composes prompts, runs tools, retrieves memory, or persists rows stays in
   `apps/backend/src/domains/ai` (server-only).
 
@@ -202,6 +202,7 @@ Never import `AppError` here.
   (a routine day's status from its step marks, and back), and
   `suggestInteractionMode` (the server default that makes class-like timed series Fixed).
 - `nlp-draft.ts` — `resolveDraft`: the one place a parse becomes a draft. Precedence is a hand-set field (a present key wins, even none) → applied language → surface default; fuzzy names and under-threshold meaning are suggestions until chosen; dismissals follow the phrase id; `capabilities` say what a surface (task, calendar block, routine, yearly event) can store, the rest stays in the title; the title loses only applied/replaced phrases. `task-instruction.ts` turns a typed instruction for existing work into a bounded patch (and `undoPatch`), including a named section (`findSectionMention`/`resolveSection`: a cue word, unambiguous within the named or current list, and a day-like name only with "section"); a relative reminder ("30 minutes before") applies only once the draft has a timed start; `effort-evidence.ts` decides what may inform an Effort suggestion and when it may show.
+- `duration-ask.ts` / `duration-chips.ts` / `task-length.ts` — "how long did it take?": the ask ladder (daily; every 3 days after 3 misses, weekly after 6, monthly after 10), `relativeReference` (the person's own plan only), the offered chips and `parseAnswer` (a point or finite range up to 24 h via `parseDuration(text, { maxMinutes })`; the title parser keeps 480), and `taskMinutes`: the one length of a task for every surface (block → `durationEstimate` → supported guess, for a block made now → 60, no floor). `@cadence/nlp/duration` is the estimator (`estimateDuration`: weighted median and range over the person's answers on the same kind of task, sharing `meaningOf`/`HALF_LIFE_DAYS` with `@cadence/nlp/effort`; `supported` sizes, `tentative` only shows).
 - `ai-title.ts` — conversation-title helpers (`deriveFallbackTitle`,
   `normalizeTitle`) for the frontend's optimistic title and the backend fallback.
 

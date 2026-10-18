@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { completionBucket, deriveDurations, derivePatterns, durationGroup, groupOfTask, slotBucket, timeOfDay, type SignalRow } from "../../src/domains/ai/memory/signals";
+import { completionBucket, deriveDurations, derivePatterns, durationGroup, groupOfTask, slotBucket, timeOfDay, type ReportRow, type SignalRow } from "../../src/domains/ai/memory/signals";
 
-const row = (kind: SignalRow["kind"], on: string, bucket: string, subject: string | null = null, minutes: number | null = null): SignalRow => ({ kind, on, bucket, subject, minutes });
+const row = (kind: SignalRow["kind"], on: string, bucket: string, subject: string | null = null): SignalRow => ({ kind, on, bucket, subject });
+let n = 0;
+const answer = (group: string, minutes: number, day: string, extra: Partial<ReportRow> = {}): ReportRow => ({
+    group, taskId: `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`, title: "Lab report", projectId: null, series: false, low: minutes, high: minutes, anchored: false, day, ...extra,
+});
 const TODAY = "2026-10-12";
 
 describe("slots and times of day", () => {
@@ -57,13 +61,13 @@ describe("derivePatterns", () => {
 });
 
 describe("deriveDurations", () => {
-    it("takes the median of 3+ reports per group and says how many", () => {
+    it("states a group's duration only when the estimator is sure, and says how many answers", () => {
         const rows = [
-            ...[40, 50, 90, 50, 45, 60].map((m) => row("duration", TODAY, "report", "lab report", m)),
-            ...[20, 30].map((m) => row("duration", TODAY, "report", "email", m)),
+            ...[[40, "2026-10-01"], [50, "2026-10-03"], [60, "2026-10-05"], [50, "2026-10-07"], [45, "2026-10-09"], [55, "2026-10-10"]].map(([m, d]) => answer("lab report", m as number, d as string)),
+            ...[[20, "2026-10-09"], [30, "2026-10-10"]].map(([m, d]) => answer("email", m as number, d as string, { title: "Email" })),
         ];
-        expect(deriveDurations(rows)).toEqual([
-            { kind: "duration", key: "duration|lab report", content: "Lab report usually takes about 50 minutes (6 times)", value: { group: "lab report", medianMinutes: 50, n: 6 } },
+        expect(deriveDurations(rows, TODAY)).toEqual([
+            { kind: "duration", key: "duration|lab report", content: "Lab report usually takes about 50 minutes (based on 6 of your answers)", value: { group: "lab report", medianMinutes: 50, n: 6 } },
         ]);
     });
 
@@ -89,7 +93,7 @@ describe("deriveDurations", () => {
     });
 
     it("names a series' duration fact by its title", () => {
-        const rows = [10, 12, 14].map((m) => ({ ...row("duration", "2026-10-01", "report", "series:abc", m), title: "Pay rent" }));
-        expect(deriveDurations(rows)[0]).toEqual(expect.objectContaining({ key: "duration|series:abc", content: "Pay rent usually takes about 12 minutes (3 times)" }));
+        const rows = [[10, "2026-09-01"], [12, "2026-10-01"], [14, "2026-10-08"]].map(([m, d]) => answer("series:abc", m as number, d as string, { title: "Pay rent", series: true, taskId: "11111111-1111-4111-8111-111111111111" }));
+        expect(deriveDurations(rows, TODAY)[0]).toEqual(expect.objectContaining({ key: "duration|series:abc", content: "Pay rent usually takes about 10 minutes (based on 3 of your answers)" }));
     });
 });

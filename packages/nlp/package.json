@@ -13,6 +13,7 @@
     "./focus-views": "./src/focus-views/index.ts",
     "./focus-views/apply": "./src/focus-views/apply.ts",
     "./effort": "./src/effort/index.ts",
+    "./duration": "./src/duration/index.ts",
     "./app-suggestions": "./src/app-suggestions/index.ts"
   },
   "scripts": {

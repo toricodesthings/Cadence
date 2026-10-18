@@ -14,7 +14,7 @@ import { textOf } from "./message-text";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { and, asc, eq, gt, sql } from "drizzle-orm";
 import { todayIn } from "@cadence/domain/time";
-import { aiConversations, aiMemorySignals, aiMessages } from "../../../db/schema";
+import { aiConversations, aiMessages } from "../../../db/schema";
 import { getDbClient } from "../../../platform/db";
 import { withRls } from "../../../platform/rls";
 import { userZone } from "../../../platform/user-zone";
@@ -27,7 +27,6 @@ import { acceptCandidates, extractReplySchema } from "./candidates";
 import { consolidate } from "./consolidate";
 import { embedTexts, getEmbeddingModelId } from "./embedding";
 import { fenceMemoryState, isLearning, readMemoryState, type MemoryState } from "./memory-mode";
-import { durationGroup } from "./signals";
 import { insertFact, MEMORY_CAP, countActive, nearestFacts, reinforceFact, updateFact, type NearFact } from "./memory-store";
 import extractPrompt from "../../../prompts/memory/extract.md";
 
@@ -59,8 +58,6 @@ export interface LearnResult {
     saved: number;
     reinforced: number;
     updated: number;
-    /** Duration reports kept as signals (Full). */
-    reports: number;
     skipped: boolean;
     /** The reading broke (model, embedding or database); the cursor stays for a retry. */
     failed?: boolean;
@@ -71,7 +68,7 @@ export interface LearnResult {
 /** Spends one of the day's extractions; asked only once there is something new to read. */
 export type Admit = () => Promise<boolean>;
 
-const NONE: LearnResult = { saved: 0, reinforced: 0, updated: 0, reports: 0, skipped: true };
+const NONE: LearnResult = { saved: 0, reinforced: 0, updated: 0, skipped: true };
 
 /** What was read, and where it came from. A chat's messages, a note's changed lines, or an old batch. */
 export interface Reading {
@@ -104,10 +101,9 @@ export async function learnFromReading(
         if (ctx.admit && !(await ctx.admit())) return { ...NONE, capped: true };
         const labelled = buildReading(reading.messages);
         const reply = await extract(env, userHash, today, labelled.text);
-        // Durations are an activity signal: only Full keeps them.
-        const candidates = acceptCandidates(reply, labelled.labels).filter((c) => c.minutes === undefined || state.mode === "full");
-        const reports = candidates.filter((c) => c.minutes !== undefined);
-        const facts = candidates.filter((c) => c.minutes === undefined);
+        // How long things took comes only from the person's answers on a completion (`duration_reports`), not from chat.
+        const candidates = acceptCandidates(reply, labelled.labels);
+        const facts = candidates;
 
         // 2 · Consolidate each fact: embed, find the closest known facts, ask which one it repeats.
         const model = getEmbeddingModelId(env);
@@ -125,7 +121,7 @@ export async function learnFromReading(
         const matches = await consolidate(env, userHash, facts.map((c, i) => ({ content: c.content, near: near[i] })));
 
         // 3 · Write, move the cursor, fenced by the epoch.
-        const result: LearnResult = { saved: 0, reinforced: 0, updated: 0, reports: 0, skipped: false };
+        const result: LearnResult = { saved: 0, reinforced: 0, updated: 0, skipped: false };
         await withRls(db, userId, async (tx) => {
             const current = await fenceMemoryState(tx, userId);
             if (current.epoch !== state.epoch || !isLearning(current.mode)) return; // the person changed the mode meanwhile
@@ -160,12 +156,6 @@ export async function learnFromReading(
                         active++;
                     }
                 }
-            }
-            if (reports.length > 0) {
-                await tx.insert(aiMemorySignals).values(
-                    reports.map((r) => ({ userId, kind: "duration" as const, on: today, bucket: "report", subject: durationGroup(r.content), minutes: r.minutes! })),
-                );
-                result.reports = reports.length;
             }
         });
         logger.info("ai", "ai_memory_learned", { userHash, source: reading.source, candidates: candidates.length, ...result });

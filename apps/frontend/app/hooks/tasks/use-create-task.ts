@@ -43,6 +43,7 @@ export function buildOptimisticTask(id: string, input: CreateTaskInput): Task {
         waitingOn: input.waitingOn ?? null,
         waitingReminder: input.waitingReminder ?? null,
         notBefore: input.notBefore ?? null,
+        completedAt: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
     };

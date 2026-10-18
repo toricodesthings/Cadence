@@ -22,6 +22,7 @@ import { TagField } from "./TagField";
 import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags/use-task-tags";
 import { SubtaskList } from "./SubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
+import { TakesRow, hasTakesRow } from "./TakesRow";
 import { TookRow } from "./TookRow";
 import { TimetableBlockEditor } from "./TimetableBlockEditor";
 import { RepeatKindPicker } from "../shared/RepeatKindPicker";
@@ -395,7 +396,7 @@ function TaskDetailsFields({ task, onDone, onClose }: { task: Task; onDone: () =
                 </div>
             </FieldBlock>
 
-            {task.state === "COMPLETE" ? <TookRow taskId={task.id} enabled={settings?.assistant?.memoryMode === "full"} /> : null}
+            {task.state === "COMPLETE" ? <TookRow taskId={task.id} completedAt={task.completedAt} enabled={settings?.assistant?.memoryMode === "full"} /> : null}
 
             <AnimatePresence>
                 {task.state === "WAITING" && (
@@ -481,6 +482,8 @@ function TaskDetailsFields({ task, onDone, onClose }: { task: Task; onDone: () =
                     </DeadlinePickerPopover>
                 </FieldRow>
             )}
+
+            {hasTakesRow(task) && !isPassiveTimetable ? <TakesRow task={task} /> : null}
 
             {isTimetableBlock ? (
                 <FieldBlock icon={Clock} label="Time block">

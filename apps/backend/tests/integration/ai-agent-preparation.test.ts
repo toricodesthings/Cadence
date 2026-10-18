@@ -49,7 +49,7 @@ describe("exact preparation", () => {
         const current = await prepare();
         expect(current.turnContext).toContain("Keep Friday evenings free");
         const history = [{ role: "user", metadata: { turnContext: current.turnContext } }];
-        const replay = await validateStoredContexts(history, true, (ids) => withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13")));
+        const replay = await validateStoredContexts(history, "full", (ids) => withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13", "full")));
         expect(replay).toEqual(history);
     });
 
@@ -70,7 +70,7 @@ describe("exact preparation", () => {
     it("keeps lexical recall when the embedding fails and candidates exist", async () => {
         await fact("pattern", "Afternoon gardening works best");
         vi.mocked(embedText).mockRejectedValue(new Error("unavailable"));
-        const result = await prepare("Help me with afternoon gardening");
+        const result = await prepare("Help me with afternoon gardening", { ...settings, assistant: { memoryMode: "full" } });
         expect(embedText).toHaveBeenCalledOnce();
         expect(result.turnContext).toContain("Afternoon gardening works best");
         expect(result.diagnostics.memoryCoverage?.hasRecallCandidates).toBe(true);
@@ -78,6 +78,12 @@ describe("exact preparation", () => {
         const profile = result.diagnostics.phases.find((p) => p.name === "profile")!;
         const embedding = result.diagnostics.phases.find((p) => p.name === "embedding")!;
         expect(embedding.startMs).toBeGreaterThanOrEqual(profile.endMs!);
+    });
+
+    it("keeps what Full learned out of Basic's recall (D16)", async () => {
+        await fact("pattern", "Afternoon gardening works best");
+        const result = await prepare("Help me with afternoon gardening");
+        expect(result.turnContext).not.toContain("Afternoon gardening works best");
     });
 
     it("still recalls facts excluded by the profile budget", async () => {
@@ -123,8 +129,8 @@ describe("exact preparation", () => {
         await fact("constraint", "Keep Friday evenings free");
         const first = await prepare();
         const history = [{ id: "u1", role: "user", metadata: { turnContext: first.turnContext } }];
-        const valid = await validateStoredContexts(history, true,
-            (ids) => withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13")));
+        const valid = await validateStoredContexts(history, "full",
+            (ids) => withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13", "full")));
         expect(valid[0]).toBe(history[0]);
         const diagnostics = createRunDiagnostics(() => performance.now());
         const next = await getAgentInstance(env, userId, { timezone: "Europe/Paris", currentDate: now,
@@ -142,8 +148,8 @@ describe("exact preparation", () => {
         await fact("constraint", "Keep Friday evenings free");
         const first = await prepare();
         const history = [{ id: "u1", role: "user", metadata: { turnContext: first.turnContext, other: "kept" } }];
-        const validate = () => validateStoredContexts(history, true,
-            (ids) => withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13")));
+        const validate = () => validateStoredContexts(history, "full",
+            (ids) => withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13", "full")));
         await fact("life", "An unrelated new fact");
         expect((await validate())[0]).toBe(history[0]);
         const saved = await asOwner((pg) => pg.query<{ id: string }>("SELECT id FROM ai_memories WHERE user_id = $1 AND kind = 'constraint'", [userId]));
@@ -156,8 +162,8 @@ describe("exact preparation", () => {
         await withRls(getTestDb(), userId, (tx) => forgetFact(tx, userId, id));
         expect((await validate())[0].metadata).toEqual({ other: "kept" });
         const other = await createUser();
-        const foreign = await validateStoredContexts(history, true,
-            (ids) => withRls(getTestDb(), other, (tx) => loadContextFacts(tx, other, ids, "2026-10-13")));
+        const foreign = await validateStoredContexts(history, "full",
+            (ids) => withRls(getTestDb(), other, (tx) => loadContextFacts(tx, other, ids, "2026-10-13", "full")));
         expect(foreign[0].metadata).toEqual({ other: "kept" });
         expect(history[0].metadata.turnContext).toBe(first.turnContext);
     });
@@ -167,7 +173,7 @@ describe("exact preparation", () => {
         const first = await prepare();
         const read = vi.fn();
         const history = [{ role: "user", metadata: { turnContext: first.turnContext } }];
-        expect((await validateStoredContexts(history, false, read))[0].metadata).toEqual({});
+        expect((await validateStoredContexts(history, "off", read))[0].metadata).toEqual({});
         expect(read).not.toHaveBeenCalled();
         const off = { ...settings, assistant: { memoryMode: "off" as const } };
         const next = await getAgentInstance(env, userId, { timezone: "UTC", currentDate: now, nonce: "next",
@@ -175,7 +181,7 @@ describe("exact preparation", () => {
         expect(next.turnContext).toContain("Memory is off");
         expect(next.turnContext).not.toContain("Keep Friday evenings free");
         expect(Object.keys(next.agent.tools)).not.toContain("recall");
-        const onAgain = await validateStoredContexts([{ role: "user", metadata: { turnContext: next.turnContext } }], true, read);
+        const onAgain = await validateStoredContexts([{ role: "user", metadata: { turnContext: next.turnContext } }], "full", read);
         expect(onAgain[0].metadata).toEqual({});
     });
 

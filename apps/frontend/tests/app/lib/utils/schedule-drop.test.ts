@@ -62,4 +62,16 @@ describe("schedule range and grouping rules", () => {
         expect(filtered.map((t) => t.id)).toEqual(["all", "timed", "routine"]);
         expect(recordByDay(filtered)["2026-11-03"].map((t) => t.id)).toEqual(["all"]);
     });
+
+    it("sizes a new block from a supported guess, a 5-minute estimate stays 5, and an existing block is never resized", () => {
+        const supported = { state: "supported", minutes: 45, low: 30, high: 60, reports: 4, days: 3 } as const;
+        const untimed = (patch: Partial<Task> = {}) => task({ durationEstimate: null, dueDate: "2026-10-30", ...patch });
+        expect(resolveScheduleDrop(untimed(), "slot-2026-11-02__570", supported)?.patch).toMatchObject({ scheduledEnd: "2026-11-02T15:15:00.000Z" });
+        // A tentative guess sizes nothing: 60 minutes.
+        expect(resolveScheduleDrop(untimed(), "slot-2026-11-02__570", { ...supported, state: "tentative" })?.patch).toMatchObject({ scheduledEnd: "2026-11-02T15:30:00.000Z" });
+        // The person's estimate beats the guess, with no floor.
+        expect(resolveScheduleDrop(untimed({ durationEstimate: 5 }), "slot-2026-11-02__570", supported)?.patch).toMatchObject({ scheduledEnd: "2026-11-02T14:35:00.000Z" });
+        const block = task({ durationEstimate: null, scheduledStart: "2026-10-30T18:00:00.000Z", scheduledEnd: "2026-10-30T18:20:00.000Z", zone: "America/Toronto" });
+        expect(resolveScheduleDrop(block, "slot-2026-11-02__570", supported)?.patch).toMatchObject({ scheduledEnd: "2026-11-02T14:50:00.000Z" });
+    });
 });

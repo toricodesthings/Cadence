@@ -40,10 +40,3 @@ export const dayHeading = (day: LocalDate): string =>
 
 /** "Mon 5": a short heading for a run of days. */
 export const dayShortHeading = (day: LocalDate): string => `${weekdayName(day, "short")} ${dayOfMonth(day)}`;
-
-export function getTaskDurationMs(task: Pick<Task, "scheduledStart" | "scheduledEnd" | "durationEstimate">) {
-    if (task.scheduledStart && task.scheduledEnd) {
-        return Math.max(30 * 60_000, new Date(task.scheduledEnd).getTime() - new Date(task.scheduledStart).getTime());
-    }
-    return Math.max(30, task.durationEstimate ?? 60) * 60_000;
-}

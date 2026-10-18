@@ -16,7 +16,20 @@ describe("meaningOf", () => {
     });
 });
 
+describe("meaningOf course numbers (D11)", () => {
+    it("keeps 3+ digit numbers, drops 1-2 digit ones", () => {
+        expect(meaningOf("STAT 3503")).not.toEqual(meaningOf("STAT 2509"));
+        expect(meaningOf("STAT 3503").has("3503")).toBe(true);
+        expect(meaningOf("Lab 3")).toEqual(meaningOf("Lab 4"));
+    });
+});
+
 describe("suggestEffort", () => {
+    it("needs at least one manual choice among its matches (D12)", () => {
+        const accepted = labs([3, 3, 3, 3]).map((e) => ({ ...e, origin: "accepted" as const }));
+        expect(suggestEffort("Class X Lab", null, accepted, TODAY)).toBeNull();
+        expect(suggestEffort("Class X Lab", null, [...accepted, ev("Class X Lab 9", 3, 3)], TODAY)).toMatchObject({ kind: "level", level: 3 });
+    });
     it("suggests one level when a person has chosen it consistently", () => {
         expect(suggestEffort("Class X Lab", null, labs([3, 3, 3, 3]), TODAY)).toMatchObject({ kind: "level", level: 3 });
     });
@@ -52,7 +65,9 @@ describe("suggestEffort", () => {
         const few = [3, 3, 3].map((l, i) => ev("Class X Lab", l as EffortLevel, 7 + i, { origin: "accepted" }));
         expect(suggestEffort("Class X Lab", null, few, TODAY)).toBeNull(); // agreeing three times is not yet evidence
         const accepted = [3, 3, 3, 3, 3].map((l, i) => ev("Class X Lab", l as EffortLevel, 7 + i, { origin: "accepted" }));
-        expect(suggestEffort("Class X Lab", null, accepted, TODAY)).toMatchObject({ level: 3 });
+        expect(suggestEffort("Class X Lab", null, accepted, TODAY)).toBeNull(); // accepted-only never suggests (D12)
+        const withOne = [...accepted, ev("Class X Lab", 3, 9)];
+        expect(suggestEffort("Class X Lab", null, withOne, TODAY)).toMatchObject({ level: 3 });
         const mixed = [...accepted, ...[1, 1, 1].map((l, i) => ev("Class X Lab", l as EffortLevel, 7 + i))];
         expect(suggestEffort("Class X Lab", null, mixed, TODAY)).not.toMatchObject({ kind: "level", level: 3 });
     });

@@ -126,15 +126,15 @@ describe.skipIf(!live)("memory · recall over 300 facts", () => {
     it(`${RECALL_CASES.length} requests: the required fact reaches the context`, async () => {
         const named = RECALL_CASES.map((c) => ({ content: c.fact, kind: c.kind, saidOn: "2026-06-01" }));
         const { userId, model } = await seedPerson(named);
-        const profile = await withRls(getTestDb(), userId, (tx: any) => loadProfile(tx, userId, TODAY));
+        const profile = await withRls(getTestDb(), userId, (tx: any) => loadProfile(tx, userId, TODAY, "full"));
         const results = await Promise.all(RECALL_CASES.map(async (c) => {
             const [embedding] = await embedTexts(env, [c.request]);
             const recalled = await withRls(getTestDb(), userId, (tx: any) =>
-                recallFacts(tx, userId, { text: c.request, embedding, model, today: TODAY, exclude: new Set(profile.map((p) => p.id)) }));
+                recallFacts(tx, userId, { text: c.request, embedding, model, today: TODAY, exclude: new Set(profile.map((p) => p.id)), mode: "full" }));
             const context = [...profile, ...recalled].map((l) => l.content);
             // Where it ranked if the window were wider: tells a ranking miss from a fact that never matched.
             const wide = await withRls(getTestDb(), userId, (tx: any) =>
-                recallFacts(tx, userId, { text: c.request, embedding, model, today: TODAY, exclude: new Set(profile.map((p) => p.id)), limit: 40 }));
+                recallFacts(tx, userId, { text: c.request, embedding, model, today: TODAY, exclude: new Set(profile.map((p) => p.id)), mode: "full", limit: 40 }));
             const rank = wide.findIndex((l) => l.content === c.fact);
             return { id: c.id, ok: context.includes(c.fact), size: context.length, rank };
         }));
@@ -288,9 +288,9 @@ describe("memory · capacity (no model)", () => {
         const timings: number[] = [];
         for (const userId of people.slice(0, 30)) {
             const started = performance.now();
-            const profile = await withRls(getTestDb(), userId, (tx: any) => loadProfile(tx, userId, TODAY));
+            const profile = await withRls(getTestDb(), userId, (tx: any) => loadProfile(tx, userId, TODAY, "full"));
             await withRls(getTestDb(), userId, (tx: any) =>
-                recallFacts(tx, userId, { text: "plan my weekend and the wedding", embedding: Array.from({ length: 512 }, (_, i) => i / 768), model: "qwen/qwen3-embedding-8b", today: TODAY, exclude: new Set(profile.map((p) => p.id)) }));
+                recallFacts(tx, userId, { text: "plan my weekend and the wedding", embedding: Array.from({ length: 512 }, (_, i) => i / 768), model: "qwen/qwen3-embedding-8b", today: TODAY, exclude: new Set(profile.map((p) => p.id)), mode: "full" }));
             timings.push(performance.now() - started);
         }
         timings.sort((a, b) => a - b);

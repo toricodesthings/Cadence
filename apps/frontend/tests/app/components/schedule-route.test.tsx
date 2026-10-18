@@ -21,6 +21,7 @@ vi.mock("../../../app/lib/utils/user-zone", async (original) => ({
 }));
 vi.mock("../../../app/hooks/ui/use-period-swipe", () => ({ usePeriodSwipe: () => ({ reducedMotion: true, dragProps: {} }) }));
 vi.mock("../../../app/hooks/tasks/use-tasks", () => ({ useTasks: () => ({ data: mocks.tasks }) }));
+vi.mock("../../../app/hooks/ai/use-duration-guess", () => ({ useDurationGuesser: () => () => null, useDurationGuess: () => null }));
 vi.mock("../../../app/hooks/tasks/use-update-task", () => ({ useUpdateTask: () => ({ mutate: vi.fn() }) }));
 vi.mock("../../../app/hooks/habits/use-resolve-habit", () => ({ useResolveHabit: () => ({ mutateAsync: vi.fn() }), timeAction: vi.fn() }));
 vi.mock("../../../app/hooks/habits/use-virtual-habit-tasks", async (importOriginal) => ({

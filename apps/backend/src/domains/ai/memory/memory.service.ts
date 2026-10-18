@@ -7,7 +7,7 @@ import { userZone } from "../../../platform/user-zone";
 import { logger, issuesFromError } from "../../../platform/log";
 import type { Env } from "../../../types/env";
 import { isLearning, memoryStateOf, readMemoryState } from "./memory-mode";
-import { completionBucket, durationGroup, slotBucket } from "./signals";
+import { completionBucket, slotBucket } from "./signals";
 
 /** Memory is on for a person: they chose Basic or Full. `settings` is `users.settings`. */
 export function memoryIsOn(settings: unknown): boolean {
@@ -18,8 +18,7 @@ export function memoryIsOn(settings: unknown): boolean {
 export type PersonActivity =
     | { kind: "reschedule"; from: { scheduledStart: string | null; dueDate: string | null } }
     | { kind: "complete" }
-    | { kind: "routine"; habitId: string; day: string }
-    | { kind: "duration"; subject: string; minutes: number; taskId?: string; on?: string };
+    | { kind: "routine"; habitId: string; day: string };
 
 /** Signals kept per person per day: real use is a few dozen; a script posting /duration in a loop must not grow the table or the nightly read. */
 export const MAX_SIGNALS_PER_DAY = 150;
@@ -47,18 +46,6 @@ export async function recordPersonActivity(env: Env, userId: string, activities:
                     const [habit] = await tx.select({ title: habits.title }).from(habits).where(and(eq(habits.id, activity.habitId), eq(habits.userId, userId)));
                     if (!habit) continue;
                     rows.push({ userId, kind: "routine", on: activity.day, bucket: `${formatInZone(activity.day, "UTC", { weekday: "long" }, "en-US").toLowerCase()}|day`, subject: habit.title.slice(0, 40) });
-                } else if (activity.taskId) {
-                    // One report per task per day: a second answer replaces the first and doesn't count against the cap.
-                    const on = activity.on ?? today;
-                    const minutes = Math.round(activity.minutes);
-                    const changed = await tx
-                        .update(aiMemorySignals)
-                        .set({ minutes, subject: activity.subject })
-                        .where(and(eq(aiMemorySignals.userId, userId), eq(aiMemorySignals.kind, "duration"), eq(aiMemorySignals.taskId, activity.taskId), eq(aiMemorySignals.on, on)))
-                        .returning({ id: aiMemorySignals.id });
-                    if (changed.length === 0) rows.push({ userId, kind: "duration", on, bucket: "report", subject: activity.subject, minutes, taskId: activity.taskId });
-                } else {
-                    rows.push({ userId, kind: "duration", on: today, bucket: "report", subject: durationGroup(activity.subject), minutes: Math.round(activity.minutes) });
                 }
             }
             if (rows.length) {
@@ -72,6 +59,3 @@ export async function recordPersonActivity(env: Env, userId: string, activities:
         logger.warn("ai", "memory_signal_failed", { issues: issuesFromError(error) });
     }
 }
-
-/** Undoing a completion undoes its "how long did it take?" answer (tasks call this inside their own transaction). */
-export { dropReports as dropDurationReports } from "./duration";

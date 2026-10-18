@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as DropdownMenu from "../../../app/components/primitives/DropdownMenu";
 import * as ContextMenu from "../../../app/components/primitives/ContextMenu";
@@ -56,6 +56,8 @@ describe("a menu opened by touch covers its trigger", () => {
         // The finger lifts where the trigger was, now an item.
         fireEvent.pointerUp(item, { pointerType: "touch" });
         fireEvent.click(item, { detail: 1 });
+        // Chrome's tap click can carry detail 0; its pointerType still says touch.
+        act(() => { item.dispatchEvent(new PointerEvent("click", { bubbles: true, cancelable: true, detail: 0, pointerType: "touch" })); });
         expect(onSelect).not.toHaveBeenCalled();
         fireEvent.pointerDown(item, { pointerType: "touch" });
         fireEvent.pointerUp(item, { pointerType: "touch" });

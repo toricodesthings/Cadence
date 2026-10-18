@@ -1,5 +1,6 @@
 import type { Task } from "@cadence/contracts/task";
 import { type LocalDate } from "@cadence/domain/time";
+import { taskMinutes } from "@cadence/domain/task-length";
 import { dayOfInstant } from "../date-format";
 import { isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance } from "../task/task-scheduling";
 import { loadWord } from "../task/day-load";
@@ -48,8 +49,7 @@ export function itemStart(task: Task) {
 /** Routines are moments; everything else runs to its end, or its estimate. */
 export function itemEnd(task: Task) {
     if (task.scheduledEnd) return new Date(task.scheduledEnd);
-    const minutes = task.isHabit ? 0 : task.durationEstimate ?? 30;
-    return new Date(itemStart(task).getTime() + minutes * 60_000);
+    return new Date(itemStart(task).getTime() + (task.isHabit ? 0 : taskMinutes(task)) * 60_000);
 }
 
 export function splitDay(tasks: Task[]) {

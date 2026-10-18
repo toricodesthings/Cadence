@@ -7,6 +7,7 @@ import { useScheduleTaskActions } from "../../../../app/hooks/calendar/use-sched
 import { setUserZone } from "../../../../app/lib/utils/user-zone";
 
 const mocks = vi.hoisted(() => ({ update: vi.fn(), toast: vi.fn(), track: vi.fn(), queue: vi.fn(), resolve: vi.fn() }));
+vi.mock("../../../../app/hooks/ai/use-duration-guess", () => ({ useDurationGuesser: () => () => null, useDurationGuess: () => null }));
 vi.mock("../../../../app/hooks/tasks/use-update-task", () => ({ useUpdateTask: () => ({ mutate: mocks.update }) }));
 vi.mock("sonner", () => ({ toast: { message: mocks.toast } }));
 vi.mock("../../../../app/lib/api/track-event", () => ({ trackUsageEvent: mocks.track }));

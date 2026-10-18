@@ -155,7 +155,12 @@
   /* Springs, generated from SPRINGS in lib/constants/motion.ts (motion.test.ts enforces). */
   --spring-snap: 400ms linear(0, 0.2271, 0.5535, 0.7826, 0.9088, 0.9679, 0.9918, 0.9997, 1.0015, 1.0013, 1.0008, 1, 1);
   --spring-glide: 500ms linear(0, 0.0953, 0.2805, 0.4696, 0.6291, 0.7511, 0.8386, 0.8986, 0.9383, 0.9636, 0.9792, 0.9886, 0.9941, 0.9972, 0.9988, 0.9996, 1);
-  --spring-morph: 450ms linear(0, 0.0831, 0.2538, 0.4379, 0.601, 0.731, 0.8275, 0.8951, 0.9401, 0.9687, 0.9858, 0.9954, 1.0003, 1.0024, 1);
+  /* Opening and closing chrome is a fast ease-out on the compositor (120 Hz where the screen is), never a JS spring. */
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --morph-in: 200ms var(--ease-out-expo);
+  --morph-out: 130ms var(--ease-out-quart);
+  --sheet-in: 280ms var(--ease-sheet);
+  --sheet-out: 200ms var(--ease-sheet);
   --cadence-page-padding-y: 0.75rem;
   --cadence-page-padding-y-desktop: 0.75rem;
   --cadence-planner-gap: 1rem;
@@ -863,7 +868,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root:not([data-motion="full"]) { --spring-snap: 1ms linear; --spring-glide: 1ms linear; --spring-morph: 1ms linear; }
+  :root:not([data-motion="full"]) { --spring-snap: 1ms linear; --spring-glide: 1ms linear; --morph-in: 1ms linear; --morph-out: 1ms linear; --sheet-in: 1ms linear; --sheet-out: 1ms linear; }
 }
 
 [data-motion="full"] {
@@ -2223,7 +2228,7 @@ body:has(.layer-system-dialog, .layer-route-backdrop, .layer-room-sheet-backdrop
   --m-right: max(0px, 100% - var(--aw));
   --m-bottom: max(0px, 100% - var(--ah));
   --m-left: 0px;
-  animation: morph-in var(--spring-morph) backwards;
+  animation: morph-in var(--morph-in) backwards;
 }
 .morph-surface[data-align="end"] { --m-left: max(0px, 100% - var(--aw)); --m-right: 0px; }
 .morph-surface[data-align="center"] { --m-left: max(0px, (100% - var(--aw)) / 2); --m-right: var(--m-left); }
@@ -2233,8 +2238,8 @@ body:has(.layer-system-dialog, .layer-route-backdrop, .layer-room-sheet-backdrop
 .morph-surface:is([data-side="left"], [data-side="right"])[data-align="center"] { --m-top: max(0px, (100% - var(--ah)) / 2); --m-bottom: var(--m-top); }
 .morph-surface[data-side="left"] { --m-left: max(0px, 100% - var(--aw)); --m-right: 0px; }
 .morph-surface[data-side="right"] { --m-left: 0px; --m-right: max(0px, 100% - var(--aw)); }
-.morph-surface[data-state="closed"] { animation: morph-out var(--spring-morph) forwards; }
-.morph-surface[data-state="open"] > * { animation: morph-rows var(--duration-normal) var(--ease-out-quart) 60ms backwards; }
+.morph-surface[data-state="closed"] { animation: morph-out var(--morph-out) forwards; }
+.morph-surface[data-state="open"] > * { animation: morph-rows 160ms var(--ease-out-quart) 30ms backwards; }
 @keyframes morph-in {
   from { clip-path: inset(var(--m-top) var(--m-right) var(--m-bottom) var(--m-left) round var(--morph-from-radius, 1rem)); opacity: 0.7; }
   to { clip-path: inset(0 round var(--morph-to-radius, 0.75rem)); opacity: 1; }
@@ -2245,12 +2250,48 @@ body:has(.layer-system-dialog, .layer-route-backdrop, .layer-room-sheet-backdrop
 }
 @keyframes morph-rows { from { opacity: 0; } }
 .morph-surface.rounded-2xl { --morph-to-radius: 1rem; }
-/* On phone most menu triggers are glass capsules; a fromRadius prop (Select's default) overrides it inline. */
-@media (max-width: 767px) { .morph-surface { --morph-from-radius: 9999px; } }
+/* On phone most menu triggers are glass capsules; a fromRadius prop (Select's default) overrides it inline.
+   Half the trigger's height, never 9999px: a huge radius interpolates slowly and holds the circle until the end. */
+@media (max-width: 767px) { .morph-surface { --morph-from-radius: calc(var(--ah) / 2); } }
 @media (pointer: coarse) {
   .morph-surface[data-side="bottom"] { translate: 0 calc(-1 * var(--ah) - var(--side-gap, 4px)); }
   .morph-surface[data-side="top"] { translate: 0 calc(var(--ah) + var(--side-gap, 4px)); }
+  /* The menu becomes the trigger, so the trigger steps out of the way while it is open (aria-expanded:
+     a Tooltip around the trigger overwrites its data-state). */
+  :is([aria-haspopup="menu"]:not([role="menuitem"]), button[role="combobox"], [data-morph-trigger])[aria-expanded="true"] { opacity: 0; transition: opacity var(--morph-out); }
 }
+
+/* Overlay panels (ResponsiveOverlayPanel) open and close on the compositor. The sheet drag writes
+   `transform` and these write `translate`, so they add: a thrown sheet leaves from where the finger let go. */
+.sheet-up[data-state="open"] { animation: sheet-up-in var(--sheet-in) both; }
+.sheet-up[data-state="closed"] { animation: sheet-up-out var(--sheet-out) forwards; }
+.sheet-rise[data-state="open"] { animation: sheet-rise-in var(--sheet-in) both; }
+.sheet-rise[data-state="closed"] { animation: sheet-rise-out var(--sheet-out) forwards; }
+.sheet-side[data-state="open"] { animation: sheet-side-in var(--sheet-in) both; }
+.sheet-side[data-state="closed"] { animation: sheet-side-out var(--sheet-out) forwards; }
+.sheet-fade[data-state="open"] { animation: sheet-fade-in var(--sheet-in) both; }
+.sheet-fade[data-state="closed"] { animation: sheet-fade-out var(--sheet-out) forwards; }
+@keyframes sheet-up-in { from { translate: 0 100%; } }
+@keyframes sheet-up-out { to { translate: 0 100%; } }
+@keyframes sheet-rise-in { from { translate: 0 16px; opacity: 0; } }
+@keyframes sheet-rise-out { to { translate: 0 16px; opacity: 0; } }
+@keyframes sheet-side-in { from { translate: 28px 0; opacity: 0; } }
+@keyframes sheet-side-out { to { translate: 28px 0; opacity: 0; } }
+@keyframes sheet-fade-in { from { opacity: 0; } }
+@keyframes sheet-fade-out { to { opacity: 0; } }
+
+/* A compact navigation row (NavigationRow) pushes its page in from the right, the mirror of iOS's
+   swipe back; the dock stays put. Only a tap marks a push (data-nav-push): React Router replays the
+   transition on back, where iOS's swipe already animates. Elsewhere, and with reduced motion, it's instant. */
+.mobile-tab-bar { view-transition-name: dock; }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+@media (pointer: coarse) {
+  :root[data-nav-push]::view-transition-old(root) { animation: push-out var(--sheet-in) both; }
+  :root[data-nav-push]::view-transition-new(root) { animation: push-in var(--sheet-in) both; }
+}
+[data-motion="reduced"]::view-transition-old(root), [data-motion="reduced"]::view-transition-new(root) { animation: none; }
+@keyframes push-in { from { translate: 100% 0; } }
+@keyframes push-out { to { translate: -30% 0; filter: brightness(0.8); } }
 
 /* Shell chrome — page headers and right-rail panels: a darker, lightly blurred plane of the
    accent-tinted base over the page background (lighter in daylight, where the base is light). */

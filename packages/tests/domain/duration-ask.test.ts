@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { budgetOpen, groupIsSettled, referenceMinutes, shouldAsk } from "@cadence/domain/duration-ask";
+import { budgetOpen, groupIsSettled, referenceMinutes, relativeReference, shouldAsk } from "@cadence/domain/duration-ask";
 
 const none = { minutes: [], newestDaysAgo: null };
 
@@ -12,6 +12,10 @@ describe("budget", () => {
         expect(budgetOpen({ lastOn: "2026-10-11", misses: 3 }, "2026-10-14")).toBe(true);
         expect(budgetOpen({ lastOn: "2026-10-10", misses: 6 }, "2026-10-14")).toBe(false);
         expect(budgetOpen({ lastOn: "2026-10-07", misses: 6 }, "2026-10-14")).toBe(true);
+        // After 10 misses: monthly.
+        expect(budgetOpen({ lastOn: "2026-09-20", misses: 10 }, "2026-10-14")).toBe(false);
+        expect(budgetOpen({ lastOn: "2026-09-14", misses: 12 }, "2026-10-14")).toBe(true);
+        expect(budgetOpen({ lastOn: "2026-10-01", misses: 9 }, "2026-10-14")).toBe(true);
     });
 });
 
@@ -35,10 +39,19 @@ describe("shouldAsk", () => {
 });
 
 describe("referenceMinutes", () => {
-    it("prefers the estimate, then the block, then the group's median", () => {
-        expect(referenceMinutes({ durationEstimate: 30, blockMinutes: 60 }, none)).toBe(30);
-        expect(referenceMinutes({ durationEstimate: null, blockMinutes: 60 }, none)).toBe(60);
-        expect(referenceMinutes({ durationEstimate: null, blockMinutes: null }, { minutes: [40, 60], newestDaysAgo: 1 })).toBe(50);
-        expect(referenceMinutes({ durationEstimate: null, blockMinutes: null }, none)).toBeNull();
+    it("is the person's own plan: the estimate, then the block, never a guess", () => {
+        expect(referenceMinutes({ durationEstimate: 30, blockMinutes: 60 })).toBe(30);
+        expect(referenceMinutes({ durationEstimate: null, blockMinutes: 60 })).toBe(60);
+        expect(referenceMinutes({ durationEstimate: null, blockMinutes: null })).toBeNull();
+    });
+});
+
+describe("relativeReference (D7)", () => {
+    it("drops a reference Cadence chose: the 60-minute default and its own guess", () => {
+        expect(relativeReference(45, null)).toBe(45);
+        expect(relativeReference(60, null)).toBeNull();
+        expect(relativeReference(45, 45)).toBeNull();
+        expect(relativeReference(45, 50)).toBe(45);
+        expect(relativeReference(null, 45)).toBeNull();
     });
 });

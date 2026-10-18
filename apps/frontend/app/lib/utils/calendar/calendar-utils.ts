@@ -1,5 +1,6 @@
 import type { Task } from "@cadence/contracts/task";
 import { wallTimeOf } from "@cadence/domain/time";
+import { taskMinutes } from "@cadence/domain/task-length";
 import { getUserZone } from "../user-zone";
 
 /** Height in px for each 1-hour block in the time grid */
@@ -26,12 +27,12 @@ function taskTop(task: Task): number {
 /** Height (px) of a routine marker and of the shortest span, so nothing renders as a blank sliver */
 export const MARKER_HEIGHT = 24;
 
-/** Calculate the height (px) for a task chip based on its duration or estimate */
+/** The shortest rendered height of a block (15 minutes of grid), so a 5-minute task stays visible and tappable. */
+export const MIN_BLOCK_HEIGHT = HOUR_HEIGHT / 4;
+
+/** Height (px) of a task chip: its real length, never below `MIN_BLOCK_HEIGHT`. Collisions use the same rendered length. */
 function taskHeight(task: Task): number {
-    const mins = task.scheduledStart && task.scheduledEnd
-        ? (new Date(task.scheduledEnd).getTime() - new Date(task.scheduledStart).getTime()) / 60_000
-        : task.durationEstimate ?? 60;
-    return Math.max(MARKER_HEIGHT, (mins / 60) * HOUR_HEIGHT);
+    return Math.max(MIN_BLOCK_HEIGHT, (taskMinutes(task) / 60) * HOUR_HEIGHT);
 }
 
 interface TimedLayoutBase {
@@ -54,12 +55,8 @@ type TimedTaskWithRange = {
 
 function getTaskRange(task: Task): TimedTaskWithRange {
     const start = task.scheduledStart ? minutesFromMidnight(task.scheduledStart) : 0;
-    const rawEnd = task.scheduledEnd ? minutesFromMidnight(task.scheduledEnd) : start + (task.durationEstimate ?? 60);
-    return {
-        task,
-        start,
-        end: Math.max(start + (MARKER_HEIGHT / HOUR_HEIGHT) * 60, rawEnd),
-    };
+    // Collide on the rendered length: two 5-minute blocks at 9:00 and 9:05 sit side by side, never one over the other.
+    return { task, start, end: start + Math.max(taskMinutes(task), (MIN_BLOCK_HEIGHT / HOUR_HEIGHT) * 60) };
 }
 
 function buildClusterLayouts(cluster: TimedTaskWithRange[]): TimedTaskLayout[] {

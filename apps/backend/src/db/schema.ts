@@ -13,6 +13,7 @@ import {
     halfvec,
     index,
     uniqueIndex,
+    unique,
     primaryKey,
     check,
     pgPolicy,
@@ -49,6 +50,7 @@ export const memoryKindEnum = pgEnum('memory_kind', ['preference', 'quirk', 'lif
 export const memorySourceEnum = pgEnum('memory_source', ['explicit', 'chat', 'note', 'activity', 'backfill']);
 export const memoryConfidenceEnum = pgEnum('memory_confidence', ['stated', 'observed', 'inferred']);
 export const memoryStatusEnum = pgEnum('memory_status', ['active', 'forgotten']);
+// `duration` is unused since 0023 (reports live in duration_reports); Postgres can't cheaply drop an enum value.
 export const memorySignalKindEnum = pgEnum('memory_signal_kind', ['reschedule', 'complete', 'routine', 'duration']);
 export const habitStatusEnum = pgEnum('habit_status', ['COMPLETED', 'SKIPPED', 'PENDING']);
 export const captureKindEnum = pgEnum('capture_kind', ['task', 'thought', 'reference', 'unknown']);
@@ -188,17 +190,40 @@ export const aiMemorySignals = pgTable('ai_memory_signals', {
     bucket: text('bucket').notNull(),
     subject: text('subject'),                                     // a routine's name, or a task's group for durations
     minutes: integer('minutes'),                                  // duration reports only
-    // What a duration report is about: one report per thing done (a repeating task is one row, so the day is part of the key).
+    // Reserved for routine reports and reschedule signals (0.37.0); duration reports moved to duration_reports.
     taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'set null' }),
     habitId: uuid('habit_id').references(() => habits.id, { onDelete: 'cascade' }),
     createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
 }, (table) => ({
     userKindIdx: index('ai_memory_signals_user_kind_idx').on(table.userId, table.kind, table.on),
-    taskReportUnique: uniqueIndex('ai_memory_signals_task_report_unique').on(table.userId, table.taskId, table.on)
-        .where(sql`${table.kind} = 'duration' AND ${table.taskId} IS NOT NULL`),
-    habitReportUnique: uniqueIndex('ai_memory_signals_habit_report_unique').on(table.userId, table.habitId, table.on)
-        .where(sql`${table.kind} = 'duration' AND ${table.habitId} IS NOT NULL`),
     rlsPolicy: pgPolicy('ai_memory_signals_owner_access', { as: 'permissive', for: 'all', using: rlsUsing, withCheck: rlsUsing }),
+})).enableRLS();
+
+// 3b''. "How long did it take?" answers, one per completion (task, completed_at). The person's own words, so they are
+// kept outside the signals' 90-day prune until the task, the fact or the account goes. A point has low = high.
+// Undoing a completion deletes its report (trigger on tasks); Forget hides a group's reports until its Undo window ends.
+export const durationReports = pgTable('duration_reports', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }).notNull(),
+    completedAt: timestamptz('completed_at').notNull(),
+    lowMinutes: integer('low_minutes').notNull(),
+    highMinutes: integer('high_minutes').notNull(),
+    anchored: boolean('anchored').default(false).notNull(),       // the answer came from the relative stage
+    title: text('title').notNull(),                               // the title when answered (≤ 200 chars)
+    projectId: uuid('project_id'),                                // the list when answered; no FK, a deleted list keeps the report
+    groupKey: text('group_key').notNull(),                        // durationGroup(title) or series:<task_id>
+    saidOn: date('said_on', { mode: 'string' }).notNull(),        // LocalDate in the person's zone when last answered
+    forgottenAt: timestamptz('forgotten_at'),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
+}, (table) => ({
+    completionUnique: unique('duration_reports_task_completed_unique').on(table.taskId, table.completedAt),
+    userSaidIdx: index('duration_reports_user_said_idx').on(table.userId, table.saidOn.desc()),
+    userGroupIdx: index('duration_reports_user_group_idx').on(table.userId, table.groupKey),
+    lowCheck: check('duration_reports_low_check', sql`low_minutes BETWEEN 1 AND 1440`),
+    highCheck: check('duration_reports_high_check', sql`high_minutes BETWEEN low_minutes AND 1440`),
+    rlsPolicy: pgPolicy('duration_reports_owner_access', { as: 'permissive', for: 'all', using: rlsUsing, withCheck: rlsUsing }),
 })).enableRLS();
 
 // 3b'. Which lines of a task note memory has already read, so a save is learned from by its changed text only
@@ -394,6 +419,9 @@ export const tasks = pgTable('tasks', {
     notBefore: date('hidden_until', { mode: 'string' }), // Hidden until this day
     linkedAppId: text('linked_app_id'), // The one app this task opens (a frontend catalogue id); never a URL
     linkedUrl: text('linked_url'), // Or the one website it opens: a normalised https URL (contracts `parseWebsite`)
+    // The moment the task entered Done: set by a trigger with the state, kept while Done, NULL otherwise. With the task id it
+    // names one completion, which is what a "how long did it take?" answer belongs to.
+    completedAt: timestamptz('completed_at'),
 
     createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
     updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
@@ -410,6 +438,7 @@ export const tasks = pgTable('tasks', {
         projectIdIdx: index('tasks_project_id_idx').on(table.projectId),
         sectionIdIdx: index('tasks_section_id_idx').on(table.sectionId),
         linkedUrlCheck: check('tasks_linked_url_check', sql`linked_url IS NULL OR (linked_url LIKE 'https://%' AND length(linked_url) <= 2048)`),
+        completedAtCheck: check('tasks_completed_at_check', sql`(state = 'COMPLETE') = (completed_at IS NOT NULL)`),
         effortCheck: check('tasks_effort_check', sql`effort IS NULL OR effort BETWEEN 1 AND 3`),
         effortOriginCheck: check('tasks_effort_origin_check', sql`effort_origin IS NULL OR (effort IS NOT NULL AND effort_origin IN ('manual', 'accepted'))`),
         // The evidence read: one account's own recorded choices, newest first.

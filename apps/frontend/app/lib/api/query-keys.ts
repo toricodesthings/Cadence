@@ -60,7 +60,9 @@ export const queryKeys = {
         conversation: (id: string) => ["ai", "conversation", id] as const,
         usage: ["ai", "usage"] as const,
         memory: ["ai", "memory"] as const,
-        duration: (taskId: string) => ["ai", "memory", "duration", taskId] as const,
+        duration: (taskId: string, completedAt?: string | null) => ["ai", "memory", "duration", taskId, completedAt ?? "current"] as const,
+        /** The person's answers to "how long did it take?", the estimator's input. */
+        durationEvidence: ["ai", "memory", "duration-evidence"] as const,
         image: (id: string) => ["ai", "image", id] as const,
     },
     auth: {

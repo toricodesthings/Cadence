@@ -401,10 +401,10 @@ describe("the remember tool", () => {
 
 describe("recall", () => {
     const today = "2026-10-12";
-    const profile = () => withRls(getTestDb(), userId, (tx) => loadProfile(tx, userId, today));
-    const coverage = () => withRls(getTestDb(), userId, (tx) => loadProfileCoverage(tx, userId, today));
+    const profile = () => withRls(getTestDb(), userId, (tx) => loadProfile(tx, userId, today, "full"));
+    const coverage = () => withRls(getTestDb(), userId, (tx) => loadProfileCoverage(tx, userId, today, "full"));
     const recall = (text: string, exclude: string[] = []) =>
-        withRls(getTestDb(), userId, (tx) => recallFacts(tx, userId, { text, embedding: null, model: "m", today, exclude: new Set(exclude) }));
+        withRls(getTestDb(), userId, (tx) => recallFacts(tx, userId, { text, embedding: null, model: "m", today, exclude: new Set(exclude), mode: "full" }));
     const add = (kind: string, content: string, extra: { validThrough?: string; pinned?: boolean; lastSeenOn?: string; confidence?: string } = {}) =>
         sql(
             `INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence, valid_through, pinned)
@@ -412,12 +412,26 @@ describe("recall", () => {
             [userId, kind, content, extra.lastSeenOn ?? "2026-06-01", extra.confidence ?? "stated", extra.validThrough ?? null, extra.pinned ?? false],
         );
 
+    it("Basic reads only what the person said: not activity, notes or backfill, nor Full-only kinds; Full reads all; nothing is erased", async () => {
+        for (const [source, content] of [["explicit", "Said outright"], ["chat", "Said in chat"], ["activity", "Learned from activity"], ["note", "Read from a note"], ["backfill", "Read from old chats"]]) {
+            await sql(`INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence) VALUES ($1, 'preference', $2, '2026-06-01', '2026-06-01', $3::memory_source, 'stated')`, [userId, content, source]);
+        }
+        await sql(`INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence) VALUES ($1, 'pattern', 'Finishes in the evening', '2026-06-01', '2026-06-01', 'chat', 'stated')`, [userId]);
+        const lines = (mode: "basic" | "full") => withRls(getTestDb(), userId, (tx) => loadProfile(tx, userId, today, mode)).then((l) => l.map((x) => x.content).sort());
+        expect(await lines("basic")).toEqual(["Said in chat", "Said outright"]);
+        expect(await lines("full")).toEqual(["Learned from activity", "Read from a note", "Read from old chats", "Said in chat", "Said outright"]);
+        const recalled = (mode: "basic" | "full") => withRls(getTestDb(), userId, (tx) => recallFacts(tx, userId, { text: "evening activity note chats said", embedding: null, model: "m", today, exclude: new Set(), mode })).then((l) => l.map((x) => x.content).sort());
+        expect(await recalled("basic")).toEqual(["Said in chat", "Said outright"].filter((c) => c === "Said in chat" || c === "Said outright").sort());
+        expect((await recalled("full")).length).toBeGreaterThan(2);
+        expect(await sql("SELECT count(*)::int AS n FROM ai_memories WHERE user_id = $1", [userId])).toEqual([{ n: 6 }]);
+    });
+
     it("establishes exact coverage for empty and fully covered memories in one statement", async () => {
         expect(await coverage()).toEqual({ lines: [], hasRecallCandidates: false });
         for (const kind of ["preference", "quirk", "constraint", "life", "assist"]) await add(kind, `Short ${kind} fact`);
         const result = await withRls(getTestDb(), userId, async (tx) => {
             const select = vi.spyOn(tx, "select");
-            const result = await loadProfileCoverage(tx, userId, today);
+            const result = await loadProfileCoverage(tx, userId, today, "full");
             expect(select).toHaveBeenCalledOnce();
             select.mockRestore();
             return result;
@@ -659,95 +673,6 @@ describe("Full: learning from what the person does", () => {
         ]);
     });
 
-    it("keeps a duration the person reports for a task, in Full only", async () => {
-        const id = await newTask("2026-10-13T12:30:00Z");
-        await setMode("basic");
-        expect((await memory("POST", "/duration", { taskId: id, minutes: 45 })).status).toBe(200);
-        expect(await signals()).toEqual([]);
-
-        await setMode("full");
-        await memory("POST", "/duration", { taskId: id, minutes: 45 });
-        expect(await signals()).toEqual([expect.objectContaining({ kind: "duration", subject: "write essay", minutes: 45 })]);
-        expect((await memory("POST", "/duration", { taskId: crypto.randomUUID(), minutes: 45 })).status).toBe(404);
-        expect((await memory("POST", "/duration", { taskId: id, minutes: 0 })).status).toBe(400);
-    });
-
-    it("keeps one report per task per day: a second answer replaces the first, and clearing removes it", async () => {
-        const id = await newTask("2026-10-13T12:30:00Z");
-        await setMode("full");
-        await memory("POST", "/duration", { taskId: id, minutes: 45 });
-        await memory("POST", "/duration", { taskId: id, minutes: 60 });
-        expect(await signals()).toEqual([expect.objectContaining({ kind: "duration", minutes: 60 })]);
-        const [{ task_id }] = await sql("SELECT task_id FROM ai_memory_signals WHERE user_id = $1", [userId]);
-        expect(task_id).toBe(id);
-
-        expect((await memory("GET", `/duration?taskId=${id}`)).body).toEqual({ data: { minutes: 60 } });
-        await memory("DELETE", "/duration", { taskId: id });
-        expect(await signals()).toEqual([]);
-    });
-
-    it("drops the answer when the task leaves Done, in the same change", async () => {
-        const tasksApi = apiAs(userId, "/tasks", taskRoutes, env);
-        const id = await newTask("2026-10-13T12:30:00Z");
-        await setMode("full");
-        await tasksApi("PATCH", `/${id}`, { state: "COMPLETE" });
-        await memory("POST", "/duration", { taskId: id, minutes: 45 });
-        expect((await signals()).filter((s) => s.kind === "duration")).toHaveLength(1);
-        await tasksApi("PATCH", `/${id}`, { state: "ACTIVE" });
-        expect((await signals()).filter((s) => s.kind === "duration")).toEqual([]);
-    });
-
-    it("asks the server's way: once a day, only about finished, unhurried work, and 'shown' spends the day", async () => {
-        const tasksApi = apiAs(userId, "/tasks", taskRoutes, env);
-        const id = await newTask("2026-10-13T12:30:00Z");
-        await sql("UPDATE tasks SET created_at = now() - interval '1 hour' WHERE id = $1", [id]);
-        const ask = async (taskId: string) => (await memory("POST", "/duration/ask", { taskId })).body.data;
-
-        await setMode("basic");
-        await tasksApi("PATCH", `/${id}`, { state: "COMPLETE" });
-        expect(await ask(id)).toEqual({ ask: false }); // not Full
-
-        await setMode("full");
-        expect(await ask(id)).toEqual({ ask: true, token: expect.stringContaining(id), reference: null });
-        const { token } = await ask(id);
-        // Asking spends nothing: only the toast rendering does.
-        expect((await ask(id)).ask).toBe(true);
-        await memory("POST", "/duration/shown", { token });
-        expect(await ask(id)).toEqual({ ask: false });
-
-        // A task completed seconds after it was created is a list being written down.
-        const quick = await newTask("2026-10-13T12:30:00Z");
-        await sql("UPDATE users SET settings = settings #- '{assistant,durationAsk}' WHERE id = $1", [userId]);
-        await tasksApi("PATCH", `/${quick}`, { state: "COMPLETE" });
-        expect(await ask(quick)).toEqual({ ask: false });
-    });
-
-    it("backs off after unanswered asks, and an answer resets it", async () => {
-        const id = await newTask("2026-10-13T12:30:00Z");
-        await setMode("full");
-        const read = async () => (await sql("SELECT settings #> '{assistant,durationAsk}' AS ask FROM users WHERE id = $1", [userId]))[0].ask;
-        const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
-        await memory("POST", "/duration/shown", { token: `${id}:${today}` });
-        expect(await read()).toEqual({ lastOn: today, misses: 1 });
-        await memory("POST", "/duration", { taskId: id, minutes: 30 });
-        expect(await read()).toEqual({ lastOn: today, misses: 0 });
-        // A token for another day spends nothing.
-        await memory("POST", "/duration/shown", { token: `${id}:2020-01-01` });
-        expect(await read()).toEqual({ lastOn: today, misses: 0 });
-    });
-
-    it("forgetting a duration fact drops the reports behind it", async () => {
-        await setMode("full");
-        const id = await newTask("2026-10-13T12:30:00Z");
-        await memory("POST", "/duration", { taskId: id, minutes: 50 });
-        const [{ id: factId }] = await sql(
-            `INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence, value)
-             VALUES ($1, 'duration', 'Write essay usually takes about 50 minutes (3 times)', '2026-10-13', '2026-10-13', 'activity', 'observed', '{"group":"write essay"}'::jsonb)
-             RETURNING id`, [userId]);
-        await memory("DELETE", `/${factId}`);
-        expect(await signals()).toEqual([]);
-    });
-
     it("stops recording signals past the day's cap, however many are sent", async () => {
         await setMode("full");
         const { recordPersonActivity, MAX_SIGNALS_PER_DAY } = await import("../../src/domains/ai/memory/memory.service");
@@ -768,12 +693,17 @@ describe("Full: learning from what the person does", () => {
         await setMode("full");
         const days = ["2026-10-01", "2026-10-02", "2026-10-05", "2026-10-06", "2026-10-08", "2026-10-09"];
         for (const day of days) await sql("INSERT INTO ai_memory_signals (user_id, kind, \"on\", bucket) VALUES ($1, 'complete', $2, 'evening')", [userId, day]);
-        for (const m of [40, 50, 60]) await sql("INSERT INTO ai_memory_signals (user_id, kind, \"on\", bucket, subject, minutes) VALUES ($1, 'duration', '2026-10-09', 'report', 'lab report', $2)", [userId, m]);
+        const report = async (minutes: number, day: string) => {
+            const [{ id }] = await sql("INSERT INTO tasks (user_id, title, order_index, state) VALUES ($1, 'Lab report', 1, 'COMPLETE') RETURNING id", [userId]);
+            await sql(`INSERT INTO duration_reports (user_id, task_id, completed_at, low_minutes, high_minutes, title, group_key, said_on)
+                       SELECT $1, $2, completed_at, $3, $3, 'Lab report', 'lab report', $4 FROM tasks WHERE id = $2`, [userId, id, minutes, day]);
+        };
+        await report(40, "2026-10-01"); await report(50, "2026-10-05"); await report(60, "2026-10-09");
 
         const first = await nightlyForUser(env, userId, new Date("2026-10-12T07:30:00Z"));
         expect(first).toMatchObject({ activity: 2 });
         expect((await facts(userId)).map((f) => f.content).sort()).toEqual([
-            "Lab report usually takes about 50 minutes (3 times)",
+            "Lab report usually takes about 50 minutes (based on 3 of your answers)",
             "Tends to finish things in the evening (6 of 6 in the last 4 weeks)",
         ]);
         expect((await sql("SELECT source, confidence, kind FROM ai_memories WHERE user_id = $1 ORDER BY kind", [userId]))[0]).toMatchObject({ source: "activity", confidence: "observed" });
@@ -787,11 +717,11 @@ describe("Full: learning from what the person does", () => {
 
         // The counts move: the forgotten pattern still stays forgotten, and the duration is reworded in place.
         await sql("INSERT INTO ai_memory_signals (user_id, kind, \"on\", bucket) VALUES ($1, 'complete', '2026-10-10', 'evening')", [userId]);
-        await sql("INSERT INTO ai_memory_signals (user_id, kind, \"on\", bucket, subject, minutes) VALUES ($1, 'duration', '2026-10-10', 'report', 'lab report', 70)", [userId]);
+        await report(70, "2026-10-10");
         const [duration] = (await facts(userId)).filter((f) => f.kind === "duration");
         expect(await nightlyForUser(env, userId, new Date("2026-10-12T07:30:00Z"))).toMatchObject({ activity: 1 });
         expect((await facts(userId)).filter((f) => f.status === "active")).toEqual([
-            expect.objectContaining({ id: duration.id, content: "Lab report usually takes about 55 minutes (4 times)" }),
+            expect.objectContaining({ id: duration.id, content: "Lab report usually takes about 60 minutes (based on 4 of your answers)" }),
         ]);
     });
 
@@ -808,20 +738,6 @@ describe("Full: learning from what the person does", () => {
         expect(await signals()).toEqual([]);
     });
 
-    it("keeps duration reports said in chat (Full only), and never from the assistant's words", async () => {
-        const now = new Date("2026-10-01T11:00:00Z");
-        await setMode("full");
-        const chat = await seedChat(userId, ["The lab report took me 45 minutes", "Thanks"]);
-        model.reply = JSON.stringify({ facts: [{ from: "m1", kind: "duration", text: "Lab report", minutes: 45, flags: [] }] });
-        expect(await learnFromConversation(env, userId, chat, now)).toMatchObject({ reports: 1, saved: 0 });
-        expect(await signals()).toEqual([expect.objectContaining({ kind: "duration", subject: "lab report", minutes: 45 })]);
-
-        // Leaving Full keeps what was counted (only Clear erases), and Basic records nothing new.
-        await setMode("basic");
-        const other = await seedChat(userId, ["The lab report took me 45 minutes"]);
-        await learnFromConversation(env, userId, other, now);
-        expect(await signals()).toHaveLength(1);
-    });
 });
 
 describe("Full: learning from task notes", () => {
