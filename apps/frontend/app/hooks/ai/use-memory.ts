@@ -149,7 +149,9 @@ export function useSetReportedDuration(taskId: string, completedAt: string | nul
                 unwrapResponse(await client.api.ai.memory.duration.$delete({ json: { taskId, ...(completedAt && { completedAt }) } }));
                 return null;
             }
-            return unwrapResponse(await client.api.ai.memory.duration.$post({ json: { taskId, ...(completedAt && { completedAt }), ...input } }));
+            // A done task always carries its completion; without one there is nothing to answer for.
+            if (!completedAt) throw new Error("No completion to answer for");
+            return unwrapResponse(await client.api.ai.memory.duration.$post({ json: { taskId, completedAt, ...input } }));
         },
         onSuccess: (view) => {
             queryClient.setQueryData(queryKeys.ai.duration(taskId, completedAt), view);

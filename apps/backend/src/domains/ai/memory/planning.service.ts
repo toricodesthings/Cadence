@@ -20,7 +20,7 @@ import { logger, issuesFromError } from "../../../platform/log";
 import { readTasks } from "../../tasks/tasks.service";
 import type { Tx } from "../../../types/db";
 import type { Env } from "../../../types/env";
-import { planningOn, readMemoryState } from "./memory-mode";
+import { fenceMemoryState, planningOn, readMemoryState } from "./memory-mode";
 import { contentHash, usableBy } from "./memory-store";
 import type { DerivedFact } from "./signals";
 
@@ -32,15 +32,6 @@ const MAX_EVIDENCE_RECORDS = 500;
 
 /** The group a slot pattern fact stands for: a list, or "all" lists. Forget on the fact hides these records. */
 export const slotGroup = (projectId: string | null) => `slot:${projectId ?? "all"}`;
-
-/** Scopes the person asked to forget: nothing is recorded or read for them until they say so again. */
-async function forgottenScopes(tx: Tx, userId: string): Promise<Set<string>> {
-    const rows = await tx
-        .select({ group: sql<string | null>`${aiMemories.value} ->> 'group'` })
-        .from(aiMemories)
-        .where(and(eq(aiMemories.userId, userId), eq(aiMemories.status, "forgotten"), eq(aiMemories.kind, "pattern"), sql`${aiMemories.value} ->> 'group' LIKE 'slot:%'`));
-    return new Set(rows.flatMap((r) => (r.group ? [r.group] : [])));
-}
 
 const timelineStartHourOf = (settings: unknown): number => {
     const hour = (settings as { calendar?: { timelineStartHour?: unknown } } | null)?.calendar?.timelineStartHour;
@@ -74,7 +65,8 @@ export interface SlotChange {
 export async function recordSlot(env: Env, userId: string, change: SlotChange, now: Date = new Date()): Promise<void> {
     try {
         await withRls(getDbClient(env), userId, async (tx) => {
-            const state = await readMemoryState(tx, userId);
+            // Fenced: a switch away from Full either committed first and is seen here, or waits for this write.
+            const state = await fenceMemoryState(tx, userId);
             if (!planningOn(state) || change.after.recurrenceRule) return;
             const zone = await userZone(tx, userId);
             const today = todayIn(zone, now);
@@ -86,8 +78,6 @@ export async function recordSlot(env: Env, userId: string, change: SlotChange, n
             }
             const start = change.after.scheduledStart;
             if (!start) return;
-            const forgotten = await forgottenScopes(tx, userId);
-            if (forgotten.has(slotGroup(null)) || forgotten.has(slotGroup(change.after.projectId))) return;
             const chosen = bucketOf(start, zone);
 
             let feasible: TimeOfDay[];
@@ -202,8 +192,6 @@ export async function planningEvidence(tx: Tx, userId: string, now: Date = new D
     if (!planningOn(state)) return { records: [], stated };
 
     const today = todayIn(await userZone(tx, userId), now);
-    const forgotten = await forgottenScopes(tx, userId);
-    if (forgotten.has(slotGroup(null))) return { records: [], stated };
     const rows = await tx
         .select({ chosen: planningRecords.chosen, feasible: planningRecords.feasible, suggested: planningRecords.suggested, saidOn: planningRecords.saidOn, projectId: planningRecords.projectId })
         .from(planningRecords)
@@ -212,7 +200,7 @@ export async function planningEvidence(tx: Tx, userId: string, now: Date = new D
         .limit(MAX_EVIDENCE_RECORDS);
     return {
         records: rows
-            .filter((r) => r.chosen && r.feasible && !(r.projectId && forgotten.has(slotGroup(r.projectId))))
+            .filter((r) => r.chosen && r.feasible)
             .map((r) => ({ chosen: r.chosen as TimeOfDay, feasible: r.feasible as TimeOfDay[], suggested: r.suggested, saidOn: r.saidOn, projectId: r.projectId })),
         stated,
     };

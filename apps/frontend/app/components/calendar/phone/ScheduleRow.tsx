@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useTransform, type PanInfo } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { Check, CalendarDays, ArrowRight, Clock } from "lucide-react";
@@ -16,9 +16,8 @@ import { SPRINGS } from "../../../lib/constants/motion";
 /** Past this, a release commits; a flick past `FLICK` commits sooner. */
 const COMMIT = 88;
 const FLICK = 520;
-/** Room for Tomorrow and Pick day; Later adds its own when there is a gap today. */
-const ACTIONS_WIDTH = 176;
-const LATER_WIDTH = 132;
+/** Room for Tomorrow and Pick day until the tray is measured (Later, longer words or larger text widen it). */
+const ACTIONS_WIDTH = 220;
 
 export interface ScheduleRowHandlers {
     onOpen: (task: Task) => void;
@@ -63,7 +62,11 @@ export function ScheduleRow({ task, routineEmoji, past = false, laterToday = nul
     const swiped = useRef(false);
     const x = useMotionValue(0);
     const doneOpacity = useTransform(x, [0, COMMIT], [0, 1]);
-    const actionsWidth = ACTIONS_WIDTH + (laterToday ? LATER_WIDTH : 0);
+    const tray = useRef<HTMLDivElement>(null);
+    const [actionsWidth, setActionsWidth] = useState(ACTIONS_WIDTH);
+    useLayoutEffect(() => {
+        if (tray.current) setActionsWidth(tray.current.offsetWidth);
+    });
     const actionsOpacity = useTransform(x, [-actionsWidth, -24, 0], [1, 0.4, 0]);
 
     // Long-press lifts a task onto the week strip. Touch only: a mouse drag is the swipe.
@@ -151,6 +154,7 @@ export function ScheduleRow({ task, routineEmoji, past = false, laterToday = nul
             ) : null}
             {movable ? (
                 <motion.div
+                    ref={tray}
                     style={{ opacity: actionsOpacity }}
                     className="absolute inset-y-0 right-0 flex items-center gap-1.5 pr-2"
                     // Hidden from the a11y tree while closed; the detail sheet holds the same actions.
@@ -160,7 +164,7 @@ export function ScheduleRow({ task, routineEmoji, past = false, laterToday = nul
                         type="button"
                         tabIndex={actionsOpen ? 0 : -1}
                         onClick={() => { setActionsOpen(false); onLater(task); }}
-                        className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-2xl bg-white/[0.07] px-3 text-[13px] font-medium text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        className="flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-2xl bg-white/[0.07] px-3 text-[13px] font-medium text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                     >
                         <ArrowRight size={14} aria-hidden="true" />
                         {laterLabel}
@@ -169,7 +173,7 @@ export function ScheduleRow({ task, routineEmoji, past = false, laterToday = nul
                         type="button"
                         tabIndex={actionsOpen ? 0 : -1}
                         onClick={() => { setActionsOpen(false); onPickDay(task); }}
-                        className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-2xl bg-white/[0.07] px-3 text-[13px] font-medium text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        className="flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-2xl bg-white/[0.07] px-3 text-[13px] font-medium text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                     >
                         <CalendarDays size={14} aria-hidden="true" />
                         Pick day
@@ -180,10 +184,10 @@ export function ScheduleRow({ task, routineEmoji, past = false, laterToday = nul
                             tabIndex={actionsOpen ? 0 : -1}
                             aria-label={`Later today at ${laterToday.time}`}
                             onClick={() => { setActionsOpen(false); laterToday.place(); }}
-                            className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-2xl bg-accent-primary/15 px-3 text-[13px] font-medium text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                            className="flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-2xl bg-accent-primary/15 px-3 text-[13px] font-medium text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                         >
                             <Clock size={14} aria-hidden="true" />
-                            Later · {laterToday.time}
+                            {laterToday.time}
                         </button>
                     ) : null}
                 </motion.div>

@@ -11,10 +11,14 @@ describe("memory contracts", () => {
 
     it("bounds a duration report to a day", () => {
         const taskId = crypto.randomUUID();
-        expect(durationReportSchema.safeParse({ taskId, minutes: 45 }).success).toBe(true);
-        expect(durationReportSchema.safeParse({ taskId, minutes: 0 }).success).toBe(false);
-        expect(durationReportSchema.safeParse({ taskId, minutes: 1441 }).success).toBe(false);
-        expect(durationReportSchema.safeParse({ taskId, minutes: 12.5 }).success).toBe(false);
+        const completedAt = "2026-10-19T14:00:00.000Z";
+        const at = (minutes: number) => durationReportSchema.safeParse({ taskId, completedAt, value: { kind: "point", minutes } }).success;
+        expect(at(45)).toBe(true);
+        expect(at(0)).toBe(false);
+        expect(at(1441)).toBe(false);
+        expect(at(12.5)).toBe(false);
+        // The pre-0.36.0 shape (no completion, bare minutes) is gone.
+        expect(durationReportSchema.safeParse({ taskId, minutes: 45 }).success).toBe(false);
     });
 
     it("keeps a fact's text short and its dates plain days", () => {

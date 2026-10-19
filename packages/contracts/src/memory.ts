@@ -79,20 +79,16 @@ export const durationValueSchema = z.discriminatedUnion("kind", [
 ]);
 export type DurationValue = z.infer<typeof durationValueSchema>;
 
-/**
- * `POST /ai/memory/duration`. `completedAt` names the completion; only pre-0.36.0 desktop builds omit it (they bind to
- * the task's current one) and send `minutes` instead of `value`. A second answer for the same completion replaces the first.
- */
+/** `POST /ai/memory/duration`: one answer for the completion `completedAt` names. A second answer for it replaces the first. */
 export const durationReportSchema = z.object({
     taskId: z.uuid(),
-    completedAt: instantSchema.optional(),
-    value: durationValueSchema.optional(),
-    minutes: z.number().int().min(1).max(1440).optional(),
+    completedAt: instantSchema,
+    value: durationValueSchema,
     /** The answer came from the relative stage ("About right", Shorter, Longer). */
     anchored: z.boolean().default(false),
     /** The question's token, when answering the question (resets the back-off). */
     token: z.string().max(100).optional(),
-}).refine((r) => (r.value ? 1 : 0) + (r.minutes ? 1 : 0) === 1, "value or minutes");
+});
 export type DurationReport = z.input<typeof durationReportSchema>;
 
 /** What the server stored: the Took row and the toast render this, never their own draft. */

@@ -357,22 +357,24 @@ export async function scrubForgotten(tx: Tx, userId: string): Promise<number> {
         eq(planningRecords.userId, userId),
         sql`${planningRecords.forgottenAt} <= now() - make_interval(mins => ${UNDO_WINDOW_MINUTES})`,
     ));
+    // A forgotten "when you plan" pattern leaves no tombstone: its choices are gone, so if the person keeps planning
+    // that way it may be learned again from new ones (and forgotten again).
+    const expired = sql`${aiMemories.forgottenAt} <= now() - make_interval(mins => ${UNDO_WINDOW_MINUTES})`;
+    await tx.delete(aiMemories).where(and(eq(aiMemories.userId, userId), eq(aiMemories.status, "forgotten"), eq(aiMemories.kind, "pattern"), sql`${aiMemories.value} ->> 'group' LIKE 'slot:%'`, expired));
     const rows = await tx
         .select({ id: aiMemories.id, kind: aiMemories.kind, value: aiMemories.value })
         .from(aiMemories)
         .where(and(
             eq(aiMemories.userId, userId),
             eq(aiMemories.status, "forgotten"),
-            sql`${aiMemories.forgottenAt} <= now() - make_interval(mins => ${UNDO_WINDOW_MINUTES})`,
+            expired,
             sql`${aiMemories.value} ->> 'scrubbed' IS DISTINCT FROM 'true'`,
         ));
     for (const row of rows) {
         const label = String((row.value as { label?: unknown } | null)?.label ?? KIND_LABEL[row.kind]).slice(0, MEMORY_LABEL_MAX);
-        const group = (row.value as { group?: unknown } | null)?.group;
         await tx
             .update(aiMemories)
-            // A slot pattern keeps its group, so nothing is recorded for that scope again until the person says so.
-            .set({ content: label, value: { scrubbed: true, ...(typeof group === "string" && group.startsWith("slot:") ? { group } : {}) } })
+            .set({ content: label, value: { scrubbed: true } })
             .where(and(eq(aiMemories.userId, userId), eq(aiMemories.id, row.id)));
     }
     return rows.length;

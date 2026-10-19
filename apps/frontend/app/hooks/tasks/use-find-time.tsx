@@ -39,7 +39,7 @@ export const statusOf = (error: unknown) => (error as { status?: number } | null
 
 /**
  * Find a time: one tap puts the task in the first gap that fits, on the day, and the same message offers Another time,
- * Other day and Undo. The calendar is the preview and Undo is the approval, the same contract as a drag. Nothing
+ * Other day (which puts it back first) and Undo. The calendar is the preview and Undo is the approval, the same contract as a drag. Nothing
  * else moves, and no gap that day opens the sheet instead, writing nothing.
  */
 export function useFindTime() {
@@ -109,6 +109,7 @@ export function useFindTime() {
             }
         };
 
+        const undo = () => updateTask.mutateAsync({ id: task.id, ...before, findTime: { undo: true } });
         const toastId = toast.custom(
             (id) => (
                 <FindTimeToast
@@ -118,8 +119,9 @@ export function useFindTime() {
                     proposals={plan.proposals}
                     prefix={options.prefix}
                     onApply={apply}
-                    onOtherDay={() => openSheet({ taskId: task.id, day, anchorDay })}
-                    onUndo={() => void updateTask.mutateAsync({ id: task.id, ...before, findTime: { undo: true } })}
+                    // The sheet starts from the task as it was, so its Cancel and Undo go back there. A failed undo said why itself.
+                    onOtherDay={() => void undo().catch(() => {}).finally(() => openSheet({ taskId: task.id, day, anchorDay }))}
+                    onUndo={() => void undo()}
                 />
             ),
             // Closed by the toast itself, which waits while it is hovered or focused.

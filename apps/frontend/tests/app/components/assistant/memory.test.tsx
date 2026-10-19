@@ -40,9 +40,6 @@ beforeEach(() => {
 });
 
 describe("MemoryCard", () => {
-    // mutate(mode, { onSuccess }): the card shows its Undo toast once the server has answered.
-    const answer = () => memory.setMode.mockImplementation((_mode: string, options?: { onSuccess?: () => void }) => options?.onSuccess?.());
-
     it("is a labelled region, not a dialog, so the message box keeps working underneath", () => {
         render(<MemoryCard />);
         expect(screen.getByRole("region", { name: "Memory" })).toBeTruthy();
@@ -52,21 +49,15 @@ describe("MemoryCard", () => {
         expect(screen.getByText(/Settings → Assistant → Memory/)).toBeTruthy();
     });
 
-    it("Switch to Full, Keep Basic and Turn off each post their mode, and each shows Undo", () => {
-        answer();
+    it("Switch to Full, Keep Basic and Turn off each post their mode, with no toast (the card names Settings instead)", () => {
         render(<MemoryCard />);
         fireEvent.click(screen.getByRole("button", { name: "Switch to Full" }));
-        expect(memory.setMode).toHaveBeenLastCalledWith("full", expect.anything());
-        expect(memory.toast).toHaveBeenLastCalledWith("Memory: Full", expect.any(Function));
+        expect(memory.setMode).toHaveBeenLastCalledWith("full");
         fireEvent.click(screen.getByRole("button", { name: "Keep Basic" }));
-        expect(memory.setMode).toHaveBeenLastCalledWith("basic", expect.anything());
-        fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
-        expect(memory.setMode).toHaveBeenLastCalledWith("off", expect.anything());
-        expect(memory.toast).toHaveBeenLastCalledWith("Memory: Off", expect.any(Function));
-
-        // Undo goes back to what it was: Basic, since an unchosen memory is Basic.
-        (memory.toast.mock.lastCall![1] as () => void)();
         expect(memory.setMode).toHaveBeenLastCalledWith("basic");
+        fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
+        expect(memory.setMode).toHaveBeenLastCalledWith("off");
+        expect(memory.toast).not.toHaveBeenCalled();
     });
 
     it("stays out of the way once chosen", () => {

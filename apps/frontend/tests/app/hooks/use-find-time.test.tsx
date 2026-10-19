@@ -89,11 +89,21 @@ describe("useFindTime.run", () => {
         expect(second.findTime.shown).toContain("early");
     });
 
-    it("Other day opens the sheet on the same day for the task", async () => {
+    it("Other day puts the task back first, then opens the sheet on the same day", async () => {
         const { result } = setup();
         await act(async () => { await result.current.run(task); });
-        m.custom.mock.calls[0][0]("toast-id").props.onOtherDay();
+        m.mutateAsync.mockClear();
+        await act(async () => { m.custom.mock.calls[0][0]("toast-id").props.onOtherDay(); });
+        expect(m.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ id: "lab", findTime: { undo: true } }));
         expect(m.openSheet).toHaveBeenCalledWith({ taskId: "lab", day, anchorDay: day });
+    });
+
+    it("still opens the sheet when putting it back fails (the write said why)", async () => {
+        const { result } = setup();
+        await act(async () => { await result.current.run(task); });
+        m.mutateAsync.mockRejectedValueOnce(new Error("offline"));
+        await act(async () => { m.custom.mock.calls[0][0]("toast-id").props.onOtherDay(); });
+        expect(m.openSheet).toHaveBeenCalled();
     });
 
     it("looks again after a conflict and says the calendar changed", async () => {

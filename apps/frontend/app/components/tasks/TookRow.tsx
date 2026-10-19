@@ -3,6 +3,7 @@ import { Hourglass } from "lucide-react";
 import { formatValue } from "@cadence/domain/duration-chips";
 import type { DurationValue } from "@cadence/contracts/memory";
 import { useReportedDuration, useReportedRoutineDuration, useSetReportedDuration, useSetReportedRoutineDuration } from "../../hooks/ai/use-memory";
+import { formatWallTime } from "../../lib/utils/date-format";
 import { toastUndo } from "../../lib/utils/undo-toast";
 import { DurationChoices } from "../assistant/DurationChips";
 import { FieldRow, VALUE_BTN } from "../shared/DetailPanelSections";
@@ -91,5 +92,5 @@ export function RoutineTookRow({ habitId, day, time = null, enabled }: { habitId
     const { data: view } = useReportedRoutineDuration(habitId, day, time, enabled);
     const save = useSetReportedRoutineDuration(habitId, day, time);
     if (!enabled) return null;
-    return <TookField view={view} save={save} label={time ? `Took at ${time}` : "Took"} />;
+    return <TookField view={view} save={save} label={time ? `Took at ${formatWallTime(time)}` : "Took"} />;
 }

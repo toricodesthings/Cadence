@@ -144,7 +144,7 @@ describe("the pattern and Forget", () => {
     };
     const patternFact = async () => (await sql(`SELECT id, content, value, status FROM ai_memories WHERE user_id = $1 AND kind = 'pattern'`, [userId]))[0];
 
-    it("shows 'Often plans things in the evening', and Forget hides the records, Undo restores them, the scrub deletes them and nothing is recorded again", async () => {
+    it("shows 'Often plans things in the evening', and Forget hides the records, Undo restores them, the scrub deletes them, and new choices can teach it again", async () => {
         await seed();
         await nightlyForUser(env, userId);
         const fact = await patternFact();
@@ -162,13 +162,14 @@ describe("the pattern and Forget", () => {
         await sql("UPDATE planning_records SET forgotten_at = now() - interval '11 minutes' WHERE user_id = $1", [userId]);
         await learnForUser(env, userId, new Date());
         expect(await slots()).toEqual([]);
-        expect((await patternFact()).value).toMatchObject({ scrubbed: true, group: "slot:all" });
+        expect(await patternFact()).toBeUndefined(); // no tombstone
 
-        // It stays forgotten: choosing again records nothing until they say so.
+        // Forget is not a switch: choosing again records, and enough new choices bring the pattern back.
         await drop(await newTask("After forget"), "19:00");
-        expect(await slots()).toEqual([]);
+        expect(await slots()).toHaveLength(1);
+        await seed();
         await nightlyForUser(env, userId);
-        expect((await patternFact()).status).toBe("forgotten");
+        expect((await patternFact()).status).toBe("active");
     });
 
     it("Clear removes the records", async () => {

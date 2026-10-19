@@ -5,7 +5,7 @@
  * they live outside the signals' 90-day prune.
  */
 import { and, desc, eq, gt, inArray, isNotNull, isNull, sql } from "drizzle-orm";
-import type { DurationEvidenceRow, DurationReport, DurationReportView, RoutineDuration, RoutineDurationKey, RoutineDurationView } from "@cadence/contracts/memory";
+import type { DurationEvidenceRow, DurationReport, DurationReportView, DurationValue, RoutineDuration, RoutineDurationKey, RoutineDurationView } from "@cadence/contracts/memory";
 import { shouldAsk, referenceMinutes, type DurationAskState, type GroupHistory } from "@cadence/domain/duration-ask";
 import { addDays, daysBetween, todayIn, type LocalDate } from "@cadence/domain/time";
 import { estimateDuration } from "@cadence/nlp/duration";
@@ -90,6 +90,8 @@ const viewOf = (row: { taskId: string | null; completedAt: string | null; lowMin
     anchored: row.anchored,
 });
 
+const boundsOf = (value: DurationValue): [number, number] => (value.kind === "point" ? [value.minutes, value.minutes] : [value.lowMinutes, value.highMinutes]);
+
 /**
  * Stores one answer for one completion and returns what was stored. A completion that is gone (undone, or undone and
  * done again) is a 409 the client closes quietly. Basic and Off store nothing and say nothing about why (null).
@@ -97,14 +99,12 @@ const viewOf = (row: { taskId: string | null; completedAt: string | null; lowMin
 export async function reportDuration(tx: Tx, userId: string, body: DurationReport, now = new Date()): Promise<DurationReportView | null> {
     const [task] = await tx.select().from(tasks).where(and(eq(tasks.id, body.taskId), eq(tasks.userId, userId)));
     if (!task) throw new AppError(404, "NOT_FOUND", "Task not found");
-    // A pre-0.36.0 desktop build sends no instant: it means the current completion (D18).
-    if (task.state !== "COMPLETE" || !task.completedAt || (body.completedAt && !sameInstant(body.completedAt, task.completedAt))) {
+    if (task.state !== "COMPLETE" || !task.completedAt || !sameInstant(body.completedAt, task.completedAt)) {
         throw new AppError(409, "CONFLICT", "This task was reopened");
     }
     if ((await readMemoryState(tx, userId)).mode !== "full") return null;
 
-    const low = body.value ? (body.value.kind === "point" ? body.value.minutes : body.value.lowMinutes) : body.minutes!;
-    const high = body.value ? (body.value.kind === "point" ? body.value.minutes : body.value.highMinutes) : body.minutes!;
+    const [low, high] = boundsOf(body.value);
     const today = todayIn(await userZone(tx, userId), now);
     const values = {
         lowMinutes: low,
@@ -219,8 +219,7 @@ export async function reportRoutine(tx: Tx, userId: string, body: RoutineDuratio
     if (!(await routineDone(tx, userId, key))) throw new AppError(409, "CONFLICT", "This routine isn't marked done for that day");
     if ((await readMemoryState(tx, userId)).mode !== "full") return null;
 
-    const low = body.value.kind === "point" ? body.value.minutes : body.value.lowMinutes;
-    const high = body.value.kind === "point" ? body.value.minutes : body.value.highMinutes;
+    const [low, high] = boundsOf(body.value);
     const values = {
         lowMinutes: low,
         highMinutes: high,
@@ -230,10 +229,10 @@ export async function reportRoutine(tx: Tx, userId: string, body: RoutineDuratio
         groupKey: `series:${habit.id}`,
         saidOn: todayIn(await userZone(tx, userId), now),
     };
-    const [existing] = await tx.select({ id: durationReports.id }).from(durationReports).where(routineKey(userId, key));
-    const [row] = existing
-        ? await tx.update(durationReports).set({ ...values, forgottenAt: null, updatedAt: sql`now()` }).where(eq(durationReports.id, existing.id)).returning()
-        : await tx.insert(durationReports).values({ userId, habitId: habit.id, targetDate: key.day, wallTime: key.time, ...values }).returning();
+    // Insert first, so two first answers at once can't both insert: the second waits on the occurrence's unique index
+    // (an expression, so no ON CONFLICT target), inserts nothing, and updates the row the first made.
+    const [inserted] = await tx.insert(durationReports).values({ userId, habitId: habit.id, targetDate: key.day, wallTime: key.time, ...values }).onConflictDoNothing().returning();
+    const [row] = inserted ? [inserted] : await tx.update(durationReports).set({ ...values, forgottenAt: null, updatedAt: sql`now()` }).where(routineKey(userId, key)).returning();
     return routineViewOf(row);
 }
 

@@ -84,7 +84,7 @@ describe("POST /duration", () => {
         expect(await reports(id)).toEqual([expect.objectContaining({ low_minutes: 30, high_minutes: 60, anchored: true, group_key: "write essay" })]);
         expect((await memory("GET", `/duration?taskId=${id}`)).body.data).toEqual({ taskId: id, completedAt, lowMinutes: 30, highMinutes: 60, anchored: true });
         expect((await memory("POST", "/duration", { taskId: id, completedAt, value: { kind: "point", minutes: 0 } })).status).toBe(400);
-        expect((await memory("POST", "/duration", { taskId: crypto.randomUUID(), completedAt, minutes: 45 })).status).toBe(404);
+        expect((await memory("POST", "/duration", { taskId: crypto.randomUUID(), completedAt, value: { kind: "point", minutes: 45 } })).status).toBe(404);
         expect((await memory("POST", "/duration", { taskId: id, completedAt })).status).toBe(400);
     });
 
@@ -92,39 +92,38 @@ describe("POST /duration", () => {
         await setMode("full");
         const id = await newTask();
         const first = (await complete(id)).completedAt;
-        await memory("POST", "/duration", { taskId: id, completedAt: first, minutes: 45 });
+        await memory("POST", "/duration", { taskId: id, completedAt: first, value: { kind: "point", minutes: 45 } });
         await reopen(id);
         expect(await reports(id)).toEqual([]); // Undo took the answer with it
-        const stale = await memory("POST", "/duration", { taskId: id, completedAt: first, minutes: 45 });
+        const stale = await memory("POST", "/duration", { taskId: id, completedAt: first, value: { kind: "point", minutes: 45 } });
         expect(stale.status).toBe(409);
         await new Promise((r) => setTimeout(r, 5));
         const second = (await complete(id)).completedAt;
         expect(second).not.toBe(first);
-        expect((await memory("POST", "/duration", { taskId: id, completedAt: first, minutes: 45 })).status).toBe(409);
-        expect((await memory("POST", "/duration", { taskId: id, completedAt: second, minutes: 50 })).status).toBe(200);
+        expect((await memory("POST", "/duration", { taskId: id, completedAt: first, value: { kind: "point", minutes: 45 } })).status).toBe(409);
+        expect((await memory("POST", "/duration", { taskId: id, completedAt: second, value: { kind: "point", minutes: 50 } })).status).toBe(200);
         // A task that is not Done has no completion to answer.
         await reopen(id);
-        expect((await memory("POST", "/duration", { taskId: id, completedAt: second, minutes: 50 })).status).toBe(409);
+        expect((await memory("POST", "/duration", { taskId: id, completedAt: second, value: { kind: "point", minutes: 50 } })).status).toBe(409);
     });
 
     it("keeps an earlier completion's report when a repeating task is completed again", async () => {
         await setMode("full");
         const id = await newTask();
         const first = (await complete(id)).completedAt;
-        await memory("POST", "/duration", { taskId: id, completedAt: first, minutes: 45 });
+        await memory("POST", "/duration", { taskId: id, completedAt: first, value: { kind: "point", minutes: 45 } });
         // A second row for the same task at another instant (a later completion of a series).
         await sql("INSERT INTO duration_reports (user_id, task_id, completed_at, low_minutes, high_minutes, title, group_key, said_on) VALUES ($1, $2, now() - interval '3 days', 40, 40, 'Write essay', 'write essay', '2026-10-01')", [userId, id]);
         await reopen(id);
         expect(await reports(id)).toEqual([expect.objectContaining({ low_minutes: 40 })]);
     });
 
-    it("binds a pre-0.36.0 body to the current completion, and refuses it when the task is not Done", async () => {
+    it("refuses a body that doesn't name its completion (the pre-0.36.0 shape)", async () => {
         await setMode("full");
         const id = await newTask();
-        expect((await memory("POST", "/duration", { taskId: id, minutes: 45 })).status).toBe(409);
-        const { completedAt } = await complete(id);
-        const legacy = await memory("POST", "/duration", { taskId: id, minutes: 45 });
-        expect(legacy.body.data).toMatchObject({ completedAt, lowMinutes: 45 });
+        await complete(id);
+        expect((await memory("POST", "/duration", { taskId: id, minutes: 45 })).status).toBe(400);
+        expect((await memory("POST", "/duration", { taskId: id, value: { kind: "point", minutes: 45 } })).status).toBe(400);
     });
 
     it("stores nothing in Basic or Off, and says nothing about why", async () => {
@@ -132,7 +131,7 @@ describe("POST /duration", () => {
         const { completedAt } = await complete(id);
         for (const mode of ["basic", "off"] as const) {
             await setMode(mode);
-            const res = await memory("POST", "/duration", { taskId: id, completedAt, minutes: 45 });
+            const res = await memory("POST", "/duration", { taskId: id, completedAt, value: { kind: "point", minutes: 45 } });
             expect(res.status).toBe(200);
             expect(res.body.data).toBeNull();
         }
@@ -144,7 +143,7 @@ describe("POST /duration", () => {
         const id = await newTask();
         const { completedAt } = await complete(id);
         vi.mocked(withinDailyBudget).mockResolvedValueOnce(false);
-        expect((await memory("POST", "/duration", { taskId: id, completedAt, minutes: 45 })).status).toBe(429);
+        expect((await memory("POST", "/duration", { taskId: id, completedAt, value: { kind: "point", minutes: 45 } })).status).toBe(429);
         expect(await reports()).toEqual([]);
     });
 
@@ -152,7 +151,7 @@ describe("POST /duration", () => {
         await setMode("full");
         const id = await newTask();
         const { completedAt } = await complete(id);
-        await memory("POST", "/duration", { taskId: id, completedAt, minutes: 45 });
+        await memory("POST", "/duration", { taskId: id, completedAt, value: { kind: "point", minutes: 45 } });
         expect((await memory("DELETE", "/duration", { taskId: id })).status).toBe(200);
         expect(await reports(id)).toEqual([]);
         expect((await memory("DELETE", "/duration", { taskId: id })).status).toBe(200);
@@ -199,9 +198,9 @@ describe("the question budget", () => {
         expect(await askState()).toMatchObject({ misses: 1, shownToken: token });
         await memory("POST", "/duration/shown", { token: "someone-else" });
         expect((await askState()).misses).toBe(1);
-        await memory("POST", "/duration", { taskId: id, completedAt, minutes: 30 }); // a Took-row edit: no token
+        await memory("POST", "/duration", { taskId: id, completedAt, value: { kind: "point", minutes: 30 } }); // a Took-row edit: no token
         expect((await askState()).misses).toBe(1);
-        await memory("POST", "/duration", { taskId: id, completedAt, minutes: 30, token });
+        await memory("POST", "/duration", { taskId: id, completedAt, value: { kind: "point", minutes: 30 }, token });
         expect((await askState()).misses).toBe(0);
     });
 
@@ -221,7 +220,7 @@ describe("evidence, Forget, Clear and the nightly prune", () => {
     const answer = async (title: string, minutes: number, daysAgo = 1) => {
         const id = await newTask(title);
         const { completedAt } = await complete(id);
-        await memory("POST", "/duration", { taskId: id, completedAt, minutes });
+        await memory("POST", "/duration", { taskId: id, completedAt, value: { kind: "point", minutes } });
         await sql("UPDATE duration_reports SET said_on = (now() - make_interval(days => $2))::date WHERE task_id = $1", [id, daysAgo]);
         return id;
     };
