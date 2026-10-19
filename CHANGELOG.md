@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-10-19
+
 Cadence finds a time that suits you, and offers a lighter plan when one keeps slipping.
 
 ### Added
