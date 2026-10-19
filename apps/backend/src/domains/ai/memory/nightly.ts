@@ -1,6 +1,6 @@
 /**
  * The nightly pass (the "sleep-time" consolidation), once per person in their local night. Expired and
- * unreinforced facts the person never said go, near-duplicates are merged, and the cap is enforced. Deterministic
+ * unreinforced facts the person never said go, and near-duplicates are merged. There is no size cap: growth is bounded by the daily limits on saves and extractions. Deterministic
  * except the merge, which asks consolidation over opaque keys and so can only name a real fact. No model call when
  * nothing changed. Stated and pinned facts never decay.
  */
@@ -11,9 +11,10 @@ import { userZone } from "../../../platform/user-zone";
 import { logger, hashIdentifier, issuesFromError } from "../../../platform/log";
 import { consolidate } from "./consolidate";
 import type { Env } from "../../../types/env";
-import { fenceMemoryState, isLearning, readMemoryState } from "./memory-mode";
-import { changedFacts, deleteDecayed, deleteExpired, evictOverCap, MEMORY_CAP, mergeFacts, nearestFacts, syncActivityFacts } from "./memory-store";
-import { derivePatterns, deriveDurations, retentionCutoff, type ReportRow, type SignalRow } from "./signals";
+import { fenceMemoryState, isLearning, planningOn, readMemoryState } from "./memory-mode";
+import { changedFacts, deleteDecayed, deleteExpired, dropOrphanedFacts, mergeFacts, nearestFacts, syncActivityFacts } from "./memory-store";
+import { derivePatterns, deriveDurations, retentionCutoff, type DerivedFact, type ReportRow, type SignalRow } from "./signals";
+import { prunePlanning, slotPatterns } from "./planning.service";
 import { readReports } from "./duration";
 import { embedTexts, getEmbeddingModelId } from "./embedding";
 import { backfillForUser } from "./backfill";
@@ -34,7 +35,6 @@ export interface NightlyResult {
     expired: number;
     decayed: number;
     merged: number;
-    evicted: number;
     /** Full: patterns and durations added or removed. */
     activity: number;
 }
@@ -49,11 +49,12 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
             const today = todayIn(await userZone(tx, userId), now);
             // Expiry and decay are plain deletion: they run whatever the mode.
             const expired = await deleteExpired(tx, userId, today);
-            const decayed = await deleteDecayed(tx, userId, today);
+            const decayed = await deleteDecayed(tx, userId, today) + (await dropOrphanedFacts(tx, userId));
             // Merging asks a model, and only makes sense while memory is on.
             // Signals are kept 90 days; Full reads them for patterns and durations below.
             await tx.delete(aiMemorySignals).where(and(eq(aiMemorySignals.userId, userId), lt(aiMemorySignals.on, retentionCutoff(today))));
-            if (!isLearning(state.mode)) return { state, today, expired, decayed, pairs: [], signals: [] as SignalRow[], reports: [] as ReportRow[] };
+            await prunePlanning(tx, userId, today);
+            if (!isLearning(state.mode)) return { state, today, expired, decayed, pairs: [], signals: [] as SignalRow[], reports: [] as ReportRow[], slots: [] as DerivedFact[] };
             const since = new Date(now.getTime() - CHANGED_WITHIN_MS).toISOString();
             const pairs: { fact: string; other: string }[] = [];
             const seen = new Set<string>();
@@ -74,7 +75,9 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
                       .limit(MAX_SIGNALS_READ)
                 : [];
             const reports: ReportRow[] = state.mode === "full" ? await readReports(tx, userId, today) : [];
-            return { state, today, expired, decayed, pairs, signals: signals as SignalRow[], reports };
+            // How they plan: Full only.
+            const slots = planningOn(state) ? await slotPatterns(tx, userId, today) : [];
+            return { state, today, expired, decayed, pairs, signals: signals as SignalRow[], reports, slots };
         });
 
         // 2 · Ask the chat model about the pairs (outside any transaction).
@@ -101,9 +104,9 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
             });
         }
 
-        // 3 · Apply, then enforce the cap. Fenced by the epoch, like every background write.
+        // 3 · Apply. Fenced by the epoch, like every background write.
         // Full: what the person's own changes add up to. Deterministic; the only model call is the embedding of new text.
-        const derived = plan.state.mode === "full" ? [...derivePatterns(plan.signals, plan.today), ...deriveDurations(plan.reports, plan.today)] : [];
+        const derived = plan.state.mode === "full" ? [...derivePatterns(plan.signals, plan.today), ...deriveDurations(plan.reports, plan.today), ...plan.slots] : [];
         let vectors: (number[] | null)[] = derived.map(() => null);
         if (derived.length > 0) {
             try {
@@ -112,7 +115,7 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
                 // saved without a vector: still found by words
             }
         }
-        const result: NightlyResult = { expired: plan.expired, decayed: plan.decayed, merged: 0, evicted: 0, activity: 0 };
+        const result: NightlyResult = { expired: plan.expired, decayed: plan.decayed, merged: 0, activity: 0 };
         await withRls(db, userId, async (tx) => {
             const current = await fenceMemoryState(tx, userId);
             if (current.epoch !== plan.state.epoch || !isLearning(current.mode)) return;
@@ -120,11 +123,10 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
             if (current.mode === "full") {
                 result.activity = await syncActivityFacts(tx, userId, derived.map((d, i) => ({ ...d, embedding: vectors[i], embeddingModel: getEmbeddingModelId(env) })), plan.today);
             }
-            result.evicted = await evictOverCap(tx, userId, MEMORY_CAP[current.mode]);
         });
         // The catch-up after choosing Full (a few batches a night).
         if (plan.state.mode === "full") await backfillForUser(env, userId, now);
-        if (result.expired + result.decayed + result.merged + result.evicted + result.activity > 0) logger.info("ai", "ai_memory_nightly", { userHash, ...result });
+        if (result.expired + result.decayed + result.merged + result.activity > 0) logger.info("ai", "ai_memory_nightly", { userHash, ...result });
         return result;
     } catch (error) {
         logger.warn("ai", "memory_nightly_failed", { userHash, issues: issuesFromError(error) });

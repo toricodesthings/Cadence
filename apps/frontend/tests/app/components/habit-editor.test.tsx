@@ -21,6 +21,10 @@ const { routineToTask } = vi.hoisted(() => ({ routineToTask: vi.fn(() => Promise
 vi.mock("../../../app/hooks/habits/use-convert-repeat", () => ({ useConvertRepeat: () => ({ routineToTask, taskToRoutine: vi.fn(), isPending: false }) }));
 vi.mock("../../../app/hooks/habits/use-resolve-habit", () => ({ useResolveHabit: () => ({ mutate: resolve }) }));
 vi.mock("sonner", () => ({ toast: vi.fn() }));
+const typical = vi.hoisted(() => ({ guess: null as null | { state: "supported" | "tentative"; minutes: number } }));
+vi.mock("../../../app/hooks/ai/use-duration-guess", () => ({ useDurationGuesser: () => () => typical.guess }));
+const tookRow = vi.hoisted(() => vi.fn());
+vi.mock("../../../app/components/tasks/TookRow", () => ({ RoutineTookRow: (props: Record<string, unknown>) => { tookRow(props); return <div data-testid="took-row" />; } }));
 // Every range query answers with the routine due yesterday (open) and today (done).
 setUserZone("America/Toronto");
 const day = (offset: number) => addDays(today(), offset);
@@ -43,6 +47,25 @@ beforeEach(() => {
     Element.prototype.hasPointerCapture = vi.fn(() => false);
     Element.prototype.releasePointerCapture = vi.fn();
     settings.current = { tasks: { showStreaks: true } };
+    typical.guess = null;
+});
+
+describe("HabitEditor: how long it takes (Full only)", () => {
+    it("says 'Usually about 45 min' when their own answers support it, and Took on a day marked done", () => {
+        settings.current = { tasks: { showStreaks: true }, assistant: { memoryMode: "full" } } as never;
+        typical.guess = { state: "supported", minutes: 45 };
+        setup();
+        expect(screen.getByText("Usually about 45 min")).toBeTruthy();
+        expect(tookRow).toHaveBeenCalledWith(expect.objectContaining({ habitId: "habit-1", day: day(0), enabled: true }));
+        expect(screen.getAllByTestId("took-row")).toHaveLength(1);
+    });
+
+    it("shows neither outside Full", () => {
+        typical.guess = { state: "supported", minutes: 45 };
+        setup();
+        expect(screen.queryByText(/Usually about/)).toBeNull();
+        expect(screen.queryByTestId("took-row")).toBeNull();
+    });
 });
 
 describe("HabitEditor", () => {

@@ -8,6 +8,7 @@ import { formatTime } from "../../../lib/utils/date-format";
 import { getUserZone, useToday } from "../../../lib/utils/user-zone";
 import { formatDuration, freeGaps, itemEnd, itemStart, scheduleKind, splitDay, type FreeGap } from "../../../lib/utils/calendar/schedule-day";
 import { useMinuteClock } from "../../../hooks/ui/use-realtime-clock";
+import { useLaterToday } from "../../../hooks/tasks/use-find-time";
 import { Reveal } from "../../shared/Reveal";
 import { ScheduleRow, type ScheduleRowHandlers } from "./ScheduleRow";
 
@@ -97,12 +98,14 @@ export function DayAgenda({
     const hasMarkers = holidays.length > 0 || isBirthday || personalEvents.length > 0;
     const isEmpty = tasks.length === 0;
 
+    const laterOf = useLaterToday(dateIso, tasks, isToday);
     const row = (task: Task, past = false) => (
         <ScheduleRow
             key={task.id}
             task={task}
             routineEmoji={routineEmoji(task)}
             past={past}
+            laterToday={laterOf(task)}
             dragActive={dragActive}
             reducedMotion={reducedMotion}
             {...handlers}

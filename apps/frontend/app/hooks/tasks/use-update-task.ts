@@ -77,7 +77,9 @@ export function useUpdateTask() {
         ),
 
         onMutate: async ({ id, ...raw }) => {
-            const updates = normalizeDateRange(raw);
+            // `findTime` says how a placement came about; it is not a field of the task.
+            const { findTime: _findTime, ...fields } = raw;
+            const updates = normalizeDateRange(fields);
             await taskCache.cancel(queryClient);
             const snapshot = taskCache.snapshot(queryClient);
 
@@ -108,6 +110,15 @@ export function useUpdateTask() {
             reconcileTaskInCaches(queryClient, task);
         },
 
-        onError: (err, _input, context) => taskCache.fail(queryClient, err, context, "Couldn't update task"),
+        onError: (err, input, context) => {
+            // A found time that lost to a change elsewhere is handled by Find a time, which looks again and says so itself.
+            // An Undo that loses still fails out loud: the person has to know the old block didn't come back.
+            if (input.findTime && !input.findTime.undo && (err as { status?: number } | null)?.status === 409) {
+                if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
+                taskCache.invalidate(queryClient);
+                return;
+            }
+            taskCache.fail(queryClient, err, context, "Couldn't update task");
+        },
     });
 }

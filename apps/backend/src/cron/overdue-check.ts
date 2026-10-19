@@ -125,7 +125,7 @@ export async function runMemoryNightly(env: Env, now: Date = new Date()) {
     let changed = 0;
     for (const userId of userIds) {
         const result = await nightlyForUser(env, userId, now);
-        changed += result ? result.expired + result.decayed + result.merged + result.evicted + result.activity : 0;
+        changed += result ? result.expired + result.decayed + result.merged + result.activity : 0;
     }
     return changed;
 }

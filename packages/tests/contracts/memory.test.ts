@@ -3,10 +3,10 @@ import { durationReportSchema, FULL_ONLY_KINDS, memoryFactSchema, memoryPageSche
 import { TOOL_CATALOG, isMemoryTool } from "@cadence/contracts/ai-tools";
 
 describe("memory contracts", () => {
-    it("takes only the three modes, with the wording version the person agreed to", () => {
-        expect(setMemoryModeSchema.parse({ mode: "full", consentVersion: "2026-10-12" })).toEqual({ mode: "full", consentVersion: "2026-10-12" });
-        expect(setMemoryModeSchema.safeParse({ mode: "everything", consentVersion: "x" }).success).toBe(false);
-        expect(setMemoryModeSchema.safeParse({ mode: "basic" }).success).toBe(false);
+    it("takes only the three modes", () => {
+        expect(setMemoryModeSchema.parse({ mode: "full" })).toEqual({ mode: "full" });
+        expect(setMemoryModeSchema.safeParse({ mode: "everything" }).success).toBe(false);
+        expect(setMemoryModeSchema.safeParse({}).success).toBe(false);
     });
 
     it("bounds a duration report to a day", () => {
@@ -22,7 +22,7 @@ describe("memory contracts", () => {
         expect(memoryFactSchema.safeParse(fact).success).toBe(true);
         expect(memoryFactSchema.safeParse({ ...fact, content: "x".repeat(301) }).success).toBe(false);
         expect(memoryFactSchema.safeParse({ ...fact, saidOn: "2026-08-12T00:00:00Z" }).success).toBe(false);
-        expect(memoryPageSchema.safeParse({ mode: null, choiceAt: null, inactive: true, catchUp: null, facts: [], forgotten: [] }).success).toBe(true);
+        expect(memoryPageSchema.safeParse({ mode: null, choiceAt: null, inactive: false, catchUp: null, facts: [], nextCursor: null, forgotten: [] }).success).toBe(true);
     });
 
     it("names the activity kinds only Full learns, and the three tools that exist only with memory on", () => {

@@ -2,7 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const memory = vi.hoisted(() => ({
-    page: { mode: null as string | null, choiceAt: null, inactive: true, catchUp: null as object | null, facts: [] as unknown[], forgotten: [] as unknown[] },
+    page: { mode: null as string | null, choiceAt: null, inactive: false, catchUp: null as object | null, facts: [] as unknown[], nextCursor: null as string | null, forgotten: [] as unknown[] },
+    older: vi.fn(),
+    toast: vi.fn(),
     setMode: vi.fn(),
     forget: vi.fn(),
     restore: vi.fn(),
@@ -14,6 +16,11 @@ vi.mock("../../../../app/hooks/ai/use-memory", () => ({
     useForgetMemory: () => ({ mutate: memory.forget, mutateAsync: async (input: unknown) => memory.forget(input), isPending: false }),
     useRestoreMemory: () => ({ mutate: memory.restore, isPending: false }),
     useClearMemory: () => ({ mutate: vi.fn(), isPending: false }),
+    useOlderMemory: () => ({ mutate: memory.older, isPending: false }),
+}));
+vi.mock("../../../../app/lib/utils/undo-toast", async (original) => ({
+    ...(await original<typeof import("../../../../app/lib/utils/undo-toast")>()),
+    toastUndo: (...args: unknown[]) => memory.toast(...args),
 }));
 
 vi.mock("@tanstack/react-query", async (original) => ({
@@ -22,48 +29,55 @@ vi.mock("@tanstack/react-query", async (original) => ({
 }));
 
 import { Tooltip } from "../../../../app/components/primitives";
-import { MemoryPicker } from "../../../../app/components/assistant/MemoryPicker";
+import { MemoryCard } from "../../../../app/components/assistant/MemoryCard";
 import { MemoryOverlay } from "../../../../app/components/assistant/MemoryOverlay";
 import { RememberReceipt } from "../../../../app/components/assistant/widgets/RememberReceipt";
 
 beforeEach(() => {
     vi.clearAllMocks();
-    memory.page = { mode: null, choiceAt: null, inactive: true, catchUp: null, facts: [], forgotten: [] };
+    memory.page = { mode: null, choiceAt: null, inactive: false, catchUp: null, facts: [], nextCursor: null, forgotten: [] };
+    localStorage.clear();
 });
 
-describe("MemoryPicker", () => {
-    it("preselects Basic so one tap on Continue is the whole job", () => {
-        render(<MemoryPicker />);
-        expect(screen.getByRole("radio", { name: /Basic/ }).getAttribute("aria-checked")).toBe("true");
-        fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-        expect(memory.setMode).toHaveBeenCalledWith("basic");
+describe("MemoryCard", () => {
+    // mutate(mode, { onSuccess }): the card shows its Undo toast once the server has answered.
+    const answer = () => memory.setMode.mockImplementation((_mode: string, options?: { onSuccess?: () => void }) => options?.onSuccess?.());
+
+    it("is a labelled region, not a dialog, so the message box keeps working underneath", () => {
+        render(<MemoryCard />);
+        expect(screen.getByRole("region", { name: "Memory" })).toBeTruthy();
+        expect(screen.queryByRole("dialog")).toBeNull();
+        expect(screen.getByText(/I remember what you tell me/)).toBeTruthy();
+        expect(screen.getByText(/when you like to do things/)).toBeTruthy();
+        expect(screen.getByText(/Settings → Assistant → Memory/)).toBeTruthy();
     });
 
-    it("is one tab stop whose arrows move between the choices", () => {
-        render(<MemoryPicker />);
-        const basic = screen.getByRole("radio", { name: /Basic/ });
-        expect(basic.tabIndex).toBe(0);
-        expect(screen.getByRole("radio", { name: /Full/ }).tabIndex).toBe(-1);
-        fireEvent.keyDown(basic, { key: "ArrowDown" });
-        expect(screen.getByRole("radio", { name: /Full/ }).getAttribute("aria-checked")).toBe("true");
-        expect(document.activeElement).toBe(screen.getByRole("radio", { name: /Full/ }));
-    });
+    it("Switch to Full, Keep Basic and Turn off each post their mode, and each shows Undo", () => {
+        answer();
+        render(<MemoryCard />);
+        fireEvent.click(screen.getByRole("button", { name: "Switch to Full" }));
+        expect(memory.setMode).toHaveBeenLastCalledWith("full", expect.anything());
+        expect(memory.toast).toHaveBeenLastCalledWith("Memory: Full", expect.any(Function));
+        fireEvent.click(screen.getByRole("button", { name: "Keep Basic" }));
+        expect(memory.setMode).toHaveBeenLastCalledWith("basic", expect.anything());
+        fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
+        expect(memory.setMode).toHaveBeenLastCalledWith("off", expect.anything());
+        expect(memory.toast).toHaveBeenLastCalledWith("Memory: Off", expect.any(Function));
 
-    it("takes Full when picked, and Off is a quiet link rather than a card", () => {
-        render(<MemoryPicker />);
-        fireEvent.click(screen.getByRole("radio", { name: /Full/ }));
-        fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-        expect(memory.setMode).toHaveBeenLastCalledWith("full");
-
-        expect(screen.getAllByRole("radio")).toHaveLength(2);
-        fireEvent.click(screen.getByRole("button", { name: "Don’t remember anything" }));
-        expect(memory.setMode).toHaveBeenLastCalledWith("off");
+        // Undo goes back to what it was: Basic, since an unchosen memory is Basic.
+        (memory.toast.mock.lastCall![1] as () => void)();
+        expect(memory.setMode).toHaveBeenLastCalledWith("basic");
     });
 
     it("stays out of the way once chosen", () => {
         memory.page.mode = "basic";
-        const { container } = render(<MemoryPicker />);
+        const { container } = render(<MemoryCard />);
         expect(container.innerHTML).toBe("");
+    });
+
+    it("says nothing to Full people", () => {
+        memory.page = { ...memory.page, mode: "full" };
+        expect(render(<MemoryCard />).container.innerHTML).toBe("");
     });
 });
 
@@ -121,6 +135,34 @@ describe("MemoryOverlay", () => {
         renderOverlay({});
         expect(screen.queryByRole("progressbar")).toBeNull();
         expect(screen.getByText("Done: I read your last 3 months and learned 1 thing.")).toBeTruthy();
+    });
+
+    it("says Basic (default) while nothing has been chosen", () => {
+        memory.page = { ...memory.page, mode: null };
+        const { unmount } = renderOverlay({});
+        expect(screen.getByRole("radio", { name: "Basic (default)" }).getAttribute("aria-checked")).toBe("true");
+        unmount();
+    });
+
+    it("pages: Show older loads the next 30 and appends them", () => {
+        memory.page = { ...memory.page, mode: "basic", facts: [fact()], nextCursor: "c1" };
+        memory.older.mockImplementation((cursor: string, options?: { onSuccess?: (page: unknown) => void }) =>
+            options?.onSuccess?.({ facts: [fact({ id: "f2", content: "An older thing" })], nextCursor: null, cursor }));
+        renderOverlay({});
+        fireEvent.click(screen.getByRole("button", { name: "Show older" }));
+        expect(memory.older).toHaveBeenCalledWith("c1", expect.anything());
+        expect(screen.getByText("An older thing")).toBeTruthy();
+        expect(screen.queryByRole("button", { name: "Show older" })).toBeNull();
+    });
+
+    it("shows a fact once when an older page repeats the first page's edge (after a Forget shifted it)", () => {
+        memory.page = { ...memory.page, mode: "basic", facts: [fact(), fact({ id: "f2", content: "An older thing" })], nextCursor: "c1" };
+        memory.older.mockImplementation((_cursor: string, options?: { onSuccess?: (page: unknown) => void }) =>
+            options?.onSuccess?.({ facts: [fact({ id: "f2", content: "An older thing" }), fact({ id: "f3", content: "Oldest thing" })], nextCursor: null }));
+        renderOverlay({});
+        fireEvent.click(screen.getByRole("button", { name: "Show older" }));
+        expect(screen.getAllByText("An older thing")).toHaveLength(1);
+        expect(screen.getByText("Oldest thing")).toBeTruthy();
     });
 
     it("only offers search once there is a lot to search", () => {

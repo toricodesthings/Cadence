@@ -63,8 +63,8 @@ export async function deliverExport(env: Env, request: { id: string; userId: str
             from: FROM,
             to: request.email,
             subject: "Your Cadence data export",
-            text: "Your Cadence data is attached as a JSON file. It holds your tasks, routines, lists, tags, captures, notes, settings and assistant conversations. Photos you uploaded (a background, images sent to the assistant) are not included.\n\nIf you didn't ask for this, change your password and reply to let us know.",
-            html: "<p>Your Cadence data is attached as a JSON file. It holds your tasks, routines, lists, tags, captures, notes, settings and assistant conversations. Photos you uploaded (a background, images sent to the assistant) are not included.</p><p>If you didn't ask for this, change your password and reply to let us know.</p>",
+            text: "Your Cadence data is attached as a JSON file. It holds your tasks, routines, lists, tags, captures, notes, settings, assistant conversations, and what the assistant remembers and has learned from your answers. Photos you uploaded (a background, images sent to the assistant) are not included.\n\nIf you didn't ask for this, change your password and reply to let us know.",
+            html: "<p>Your Cadence data is attached as a JSON file. It holds your tasks, routines, lists, tags, captures, notes, settings, assistant conversations, and what the assistant remembers and has learned from your answers. Photos you uploaded (a background, images sent to the assistant) are not included.</p><p>If you didn't ask for this, change your password and reply to let us know.</p>",
             attachments: [{ content: json, filename: `cadence-export-${day}.json`, type: "application/json", disposition: "attachment" }],
         });
         status = "sent";

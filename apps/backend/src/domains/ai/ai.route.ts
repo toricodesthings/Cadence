@@ -27,9 +27,10 @@ import {
     stopStreamSchema,
 } from "@cadence/contracts/ai";
 import { getAgentInstance } from "./agent";
-import { loadContextFacts } from "./memory/memory-store";
+import { usableFactIds, loadContextFacts } from "./memory/memory-store";
 import { validateStoredContexts } from "./memory/context-reuse";
 import { memoryStateOf } from "./memory/memory-mode";
+import { citedFactIds, redactMemoryReads } from "./memory/replay";
 import { userClock } from "./turn";
 import type { Tx } from "../../types/db";
 import { createRunDiagnostics } from "./run-diagnostics";
@@ -382,7 +383,14 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
           })()
         : null;
 
-    const { messages: modelMessages, hydrated: imageCount } = await imagesReady;
+    const { messages: hydratedMessages, hydrated: imageCount } = await imagesReady;
+    // Earlier memory reads replay only while the person's mode still allows what they show (Full → Basic, Forget).
+    const memoryMode = memoryStateOf((await settingsReady).settings).mode;
+    const cited = citedFactIds(hydratedMessages);
+    const usableIds = cited.length && memoryMode !== "off"
+        ? new Set(await withCallerRls(c, (tx) => usableFactIds(tx, userId, memoryMode, cited)))
+        : new Set<string>();
+    const modelMessages = redactMemoryReads(hydratedMessages, memoryMode, usableIds);
 
     const { agent, promptHash, turnContext } = await agentReady;
     // Each recent user message replays the context it was sent with (stored, from the DB rows

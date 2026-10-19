@@ -199,7 +199,6 @@ export function AssistantThread({
     userImage,
     userInitial,
     isTouch,
-    choosingMemory,
     scrollRef,
     contentRef,
     showJump,
@@ -211,7 +210,6 @@ export function AssistantThread({
     userImage?: string | null;
     userInitial: string;
     isTouch: boolean;
-    choosingMemory: boolean;
     scrollRef: Ref<HTMLDivElement>;
     contentRef: Ref<HTMLDivElement>;
     showJump: boolean;
@@ -225,7 +223,7 @@ export function AssistantThread({
         () => describeThread(messages, status), [messages, status],
     );
     return (
-        <div inert={choosingMemory} className="relative flex min-h-0 flex-1 flex-col">
+        <div className="relative flex min-h-0 flex-1 flex-col">
         <ScrollArea.Root className="flex-1 min-h-0">
             <ScrollArea.Viewport ref={scrollRef} className={isTouch ? "px-3 py-5" : "px-4 py-6"}>
                 <div ref={contentRef} className="flex flex-col gap-5">

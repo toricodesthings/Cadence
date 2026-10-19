@@ -51,19 +51,24 @@ const call = async (mcp: ReturnType<typeof mcpAs>, name: string, args: object = 
     return { isError: Boolean(result.isError) || Boolean(body.error), text, data: result.isError ? undefined : JSON.parse(text ?? "null") };
 };
 
+const setMemoryMode = (userId: string, mode: "off" | "basic") =>
+    asOwner((pg) => pg.query(`UPDATE users SET settings = jsonb_set(settings, '{assistant}', $2::jsonb) WHERE id = $1`, [userId, JSON.stringify({ memoryMode: mode })]));
+
 describe("catalog and scopes", () => {
     it("publishes reads, get_today and help with read scope; never writes", async () => {
         const userId = await createUser();
+        await setMemoryMode(userId, "off");
         const mcp = mcpAs(userId, await connect(userId, ["cadence:read"]), ["cadence:read"]);
         const names = (await mcp("tools/list")).body.result.tools.map((t: any) => t.name).sort();
         expect(names).toEqual([
-            "get_cadence_help", "get_events", "get_focus_views", "get_habit_history", "get_habit_status_today", "get_habits", "get_inbox_items",
+            "find_time", "get_cadence_help", "get_events", "get_focus_views", "get_habit_history", "get_habit_status_today", "get_habits", "get_inbox_items",
             "get_projects", "get_schedule_window", "get_tags", "get_task_detail", "get_tasks", "get_today", "get_user_metrics",
         ]);
     });
 
     it("with every scope, publishes exactly Cadence's assistant's tools (plus get_today)", async () => {
         const userId = await createUser();
+        await setMemoryMode(userId, "off");
         const all = ["cadence:read", "cadence:capture", "cadence:write"];
         const names = (await mcpAs(userId, await connect(userId, all), all)("tools/list")).body.result.tools.map((t: any) => t.name);
         const internal = Object.keys(buildToolRegistry({} as any, userId, { timezone: "UTC", currentDate: "", today: "2026-01-01", weekStart: "Monday" }));
@@ -71,13 +76,15 @@ describe("catalog and scopes", () => {
         expect(names.sort()).toEqual([...internal.filter((name) => name !== "ask_user" && !isMemoryTool(name)), "get_today"].sort());
     });
 
-    it("publishes remember (with the write scope) only to a person who has memory on", async () => {
+    it("publishes remember (with the write scope) only to a person who has memory on (Basic is on until they choose)", async () => {
         const userId = await createUser();
         const write = ["cadence:read", "cadence:write"];
         const listed = async () => (await mcpAs(userId, await connect(userId, write), write)("tools/list")).body.result.tools.map((t: any) => t.name);
 
-        expect(await listed()).not.toContain("remember"); // not chosen yet
-        await asOwner((pg) => pg.query(`UPDATE users SET settings = jsonb_set(settings, '{assistant}', '{"memoryMode":"basic"}') WHERE id = $1`, [userId]));
+        expect(await listed()).toEqual(expect.arrayContaining(["remember", "recall", "search_past_chats"])); // not chosen yet: Basic
+        await setMemoryMode(userId, "off");
+        expect(await listed()).not.toContain("remember");
+        await setMemoryMode(userId, "basic");
         expect(await listed()).toEqual(expect.arrayContaining(["remember", "recall", "search_past_chats"]));
     });
 

@@ -23,7 +23,7 @@ const MIN_LINE_CHARS = 12;
 const READ_CHAR_BUDGET = 24_000;
 
 /** The notes quiet for `idleMinutes` (and not older than `withinDays`) that memory hasn't read since their last save. */
-export async function pendingNotes(tx: Tx, userId: string, now: Date, idleMinutes: number, withinDays: number, limit: number): Promise<string[]> {
+export async function pendingNotes(tx: Tx, userId: string, now: Date, idleMinutes: number, withinDays: number, limit: number, notBefore: string | null = null): Promise<string[]> {
     const idleBefore = new Date(now.getTime() - idleMinutes * 60_000).toISOString();
     const recentAfter = new Date(now.getTime() - withinDays * 24 * 60 * 60_000).toISOString();
     const rows = await tx
@@ -33,6 +33,7 @@ export async function pendingNotes(tx: Tx, userId: string, now: Date, idleMinute
             eq(taskNotes.userId, userId),
             lt(taskNotes.updatedAt, idleBefore),
             gt(taskNotes.updatedAt, recentAfter),
+            notBefore ? gt(taskNotes.updatedAt, notBefore) : undefined,
             gt(taskNotes.wordCount, 3),
             sql`NOT EXISTS (SELECT 1 FROM ${aiMemoryNotes} n WHERE n.user_id = ${taskNotes.userId} AND n.task_id = ${taskNotes.taskId} AND n.read_at >= ${taskNotes.updatedAt})`,
         ))

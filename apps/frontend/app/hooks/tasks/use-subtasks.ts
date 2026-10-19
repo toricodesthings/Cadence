@@ -8,6 +8,8 @@ import { clientIdFor } from "../../lib/api/optimistic-id";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { chunk } from "../../lib/utils";
 import { toastError } from "../../lib/utils/error-toast";
+import { queryKeys } from "../../lib/api/query-keys";
+import { useTaskDetailIntentStore } from "../../stores/task-detail-intent-store";
 
 const SUBTASKS_KEY = (taskId: string) => ["tasks", taskId, "subtasks"] as const;
 const BULK_SUBTASKS_KEY = (taskIds: string[]) => ["subtasks", "bulk", taskIds] as const;
@@ -144,6 +146,11 @@ export function useCreateSubtask(taskId: string) {
             },
         ),
         onMutate: async (newSubtask) => {
+            // The first step written after "Break into steps?" is the answer the server records. Quiet if it can't.
+            if (useTaskDetailIntentStore.getState().stepWritten(taskId)) {
+                void api.api.ai.memory.planning.offer.$post({ json: { taskId, kind: "steps", outcome: "chosen" } }).catch(() => undefined);
+                void queryClient.invalidateQueries({ queryKey: queryKeys.ai.planningOffers });
+            }
             const optimistic: CachedSubtask = {
                 id: clientIdFor(newSubtask),
                 taskId,

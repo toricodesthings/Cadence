@@ -16,7 +16,7 @@ export function memoryIsOn(settings: unknown): boolean {
 
 /** A change the person made in the app, as memory reads it (Full only). */
 export type PersonActivity =
-    | { kind: "reschedule"; from: { scheduledStart: string | null; dueDate: string | null } }
+    | { kind: "reschedule"; taskId: string; from: { scheduledStart: string | null; dueDate: string | null } }
     | { kind: "complete" }
     | { kind: "routine"; habitId: string; day: string };
 
@@ -39,7 +39,7 @@ export async function recordPersonActivity(env: Env, userId: string, activities:
             for (const activity of activities) {
                 if (activity.kind === "reschedule") {
                     const bucket = slotBucket(activity.from, zone);
-                    if (bucket) rows.push({ userId, kind: "reschedule", on: today, bucket });
+                    if (bucket) rows.push({ userId, kind: "reschedule", on: today, bucket, taskId: activity.taskId });
                 } else if (activity.kind === "complete") {
                     rows.push({ userId, kind: "complete", on: today, bucket: completionBucket(now.toISOString(), zone) });
                 } else if (activity.kind === "routine") {
@@ -59,3 +59,4 @@ export async function recordPersonActivity(env: Env, userId: string, activities:
         logger.warn("ai", "memory_signal_failed", { issues: issuesFromError(error) });
     }
 }
+export { pruneRoutineReports } from "./duration";

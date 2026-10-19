@@ -44,6 +44,7 @@ import { writeNote } from "../../notes/notes.service";
 import { batchTaskIdsSchema, waitingOnSchema } from "@cadence/contracts/task";
 import { readFocusView } from "./focus-views";
 import { taskSearch, taskSearchColumns, taskPlaceColumns } from "../../tasks/task-search.service";
+import { durationHints } from "../memory/duration";
 
 /**
  * The task's list and section names, so the model can match how the user remembers it
@@ -225,10 +226,11 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         }
                         const shown = rows.slice(0, limit);
                         const tagNames = await tagNamesFor(tx, shown.map((row) => row.id));
+                        const hints = await durationHints(tx, userId, shown);
                         const more = rows.length > limit;
                         return {
                             ...(view && { view }),
-                            tasks: shown.map((row) => toMinimalTask({ ...row, tagNames: tagNames.get(row.id) }, ctx.timezone)),
+                            tasks: shown.map((row) => toMinimalTask({ ...row, tagNames: tagNames.get(row.id) }, ctx.timezone, hints.get(row.id))),
                             count: shown.length,
                             ...(more && { more, nextOffset: offset + limit }),
                         };
@@ -290,7 +292,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         const shown = noteText.slice(0, NOTE_READ_LIMIT);
 
                         return {
-                            task: toMinimalTask(row, ctx.timezone),
+                            task: toMinimalTask(row, ctx.timezone, (await durationHints(tx, userId, [row])).get(row.id)),
                             subtasks: subs.map(toMinimalSubtask),
                             tags: tagRows.map(toMinimalTag),
                             note: {

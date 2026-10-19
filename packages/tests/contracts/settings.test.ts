@@ -16,7 +16,7 @@ describe("SETTINGS_DEFAULTS", () => {
 });
 
 describe("settingsPatchSchema: server-owned memory fields", () => {
-    it.each(["memoryMode", "memoryChoiceAt", "memoryConsentVersion", "memoryEpoch", "memoryBackfill", "durationAsk"])("refuses a patch that carries %s", (field) => {
+    it.each(["memoryMode", "memoryChoiceAt", "memoryEpoch", "memoryLearningNotBefore", "memoryBackfill", "durationAsk"])("refuses a patch that carries %s", (field) => {
         expect(settingsPatchSchema.safeParse({ assistant: { [field]: field === "memoryEpoch" ? 3 : field === "durationAsk" ? { lastOn: null, misses: 0 } : "full" } }).success).toBe(false);
     });
 

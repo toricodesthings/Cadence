@@ -69,7 +69,7 @@ export async function learnForUser(env: Env, userId: string, now: Date): Promise
             ))
             .orderBy(desc(aiConversations.lastMessageAt))
             .limit(CONVERSATIONS_PER_USER);
-        const notes = state.mode === "full" ? await pendingNotes(tx, userId, now, IDLE_MINUTES, RECENT_DAYS, NOTES_PER_USER) : [];
+        const notes = state.mode === "full" ? await pendingNotes(tx, userId, now, IDLE_MINUTES, RECENT_DAYS, NOTES_PER_USER, state.notBefore) : [];
         return { chats: found.map((c) => c.id), notes };
     });
     const admit = () => withinDailyCap(env, userId, now);
@@ -160,7 +160,7 @@ export async function handleMemoryBatch(batch: MessageBatch<unknown>, env: Env):
             if (kind === "nightly") {
                 const result = await nightlyForUser(env, userId, new Date(at));
                 if (!result) throw new Error("nightly failed");
-                changes += result.expired + result.decayed + result.merged + result.evicted + result.activity;
+                changes += result.expired + result.decayed + result.merged + result.activity;
             } else {
                 learned += (await learnForUser(env, userId, new Date(at))).learned;
             }

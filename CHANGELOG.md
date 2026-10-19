@@ -6,6 +6,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Cadence finds a time that suits you, and offers a lighter plan when one keeps slipping.
+
+### Added
+
+- Find a time puts a task in the next gap that fits; Another time and Undo are in the same message.
+- Swipe a task on your phone to move it to later today, at the next free gap.
+- Cadence learns when you like to do things and suggests those times first.
+- Tasks that keep slipping can offer Break into steps, and waiting tasks can offer Leave for later.
+- Routines can remember how long they took.
+
+### Changed
+
+- Placing a task on a day suggests a time for it in the same message.
+- The assistant remembers what you tell it from the start; turn it off or switch to Full anytime.
+- Memory keeps everything useful you've shared, pages older items, and stays forgotten when you Forget.
+- Full memory's description now covers learning when you like to do things.
+
 ## [0.36.1] - 2026-10-17
 
 ### Changed

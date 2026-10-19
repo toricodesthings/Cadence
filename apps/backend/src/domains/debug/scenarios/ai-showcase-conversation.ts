@@ -238,6 +238,12 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                     tasks: inWeek.map(mini),
                     routines: routinesDue(activeHabits, today, weekEnd, today),
                 }),
+                read("find_time", { taskId: venue.id, day: seedDate(clock, 1) }, {
+                    ok: true,
+                    task: { id: venue.id, title: venue.title, minutes: 30 },
+                    day: seedDate(clock, 1),
+                    proposals: [{ start: `${seedDate(clock, 1)}T09:00:00-04:00`, end: `${seedDate(clock, 1)}T09:30:00-04:00`, label: "Tomorrow 9:00–9:30 AM", gap: true }],
+                }),
                 read("get_habit_status_today", {}, {
                     date: today,
                     statuses: routinesDue(activeHabits, today, today, today).map((h) => ({ habitId: h.id, title: h.title, status: "PENDING" })),

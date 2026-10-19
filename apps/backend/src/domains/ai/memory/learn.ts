@@ -27,7 +27,7 @@ import { acceptCandidates, extractReplySchema } from "./candidates";
 import { consolidate } from "./consolidate";
 import { embedTexts, getEmbeddingModelId } from "./embedding";
 import { fenceMemoryState, isLearning, readMemoryState, type MemoryState } from "./memory-mode";
-import { insertFact, MEMORY_CAP, countActive, nearestFacts, reinforceFact, updateFact, type NearFact } from "./memory-store";
+import { insertFact, isForgotten, nearestFacts, reinforceFact, updateFact, type NearFact } from "./memory-store";
 import extractPrompt from "../../../prompts/memory/extract.md";
 
 /** What the extraction call reads: about 6k tokens of the person's newest messages. */
@@ -127,20 +127,21 @@ export async function learnFromReading(
             if (current.epoch !== state.epoch || !isLearning(current.mode)) return; // the person changed the mode meanwhile
             // The cursor moves first: a run that overlapped this one and already moved it means this reading is written.
             if (!(await advance(tx))) return;
-            let active = await countActive(tx, userId);
             for (const [i, candidate] of facts.entries()) {
                 const match = matches[i];
                 if (match && near[i].find((n) => n.id === match)!.distance <= SAME_FACT_DISTANCE) {
                     await reinforceFact(tx, userId, match, today);
                     result.reinforced++;
                 } else if (match) {
-                    const ok = await updateFact(tx, userId, match, { content: candidate.content, embedding: vectors[i], embeddingModel: model, today, validThrough: candidate.validThrough });
+                    const ok = await updateFact(tx, userId, match, { content: candidate.content, ...(candidate.value && { value: candidate.value }), embedding: vectors[i], embeddingModel: model, today, validThrough: candidate.validThrough });
                     if (ok) result.updated++;
                 } else {
-                    if (active >= MEMORY_CAP.ceiling) continue;
+                    // The same thing in other words after the person asked to forget it stays forgotten.
+                    if (await isForgotten(tx, userId, vectors[i], model, candidate.kind)) continue;
                     const saved = await insertFact(tx, userId, {
                         kind: candidate.kind,
                         content: candidate.content,
+                        value: candidate.value,
                         embedding: vectors[i],
                         embeddingModel: model,
                         saidOn: today,
@@ -151,10 +152,7 @@ export async function learnFromReading(
                         conversationId: reading.conversationId,
                         messageId: candidate.messageId,
                     });
-                    if (saved?.created) {
-                        result.saved++;
-                        active++;
-                    }
+                    if (saved?.created) result.saved++;
                 }
             }
         });
@@ -195,7 +193,8 @@ export async function learnFromConversation(env: Env, userId: string, conversati
                           eq(aiMessages.conversationId, conversationId),
                           eq(aiMessages.userId, userId),
                           eq(aiMessages.role, "user"),
-                          cursor ? gt(aiMessages.createdAt, cursor) : undefined,
+                          // After the cursor, and after the boundary Clear (or the release that made Basic the default) drew.
+                          cursor || state.notBefore ? gt(aiMessages.createdAt, sql`GREATEST(${cursor}::timestamptz, ${state.notBefore}::timestamptz)`) : undefined,
                       ))
                       .orderBy(asc(aiMessages.orderIndex))
                 : [];

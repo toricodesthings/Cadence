@@ -1,12 +1,9 @@
 import { z } from "zod";
-import { instantSchema, localDateSchema } from "./common";
+import { instantSchema, localDateSchema, wallTimeSchema } from "./common";
 
-/** How much the assistant remembers. `null` (in settings) means the person hasn't chosen yet. */
+/** How much the assistant remembers. `null` (in settings) means the person hasn't chosen yet, which behaves as Basic. */
 export const memoryModeSchema = z.enum(["off", "basic", "full"]);
 export type MemoryMode = z.infer<typeof memoryModeSchema>;
-
-/** The revision of the memory wording the person agreed to (picker copy + Terms/Privacy). */
-export const MEMORY_CONSENT_VERSION = "2026-10-12";
 
 export const MEMORY_KINDS = ["preference", "quirk", "life", "constraint", "pattern", "duration", "assist"] as const;
 export const memoryKindSchema = z.enum(MEMORY_KINDS);
@@ -43,11 +40,14 @@ export const memoryFactSchema = z.object({
 });
 export type MemoryFact = z.infer<typeof memoryFactSchema>;
 
-/** `GET /ai/memory`. Forgotten items come back as topic labels only. */
+/** `GET /ai/memory`. Forgotten items come back as topic labels only. Facts come 30 at a time, newest first; the cursor continues. */
+export const MEMORY_PAGE_SIZE = 30;
+export const memoryPageQuerySchema = z.object({ cursor: z.string().max(200).optional() });
+
 export const memoryPageSchema = z.object({
     mode: memoryModeSchema.nullable(),
     choiceAt: instantSchema.nullable(),
-    /** Stored items are shown but not used while the mode is off (or unchosen). */
+    /** Stored items are shown but not used while the mode is off. */
     inactive: z.boolean(),
     /**
      * Full's read of the last 3 months: a rough share done (chats by how far back it has read, then notes) and
@@ -59,6 +59,8 @@ export const memoryPageSchema = z.object({
         doneAt: instantSchema.nullable(),
     }).nullable(),
     facts: z.array(memoryFactSchema),
+    /** Pass to `GET /ai/memory?cursor=` for the next 30 older facts; null at the end. */
+    nextCursor: z.string().nullable(),
     forgotten: z.array(z.object({ id: z.uuid(), label: z.string() })),
 });
 export type MemoryPage = z.infer<typeof memoryPageSchema>;
@@ -66,7 +68,6 @@ export type MemoryPage = z.infer<typeof memoryPageSchema>;
 /** `POST /ai/memory/mode`. The server stamps the choice time and bumps the epoch. */
 export const setMemoryModeSchema = z.object({
     mode: memoryModeSchema,
-    consentVersion: z.string().max(40),
 });
 export type SetMemoryMode = z.infer<typeof setMemoryModeSchema>;
 
@@ -104,6 +105,27 @@ export const durationReportViewSchema = z.object({
 });
 export type DurationReportView = z.infer<typeof durationReportViewSchema>;
 
+/** How long a routine took on one marked day (and, for a routine at set times, one marked time). */
+export const routineDurationKeySchema = z.object({ habitId: z.uuid(), day: localDateSchema, time: wallTimeSchema.nullable().optional() });
+export type RoutineDurationKey = z.infer<typeof routineDurationKeySchema>;
+/** `POST /ai/memory/duration/routine`: the day must be marked done; a second answer for the same day and time replaces the first. */
+export const routineDurationSchema = routineDurationKeySchema.extend({
+    value: durationValueSchema,
+    anchored: z.boolean().default(false),
+});
+export type RoutineDuration = z.input<typeof routineDurationSchema>;
+/** `GET|DELETE /ai/memory/duration/routine` query. */
+export const routineDurationQuerySchema = z.object({ habitId: z.uuid(), day: localDateSchema, time: wallTimeSchema.optional() });
+export const routineDurationViewSchema = z.object({
+    habitId: z.uuid(),
+    day: localDateSchema,
+    time: wallTimeSchema.nullable(),
+    lowMinutes: z.number().int(),
+    highMinutes: z.number().int(),
+    anchored: z.boolean(),
+});
+export type RoutineDurationView = z.infer<typeof routineDurationViewSchema>;
+
 /** `POST /ai/memory/duration/ask`: should the toast be shown for this just-completed task? */
 export const durationAskSchema = z.object({ taskId: z.uuid() });
 export const durationAskResultSchema = z.union([
@@ -120,6 +142,7 @@ export const durationTaskSchema = z.object({ taskId: z.uuid(), completedAt: inst
 
 /** `GET /ai/memory/duration-evidence`: the person's reports as estimator input (Full only, else []). Newest first, at most 1,000. */
 export const durationEvidenceRowSchema = z.object({
+    /** The task's id, or a routine's (`series` is then true): the same id is the same thing. */
     taskId: z.uuid(),
     title: z.string(),
     projectId: z.uuid().nullable(),

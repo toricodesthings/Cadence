@@ -92,7 +92,7 @@ app.use(
       return PRODUCTION_ORIGIN;
     },
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Authorization", "Content-Type", "Idempotency-Key"],
+    allowHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "X-Queued-At"],
     credentials: true,
     // Retry delay and response timing (which excludes waitUntil work).
     exposeHeaders: ["Retry-After", "Server-Timing"],

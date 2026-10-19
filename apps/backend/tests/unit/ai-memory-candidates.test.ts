@@ -8,7 +8,7 @@ const reply = (...facts: object[]) => ({ facts });
 describe("acceptCandidates", () => {
     it("keeps a plain fact and maps its label to the person's real message id", () => {
         const out = acceptCandidates(reply({ from: "m2", kind: "life", text: "Exam season through 2026-12-18", validThrough: "2026-12-18" }), labels);
-        expect(out).toEqual([{ messageId: "msg-2", kind: "life", content: "Exam season through 2026-12-18", validThrough: "2026-12-18" }]);
+        expect(out).toEqual([{ messageId: "msg-2", kind: "life", content: "Exam season through 2026-12-18", validThrough: "2026-12-18", value: null }]);
     });
 
     it("drops flagged, unsourced, overlong, duplicate and activity-only kinds", () => {
@@ -56,5 +56,24 @@ describe("buildReading", () => {
 
         const big = buildReading([{ id: "old", text: "o".repeat(20_000) }, { id: "new", text: "n".repeat(20_000) }]);
         expect([...big.labels.values()]).toEqual(["new"]);
+    });
+});
+
+describe("acceptCandidates: what only the planning learners compute with", () => {
+    const labels = new Map([["m1", "msg-1"]]);
+    const reply = (fact: Record<string, unknown>) => ({ facts: [{ from: "m1", kind: "life", text: "x y z", validThrough: null, flags: [], ...fact }] });
+
+    it("keeps a stated time of day on a preference, checked against the known parts of the day", () => {
+        const [fact] = acceptCandidates(reply({ kind: "preference", text: "Studies after dinner", when: { buckets: ["evening", "dinnertime", "evening"], about: " study " } }), labels);
+        expect(fact.value).toEqual({ when: { buckets: ["evening"], about: "study" } });
+        expect(acceptCandidates(reply({ kind: "preference", text: "Likes mornings", when: { buckets: ["lunch"], about: null } }), labels)[0].value).toBeNull();
+        // Only a preference can carry one.
+        expect(acceptCandidates(reply({ kind: "life", text: "Studies after dinner", when: { buckets: ["evening"], about: null } }), labels)[0].value).toBeNull();
+    });
+
+    it("keeps 'this kind of help doesn't work for me' on what-helped facts only, for the two offers that exist", () => {
+        expect(acceptCandidates(reply({ kind: "assist", text: "Step lists stress them out", avoid: "steps" }), labels)[0].value).toEqual({ avoid: "steps" });
+        expect(acceptCandidates(reply({ kind: "assist", text: "Hiding tasks doesn't help", avoid: "delete" }), labels)[0].value).toBeNull();
+        expect(acceptCandidates(reply({ kind: "preference", text: "Step lists stress them out", avoid: "steps" }), labels)[0].value).toBeNull();
     });
 });

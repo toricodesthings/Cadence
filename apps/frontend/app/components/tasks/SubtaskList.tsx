@@ -1,4 +1,4 @@
-import React, { useState, type ReactNode } from "react";
+import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import { X, GripVertical } from "lucide-react";
 import { motion } from "framer-motion";
 import { useSubtasks, useCreateSubtask, useUpdateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
@@ -74,7 +74,7 @@ export function EditableSubtaskRow<T extends EditableItem>({
     );
 }
 
-export function SubtaskList({ taskId }: { taskId: string }) {
+export function SubtaskList({ taskId, focusAdd = false, onFocused }: { taskId: string; focusAdd?: boolean; onFocused?: () => void }) {
     const { data: subtasks = [], isLoading } = useSubtasks(taskId);
     const createSubtask = useCreateSubtask(taskId);
     const updateSubtask = useUpdateSubtask(taskId);
@@ -82,6 +82,12 @@ export function SubtaskList({ taskId }: { taskId: string }) {
     const reorderSubtasks = useReorderSubtasks(taskId);
 
     const [newTitle, setNewTitle] = useState("");
+    const addRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        if (!focusAdd || isLoading) return;
+        addRef.current?.focus();
+        onFocused?.();
+    }, [focusAdd, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps -- once per ask
 
     const handleCreate = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter" && newTitle.trim()) {
@@ -115,6 +121,7 @@ export function SubtaskList({ taskId }: { taskId: string }) {
 
                 <div className="mt-2 flex items-center gap-2 py-2 pl-12">
                     <input
+                        ref={addRef}
                         type="text"
                         value={newTitle}
                         onChange={(e) => setNewTitle(e.target.value)}

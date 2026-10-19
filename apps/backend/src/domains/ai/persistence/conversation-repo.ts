@@ -15,6 +15,7 @@ import { aiConversations, aiImages, aiMessages } from "../../../db/schema";
 import type { Tx } from "../../../types/db";
 import type { ConversationDetail, ConversationListItem } from "@cadence/contracts/ai";
 import { AppError } from "../../../platform/errors";
+import { dropChatFacts } from "../memory/memory-store";
 import { logger } from "../../../platform/log";
 import { historyWindowStart, MAX_HISTORY_TURNS } from "../safety/input-guard";
 import {
@@ -501,6 +502,8 @@ export async function renameOrArchiveConversation(
         .returning({ id: aiConversations.id });
 
     if (updated.length === 0) throw new AppError(404, "NOT_FOUND", "Conversation not found");
+    // Switched off: what only this chat taught goes (anything seen again elsewhere stays).
+    if (patch.learn === false) await dropChatFacts(tx, userId, [conversationId]);
 }
 
 /** Delete a thread, its messages (cascade) and its image rows; 404 if not theirs. Storage is the caller's job, before this. */
@@ -509,6 +512,7 @@ export async function deleteConversation(
     userId: string,
     conversationId: string,
 ): Promise<void> {
+    await dropChatFacts(tx, userId, [conversationId]);
     await tx
         .delete(aiImages)
         .where(and(eq(aiImages.userId, userId), eq(aiImages.conversationId, conversationId)));
@@ -522,6 +526,7 @@ export async function deleteConversation(
 
 /** Delete every archived thread, their messages (cascade) and image rows. Storage is the caller's job, before this. */
 export async function deleteArchivedConversations(tx: Tx, userId: string): Promise<number> {
+    await dropChatFacts(tx, userId, archivedIds(tx, userId));
     await tx
         .delete(aiImages)
         .where(and(eq(aiImages.userId, userId), inArray(aiImages.conversationId, archivedIds(tx, userId))));

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { instantSchema, localDateSchema, paginationSchema, zoneSchema } from "./common";
 import { linkedAppIdSchema, linkedUrlSchema } from "./app-link";
+import { findTimeSchema } from "./planning";
 import { DATE_STYLES, SOURCE_SURFACES, type CanonicalNlpEnvelope } from "@cadence/nlp/core";
 
 // ── Enums / shared scalars ──
@@ -101,6 +102,8 @@ export const updateTaskSchema = z.object({
     linkedAppId: linkedAppIdSchema.nullable().optional(),
     linkedUrl: linkedUrlSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
+    /** Present when the write places a block Cadence proposed (Find a time): it decides whether the choice teaches. */
+    findTime: findTimeSchema.optional(),
     expectedUpdatedAt: z.string().optional(),
 });
 export type UpdateTask = z.infer<typeof updateTaskSchema>;

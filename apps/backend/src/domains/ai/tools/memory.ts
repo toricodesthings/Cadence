@@ -3,6 +3,7 @@ import { z } from "zod";
 import { and, eq, ilike } from "drizzle-orm";
 import { MEMORY_CONTENT_MAX, MEMORY_KINDS, MEMORY_LABEL_MAX, type MemoryMode, type MemoryReceipt } from "@cadence/contracts/memory";
 import { localDateSchema } from "@cadence/contracts/common";
+import { PLANNING_OFFERS, timeOfDaySchema } from "@cadence/contracts/planning";
 import { getDbClient, type DbClient } from "../../../platform/db";
 import type { Tx } from "../../../types/db";
 import { withRls } from "../../../platform/rls";
@@ -18,7 +19,7 @@ import { embedTexts, getEmbeddingModelId } from "../memory/embedding";
 import { consolidate } from "../memory/consolidate";
 import { SAME_FACT_DISTANCE } from "../memory/learn";
 import { isLearning, readMemoryState } from "../memory/memory-mode";
-import { MEMORY_CAP, type NearFact, countActive, forgetFact, insertFact, nearestFacts, recallFacts, reinforceFact, searchPastChats, updateFact } from "../memory/memory-store";
+import { type NearFact, forgetFact, insertFact, isForgotten, nearestFacts, recallFacts, reinforceFact, searchPastChats, updateFact } from "../memory/memory-store";
 import { atLocal, dayOf, type Zone } from "@cadence/domain/time";
 
 /** Only what a person can say outright: patterns and durations are computed from activity. */
@@ -63,6 +64,11 @@ const rememberInput = z.object({
     topic: z.string().trim().min(2).max(MEMORY_LABEL_MAX).optional().describe("forget: a few words naming it, when there is no id. Never repeat a sensitive detail."),
     validThrough: localDateSchema.optional().describe("save / update: the last day it stays true, when it ends."),
     sensitive: z.boolean().optional().describe("save: health, money or relationship detail the user asked you to keep."),
+    when: z.object({
+        buckets: z.array(timeOfDaySchema).min(1).max(5).describe("early (before 9), morning, afternoon, evening, late (after 9 pm)."),
+        about: z.string().trim().min(2).max(60).nullable().optional().describe("The kind of thing in a few words (study, gym); omit for everything."),
+    }).optional().describe("save a preference kind fact about the time of day they like to do something (\"I study after dinner\")."),
+    avoid: z.enum(PLANNING_OFFERS).optional().describe("save an assist kind fact when a kind of help doesn't work for them: steps (breaking a task into steps) or later (hiding a task until later)."),
 });
 type RememberInput = z.infer<typeof rememberInput>;
 type Written = { result: Outcome; id: string };
@@ -101,6 +107,12 @@ function factProblem(input: RememberInput, text: string): string | null {
 /** The fact as it will be written: its words, embedding, and the nearest fact it may repeat. */
 type Fact = { text: string; embedding: number[] | null; model: string; near: NearFact[]; match: string | null | undefined };
 
+/** What code computes with: a stated time of day, or an offer that doesn't help. Everything else is just words. */
+const valueOf = (input: RememberInput) =>
+    input.when ? { when: { buckets: input.when.buckets, about: input.when.about ?? null } }
+    : input.avoid ? { avoid: input.avoid }
+    : null;
+
 /** Keep a repeat, update the named or matched fact, or insert a new pinned one. */
 async function writeFact(tx: Tx, userId: string, input: RememberInput, today: string, fact: Fact): Promise<Written> {
     const { text, embedding, model, near, match } = fact;
@@ -111,13 +123,17 @@ async function writeFact(tx: Tx, userId: string, input: RememberInput, today: st
             await reinforceFact(tx, userId, id, today);
             return { result: { ok: true, action: "kept", id, text }, id };
         }
-        const ok = await updateFact(tx, userId, id, { content: text, embedding, embeddingModel: model, today, validThrough: input.validThrough });
+        const ok = await updateFact(tx, userId, id, { content: text, ...(valueOf(input) && { value: valueOf(input) }), embedding, embeddingModel: model, today, validThrough: input.validThrough });
         if (!ok) return { result: nothingChanged("That isn't remembered."), id: userId };
         return { result: { ok: true, action: "updated", id, text }, id };
     }
+    // The same thing said again in other words after Forget: it stays forgotten, and the chat can say so.
+    const forgotten = await isForgotten(tx, userId, embedding, model, input.kind as never);
+    if (forgotten) return { result: { ok: true, action: "kept", id: forgotten, text: "You asked me to forget this" }, id: forgotten };
     const saved = await insertFact(tx, userId, {
         kind: input.kind as never,
         content: text,
+        value: valueOf(input),
         embedding,
         embeddingModel: model,
         saidOn: today,
@@ -195,11 +211,8 @@ export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
                 const problem = factProblem(input, text);
                 if (problem) return nothingChanged(problem);
 
-                // Abuse guards, before any model spend: pinned saves never evict, so the ceiling must hold here too.
+                // The abuse guard, before any model spend. Memory has no size cap: a day's saves are bounded here and a day's extractions in the job.
                 const userHash = await hashIdentifier(userId);
-                if (input.action === "save" && (await withRls(db, userId, (tx) => countActive(tx, userId))) >= MEMORY_CAP.ceiling) {
-                    return nothingChanged("Memory is full; tell the user to forget something first.");
-                }
                 if (!(await withinDailyBudget(env, "remember", userHash, DAILY_REMEMBERS))) return nothingChanged("Too many saves today; try again tomorrow.");
 
                 // The embedding is an HTTP call: outside any transaction, and best-effort (the fact still saves).

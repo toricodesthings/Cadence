@@ -184,7 +184,7 @@ export function AssistantTab() {
                 <SettingsSection title="Memory">
                     <SettingsRow
                         title="How much to remember"
-                        description="Basic remembers what you tell the assistant. Full also learns from how you work: what you finish, move and how long things take."
+                        description="Basic remembers what you tell the assistant. Full is everything that helps: I’ll also learn from how you actually work: what you finish, what you move, how long things take, when you like to do things, which suggestions you use, your task notes, and our past chats."
                     >
                         <div role="radiogroup" aria-label="How much to remember" className="flex gap-1 rounded-full border border-twilight-border bg-twilight-surface/40 p-1">
                             {(["off", "basic", "full"] as const).map((mode) => (
@@ -192,15 +192,15 @@ export function AssistantTab() {
                                     key={mode}
                                     type="button"
                                     role="radio"
-                                    aria-checked={memory.mode === mode}
+                                    aria-checked={(memory.mode ?? "basic") === mode}
                                     disabled={setMemoryMode.isPending}
-                                    onClick={() => memory.mode !== mode && setMemoryMode.mutate(mode)}
+                                    onClick={() => (memory.mode ?? "basic") !== mode && setMemoryMode.mutate(mode)}
                                     className={cn(
                                         "min-h-9 flex-1 cursor-pointer rounded-full px-4 text-sm font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50",
-                                        memory.mode === mode ? "bg-accent-primary/15 text-twilight-text" : "text-twilight-text-soft hover:text-twilight-text",
+                                        (memory.mode ?? "basic") === mode ? "bg-accent-primary/15 text-twilight-text" : "text-twilight-text-soft hover:text-twilight-text",
                                     )}
                                 >
-                                    {mode}
+                                    {mode === "basic" && memory.mode === null ? "Basic (default)" : mode}
                                 </button>
                             ))}
                         </div>

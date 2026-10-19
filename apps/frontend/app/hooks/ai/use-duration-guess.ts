@@ -9,6 +9,7 @@ import { useSettings } from "../core/use-settings";
 import { queryKeys } from "../../lib/api/query-keys";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { today } from "../../lib/utils/user-zone";
+import { parseVirtualHabitId } from "../habits/use-virtual-habit-tasks";
 
 type Guessable = Pick<Task, "id" | "title" | "projectId">;
 
@@ -36,7 +37,8 @@ export function useDurationGuesser(): (task: Guessable) => DurationGuess | null 
     const rows = full ? data : undefined;
     const evidence = useMemo(() => toDurationEvidence(rows ?? []), [rows]);
     return useCallback(
-        (task) => (evidence.length ? estimateDuration({ taskId: task.id, title: task.title, projectId: task.projectId }, evidence, today()) : null),
+        // A routine's day on a schedule is a virtual task; its answers are filed under the routine.
+        (task) => (evidence.length ? estimateDuration({ taskId: parseVirtualHabitId(task.id)?.habitId ?? task.id, title: task.title, projectId: task.projectId }, evidence, today()) : null),
         [evidence],
     );
 }

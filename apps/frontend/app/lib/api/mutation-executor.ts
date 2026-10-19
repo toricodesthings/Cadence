@@ -122,6 +122,8 @@ async function send(entry: WalEntry): Promise<void> {
                 // A create's key is its entity id, the same key its online call sent,
                 // so a create that landed before the connection dropped isn't made twice.
                 "Idempotency-Key": index ? `${request.key ?? entry.id}:${index}` : request.key ?? entry.id,
+                // When the person made it, so the server can tell a late replay from a choice made just now.
+                "X-Queued-At": new Date(entry.createdAt).toISOString(),
                 ...(request.json !== undefined && { "Content-Type": "application/json" }),
             },
             body: request.json === undefined ? undefined : JSON.stringify(request.json),

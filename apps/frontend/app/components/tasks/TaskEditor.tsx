@@ -23,6 +23,8 @@ import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags/use-task-tags"
 import { SubtaskList } from "./SubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TakesRow, hasTakesRow } from "./TakesRow";
+import { FindTimeButton } from "./FindTimeButton";
+import { useTaskDetailIntentStore } from "../../stores/task-detail-intent-store";
 import { TookRow } from "./TookRow";
 import { TimetableBlockEditor } from "./TimetableBlockEditor";
 import { RepeatKindPicker } from "../shared/RepeatKindPicker";
@@ -117,6 +119,12 @@ function TaskEditorBody({
     const updateTask = useUpdateTask();
     const archiveTask = useArchiveTask();
     const [activePanel, setActivePanel] = useState<"app" | "notes" | "subtasks" | "details">("notes");
+    // "Break into steps?" taken while this task is open: its subtasks open with the cursor in the field.
+    const stepsAsked = useTaskDetailIntentStore((state) => state.addStepsFor === task.id);
+    const consumeStepsAsk = useTaskDetailIntentStore((state) => state.consume);
+    useEffect(() => {
+        if (stepsAsked) setActivePanel("subtasks");
+    }, [stepsAsked]);
     const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
     const { data: subtasks = [] } = useSubtasks(taskId);
 
@@ -253,7 +261,7 @@ function TaskEditorBody({
                             <PanelHeader title="Subtasks" summary={subtaskSummary} onDone={() => setActivePanel("notes")} />
                         </div>
                         <div className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thin">
-                            <SubtaskList taskId={task.id} />
+                            <SubtaskList taskId={task.id} focusAdd={stepsAsked} onFocused={() => consumeStepsAsk(task.id)} />
                         </div>
                     </motion.div>
                 ) : null}
@@ -468,6 +476,7 @@ function TaskDetailsFields({ task, onDone, onClose }: { task: Task; onDone: () =
                 </FieldRow>
             ) : (
                 <FieldRow icon={scheduleSummary?.isDuration ? CalendarRange : Calendar} label={scheduleFieldLabel}>
+                    <FindTimeButton task={task} />
                     <DeadlinePickerPopover
                         dueDate={task.dueDate}
                         endDate={task.endDate}

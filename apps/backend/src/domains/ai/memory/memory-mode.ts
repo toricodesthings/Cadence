@@ -9,20 +9,34 @@ import { users } from "../../../db/schema";
 import type { Tx } from "../../../types/db";
 
 export interface MemoryState {
-    /** `null`: not chosen yet (the picker is waiting). Treated as off everywhere. */
-    mode: MemoryMode | null;
+    /** What the person chose, or `null`: not chosen yet, which behaves as Basic (the page can still tell the two apart). */
+    stored: MemoryMode | null;
+    /** The mode in effect everywhere: learning, recall, the profile, `usableBy`. An unchosen memory is Basic. */
+    mode: MemoryMode;
     epoch: number;
+    /** Learning reads only what was said after this (Clear, or the release that made Basic the default). */
+    notBefore: string | null;
 }
 
-/** What learning and recall may use: only a chosen Basic or Full. */
-export const isLearning = (mode: MemoryMode | null): mode is "basic" | "full" => mode === "basic" || mode === "full";
+/** Not chosen yet is Basic. */
+export const resolveMode = (stored: MemoryMode | null | undefined): MemoryMode => stored ?? "basic";
+
+/** What learning and recall may use: Basic or Full, chosen or by default (`null` counts as Basic). */
+export const isLearning = (mode: MemoryMode | null | undefined): mode is "basic" | "full" | null | undefined => mode !== "off";
+
+/** Full: the only state that records or applies how the person plans (when they like to do things, which offers help). */
+export const planningOn = (state: Pick<MemoryState, "mode">): boolean => state.mode === "full";
 
 export function memoryStateOf(settings: unknown): MemoryState {
-    const assistant = (settings as { assistant?: { memoryMode?: unknown; memoryEpoch?: unknown } } | null)?.assistant;
-    const mode = assistant?.memoryMode;
+    const assistant = (settings as { assistant?: Record<string, unknown> } | null)?.assistant;
+    const raw = assistant?.memoryMode;
+    const stored = raw === "off" || raw === "basic" || raw === "full" ? raw : null;
+    const mode = resolveMode(stored);
     return {
-        mode: mode === "off" || mode === "basic" || mode === "full" ? mode : null,
+        stored,
+        mode,
         epoch: typeof assistant?.memoryEpoch === "number" ? assistant.memoryEpoch : 0,
+        notBefore: typeof assistant?.memoryLearningNotBefore === "string" ? assistant.memoryLearningNotBefore : null,
     };
 }
 

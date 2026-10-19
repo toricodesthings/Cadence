@@ -18,7 +18,7 @@ vi.mock("../../../../app/hooks/ai/use-chat-attachments", () => ({ useChatAttachm
     attachments: [], readyImages: [], uploading: false, clearAttachments: vi.fn(), addImages: vi.fn(), removeAttachment: vi.fn(),
 }) }));
 vi.mock("../../../../app/hooks/ai/use-ai-usage", () => ({ useAiUsage: () => ({ data: undefined }) }));
-vi.mock("../../../../app/hooks/ai/use-memory", () => ({ useMemoryPage: () => ({ data: mocks.memory }) }));
+vi.mock("../../../../app/hooks/ai/use-memory", () => ({ useMemoryPage: () => ({ data: mocks.memory }), useSetMemoryMode: () => ({ mutate: vi.fn(), isPending: false }) }));
 vi.mock("../../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ session: null }) }));
 vi.mock("../../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: undefined }) }));
 vi.mock("../../../../app/hooks/core/use-online-status", () => ({ useOnlineStatus: () => true }));
@@ -56,15 +56,13 @@ describe("assistant panel composition", () => {
         expect(input.value).toBe("");
     });
 
-    it("makes the conversation inert during memory choice and focuses the composer after answering", () => {
+    it("keeps the conversation usable while memory is unchosen: the card sits above it, nothing is inert", () => {
         mocks.memory.mode = null;
-        const { container, rerender } = render(panel());
-        expect(container.querySelector("header")?.hasAttribute("inert")).toBe(true);
-        expect(container.querySelector("form")?.hasAttribute("inert")).toBe(true);
-        expect(container.querySelector("form")?.previousElementSibling?.hasAttribute("inert")).toBe(true);
-        mocks.memory.mode = "basic";
-        rerender(panel());
-        expect(container.querySelector("header")?.hasAttribute("inert")).toBe(false);
-        expect(document.activeElement).toBe(screen.getByRole("textbox"));
+        const { container } = render(panel());
+        expect(screen.getByRole("region", { name: "Memory" })).toBeTruthy();
+        expect(container.querySelector("[inert]")).toBeNull();
+        const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+        fireEvent.change(box, { target: { value: "Plan my morning" } });
+        expect(box.value).toBe("Plan my morning");
     });
 });

@@ -117,6 +117,8 @@ export async function backfillForUser(env: Env, userId: string, now: Date = new 
                             eq(aiMessages.role, "user"),
                             gte(aiMessages.createdAt, backfill!.since),
                             lt(aiMessages.createdAt, backfill!.before),
+                            // Clear drew a line: nothing said before it is read back.
+                            state.notBefore ? gt(aiMessages.createdAt, state.notBefore) : undefined,
                             lt(aiConversations.lastMessageAt, liveFrom),
                             sql`coalesce(${aiConversations.metadata} ->> 'learn', 'true') <> 'false'`,
                             or(isNull(sql`${aiConversations.metadata} ->> 'memoryCursor'`), sql`${aiMessages.createdAt} > (${aiConversations.metadata} ->> 'memoryCursor')::timestamptz`),
@@ -159,6 +161,7 @@ export async function backfillForUser(env: Env, userId: string, now: Date = new 
                         eq(taskNotes.userId, userId),
                         gte(taskNotes.updatedAt, backfill!.since),
                         lt(taskNotes.updatedAt, liveFrom),
+                        state.notBefore ? gt(taskNotes.updatedAt, state.notBefore) : undefined,
                         gt(taskNotes.wordCount, 3),
                         sql`NOT EXISTS (SELECT 1 FROM ${aiMemoryNotes} n WHERE n.user_id = ${taskNotes.userId} AND n.task_id = ${taskNotes.taskId})`,
                     ))

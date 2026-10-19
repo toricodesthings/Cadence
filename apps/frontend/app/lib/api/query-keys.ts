@@ -63,6 +63,13 @@ export const queryKeys = {
         duration: (taskId: string, completedAt?: string | null) => ["ai", "memory", "duration", taskId, completedAt ?? "current"] as const,
         /** The person's answers to "how long did it take?", the estimator's input. */
         durationEvidence: ["ai", "memory", "duration-evidence"] as const,
+        /** What Find a time orders by: the person's choices and stated times of day. */
+        planningEvidence: ["ai", "memory", "planning-evidence"] as const,
+        /** The tasks each planning offer may show on. */
+        planningOffers: ["ai", "memory", "planning-offers"] as const,
+        /** How long a routine took on one day. */
+        routineDurationAll: ["ai", "memory", "routine-duration"] as const,
+        routineDuration: (habitId: string, day: string, time?: string | null) => ["ai", "memory", "routine-duration", habitId, day, time ?? null] as const,
         image: (id: string) => ["ai", "image", id] as const,
     },
     auth: {

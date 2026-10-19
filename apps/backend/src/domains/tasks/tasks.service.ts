@@ -24,12 +24,12 @@ import { writeNote } from "../notes/notes.service";
 
 // Query pieces other domains (the AI tools) reuse; tasks.service is the only door into this domain.
 export { hasNoDay, inDayWindow, onOrBefore } from "./task-filters";
-export { buildTaskWhereClause } from "./tasks.read";
+export { buildTaskWhereClause, readTasks } from "./tasks.read";
 
 // ── Utility ───────────────────────────────────────────────────────────
 
 type NewTask = Omit<typeof tasks.$inferInsert, "userId"> & { effortOrigin?: "manual" | "accepted" | null };
-type TaskPatch = Omit<UpdateTask, "expectedUpdatedAt">;
+type TaskPatch = Omit<UpdateTask, "expectedUpdatedAt" | "findTime">;
 
 /**
  * The provenance columns that go with a written `effort`: a value the person chose (or a suggestion they accepted) is
@@ -88,7 +88,7 @@ export function trackTaskChanges(
     const { created = [], rescheduled = [], completed = [], from } = changes;
     if (byPerson) {
         const activity: PersonActivity[] = [
-            ...rescheduled.flatMap((task) => (from?.get(task.id) ? [{ kind: "reschedule" as const, from: from.get(task.id)! }] : [])),
+            ...rescheduled.flatMap((task) => (from?.get(task.id) ? [{ kind: "reschedule" as const, taskId: task.id, from: from.get(task.id)! }] : [])),
             ...completed.map(() => ({ kind: "complete" as const })),
         ];
         if (activity.length) waitUntil(recordPersonActivity(byPerson.env, userId, activity));

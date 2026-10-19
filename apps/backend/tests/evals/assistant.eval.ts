@@ -772,6 +772,62 @@ const SCENARIOS: Scenario[] = [
         ],
     },
     {
+        // 0.37.0 H: Find a time reads the calendar and proposes; placing is a separate, approved write.
+        name: "find a time tomorrow uses find_time and writes nothing unasked",
+        level: "medium",
+        runs: 3,
+        seed: async (t) => {
+            await t("create_tasks", { tasks: [{ title: "Lab report", durationEstimate: 45 }, { title: "Class", scheduledStart: "2026-09-24T09:00:00-04:00", scheduledEnd: "2026-09-24T10:30:00-04:00", fixed: true }] });
+            return {};
+        },
+        turns: ["Find me a time for the lab report tomorrow."],
+        check: async (run, t) => {
+            const tasks = await openTasks(t);
+            const lab = titled(tasks, "lab report");
+            const found = called(run, "find_time")[0];
+            return [
+                ...need(!!found, "looked with find_time"),
+                ...need(found?.output?.proposals?.length > 0, "found a gap to offer"),
+                ...need(!!lab && !lab.scheduledStart && !called(run, "update_tasks").length && !called(run, "reschedule_tasks").length, "placed nothing: a proposal is not a decision"),
+                ...need(/gap|free|open|fits|available/i.test(run.text), "calls them gaps in the calendar, not known free time"),
+                ...need(!/you usually|energy|best time for you/i.test(run.text), "no claims about the person"),
+            ];
+        },
+    },
+    {
+        name: "when do I usually study: answers from the pattern as a choice, not an energy claim",
+        level: "medium",
+        runs: 3,
+        memoryMode: "full",
+        seed: async (t) => {
+            await withRls(getTestDb(), t.userId!, async (tx) => {
+                await insertFact(tx, t.userId!, { kind: "pattern", key: "pattern|slot|all|evening", content: "Often plans study in the evening (12 choices since August)", saidOn: "2026-09-20", source: "activity", confidence: "observed" });
+            });
+            return {};
+        },
+        turns: ["When do I usually study?"],
+        check: async (run) => [
+            ...need(/evening/i.test(run.text), "names the evening, from the fact"),
+            ...need(!/energy|productive|focus is best|your brain/i.test(run.text), "a choice, never an energy claim"),
+            ...need(!called(run, "update_tasks").length && !called(run, "create_tasks").length, "changed nothing"),
+        ],
+    },
+    {
+        name: "'stop suggesting steps' is saved as a help that doesn't work, with the avoid tag",
+        level: "simple",
+        runs: 3,
+        memoryMode: "basic",
+        turns: ["Please stop suggesting that I break tasks into steps. Step lists stress me out. Remember that."],
+        check: async (run) => {
+            const saved = called(run, "remember").find((c) => c.input?.action === "save");
+            return [
+                ...need(!!saved, "called remember"),
+                ...need(saved?.input?.kind === "assist", "as what helps"),
+                ...need(saved?.input?.avoid === "steps", "tagged avoid: steps"),
+            ];
+        },
+    },
+    {
         name: "router: greeting and how-to stay on the basic model",
         level: "simple",
         routed: true,

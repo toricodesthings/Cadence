@@ -9,7 +9,7 @@ import { AssistantComposer } from "./AssistantComposer";
 import { ConversationList } from "./ConversationList";
 import { UsageOverlay } from "./UsageOverlay";
 import { MemoryOverlay } from "./MemoryOverlay";
-import { MemoryPicker } from "./MemoryPicker";
+import { MemoryCard } from "./MemoryCard";
 import { useAssistantStore } from "../../stores/assistant-store";
 import { useAssistantConversation } from "../../hooks/ai/use-assistant-conversation";
 import { useChatAttachments } from "../../hooks/ai/use-chat-attachments";
@@ -48,7 +48,6 @@ export function AssistantSidePanel({ width, onWidthChange, isMobile = false }: {
     const [inputNotice, setInputNotice] = useState<string | null>(null);
     const [usageOpen, setUsageOpen] = useState(false);
     const { data: memoryPage } = useMemoryPage();
-    const choosingMemory = memoryPage?.mode === null;
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const reducedMotion = useReducedMotionSetting();
     const stick = useStickToBottom({ initial: "instant", resize: reducedMotion ? "instant" : "smooth" });
@@ -134,29 +133,24 @@ export function AssistantSidePanel({ width, onWidthChange, isMobile = false }: {
         return () => window.removeEventListener("keydown", onKey);
     }, [isMobile, assistantPanelOpen, toggleAssistantPanel, historyOpen, setHistoryOpen, usageOpen, memoryOpen, setMemoryOpen]);
 
-    const wasChoosingRef = useRef(choosingMemory);
-    useEffect(() => {
-        if (wasChoosingRef.current && !choosingMemory) textareaRef.current?.focus();
-        wasChoosingRef.current = choosingMemory;
-    }, [choosingMemory]);
-
     const panelContent = (
         <div className={`surface-shell flex h-full flex-col ${isMobile ? "" : "photo-shell-surface"}`}
             role="dialog" aria-label={`${assistantName} assistant conversation`}>
             <AssistantHeader assistantName={assistantName} threadTitle={threadTitle}
-                choosingMemory={choosingMemory} hasMemory={!!memoryPage}
+                hasMemory={!!memoryPage}
                 onNewChat={handleNewChat} onClose={toggleAssistantPanel}
                 onHistory={() => { setUsageOpen(false); setHistoryOpen(true); }}
                 onMemory={() => { setUsageOpen(false); setMemoryOpen(true); }} />
             <div className="sr-only" role="status" aria-live="polite">
                 {isStreaming ? `${assistantName} is responding` : ""}
             </div>
+            <MemoryCard />
             <AssistantThread conversation={conversation} assistantName={assistantName}
                 userImage={userImage} userInitial={userInitial} isTouch={isTouch}
-                choosingMemory={choosingMemory} scrollRef={stick.scrollRef} contentRef={stick.contentRef}
+                scrollRef={stick.scrollRef} contentRef={stick.contentRef}
                 showJump={!stick.isAtBottom} scrollToBottom={scrollToBottom} submitText={submitText} />
             <AssistantComposer assistantName={assistantName} isTouch={isTouch} isMobile={isMobile}
-                choosingMemory={choosingMemory} isStreaming={isStreaming} online={online}
+                isStreaming={isStreaming} online={online}
                 input={input} onInputChange={setInput} inputNotice={inputNotice} setInputNotice={setInputNotice} imageAllowance={imageAllowance}
                 perMessage={perMessage} usageNotice={usageNotice} images={images} textareaRef={textareaRef}
                 onSend={submitText} onStop={conversation.handleStop} onCommand={runSlashCommand} />
@@ -189,8 +183,6 @@ export function AssistantSidePanel({ width, onWidthChange, isMobile = false }: {
                     />
                 ) : null}
             </AnimatePresence>
-            {/* The first-start question: shown until answered, over everything else. */}
-            <MemoryPicker />
         </div>
     );
 

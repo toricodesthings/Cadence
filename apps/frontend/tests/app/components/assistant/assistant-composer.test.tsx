@@ -15,7 +15,7 @@ function setup(isTouch = false, accepted = true) {
         const textareaRef = useRef<HTMLTextAreaElement>(null);
         return <Tooltip.Provider>
         <AssistantComposer assistantName="Cadence" isTouch={isTouch} isMobile={false}
-            choosingMemory={false} isStreaming={false} online={true}
+            isStreaming={false} online={true}
             input={input} onInputChange={setInput} inputNotice={null} setInputNotice={vi.fn()} usageNotice={null} perMessage={3}
             imageAllowance={{ left: 20, blocked: false, label: "Attach an image" }}
             images={{ attachments: [], readyImages: [], uploading: false,

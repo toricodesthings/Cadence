@@ -267,6 +267,8 @@ async function replayQueue(userId) {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Idempotency-Key": index ? `${key}:${index}` : key,
+                    // When the person made it, as the app's own replay sends (a late replay teaches nothing).
+                    "X-Queued-At": new Date(entry.createdAt).toISOString(),
                     ...(request.json !== undefined && { "Content-Type": "application/json" }),
                 },
                 body: request.json === undefined ? undefined : JSON.stringify(request.json),

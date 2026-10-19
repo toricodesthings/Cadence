@@ -199,31 +199,64 @@ export const aiMemorySignals = pgTable('ai_memory_signals', {
     rlsPolicy: pgPolicy('ai_memory_signals_owner_access', { as: 'permissive', for: 'all', using: rlsUsing, withCheck: rlsUsing }),
 })).enableRLS();
 
-// 3b''. "How long did it take?" answers, one per completion (task, completed_at). The person's own words, so they are
-// kept outside the signals' 90-day prune until the task, the fact or the account goes. A point has low = high.
-// Undoing a completion deletes its report (trigger on tasks); Forget hides a group's reports until its Undo window ends.
+// 3b''. "How long did it take?" answers, one per completion (task, completed_at) or, for a routine, one per marked
+// occurrence (habit, target_date, wall_time). The person's own words, so they are kept outside the signals' 90-day prune
+// until the task, the routine, the fact or the account goes. A point has low = high.
+// Undoing a completion (or clearing a routine's log) deletes its report; Forget hides a group's reports until its Undo
+// window ends.
 export const durationReports = pgTable('duration_reports', {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }).notNull(),
-    completedAt: timestamptz('completed_at').notNull(),
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),                 // exactly one of task / habit
+    completedAt: timestamptz('completed_at'),                     // a task's completion; null for a routine
+    habitId: uuid('habit_id').references(() => habits.id, { onDelete: 'cascade' }),
+    targetDate: date('target_date', { mode: 'string' }),          // a routine's day (LocalDate)
+    wallTime: text('wall_time'),                                  // a timed routine's marked time (HH:MM), else null
     lowMinutes: integer('low_minutes').notNull(),
     highMinutes: integer('high_minutes').notNull(),
     anchored: boolean('anchored').default(false).notNull(),       // the answer came from the relative stage
     title: text('title').notNull(),                               // the title when answered (≤ 200 chars)
     projectId: uuid('project_id'),                                // the list when answered; no FK, a deleted list keeps the report
-    groupKey: text('group_key').notNull(),                        // durationGroup(title) or series:<task_id>
+    groupKey: text('group_key').notNull(),                        // durationGroup(title) or series:<task_or_habit_id>
     saidOn: date('said_on', { mode: 'string' }).notNull(),        // LocalDate in the person's zone when last answered
     forgottenAt: timestamptz('forgotten_at'),
     createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
     updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
 }, (table) => ({
     completionUnique: unique('duration_reports_task_completed_unique').on(table.taskId, table.completedAt),
+    occurrenceUnique: uniqueIndex('duration_reports_habit_occurrence_unique').on(table.habitId, table.targetDate, sql`coalesce(${table.wallTime}, '')`),
     userSaidIdx: index('duration_reports_user_said_idx').on(table.userId, table.saidOn.desc()),
     userGroupIdx: index('duration_reports_user_group_idx').on(table.userId, table.groupKey),
     lowCheck: check('duration_reports_low_check', sql`low_minutes BETWEEN 1 AND 1440`),
     highCheck: check('duration_reports_high_check', sql`high_minutes BETWEEN low_minutes AND 1440`),
+    subjectCheck: check('duration_reports_subject_check', sql`(task_id IS NOT NULL AND completed_at IS NOT NULL AND habit_id IS NULL AND target_date IS NULL) OR (habit_id IS NOT NULL AND target_date IS NOT NULL AND task_id IS NULL AND completed_at IS NULL)`),
     rlsPolicy: pgPolicy('duration_reports_owner_access', { as: 'permissive', for: 'all', using: rlsUsing, withCheck: rlsUsing }),
+})).enableRLS();
+
+// 3b'''. How the person plans (Full only): one row per real choice or answer, written only from routes,
+// kept 90 days. `slot`: a manual drop of an untimed task onto a time, or a pick after comparing Find-a-time proposals
+// (chosen = the time of day it landed in, feasible = every time of day that had room). `steps` / `later`: Not now
+// (declined) or the offered action done (chosen) on a planning offer. Forget on the pattern hides its rows until Undo ends.
+export const planningRecords = pgTable('planning_records', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),                                 // slot | steps | later
+    projectId: uuid('project_id'),                                // the task's list at the time (context for slot preference); no FK
+    chosen: text('chosen'),                                       // slot: the TimeOfDay it landed in
+    feasible: text('feasible').array(),                           // slot: every TimeOfDay that had room, the chosen one included
+    suggested: boolean('suggested').notNull(),                    // slot: from Find a time (counts half) rather than a manual drop
+    outcome: text('outcome').notNull(),                           // chosen | declined
+    fingerprint: text('fingerprint'),                             // steps / later: hash of what Not now was said about (title, steps, waiting on)
+    saidOn: date('said_on', { mode: 'string' }).notNull(),        // LocalDate in the person's zone
+    forgottenAt: timestamptz('forgotten_at'),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+}, (table) => ({
+    userKindIdx: index('planning_records_user_kind_idx').on(table.userId, table.kind, table.saidOn.desc()),
+    taskIdx: index('planning_records_task_idx').on(table.taskId),
+    kindCheck: check('planning_records_kind_check', sql`kind IN ('slot', 'steps', 'later')`),
+    outcomeCheck: check('planning_records_outcome_check', sql`outcome IN ('chosen', 'declined')`),
+    rlsPolicy: pgPolicy('planning_records_owner_access', { as: 'permissive', for: 'all', using: rlsUsing, withCheck: rlsUsing }),
 })).enableRLS();
 
 // 3b'. Which lines of a task note memory has already read, so a save is learned from by its changed text only

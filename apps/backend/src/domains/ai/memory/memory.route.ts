@@ -5,10 +5,11 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
-import { clearMemoryQuerySchema, durationAskSchema, durationReportSchema, durationShownSchema, durationTaskSchema, setMemoryModeSchema, type MemoryPage } from "@cadence/contracts/memory";
+import { eq } from "drizzle-orm";
+import { clearMemoryQuerySchema, routineDurationKeySchema, routineDurationQuerySchema, routineDurationSchema, durationAskSchema, durationReportSchema, durationShownSchema, durationTaskSchema, memoryPageQuerySchema, setMemoryModeSchema, type MemoryPage } from "@cadence/contracts/memory";
 import { uuidParamSchema } from "@cadence/contracts/common";
-import { aiMemories, aiMemorySignals, users } from "../../../db/schema";
+import { planningOfferOutcomeSchema } from "@cadence/contracts/planning";
+import { aiMemorySignals, users } from "../../../db/schema";
 import { getDbClient } from "../../../platform/db";
 import { withRls } from "../../../platform/rls";
 import { withinDailyBudget } from "../../../platform/daily-budget";
@@ -18,9 +19,10 @@ import { apiValidator } from "../../../platform/validation";
 import type { AuthVariables } from "../../../platform/auth";
 import type { Tx } from "../../../types/db";
 import type { Env } from "../../../types/env";
-import { isLearning, memoryStateOf, readMemoryState, type MemoryState } from "./memory-mode";
+import { isLearning, memoryStateOf, type MemoryState } from "./memory-mode";
 import { catchUpOf, newBackfill, type Backfill } from "./backfill";
-import { askDuration, clearReports, deleteReport, durationEvidence, getReport, reportDuration, spendDuration } from "./duration";
+import { askDuration, clearReports, deleteReport, deleteRoutineReport, durationEvidence, getReport, getRoutineReport, reportDuration, reportRoutine, spendDuration } from "./duration";
+import { clearPlanning, planningEvidence, planningOffers, recordOfferOutcome } from "./planning.service";
 import { clearFacts, deleteFact, forgetFact, listFacts, listForgotten, restoreFact } from "./memory-store";
 
 /** Answers one person can store a day: far beyond real use, a bound against a script. */
@@ -28,17 +30,20 @@ const MAX_REPORTS_PER_DAY = 200;
 
 const undoQuerySchema = z.object({ undo: z.enum(["true", "false"]).optional().transform((v) => v === "true") });
 
-async function readPage(tx: Tx, userId: string): Promise<MemoryPage> {
+async function readPage(tx: Tx, userId: string, cursor?: string): Promise<MemoryPage> {
     const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
     const state = memoryStateOf(row?.settings);
     const choiceAt = row?.settings?.assistant?.memoryChoiceAt ?? null;
+    const { facts, nextCursor } = await listFacts(tx, userId, cursor);
     return {
-        mode: state.mode,
+        // The stored choice: null while the person hasn't chosen (Basic is in effect), so the page can say "Basic (default)".
+        mode: state.stored,
         choiceAt,
         inactive: !isLearning(state.mode),
         catchUp: state.mode === "full" ? catchUpOf(row?.settings?.assistant?.memoryBackfill as Backfill | null | undefined, new Date()) : null,
-        facts: await listFacts(tx, userId),
-        forgotten: await listForgotten(tx, userId),
+        facts,
+        nextCursor,
+        forgotten: cursor ? [] : await listForgotten(tx, userId),
     };
 }
 
@@ -46,7 +51,7 @@ async function readPage(tx: Tx, userId: string): Promise<MemoryPage> {
  * Writes the mode and its stamps under a row lock, so two changes can't interleave and a background write
  * holding the row (`fenceMemoryState`) finishes first. Returns the state before.
  */
-async function writeMode(tx: Tx, userId: string, mode: "off" | "basic" | "full", consentVersion: string | null): Promise<MemoryState> {
+async function writeMode(tx: Tx, userId: string, mode: "off" | "basic" | "full" | null, chosen: boolean, extra: Record<string, unknown> = {}): Promise<MemoryState> {
     const now = new Date();
     const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1).for("update");
     const settings = (row?.settings ?? {}) as Record<string, any>;
@@ -54,7 +59,7 @@ async function writeMode(tx: Tx, userId: string, mode: "off" | "basic" | "full",
     const before = memoryStateOf(settings);
     const epoch = before.epoch + 1;
     // Becoming Full starts the 90-day catch-up; leaving it ends it.
-    const backfill = mode === "full" ? (before.mode === "full" ? (assistant.memoryBackfill as Backfill | null | undefined) ?? null : newBackfill(now)) : null;
+    const backfill = (mode ?? before.mode) === "full" ? (before.mode === "full" ? (assistant.memoryBackfill as Backfill | null | undefined) ?? null : newBackfill(now)) : null;
     await tx
         .update(users)
         .set({
@@ -62,10 +67,12 @@ async function writeMode(tx: Tx, userId: string, mode: "off" | "basic" | "full",
                 ...settings,
                 assistant: {
                     ...assistant,
-                    memoryMode: mode,
-                    ...(consentVersion && { memoryChoiceAt: now.toISOString(), memoryConsentVersion: consentVersion }),
+                    // `null` keeps the stored choice (Clear on an unchosen memory stays unchosen).
+                    memoryMode: mode ?? before.stored,
+                    ...(chosen && { memoryChoiceAt: now.toISOString() }),
                     memoryEpoch: epoch,
                     memoryBackfill: backfill,
+                    ...extra,
                 },
             },
         })
@@ -74,18 +81,19 @@ async function writeMode(tx: Tx, userId: string, mode: "off" | "basic" | "full",
 }
 
 export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    .get("/", async (c) => {
+    .get("/", apiValidator("query", memoryPageQuerySchema), async (c) => {
         const userId = c.get("userId");
-        const page = await withRls(getDbClient(c.env), userId, (tx) => readPage(tx, userId));
+        const { cursor } = c.req.valid("query");
+        const page = await withRls(getDbClient(c.env), userId, (tx) => readPage(tx, userId, cursor));
         return c.json({ data: page });
     })
 
     .post("/mode", apiValidator("json", setMemoryModeSchema), async (c) => {
         const userId = c.get("userId");
-        const { mode, consentVersion } = c.req.valid("json");
+        const { mode } = c.req.valid("json");
         const page = await withRls(getDbClient(c.env), userId, async (tx) => {
             // A mode change only starts or stops learning: nothing stored is erased (that is Clear, below).
-            await writeMode(tx, userId, mode, consentVersion);
+            await writeMode(tx, userId, mode, true);
             return readPage(tx, userId);
         });
         return c.json({ data: page });
@@ -105,6 +113,26 @@ export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
         return c.json({ data: view });
     })
 
+    // How long a routine took on one marked day. Same promises as a task's answer: stored in its own transaction, the
+    // stored row comes back, Basic and Off store nothing (200, null).
+    .post("/duration/routine", apiValidator("json", routineDurationSchema), async (c) => {
+        const userId = c.get("userId");
+        const body = c.req.valid("json");
+        if (!(await withinDailyBudget(c.env, "duration-report", await hashIdentifier(userId), MAX_REPORTS_PER_DAY, new Date(), { failOpen: true }))) {
+            throw new AppError(429, "TOO_MANY_REQUESTS", "Too many answers today");
+        }
+        const view = await withRls(getDbClient(c.env), userId, (tx) => reportRoutine(tx, userId, body));
+        return c.json({ data: view });
+    })
+
+    // Not now on a planning offer, or the offered thing done. Stored only in Full (200 either way).
+    .post("/planning/offer", apiValidator("json", planningOfferOutcomeSchema), async (c) => {
+        const userId = c.get("userId");
+        const body = c.req.valid("json");
+        await withRls(getDbClient(c.env), userId, (tx) => recordOfferOutcome(tx, userId, body));
+        return c.json({ data: { ok: true } });
+    })
+
     // Should the question be asked? The server owns the budget and reserves the day when it says yes, so two devices
     // never ask twice in a day.
     .post("/duration/ask", apiValidator("json", durationAskSchema), async (c) => {
@@ -122,6 +150,13 @@ export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
         return c.json({ data: { ok: true } });
     })
 
+    .get("/duration/routine", apiValidator("query", routineDurationQuerySchema), async (c) => {
+        const userId = c.get("userId");
+        const { habitId, day, time } = c.req.valid("query");
+        const report = await withRls(getDbClient(c.env), userId, (tx) => getRoutineReport(tx, userId, { habitId, day, time }));
+        return c.json({ data: report });
+    })
+
     .get("/duration", apiValidator("query", durationTaskSchema), async (c) => {
         const userId = c.get("userId");
         const { taskId, completedAt } = c.req.valid("query");
@@ -129,11 +164,32 @@ export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
         return c.json({ data: report });
     })
 
+    // The tasks each planning offer may show on. The app shows at most one, the first in its own order.
+    .get("/planning/offers", async (c) => {
+        const userId = c.get("userId");
+        const offers = await withRls(getDbClient(c.env), userId, (tx) => planningOffers(tx, userId));
+        return c.json({ data: offers });
+    })
+
+    // What Find a time orders by (the same pure rule runs on the device).
+    .get("/planning-evidence", async (c) => {
+        const userId = c.get("userId");
+        const evidence = await withRls(getDbClient(c.env), userId, (tx) => planningEvidence(tx, userId));
+        return c.json({ data: evidence });
+    })
+
     // The estimator's input: the person's own answers (Full only, else nothing).
     .get("/duration-evidence", async (c) => {
         const userId = c.get("userId");
         const rows = await withRls(getDbClient(c.env), userId, (tx) => durationEvidence(tx, userId));
         return c.json({ data: rows });
+    })
+
+    .delete("/duration/routine", apiValidator("json", routineDurationKeySchema), async (c) => {
+        const userId = c.get("userId");
+        const key = c.req.valid("json");
+        await withRls(getDbClient(c.env), userId, (tx) => deleteRoutineReport(tx, userId, key));
+        return c.json({ data: { ok: true } });
     })
 
     // Clearing the answer (the task's "Took 45 min" row).
@@ -150,11 +206,13 @@ export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
         const { turnOff } = c.req.valid("query");
         const page = await withRls(getDbClient(c.env), userId, async (tx) => {
             // The mode first: its row lock waits out any background write, which locks that row before the facts.
-            await writeMode(tx, userId, turnOff ? "off" : (await readMemoryState(tx, userId)).mode ?? "off", null);
+            // Saying something again teaches it again; nothing said before now is read back (backfill, notes, chats).
+            await writeMode(tx, userId, turnOff ? "off" : null, false, { memoryLearningNotBefore: new Date().toISOString() });
             await clearFacts(tx, userId);
             // The signals go too, or tonight's pass would count the same patterns back.
             await tx.delete(aiMemorySignals).where(eq(aiMemorySignals.userId, userId));
             await clearReports(tx, userId);
+            await clearPlanning(tx, userId);
             return readPage(tx, userId);
         });
         return c.json({ data: page });

@@ -1,10 +1,12 @@
-import { useState, type ReactNode } from "react";
-import { MoreVertical, Pin, Copy, Trash2, Calendar, Bell, Sun, Moon, CalendarDays, ArrowRight, CalendarClock, X, ListChecks, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
+import { useContext, useState, type ReactNode } from "react";
+import { MoreVertical, Pin, Copy, Trash2, Calendar, Bell, Sun, Moon, CalendarDays, ArrowRight, CalendarClock, Clock, X, ListChecks, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import type { GenericMenu } from "../primitives/menu-styles";
 import { Button } from "../primitives/Button";
 import { useArchiveTask } from "../../hooks/tasks/use-archive-task";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
+import { canFindTime, FindTimeDayContext, useFindTime } from "../../hooks/tasks/use-find-time";
+import { OFFER_LABEL, useShownOffer } from "../../hooks/ai/use-planning-offers";
 import { useDuplicateTask } from "../../hooks/tasks/use-duplicate-task";
 import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags/use-task-tags";
 import { PriorityPicker } from "./PriorityPicker";
@@ -16,7 +18,7 @@ import { TagPickerSubmenu } from "./TagPickerSubmenu";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { Task } from "@cadence/contracts/task";
 import { trackUsageEvent } from "../../lib/api/track-event";
-import { addDays, weekdayOf } from "@cadence/domain/time";
+import { addDays, atLocal, formatInZone, weekdayOf } from "@cadence/domain/time";
 import { rescheduleToDay } from "@cadence/domain/task-temporal";
 import { getUserZone, today } from "../../lib/utils/user-zone";
 import { useSettings } from "../../hooks/core/use-settings";
@@ -35,9 +37,13 @@ export interface TaskMenuItemsProps {
 
 /** Reusable inner items for either DropdownMenu or ContextMenu */
 export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Menu, onCloseMenu, holdingContext }: TaskMenuItemsProps) {
+    // Place lists tasks for one chosen day: Find a time looks there, not at the task's own day.
+    const findDay = useContext(FindTimeDayContext);
     const archiveTask = useArchiveTask();
     const updateTask = useUpdateTask();
     const duplicateTask = useDuplicateTask();
+    const findTime = useFindTime();
+    const shownOffer = useShownOffer(task.id);
     const addTaskTag = useAddTaskTag();
     const removeTaskTag = useRemoveTaskTag();
     const [menuView, setMenuView] = useState<"main" | "reschedule-presets" | "reschedule-custom" | "reminder">("main");
@@ -223,6 +229,27 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
         </Menu.Item>
     );
     const rescheduleItem = submenuItem(<CalendarClock size={16} />, "Reschedule", <span>r</span>, () => setMenuView("reschedule-presets"));
+    const findTimeItem = canFindTime(task) ? (
+        <Menu.Item onSelect={() => { trackMenuAction("find_time"); void findTime.run(task, findDay ? { day: findDay } : {}); }}>
+            <div className="flex items-center gap-2">
+                <Clock size={16} />
+                <span>{findDay ? `Find a time on ${formatInZone(atLocal(findDay, "12:00", getUserZone()), getUserZone(), { weekday: "short" })}` : "Find a time"}</span>
+            </div>
+        </Menu.Item>
+    ) : null;
+    /** The offer under the row, echoed as the menu's last item so it is always in the same place, never shifting the rest. */
+    const suggestedItem = shownOffer ? (
+        <>
+            <Menu.Separator />
+            <div className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-twilight-text-muted">Suggested</div>
+            <Menu.Item onSelect={shownOffer.accept}>
+                <div className="flex items-center gap-2">
+                    <ListChecks size={16} />
+                    <span>{OFFER_LABEL[shownOffer.kind]}</span>
+                </div>
+            </Menu.Item>
+        </>
+    ) : null;
     const reminderItem = submenuItem(
         <Bell size={16} />,
         task.reminderAt ? "Reminder" : "Set Reminder",
@@ -235,6 +262,8 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
             {holdingContext ? (
                 <>
                     {rescheduleItem}
+
+                    {findTimeItem}
 
                     <Menu.Item onClick={handleTogglePin}>
                         <div className="flex items-center gap-2">
@@ -264,11 +293,15 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                             <span>Move to Trash</span>
                         </div>
                     </Menu.Item>
+
+                    {suggestedItem}
                 </>
             ) : (
                 <>
             {/* ── Scheduling & Time ── */}
             {rescheduleItem}
+
+            {findTimeItem}
 
             {reminderItem}
 
@@ -361,6 +394,8 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                     <span className="ml-auto text-[10px] opacity-60">Del</span>
                 </div>
             </Menu.Item>
+
+            {suggestedItem}
                 </>
             )}
         </>
@@ -368,6 +403,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
 }
 
 function TaskQuickActions({ task }: { task: Task }) {
+    const shownOffer = useShownOffer(task.id);
     const updateTask = useUpdateTask();
     const duplicateTask = useDuplicateTask();
     const archiveTask = useArchiveTask();
@@ -386,6 +422,15 @@ function TaskQuickActions({ task }: { task: Task }) {
             <DropdownMenu.Item onSelect={() => archiveTask.mutate(task.id)} variant="danger">
                 <div className="flex items-center gap-2"><Trash2 size={16} /><span>Move to Trash</span></div>
             </DropdownMenu.Item>
+            {shownOffer ? (
+                <>
+                    <DropdownMenu.Separator />
+                    <div className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-twilight-text-muted">Suggested</div>
+                    <DropdownMenu.Item onSelect={shownOffer.accept}>
+                        <div className="flex items-center gap-2"><ListChecks size={16} /><span>{OFFER_LABEL[shownOffer.kind]}</span></div>
+                    </DropdownMenu.Item>
+                </>
+            ) : null}
         </>
     );
 }

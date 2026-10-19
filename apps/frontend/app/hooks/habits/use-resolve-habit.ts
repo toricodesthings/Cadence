@@ -131,7 +131,11 @@ export function useResolveHabit(boundHabitId?: string) {
             if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
             toastError(err, "Couldn't update routine");
         },
-        onSettled: (data, error) => !wasQueued(data, error) && habitCache.invalidate(queryClient),
+        onSettled: (data, error) => {
+            // Clearing or skipping a day takes its "Took" answer with it on the server: the cached one is stale.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.routineDurationAll });
+            if (!wasQueued(data, error)) habitCache.invalidate(queryClient);
+        },
     });
     return {
         ...mutation,

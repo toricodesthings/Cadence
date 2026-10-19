@@ -2,16 +2,22 @@ import { tool } from "ai";
 import { z } from "zod";
 import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
-import { tasks } from "../../../db/schema";
+import { projects, tasks, users } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit } from "./index";
 import { taskCoreColumns } from "./tasks";
-import { inDayWindow } from "../../tasks/tasks.service";
+import { inDayWindow, readTasks } from "../../tasks/tasks.service";
 import { expandScheduleScopedTasks, taskDay } from "@cadence/domain/task-recurrence";
-import { addDays } from "@cadence/domain/time";
+import { addDays, formatInZone, toZonedIso, type Zone } from "@cadence/domain/time";
+import { busyBlocks, feasibleBuckets, findTimes } from "@cadence/domain/find-time";
+import { preferredBuckets } from "@cadence/domain/slot-preference";
+import { taskMinutes } from "@cadence/domain/task-length";
+import type { TimeOfDay } from "@cadence/contracts/planning";
 import { toMinimalTask } from "./projections";
+import { durationHints } from "../memory/duration";
+import { planningEvidence } from "../memory/planning.service";
 import { readSnapshotRoutines, routinesDue, type SnapshotRoutineReader } from "./routine-reads";
 export { routinesDue } from "./routine-reads";
 
@@ -27,6 +33,9 @@ const scheduleColumns = {
 
 /** Rows a window reads before expansion: plenty for ~2 months, a guard against runaway data. */
 const WINDOW_ROW_GUARD = 500;
+
+/** What `find_time` offers at most: a short list the person picks from, never every gap. */
+const FIND_TIME_PROPOSALS = 3;
 
 export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readRoutines?: SnapshotRoutineReader) => ({
     // ── R ──────────────────────────────────────────────────────────────────
@@ -80,12 +89,63 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                     const when = (row: (typeof dated)[number]) => `${taskDay(row, ctx.timezone)} ${row.scheduledStart ?? ""}`;
                     const inRange = [...dated.slice(0, WINDOW_ROW_GUARD), ...expanded].sort((a, b) => when(a).localeCompare(when(b)));
                     const shown = inRange.slice(offset, offset + cap);
+                    const idOf = (row: (typeof shown)[number]) => (row as { seriesId?: string }).seriesId ?? row.id;
+                    const hints = await durationHints(tx, userId, shown.map((row) => ({ ...row, id: idOf(row) })));
                     const more = inRange.length > offset + cap || dated.length > WINDOW_ROW_GUARD;
                     return {
                         range: { start: from, end: to, timezone: ctx.timezone },
-                        tasks: shown.map((row) => toMinimalTask(row, ctx.timezone)),
+                        tasks: shown.map((row) => toMinimalTask(row, ctx.timezone, hints.get(idOf(row)))),
                         ...(more && { more, nextOffset: offset + cap }),
                         routines: routinesDue(habitRows, from, to, ctx.today, ctx.timezone),
+                    };
+                });
+            }),
+    }),
+
+    find_time: tool({
+        description:
+            "Gaps in the calendar on one local day where a task of its own length fits, best first (at most 3, spaced apart; empty when none fits). " +
+            "They are open space in what Cadence can see, with a buffer around other blocks. Read-only: nothing is placed.",
+        inputSchema: z.object({
+            taskId: z.uuid(),
+            day: z.iso.date().describe("The local day to look at, YYYY-MM-DD."),
+        }),
+        execute: async ({ taskId, day }) =>
+            safeExecute("find_time", userId, async () => {
+                const zone = ctx.timezone as Zone;
+                if (day < ctx.today) return { ok: false as const, error: "That day has passed; look at today or later." };
+                return withRls(getDbClient(env), userId, async (tx) => {
+                    const [task] = await tx
+                        .select({ id: tasks.id, title: tasks.title, state: tasks.state, projectId: tasks.projectId, listName: projects.name, durationEstimate: tasks.durationEstimate, scheduledStart: tasks.scheduledStart, scheduledEnd: tasks.scheduledEnd, notBefore: tasks.notBefore, recurrenceRule: tasks.recurrenceRule, interactionMode: tasks.interactionMode })
+                        .from(tasks)
+                        .leftJoin(projects, eq(projects.id, tasks.projectId))
+                        .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+                    if (!task) return { ok: false as const, error: "No such task." };
+                    if (task.state === "COMPLETE" || task.state === "ARCHIVED" || task.recurrenceRule || task.interactionMode === "timetable") {
+                        return { ok: false as const, error: "Only an open, one-off task has a time to find." };
+                    }
+                    const hint = (await durationHints(tx, userId, [task])).get(task.id);
+                    const minutes = taskMinutes(task, hint?.takesAbout ? { state: "supported", minutes: hint.takesAbout } : null);
+                    const busy = busyBlocks(await readTasks(tx, userId, { from: day, to: day }), task.id);
+                    const [settings] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId));
+                    const input = {
+                        task: { minutes, notBefore: task.notBefore, currentStart: task.scheduledStart },
+                        day, zone, now: ctx.currentDate, busy, preferred: [] as TimeOfDay[],
+                        timelineStartHour: (settings?.settings as { calendar?: { timelineStartHour?: number } } | null)?.calendar?.timelineStartHour ?? 7,
+                    };
+                    // What they like (stated, or learned in Full) only orders the gaps.
+                    const preferred = preferredBuckets(await planningEvidence(tx, userId), { title: task.title, projectId: task.projectId, listName: task.listName }, feasibleBuckets(input), ctx.today);
+                    const clock = (instant: string) => formatInZone(instant, zone, { hour: "numeric", minute: "2-digit" });
+                    return {
+                        ok: true as const,
+                        task: { id: task.id, title: task.title, minutes },
+                        day,
+                        proposals: findTimes({ ...input, preferred }).slice(0, FIND_TIME_PROPOSALS).map((p) => ({
+                            start: toZonedIso(p.start, zone),
+                            end: toZonedIso(p.end, zone),
+                            label: `${formatInZone(p.start, zone, { weekday: "short" })} ${clock(p.start)}–${clock(p.end)}`,
+                            gap: true as const,
+                        })),
                     };
                 });
             }),

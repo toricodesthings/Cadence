@@ -44,15 +44,20 @@ type Sized = Pick<Task, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd
 
 /**
  * The known minutes of one day's listed tasks: a block, an estimate, or a supported guess. Tasks with none of those are
- * counted as not sized (never as 60: that would be Cadence inventing a verdict). Routines and all-day multi-day
- * tasks aren't counted at all. This is a note on the day, not a capacity: nothing here says a day is too full.
+ * counted as not sized (never as 60: that would be Cadence inventing a verdict). A routine counts by its typical length when its own answers support one, else not at all; all-day multi-day
+ * tasks aren't counted. This is a note on the day, not a capacity: nothing here says a day is too full.
  */
 export function dayMinutes<T extends Sized>(tasks: readonly T[], guessOf: (task: T) => { state: "tentative" | "supported"; minutes: number } | null) {
     let minutes = 0;
     let unsized = 0;
     for (const task of tasks) {
-        if (task.isHabit || (!task.scheduledStart && task.endDate && task.endDate !== task.dueDate)) continue;
+        if (!task.isHabit && !task.scheduledStart && task.endDate && task.endDate !== task.dueDate) continue;
         const guess = guessOf(task);
+        if (task.isHabit) {
+            // A routine counts only when its own answers say how long it takes; without that it is left out, never "not sized".
+            if (guess?.state === "supported") minutes += guess.minutes;
+            continue;
+        }
         const known = (task.scheduledStart && task.scheduledEnd) || task.durationEstimate || guess?.state === "supported";
         if (known) minutes += taskMinutes(task, guess);
         else unsized++;

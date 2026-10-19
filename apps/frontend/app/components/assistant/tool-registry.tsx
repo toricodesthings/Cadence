@@ -60,6 +60,7 @@ const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRend
     get_events: { label: "Looked at your events" },
     get_focus_views: { label: "Looked at your focus views" },
     get_cadence_help: { label: "Checked the Cadence guide" },
+    find_time: { label: "Looked for a gap" },
     recall: { label: "Thought back to what you told me" },
     search_past_chats: { label: "Looked through your past chats" },
 

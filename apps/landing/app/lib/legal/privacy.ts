@@ -10,13 +10,13 @@ export const PRIVACY: LegalDoc = {
   description:
     "What Cadence stores, who else handles it, how the AI assistant uses your data, and what is still unfinished. Plain language, nothing hidden.",
   lede: "What Cadence holds about you, who else touches it, and where the honest gaps are. Where something is unfinished or could not be verified, it is written down instead of smoothed over.",
-  updated: "2026-10-12",
+  updated: "2026-10-19",
   inShort: [
     "Cadence is run by one person with no company behind it. The apps contain no advertising or third-party analytics code, and your data is not sold.",
     "Your workspace lives in a Neon Postgres database, separated per account by row-level security. Cloudflare runs the servers.",
     "If you message the assistant, that message, related tasks and notes, and any photos you attach go to AI model providers through OpenRouter. Their retention and training terms are not something this project can verify.",
     "Unless you switch it off in Settings (Suggest where captures go), a new capture's text, or a search that found nothing, goes to an AI provider with your list, section and task names, to suggest where it belongs or what you meant.",
-    "If you choose Basic or Full, the assistant remembers what you tell it (Full also learns from what you do in the app). You can see all of it, forget anything with one tap, or choose Off.",
+    "The assistant remembers what you tell it, from the start (Basic is on until you choose). Full is your choice and also learns from what you do in the app. You can see all of it, forget anything with one tap, or choose Off.",
     "Usage diagnostics are on by default (you can switch them off) and record which actions you use, not your text. The Crash reports switch currently does nothing.",
     "You can delete your account yourself in Settings: it is permanent and cannot be undone. You can also have a JSON copy of your data emailed to you from the same place.",
     "Cadence sets only the cookies needed to keep you signed in. This website sets none.",
@@ -125,11 +125,11 @@ export const PRIVACY: LegalDoc = {
               "Reply copy up to 1 hour while running, about 1 minute after it ends. Counters roll over within 5 hours, 24 hours, 7 days",
             ],
             [
-              "Assistant memory: short facts about you (a sentence each, with the day you said it and where it came from), and for Full, signals of what you did (weekday and time-of-day buckets, durations you reported)",
+              "Assistant memory: short facts about you (a sentence each, with the day you said it and where it came from), and for Full, signals of what you did (weekday and time-of-day buckets, durations you reported, which parts of the day you chose for a task, which suggestions you declined)",
               "Recall what you said once, so you never repeat yourself",
               "Neon Postgres",
               "Neon",
-              "Until you forget an item or clear memory. Activity signals 90 days. See the memory section",
+              "Until you forget an item or clear memory. Activity signals and planning choices 90 days. See the memory section",
             ],
           ],
         },
@@ -346,7 +346,7 @@ export const PRIVACY: LegalDoc = {
       blocks: [
         {
           kind: "p",
-          text: "Memory lets the assistant carry what you have told it from one chat to the next, so you never repeat yourself. The first time you open the assistant it asks how much to remember, and you can change it any time in Settings, under Cadence Assistant. Nothing is learned until you choose Basic or Full.",
+          text: "Memory lets the assistant carry what you have told it from one chat to the next, so you never repeat yourself. Basic is on until you choose: the assistant remembers what you tell it, and a card the first time you open it says so and offers Full, Keep Basic or Turn off. Memory facts about health, money or relationship trouble are not kept from a passing mention, only if you tell the assistant to remember them. You can change the choice any time in Settings, under Cadence Assistant. Full is only ever on because you chose it.",
         },
         { kind: "sub", title: "What each choice learns from" },
         {
@@ -354,7 +354,8 @@ export const PRIVACY: LegalDoc = {
           head: ["", "Off", "Basic", "Full"],
           rows: [
             ["What you say in assistant chats", "Nothing", "Yes", "Yes"],
-            ["Changes you make yourself: rescheduling, finishing tasks, routine check-ins, how long you say things took", "Nothing", "Nothing", "Yes"],
+            ["Changes you make yourself: rescheduling, finishing tasks, routine check-ins, how long you say things took (tasks and routines)", "Nothing", "Nothing", "Yes"],
+            ["When you like to do things (which part of the day you put a task in when other parts had room) and which suggestions you decline", "Nothing", "Nothing", "Yes"],
             ["Changed lines of your task notes", "Nothing", "Nothing", "Yes"],
             ["The last 90 days of chats and notes, once, over a few nights", "Nothing", "Nothing", "Yes, when you choose Full"],
           ],
@@ -367,7 +368,8 @@ export const PRIVACY: LegalDoc = {
             "About ten minutes after a chat goes quiet, the messages you wrote in it are read once by an AI model that picks out the few lasting things worth keeping. Only your own words are read: never the assistant's replies, tool results, or text you quoted or pasted.",
             "Each kept fact is a short sentence with the day you first said it. Its text is also sent to an embedding model so it can be found later by meaning.",
             "At night, repeats are merged, facts that no longer apply are dropped, and unconfirmed guesses expire after 60 days. Things you said outright never expire on their own.",
-            "Full adds patterns it can count (for example that you often finish things in the evening) from the changes you made yourself in the app, never from changes the assistant or a connected assistant made. A pattern needs at least 5 events on 3 different days in 4 weeks, mostly in one slot, before anything is claimed.",
+            "Full adds patterns it can count (for example that you often finish things in the evening, or plan study in the evening) from the changes you made yourself in the app, never from changes the assistant or a connected assistant made. A pattern needs several events on several different days, mostly in one slot, before anything is claimed. What it learns only changes the order of what Cadence offers: it never moves, shortens or reprioritises anything.",
+            "Memory has no size limit; what you ask it to forget stays forgotten, including when you say it again in other words. Deleting a chat deletes what only that chat taught.",
           ],
         },
         { kind: "sub", title: "What goes to AI providers" },

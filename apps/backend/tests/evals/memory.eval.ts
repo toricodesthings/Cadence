@@ -79,6 +79,26 @@ describe.skipIf(!live)("memory · extraction precision", () => {
     });
 });
 
+describe.skipIf(!live)("memory · planning values (0.37.0)", () => {
+    const CASES = [
+        { id: "w1", check: (v: any) => v?.when?.buckets?.includes("evening") },
+        { id: "w2", check: (v: any) => v?.when?.buckets?.some((b: string) => b === "early" || b === "morning") },
+        { id: "w3", check: (v: any) => v?.avoid === "steps" },
+    ];
+    it(`a stated time of day and a help that doesn't work come back typed (×${RUNS})`, async () => {
+        const rows = await Promise.all(CASES.flatMap((k) => Array.from({ length: RUNS }, async (_, run) => {
+            const c = EXTRACTION_CASES.find((x) => x.id === k.id)!;
+            const reading = buildReading(c.say.map((text, i) => ({ id: `msg-${i}`, text })));
+            const accepted = acceptCandidates(await extract(env, "evalhash", TODAY, reading.text), reading.labels);
+            return { id: k.id, run, ok: accepted.some((x) => k.check(x.value)), saved: accepted.map((x) => `${x.kind}: ${x.content} ${JSON.stringify(x.value)}`) };
+        })));
+        const missed = rows.filter((r) => !r.ok);
+        report.planningValues = { runs: RUNS, missed };
+        console.log(`planning values: ${rows.length - missed.length}/${rows.length}`);
+        expect(missed).toEqual([]);
+    });
+});
+
 describe.skipIf(!live)("memory · consolidation", () => {
     it(`${MATCH_CASES.length} pairs × ${RUNS}: names the repeated or changed fact, or none`, async () => {
         const rows = await Promise.all(MATCH_CASES.flatMap((c) => Array.from({ length: RUNS }, async (_, run) => {

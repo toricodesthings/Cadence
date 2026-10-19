@@ -8,6 +8,7 @@ import { checkIdempotency, insertWithClientId, recordMutation } from "../../plat
 import { assertOwnership } from "../../platform/ownership";
 import { userZone } from "../../platform/user-zone";
 import type { Tx } from "../../types/db";
+import { pruneRoutineReports } from "../ai/memory/memory.service";
 
 // ── Utility ───────────────────────────────────────────────────────────
 
@@ -378,6 +379,8 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
     const zone = await userZone(tx, userId);
     const day = resolveDay(habit, existing, targetDate, action, zone);
     const row = await writeDayLog(tx, userId, habit.id, targetDate, existing, day);
+    // "Took 30 min" belongs to a marked day: clearing or skipping it takes the answer along.
+    await pruneRoutineReports(tx, userId, habit.id, targetDate, row);
 
     // Incremental totals (O(1)): what this day counted before, and what it counts now.
     const was = existing?.status;

@@ -6,7 +6,8 @@ import type { MemoryFact, MemoryKind, MemoryMode, MemoryPage } from "@cadence/co
 import * as ScrollArea from "../primitives/ScrollArea";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button, Tip } from "../primitives";
-import { useClearMemory, useForgetMemory, useMemoryPage, useRestoreMemory, useSetMemoryMode } from "../../hooks/ai/use-memory";
+import { useClearMemory, useForgetMemory, useMemoryPage, useOlderMemory, useRestoreMemory, useSetMemoryMode } from "../../hooks/ai/use-memory";
+import { ShowOlder } from "../shared/ShowOlder";
 import { toastName, toastUndo } from "../../lib/utils/undo-toast";
 import { cn } from "../../lib/utils";
 
@@ -74,6 +75,9 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
     const forget = useForgetMemory();
     const restore = useRestoreMemory();
     const clear = useClearMemory();
+    const older = useOlderMemory();
+    // Pages beyond the first live here: the cached page is only ever the newest 30.
+    const [more, setMore] = useState<{ facts: MemoryFact[]; nextCursor: string | null } | null>(null);
     const [openId, setOpenId] = useState<string | null>(null);
     const [query, setQuery] = useState("");
     const [draft, setDraft] = useState("");
@@ -87,7 +91,19 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
         return () => window.clearTimeout(timer);
     }, []);
 
-    const facts = data?.facts ?? [];
+    const forgottenHere = useRef(new Set<string>());
+    // A Forget (or a new fact) shifts the first page's edge, so an older page can repeat its last facts: each shows once.
+    const facts = useMemo(() => {
+        const first = data?.facts ?? [];
+        const onFirst = new Set(first.map((f) => f.id));
+        return [...first, ...(more?.facts ?? []).filter((f) => !onFirst.has(f.id) && !forgottenHere.current.has(f.id))];
+    }, [data?.facts, more?.facts]);
+    const nextCursor = more ? more.nextCursor : data?.nextCursor ?? null;
+    const showOlder = nextCursor
+        ? () => older.mutate(nextCursor, { onSuccess: (page) => setMore({ facts: [...(more?.facts ?? []), ...page.facts], nextCursor: page.nextCursor }) })
+        : undefined;
+    // The mode in effect: an unchosen memory is Basic, and says so.
+    const chosen = data?.mode ?? "basic";
     const shown = useMemo(() => {
         const needle = query.trim().toLowerCase();
         return needle ? facts.filter((f) => f.content.toLowerCase().includes(needle)) : facts;
@@ -96,8 +112,9 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
     const onForget = (fact: MemoryFact) => {
         // Undo waits for the forget to land, or the restore could arrive first and find nothing to bring back.
         const forgotten = forget.mutateAsync({ id: fact.id }).then(() => true, () => false);
+        forgottenHere.current.add(fact.id);
         setOpenId(null);
-        toastUndo(`Forgot “${toastName(fact.content)}”`, () => void forgotten.then((ok) => ok && restore.mutate(fact.id)), {
+        toastUndo(`Forgot “${toastName(fact.content)}”`, () => void forgotten.then((ok) => { if (ok) { forgottenHere.current.delete(fact.id); restore.mutate(fact.id); } }), {
             description: "Gone from what I use. Undo brings it back.",
         });
     };
@@ -116,20 +133,20 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
                     {/* The viewport wraps its children in a block, so the column lives on its own element. */}
                     <div className="flex flex-col gap-5">
                         <div role="radiogroup" aria-label="How much to remember" className="flex gap-1 rounded-full border border-twilight-border bg-twilight-surface/40 p-1">
-                            {MODES.map(({ mode, label }) => (
+                            {MODES.map(({ mode: value, label }) => (
                                 <button
-                                    key={mode}
+                                    key={value}
                                     type="button"
                                     role="radio"
-                                    aria-checked={data?.mode === mode}
+                                    aria-checked={chosen === value}
                                     disabled={setMode.isPending}
-                                    onClick={() => data?.mode !== mode && setMode.mutate(mode)}
+                                    onClick={() => chosen !== value && setMode.mutate(value)}
                                     className={cn(
                                         "min-h-9 flex-1 cursor-pointer rounded-full text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50",
-                                        data?.mode === mode ? "bg-accent-primary/15 text-twilight-text" : "text-twilight-text-soft hover:text-twilight-text",
+                                        chosen === value ? "bg-accent-primary/15 text-twilight-text" : "text-twilight-text-soft hover:text-twilight-text",
                                     )}
                                 >
-                                    {label}
+                                    {value === "basic" && data?.mode === null ? "Basic (default)" : label}
                                 </button>
                             ))}
                         </div>
@@ -160,7 +177,7 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
 
                         {isLoading ? null : facts.length === 0 ? (
                             <p className="py-8 text-center text-sm text-twilight-text-soft">
-                                {data?.mode === "off" ? "Memory is off. Nothing is being learned." : "Nothing yet. Just talk to me and I’ll pick things up."}
+                                {chosen === "off" ? "Memory is off. Nothing is being learned." : "Nothing yet. Just talk to me and I’ll pick things up."}
                             </p>
                         ) : (
                             GROUPS.map((group) => {
@@ -201,6 +218,8 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
                                 );
                             })
                         )}
+
+                        <ShowOlder loadMore={showOlder} isFetching={older.isPending} />
 
                         {(data?.forgotten.length ?? 0) > 0 ? (
                             <section aria-label="Things you asked me to forget" className="flex flex-col gap-1.5">

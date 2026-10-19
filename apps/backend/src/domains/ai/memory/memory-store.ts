@@ -5,15 +5,12 @@
  *
  * Content is untrusted user text: the prompt composer fences it. Never log content.
  */
-import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, notInArray, or, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import { daysBetween } from "@cadence/domain/time";
-import { FULL_ONLY_KINDS, MEMORY_LABEL_MAX, type MemoryFact, type MemoryKind, type MemoryMode } from "@cadence/contracts/memory";
-import { aiConversations, aiMemories, aiMessages, durationReports } from "../../../db/schema";
+import { FULL_ONLY_KINDS, MEMORY_LABEL_MAX, MEMORY_PAGE_SIZE, type MemoryFact, type MemoryKind, type MemoryMode } from "@cadence/contracts/memory";
+import { aiConversations, aiMemories, aiMessages, durationReports, planningRecords, taskNotes } from "../../../db/schema";
 import type { Tx } from "../../../types/db";
 import { hideGroupReports, showGroupReports } from "./duration";
-
-/** Active facts per mode; the nightly pass (P2) merges and evicts at the cap. Past it facts still save, up to the ceiling. */
-export const MEMORY_CAP = { basic: 150, full: 400, ceiling: 500 } as const;
 
 /** How long a forgotten fact's text is kept so Undo can bring it back. */
 export const UNDO_WINDOW_MINUTES = 10;
@@ -195,10 +192,30 @@ export async function updateFact(
     return rows.length > 0;
 }
 
-/** The person's active facts for the page, newest mention first. */
-export async function listFacts(tx: Tx, userId: string): Promise<MemoryFact[]> {
-    const rows = await tx.select(FACT_COLUMNS).from(aiMemories).where(active(userId)).orderBy(desc(aiMemories.lastSeenOn), desc(aiMemories.createdAt));
-    return rows.map(toFact);
+/** The page's cursor: where the last fact shown sits in `lastSeenOn desc, createdAt desc, id desc`. */
+const encodeCursor = (row: { lastSeenOn: string; createdAt: string; id: string }) => btoa(JSON.stringify([row.lastSeenOn, row.createdAt, row.id])).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+function decodeCursor(cursor: string): [string, string, string] | null {
+    try {
+        const parts = JSON.parse(atob(cursor.replaceAll("-", "+").replaceAll("_", "/")));
+        return Array.isArray(parts) && parts.length === 3 && parts.every((p) => typeof p === "string") ? (parts as [string, string, string]) : null;
+    } catch {
+        return null;
+    }
+}
+
+/** 30 of the person's active facts, newest mention first, after `cursor` (the end of the previous page). */
+export async function listFacts(tx: Tx, userId: string, cursor?: string): Promise<{ facts: MemoryFact[]; nextCursor: string | null }> {
+    const after = cursor ? decodeCursor(cursor) : null;
+    // createdAt at full microsecond precision, or the cursor would sit just behind the row it names.
+    const createdAt = sql<string>`to_json(${aiMemories.createdAt}) #>> '{}'`;
+    const rows = await tx
+        .select({ ...FACT_COLUMNS, createdAt })
+        .from(aiMemories)
+        .where(and(active(userId), after ? sql`(${aiMemories.lastSeenOn}, ${aiMemories.createdAt}, ${aiMemories.id}) < (${after[0]}::date, ${after[1]}::timestamptz, ${after[2]}::uuid)` : undefined))
+        .orderBy(desc(aiMemories.lastSeenOn), desc(aiMemories.createdAt), desc(aiMemories.id))
+        .limit(MEMORY_PAGE_SIZE + 1);
+    const page = rows.slice(0, MEMORY_PAGE_SIZE);
+    return { facts: page.map(toFact), nextCursor: rows.length > MEMORY_PAGE_SIZE ? encodeCursor(page[page.length - 1]) : null };
 }
 
 /** Forgotten items, as topic labels only (the text is scrubbed once the Undo window passes). */
@@ -209,11 +226,6 @@ export async function listForgotten(tx: Tx, userId: string): Promise<{ id: strin
         .where(and(eq(aiMemories.userId, userId), eq(aiMemories.status, "forgotten")))
         .orderBy(desc(aiMemories.forgottenAt));
     return rows.map((row) => ({ id: row.id, label: row.content }));
-}
-
-export async function countActive(tx: Tx, userId: string): Promise<number> {
-    const [row] = await tx.select({ n: sql<number>`count(*)::int` }).from(aiMemories).where(active(userId));
-    return row?.n ?? 0;
 }
 
 /** Forgets one fact now. Its text stays for the Undo window, then {@link scrubForgotten} reduces it to a label. */
@@ -234,6 +246,8 @@ export async function forgetFact(tx: Tx, userId: string, id: string, label?: str
     if (!row) return null;
     // Forgetting a duration hides the answers behind it too, until Undo's window ends (every caller: page, chat, MCP).
     if (row.kind === "duration" && row.group) await hideGroupReports(tx, userId, row.group);
+    // So does forgetting a "when you plan" pattern: the choices it was counted from.
+    if (row.kind === "pattern" && row.group?.startsWith("slot:")) await hidePlanningGroup(tx, userId, row.group);
     return { id: row.id, content: row.content };
 }
 
@@ -250,21 +264,66 @@ export async function restoreFact(tx: Tx, userId: string, id: string): Promise<M
         ))
         .returning(FACT_COLUMNS);
     if (!rows[0]) return null;
-    const group = rows[0].kind === "duration" ? await durationGroupOf(tx, userId, id) : null;
-    if (group) await showGroupReports(tx, userId, group); // Undo brings the fact's answers back with it
+    // Undo brings back what the fact was counted from: a duration's answers, a "when you plan" pattern's choices.
+    const group = rows[0].kind === "duration" || rows[0].kind === "pattern" ? await groupOf(tx, userId, id) : null;
+    if (group && rows[0].kind === "duration") await showGroupReports(tx, userId, group);
+    if (group?.startsWith("slot:") && rows[0].kind === "pattern") await showPlanningGroup(tx, userId, group);
     return toFact(rows[0]);
 }
 
-/** The group a duration fact stands for (kept through Forget so Undo can restore its answers), or null. */
-export async function durationGroupOf(tx: Tx, userId: string, id: string): Promise<string | null> {
-    const [row] = await tx.select({ group: sql<string | null>`${aiMemories.value} ->> 'group'` }).from(aiMemories).where(and(eq(aiMemories.userId, userId), eq(aiMemories.id, id), eq(aiMemories.kind, "duration")));
+/** The group a pattern or duration fact stands for (kept through Forget so Undo can restore what it was counted from). */
+async function groupOf(tx: Tx, userId: string, id: string): Promise<string | null> {
+    const [row] = await tx.select({ group: sql<string | null>`${aiMemories.value} ->> 'group'` }).from(aiMemories).where(and(eq(aiMemories.userId, userId), eq(aiMemories.id, id)));
     return row?.group ?? null;
+}
+
+/** The slot records a "when you plan" pattern was counted from: "slot:all" is every one, "slot:<list>" that list's. */
+const slotRecords = (userId: string, group: string, extra: SQL) => {
+    const list = group.slice("slot:".length);
+    return and(eq(planningRecords.userId, userId), eq(planningRecords.kind, "slot"), list === "all" ? undefined : eq(planningRecords.projectId, list), extra);
+};
+async function hidePlanningGroup(tx: Tx, userId: string, group: string): Promise<void> {
+    await tx.update(planningRecords).set({ forgottenAt: sql`now()` }).where(slotRecords(userId, group, sql`${planningRecords.forgottenAt} IS NULL`));
+}
+async function showPlanningGroup(tx: Tx, userId: string, group: string): Promise<void> {
+    await tx.update(planningRecords).set({ forgottenAt: null }).where(slotRecords(userId, group, sql`${planningRecords.forgottenAt} IS NOT NULL`));
 }
 
 /** Undo for a save: the fact was new, so it goes. Only what was just created (the receipt's own id). */
 export async function deleteFact(tx: Tx, userId: string, id: string): Promise<boolean> {
     const rows = await tx.delete(aiMemories).where(and(eq(aiMemories.userId, userId), eq(aiMemories.id, id))).returning({ id: aiMemories.id });
     return rows.length > 0;
+}
+
+/**
+ * The chats' facts when their source goes (a chat deleted, or switched to "Don't learn from this chat"): what only
+ * that chat taught goes with it; a fact seen again elsewhere (`seenCount > 1`) keeps its words and loses the link.
+ * Called before the chat is deleted, while the link still exists.
+ */
+export async function dropChatFacts(tx: Tx, userId: string, conversations: string[] | SQLWrapper): Promise<void> {
+    const from = inArray(aiMemories.sourceConversationId, conversations);
+    await tx.delete(aiMemories).where(and(active(userId), eq(aiMemories.seenCount, 1), from));
+    await tx.update(aiMemories).set({ sourceConversationId: null }).where(and(eq(aiMemories.userId, userId), from));
+}
+
+/**
+ * Facts read from a task note, or from an old chat by the catch-up, whose source is gone (the note deleted, the chat deleted):
+ * the ones nothing else repeated go. Nightly, whatever the mode. A note's facts carry its task id as their source id.
+ */
+export async function dropOrphanedFacts(tx: Tx, userId: string): Promise<number> {
+    const rows = await tx
+        .delete(aiMemories)
+        .where(and(
+            active(userId),
+            eq(aiMemories.seenCount, 1),
+            isNotNull(aiMemories.sourceMessageId),
+            or(
+                and(eq(aiMemories.source, "note"), sql`NOT EXISTS (SELECT 1 FROM ${taskNotes} n WHERE n.user_id = ${aiMemories.userId} AND n.task_id::text = ${aiMemories.sourceMessageId})`),
+                and(eq(aiMemories.source, "backfill"), sql`NOT EXISTS (SELECT 1 FROM ${aiMessages} m WHERE m.id = ${aiMemories.sourceMessageId})`),
+            ),
+        ))
+        .returning({ id: aiMemories.id });
+    return rows.length;
 }
 
 /** Clear all: every fact, forgotten tombstones included. */
@@ -285,13 +344,18 @@ const KIND_LABEL: Record<MemoryKind, string> = {
 
 /**
  * Once the Undo window has passed, a forgotten fact keeps only a topic label: the model's topic, else the
- * kind's name. Its hash stays so the same words are never relearned; its embedding and value are dropped.
+ * kind's name. Its hash stays so the same words are never relearned, and so does its embedding, so a paraphrase
+ * isn't either ({@link isForgotten}); its text and value are dropped.
  */
 export async function scrubForgotten(tx: Tx, userId: string): Promise<number> {
-    // The answers behind a forgotten duration fact go with it once Undo can no longer bring it back.
+    // The answers behind a forgotten duration fact, and the choices behind a forgotten pattern, go with it once Undo can no longer bring it back.
     await tx.delete(durationReports).where(and(
         eq(durationReports.userId, userId),
         sql`${durationReports.forgottenAt} <= now() - make_interval(mins => ${UNDO_WINDOW_MINUTES})`,
+    ));
+    await tx.delete(planningRecords).where(and(
+        eq(planningRecords.userId, userId),
+        sql`${planningRecords.forgottenAt} <= now() - make_interval(mins => ${UNDO_WINDOW_MINUTES})`,
     ));
     const rows = await tx
         .select({ id: aiMemories.id, kind: aiMemories.kind, value: aiMemories.value })
@@ -304,12 +368,21 @@ export async function scrubForgotten(tx: Tx, userId: string): Promise<number> {
         ));
     for (const row of rows) {
         const label = String((row.value as { label?: unknown } | null)?.label ?? KIND_LABEL[row.kind]).slice(0, MEMORY_LABEL_MAX);
+        const group = (row.value as { group?: unknown } | null)?.group;
         await tx
             .update(aiMemories)
-            .set({ content: label, value: { scrubbed: true }, embedding: null, embeddingModel: null })
+            // A slot pattern keeps its group, so nothing is recorded for that scope again until the person says so.
+            .set({ content: label, value: { scrubbed: true, ...(typeof group === "string" && group.startsWith("slot:") ? { group } : {}) } })
             .where(and(eq(aiMemories.userId, userId), eq(aiMemories.id, row.id)));
     }
     return rows.length;
+}
+
+/** Which of these fact ids the mode may still read (active, and usable by it): replayed memory reads check them. */
+export async function usableFactIds(tx: Tx, userId: string, mode: MemoryMode, ids: string[]): Promise<string[]> {
+    if (!ids.length) return [];
+    const rows = await tx.select({ id: aiMemories.id }).from(aiMemories).where(and(usableBy(userId, mode), inArray(aiMemories.id, ids)));
+    return rows.map((r) => r.id);
 }
 
 /** Active facts, newest wording first, that have an embedding and changed since `since`: the nightly merge's candidates. */
@@ -409,21 +482,6 @@ export async function deleteDecayed(tx: Tx, userId: string, today: string): Prom
     return rows.length;
 }
 
-/** Over the cap: the least reinforced unstated facts go, inferred before observed. Pinned and stated facts are never evicted. */
-export async function evictOverCap(tx: Tx, userId: string, cap: number): Promise<number> {
-    const excess = (await countActive(tx, userId)) - cap;
-    if (excess <= 0) return 0;
-    const victims = await tx
-        .select({ id: aiMemories.id })
-        .from(aiMemories)
-        .where(and(active(userId), ne(aiMemories.confidence, "stated"), eq(aiMemories.pinned, false)))
-        .orderBy(desc(aiMemories.confidence), asc(aiMemories.seenCount), asc(aiMemories.lastSeenOn))
-        .limit(excess);
-    if (victims.length === 0) return 0;
-    await tx.delete(aiMemories).where(and(eq(aiMemories.userId, userId), inArray(aiMemories.id, victims.map((v) => v.id))));
-    return victims.length;
-}
-
 /** Facts whose `validThrough` has passed (a day's grace) are dropped. */
 export async function deleteExpired(tx: Tx, userId: string, today: string): Promise<number> {
     const rows = await tx
@@ -450,6 +508,24 @@ export async function nearestFacts(tx: Tx, userId: string, embedding: number[], 
         .orderBy(distance)
         .limit(limit);
     return rows.map((row) => ({ ...row, distance: Number(row.distance) }));
+}
+
+/**
+ * Is this (a paraphrase of) something the person asked to forget? A forgotten fact keeps its embedding after the
+ * scrub, so a statement within {@link FORGOTTEN_DISTANCE} of a tombstone of the same kind and model is the same thing
+ * said again and is not learned (the tombstone's id comes back). Without an embedding the exact-text tombstone (`content_hash`) still applies.
+ */
+export const FORGOTTEN_DISTANCE = 0.15;
+export async function isForgotten(tx: Tx, userId: string, embedding: number[] | null, embeddingModel: string, kind: MemoryKind): Promise<string | null> {
+    if (!embedding) return null;
+    const distance = sql<number>`(${aiMemories.embedding} <=> ${`[${embedding.join(",")}]`}::halfvec)`;
+    const [row] = await tx
+        .select({ id: aiMemories.id, distance })
+        .from(aiMemories)
+        .where(and(eq(aiMemories.userId, userId), eq(aiMemories.status, "forgotten"), eq(aiMemories.kind, kind), eq(aiMemories.embeddingModel, embeddingModel), sql`${aiMemories.embedding} IS NOT NULL`))
+        .orderBy(distance)
+        .limit(1);
+    return row && Number(row.distance) <= FORGOTTEN_DISTANCE ? row.id : null;
 }
 
 /** About 500 tokens each for the profile that rides along every turn and for what recall adds. */

@@ -4,11 +4,12 @@
  * (`duration_reports`, keyed by the task and the instant it entered Done). Reports are the person's own words, so
  * they live outside the signals' 90-day prune.
  */
-import { and, desc, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
-import type { DurationEvidenceRow, DurationReport, DurationReportView } from "@cadence/contracts/memory";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import type { DurationEvidenceRow, DurationReport, DurationReportView, RoutineDuration, RoutineDurationKey, RoutineDurationView } from "@cadence/contracts/memory";
 import { shouldAsk, referenceMinutes, type DurationAskState, type GroupHistory } from "@cadence/domain/duration-ask";
 import { addDays, daysBetween, todayIn, type LocalDate } from "@cadence/domain/time";
-import { durationReports, tasks, users } from "../../../db/schema";
+import { estimateDuration } from "@cadence/nlp/duration";
+import { durationReports, habitLogs, habits, tasks, users } from "../../../db/schema";
 import { AppError } from "../../../platform/errors";
 import { userZone } from "../../../platform/user-zone";
 import type { Tx } from "../../../types/db";
@@ -80,9 +81,10 @@ export async function spendDuration(tx: Tx, userId: string, token: string): Prom
 
 const sameInstant = (a: string, b: string) => new Date(a).getTime() === new Date(b).getTime();
 
-const viewOf = (row: { taskId: string; completedAt: string; lowMinutes: number; highMinutes: number; anchored: boolean }): DurationReportView => ({
-    taskId: row.taskId,
-    completedAt: row.completedAt,
+/** A task report row: the subject check guarantees both columns. */
+const viewOf = (row: { taskId: string | null; completedAt: string | null; lowMinutes: number; highMinutes: number; anchored: boolean }): DurationReportView => ({
+    taskId: row.taskId!,
+    completedAt: row.completedAt!,
     lowMinutes: row.lowMinutes,
     highMinutes: row.highMinutes,
     anchored: row.anchored,
@@ -150,27 +152,109 @@ export async function deleteReport(tx: Tx, userId: string, taskId: string, compl
     ));
 }
 
-/** The estimator's input: the newest 1,000 answers of the last year (Full only, else nothing). */
+/** The estimator's input: the newest 1,000 answers of the last year, tasks and routines together (Full only, else nothing). A routine's id stands where a task's would, as a repeating thing. */
 export async function durationEvidence(tx: Tx, userId: string, now = new Date()): Promise<DurationEvidenceRow[]> {
     if ((await readMemoryState(tx, userId)).mode !== "full") return [];
     const since = addDays(todayIn(await userZone(tx, userId), now), -365);
-    const rows = await tx
-        .select({
-            taskId: durationReports.taskId,
-            title: durationReports.title,
-            projectId: durationReports.projectId,
-            series: sql<boolean>`${tasks.recurrenceRule} IS NOT NULL`,
-            lowMinutes: durationReports.lowMinutes,
-            highMinutes: durationReports.highMinutes,
-            anchored: durationReports.anchored,
-            saidOn: durationReports.saidOn,
-        })
+    const columns = {
+        title: durationReports.title,
+        projectId: durationReports.projectId,
+        lowMinutes: durationReports.lowMinutes,
+        highMinutes: durationReports.highMinutes,
+        anchored: durationReports.anchored,
+        saidOn: durationReports.saidOn,
+        createdAt: durationReports.createdAt,
+    };
+    const taskRows = await tx
+        .select({ taskId: sql<string>`${durationReports.taskId}`, series: sql<boolean>`${tasks.recurrenceRule} IS NOT NULL`, ...columns })
         .from(durationReports)
         .innerJoin(tasks, eq(tasks.id, durationReports.taskId))
         .where(and(visible(userId), gt(durationReports.saidOn, since)))
         .orderBy(desc(durationReports.saidOn), desc(durationReports.createdAt))
         .limit(1000);
-    return rows;
+    const routineRows = await tx
+        .select({ taskId: sql<string>`${durationReports.habitId}`, series: sql<boolean>`true`, ...columns })
+        .from(durationReports)
+        .innerJoin(habits, eq(habits.id, durationReports.habitId))
+        .where(and(visible(userId), gt(durationReports.saidOn, since)))
+        .orderBy(desc(durationReports.saidOn), desc(durationReports.createdAt))
+        .limit(1000);
+    return [...taskRows, ...routineRows]
+        .sort((a, b) => b.saidOn.localeCompare(a.saidOn) || b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 1000)
+        .map((row): DurationEvidenceRow => ({ taskId: row.taskId, title: row.title, projectId: row.projectId, series: row.series, lowMinutes: row.lowMinutes, highMinutes: row.highMinutes, anchored: row.anchored, saidOn: row.saidOn }));
+}
+
+// ── Routines: "Took 30 min" on a marked day ──
+
+const routineViewOf = (row: { habitId: string | null; targetDate: string | null; wallTime: string | null; lowMinutes: number; highMinutes: number; anchored: boolean }): RoutineDurationView => ({
+    habitId: row.habitId!,
+    day: row.targetDate!,
+    time: row.wallTime,
+    lowMinutes: row.lowMinutes,
+    highMinutes: row.highMinutes,
+    anchored: row.anchored,
+});
+
+const routineKey = (userId: string, key: RoutineDurationKey) => and(
+    eq(durationReports.userId, userId),
+    eq(durationReports.habitId, key.habitId),
+    eq(durationReports.targetDate, key.day),
+    key.time ? eq(durationReports.wallTime, key.time) : isNull(durationReports.wallTime),
+);
+
+/** Is this routine day (or marked time) done? Only a marked occurrence can have an answer. */
+async function routineDone(tx: Tx, userId: string, key: RoutineDurationKey): Promise<boolean> {
+    const [log] = await tx.select({ status: habitLogs.status, timeMarks: habitLogs.timeMarks }).from(habitLogs)
+        .where(and(eq(habitLogs.userId, userId), eq(habitLogs.habitId, key.habitId), eq(habitLogs.targetDate, key.day)));
+    if (!log) return false;
+    return key.time ? log.timeMarks?.[key.time]?.status === "COMPLETED" : log.status === "COMPLETED";
+}
+
+/** Stores how long a routine took on one marked day. Not marked done is a 409 the app closes quietly; Basic and Off store nothing (null). */
+export async function reportRoutine(tx: Tx, userId: string, body: RoutineDuration, now = new Date()): Promise<RoutineDurationView | null> {
+    const key = { habitId: body.habitId, day: body.day, time: body.time ?? null };
+    const [habit] = await tx.select({ id: habits.id, title: habits.title }).from(habits).where(and(eq(habits.id, body.habitId), eq(habits.userId, userId)));
+    if (!habit) throw new AppError(404, "NOT_FOUND", "Routine not found");
+    if (!(await routineDone(tx, userId, key))) throw new AppError(409, "CONFLICT", "This routine isn't marked done for that day");
+    if ((await readMemoryState(tx, userId)).mode !== "full") return null;
+
+    const low = body.value.kind === "point" ? body.value.minutes : body.value.lowMinutes;
+    const high = body.value.kind === "point" ? body.value.minutes : body.value.highMinutes;
+    const values = {
+        lowMinutes: low,
+        highMinutes: high,
+        anchored: body.anchored ?? false,
+        title: habit.title.slice(0, 200),
+        projectId: null,
+        groupKey: `series:${habit.id}`,
+        saidOn: todayIn(await userZone(tx, userId), now),
+    };
+    const [existing] = await tx.select({ id: durationReports.id }).from(durationReports).where(routineKey(userId, key));
+    const [row] = existing
+        ? await tx.update(durationReports).set({ ...values, forgottenAt: null, updatedAt: sql`now()` }).where(eq(durationReports.id, existing.id)).returning()
+        : await tx.insert(durationReports).values({ userId, habitId: habit.id, targetDate: key.day, wallTime: key.time, ...values }).returning();
+    return routineViewOf(row);
+}
+
+export async function getRoutineReport(tx: Tx, userId: string, key: RoutineDurationKey): Promise<RoutineDurationView | null> {
+    const [row] = await tx.select().from(durationReports).where(and(visible(userId), routineKey(userId, key)));
+    return row ? routineViewOf(row) : null;
+}
+
+export async function deleteRoutineReport(tx: Tx, userId: string, key: RoutineDurationKey): Promise<void> {
+    await tx.delete(durationReports).where(routineKey(userId, key));
+}
+
+/**
+ * A routine's log changed: any answer for an occurrence that is no longer marked done goes with it (Clear, Skip, an
+ * undone time). Called from the one service that writes logs, so routes, the assistant and MCP all agree.
+ */
+export async function pruneRoutineReports(tx: Tx, userId: string, habitId: string, day: string, log: { status: string; timeMarks: Record<string, { status: string }> | null }): Promise<void> {
+    const rows = await tx.select({ id: durationReports.id, wallTime: durationReports.wallTime }).from(durationReports)
+        .where(and(eq(durationReports.userId, userId), eq(durationReports.habitId, habitId), eq(durationReports.targetDate, day)));
+    const gone = rows.filter((r) => (r.wallTime ? log.timeMarks?.[r.wallTime]?.status !== "COMPLETED" : log.status !== "COMPLETED"));
+    if (gone.length) await tx.delete(durationReports).where(inArray(durationReports.id, gone.map((r) => r.id)));
 }
 
 /** Forget a duration fact: its group's answers are hidden at once (Undo brings them back; the scrub deletes them). */
@@ -192,7 +276,7 @@ export async function clearReports(tx: Tx, userId: string): Promise<void> {
 export async function readReports(tx: Tx, userId: string, today: LocalDate): Promise<ReportRow[]> {
     const rows = await tx
         .select({
-            taskId: durationReports.taskId,
+            taskId: sql<string>`coalesce(${durationReports.taskId}, ${durationReports.habitId})`,
             title: durationReports.title,
             projectId: durationReports.projectId,
             series: sql<boolean>`${durationReports.groupKey} LIKE 'series:%'`,
@@ -207,4 +291,43 @@ export async function readReports(tx: Tx, userId: string, today: LocalDate): Pro
         .orderBy(desc(durationReports.saidOn))
         .limit(2000);
     return rows;
+}
+
+/** What the assistant may know about a task's length: the guess Cadence is sure of, and what a finished one took. */
+export interface DurationHint { takesAbout?: number; took?: number | string }
+
+/**
+ * For the tasks the assistant is about to read (Full only, else nothing): `takesAbout` on an open untimed task with no
+ * length of its own when the estimator is `supported`, `took` on a done one with an answer ("45", or "30–60" for a range).
+ * Both are left out when absent, like every default in a projection.
+ */
+export async function durationHints(
+    tx: Tx,
+    userId: string,
+    rows: readonly { id: string; title: string; projectId: string | null; state: string; recurrenceRule: string | null; durationEstimate: number | null; scheduledStart: string | null; interactionMode: string }[],
+    now = new Date(),
+): Promise<Map<string, DurationHint>> {
+    const hints = new Map<string, DurationHint>();
+    if (!rows.length || (await readMemoryState(tx, userId)).mode !== "full") return hints;
+
+    const done = rows.filter((r) => r.state === "COMPLETE");
+    if (done.length) {
+        const reports = await tx
+            .select({ taskId: durationReports.taskId, low: durationReports.lowMinutes, high: durationReports.highMinutes })
+            .from(durationReports)
+            .innerJoin(tasks, and(eq(tasks.id, durationReports.taskId), eq(tasks.completedAt, durationReports.completedAt)))
+            .where(and(visible(userId), inArray(durationReports.taskId, done.map((r) => r.id))));
+        for (const r of reports) hints.set(r.taskId!, { took: r.low === r.high ? r.low : `${r.low}–${r.high}` });
+    }
+
+    const open = rows.filter((r) => (r.state === "ACTIVE" || r.state === "WAITING") && !r.scheduledStart && !r.durationEstimate && r.interactionMode !== "timetable");
+    if (open.length) {
+        const today = todayIn(await userZone(tx, userId), now);
+        const evidence = (await durationEvidence(tx, userId, now)).map((e) => ({ taskId: e.taskId, title: e.title, projectId: e.projectId, series: e.series, low: e.lowMinutes, high: e.highMinutes, anchored: e.anchored, day: e.saidOn }));
+        for (const r of open) {
+            const guess = estimateDuration({ taskId: r.recurrenceRule ? r.id : null, title: r.title, projectId: r.projectId }, evidence, today);
+            if (guess?.state === "supported") hints.set(r.id, { ...hints.get(r.id), takesAbout: guess.minutes });
+        }
+    }
+    return hints;
 }

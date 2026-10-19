@@ -8,7 +8,6 @@ import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 export function AssistantHeader({
     assistantName,
     threadTitle,
-    choosingMemory,
     hasMemory,
     onNewChat,
     onHistory,
@@ -17,7 +16,6 @@ export function AssistantHeader({
 }: {
     assistantName: string;
     threadTitle: string | null;
-    choosingMemory: boolean;
     hasMemory: boolean;
     onNewChat: () => void;
     onHistory: () => void;
@@ -26,7 +24,7 @@ export function AssistantHeader({
 }) {
     const reduceMotion = useReducedMotion();
     return (
-        <header inert={choosingMemory} className="flex h-(--shell-header-h) shrink-0 items-center justify-between border-b border-twilight-border px-4">
+        <header className="flex h-(--shell-header-h) shrink-0 items-center justify-between border-b border-twilight-border px-4">
             <div className="flex items-center gap-3">
                 <div className="relative">
                     <div className="flex h-9 w-9 min-w-9 items-center justify-center rounded-full bg-accent-primary/12 text-accent-primary ring-1 ring-accent-primary/20 glow-accent">

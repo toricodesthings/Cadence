@@ -8,6 +8,7 @@ import { Reveal } from "../shared/Reveal";
 import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { useSubtaskOpenStore } from "../../stores/subtask-open-store";
+import { useTaskDetailIntentStore } from "../../stores/task-detail-intent-store";
 
 /**
  * A row's subtasks, as on task cards: a quiet toggle line that opens the subtasks as a tree beneath it.
@@ -19,14 +20,24 @@ export function useInlineSubtasks(taskId: string) {
     const open = useSubtaskOpenStore((state) => !!state.open[taskId]);
     const setOpen = useSubtaskOpenStore((state) => state.setOpen);
     const [adding, setAdding] = useState(false);
+    const startAdding = () => {
+        setOpen(taskId, true);
+        setAdding(true);
+    };
+    // "Break into steps?" taken from anywhere puts the cursor in this row's subtask field.
+    const asked = useTaskDetailIntentStore((state) => state.addStepsFor === taskId);
+    const consume = useTaskDetailIntentStore((state) => state.consume);
+    useEffect(() => {
+        if (!asked) return;
+        setOpen(taskId, true);
+        setAdding(true);
+        consume(taskId);
+    }, [asked, consume, setOpen, taskId]);
     return {
         open,
         adding,
         toggle: () => setOpen(taskId, !open),
-        startAdding: () => {
-            setOpen(taskId, true);
-            setAdding(true);
-        },
+        startAdding,
         setAdding,
     };
 }

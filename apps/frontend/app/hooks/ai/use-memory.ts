@@ -4,7 +4,7 @@
  * so every mutation writes it back into the cache and nothing is merged client-side.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MEMORY_CONSENT_VERSION, type DurationReport, type DurationReportView, type DurationValue, type MemoryMode, type MemoryPage } from "@cadence/contracts/memory";
+import { type DurationReport, type DurationReportView, type DurationValue, type MemoryMode, type MemoryPage, type RoutineDurationView } from "@cadence/contracts/memory";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
 import { unwrapResponse } from "../../lib/api/helpers";
@@ -19,7 +19,16 @@ export function useMemoryPage(enabled = true) {
         queryKey: queryKeys.ai.memory,
         enabled: enabled && authReady && isAuthenticated,
         staleTime: 30_000,
-        queryFn: async () => unwrapResponse(await client.api.ai.memory.$get()),
+        queryFn: async () => unwrapResponse(await client.api.ai.memory.$get({ query: {} })),
+    });
+}
+
+/** The next 30 older facts after `cursor` (the page shows them under "Show older"). */
+export function useOlderMemory() {
+    const client = useApiClient();
+    return useMutation({
+        mutationFn: async (cursor: string) => unwrapResponse(await client.api.ai.memory.$get({ query: { cursor } })),
+        onError: (error) => toastError(error, "Couldn’t load more"),
     });
 }
 
@@ -41,7 +50,7 @@ export function useSetMemoryMode() {
     const refresh = useRefreshPage();
     return useMutation({
         mutationFn: async (mode: MemoryMode) =>
-            unwrapResponse(await client.api.ai.memory.mode.$post({ json: { mode, consentVersion: MEMORY_CONSENT_VERSION } })),
+            unwrapResponse(await client.api.ai.memory.mode.$post({ json: { mode } })),
         onSuccess: refresh,
         onError: (error) => toastError(error, "Couldn’t change memory"),
     });
@@ -144,6 +153,36 @@ export function useSetReportedDuration(taskId: string, completedAt: string | nul
         },
         onSuccess: (view) => {
             queryClient.setQueryData(queryKeys.ai.duration(taskId, completedAt), view);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.durationEvidence });
+        },
+    });
+}
+
+/** The answer behind a done routine day's "Took 30 min" row (one per marked time for a routine at set times); null when there is none. */
+export function useReportedRoutineDuration(habitId: string, day: string, time: string | null, enabled: boolean) {
+    const client = useApiClient();
+    return useQuery({
+        queryKey: queryKeys.ai.routineDuration(habitId, day, time),
+        enabled,
+        staleTime: 30_000,
+        queryFn: async () => unwrapResponse(await client.api.ai.memory.duration.routine.$get({ query: { habitId, day, ...(time && { time }) } })),
+    });
+}
+
+/** Changes or clears a routine day's answer. Same promise as a task's: the row renders what the server stored. */
+export function useSetReportedRoutineDuration(habitId: string, day: string, time: string | null) {
+    const client = useApiClient();
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (input: { value: DurationValue; anchored: boolean } | null): Promise<RoutineDurationView | null> => {
+            if (input === null) {
+                unwrapResponse(await client.api.ai.memory.duration.routine.$delete({ json: { habitId, day, ...(time && { time }) } }));
+                return null;
+            }
+            return unwrapResponse(await client.api.ai.memory.duration.routine.$post({ json: { habitId, day, ...(time && { time }), ...input } }));
+        },
+        onSuccess: (view) => {
+            queryClient.setQueryData(queryKeys.ai.routineDuration(habitId, day, time), view);
             void queryClient.invalidateQueries({ queryKey: queryKeys.ai.durationEvidence });
         },
     });

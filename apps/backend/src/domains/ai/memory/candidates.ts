@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { MEMORY_CONTENT_MAX, memoryKindSchema, type MemoryKind } from "@cadence/contracts/memory";
 import { localDateSchema } from "@cadence/contracts/common";
+import { PLANNING_OFFERS, timeOfDaySchema, type PlanningOffer, type StatedWhenInput } from "@cadence/contracts/planning";
 
 /** Kinds the chat can teach. Patterns and durations come from activity (Full), never from a model's reading. */
 const EXTRACTED_KINDS = ["preference", "quirk", "life", "constraint", "assist"] as const satisfies readonly MemoryKind[];
@@ -21,6 +22,10 @@ const rawFactSchema = z.object({
     /** A duration report: how long the thing named in `text` took them. */
     minutes: z.number().int().min(1).max(24 * 60).nullable().optional(),
     flags: z.array(z.string()).optional(),
+    /** A preference about the time of day ("I study after dinner"): the parts of the day, and what it is about. */
+    when: z.object({ buckets: z.array(z.string()), about: z.string().nullable() }).nullable().optional(),
+    /** "Step lists stress me out": the offer that doesn't help them. */
+    avoid: z.string().nullable().optional(),
 });
 const rawSchema = z.object({ facts: z.array(z.unknown()) });
 
@@ -37,6 +42,8 @@ export const extractReplySchema = z.object({
         validThrough: z.string().nullable(),
         minutes: z.number().int().nullable(),
         flags: z.array(z.string()),
+        when: z.object({ buckets: z.array(z.string()), about: z.string().nullable() }).nullable(),
+        avoid: z.string().nullable(),
     })),
 });
 
@@ -46,6 +53,16 @@ export interface Candidate {
     kind: MemoryKind;
     content: string;
     validThrough: string | null;
+    /** `{ when }` on a time-of-day preference, `{ avoid }` on what-doesn't-help: the only facts code computes with from a chat. */
+    value: { when: StatedWhenInput } | { avoid: PlanningOffer } | null;
+}
+
+/** A stated time-of-day preference, checked: known parts of the day only, a short topic, preferences only. */
+function cleanWhen(raw: { buckets: string[]; about: string | null } | null | undefined): StatedWhenInput | null {
+    const buckets = [...new Set(raw?.buckets ?? [])].flatMap((b) => { const ok = timeOfDaySchema.safeParse(b); return ok.success ? [ok.data] : []; });
+    if (!buckets.length) return null;
+    const about = raw?.about ? cleanText(raw.about).slice(0, 60) : "";
+    return { buckets, about: about.length >= 2 ? about : null };
 }
 
 /**
@@ -98,7 +115,9 @@ export function acceptCandidates(reply: unknown, messages: ReadonlyMap<string, s
         const key = content.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
-        out.push({ messageId, kind, content, validThrough: validThrough ?? null });
+        const when = kind === "preference" ? cleanWhen(fact.data.when) : null;
+        const avoid = kind === "assist" && (PLANNING_OFFERS as readonly string[]).includes(fact.data.avoid ?? "") ? (fact.data.avoid as PlanningOffer) : null;
+        out.push({ messageId, kind, content, validThrough: validThrough ?? null, value: when ? { when } : avoid ? { avoid } : null });
     }
     return out;
 }

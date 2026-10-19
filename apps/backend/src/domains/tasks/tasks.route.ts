@@ -20,6 +20,7 @@ import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchSta
 import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
+import { recordSlot } from "../ai/memory/planning.service";
 import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, rescheduleTasks, setTaskState, slotsOf, temporalColumns, toTask, trackTaskChanges, updateTask, withTagIds, type TaskSlot } from "./tasks.service";
 import { userZone } from "../../platform/user-zone";
 
@@ -282,13 +283,13 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateTaskSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const { expectedUpdatedAt, ...body } = c.req.valid("json");
+        const { expectedUpdatedAt, findTime, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
 
         const moving = hasTaskTemporalMutation(body);
         let from = new Map<string, TaskSlot>();
         const [updated] = await withRls(db, userId, async (tx) => {
-            if (moving) from = await slotsOf(tx, userId, [id]);
+            if (moving || findTime) from = await slotsOf(tx, userId, [id]);
             return withTagIds(tx, [await updateTask(tx, userId, id, body, expectedUpdatedAt)]);
         });
         trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, {
@@ -296,6 +297,17 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             completed: body.state === "COMPLETE" ? [id] : [],
             from,
         }, { env: c.env });
+        // A choice about when to start something: the person's own (a drop, the time field) or a Cadence proposal they
+        // picked or undid. Best-effort and silent; it never changes the response.
+        if (moving || findTime) {
+            c.executionCtx.waitUntil(recordSlot(c.env, userId, {
+                taskId: id,
+                before: { scheduledStart: from.get(id)?.scheduledStart ?? null },
+                after: { scheduledStart: updated.scheduledStart, scheduledEnd: updated.scheduledEnd, projectId: updated.projectId, durationEstimate: updated.durationEstimate, recurrenceRule: updated.recurrenceRule },
+                findTime,
+                queuedAt: c.req.header("X-Queued-At"),
+            }));
+        }
 
         return c.json({ data: updated });
     })

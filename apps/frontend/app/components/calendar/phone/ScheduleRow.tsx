@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { motion, useMotionValue, useTransform, type PanInfo } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
-import { Check, CalendarDays, ArrowRight } from "lucide-react";
+import { Check, CalendarDays, ArrowRight, Clock } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
 import { AgendaRow } from "../../shared/AgendaRow";
 import { RoutineAgendaRow } from "../../shared/RoutineAgendaRow";
@@ -16,7 +16,9 @@ import { SPRINGS } from "../../../lib/constants/motion";
 /** Past this, a release commits; a flick past `FLICK` commits sooner. */
 const COMMIT = 88;
 const FLICK = 520;
+/** Room for Tomorrow and Pick day; Later adds its own when there is a gap today. */
 const ACTIONS_WIDTH = 176;
+const LATER_WIDTH = 132;
 
 export interface ScheduleRowHandlers {
     onOpen: (task: Task) => void;
@@ -32,6 +34,8 @@ export interface ScheduleRowProps extends ScheduleRowHandlers {
     routineEmoji?: string | null;
     /** Faded: already behind "now" on today. */
     past?: boolean;
+    /** Today's next gap for this task ("4:30 PM"), when there is one: the third swipe button, after the two that never move. */
+    laterToday?: { time: string; place: () => void } | null;
     /** A task is being dragged somewhere: swipes stand down so dnd-kit keeps the finger. */
     dragActive?: boolean;
     reducedMotion?: boolean;
@@ -49,7 +53,7 @@ function timeRange(task: Task) {
  * right to finish and left for Tomorrow / Pick day; routines swipe right to
  * check in. Every swipe has a tap path too: the check, and the detail sheet.
  */
-export function ScheduleRow({ task, routineEmoji, past = false, dragActive = false, reducedMotion = false, onOpen, onComplete, onLater, onPickDay }: ScheduleRowProps) {
+export function ScheduleRow({ task, routineEmoji, past = false, laterToday = null, dragActive = false, reducedMotion = false, onOpen, onComplete, onLater, onPickDay }: ScheduleRowProps) {
     const kind = scheduleKind(task);
     const done = task.state === "COMPLETE";
     const movable = kind === "task" && !isRecurringTask(task) && !isRecurringTaskInstance(task);
@@ -59,7 +63,8 @@ export function ScheduleRow({ task, routineEmoji, past = false, dragActive = fal
     const swiped = useRef(false);
     const x = useMotionValue(0);
     const doneOpacity = useTransform(x, [0, COMMIT], [0, 1]);
-    const actionsOpacity = useTransform(x, [-ACTIONS_WIDTH, -24, 0], [1, 0.4, 0]);
+    const actionsWidth = ACTIONS_WIDTH + (laterToday ? LATER_WIDTH : 0);
+    const actionsOpacity = useTransform(x, [-actionsWidth, -24, 0], [1, 0.4, 0]);
 
     // Long-press lifts a task onto the week strip. Touch only: a mouse drag is the swipe.
     const { setNodeRef, listeners, isDragging } = useDraggable({
@@ -169,17 +174,29 @@ export function ScheduleRow({ task, routineEmoji, past = false, dragActive = fal
                         <CalendarDays size={14} aria-hidden="true" />
                         Pick day
                     </button>
+                    {laterToday ? (
+                        <button
+                            type="button"
+                            tabIndex={actionsOpen ? 0 : -1}
+                            aria-label={`Later today at ${laterToday.time}`}
+                            onClick={() => { setActionsOpen(false); laterToday.place(); }}
+                            className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-2xl bg-accent-primary/15 px-3 text-[13px] font-medium text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        >
+                            <Clock size={14} aria-hidden="true" />
+                            Later · {laterToday.time}
+                        </button>
+                    ) : null}
                 </motion.div>
             ) : null}
             <motion.div
                 drag={swipeable ? "x" : false}
                 dragDirectionLock
-                dragConstraints={{ left: movable ? -ACTIONS_WIDTH : 0, right: 0 }}
+                dragConstraints={{ left: movable ? -actionsWidth : 0, right: 0 }}
                 dragElastic={reducedMotion ? 0 : { left: 0.08, right: canSwipeRight ? 0.6 : 0 }}
                 dragMomentum={false}
                 onDragStart={() => { swiped.current = true; }}
                 onDragEnd={handleDragEnd}
-                animate={{ x: actionsOpen ? -ACTIONS_WIDTH : 0 }}
+                animate={{ x: actionsOpen ? -actionsWidth : 0 }}
                 transition={reducedMotion ? { duration: 0 } : SPRINGS.GLIDE}
                 style={{ x }}
                 className="relative rounded-[26px]"

@@ -22,6 +22,11 @@ import { toDay, formatShortDate, formatShortDateTime } from "../lib/utils/date-f
 import type { InstructionPatch } from "@cadence/domain/task-instruction";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import type { Task } from "@cadence/contracts/task";
+import type { PlanningOffer } from "@cadence/contracts/planning";
+import { usePlanningOffers } from "../hooks/ai/use-planning-offers";
+import { PlanningOfferChip } from "../components/tasks/PlanningOfferChip";
+import { InlineSubtaskPanel, useInlineSubtasks } from "../components/tasks/InlineSubtasks";
+import { useSubtasks } from "../hooks/tasks/use-subtasks";
 
 const STEP_STORAGE_KEY = "cadence-weekly-reset-step";
 
@@ -35,8 +40,21 @@ interface ReviewAction {
     variant?: string;
 }
 
+/** A row's subtask panel, opened by "Break into steps?": the cursor is already in the field (`useInlineSubtasks` takes the ask). */
+function ReviewSteps({ taskId }: { taskId: string }) {
+    const { data: subtasks = [] } = useSubtasks(taskId);
+    const ui = useInlineSubtasks(taskId);
+    return (
+        <div className="w-full pl-7">
+            <InlineSubtaskPanel taskId={taskId} subtasks={subtasks} open adding={ui.adding} onAddingChange={ui.setAdding} />
+        </div>
+    );
+}
+
 function ReviewListItem({
     title,
+    taskId,
+    offer,
     actions,
     pendingActionKey,
     actionKeyPrefix,
@@ -46,6 +64,9 @@ function ReviewListItem({
     typed,
 }: {
     title: string;
+    taskId?: string;
+    /** The one suggestion on this page, when it is for this row. */
+    offer?: { kind: PlanningOffer; onAccept: () => void; onNotNow: () => void } | null;
     actions: ReviewAction[];
     pendingActionKey: string | null;
     actionKeyPrefix: string;
@@ -57,6 +78,7 @@ function ReviewListItem({
     typed?: { placeholder: string; applyLabel: string; onApply: (patch: InstructionPatch) => Promise<void>; listId?: string | null };
 }) {
     const [typing, setTyping] = useState(false);
+    const [stepsOpen, setStepsOpen] = useState(false);
     return (
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-twilight-border/40 bg-twilight-surface/30 px-4 py-3 transition-colors hover:bg-white/[0.03]">
             {select ? (
@@ -135,6 +157,16 @@ function ReviewListItem({
                     onApply={async (patch) => { await typed.onApply(patch); setTyping(false); }}
                 />
             ) : null}
+            {offer ? (
+                <div className="w-full">
+                    <PlanningOfferChip
+                        kind={offer.kind}
+                        onAccept={() => { if (offer.kind === "steps") setStepsOpen(true); offer.onAccept(); }}
+                        onNotNow={offer.onNotNow}
+                    />
+                </div>
+            ) : null}
+            {stepsOpen && taskId ? <ReviewSteps taskId={taskId} /> : null}
             {actionError && (
                 <span className="text-xs text-feedback-error">{actionError}</span>
             )}
@@ -340,6 +372,8 @@ export default function WeeklyReview() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const toggleSelected = (id: string) => setSelectedIds((prev) => { const next = new Set(prev); if (!next.delete(id)) next.add(id); return next; });
     const workRows: Task[] = [...unscheduledTasks, ...visibleWaiting];
+    // One suggestion on the page at most: the first row, in the order shown, the server says may have one.
+    const offers = usePlanningOffers(workRows);
     const selectedTasks = workRows.filter((t) => selectedIds.has(t.id));
     const applyToSelected = async (patch: InstructionPatch) => {
         const result = await applyInstruction(selectedTasks, patch, `Updated ${selectedTasks.length} task${selectedTasks.length === 1 ? "" : "s"}`);
@@ -488,6 +522,8 @@ export default function WeeklyReview() {
                                                 <ReviewListItem
                                                     key={task.id}
                                                     title={task.title}
+                                                    taskId={task.id}
+                                                    offer={offers.task?.id === task.id && offers.kind ? { kind: offers.kind, onAccept: offers.accept, onNotNow: offers.notNow } : null}
                                                     actionKeyPrefix={`unscheduled:${task.id}`}
                                                     select={{ checked: selectedIds.has(task.id), onChange: () => toggleSelected(task.id) }}
                                                     typed={{ placeholder: "Friday afternoon for 30 min, in Work, waiting on Alex…", applyLabel: "Apply", onApply: (patch) => applyToOne(task, patch), listId: task.projectId }}
@@ -513,6 +549,8 @@ export default function WeeklyReview() {
                                                 <ReviewListItem
                                                     key={task.id}
                                                     title={task.title}
+                                                    taskId={task.id}
+                                                    offer={offers.task?.id === task.id && offers.kind ? { kind: offers.kind, onAccept: offers.accept, onNotNow: offers.notNow } : null}
                                                     actionKeyPrefix={`waiting:${task.id}`}
                                                     select={{ checked: selectedIds.has(task.id), onChange: () => toggleSelected(task.id) }}
                                                     typed={{ placeholder: "follow up next Tuesday, keep waiting until Monday, activate tomorrow…", applyLabel: "Apply", onApply: (patch) => applyToOne(task, patch), listId: task.projectId }}

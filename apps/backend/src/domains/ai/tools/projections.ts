@@ -56,6 +56,10 @@ export interface MinimalTask {
     checkInAt?: string;
     /** Hidden from lists until this local day. */
     hiddenUntil?: string;
+    /** What it usually takes them, in minutes, when Cadence is sure from their own answers (an open task with no length of its own). */
+    takesAbout?: number;
+    /** What a finished task took, as they said it: minutes, or a range like "30–60". */
+    took?: number | string;
 }
 
 /** The task columns the projection reads (a full row fits; `content` is dropped). */
@@ -77,7 +81,7 @@ export type TaskRow = Pick<
  * days as stored ("2026-03-10"), instants as the user's wall clock with offset
  * ("2026-03-10T14:00:00-04:00").
  */
-export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
+export function toMinimalTask(row: TaskRow, timezone: string, hint?: { takesAbout?: number; took?: number | string }): MinimalTask {
     const show = (value: string | null) => (value === null ? undefined : toZonedIso(value, timezone));
     // Unset fields are undefined, which JSON leaves out, so they cost nothing on the wire.
     return {
@@ -104,6 +108,8 @@ export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
         reminderAt: row.reminderAt ? toZonedIso(row.reminderAt, timezone) : undefined,
         checkInAt: row.waitingReminder ? toZonedIso(row.waitingReminder, timezone) : undefined,
         hiddenUntil: row.notBefore ?? undefined,
+        takesAbout: hint?.takesAbout,
+        took: hint?.took,
     };
 }
 

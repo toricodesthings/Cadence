@@ -36,6 +36,9 @@ import { RepeatKindPicker } from "../shared/RepeatKindPicker";
 import { RoutineMark } from "./RoutineMark";
 import { Reveal } from "../shared/Reveal";
 import { useConvertRepeat } from "../../hooks/habits/use-convert-repeat";
+import { RoutineTookRow } from "../tasks/TookRow";
+import { useDurationGuesser } from "../../hooks/ai/use-duration-guess";
+import { formatMinutes } from "@cadence/domain/duration-chips";
 
 const FIELD = "w-full min-w-0 rounded-xl border border-twilight-border/35 bg-white/[0.03] px-3 py-2.5 text-sm text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 const PAUSES = [["3 days", 3], ["1 week", 7], ["2 weeks", 14]] as const;
@@ -125,6 +128,13 @@ export function HabitEditor({ habit, day, onOpenInRoutines, onClose, detailMode 
     })?.label ?? "Repeats"}${habit.targetTime ? "" : ", any time"}`;
     const routineStatus = habit.archived || actions.isPaused ? status : showStreaks && habit.currentStreak > 0 ? `${habit.currentStreak} in a row` : `${habit.totalCompletions} check-ins`;
     const tagIds = habit.tagIds ?? [];
+    // Full only: what their own answers say it usually takes, and a "Took" row on any day marked done.
+    const full = settings?.assistant?.memoryMode === "full";
+    const guessOf = useDurationGuesser();
+    const guess = full ? guessOf({ id: habit.id, title: habit.title, projectId: habit.projectId ?? null }) : null;
+    const typical = guess?.state === "supported" ? guess : null; // a tentative guess is not worth saying
+    const checkLog = weekLogs.get(checkDay);
+    const tookTimes = times && checkLog ? Object.entries(checkLog.timeMarks ?? {}).filter(([, mark]) => mark.status === "COMPLETED").map(([time]) => time).sort() : [];
 
     return (
         <div className="h-full min-w-0 overflow-hidden" role="complementary" aria-label="Routine details" style={{ "--routine-tone": routineTone(habit.colorAccent) } as CSSProperties}>
@@ -146,6 +156,7 @@ export function HabitEditor({ habit, day, onOpenInRoutines, onClose, detailMode 
                         <div className="min-w-0">
                             <p className="truncate text-sm text-twilight-text">{routineSummary}</p>
                             <p className="truncate text-xs text-twilight-text-muted">{routineStatus}</p>
+                            {typical ? <p className="truncate text-xs text-twilight-text-muted">Usually about {formatMinutes(typical.minutes)}</p> : null}
                         </div>
                     </div>
                     {habit.archived ? null : (
@@ -167,6 +178,10 @@ export function HabitEditor({ habit, day, onOpenInRoutines, onClose, detailMode 
                             <p className="pt-2 text-xs font-medium text-twilight-text-soft">{dayLabel} times</p>
                             <RoutineTimeChecklist habit={habit} date={checkDay} log={weekLogs.get(checkDay)} />
                         </div>
+                    ) : null}
+                    {full && !habit.archived && checkLog ? (
+                        times ? tookTimes.map((time) => <RoutineTookRow key={time} habitId={habit.id} day={checkDay} time={time} enabled />)
+                            : checkLog.status === "COMPLETED" ? <RoutineTookRow habitId={habit.id} day={checkDay} enabled /> : null
                     ) : null}
                     {habit.steps?.length && !habit.archived && weekLogs.get(checkDay) ? (
                         <div className="border-t border-twilight-border/30 pt-1">

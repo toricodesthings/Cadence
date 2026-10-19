@@ -1,5 +1,4 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { MEMORY_CONSENT_VERSION } from "@cadence/contracts/memory";
 import { apiAs } from "../helpers/app";
 import { asOwner, createUser, startTestDb } from "../helpers/db";
 
@@ -23,7 +22,7 @@ let memory: ReturnType<typeof apiAs>;
 let tasksApi: ReturnType<typeof apiAs>;
 
 const sql = async <T = any>(text: string, params: unknown[] = []): Promise<T[]> => asOwner(async (pg) => (await pg.query<T>(text, params)).rows);
-const setMode = (mode: "off" | "basic" | "full") => memory("POST", "/mode", { mode, consentVersion: MEMORY_CONSENT_VERSION });
+const setMode = (mode: "off" | "basic" | "full") => memory("POST", "/mode", { mode });
 
 /** A task that has been open for an hour, so asking about it is allowed. */
 async function newTask(title = "Write essay", extra = "") {
@@ -313,5 +312,95 @@ describe("evidence, Forget, Clear and the nightly prune", () => {
         expect(await sql("SELECT content FROM ai_memories WHERE user_id = $1 AND kind = 'duration'", [userId])).toEqual([
             { content: "Lab report usually takes about 50 minutes (based on 3 of your answers)" },
         ]);
+    });
+});
+
+describe("routine durations: 'Took 30 min' on a marked day", () => {
+    let habitsApi: ReturnType<typeof apiAs>;
+    const today = () => new Date().toISOString().slice(0, 10); // time-ok: test fixture; the account's zone is UTC here
+    const makeHabit = async (extra: Record<string, unknown> = {}) => {
+        const res = await habitsApi("POST", "", { title: "Gym", recurrenceRule: "FREQ=DAILY", ...extra });
+        expect(res.status, JSON.stringify(res.body)).toBe(201);
+        return res.body.data.id as string;
+    };
+    const mark = (id: string, status: string, extra: Record<string, unknown> = {}) => habitsApi("POST", `/${id}/resolve`, { targetDate: today(), status, ...extra });
+    const took = (id: string, minutes = 30, time?: string) => memory("POST", "/duration/routine", { habitId: id, day: today(), ...(time && { time }), value: { kind: "point", minutes } });
+    const rows = () => sql("SELECT habit_id, target_date::text AS target_date, wall_time, low_minutes, high_minutes, group_key, task_id FROM duration_reports WHERE user_id = $1 AND habit_id IS NOT NULL", [userId]);
+
+    beforeEach(async () => {
+        const { habitRoutes } = await import("../../src/domains/habits/habits.route");
+        habitsApi = apiAs(userId, "/habits", habitRoutes, env);
+        await sql("UPDATE users SET time_zone = 'UTC' WHERE id = $1", [userId]);
+    });
+
+    it("stores one answer for a day marked done, replaces it, and reads it back", async () => {
+        await setMode("full");
+        const id = await makeHabit();
+        await mark(id, "COMPLETED");
+        expect((await took(id)).body.data).toMatchObject({ habitId: id, day: today(), time: null, lowMinutes: 30, highMinutes: 30 });
+        await took(id, 45);
+        expect(await rows()).toEqual([expect.objectContaining({ low_minutes: 45, group_key: `series:${id}`, task_id: null })]);
+        expect((await memory("GET", `/duration/routine?habitId=${id}&day=${today()}`)).body.data).toMatchObject({ lowMinutes: 45 });
+    });
+
+    it("needs the day marked done (409), and stores nothing outside Full (200 null)", async () => {
+        await setMode("full");
+        const id = await makeHabit();
+        expect((await took(id)).status).toBe(409);
+        await mark(id, "COMPLETED");
+        await setMode("basic");
+        expect((await took(id)).body.data).toBeNull();
+        expect(await rows()).toEqual([]);
+    });
+
+    it("clearing or skipping the day takes the answer with it", async () => {
+        await setMode("full");
+        const id = await makeHabit();
+        await mark(id, "COMPLETED");
+        await took(id);
+        await mark(id, "SKIPPED");
+        expect(await rows()).toEqual([]);
+        await mark(id, "COMPLETED");
+        await took(id);
+        await mark(id, "PENDING");
+        expect(await rows()).toEqual([]);
+    });
+
+    it("a routine at set times has one answer per marked time", async () => {
+        await setMode("full");
+        const id = await makeHabit({ times: ["08:00", "20:00"] });
+        await mark(id, "COMPLETED", { time: "08:00", at: new Date().toISOString() });
+        expect((await took(id, 10)).status).toBe(409); // no time named
+        expect((await took(id, 10, "08:00")).body.data).toMatchObject({ time: "08:00" });
+        expect((await took(id, 10, "20:00")).status).toBe(409); // that time isn't done
+        await mark(id, "PENDING", { time: "08:00" });
+        expect(await rows()).toEqual([]);
+    });
+
+    it("joins the estimator's evidence as a repeating thing, and Forget on the fact hides it", async () => {
+        await setMode("full");
+        const id = await makeHabit();
+        await mark(id, "COMPLETED");
+        await took(id, 30);
+        const evidence = (await memory("GET", "/duration-evidence")).body.data;
+        expect(evidence).toEqual([expect.objectContaining({ taskId: id, title: "Gym", series: true, lowMinutes: 30 })]);
+    });
+
+    it("deleting the answer, and deleting the routine, removes it", async () => {
+        await setMode("full");
+        const id = await makeHabit();
+        await mark(id, "COMPLETED");
+        await took(id);
+        await memory("DELETE", "/duration/routine", { habitId: id, day: today() });
+        expect(await rows()).toEqual([]);
+        await took(id);
+        await habitsApi("DELETE", `/${id}`);
+        expect(await rows()).toEqual([]);
+    });
+
+    it("rejects the CHECK: an answer for both a task and a routine", async () => {
+        const id = await makeHabit();
+        const taskId = await newTask();
+        await expect(sql(`INSERT INTO duration_reports (user_id, task_id, completed_at, habit_id, target_date, low_minutes, high_minutes, title, group_key, said_on) VALUES ($1, $2, now(), $3, '2026-10-01', 5, 5, 't', 'g', '2026-10-01')`, [userId, taskId, id])).rejects.toThrow();
     });
 });

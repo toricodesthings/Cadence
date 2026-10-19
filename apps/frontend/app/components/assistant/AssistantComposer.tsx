@@ -19,7 +19,6 @@ export function AssistantComposer({
     assistantName,
     isTouch,
     isMobile,
-    choosingMemory,
     isStreaming,
     online,
     input,
@@ -38,7 +37,6 @@ export function AssistantComposer({
     assistantName: string;
     isTouch: boolean;
     isMobile: boolean;
-    choosingMemory: boolean;
     isStreaming: boolean;
     online: boolean;
     input: string;
@@ -126,7 +124,6 @@ export function AssistantComposer({
 
     return (
         <form
-            inert={choosingMemory}
             onSubmit={handleSubmit}
             // The mobile sheet shell already pads for the home indicator.
             className="shrink-0 px-3 pb-3 pt-2"

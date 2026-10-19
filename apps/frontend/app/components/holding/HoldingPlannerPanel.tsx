@@ -11,6 +11,10 @@ import { taskDay } from "@cadence/domain/task-recurrence";
 import { formatShortDate, formatTime, formatWeekdayNarrow, formatWeekdayLong, getWeekStart } from "../../lib/utils/date-format";
 import { getUserZone, useToday } from "../../lib/utils/user-zone";
 import { loadWord } from "../../lib/utils/task/day-load";
+import { TaskContextMenu } from "../tasks/TaskContextMenu";
+import { canFindTime, FindTimeDayContext } from "../../hooks/tasks/use-find-time";
+import { PlanningOfferProvider, usePlanningOffers } from "../../hooks/ai/use-planning-offers";
+import { PlanningOfferChip } from "../tasks/PlanningOfferChip";
 
 /** 0–3 dots: free · light · steady · busy. */
 const loadDots = (load: number) => (load === 0 ? 0 : load <= 2 ? 1 : load <= 5 ? 2 : 3);
@@ -28,6 +32,7 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
     const dragging = Boolean(useDndContext().active);
     const days = [...loads];
     const dayTasks = tasks.filter((t) => taskDay(t, getUserZone()) === selected);
+    const offers = usePlanningOffers(dayTasks);
 
     const week = (label: string, slice: typeof days) => (
         <section aria-label={label} className="space-y-2">
@@ -69,18 +74,30 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
                             <span className="text-xs text-twilight-text-muted">{loadWord(loads.get(selected) ?? 0)}</span>
                         </div>
                         {dayTasks.length ? (
-                            <ul className="mt-3 space-y-0.5">
-                                {dayTasks.map((task) => (
-                                    <li key={task.id}>
-                                        <Button variant="ghost" size="none" type="button" onClick={() => onSelectTask?.(task.id)}
-                                            className="flex min-h-9 w-full justify-start gap-2.5 rounded-xl px-2 text-left font-sans text-sm font-normal text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text">
-                                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary/70" aria-hidden="true" />
-                                            <span className="min-w-0 flex-1 truncate">{task.title}</span>
-                                            {task.scheduledStart && <span className="shrink-0 text-xs text-twilight-text-muted">{formatTime(task.scheduledStart)}</span>}
-                                        </Button>
-                                    </li>
-                                ))}
-                            </ul>
+                            <FindTimeDayContext.Provider value={selected}>
+                              <PlanningOfferProvider shown={offers.shown}>
+                                <ul className="mt-3 space-y-0.5">
+                                    {dayTasks.map((task) => (
+                                        <li key={task.id}>
+                                            <div className="flex items-center gap-0.5">
+                                                <Button variant="ghost" size="none" type="button" onClick={() => onSelectTask?.(task.id)}
+                                                    className="flex min-h-9 min-w-0 flex-1 justify-start gap-2.5 rounded-xl px-2 text-left font-sans text-sm font-normal text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text">
+                                                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary/70" aria-hidden="true" />
+                                                    <span className="min-w-0 flex-1 truncate">{task.title}</span>
+                                                    {task.scheduledStart && <span className="shrink-0 text-xs text-twilight-text-muted">{formatTime(task.scheduledStart)}</span>}
+                                                </Button>
+                                                {canFindTime(task) ? <TaskContextMenu task={task} /> : null}
+                                            </div>
+                                            {offers.task?.id === task.id && offers.kind ? (
+                                                <div className="px-2 pb-1 pt-0.5">
+                                                    <PlanningOfferChip kind={offers.kind} onAccept={() => { offers.accept(); if (offers.kind === "steps") onSelectTask?.(task.id); }} onNotNow={offers.notNow} />
+                                                </div>
+                                            ) : null}
+                                        </li>
+                                    ))}
+                                </ul>
+                              </PlanningOfferProvider>
+                            </FindTimeDayContext.Provider>
                         ) : <p className="mt-2 text-sm text-twilight-text-muted">Nothing here yet.</p>}
                     </section>
 

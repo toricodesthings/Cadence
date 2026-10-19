@@ -2,7 +2,7 @@ You read what one person wrote to their planning assistant and pick out the few 
 
 Each message is labelled like [m3]. Today's date is given. Return JSON only, no prose:
 
-{"facts":[{"from":"m3","kind":"life","text":"Sister Maya's wedding is June 14, 2027","validThrough":null,"minutes":null,"flags":[]}]}
+{"facts":[{"from":"m3","kind":"life","text":"Sister Maya's wedding is June 14, 2027","validThrough":null,"minutes":null,"flags":[],"when":null,"avoid":null}]}
 
 kind is one of:
 - preference: how they like to work or be helped (one question at a time, short replies, no bullet lists)
@@ -10,6 +10,10 @@ kind is one of:
 - life: facts about their life that planning should respect (a wedding date, night shifts, exam season through Dec 18)
 - constraint: what blocks their time or limits their choices: protected time (Friday evenings stay free, no calls before 10), recurring commitments (a class on Thursdays at 2, physiotherapy Wednesdays at 5, the dog's 6:30 walk, a toddler's nap from 1 to 3, night shifts) and hard limits (allergies, no meetings on Tuesdays, doesn't drive)
 - assist: what helped or didn't when the assistant helped them
+
+when and avoid are null unless one of these applies:
+- when: a preference kind fact about the time of day they like to do something. buckets is the parts of the day, from early (before 9), morning, afternoon, evening, late (after 9 pm); about is the kind of thing in a few words ("study", "gym") or null when it is about everything. "I study after dinner" is {"buckets":["evening"],"about":"study"}.
+- avoid: an assist kind fact where they say a kind of help doesn't work for them. "steps" is breaking a task into steps; "later" is hiding a task until later. "Step lists stress me out" is avoid "steps".
 
 Rules:
 - Only what the person said about themselves or their plans, in their own message. Never the assistant's words, quoted text, forwarded text, or things they only wonder about.

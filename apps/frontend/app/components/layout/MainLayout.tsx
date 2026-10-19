@@ -17,6 +17,8 @@ import { RailViewToggle } from "./RailViewToggle";
 import { useKeyboardShortcuts } from "../../hooks/core/use-keyboard-shortcuts";
 import { Loading } from "../shared/Loading";
 import { DeferredMount } from "../shared/DeferredMount";
+import { FindTimeSheet } from "../tasks/FindTimeSheet";
+import { useFindTimeStore } from "../../stores/find-time-store";
 import type { CSSProperties } from "react";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useOfflineWindow } from "../../hooks/core/use-offline-window";
@@ -268,6 +270,7 @@ export function MainLayout({
     const clearActiveFocusView = useFocusViewStore((state) => state.clearActiveDefinition);
     const { selectedTaskIds, clearSelection } = useTaskSelectionStore();
     const noteRoomOpen = useNoteRoomStore((state) => state.taskId !== null);
+    const findTimeOpen = useFindTimeStore((state) => state.request !== null);
     const batchState = useBatchStateTransition();
     const trashTasks = useTrashTasks();
     const { stepLayoutScale, setLayoutScale } = useDesktopLayoutScale();
@@ -820,6 +823,7 @@ export function MainLayout({
 
             <DeferredMount active={!railOnly && selectedTaskIds.size > 0}><FloatingActionBar /></DeferredMount>
             <DeferredMount active={!railOnly && noteRoomOpen}><TaskNoteRoom /></DeferredMount>
+            <DeferredMount active={findTimeOpen}><FindTimeSheet /></DeferredMount>
             <DeferredMount active={commandOpen}><CommandPalette open={commandOpen} onOpenChange={setCommandOpen} /></DeferredMount>
             <DeferredMount active={workspaceMenuOpen}><WorkspaceMenuSheet open={workspaceMenuOpen} onClose={() => setWorkspaceMenuOpen(false)} /></DeferredMount>
             <DeferredMount active={mobileSearchOpen}><MobileSearchSheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen} /></DeferredMount>

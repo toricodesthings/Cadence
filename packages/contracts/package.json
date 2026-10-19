@@ -20,6 +20,7 @@
     "./ai": "./src/ai.ts",
     "./ai-tools": "./src/ai-tools.ts",
     "./memory": "./src/memory.ts",
+    "./planning": "./src/planning.ts",
     "./events": "./src/events.ts",
     "./proxy": "./src/proxy.ts",
     "./notification": "./src/notification.ts",

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import { DndContext, DragOverlay, useDraggable, useSensor, useSensors } from "@dnd-kit/core";
 import { MouseSensor } from "../../lib/utils/dnd";
@@ -15,10 +16,16 @@ import { useVirtualHabitTasks } from "../../hooks/habits/use-virtual-habit-tasks
 import { addDays, type LocalDate } from "@cadence/domain/time";
 import { taskDay } from "@cadence/domain/task-recurrence";
 import { formatShortDateLabel, formatWeekdayNarrow, placementLabel, placementReceipt } from "../../lib/utils/date-format";
-import { toastName, toastUndo } from "../../lib/utils/undo-toast";
+import { toastName } from "../../lib/utils/undo-toast";
+import { CADENCE_UNDO_DURATION } from "../../lib/utils/cadence-toast";
+import { proposalTime } from "../../lib/planning/day-plan";
 import { getUserZone, useToday } from "../../lib/utils/user-zone";
 import { dayLoads, dayMinutes, formatDayMinutes, lightestDay, loadWord } from "../../lib/utils/task/day-load";
 import { useDurationGuesser } from "../../hooks/ai/use-duration-guess";
+import { FindTimeDayContext, useFindTime } from "../../hooks/tasks/use-find-time";
+import { PlanningOfferProvider, usePlanningOffers } from "../../hooks/ai/use-planning-offers";
+import { PlanningOfferChip } from "../tasks/PlanningOfferChip";
+import { PlaceReceiptToast } from "../tasks/FindTimeToast";
 
 export const dayLabel = (day: LocalDate) => formatShortDateLabel(day);
 
@@ -31,7 +38,7 @@ export function useWeekLoad(start: LocalDate, enabled = true, days = 7) {
     const { data: tasks = [] } = useTasks({ state: "ACTIVE", range: { from: start, to: end }, enabled });
     const routines = useVirtualHabitTasks({ start, end, enabled });
     const loads = dayLoads([...tasks, ...routines.filter((r) => r.state !== "COMPLETE")], start, days);
-    return { tasks, loads, lightest: lightestDay(new Map([...loads].slice(0, 7)))! };
+    return { tasks, routines, loads, lightest: lightestDay(new Map([...loads].slice(0, 7)))! };
 }
 
 /** Drop-target id prefix for a placement day: `place:YYYY-MM-DD`. */
@@ -65,15 +72,32 @@ export function PlaceDraggable({ id, title, onPlace, className = "", children }:
     return <div ref={setNodeRef} {...listeners} data-dnd-draggable="true" className={`${className} ${isDragging ? "opacity-40" : ""}`}>{children}</div>;
 }
 
-/** Gives a task a deadline day, with Undo — placing should never feel final. */
+/**
+ * Gives a task a deadline day, with Undo — placing should never feel final. The same message offers that day's first
+ * gap ("2:00 PM?") when there is one: one tap gives the task that block, ignoring it keeps the day, which is a valid plan.
+ */
 export function usePlaceTask() {
     const updateTask = useUpdateTask();
+    const find = useFindTime();
     return async (task: Task, day: LocalDate) => {
-        await updateTask.mutateAsync({ id: task.id, dueDate: day, endDate: null, scheduledStart: null, scheduledEnd: null });
-        toastUndo(toastName(task.title), () => updateTask.mutate({ id: task.id, dueDate: task.dueDate, endDate: task.endDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd }), {
-            // In a list it stays in that list; otherwise it moves to the view that shows its day.
-            description: task.projectId ? placementLabel(day) : placementReceipt(day),
-        });
+        const placed = { dueDate: day, endDate: null, scheduledStart: null, scheduledEnd: null };
+        await updateTask.mutateAsync({ id: task.id, ...placed });
+        const undo = () => updateTask.mutate({ id: task.id, dueDate: task.dueDate, endDate: task.endDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd });
+        // In a list it stays in that list; otherwise it moves to the view that shows its day.
+        const description = task.projectId ? placementLabel(day) : placementReceipt(day);
+        const show = (offerFor: string | null) => toast.custom(
+            (id) => <PlaceReceiptToast id={id} title={toastName(task.title)} description={description} offer={offerFor}
+                onOffer={() => void find.run({ ...task, ...placed }, { day })} onUndo={undo} />,
+            { id: `place-${task.id}`, duration: CADENCE_UNDO_DURATION },
+        );
+        show(null);
+        // The gap is looked up after the receipt is on screen; the receipt gains the time when there is one.
+        try {
+            const plan = await find.planFor({ ...task, ...placed }, day);
+            if (plan.proposals[0]) show(proposalTime(plan.proposals[0].start));
+        } catch {
+            // No offer is fine.
+        }
     };
 }
 
@@ -99,11 +123,14 @@ export function PlaceSheet({ open, task, onClose, onOpenTask, onPlace }: {
     const todayIso = useToday();
     const [stripStart, setStripStart] = useState<LocalDate>(todayIso);
     const [picked, setPicked] = useState<LocalDate | null>(null);
-    const { tasks, loads, lightest } = useWeekLoad(stripStart, open);
+    const { tasks, routines, loads, lightest } = useWeekLoad(stripStart, open);
     const selected = picked ?? (task && stripStart === todayIso ? lightest : stripStart);
     const dayTasks = tasks.filter((t) => taskDay(t, getUserZone()) === selected);
+    const offers = usePlanningOffers(open ? dayTasks : []);
     const guessOf = useDurationGuesser();
-    const { minutes, unsized } = dayMinutes(dayTasks, guessOf);
+    // A routine counts by its typical length when its own answers support one (and it isn't done yet that day).
+    const dueRoutines = routines.filter((r) => r.state !== "COMPLETE" && taskDay(r, getUserZone()) === selected);
+    const { minutes, unsized } = dayMinutes([...dayTasks, ...dueRoutines], guessOf);
     const sizedNote = minutes > 0 ? ` · about ${formatDayMinutes(minutes)}${unsized ? ` · ${unsized} not sized` : ""}` : "";
 
     const close = () => { onClose(); setPicked(null); setStripStart(todayIso); };
@@ -160,7 +187,12 @@ export function PlaceSheet({ open, task, onClose, onOpenTask, onPlace }: {
             <section aria-label={`On ${dayLabel(selected)}`} className="space-y-2">
                 <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted">On {dayLabel(selected)}</h3>
                 {dayTasks.length
-                    ? <div className="flex flex-col gap-0.5">{dayTasks.map((t) => <TaskCard key={t.id} task={t} onSelect={(id) => { close(); onOpenTask(id); }} />)}</div>
+                    ? <FindTimeDayContext.Provider value={selected}><PlanningOfferProvider shown={offers.shown}><div className="flex flex-col gap-0.5">{dayTasks.map((t) => (
+                        <div key={t.id}>
+                            <TaskCard task={t} onSelect={(id) => { close(); onOpenTask(id); }} />
+                            {offers.task?.id === t.id && offers.kind ? <div className="px-3 pb-2"><PlanningOfferChip kind={offers.kind} onAccept={offers.accept} onNotNow={offers.notNow} /></div> : null}
+                        </div>
+                    ))}</div></PlanningOfferProvider></FindTimeDayContext.Provider>
                     : <p className="px-1 py-6 text-sm text-twilight-text-soft">Nothing here yet — room to breathe.</p>}
             </section>
         </UtilitySheet>
