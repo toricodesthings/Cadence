@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-10-20
+
 ### Added
 
 - Fit into today's gaps lays out your untimed tasks in one preview, with one Undo.
