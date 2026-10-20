@@ -5,14 +5,14 @@
  */
 import { and, asc, eq, inArray, isNull, notInArray, sql, type SQL } from "drizzle-orm";
 import { tracing } from "cloudflare:workers";
-import type { BatchReschedule, EffortLevel, InsertTask, Task, TaskPriority, TaskRow, TaskState, UpdateTask } from "@cadence/contracts/task";
+import type { BatchReschedule, EffortLevel, InsertTask, PlaceTaskItem, Task, TaskPriority, TaskRow, TaskState, UpdateTask } from "@cadence/contracts/task";
 import { hasTaskTemporalMutation, normalizeHiddenUntil, normalizeTaskTemporalFields, rescheduleToDay, type TaskTemporalFields } from "@cadence/domain/task-temporal";
 import { addDays, daysBetween, type Zone } from "@cadence/domain/time";
 import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { suggestInteractionMode } from "@cadence/domain/repeats";
 import { ORDER_INDEX_GAP } from "@cadence/domain/ordering";
 import { subtasks, tasks, taskTags } from "../../db/schema";
-import { AppError, assertNoConflict, throwIfNotFound } from "../../platform/errors";
+import { AppError, assertNoConflict, sameVersion, throwIfNotFound } from "../../platform/errors";
 import { insertWithClientId } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { userZone } from "../../platform/user-zone";
@@ -354,6 +354,39 @@ export async function updateTasks(
         await tx.delete(taskTags).where(and(inArray(taskTags.taskId, taskIds), inArray(taskTags.tagId, removeTagIds)));
     }
     return rows;
+}
+
+/**
+ * Fit today's placements, or their Undo, all or nothing: every task must be the caller's (404), open, one-off and not
+ * Fixed (400), and unchanged since the client read it (409, `issues` naming each changed id by `path`). Returns the
+ * written tasks and each one's time fields from before, which are the Undo. No slot record and no reschedule signal:
+ * these were Cadence's proposals for untimed tasks, so they teach nothing.
+ */
+export async function placeTasks(tx: Tx, userId: string, items: PlaceTaskItem[]) {
+    const ids = items.map((item) => item.id);
+    if (new Set(ids).size !== ids.length) throw new AppError(400, "VALIDATION_ERROR", "Each task can be placed once");
+    const rows = await tx
+        .select({
+            id: tasks.id, state: tasks.state, interactionMode: tasks.interactionMode, recurrenceRule: tasks.recurrenceRule, updatedAt: tasks.updatedAt,
+            scheduledStart: tasks.scheduledStart, scheduledEnd: tasks.scheduledEnd, dueDate: tasks.dueDate, endDate: tasks.endDate, zone: tasks.zone,
+        })
+        .from(tasks)
+        .where(and(eq(tasks.userId, userId), inArray(tasks.id, ids)))
+        .for("update");
+    if (rows.length !== ids.length) throwIfNotFound(undefined, "Task");
+    if (rows.some((row) => row.state === "COMPLETE" || row.state === "ARCHIVED" || row.interactionMode === "timetable" || row.recurrenceRule)) {
+        throw new AppError(400, "VALIDATION_ERROR", "Only open, one-off tasks that aren't Fixed can be placed");
+    }
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const changed = items.filter((item) => !sameVersion(item.expectedUpdatedAt, byId.get(item.id)!.updatedAt));
+    if (changed.length) {
+        throw new AppError(409, "CONFLICT", "Tasks were modified by another client", false, changed.map((item) => ({ code: "conflict", message: "Changed since it was read", path: item.id })));
+    }
+    const updated = await Promise.all(items.map(({ id, scheduledStart, scheduledEnd, dueDate, endDate, zone }) => updateTask(tx, userId, id, { scheduledStart, scheduledEnd, dueDate, endDate, zone })));
+    return {
+        tasks: await withTagIds(tx, updated),
+        previous: rows.map(({ id, scheduledStart, scheduledEnd, dueDate, endDate, zone }) => ({ id, scheduledStart, scheduledEnd, dueDate, endDate, zone })),
+    };
 }
 
 /** Move tasks to a state (Done, Trash, back to open, Waiting, with its check-in). Unknown ids are skipped. */

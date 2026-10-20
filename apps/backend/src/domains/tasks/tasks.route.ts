@@ -6,7 +6,7 @@ import { parseCanonicalNlpEnvelope, type CanonicalNlpEnvelope } from "@cadence/n
 import { tasks, tags, taskTags, taskNlpMetadata } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
 import { throwIfNotFound } from "../../platform/errors";
-import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
+import { checkIdempotency, getIdempotencyKey, recordMutation, storedResult } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
 import { withCallerRls } from "../../platform/caller-rls";
 import { readEffortEvidence, readTaskBatch, readTasks } from "./tasks.read";
@@ -16,12 +16,12 @@ import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import { taskTagSchema } from "@cadence/contracts/tag";
-import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, taskBatchQuerySchema, updateTaskSchema } from "@cadence/contracts/task";
+import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, placeTasksSchema, reorderTaskSchema, taskListQuerySchema, taskBatchQuerySchema, updateTaskSchema } from "@cadence/contracts/task";
 import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
 import { recordSlot } from "../ai/memory/planning.service";
-import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, rescheduleTasks, setTaskState, slotsOf, temporalColumns, toTask, trackTaskChanges, updateTask, withTagIds, type TaskSlot } from "./tasks.service";
+import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, placeTasks, rescheduleTasks, setTaskState, slotsOf, temporalColumns, toTask, trackTaskChanges, updateTask, withTagIds, type TaskSlot } from "./tasks.service";
 import { userZone } from "../../platform/user-zone";
 
 const taskTagParamSchema = z.object({
@@ -279,6 +279,22 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { rescheduled: updatedTasks, from }, { env: c.env });
 
         return c.json({ data: updatedTasks });
+    })
+    // Fit today: one transaction for the whole day, and its Undo. Never a slot record or a reschedule signal (E12).
+    .post("/place", apiValidator("json", placeTasksSchema), async (c) => {
+        const userId = c.get("userId");
+        const { items } = c.req.valid("json");
+        const key = getIdempotencyKey(c);
+        const result = await withRls(getDbClient(c.env), userId, async (tx) => {
+            if (await checkIdempotency(tx, userId, key)) {
+                const replay = await storedResult(tx, userId, key!);
+                if (replay) return replay as Awaited<ReturnType<typeof placeTasks>>;
+            }
+            const placed = await placeTasks(tx, userId, items);
+            await recordMutation(tx, userId, key, items[0].id, placed);
+            return placed;
+        });
+        return c.json({ data: result });
     })
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateTaskSchema), async (c) => {
         const userId = c.get("userId");

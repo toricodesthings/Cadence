@@ -133,8 +133,6 @@ export function DateTimeTab() {
                             </Select>
                         </div>
                     </SettingsRow>
-                    {toggle("Week numbers", cal.showWeekNumbers ?? false, (showWeekNumbers) => setCalendar({ showWeekNumbers }))}
-                    {toggle("Weekends", cal.showWeekends ?? true, (showWeekends) => setCalendar({ showWeekends }))}
                 </SettingsList>
             </SettingsSection>
 

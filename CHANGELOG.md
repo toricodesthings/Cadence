@@ -6,6 +6,28 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Fit into today's gaps lays out your untimed tasks in one preview, with one Undo.
+- Suggest steps drafts a few first steps for a task; keep them with one tap.
+- Ask the assistant to plan your day and get the same preview to place with one tap.
+
+### Changed
+
+- Hovering a routine with set times opens its check-in with a mouse; the day card got a softer, cleaner look.
+- The Focus menu is redesigned: type what you want to see up top, and each preset says what it shows.
+- Each setting now has one home: Intelligence & Privacy moved into Tasks & Routines, Appearance and Data & Privacy.
+- Search in Settings finds single settings, like quiet hours, not only tab names.
+- Keyboard Shortcuts and the ? reference now list the same shortcuts, and only ones that work.
+
+### Removed
+
+- Settings that did nothing are gone, such as week numbers, weekends, default duration and pronouns.
+
+### Fixed
+
+- Turning off Store recent searches now stops saving them and clears the list.
+
 ## [0.37.0] - 2026-10-19
 
 Cadence finds a time that suits you, and offers a lighter plan when one keeps slipping.

@@ -58,6 +58,8 @@ import {
     setTurnContext,
 } from "./persistence/conversation-repo";
 import { generateConversationTitle } from "./title/generate-title";
+import { readStepsInput, stepsPromptFor, suggestSteps } from "./steps";
+import { suggestStepsSchema } from "@cadence/contracts/planning";
 import { openStream, closeStream, flushChunks, requestAbort, readMeta } from "./streaming/resume-store";
 import { startAbortWatcher } from "./streaming/abort-watcher";
 import { buildResumeStream } from "./streaming/replay";
@@ -611,6 +613,38 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     });
     })
     // ── Resume: re-attach to an in-flight stream (`useChat({ resume: true })`) ──
+    // ── Create: Suggest steps (a draft only; Keep writes subtasks) ─────────
+    .post("/steps", apiValidator("json", suggestStepsSchema), async (c) => {
+        const userId = c.get("userId");
+        const { taskId, smaller } = c.req.valid("json");
+        const input = await withCallerRls(c, (tx) => readStepsInput(tx, userId, taskId));
+        const userHash = await hashIdentifier(userId);
+        const limits = resolveLimits(c.env);
+        const rlRedis = getRateLimitRedis(c.env);
+        // Counts toward AI usage like a chat turn: admitted first, then settled to what it cost.
+        const reserved = estimateReserve(stepsPromptFor(input, smaller).length, limits);
+        let admitted = false;
+        if (rlRedis) {
+            try {
+                const admission = await admit(rlRedis, userHash, reserved, limits);
+                if (!admission.ok) return aiRateLimitResponse(c, { code: admission.code, retryAfterS: admission.retryAfterS, limits, remaining: admission.remaining });
+                admitted = true;
+            } catch {
+                logger.warn("ai", "ai_ratelimit_unavailable", { requestId: getRequestId(c), userHash, op: "admit" });
+                if (limits.failClosed) return aiRateLimitResponse(c, { retryAfterS: 30, limits });
+            }
+        }
+        let tokens = 0;
+        try {
+            const drafted = await suggestSteps(c.env, userHash, input, smaller);
+            tokens = drafted.tokens;
+            return c.json({ data: { steps: drafted.steps } });
+        } finally {
+            if (rlRedis && admitted) {
+                c.executionCtx.waitUntil(settle(rlRedis, userHash, reserved, tokens).catch(() => logger.warn("ai", "ai_ratelimit_settle_failed", { userHash })));
+            }
+        }
+    })
     .get("/chat/:id/stream", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");

@@ -5,6 +5,7 @@ import { getDbClient } from "../../../platform/db";
 import { projects, tasks, users } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
+import type { Tx } from "../../../types/db";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit } from "./index";
 import { taskCoreColumns } from "./tasks";
@@ -14,6 +15,7 @@ import { addDays, formatInZone, toZonedIso, type Zone } from "@cadence/domain/ti
 import { busyBlocks, feasibleBuckets, findTimes } from "@cadence/domain/find-time";
 import { preferredBuckets } from "@cadence/domain/slot-preference";
 import { taskMinutes } from "@cadence/domain/task-length";
+import { fitDay, fitMinutes, isFitCandidate } from "@cadence/domain/fit-day";
 import type { TimeOfDay } from "@cadence/contracts/planning";
 import { toMinimalTask } from "./projections";
 import { durationHints } from "../memory/duration";
@@ -36,6 +38,12 @@ const WINDOW_ROW_GUARD = 500;
 
 /** What `find_time` offers at most: a short list the person picks from, never every gap. */
 const FIND_TIME_PROPOSALS = 3;
+
+/** The calendar's first hour: where Find a time and Fit today start looking (never before 06:00). */
+async function timelineStartHour(tx: Tx, userId: string): Promise<number> {
+    const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId));
+    return (row?.settings as { calendar?: { timelineStartHour?: number } } | null)?.calendar?.timelineStartHour ?? 7;
+}
 
 export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readRoutines?: SnapshotRoutineReader) => ({
     // ── R ──────────────────────────────────────────────────────────────────
@@ -127,11 +135,10 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                     const hint = (await durationHints(tx, userId, [task])).get(task.id);
                     const minutes = taskMinutes(task, hint?.takesAbout ? { state: "supported", minutes: hint.takesAbout } : null);
                     const busy = busyBlocks(await readTasks(tx, userId, { from: day, to: day }), task.id);
-                    const [settings] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId));
                     const input = {
                         task: { minutes, notBefore: task.notBefore, currentStart: task.scheduledStart },
                         day, zone, now: ctx.currentDate, busy, preferred: [] as TimeOfDay[],
-                        timelineStartHour: (settings?.settings as { calendar?: { timelineStartHour?: number } } | null)?.calendar?.timelineStartHour ?? 7,
+                        timelineStartHour: await timelineStartHour(tx, userId),
                     };
                     // What they like (stated, or learned in Full) only orders the gaps.
                     const preferred = preferredBuckets(await planningEvidence(tx, userId), { title: task.title, projectId: task.projectId, listName: task.listName }, feasibleBuckets(input), ctx.today);
@@ -146,6 +153,54 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                             label: `${formatInZone(p.start, zone, { weekday: "short" })} ${clock(p.start)}–${clock(p.end)}`,
                             gap: true as const,
                         })),
+                    };
+                });
+            }),
+    }),
+    fit_day: tool({
+        description:
+            "Lays one local day's untimed open tasks into its calendar gaps, in the person's own order, the way Fit today does: " +
+            "placed (each with a gap that fits its known length, a buffer around other blocks), didntFit (a known length, no gap left) " +
+            "and notSized (no known length). Never touches timed tasks, Fixed blocks or repeating tasks. Read-only: nothing is placed.",
+        inputSchema: z.object({
+            day: z.iso.date().describe("The local day, YYYY-MM-DD; today unless they named another."),
+        }),
+        execute: async ({ day }) =>
+            safeExecute("fit_day", userId, async () => {
+                const zone = ctx.timezone as Zone;
+                if (day < ctx.today) return { ok: false as const, error: "That day has passed; look at today or later." };
+                return withRls(getDbClient(env), userId, async (tx) => {
+                    const onDay = await readTasks(tx, userId, { from: day, to: day });
+                    // Today's own set also holds what's still open from earlier days, first, as Today shows it.
+                    const carried = day === ctx.today ? (await readTasks(tx, userId, { state: "ACTIVE", effectiveOnOrBeforeDate: day })).filter((t) => taskDay(t, zone)! < day) : [];
+                    const candidates = [...carried, ...onDay].filter((t, i, all) => isFitCandidate(t) && all.findIndex((o) => o.id === t.id) === i);
+                    const hints = await durationHints(tx, userId, candidates);
+                    const lists = new Map((await tx.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.userId, userId))).map((p) => [p.id, p.name]));
+                    const evidence = await planningEvidence(tx, userId);
+                    const sized = candidates.map((t) => {
+                        const takesAbout = hints.get(t.id)?.takesAbout;
+                        return { ...t, minutes: fitMinutes(t, takesAbout ? { state: "supported", minutes: takesAbout } : null), notBefore: t.notBefore ?? null };
+                    });
+                    const result = fitDay(
+                        sized,
+                        { day, zone, now: ctx.currentDate, busy: busyBlocks(onDay, ""), timelineStartHour: await timelineStartHour(tx, userId) },
+                        (t, feasible) => preferredBuckets(evidence, { title: t.title, projectId: t.projectId, listName: t.projectId ? lists.get(t.projectId) ?? null : null }, feasible, ctx.today),
+                    );
+                    const byId = new Map(sized.map((t) => [t.id, t]));
+                    const clock = (instant: string) => formatInZone(instant, zone, { hour: "numeric", minute: "2-digit" });
+                    return {
+                        ok: true as const,
+                        day,
+                        placed: result.placed.map((p) => ({
+                            id: p.taskId,
+                            title: byId.get(p.taskId)!.title,
+                            start: toZonedIso(p.start, zone),
+                            end: toZonedIso(p.end, zone),
+                            label: `${clock(p.start)}–${clock(p.end)}`,
+                        })),
+                        didntFit: result.didntFit.map((id) => ({ id, title: byId.get(id)!.title, minutes: byId.get(id)!.minutes })),
+                        notSized: result.notSized.map((id) => ({ id, title: byId.get(id)!.title })),
+                        gaps: true as const,
                     };
                 });
             }),

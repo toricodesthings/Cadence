@@ -7,6 +7,8 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { Reveal } from "../shared/Reveal";
 import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
+import { SuggestedSteps, SuggestStepsButton } from "./SuggestSteps";
+import { useSuggestSteps } from "../../hooks/ai/use-suggest-steps";
 import { useSubtaskOpenStore } from "../../stores/subtask-open-store";
 import { useTaskDetailIntentStore } from "../../stores/task-detail-intent-store";
 
@@ -181,6 +183,7 @@ export function InlineSubtaskPanel({
     const createSubtask = useCreateSubtask(taskId);
     const deleteSubtask = useDeleteSubtask(taskId);
     const reorderSubtask = useReorderSubtasks(taskId);
+    const suggest = useSuggestSteps(taskId, subtasks);
     const [title, setTitle] = useState("");
     const inputRef = useRef<HTMLInputElement>(null);
     const ordered = byOrder(subtasks);
@@ -201,7 +204,7 @@ export function InlineSubtaskPanel({
         setTitle(""); // stay focused for rapid entry
     };
 
-    const visible = (open && ordered.length > 0) || adding;
+    const visible = (open && ordered.length > 0) || adding || !!suggest.draft || suggest.status !== "idle";
     return (
         <Reveal open={visible} id={id} className="-ml-7">
             <div className="pt-0.5">
@@ -241,22 +244,29 @@ export function InlineSubtaskPanel({
                             aria-label="New subtask"
                             className="min-w-0 flex-1 bg-transparent text-[13px] leading-5 text-twilight-text-soft outline-none placeholder:text-twilight-text-muted"
                         />
+                        <SuggestStepsButton s={suggest} />
                     </div>
                 ) : (
-                    <button
-                        type="button"
-                        onClick={() => onAddingChange(true)}
-                        data-no-dnd="true"
-                        data-no-open="true"
-                        className="flex w-full cursor-pointer items-center gap-1.5 rounded-xl px-1 py-0.5 text-left text-[13px] leading-5 text-twilight-text-muted transition-colors hover:bg-white/[0.03] hover:text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
-                    >
-                        <span className="w-[18px] shrink-0" aria-hidden="true" />
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
-                            <Plus size={14} />
-                        </span>
-                        Add subtask
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={() => onAddingChange(true)}
+                            data-no-dnd="true"
+                            data-no-open="true"
+                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-xl px-1 py-0.5 text-left text-[13px] leading-5 text-twilight-text-muted transition-colors hover:bg-white/[0.03] hover:text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+                        >
+                            <span className="w-[18px] shrink-0" aria-hidden="true" />
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+                                <Plus size={14} />
+                            </span>
+                            Add subtask
+                        </button>
+                        <SuggestStepsButton s={suggest} />
+                    </div>
                 )}
+                <div className="pl-7">
+                    <SuggestedSteps s={suggest} />
+                </div>
             </div>
         </Reveal>
     );

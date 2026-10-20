@@ -137,6 +137,7 @@ function RoutineAlerts({ notif, set }: SectionProps) {
                         <SwitchSetting title="Group several at once" label="Group several routine reminders" checked={notif.bundleMissedRoutinePrompts} onChange={(bundleMissedRoutinePrompts) => set({ bundleMissedRoutinePrompts })} />
                     </>
                 )}
+                <SwitchSetting title="Dot on Routines" description="Shows on Routines in the navigation while some are still due today." checked={notif.showHabitNavDueCount} onChange={(showHabitNavDueCount) => set({ showHabitNavDueCount })} />
             </SettingsSection>
         </>
     );

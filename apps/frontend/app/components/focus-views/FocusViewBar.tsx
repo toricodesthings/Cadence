@@ -1,33 +1,36 @@
-import { Button } from "../primitives/Button";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { FOCUS_VIEW_PRESETS, composeFocusView } from "@cadence/nlp/focus-views";
 import { useFocusViewStore } from "../../stores/focus-view-store";
 import { useCreateFocusView, useDeleteFocusView, useFocusViews, useUpdateFocusView } from "../../hooks/core/use-focus-views";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useProjects } from "../../hooks/projects/use-projects";
-import { Zap, Clock, CalendarX2, UserCheck, Brain, CloudFog, Search, X, BookmarkPlus, Pin, Trash2, Pencil } from "lucide-react";
+import { Zap, Clock, CalendarX2, UserCheck, Brain, CloudFog, Sparkles, ArrowRight, ArrowDown, ArrowUp, Flag, Check, X, BookmarkPlus, Pin, Trash2, Pencil } from "lucide-react";
 import * as Popover from "../primitives/Popover";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { Tip } from "../primitives";
+import { SegmentedControl } from "../primitives/SegmentedControl";
 
-const PRESET_ICONS: Record<string, React.ReactNode> = {
-    Zap: <Zap size={14} />,
-    Clock: <Clock size={14} />,
-    CalendarX: <CalendarX2 size={14} />,
-    UserCheck: <UserCheck size={14} />,
-    Brain: <Brain size={14} />,
-    CloudFog: <CloudFog size={14} />,
+/** Each preset's icon and a quiet hue for its bubble, so the six read apart at a glance. */
+const PRESET_ICONS: Record<string, { icon: React.ReactNode; tone: string }> = {
+    Zap: { icon: <Zap size={15} />, tone: "var(--color-lantern)" },
+    Clock: { icon: <Clock size={15} />, tone: "var(--color-sapphire)" },
+    CalendarX: { icon: <CalendarX2 size={15} />, tone: "var(--color-moonlit)" },
+    UserCheck: { icon: <UserCheck size={15} />, tone: "var(--color-forest-green)" },
+    Brain: { icon: <Brain size={15} />, tone: "var(--color-violet)" },
+    CloudFog: { icon: <CloudFog size={15} />, tone: "var(--color-moonlit)" },
 };
+
+const SECTION_LABEL = "mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-twilight-text-muted";
 
 /**
  * §8.1.2 Focus View Bar — compact popover trigger + active filter chip.
  *
  * Default: one compact "Focus" trigger (no more visual weight than a secondary button).
- * Active: shows a small active-filter chip with clear action.
- * On click: opens a popover containing preset pills, pinned views, and NL composer.
- * Auto-collapses after applying a filter.
+ * Active: the trigger names the filter. On click: a popover with the describe
+ * field on top, preset tiles (name + what it shows), pinned views, and Save/Clear
+ * for an active filter. Auto-collapses after applying a filter.
  */
 export function FocusViewBar({ capture = false }: { capture?: boolean }) {
     const shell = useShellMode();
@@ -56,7 +59,6 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
     } = useFocusViewStore();
 
     const [open, setOpen] = useState(false);
-    const [showComposer, setShowComposer] = useState(false);
 
     useEffect(() => {
         if ((!intelligenceEnabled || !focusViewsEnabled) && activeDefinition) {
@@ -74,7 +76,6 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
         } else {
             setCustomDefinition(result.definition);
         }
-        setShowComposer(false);
         setOpen(false);
     }, [composerInput, projects, setPreset, setCustomDefinition]);
 
@@ -141,199 +142,174 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
 
     if ((!intelligenceEnabled || !focusViewsEnabled) && !capture) return null;
 
-    const content = <div className={shell.isCompact ? "mobile-focus-options" : undefined}>
-                    {capture && (
-                        <div className="mb-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-twilight-text-muted mb-2">Order</p>
-                            <div role="group" aria-label="Order" className="flex gap-1.5">
-                                {(["newest", "oldest", "priority"] as const).map((order) => (
-                                    <Button
-                                        key={order}
-                                        variant="ghost"
-                                        size="none"
-                                        aria-pressed={captureOrder === order}
-                                        onClick={() => { setCaptureOrder(order); setOpen(false); }}
-                                        className={`min-h-9 flex-1 rounded-lg px-2.5 font-sans text-[12px] font-medium capitalize press-none ${
-                                            captureOrder === order
-                                                ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25 hover:bg-accent-primary/20 hover:text-accent-primary"
-                                                : "bg-white/[0.04] text-twilight-text-soft border border-twilight-border/20 hover:bg-white/[0.08]"
-                                        }`}
-                                    >
-                                        {order}
-                                    </Button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    {/* Section: Presets */}
-                    <div className="mb-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-twilight-text-muted mb-2">
-                            Presets
-                        </p>
-                        <div className={shell.isCompact ? "flex flex-col gap-2" : "flex flex-wrap gap-1.5"}>
-                            {FOCUS_VIEW_PRESETS.map((preset) => (
-                                <Tip key={preset.id} label={preset.description ?? preset.name} side="top">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleSelectPreset(preset)}
-                                        aria-pressed={activePresetId === preset.id}
-                                        className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors cursor-pointer ${
-                                            activePresetId === preset.id
-                                                ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25"
-                                                : "bg-white/[0.04] text-twilight-text-soft border border-twilight-border/20 hover:bg-white/[0.08]"
-                                        }`}
-                                    >
-                                        {PRESET_ICONS[preset.icon] ?? null}
-                                        <span className={shell.isCompact ? "flex flex-col gap-1 text-left" : undefined}>{preset.name}{shell.isCompact && <span className="text-xs font-normal text-twilight-text-soft">{preset.description}</span>}</span>
-                                    </button>
-                                </Tip>
-                            ))}
-                        </div>
-                    </div>
+    const content = <div className={`flex flex-col gap-4 ${shell.isCompact ? "mobile-focus-options" : ""}`}>
+        <div>
+            <div className="group relative flex min-h-11 items-center gap-2.5 rounded-2xl border border-twilight-border/30 bg-white/[0.03] px-3.5 transition-colors focus-within:border-accent-primary/35 focus-within:bg-white/[0.05]">
+                <Sparkles size={15} aria-hidden="true" className="shrink-0 text-twilight-text-muted transition-colors group-focus-within:text-accent-primary" />
+                <input
+                    type="text"
+                    value={composerInput}
+                    onChange={(e) => setComposerInput(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") handleComposerSubmit();
+                        if (e.key === "Escape" && composerInput) {
+                            e.stopPropagation();
+                            setComposerInput("");
+                        }
+                    }}
+                    placeholder="Describe what you want to see…"
+                    aria-label="Describe a Focus View"
+                    className="min-w-0 flex-1 bg-transparent py-2.5 text-[13px] text-twilight-text outline-none placeholder:text-twilight-text-muted"
+                />
+                {composerInput.trim() ? (
+                    <button
+                        type="button"
+                        onClick={handleComposerSubmit}
+                        aria-label="Apply filter"
+                        className="-mr-1.5 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-accent-primary/15 text-accent-primary transition-colors hover:bg-accent-primary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                    >
+                        <ArrowRight size={15} aria-hidden="true" />
+                    </button>
+                ) : null}
+            </div>
+            {composerChips.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1 px-1">
+                    {composerChips.map((chip) => (
+                        <span key={chip} className="inline-flex items-center rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-accent-primary">
+                            {chip}
+                        </span>
+                    ))}
+                </div>
+            ) : composerInput.trim() ? null : (
+                <p className="mt-1.5 px-1 text-[11px] text-twilight-text-muted">e.g. overdue tasks with no list</p>
+            )}
+        </div>
 
-                    {/* Section: Pinned views */}
-                    {pinnedViews.length > 0 && (
-                        <div className="mb-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-twilight-text-muted mb-2">
-                                Saved
-                            </p>
-                            <div className="flex flex-col gap-1">
-                                {pinnedViews.map((view) => (
-                                    <ContextMenu.Root key={view.id}>
-                                        <ContextMenu.Trigger asChild>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSelectSavedView(view.id)}
-                                                className={`inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-left transition-colors cursor-pointer ${
-                                                    activeSavedViewId === view.id
-                                                        ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25"
-                                                        : "bg-white/[0.04] text-twilight-text-soft border border-twilight-border/20 hover:bg-white/[0.08]"
-                                                }`}
-                                            >
-                                                <Pin size={12} className="shrink-0 opacity-50" />
-                                                {view.name}
-                                            </button>
-                                        </ContextMenu.Trigger>
-                                        <ContextMenu.Content>
-                                            <ContextMenu.Item
-                                                onSelect={() => {
-                                                    const nextName = window.prompt("Rename Focus View", view.name);
-                                                    if (nextName !== null && nextName.trim()) {
-                                                        updateFocusView.mutate({ id: view.id, name: nextName.trim() });
-                                                    }
-                                                }}
-                                            >
-                                                <Pencil size={14} className="mr-2 opacity-60" />
-                                                Rename
-                                            </ContextMenu.Item>
-                                            <ContextMenu.Item
-                                                onSelect={() => updateFocusView.mutate({ id: view.id, isPinned: false })}
-                                            >
-                                                <Pin size={14} className="mr-2 opacity-60" />
-                                                Unpin
-                                            </ContextMenu.Item>
-                                            <ContextMenu.Separator />
-                                            <ContextMenu.Item
-                                                variant="danger"
-                                                onSelect={() => deleteFocusViewMutation.mutate(view.id)}
-                                            >
-                                                <Trash2 size={14} className="mr-2" />
-                                                Delete
-                                            </ContextMenu.Item>
-                                        </ContextMenu.Content>
-                                    </ContextMenu.Root>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+        {capture && (
+            <div>
+                <p className={SECTION_LABEL}>Order</p>
+                <SegmentedControl
+                    size="sm"
+                    ariaLabel="Order"
+                    value={captureOrder}
+                    onChange={(order) => { setCaptureOrder(order); setOpen(false); }}
+                    options={[{ value: "newest", label: "Newest", icon: <ArrowDown size={13} aria-hidden="true" /> }, { value: "oldest", label: "Oldest", icon: <ArrowUp size={13} aria-hidden="true" /> }, { value: "priority", label: "Priority", icon: <Flag size={13} aria-hidden="true" /> }]}
+                    className="w-full [&>button]:flex-1"
+                />
+            </div>
+        )}
 
-                    {/* Section: NL Composer */}
-                    <div className="border-t border-twilight-border/20 pt-3 mt-1">
-                        {showComposer ? (
-                            <div className="flex flex-col gap-2">
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={composerInput}
-                                        onChange={(e) => setComposerInput(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") handleComposerSubmit();
-                                            if (e.key === "Escape") {
-                                                setShowComposer(false);
-                                                setComposerInput("");
-                                            }
-                                        }}
-                                        placeholder="e.g. overdue tasks with no list"
-                                        className="w-full rounded-lg border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-[12px] text-twilight-text placeholder:text-twilight-text-muted outline-none focus:border-accent-primary/30 focus:ring-1 focus:ring-accent-primary/20 transition-colors"
-                                        autoFocus
-                                        aria-label="Describe a Focus View"
-                                    />
-                                    {composerInput && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setComposerInput("")}
-                                            aria-label="Clear filter description"
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-twilight-text-muted hover:text-twilight-text cursor-pointer"
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                    )}
-                                </div>
-                                {composerChips.length > 0 && (
-                                    <div className="flex flex-wrap gap-1">
-                                        {composerChips.map((chip) => (
-                                            <span
-                                                key={chip}
-                                                className="inline-flex items-center rounded-md bg-accent-primary/10 border border-accent-primary/18 px-2 py-0.5 text-[10px] font-medium text-accent-primary"
-                                            >
-                                                {chip}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
+        <div>
+            <p className={SECTION_LABEL}>Presets</p>
+            <div className={`grid gap-1.5 ${shell.isCompact ? "grid-cols-1" : "grid-cols-2"}`}>
+                {FOCUS_VIEW_PRESETS.map((preset) => {
+                    const active = activePresetId === preset.id;
+                    const look = PRESET_ICONS[preset.icon];
+                    return (
+                        <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => handleSelectPreset(preset)}
+                            aria-pressed={active}
+                            style={{ "--preset-tone": look?.tone ?? "var(--accent-primary)" } as React.CSSProperties}
+                            className={`group flex min-h-11 cursor-pointer items-start gap-2.5 rounded-2xl border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
+                                active
+                                    ? "border-[color-mix(in_srgb,var(--preset-tone)_35%,transparent)] bg-[color-mix(in_srgb,var(--preset-tone)_12%,transparent)]"
+                                    : "border-transparent bg-white/[0.03] hover:bg-white/[0.06]"
+                            }`}
+                        >
+                            <span aria-hidden="true" className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--preset-tone)] transition-colors ${active ? "bg-[color-mix(in_srgb,var(--preset-tone)_22%,transparent)]" : "bg-[color-mix(in_srgb,var(--preset-tone)_12%,transparent)] group-hover:bg-[color-mix(in_srgb,var(--preset-tone)_18%,transparent)]"}`}>
+                                {active ? <Check size={15} strokeWidth={2.75} /> : look?.icon ?? null}
+                            </span>
+                            <span className="flex min-w-0 flex-col gap-0.5">
+                                <span className="text-[13px] font-medium text-twilight-text">{preset.name}</span>
+                                <span className="text-[11px] leading-snug text-twilight-text-muted">{preset.description}</span>
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+
+        {pinnedViews.length > 0 && (
+            <div>
+                <p className={SECTION_LABEL}>Saved</p>
+                <div className="flex flex-col gap-0.5">
+                    {pinnedViews.map((view) => (
+                        <ContextMenu.Root key={view.id}>
+                            <ContextMenu.Trigger asChild>
                                 <button
                                     type="button"
-                                    onClick={handleComposerSubmit}
-                                    disabled={!composerInput.trim()}
-                                    className="self-end rounded-lg bg-accent-primary/15 px-3 py-1.5 text-[12px] font-medium text-accent-primary hover:bg-accent-primary/25 transition-colors disabled:opacity-40 cursor-pointer"
+                                    onClick={() => handleSelectSavedView(view.id)}
+                                    aria-pressed={activeSavedViewId === view.id}
+                                    className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-2xl px-3 text-left text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
+                                        activeSavedViewId === view.id
+                                            ? "bg-accent-primary/12 text-accent-primary"
+                                            : "text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text"
+                                    }`}
                                 >
-                                    Apply
+                                    <Pin size={13} aria-hidden="true" className="shrink-0 opacity-60" />
+                                    <span className="min-w-0 flex-1 truncate">{view.name}</span>
                                 </button>
-                            </div>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={() => setShowComposer(true)}
-                                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] transition-colors cursor-pointer"
-                            >
-                                <Search size={13} />
-                                Describe a custom filter…
-                            </button>
-                        )}
-                    </div>
+                            </ContextMenu.Trigger>
+                            <ContextMenu.Content>
+                                <ContextMenu.Item
+                                    onSelect={() => {
+                                        const nextName = window.prompt("Rename Focus View", view.name);
+                                        if (nextName !== null && nextName.trim()) {
+                                            updateFocusView.mutate({ id: view.id, name: nextName.trim() });
+                                        }
+                                    }}
+                                >
+                                    <Pencil size={14} className="mr-2 opacity-60" />
+                                    Rename
+                                </ContextMenu.Item>
+                                <ContextMenu.Item
+                                    onSelect={() => updateFocusView.mutate({ id: view.id, isPinned: false })}
+                                >
+                                    <Pin size={14} className="mr-2 opacity-60" />
+                                    Unpin
+                                </ContextMenu.Item>
+                                <ContextMenu.Separator />
+                                <ContextMenu.Item
+                                    variant="danger"
+                                    onSelect={() => deleteFocusViewMutation.mutate(view.id)}
+                                >
+                                    <Trash2 size={14} className="mr-2" />
+                                    Delete
+                                </ContextMenu.Item>
+                            </ContextMenu.Content>
+                        </ContextMenu.Root>
+                    ))}
+                </div>
+            </div>
+        )}
 
-                    {/* Section: Actions */}
-                    {activeDefinition && (
-                        <div className="border-t border-twilight-border/20 pt-3 mt-3 flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={handleSaveCurrent}
-                                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] transition-colors cursor-pointer"
-                            >
-                                <BookmarkPlus size={13} />
-                                Save view
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleClearAndClose}
-                                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] transition-colors cursor-pointer"
-                            >
-                                <X size={13} />
-                                Clear filter
-                            </button>
-                        </div>
-                    )}
-
+        {activeDefinition && (
+            <div className="flex items-center gap-1 rounded-2xl bg-accent-primary/[0.08] py-1 pl-3.5 pr-1">
+                <span className="min-w-0 flex-1 truncate text-[12px] text-twilight-text-soft">
+                    Showing <span className="font-medium text-accent-primary">{activeLabel}</span>
+                </span>
+                {!activeSavedViewId && (
+                    <button
+                        type="button"
+                        onClick={handleSaveCurrent}
+                        className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-xl px-2.5 text-[12px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                    >
+                        <BookmarkPlus size={13} aria-hidden="true" />
+                        Save
+                    </button>
+                )}
+                <button
+                    type="button"
+                    onClick={handleClearAndClose}
+                    className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-xl px-2.5 text-[12px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                >
+                    <X size={13} aria-hidden="true" />
+                    Clear
+                </button>
+            </div>
+        )}
     </div>;
 
     const orderLabel = capture && captureOrder !== "newest" ? (captureOrder === "oldest" ? "Oldest" : "Priority") : null;
@@ -347,7 +323,6 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
         </button></Tip>
         <UtilitySheet title="Focus" open={open} onClose={() => setOpen(false)}>
             <p className="text-sm text-twilight-text-soft">Choose what you want to see right now.</p>
-            {activeLabel && <p className="text-sm text-accent-primary">Showing: {activeLabel}</p>}
             {content}
         </UtilitySheet>
     </>;
@@ -368,7 +343,7 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
                 <Popover.Content
                     align="start"
                     sideOffset={6}
-                    className="w-80 max-h-[28rem] overflow-y-auto"
+                    className="w-[23rem] max-h-[32rem] overflow-y-auto rounded-3xl p-3"
                 >
                     {content}
                 </Popover.Content>

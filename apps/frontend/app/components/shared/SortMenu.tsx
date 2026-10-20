@@ -11,6 +11,8 @@ interface SortMenuAction {
     onSelect: () => void;
     icon?: typeof Sparkles;
     danger?: boolean;
+    /** Shown in place, greyed out with this reason, rather than hidden: the menu keeps its shape. */
+    disabledReason?: string;
 }
 
 interface SortMenuProps {
@@ -77,14 +79,18 @@ export function SortMenu({ mode, onModeChange, view, onViewChange, actions = [] 
                         <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-twilight-text-muted">
                             Actions
                         </div>
-                        {actions.map(({ label, onSelect, icon: Icon, danger }) => (
+                        {actions.map(({ label, onSelect, icon: Icon, danger, disabledReason }) => (
                             <DropdownMenu.Item
                                 key={label}
                                 onSelect={onSelect}
+                                disabled={!!disabledReason}
                                 className={`flex items-center gap-2 ${danger ? "text-red-400 focus:text-red-400 focus:bg-red-500/10" : ""}`}
                             >
-                                {Icon ? <Icon size={14} aria-hidden="true" /> : null}
-                                <span>{label}</span>
+                                {Icon ? <Icon size={14} aria-hidden="true" className="shrink-0" /> : null}
+                                <span className="flex flex-col">
+                                    <span>{label}</span>
+                                    {disabledReason ? <span className="text-xs text-twilight-text-muted">{disabledReason}</span> : null}
+                                </span>
                             </DropdownMenu.Item>
                         ))}
                     </>

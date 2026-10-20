@@ -6,7 +6,7 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { flushAllPendingSettingsMutations } from "../../hooks/core/use-settings";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { NAV_GROUP, NAV_GROUP_LABEL, NavigationRow } from "../layout/NavigationRow";
-import { SettingsContent, SETTINGS_CATEGORIES } from "./SettingsContent";
+import { SettingsContent, SETTINGS_CATEGORIES, settingsTab } from "./SettingsContent";
 import { SignOutButton } from "./SignOutButton";
 
 interface MenuGroup { label: string; items: Array<{ id: string; label: string; icon: LucideIcon }> }
@@ -24,7 +24,8 @@ function menuGroups(isPhone: boolean): MenuGroup[] {
 }
 
 export function SettingsSheet() {
-    const { settings, openSettings, close } = useUtilityNavigation();
+    const { settings: rawTab, openSettings, close } = useUtilityNavigation();
+    const settings = settingsTab(rawTab);
     const { session } = useAuthState();
     const shell = useShellMode();
     const profileLine = session?.user.name ?? session?.user.email;

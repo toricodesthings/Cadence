@@ -14,24 +14,20 @@ const SYNC_OPTIONS: SettingOption[] = [
     { value: "two_way", label: "Two-way" },
 ];
 
-function StatusBadge({ connected }: { connected: boolean }) {
+function SoonBadge() {
     return (
-        <span className={`text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full border ${
-            connected
-                ? "bg-green-500/10 text-green-400 border-green-500/20"
-                : "bg-white/[0.04] text-twilight-text-muted border-white/10"
-        }`}>
-            {connected ? "Connected" : "Disconnected"}
+        <span className="rounded-full border border-accent-primary/30 bg-accent-primary/12 px-2 py-0.5 text-[10px] font-medium text-accent-primary">
+            Soon
         </span>
     );
 }
 
-function IntegrationCard({ name, connected, children }: { name: string; connected: boolean; children: ReactNode }) {
+function IntegrationCard({ name, children }: { name: string; children: ReactNode }) {
     return (
         <div className="rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-5">
             <div className="flex items-center gap-3 mb-4">
                 <h4 className="text-base font-medium text-twilight-text">{name}</h4>
-                <StatusBadge connected={connected} />
+                <SoonBadge />
             </div>
             <div className="flex flex-col gap-4">{children}</div>
         </div>
@@ -54,14 +50,11 @@ export function IntegrationsTab() {
 
             <ConnectedAssistants />
 
-            <h3 className="flex items-center gap-2 text-lg font-semibold text-twilight-text">
-                Sync
-                <span className="rounded-full border border-accent-primary/30 bg-accent-primary/12 px-2 py-0.5 text-xs font-medium text-accent-primary">Coming Soon</span>
-            </h3>
+            <h3 className="text-lg font-semibold text-twilight-text">Sync</h3>
 
             <div className="opacity-50 pointer-events-none" aria-disabled="true">
                 <SettingsSection title="Calendar sync preferences">
-                    <IntegrationCard name="Google Calendar" connected={googleCalendar.enabled}>
+                    <IntegrationCard name="Google Calendar">
                         <SwitchSetting
                             title="Enable sync"
                             description="Sync Cadence tasks to a dedicated Google Calendar."
@@ -84,7 +77,7 @@ export function IntegrationsTab() {
                         />
                     </IntegrationCard>
 
-                    <IntegrationCard name="Apple Calendar" connected={appleCalendar.enabled}>
+                    <IntegrationCard name="Apple Calendar">
                         <SwitchSetting
                             title="Enable sync"
                             description="Sync Cadence tasks to Apple Calendar via iCloud."
@@ -103,7 +96,7 @@ export function IntegrationsTab() {
                 </SettingsSection>
 
                 <SettingsSection title="Notes & knowledge preferences">
-                    <IntegrationCard name="Notion" connected={notion.enabled}>
+                    <IntegrationCard name="Notion">
                         <SwitchSetting
                             title="Enable Notion integration"
                             description="Allow Cadence to create and link items in Notion."
@@ -118,7 +111,7 @@ export function IntegrationsTab() {
                         />
                     </IntegrationCard>
 
-                    <IntegrationCard name="Obsidian" connected={obsidian.enabled}>
+                    <IntegrationCard name="Obsidian">
                         <SwitchSetting
                             title="Enable Obsidian integration"
                             description="Allow Cadence to interact with your Obsidian vault."
@@ -135,7 +128,7 @@ export function IntegrationsTab() {
                 </SettingsSection>
 
                 <SettingsSection title="Calendar feed preferences">
-                    <IntegrationCard name="ICS Calendar Feed" connected={ics.enabled}>
+                    <IntegrationCard name="ICS Calendar Feed">
                         <SwitchSetting
                             title="Enable ICS feed"
                             description="Generate a read-only ICS feed URL for subscribing in any calendar app."

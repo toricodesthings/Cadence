@@ -5,7 +5,12 @@ import { Button } from "../../primitives/Button";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
-import { DeleteAccountDialog } from "../DeleteAccountDialog";
+import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
+import { useApiClient } from "../../../hooks/auth/use-api-client";
+import { unwrapResponse } from "../../../lib/api/helpers";
+import { toastError } from "../../../lib/utils/error-toast";
+import { clearRecentSearches } from "../../../lib/utils/recent-searches";
 import { useAuthState } from "../../../hooks/auth/use-auth-state";
 import { useDataExport, useRequestDataExport } from "../../../hooks/core/use-data-export";
 
@@ -19,6 +24,26 @@ export function DataPrivacyTab() {
     const requestExport = useRequestDataExport();
 
     const privacy = settings?.privacy ?? SETTINGS_DEFAULTS.privacy;
+    const client = useApiClient();
+    const [clearingHistory, setClearingHistory] = useState(false);
+
+    const clearHistory = async () => {
+        setClearingHistory(true);
+        try {
+            await unwrapResponse(await client.api.settings["intelligence-history"].clear.$post({}));
+            updateSettings.mutate({ tasks: { intelligence: { dismissedEntityIds: [], dismissedEntities: [] } } });
+            try {
+                window.localStorage.removeItem("cadence_notification_state");
+            } catch {
+                // Ignore local storage failures and keep the successful server-side clear.
+            }
+            toast.success("Cleared stored intelligence history.");
+        } catch (error) {
+            toastError(error, "Couldn't clear intelligence history");
+        } finally {
+            setClearingHistory(false);
+        }
+    };
 
     // Matches the server's one-an-hour limit, so the button never offers a request it would refuse
     const exportBusy = requestExport.isPending || latest?.status === "pending"
@@ -33,7 +58,7 @@ export function DataPrivacyTab() {
 
     return (
         <div className="flex flex-col gap-10">
-            <h2 className="mb-2 text-2xl font-bold text-twilight-text">Privacy & Data</h2>
+            <h2 className="mb-2 text-2xl font-bold text-twilight-text">Data & Privacy</h2>
 
             {/* ── Privacy preferences ── */}
             <SettingsSection title="Privacy preferences">
@@ -62,22 +87,32 @@ export function DataPrivacyTab() {
             </SettingsSection>
 
             {/* ── Local data preferences ── */}
-            <SettingsSection title="Local data preferences">
+            <SettingsSection title="Stored data">
                 <SettingsRow
                     title="Store recent searches"
                     description="Keep recent search queries for quick access. Turning this off clears the history."
                 >
                     <Switch
                         checked={privacy.storeRecentSearches}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ privacy: { storeRecentSearches: val } })
-                        }
+                        onCheckedChange={(val) => {
+                            if (!val) clearRecentSearches();
+                            updateSettings.mutate({ privacy: { storeRecentSearches: val } });
+                        }}
                     />
+                </SettingsRow>
+                <SettingsRow
+                    title="Clear intelligence history"
+                    description="Remove stored parse snapshots and dismissed suggestions. Your tasks and routines aren't touched."
+                >
+                    <Button variant="secondary" disabled={clearingHistory} onClick={() => void clearHistory()}>
+                        <Trash2 size={14} aria-hidden="true" />
+                        {clearingHistory ? "Clearing…" : "Clear history"}
+                    </Button>
                 </SettingsRow>
             </SettingsSection>
 
             {/* ── Export and deletion status ── */}
-            <SettingsSection title="Export and deletion status">
+            <SettingsSection title="Export">
                 <SettingsRow title="Request data export" description={exportStatus}>
                     <AlertDialog.Root open={exportConfirmOpen} onOpenChange={setExportConfirmOpen}>
                         <AlertDialog.Trigger asChild>
@@ -102,12 +137,6 @@ export function DataPrivacyTab() {
                     </AlertDialog.Root>
                 </SettingsRow>
 
-                <SettingsRow
-                    title="Delete account"
-                    description="Permanently erase your account and everything in it. This cannot be undone."
-                >
-                    <DeleteAccountDialog />
-                </SettingsRow>
             </SettingsSection>
         </div>
     );

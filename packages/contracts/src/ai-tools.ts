@@ -16,6 +16,7 @@ export const TOOL_CATALOG = {
     get_task_detail: read,
     get_schedule_window: read,
     find_time: read,
+    fit_day: read,
     get_projects: read,
     get_tags: read,
     get_inbox_items: read,

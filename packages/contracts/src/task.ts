@@ -138,6 +138,23 @@ export const batchRescheduleSchema = z
     .refine((v) => (v.scheduledStart === undefined) !== (v.date === undefined), "Send scheduledStart or date, not both");
 export type BatchReschedule = z.infer<typeof batchRescheduleSchema>;
 
+/**
+ * `POST /tasks/place`: Fit today's placements in one all-or-nothing write. Undo is the same request with the values
+ * from before (`previous` in the answer), so the time fields are nullable. Each item must be unchanged since the
+ * client read it (`expectedUpdatedAt`), or nothing is written and the 409's `issues` name each changed task by `path`.
+ */
+export const placeTaskItemSchema = z.object({
+    id: z.uuid(),
+    scheduledStart: instantSchema.nullable(),
+    scheduledEnd: instantSchema.nullable(),
+    dueDate: localDateSchema.nullable().optional(),
+    endDate: localDateSchema.nullable().optional(),
+    zone: zoneSchema.nullable().optional(),
+    expectedUpdatedAt: z.string(),
+});
+export const placeTasksSchema = z.object({ items: z.array(placeTaskItemSchema).min(1).max(50) });
+export type PlaceTaskItem = z.infer<typeof placeTaskItemSchema>;
+
 // ── Row schema — exactly the DB columns (wire-shaped, timestamps as ISO strings) ──
 export const taskRowSchema = z.object({
     origin: z.enum(["thought"]).nullable(),

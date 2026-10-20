@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { useSubtasks, useCreateSubtask, useUpdateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
+import { SuggestedSteps, SuggestStepsButton } from "./SuggestSteps";
+import { useSuggestSteps } from "../../hooks/ai/use-suggest-steps";
 
 interface EditableItem { id: string; title: string; orderIndex: number; isComplete?: boolean }
 
@@ -80,6 +82,7 @@ export function SubtaskList({ taskId, focusAdd = false, onFocused }: { taskId: s
     const updateSubtask = useUpdateSubtask(taskId);
     const deleteSubtask = useDeleteSubtask(taskId);
     const reorderSubtasks = useReorderSubtasks(taskId);
+    const suggest = useSuggestSteps(taskId, subtasks);
 
     const [newTitle, setNewTitle] = useState("");
     const addRef = useRef<HTMLInputElement>(null);
@@ -129,6 +132,10 @@ export function SubtaskList({ taskId, focusAdd = false, onFocused }: { taskId: s
                         placeholder="Add a subtask…"
                         className="w-full bg-transparent text-[14px] leading-6 text-twilight-text-muted/90 outline-none placeholder:text-twilight-text-muted/80"
                     />
+                    <SuggestStepsButton s={suggest} />
+                </div>
+                <div className="pl-10">
+                    <SuggestedSteps s={suggest} />
                 </div>
             </div>
         </div>

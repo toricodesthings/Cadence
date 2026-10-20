@@ -20,6 +20,8 @@ export interface RouteAction {
     icon: LucideIcon;
     onSelect: () => void;
     danger?: boolean;
+    /** Kept in place but greyed out, with this reason under its label. */
+    disabledReason?: string;
     /** Phones can word or wire an action differently (no inline add input, for one). */
     compact?: { label?: string; onSelect?: () => void };
 }
@@ -53,7 +55,7 @@ export function TaskRouteControls({ routeKey, title, view, onViewChange, sortMod
                     onModeChange={onSortModeChange}
                     view={view}
                     onViewChange={onViewChange}
-                    actions={actions.map(({ label, icon, onSelect, danger }) => ({ label, icon, onSelect, danger }))}
+                    actions={actions.map(({ label, icon, onSelect, danger, disabledReason }) => ({ label, icon, onSelect, danger, disabledReason }))}
                 />
                 {!shell.isWide && onOpenDetails ? (
                     <button
@@ -86,11 +88,14 @@ export function TaskRouteControls({ routeKey, title, view, onViewChange, sortMod
             label: actionsLabel,
             content: (
                 <div className="space-y-2">
-                    {actions.map(({ label, icon: Icon, onSelect, danger, compact }) => (
-                        <button key={label} type="button" onClick={compact?.onSelect ?? onSelect} className={danger ? COMPACT_DANGER : COMPACT_ACTION}>
-                            <Icon size={15} aria-hidden="true" />
-                            {compact?.label ?? label}
-                        </button>
+                    {actions.map(({ label, icon: Icon, onSelect, danger, compact, disabledReason }, i) => (
+                        <div key={label}>
+                            <button type="button" onClick={compact?.onSelect ?? onSelect} disabled={!!disabledReason} aria-describedby={disabledReason ? `${routeKey}-action-${i}-reason` : undefined} className={`${danger ? COMPACT_DANGER : COMPACT_ACTION} disabled:cursor-default disabled:opacity-50`}>
+                                <Icon size={15} aria-hidden="true" />
+                                {compact?.label ?? label}
+                            </button>
+                            {disabledReason ? <p id={`${routeKey}-action-${i}-reason`} className="px-4 pt-1 text-center text-xs text-twilight-text-muted">{disabledReason}</p> : null}
+                        </div>
                     ))}
                 </div>
             ),

@@ -10,6 +10,8 @@ import { useNoteRoomStore } from "../../stores/note-room-store";
 import { useSearchNavigation } from "../../hooks/search/use-search-navigation";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import { GROUP_LABELS, GROUP_ORDER, SearchResultIcon } from "./search-groups";
+import { useSettings } from "../../hooks/core/use-settings";
+import { pushRecentSearch, readRecentSearches } from "../../lib/utils/recent-searches";
 
 interface MobileSearchSheetProps {
     open: boolean;
@@ -18,32 +20,6 @@ interface MobileSearchSheetProps {
 
 /** A couple of example chips so the empty state is never a blank void (§0.2 Law 1). */
 const EXAMPLE_CHIPS = ["Today", "Upcoming", "Routines", "Trash"] as const;
-
-const RECENT_KEY = "cadence-recent-searches";
-const RECENT_LIMIT = 6;
-
-function readRecent(): string[] {
-    try {
-        const raw = localStorage.getItem(RECENT_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed.filter((q): q is string => typeof q === "string") : [];
-    } catch {
-        return [];
-    }
-}
-
-function pushRecent(query: string): string[] {
-    const trimmed = query.trim();
-    if (!trimmed) return readRecent();
-    const next = [trimmed, ...readRecent().filter((q) => q.toLowerCase() !== trimmed.toLowerCase())].slice(0, RECENT_LIMIT);
-    try {
-        localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-    } catch {
-        /* noop — recents are a nicety, not load-bearing */
-    }
-    return next;
-}
 
 /**
  * Compact-mode search surface (§4.5 Mobile Translation Rule).
@@ -63,15 +39,16 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
     const { results, query } = useUniversalSearch(rawQuery, open);
     const navigateToResult = useSearchNavigation();
     const openNoteRoom = useNoteRoomStore((s) => s.open);
+    const keepRecent = useSettings().data?.privacy?.storeRecentSearches ?? true;
 
     useEffect(() => {
         if (open) {
             setRawQuery("");
-            setRecent(readRecent());
+            setRecent(keepRecent ? readRecentSearches() : []);
             requestAnimationFrame(() => inputRef.current?.focus());
             trackUsageEvent("command_palette.opened", { input_method: "touch" });
         }
-    }, [open]);
+    }, [open, keepRecent]);
 
     const groups = useMemo(() => {
         const built: { key: string; label: string; items: SearchResult[] }[] = [];
@@ -90,10 +67,10 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
 
     const handleSelect = useCallback(
         (result: SearchResult) => {
-            if (hasQuery) setRecent(pushRecent(query));
+            if (hasQuery && keepRecent) setRecent(pushRecentSearch(query));
             navigateToResult(result, () => onOpenChange(false));
         },
-        [hasQuery, query, navigateToResult, onOpenChange],
+        [hasQuery, keepRecent, query, navigateToResult, onOpenChange],
     );
 
     const handleSubmit = (e: React.FormEvent) => {

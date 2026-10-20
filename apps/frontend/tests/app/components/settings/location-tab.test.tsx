@@ -39,12 +39,11 @@ describe("LocationTab", () => {
         expect(setManual).toHaveBeenCalledWith({ countryCode: "JP", subdivisionCode: null });
     });
 
-    it("shows the saved city with Change and Remove, and the chosen holiday region", () => {
+    it("shows the saved city with Change and Remove", () => {
         setup();
         expect(screen.getByText("Ottawa")).toBeTruthy();
         fireEvent.click(screen.getByRole("button", { name: "Change" }));
         expect(screen.getByLabelText("Search for a city")).toBeTruthy();
-        expect(screen.getByText("CA-ON, Canada · chosen by you")).toBeTruthy();
     });
 
     it("forgets the saved location from the privacy section", () => {

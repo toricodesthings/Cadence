@@ -14,23 +14,9 @@ interface ShortcutOptions {
     onLayoutScaleIncrease?: () => void;
     onLayoutScaleDecrease?: () => void;
     onLayoutScaleReset?: () => void;
-    // Object-level actions (§10.3)
-    onRescheduleTask?: () => void;
-    onPinTask?: () => void;
-    onOpenMenu?: () => void;
-    onEditObject?: () => void;
-    onQuickActions?: () => void;
-    onCapture?: () => void;
-    onQuickAddTask?: () => void;
     // Page-level navigation (§10.3)
     onNextSection?: () => void;
     onPrevSection?: () => void;
-    onCollapseExpand?: () => void;
-    onSwitchDayView?: () => void;
-    onSwitchWeekView?: () => void;
-    onJumpToday?: () => void;
-    onNextPeriod?: () => void;
-    onPrevPeriod?: () => void;
     onNextStep?: () => void;
     onPrevStep?: () => void;
     onExitResume?: () => void;
@@ -81,12 +67,8 @@ function isMetaBinding(binding: string): boolean {
 /**
  * Global keyboard shortcuts — reads bindings from user settings.
  *
- * Fixed (always active):
- * G then T → Today, G then S → Schedule, G then I → Inbox,
- * G then H → Habits, G then U → Upcoming, G then W → Weekly Review
- *
- * Configurable (from settings.shortcuts.bindings):
- * commandPalette, newTask, focusSearch, toggleView, completeTask, archiveTask
+ * What each key does is listed once, for people, in `lib/constants/shortcuts.ts`
+ * (Settings › Keyboard Shortcuts and the `?` reference): change both together.
  */
 export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
     const navigate = useNavigate();
@@ -201,32 +183,6 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
                 }
             }
 
-            // Object-level actions (§10.3) — only when not in inputs
-            const objectBindings: [string, (() => void) | undefined][] = [
-                [bindings.rescheduleTask ?? "r", opts.onRescheduleTask],
-                [bindings.pinTask ?? "p", opts.onPinTask],
-                [bindings.openMenu ?? "m", opts.onOpenMenu],
-                [bindings.editObject ?? "e", opts.onEditObject],
-                [bindings.quickActions ?? ".", opts.onQuickActions],
-                [bindings.capture ?? "q", opts.onCapture],
-            ];
-
-            for (const [binding, handler] of objectBindings) {
-                if (!handler) continue;
-                if (matchesBinding(e, binding)) {
-                    e.preventDefault();
-                    handler();
-                    return;
-                }
-            }
-
-            // Shift-modified quick add task
-            if (opts.onQuickAddTask && matchesBinding(e, bindings.quickAddTask ?? "shift+q")) {
-                e.preventDefault();
-                opts.onQuickAddTask();
-                return;
-            }
-
             // Page-level navigation (§10.3)
             const key = e.key.toLowerCase();
 
@@ -237,7 +193,7 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
                 return;
             }
 
-            // Section nav: j = next, k = prev, o = collapse/expand
+            // Section nav: j = next, k = prev
             if (key === "j" && opts.onNextSection) {
                 e.preventDefault();
                 opts.onNextSection();
@@ -248,40 +204,8 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
                 opts.onPrevSection();
                 return;
             }
-            if (key === "o" && opts.onCollapseExpand) {
-                e.preventDefault();
-                opts.onCollapseExpand();
-                return;
-            }
 
-            // Schedule view: d = day, w = week, t = today, l/→ = next, h/← = prev
-            if (key === "d" && opts.onSwitchDayView) {
-                e.preventDefault();
-                opts.onSwitchDayView();
-                return;
-            }
-            if (key === "w" && opts.onSwitchWeekView) {
-                e.preventDefault();
-                opts.onSwitchWeekView();
-                return;
-            }
-            if (key === "t" && opts.onJumpToday) {
-                e.preventDefault();
-                opts.onJumpToday();
-                return;
-            }
-            if ((key === "l" || e.key === "ArrowRight") && opts.onNextPeriod) {
-                e.preventDefault();
-                opts.onNextPeriod();
-                return;
-            }
-            if ((key === "h" || e.key === "ArrowLeft") && opts.onPrevPeriod) {
-                e.preventDefault();
-                opts.onPrevPeriod();
-                return;
-            }
-
-            // Weekly Reset: →/n = next step, ←/p = prev step, Escape = exit
+            // Weekly Reset: →/n = next step, ←/b = prev step, Escape = exit
             if ((e.key === "ArrowRight" || key === "n") && opts.onNextStep) {
                 e.preventDefault();
                 opts.onNextStep();

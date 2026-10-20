@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Check } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Check, X } from "lucide-react";
 import { MAX_ROUTINE_STEPS, type Habit, type HabitLog, type RoutineStep, type StepStatus } from "@cadence/contracts/habit";
 import { stepMarksOn } from "@cadence/domain/repeats";
 import { useResolveHabit } from "../../hooks/habits/use-resolve-habit";
@@ -84,43 +84,81 @@ export function RoutineStepChecklist({ habit, date, log }: {
     };
 
     return (
-        <ul aria-label="Steps" className="flex flex-col">
-            {steps.map((step) => {
-                const state = marks[step.id];
-                return (
-                    <li key={step.id} className="flex min-h-11 items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={() => mark(step.id, "COMPLETED")}
-                            aria-pressed={state === "COMPLETED"}
-                            aria-label={`${step.title}: done`}
-                            className="touch-target flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--routine-tone,var(--color-moonlit))]"
+        <RoutineCheckList
+            label="Steps"
+            items={steps.map((step) => ({ id: step.id, name: step.title, title: step.title, state: marks[step.id] }))}
+            onMark={mark}
+        />
+    );
+}
+
+type CheckMark = "COMPLETED" | "SKIPPED";
+
+/**
+ * A day's steps or times as soft rows under a segmented progress track: the
+ * whole row checks it off (tap again to clear), Skip sits quietly at the end.
+ * Rows take the routine's tone from `--routine-tone`.
+ */
+export function RoutineCheckList({ label, items, onMark }: {
+    label: string;
+    items: { id: string; name: string; title: ReactNode; note?: string; state?: CheckMark }[];
+    onMark: (id: string, next: CheckMark) => void;
+}) {
+    return (
+        <div>
+            <div aria-hidden="true" className="flex gap-1 px-2.5 pb-2 pt-1">
+                {items.map((item) => (
+                    <span
+                        key={item.id}
+                        className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
+                            item.state === "COMPLETED"
+                                ? "bg-[color-mix(in_srgb,var(--routine-tone,var(--color-moonlit))_80%,transparent)]"
+                                : item.state === "SKIPPED" ? "bg-twilight-border/60" : "bg-white/[0.08]"
+                        }`}
+                    />
+                ))}
+            </div>
+            <ul aria-label={label} className="flex flex-col gap-0.5">
+                {items.map((item) => {
+                    const done = item.state === "COMPLETED";
+                    const skipped = item.state === "SKIPPED";
+                    return (
+                        <li
+                            key={item.id}
+                            className={`group flex items-center rounded-2xl transition-colors ${done ? "bg-[color-mix(in_srgb,var(--routine-tone,var(--color-moonlit))_12%,transparent)]" : "hover:bg-white/[0.04]"}`}
                         >
-                            <span className={`flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] transition-colors ${
-                                state === "COMPLETED"
-                                    ? "border-transparent bg-[color-mix(in_srgb,var(--routine-tone,var(--color-moonlit))_80%,transparent)] text-[var(--primary-foreground)]"
-                                    : state === "SKIPPED"
-                                        ? "border-twilight-border/45"
-                                        : "border-[color-mix(in_srgb,var(--routine-tone,var(--color-moonlit))_45%,transparent)] hover:border-[color-mix(in_srgb,var(--routine-tone,var(--color-moonlit))_75%,transparent)]"
-                            }`}>
-                                {state === "COMPLETED" ? <Check size={13} strokeWidth={3} aria-hidden="true" /> : null}
-                            </span>
-                        </button>
-                        <span className={`min-w-0 flex-1 truncate text-sm ${state === "COMPLETED" ? "text-twilight-text-muted line-through decoration-twilight-text-muted/60" : state === "SKIPPED" ? "text-twilight-text-muted" : "text-twilight-text"}`}>
-                            {step.title}
-                        </span>
-                        <button
-                            type="button"
-                            onClick={() => mark(step.id, "SKIPPED")}
-                            aria-pressed={state === "SKIPPED"}
-                            aria-label={state === "SKIPPED" ? `${step.title}: skipped` : `Skip ${step.title}`}
-                            className="min-h-9 shrink-0 cursor-pointer rounded-lg px-2.5 text-xs font-medium text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 aria-pressed:bg-white/[0.08] aria-pressed:text-twilight-text-soft"
-                        >
-                            {state === "SKIPPED" ? "Skipped" : "Skip"}
-                        </button>
-                    </li>
-                );
-            })}
-        </ul>
+                            <button
+                                type="button"
+                                onClick={() => onMark(item.id, "COMPLETED")}
+                                aria-pressed={done}
+                                aria-label={`${item.name}: done`}
+                                className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-2xl pl-2.5 pr-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--routine-tone,var(--color-moonlit))]"
+                            >
+                                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors ${
+                                    done
+                                        ? "bg-[color-mix(in_srgb,var(--routine-tone,var(--color-moonlit))_80%,transparent)] text-[var(--primary-foreground)]"
+                                        : skipped
+                                            ? "border border-dashed border-twilight-border/70 text-twilight-text-muted"
+                                            : "border-[1.5px] border-[color-mix(in_srgb,var(--routine-tone,var(--color-moonlit))_45%,transparent)] group-hover:border-[color-mix(in_srgb,var(--routine-tone,var(--color-moonlit))_80%,transparent)]"
+                                }`}>
+                                    {done ? <Check size={13} strokeWidth={3} aria-hidden="true" /> : skipped ? <X size={11} aria-hidden="true" /> : null}
+                                </span>
+                                <span className={`min-w-0 flex-1 truncate text-sm ${done || skipped ? "text-twilight-text-muted" : "text-twilight-text"}`}>{item.title}</span>
+                                {item.note ? <span className="shrink-0 text-xs tabular-nums text-twilight-text-muted">{item.note}</span> : null}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onMark(item.id, "SKIPPED")}
+                                aria-pressed={skipped}
+                                aria-label={skipped ? `${item.name}: skipped` : `Skip ${item.name}`}
+                                className={`min-h-11 shrink-0 cursor-pointer rounded-2xl px-3 text-xs font-medium text-twilight-text-muted transition-[color,opacity] hover:text-twilight-text focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${skipped ? "text-twilight-text-soft" : "opacity-60 group-hover:opacity-100"}`}
+                            >
+                                {skipped ? "Skipped" : "Skip"}
+                            </button>
+                        </li>
+                    );
+                })}
+            </ul>
+        </div>
     );
 }

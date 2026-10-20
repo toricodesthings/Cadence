@@ -1,11 +1,11 @@
 import { TaskRouteControls } from "../components/shared/TaskRouteControls";
 import { useTaskIntelligence } from "../hooks/core/use-task-intelligence";
 import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { DayEventRows } from "../components/events/DayEventRows";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import { EyeOff, Eye, Inbox, Sunrise, Flame, CalendarClock } from "lucide-react";
+import { EyeOff, Eye, Inbox, Sunrise, Flame, CalendarClock, CalendarRange } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { Tip } from "../components/primitives";
 import { RoutineAgendaList, routineAgendaItems } from "../components/shared/RoutineAgendaRow";
@@ -15,6 +15,10 @@ import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { DaySpine, SpineSummary, SpineTimeline, type SpineItem } from "../components/today/DaySpine";
+import { FitDayPreview } from "../components/today/FitDayPreview";
+import { UtilitySheet } from "../components/shared/UtilitySheet";
+import { fitTodayReason, useFitDay } from "../hooks/tasks/use-fit-day";
+import type { FitDayResult } from "@cadence/domain/fit-day";
 import { TaskList } from "../components/tasks/TaskList";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";
@@ -162,6 +166,15 @@ export default function TodayRoute() {
     }, [grouped, todayISO]);
 
 
+    // Fit today: one preview of today's untimed tasks in its gaps, opened from the controls menu only.
+    const fit = useFitDay(todayISO);
+    const fitTasks = useMemo(() => [...grouped.stillOpen, ...grouped.today], [grouped]);
+    const fitReason = fitTodayReason(fit, fitTasks);
+    const [fitDraft, setFitDraft] = useState<FitDayResult | null | false>(false);
+    const fitPreview = fitDraft === false ? null : (
+        <FitDayPreview day={todayISO} fit={fit} initial={fitDraft} ordered={fitTasks} onDone={() => setFitDraft(false)} />
+    );
+
     const openRoutine = (habitId: string) => {
         navigate(`/routines?${buildFocusSearchParams({ focusKind: "habit", focusId: habitId })}`);
     };
@@ -187,6 +200,12 @@ export default function TodayRoute() {
             sortMode={sortMode}
             onSortModeChange={setSortMode}
             onOpenDetails={selectedTaskId ? () => setMobilePanelOpen(true) : undefined}
+            actions={[{
+                label: "Fit into today's gaps",
+                icon: CalendarRange,
+                onSelect: () => setFitDraft(fit.ready ? fit.plan(fitTasks) : null),
+                disabledReason: fitReason ?? undefined,
+            }]}
         />
     );
 
@@ -308,6 +327,12 @@ export default function TodayRoute() {
         >
             <PageContent width="default" className="shrink-0 pb-0 empty:hidden">
                 <ActiveFilterBar placement="body" />
+                {!shell.isCompact && fitPreview ? (
+                    <section aria-labelledby="fit-today-heading" className="surface-card mb-4 flex flex-col gap-3 rounded-[24px] p-4">
+                        <h2 id="fit-today-heading" className="font-display text-base font-semibold text-twilight-text">Fit into today’s gaps</h2>
+                        {fitPreview}
+                    </section>
+                ) : null}
                 {!isLoading && totalVisible === 0 ? <DayEventRows events={todayDayEvents} className="pb-2" /> : null}
             </PageContent>
             {view === "kanban" ? (
@@ -348,6 +373,12 @@ export default function TodayRoute() {
                     </PageContent>
                 </ScrollAreaWrapper>
             )}
+
+            {shell.isCompact ? (
+                <UtilitySheet title="Fit into today’s gaps" fit open={fitDraft !== false} onClose={() => setFitDraft(false)}>
+                    {fitPreview ?? <span />}
+                </UtilitySheet>
+            ) : null}
 
             {!shell.isWide && selectedTaskId && (
                 <ResponsiveOverlayPanel

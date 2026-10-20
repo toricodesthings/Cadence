@@ -13,6 +13,9 @@ import { RoutineTimeChecklist } from "./RoutineTimes";
 import { timeMarksOn, timeProgress } from "@cadence/domain/repeats";
 
 const LONG_PRESS_MS = 450;
+/** Pointer hover on a routine at set times: a beat before opening, and grace to cross into the card. */
+const HOVER_OPEN_MS = 150;
+const HOVER_CLOSE_MS = 200;
 
 const SIZE = {
     md: "h-11 w-11",
@@ -32,7 +35,7 @@ const SM_HIT = "before:absolute before:-inset-[3px] before:rounded-full before:c
  * long-press opens the day menu (Done · Skip · Clear, then the steps one by one
  * when the routine has them). A partly done day shows "2/3" (the date in month
  * grids) in the open look. A routine at set times opens its time checklist
- * instead: a whole-day tap would otherwise check off times that haven't come. Keys: Space toggles, S skips, E opens the routine.
+ * instead (a mouse just hovers it): a whole-day tap would otherwise check off times that haven't come. Keys: Space toggles, S skips, E opens the routine.
  */
 export function RoutineDayCell({
     habit,
@@ -69,7 +72,12 @@ export function RoutineDayCell({
     const [blooming, setBlooming] = useState(false);
     const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const longPressed = useRef(false);
-    useEffect(() => () => { if (pressTimer.current) clearTimeout(pressTimer.current); }, []);
+    const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const openedByHover = useRef(false);
+    useEffect(() => () => {
+        if (pressTimer.current) clearTimeout(pressTimer.current);
+        if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    }, []);
 
     const status = log?.status;
     const dayLabel = formatShortDateLabel(date);
@@ -106,6 +114,27 @@ export function RoutineDayCell({
     };
     const toggle = () => set(status === "COMPLETED" ? "PENDING" : "COMPLETED");
 
+    // Hover opens without taking focus and closes on leave; a click or key open stays until dismissed.
+    const hoverProps = timed && !isTouch ? {
+        onPointerEnter: (e: React.PointerEvent) => {
+            if (e.pointerType !== "mouse") return;
+            if (hoverTimer.current) clearTimeout(hoverTimer.current);
+            if (menuOpen) return;
+            hoverTimer.current = setTimeout(() => { openedByHover.current = true; setMenuOpen(true); }, HOVER_OPEN_MS);
+        },
+        onPointerLeave: (e: React.PointerEvent) => {
+            if (e.pointerType !== "mouse") return;
+            if (hoverTimer.current) clearTimeout(hoverTimer.current);
+            if (menuOpen && !openedByHover.current) return;
+            hoverTimer.current = setTimeout(() => setMenuOpen(false), HOVER_CLOSE_MS);
+        },
+    } : {};
+    const onMenuOpenChange = (open: boolean) => {
+        if (hoverTimer.current) clearTimeout(hoverTimer.current);
+        if (!open) openedByHover.current = false;
+        setMenuOpen(open);
+    };
+
     const clearPress = () => {
         if (pressTimer.current) clearTimeout(pressTimer.current);
         pressTimer.current = null;
@@ -126,7 +155,7 @@ export function RoutineDayCell({
                     : "border border-dashed border-transparent text-twilight-text-soft hover:border-twilight-text-muted focus-visible:border-twilight-text-muted";
 
     return (
-        <Popover.Root open={menuOpen} onOpenChange={setMenuOpen}>
+        <Popover.Root open={menuOpen} onOpenChange={onMenuOpenChange}>
             <Popover.Anchor asChild>
                 <button
                     type="button"
@@ -144,6 +173,7 @@ export function RoutineDayCell({
                             longPressed.current = false;
                             return;
                         }
+                        openedByHover.current = false;
                         toggle();
                     }}
                     onContextMenu={(e) => {
@@ -161,7 +191,8 @@ export function RoutineDayCell({
                         }, LONG_PRESS_MS);
                     }}
                     onPointerUp={clearPress}
-                    onPointerLeave={clearPress}
+                    onPointerEnter={hoverProps.onPointerEnter}
+                    onPointerLeave={(e) => { clearPress(); hoverProps.onPointerLeave?.(e); }}
                     onPointerCancel={clearPress}
                     onKeyDown={(e) => {
                         if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -188,28 +219,45 @@ export function RoutineDayCell({
                             : label ?? progress ?? (isToday ? <RoutineMark emoji={habit.emoji} size={13} /> : <span aria-hidden="true" className="h-1 w-1 rounded-full bg-twilight-text-muted/70" />)}
                 </button>
             </Popover.Anchor>
-            <Popover.Content side="top" align="center" style={style} className="w-auto p-2" aria-label={`${habit.title}, ${dayLabel}`}>
-                <p className="px-2 pb-2 pt-1 text-xs font-medium text-twilight-text-soft">{dayLabel}</p>
-                {timed ? <div className="w-64"><RoutineTimeChecklist habit={habit} date={date} log={log} /></div> : <div className="flex gap-1.5">
+            <Popover.Content
+                side="top"
+                align="center"
+                style={style}
+                className="w-auto rounded-3xl p-2"
+                aria-label={`${habit.title}, ${dayLabel}`}
+                {...hoverProps}
+                onOpenAutoFocus={(e) => { if (openedByHover.current) e.preventDefault(); }}
+                onCloseAutoFocus={(e) => { if (openedByHover.current) e.preventDefault(); }}
+            >
+                <p className="flex items-center gap-1.5 px-2.5 pb-1.5 pt-1 text-xs font-medium text-twilight-text-soft">
+                    <span className="text-[var(--routine-tone)]"><RoutineMark emoji={habit.emoji} size={12} /></span>
+                    {dayLabel}
+                </p>
+                {timed ? <div className="w-64"><RoutineTimeChecklist habit={habit} date={date} log={log} /></div> : <div className="flex gap-1 px-1 pb-1">
                     {([
-                        ["COMPLETED", "Done", Check],
-                        ["SKIPPED", "Skip", X],
-                        ["PENDING", "Clear", RotateCcw],
-                    ] as const).map(([next, text, Icon]) => (
-                        <button
-                            key={next}
-                            type="button"
-                            aria-pressed={(status ?? "PENDING") === next}
-                            onClick={() => { set(next, false); setMenuOpen(false); }}
-                            className="touch-target flex min-h-11 min-w-16 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 aria-pressed:bg-white/[0.08] aria-pressed:text-twilight-text"
-                        >
-                            <Icon size={16} aria-hidden="true" />
-                            {text}
-                        </button>
-                    ))}
+                        ["COMPLETED", "Done", Check, "bg-[color-mix(in_srgb,var(--routine-tone)_80%,transparent)] text-[var(--primary-foreground)]", "border-[1.5px] border-[color-mix(in_srgb,var(--routine-tone)_55%,transparent)] text-[var(--routine-tone)]"],
+                        ["SKIPPED", "Skip", X, "bg-twilight-border/50 text-twilight-text", "border border-twilight-border/60 text-twilight-text-soft"],
+                        ["PENDING", "Clear", RotateCcw, "bg-white/[0.08] text-twilight-text", "border border-dashed border-twilight-border/60 text-twilight-text-soft"],
+                    ] as const).map(([next, text, Icon, on, off]) => {
+                        const pressed = (status ?? "PENDING") === next;
+                        return (
+                            <button
+                                key={next}
+                                type="button"
+                                aria-pressed={pressed}
+                                onClick={() => { set(next, false); setMenuOpen(false); }}
+                                className="group flex min-w-16 cursor-pointer flex-col items-center gap-1.5 rounded-2xl px-2 py-1.5 text-xs font-medium text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--routine-tone)]"
+                            >
+                                <span className={`flex h-10 w-10 items-center justify-center rounded-full transition-[background-color,border-color,transform] duration-200 group-hover:scale-105 motion-reduce:group-hover:scale-100 ${pressed ? on : off}`}>
+                                    <Icon size={16} strokeWidth={next === "COMPLETED" ? 3 : 2} aria-hidden="true" />
+                                </span>
+                                {text}
+                            </button>
+                        );
+                    })}
                 </div>}
                 {habit.steps?.length ? (
-                    <div className="mt-2 w-64 border-t border-twilight-border/30 pt-1">
+                    <div className="mt-1 w-64 border-t border-twilight-border/30 pt-1">
                         <RoutineStepChecklist habit={habit} date={date} log={log} />
                     </div>
                 ) : null}

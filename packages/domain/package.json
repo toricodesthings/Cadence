@@ -19,6 +19,7 @@
     "./duration-chips": "./src/duration-chips.ts",
     "./task-length": "./src/task-length.ts",
     "./find-time": "./src/find-time.ts",
+    "./fit-day": "./src/fit-day.ts",
     "./slot-preference": "./src/slot-preference.ts",
     "./planning-offers": "./src/planning-offers.ts"
   },

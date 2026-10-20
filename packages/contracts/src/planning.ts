@@ -60,3 +60,17 @@ export const planningEvidenceSchema = z.object({
     stated: z.array(statedWhenSchema),
 });
 export type PlanningEvidence = z.infer<typeof planningEvidenceSchema>;
+
+/** A drafted first step's longest length. */
+export const STEP_MAX_CHARS = 80;
+
+/**
+ * `POST /ai/steps`: a few small first steps drafted for a task, from its title, notes, list and existing steps only.
+ * `smaller` carries the draft the person saw, to be broken down finer once. Nothing is stored: Keep writes subtasks.
+ */
+export const suggestStepsSchema = z.object({
+    taskId: z.uuid(),
+    smaller: z.array(z.string().max(STEP_MAX_CHARS)).min(1).max(7).optional(),
+});
+export type SuggestStepsInput = z.infer<typeof suggestStepsSchema>;
+export const suggestedStepsSchema = z.object({ steps: z.array(z.string().max(STEP_MAX_CHARS)).min(1).max(7) });

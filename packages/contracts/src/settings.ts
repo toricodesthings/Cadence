@@ -136,7 +136,6 @@ export const backgroundUploadMetaSchema = z.object({
 
 export const userSettingsSchema = z.object({
     profile: z.object({
-        pronouns: z.string().optional(),
         birthday: z.string().nullable().optional(),
     }).optional(),
     appearance: z.object({
@@ -201,8 +200,6 @@ export const userSettingsSchema = z.object({
     }).optional(),
     calendar: z.object({
         defaultView: z.enum(["month", "week", "day"]).optional(),
-        showWeekNumbers: z.boolean().optional(),
-        showWeekends: z.boolean().optional(),
         /** The hour (0-23) Day and Week open scrolled to. */
         timelineStartHour: z.number().int().min(0).max(23).optional(),
         clutter: z.object({
@@ -237,9 +234,7 @@ export const userSettingsSchema = z.object({
         defaultDueDate: z.enum(["None", "Today", "Tomorrow", "Next Week"]).nullable().optional(),
         defaultView: z.enum(["list", "kanban"]).optional(),
         defaultPriority: z.enum(TASK_PRIORITY_NAMES).optional(),
-        defaultDurationMinutes: z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60), z.literal(90)]).nullable().optional(),
         newTaskPlacement: z.enum(["top", "bottom"]).optional(),
-        openDetailOnCreate: z.boolean().optional(),
         hideTrash: z.boolean().optional(),
         hideCompleted: z.boolean().optional(),
         showDoneCelebration: z.boolean().optional(),
@@ -255,12 +250,10 @@ export const userSettingsSchema = z.object({
             /** Suggest an Effort from this account's own earlier choices. */
             effortSuggestions: z.boolean().optional(),
             confidenceThreshold: z.enum(["high", "medium", "low"]).optional(),
-            showExplanations: z.boolean().optional(),
             smartSortEnabled: z.boolean().optional(),
             /** Suggest a list and section for captures, and a "did you mean" task when a search finds nothing. On unless `false`. */
             smartPlacement: z.boolean().optional(),
             focusViewsEnabled: z.boolean().optional(),
-            focusViewPresentation: z.enum(["compact", "expanded"]).optional(),
             lowStimulationMode: z.boolean().optional(),
             dismissedEntityIds: z.array(z.string()).optional(),
             dismissedEntities: z.array(z.object({
@@ -272,7 +265,6 @@ export const userSettingsSchema = z.object({
     }).optional(),
     shortcuts: z.object({
         enabled: z.boolean().optional(),
-        showHints: z.boolean().optional(),
         bindings: z.object({
             commandPalette: z.string().optional(),
             newTask: z.string().optional(),
@@ -280,13 +272,6 @@ export const userSettingsSchema = z.object({
             toggleView: z.string().optional(),
             completeTask: z.string().optional(),
             archiveTask: z.string().optional(),
-            rescheduleTask: z.string().optional(),
-            pinTask: z.string().optional(),
-            openMenu: z.string().optional(),
-            editObject: z.string().optional(),
-            quickActions: z.string().optional(),
-            capture: z.string().optional(),
-            quickAddTask: z.string().optional(),
         }).optional(),
     }).optional(),
     integrations: z.object({
@@ -443,7 +428,6 @@ export const settingsPatchSchema = deepPartial(patchSource) as z.ZodType<DeepPar
 
 export const SETTINGS_DEFAULTS = {
     profile: {
-        pronouns: "",
         birthday: null as string | null,
     },
     appearance: {
@@ -490,8 +474,6 @@ export const SETTINGS_DEFAULTS = {
     },
     calendar: {
         defaultView: "month" as const,
-        showWeekNumbers: false,
-        showWeekends: true,
         timelineStartHour: 7,
         clutter: {
             showAllDay: true,
@@ -521,9 +503,7 @@ export const SETTINGS_DEFAULTS = {
         defaultDueDate: null as "None" | "Today" | "Tomorrow" | "Next Week" | null,
         defaultView: "list" as const,
         defaultPriority: "none" as const,
-        defaultDurationMinutes: null as 15 | 30 | 45 | 60 | 90 | null,
         newTaskPlacement: "bottom" as const,
-        openDetailOnCreate: false,
         hideCompleted: false,
         hideTrash: false,
         showDoneCelebration: true,
@@ -538,11 +518,9 @@ export const SETTINGS_DEFAULTS = {
             autoParseOnCapture: true,
             effortSuggestions: true,
             confidenceThreshold: "medium" as const,
-            showExplanations: true,
             smartSortEnabled: true,
             smartPlacement: true,
             focusViewsEnabled: true,
-            focusViewPresentation: "compact" as const,
             lowStimulationMode: false,
             dismissedEntityIds: [] as string[],
             dismissedEntities: [] as Array<{ entityType: string; dismissedAt: string; scope: "once" | "always" }>,
@@ -550,7 +528,6 @@ export const SETTINGS_DEFAULTS = {
     },
     shortcuts: {
         enabled: true,
-        showHints: true,
         bindings: {
             commandPalette: "mod+k",
             newTask: "t",
@@ -558,13 +535,6 @@ export const SETTINGS_DEFAULTS = {
             toggleView: "v",
             completeTask: "c",
             archiveTask: "e",
-            rescheduleTask: "r",
-            pinTask: "p",
-            openMenu: "m",
-            editObject: "e",
-            quickActions: ".",
-            capture: "q",
-            quickAddTask: "shift+q",
         },
     },
     integrations: {

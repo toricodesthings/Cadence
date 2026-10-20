@@ -146,6 +146,18 @@ export function AppearanceTab() {
                         theme={appearance.theme}
                     />
                 </fieldset>
+                <SettingsRow title="Intensity" description="How brightly accent colours glow across the interface.">
+                    <SegmentedControl
+                        ariaLabel="Accent intensity"
+                        value={appearance.accentIntensity}
+                        onChange={(accentIntensity) => updateSettings.mutate({ appearance: { accentIntensity } })}
+                        options={[
+                            { value: "soft", label: "Soft" },
+                            { value: "balanced", label: "Balanced" },
+                            { value: "vivid", label: "Vivid" },
+                        ]}
+                    />
+                </SettingsRow>
             </SettingsSection>
 
             {/* ── Background ── */}
@@ -168,21 +180,6 @@ export function AppearanceTab() {
                     onGradientChange={handleBackgroundGradient}
                     onImageAdjust={handleImageAdjust}
                 />
-            </SettingsSection>
-
-            <SettingsSection title="Accent intensity">
-                <p className="text-sm text-twilight-text-muted">Controls how brightly accent colors glow across the interface.</p>
-                <div>
-                    <SegmentedControl
-                        value={appearance.accentIntensity}
-                        onChange={(accentIntensity) => updateSettings.mutate({ appearance: { accentIntensity } })}
-                        options={[
-                            { value: "soft", label: "Soft" },
-                            { value: "balanced", label: "Balanced" },
-                            { value: "vivid", label: "Vivid" },
-                        ]}
-                    />
-                </div>
             </SettingsSection>
 
             {/* ── Loading screen ── */}
@@ -212,15 +209,14 @@ export function AppearanceTab() {
                         ]}
                     />
                 </SettingsRow>
-            </SettingsSection>
-
-            {/* ── Density ── */}
-            <SettingsSection title="Sidebar">
-                <SettingsRow title="Dot on Routines">
+                <SettingsRow
+                    title="Low stimulation"
+                    description="Calmer screens: no blooms on routines and no age labels on captures."
+                >
                     <Switch
-                        checked={settings?.notifications?.showHabitNavDueCount ?? true}
-                        aria-label="Dot on Routines"
-                        onCheckedChange={(showHabitNavDueCount) => updateSettings.mutate({ notifications: { showHabitNavDueCount } })}
+                        checked={settings?.tasks?.intelligence?.lowStimulationMode ?? false}
+                        aria-label="Low stimulation"
+                        onCheckedChange={(lowStimulationMode) => updateSettings.mutate({ tasks: { intelligence: { lowStimulationMode } } })}
                     />
                 </SettingsRow>
             </SettingsSection>

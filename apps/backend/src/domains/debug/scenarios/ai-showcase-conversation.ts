@@ -244,6 +244,14 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                     day: seedDate(clock, 1),
                     proposals: [{ start: `${seedDate(clock, 1)}T09:00:00-04:00`, end: `${seedDate(clock, 1)}T09:30:00-04:00`, label: "Tomorrow 9:00–9:30 AM", gap: true }],
                 }),
+                read("fit_day", { day: today }, {
+                    ok: true,
+                    day: today,
+                    placed: [{ id: venue.id, title: venue.title, start: `${today}T16:00:00-04:00`, end: `${today}T16:30:00-04:00`, label: "4:00–4:30 PM" }],
+                    didntFit: [],
+                    notSized: [],
+                    gaps: true,
+                }),
                 read("get_habit_status_today", {}, {
                     date: today,
                     statuses: routinesDue(activeHabits, today, today, today).map((h) => ({ habitId: h.id, title: h.title, status: "PENDING" })),

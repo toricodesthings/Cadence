@@ -14,7 +14,7 @@ import { SettingsList, SettingsRow, SettingsSection } from "../layout/SettingsLa
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { useApiClient } from "../../../hooks/auth/use-api-client";
 import { useUserLocation, type LocationSource, type ResolvedPlace } from "../../../hooks/environment/use-user-location";
-import { HOLIDAY_SOURCE_LABELS, useHolidayOverlay } from "../../../hooks/environment/use-holiday-overlay";
+import { useHolidayOverlay } from "../../../hooks/environment/use-holiday-overlay";
 import { fetchHolidayCountries, fetchHolidaySubdivisions } from "../../../lib/holidays/provider";
 import { getCountryLabel, getPreferredLocale } from "../../../lib/holidays/location-resolver";
 import { unwrapResponse } from "../../../lib/api/helpers";
@@ -82,10 +82,6 @@ export function LocationTab() {
     });
     const weatherEnabled = settings?.weather?.enabled ?? true;
 
-    const holidayNote = holidays.regionLabel && holidays.source
-        ? `${holidays.regionLabel} · ${HOLIDAY_SOURCE_LABELS[holidays.source]}`
-        : undefined;
-
     const handleForget = () => {
         location.forgetLocation();
     };
@@ -99,20 +95,13 @@ export function LocationTab() {
                 <LocationCard location={location} locale={locale} subdivisionFallback={holidays.subdivisionLabel} year={year} />
             </SettingsSection>
 
-            <SettingsSection title="Used for">
+            <SettingsSection title="Weather">
                 <SettingsList>
                     <SettingsRow inline title="Weather" description={location.mode === "off" ? "Hidden while location is off" : undefined}>
                         <Switch
                             checked={weatherEnabled}
                             onCheckedChange={(enabled) => updateSettings.mutate({ weather: { enabled } })}
                             aria-label="Show weather"
-                        />
-                    </SettingsRow>
-                    <SettingsRow inline title="Holidays" description={holidayNote}>
-                        <Switch
-                            checked={holidays.enabled}
-                            onCheckedChange={holidays.setEnabled}
-                            aria-label="Show holidays"
                         />
                     </SettingsRow>
                 </SettingsList>

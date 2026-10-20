@@ -1,14 +1,13 @@
 # Settings
-- [About Cadence](?settings=about): version and product info.
-- [Profile & Security](?settings=account): name, email, password, two-factor, devices.
-- [Appearance](?settings=appearance): theme, accent, background, motion, density.
-- [Notifications](?settings=notifications): reminders and lead times for tasks, due dates, timed blocks, routines and yearly events; pause, quiet hours, my morning/evening; daily summary is upcoming.
+- [About Cadence](?settings=about): version, desktop updates, Reload fresh.
+- [Profile & Security](?settings=account): name, photo, birthday, password, Google/GitHub sign-in, devices, delete account.
+- [Appearance](?settings=appearance): theme, accent, background, motion, low stimulation, density.
+- [Notifications](?settings=notifications): reminders and lead times for tasks, due dates, timed blocks, routines and yearly events; pause, quiet hours, my morning/evening, the dot on Routines; daily summary is upcoming.
 - [Calendar & Time](?settings=datetime): time zone, time and date format, week start, default view, the hour Day and Week open at, and what shows on the calendar (task kinds, holidays, yearly events).
-- [Tasks & Workflow](?settings=tasks): task defaults, views, routine streaks, Quick Add, smart features.
-- [Keyboard Shortcuts](?settings=shortcuts): key bindings and navigation shortcuts.
+- [Tasks & Routines](?settings=tasks): task defaults, views, routine streaks, Quick Add, smart features (typed dates, Effort suggestions, suggested destinations, smart sort, focus views).
+- [Keyboard Shortcuts](?settings=shortcuts): every shortcut, and the keys you can change.
 - [Cadence Assistant](?settings=assistant): the assistant's name, voice and behavior.
 - [Integrations](?settings=integrations): Connected assistants, where outside assistants like Claude that can read your Cadence, add to Capture or change your data are listed, each with Disconnect. Calendar and notes sync are coming soon.
-- [Intelligence & Privacy](?settings=ai): AI privacy, natural-language parsing, smart sort, focus views.
 - [Location & Weather](?settings=location): weather and holidays for your area.
-- [Data & Export](?settings=privacy): privacy preferences, data export, desktop updates.
+- [Data & Privacy](?settings=privacy): usage diagnostics, crash reports, recent searches, clear intelligence history, email my data.
 - [All settings](?settings=menu).

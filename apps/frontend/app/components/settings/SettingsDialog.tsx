@@ -6,17 +6,21 @@ import { SearchField } from "../primitives/SearchField";
 import { cn } from "../../lib/utils";
 import { flushAllPendingSettingsMutations } from "../../hooks/core/use-settings";
 
-import { SettingsContent, SETTINGS_CATEGORIES, type TabId } from "./SettingsContent";
+import { SettingsContent, SETTINGS_CATEGORIES, settingsTab, type TabId } from "./SettingsContent";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { SettingsSheet } from "./SettingsSheet";
 
 export function SettingsDialog() {
     const shell = useShellMode();
     const [searchParams, setSearchParams] = useSearchParams();
-    const activeTab = searchParams.get("settings") as TabId | null;
+    const activeTab = settingsTab(searchParams.get("settings")) as TabId | null;
 
     // We keep internal state for search to filter tabs in the sidebar
     const [searchQuery, setSearchQuery] = React.useState("");
+    // Search matches a tab's name or any of its row titles
+    const needle = searchQuery.trim().toLowerCase();
+    const matches = SETTINGS_CATEGORIES.filter((item) => !item.isHeader
+        && [item.label, ...(item.keywords ?? [])].some((text) => text.toLowerCase().includes(needle)));
 
     const handleClose = async () => {
         await flushAllPendingSettingsMutations();
@@ -62,8 +66,12 @@ export function SettingsDialog() {
                         </div>
 
                         <nav className="flex flex-col gap-1 pr-2">
+                            {needle && matches.length === 0 && (
+                                <p className="px-3 py-2 text-sm text-twilight-text-soft">No settings match “{searchQuery.trim()}”.</p>
+                            )}
                             {SETTINGS_CATEGORIES.map((item, i) => {
                                 if (item.isHeader) {
+                                    if (needle) return null;
                                     return (
                                         <div key={`header-${i}`} className="mt-4 mb-1 px-3 text-xs font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
                                             {item.label}
@@ -71,10 +79,7 @@ export function SettingsDialog() {
                                     );
                                 }
 
-                                // Filter by search
-                                if (searchQuery && !item.label?.toLowerCase().includes(searchQuery.toLowerCase())) {
-                                    return null;
-                                }
+                                if (needle && !matches.includes(item)) return null;
 
                                 const Icon = item.icon;
                                 if (!Icon || !item.id) return null;
@@ -94,11 +99,6 @@ export function SettingsDialog() {
                                     >
                                         <Icon className={cn("h-4 w-4", isActive ? "h-5 w-5 text-accent-primary" : "text-twilight-text-muted")} />
                                         {item.label}
-                                        {item.badge && (
-                                            <span className="ml-auto rounded-full border border-accent-primary/30 bg-accent-primary/12 px-1.5 py-0.5 text-[10px] font-medium text-accent-primary">
-                                                {item.badge}
-                                            </span>
-                                        )}
                                     </button>
                                 );
                             })}

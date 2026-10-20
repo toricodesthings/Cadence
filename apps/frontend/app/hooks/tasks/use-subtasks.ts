@@ -168,7 +168,8 @@ export function useCreateSubtask(taskId: string) {
         },
         onError: (err, _vars, context) => {
             revertEdit(queryClient, taskId, context);
-            toastError(err, "Couldn't add subtask");
+            // The task was deleted elsewhere: it's gone from the screen too, so there is nothing to explain.
+            if ((err as { status?: number }).status !== 404) toastError(err, "Couldn't add subtask");
         },
         onSettled: (data, error) => settleEdit(queryClient, taskId, data, error),
     });

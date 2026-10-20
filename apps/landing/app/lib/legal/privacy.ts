@@ -18,7 +18,7 @@ export const PRIVACY: LegalDoc = {
     "Unless you switch it off in Settings (Suggest where captures go), a new capture's text, or a search that found nothing, goes to an AI provider with your list, section and task names, to suggest where it belongs or what you meant.",
     "The assistant remembers what you tell it, from the start (Basic is on until you choose). Full is your choice and also learns from what you do in the app. You can see all of it, forget anything with one tap, or choose Off.",
     "Usage diagnostics are on by default (you can switch them off) and record which actions you use, not your text. The Crash reports switch currently does nothing.",
-    "You can delete your account yourself in Settings: it is permanent and cannot be undone. You can also have a JSON copy of your data emailed to you from the same place.",
+    "You can delete your account yourself in Settings: it is permanent and cannot be undone. You can also have a JSON copy of your data emailed to you from Settings.",
     "Cadence sets only the cookies needed to keep you signed in. This website sets none.",
   ],
   sections: [
@@ -296,7 +296,7 @@ export const PRIVACY: LegalDoc = {
         { kind: "sub", title: "Suggestions in Capture and search" },
         {
           kind: "p",
-          text: "Separately from the assistant, Cadence can suggest where a new capture belongs and which task you meant when a search finds nothing. This is on by default. Turn it off in Settings, Intelligence & Privacy, under Suggest where captures go: nothing is sent for these suggestions once it is off, and the server checks the switch before every request.",
+          text: "Separately from the assistant, Cadence can suggest where a new capture belongs and which task you meant when a search finds nothing. This is on by default. Turn it off in Settings, Tasks & Routines, under Suggest where captures go: nothing is sent for these suggestions once it is off, and the server checks the switch before every request.",
         },
         {
           kind: "list",
@@ -520,7 +520,7 @@ export const PRIVACY: LegalDoc = {
         {
           kind: "gap",
           title: "On by default, and not anonymous",
-          text: "This switch is on unless you turn it off in Settings, under Privacy and Data or Intelligence and Privacy. So it is opt-out, not opt-in. The app's own wording calls it anonymous, but events are stored with your account id, so they are linked to you. Turning it off stops the app from sending events and the server from saving them.",
+          text: "This switch is on unless you turn it off in Settings, under Data & Privacy. So it is opt-out, not opt-in. The app's own wording calls it anonymous, but events are stored with your account id, so they are linked to you. Turning it off stops the app from sending events and the server from saving them.",
         },
         { kind: "sub", title: "Crash reports" },
         {
@@ -589,7 +589,7 @@ export const PRIVACY: LegalDoc = {
         { kind: "sub", title: "Deleting your account" },
         {
           kind: "p",
-          text: "Settings, under Data & Export, has a **Delete account** button. You must type a confirmation phrase and confirm it is you, with your password or, for Google and GitHub accounts, a code emailed to you. It is permanent: nothing can be restored afterwards, not by you and not by the maintainer.",
+          text: "Settings, under Profile & Security, has a **Delete account** button. You must type a confirmation phrase and confirm it is you, with your password or, for Google and GitHub accounts, a code emailed to you. It is permanent: nothing can be restored afterwards, not by you and not by the maintainer.",
         },
         {
           kind: "list",
@@ -608,7 +608,7 @@ export const PRIVACY: LegalDoc = {
         { kind: "sub", title: "Getting a copy of your data" },
         {
           kind: "p",
-          text: "Settings, under Data & Export, has an **Email my data** button. It starts an automatic export: within a few minutes Cadence emails a single JSON file to the address you sign in with. You can ask once an hour. No one reviews the request, and it needs no separate proof of identity beyond being signed in.",
+          text: "Settings, under Data & Privacy, has an **Email my data** button. It starts an automatic export: within a few minutes Cadence emails a single JSON file to the address you sign in with. You can ask once an hour. No one reviews the request, and it needs no separate proof of identity beyond being signed in.",
         },
         {
           kind: "list",

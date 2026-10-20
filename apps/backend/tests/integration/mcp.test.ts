@@ -61,7 +61,7 @@ describe("catalog and scopes", () => {
         const mcp = mcpAs(userId, await connect(userId, ["cadence:read"]), ["cadence:read"]);
         const names = (await mcp("tools/list")).body.result.tools.map((t: any) => t.name).sort();
         expect(names).toEqual([
-            "find_time", "get_cadence_help", "get_events", "get_focus_views", "get_habit_history", "get_habit_status_today", "get_habits", "get_inbox_items",
+            "find_time", "fit_day", "get_cadence_help", "get_events", "get_focus_views", "get_habit_history", "get_habit_status_today", "get_habits", "get_inbox_items",
             "get_projects", "get_schedule_window", "get_tags", "get_task_detail", "get_tasks", "get_today", "get_user_metrics",
         ]);
     });

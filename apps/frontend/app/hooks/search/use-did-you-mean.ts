@@ -10,7 +10,7 @@ const PAUSE_MS = 700;
 
 /**
  * "Did you mean…": the task a failed search probably meant. Mounted only under "No results", it asks after a typing
- * pause (never per keystroke), only when the Intelligence & Privacy switch is on, and never replaces results.
+ * pause (never per keystroke), only when the Suggest where captures go switch is on, and never replaces results.
  */
 export function useDidYouMean(query: string): { id: string; title: string } | null {
     const client = useApiClient();

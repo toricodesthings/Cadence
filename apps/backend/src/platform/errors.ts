@@ -1,4 +1,4 @@
-import type { ApiError, ErrorCode } from "@cadence/contracts/common";
+import type { ApiError, ApiIssue, ErrorCode } from "@cadence/contracts/common";
 import { DomainError } from "@cadence/domain/errors";
 
 export class AppError extends Error {
@@ -7,6 +7,8 @@ export class AppError extends Error {
         public readonly code: ErrorCode,
         message: string,
         public readonly isRetryable = false,
+        /** Which items a failure is about (a batch's 409 names each changed one by `path`). */
+        public readonly issues?: ApiIssue[],
     ) {
         super(message);
     }
@@ -18,19 +20,22 @@ export function throwIfNotFound<T>(value: T | null | undefined, label: string): 
 
 export function assertNoConflict(expectedUpdatedAt: string | undefined, actualUpdatedAt: string, entity: string) {
     if (!expectedUpdatedAt) return;
+    if (!sameVersion(expectedUpdatedAt, actualUpdatedAt)) {
+        throw new AppError(409, "CONFLICT", `${entity} was modified by another client`);
+    }
+}
+
+/** Whether a client's `expectedUpdatedAt` still names the stored version. */
+export function sameVersion(expectedUpdatedAt: string, actualUpdatedAt: string) {
     // Compare instants, not strings: the API serves strict ISO, but a client may
     // send the same instant in another valid form (an offset, no milliseconds, or
     // a value cached before timestamps were unified). A naive !== would report a
     // false conflict.
     const expectedMs = new Date(expectedUpdatedAt).getTime();
     const actualMs = new Date(actualUpdatedAt).getTime();
-    const sameInstant =
-        !Number.isNaN(expectedMs) && !Number.isNaN(actualMs)
-            ? expectedMs === actualMs
-            : expectedUpdatedAt === actualUpdatedAt;
-    if (!sameInstant) {
-        throw new AppError(409, "CONFLICT", `${entity} was modified by another client`);
-    }
+    return !Number.isNaN(expectedMs) && !Number.isNaN(actualMs)
+        ? expectedMs === actualMs
+        : expectedUpdatedAt === actualUpdatedAt;
 }
 
 type ErrorBodyOptions = Omit<ApiError["error"], "isRetryable"> & { isRetryable?: boolean };
@@ -62,6 +67,7 @@ export function formatErrorResponse(error: unknown, requestId?: string) {
             status: appError.statusCode,
             isRetryable: appError.isRetryable,
             requestId,
+            issues: appError.issues,
         }),
         status: appError.statusCode,
         errorCode: appError.code,

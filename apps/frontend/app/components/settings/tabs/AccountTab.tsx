@@ -18,6 +18,7 @@ import * as Dialog from "../../primitives/Dialog";
 import { DatePicker } from "../../shared/DatePicker";
 import { toast } from "sonner";
 import { compressImageToBase64 } from "../../../lib/utils/image";
+import { DeleteAccountDialog } from "../DeleteAccountDialog";
 
 function FieldEditorModal({
     title,
@@ -625,7 +626,7 @@ export function AccountTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
 
-    const profileSettings = settings?.profile || { pronouns: "", birthday: null };
+    const birthday = settings?.profile?.birthday ?? null;
 
     const handleUpdateUser = async (field: "name" | "image", value: string) => {
         const error = await authError(authClient.updateUser({ [field]: value }));
@@ -636,9 +637,7 @@ export function AccountTab() {
         }
     };
 
-    const handleUpdateSettings = (field: "pronouns" | "birthday", value: string | null) => {
-        updateSettings.mutate({ profile: { ...profileSettings, [field]: value } });
-    };
+    const setBirthday = (value: string | null) => updateSettings.mutate({ profile: { birthday: value } });
 
     return (
         <div className="flex flex-col gap-10">
@@ -713,18 +712,6 @@ export function AccountTab() {
                         </div>
                         <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
                             <div>
-                                <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Pronouns</p>
-                                <p className="text-sm text-warm-white">{profileSettings.pronouns || "Not set"}</p>
-                            </div>
-                            <FieldEditorModal
-                                title="Add Pronouns"
-                                initialValue={profileSettings.pronouns || ""}
-                                onSave={(val) => Promise.resolve(handleUpdateSettings("pronouns", val))}
-                                placeholder="they/them"
-                            />
-                        </div>
-                        <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
-                            <div>
                                 <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Email</p>
                                 <p className="text-sm text-warm-white flex items-center gap-2">
                                     {!authReady ? "..." : (user?.email || "No email provided")}
@@ -736,14 +723,14 @@ export function AccountTab() {
                             <div>
                                 <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Birthday</p>
                                 <p className="text-sm text-warm-white">
-                                    {profileSettings.birthday
-                                        ? formatInZone(profileSettings.birthday, getUserZone(), { month: "long", day: "numeric", year: "numeric" })
+                                    {birthday
+                                        ? formatInZone(birthday, getUserZone(), { month: "long", day: "numeric", year: "numeric" })
                                         : "Not set"}
                                 </p>
                             </div>
                             <BirthdayEditorModal
-                                initialValue={profileSettings.birthday}
-                                onSave={(val) => Promise.resolve(handleUpdateSettings("birthday", val))}
+                                initialValue={birthday}
+                                onSave={(val) => Promise.resolve(setBirthday(val))}
                             />
                         </div>
                     </div>
@@ -766,6 +753,13 @@ export function AccountTab() {
             <SettingsSection title="Active Devices">
                 <SessionsBlock />
             </SettingsSection>
+
+            <SettingsRow
+                title="Delete account"
+                description="Permanently erase your account and everything in it. This cannot be undone."
+            >
+                <DeleteAccountDialog />
+            </SettingsRow>
         </div>
     );
 }

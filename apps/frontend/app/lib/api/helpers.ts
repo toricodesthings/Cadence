@@ -25,6 +25,7 @@ export async function parseApiError(response: UnwrappableResponse): Promise<ApiE
             isRetryable: body.error?.isRetryable ?? (response.status >= 500 || response.status === 429),
             requestId: body.error?.requestId,
             retryAfterSeconds,
+            issues: body.error?.issues,
         });
     } catch {
         return new ApiErrorResponse({

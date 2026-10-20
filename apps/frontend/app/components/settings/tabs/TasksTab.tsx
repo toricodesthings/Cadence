@@ -1,10 +1,8 @@
-import { useState } from "react";
 import type { UserSettings } from "../../../types/settings";
 type TaskSettings = UserSettings["tasks"];
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { SelectSetting, SwitchSetting, type SettingOption } from "../layout/SettingRows";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
-import { ChevronDown } from "lucide-react";
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
 
 type Updater = ReturnType<typeof useUpdateSettings>;
@@ -22,14 +20,6 @@ const DUE_OPTIONS: SettingOption[] = [
     { value: "Tomorrow", label: "Tomorrow" },
     { value: "Next Week", label: "Next Week" },
 ];
-const DURATION_OPTIONS: SettingOption[] = [
-    { value: "none", label: "None" },
-    { value: "15", label: "15 minutes" },
-    { value: "30", label: "30 minutes" },
-    { value: "45", label: "45 minutes" },
-    { value: "60", label: "1 hour" },
-    { value: "90", label: "1.5 hours" },
-];
 const PLACEMENT_OPTIONS: SettingOption[] = [
     { value: "top", label: "Top of list" },
     { value: "bottom", label: "Bottom of list" },
@@ -38,19 +28,14 @@ const VIEW_OPTIONS: SettingOption[] = [
     { value: "list", label: "Rows" },
     { value: "kanban", label: "Kanban" },
 ];
-const PRESET_OPTIONS: SettingOption[] = [
-    { value: "minimal", label: "Minimal" },
-    { value: "planner", label: "Planner" },
-    { value: "power", label: "Power User" },
-];
 const STYLE_OPTIONS: SettingOption[] = [
     { value: "label", label: "Icon + label" },
     { value: "icon", label: "Icon only" },
 ];
 const CONFIDENCE_OPTIONS: SettingOption[] = [
-    { value: "high", label: "High — only very confident" },
+    { value: "high", label: "High — only certain matches" },
     { value: "medium", label: "Medium — balanced" },
-    { value: "low", label: "Low — show everything" },
+    { value: "low", label: "Low — everything detected" },
 ];
 const QUICK_ADD_CHOICES = [
     { value: "date", label: "Date" },
@@ -58,12 +43,6 @@ const QUICK_ADD_CHOICES = [
     { value: "project", label: "List" },
     { value: "tag", label: "Tag" },
 ] as const;
-const PRESET_ACTIONS = {
-    minimal: ["date"],
-    planner: ["date", "priority", "project"],
-    power: ["date", "priority", "project", "tag"],
-} as const;
-
 function TaskDefaultsSection({ taskSettings, updateSettings }: { taskSettings: TaskSettings; updateSettings: Updater }) {
     const set = (tasks: Partial<TaskSettings>) => updateSettings.mutate({ tasks });
     return (
@@ -81,13 +60,6 @@ function TaskDefaultsSection({ taskSettings, updateSettings }: { taskSettings: T
                 value={taskSettings.defaultPriority}
                 options={PRIORITY_OPTIONS}
                 onChange={(val) => set({ defaultPriority: val as TaskSettings["defaultPriority"] })}
-            />
-            <SelectSetting
-                title="Default duration"
-                description="Pre-fill the estimated duration for new tasks."
-                value={taskSettings.defaultDurationMinutes?.toString() ?? "none"}
-                options={DURATION_OPTIONS}
-                onChange={(val) => set({ defaultDurationMinutes: val === "none" ? null : Number(val) as TaskSettings["defaultDurationMinutes"] })}
             />
             <SelectSetting
                 title="New task placement"
@@ -124,21 +96,15 @@ function ViewsAndWorkflowSections({ taskSettings, updateSettings }: { taskSettin
                     checked={taskSettings.hideTrash}
                     onChange={(val) => set({ hideTrash: val })}
                 />
-            </SettingsSection>
-
-            <SettingsSection title="Workflow behavior">
-                <SwitchSetting
-                    title="Open detail panel on create"
-                    description="Automatically open the task detail panel when you create a new task."
-                    checked={taskSettings.openDetailOnCreate}
-                    onChange={(val) => set({ openDetailOnCreate: val })}
-                />
                 <SwitchSetting
                     title="Completion celebration"
                     description="Show a brief visual flourish when you complete a task."
                     checked={taskSettings.showDoneCelebration}
                     onChange={(val) => set({ showDoneCelebration: val })}
                 />
+            </SettingsSection>
+
+            <SettingsSection title="Routines">
                 <SwitchSetting
                     title="Routine streaks"
                     description="Show how many times in a row you've kept each routine."
@@ -154,16 +120,6 @@ function QuickAddSection({ taskSettings, updateSettings }: { taskSettings: TaskS
     const quickAddActions = taskSettings.quickAdd?.actions ?? ["date", "priority", "project"];
     return (
         <SettingsSection title="Quick add">
-            <SelectSetting
-                title="Preset"
-                description="Choose how much quick-add control shows up by default."
-                value={taskSettings.quickAdd?.preset ?? "planner"}
-                options={PRESET_OPTIONS}
-                onChange={(val) => {
-                    const preset = val as keyof typeof PRESET_ACTIONS;
-                    updateSettings.mutate({ tasks: { quickAdd: { preset, actions: [...PRESET_ACTIONS[preset]] } } });
-                }}
-            />
             <SelectSetting
                 title="Tray style"
                 description="Use icon-only buttons for a denser composer or labels for more clarity."
@@ -205,51 +161,13 @@ function QuickAddSection({ taskSettings, updateSettings }: { taskSettings: TaskS
     );
 }
 
-function AdvancedIntelligence({ intelligence, setIntel }: { intelligence: Intelligence; setIntel: (patch: Partial<Intelligence>) => void }) {
-    const [showAdvanced, setShowAdvanced] = useState(false);
-    return (
-        <div>
-            <button
-                type="button"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex items-center gap-1.5 text-sm text-twilight-text-muted hover:text-twilight-text transition-colors px-1 py-1.5 cursor-pointer"
-            >
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? "rotate-0" : "-rotate-90"}`} />
-                Advanced
-            </button>
-            {showAdvanced && (
-                <div className="mt-2 flex flex-col gap-0.5">
-                    <SwitchSetting
-                        title="Smart ordering"
-                        description="Use intelligent ranking instead of simple date/priority sort."
-                        checked={intelligence.smartSortEnabled}
-                        onChange={(val) => setIntel({ smartSortEnabled: val })}
-                    />
-                    <SwitchSetting
-                        title="Show recognition chips"
-                        description="Display visual indicators for recognized entities below the input field."
-                        checked={intelligence.showExplanations}
-                        onChange={(val) => setIntel({ showExplanations: val })}
-                    />
-                    <SwitchSetting
-                        title="Low-stimulation mode"
-                        description="Reduce chip density and collapse secondary recognition details."
-                        checked={intelligence.lowStimulationMode}
-                        onChange={(val) => setIntel({ lowStimulationMode: val })}
-                    />
-                </div>
-            )}
-        </div>
-    );
-}
-
 function IntelligenceSection({ intelligence, updateSettings }: { intelligence: Intelligence; updateSettings: Updater }) {
     const setIntel = (patch: Partial<Intelligence>) => updateSettings.mutate({ tasks: { intelligence: patch } });
     return (
         <SettingsSection title="Intelligence">
             <SwitchSetting
                 title="Smart features"
-                description="Enable Cadence's built-in intelligence for parsing dates, lists, tags, and more from natural language."
+                description="Read dates, lists, tags and priorities from what you type. Runs on your device."
                 checked={intelligence.nlpEnabled}
                 onChange={(val) => setIntel({ nlpEnabled: val })}
             />
@@ -267,22 +185,33 @@ function IntelligenceSection({ intelligence, updateSettings }: { intelligence: I
                         checked={intelligence.effortSuggestions}
                         onChange={(val) => setIntel({ effortSuggestions: val })}
                     />
-                    <SwitchSetting
-                        title="Focus Views"
-                        description="Enable preset and custom Focus Views like Quick Wins, Due Soon, and Deep Focus."
-                        checked={intelligence.focusViewsEnabled}
-                        onChange={(val) => setIntel({ focusViewsEnabled: val })}
-                    />
                     <SelectSetting
                         title="Confidence threshold"
-                        description="Only apply suggestions that meet this confidence level automatically."
+                        description="Only apply what's recognized at this confidence. Lower means more automation, higher means more control."
                         value={intelligence.confidenceThreshold}
                         options={CONFIDENCE_OPTIONS}
                         onChange={(val) => setIntel({ confidenceThreshold: val as "high" | "medium" | "low" })}
                     />
-                    <AdvancedIntelligence intelligence={intelligence} setIntel={setIntel} />
                 </>
             )}
+            <SwitchSetting
+                title="Suggest where captures go"
+                description="Sends a new capture's text, or a search that found nothing, with your list, section and task names, to an AI provider to suggest a destination or a match. Off sends nothing."
+                checked={intelligence.smartPlacement !== false}
+                onChange={(val) => setIntel({ smartPlacement: val })}
+            />
+            <SwitchSetting
+                title="Smart sort"
+                description="Rank tasks by urgency, due dates, effort and pins. Runs on your device, no AI involved."
+                checked={intelligence.smartSortEnabled}
+                onChange={(val) => setIntel({ smartSortEnabled: val })}
+            />
+            <SwitchSetting
+                title="Focus Views"
+                description="Preset and custom filters like Quick Wins, Due Soon and Deep Focus."
+                checked={intelligence.focusViewsEnabled}
+                onChange={(val) => setIntel({ focusViewsEnabled: val })}
+            />
         </SettingsSection>
     );
 }
@@ -295,7 +224,7 @@ export function TasksTab() {
 
     return (
         <div className="flex flex-col gap-10">
-            <h2 className="mb-2 text-2xl font-bold text-twilight-text">Tasks & Workflow</h2>
+            <h2 className="mb-2 text-2xl font-bold text-twilight-text">Tasks & Routines</h2>
             <TaskDefaultsSection taskSettings={taskSettings} updateSettings={updateSettings} />
             <ViewsAndWorkflowSections taskSettings={taskSettings} updateSettings={updateSettings} />
             <QuickAddSection taskSettings={taskSettings} updateSettings={updateSettings} />

@@ -1,30 +1,18 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Switch } from "../../primitives";
 import { Button } from "../../primitives/Button";
-import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
+import { SettingsSection, SettingsRow, SettingsList } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
 import { GLOBAL_QUICK_CAPTURE_SHORTCUT } from "../../../platform/desktop-shell";
 import { useDesktopCommandPreferences } from "../../../hooks/ui/use-desktop-command-preferences";
 import { IS_DESKTOP_RUNTIME } from "../../../platform/runtime";
-import { MOD_KEY } from "../../../lib/constants/keys";
+import { SHORTCUT_SECTIONS, bindingKeys } from "../../../lib/constants/shortcuts";
 
-const BINDING_LABELS: Record<string, { label: string; description: string }> = {
-    commandPalette: { label: "Command palette", description: "Open the global command palette" },
-    newTask: { label: "New task", description: "Create a new task from any screen" },
-    focusSearch: { label: "Focus search", description: "Jump to the search input" },
-    toggleView: { label: "Toggle view", description: "Switch between list and kanban" },
-    completeTask: { label: "Complete task", description: "Mark the selected task as done" },
-    archiveTask: { label: "Archive task", description: "Move the selected task to trash" },
-};
+const KBD = "inline-flex items-center rounded-lg border border-white/10 bg-black/40 px-2 py-1 font-mono text-xs text-twilight-text-soft";
 
-function formatKeyForDisplay(key: string): string {
-    return key
-        .replace("mod+", `${MOD_KEY} `)
-        .replace("ctrl+", "Ctrl+")
-        .replace("alt+", "Alt+")
-        .replace("shift+", "Shift+")
-        .toUpperCase();
+function Keys({ keys }: { keys: string[] }) {
+    return <span className="flex flex-wrap justify-end gap-1">{keys.map((k, i) => <kbd key={i} className={KBD}>{k}</kbd>)}</span>;
 }
 
 function KeyBindingCapture({
@@ -83,7 +71,7 @@ function KeyBindingCapture({
                 }`}
             >
                 {capturing ? "Press a key…" : (
-                    <kbd className="tracking-wider">{formatKeyForDisplay(value)}</kbd>
+                    <kbd className="tracking-wider">{bindingKeys(value).join(" ")}</kbd>
                 )}
             </button>
             {value !== defaultValue && (
@@ -106,7 +94,7 @@ export function ShortcutsTab() {
     const { preferences, updatePreferences } = useDesktopCommandPreferences();
 
     const shortcutSettings = settings?.shortcuts ?? SETTINGS_DEFAULTS.shortcuts;
-    const bindings = shortcutSettings.bindings ?? SETTINGS_DEFAULTS.shortcuts.bindings;
+    const bindings = { ...SETTINGS_DEFAULTS.shortcuts.bindings, ...shortcutSettings.bindings };
 
     return (
         <div className="flex flex-col gap-10">
@@ -115,23 +103,12 @@ export function ShortcutsTab() {
             <SettingsSection title="Shortcut behavior">
                 <SettingsRow
                     title="Enable keyboard shortcuts"
-                    description="Turn all global keyboard shortcuts on or off."
+                    description="Turn all keyboard shortcuts on or off. Click a key below to change it; letter keys pause while you type in a field."
                 >
                     <Switch
                         checked={shortcutSettings.enabled}
                         onCheckedChange={(val) =>
                             updateSettings.mutate({ shortcuts: { enabled: val } })
-                        }
-                    />
-                </SettingsRow>
-                <SettingsRow
-                    title="Show shortcut hints"
-                    description="Display keyboard shortcut hints in tooltips and the command palette."
-                >
-                    <Switch
-                        checked={shortcutSettings.showHints}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ shortcuts: { showHints: val } })
                         }
                     />
                 </SettingsRow>
@@ -150,54 +127,24 @@ export function ShortcutsTab() {
                 ) : null}
             </SettingsSection>
 
-            <SettingsSection title="Key bindings">
-                <p className="text-sm text-twilight-text-muted -mt-2 mb-2">
-                    Click a binding to remap it. Press the key combination you want to assign.
-                </p>
-                {Object.entries(bindings).map(([key, value]) => {
-                    const meta = BINDING_LABELS[key];
-                    if (!meta) return null;
-                    const defaultBinding = SETTINGS_DEFAULTS.shortcuts.bindings[key as keyof typeof SETTINGS_DEFAULTS.shortcuts.bindings];
-                    return (
-                        <SettingsRow
-                            key={key}
-                            title={meta.label}
-                            description={meta.description}
-                        >
-                            <KeyBindingCapture
-                                value={value}
-                                defaultValue={defaultBinding}
-                                onChange={(newKey) =>
-                                    updateSettings.mutate({ shortcuts: { bindings: { [key]: newKey } } })
-                                }
-                                onReset={() =>
-                                    updateSettings.mutate({ shortcuts: { bindings: { [key]: defaultBinding } } })
-                                }
-                            />
-                        </SettingsRow>
-                    );
-                })}
-            </SettingsSection>
-
-            <SettingsSection title="Navigation shortcuts">
-                <p className="text-sm text-twilight-text-muted -mt-2 mb-2">
-                    Press <kbd className="inline-flex items-center rounded border border-white/10 bg-black/40 px-1.5 py-0.5 font-mono text-xs text-twilight-text-soft">G</kbd> then a letter to navigate. These shortcuts are not configurable.
-                </p>
-                {[
-                    { keys: "G then T", label: "Go to Today" },
-                    { keys: "G then S", label: "Go to Schedule" },
-                    { keys: "G then I", label: "Go to Inbox" },
-                    { keys: "G then H", label: "Go to Routines" },
-                    { keys: "G then U", label: "Go to Upcoming" },
-                    { keys: "G then W", label: "Go to Weekly Review" },
-                ].map(({ keys, label }) => (
-                    <SettingsRow key={keys} title={label} description="">
-                        <span className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 font-mono text-xs text-twilight-text-soft">
-                            {keys}
-                        </span>
-                    </SettingsRow>
-                ))}
-            </SettingsSection>
+            {SHORTCUT_SECTIONS.map((section) => (
+                <SettingsSection key={section.title} title={section.title}>
+                    <SettingsList>
+                        {section.items.filter((item) => IS_DESKTOP_RUNTIME || !item.desktopOnly).map((item) => (
+                            <SettingsRow key={item.label} inline title={item.label}>
+                                {item.binding ? (
+                                    <KeyBindingCapture
+                                        value={bindings[item.binding]}
+                                        defaultValue={SETTINGS_DEFAULTS.shortcuts.bindings[item.binding]}
+                                        onChange={(newKey) => updateSettings.mutate({ shortcuts: { bindings: { [item.binding!]: newKey } } })}
+                                        onReset={() => updateSettings.mutate({ shortcuts: { bindings: { [item.binding!]: SETTINGS_DEFAULTS.shortcuts.bindings[item.binding!] } } })}
+                                    />
+                                ) : <Keys keys={item.keys ?? []} />}
+                            </SettingsRow>
+                        ))}
+                    </SettingsList>
+                </SettingsSection>
+            ))}
         </div>
     );
 }

@@ -1,6 +1,6 @@
 // Envelope shapes are canonical in @cadence/contracts/common. The runtime error
 // class below stays in the frontend (it is behavior, not a contract).
-import type { ClientErrorCode } from "@cadence/contracts/common";
+import type { ApiIssue, ClientErrorCode } from "@cadence/contracts/common";
 
 export type { ApiResponse, ApiError, ClientErrorCode } from "@cadence/contracts/common";
 
@@ -12,6 +12,8 @@ export class ApiErrorResponse extends Error {
     requestId?: string;
     /** From a 429's `Retry-After`: how long the server wants us to wait. */
     retryAfterSeconds?: number;
+    /** Which items a failure is about (a batch's 409 names each changed one by `path`). */
+    issues?: ApiIssue[];
 
     constructor({
         status,
@@ -20,6 +22,7 @@ export class ApiErrorResponse extends Error {
         isRetryable = false,
         requestId,
         retryAfterSeconds,
+        issues,
     }: {
         status: number;
         code: ClientErrorCode;
@@ -27,6 +30,7 @@ export class ApiErrorResponse extends Error {
         isRetryable?: boolean;
         requestId?: string;
         retryAfterSeconds?: number;
+        issues?: ApiIssue[];
     }) {
         super(message);
         this.name = "ApiErrorResponse";
@@ -36,6 +40,7 @@ export class ApiErrorResponse extends Error {
         this.isRetryable = isRetryable;
         this.requestId = requestId;
         this.retryAfterSeconds = retryAfterSeconds;
+        this.issues = issues;
     }
 
     get isRateLimited(): boolean {

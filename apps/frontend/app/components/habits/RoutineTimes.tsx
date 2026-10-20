@@ -1,4 +1,4 @@
-import { Check, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { MAX_ROUTINE_TIMES, type Habit, type HabitLog } from "@cadence/contracts/habit";
 import { timeMarksOn } from "@cadence/domain/repeats";
@@ -8,6 +8,7 @@ import { timeAction, useResolveHabit } from "../../hooks/habits/use-resolve-habi
 import { formatTime, formatWallTime } from "../../lib/utils/date-format";
 import { getUserZone, today } from "../../lib/utils/user-zone";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { RoutineCheckList } from "./RoutineSteps";
 
 /** "8:00 AM, 2:00 PM and 8:00 PM" in the user's time format. */
 export function listTimes(times: readonly string[]): string {
@@ -101,51 +102,14 @@ export function RoutineTimeChecklist({ habit, date, log }: {
     };
 
     return (
-        <ul aria-label="Times" className="flex flex-col">
-            {times.map((time) => <TimeRow key={time} time={time} state={marks[time]} onMark={(next) => mark(time, next)} />)}
-        </ul>
-    );
-}
-
-/** One set time: its done circle, the time (and when it was done), and Skip. */
-function TimeRow({ time, state, onMark }: {
-    time: string;
-    state: ReturnType<typeof timeMarksOn>[string] | undefined;
-    onMark: (next: "COMPLETED" | "SKIPPED") => void;
-}) {
-    return (
-        <li className="flex min-h-11 items-center gap-2">
-            <button
-                type="button"
-                onClick={() => onMark("COMPLETED")}
-                aria-pressed={state?.status === "COMPLETED"}
-                aria-label={`${formatWallTime(time)}: done`}
-                className="touch-target flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--routine-tone,var(--color-moonlit))]"
-            >
-                <span className={`flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] transition-colors ${
-                    state?.status === "COMPLETED"
-                        ? "border-transparent bg-[color-mix(in_srgb,var(--routine-tone,var(--color-moonlit))_80%,transparent)] text-[var(--primary-foreground)]"
-                        : state?.status === "SKIPPED"
-                            ? "border-twilight-border/45"
-                            : "border-[color-mix(in_srgb,var(--routine-tone,var(--color-moonlit))_45%,transparent)] hover:border-[color-mix(in_srgb,var(--routine-tone,var(--color-moonlit))_75%,transparent)]"
-                }`}>
-                    {state?.status === "COMPLETED" ? <Check size={13} strokeWidth={3} aria-hidden="true" /> : null}
-                </span>
-            </button>
-            <span className={`min-w-0 flex-1 truncate text-sm tabular-nums ${state ? "text-twilight-text-muted" : "text-twilight-text"}`}>
-                {formatWallTime(time)}
-                {state?.status === "COMPLETED" && state.at ? <span className="ml-2 text-xs">Done at {formatTime(state.at)}</span> : null}
-                {state?.status === "COMPLETED" && !state.at ? <span className="ml-2 text-xs">Done</span> : null}
-            </span>
-            <button
-                type="button"
-                onClick={() => onMark("SKIPPED")}
-                aria-pressed={state?.status === "SKIPPED"}
-                aria-label={state?.status === "SKIPPED" ? `${formatWallTime(time)}: skipped` : `Skip ${formatWallTime(time)}`}
-                className="min-h-11 shrink-0 cursor-pointer rounded-lg px-2.5 text-xs font-medium text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 aria-pressed:bg-white/[0.08] aria-pressed:text-twilight-text-soft"
-            >
-                {state?.status === "SKIPPED" ? "Skipped" : "Skip"}
-            </button>
-        </li>
+        <RoutineCheckList
+            label="Times"
+            items={times.map((time) => {
+                const state = marks[time];
+                const note = state?.status !== "COMPLETED" ? undefined : state.at ? `Done at ${formatTime(state.at)}` : "Done";
+                return { id: time, name: formatWallTime(time), title: <span className="tabular-nums">{formatWallTime(time)}</span>, note, state: state?.status };
+            })}
+            onMark={mark}
+        />
     );
 }

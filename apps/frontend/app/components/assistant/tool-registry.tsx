@@ -18,6 +18,7 @@ import {
 import { outcomeOf, type RetiredRenderContext, type ToolRenderContext } from "./widgets/ApprovalCard";
 import { AskCard } from "./widgets/AskCard";
 import { RememberReceipt } from "./widgets/RememberReceipt";
+import { FindTimeCard, FitDayCard } from "./widgets/PlanCards";
 import { Sparkles } from "lucide-react";
 import { TOOL_CATALOG, isToolName, type ToolKind, type ToolName } from "@cadence/contracts/ai-tools";
 
@@ -26,7 +27,7 @@ import { TOOL_CATALOG, isToolName, type ToolKind, type ToolName } from "@cadence
  * `@cadence/contracts/ai-tools`, so a tool added or removed there fails tsc here.
  *
  * Three classes, all executed on the server:
- *  - read  → subtle activity chip (no card).
+ *  - read  → subtle activity chip; a proposed plan (`find_time`, `fit_day`) also gets its card, whose Place is the person's tap.
  *  - write → an approval card: it waits for a tap when the server asks for one,
  *    otherwise it arrives done and shows settled.
  *  - capture → never waits (capture_to_inbox); quiet confirm chip.
@@ -60,7 +61,8 @@ const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRend
     get_events: { label: "Looked at your events" },
     get_focus_views: { label: "Looked at your focus views" },
     get_cadence_help: { label: "Checked the Cadence guide" },
-    find_time: { label: "Looked for a gap" },
+    find_time: { label: "Looked for a gap", render: card(FindTimeCard) },
+    fit_day: { label: "Laid out your day", render: card(FitDayCard) },
     recall: { label: "Thought back to what you told me" },
     search_past_chats: { label: "Looked through your past chats" },
 
@@ -174,7 +176,7 @@ export function ToolPart({
             />;
     }
 
-    if (descriptor.class === "read") {
+    if (descriptor.class === "read" && !descriptor.render) {
         // Read chips are grouped per-turn by the panel; nothing to render solo.
         return null;
     }
@@ -230,6 +232,11 @@ export function buildSegments(parts: UIMessage["parts"]): MessageSegment[] {
                 continue;
             }
             const name = safeToolName(part);
+            // A read with a card (a proposed plan) shows its card once it has its answer; the chip covers the wait.
+            if (name && getToolDescriptor(name)?.render && part.state === "output-available") {
+                segments.push({ kind: "card", part });
+                continue;
+            }
             const label = (name && getToolDescriptor(name)?.label) || "Looked something up";
             const pending = isInFlight(part);
             const call: ToolCall = { label, tool: name, input: part.input, pending, failed: isFailed(part) };

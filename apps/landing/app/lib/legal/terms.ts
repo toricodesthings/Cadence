@@ -210,7 +210,7 @@ export const TERMS: LegalDoc = {
         {
           kind: "gap",
           title: "Getting your data out is automatic but limited",
-          text: "The **Email my data** button (Settings, Data & Export) emails a JSON copy of your data to your account's address, at most once an hour. It leaves out photos you uploaded and your sign-in profile details, it is a snapshot and not a backup, and delivery to your inbox is not guaranteed. Cadence keeps a record of each request (address, time, result) until you delete your account. If it fails, try again after an hour or ask the maintainer (see Contact); there is no promised turnaround. More in the Privacy Policy.",
+          text: "The **Email my data** button (Settings, Data & Privacy) emails a JSON copy of your data to your account's address, at most once an hour. It leaves out photos you uploaded and your sign-in profile details, it is a snapshot and not a backup, and delivery to your inbox is not guaranteed. Cadence keeps a record of each request (address, time, result) until you delete your account. If it fails, try again after an hour or ask the maintainer (see Contact); there is no promised turnaround. More in the Privacy Policy.",
         },
       ],
     },
@@ -224,7 +224,7 @@ export const TERMS: LegalDoc = {
         },
         {
           kind: "p",
-          text: "You can sign out and stop using Cadence whenever you like. You can delete your account yourself in Settings, under Data & Export: type a confirmation phrase, confirm it is you with your password or an emailed code, and everything in it is erased. Deletion is permanent. Nothing can be restored afterwards, not by you and not by the maintainer.",
+          text: "You can sign out and stop using Cadence whenever you like. You can delete your account yourself in Settings, under Profile & Security: type a confirmation phrase, confirm it is you with your password or an emailed code, and everything in it is erased. Deletion is permanent. Nothing can be restored afterwards, not by you and not by the maintainer.",
         },
         {
           kind: "sub",

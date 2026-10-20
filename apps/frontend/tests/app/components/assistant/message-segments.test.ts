@@ -20,6 +20,13 @@ describe("assistant message presentation", () => {
         expect(segments[3]).toMatchObject({ calls: [{ failed: true }], pending: false });
     });
 
+    it("shows a proposed plan (fit_day, find_time) as its card once answered, and as a read chip while it runs", () => {
+        const running = { type: "tool-fit_day" as const, toolCallId: "f1", state: "input-available" as const, input: { day: "2026-10-20" } };
+        const answered = { ...running, toolCallId: "f2", state: "output-available" as const, output: { ok: true, day: "2026-10-20", placed: [], didntFit: [], notSized: [], gaps: true } };
+        expect(buildSegments([running] as UIMessage["parts"]).map((s) => s.kind)).toEqual(["reads"]);
+        expect(buildSegments([answered] as UIMessage["parts"])).toEqual([{ kind: "card", part: answered }]);
+    });
+
     it("retains retired and unknown tool cards, ignoring nonvisual and empty text parts", () => {
         const parts: UIMessage["parts"] = [
             { type: "reasoning", text: "Thinking" }, { type: "step-start" }, { type: "text", text: "" },

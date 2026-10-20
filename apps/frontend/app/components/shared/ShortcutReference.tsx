@@ -1,75 +1,14 @@
 import { Dialog, DialogContent, DialogTitle } from "../primitives/Dialog";
 import { Keyboard } from "lucide-react";
-import { MOD_KEY } from "../../lib/constants/keys";
+import { SHORTCUT_SECTIONS, bindingKeys } from "../../lib/constants/shortcuts";
+import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
+import { useSettings } from "../../hooks/core/use-settings";
+import { SETTINGS_DEFAULTS } from "../../types/settings";
 
 interface ShortcutReferenceProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
-
-interface ShortcutEntry {
-    keys: string[];
-    label: string;
-}
-
-const SECTIONS: { title: string; items: ShortcutEntry[] }[] = [
-    {
-        title: "Navigation",
-        items: [
-            { keys: ["G", "T"], label: "Go to Today" },
-            { keys: ["G", "S"], label: "Go to Schedule" },
-            { keys: ["G", "I"], label: "Go to Inbox" },
-            { keys: ["G", "H"], label: "Go to Routines" },
-            { keys: ["G", "U"], label: "Go to Upcoming" },
-            { keys: ["G", "W"], label: "Go to Weekly Reset" },
-        ],
-    },
-    {
-        title: "Global",
-        items: [
-            { keys: [MOD_KEY, "K"], label: "Command palette" },
-            { keys: ["Q"], label: "Quick capture" },
-            { keys: ["⇧", "Q"], label: "Quick add task" },
-            { keys: ["?"], label: "Shortcut reference" },
-        ],
-    },
-    {
-        title: "Object actions",
-        items: [
-            { keys: ["R"], label: "Reschedule" },
-            { keys: ["P"], label: "Pin / unpin" },
-            { keys: ["E"], label: "Edit / rename" },
-            { keys: ["M"], label: "Open menu" },
-            { keys: ["."], label: "Quick actions" },
-        ],
-    },
-    {
-        title: "Page navigation",
-        items: [
-            { keys: ["J"], label: "Next section" },
-            { keys: ["K"], label: "Previous section" },
-        ],
-    },
-    {
-        title: "Schedule",
-        items: [
-            { keys: ["D"], label: "Day view" },
-            { keys: ["W"], label: "Week view" },
-            { keys: ["T"], label: "Jump to today" },
-            { keys: ["←"], label: "Previous period" },
-            { keys: ["→"], label: "Next period" },
-            { keys: ["C"], label: "Create event" },
-        ],
-    },
-    {
-        title: "Weekly Reset",
-        items: [
-            { keys: ["→"], label: "Next step" },
-            { keys: ["←"], label: "Previous step" },
-            { keys: ["Esc"], label: "Exit" },
-        ],
-    },
-];
 
 function Kbd({ children }: { children: string }) {
     return (
@@ -80,6 +19,7 @@ function Kbd({ children }: { children: string }) {
 }
 
 export function ShortcutReference({ open, onOpenChange }: ShortcutReferenceProps) {
+    const bindings = { ...SETTINGS_DEFAULTS.shortcuts.bindings, ...useSettings().data?.shortcuts?.bindings };
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
@@ -92,17 +32,17 @@ export function ShortcutReference({ open, onOpenChange }: ShortcutReferenceProps
                     </div>
 
                     <div className="grid grid-cols-2 gap-x-8 gap-y-4 max-h-[60vh] overflow-y-auto">
-                        {SECTIONS.map((section) => (
+                        {SHORTCUT_SECTIONS.map((section) => (
                             <div key={section.title}>
                                 <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-twilight-text-muted">
                                     {section.title}
                                 </h3>
                                 <ul className="space-y-1">
-                                    {section.items.map((item) => (
+                                    {section.items.filter((item) => IS_DESKTOP_RUNTIME || !item.desktopOnly).map((item) => (
                                         <li key={item.label} className="flex items-center justify-between gap-2 py-0.5">
                                             <span className="text-xs text-twilight-text-soft">{item.label}</span>
                                             <span className="flex items-center gap-0.5">
-                                                {item.keys.map((k, i) => (
+                                                {(item.binding ? bindingKeys(bindings[item.binding]) : item.keys ?? []).map((k, i) => (
                                                     <Kbd key={i}>{k}</Kbd>
                                                 ))}
                                             </span>

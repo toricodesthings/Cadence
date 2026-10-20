@@ -40,7 +40,7 @@ export function decisionModel(env: Env): string | null {
     return env.AI_DECISION_MODEL?.trim() || null;
 }
 
-/** The switch in Settings › Intelligence & Privacy: on unless it is exactly `false`. */
+/** The switch in Settings › Tasks & Routines: on unless it is exactly `false`. */
 export async function smartPlacementOn(tx: Tx, userId: string): Promise<boolean> {
     const [user] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
     return user?.settings?.tasks?.intelligence?.smartPlacement !== false;

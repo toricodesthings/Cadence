@@ -61,6 +61,30 @@ describe("find_time", () => {
     });
 });
 
+describe("fit_day", () => {
+    it("lays sized untimed tasks into the day's gaps in order, lists the rest, and changes nothing", async () => {
+        const essay = (await tasks("POST", "", { title: "Essay", orderIndex: 1, dueDate: "2026-10-19", durationEstimate: 60 })).body.data;
+        const email = (await tasks("POST", "", { title: "Email", orderIndex: 2, dueDate: "2026-10-19", durationEstimate: 30 })).body.data;
+        const vague = (await tasks("POST", "", { title: "Sort the garage", orderIndex: 3, dueDate: "2026-10-19" })).body.data;
+        const huge = (await tasks("POST", "", { title: "Thesis", orderIndex: 4, dueDate: "2026-10-19", durationEstimate: 900 })).body.data;
+        const timed = (await tasks("POST", "", { title: "Class", orderIndex: 5, scheduledStart: "2026-10-19T15:00:00.000Z", scheduledEnd: "2026-10-19T16:00:00.000Z", zone: ZONE })).body.data; // 11:00–12:00
+
+        const fit = await run("fit_day", { day: "2026-10-19" });
+        expect(fit.ok).toBe(true);
+        // Now is 10:00 local: the essay can't sit flush against class, so it goes after it.
+        expect(fit.placed.map((p: any) => p.id)).toEqual([essay.id, email.id]);
+        expect(fit.placed[0].start).toBe("2026-10-19T12:15:00-04:00");
+        expect(fit.didntFit).toEqual([{ id: huge.id, title: "Thesis", minutes: 900 }]);
+        expect(fit.notSized).toEqual([{ id: vague.id, title: "Sort the garage" }]);
+        expect(fit.placed.some((p: any) => p.id === timed.id)).toBe(false);
+        expect((await tasks("GET", `/${essay.id}`)).body.data.scheduledStart).toBeNull();
+    });
+
+    it("refuses a day that has passed", async () => {
+        expect(await run("fit_day", { day: "2026-10-18" })).toMatchObject({ ok: false });
+    });
+});
+
 describe("what a task takes, in the assistant's reads", () => {
     const answers = async (title: string, minutes: number[]) => {
         for (const [i, m] of minutes.entries()) {

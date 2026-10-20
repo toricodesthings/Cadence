@@ -26,6 +26,7 @@ import { habits } from "../../src/db/schema";
 import { insertFact } from "../../src/domains/ai/memory/memory-store";
 import { eq } from "drizzle-orm";
 import { todayIn } from "@cadence/domain/time";
+import { suggestSteps } from "../../src/domains/ai/steps";
 
 const TZ = "America/Toronto";
 /** Wednesday 2026-09-23, 10:00 in Toronto. */
@@ -795,6 +796,48 @@ const SCENARIOS: Scenario[] = [
         },
     },
     {
+        // 0.38.0 F2: "plan my day" lays the day out as a card (fit_day) and places nothing; the card's Place is the person's tap.
+        name: "plan my day uses fit_day, writes nothing and never moves timed tasks",
+        level: "medium",
+        runs: 3,
+        seed: async (t) => {
+            await t("create_tasks", { tasks: [
+                { title: "Essay draft", dueDate: TODAY, durationEstimate: 60 },
+                { title: "Email Sam", dueDate: TODAY, durationEstimate: 15 },
+                { title: "Team sync", scheduledStart: "2026-09-23T13:00:00-04:00", scheduledEnd: "2026-09-23T14:00:00-04:00" },
+            ] });
+            return {};
+        },
+        turns: ["Plan my day."],
+        check: async (run, t) => {
+            const tasks = await openTasks(t);
+            const fit = called(run, "fit_day")[0];
+            return [
+                ...need(!!fit, "laid the day out with fit_day"),
+                ...need(fit?.output?.placed?.length > 0, "placed something in the preview"),
+                ...need(!called(run, "update_tasks").length && !called(run, "reschedule_tasks").length, "wrote nothing: the card's Place is the person's tap"),
+                ...need(titled(tasks, "team sync")?.scheduledStart?.startsWith("2026-09-23T13:00"), "left the timed task where it was"),
+                ...need(!titled(tasks, "essay")?.scheduledStart && !titled(tasks, "email sam")?.scheduledStart, "left the untimed tasks unplaced"),
+                ...need(/gap/i.test(run.text) && !/free time/i.test(run.text), `says gap, not free time: "${run.text.slice(0, 160)}"`),
+            ];
+        },
+    },
+    {
+        // 0.38.0 F2: one task at one time stays find_time; the whole-day card is for the whole day.
+        name: "put the essay in tonight uses find_time, not fit_day",
+        level: "simple",
+        runs: 3,
+        seed: async (t) => {
+            await t("create_tasks", { tasks: [{ title: "Essay", dueDate: TODAY, durationEstimate: 60 }, { title: "Email Sam", dueDate: TODAY, durationEstimate: 15 }] });
+            return {};
+        },
+        turns: ["Put the essay in tonight."],
+        check: async (run) => [
+            ...need(called(run, "find_time").length > 0, "looked with find_time"),
+            ...need(!called(run, "fit_day").length, "didn't lay out the whole day"),
+        ],
+    },
+    {
         name: "when do I usually study: answers from the pattern as a choice, not an energy claim",
         level: "medium",
         runs: 3,
@@ -910,6 +953,32 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
                 calls = [...new Set(run.calls.map((c) => c.step))].map((step) => run.calls.filter((c) => c.step === step).map((c) => c.name).join("+"));
             }
             report.push({ name: scenario.name, runs, level: scenario.level, passed: problems.length === 0, problems, ...total, calls, models: [...models], servedModels: [...servedModels] });
+            expect(problems).toEqual([]);
+        });
+    }
+});
+
+/** 0.38.0 F3: Suggest steps against the configured chat model, each case three times. */
+const STEP_CASES = [
+    { name: "a concrete task", input: { title: "Write lab report for CHEM 201", notes: "", listName: "School", existing: [] } },
+    { name: "keeps the title's language", input: { title: "Preparar la presentación del viernes", notes: "", listName: null, existing: [] }, spanish: true },
+    { name: "a vague title still gets small concrete steps", input: { title: "sort life out", notes: "", listName: null, existing: [] } },
+    { name: "never repeats existing steps", input: { title: "Paint the hallway", notes: "", listName: "Home", existing: ["Buy paint", "Move the shoe rack"] } },
+];
+
+describe.skipIf(!env.OPENROUTER_API_KEY)("suggest steps evals", () => {
+    for (const c of STEP_CASES) {
+        it.concurrent(c.name, async () => {
+            const problems: string[] = [];
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                const { steps } = await suggestSteps(env, "eval", c.input);
+                const p = (ok: boolean, problem: string) => { if (!ok) problems.push(`run ${attempt}: ${problem} (${JSON.stringify(steps)})`); };
+                p(steps.length >= 3 && steps.length <= 7, "3–7 steps");
+                p(steps.every((s) => s.length <= 80), "each ≤ 80 characters");
+                p(!steps.some((s) => /\b(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}(:\d\d)?\s?(am|pm)|minutes?|hours?|mins?)\b/i.test(s)), "no dates, times or lengths");
+                p(!steps.some((s) => c.input.existing.some((e) => s.toLowerCase().includes(e.toLowerCase()))), "no repeats of existing steps");
+                if (c.spanish) p(steps.filter((s) => /[áéíóúñ]|\b(el|la|los|las|de|del|para|con|una?)\b/i.test(s)).length >= Math.ceil(steps.length / 2), "kept the title's language");
+            }
             expect(problems).toEqual([]);
         });
     }

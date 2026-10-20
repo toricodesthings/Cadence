@@ -31,7 +31,6 @@ vi.mock("../../../app/hooks/core/use-settings", () => ({
                 intelligence: {
                     nlpEnabled: true,
                     autoParseOnCapture: true,
-                    showExplanations: false,
                     confidenceThreshold: "medium",
                     lowStimulationMode: false,
                 },
