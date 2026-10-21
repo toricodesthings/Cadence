@@ -1,4 +1,4 @@
-import { RefreshCw, WifiOff, AlertTriangle, CheckCircle2, Clock3 } from "lucide-react";
+import { RefreshCw, WifiOff, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../primitives/Dialog";
 import { useMutationOutbox } from "../../lib/api/mutation-outbox";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
@@ -35,7 +35,7 @@ export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onO
 
                     <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
                         <div className="flex items-center gap-2 text-sm font-semibold text-twilight-text">
-                            <Clock3 size={16} className="text-moonlit" />
+                            <Clock size={16} className="text-moonlit" />
                             Last activity
                         </div>
                         <p className="mt-3 text-sm text-twilight-text-soft">

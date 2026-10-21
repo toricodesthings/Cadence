@@ -58,15 +58,24 @@ export function busyBlocks(tasks: readonly { id: string; state: string; schedule
     );
 }
 
+/** The window the rule looks in, as epoch ms on `day`: the calendar's first hour (never before 06:00) to `DAY_END`. */
+export function dayWindow(day: LocalDate, timelineStartHour: number, zone: Zone): { from: number; to: number } {
+    const hour = String(Math.max(timelineStartHour, EARLIEST_HOUR)).padStart(2, "0");
+    return { from: ms(atLocal(day, `${hour}:00`, zone)), to: ms(atLocal(day, DAY_END, zone)) };
+}
+
+/** The first 15-minute mark at or after `at` (epoch ms): where today's gaps start. */
+export const nextGridMark = (at: number) => Math.ceil(at / (GRID_MINUTES * MIN)) * GRID_MINUTES * MIN;
+
 /** Every start that fits (before ordering and spacing): the day's gaps, as 15-minute grid points. */
 function fitting(input: FindTimeInput): { start: number; length: number }[] {
     const { task, day, zone, now, busy } = input;
     if (task.minutes < 1 || (task.notBefore && day < task.notBefore)) return [];
 
-    const hour = String(Math.max(input.timelineStartHour, EARLIEST_HOUR)).padStart(2, "0");
-    let from = ms(atLocal(day, `${hour}:00`, zone));
-    const windowEnd = ms(atLocal(day, DAY_END, zone));
-    if (day === todayIn(zone, new Date(now))) from = Math.max(from, Math.ceil(ms(now) / (GRID_MINUTES * MIN)) * GRID_MINUTES * MIN);
+    const window = dayWindow(day, input.timelineStartHour, zone);
+    let from = window.from;
+    const windowEnd = window.to;
+    if (day === todayIn(zone, new Date(now))) from = Math.max(from, nextGridMark(ms(now)));
 
     const length = task.minutes * MIN;
     const buffer = BUFFER_MINUTES * MIN;

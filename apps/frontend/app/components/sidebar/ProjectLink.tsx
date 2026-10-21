@@ -2,7 +2,7 @@ import { PlainNavCount } from "./PlainNavCount";
 import { EditListDialog } from "../shared/EditListDialog";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { EllipsisVertical, Pencil, Trash2 } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { useDeleteProject } from "../../hooks/projects/use-delete-project";
@@ -70,7 +70,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                             className="btn-icon -my-2 -mr-2 shrink-0 text-twilight-text-muted opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 touch-reveal hover:bg-white/[0.05] hover:text-twilight-text focus-visible:opacity-100"
                             onClick={(e) => e.preventDefault()}
                         >
-                            <MoreHorizontal size={13} aria-hidden="true" />
+                            <EllipsisVertical size={13} aria-hidden="true" />
                         </button>
                     </DropdownMenu.Trigger>
                     <DropdownMenu.Content align="end" side="right">

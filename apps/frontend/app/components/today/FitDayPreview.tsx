@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { X } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
-import { DAY_END } from "@cadence/domain/find-time";
+import { dayWindow, nextGridMark } from "@cadence/domain/find-time";
 import type { FitDayResult } from "@cadence/domain/fit-day";
-import { atLocal, formatInZone, type Instant, type LocalDate } from "@cadence/domain/time";
+import { atLocal, formatInZone, wallTimeOf, type Instant, type LocalDate } from "@cadence/domain/time";
 import { Button } from "../primitives/Button";
 import { Tip } from "../primitives";
 import { DurationChoices } from "../assistant/DurationChips";
@@ -21,16 +21,10 @@ const MIN = 60_000;
 const ROW_BUTTON =
     "touch-target inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-twilight-text-soft hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
-/** The window the rule looks in (the calendar's first hour, never before 06:00, to 22:00), as instants on `day`. */
-function windowOf(day: LocalDate, startHour: number, zone: string) {
-    const hour = String(Math.max(startHour, 6)).padStart(2, "0");
-    return { from: Date.parse(atLocal(day, `${hour}:00`, zone)), to: Date.parse(atLocal(day, DAY_END, zone)) };
-}
-
-/** `p` moved by `minutes`, kept inside the window. */
+/** `p` moved by `minutes`, kept inside the window and never before now. */
 function shifted(p: FitPlacement, minutes: number, window: { from: number; to: number }): FitPlacement {
     const length = Date.parse(p.end) - Date.parse(p.start);
-    const start = Math.min(Math.max(Date.parse(p.start) + minutes * MIN, window.from), window.to - length);
+    const start = Math.min(Math.max(Date.parse(p.start) + minutes * MIN, window.from, nextGridMark(Date.now())), window.to - length);
     return { ...p, start: new Date(start).toISOString(), end: new Date(start + length).toISOString() };
 }
 
@@ -49,12 +43,13 @@ function FitTimeline({ day, startHour, busy, placed, titleOf, onMove }: {
     const zone = useUserZone();
     const bar = useRef<HTMLDivElement>(null);
     const drag = useRef<{ placement: FitPlacement; x: number } | null>(null);
-    const bounds = windowOf(day, startHour, zone);
+    const bounds = dayWindow(day, startHour, zone);
     const span = bounds.to - bounds.from;
     const left = (instant: Instant) => Math.min(Math.max(((Date.parse(instant) - bounds.from) / span) * 100, 0), 100);
     const box = (start: Instant, end: Instant) => ({ left: `${left(start)}%`, width: `${Math.max(left(end) - left(start), 0.8)}%` });
-    const first = Math.max(startHour, 6);
-    const hours = [first, ...[9, 12, 15, 18, 21].filter((h) => h > first), 22];
+    const first = Number(wallTimeOf(new Date(bounds.from).toISOString(), zone).slice(0, 2));
+    const last = Number(wallTimeOf(new Date(bounds.to).toISOString(), zone).slice(0, 2));
+    const hours = [first, ...[9, 12, 15, 18, 21].filter((h) => h > first && h < last), last];
 
     const move = (event: PointerEvent<HTMLButtonElement>) => {
         const from = drag.current;
@@ -100,8 +95,14 @@ function FitTimeline({ day, startHour, busy, placed, titleOf, onMove }: {
                     );
                 })}
             </div>
-            <div className="flex justify-between px-1 text-[10px] tabular-nums text-twilight-text-muted" aria-hidden="true">
-                {hours.map((h) => <span key={h}>{h}</span>)}
+            <div className="relative h-3.5 text-[10px] tabular-nums text-twilight-text-muted" aria-hidden="true">
+                {hours.map((h, i) => (
+                    <span
+                        key={h}
+                        className={`absolute ${i === 0 ? "" : i === hours.length - 1 ? "-translate-x-full" : "-translate-x-1/2"}`}
+                        style={{ left: `${left(atLocal(day, `${String(h).padStart(2, "0")}:00`, zone))}%` }}
+                    >{h}</span>
+                ))}
             </div>
         </div>
     );
@@ -172,17 +173,22 @@ export function FitDayPreview({ day, fit, initial, ordered, titles, notice, onDo
         } finally {
             setSizing((c) => c - 1);
         }
-        const one = fit.plan([{ ...task, durationEstimate: minutes }], draft.placed);
-        setDraft((current) => current && {
-            placed: [...current.placed, ...one.placed],
-            didntFit: [...current.didntFit, ...one.didntFit],
-            notSized: current.notSized.filter((x) => x !== id),
+        // Laid out around the draft as it is now: another length chosen meanwhile, or a ghost moved, counts.
+        setDraft((current) => {
+            if (!current) return current;
+            const one = fit.plan([{ ...task, durationEstimate: minutes }], current.placed);
+            return {
+                placed: [...current.placed, ...one.placed],
+                didntFit: [...current.didntFit, ...one.didntFit],
+                notSized: current.notSized.filter((x) => x !== id),
+            };
         });
     };
 
     const place = async () => {
         if (!n || placing) return;
-        if (placed.some((p) => !fit.byId.has(p.taskId))) return void dayChanged();
+        // A task gone or changed, or a time that has passed since (a card read earlier today): lay it out again.
+        if (placed.some((p) => !fit.byId.has(p.taskId) || Date.parse(p.start) < Date.now())) return void dayChanged();
         setPlacing(true);
         try {
             await placeTasks(placed, fit.byId);

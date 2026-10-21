@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { MoreVertical, Pencil, Tag as TagIcon, Trash2, X } from "lucide-react";
+import { EllipsisVertical, Pencil, Tag as TagIcon, Trash2, X } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { PageContent } from "../components/layout/PageLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
@@ -141,7 +141,7 @@ export default function TagView() {
                         <Tip label="Tag options">
                             <DropdownMenu.Trigger asChild>
                                 <Button variant="ghost" size="icon" aria-label="Tag options">
-                                    <MoreVertical size={18} aria-hidden="true" />
+                                    <EllipsisVertical size={18} aria-hidden="true" />
                                 </Button>
                             </DropdownMenu.Trigger>
                         </Tip>

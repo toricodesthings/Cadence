@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { Editor } from "@tiptap/core";
-import { ChevronLeft, ChevronRight, MoreHorizontal, PenLine, Lightbulb } from "lucide-react";
+import { ChevronLeft, ChevronRight, EllipsisVertical, PenLine, Lightbulb } from "lucide-react";
 import * as Popover from "../../primitives/Popover";
 import { Tip } from "../../primitives/Tooltip";
 import { MENU_ITEM } from "../../primitives/menu-styles";
@@ -72,7 +72,7 @@ export function NoteMoreMenu({
                 <Popover.Trigger asChild>
                     {trigger ?? (
                         <button type="button" aria-label="More" className="inline-flex size-11 items-center justify-center rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
-                            <MoreHorizontal size={18} aria-hidden="true" />
+                            <EllipsisVertical size={18} aria-hidden="true" />
                         </button>
                     )}
                 </Popover.Trigger>

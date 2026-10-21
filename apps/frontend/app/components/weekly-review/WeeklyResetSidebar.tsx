@@ -1,4 +1,4 @@
-import { CheckCircle, ArrowLeft, Sparkles, Inbox, ListTodo, Flame, Sprout } from "lucide-react";
+import { ArrowLeft, Sparkles, Inbox, ListTodo, Flame, Sprout, CheckCircle2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "../primitives/Button";
 
@@ -44,7 +44,7 @@ export function WeeklyResetSidebar({ currentStep, compact = false, onExit }: { c
                                     ? "border-accent-primary/40 text-accent-primary/60 bg-twilight-surface"
                                     : "border-twilight-border text-twilight-text-muted bg-twilight-deep"
                                 }`}>
-                                {isPast ? <CheckCircle size={18} className="text-accent-primary" /> : <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />}
+                                {isPast ? <CheckCircle2 size={18} className="text-accent-primary" /> : <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />}
                             </div>
 
                             <div className="ml-5">

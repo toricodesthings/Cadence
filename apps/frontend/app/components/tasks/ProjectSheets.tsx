@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, LayoutList, Pencil, Trash2 } from "lucide-react";
+import { Check, Pencil, Trash2, Columns3 } from "lucide-react";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { Composer } from "../shared/Composer";
 import { useTaskComposer, tasksIn, UNSECTIONED_ID } from "./TaskComposer";
@@ -21,7 +21,7 @@ export function ManageSectionsButton({ onClick, wide = false }: { onClick: () =>
                 ? "touch-target flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-twilight-border/60 bg-white/[0.02] px-4 text-sm font-medium text-twilight-text-soft active:opacity-80"
                 : "touch-target inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-dashed border-twilight-border/45 bg-twilight-base/35 px-3.5 text-sm font-medium text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"}
         >
-            <LayoutList size={15} aria-hidden="true" />
+            <Columns3 size={15} aria-hidden="true" />
             {wide ? "Add or edit sections" : "Sections"}
         </button>
     );

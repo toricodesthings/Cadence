@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckSquare, Clock3, Plus, StickyNote } from "lucide-react";
+import { CheckSquare, Clock, Plus, StickyNote } from "lucide-react";
 import { ChipScroller } from "../shared/ChipScroller";
 import { ComposerMore, ComposerSubmit, ComposerTitle, ComposerToggle, COMPOSER_FIELD, type ComposerDraft } from "../shared/Composer";
 import { DatePicker } from "../shared/DatePicker";
@@ -256,7 +256,7 @@ export function useTaskComposer({
 
                     {when.date ? (
                         <ComposerToggle
-                            icon={Clock3}
+                            icon={Clock}
                             iconClassName="text-moonlit"
                             label="All day"
                             description={when.allDay ? "Any time that day." : "Blocked out on your schedule."}

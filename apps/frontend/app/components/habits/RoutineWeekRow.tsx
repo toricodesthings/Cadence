@@ -7,6 +7,7 @@ import { isRoutinePaused, routineTone } from "../../lib/utils/habits";
 import { RoutineDayCell } from "./RoutineDayCell";
 import { HabitContextMenu, HabitMenu } from "./HabitMenu";
 import { RoutineMark } from "./RoutineMark";
+import { DRAGGING, useSortableRoutine } from "./SortableRoutines";
 
 export interface RoutineDay {
     iso: string;
@@ -116,9 +117,10 @@ export function RoutineWeekRow({
     onSelect: () => void;
 }) {
     const logs = logsByDay(habit);
+    const sortable = useSortableRoutine(habit);
     // Edit (menu, `E`) only opens; clicking the row again closes.
     const edit = () => { if (!selected) onSelect(); };
-    const style = { "--routine-tone": routineTone(habit.colorAccent) } as CSSProperties;
+    const style = { ...sortable.style, "--routine-tone": routineTone(habit.colorAccent) } as CSSProperties;
     const dim = isRoutinePaused(habit) ? "opacity-60" : "";
     const cell = (day: RoutineDay, col: number) => (
         <RoutineDayCell
@@ -137,8 +139,9 @@ export function RoutineWeekRow({
 
     if (stacked) {
         return (
-            <section style={style} aria-label={habit.title} onClick={openOnCardClick(onSelect)} className={`group cursor-pointer rounded-[1.5rem] border px-3 py-3 transition-colors ${selected ? "border-[color-mix(in_srgb,var(--routine-tone)_30%,transparent)] bg-[color-mix(in_srgb,var(--routine-tone)_6%,transparent)]" : "surface-card"} ${dim}`}>
-                <div className="flex items-center gap-1 pl-1">
+            <section ref={sortable.ref} style={style} aria-label={habit.title} onClick={openOnCardClick(onSelect)} className={`group cursor-pointer rounded-[1.5rem] border px-3 py-3 transition-colors ${selected ? "border-[color-mix(in_srgb,var(--routine-tone)_30%,transparent)] bg-[color-mix(in_srgb,var(--routine-tone)_6%,transparent)]" : "surface-card"} ${sortable.isDragging ? DRAGGING : ""} ${dim}`}>
+                <div className="flex items-center gap-1">
+                    {sortable.grip}
                     {identity}
                     <HabitMenu habit={habit} onEdit={edit} />
                 </div>
@@ -160,12 +163,14 @@ export function RoutineWeekRow({
     return (
         <HabitContextMenu habit={habit} onEdit={edit}>
             <div
+                ref={sortable.ref}
                 style={style}
                 role="row"
                 onClick={openOnCardClick(onSelect)}
-                className={`group grid cursor-pointer ${weekGridColumns(showWeekCount)} items-center rounded-2xl px-2 py-2 transition-colors ${selected ? "bg-[color-mix(in_srgb,var(--routine-tone)_7%,transparent)]" : "hover:bg-white/[0.025]"} ${dim}`}
+                className={`group grid cursor-pointer ${weekGridColumns(showWeekCount)} items-center rounded-2xl px-2 py-2 transition-colors ${selected ? "bg-[color-mix(in_srgb,var(--routine-tone)_7%,transparent)]" : "hover:bg-white/[0.025]"} ${sortable.isDragging ? `surface-card ${DRAGGING}` : ""} ${dim}`}
             >
                 <div role="rowheader" className="flex min-w-0 items-center gap-1 pr-2">
+                    {sortable.grip}
                     {identity}
                     <HabitMenu habit={habit} onEdit={edit} />
                 </div>

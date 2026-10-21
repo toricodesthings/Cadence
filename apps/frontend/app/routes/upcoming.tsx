@@ -4,7 +4,7 @@ import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
 import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { DayEventRows, type DayEvent } from "../components/events/DayEventRows";
-import { Inbox, CalendarRange, Layers3, Sunrise } from "lucide-react";
+import { Inbox, CalendarRange, Layers3, Sunrise, Sun } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { AgendaHabitDivider } from "../components/shared/AgendaRow";
 import { RoutineAgendaRow } from "../components/shared/RoutineAgendaRow";
@@ -81,13 +81,13 @@ const UPCOMING_SECTIONS: Array<{
     {
         key: "today",
         title: "Today",
-        icon: Sunrise,
+        icon: Sun,
         accentClass: "text-accent-primary",
     },
     {
         key: "tomorrow",
         title: "Tomorrow",
-        icon: CalendarRange,
+        icon: Sunrise,
         accentClass: "text-moonlit",
     },
     {

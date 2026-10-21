@@ -7,7 +7,7 @@ import {
 import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
-import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, EllipsisVertical, Pencil, Trash2 } from "lucide-react";
 import { useSections, useCreateSection, useDeleteSection, useUpdateSection } from "../../hooks/sections/use-sections";
 import { useSubtasksByTaskIds } from "../../hooks/tasks/use-subtasks";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
@@ -109,7 +109,7 @@ function KanbanColumn({
                                     className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 touch-reveal hover:bg-white/[0.05] hover:text-twilight-text focus-visible:opacity-100"
                                     aria-label={`Open actions for column ${section.name}`}
                                 >
-                                    <MoreHorizontal size={14} aria-hidden="true" />
+                                    <EllipsisVertical size={14} aria-hidden="true" />
                                 </button>
                             </DropdownMenu.Trigger>
                             <DropdownMenu.Content align="end" sideOffset={4}>

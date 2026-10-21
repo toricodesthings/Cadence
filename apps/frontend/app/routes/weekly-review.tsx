@@ -4,7 +4,7 @@ export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteE
 import { MainLayout } from "../components/layout/MainLayout";
 import { Button } from "../components/primitives/Button";
 import { Tip } from "../components/primitives";
-import { ArrowRight, ArrowLeft, Clock, Check, Pause, Flame, Sun, Sunrise, Moon, Trash2, LoaderCircle, PenLine, type LucideIcon } from "lucide-react";
+import { ArrowRight, ArrowLeft, Clock, Check, Pause, Flame, Sun, Sunrise, Moon, Trash2, LoaderCircle, type LucideIcon, Pencil } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { today } from "../lib/utils/user-zone";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
@@ -143,7 +143,7 @@ function ReviewListItem({
                         aria-expanded={typing}
                         className="touch-target inline-flex items-center justify-center rounded-xl px-2.5 text-twilight-text-soft hover:bg-white/[0.06] hover:text-twilight-text"
                     >
-                        <PenLine size={16} aria-hidden="true" />
+                        <Pencil size={16} aria-hidden="true" />
                     </button>
                 </Tip>
             ) : null}
@@ -287,7 +287,7 @@ function HabitReviewRow({
                     onClick={onOpenInHabits}
                     className="touch-target inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-medium text-twilight-text-soft hover:bg-white/[0.06] transition-colors"
                 >
-                    <Clock size={13} /> Edit
+                    <Pencil size={13} /> Edit
                 </button>
             </div>
         </div>

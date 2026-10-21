@@ -6,6 +6,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Routines can be sorted from the ⋮ menu (date added, time of day, name) or dragged into your own order.
+
+### Changed
+
+- Icons mean one thing everywhere: ⋮ opens options, and Today, Tomorrow, lists and tags each keep one icon.
+- Selected tasks' bar says Trash and Delete forever, so the two are easy to tell apart.
+
+### Fixed
+
+- Checking off a routine no longer moves it around the Routines page.
+- Dragging a task by its grip now works when you press right on the grip icon.
+- Pronouns are back in Profile & Security.
+- Fit today and the assistant's plan cards no longer place a task at a time that has already passed.
+- Keeping suggested steps after a failed add no longer adds the same step twice.
+
 ## [0.38.0] - 2026-10-20
 
 ### Added

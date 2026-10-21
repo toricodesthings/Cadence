@@ -1,4 +1,4 @@
-import { and, eq, inArray, min, sql } from "drizzle-orm";
+import { and, eq, inArray, max, min, sql } from "drizzle-orm";
 import type { HabitRow, HabitLog, InsertHabit, ResolveHabitAction, UpdateHabit } from "@cadence/contracts/habit";
 import { habitDays, habitOccurrences, applyTimeMark, likelyOpenTime, stepDayStatus, timeDayStatus, timeMarksOn } from "@cadence/domain/repeats";
 import { addDays, dayOf, parseRecurrenceRule, todayIn, wallTimeOf, type LocalDate, type Zone } from "@cadence/domain/time";
@@ -231,6 +231,11 @@ export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: I
     if (body.times?.length && body.reminderEnabled === undefined) body.reminderEnabled = true; // like the composer: set times remind at each one
     assertStepsOrTimes(body);
     await assertOwnership(tx, userId, { projectId: body.projectId, tagIds });
+    // A new routine goes last in the person's own (Custom) order.
+    if (body.sortOrder === undefined) {
+        const [{ last }] = await tx.select({ last: max(habits.sortOrder) }).from(habits).where(eq(habits.userId, userId));
+        body.sortOrder = (last ?? 0) + 1;
+    }
 
     const [row] = await insertWithClientId(() => tx
         .insert(habits)

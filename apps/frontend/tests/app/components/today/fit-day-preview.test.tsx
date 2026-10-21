@@ -93,6 +93,15 @@ describe("FitDayPreview", () => {
         expect(f.plan).toHaveBeenCalled();
     });
 
+    it("a time that has passed since the plan was made lays the day out again instead of placing it", async () => {
+        vi.setSystemTime(new Date(at("09:30")));
+        const { f } = setup();
+        await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Place 2" })); });
+        expect(m.place).not.toHaveBeenCalled();
+        expect(screen.getByText("Your day changed")).toBeTruthy();
+        expect(f.plan).toHaveBeenCalled();
+    });
+
     it("is disabled offline, and Cancel writes nothing", () => {
         m.online = false;
         const { onDone } = setup();

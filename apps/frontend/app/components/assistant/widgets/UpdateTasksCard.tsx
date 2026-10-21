@@ -1,4 +1,4 @@
-import { Pencil, Check, Calendar, Clock, Hourglass, Pin, Repeat, Bell, BellOff, Eye, EyeOff, Lock, Unlock, CalendarClock } from "lucide-react";
+import { Pencil, Check, Calendar, Hourglass, Pin, Repeat, Bell, BellOff, Eye, EyeOff, Lock, Unlock, CalendarClock, UserCheck } from "lucide-react";
 import { IdentityBlock, MetaPills, TagPill, type MaybePill, type Pill } from "./ProposalCard";
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useTagsLookup, useTaskTitleLookup, useTaskLookup } from "./card-lookups";
@@ -14,7 +14,7 @@ function timePills(patch: TaskPatch): MaybePill[] {
     const when = "scheduledStart" in patch || "dueDate" in patch ? (formatWhen(patch.scheduledStart ?? patch.dueDate) ?? "No date") : null;
     return [
         when ? { icon: Calendar, label: when } : null,
-        patch.durationEstimate != null ? { icon: Clock, label: `${patch.durationEstimate}m block` } : null,
+        patch.durationEstimate != null ? { icon: Hourglass, label: `${patch.durationEstimate}m block` } : null,
     ];
 }
 
@@ -26,7 +26,7 @@ function changePills(patch: TaskPatch): MaybePill[] {
     return [
         priority ? { icon: priority.icon, label: `${priority.label} priority` } : null,
         effort ? { icon: effort.icon, label: `${effort.label} effort` } : null,
-        patch.waitingOn ? { icon: Hourglass, label: `Waiting on ${patch.waitingOn}` } : null,
+        patch.waitingOn ? { icon: UserCheck, label: `Waiting on ${patch.waitingOn}` } : null,
         set(patch.isPinned, (on) => ({ icon: Pin, label: on ? "Pin" : "Unpin" })),
         set(patch.recurrenceRule, (rule) => ({ icon: Repeat, label: rule ? "Repeats" : "Stops repeating" })),
         set(patch.reminderAt, (at) => (at ? { icon: Bell, label: `Remind ${formatWhen(at)}` } : { icon: BellOff, label: "No reminder" })),

@@ -54,7 +54,8 @@ export function useCreateHabit() {
                 times: input.times ?? null,
                 emoji: input.emoji ?? null,
                 projectId: input.projectId ?? null,
-                sortOrder: input.sortOrder ?? 0,
+                // Last in a Custom order until the server picks its real place (also last).
+                sortOrder: input.sortOrder ?? Number.MAX_SAFE_INTEGER,
                 pausedUntil: input.pausedUntil ?? null,
                 tagIds: input.tagIds ?? [],
                 logs: [], // Will be empty until hydrated by weekly query

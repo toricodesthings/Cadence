@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatInZone } from "@cadence/domain/time";
 import { formatShortDate } from "../../lib/utils/date-format";
 import { getUserZone } from "../../lib/utils/user-zone";
-import { MoreHorizontal, Pencil, Archive, ArchiveRestore, Trash2, Check, X, EyeOff, Brain } from "lucide-react";
+import { EllipsisVertical, Pencil, Archive, ArchiveRestore, Trash2, Check, X, EyeOff, Brain } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Tip } from "../primitives";
 import type { ConversationListItem } from "@cadence/contracts/ai";
@@ -159,7 +159,7 @@ export function ConversationListItem({
                             className="ml-0.5 flex h-7 w-7 min-w-7 pointer-coarse:h-11 pointer-coarse:w-11 items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-opacity hover:bg-twilight-surface-hover hover:text-twilight-text group-hover:opacity-100 focus-visible:opacity-100 touch-reveal cursor-pointer"
                             aria-label="Conversation options"
                         >
-                            <MoreHorizontal size={16} />
+                            <EllipsisVertical size={16} />
                         </button>
                     </DropdownMenu.Trigger>
                 </Tip>

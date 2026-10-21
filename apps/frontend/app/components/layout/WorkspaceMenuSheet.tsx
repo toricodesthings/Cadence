@@ -2,7 +2,7 @@ import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
 import { useState, type ReactNode } from "react";
 import { useMatch, useNavigate } from "react-router";
 import { motion, useReducedMotion } from "framer-motion";
-import { CalendarRange, Inbox, Plus, Sunrise } from "lucide-react";
+import { CalendarRange, Inbox, Plus, Sun } from "lucide-react";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
 import { NAV_GROUP, NAV_GROUP_LABEL, NavigationRow } from "./NavigationRow";
@@ -108,7 +108,7 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
             {view !== "menu" ? forms[view] : <>
             <nav aria-label="Task views" className={NAV_GROUP}>
                 <NavigationRow to="/" icon={Inbox} tone="var(--accent-nav-capture, var(--accent-primary))" detail={<PlainNavCount count={captureCount} />} onClick={close}>Capture</NavigationRow>
-                <NavigationRow to="/today" icon={Sunrise} tone="var(--accent-nav-today, var(--accent-primary))" onClick={close}>Today</NavigationRow>
+                <NavigationRow to="/today" icon={Sun} tone="var(--accent-nav-today, var(--accent-primary))" onClick={close}>Today</NavigationRow>
                 <NavigationRow to="/upcoming" icon={CalendarRange} tone="var(--accent-nav-upcoming, var(--accent-primary))" onClick={close}>Upcoming</NavigationRow>
             </nav>
 

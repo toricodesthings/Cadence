@@ -1,4 +1,4 @@
-import { User, Bell, Clock, Paintbrush, Keyboard, CheckSquare, Blocks, Shield, Info, Bot, MapPin } from "lucide-react";
+import { UserRound, Bell, Clock, Paintbrush, Keyboard, CheckSquare, Blocks, ShieldCheck, Info, Sparkles, MapPin } from "lucide-react";
 
 // Tabs
 import { AccountTab } from "./tabs/AccountTab";
@@ -38,7 +38,7 @@ export function settingsTab(value: string | null): string | null {
 export const SETTINGS_CATEGORIES = [
     { label: "Account", isHeader: true },
     { id: "about", label: "About Cadence", icon: Info, keywords: ["version", "updates", "changelog", "help", "feedback", "terms", "reload fresh"] },
-    { id: "account", label: "Profile & Security", icon: User, keywords: ["name", "photo", "avatar", "email", "birthday", "password", "google", "github", "sign-in", "devices", "sessions", "delete account"] },
+    { id: "account", label: "Profile & Security", icon: UserRound, keywords: ["name", "photo", "avatar", "pronouns", "email", "birthday", "password", "google", "github", "sign-in", "devices", "sessions", "delete account"] },
 
     { label: "Preferences", isHeader: true },
     { id: "appearance", label: "Appearance", icon: Paintbrush, keywords: ["theme", "daylight", "twilight", "dark", "light", "palette", "accent", "intensity", "background", "photo", "loading screen", "motion", "animation", "low stimulation", "density", "compact", "scale"] },
@@ -48,12 +48,12 @@ export const SETTINGS_CATEGORIES = [
     { id: "shortcuts", label: "Keyboard Shortcuts", icon: Keyboard, keywords: ["keys", "bindings", "hotkeys", "command palette", "quick capture"] },
 
     { label: "Workspace", isHeader: true },
-    { id: "assistant", label: "Cadence Assistant", icon: Bot, keywords: ["name", "nickname", "persona", "voice", "tone", "suggestions", "emoji", "memory", "instructions", "conversations", "archive", "usage"] },
+    { id: "assistant", label: "Cadence Assistant", icon: Sparkles, keywords: ["name", "nickname", "persona", "voice", "tone", "suggestions", "emoji", "memory", "instructions", "conversations", "archive", "usage"] },
     { id: "integrations", label: "Integrations", icon: Blocks, keywords: ["connected assistants", "mcp", "claude", "sync", "google calendar", "apple calendar", "notion", "obsidian", "ics"] },
 
     { label: "Privacy & Control", isHeader: true },
     { id: "location", label: "Location & Weather", icon: MapPin, keywords: ["city", "country", "region", "precise", "approximate", "weather", "forget"] },
-    { id: "privacy", label: "Data & Privacy", icon: Shield, keywords: ["diagnostics", "crash reports", "recent searches", "intelligence history", "export", "email my data"] },
+    { id: "privacy", label: "Data & Privacy", icon: ShieldCheck, keywords: ["diagnostics", "crash reports", "recent searches", "intelligence history", "export", "email my data"] },
 ];
 
 export function SettingsContent({ activeTab }: { activeTab: string }) {

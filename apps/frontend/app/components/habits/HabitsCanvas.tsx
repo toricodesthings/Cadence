@@ -1,17 +1,19 @@
 import { useMemo, type ReactNode } from "react";
 import type { Habit } from "@cadence/contracts/habit";
-import { sortHabits } from "../../lib/utils/habits";
+import { sortRoutines, type RoutineSort } from "../../lib/utils/habits";
+import { SortableRoutines } from "./SortableRoutines";
 import { useRovingGrid } from "../../hooks/ui/use-roving-grid";
 import { isLoggable, logsByDay, RoutineWeekRow, weekGridColumns, type RoutineDay } from "./RoutineWeekRow";
 
 /**
  * The week: one `RoutineWeekRow` per routine under a sticky day header (phone:
  * stacked cards). The grid is one tab stop; arrows move between days, Space
- * toggles, S skips, E opens the routine. `lead` (the Today band) scrolls with it.
+ * toggles, S skips, E opens the routine; each row's grip drags it. `lead` (the Today band) scrolls with it.
  */
 export function HabitsCanvas({
     days,
     habits,
+    sort,
     today,
     stacked,
     showStreaks,
@@ -24,6 +26,7 @@ export function HabitsCanvas({
 }: {
     days: RoutineDay[];
     habits: Habit[];
+    sort: RoutineSort;
     today: string;
     stacked: boolean;
     showStreaks: boolean;
@@ -34,7 +37,7 @@ export function HabitsCanvas({
     lead?: ReactNode;
     empty: ReactNode;
 }) {
-    const sorted = useMemo(() => sortHabits(habits), [habits]);
+    const sorted = useMemo(() => sortRoutines(habits, sort), [habits, sort]);
     const firstCell = useMemo(() => {
         for (const [row, habit] of sorted.entries()) {
             const logs = logsByDay(habit);
@@ -45,7 +48,7 @@ export function HabitsCanvas({
     }, [sorted, days, today]);
     const { gridProps, tabIndexFor } = useRovingGrid(firstCell);
 
-    const rows = sorted.map((habit, row) => (
+    const rowsOf = (ordered: Habit[]) => ordered.map((habit, row) => (
         <RoutineWeekRow
             key={habit.id}
             habit={habit}
@@ -66,7 +69,9 @@ export function HabitsCanvas({
         <div className="min-h-0 flex-1 overflow-auto px-4 pb-28 scrollbar-thin sm:px-6">
             {lead}
             {sorted.length === 0 ? empty : stacked ? (
-                <div role="group" aria-label="Routines this week" {...gridProps} className="flex flex-col gap-3">{rows}</div>
+                <SortableRoutines habits={sorted} sort={sort} layout="list">
+                    {(ordered) => <div role="group" aria-label="Routines this week" {...gridProps} className="flex flex-col gap-3">{rowsOf(ordered)}</div>}
+                </SortableRoutines>
             ) : (
                 <div role="grid" aria-label="Routines this week" {...gridProps} className="surface-card min-w-[36rem] rounded-[24px] p-2">
                     <div role="row" className={`photo-shell-surface layer-shell-base sticky top-0 grid ${weekGridColumns(showWeekCount)} items-end rounded-2xl bg-twilight-deep/75 px-2 py-2 backdrop-blur-xl`}>
@@ -83,7 +88,9 @@ export function HabitsCanvas({
                         {showWeekCount ? <span role="columnheader" className="text-right text-[11px] font-medium text-twilight-text-muted">This week</span> : null}
                     </div>
                     {/* Today's cells join into one column, rounded at its ends. */}
-                    <div className="mt-1 flex flex-col [&>*:first-child_[data-today]]:rounded-t-2xl [&>*:last-child_[data-today]]:rounded-b-2xl">{rows}</div>
+                    <SortableRoutines habits={sorted} sort={sort} layout="list">
+                        {(ordered) => <div className="mt-1 flex flex-col [&>*:first-child_[data-today]]:rounded-t-2xl [&>*:last-child_[data-today]]:rounded-b-2xl">{rowsOf(ordered)}</div>}
+                    </SortableRoutines>
                 </div>
             )}
         </div>

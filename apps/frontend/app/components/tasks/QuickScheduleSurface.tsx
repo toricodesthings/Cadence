@@ -1,12 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-    Sun,
-    Sunset,
-    CalendarClock,
-    X,
-    Clock,
-    Calendar as CalendarIcon,
-    CalendarRange,
+    Sun, X, Clock, Calendar as CalendarIcon, CalendarRange, ArrowRight, Sunrise,
 } from "lucide-react";
 import { Tip, TimePicker } from "../primitives";
 import { MonthCalendar } from "../shared/DatePicker";
@@ -51,8 +45,8 @@ function getNextMonday(day: LocalDate): LocalDate {
 
 const QUICK_ACTIONS = [
     { id: "today", icon: Sun, label: "Today" },
-    { id: "tomorrow", icon: Sunset, label: "Tomorrow" },
-    { id: "next_week", icon: CalendarClock, label: "Next Monday" },
+    { id: "tomorrow", icon: Sunrise, label: "Tomorrow" },
+    { id: "next_week", icon: ArrowRight, label: "Next Monday" },
 ] as const;
 
 const DEFAULT_TIME: WallTime = "09:00";

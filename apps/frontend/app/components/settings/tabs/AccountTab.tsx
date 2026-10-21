@@ -19,6 +19,7 @@ import { DatePicker } from "../../shared/DatePicker";
 import { toast } from "sonner";
 import { compressImageToBase64 } from "../../../lib/utils/image";
 import { DeleteAccountDialog } from "../DeleteAccountDialog";
+import { SETTINGS_DEFAULTS } from "../../../types/settings";
 
 function FieldEditorModal({
     title,
@@ -626,7 +627,8 @@ export function AccountTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
 
-    const birthday = settings?.profile?.birthday ?? null;
+    const profile = { ...SETTINGS_DEFAULTS.profile, ...settings?.profile };
+    const birthday = profile.birthday;
 
     const handleUpdateUser = async (field: "name" | "image", value: string) => {
         const error = await authError(authClient.updateUser({ [field]: value }));
@@ -638,6 +640,7 @@ export function AccountTab() {
     };
 
     const setBirthday = (value: string | null) => updateSettings.mutate({ profile: { birthday: value } });
+    const setPronouns = (value: string) => updateSettings.mutate({ profile: { pronouns: value } });
 
     return (
         <div className="flex flex-col gap-10">
@@ -708,6 +711,18 @@ export function AccountTab() {
                                 initialValue={user?.name || ""}
                                 onSave={async (val) => await handleUpdateUser("name", val)}
                                 placeholder="Your full name"
+                            />
+                        </div>
+                        <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
+                            <div>
+                                <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Pronouns</p>
+                                <p className="text-sm text-warm-white">{profile.pronouns || "Not set"}</p>
+                            </div>
+                            <FieldEditorModal
+                                title="Add Pronouns"
+                                initialValue={profile.pronouns || ""}
+                                onSave={(val) => Promise.resolve(setPronouns(val))}
+                                placeholder="they/them"
                             />
                         </div>
                         <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">

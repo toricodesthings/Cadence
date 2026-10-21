@@ -1,17 +1,17 @@
 import { useRef } from "react";
-import { Bell, BellRing, Clock, CalendarClock, Flame, X, Check, Circle, Timer } from "lucide-react";
+import { Bell, BellRing, CalendarClock, Flame, X, Check, Circle, Timer, CalendarHeart, UserCheck } from "lucide-react";
 import type { AppNotification } from "../../lib/notifications/notification-model";
 import { DEFER_LABELS, type DeferChoice } from "../../lib/notifications/reminder-engine";
 import { Tip } from "../primitives/Tooltip";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 
 export const NOTIFICATION_STYLES: Record<AppNotification["kind"], { icon: typeof Bell; label: string }> = {
-    "task-reminder": { icon: Clock, label: "Reminder" },
+    "task-reminder": { icon: Bell, label: "Reminder" },
     "task-due": { icon: CalendarClock, label: "Task" },
     "block-start": { icon: CalendarClock, label: "Schedule" },
-    "habit-reminder": { icon: Flame, label: "Habit" },
-    "waiting-followup": { icon: Timer, label: "Waiting" },
-    "personal-event": { icon: Bell, label: "Event" },
+    "habit-reminder": { icon: Flame, label: "Routine" },
+    "waiting-followup": { icon: UserCheck, label: "Waiting" },
+    "personal-event": { icon: CalendarHeart, label: "Event" },
     system: { icon: BellRing, label: "Update" },
 };
 export const actionClass = "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-sm text-twilight-text-soft transition-colors hover:bg-twilight-surface-muted hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary disabled:cursor-default disabled:opacity-50 cursor-pointer";

@@ -4,7 +4,7 @@ import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
 import { useState, useCallback, useMemo } from "react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
-import { FolderKanban, Pencil, Trash2, Repeat, Check, X, Plus, LayoutList } from "lucide-react";
+import { Pencil, Trash2, Repeat, Check, X, Plus, Columns3, FolderOpen } from "lucide-react";
 import { useParams, useNavigate } from "react-router";
 import { useProjects } from "../hooks/projects/use-projects";
 import { useDeleteProject } from "../hooks/projects/use-delete-project";
@@ -222,7 +222,7 @@ export default function ProjectView() {
                         actionsLabel="List"
                         actions={[
                             { label: "New task", icon: Plus, onSelect: focusAddTask, compact: { onSelect: () => setAddOpen(true) } },
-                            { label: "Add section", icon: LayoutList, onSelect: triggerAddSection, compact: { label: "Sections", onSelect: () => setSectionsFocus("") } },
+                            { label: "Add section", icon: Columns3, onSelect: triggerAddSection, compact: { label: "Sections", onSelect: () => setSectionsFocus("") } },
                             { label: "Rename / Edit list", icon: Pencil, onSelect: handleRenameOpen, compact: { label: "Rename / edit list" } },
                             { label: "Delete list", icon: Trash2, onSelect: handleDelete, danger: true },
                         ]}
@@ -235,7 +235,7 @@ export default function ProjectView() {
                     icon: project?.emoji ? (
                         <span className="text-xl leading-none">{project.emoji}</span>
                     ) : (
-                        <FolderKanban size={18} aria-hidden="true" />
+                        <FolderOpen size={18} aria-hidden="true" />
                     ),
                     accentColor: projectAccent,
                 }}
@@ -282,7 +282,7 @@ export default function ProjectView() {
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
                                     <div className="w-16 h-16 rounded-full bg-twilight-surface ring-1 ring-twilight-border flex items-center justify-center mb-6">
-                                        <FolderKanban size={24} className="text-twilight-text-muted" />
+                                        <FolderOpen size={24} className="text-twilight-text-muted" />
                                     </div>
                                     <h3 className="text-lg font-medium text-twilight-text mb-2">No tasks in this list</h3>
                                     <p className="text-twilight-text-muted text-sm max-w-sm">

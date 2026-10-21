@@ -4,7 +4,7 @@
  * as rows the user can untick.
  */
 import { useState } from "react";
-import { ArrowDownUp, CalendarClock, Check, CheckCircle2, Copy, Trash2, Hourglass, RotateCcw, type LucideIcon } from "lucide-react";
+import { ArrowUpDown, CalendarClock, Check, CheckCircle2, Copy, Trash2, RotateCcw, type LucideIcon, UserCheck } from "lucide-react";
 import { ApprovalCard, DeleteApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useTaskTitleLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
@@ -44,7 +44,7 @@ const STATE_COPY: Record<State, { eyebrow: string; glyph: LucideIcon; primary: (
     COMPLETE: { eyebrow: "MARK DONE", glyph: CheckCircle2, primary: (n) => `Mark ${n} done`, done: (n) => `Marked ${n} done. Nice.`, tone: "success" },
     ARCHIVED: { eyebrow: "MOVE TO TRASH", glyph: Trash2, primary: () => "Move to Trash", done: (n) => `Moved ${n} to Trash.` },
     ACTIVE: { eyebrow: "REOPEN", glyph: RotateCcw, primary: () => "Reopen", done: (n) => `Reopened ${n}.` },
-    WAITING: { eyebrow: "ON HOLD", glyph: Hourglass, primary: () => "Put on hold", done: (n, on) => (on ? `On hold, waiting on ${on}.` : `Put ${n} on hold.`) },
+    WAITING: { eyebrow: "ON HOLD", glyph: UserCheck, primary: () => "Put on hold", done: (n, on) => (on ? `On hold, waiting on ${on}.` : `Put ${n} on hold.`) },
 };
 
 /** Card for `set_task_state`: done, Trash (restorable), reopen, or waiting on someone. */
@@ -191,7 +191,7 @@ export function ReorderTasksCard({ ctx }: { ctx: ToolRenderContext<"reorder_task
         <ApprovalCard
             ctx={ctx}
             eyebrow="REORDER"
-            eyebrowGlyph={ArrowDownUp}
+            eyebrowGlyph={ArrowUpDown}
             ariaLabel={`${where}: ${titles.join(", ")}`}
             primaryLabel="Move"
             primaryGlyph={Check}

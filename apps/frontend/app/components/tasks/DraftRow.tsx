@@ -1,4 +1,4 @@
-import { Bell, Calendar, Check, Clock, FolderOpen, Hash, Repeat, UserCheck, X } from "lucide-react";
+import { Bell, Calendar, Check, FolderOpen, Repeat, UserCheck, X, Hourglass, Tag } from "lucide-react";
 import type { ParsedEntity } from "@cadence/nlp/core";
 import { PRIORITY_ICON } from "./task-choice-options";
 
@@ -8,8 +8,8 @@ const ICON: Record<string, React.ReactNode> = {
     recurrence: <Repeat size={11} aria-hidden="true" />,
     priority: <PRIORITY_ICON size={11} aria-hidden="true" />,
     project: <FolderOpen size={11} aria-hidden="true" />,
-    tag: <Hash size={11} aria-hidden="true" />,
-    duration: <Clock size={11} aria-hidden="true" />,
+    tag: <Tag size={11} aria-hidden="true" />,
+    duration: <Hourglass size={11} aria-hidden="true" />,
     waiting_on: <UserCheck size={11} aria-hidden="true" />,
     reminder: <Bell size={11} aria-hidden="true" />,
     not_before: <Calendar size={11} aria-hidden="true" />,

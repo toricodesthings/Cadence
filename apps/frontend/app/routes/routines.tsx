@@ -24,7 +24,8 @@ import { useRightPanelStore } from "../stores/right-panel-store";
 import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { ChevronLeft, ChevronRight, Plus, Flame, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Flame, EllipsisVertical, CalendarPlus, Clock, ArrowDownAZ, GripVertical, type LucideIcon } from "lucide-react";
+import type { RoutineSort } from "../lib/utils/habits";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useReducedMotionSetting } from "../hooks/ui/use-reduced-motion";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
@@ -35,6 +36,14 @@ const HABITS_ACCENT = "var(--accent-nav-habits, var(--accent-primary))";
 const NAV_BUTTON = "btn-icon cursor-pointer rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text";
 
 type DisplayMode = "week" | "month";
+
+const ROUTINE_SORTS: { value: RoutineSort; label: string; icon: LucideIcon }[] = [
+    { value: "created", label: "Date added", icon: CalendarPlus },
+    { value: "time", label: "Time of day", icon: Clock },
+    { value: "name", label: "Name", icon: ArrowDownAZ },
+    { value: "custom", label: "Custom", icon: GripVertical },
+];
+
 type ViewMode = "active" | "archived";
 
 /** "Sep 27 – Oct 3", or "Sep 6 – 12" inside one month. */
@@ -62,6 +71,8 @@ export default function Routines() {
     const updateSettings = useUpdateSettings();
     const weekStartsOn = WEEK_START_INDEX[settings?.dateTime?.weekStart ?? "Sunday"];
     const showStreaks = settings?.tasks?.showStreaks !== false;
+    const routineSort: RoutineSort = settings?.tasks?.routineSort ?? "created";
+    const setRoutineSort = (value: RoutineSort) => updateSettings.mutate({ tasks: { routineSort: value } });
     const reducedMotion = useReducedMotionSetting();
     const bloom = !settings?.tasks?.intelligence?.lowStimulationMode && !reducedMotion;
 
@@ -162,6 +173,16 @@ export default function Routines() {
                     options={[{ value: "active", label: "Active" }, { value: "archived", label: "Archived" }]}
                 />
             </div>
+            <div>
+                <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-twilight-text-muted">Sort by</h4>
+                <SegmentedControl
+                    ariaLabel="Sort routines"
+                    className="max-w-full flex-wrap"
+                    value={routineSort}
+                    onChange={setRoutineSort}
+                    options={ROUTINE_SORTS.map(({ value, label, icon: Icon }) => ({ value, label: value === "created" ? "Added" : value === "time" ? "Time" : label, icon: <Icon size={13} aria-hidden="true" /> }))}
+                />
+            </div>
             <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
                 <span>Show streaks</span>
                 <Switch checked={showStreaks} onCheckedChange={(value) => updateSettings.mutate({ tasks: { showStreaks: value } })} />
@@ -169,12 +190,12 @@ export default function Routines() {
         </div>
     );
 
-    // Same as Schedule: a gear at the far right opens a small panel of view options.
+    // Same as Schedule: ⋮ at the far right opens a small panel of view options, the order included.
     const options = (
         <Popover.Root>
             <Popover.Trigger asChild>
-                <button type="button" className={HEADER_ICON_BUTTON} aria-label="Routine view options">
-                    <Settings size={16} aria-hidden="true" />
+                <button type="button" className={HEADER_ICON_BUTTON} aria-label="Routine view and sort options">
+                    <EllipsisVertical size={18} aria-hidden="true" />
                 </button>
             </Popover.Trigger>
             <Popover.Content side="bottom" align="end" className="w-[min(20rem,calc(100vw-2rem))] p-3">
@@ -199,6 +220,7 @@ export default function Routines() {
     const empty = <EmptyState variant={viewMode === "archived" ? "routines-archived" : "routines"} onAction={() => setIsCreateOpen(true)} />;
     const shared = {
         habits: visibleHabits,
+        sort: routineSort,
         today: todayIso,
         showStreaks,
         bloom,
@@ -222,7 +244,7 @@ export default function Routines() {
             <div className="flex h-full overflow-hidden">
                 <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                     {shell.isPhone ? (
-                        // Same as Schedule: Week/Month live under the sliders icon, Today floats bottom left.
+                        // Same as Schedule: Week/Month live under ⋮, Today floats bottom left.
                         <PhonePageHeader
                             eyebrow="Routines"
                             title={phoneTitle}

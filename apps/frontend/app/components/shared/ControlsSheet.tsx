@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChipScroller } from "./ChipScroller";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, EllipsisVertical } from "lucide-react";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useDeviceValue } from "../../hooks/ui/use-device-flag";
 import { Tip } from "../primitives/Tooltip";
@@ -73,7 +73,7 @@ export function ControlsSheet({
             <Popover.Root open={open} onOpenChange={(next) => { setOpen(next); if (!next) setDrillId(null); }}>
                 <Tip label={triggerLabel}><Popover.Trigger asChild>
                     <button type="button" className="mobile-icon-button" aria-label={triggerLabel}>
-                        <SlidersHorizontal size={20} aria-hidden="true" />
+                        <EllipsisVertical size={20} aria-hidden="true" />
                     </button>
                 </Popover.Trigger></Tip>
 
@@ -127,7 +127,7 @@ export function ControlsSheet({
                         triggerClassName,
                     ].join(" ").trim()}
                 >
-                    <SlidersHorizontal size={15} aria-hidden="true" />
+                    <EllipsisVertical size={15} aria-hidden="true" />
                     {triggerLabel}
                 </button>
             </Dialog.DialogTrigger>

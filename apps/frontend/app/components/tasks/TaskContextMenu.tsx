@@ -1,5 +1,5 @@
 import { useContext, useState, type ReactNode } from "react";
-import { MoreVertical, Pin, Copy, Trash2, Calendar, Bell, Sun, Moon, CalendarDays, ArrowRight, CalendarClock, Clock, X, ListChecks, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
+import { EllipsisVertical, Pin, Copy, Trash2, Calendar, Bell, Sun, CalendarDays, ArrowRight, CalendarClock, Clock, X, ListChecks, Pencil, ChevronLeft, ChevronRight, Sunrise } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import type { GenericMenu } from "../primitives/menu-styles";
 import { Button } from "../primitives/Button";
@@ -147,7 +147,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                                 onClick={() => handleQuickSchedule(1)}
                                 className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-twilight-border/35 bg-white/[0.02] px-3 py-3 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
                             >
-                                <Moon size={16} className="text-twilight-text-muted" aria-hidden="true" />
+                                <Sunrise size={16} className="text-twilight-text-muted" aria-hidden="true" />
                                 <span>Tomorrow</span>
                             </button>
                             <button
@@ -228,7 +228,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
             </div>
         </Menu.Item>
     );
-    const rescheduleItem = submenuItem(<CalendarClock size={16} />, "Reschedule", <span>r</span>, () => setMenuView("reschedule-presets"));
+    const rescheduleItem = submenuItem(<Calendar size={16} />, "Reschedule", <span>r</span>, () => setMenuView("reschedule-presets"));
     const findTimeItem = canFindTime(task) ? (
         <Menu.Item onSelect={() => { trackMenuAction("find_time"); void findTime.run(task, findDay ? { day: findDay } : {}); }}>
             <div className="flex items-center gap-2">
@@ -456,7 +456,7 @@ export function TaskContextMenu({ task, onAddSubtask, onRename, holdingContext }
                     className="pointer-fine:h-9 pointer-fine:w-9"
                     aria-label={`Open actions for ${task.title}`}
                 >
-                    <MoreVertical size={16} />
+                    <EllipsisVertical size={16} />
                 </Button>
             </DropdownMenu.Trigger>
 

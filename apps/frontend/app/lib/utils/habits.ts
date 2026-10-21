@@ -27,25 +27,26 @@ export const ROUTINE_SWATCHES = [
     ...PROJECT_ACCENT_OPTIONS.map((option) => ({ value: option.value as string, color: option.varName as string, label: option.label as string })),
 ];
 
+export type RoutineSort = "created" | "time" | "name" | "custom";
+
+const byCreated = (a: Habit, b: Habit) => Date.parse(a.createdAt) - Date.parse(b.createdAt) || a.id.localeCompare(b.id);
+const firstTime = (habit: Habit) => habit.times?.[0] ?? habit.targetTime ?? null;
+
 /**
- * Sort: due+overdue timed → due+overdue anytime → remaining timed by targetTime → remaining anytime by sortOrder
- * Paused habits sink to bottom.
+ * The Routines page order. Every mode reads only what the person set (created, time, name,
+ * their dragged order), never today's progress, so checking one off never moves it.
  */
-export function sortHabits(habits: Habit[]): Habit[] {
-    return [...habits].sort((a, b) => {
-        const aPaused = isRoutinePaused(a) ? 1 : 0;
-        const bPaused = isRoutinePaused(b) ? 1 : 0;
-        if (aPaused !== bPaused) return aPaused - bPaused;
-
-        const aDue = a.isDueToday || a.isOverdue ? 0 : 1;
-        const bDue = b.isDueToday || b.isOverdue ? 0 : 1;
-        if (aDue !== bDue) return aDue - bDue;
-
-        const aTimed = a.targetTime ? 0 : 1;
-        const bTimed = b.targetTime ? 0 : 1;
-        if (aTimed !== bTimed) return aTimed - bTimed;
-
-        if (a.targetTime && b.targetTime) return a.targetTime.localeCompare(b.targetTime);
-        return a.sortOrder - b.sortOrder;
-    });
+export function sortRoutines(habits: Habit[], mode: RoutineSort): Habit[] {
+    const compare: Record<RoutineSort, (a: Habit, b: Habit) => number> = {
+        created: byCreated,
+        // Timed first by their first time of day, then anytime routines.
+        time: (a, b) => {
+            const [ta, tb] = [firstTime(a), firstTime(b)];
+            if (ta && tb) return ta.localeCompare(tb) || byCreated(a, b);
+            return ta ? -1 : tb ? 1 : byCreated(a, b);
+        },
+        name: (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }) || byCreated(a, b),
+        custom: (a, b) => a.sortOrder - b.sortOrder || byCreated(a, b),
+    };
+    return [...habits].sort(compare[mode]);
 }

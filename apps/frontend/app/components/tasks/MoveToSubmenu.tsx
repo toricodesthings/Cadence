@@ -1,5 +1,5 @@
 import React from "react";
-import { Folder, ChevronRight } from "lucide-react";
+import { ChevronRight, FolderOpen } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import type { GenericMenu } from "../primitives/menu-styles";
 import { useProjects } from "../../hooks/projects/use-projects";
@@ -20,7 +20,7 @@ export const MoveToSubmenu: React.FC<MoveToSubmenuProps> = ({
     return (
         <Menu.Sub>
             <Menu.SubTrigger className="flex items-center gap-2">
-                <Folder size={16} />
+                <FolderOpen size={16} />
                 <span>Move to list</span>
                 <ChevronRight size={14} className="ml-auto text-twilight-text-muted" />
             </Menu.SubTrigger>

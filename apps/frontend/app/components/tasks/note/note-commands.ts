@@ -5,9 +5,7 @@
  */
 import type { Editor } from "@tiptap/core";
 import {
-    Bold, Italic, Strikethrough, Code2, RemoveFormatting, Heading1, Heading2, Heading3, Pilcrow, List, ListOrdered, ListTodo,
-    Quote, Minus, SquareCode, Link2, Table2, IndentIncrease, IndentDecrease, Undo2, Redo2, FileText, CalendarDays, Lightbulb,
-    CheckCircle2, Search, ClipboardCopy, Download, FileCode, ListChecks, type LucideIcon,
+    Bold, Italic, Strikethrough, Code2, RemoveFormatting, Heading1, Heading2, Heading3, Pilcrow, List, ListOrdered, ListTodo, Quote, Minus, SquareCode, Link2, Table2, IndentIncrease, IndentDecrease, Undo2, Redo2, FileText, CalendarDays, Lightbulb, CheckCircle2, Search, Download, FileCode, ListChecks, type LucideIcon, Copy, ListTree,
 } from "lucide-react";
 import { MOD_KEY } from "../../../lib/constants/keys";
 import { NOTE_TEMPLATES } from "../../../lib/notes/note-templates";
@@ -104,10 +102,10 @@ export const NOTE_COMMANDS: NoteCommand[] = [
     mk({ id: "table-delete", label: "Delete table", description: "Remove the whole table", icon: Table2, run: (e) => chain(e).deleteTable().run(), canRun: (e) => e.isActive("table") }),
     // Handled by the room (they need more than the editor):
     mk({ id: "find", label: "Find and replace", description: "Search this note", icon: Search, shortcut: mod("F") }),
-    mk({ id: "copy-markdown", label: "Copy Markdown", description: "Copy the note as Markdown", icon: ClipboardCopy }),
+    mk({ id: "copy-markdown", label: "Copy Markdown", description: "Copy the note as Markdown", icon: Copy }),
     mk({ id: "download-markdown", label: "Download .md", description: "Save the note as a file", icon: Download }),
     mk({ id: "edit-markdown", label: "Edit Markdown", description: "Edit the note's source text", icon: FileCode }),
-    mk({ id: "outline", label: "Outline", description: "Jump between headings", icon: ListChecks }),
+    mk({ id: "outline", label: "Outline", description: "Jump between headings", icon: ListTree }),
     mk({ id: "convert-subtasks", label: "Subtasks from lines", description: "Turn list lines into subtasks", icon: ListChecks }),
     ...TEMPLATE_COMMANDS,
 ];

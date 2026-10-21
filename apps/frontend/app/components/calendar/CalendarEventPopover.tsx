@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarHeart, CalendarRange, StickyNote } from "lucide-react";
+import { CalendarHeart, CalendarRange, StickyNote, CheckSquare } from "lucide-react";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { FIELD_LABEL } from "../tasks/task-choice-options";
 import { ComposerEffortRow, EffortField, PriorityField, TimeRangeFields } from "../tasks/TaskWeightFields";
@@ -198,7 +198,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
             value={tab}
             onChange={setTab}
             options={[
-                { id: "task", label: "Task", icon: CalendarRange },
+                { id: "task", label: "Task", icon: CheckSquare },
                 { id: "event", label: "Event", icon: CalendarHeart, activeClassName: "bg-accent-nav-schedule/15 text-accent-nav-schedule" },
             ]}
         />
@@ -263,7 +263,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                 <ComposerSubmit
                     onSubmit={handleTaskSubmit}
                     submitLabel={isPending ? "Saving…" : mode === "weekly" ? "Create series" : "Add to schedule"}
-                    icon={CalendarRange}
+                    icon={CheckSquare}
                     disabled={!submitTitle || isPending}
                 />
             ) : event.footer}

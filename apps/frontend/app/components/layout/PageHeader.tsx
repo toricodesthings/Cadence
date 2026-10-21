@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronLeft, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, EllipsisVertical } from "lucide-react";
 import * as Popover from "../primitives/Popover";
 
 /** Surface shared by every page header (desktop bar and compact variants). */
@@ -142,7 +142,7 @@ export function PhonePageHeader({ eyebrow, title, meta, backLabel, onZoomOut, le
                                 className="btn-icon touch-target rounded-full text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
                                 aria-label="View and display options"
                             >
-                                <SlidersHorizontal size={18} aria-hidden="true" />
+                                <EllipsisVertical size={18} aria-hidden="true" />
                             </button>
                         </Popover.Trigger>
                         <Popover.Content side="bottom" align="end" className="w-[min(20rem,calc(100vw-2rem))] p-3">

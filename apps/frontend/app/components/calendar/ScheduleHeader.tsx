@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { Tip } from "../primitives/Tooltip";
 import { SegmentedControl } from "../primitives/SegmentedControl";
-import { ChevronLeft, ChevronRight, Plus, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, EllipsisVertical } from "lucide-react";
 import {
     Snowflake, CloudSnow, Wind, CloudRain,
     SunDim, Sun, Waves, Flame,
@@ -152,7 +152,7 @@ export function ScheduleHeader({
                                     className="btn-icon touch-target rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
                                     aria-label="Display & calendar options"
                                 >
-                                    <Settings size={16} />
+                                    <EllipsisVertical size={18} aria-hidden="true" />
                                 </button>
                             </Popover.Trigger>
                             <Popover.Content side="bottom" align="end" className="w-80 p-3">
@@ -225,7 +225,7 @@ export function ScheduleHeader({
                                 className={HEADER_ICON_BUTTON}
                                 aria-label="Display & calendar options"
                             >
-                                <Settings size={16} aria-hidden="true" />
+                                <EllipsisVertical size={18} aria-hidden="true" />
                             </button>
                         </Popover.Trigger>
                         <Popover.Content side="bottom" align="end" className="w-80 p-3">

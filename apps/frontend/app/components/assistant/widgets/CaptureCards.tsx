@@ -2,14 +2,14 @@
  * Cards for Capture writes: `update_captures` (keep, discard, tick off, back to
  * New, new words) and `delete_captures`.
  */
-import { Archive, Check, CheckCircle2, Inbox, NotebookPen, RotateCcw, Pencil } from "lucide-react";
+import { Archive, Check, CheckCircle2, Inbox, RotateCcw, Pencil, StickyNote } from "lucide-react";
 import { ApprovalCard, DeleteApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { useCaptureLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 
 type CaptureAction = "note" | "discard" | "done" | "new";
 const ACTION_COPY: Record<CaptureAction, string> = { note: "Keep as a note", discard: "Discard", done: "Tick off", new: "Back to New" };
-const ACTION_GLYPH = { note: NotebookPen, discard: Archive, done: CheckCircle2, new: RotateCcw, edit: Pencil };
+const ACTION_GLYPH = { note: StickyNote, discard: Archive, done: CheckCircle2, new: RotateCcw, edit: Pencil };
 
 /** Card for `update_captures`: each capture with what happens to it. */
 export function UpdateCapturesCard({ ctx }: { ctx: ToolRenderContext<"update_captures"> }) {

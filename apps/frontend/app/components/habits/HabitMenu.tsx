@@ -2,7 +2,7 @@ import type React from "react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ContextMenu from "../primitives/ContextMenu";
 import type { GenericMenu } from "../primitives/menu-styles";
-import { MoreHorizontal, Pencil, Trash2, Archive, ArchiveRestore, Pause, Play } from "lucide-react";
+import { EllipsisVertical, Pencil, Trash2, Archive, ArchiveRestore, Pause, Play } from "lucide-react";
 import { useRoutineActions } from "../../hooks/habits/use-routine-actions";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
@@ -21,7 +21,7 @@ export function HabitMenu({ habit, onEdit }: { habit: Habit; onEdit: () => void 
                         aria-label={`Actions for ${habit.title}`}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <MoreHorizontal size={15} aria-hidden="true" />
+                        <EllipsisVertical size={15} aria-hidden="true" />
                     </button>
                 </DropdownMenu.Trigger>
                 <DropdownMenu.Content align="end">

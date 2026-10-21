@@ -4,7 +4,7 @@ import { Button } from "../primitives/Button";
 import { Tip } from "../primitives";
 import { Reveal } from "../shared/Reveal";
 import { useOnlineStatus } from "../../hooks/core/use-online-status";
-import type { SuggestSteps } from "../../hooks/ai/use-suggest-steps";
+import { isWanted, type SuggestSteps } from "../../hooks/ai/use-suggest-steps";
 
 /**
  * The "Suggest steps" text button beside a subtask field. It never takes focus from the field (a failure leaves the
@@ -31,14 +31,14 @@ export function SuggestStepsButton({ s }: { s: SuggestSteps }) {
 
 /** The draft: ghost steps, all ticked, each editable; Keep steps, Smaller (once) and ×. */
 export function SuggestedSteps({ s }: { s: SuggestSteps }) {
-    const ticked = s.draft?.filter((d) => d.ticked && d.title.trim()).length ?? 0;
+    const ticked = s.draft?.filter(isWanted).length ?? 0;
     return (
         <>
             <p role="status" aria-live="polite" className="empty:hidden">
                 {s.status === "failed" ? (
                     <span className="flex items-center gap-2 px-1 py-1 text-[13px] text-twilight-text-muted">
                         Couldn’t suggest steps
-                        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={s.suggest} className="min-h-9 cursor-pointer rounded-full px-2 text-accent-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">Try again</button>
+                        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={s.retry} className="min-h-9 cursor-pointer rounded-full px-2 text-accent-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">Try again</button>
                     </span>
                 ) : null}
             </p>

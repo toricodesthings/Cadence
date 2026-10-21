@@ -136,6 +136,7 @@ export const backgroundUploadMetaSchema = z.object({
 
 export const userSettingsSchema = z.object({
     profile: z.object({
+        pronouns: z.string().optional(),
         birthday: z.string().nullable().optional(),
     }).optional(),
     appearance: z.object({
@@ -239,6 +240,8 @@ export const userSettingsSchema = z.object({
         hideCompleted: z.boolean().optional(),
         showDoneCelebration: z.boolean().optional(),
         showStreaks: z.boolean().optional(),
+        /** How the Routines page orders routines; "custom" is the dragged order (each routine's sortOrder). */
+        routineSort: z.enum(["created", "time", "name", "custom"]).optional(),
         quickAdd: z.object({
             preset: z.enum(["minimal", "planner", "power"]).optional(),
             style: z.enum(["icon", "label"]).optional(),
@@ -428,6 +431,7 @@ export const settingsPatchSchema = deepPartial(patchSource) as z.ZodType<DeepPar
 
 export const SETTINGS_DEFAULTS = {
     profile: {
+        pronouns: "",
         birthday: null as string | null,
     },
     appearance: {
@@ -508,6 +512,7 @@ export const SETTINGS_DEFAULTS = {
         hideTrash: false,
         showDoneCelebration: true,
         showStreaks: true,
+        routineSort: "created" as "created" | "time" | "name" | "custom",
         quickAdd: {
             preset: "planner" as const,
             style: "label" as const,

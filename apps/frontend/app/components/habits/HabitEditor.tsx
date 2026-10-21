@@ -3,7 +3,7 @@ import * as Popover from "../primitives/Popover";
 import { Tip } from "../primitives/Tooltip";
 import { weekdayName } from "../../lib/utils/calendar/calendar-math";
 import { addDays, weekdayOf, type LocalDate } from "@cadence/domain/time";
-import { Archive, ArchiveRestore, ArrowUpRight, Bell, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Clock3, FolderOpen, ListChecks, Repeat2, Palette, Pause, Play, SlidersHorizontal, StickyNote, Tag, Target, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowUpRight, Bell, CalendarDays, CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Clock, FolderOpen, ListChecks, Repeat2, Palette, Pause, Play, SlidersHorizontal, StickyNote, Tag, Target, Trash2 } from "lucide-react";
 import type { Habit } from "@cadence/contracts/habit";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
 import { useRoutineActions } from "../../hooks/habits/use-routine-actions";
@@ -239,7 +239,7 @@ export function HabitEditor({ habit, day, onOpenInRoutines, onClose, detailMode 
                         <DetailGroup title="Rhythm">
                             <CadencePicker select value={habit.recurrenceRule} onChange={(recurrenceRule) => update({ recurrenceRule })} />
                             {times ? (
-                                <FieldBlock icon={Clock3} label="Times">
+                                <FieldBlock icon={Clock} label="Times">
                                     <RoutineTimes
                                         times={times}
                                         cadence={habit.recurrenceRule === "FREQ=DAILY" ? "Every day" : "Repeats"}
@@ -248,7 +248,7 @@ export function HabitEditor({ habit, day, onOpenInRoutines, onClose, detailMode 
                                 </FieldBlock>
                             ) : (
                                 <>
-                                <FieldRow icon={Clock3} label="Usual time">
+                                <FieldRow icon={Clock} label="Usual time">
                                     <TimePicker label="Routine usual time" value={habit.targetTime ?? ""} placeholder="Any time" clearable onChange={(value) => update({ targetTime: value || null })} className={VALUE_TIME} />
                                 </FieldRow>
                                 <FieldRow icon={CalendarRange} label="Times by day" hint="Different on some days">

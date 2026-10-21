@@ -1,4 +1,4 @@
-import { Bot, Brain, ClipboardList, Goal, Feather, Heart, Check, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Brain, ClipboardList, Goal, Feather, Heart, Check, ShieldCheck, type LucideIcon, Sparkles } from "lucide-react";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { Button, Input, Switch } from "../../primitives";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
@@ -51,7 +51,7 @@ export function AssistantTab() {
         <div className="flex flex-col gap-10">
             <div>
                 <h2 className="mb-2 flex items-center gap-2 text-2xl font-bold text-twilight-text">
-                    <Bot className="h-6 w-6 text-accent-primary" aria-hidden="true" />
+                    <Sparkles className="h-6 w-6 text-accent-primary" aria-hidden="true" />
                     Cadence Assistant
                 </h2>
                 <p className="max-w-3xl text-sm leading-relaxed text-twilight-text-soft">

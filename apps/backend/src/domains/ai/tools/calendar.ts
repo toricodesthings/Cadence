@@ -172,7 +172,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                 return withRls(getDbClient(env), userId, async (tx) => {
                     const onDay = await readTasks(tx, userId, { from: day, to: day });
                     // Today's own set also holds what's still open from earlier days, first, as Today shows it.
-                    const carried = day === ctx.today ? (await readTasks(tx, userId, { state: "ACTIVE", effectiveOnOrBeforeDate: day })).filter((t) => taskDay(t, zone)! < day) : [];
+                    const carried = day === ctx.today ? (await readTasks(tx, userId, { state: "ACTIVE", effectiveOnOrBeforeDate: day })).filter((t) => (taskDay(t, zone) ?? day) < day) : [];
                     const candidates = [...carried, ...onDay].filter((t, i, all) => isFitCandidate(t) && all.findIndex((o) => o.id === t.id) === i);
                     const hints = await durationHints(tx, userId, candidates);
                     const lists = new Map((await tx.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.userId, userId))).map((p) => [p.id, p.name]));

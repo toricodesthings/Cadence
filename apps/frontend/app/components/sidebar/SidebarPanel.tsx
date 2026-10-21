@@ -1,7 +1,7 @@
 import { useTasks } from "../../hooks/tasks/use-tasks";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
-import { CalendarRange, Inbox, CheckCircle2, Trash2, LayoutDashboard, Plus } from "lucide-react";
+import { CalendarRange, Inbox, CheckCircle2, Trash2, Plus, Sun } from "lucide-react";
 import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
 import { Reveal } from "../shared/Reveal";
 import { NavLink } from "./NavLink";
@@ -109,7 +109,7 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                             hoverColor="group-hover:text-accent-nav-capture/70"
                         />
                         <NavLink
-                            icon={LayoutDashboard}
+                            icon={Sun}
                             label="Today"
                             href="/today"
                             activeColor="text-accent-nav-today"

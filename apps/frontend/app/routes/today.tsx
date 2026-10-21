@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { DayEventRows } from "../components/events/DayEventRows";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import { EyeOff, Eye, Inbox, Sunrise, Flame, CalendarClock, CalendarRange } from "lucide-react";
+import { EyeOff, Eye, Inbox, Flame, CalendarClock, CalendarRange, Sun } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { Tip } from "../components/primitives";
 import { RoutineAgendaList, routineAgendaItems } from "../components/shared/RoutineAgendaRow";
@@ -279,7 +279,7 @@ export default function TodayRoute() {
         {
             key: "today",
             title: "Today",
-            icon: Sunrise,
+            icon: Sun,
             accentClass: "text-accent-primary",
             count: grouped.today.length,
             description: todayEvents.length > 0 ? <DayEventRows events={todayDayEvents} /> : undefined,
@@ -321,7 +321,7 @@ export default function TodayRoute() {
             shellHeader={{
                 title: "Today",
                 eyebrow: "Focus",
-                icon: <Sunrise size={18} aria-hidden="true" />,
+                icon: <Sun size={18} aria-hidden="true" />,
                 accentColor: "var(--accent-nav-today, var(--accent-primary))",
             }}
         >

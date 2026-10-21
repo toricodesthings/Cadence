@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarDays, FolderOpen, MessageSquare, MoreVertical, Tag } from "lucide-react";
+import { CalendarDays, FolderOpen, MessageSquare, EllipsisVertical, Tag } from "lucide-react";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { useThoughtParse } from "../../hooks/inbox/use-thought-parse";
 import { useProcessInboxToTask } from "../../hooks/inbox/use-process-inbox-to-task";
@@ -208,7 +208,7 @@ export function ClarifySheet({
                     <Tip label="More actions">
                         <Menu.Trigger asChild>
                             <Button variant="ghost" size="icon" aria-label="More thought actions">
-                                <MoreVertical size={18} />
+                                <EllipsisVertical size={18} />
                             </Button>
                         </Menu.Trigger>
                     </Tip>

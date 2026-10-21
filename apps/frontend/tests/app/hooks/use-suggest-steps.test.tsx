@@ -43,6 +43,29 @@ describe("useSuggestSteps", () => {
         expect(m.remove).toHaveBeenCalledTimes(2);
     });
 
+    it("Keep after a partial failure leaves only the failed steps, so Keep again never doubles one", async () => {
+        m.post.mockResolvedValue(ok(["Clear the hall", "Tape the edges"]));
+        m.create.mockResolvedValueOnce({}).mockRejectedValueOnce({ status: 500 });
+        const { result } = setup();
+        await act(async () => { result.current.suggest(); });
+        await act(async () => { result.current.keep(); });
+        expect(result.current.draft?.map((d) => d.title)).toEqual(["Tape the edges"]);
+        act(() => m.undo[0]());
+        expect(m.remove).toHaveBeenCalledTimes(1);
+    });
+
+    it("Try again repeats the request that failed", async () => {
+        m.post.mockResolvedValueOnce(ok(["Sort the garage", "Sweep"])).mockResolvedValueOnce({ ok: false, status: 504, json: async () => ({ error: { code: "AI_TIMEOUT", message: "", status: 504, isRetryable: true } }) });
+        const { result } = setup();
+        await act(async () => { result.current.suggest(); });
+        act(() => result.current.edit(result.current.draft![1].key, { ticked: false }));
+        await act(async () => { result.current.smaller(); });
+        expect(m.post).toHaveBeenLastCalledWith({ json: { taskId: "task-1", smaller: ["Sort the garage"] } });
+        m.post.mockResolvedValueOnce(ok(["Open the door"]));
+        await act(async () => { result.current.retry(); });
+        expect(m.post).toHaveBeenLastCalledWith({ json: { taskId: "task-1", smaller: ["Sort the garage"] } });
+    });
+
     it("Smaller asks once more with the draft, and × discards it", async () => {
         m.post.mockResolvedValue(ok(["Sort the garage", "Bin the rubbish", "Sweep"]));
         const { result } = setup();

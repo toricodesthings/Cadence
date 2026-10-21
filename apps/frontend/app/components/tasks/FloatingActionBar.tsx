@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import { cn } from "../../lib/utils";
-import { X, type LucideIcon, Calendar, CheckSquare, Trash2, Sun, Moon, ArrowRight, Archive, FolderOpen, Hash } from "lucide-react";
+import { X, type LucideIcon, Calendar, Trash2, Sun, ArrowRight, FolderOpen, CheckCircle2, Sunrise, Tag } from "lucide-react";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useBatchStateTransition, useBatchDeleteTasks, useBatchRescheduleTasks, useTrashTasks } from "../../hooks/tasks/use-batch-state";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
@@ -104,14 +104,14 @@ export function FloatingActionBar() {
 
             {/* Actions */}
             <div className="flex items-center gap-1 px-1">
-                <BarButton icon={CheckSquare} label="Complete" onClick={handleMarkComplete} />
+                <BarButton icon={CheckCircle2} label="Complete" onClick={handleMarkComplete} />
 
-                <BarButton icon={Archive} label="Archive" onClick={handleArchive} />
+                <BarButton icon={Trash2} label="Trash" onClick={handleArchive} />
 
                 {/* Quick reschedule presets */}
                 <BarButton icon={Sun} label="Today" onClick={() => handleQuickReschedule(0)} />
 
-                <BarButton icon={Moon} label="Tomorrow" onClick={() => handleQuickReschedule(1)} />
+                <BarButton icon={Sunrise} label="Tomorrow" onClick={() => handleQuickReschedule(1)} />
 
                 <BarButton icon={ArrowRight} label="Next week" onClick={() => handleQuickReschedule(7)} className="hidden sm:flex" />
 
@@ -154,7 +154,7 @@ export function FloatingActionBar() {
 
                 <Popover.Root>
                     <Popover.Trigger asChild>
-                        <BarButton icon={Hash} label="Tag" />
+                        <BarButton icon={Tag} label="Tag" />
                     </Popover.Trigger>
                     <Popover.Content className="w-52 p-1">
                         <div className="max-h-64 space-y-1 overflow-auto">
@@ -186,7 +186,7 @@ export function FloatingActionBar() {
                     className="shrink-0 text-rose-400 opacity-90 hover:opacity-100"
                 >
                     <Trash2 size={14} />
-                    Delete
+                    Delete forever
                 </Button>
             </div>
 

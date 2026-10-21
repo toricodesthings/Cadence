@@ -1,18 +1,7 @@
 import { COLLECTION_ROW_SURFACE, COLLECTION_ROW_HOVER, COLLECTION_ROW_SELECTED, COLLECTION_ROW_TITLE } from "../tasks/task-row-styles";
 import { useRef, useState, useEffect, useId } from "react";
 import {
-    CalendarClock,
-    CalendarDays,
-    CalendarPlus,
-    CheckSquare,
-    FolderOpen,
-    ListChecks,
-    Inbox,
-    MoreVertical,
-    Moon,
-    StickyNote,
-    Sun,
-    Trash2,
+    CalendarPlus, CheckSquare, FolderOpen, ListChecks, Inbox, EllipsisVertical, Moon, StickyNote, Sun, Trash2, Calendar, Sunrise,
 } from "lucide-react";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import type { Task } from "@cadence/contracts/task";
@@ -372,7 +361,7 @@ export function CaptureRow({
                                     aria-label={`Actions for ${title}`}
                                     className="shrink-0 opacity-40 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 pointer-coarse:opacity-100"
                                 >
-                                    <MoreVertical size={16} />
+                                    <EllipsisVertical size={16} />
                                 </Button>
                             </Menu.Trigger>
                         </Tip>
@@ -396,12 +385,12 @@ export function CaptureRow({
                                         disabled={disabled}
                                         onSelect={() => place(tomorrowISO())}
                                     >
-                                        <Moon size={16} aria-hidden />
+                                        <Sunrise size={16} aria-hidden />
                                         Tomorrow
                                     </Menu.Item>
                                     <Menu.Sub>
                                         <Menu.SubTrigger className="flex items-center gap-2.5" disabled={disabled}>
-                                            <CalendarDays size={16} aria-hidden />
+                                            <Calendar size={16} aria-hidden />
                                             Pick day…
                                         </Menu.SubTrigger>
                                         <Menu.SubContent className="w-72 p-0">
@@ -422,7 +411,7 @@ export function CaptureRow({
                             {item && (
                                 <>
                                     <Menu.Item className="gap-2.5" disabled={disabled} onSelect={() => place()}>
-                                        <CalendarClock size={16} aria-hidden />
+                                        <Moon size={16} aria-hidden />
                                         No day yet
                                     </Menu.Item>
                                     <Menu.Item

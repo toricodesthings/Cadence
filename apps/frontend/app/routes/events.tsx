@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { CalendarHeart, CalendarPlus, ArrowDownUp, ChevronDown } from "lucide-react";
+import { CalendarHeart, CalendarPlus, ArrowUpDown, ChevronDown } from "lucide-react";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { EventCard } from "../components/events/EventCard";
 import { MainLayout } from "../components/layout/MainLayout";
@@ -44,7 +44,7 @@ function EventSortMenu({ value, onChange }: { value: PersonalEventSortMode; onCh
                     aria-label={`Sort events: ${SORT_LABELS[value]}`}
                     className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 self-start rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 text-[13px] text-twilight-text-soft transition-colors hover:bg-accent-nav-schedule/8 hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-nav-schedule/40 data-[state=open]:text-twilight-text sm:self-auto"
                 >
-                    <ArrowDownUp size={13} aria-hidden="true" className="text-accent-nav-schedule" />
+                    <ArrowUpDown size={13} aria-hidden="true" className="text-accent-nav-schedule" />
                     {SORT_LABELS[value]}
                     <ChevronDown size={14} aria-hidden="true" className="text-twilight-text-muted" />
                 </button>

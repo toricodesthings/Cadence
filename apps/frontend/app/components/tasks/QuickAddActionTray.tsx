@@ -1,4 +1,4 @@
-import { Calendar, FolderOpen, Hash } from "lucide-react";
+import { Calendar, FolderOpen, Tag } from "lucide-react";
 import * as Popover from "../primitives/Popover";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
@@ -188,7 +188,7 @@ export function QuickAddActionTray({
                                         : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]"
                                 }`}
                             >
-                                <Hash size={14} aria-hidden="true" />
+                                <Tag size={14} aria-hidden="true" />
                                 {!iconOnly ? <span>{selectedTags.length ? `${selectedTags.length} tag${selectedTags.length === 1 ? "" : "s"}` : "Tags"}</span> : null}
                             </button>
                         </Popover.Trigger>

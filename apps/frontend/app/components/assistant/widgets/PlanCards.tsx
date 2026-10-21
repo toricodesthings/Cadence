@@ -85,10 +85,11 @@ function FindTimeCardBody({ output, task: about }: { output: FindTimeOutput; tas
     const [placedAt, setPlacedAt] = useState<string | null>(null);
     const [placing, setPlacing] = useState(false);
     const zone = getUserZone();
+    // A chat read again later never offers a time that has already passed.
     const proposals = useMemo(() => (output.proposals ?? []).map((p) => {
         const start = toInstant(p.start);
         return { start, end: toInstant(p.end), bucket: bucketOf(start, zone) };
-    }), [output, zone]);
+    }).filter((p) => Date.parse(p.start) > Date.now()), [output, zone]);
     const proposal = proposals[index];
 
     if (!proposal) return <div className={SETTLED}><span>No gap that fits</span></div>;

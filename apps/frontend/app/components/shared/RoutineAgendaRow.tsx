@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, Clock3 } from "lucide-react";
+import { Check, ChevronDown, Clock } from "lucide-react";
 import type { Habit } from "@cadence/contracts/habit";
 import { nextOpenTime, routineTimeOn, timeMarksOn, timeProgress } from "@cadence/domain/repeats";
 import { wallTimeOf } from "@cadence/domain/time";
@@ -85,7 +85,7 @@ export function RoutineAgendaRow({
                         {done ? (
                             <Check size={15} strokeWidth={3} aria-hidden="true" />
                         ) : isResolving ? (
-                            <Clock3 className="h-3 w-3 animate-pulse" aria-hidden="true" />
+                            <Clock className="h-3 w-3 animate-pulse" aria-hidden="true" />
                         ) : (
                             <RoutineMark emoji={emoji} size={12} className="opacity-90" />
                         )}

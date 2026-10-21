@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { ChevronDown, ChevronRight, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, EllipsisVertical, Pencil, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TaskList } from "../tasks/TaskList";
 import { useSections, useCreateSection, useUpdateSection, useDeleteSection } from "../../hooks/sections/use-sections";
@@ -198,7 +198,7 @@ export function SectionedTaskList({
                                         className="mobile-icon-button glass-inset"
                                         aria-label={`Edit section ${section.name}`}
                                     >
-                                        <MoreHorizontal size={18} aria-hidden="true" />
+                                        <EllipsisVertical size={18} aria-hidden="true" />
                                     </button>
                                 </Tip>
                             ) : <div className={shell.isCompact ? "opacity-100" : "opacity-0 transition-opacity group-hover:opacity-100"}>
@@ -210,7 +210,7 @@ export function SectionedTaskList({
                                             className="p-1"
                                             aria-label={`Open actions for section ${section.name}`}
                                         >
-                                            <MoreHorizontal size={14} />
+                                            <EllipsisVertical size={14} />
                                         </Button>
                                     </DropdownMenu.Trigger>
                                     <DropdownMenu.Content>

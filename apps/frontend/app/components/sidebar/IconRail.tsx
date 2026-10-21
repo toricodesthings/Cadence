@@ -3,7 +3,7 @@ import { today } from "../../lib/utils/user-zone";
 import { ActivityBadge } from "../primitives/ActivityBadge";
 import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
 import {
-    Search, SquarePen, Settings, Database, Flame,
+    Search, Plus, Settings, Database, Flame,
     Calendar, CalendarHeart, Inbox, Sprout,
     LogOut, LifeBuoy, ChevronDown, Sparkles, Trash2, RefreshCw,
     BellRing, CheckCircle2, Info, TriangleAlert, CircleAlert, LoaderCircle,
@@ -398,7 +398,7 @@ export function IconRail({
                     aria-label="Quick add task"
                     className="btn-icon rounded-2xl text-twilight-text-muted hover:text-accent-primary hover:bg-accent-primary-dim outline-none"
                 >
-                    <SquarePen size={18} aria-hidden="true" />
+                    <Plus size={18} aria-hidden="true" />
                 </button>
             </Tip>
 

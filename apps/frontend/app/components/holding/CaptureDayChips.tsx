@@ -1,5 +1,5 @@
 import { Button } from "../primitives/Button";
-import { CalendarDays } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { DatePicker } from "../shared/DatePicker";
 import { isLocalDate, type Instant, type LocalDate } from "@cadence/domain/time";
 import { placementLabel } from "../../lib/utils/date-format";
@@ -42,7 +42,7 @@ export function CaptureDayChips({
             onClick={onPick}
             className={`${DAY_PILL} ${DAY_PILL_PLAIN} gap-1.5`}
         >
-            <CalendarDays size={12} aria-hidden />
+            <Calendar size={12} aria-hidden />
             Pick day…
         </Button>
     );

@@ -1,4 +1,4 @@
-import { Bell, BellOff, Trash2, PencilLine, Calendar } from "lucide-react";
+import { Bell, BellOff, Trash2, Calendar, Pencil } from "lucide-react";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { Button } from "../primitives/Button";
 import { trackUsageEvent } from "../../lib/api/track-event";
@@ -113,7 +113,7 @@ export function EventCard({
                     onClick={() => onEdit(item.event)}
                     className="px-4 text-sm font-semibold"
                 >
-                    <PencilLine size={16} aria-hidden="true" />
+                    <Pencil size={16} aria-hidden="true" />
                     Edit
                 </Button>
             </div>
@@ -121,7 +121,7 @@ export function EventCard({
             </ContextMenu.Trigger>
             <ContextMenu.Content>
                 <ContextMenu.Item onSelect={() => onEdit(item.event)}>
-                    <PencilLine size={14} aria-hidden="true" />
+                    <Pencil size={14} aria-hidden="true" />
                     Edit event
                 </ContextMenu.Item>
                 <ContextMenu.Item onSelect={() => onOpenInSchedule(item.event)}>

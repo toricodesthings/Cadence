@@ -1,4 +1,4 @@
-import { Sparkles, Calendar, Clock, Check, ListChecks, Image as ImageIcon, Lock, Repeat, Bell, EyeOff, Tag as TagIcon } from "lucide-react";
+import { Sparkles, Calendar, Check, ListChecks, Image as ImageIcon, Lock, Repeat, Bell, EyeOff, Tag as TagIcon, Hourglass } from "lucide-react";
 import { IdentityBlock, MetaPill, MetaPills, TagPill, type MaybePill } from "./ProposalCard";
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useTagsLookup } from "./card-lookups";
@@ -96,7 +96,7 @@ function draftPills(draft: TaskDraft): MaybePill[] {
     const hidden = formatWhen(draft.hideUntil);
     return [
         when && { icon: Calendar, label: when },
-        draft.durationEstimate && { icon: Clock, label: `${draft.durationEstimate}m block` },
+        draft.durationEstimate && { icon: Hourglass, label: `${draft.durationEstimate}m block` },
         priority && { icon: priority.icon, label: <span className={PRIORITY_CONFIG[priority.value].color}>{priority.label} priority</span> },
         effort && { icon: effort.icon, label: `${effort.label} effort` },
         repeats && { icon: Repeat, label: repeats },

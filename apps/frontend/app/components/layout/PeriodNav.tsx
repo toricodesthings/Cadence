@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sun } from "lucide-react";
 import { Tip } from "../primitives/Tooltip";
 import { SPRINGS } from "../../lib/constants/motion";
 
@@ -75,7 +75,7 @@ export function PeriodTodayPill({ show, reducedMotion, onToday }: { show: boolea
                         onClick={onToday}
                         className="flex min-h-12 cursor-pointer items-center gap-2 rounded-full border border-twilight-border/60 bg-panel-raised/90 px-4 text-sm font-medium text-twilight-text shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-md press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                     >
-                        <CalendarCheck size={16} className="text-accent-primary" aria-hidden="true" />
+                        <Sun size={16} className="text-accent-primary" aria-hidden="true" />
                         Today
                     </button>
                 </motion.div>
