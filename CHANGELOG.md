@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.38.2] - 2026-10-21
+
 ### Added
 
 - Events can be shown as a list, grouped by month, from the page's ⋮ menu.
