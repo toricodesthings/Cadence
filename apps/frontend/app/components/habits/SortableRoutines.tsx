@@ -8,7 +8,6 @@ import { computeGappedOrderIndex, computeMidpointIndex } from "@cadence/domain/o
 import { MouseSensor, TouchSensor } from "../../lib/utils/dnd";
 import type { RoutineSort } from "../../lib/utils/habits";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
-import { useUpdateSettings } from "../../hooks/core/use-settings";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 
 /** The slide neighbours make while a routine is dragged past them. */
@@ -19,15 +18,15 @@ const SLIDE = { duration: 240, easing: "cubic-bezier(0.22, 1, 0.36, 1)" };
  * order: one midpoint write when the neighbours leave room, otherwise the visible list laid out again.
  * The dropped order is held on screen until those writes settle, so nothing jumps back meanwhile.
  */
-export function SortableRoutines({ habits, sort, layout, children }: {
+export function SortableRoutines({ habits, sort, onSortChange, layout, children }: {
     habits: Habit[];
     sort: RoutineSort;
+    onSortChange: (sort: RoutineSort) => void;
     /** "list": rows or stacked cards; "grid": month cards that wrap. */
     layout: "list" | "grid";
     children: (ordered: Habit[]) => ReactNode;
 }) {
     const updateHabit = useUpdateHabit();
-    const updateSettings = useUpdateSettings();
     const [held, setHeld] = useState<string[] | null>(null);
     const sensors = useSensors(
         useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
@@ -48,7 +47,7 @@ export function SortableRoutines({ habits, sort, layout, children }: {
         if (from < 0 || to < 0) return;
         const next = arrayMove(ordered, from, to);
         setHeld(next.map((habit) => habit.id));
-        if (sort !== "custom") updateSettings.mutate({ tasks: { routineSort: "custom" } });
+        if (sort !== "custom") onSortChange("custom");
 
         // A preset's order isn't the stored one, and tied neighbours leave no midpoint: lay it all out again.
         const [prev, after] = [next[to - 1]?.sortOrder, next[to + 1]?.sortOrder];

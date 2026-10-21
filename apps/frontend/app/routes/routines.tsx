@@ -31,6 +31,8 @@ import { useReducedMotionSetting } from "../hooks/ui/use-reduced-motion";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { HEADER_ICON_BUTTON, HEADER_SELECT_TRIGGER, PageHeader, PhonePageHeader, PhoneViewPicker } from "../components/layout/PageHeader";
 import { PeriodDock, PeriodNav, PeriodTodayPill } from "../components/layout/PeriodNav";
+import { LayoutScalePanelRow } from "../components/layout/LayoutScaleMenu";
+import { useDeviceValue } from "../hooks/ui/use-device-flag";
 
 const HABITS_ACCENT = "var(--accent-nav-habits, var(--accent-primary))";
 const NAV_BUTTON = "btn-icon cursor-pointer rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text";
@@ -71,8 +73,9 @@ export default function Routines() {
     const updateSettings = useUpdateSettings();
     const weekStartsOn = WEEK_START_INDEX[settings?.dateTime?.weekStart ?? "Sunday"];
     const showStreaks = settings?.tasks?.showStreaks !== false;
-    const routineSort: RoutineSort = settings?.tasks?.routineSort ?? "created";
-    const setRoutineSort = (value: RoutineSort) => updateSettings.mutate({ tasks: { routineSort: value } });
+    // The order is this device's own (a drag still saves the Custom order itself to the account).
+    const [savedSort, setRoutineSort] = useDeviceValue("cadence:routines:sort");
+    const routineSort: RoutineSort = ROUTINE_SORTS.find((option) => option.value === savedSort)?.value ?? "created";
     const reducedMotion = useReducedMotionSetting();
     const bloom = !settings?.tasks?.intelligence?.lowStimulationMode && !reducedMotion;
 
@@ -187,6 +190,7 @@ export default function Routines() {
                 <span>Show streaks</span>
                 <Switch checked={showStreaks} onCheckedChange={(value) => updateSettings.mutate({ tasks: { showStreaks: value } })} />
             </label>
+            <LayoutScalePanelRow />
         </div>
     );
 
@@ -221,6 +225,7 @@ export default function Routines() {
     const shared = {
         habits: visibleHabits,
         sort: routineSort,
+        onSortChange: setRoutineSort,
         today: todayIso,
         showStreaks,
         bloom,

@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import type { PersonalEvent } from "../../types/settings";
 import { PROJECT_ACCENT_OPTIONS } from "../constants/colors";
 import { daysBetween, type LocalDate } from "@cadence/domain/time";
-import { formatShortDate, getDaysInMonth, isoDay } from "./date-format";
+import { formatMonthName, formatMonthYear, formatShortDate, getDaysInMonth, isoDay } from "./date-format";
 import { today as todayDay } from "./user-zone";
 
 const EVENT_DEFAULT_TONE = "var(--accent-nav-schedule)";
@@ -130,4 +130,23 @@ export function sortPersonalEventViewModels(items: PersonalEventViewModel[], mod
     });
 
     return sorted;
+}
+
+export type PersonalEventView = "cards" | "list";
+
+/**
+ * The list's month headings: by the month each event next comes round ("next", with the year once it isn't this
+ * one) or its calendar month ("month-day"). Other sorts aren't about time, so they stay one unheaded group.
+ */
+export function groupPersonalEventsByMonth(items: PersonalEventViewModel[], mode: PersonalEventSortMode, today: LocalDate) {
+    if (mode !== "next" && mode !== "month-day") return [{ key: "all", label: null, items }];
+    const groups: { key: string; label: string | null; items: PersonalEventViewModel[] }[] = [];
+    for (const item of items) {
+        const day = mode === "next" ? item.nextDate : isoDay(Number(today.slice(0, 4)), Number(item.event.monthDay.slice(0, 2)) - 1, 1);
+        const key = day.slice(0, 7);
+        const last = groups[groups.length - 1];
+        if (last?.key === key) last.items.push(item);
+        else groups.push({ key, label: mode === "next" && day.slice(0, 4) !== today.slice(0, 4) ? formatMonthYear(day) : formatMonthName(day), items: [item] });
+    }
+    return groups;
 }

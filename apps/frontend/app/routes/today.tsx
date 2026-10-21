@@ -70,7 +70,7 @@ export default function TodayRoute() {
     const shell = useShellMode();
     const navigate = useNavigate();
     const { view, setView } = useRouteViewMode("today");
-    const { sortMode, setSortMode } = useSortMode();
+    const { sortMode, setSortMode } = useSortMode("today");
     const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection();
 
 

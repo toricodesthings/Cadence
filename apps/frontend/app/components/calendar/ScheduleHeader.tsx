@@ -15,6 +15,7 @@ import * as Popover from "../primitives/Popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../primitives/Select";
 import { HEADER_ICON_BUTTON, HEADER_SELECT_TRIGGER, PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity, PhonePageHeader } from "../layout/PageHeader";
 import { PeriodNav, PeriodTodayButton } from "../layout/PeriodNav";
+import { LayoutScalePanelRow } from "../layout/LayoutScaleMenu";
 
 export type CalendarViewMode = "day" | "week" | "month" | "year";
 
@@ -107,7 +108,7 @@ export function ScheduleHeader({
     if (phone) {
         // Phone: one row. Period changes are swipes and taps on the calendar
         // itself; the label above the title zooms out (Day → Month → Year).
-        return <PhonePageHeader eyebrow="Schedule" {...phone} options={overflowContent} />;
+        return <PhonePageHeader eyebrow="Schedule" {...phone} options={<div className="space-y-4">{overflowContent}<LayoutScalePanelRow /></div>} />;
     }
 
     if (compact) {
@@ -156,7 +157,7 @@ export function ScheduleHeader({
                                 </button>
                             </Popover.Trigger>
                             <Popover.Content side="bottom" align="end" className="w-80 p-3">
-                                {overflowContent}
+                                <div className="space-y-4">{overflowContent}<LayoutScalePanelRow /></div>
                             </Popover.Content>
                         </Popover.Root>
                     )}
@@ -229,7 +230,7 @@ export function ScheduleHeader({
                             </button>
                         </Popover.Trigger>
                         <Popover.Content side="bottom" align="end" className="w-80 p-3">
-                            {overflowContent}
+                            <div className="space-y-4">{overflowContent}<LayoutScalePanelRow /></div>
                         </Popover.Content>
                     </Popover.Root>
                 )}

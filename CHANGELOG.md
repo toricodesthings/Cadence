@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Events can be shown as a list, grouped by month, from the page's ⋮ menu.
+
+### Changed
+
+- In the desktop app, the layout size control moved from the header into each page's ⋮ menu.
+- Sorts are remembered on each device separately: Today, Upcoming, lists, Routines and Events.
+
 ## [0.38.1] - 2026-10-21
 
 ### Added

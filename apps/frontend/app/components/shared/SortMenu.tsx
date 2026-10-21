@@ -5,6 +5,7 @@ import type { SortMode } from "../../lib/utils/task/sort-tasks";
 import type { ViewMode } from "../../hooks/ui/use-view-mode";
 import { ViewToggle } from "./ViewToggle";
 import { HEADER_ICON_BUTTON } from "../layout/PageHeader";
+import { ClaimHeaderMenu, LayoutScaleMenuRow } from "../layout/LayoutScaleMenu";
 
 interface SortMenuAction {
     label: string;
@@ -32,6 +33,8 @@ const SORT_OPTIONS: { value: SortMode; label: string; icon: typeof Sparkles }[] 
 
 export function SortMenu({ mode, onModeChange, view, onViewChange, actions = [] }: SortMenuProps) {
     return (
+        <>
+        <ClaimHeaderMenu />
         <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
                 <button
@@ -95,7 +98,9 @@ export function SortMenu({ mode, onModeChange, view, onViewChange, actions = [] 
                         ))}
                     </>
                 )}
+                <LayoutScaleMenuRow />
             </DropdownMenu.Content>
         </DropdownMenu.Root>
+        </>
     );
 }

@@ -27,6 +27,7 @@ import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
 import { resolveTagColor } from "../lib/utils/color-resolver";
 import type { Task } from "@cadence/contracts/task";
+import { ClaimHeaderMenu, LayoutScaleMenuRow } from "../components/layout/LayoutScaleMenu";
 
 /** The orb's direct add: every task made here carries this tag. */
 function TagTaskSheet({ open, onClose, tag, tasks }: { open: boolean; onClose: () => void; tag: { id: string; name: string }; tasks: Task[] }) {
@@ -136,7 +137,8 @@ export default function TagView() {
                 onCloseSidePanel={() => setSelectedTaskId(null)}
                 sidePanelLabel="Task"
                 compactHeaderRightInline
-                headerRight={tag ? (
+                headerRight={tag ? (<>
+                    <ClaimHeaderMenu />
                     <DropdownMenu.Root>
                         <Tip label="Tag options">
                             <DropdownMenu.Trigger asChild>
@@ -153,9 +155,10 @@ export default function TagView() {
                             <DropdownMenu.Item variant="danger" className="flex min-h-11 items-center gap-2" onSelect={handleDelete}>
                                 <Trash2 size={15} aria-hidden="true" /> Delete tag
                             </DropdownMenu.Item>
+                            <LayoutScaleMenuRow />
                         </DropdownMenu.Content>
                     </DropdownMenu.Root>
-                ) : undefined}
+                </>) : undefined}
                 pageTitle={tag?.name ?? "Tag"}
                 shellHeader={{
                     title: tag?.name ?? "Tag",

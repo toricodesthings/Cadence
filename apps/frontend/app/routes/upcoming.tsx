@@ -211,7 +211,7 @@ export default function Upcoming() {
     const { activeDefinition } = useFocusViewStore();
     const navigate = useNavigate();
     const { view, setView } = useRouteViewMode("upcoming");
-    const { sortMode, setSortMode } = useSortMode();
+    const { sortMode, setSortMode } = useSortMode("upcoming");
     const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection();
 
 

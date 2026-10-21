@@ -6,8 +6,7 @@ import { MobileHeaderActions, MobileTabBar } from "./MobileNavigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router";
 import * as Tooltip from "../primitives/Tooltip";
-import * as DropdownMenu from "../primitives/DropdownMenu";
-import { Download, Menu, Minus, PanelLeftClose, PanelLeftOpen, PanelRightClose, Plus } from "lucide-react";
+import { Download, Menu, PanelLeftClose, PanelLeftOpen, PanelRightClose } from "lucide-react";
 import { useNavPanel } from "../../hooks/ui/use-nav-panel";
 import { useAssistantStore } from "../../stores/assistant-store";
 import { useAssistantReplyWatcher } from "../../hooks/ai/use-assistant-reply-watcher";
@@ -45,7 +44,8 @@ import { ContextualAddOrb } from "../shared/ContextualAddOrb";
 import type { QuickAddTab } from "../quick-add/QuickAddSurface";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { useAvailableDesktopUpdate } from "../../platform/desktop-update-state";
-import { DESKTOP_LAYOUT_SCALE_DEFAULT, DESKTOP_LAYOUT_SCALES, useDesktopLayoutScale } from "../../hooks/ui/use-desktop-layout-scale";
+import { DESKTOP_LAYOUT_SCALE_DEFAULT, useDesktopLayoutScale } from "../../hooks/ui/use-desktop-layout-scale";
+import { HeaderMenuClaimProvider, HeaderScaleMenu } from "./LayoutScaleMenu";
 import { LegalConsentGate } from "../legal/LegalConsentGate";
 import { SyncInspectorDialog } from "../desktop/SyncInspectorDialog";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
@@ -107,72 +107,6 @@ interface ShellHeaderConfig {
     accentColor?: string;
 }
 
-/** Shared look of the desktop header's chips; matches the Focus trigger beside them. */
-const HEADER_CHIP = "hidden h-11 shrink-0 items-center rounded-xl border text-[13px] font-medium transition-colors lg:flex";
-const HEADER_CHIP_STEP = "flex h-full w-8 cursor-pointer items-center justify-center text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/50 disabled:pointer-events-none disabled:opacity-40";
-
-function DesktopHeaderStatus({ onOpenAbout }: { onOpenAbout: () => void }) {
-    const update = useAvailableDesktopUpdate();
-    const { layoutScale, setLayoutScale, stepLayoutScale } = useDesktopLayoutScale();
-
-    return (
-        <div className="flex items-center gap-2">
-            {update ? (
-                <button
-                    type="button"
-                    onClick={onOpenAbout}
-                    className={`${HEADER_CHIP} cursor-pointer gap-1.5 surface-control-accent border-accent-primary/25 px-3 text-accent-primary`}
-                >
-                    <Download size={14} aria-hidden="true" />
-                    Update {update.version}
-                </button>
-            ) : null}
-
-            <div role="group" aria-label="Layout scale" className={`${HEADER_CHIP} surface-control overflow-hidden border-twilight-border/30`}>
-                <Tooltip.Tip label="Smaller" side="bottom">
-                    <button
-                        type="button"
-                        onClick={() => void stepLayoutScale(-1)}
-                        disabled={layoutScale === DESKTOP_LAYOUT_SCALES[0]}
-                        aria-label="Decrease layout scale"
-                        className={HEADER_CHIP_STEP}
-                    >
-                        <Minus size={14} aria-hidden="true" />
-                    </button>
-                </Tooltip.Tip>
-                <DropdownMenu.Root>
-                    <DropdownMenu.Trigger
-                        aria-label={`Layout scale: ${layoutScale}%`}
-                        className={`${HEADER_CHIP_STEP} w-auto min-w-12 px-1.5 tabular-nums text-twilight-text-soft`}
-                    >
-                        {layoutScale}%
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Content align="center" sideOffset={6} className="min-w-[8.5rem]">
-                        <DropdownMenu.RadioGroup value={String(layoutScale)} onValueChange={(value) => void setLayoutScale(Number(value))}>
-                            {DESKTOP_LAYOUT_SCALES.map((scale) => (
-                                <DropdownMenu.RadioItem key={scale} value={String(scale)} className="min-h-9 tabular-nums">
-                                    {scale}%{scale === DESKTOP_LAYOUT_SCALE_DEFAULT ? " · Default" : ""}
-                                </DropdownMenu.RadioItem>
-                            ))}
-                        </DropdownMenu.RadioGroup>
-                    </DropdownMenu.Content>
-                </DropdownMenu.Root>
-                <Tooltip.Tip label="Larger" side="bottom">
-                    <button
-                        type="button"
-                        onClick={() => void stepLayoutScale(1)}
-                        disabled={layoutScale === DESKTOP_LAYOUT_SCALES[DESKTOP_LAYOUT_SCALES.length - 1]}
-                        aria-label="Increase layout scale"
-                        className={HEADER_CHIP_STEP}
-                    >
-                        <Plus size={14} aria-hidden="true" />
-                    </button>
-                </Tooltip.Tip>
-            </div>
-        </div>
-    );
-}
-
 export function MainLayout({
     children,
     requireAuth = false,
@@ -228,6 +162,12 @@ export function MainLayout({
     const [forceLoading, setForceLoading] = useState(false);
     const { status, isAuthenticated, beginAuthRecovery } = useAuthState();
     const shell = useShellMode();
+    const desktopUpdate = useAvailableDesktopUpdate();
+    const [headerMenus, setHeaderMenus] = useState(0);
+    const claimHeaderMenu = useCallback(() => {
+        setHeaderMenus((count) => count + 1);
+        return () => setHeaderMenus((count) => count - 1);
+    }, []);
     // Rail mode is a wide-screen layout; compact screens keep the phone header and dock.
     const railOnly = navigationMode === "rail" && !shell.isCompact;
     const isUtilityPage = location.pathname === "/browse";
@@ -576,11 +516,17 @@ export function MainLayout({
     };
 
     const headerTitle = shellHeader?.title ?? resolvedPageTitle;
-    const desktopStatus = IS_DESKTOP_RUNTIME && shell.isDesktop
-        ? (
-            <DesktopHeaderStatus onOpenAbout={() => navigate("?settings=about")} />
-        )
-        : null;
+    const desktopApp = IS_DESKTOP_RUNTIME && shell.isDesktop;
+    // The update notice stays in the header; the layout scale lives in the ⋮ (`LayoutScaleMenu`).
+    const desktopStatus = desktopApp && desktopUpdate ? (
+        <button type="button" onClick={() => navigate("?settings=about")}
+            className="hidden h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border surface-control-accent border-accent-primary/25 px-3 text-[13px] font-medium text-accent-primary transition-colors lg:flex">
+            <Download size={14} aria-hidden="true" />
+            Update {desktopUpdate.version}
+        </button>
+    ) : null;
+    // The layout scale sits in the page's ⋮; a page without one gets a ⋮ holding just the scale.
+    const scaleMenu = desktopApp && headerMenus === 0 ? <HeaderScaleMenu /> : null;
 
     const headerIdentityProps = {
         title: headerTitle,
@@ -628,7 +574,7 @@ export function MainLayout({
         </Tooltip.Tip>
     ) : null;
 
-    const hasHeaderActions = Boolean(desktopStatus || headerCenter || headerRight || shell.isLaptop || closeRailControl);
+    const hasHeaderActions = Boolean(desktopStatus || headerCenter || headerRight || scaleMenu || shell.isLaptop || closeRailControl);
     const headerActions = hasHeaderActions ? (
         <>
             {desktopStatus}
@@ -637,13 +583,14 @@ export function MainLayout({
             ) : null}
             {headerCenter}
             {headerRight}
+            {scaleMenu}
             {shell.isLaptop && <NotificationPreview side="bottom" placement="header" />}
             {closeRailControl}
         </>
     ) : null;
 
     return (
-        <>
+        <HeaderMenuClaimProvider value={claimHeaderMenu}>
             {/* Compact headers pad under the iOS status bar themselves; the wide shell
                 (iPad landscape home-screen app) starts below it. Zero elsewhere. */}
             <div className={`h-dvh overflow-hidden relative ${shell.isCompact && !railOnly ? "compact-navigation-shell" : "pt-[env(safe-area-inset-top)]"}`}>
@@ -843,6 +790,6 @@ export function MainLayout({
                     }}
                 />
             ) : null}
-        </>
+        </HeaderMenuClaimProvider>
     );
 }

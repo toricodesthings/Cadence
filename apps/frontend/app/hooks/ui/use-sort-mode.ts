@@ -1,33 +1,11 @@
-import { useCallback } from "react";
-import { useSearchParams } from "react-router";
 import type { SortMode } from "../../lib/utils/task/sort-tasks";
+import { useDeviceValue } from "./use-device-flag";
 
-/**
- * Reads/writes the sort mode for a route via URL search params.
- * Falls back to "smart" if no param is set.
- */
-export function useSortMode() {
-    const [searchParams, setSearchParams] = useSearchParams();
+const SORT_MODES: readonly SortMode[] = ["smart", "priority", "manual"];
 
-    const sortMode = (searchParams.get("sort") as SortMode) || "smart";
-
-    const setSortMode = useCallback(
-        (mode: SortMode) => {
-            setSearchParams(
-                (prev) => {
-                    const next = new URLSearchParams(prev);
-                    if (mode === "smart") {
-                        next.delete("sort");
-                    } else {
-                        next.set("sort", mode);
-                    }
-                    return next;
-                },
-                { replace: true },
-            );
-        },
-        [setSearchParams],
-    );
-
-    return { sortMode, setSortMode } as const;
+/** A task page's sort ("today", "upcoming", "project:<id>"), kept on this device only; "smart" until picked. */
+export function useSortMode(page: string) {
+    const [saved, setSaved] = useDeviceValue(`cadence:sort:${page}`);
+    const sortMode: SortMode = SORT_MODES.find((mode) => mode === saved) ?? "smart";
+    return { sortMode, setSortMode: setSaved as (mode: SortMode) => void } as const;
 }

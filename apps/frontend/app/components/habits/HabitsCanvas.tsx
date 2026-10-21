@@ -14,6 +14,7 @@ export function HabitsCanvas({
     days,
     habits,
     sort,
+    onSortChange,
     today,
     stacked,
     showStreaks,
@@ -27,6 +28,8 @@ export function HabitsCanvas({
     days: RoutineDay[];
     habits: Habit[];
     sort: RoutineSort;
+    /** A drag picks Custom. */
+    onSortChange: (sort: RoutineSort) => void;
     today: string;
     stacked: boolean;
     showStreaks: boolean;
@@ -69,7 +72,7 @@ export function HabitsCanvas({
         <div className="min-h-0 flex-1 overflow-auto px-4 pb-28 scrollbar-thin sm:px-6">
             {lead}
             {sorted.length === 0 ? empty : stacked ? (
-                <SortableRoutines habits={sorted} sort={sort} layout="list">
+                <SortableRoutines habits={sorted} sort={sort} onSortChange={onSortChange} layout="list">
                     {(ordered) => <div role="group" aria-label="Routines this week" {...gridProps} className="flex flex-col gap-3">{rowsOf(ordered)}</div>}
                 </SortableRoutines>
             ) : (
@@ -88,7 +91,7 @@ export function HabitsCanvas({
                         {showWeekCount ? <span role="columnheader" className="text-right text-[11px] font-medium text-twilight-text-muted">This week</span> : null}
                     </div>
                     {/* Today's cells join into one column, rounded at its ends. */}
-                    <SortableRoutines habits={sorted} sort={sort} layout="list">
+                    <SortableRoutines habits={sorted} sort={sort} onSortChange={onSortChange} layout="list">
                         {(ordered) => <div className="mt-1 flex flex-col [&>*:first-child_[data-today]]:rounded-t-2xl [&>*:last-child_[data-today]]:rounded-b-2xl">{rowsOf(ordered)}</div>}
                     </SortableRoutines>
                 </div>

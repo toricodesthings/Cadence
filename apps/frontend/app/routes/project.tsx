@@ -109,7 +109,7 @@ export default function ProjectView() {
     const { activeTagId } = useTagFilterStore();
     const { activeDefinition } = useFocusViewStore();
     const { smartSortEnabled, intelligenceEnabled, focusViewsEnabled } = useTaskIntelligence();
-    const { sortMode, setSortMode } = useSortMode();
+    const { sortMode, setSortMode } = useSortMode(`project:${projectId}`);
 
     useRouteFocus();
 

@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { CalendarHeart, CalendarPlus, ArrowUpDown, ChevronDown } from "lucide-react";
+import { ArrowDownAZ, ArrowUpDown, Bell, CalendarDays, CalendarHeart, CalendarPlus, Check, EllipsisVertical, Eye, LayoutGrid, LayoutList, Timer, type LucideIcon } from "lucide-react";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { EventCard } from "../components/events/EventCard";
+import { EventList } from "../components/events/EventList";
+import { ClaimHeaderMenu, LayoutScaleMenuRow } from "../components/layout/LayoutScaleMenu";
+import { HEADER_ICON_BUTTON } from "../components/layout/PageHeader";
+import { Tip } from "../components/primitives/Tooltip";
+import { useDeviceValue } from "../hooks/ui/use-device-flag";
 import { MainLayout } from "../components/layout/MainLayout";
 import { PageContent } from "../components/layout/PageLayout";
 import { Button } from "../components/primitives/Button";
@@ -24,39 +29,58 @@ import {
     sortPersonalEventViewModels,
     toPersonalEventViewModel,
     type PersonalEventSortMode,
+    type PersonalEventView,
 } from "../lib/utils/personal-events";
 
 const ADD_EVENT_CLASS = "border-accent-nav-schedule/30 bg-accent-nav-schedule/14 text-accent-nav-schedule hover:bg-accent-nav-schedule/20 font-sans font-medium";
 
-const SORT_LABELS: Record<PersonalEventSortMode, string> = {
-    next: "Next occurrence",
-    "month-day": "Month and day",
-    alphabetical: "Alphabetical",
-    reminders: "Reminders first",
-};
+const SORTS: { value: PersonalEventSortMode; label: string; icon: LucideIcon }[] = [
+    { value: "next", label: "Next occurrence", icon: Timer },
+    { value: "month-day", label: "Month and day", icon: CalendarDays },
+    { value: "alphabetical", label: "Name", icon: ArrowDownAZ },
+    { value: "reminders", label: "Reminders first", icon: Bell },
+];
+const VIEWS: { value: PersonalEventView; label: string; icon: LucideIcon }[] = [
+    { value: "cards", label: "Cards", icon: LayoutGrid },
+    { value: "list", label: "List", icon: LayoutList },
+];
+const MENU_LABEL = "flex items-center gap-1.5 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-twilight-text-muted";
 
-function EventSortMenu({ value, onChange }: { value: PersonalEventSortMode; onChange: (mode: PersonalEventSortMode) => void }) {
+/** The page's ⋮: how events show and in what order. Both stay on this device, like every view choice. */
+function EventsMenu({ view, onViewChange, sort, onSortChange }: {
+    view: PersonalEventView;
+    onViewChange: (view: PersonalEventView) => void;
+    sort: PersonalEventSortMode;
+    onSortChange: (sort: PersonalEventSortMode) => void;
+}) {
+    const choice = <T extends string>(options: { value: T; label: string; icon: LucideIcon }[], value: T, onChange: (next: T) => void) => options.map(({ value: option, label, icon: Icon }) => (
+        <DropdownMenu.Item key={option} onSelect={() => onChange(option)} className="flex items-center gap-2">
+            <Icon size={14} aria-hidden="true" />
+            <span className="flex-1">{label}</span>
+            {value === option ? <Check size={14} className="text-accent-primary" aria-hidden="true" /> : null}
+        </DropdownMenu.Item>
+    ));
     return (
-        <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-                <button
-                    type="button"
-                    aria-label={`Sort events: ${SORT_LABELS[value]}`}
-                    className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 self-start rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 text-[13px] text-twilight-text-soft transition-colors hover:bg-accent-nav-schedule/8 hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-nav-schedule/40 data-[state=open]:text-twilight-text sm:self-auto"
-                >
-                    <ArrowUpDown size={13} aria-hidden="true" className="text-accent-nav-schedule" />
-                    {SORT_LABELS[value]}
-                    <ChevronDown size={14} aria-hidden="true" className="text-twilight-text-muted" />
-                </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="end" aria-label="Sort events">
-                <DropdownMenu.RadioGroup value={value} onValueChange={(next) => onChange(next as PersonalEventSortMode)}>
-                    {(Object.keys(SORT_LABELS) as PersonalEventSortMode[]).map((value) => (
-                        <DropdownMenu.RadioItem key={value} value={value}>{SORT_LABELS[value]}</DropdownMenu.RadioItem>
-                    ))}
-                </DropdownMenu.RadioGroup>
-            </DropdownMenu.Content>
-        </DropdownMenu.Root>
+        <>
+            <ClaimHeaderMenu />
+            <DropdownMenu.Root>
+                <Tip label="View and sort" side="bottom">
+                    <DropdownMenu.Trigger asChild>
+                        <button type="button" aria-label="Event view and sort options" className={HEADER_ICON_BUTTON}>
+                            <EllipsisVertical size={18} aria-hidden="true" />
+                        </button>
+                    </DropdownMenu.Trigger>
+                </Tip>
+                <DropdownMenu.Content align="end" className="min-w-[15rem]">
+                    <div className={MENU_LABEL}><Eye size={11} aria-hidden="true" />View</div>
+                    {choice(VIEWS, view, onViewChange)}
+                    <DropdownMenu.Separator />
+                    <div className={MENU_LABEL}><ArrowUpDown size={11} aria-hidden="true" />Sort by</div>
+                    {choice(SORTS, sort, onSortChange)}
+                    <LayoutScaleMenuRow />
+                </DropdownMenu.Content>
+            </DropdownMenu.Root>
+        </>
     );
 }
 
@@ -96,7 +120,11 @@ export default function EventsRoute() {
     const [selectedEventId, setSelectedEventId] = useState<string | null>(() => searchParams.get("event"));
     const [detailMode, setDetailMode] = useState<"peek" | "focus">("peek");
     const editingEvent = personalEvents.items.find((event) => event.id === selectedEventId);
-    const [sortMode, setSortMode] = useState<PersonalEventSortMode>("next");
+    // View and order are this device's (a phone may want the list, a desk the cards); unknown values fall back.
+    const [savedSort, setSavedSort] = useDeviceValue("cadence:events:sort");
+    const [savedView, setSavedView] = useDeviceValue("cadence:events:view");
+    const sortMode = SORTS.find((option) => option.value === savedSort)?.value ?? "next";
+    const view: PersonalEventView = savedView === "list" ? "list" : "cards";
 
 
     useRouteFocus();
@@ -143,6 +171,7 @@ export default function EventsRoute() {
     };
 
     const closeDetails = () => setSelectedEventId(null);
+    const toggleReminder = (event: PersonalEvent) => personalEvents.updateEvent(event.id, { ...event, notify: !event.notify });
 
     const deleteEvent = (event: PersonalEvent) => {
         personalEvents.removeEvent(event.id);
@@ -169,12 +198,15 @@ export default function EventsRoute() {
             onCloseSidePanel={closeDetails}
             compactHeaderRightInline
             hideContextualOrb={shell.isCompact}
-            headerRight={shell.isCompact ? undefined : (
-                <Button type="button" variant="cardPrimary" size="md" onClick={openCreate} aria-label="Add event" className={ADD_EVENT_CLASS}>
-                    <CalendarPlus size={16} aria-hidden="true" />
-                    <span className="hidden sm:inline">Add event</span>
-                </Button>
-            )}
+            headerRight={<div className="flex items-center gap-2">
+                {shell.isCompact ? null : (
+                    <Button type="button" variant="cardPrimary" size="md" onClick={openCreate} aria-label="Add event" className={ADD_EVENT_CLASS}>
+                        <CalendarPlus size={16} aria-hidden="true" />
+                        <span className="hidden sm:inline">Add event</span>
+                    </Button>
+                )}
+                {events.length > 0 ? <EventsMenu view={view} onViewChange={setSavedView} sort={sortMode} onSortChange={setSavedSort} /> : null}
+            </div>}
             shellHeader={{
                 title: "Events",
                 eyebrow: "Calendar",
@@ -184,7 +216,7 @@ export default function EventsRoute() {
         >
             <ScrollAreaWrapper>
                 <PageContent width="full" className="space-y-6">
-                    <section className={`flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between ${shell.isCompact ? "" : "pt-6"}`}>
+                    <section className={shell.isCompact ? "" : "pt-6"}>
                         <div className="space-y-1">
                             {/* Compact headers already title the page. */}
                             <h1 className={shell.isCompact ? "sr-only" : "font-display text-2xl font-semibold tracking-tight text-twilight-text"}>
@@ -194,14 +226,25 @@ export default function EventsRoute() {
                                 Yearly recurring dates that stay visible in Schedule.
                             </p>
                         </div>
-
-                        {events.length > 0 ? (
-                            <EventSortMenu value={sortMode} onChange={setSortMode} />
-                        ) : null}
                     </section>
 
                     {events.length === 0 ? (
                         <EmptyEvents onAdd={openCreate} />
+                    ) : view === "list" ? (
+                        <section className="pb-8">
+                            <EventList
+                                events={events}
+                                sort={sortMode}
+                                today={today}
+                                stacked={shell.isCompact}
+                                selectedEventId={selectedEventId}
+                                onOpen={toggleEdit}
+                                onEdit={openEdit}
+                                onDelete={deleteEvent}
+                                onToggleReminder={toggleReminder}
+                                onOpenInSchedule={(event) => handleOpenSchedule(getNextPersonalEventDate(event))}
+                            />
+                        </section>
                     ) : (
                         <section className="grid gap-4 pb-8 sm:grid-cols-2 xl:grid-cols-3">
                             {events.map((item) => (
@@ -211,9 +254,7 @@ export default function EventsRoute() {
                                     onOpen={toggleEdit}
                                     onEdit={openEdit}
                                     onDelete={deleteEvent}
-                                    onToggleReminder={(event) => {
-                                        personalEvents.updateEvent(event.id, { ...event, notify: !event.notify });
-                                    }}
+                                    onToggleReminder={toggleReminder}
                                     onOpenInSchedule={(event) => {
                                         handleOpenSchedule(getNextPersonalEventDate(event));
                                     }}

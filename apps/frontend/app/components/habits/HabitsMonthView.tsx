@@ -13,6 +13,7 @@ export function HabitsMonthView({
     weekStartsOn,
     habits,
     sort,
+    onSortChange,
     today,
     showStreaks,
     bloom,
@@ -27,6 +28,8 @@ export function HabitsMonthView({
     weekStartsOn: 0 | 1 | 6;
     habits: Habit[];
     sort: RoutineSort;
+    /** A drag picks Custom. */
+    onSortChange: (sort: RoutineSort) => void;
     today: string;
     showStreaks: boolean;
     bloom: boolean;
@@ -46,7 +49,7 @@ export function HabitsMonthView({
             <div style={{ maxWidth: `${Math.max(sorted.length, 2) * 36}rem` }}>
             {lead}
             {sorted.length === 0 ? empty : (
-                <SortableRoutines habits={sorted} sort={sort} layout="grid">
+                <SortableRoutines habits={sorted} sort={sort} onSortChange={onSortChange} layout="grid">
                     {(ordered) => (
                         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(20rem,100%),1fr))] gap-4">
                             {ordered.map((habit) => (

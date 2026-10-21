@@ -8,6 +8,7 @@ import {
     getPersonalEventMilestoneLabel,
     getNormalizedMonthDay,
     getPersonalEventCountdownLabel,
+    groupPersonalEventsByMonth,
     sortPersonalEventViewModels,
     toPersonalEventViewModel,
 } from "../../../../app/lib/utils/personal-events";
@@ -89,5 +90,16 @@ describe("personal event utilities", () => {
         expect(personalEventSchema.safeParse(legacy).success).toBe(true);
         expect(personalEventSchema.safeParse({ ...legacy, color: null }).success).toBe(true);
         expect(personalEventSchema.safeParse({ ...legacy, color: "teal" }).success).toBe(true);
+    });
+
+    it("groups the list under the month each event next comes round, with the year once it isn't this one", () => {
+        const today = "2026-11-20";
+        const item = (id: string, monthDay: string) => toPersonalEventViewModel({ id, label: id, monthDay, emoji: null, notify: false, startedOn: null }, today);
+        const next = sortPersonalEventViewModels([item("jan", "01-05"), item("nov", "11-25"), item("dec", "12-01")], "next");
+        expect(groupPersonalEventsByMonth(next, "next", today).map((group) => [group.label, group.items.map((i) => i.event.id)]))
+            .toEqual([["November", ["nov"]], ["December", ["dec"]], ["January 2027", ["jan"]]]);
+        const byMonth = sortPersonalEventViewModels(next, "month-day");
+        expect(groupPersonalEventsByMonth(byMonth, "month-day", today).map((group) => group.label)).toEqual(["January", "November", "December"]);
+        expect(groupPersonalEventsByMonth(next, "alphabetical", today)).toEqual([{ key: "all", label: null, items: next }]);
     });
 });
