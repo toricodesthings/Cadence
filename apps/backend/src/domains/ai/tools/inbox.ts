@@ -7,6 +7,7 @@ import { withRls } from "../../../platform/rls";
 import { AppError, throwIfNotFound } from "../../../platform/errors";
 import { checkIdempotency, recordMutation } from "../../../platform/idempotency";
 import type { Env } from "../../../types/env";
+import type { Tx } from "../../../types/db";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, once } from "./index";
 import { toMinimalInboxItem } from "./projections";
@@ -34,6 +35,41 @@ const selectInboxPage = (tx: Parameters<Parameters<typeof withRls>[2]>[0], userI
         .orderBy(desc(inboxItems.createdAt), desc(inboxItems.id))
         .limit(limit)
         .offset(offset);
+
+type CaptureResult = { inboxItemId: string; status: string; taskId?: string };
+
+/** One `update_captures` item: new words and/or an action. */
+async function updateOneCapture(
+    tx: Tx,
+    userId: string,
+    { inboxItemId, text, action }: { inboxItemId: string; text?: string; action?: "note" | "discard" | "done" | "new" },
+): Promise<CaptureResult> {
+    // Like notes: a capture shown cut short can't be rewritten from that copy.
+    if (text !== undefined) {
+        const [current] = await tx
+            .select({ length: sql<number>`length(${inboxItems.rawText})` })
+            .from(inboxItems)
+            .where(and(eq(inboxItems.id, inboxItemId), eq(inboxItems.userId, userId)));
+        if (current && current.length > NOTE_READ_LIMIT) {
+            throw new AppError(400, "VALIDATION_ERROR", "That capture is too long to rewrite whole");
+        }
+    }
+    if (action === "new") await unprocessCapture(tx, userId, inboxItemId);
+    if (action === "done") {
+        const [capture] = await tx
+            .select({ rawText: inboxItems.rawText })
+            .from(inboxItems)
+            .where(and(eq(inboxItems.id, inboxItemId), eq(inboxItems.userId, userId)));
+        throwIfNotFound(capture, "Inbox item");
+        if (text !== undefined) await updateCapture(tx, userId, inboxItemId, { rawText: text });
+        const { task } = await processCapture(tx, userId, inboxItemId, { title: text ?? capture.rawText, complete: true });
+        return { inboxItemId, status: "done", taskId: task.id };
+    }
+    const status = action === "note" ? "kept" as const : action === "discard" ? "discarded" as const : undefined;
+    const change = { ...(text !== undefined && { rawText: text }), ...(status && { captureStatus: status }) };
+    const row = Object.keys(change).length ? await updateCapture(tx, userId, inboxItemId, change) : undefined;
+    return { inboxItemId, status: row?.captureStatus ?? "clarifying" };
+}
 
 export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
@@ -114,35 +150,8 @@ export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
             safeExecute("update_captures", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
-                        const results: { inboxItemId: string; status: string; taskId?: string }[] = [];
-                        for (const { inboxItemId, text, action } of items) {
-                            // Like notes: a capture shown cut short can't be rewritten from that copy.
-                            if (text !== undefined) {
-                                const [current] = await tx
-                                    .select({ length: sql<number>`length(${inboxItems.rawText})` })
-                                    .from(inboxItems)
-                                    .where(and(eq(inboxItems.id, inboxItemId), eq(inboxItems.userId, userId)));
-                                if (current && current.length > NOTE_READ_LIMIT) {
-                                    throw new AppError(400, "VALIDATION_ERROR", "That capture is too long to rewrite whole");
-                                }
-                            }
-                            if (action === "new") await unprocessCapture(tx, userId, inboxItemId);
-                            if (action === "done") {
-                                const [capture] = await tx
-                                    .select({ rawText: inboxItems.rawText })
-                                    .from(inboxItems)
-                                    .where(and(eq(inboxItems.id, inboxItemId), eq(inboxItems.userId, userId)));
-                                throwIfNotFound(capture, "Inbox item");
-                                if (text !== undefined) await updateCapture(tx, userId, inboxItemId, { rawText: text });
-                                const { task } = await processCapture(tx, userId, inboxItemId, { title: text ?? capture.rawText, complete: true });
-                                results.push({ inboxItemId, status: "done", taskId: task.id });
-                                continue;
-                            }
-                            const status = action === "note" ? "kept" as const : action === "discard" ? "discarded" as const : undefined;
-                            const change = { ...(text !== undefined && { rawText: text }), ...(status && { captureStatus: status }) };
-                            const row = Object.keys(change).length ? await updateCapture(tx, userId, inboxItemId, change) : undefined;
-                            results.push({ inboxItemId, status: row?.captureStatus ?? "clarifying" });
-                        }
+                        const results: CaptureResult[] = [];
+                        for (const item of items) results.push(await updateOneCapture(tx, userId, item));
                         return { result: { results }, id: items[0].inboxItemId };
                     }),
                 ),

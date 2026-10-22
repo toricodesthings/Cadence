@@ -135,7 +135,69 @@ function DesktopAuthCallbackScreen({ redirectTo, location }: { redirectTo: strin
     );
 }
 
-function DesktopAuthForm({ isSignUp, redirectTo }: { isSignUp: boolean; redirectTo: string }) {
+const FIELD_INPUT = "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 text-twilight-text";
+
+type AuthFieldProps = React.ComponentProps<typeof Input> & { id: string; label: string };
+
+function AuthField({ id, label, ...input }: AuthFieldProps) {
+    return (
+        <div className="space-y-1.5 text-left">
+            <label htmlFor={id} className="text-sm font-medium text-twilight-text">
+                {label}
+            </label>
+            <Input id={id} required className={FIELD_INPUT} {...input} />
+        </div>
+    );
+}
+
+const SOCIAL_BUTTON = "flex h-14 w-full items-center justify-center rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 text-twilight-text transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-60";
+
+type SocialButtonsProps = { disabled: boolean; onChoose: (provider: "google" | "github") => void };
+
+function SocialButtons({ disabled, onChoose }: SocialButtonsProps) {
+    return (
+        <div className="grid grid-cols-2 gap-4">
+            <button type="button" aria-label="Continue with Google" disabled={disabled} onClick={() => onChoose("google")} className={SOCIAL_BUTTON}>
+                <ProviderLogo provider="google" />
+            </button>
+            <button type="button" aria-label="Continue with GitHub" disabled={disabled} onClick={() => onChoose("github")} className={SOCIAL_BUTTON}>
+                <ProviderLogo provider="github" />
+            </button>
+        </div>
+    );
+}
+
+function submitLabel(isSubmitting: boolean, isSignUp: boolean) {
+    if (isSubmitting) return isSignUp ? "Creating account..." : "Signing in...";
+    return isSignUp ? "Create account" : "Sign in";
+}
+
+type EmailCredentials = { name: string; email: string; password: string; redirectTo: string };
+
+/** Signs up or in with email; "created" when sign-up made the account but no session (sign in next). */
+async function emailAuth(isSignUp: boolean, { name, email, password, redirectTo }: EmailCredentials): Promise<"created" | "signed-in"> {
+    if (!isSignUp) {
+        await authClient.signIn.email({
+            email: email.trim(),
+            password,
+            callbackURL: redirectTo,
+            fetchOptions: { throw: true },
+        });
+        return "signed-in";
+    }
+    const result = await authClient.signUp.email({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        callbackURL: redirectTo,
+        fetchOptions: { throw: true },
+    });
+    return result?.token ? "signed-in" : "created";
+}
+
+type DesktopAuthFormProps = { isSignUp: boolean; redirectTo: string };
+
+function DesktopAuthForm({ isSignUp, redirectTo }: DesktopAuthFormProps) {
     const navigate = useNavigate();
     const { beginAuthRecovery } = useAuthState();
     const [name, setName] = useState("");
@@ -152,27 +214,10 @@ function DesktopAuthForm({ isSignUp, redirectTo }: { isSignUp: boolean; redirect
         setIsSubmitting(true);
 
         try {
-            if (isSignUp) {
-                const result = await authClient.signUp.email({
-                    name: name.trim(),
-                    email: email.trim(),
-                    password,
-                    callbackURL: redirectTo,
-                    fetchOptions: { throw: true },
-                });
-
-                if (!result?.token) {
-                    setInfoMessage("Your account was created. Continue with sign in to enter Cadence.");
-                    navigate("/auth/sign-in", { replace: true, state: { from: redirectTo } });
-                    return;
-                }
-            } else {
-                await authClient.signIn.email({
-                    email: email.trim(),
-                    password,
-                    callbackURL: redirectTo,
-                    fetchOptions: { throw: true },
-                });
+            if (await emailAuth(isSignUp, { name, email, password, redirectTo }) === "created") {
+                setInfoMessage("Your account was created. Continue with sign in to enter Cadence.");
+                navigate("/auth/sign-in", { replace: true, state: { from: redirectTo } });
+                return;
             }
 
             const recovered = await beginAuthRecovery();
@@ -209,53 +254,35 @@ function DesktopAuthForm({ isSignUp, redirectTo }: { isSignUp: boolean; redirect
         <>
             <form className="space-y-3" onSubmit={handleEmailAuth}>
                 {isSignUp && (
-                    <div className="space-y-1.5 text-left">
-                        <label htmlFor="desktop-auth-name" className="text-sm font-medium text-twilight-text">
-                            Name
-                        </label>
-                        <Input
-                            id="desktop-auth-name"
-                            value={name}
-                            onChange={(event) => setName(event.target.value)}
-                            autoComplete="name"
-                            placeholder="The name Cadence will greet"
-                            required
-                            className="min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 text-twilight-text"
-                        />
-                    </div>
+                    <AuthField
+                        id="desktop-auth-name"
+                        label="Name"
+                        value={name}
+                        onChange={(event) => setName(event.target.value)}
+                        autoComplete="name"
+                        placeholder="The name Cadence will greet"
+                    />
                 )}
 
-                <div className="space-y-1.5 text-left">
-                    <label htmlFor="desktop-auth-email" className="text-sm font-medium text-twilight-text">
-                        Email
-                    </label>
-                    <Input
-                        id="desktop-auth-email"
-                        type="email"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        autoComplete="email"
-                        placeholder="you@example.com"
-                        required
-                        className="min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 text-twilight-text"
-                    />
-                </div>
+                <AuthField
+                    id="desktop-auth-email"
+                    label="Email"
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                />
 
-                <div className="space-y-1.5 text-left">
-                    <label htmlFor="desktop-auth-password" className="text-sm font-medium text-twilight-text">
-                        Password
-                    </label>
-                    <Input
-                        id="desktop-auth-password"
-                        type="password"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        autoComplete={isSignUp ? "new-password" : "current-password"}
-                        placeholder={isSignUp ? "Create a password" : "Enter your password"}
-                        required
-                        className="min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 text-twilight-text"
-                    />
-                </div>
+                <AuthField
+                    id="desktop-auth-password"
+                    label="Password"
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete={isSignUp ? "new-password" : "current-password"}
+                    placeholder={isSignUp ? "Create a password" : "Enter your password"}
+                />
 
                 {errorMessage && (
                     <p className="text-left text-sm text-feedback-error">{errorMessage}</p>
@@ -271,9 +298,7 @@ function DesktopAuthForm({ isSignUp, redirectTo }: { isSignUp: boolean; redirect
                     className="min-h-10 w-full rounded-[1rem] font-semibold"
                     disabled={isSubmitting}
                 >
-                    {isSubmitting
-                        ? (isSignUp ? "Creating account..." : "Signing in...")
-                        : (isSignUp ? "Create account" : "Sign in")}
+                    {submitLabel(isSubmitting, isSignUp)}
                 </Button>
             </form>
 
@@ -283,26 +308,7 @@ function DesktopAuthForm({ isSignUp, redirectTo }: { isSignUp: boolean; redirect
                 <div className="h-px flex-1 bg-twilight-border-light" />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <button
-                    type="button"
-                    aria-label="Continue with Google"
-                    disabled={isSubmitting}
-                    onClick={() => void handleSocialAuth("google")}
-                    className="flex h-14 w-full items-center justify-center rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 text-twilight-text transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                    <ProviderLogo provider="google" />
-                </button>
-                <button
-                    type="button"
-                    aria-label="Continue with GitHub"
-                    disabled={isSubmitting}
-                    onClick={() => void handleSocialAuth("github")}
-                    className="flex h-14 w-full items-center justify-center rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 text-twilight-text transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                    <ProviderLogo provider="github" />
-                </button>
-            </div>
+            <SocialButtons disabled={isSubmitting} onChoose={(provider) => void handleSocialAuth(provider)} />
         </>
     );
 }

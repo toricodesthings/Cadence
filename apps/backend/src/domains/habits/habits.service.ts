@@ -269,18 +269,19 @@ function resolveDay(habit: HabitDbRow, existing: HabitLogDbRow | undefined, targ
     }
     if (action.time && !times.includes(action.time)) throw new AppError(400, "VALIDATION_ERROR", "This routine has no such time.");
     const at = action.at ?? new Date().toISOString();
-    let time = action.time;
-    if (!time && action.status === "COMPLETED") {
-        const marks = timeMarksOn(times, existing);
-        time = likelyOpenTime(times, marks, targetDate === todayIn(zone, new Date(at)) ? wallTimeOf(at, zone) : null) ?? undefined;
-        const open = times.filter((entry) => !marks[entry]);
-        if (!time) {
-            throw new AppError(400, "VALIDATION_ERROR", open.length
-                ? `Which time? Still open: ${open.join(", ")}. Ask the user, then send that time.`
-                : "Every time is already checked off that day.");
-        }
-    }
+    const time = !action.time && action.status === "COMPLETED" ? impliedTime(times, existing, targetDate, at, zone) : action.time;
     return { ...applyTimeMark(times, existing, { time, status: action.status, at }), stepStatus: null };
+}
+
+/** The set time a whole-day "done" clearly means; unclear → refused, naming the open times so the caller asks. */
+function impliedTime(times: string[], existing: HabitLogDbRow | undefined, targetDate: LocalDate, at: string, zone: Zone): string {
+    const marks = timeMarksOn(times, existing);
+    const time = likelyOpenTime(times, marks, targetDate === todayIn(zone, new Date(at)) ? wallTimeOf(at, zone) : null);
+    if (time) return time;
+    const open = times.filter((entry) => !marks[entry]);
+    throw new AppError(400, "VALIDATION_ERROR", open.length
+        ? `Which time? Still open: ${open.join(", ")}. Ask the user, then send that time.`
+        : "Every time is already checked off that day.");
 }
 
 /** Store the day: an open day with no marks has no row (clearing deletes it); anything else upserts. */
@@ -424,6 +425,24 @@ function assertStepsOrTimes({ steps, times }: { steps?: unknown[] | null; times?
 }
 
 /**
+ * When steps or set times change: the routine's current ones, locked, after checking the
+ * result doesn't mix them. Undefined when neither changes.
+ */
+async function lockStepsAndTimes(tx: Tx, userId: string, id: string, body: Pick<UpdateHabit, "steps" | "times">) {
+    if (body.times === undefined && body.steps === undefined) return undefined;
+    const [before] = await tx.select({ steps: habits.steps, times: habits.times }).from(habits).where(and(eq(habits.id, id), eq(habits.userId, userId))).for("update");
+    if (before) assertStepsOrTimes({ steps: body.steps !== undefined ? body.steps : before.steps, times: body.times !== undefined ? body.times : before.times });
+    return before;
+}
+
+async function replaceHabitTags(tx: Tx, userId: string, id: string, tagIds: string[]) {
+    await tx.delete(habitTags).where(eq(habitTags.habitId, id));
+    if (tagIds.length > 0) {
+        await tx.insert(habitTags).values(tagIds.map((tagId) => ({ habitId: id, tagId, userId })));
+    }
+}
+
+/**
  * Change a routine; `tagIds` replaces its tags. 404 when it isn't the caller's.
  * Moving one set time (14:00 → 14:30) carries its marks to the new time on every
  * day, and today's status is re-derived from the new times.
@@ -432,10 +451,7 @@ function assertStepsOrTimes({ steps, times }: { steps?: unknown[] | null; times?
 export async function updateHabit(tx: Tx, userId: string, id: string, { expectedUpdatedAt, tagIds, ...body }: UpdateHabit) {
     if (body.recurrenceRule !== undefined) parseRecurrenceRule(body.recurrenceRule);
     normalizeTimes(body);
-    const before = body.times !== undefined || body.steps !== undefined
-        ? (await tx.select({ steps: habits.steps, times: habits.times }).from(habits).where(and(eq(habits.id, id), eq(habits.userId, userId))).for("update"))[0]
-        : undefined;
-    if (before) assertStepsOrTimes({ steps: body.steps !== undefined ? body.steps : before.steps, times: body.times !== undefined ? body.times : before.times });
+    const before = await lockStepsAndTimes(tx, userId, id, body);
     if (expectedUpdatedAt) {
         const [existing] = await tx
             .select({ updatedAt: habits.updatedAt })
@@ -457,12 +473,7 @@ export async function updateHabit(tx: Tx, userId: string, id: string, { expected
     // tag mutations below never commit against another user's habit id.
     throwIfNotFound(row, "Habit");
 
-    if (tagIds !== undefined) {
-        await tx.delete(habitTags).where(eq(habitTags.habitId, id));
-        if (tagIds.length > 0) {
-            await tx.insert(habitTags).values(tagIds.map((tagId) => ({ habitId: id, tagId, userId })));
-        }
-    }
+    if (tagIds !== undefined) await replaceHabitTags(tx, userId, id, tagIds);
 
     if (body.times === undefined) return row;
     return (await followTimes(tx, userId, id, before?.times ?? [], row.times ?? [])) ?? row;

@@ -89,6 +89,24 @@ export function cleanText(text: string): string {
     return text.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/[<>`]/g, "").replace(/\s+/g, " ").trim();
 }
 
+/** Whether a cleaned candidate may be saved at all. */
+function isSavable(kind: string, content: string, flags: readonly string[]): boolean {
+    if (!(EXTRACTED_KINDS as readonly string[]).includes(kind)) return false;
+    if (content.length < 3 || content.length > MEMORY_CONTENT_MAX) return false;
+    // Anything the model marked as not-a-plain-fact-about-the-person is dropped: sensitive details are saved
+    // only when the person says "remember" (the remember tool), never from passive reading.
+    if (flags.some((flag) => (FLAGS as readonly string[]).includes(flag))) return false;
+    return !isInstructionShaped(content);
+}
+
+/** A preference's stated time of day, or an assist's help that doesn't work. */
+function candidateValue(fact: z.infer<typeof rawFactSchema>): Candidate["value"] {
+    const when = fact.kind === "preference" ? cleanWhen(fact.when) : null;
+    if (when) return { when };
+    const avoid = fact.kind === "assist" && (PLANNING_OFFERS as readonly string[]).includes(fact.avoid ?? "") ? (fact.avoid as PlanningOffer) : null;
+    return avoid ? { avoid } : null;
+}
+
 /**
  * The model's reply → candidates that may be saved. `messages` maps the opaque labels (m1, m2…)
  * the model saw to the person's real message ids; a candidate citing anything else is dropped,
@@ -106,18 +124,11 @@ export function acceptCandidates(reply: unknown, messages: ReadonlyMap<string, s
         const { from, kind, validThrough, flags = [] } = fact.data;
         const messageId = messages.get(from);
         const content = cleanText(fact.data.text);
-        if (!messageId || !(EXTRACTED_KINDS as readonly string[]).includes(kind)) continue;
-        if (content.length < 3 || content.length > MEMORY_CONTENT_MAX) continue;
-        // Anything the model marked as not-a-plain-fact-about-the-person is dropped: sensitive details are saved
-        // only when the person says "remember" (the remember tool), never from passive reading.
-        if (flags.some((flag) => (FLAGS as readonly string[]).includes(flag))) continue;
-        if (isInstructionShaped(content)) continue;
+        if (!messageId || !isSavable(kind, content, flags)) continue;
         const key = content.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
-        const when = kind === "preference" ? cleanWhen(fact.data.when) : null;
-        const avoid = kind === "assist" && (PLANNING_OFFERS as readonly string[]).includes(fact.data.avoid ?? "") ? (fact.data.avoid as PlanningOffer) : null;
-        out.push({ messageId, kind, content, validThrough: validThrough ?? null, value: when ? { when } : avoid ? { avoid } : null });
+        out.push({ messageId, kind, content, validThrough: validThrough ?? null, value: candidateValue(fact.data) });
     }
     return out;
 }

@@ -12,10 +12,19 @@ import { formatInZone } from "@cadence/domain/time";
 import { toDay } from "../../../lib/utils/date-format";
 import { getUserZone } from "../../../lib/utils/user-zone";
 
+type TaskRowsProps = {
+    rows: string[];
+    off: ReadonlySet<number>;
+    onToggle: (i: number) => (() => void) | undefined;
+    /** Just "N tasks" (the terse persona's long lists). */
+    countOnly?: boolean;
+};
+
 /** Up to four rows, then a "+ N more" reveal. */
-function TaskRows({ rows, off, onToggle }: { rows: string[]; off: ReadonlySet<number>; onToggle: (i: number) => (() => void) | undefined }) {
+function TaskRows({ rows, off, onToggle, countOnly }: TaskRowsProps) {
     const [expanded, setExpanded] = useState(false);
     const visible = expanded ? rows : rows.slice(0, 4);
+    if (countOnly) return <p className="text-xs text-twilight-text-soft">{rows.length} tasks</p>;
     return (
         <>
             <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5">
@@ -47,6 +56,14 @@ const STATE_COPY: Record<State, { eyebrow: string; glyph: LucideIcon; primary: (
     WAITING: { eyebrow: "ON HOLD", glyph: UserCheck, primary: () => "Put on hold", done: (n, on) => (on ? `On hold, waiting on ${on}.` : `Put ${n} on hold.`) },
 };
 
+const copyFor = (state: string | undefined) => STATE_COPY[(state ?? "COMPLETE") as State] ?? STATE_COPY.COMPLETE;
+
+/** "Waiting on Sam · check in Mar 8" when the tasks go on hold with either. */
+function waitingLine(input: { state?: string; waitingOn?: string; checkInAt?: string | null }) {
+    if (input.state !== "WAITING") return null;
+    return [input.waitingOn ? `Waiting on ${input.waitingOn}` : null, input.checkInAt ? `check in ${formatWhen(input.checkInAt)}` : null].filter(Boolean).join(" · ") || null;
+}
+
 /** Card for `set_task_state`: done, Trash (restorable), reopen, or waiting on someone. */
 export function SetStateCard({ ctx }: { ctx: ToolRenderContext<"set_task_state"> }) {
     const persona = useAssistantPersona();
@@ -54,9 +71,11 @@ export function SetStateCard({ ctx }: { ctx: ToolRenderContext<"set_task_state">
     const { off, onToggle, removed } = useUnticked(ctx);
     const input = ctx.part?.input ?? {};
     const taskIds: string[] = input.taskIds ?? [];
-    const copy = STATE_COPY[input.state ?? "COMPLETE"] ?? STATE_COPY.COMPLETE;
+    const copy = copyFor(input.state);
     const titles = taskIds.map(lookupTitle);
     const kept = titles.length - off.size;
+    const waiting = waitingLine(input);
+    const doneCount = ctx.part?.output?.updated ?? titles.length;
     // Held: another open task has the same title, so nothing changed and the assistant asks which.
     if (ctx.part?.output?.sameTitle) return null;
 
@@ -71,19 +90,11 @@ export function SetStateCard({ ctx }: { ctx: ToolRenderContext<"set_task_state">
             primaryGlyph={Check}
             declineLabel="Not yet"
             removed={removed(titles)}
-            doneText={copy.done(ctx.part?.output?.updated ?? titles.length, input.waitingOn)}
+            doneText={copy.done(doneCount, input.waitingOn)}
             declinedText="Left them as they were."
         >
-            {input.state === "WAITING" && (input.waitingOn || input.checkInAt) ? (
-                <p className="text-xs text-twilight-text-soft">
-                    {[input.waitingOn ? `Waiting on ${input.waitingOn}` : null, input.checkInAt ? `check in ${formatWhen(input.checkInAt)}` : null].filter(Boolean).join(" · ")}
-                </p>
-            ) : null}
-            {persona.terse && titles.length > 3 ? (
-                <p className="text-xs text-twilight-text-soft">{titles.length} tasks</p>
-            ) : (
-                <TaskRows rows={titles} off={off} onToggle={onToggle} />
-            )}
+            {waiting ? <p className="text-xs text-twilight-text-soft">{waiting}</p> : null}
+            <TaskRows rows={titles} off={off} onToggle={onToggle} countOnly={persona.terse && titles.length > 3} />
         </ApprovalCard>
     );
 }

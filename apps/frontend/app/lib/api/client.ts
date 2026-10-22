@@ -225,13 +225,9 @@ async function authorize(a: Attempt, method: string): Promise<void> {
     if (method.toUpperCase() === "GET") a.init.cache = "no-store";
 }
 
-export async function authenticatedFetch(
-    input: RequestInfo | URL,
-    init: AuthenticatedFetchOptions = {},
-): Promise<Response> {
-    const { authenticated = false, ...requestInit } = init;
-    const request = input instanceof Request ? input : undefined;
-    const attempt: Attempt = {
+/** One try at a request: its own headers and signal (the request's unless the caller set them). */
+function attemptFor(input: RequestInfo | URL, request: Request | undefined, requestInit: RequestInit, authenticated: boolean): Attempt {
+    return {
         input,
         init: requestInit,
         headers: new Headers(requestInit.headers ?? request?.headers),
@@ -239,6 +235,15 @@ export async function authenticatedFetch(
         bounded: authenticated && isBounded(request?.url ?? String(input), requestInit.body),
         generation: _authGeneration,
     };
+}
+
+export async function authenticatedFetch(
+    input: RequestInfo | URL,
+    init: AuthenticatedFetchOptions = {},
+): Promise<Response> {
+    const { authenticated = false, ...requestInit } = init;
+    const request = input instanceof Request ? input : undefined;
+    const attempt = attemptFor(input, request, requestInit, authenticated);
     if (!authenticated) return send(attempt);
 
     await authorize(attempt, requestInit.method ?? request?.method ?? "GET");

@@ -50,3 +50,8 @@ export function sortRoutines(habits: Habit[], mode: RoutineSort): Habit[] {
     };
     return [...habits].sort(compare[mode]);
 }
+
+/** A field the person set keeps their value; otherwise what the words say, else the default. */
+export function chosen<T>(touched: boolean, own: T, parsed: T | null | undefined): T {
+    return touched ? own : (parsed ?? own);
+}

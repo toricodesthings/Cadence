@@ -33,41 +33,60 @@ export function resolveProjectsAndTags(
 
   // A name only counts after a placement/tagging cue ("in Work", "tag it errands"): plain words never match.
   for (const match of input.matchAll(CUE_RE)) {
-    const cueStart = match.index ?? 0;
-    const isTag = /^tag/i.test(match[1]);
-    const cueEnd = cueStart + match[0].length;
-    const after = words.filter((w) => w.start >= cueEnd && !consumedRanges.some((r) => w.start < r.end && w.end > r.start));
-    // Longest name first: "Work Admin" beats "Work"
-    for (let size = Math.min(3, after.length); size >= 1; size--) {
-      const run = after.slice(0, size);
-      if (run.some((w, i) => i > 0 && w.start - run[i - 1].end > 1)) continue;
-      const phrase = run.map((w) => w.text.replace(/[.,;:!?]+$/, "")).join(" ");
-      const best = (isTag ? tagFuse : projectFuse).search(phrase)[0];
-      if (!best || (best.score ?? 1) > 0.2) continue;
-      const id = `${isTag ? "tag" : "project"}:${best.item.id}`;
-      if (dismissed.has(id) || entities.some((e) => e.id === id)) break;
-      if (!isTag && entities.some((e) => e.type === "project")) break;
-
-      const confidence: ConfidenceTier = (best.score ?? 0) < 0.05 ? "high" : "medium";
-      const last = run[run.length - 1];
-      entities.push({
-        id,
-        type: isTag ? "tag" : "project",
-        sourceText: input.slice(cueStart, last.end),
-        start: cueStart,
-        end: last.end,
-        confidence,
-        normalizedValue: { id: best.item.id, resolvedId: best.item.id, name: best.item.name },
-        explanation:
-          confidence === "high"
-            ? `${isTag ? "Tag: #" : "List: "}${best.item.name}`
-            : `Suggested ${isTag ? "tag: #" : "list: "}${best.item.name}`,
-      });
-      break;
-    }
+    const entity = resolveCue(input, match, { words, consumedRanges, dismissed, entities, projectFuse, tagFuse });
+    if (entity) entities.push(entity);
   }
 
   return entities;
+}
+
+type CueScope = {
+  words: WordPosition[];
+  consumedRanges: Array<{ start: number; end: number }>;
+  dismissed: Set<string>;
+  entities: ParsedEntity[];
+  projectFuse: Fuse<ResolutionContext["projects"][number]>;
+  tagFuse: Fuse<ResolutionContext["tags"][number]>;
+};
+
+/** The list or tag named right after one cue, longest name first ("Work Admin" beats "Work"); null for none. */
+function resolveCue(input: string, match: RegExpMatchArray, scope: CueScope): ParsedEntity | null {
+  const { words, consumedRanges, dismissed, entities, projectFuse, tagFuse } = scope;
+  const cueStart = match.index ?? 0;
+  const isTag = /^tag/i.test(match[1]);
+  const cueEnd = cueStart + match[0].length;
+  const after = words.filter((w) => w.start >= cueEnd && !consumedRanges.some((r) => w.start < r.end && w.end > r.start));
+  for (let size = Math.min(3, after.length); size >= 1; size--) {
+    const run = after.slice(0, size);
+    if (run.some((w, i) => i > 0 && w.start - run[i - 1].end > 1)) continue;
+    const phrase = run.map((w) => w.text.replace(/[.,;:!?]+$/, "")).join(" ");
+    const best = (isTag ? tagFuse : projectFuse).search(phrase)[0];
+    if (!best || (best.score ?? 1) > 0.2) continue;
+    const id = `${isTag ? "tag" : "project"}:${best.item.id}`;
+    if (dismissed.has(id) || entities.some((e) => e.id === id)) return null;
+    if (!isTag && entities.some((e) => e.type === "project")) return null;
+    return cueEntity(input, { id, isTag, cueStart, end: run[run.length - 1].end, item: best.item, score: best.score ?? 0 });
+  }
+  return null;
+}
+
+/** High confidence only for an exact or near-exact name. */
+function cueEntity(input: string, found: { id: string; isTag: boolean; cueStart: number; end: number; item: { id: string; name: string }; score: number }): ParsedEntity {
+  const { id, isTag, cueStart, end, item } = found;
+  const confidence: ConfidenceTier = found.score < 0.05 ? "high" : "medium";
+  const label = confidence === "high"
+    ? `${isTag ? "Tag: #" : "List: "}${item.name}`
+    : `Suggested ${isTag ? "tag: #" : "list: "}${item.name}`;
+  return {
+    id,
+    type: isTag ? "tag" : "project",
+    sourceText: input.slice(cueStart, end),
+    start: cueStart,
+    end,
+    confidence,
+    normalizedValue: { id: item.id, resolvedId: item.id, name: item.name },
+    explanation: label,
+  };
 }
 
 /** "in", "under", "to", "into", "put this in", "tag it", "tagged as", "tag with" */

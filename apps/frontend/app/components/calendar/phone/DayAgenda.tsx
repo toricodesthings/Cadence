@@ -41,6 +41,124 @@ function nextQuarter(date: Date): Instant {
     return new Date(Math.ceil(date.getTime() / QUARTER_MS) * QUARTER_MS).toISOString();
 }
 
+type FoldProps = { label: string; open: boolean; setOpen: React.Dispatch<React.SetStateAction<boolean>>; children: React.ReactNode };
+
+/** A folded group behind one toggle row ("3 done", "Earlier today"). */
+function Fold({ label, open, setOpen, children }: FoldProps) {
+    return (
+        <>
+            <button
+                type="button"
+                onClick={() => setOpen((value) => !value)}
+                aria-expanded={open}
+                className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-2xl px-3 text-[13px] text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+            >
+                <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${open ? "rotate-180" : ""}`} />
+                {label}
+            </button>
+            <Reveal open={open}>{children}</Reveal>
+        </>
+    );
+}
+
+/** A free stretch between timed things; tapping it adds something there. */
+function GapRow({ gap, onAddAt }: { gap: FreeGap; onAddAt: DayAgendaProps["onAddAt"] }) {
+    return (
+        <button
+            type="button"
+            onClick={() => onAddAt(nextQuarter(gap.start), Math.min(60, gap.minutes))}
+            className="group flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-2xl px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+            aria-label={`Free until ${formatTime(gap.end.toISOString())}, ${formatDuration(gap.minutes)}. Add something here`}
+        >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center" aria-hidden="true">
+                <span className="h-6 w-px border-l border-dashed border-twilight-text-muted/60" />
+            </span>
+            <span className="min-w-0 flex-1 text-[13px] text-twilight-text-soft">
+                Free until {formatTime(gap.end.toISOString())}
+                <span className="text-twilight-text-muted"> · {formatDuration(gap.minutes)}</span>
+            </span>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-twilight-text-soft transition-colors group-hover:bg-white/[0.06] group-hover:text-accent-primary" aria-hidden="true">
+                <Plus size={16} />
+            </span>
+        </button>
+    );
+}
+
+type NowLineProps = { now: Date; current: Task | null; next: Task | null; gapAfterNow: boolean };
+
+/** What the now line says: what's on until when, else what's next. */
+function nowCaption({ now, current, next, gapAfterNow }: NowLineProps) {
+    if (current) return `${current.title} until ${formatTime(itemEnd(current).toISOString())}`;
+    if (!next) return "Nothing else timed";
+    // The free-time row below already says how long; say it once.
+    if (gapAfterNow) return `Next: ${next.title}`;
+    return `Next: ${next.title} in ${formatDuration(Math.max(1, Math.floor((itemStart(next).getTime() - now.getTime()) / 60_000)))}`;
+}
+
+function NowLine(props: NowLineProps) {
+    const time = formatTime(props.now.toISOString());
+    return (
+        <div className="flex items-center gap-2 px-2 py-2" role="note" aria-label={`Now, ${time}`}>
+            <span className="flex w-11 shrink-0 justify-center" aria-hidden="true">
+                <span className="h-2.5 w-2.5 rounded-full bg-accent-primary shadow-[0_0_10px_color-mix(in_srgb,var(--accent-primary)_55%,transparent)]" />
+            </span>
+            <span className="text-[12px] font-semibold tabular-nums text-accent-primary">{time}</span>
+            <span className="h-px flex-1 bg-accent-primary/40" aria-hidden="true" />
+            <span className="max-w-[55%] truncate text-[12px] text-accent-primary/90">{nowCaption(props)}</span>
+        </div>
+    );
+}
+
+type DayMarkerPillsProps = { holidays: HolidayRecord[]; isBirthday: boolean; personalEvents: PersonalEvent[] };
+
+/** What the day is: holidays, a birthday, personal events. */
+function DayMarkerPills({ holidays, isBirthday, personalEvents }: DayMarkerPillsProps) {
+    return (
+        <div className="flex flex-wrap gap-1.5 px-1 pt-3">
+            {holidays.map((holiday) => (
+                <span key={holiday.name} className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-solstice/20 bg-solstice/12 px-3 text-xs font-medium text-solstice">
+                    <Flag size={12} strokeWidth={2.2} aria-hidden="true" />
+                    {holiday.name}
+                </span>
+            ))}
+            {isBirthday ? (
+                <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-violet/20 bg-violet/12 px-3 text-xs font-medium text-violet">
+                    <span aria-hidden="true">🎂</span> Your birthday
+                </span>
+            ) : null}
+            {personalEvents.map((event) => (
+                <span key={event.id} className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 text-xs font-medium text-accent-nav-schedule">
+                    <span aria-hidden="true">{event.emoji ?? "✦"}</span> {event.label}
+                </span>
+            ))}
+        </div>
+    );
+}
+
+type EmptyDayProps = { dateIso: LocalDate; isToday: boolean; now: Date; onAddAt: DayAgendaProps["onAddAt"] };
+
+/** Nothing planned: one way in, at 9:00 (or the next quarter hour today, if that's later). */
+function EmptyDay({ dateIso, isToday, now, onAddAt }: EmptyDayProps) {
+    const addAtNine = () => {
+        const nineAm = atLocal(dateIso, "09:00", getUserZone());
+        onAddAt(isToday ? nextQuarter(new Date(Math.max(now.getTime(), new Date(nineAm).getTime()))) : nineAm, 60);
+    };
+    return (
+        <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+            <p className="font-display text-lg font-semibold text-twilight-text">Nothing planned</p>
+            <p className="text-sm text-twilight-text-soft">The day is open.</p>
+            <button
+                type="button"
+                onClick={addAtNine}
+                className="mt-1 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-twilight-border/40 px-4 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+            >
+                <Plus size={15} aria-hidden="true" />
+                Add something
+            </button>
+        </div>
+    );
+}
+
 /**
  * One day, in the order it happens: what the day is (holidays, birthdays,
  * events), what has no time, then timed things with a "now" line and the free
@@ -99,7 +217,7 @@ export function DayAgenda({
     const isEmpty = tasks.length === 0;
 
     const laterOf = useLaterToday(dateIso, tasks, isToday);
-    const row = (task: Task, past = false) => (
+    const row = (task: Task, past?: boolean) => (
         <ScheduleRow
             key={task.id}
             task={task}
@@ -112,69 +230,13 @@ export function DayAgenda({
         />
     );
 
-    const gapRow = (gap: FreeGap) => (
-        <button
-            key={`gap-${gap.afterId}`}
-            type="button"
-            onClick={() => onAddAt(nextQuarter(gap.start), Math.min(60, gap.minutes))}
-            className="group flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-2xl px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-            aria-label={`Free until ${formatTime(gap.end.toISOString())}, ${formatDuration(gap.minutes)}. Add something here`}
-        >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center" aria-hidden="true">
-                <span className="h-6 w-px border-l border-dashed border-twilight-text-muted/60" />
-            </span>
-            <span className="min-w-0 flex-1 text-[13px] text-twilight-text-soft">
-                Free until {formatTime(gap.end.toISOString())}
-                <span className="text-twilight-text-muted"> · {formatDuration(gap.minutes)}</span>
-            </span>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-twilight-text-soft transition-colors group-hover:bg-white/[0.06] group-hover:text-accent-primary" aria-hidden="true">
-                <Plus size={16} />
-            </span>
-        </button>
-    );
-
-    const nowLine = (
-        <div key="now" className="flex items-center gap-2 px-2 py-2" role="note" aria-label={`Now, ${formatTime(now.toISOString())}`}>
-            <span className="flex w-11 shrink-0 justify-center" aria-hidden="true">
-                <span className="h-2.5 w-2.5 rounded-full bg-accent-primary shadow-[0_0_10px_color-mix(in_srgb,var(--accent-primary)_55%,transparent)]" />
-            </span>
-            <span className="text-[12px] font-semibold tabular-nums text-accent-primary">{formatTime(now.toISOString())}</span>
-            <span className="h-px flex-1 bg-accent-primary/40" aria-hidden="true" />
-            <span className="max-w-[55%] truncate text-[12px] text-accent-primary/90">
-                {current
-                    ? `${current.title} until ${formatTime(itemEnd(current).toISOString())}`
-                    : next
-                        // The free-time row below already says how long; say it once.
-                        ? gapsAfter.has("now")
-                            ? `Next: ${next.title}`
-                            : `Next: ${next.title} in ${formatDuration(Math.max(1, Math.floor((itemStart(next).getTime() - now.getTime()) / 60_000)))}`
-                        : "Nothing else timed"}
-            </span>
-        </div>
-    );
+    const gapRow = (gap: FreeGap) => <GapRow key={`gap-${gap.afterId}`} gap={gap} onAddAt={onAddAt} />;
+    const nowLine = <NowLine key="now" now={now} current={current} next={next} gapAfterNow={gapsAfter.has("now")} />;
+    const nowGap = isToday ? gapsAfter.get("now") : undefined;
 
     return (
         <div ref={scrollRef} onScroll={handleScroll} className="touch-scroll-y h-full min-h-0 px-3 pb-36">
-            {hasMarkers ? (
-                <div className="flex flex-wrap gap-1.5 px-1 pt-3">
-                    {holidays.map((holiday) => (
-                        <span key={holiday.name} className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-solstice/20 bg-solstice/12 px-3 text-xs font-medium text-solstice">
-                            <Flag size={12} strokeWidth={2.2} aria-hidden="true" />
-                            {holiday.name}
-                        </span>
-                    ))}
-                    {isBirthday ? (
-                        <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-violet/20 bg-violet/12 px-3 text-xs font-medium text-violet">
-                            <span aria-hidden="true">🎂</span> Your birthday
-                        </span>
-                    ) : null}
-                    {personalEvents.map((event) => (
-                        <span key={event.id} className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 text-xs font-medium text-accent-nav-schedule">
-                            <span aria-hidden="true">{event.emoji ?? "✦"}</span> {event.label}
-                        </span>
-                    ))}
-                </div>
-            ) : null}
+            {hasMarkers ? <DayMarkerPills holidays={holidays} isBirthday={isBirthday} personalEvents={personalEvents} /> : null}
 
             {hasReady && dateIso >= todayIso && onOpenReady ? (
                 <button
@@ -188,41 +250,14 @@ export function DayAgenda({
                 </button>
             ) : null}
 
-            {isEmpty ? (
-                <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-                    <p className="font-display text-lg font-semibold text-twilight-text">Nothing planned</p>
-                    <p className="text-sm text-twilight-text-soft">The day is open.</p>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            const nineAm = atLocal(dateIso, "09:00", getUserZone());
-                            onAddAt(isToday ? nextQuarter(new Date(Math.max(now.getTime(), new Date(nineAm).getTime()))) : nineAm, 60);
-                        }}
-                        className="mt-1 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-twilight-border/40 px-4 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                    >
-                        <Plus size={15} aria-hidden="true" />
-                        Add something
-                    </button>
-                </div>
-            ) : null}
+            {isEmpty ? <EmptyDay dateIso={dateIso} isToday={isToday} now={now} onAddAt={onAddAt} /> : null}
 
             {allDay.length > 0 ? (
                 <section aria-label="Any time">
                     <h3 className={SECTION_LABEL}>Any time</h3>
                     {allDayOpen.map((task) => row(task))}
                     {allDayDone.length > 0 ? (
-                        <>
-                            <button
-                                type="button"
-                                onClick={() => setShowDoneRoutines((value) => !value)}
-                                aria-expanded={showDoneRoutines}
-                                className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-2xl px-3 text-[13px] text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                            >
-                                <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${showDoneRoutines ? "rotate-180" : ""}`} />
-                                {allDayDone.length} done
-                            </button>
-                            <Reveal open={showDoneRoutines}>{allDayDone.map((task) => row(task))}</Reveal>
-                        </>
+                        <Fold label={`${allDayDone.length} done`} open={showDoneRoutines} setOpen={setShowDoneRoutines}>{allDayDone.map((task) => row(task))}</Fold>
                     ) : null}
                 </section>
             ) : null}
@@ -231,21 +266,10 @@ export function DayAgenda({
                 <section aria-label="Timeline">
                     {allDay.length > 0 || hasMarkers ? <h3 className={SECTION_LABEL}>Timeline</h3> : null}
                     {earlier.length > 0 ? (
-                        <>
-                            <button
-                                type="button"
-                                onClick={() => setShowEarlier((value) => !value)}
-                                aria-expanded={showEarlier}
-                                className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-2xl px-3 text-[13px] text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                            >
-                                <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${showEarlier ? "rotate-180" : ""}`} />
-                                Earlier today
-                            </button>
-                            <Reveal open={showEarlier}>{earlier.map((task) => row(task, true))}</Reveal>
-                        </>
+                        <Fold label="Earlier today" open={showEarlier} setOpen={setShowEarlier}>{earlier.map((task) => row(task, true))}</Fold>
                     ) : null}
                     {isToday && (nowIndex === 0 || upcoming.length === 0) ? nowLine : null}
-                    {isToday ? (gapsAfter.get("now") ? gapRow(gapsAfter.get("now")!) : null) : null}
+                    {nowGap ? gapRow(nowGap) : null}
                     {upcoming.map((task, index) => (
                         <Fragment key={task.id}>
                             {isToday && index === nowIndex && index > 0 ? nowLine : null}

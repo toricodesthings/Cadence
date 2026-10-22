@@ -264,53 +264,69 @@ function mergeTemporal(existing: StoredTemporal, body: TaskPatch): TaskTemporalF
     };
 }
 
+/**
+ * A patch that depends on the stored row (placement, dates, repeats): the row is locked and
+ * version-checked, the section follows the list, and dates merge with what's stored.
+ */
+async function patchOverStored(
+    tx: Tx,
+    userId: string,
+    id: string,
+    body: TaskPatch,
+    expectedUpdatedAt: string | undefined,
+    { placementChanged, temporalChanged }: { placementChanged: boolean; temporalChanged: boolean },
+) {
+    const [existing] = await tracing.enterSpan("tasks.update.lock", () => tx
+        .select({
+            id: tasks.id,
+            dueDate: tasks.dueDate,
+            endDate: tasks.endDate,
+            scheduledStart: tasks.scheduledStart,
+            scheduledEnd: tasks.scheduledEnd,
+            zone: tasks.zone,
+            updatedAt: tasks.updatedAt,
+            projectId: tasks.projectId,
+            sectionId: tasks.sectionId,
+        })
+        .from(tasks)
+        .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
+        .for("update"));
+    throwIfNotFound(existing, "Task");
+    assertNoConflict(expectedUpdatedAt, existing.updatedAt, "Task");
+
+    const projectId = body.projectId !== undefined ? body.projectId : existing.projectId;
+    const sectionId = body.sectionId !== undefined ? body.sectionId
+        : projectId !== existing.projectId ? null : existing.sectionId;
+    if (placementChanged) await assertOwnership(tx, userId, { projectId, sectionId });
+    const zone = temporalChanged || body.recurrenceRule !== undefined ? await userZone(tx, userId) : "UTC";
+    validateTaskRecurrenceRule(body.recurrenceRule, existing.zone ?? zone);
+
+    const temporalPatch = temporalChanged ? temporalColumns(mergeTemporal(existing, body), zone) : {};
+    return { ...body, ...(placementChanged && { sectionId }), ...temporalPatch };
+}
+
+/**
+ * The write's version check for a simple edit. The API exposes milliseconds; Postgres stores
+ * microseconds. Match the same instant comparison as assertNoConflict, including timezone offsets.
+ */
+function sameVersionSql(expectedUpdatedAt: string): SQL {
+    const expectedDate = new Date(expectedUpdatedAt);
+    return Number.isNaN(expectedDate.getTime())
+        ? sql`false`
+        : sql`date_trunc('milliseconds', ${tasks.updatedAt}) = ${expectedDate.toISOString()}::timestamptz`;
+}
+
 /** Apply a patch to one task. `expectedUpdatedAt` turns a stale edit into a 409. */
 export async function updateTask(tx: Tx, userId: string, id: string, body: TaskPatch, expectedUpdatedAt?: string) {
     const placementChanged = body.projectId !== undefined || body.sectionId !== undefined;
     const temporalChanged = hasTaskTemporalMutation(body);
     const needsExisting = placementChanged || temporalChanged || body.recurrenceRule !== undefined;
-    let versionCondition: SQL | undefined;
-    let patch: Record<string, unknown> = body;
-
     // Simple edits don't depend on the stored row. UPDATE takes the row lock and
     // checks its version atomically, avoiding a separate SELECT FOR UPDATE trip.
-    if (needsExisting) {
-        const [existing] = await tracing.enterSpan("tasks.update.lock", () => tx
-            .select({
-                id: tasks.id,
-                dueDate: tasks.dueDate,
-                endDate: tasks.endDate,
-                scheduledStart: tasks.scheduledStart,
-                scheduledEnd: tasks.scheduledEnd,
-                zone: tasks.zone,
-                updatedAt: tasks.updatedAt,
-                projectId: tasks.projectId,
-                sectionId: tasks.sectionId,
-            })
-            .from(tasks)
-            .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-            .for("update"));
-        throwIfNotFound(existing, "Task");
-        assertNoConflict(expectedUpdatedAt, existing.updatedAt, "Task");
-
-        const projectId = body.projectId !== undefined ? body.projectId : existing.projectId;
-        const sectionId = body.sectionId !== undefined ? body.sectionId
-            : projectId !== existing.projectId ? null : existing.sectionId;
-        if (placementChanged) await assertOwnership(tx, userId, { projectId, sectionId });
-        const zone = temporalChanged || body.recurrenceRule !== undefined ? await userZone(tx, userId) : "UTC";
-        validateTaskRecurrenceRule(body.recurrenceRule, existing.zone ?? zone);
-
-        const temporalPatch = temporalChanged ? temporalColumns(mergeTemporal(existing, body), zone) : {};
-
-        patch = { ...body, ...(placementChanged && { sectionId }), ...temporalPatch };
-    } else if (expectedUpdatedAt) {
-        // The API exposes milliseconds; Postgres stores microseconds. Match the
-        // same instant comparison as assertNoConflict, including timezone offsets.
-        const expectedDate = new Date(expectedUpdatedAt);
-        versionCondition = Number.isNaN(expectedDate.getTime())
-            ? sql`false`
-            : sql`date_trunc('milliseconds', ${tasks.updatedAt}) = ${expectedDate.toISOString()}::timestamptz`;
-    }
+    const patch: Record<string, unknown> = needsExisting
+        ? await patchOverStored(tx, userId, id, body, expectedUpdatedAt, { placementChanged, temporalChanged })
+        : body;
+    const versionCondition = !needsExisting && expectedUpdatedAt ? sameVersionSql(expectedUpdatedAt) : undefined;
 
     // A changed Effort carries who chose it; the origin is never a column the caller writes directly.
     const { effortOrigin, ...columns } = patch as typeof patch & { effortOrigin?: "manual" | "accepted" };
@@ -454,6 +470,19 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
 /** Where `reorderTasks` puts its tasks: the top or bottom of their list, or next to another task. */
 export type TaskPlacement = { to: "top" | "bottom" } | { beforeTaskId: string } | { afterTaskId: string };
 
+/** The order indexes the moved tasks land between; undefined = an open end. */
+function placementBounds(siblings: { id: string; orderIndex: number }[], placement: TaskPlacement): [number | undefined, number | undefined] {
+    if ("to" in placement) {
+        return placement.to === "top" ? [undefined, siblings[0]?.orderIndex] : [siblings.at(-1)?.orderIndex, undefined];
+    }
+    const anchorId = "beforeTaskId" in placement ? placement.beforeTaskId : placement.afterTaskId;
+    const at = siblings.findIndex((row) => row.id === anchorId);
+    if (at === -1) throw new AppError(400, "VALIDATION_ERROR", "The task to place next to must be another open task in the same list");
+    return "beforeTaskId" in placement
+        ? [siblings[at - 1]?.orderIndex, siblings[at].orderIndex]
+        : [siblings[at].orderIndex, siblings[at + 1]?.orderIndex];
+}
+
 /**
  * Place tasks one after another, in the order given, within the manual order of
  * the first task's list (no list = the unlisted tasks). Only the moved tasks
@@ -477,18 +506,7 @@ export async function reorderTasks(tx: Tx, userId: string, taskIds: string[], pl
         ))
         .orderBy(asc(tasks.orderIndex));
 
-    let lo: number | undefined;
-    let hi: number | undefined;
-    if ("to" in placement) {
-        if (placement.to === "top") hi = siblings[0]?.orderIndex;
-        else lo = siblings.at(-1)?.orderIndex;
-    } else {
-        const anchorId = "beforeTaskId" in placement ? placement.beforeTaskId : placement.afterTaskId;
-        const at = siblings.findIndex((row) => row.id === anchorId);
-        if (at === -1) throw new AppError(400, "VALIDATION_ERROR", "The task to place next to must be another open task in the same list");
-        if ("beforeTaskId" in placement) [lo, hi] = [siblings[at - 1]?.orderIndex, siblings[at].orderIndex];
-        else [lo, hi] = [siblings[at].orderIndex, siblings[at + 1]?.orderIndex];
-    }
+    const [lo, hi] = placementBounds(siblings, placement);
     const n = taskIds.length;
     const indexAt = (i: number) =>
         lo !== undefined && hi !== undefined ? lo + ((hi - lo) * (i + 1)) / (n + 1)

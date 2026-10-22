@@ -35,25 +35,163 @@ const PRIORITY_CHOICES: Array<{ value: TaskPriority | null; label: string }> = [
     ...PRIORITY_OPTIONS.filter((o) => o.value > 0).map((o) => ({ value: o.value, label: `P${5 - o.value} · ${o.label}` })),
 ];
 
+const TRIGGER = "inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-colors";
+const triggerTone = (active: unknown) => (active
+    ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
+    : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]");
+const choiceTone = (active: boolean) => (active
+    ? "bg-accent-primary/12 text-accent-primary"
+    : "text-twilight-text-soft hover:bg-white/[0.05]");
+
+type DateActionProps = Pick<QuickAddActionTrayProps, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "recurrenceRule" | "onScheduleChange"> & { iconOnly: boolean };
+
+function DateAction({ dueDate, endDate, scheduledStart, scheduledEnd, recurrenceRule, onScheduleChange, iconOnly }: DateActionProps) {
+    const scheduled = dueDate || scheduledStart;
+    return (
+        <DeadlinePickerPopover
+            dueDate={dueDate}
+            endDate={endDate}
+            scheduledStart={scheduledStart}
+            scheduledEnd={scheduledEnd}
+            recurrenceRule={recurrenceRule}
+            onChange={onScheduleChange}
+        >
+            <button
+                type="button"
+                className={`relative ${TRIGGER} ${triggerTone(scheduled)}`}
+            >
+                <Calendar size={14} aria-hidden="true" />
+                {!iconOnly ? <span>{scheduled ? "Scheduled" : "Date"}</span> : null}
+            </button>
+        </DeadlinePickerPopover>
+    );
+}
+
+type PriorityActionProps = Pick<QuickAddActionTrayProps, "priority" | "onPriorityChange"> & { iconOnly: boolean };
+
+function PriorityAction({ priority, onPriorityChange, iconOnly }: PriorityActionProps) {
+    const PriorityIcon = priority ? PRIORITY_OPTIONS[priority].icon : PRIORITY_ICON;
+    return (
+        <Popover.Root>
+            <Popover.Trigger asChild>
+                <button
+                    type="button"
+                    className={`${TRIGGER} ${triggerTone(priority)}`}
+                >
+                    <PriorityIcon size={14} aria-hidden="true" />
+                    {!iconOnly ? <span>{priority ? `P${5 - priority}` : "Priority"}</span> : null}
+                </button>
+            </Popover.Trigger>
+            <Popover.Content className="w-44 p-1">
+                <div className="space-y-1">
+                    {PRIORITY_CHOICES.map((option) => (
+                        <button
+                            key={option.label}
+                            type="button"
+                            onClick={() => onPriorityChange(option.value)}
+                            className={`flex min-h-10 w-full items-center rounded-xl px-3 text-left text-sm transition-colors ${choiceTone(priority === option.value)}`}
+                        >
+                            {option.label}
+                        </button>
+                    ))}
+                </div>
+            </Popover.Content>
+        </Popover.Root>
+    );
+}
+
+type ProjectActionProps = Pick<QuickAddActionTrayProps, "projectId" | "onProjectChange"> & { iconOnly: boolean };
+
+function ProjectAction({ projectId, onProjectChange, iconOnly }: ProjectActionProps) {
+    const { data: projects = [] } = useProjects();
+    const selectedProject = projectId ? projects.find((item) => item.id === projectId) : null;
+    return (
+        <Popover.Root>
+            <Popover.Trigger asChild>
+                <button
+                    type="button"
+                    className={`${TRIGGER} ${triggerTone(selectedProject)}`}
+                >
+                    <FolderOpen size={14} aria-hidden="true" />
+                    {!iconOnly ? <span>{selectedProject?.name ?? "List"}</span> : null}
+                </button>
+            </Popover.Trigger>
+            <Popover.Content className="w-56 p-1">
+                <div className="space-y-1">
+                    <button
+                        type="button"
+                        onClick={() => onProjectChange(null)}
+                        className={`flex min-h-10 w-full items-center rounded-xl px-3 text-left text-sm transition-colors ${choiceTone(!selectedProject)}`}
+                    >
+                        No list
+                    </button>
+                    {projects.map((project) => (
+                        <button
+                            key={project.id}
+                            type="button"
+                            onClick={() => onProjectChange(project.id)}
+                            className={`flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm transition-colors ${choiceTone(selectedProject?.id === project.id)}`}
+                        >
+                            {project.emoji ? <span aria-hidden="true">{project.emoji}</span> : null}
+                            <span className="truncate">{project.name}</span>
+                        </button>
+                    ))}
+                </div>
+            </Popover.Content>
+        </Popover.Root>
+    );
+}
+
+type TagActionProps = Pick<QuickAddActionTrayProps, "tagIds" | "onToggleTag"> & { iconOnly: boolean };
+
+const tagCountLabel = (count: number) => (count ? `${count} tag${count === 1 ? "" : "s"}` : "Tags");
+const tagDotColor = (color: string | null | undefined) => (!color || color === "default" ? "var(--color-twilight-text-muted)" : color);
+
+function TagAction({ tagIds, onToggleTag, iconOnly }: TagActionProps) {
+    const { data: tags = [] } = useTags();
+    const selectedCount = tags.filter((item) => tagIds.includes(item.id)).length;
+    return (
+        <Popover.Root>
+            <Popover.Trigger asChild>
+                <button
+                    type="button"
+                    className={`${TRIGGER} ${triggerTone(selectedCount)}`}
+                >
+                    <Tag size={14} aria-hidden="true" />
+                    {!iconOnly ? <span>{tagCountLabel(selectedCount)}</span> : null}
+                </button>
+            </Popover.Trigger>
+            <Popover.Content className="w-56 p-1">
+                <div className="max-h-64 space-y-1 overflow-auto">
+                    {tags.map((tag) => (
+                        <button
+                            key={tag.id}
+                            type="button"
+                            onClick={() => onToggleTag(tag.id)}
+                            className={`flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm transition-colors ${choiceTone(tagIds.includes(tag.id))}`}
+                        >
+                            <span
+                                className="h-2.5 w-2.5 rounded-full"
+                                style={{ backgroundColor: tagDotColor(tag.color) }}
+                            />
+                            <span className="truncate">{tag.name}</span>
+                        </button>
+                    ))}
+                    {!tags.length ? (
+                        <p className="px-3 py-3 text-sm text-twilight-text-muted">Create a tag first to use quick tagging.</p>
+                    ) : null}
+                </div>
+            </Popover.Content>
+        </Popover.Root>
+    );
+}
+
 export function QuickAddActionTray({
     quickAddSettings,
     projectLocked = false,
     excludeActions = [],
-    dueDate,
-    endDate,
-    scheduledStart,
-    scheduledEnd,
-    recurrenceRule,
-    priority,
-    projectId,
-    tagIds,
-    onScheduleChange,
-    onPriorityChange,
-    onProjectChange,
-    onToggleTag,
+    ...fields
 }: QuickAddActionTrayProps) {
-    const { data: projects = [] } = useProjects();
-    const { data: tags = [] } = useTags();
     const iconOnly = quickAddSettings?.style === "icon";
     const configuredActions = resolveQuickAddActions(quickAddSettings).filter(
         (action) => !(projectLocked && action === "project") && !excludeActions.includes(action),
@@ -63,173 +201,17 @@ export function QuickAddActionTray({
         return null;
     }
 
-    const selectedProject = projectId ? projects.find((item) => item.id === projectId) : null;
-    const selectedTags = tags.filter((item) => tagIds.includes(item.id));
-    const PriorityIcon = priority ? PRIORITY_OPTIONS[priority].icon : PRIORITY_ICON;
-
-    const renderAction = (action: QuickAddAction) => {
-        switch (action) {
-            case "date":
-                return (
-                    <DeadlinePickerPopover
-                        dueDate={dueDate}
-                        endDate={endDate}
-                        scheduledStart={scheduledStart}
-                        scheduledEnd={scheduledEnd}
-                        recurrenceRule={recurrenceRule}
-                        onChange={onScheduleChange}
-                    >
-                        <button
-                            type="button"
-                            className={`relative inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-colors ${
-                                dueDate || scheduledStart
-                                    ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
-                                    : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]"
-                            }`}
-                        >
-                            <Calendar size={14} aria-hidden="true" />
-                            {!iconOnly ? <span>{dueDate || scheduledStart ? "Scheduled" : "Date"}</span> : null}
-                        </button>
-                    </DeadlinePickerPopover>
-                );
-            case "priority":
-                return (
-                    <Popover.Root>
-                        <Popover.Trigger asChild>
-                            <button
-                                type="button"
-                                className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-colors ${
-                                    priority
-                                        ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
-                                        : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]"
-                                }`}
-                            >
-                                <PriorityIcon size={14} aria-hidden="true" />
-                                {!iconOnly ? <span>{priority ? `P${5 - priority}` : "Priority"}</span> : null}
-                            </button>
-                        </Popover.Trigger>
-                        <Popover.Content className="w-44 p-1">
-                            <div className="space-y-1">
-                                {PRIORITY_CHOICES.map((option) => (
-                                    <button
-                                        key={option.label}
-                                        type="button"
-                                        onClick={() => onPriorityChange(option.value)}
-                                        className={`flex min-h-10 w-full items-center rounded-xl px-3 text-left text-sm transition-colors ${
-                                            priority === option.value
-                                                ? "bg-accent-primary/12 text-accent-primary"
-                                                : "text-twilight-text-soft hover:bg-white/[0.05]"
-                                        }`}
-                                    >
-                                        {option.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </Popover.Content>
-                    </Popover.Root>
-                );
-            case "project":
-                return (
-                    <Popover.Root>
-                        <Popover.Trigger asChild>
-                            <button
-                                type="button"
-                                className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-colors ${
-                                    selectedProject
-                                        ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
-                                        : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]"
-                                }`}
-                            >
-                                <FolderOpen size={14} aria-hidden="true" />
-                                {!iconOnly ? <span>{selectedProject?.name ?? "List"}</span> : null}
-                            </button>
-                        </Popover.Trigger>
-                        <Popover.Content className="w-56 p-1">
-                            <div className="space-y-1">
-                                <button
-                                    type="button"
-                                    onClick={() => onProjectChange(null)}
-                                    className={`flex min-h-10 w-full items-center rounded-xl px-3 text-left text-sm transition-colors ${
-                                        !selectedProject
-                                            ? "bg-accent-primary/12 text-accent-primary"
-                                            : "text-twilight-text-soft hover:bg-white/[0.05]"
-                                    }`}
-                                >
-                                    No list
-                                </button>
-                                {projects.map((project) => (
-                                    <button
-                                        key={project.id}
-                                        type="button"
-                                        onClick={() => onProjectChange(project.id)}
-                                        className={`flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm transition-colors ${
-                                            selectedProject?.id === project.id
-                                                ? "bg-accent-primary/12 text-accent-primary"
-                                                : "text-twilight-text-soft hover:bg-white/[0.05]"
-                                        }`}
-                                    >
-                                        {project.emoji ? <span aria-hidden="true">{project.emoji}</span> : null}
-                                        <span className="truncate">{project.name}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </Popover.Content>
-                    </Popover.Root>
-                );
-            case "tag":
-                return (
-                    <Popover.Root>
-                        <Popover.Trigger asChild>
-                            <button
-                                type="button"
-                                className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-colors ${
-                                    selectedTags.length
-                                        ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
-                                        : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]"
-                                }`}
-                            >
-                                <Tag size={14} aria-hidden="true" />
-                                {!iconOnly ? <span>{selectedTags.length ? `${selectedTags.length} tag${selectedTags.length === 1 ? "" : "s"}` : "Tags"}</span> : null}
-                            </button>
-                        </Popover.Trigger>
-                        <Popover.Content className="w-56 p-1">
-                            <div className="max-h-64 space-y-1 overflow-auto">
-                                {tags.map((tag) => {
-                                    const active = tagIds.includes(tag.id);
-
-                                    return (
-                                        <button
-                                            key={tag.id}
-                                            type="button"
-                                            onClick={() => onToggleTag(tag.id)}
-                                            className={`flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm transition-colors ${
-                                                active
-                                                    ? "bg-accent-primary/12 text-accent-primary"
-                                                    : "text-twilight-text-soft hover:bg-white/[0.05]"
-                                            }`}
-                                        >
-                                            <span
-                                                className="h-2.5 w-2.5 rounded-full"
-                                                style={{ backgroundColor: !tag.color || tag.color === "default" ? "var(--color-twilight-text-muted)" : tag.color }}
-                                            />
-                                            <span className="truncate">{tag.name}</span>
-                                        </button>
-                                    );
-                                })}
-                                {!tags.length ? (
-                                    <p className="px-3 py-3 text-sm text-twilight-text-muted">Create a tag first to use quick tagging.</p>
-                                ) : null}
-                            </div>
-                        </Popover.Content>
-                    </Popover.Root>
-                );
-        }
+    const actions: Record<QuickAddAction, React.ReactNode> = {
+        date: <DateAction {...fields} iconOnly={iconOnly} />,
+        priority: <PriorityAction {...fields} iconOnly={iconOnly} />,
+        project: <ProjectAction {...fields} iconOnly={iconOnly} />,
+        tag: <TagAction {...fields} iconOnly={iconOnly} />,
     };
 
     return (
         <div className="flex flex-wrap items-center gap-2">
             {configuredActions.map((action) => (
-                <div key={action}>{renderAction(action)}</div>
+                <div key={action}>{actions[action]}</div>
             ))}
         </div>
     );

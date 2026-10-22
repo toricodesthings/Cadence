@@ -36,6 +36,22 @@ export interface TaskMenuItemsProps {
 }
 
 /** Reusable inner items for either DropdownMenu or ContextMenu */
+
+/** A menu row that opens a second view instead of closing the menu. */
+function submenuItem(Menu: GenericMenu, icon: ReactNode, label: string, hint: ReactNode, open: VoidFunction) {
+    return (
+        <Menu.Item onSelect={(event) => { event.preventDefault(); open(); }}>
+            <div className="flex w-full items-center gap-2">
+                {icon}
+                <span>{label}</span>
+                <span className="ml-auto inline-flex items-center gap-2 text-[10px] text-twilight-text-muted/90">
+                    {hint}
+                    <ChevronRight size={13} aria-hidden="true" />
+                </span>
+            </div>
+        </Menu.Item>
+    );
+}
 export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Menu, onCloseMenu, holdingContext }: TaskMenuItemsProps) {
     // Place lists tasks for one chosen day: Find a time looks there, not at the task's own day.
     const findDay = useContext(FindTimeDayContext);
@@ -215,20 +231,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
         );
     }
 
-    /** A menu row that opens a second view instead of closing the menu. */
-    const submenuItem = (icon: ReactNode, label: string, hint: ReactNode, open: () => void) => (
-        <Menu.Item onSelect={(event) => { event.preventDefault(); open(); }}>
-            <div className="flex w-full items-center gap-2">
-                {icon}
-                <span>{label}</span>
-                <span className="ml-auto inline-flex items-center gap-2 text-[10px] text-twilight-text-muted/90">
-                    {hint}
-                    <ChevronRight size={13} aria-hidden="true" />
-                </span>
-            </div>
-        </Menu.Item>
-    );
-    const rescheduleItem = submenuItem(<Calendar size={16} />, "Reschedule", <span>r</span>, () => setMenuView("reschedule-presets"));
+    const rescheduleItem = submenuItem(Menu, <Calendar size={16} />, "Reschedule", <span>r</span>, () => setMenuView("reschedule-presets"));
     const findTimeItem = canFindTime(task) ? (
         <Menu.Item onSelect={() => { trackMenuAction("find_time"); void findTime.run(task, findDay ? { day: findDay } : {}); }}>
             <div className="flex items-center gap-2">
@@ -251,6 +254,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
         </>
     ) : null;
     const reminderItem = submenuItem(
+        Menu,
         <Bell size={16} />,
         task.reminderAt ? "Reminder" : "Set Reminder",
         task.reminderAt && <span>{formatShortDateTime(task.reminderAt)}</span>,

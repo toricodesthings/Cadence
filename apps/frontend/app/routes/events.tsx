@@ -46,20 +46,28 @@ const VIEWS: { value: PersonalEventView; label: string; icon: LucideIcon }[] = [
 ];
 const MENU_LABEL = "flex items-center gap-1.5 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-twilight-text-muted";
 
-/** The page's ⋮: how events show and in what order. Both stay on this device, like every view choice. */
-function EventsMenu({ view, onViewChange, sort, onSortChange }: {
+type ChoiceRowProps = { icon: LucideIcon; label: string; checked: boolean; onSelect: () => void };
+
+/** A checkable menu row; the chosen one carries the check. */
+function ChoiceRow({ icon: Icon, label, checked, onSelect }: ChoiceRowProps) {
+    return (
+        <DropdownMenu.Item onSelect={onSelect} className="flex items-center gap-2">
+            <Icon size={14} aria-hidden="true" />
+            <span className="flex-1">{label}</span>
+            {checked ? <Check size={14} className="text-accent-primary" aria-hidden="true" /> : null}
+        </DropdownMenu.Item>
+    );
+}
+
+type EventsMenuProps = {
     view: PersonalEventView;
     onViewChange: (view: PersonalEventView) => void;
     sort: PersonalEventSortMode;
     onSortChange: (sort: PersonalEventSortMode) => void;
-}) {
-    const choice = <T extends string>(options: { value: T; label: string; icon: LucideIcon }[], value: T, onChange: (next: T) => void) => options.map(({ value: option, label, icon: Icon }) => (
-        <DropdownMenu.Item key={option} onSelect={() => onChange(option)} className="flex items-center gap-2">
-            <Icon size={14} aria-hidden="true" />
-            <span className="flex-1">{label}</span>
-            {value === option ? <Check size={14} className="text-accent-primary" aria-hidden="true" /> : null}
-        </DropdownMenu.Item>
-    ));
+};
+
+/** The page's ⋮: how events show and in what order. Both stay on this device, like every view choice. */
+function EventsMenu({ view, onViewChange, sort, onSortChange }: EventsMenuProps) {
     return (
         <>
             <ClaimHeaderMenu />
@@ -73,10 +81,14 @@ function EventsMenu({ view, onViewChange, sort, onSortChange }: {
                 </Tip>
                 <DropdownMenu.Content align="end" className="min-w-[15rem]">
                     <div className={MENU_LABEL}><Eye size={11} aria-hidden="true" />View</div>
-                    {choice(VIEWS, view, onViewChange)}
+                    {VIEWS.map((option) => (
+                        <ChoiceRow key={option.value} icon={option.icon} label={option.label} checked={view === option.value} onSelect={() => onViewChange(option.value)} />
+                    ))}
                     <DropdownMenu.Separator />
                     <div className={MENU_LABEL}><ArrowUpDown size={11} aria-hidden="true" />Sort by</div>
-                    {choice(SORTS, sort, onSortChange)}
+                    {SORTS.map((option) => (
+                        <ChoiceRow key={option.value} icon={option.icon} label={option.label} checked={sort === option.value} onSelect={() => onSortChange(option.value)} />
+                    ))}
                     <LayoutScaleMenuRow />
                 </DropdownMenu.Content>
             </DropdownMenu.Root>
@@ -84,7 +96,9 @@ function EventsMenu({ view, onViewChange, sort, onSortChange }: {
     );
 }
 
-function EmptyEvents({ onAdd }: { onAdd: () => void }) {
+type EmptyEventsProps = { onAdd: () => void };
+
+function EmptyEvents({ onAdd }: EmptyEventsProps) {
     return (
         <section className="rounded-[1.9rem] border border-white/[0.08] bg-white/[0.03] px-6 py-16">
             <div className="mx-auto flex max-w-md flex-col items-center text-center">
@@ -106,6 +120,66 @@ function EmptyEvents({ onAdd }: { onAdd: () => void }) {
     );
 }
 
+type EventsBodyProps = {
+    events: ReturnType<typeof sortPersonalEventViewModels>;
+    view: PersonalEventView;
+    sort: React.ComponentProps<typeof EventList>["sort"];
+    today: string;
+    stacked: boolean;
+    selectedEventId: string | null;
+    onAdd: () => void;
+    onOpen: (event: PersonalEvent) => void;
+    onEdit: (event: PersonalEvent) => void;
+    onDelete: (event: PersonalEvent) => void;
+    onToggleReminder: (event: PersonalEvent) => void;
+    onOpenInSchedule: (event: PersonalEvent) => void;
+};
+
+/** The events as a list or as cards; the first-event invitation when there are none. */
+function EventsBody({ events, view, sort, today, stacked, selectedEventId, onAdd, onOpen, onEdit, onDelete, onToggleReminder, onOpenInSchedule }: EventsBodyProps) {
+    if (events.length === 0) return <EmptyEvents onAdd={onAdd} />;
+    if (view === "list") {
+        return (
+            <section className="pb-8">
+                <EventList
+                    events={events}
+                    sort={sort}
+                    today={today}
+                    stacked={stacked}
+                    selectedEventId={selectedEventId}
+                    onOpen={onOpen}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onToggleReminder={onToggleReminder}
+                    onOpenInSchedule={onOpenInSchedule}
+                />
+            </section>
+        );
+    }
+    return (
+        <section className="grid gap-4 pb-8 sm:grid-cols-2 xl:grid-cols-3">
+            {events.map((item) => (
+                <EventCard
+                    key={item.event.id}
+                    item={item}
+                    onOpen={onOpen}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onToggleReminder={onToggleReminder}
+                    onOpenInSchedule={onOpenInSchedule}
+                />
+            ))}
+        </section>
+    );
+}
+
+/** The device's saved order and view; unknown values fall back to next occurrence and cards. */
+function eventsViewOf(savedSort: unknown, savedView: unknown) {
+    const sortMode = SORTS.find((option) => option.value === savedSort)?.value ?? "next";
+    const view: PersonalEventView = savedView === "list" ? "list" : "cards";
+    return { sortMode, view };
+}
+
 export default function EventsRoute() {
     const navigate = useNavigate();
     const shell = useShellMode();
@@ -123,8 +197,7 @@ export default function EventsRoute() {
     // View and order are this device's (a phone may want the list, a desk the cards); unknown values fall back.
     const [savedSort, setSavedSort] = useDeviceValue("cadence:events:sort");
     const [savedView, setSavedView] = useDeviceValue("cadence:events:view");
-    const sortMode = SORTS.find((option) => option.value === savedSort)?.value ?? "next";
-    const view: PersonalEventView = savedView === "list" ? "list" : "cards";
+    const { sortMode, view } = eventsViewOf(savedSort, savedView);
 
 
     useRouteFocus();
@@ -228,40 +301,20 @@ export default function EventsRoute() {
                         </div>
                     </section>
 
-                    {events.length === 0 ? (
-                        <EmptyEvents onAdd={openCreate} />
-                    ) : view === "list" ? (
-                        <section className="pb-8">
-                            <EventList
-                                events={events}
-                                sort={sortMode}
-                                today={today}
-                                stacked={shell.isCompact}
-                                selectedEventId={selectedEventId}
-                                onOpen={toggleEdit}
-                                onEdit={openEdit}
-                                onDelete={deleteEvent}
-                                onToggleReminder={toggleReminder}
-                                onOpenInSchedule={(event) => handleOpenSchedule(getNextPersonalEventDate(event))}
-                            />
-                        </section>
-                    ) : (
-                        <section className="grid gap-4 pb-8 sm:grid-cols-2 xl:grid-cols-3">
-                            {events.map((item) => (
-                                <EventCard
-                                    key={item.event.id}
-                                    item={item}
-                                    onOpen={toggleEdit}
-                                    onEdit={openEdit}
-                                    onDelete={deleteEvent}
-                                    onToggleReminder={toggleReminder}
-                                    onOpenInSchedule={(event) => {
-                                        handleOpenSchedule(getNextPersonalEventDate(event));
-                                    }}
-                                />
-                            ))}
-                        </section>
-                    )}
+                    <EventsBody
+                        events={events}
+                        view={view}
+                        sort={sortMode}
+                        today={today}
+                        stacked={shell.isCompact}
+                        selectedEventId={selectedEventId}
+                        onAdd={openCreate}
+                        onOpen={toggleEdit}
+                        onEdit={openEdit}
+                        onDelete={deleteEvent}
+                        onToggleReminder={toggleReminder}
+                        onOpenInSchedule={(event) => handleOpenSchedule(getNextPersonalEventDate(event))}
+                    />
                 </PageContent>
             </ScrollAreaWrapper>
 

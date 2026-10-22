@@ -106,6 +106,12 @@ function nearestIndex(value: string, items: string[]): number {
     return best;
 }
 
+/** The next row with the arrows, wrapping; with nothing highlighted, Down starts at the top and Up at the bottom. */
+function stepHighlight(h: number, delta: 1 | -1, count: number) {
+    if (h < 0) return delta > 0 ? 0 : count - 1;
+    return (h + delta + count) % count;
+}
+
 export function TimePicker(props: TimePickerProps) {
     const { isTouch } = useShellMode();
     if (isTouch) return <NativeTimeField {...props} />;
@@ -200,6 +206,12 @@ function DesktopTimePicker({ value, onChange, icon, className, label, disabled, 
         el?.scrollIntoView({ block: "nearest" });
     }, [open, highlight]);
 
+    /** Enter takes the highlighted row while the list is open, else what was typed. */
+    const commitEnter = () => {
+        if (open && highlight >= 0 && items[highlight]) commit(items[highlight]);
+        else commitTyped();
+    };
+
     const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
@@ -208,11 +220,10 @@ function DesktopTimePicker({ value, onChange, icon, className, label, disabled, 
                 return;
             }
             const delta = e.key === "ArrowDown" ? 1 : -1;
-            setHighlight((h) => (h < 0 ? (delta > 0 ? 0 : items.length - 1) : (h + delta + items.length) % items.length));
+            setHighlight((h) => stepHighlight(h, delta, items.length));
         } else if (e.key === "Enter") {
             e.preventDefault();
-            if (open && highlight >= 0 && items[highlight]) commit(items[highlight]);
-            else commitTyped();
+            commitEnter();
             setOpen(false);
         } else if (e.key === "Escape") {
             setOpen(false);

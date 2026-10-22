@@ -14,6 +14,68 @@ import { createIDBPersister } from "../../lib/api/persister";
 import { clearWal } from "../../lib/api/offline-wal";
 import { toastError } from "../../lib/utils/error-toast";
 
+type IdentityProofProps = {
+    hasPassword: boolean;
+    email: string;
+    password: string;
+    setPassword: (password: string) => void;
+    otp: string;
+    setOtp: (otp: string) => void;
+    codeSent: boolean;
+    sending: boolean;
+    pending: boolean;
+    onSendCode: () => void;
+};
+
+/** Proof it's them: their password, or a code emailed to them when they sign in with Google or GitHub. */
+function IdentityProof({ hasPassword, email, password, setPassword, otp, setOtp, codeSent, sending, pending, onSendCode }: IdentityProofProps) {
+    if (hasPassword) {
+        return (
+            <label className="mt-4 block text-sm text-twilight-text-soft">
+                Your password
+                <div className="mt-2">
+                    <Input
+                        type="password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        autoComplete="current-password"
+                        disabled={pending}
+                    />
+                </div>
+            </label>
+        );
+    }
+    return (
+        <div className="mt-4 text-sm text-twilight-text-soft">
+            <p>
+                {"You sign in with Google or GitHub, so confirm it's you with a code sent to "}
+                <strong className="text-twilight-text">{email}</strong>.
+            </p>
+            {codeSent ? (
+                <label className="mt-3 block">
+                    Code from the email
+                    <div className="mt-2 flex gap-2">
+                        <Input
+                            value={otp}
+                            onChange={(event) => setOtp(event.target.value)}
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            disabled={pending}
+                        />
+                        <Button variant="ghost" size="md" disabled={sending || pending} onClick={onSendCode}>
+                            Resend
+                        </Button>
+                    </div>
+                </label>
+            ) : (
+                <Button variant="secondary" size="md" className="mt-3" disabled={sending || !email} onClick={onSendCode}>
+                    {sending ? "Sending…" : "Email me a code"}
+                </Button>
+            )}
+        </div>
+    );
+}
+
 /**
  * Permanent account deletion. The button stays off until the phrase is typed and the person proves it's them:
  * their password, or (Google/GitHub accounts without one) a code emailed to them. The server checks that proof
@@ -99,47 +161,19 @@ export function DeleteAccountDialog() {
                     </div>
                 </label>
 
-                {accountsLoading ? null : hasPassword ? (
-                    <label className="mt-4 block text-sm text-twilight-text-soft">
-                        Your password
-                        <div className="mt-2">
-                            <Input
-                                type="password"
-                                value={password}
-                                onChange={(event) => setPassword(event.target.value)}
-                                autoComplete="current-password"
-                                disabled={pending}
-                            />
-                        </div>
-                    </label>
-                ) : (
-                    <div className="mt-4 text-sm text-twilight-text-soft">
-                        <p>
-                            You sign in with Google or GitHub, so confirm it's you with a code sent to{" "}
-                            <strong className="text-twilight-text">{email}</strong>.
-                        </p>
-                        {codeSent ? (
-                            <label className="mt-3 block">
-                                Code from the email
-                                <div className="mt-2 flex gap-2">
-                                    <Input
-                                        value={otp}
-                                        onChange={(event) => setOtp(event.target.value)}
-                                        inputMode="numeric"
-                                        autoComplete="one-time-code"
-                                        disabled={pending}
-                                    />
-                                    <Button variant="ghost" size="md" disabled={sending || pending} onClick={() => void sendCode()}>
-                                        Resend
-                                    </Button>
-                                </div>
-                            </label>
-                        ) : (
-                            <Button variant="secondary" size="md" className="mt-3" disabled={sending || !email} onClick={() => void sendCode()}>
-                                {sending ? "Sending…" : "Email me a code"}
-                            </Button>
-                        )}
-                    </div>
+                {accountsLoading ? null : (
+                    <IdentityProof
+                        hasPassword={hasPassword}
+                        email={email}
+                        password={password}
+                        setPassword={setPassword}
+                        otp={otp}
+                        setOtp={setOtp}
+                        codeSent={codeSent}
+                        sending={sending}
+                        pending={pending}
+                        onSendCode={() => void sendCode()}
+                    />
                 )}
 
                 <AlertDialog.Footer>

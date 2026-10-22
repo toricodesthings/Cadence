@@ -34,12 +34,43 @@ interface ProcessInboxParams extends ProcessInboxPayload {
 /** What is sent (and queued offline): everything but the client-side options. */
 const toPayload = ({ successLabel: _label, skipOptimisticRemoval: _skip, silent: _silent, ...payload }: ProcessInboxParams): ProcessInboxPayload => payload;
 
+/** The day it was placed on: the saved task's, else what was sent. */
+function placedDay(task: Task, variables: ProcessInboxParams) {
+    return task.scheduledStart ?? task.dueDate ?? variables.scheduledStart ?? variables.scheduledDay ?? variables.dueDate;
+}
+
+/** The task a placed capture becomes, as the caches show it until the server answers. */
+function optimisticFields(params: ProcessInboxParams) {
+    const {
+        endDate = null, scheduledStart = null, scheduledEnd = null, projectId = null, sectionId = null,
+        recurrenceRule = null, waitingOn = null, reminderAt = null, notBefore = null, durationEstimate = null,
+    } = params;
+    return {
+        title: params.title?.trim() || params.rawText,
+        orderIndex: 0,
+        state: waitingOn ? "WAITING" as const : "ACTIVE" as const,
+        dueDate: params.dueDate ?? params.scheduledDay ?? null,
+        endDate,
+        scheduledStart,
+        scheduledEnd,
+        projectId,
+        sectionId,
+        tagIds: params.tagIds ?? [],
+        priority: (params.priority ?? 0) as TaskPriority,
+        recurrenceRule,
+        waitingOn,
+        reminderAt,
+        notBefore,
+        durationEstimate,
+    };
+}
+
 /**
  * Every placement says where it went: its list, or the view that shows its day. A Waiting or hidden task
  * isn't in that view, so it gets the day alone.
  */
 function whereItWent(task: Task, variables: ProcessInboxParams, queryClient: QueryClient): string {
-    const day = task.scheduledStart ?? task.dueDate ?? variables.scheduledStart ?? variables.scheduledDay ?? variables.dueDate;
+    const day = placedDay(task, variables);
     const listName = task.projectId ? queryClient.getQueryData<Project[]>(queryKeys.projects.all)?.find((project) => project.id === task.projectId)?.name : null;
     if (!day) return listName ? `In ${listName}` : "No day yet";
     const shown = task.state === "ACTIVE" && !(task.notBefore && task.notBefore > today());
@@ -74,24 +105,7 @@ export function useProcessInboxToTask() {
             removeInboxItemFromCaches(queryClient, params.inboxItemId);
             if (params.complete) return { snapshot };
             await taskCache.cancel(queryClient);
-            const optimistic = buildOptimisticTask(crypto.randomUUID(), {
-                title: params.title?.trim() || params.rawText,
-                orderIndex: 0,
-                state: params.waitingOn ? "WAITING" : "ACTIVE",
-                dueDate: params.dueDate ?? params.scheduledDay ?? null,
-                endDate: params.endDate ?? null,
-                scheduledStart: params.scheduledStart ?? null,
-                scheduledEnd: params.scheduledEnd ?? null,
-                projectId: params.projectId ?? null,
-                sectionId: params.sectionId ?? null,
-                tagIds: params.tagIds ?? [],
-                priority: (params.priority ?? 0) as TaskPriority,
-                recurrenceRule: params.recurrenceRule ?? null,
-                waitingOn: params.waitingOn ?? null,
-                reminderAt: params.reminderAt ?? null,
-                notBefore: params.notBefore ?? null,
-                durationEstimate: params.durationEstimate ?? null,
-            });
+            const optimistic = buildOptimisticTask(crypto.randomUUID(), optimisticFields(params));
             reconcileTaskInCaches(queryClient, optimistic);
             return { snapshot, optimisticId: optimistic.id };
         },

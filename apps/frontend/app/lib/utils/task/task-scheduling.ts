@@ -134,26 +134,31 @@ export function getPassiveTimetableOccurrenceAnchor(
     return resolveOccurrenceAnchor({ ...task, recurrenceRule: task.recurrenceRule }, referenceDay, getUserZone()) ?? own;
 }
 
+/** A timed block: "Mar 8, 9:00 AM – 10:30 AM", Fixed or a time block. */
+function timedSummary(task: Pick<Task, "scheduledStart" | "scheduledEnd" | "interactionMode">): TaskScheduleSummary {
+    const start = task.scheduledStart!;
+    const end = task.scheduledEnd;
+    const startLabel = formatShortDateTime(start);
+    return {
+        kind: "timed",
+        displayMode: "timed",
+        primaryLabel: end ? `${startLabel} – ${formatTime(end)}` : startLabel,
+        secondaryLabel: isPassiveTimetableTask(task) ? "Fixed" : "Time block",
+        isDeadline: false,
+        isDuration: false,
+        isTimed: true,
+        anchorDate: dayOfInstant(start),
+    };
+}
+
 export function getTaskScheduleSummary(
     task: Pick<Task, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "interactionMode">,
 ): TaskScheduleSummary {
     const kind = classifyTaskReadShape(task);
 
     switch (kind) {
-        case "timed": {
-            const start = task.scheduledStart!;
-            const end = task.scheduledEnd;
-            return {
-                kind,
-                displayMode: "timed",
-                primaryLabel: end ? `${formatShortDateTime(start)} – ${formatTime(end)}` : formatShortDateTime(start),
-                secondaryLabel: isPassiveTimetableTask(task) ? "Fixed" : "Time block",
-                isDeadline: false,
-                isDuration: false,
-                isTimed: true,
-                anchorDate: dayOfInstant(start),
-            };
-        }
+        case "timed":
+            return timedSummary(task);
         case "days":
             return {
                 kind,

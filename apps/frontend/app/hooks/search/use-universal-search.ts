@@ -167,18 +167,26 @@ interface TaskLookups {
     subtasks: typeof EMPTY_SUBTASKS;
 }
 
+/** Open tasks rank first; Done and Trash sink. */
+const TASK_STATE_SCORE: Partial<Record<Task["state"], number>> = { ACTIVE: 5, COMPLETE: -15, ARCHIVED: -15 };
+
+/** A note still kept in the task's own content (series notes live on the series). */
+function legacyNote(task: Task, owner: string, lookups: TaskLookups) {
+    return lookups.tasks.get(owner)?.content ?? task.content ?? "";
+}
+
 function taskEntry(task: Task, lookups: TaskLookups): Entry & { detail: TaskDetail } {
     const { route, context, scope } = resolveTaskRoute(task);
     const owner = task.seriesId ?? task.id;
     const dedicated = lookups.notes.get(owner);
-    const legacy = lookups.tasks.get(owner)?.content ?? task.content ?? "";
+    const legacy = legacyNote(task, owner, lookups);
     const subtaskTitles = (lookups.subtasks[task.id] ?? []).map((sub) => sub.title);
     const sectionName = task.sectionId ? lookups.sections.get(task.sectionId) : undefined;
     return {
         result: {
             id: `task-${task.id}`, kind: "task", focusKind: "task", title: task.title,
             context, route, focusScope: scope,
-            score: task.state === "ACTIVE" ? 5 : task.state === "COMPLETE" || task.state === "ARCHIVED" ? -15 : 0,
+            score: TASK_STATE_SCORE[task.state] ?? 0,
         },
         fields: {
             notes: dedicated ? dedicated.terms.join(" ") : legacy,

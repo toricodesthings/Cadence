@@ -33,6 +33,27 @@ export interface HabitReviewItem {
 const getToday = today;
 const getTomorrow = () => addDays(today(), 1);
 
+
+/** The person's choices for a placed capture: the day or patch wins over its words, and its own date words never decide placement. */
+function manualFromPatch(patch: InstructionPatch, day: LocalDate | undefined) {
+    return {
+        dueDate: patch.dueDate !== undefined ? patch.dueDate : (day ?? null),
+        // The placement is the user's call here; the capture's own date words never decide it.
+        scheduledStart: patch.scheduledStart ?? null,
+        scheduledEnd: patch.scheduledEnd ?? null,
+        ...(patch.projectId && { projectId: patch.projectId }),
+        ...(patch.addTagIds && { tagIds: patch.addTagIds }),
+        ...(patch.priority && { priority: patch.priority }),
+        ...(patch.waitingOn && { waitingOn: patch.waitingOn }),
+        ...(patch.durationEstimate && { durationMinutes: patch.durationEstimate }),
+    };
+}
+
+/** What is left after placing (waiting, hiding, a nudge): a plain edit of the new task. */
+function followUpEdits(patch: InstructionPatch, waitlist: boolean | undefined) {
+    const { state, notBefore, waitingReminder } = patch;
+    return { ...(waitlist ? { state: "WAITING" as const } : state ? { state } : {}), ...(notBefore ? { notBefore } : {}), ...(waitingReminder ? { waitingReminder } : {}) };
+}
 export function useWeeklyReviewActions(currentStep: number) {
     const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
@@ -133,17 +154,7 @@ export function useWeeklyReviewActions(currentStep: number) {
             confidenceThreshold: settings?.tasks?.intelligence?.confidenceThreshold ?? "medium",
             enabled: settings?.tasks?.intelligence?.nlpEnabled !== false,
             literal: stale,
-            manual: {
-                dueDate: patch.dueDate !== undefined ? patch.dueDate : (day ?? null),
-                // The placement is the user's call here; the capture's own date words never decide it.
-                scheduledStart: patch.scheduledStart ?? null,
-                scheduledEnd: patch.scheduledEnd ?? null,
-                ...(patch.projectId && { projectId: patch.projectId }),
-                ...(patch.addTagIds && { tagIds: patch.addTagIds }),
-                ...(patch.priority && { priority: patch.priority }),
-                ...(patch.waitingOn && { waitingOn: patch.waitingOn }),
-                ...(patch.durationEstimate && { durationMinutes: patch.durationEstimate }),
-            },
+            manual: manualFromPatch(patch, day),
         });
         const f = draft.fields;
         const task = await processCapture.mutateAsync({
@@ -163,8 +174,7 @@ export function useWeeklyReviewActions(currentStep: number) {
             nlp: resolvedNlp(item.rawText, "inbox", settings?.dateTime?.dateStyle ?? "mdy", [], {}),
         });
         // The capture is placed and kept; what is left (waiting, hiding, a nudge) is a plain edit of the new task.
-        const { state, notBefore, waitingReminder } = patch;
-        const after = { ...(choice.waitlist ? { state: "WAITING" as const } : state ? { state } : {}), ...(notBefore ? { notBefore } : {}), ...(waitingReminder ? { waitingReminder } : {}) };
+        const after = followUpEdits(patch, choice.waitlist);
         if (task && Object.keys(after).length) await updateTask.mutateAsync({ id: task.id, ...after });
     }, [processCapture, projects, tags, settings, updateTask]);
 

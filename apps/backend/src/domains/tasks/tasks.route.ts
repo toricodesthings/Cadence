@@ -23,6 +23,7 @@ import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./
 import { recordSlot } from "../ai/memory/planning.service";
 import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, placeTasks, rescheduleTasks, setTaskState, slotsOf, temporalColumns, toTask, trackTaskChanges, updateTask, withTagIds, type TaskSlot } from "./tasks.service";
 import { userZone } from "../../platform/user-zone";
+import type { Zone } from "@cadence/domain/time";
 
 const taskTagParamSchema = z.object({
     id: z.uuid(),
@@ -52,6 +53,41 @@ async function replayedTask(tx: Tx, userId: string, idempotencyKey: string | und
     if (!existingId) return undefined;
     const [existing] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId))));
     return existing;
+}
+
+type CreateTaskBody = Omit<z.infer<typeof insertTaskSchema>, "tagIds" | "nlp">;
+
+/** The new task's words, parsed with the person's lists, tags and clock. */
+async function parseCreateNlp(tx: Tx, userId: string, nlp: NonNullable<z.infer<typeof insertTaskSchema>["nlp"]>) {
+    const runtime = await loadNlpRuntime(tx, userId);
+    const parsed = parseCanonicalNlpEnvelope(
+        {
+            ...nlp,
+            dismissedEntityIds: [...(nlp.dismissedEntityIds ?? []), ...Array.from(runtime.dismissedEntityIds)],
+        },
+        { context: runtime.context, clock: runtime.clock },
+    );
+    return { runtime, parsed };
+}
+
+/** The sent fields with what the words added (`inferTaskFieldsFromParse` already let explicit ones win). */
+function withInferred(body: CreateTaskBody, inferred: ReturnType<typeof inferTaskFieldsFromParse>, zone: Zone) {
+    return {
+        ...body,
+        projectId: inferred.projectId !== undefined ? inferred.projectId : body.projectId,
+        priority: inferred.priority ?? body.priority,
+        durationEstimate: inferred.durationEstimate ?? body.durationEstimate,
+        waitingOn: inferred.waitingOn ?? body.waitingOn,
+        recurrenceRule: inferred.recurrenceRule ?? body.recurrenceRule,
+        ...temporalColumns({
+            dueDate: inferred.dueDate ?? body.dueDate ?? null,
+            endDate: body.endDate,
+            scheduledStart: inferred.scheduledStart ?? body.scheduledStart ?? null,
+            scheduledEnd: inferred.scheduledEnd ?? body.scheduledEnd ?? null,
+            zone: body.zone,
+            notBefore: body.notBefore,
+        }, zone),
+    };
 }
 
 export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -155,31 +191,14 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 const replayed = await replayedTask(tx, userId, idempotencyKey);
                 if (replayed) return replayed;
 
-                const nlpRuntime = nlp
-                    ? await loadNlpRuntime(tx, userId)
-                    : null;
-                // `resolved`: the client sent the user's final fields; they are stored as sent and never re-inferred.
-                const inferFields = Boolean(nlp) && !nlp?.resolved;
-                const parsed = nlp
-                    ? parseCanonicalNlpEnvelope(
-                        {
-                            ...nlp,
-                            dismissedEntityIds: [
-                                ...(nlp.dismissedEntityIds ?? []),
-                                ...(nlpRuntime ? Array.from(nlpRuntime.dismissedEntityIds) : []),
-                            ],
-                        },
-                        {
-                            context: nlpRuntime?.context,
-                            clock: nlpRuntime!.clock,
-                        },
-                    )
-                    : null;
+                const fromWords = nlp ? await parseCreateNlp(tx, userId, nlp) : null;
+                const parsed = fromWords?.parsed ?? null;
 
                 const zone = await userZone(tx, userId);
-                const inferred = parsed && inferFields
+                // `resolved`: the client sent the user's final fields; they are stored as sent and never re-inferred.
+                const inferred = fromWords && !nlp?.resolved
                     ? inferTaskFieldsFromParse(
-                        parsed,
+                        fromWords.parsed,
                         {
                             projectId: body.projectId,
                             tagIds: tagIds,
@@ -191,31 +210,14 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                             scheduledStart: body.scheduledStart,
                             scheduledEnd: body.scheduledEnd,
                         },
-                        (nlpRuntime?.settings.tasks?.intelligence?.confidenceThreshold ?? "medium") as "high" | "medium" | "low",
+                        (fromWords.runtime.settings.tasks?.intelligence?.confidenceThreshold ?? "medium") as "high" | "medium" | "low",
                         zone,
                     )
                     : null;
 
-                const explicitTagIds = tagIds ?? [];
-                const parsedTagIds = inferred?.tagIds ?? [];
-                const allTagIds = Array.from(new Set([...explicitTagIds, ...parsedTagIds]));
+                const allTagIds = Array.from(new Set([...(tagIds ?? []), ...(inferred?.tagIds ?? [])]));
                 const taskBody = inferred
-                    ? {
-                        ...body,
-                        projectId: inferred?.projectId !== undefined ? inferred.projectId : body.projectId,
-                        priority: inferred?.priority ?? body.priority,
-                        durationEstimate: inferred?.durationEstimate ?? body.durationEstimate,
-                        waitingOn: inferred?.waitingOn ?? body.waitingOn,
-                        recurrenceRule: inferred?.recurrenceRule ?? body.recurrenceRule,
-                        ...temporalColumns({
-                            dueDate: inferred?.dueDate ?? body.dueDate ?? null,
-                            endDate: body.endDate,
-                            scheduledStart: inferred?.scheduledStart ?? body.scheduledStart ?? null,
-                            scheduledEnd: inferred?.scheduledEnd ?? body.scheduledEnd ?? null,
-                            zone: body.zone,
-                            notBefore: body.notBefore,
-                        }, zone),
-                    }
+                    ? withInferred(body, inferred, zone)
                     : {
                         ...body,
                         ...temporalColumns(body, zone),

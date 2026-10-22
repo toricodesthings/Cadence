@@ -17,11 +17,15 @@ type FocusTask = {
   waitingOn?: string | null | undefined;
 };
 
+/** An empty choice allows anything; otherwise the value must be one of those chosen. */
+function inChosen<T>(chosen: readonly T[], value: T): boolean {
+  return chosen.length === 0 || chosen.includes(value);
+}
+
 /** Where the task sits: its state, list, and whether it has a date or a list at all. */
 function matchesPlacement(task: FocusTask, definition: FocusViewDefinition): boolean {
   const hasDate = Boolean(task.dueDate || task.scheduledStart);
-  if (definition.states.length > 0 && !definition.states.includes(task.state)) return false;
-  if (definition.projectIds.length > 0 && !definition.projectIds.includes(task.projectId ?? "")) return false;
+  if (!inChosen(definition.states, task.state) || !inChosen(definition.projectIds, task.projectId ?? "")) return false;
   if (definition.needsDate && hasDate) return false;
   if (definition.needsProject && task.projectId) return false;
   if (definition.waitingOnly && !task.waitingOn) return false;

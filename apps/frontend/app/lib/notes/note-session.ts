@@ -61,8 +61,8 @@ export function noteStatus(s: NoteSessionState): NoteStatus {
     if (s.conflict) return "review";
     if (s.gen === s.ackedGen) return "saved";
     const device = s.durableGen === s.gen && !s.journalFailed;
-    if (s.problem === "deleted" || s.problem === "invalid" || (s.problem && !device)) return device ? "sync-failed" : "save-failed";
-    if (s.problem) return "sync-failed";
+    // Any problem: kept on this device it is a sync failure; otherwise the save itself failed.
+    if (s.problem) return device ? "sync-failed" : "save-failed";
     if (s.queued) return device ? (s.online ? "device-syncing" : "device-offline") : "save-failed";
     if (!s.online && device) return "device-offline";
     return "saving";

@@ -73,6 +73,14 @@ export function RoutineTimes({ times, onChange, cadence = "Every day" }: {
     );
 }
 
+/** A past day's check-in happened at that day's time, not now. */
+const pastCheckIn = (date: string, time: string) => (date < today() ? atLocal(date, time, getUserZone()) : undefined);
+
+function markedText(clearing: boolean, next: "COMPLETED" | "SKIPPED", at: string) {
+    if (clearing) return "Cleared";
+    return next === "COMPLETED" ? `Done at ${formatTime(at)}` : "Skipped";
+}
+
 /**
  * One day's times to check off one by one: each row says exactly what it records
  * ("Done at 2:07 PM"), Skip and Undo touch just that time, and a later time is
@@ -90,14 +98,14 @@ export function RoutineTimeChecklist({ habit, date, log }: {
     const mark = (time: string, next: "COMPLETED" | "SKIPPED") => {
         const previous = marks[time];
         const clearing = previous?.status === next;
-        // A past day's check-in happened at that day's time, not now.
-        const action = timeAction(time, clearing ? "PENDING" : next, date < today() ? atLocal(date, time, getUserZone()) : undefined);
+        const action = timeAction(time, clearing ? "PENDING" : next, pastCheckIn(date, time));
         resolve({ targetDate: date, ...action });
         // The mark shows in place; only touch, where a stray tap is likely, gets an Undo toast (as the day cells do).
         if (!isTouch) return;
-        toast.message(clearing ? "Cleared" : next === "COMPLETED" ? `Done at ${formatTime(action.at)}` : "Skipped", {
+        const undo = () => resolve({ targetDate: date, ...timeAction(time, previous?.status ?? "PENDING", previous?.at ?? undefined) });
+        toast.message(markedText(clearing, next, action.at), {
             description: `${habit.title} · ${formatWallTime(time)}`,
-            action: { label: "Undo", onClick: () => resolve({ targetDate: date, ...timeAction(time, previous?.status ?? "PENDING", previous?.at ?? undefined) }) },
+            action: { label: "Undo", onClick: undo },
         });
     };
 

@@ -8,11 +8,16 @@ import type { InboxItem } from "@cadence/contracts/inbox";
 import { transformListCache } from "./cache-guards";
 import { getTaskEffectiveAnchor, isRecurringTask, isRecurringTaskInstance } from "../utils/task/task-scheduling";
 
-function matchesTaskList(task: Task, filters: Record<string, unknown>) {
+/** State, list and the no-list / no-date filters. */
+function matchesBasics(task: Task, filters: Record<string, unknown>) {
     if (filters.state && task.state !== filters.state) return false;
     if (filters.projectId && task.projectId !== filters.projectId) return false;
     if (filters.hasNoProject === true && task.projectId !== null) return false;
-    if (filters.hasNoDate === true && (task.dueDate || task.scheduledStart || task.scheduledEnd)) return false;
+    return !(filters.hasNoDate === true && (task.dueDate || task.scheduledStart || task.scheduledEnd));
+}
+
+/** The day filters: a range, or "on or before" a day. */
+function matchesDays(task: Task, filters: Record<string, unknown>) {
     if (filters.range && typeof filters.range === "object") {
         // Anchors and bounds are both LocalDates (inclusive): plain string compare.
         const range = filters.range as { from?: string; to?: string };
@@ -26,6 +31,10 @@ function matchesTaskList(task: Task, filters: Record<string, unknown>) {
         if (!anchor || anchor > String(filters.effectiveOnOrBeforeDate)) return false;
     }
     return true;
+}
+
+function matchesTaskList(task: Task, filters: Record<string, unknown>) {
+    return matchesBasics(task, filters) && matchesDays(task, filters);
 }
 
 export function reconcileTaskInCaches(queryClient: QueryClient, task: Task, replaceId?: string) {

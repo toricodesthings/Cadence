@@ -47,6 +47,25 @@ import { taskSearch, taskSearchColumns, taskPlaceColumns } from "../../tasks/tas
 import { durationHints } from "../memory/duration";
 
 /**
+ * The whole filtered candidate set that matches `query`, best match first unless the
+ * caller keeps its own sort. Ranked before pagination, never only a recent page.
+ */
+function rankBySearch<T extends { id: string; title: string; listName: string | null; sectionName: string | null; notes?: string | null; subtasks?: string | null; tags?: string | null }>(
+    candidates: T[],
+    query: string,
+    keepOrder: boolean,
+): T[] {
+    const hits = createSearchIndex(candidates.map((row) => ({
+        id: row.id, title: row.title, list: row.listName ?? "", section: row.sectionName ?? "",
+        notes: row.notes ?? "", subtasks: row.subtasks ?? "", tags: row.tags ?? "",
+    }))).search(query);
+    const scores = new Map(hits.map((hit) => [hit.id, hit.score]));
+    const rows = candidates.filter((row) => scores.has(row.id));
+    if (!keepOrder) rows.sort((a, b) => scores.get(b.id)! - scores.get(a.id)!);
+    return rows;
+}
+
+/**
  * The task's list and section names, so the model can match how the user remembers it
  * ("the COMP3005 assignment") and say where it lives, with no extra read.
  */
@@ -114,6 +133,24 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
     /** Tasks on a day from `from` to `to` (open start: everything up to `to`). A series sits in get_schedule_window, not here. */
     const dayRange = (from: LocalDate | undefined, to: LocalDate) =>
         and(isNull(tasks.recurrenceRule), from ? inDayWindow(from, to, zone) : onOrBefore(to, zone));
+    /** get_tasks' narrowing filters: day window or range, section, tag, priority. */
+    const narrowingFilters = (args: {
+        dueWindow?: Parameters<typeof resolveDueWindow>[0]; from?: LocalDate; to?: LocalDate;
+        sectionId?: string; noSection?: boolean; tagId?: string; minPriority?: number;
+    }) => {
+        const conditions: (SQL | undefined)[] = [];
+        if (args.dueWindow) {
+            const window = resolveDueWindow(args.dueWindow, ctx.today, weekStartsOn);
+            conditions.push(dayRange(window.from, window.to));
+        }
+        // One side open is a half-bounded range.
+        if (args.from || args.to) conditions.push(dayRange(args.from, args.to ?? "2999-12-31"));
+        if (args.sectionId) conditions.push(eq(tasks.sectionId, args.sectionId));
+        else if (args.noSection) conditions.push(isNull(tasks.sectionId));
+        if (args.tagId) conditions.push(hasAnyTag([args.tagId]));
+        if (args.minPriority) conditions.push(gte(tasks.priority, args.minPriority));
+        return conditions;
+    };
 
     return {
         // ── R ──────────────────────────────────────────────────────────────────
@@ -181,18 +218,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             // Done and Trash only when asked for by name.
                             conditions.push(inArray(tasks.state, ["ACTIVE", "WAITING"]));
                         }
-                        if (args.dueWindow) {
-                            const window = resolveDueWindow(args.dueWindow, ctx.today, weekStartsOn);
-                            conditions.push(dayRange(window.from, window.to));
-                        }
-                        if (args.from || args.to) {
-                            // One side open is a half-bounded range.
-                            conditions.push(dayRange(args.from, args.to ?? "2999-12-31"));
-                        }
-                        if (args.sectionId) conditions.push(eq(tasks.sectionId, args.sectionId));
-                        else if (args.noSection) conditions.push(isNull(tasks.sectionId));
-                        if (args.tagId) conditions.push(hasAnyTag([args.tagId]));
-                        if (args.minPriority) conditions.push(gte(tasks.priority, args.minPriority));
+                        conditions.push(...narrowingFilters(args));
                         if (args.query) {
                             const search = taskSearch(args.query, Object.values(placeNameColumns));
                             suggestionScope = and(...conditions, search.identifiers);
@@ -210,20 +236,9 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             .where(and(...conditions))
                             .orderBy(...order, asc(tasks.id));
                         // Rank the complete filtered candidate set before pagination; never search only a recent page.
-                        let rows;
-                        if (args.query) {
-                            const candidates = await selection;
-                            const hits = createSearchIndex(candidates.map((row) => ({
-                                id: row.id, title: row.title, list: row.listName ?? "", section: row.sectionName ?? "",
-                                notes: row.notes ?? "", subtasks: row.subtasks ?? "", tags: row.tags ?? "",
-                            }))).search(args.query);
-                            const scores = new Map(hits.map((hit) => [hit.id, hit.score]));
-                            rows = candidates.filter((row) => scores.has(row.id));
-                            if (!sort) rows.sort((a, b) => scores.get(b.id)! - scores.get(a.id)!);
-                            rows = rows.slice(offset, offset + limit + 1);
-                        } else {
-                            rows = await selection.limit(limit + 1).offset(offset);
-                        }
+                        const rows = args.query
+                            ? rankBySearch(await selection, args.query, !!sort).slice(offset, offset + limit + 1)
+                            : await selection.limit(limit + 1).offset(offset);
                         const shown = rows.slice(0, limit);
                         const tagNames = await tagNamesFor(tx, shown.map((row) => row.id));
                         const hints = await durationHints(tx, userId, shown);

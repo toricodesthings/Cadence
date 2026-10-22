@@ -15,32 +15,26 @@ const ICON: Record<string, React.ReactNode> = {
     not_before: <Calendar size={11} aria-hidden="true" />,
 };
 
+/** Each kind's words: the value it reads (its raw phrase when missing), after any lead-in. */
+const LABELS: Partial<Record<ParsedEntity["type"], { field: string; prefix?: string }>> = {
+    due_date: { field: "humanLabel", prefix: "Deadline " },
+    scheduled_start: { field: "humanLabel" },
+    recurrence: { field: "humanLabel" },
+    project: { field: "name" },
+    tag: { field: "name" },
+    waiting_on: { field: "person", prefix: "Waiting on " },
+    reminder: { field: "humanLabel", prefix: "Remind " },
+    not_before: { field: "humanLabel", prefix: "Hidden until " },
+};
+
 /** What the entity means, in the words the draft will save (never the raw phrase alone). */
 export function entityLabel(e: ParsedEntity): string {
     const v = e.normalizedValue as Record<string, unknown> | undefined;
-    switch (e.type) {
-        case "due_date":
-            return `Deadline ${(v?.humanLabel as string) ?? e.sourceText}`;
-        case "scheduled_start":
-            return (v?.humanLabel as string) ?? e.sourceText;
-        case "recurrence":
-            return (v?.humanLabel as string) ?? e.sourceText;
-        case "priority":
-            return e.sourceText.toUpperCase();
-        case "project":
-        case "tag":
-            return (v?.name as string) ?? e.sourceText;
-        case "duration":
-            return (v?.humanLabel as string) ?? `${v?.minutes ?? "?"} min`;
-        case "waiting_on":
-            return `Waiting on ${(v?.person as string) ?? e.sourceText}`;
-        case "reminder":
-            return `Remind ${(v?.humanLabel as string) ?? e.sourceText}`;
-        case "not_before":
-            return `Hidden until ${(v?.humanLabel as string) ?? e.sourceText}`;
-        default:
-            return e.sourceText;
-    }
+    if (e.type === "priority") return e.sourceText.toUpperCase();
+    if (e.type === "duration") return (v?.humanLabel as string) ?? `${v?.minutes ?? "?"} min`;
+    const label = LABELS[e.type];
+    if (!label) return e.sourceText;
+    return `${label.prefix ?? ""}${(v?.[label.field] as string) ?? e.sourceText}`;
 }
 
 interface DraftRowProps {

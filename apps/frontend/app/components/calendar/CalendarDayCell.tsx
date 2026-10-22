@@ -36,71 +36,186 @@ interface CalendarDayCellProps {
     onContextAdd?: (info: CalendarEventInfo) => void;
 }
 
-/** Single calendar day cell — adapts to compact (sidebar) or full (schedule) layout */
-export function CalendarDayCell({
-    day,
-    isToday,
-    isPast = false,
-    isSelected,
-    hasTask,
-    hasHoliday = false,
-    hasBirthday = false,
-    hasPersonalEvent = false,
-    personalEventCount = 0,
-    onSelect,
-    variant = "compact",
-    tasks = [],
-    onSelectTask,
-    onContextAdd,
-}: CalendarDayCellProps) {
+type CompactDayCellProps = Pick<CalendarDayCellProps, "isToday" | "isSelected" | "hasTask" | "hasHoliday" | "hasBirthday" | "hasPersonalEvent" | "personalEventCount"> & {
+    day: LocalDate;
+    onSelect: (day: LocalDate) => void;
+};
 
+/** The compact variant (sidebar, deadline picker): the date with small markers under it. */
+function CompactDayCell({ day, isToday, isSelected, hasTask, hasHoliday, hasBirthday, hasPersonalEvent, personalEventCount = 0, onSelect }: CompactDayCellProps) {
+    const marked = (hasTask || hasHoliday || hasBirthday || hasPersonalEvent) && !isToday;
+    const tone = isSelected && !isToday
+        ? "bg-white/[0.08] text-twilight-text ring-1 ring-white/10"
+        : !isToday ? "text-twilight-text-muted" : "";
+    return (
+        <button
+            onClick={() => onSelect(day)}
+            className={`
+                relative aspect-square w-full max-w-8 rounded-lg flex items-center justify-center text-[13px]
+                transition-colors duration-200 cursor-pointer
+                ${isToday
+                    ? "bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary font-bold"
+                    : "hover:bg-white/[0.06]"}
+                ${tone}
+            `}
+        >
+            {dayOfMonth(day)}
+            {marked && (
+                <span className="absolute bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-1">
+                    {hasTask && <span className="h-1 w-1 rounded-full bg-accent-primary/60" />}
+                    {hasHoliday && <span className="h-1.5 w-1.5 rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.45)]" />}
+                    {hasBirthday && <span className="h-1.5 w-1.5 rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.45)]" />}
+                    {hasPersonalEvent ? <CompactEventMark count={personalEventCount} /> : null}
+                </span>
+            )}
+        </button>
+    );
+}
+
+function CompactEventMark({ count }: { count: number }) {
+    if (count > 1) {
+        return (
+            <span className="inline-flex min-w-4 items-center justify-center rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/15 px-1 text-[9px] font-semibold text-accent-nav-schedule">
+                {count}
+            </span>
+        );
+    }
+    return <span className="h-1.5 w-1.5 rounded-full bg-accent-nav-schedule shadow-[0_0_6px_color-mix(in_srgb,var(--accent-nav-schedule)_45%,transparent)]" />;
+}
+
+/** Holiday, birthday and personal-event markers beside a full cell's date. */
+function DayMarkers({ hasHoliday, hasBirthday, hasPersonalEvent, personalEventCount = 0 }: Pick<CalendarDayCellProps, "hasHoliday" | "hasBirthday" | "hasPersonalEvent" | "personalEventCount">) {
+    return (
+        <span className="flex items-center gap-1.5">
+            {hasHoliday && (
+                <span
+                    title="Holiday"
+                    className="h-2 w-2 shrink-0 rounded-full bg-solstice shadow-[0_0_8px_rgba(217,106,59,0.45)]"
+                />
+            )}
+            {hasBirthday && (
+                <span
+                    title="Birthday"
+                    className="h-2 w-2 shrink-0 rounded-full bg-violet shadow-[0_0_8px_rgba(155,114,207,0.45)]"
+                />
+            )}
+            {hasPersonalEvent ? <FullEventMark count={personalEventCount} /> : null}
+        </span>
+    );
+}
+
+function FullEventMark({ count }: { count: number }) {
+    if (count > 1) {
+        return (
+            <span
+                title={`${count} personal events`}
+                className="inline-flex min-w-5 items-center justify-center rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-1.5 py-0.5 text-[10px] font-semibold text-accent-nav-schedule"
+            >
+                {count}
+            </span>
+        );
+    }
+    return (
+        <span
+            title="Personal event"
+            className="h-2 w-2 shrink-0 rounded-full bg-accent-nav-schedule shadow-[0_0_8px_color-mix(in_srgb,var(--accent-nav-schedule)_45%,transparent)]"
+        />
+    );
+}
+
+type FixedLine = NonNullable<ReturnType<typeof splitMonthDay>["fixed"]>;
+
+/** The week's repeating Fixed shape, one quiet line: when you're busy, without 40 identical chips */
+function FixedSummary({ fixed, onOpen }: { fixed: FixedLine; onOpen: () => void }) {
+    const start = fixed.start ? formatTime(fixed.start.toISOString()) : null;
+    const end = fixed.end ? formatTime(fixed.end.toISOString()) : null;
+    return (
+        <div className="w-full px-1 pb-0.5 @container">
+            <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpen(); }}
+                aria-label={`${fixed.count} fixed${start && end ? `, ${start} to ${end}` : ""}. Open day`}
+                className="flex w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-[11px] tabular-nums text-twilight-text-soft transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+            >
+                <span className="h-3 w-[3px] shrink-0 rounded-full bg-moonlit" aria-hidden="true" />
+                <span className="min-w-0 truncate">
+                    {start ? (
+                        <>
+                            <span>{start}</span>
+                            <span className="hidden @[9.5rem]:inline">{end ? `–${end}` : ""}</span>
+                        </>
+                    ) : null}
+                </span>
+                <span className="shrink-0">· {fixed.count}<span className="hidden @[11rem]:inline"> fixed</span></span>
+            </button>
+        </div>
+    );
+}
+
+type DayChipsProps = { items: Task[]; sourceId: string; onSelectTask: (taskId: string) => void };
+
+/** The first chips, then the rest behind "+N more". */
+function DayChips({ items, sourceId, onSelectTask }: DayChipsProps) {
+    const hiddenCount = items.length - MAX_VISIBLE_TASKS;
+    const chip = (task: Task) => (
+        <CalendarTaskChip key={task.id} task={task} variant="pill" month sourceId={sourceId} onSelect={onSelectTask} />
+    );
+    return (
+        <div className="w-full px-1 pb-1 flex flex-col gap-[2px]">
+            {items.slice(0, MAX_VISIBLE_TASKS).map(chip)}
+
+            {/* +N more popover */}
+            {hiddenCount > 0 && (
+                <Popover.Root>
+                    <Popover.Trigger asChild>
+                        <button
+                            type="button"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[11px] text-twilight-text-muted hover:text-accent-primary transition-colors cursor-pointer px-1 py-0.5 rounded-xl hover:bg-white/[0.04]"
+                        >
+                            +{hiddenCount} more
+                        </button>
+                    </Popover.Trigger>
+                    <Popover.Content side="bottom" align="start" className="w-64 p-2 flex flex-col gap-[3px]">
+                        {items.slice(MAX_VISIBLE_TASKS).map(chip)}
+                    </Popover.Content>
+                </Popover.Root>
+            )}
+        </div>
+    );
+}
+
+const noop = () => { };
+
+/** Single calendar day cell — adapts to compact (sidebar) or full (schedule) layout */
+export function CalendarDayCell(props: CalendarDayCellProps) {
+    const { day, variant = "compact" } = props;
     if (!day) {
         if (variant === "compact") {
             return <div className="invisible aspect-square w-full max-w-8 rounded-lg" aria-hidden="true" />;
         }
         return <div className="invisible" aria-hidden="true" />;
     }
-
-    const isCompact = variant === "compact";
-
     // ── Compact variant (sidebar, deadline picker) ──────────────────────────
-    if (isCompact) {
-        return (
-            <button
-                onClick={() => onSelect(day)}
-                className={`
-                    relative aspect-square w-full max-w-8 rounded-lg flex items-center justify-center text-[13px]
-                    transition-colors duration-200 cursor-pointer
-                    ${isToday
-                        ? "bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary font-bold"
-                        : "hover:bg-white/[0.06]"}
-                    ${isSelected && !isToday
-                        ? "bg-white/[0.08] text-twilight-text ring-1 ring-white/10"
-                        : !isToday ? "text-twilight-text-muted" : ""}
-                `}
-            >
-                {dayOfMonth(day)}
-                {(hasTask || hasHoliday || hasBirthday || hasPersonalEvent) && !isToday && (
-                    <span className="absolute bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-1">
-                        {hasTask && <span className="h-1 w-1 rounded-full bg-accent-primary/60" />}
-                        {hasHoliday && <span className="h-1.5 w-1.5 rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.45)]" />}
-                        {hasBirthday && <span className="h-1.5 w-1.5 rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.45)]" />}
-                        {hasPersonalEvent ? (
-                            personalEventCount > 1 ? (
-                                <span className="inline-flex min-w-4 items-center justify-center rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/15 px-1 text-[9px] font-semibold text-accent-nav-schedule">
-                                    {personalEventCount}
-                                </span>
-                            ) : (
-                                <span className="h-1.5 w-1.5 rounded-full bg-accent-nav-schedule shadow-[0_0_6px_color-mix(in_srgb,var(--accent-nav-schedule)_45%,transparent)]" />
-                            )
-                        ) : null}
-                    </span>
-                )}
-            </button>
-        );
-    }
+    if (variant === "compact") return <CompactDayCell {...props} day={day} />;
+    return <FullDayCell {...props} day={day} />;
+}
 
-    // ── Full variant (schedule page) ─────────────────────────────────────────
+/** The full variant (schedule page): date, markers, the Fixed line and task chips; a drop target. */
+function FullDayCell({
+    day,
+    isToday,
+    isPast = false,
+    isSelected,
+    hasHoliday = false,
+    hasBirthday = false,
+    hasPersonalEvent = false,
+    personalEventCount = 0,
+    onSelect,
+    tasks = [],
+    onSelectTask,
+    onContextAdd,
+}: CalendarDayCellProps & { day: LocalDate }) {
     const dateStr = day;
 
     // Weekend tint (Saturday = 6, Sunday = 0)
@@ -133,8 +248,7 @@ export function CalendarDayCell({
     });
 
     const { items, fixed } = splitMonthDay(tasks);
-    const visibleTasks = items.slice(0, MAX_VISIBLE_TASKS);
-    const hiddenCount = items.length - MAX_VISIBLE_TASKS;
+    const dateTone = isToday ? "text-accent-primary font-semibold" : isSelected ? "text-twilight-text" : "text-twilight-text-soft";
 
     return (
         <div
@@ -160,7 +274,7 @@ export function CalendarDayCell({
                 onClick={() => onSelect(day)}
                 className={`
                     px-2 py-1 w-full text-left flex items-center justify-between cursor-pointer
-                    ${isToday ? "text-accent-primary font-semibold" : isSelected ? "text-twilight-text" : "text-twilight-text-soft"}
+                    ${dateTone}
                 `}
             >
                 <span className={`
@@ -170,102 +284,13 @@ export function CalendarDayCell({
                 `}>
                     {dayOfMonth(day)}
                 </span>
-                <span className="flex items-center gap-1.5">
-                    {hasHoliday && (
-                        <span
-                            title="Holiday"
-                            className="h-2 w-2 shrink-0 rounded-full bg-solstice shadow-[0_0_8px_rgba(217,106,59,0.45)]"
-                        />
-                    )}
-                    {hasBirthday && (
-                        <span
-                            title="Birthday"
-                            className="h-2 w-2 shrink-0 rounded-full bg-violet shadow-[0_0_8px_rgba(155,114,207,0.45)]"
-                        />
-                    )}
-                    {hasPersonalEvent ? (
-                        personalEventCount > 1 ? (
-                            <span
-                                title={`${personalEventCount} personal events`}
-                                className="inline-flex min-w-5 items-center justify-center rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-1.5 py-0.5 text-[10px] font-semibold text-accent-nav-schedule"
-                            >
-                                {personalEventCount}
-                            </span>
-                        ) : (
-                            <span
-                                title="Personal event"
-                                className="h-2 w-2 shrink-0 rounded-full bg-accent-nav-schedule shadow-[0_0_8px_color-mix(in_srgb,var(--accent-nav-schedule)_45%,transparent)]"
-                            />
-                        )
-                    ) : null}
-                </span>
+                <DayMarkers hasHoliday={hasHoliday} hasBirthday={hasBirthday} hasPersonalEvent={hasPersonalEvent} personalEventCount={personalEventCount} />
             </button>
 
-            {/* The week's repeating Fixed shape, one quiet line: when you're busy, without 40 identical chips */}
-            {fixed ? (
-                <div className="w-full px-1 pb-0.5 @container">
-                    <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onSelect(day); }}
-                        aria-label={`${fixed.count} fixed${fixed.start && fixed.end ? `, ${formatTime(fixed.start.toISOString())} to ${formatTime(fixed.end.toISOString())}` : ""}. Open day`}
-                        className="flex w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-[11px] tabular-nums text-twilight-text-soft transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                    >
-                        <span className="h-3 w-[3px] shrink-0 rounded-full bg-moonlit" aria-hidden="true" />
-                        <span className="min-w-0 truncate">
-                            {fixed.start ? (
-                                <>
-                                    <span>{formatTime(fixed.start.toISOString())}</span>
-                                    <span className="hidden @[9.5rem]:inline">{fixed.end ? `–${formatTime(fixed.end.toISOString())}` : ""}</span>
-                                </>
-                            ) : null}
-                        </span>
-                        <span className="shrink-0">· {fixed.count}<span className="hidden @[11rem]:inline"> fixed</span></span>
-                    </button>
-                </div>
-            ) : null}
+            {fixed ? <FixedSummary fixed={fixed} onOpen={() => onSelect(day)} /> : null}
 
             {/* Task chips */}
-            {items.length > 0 && (
-                <div className="w-full px-1 pb-1 flex flex-col gap-[2px]">
-                    {visibleTasks.map((task) => (
-                        <CalendarTaskChip
-                            key={task.id}
-                            task={task}
-                            variant="pill"
-                            month
-                            sourceId={`day-${dateStr}`}
-                            onSelect={onSelectTask ?? (() => { })}
-                        />
-                    ))}
-
-                    {/* +N more popover */}
-                    {hiddenCount > 0 && (
-                        <Popover.Root>
-                            <Popover.Trigger asChild>
-                                <button
-                                    type="button"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-[11px] text-twilight-text-muted hover:text-accent-primary transition-colors cursor-pointer px-1 py-0.5 rounded-xl hover:bg-white/[0.04]"
-                                >
-                                    +{hiddenCount} more
-                                </button>
-                            </Popover.Trigger>
-                            <Popover.Content side="bottom" align="start" className="w-64 p-2 flex flex-col gap-[3px]">
-                                {items.slice(MAX_VISIBLE_TASKS).map((task) => (
-                                    <CalendarTaskChip
-                                        key={task.id}
-                                        task={task}
-                                        variant="pill"
-                                        month
-                                        sourceId={`day-${dateStr}`}
-                                        onSelect={onSelectTask ?? (() => { })}
-                                    />
-                                ))}
-                            </Popover.Content>
-                        </Popover.Root>
-                    )}
-                </div>
-            )}
+            {items.length > 0 && <DayChips items={items} sourceId={`day-${dateStr}`} onSelectTask={onSelectTask ?? noop} />}
         </div>
     );
 }

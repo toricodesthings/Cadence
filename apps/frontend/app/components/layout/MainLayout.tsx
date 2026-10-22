@@ -50,17 +50,8 @@ import { LegalConsentGate } from "../legal/LegalConsentGate";
 import { SyncInspectorDialog } from "../desktop/SyncInspectorDialog";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
 import type { Season } from "../../lib/themes/season";
-import {
-    configureGlobalQuickCaptureShortcut,
-    listenForDesktopCommands,
-    listenForQuickCaptureCompletions,
-    openQuickCaptureWindow,
-    readRememberedDesktopWorkspaceRoute,
-    rememberDesktopWorkspaceRoute,
-    takeLaunchCommand,
-    type DesktopCommandPayload,
-} from "../../platform/desktop-shell";
 import { useDesktopCommandPreferences } from "../../hooks/ui/use-desktop-command-preferences";
+import { useDesktopShell } from "../../hooks/ui/use-desktop-shell";
 
 const CommandPalette = lazy(() => import("../command-palette/CommandPalette").then((m) => ({ default: m.CommandPalette })));
 const AssistantSidePanel = lazy(() => import("../assistant/AssistantSidePanel").then((m) => ({ default: m.AssistantSidePanel })));
@@ -347,100 +338,14 @@ export function MainLayout({
         }
     }, [shell.isWide]);
 
-    useEffect(() => {
-        if (!IS_DESKTOP_RUNTIME) {
-            return;
-        }
-
-        const route = `${location.pathname}${location.search}`;
-        if (route.startsWith("/auth") || route.startsWith("/desktop/quick-capture")) {
-            return;
-        }
-
-        void rememberDesktopWorkspaceRoute(route);
-    }, [location.pathname, location.search]);
-
-    useEffect(() => {
-        if (!IS_DESKTOP_RUNTIME || location.pathname !== "/" || location.search) {
-            return;
-        }
-
-        let active = true;
-
-        void readRememberedDesktopWorkspaceRoute().then((route) => {
-            if (!active || !route || route === "/") {
-                return;
-            }
-
-            navigate(route, { replace: true });
-        });
-
-        return () => {
-            active = false;
-        };
-    }, [location.pathname, location.search, navigate]);
-
-    useEffect(() => {
-        if (!IS_DESKTOP_RUNTIME) {
-            return;
-        }
-
-        let unlistenCommands: (() => void) | undefined;
-        let unlistenQuickCapture: (() => void) | undefined;
-        let active = true;
-
-        const handleCommand = ({ command, value }: DesktopCommandPayload) => {
-            if (!active) return;
-            const actions: Partial<Record<DesktopCommandPayload["command"], () => unknown>> = {
-                "show-command-palette": () => setCommandOpen(true),
-                "show-search": () => setCommandOpen(true),
-                "open-quick-capture": () => openQuickCaptureWindow((value as QuickAddTab | undefined) ?? "task"),
-                "show-settings": () => navigate(`?settings=${value ?? "account"}`),
-                "show-shortcuts": () => navigate("?settings=shortcuts"),
-                "show-sync-inspector": () => setSyncInspectorOpen(true),
-                "sync-now": () => sync(),
-                "navigate-capture": () => navigate("/"),
-                "navigate-schedule": () => navigate("/schedule"),
-                "navigate-habits": () => navigate("/routines"),
-                "navigate-weekly-review": () => navigate("/weekly-review"),
-                "layout-scale-increase": () => stepLayoutScale(1),
-                "layout-scale-decrease": () => stepLayoutScale(-1),
-                "layout-scale-reset": () => setLayoutScale(DESKTOP_LAYOUT_SCALE_DEFAULT),
-            };
-            void actions[command]?.();
-        };
-
-        void listenForDesktopCommands(handleCommand).then(async (dispose) => {
-            unlistenCommands = dispose;
-            // A Jump List launch that started Cadence: its command waited for this listener.
-            const pending = await takeLaunchCommand();
-            if (pending) handleCommand(pending);
-        });
-
-        void listenForQuickCaptureCompletions((payload) => {
-            if (!active) {
-                return;
-            }
-
-            navigate(payload.route, { replace: false });
-        }).then((dispose) => {
-            unlistenQuickCapture = dispose;
-        });
-
-        return () => {
-            active = false;
-            unlistenCommands?.();
-            unlistenQuickCapture?.();
-        };
-    }, [navigate, setLayoutScale, stepLayoutScale, sync]);
-
-    useEffect(() => {
-        if (!IS_DESKTOP_RUNTIME) {
-            return;
-        }
-
-        void configureGlobalQuickCaptureShortcut(preferences.quickCaptureShortcutEnabled);
-    }, [preferences.quickCaptureShortcutEnabled]);
+    useDesktopShell({
+        setCommandOpen,
+        setSyncInspectorOpen,
+        sync,
+        stepLayoutScale,
+        setLayoutScale,
+        quickCaptureShortcutEnabled: preferences.quickCaptureShortcutEnabled,
+    });
 
     const controlsSidebarPanel = shell.isPhone || !["/schedule", "/routines", "/events"].includes(location.pathname);
 

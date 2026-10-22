@@ -16,10 +16,211 @@ import { THEME_PRESETS, type ThemePresetId } from "../../../lib/themes/theme-pre
 import type { PaletteId } from "../../../lib/themes/accent-palettes";
 import type { BackgroundImage } from "@cadence/contracts/settings";
 
+type Appearance = UserSettings["appearance"];
+type Update = ReturnType<typeof useUpdateSettings>["mutate"];
+type ThemeSectionsProps = { appearance: Appearance; update: Update; onThemePreset: (presetId: ThemePresetId) => void };
+
+/** Theme mode, curated themes and the accent palette; a photo background sets all three until left. */
+function ThemeSections({ appearance, update, onThemePreset: handleThemePreset }: ThemeSectionsProps) {
+    // A photo owns the accent and the light/dark of the whole interface, so
+    // choosing a theme or a preset means leaving it — the photo stays
+    // stored, and picking it again in Background brings it back.
+    const photoActive = appearance.backgroundMode === "image";
+    const leavePhoto = photoActive ? { backgroundMode: "theme" as const } : {};
+    const photoNote = photoActive
+        ? "Your photo is setting this right now. Choosing here returns to a theme background."
+        : undefined;
+    return (
+        <>
+            {/* ── Theme Mode ── */}
+            <SettingsSection title="Theme">
+                {photoNote && (
+                    <p className="text-[12px] leading-relaxed text-twilight-text-muted">{photoNote}</p>
+                )}
+                <div className="grid grid-cols-3 gap-3">
+                    {(["twilight", "daylight", "system"] as const).map((mode) => (
+                        <ThemeModeCard
+                            key={mode}
+                            mode={mode}
+                            selected={!photoActive && appearance.theme === mode}
+                            onSelect={() =>
+                                update({ appearance: { theme: mode, ...leavePhoto } })
+                            }
+                        />
+                    ))}
+                </div>
+            </SettingsSection>
+
+            <SettingsSection title="Curated Themes">
+                <p className="text-sm text-twilight-text-muted">
+                    A starting point for your background and accents. Choose a preset to use Cadence’s look.
+                </p>
+                <ThemeCarousel
+                    value={photoActive ? null : ((appearance.themePreset ?? "default") as ThemePresetId)}
+                    onChange={handleThemePreset}
+                />
+            </SettingsSection>
+
+            <SettingsSection title="Accent Palette">
+                {photoActive && (
+                    <p id="photo-accent-note" className="text-sm text-twilight-text-muted">
+                        Photo selected. Choose an accent below your photo in Background.
+                    </p>
+                )}
+                <fieldset
+                    disabled={photoActive}
+                    aria-label="Cadence accent palettes"
+                    aria-describedby={photoActive ? "photo-accent-note" : undefined}
+                    className="min-w-0 disabled:opacity-40 disabled:grayscale"
+                >
+                    <PalettePicker
+                        value={photoActive ? null : ((appearance.palette ?? "lantern") as PaletteId)}
+                        onChange={(palette) => update({ appearance: { palette } })}
+                        theme={appearance.theme}
+                    />
+                </fieldset>
+                <SettingsRow title="Intensity" description="How brightly accent colours glow across the interface.">
+                    <SegmentedControl
+                        ariaLabel="Accent intensity"
+                        value={appearance.accentIntensity}
+                        onChange={(accentIntensity) => update({ appearance: { accentIntensity } })}
+                        options={[
+                            { value: "soft", label: "Soft" },
+                            { value: "balanced", label: "Balanced" },
+                            { value: "vivid", label: "Vivid" },
+                        ]}
+                    />
+                </SettingsRow>
+            </SettingsSection>
+        </>
+    );
+}
+
+type BackgroundSectionProps = Pick<React.ComponentProps<typeof BackgroundSettings>, "onColorChange" | "onGradientChange" | "onImageAdjust"> & {
+    appearance: Appearance;
+    update: Update;
+};
+
+function BackgroundSection({ appearance, update, onColorChange, onGradientChange, onImageAdjust }: BackgroundSectionProps) {
+    return (
+        <SettingsSection title="Background">
+            <BackgroundSettings
+                backgroundMode={
+                    (appearance.backgroundMode ?? "theme") as "theme" | "custom" | "image"
+                }
+                themePreset={(appearance.themePreset ?? "default") as ThemePresetId}
+                backgroundColor={appearance.backgroundColor ?? null}
+                backgroundGradient={appearance.backgroundGradient ?? null}
+                backgroundImage={appearance.backgroundImage ?? null}
+                onModeChange={(mode) =>
+                    update({ appearance: {
+                        backgroundMode: mode,
+                        ...(mode === "theme" ? { backgroundColor: null, backgroundGradient: null } : {}),
+                    } })
+                }
+                onColorChange={onColorChange}
+                onGradientChange={onGradientChange}
+                onImageAdjust={onImageAdjust}
+            />
+        </SettingsSection>
+    );
+}
+
+type ComfortSectionsProps = { appearance: Appearance; update: Update; lowStimulation: boolean };
+
+/** Loading scene, motion, low stimulation, density and (desktop) layout scale. */
+function ComfortSections({ appearance, update, lowStimulation }: ComfortSectionsProps) {
+    const { layoutScale, setLayoutScale } = useDesktopLayoutScale();
+    return (
+        <>
+            {/* ── Loading screen ── */}
+            <SettingsSection title="Loading screen">
+                <p className="text-sm text-twilight-text-muted">The scene you see while Cadence opens. Auto changes with the seasons.</p>
+                <LoadingScenePicker
+                    value={appearance.loadingSeason ?? "auto"}
+                    onChange={(loadingSeason) => update({ appearance: { loadingSeason } })}
+                />
+            </SettingsSection>
+
+            {/* ── Motion ── */}
+            <SettingsSection title="Motion">
+                <SettingsRow
+                    title="Animation preference"
+                    description="Choose whether Cadence plays animations, defers to your system setting, or disables motion entirely."
+                >
+                    <SegmentedControl
+                        value={appearance.motion}
+                        onChange={(val) =>
+                            update({ appearance: { motion: val as UserSettings["appearance"]["motion"] } })
+                        }
+                        options={[
+                            { value: "system", label: "System" },
+                            { value: "full", label: "Full" },
+                            { value: "reduced", label: "Reduced" },
+                        ]}
+                    />
+                </SettingsRow>
+                <SettingsRow
+                    title="Low stimulation"
+                    description="Calmer screens: no blooms on routines and no age labels on captures."
+                >
+                    <Switch
+                        checked={lowStimulation}
+                        aria-label="Low stimulation"
+                        onCheckedChange={(lowStimulationMode) => update({ tasks: { intelligence: { lowStimulationMode } } })}
+                    />
+                </SettingsRow>
+            </SettingsSection>
+
+            <SettingsSection title="Density">
+                <SettingsRow
+                    title="Interface density"
+                    description="Compact mode tightens spacing for smaller screens or a denser workflow."
+                >
+                    <SegmentedControl
+                        value={appearance.density}
+                        onChange={(val) =>
+                            update({ appearance: { density: val as UserSettings["appearance"]["density"] } })
+                        }
+                        options={[
+                            { value: "comfortable", label: "Comfortable" },
+                            { value: "compact", label: "Compact" },
+                        ]}
+                    />
+                </SettingsRow>
+
+                {IS_DESKTOP_RUNTIME && (
+                    <SettingsRow
+                        title="Desktop layout scale"
+                        description="Adjust the overall app scale for this device. The same control is available with Ctrl/Cmd +/-/0."
+                    >
+                        <div className="w-full sm:max-w-[18rem]">
+                            <Select
+                                value={String(layoutScale)}
+                                onValueChange={(val) => {
+                                    void setLayoutScale(Number(val));
+                                }}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {DESKTOP_LAYOUT_SCALES.map((scale) => (
+                                        <SelectItem key={scale} value={String(scale)}>{scale}%</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </SettingsRow>
+                )}
+            </SettingsSection>
+        </>
+    );
+}
+
 export function AppearanceTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
-    const { layoutScale, setLayoutScale } = useDesktopLayoutScale();
 
     const appearance = settings?.appearance ?? {
         theme: "twilight" as const,
@@ -35,14 +236,7 @@ export function AppearanceTab() {
         backgroundImage: null as BackgroundImage | null,
     };
 
-    // A photo owns the accent and the light/dark of the whole interface, so
-    // choosing a theme or a preset means leaving it — the photo stays
-    // stored, and picking it again in Background brings it back.
-    const photoActive = appearance.backgroundMode === "image";
-    const leavePhoto = photoActive ? { backgroundMode: "theme" as const } : {};
-    const photoNote = photoActive
-        ? "Your photo is setting this right now. Choosing here returns to a theme background."
-        : undefined;
+    const update = updateSettings.mutate;
 
     const handleThemePreset = useCallback(
         (presetId: ThemePresetId) => {
@@ -99,170 +293,18 @@ export function AppearanceTab() {
         <div className="flex flex-col gap-10">
             <h2 className="mb-2 text-2xl font-bold text-twilight-text">Appearance</h2>
 
-            {/* ── Theme Mode ── */}
-            <SettingsSection title="Theme">
-                {photoNote && (
-                    <p className="text-[12px] leading-relaxed text-twilight-text-muted">{photoNote}</p>
-                )}
-                <div className="grid grid-cols-3 gap-3">
-                    {(["twilight", "daylight", "system"] as const).map((mode) => (
-                        <ThemeModeCard
-                            key={mode}
-                            mode={mode}
-                            selected={!photoActive && appearance.theme === mode}
-                            onSelect={() =>
-                                updateSettings.mutate({ appearance: { theme: mode, ...leavePhoto } })
-                            }
-                        />
-                    ))}
-                </div>
-            </SettingsSection>
-
-            <SettingsSection title="Curated Themes">
-                <p className="text-sm text-twilight-text-muted">
-                    A starting point for your background and accents. Choose a preset to use Cadence’s look.
-                </p>
-                <ThemeCarousel
-                    value={photoActive ? null : ((appearance.themePreset ?? "default") as ThemePresetId)}
-                    onChange={handleThemePreset}
-                />
-            </SettingsSection>
-
-            <SettingsSection title="Accent Palette">
-                {photoActive && (
-                    <p id="photo-accent-note" className="text-sm text-twilight-text-muted">
-                        Photo selected. Choose an accent below your photo in Background.
-                    </p>
-                )}
-                <fieldset
-                    disabled={photoActive}
-                    aria-label="Cadence accent palettes"
-                    aria-describedby={photoActive ? "photo-accent-note" : undefined}
-                    className="min-w-0 disabled:opacity-40 disabled:grayscale"
-                >
-                    <PalettePicker
-                        value={photoActive ? null : ((appearance.palette ?? "lantern") as PaletteId)}
-                        onChange={(palette) => updateSettings.mutate({ appearance: { palette } })}
-                        theme={appearance.theme}
-                    />
-                </fieldset>
-                <SettingsRow title="Intensity" description="How brightly accent colours glow across the interface.">
-                    <SegmentedControl
-                        ariaLabel="Accent intensity"
-                        value={appearance.accentIntensity}
-                        onChange={(accentIntensity) => updateSettings.mutate({ appearance: { accentIntensity } })}
-                        options={[
-                            { value: "soft", label: "Soft" },
-                            { value: "balanced", label: "Balanced" },
-                            { value: "vivid", label: "Vivid" },
-                        ]}
-                    />
-                </SettingsRow>
-            </SettingsSection>
+            <ThemeSections appearance={appearance} update={update} onThemePreset={handleThemePreset} />
 
             {/* ── Background ── */}
-            <SettingsSection title="Background">
-                <BackgroundSettings
-                    backgroundMode={
-                        (appearance.backgroundMode ?? "theme") as "theme" | "custom" | "image"
-                    }
-                    themePreset={(appearance.themePreset ?? "default") as ThemePresetId}
-                    backgroundColor={appearance.backgroundColor ?? null}
-                    backgroundGradient={appearance.backgroundGradient ?? null}
-                    backgroundImage={appearance.backgroundImage ?? null}
-                    onModeChange={(mode) =>
-                        updateSettings.mutate({ appearance: {
-                            backgroundMode: mode,
-                            ...(mode === "theme" ? { backgroundColor: null, backgroundGradient: null } : {}),
-                        } })
-                    }
-                    onColorChange={handleBackgroundColor}
-                    onGradientChange={handleBackgroundGradient}
-                    onImageAdjust={handleImageAdjust}
-                />
-            </SettingsSection>
+            <BackgroundSection
+                appearance={appearance}
+                update={update}
+                onColorChange={handleBackgroundColor}
+                onGradientChange={handleBackgroundGradient}
+                onImageAdjust={handleImageAdjust}
+            />
 
-            {/* ── Loading screen ── */}
-            <SettingsSection title="Loading screen">
-                <p className="text-sm text-twilight-text-muted">The scene you see while Cadence opens. Auto changes with the seasons.</p>
-                <LoadingScenePicker
-                    value={appearance.loadingSeason ?? "auto"}
-                    onChange={(loadingSeason) => updateSettings.mutate({ appearance: { loadingSeason } })}
-                />
-            </SettingsSection>
-
-            {/* ── Motion ── */}
-            <SettingsSection title="Motion">
-                <SettingsRow
-                    title="Animation preference"
-                    description="Choose whether Cadence plays animations, defers to your system setting, or disables motion entirely."
-                >
-                    <SegmentedControl
-                        value={appearance.motion}
-                        onChange={(val) =>
-                            updateSettings.mutate({ appearance: { motion: val as UserSettings["appearance"]["motion"] } })
-                        }
-                        options={[
-                            { value: "system", label: "System" },
-                            { value: "full", label: "Full" },
-                            { value: "reduced", label: "Reduced" },
-                        ]}
-                    />
-                </SettingsRow>
-                <SettingsRow
-                    title="Low stimulation"
-                    description="Calmer screens: no blooms on routines and no age labels on captures."
-                >
-                    <Switch
-                        checked={settings?.tasks?.intelligence?.lowStimulationMode ?? false}
-                        aria-label="Low stimulation"
-                        onCheckedChange={(lowStimulationMode) => updateSettings.mutate({ tasks: { intelligence: { lowStimulationMode } } })}
-                    />
-                </SettingsRow>
-            </SettingsSection>
-
-            <SettingsSection title="Density">
-                <SettingsRow
-                    title="Interface density"
-                    description="Compact mode tightens spacing for smaller screens or a denser workflow."
-                >
-                    <SegmentedControl
-                        value={appearance.density}
-                        onChange={(val) =>
-                            updateSettings.mutate({ appearance: { density: val as UserSettings["appearance"]["density"] } })
-                        }
-                        options={[
-                            { value: "comfortable", label: "Comfortable" },
-                            { value: "compact", label: "Compact" },
-                        ]}
-                    />
-                </SettingsRow>
-
-                {IS_DESKTOP_RUNTIME && (
-                    <SettingsRow
-                        title="Desktop layout scale"
-                        description="Adjust the overall app scale for this device. The same control is available with Ctrl/Cmd +/-/0."
-                    >
-                        <div className="w-full sm:max-w-[18rem]">
-                            <Select
-                                value={String(layoutScale)}
-                                onValueChange={(val) => {
-                                    void setLayoutScale(Number(val));
-                                }}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {DESKTOP_LAYOUT_SCALES.map((scale) => (
-                                        <SelectItem key={scale} value={String(scale)}>{scale}%</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </SettingsRow>
-                )}
-            </SettingsSection>
+            <ComfortSections appearance={appearance} update={update} lowStimulation={settings?.tasks?.intelligence?.lowStimulationMode ?? false} />
         </div>
     );
 }

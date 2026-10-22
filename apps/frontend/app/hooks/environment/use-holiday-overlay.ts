@@ -30,6 +30,36 @@ function getBrowserTimeZone() {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
+type Place = ReturnType<typeof useUserLocation>["place"];
+
+/**
+ * The holiday country and where it came from. The resolved location wins. Without one, the device
+ * time zone says more about where someone is than their language setting does.
+ */
+function holidayCountry(place: Place, timeZoneCountryCode: string | null, localeCountryCode: string | null) {
+    if (place?.countryCode) return { countryCode: place.countryCode, source: place.source as HolidayRegionSource };
+    if (timeZoneCountryCode) return { countryCode: timeZoneCountryCode, source: "timezone" as const };
+    return { countryCode: localeCountryCode, source: localeCountryCode ? "locale" as const : null };
+}
+
+/** A region the person chose is used as is; a located one is matched to the provider's subdivisions. */
+function subdivisionNeed(place: Place) {
+    return {
+        manualSubdivisionCode: place?.source === "manual" ? place.subdivisionCode : null,
+        needsSubdivisionMatch: Boolean(
+            place
+            && place.source !== "manual"
+            && place.countryCode
+            && (place.subdivisionCode || place.subdivisionName),
+        ),
+    };
+}
+
+function subdivisionLabelOf(code: string | null, subdivisions: { code: string; label: string }[] | undefined, place: Place) {
+    if (!code) return null;
+    return subdivisions?.find((subdivision) => subdivision.code === code)?.label ?? place?.subdivisionName ?? code;
+}
+
 /**
  * Public holidays for a date range. The region comes from the app-wide location
  * (`useUserLocation`); this hook never asks for a location itself.
@@ -60,18 +90,8 @@ export function useHolidayOverlay({
 
     // The resolved location wins. Without one, the device time zone says more
     // about where someone is than their language setting does.
-    const countryCode = place?.countryCode ?? timeZoneCountryCode ?? localeCountryCode;
-    const source: HolidayRegionSource | null = place?.countryCode
-        ? place.source
-        : timeZoneCountryCode ? "timezone" : localeCountryCode ? "locale" : null;
-
-    const manualSubdivisionCode = place?.source === "manual" ? place.subdivisionCode : null;
-    const needsSubdivisionMatch = Boolean(
-        place
-        && place.source !== "manual"
-        && place.countryCode
-        && (place.subdivisionCode || place.subdivisionName),
-    );
+    const { countryCode, source } = holidayCountry(place, timeZoneCountryCode, localeCountryCode);
+    const { manualSubdivisionCode, needsSubdivisionMatch } = subdivisionNeed(place);
 
     const subdivisionsQuery = useQuery({
         queryKey: queryKeys.holidays.subdivisions(countryCode, year, locale),
@@ -127,11 +147,7 @@ export function useHolidayOverlay({
     const holidayDateSet = useMemo(() => new Set(holidaysByDate.keys()), [holidaysByDate]);
 
     const countryLabel = useMemo(() => getCountryLabel(countryCode, locale), [countryCode, locale]);
-    const subdivisionLabel = subdivisionCode
-        ? subdivisionsQuery.data?.find((subdivision) => subdivision.code === subdivisionCode)?.label
-            ?? place?.subdivisionName
-            ?? subdivisionCode
-        : null;
+    const subdivisionLabel = subdivisionLabelOf(subdivisionCode, subdivisionsQuery.data, place);
     const regionLabel = [subdivisionLabel, countryLabel].filter(Boolean).join(", ") || null;
 
     const setEnabled = useCallback((next: boolean) => {

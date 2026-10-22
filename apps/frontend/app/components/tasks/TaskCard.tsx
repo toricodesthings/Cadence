@@ -93,37 +93,69 @@ interface CollapsedSignal {
 
 type ScheduleSummary = ReturnType<typeof getTaskScheduleSummary>;
 
+type PrimaryCue = { icon: LucideIcon; label: string; className: string };
+
+/** The one line a card leads with: when it happens, else who it waits on, else that it repeats. */
+function primaryCueOf(task: Task, scheduleSummary: ScheduleSummary, isPassiveTimetable: boolean): PrimaryCue | null {
+    const scheduleLabel = scheduleSummary.primaryLabel;
+    if (scheduleLabel) {
+        const emphasis = scheduleSummary.isDeadline || scheduleSummary.isDuration ? "text-accent-primary" : "text-twilight-text-soft";
+        return {
+            icon: isPassiveTimetable ? CalendarClock : Calendar,
+            label: scheduleLabel,
+            className: isPassiveTimetable ? "text-moonlit" : emphasis,
+        };
+    }
+    if (task.waitingOn) {
+        return { icon: Clock, label: `Waiting on ${task.waitingOn}`, className: "text-moonlit" };
+    }
+    return task.recurrenceRule ? { icon: Repeat, label: "Repeating task", className: "text-twilight-text-soft" } : null;
+}
+
+/** One chip for the tags: the first one's name (or how many), in its tone, with up to two dots. */
+function tagSignal(tags: Tag[]): CollapsedSignal | null {
+    if (tags.length === 0) return null;
+    const primaryTagTone = getTagTone(tags[0]);
+    return {
+        key: "tags",
+        icon: TagIcon,
+        label: tags.length === 1 ? tags[0]?.name ?? "1 tag" : `${tags.length} tags`,
+        className: "",
+        style: {
+            backgroundColor: primaryTagTone.backgroundColor,
+            borderColor: primaryTagTone.borderColor,
+            color: primaryTagTone.color,
+        },
+        accentDots: tags.slice(0, 2).map((tag) => getTagTone(tag).accentColor),
+    };
+}
+
+/** Reminders on the task: a waiting check-in, and its own reminder (or that it is silenced). */
+function reminderSignals(task: Task): Array<CollapsedSignal | null> {
+    return [
+        task.waitingReminder
+            ? {
+                key: "waiting-reminder",
+                icon: Bell,
+                label: `Waiting reminder ${formatShortDate(task.waitingReminder)}`,
+                className: "text-moonlit",
+            }
+            : null,
+        task.reminderAt
+            ? {
+                key: "reminder",
+                icon: task.reminderSilenced ? BellOff : Bell,
+                label: task.reminderSilenced ? "Reminder silenced" : "Reminder set",
+                className: "text-twilight-text-soft",
+            }
+            : null,
+    ];
+}
+
 /** The one line a card leads with, plus the quieter chips under it. */
 function getTaskCues(task: Task, tags: Tag[], scheduleSummary: ScheduleSummary, isPassiveTimetable: boolean) {
     const scheduleLabel = scheduleSummary.primaryLabel;
-    const tagSummary = tags.length === 1 ? tags[0]?.name ?? "1 tag" : `${tags.length} tags`;
-    const primaryTagTone = getTagTone(tags[0]);
-    const tagAccentDots = tags
-        .slice(0, 2)
-        .map((tag) => getTagTone(tag).accentColor);
-    const primaryCue = scheduleLabel
-        ? {
-            icon: isPassiveTimetable ? CalendarClock : Calendar,
-            label: scheduleLabel,
-            className: isPassiveTimetable
-                ? "text-moonlit"
-                : scheduleSummary.isDeadline || scheduleSummary.isDuration
-                    ? "text-accent-primary"
-                    : "text-twilight-text-soft",
-        }
-        : task.waitingOn
-            ? {
-                icon: Clock,
-                label: `Waiting on ${task.waitingOn}`,
-                className: "text-moonlit",
-            }
-            : task.recurrenceRule
-                ? {
-                    icon: Repeat,
-                    label: "Repeating task",
-                    className: "text-twilight-text-soft",
-                }
-                : null;
+    const primaryCue = primaryCueOf(task, scheduleSummary, isPassiveTimetable);
 
     const secondarySignalCandidates: Array<CollapsedSignal | null> = [
         !scheduleLabel && task.notBefore
@@ -142,20 +174,7 @@ function getTaskCues(task: Task, tags: Tag[], scheduleSummary: ScheduleSummary, 
                 className: "text-moonlit",
             }
             : null,
-        tags.length > 0
-            ? {
-                key: "tags",
-                icon: TagIcon,
-                label: tagSummary,
-                className: "",
-                style: {
-                    backgroundColor: primaryTagTone.backgroundColor,
-                    borderColor: primaryTagTone.borderColor,
-                    color: primaryTagTone.color,
-                },
-                accentDots: tagAccentDots,
-            }
-            : null,
+        tagSignal(tags),
         task.effort
             ? {
                 key: "effort",
@@ -164,22 +183,7 @@ function getTaskCues(task: Task, tags: Tag[], scheduleSummary: ScheduleSummary, 
                 className: "text-twilight-text-soft",
             }
             : null,
-        task.waitingReminder
-            ? {
-                key: "waiting-reminder",
-                icon: Bell,
-                label: `Waiting reminder ${formatShortDate(task.waitingReminder)}`,
-                className: "text-moonlit",
-            }
-            : null,
-        task.reminderAt
-            ? {
-                key: "reminder",
-                icon: task.reminderSilenced ? BellOff : Bell,
-                label: task.reminderSilenced ? "Reminder silenced" : "Reminder set",
-                className: "text-twilight-text-soft",
-            }
-            : null,
+        ...reminderSignals(task),
         task.recurrenceRule && primaryCue?.label !== "Repeating task"
             ? {
                 key: "recurrence",

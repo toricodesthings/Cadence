@@ -44,15 +44,18 @@ const EXACT_ENDPOINTS: Record<string, PerformanceSample["endpoint"]> = {
     "/habits": "habits", "/habits/weekly": "habits_range", "/projects": "projects", "/tags": "tags",
 };
 
+/** Which task list a `/tasks` read is: history, schedule, capture or open. */
+function tasksEndpoint(params: URLSearchParams): PerformanceSample["endpoint"] {
+    if (["COMPLETE", "ARCHIVED"].includes(params.get("state") ?? "")) return "tasks_history";
+    if (params.has("from")) return "tasks_schedule";
+    if (params.get("hasNoDate") === "true" && params.get("hasNoProject") === "true") return "tasks_capture";
+    return "tasks_open";
+}
+
 /** Never retain URLs, task IDs or arbitrary query predicates in diagnostic dimensions. */
 export function startupEndpoint(url: URL): PerformanceSample["endpoint"] {
     const path = url.pathname.replace(/^\/api\/v1/, "").replace(/(.)\/$/, "$1");
-    if (path === "/tasks") {
-        if (["COMPLETE", "ARCHIVED"].includes(url.searchParams.get("state") ?? "")) return "tasks_history";
-        if (url.searchParams.has("from")) return "tasks_schedule";
-        if (url.searchParams.get("hasNoDate") === "true" && url.searchParams.get("hasNoProject") === "true") return "tasks_capture";
-        return "tasks_open";
-    }
+    if (path === "/tasks") return tasksEndpoint(url.searchParams);
     if (path === "/inbox") return url.searchParams.get("status") === "kept" ? "inbox_kept" : "inbox_clarifying";
     if (EXACT_ENDPOINTS[path]) return EXACT_ENDPOINTS[path];
     if (/^\/tasks\/[^/]+$/.test(path)) return "task_detail";

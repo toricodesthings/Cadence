@@ -41,6 +41,17 @@ const INITIAL_WHEN = { date: "", allDay: true, start: "09:00", end: "10:00" };
  * The task composer: a parsed title, then when, notes and weight under More.
  * Inside a project it adds a section band; elsewhere a project and tag tray.
  */
+
+/** A timed block sends instants only; an all-day task sends its day, else the default due day. */
+function draftSchedule(fields: NlpParseOutput["fields"], defaultDueDate: Parameters<typeof resolveDefaultDueDate>[0]) {
+    const start = fields.scheduledStart;
+    return {
+        dueDate: start ? null : fields.dueDate || resolveDefaultDueDate(defaultDueDate) || null,
+        scheduledStart: start,
+        scheduledEnd: fields.scheduledEnd,
+        recurrenceRule: fields.recurrenceRule,
+    };
+}
 export function useTaskComposer({
     open,
     tasks,
@@ -133,22 +144,15 @@ export function useTaskComposer({
 
     const send = (draft: NlpParseOutput) => {
         const finalTitle = draft.cleanedTitle.trim() || title.trim();
-        // A timed block sends instants only; an all-day task sends its day.
-        const start = draft.fields.scheduledStart;
-        const end = draft.fields.scheduledEnd;
         const siblings = project ? tasksIn(tasks, target) : tasks;
+        const surface = project ? "inline_add" : "quick_add";
 
-        trackUsageEvent("task.create", { surface: project ? "inline_add" : "quick_add", object_type: "task" });
+        trackUsageEvent("task.create", { surface, object_type: "task" });
         createTask.mutate(
             buildTypedTaskInput({
                 rawInput: title,
                 title: finalTitle,
-                schedule: {
-                    dueDate: start ? null : draft.fields.dueDate || resolveDefaultDueDate(settings?.tasks?.defaultDueDate) || null,
-                    scheduledStart: start,
-                    scheduledEnd: end,
-                    recurrenceRule: draft.fields.recurrenceRule,
-                },
+                schedule: draftSchedule(draft.fields, settings?.tasks?.defaultDueDate),
                 priority: (draft.fields.priority || mapPriorityNameToNumber(settings?.tasks?.defaultPriority)) as TaskPriority,
                 projectId: project?.id ?? draft.fields.projectId,
                 tagIds: Array.from(new Set([...(lockedTag ? [lockedTag.id] : []), ...draft.fields.tagIds])),
@@ -156,7 +160,7 @@ export function useTaskComposer({
                 durationMinutes: draft.fields.durationMinutes,
                 notBefore: draft.fields.notBefore,
                 reminderAt: draft.fields.reminderAt,
-                surface: project ? "inline_add" : "quick_add",
+                surface,
                 dateStyle,
                 dismissedEntityIds,
                 extra: {

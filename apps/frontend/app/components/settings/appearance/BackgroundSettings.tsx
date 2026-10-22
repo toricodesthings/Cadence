@@ -99,6 +99,153 @@ function GradientSwatch({
     );
 }
 
+type SourceChoiceProps = {
+    photoActive: boolean;
+    hasPhoto: boolean;
+    uploading: boolean;
+    onCadence: () => void;
+    onPhoto: () => void;
+    onDropPhoto: (file: File) => void;
+};
+
+function photoCaption(photoActive: boolean, hasPhoto: boolean) {
+    if (photoActive) return "Your background and accents";
+    return hasPhoto ? "Use your saved photo" : "Choose or drop an image";
+}
+
+/** Cadence's backgrounds or your photo (dropping an image on it chooses that image). */
+function SourceChoice({ photoActive, hasPhoto, uploading, onCadence, onPhoto, onDropPhoto }: SourceChoiceProps) {
+    return (
+        <div className="grid grid-cols-2 gap-3" role="group" aria-label="Background source">
+            <button
+                type="button"
+                aria-pressed={!photoActive}
+                disabled={uploading}
+                onClick={onCadence}
+                className={cn(
+                    "flex min-h-28 cursor-pointer flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary",
+                    !photoActive ? "border-accent-primary bg-accent-primary/5" : "border-twilight-border-light hover:bg-twilight-surface",
+                )}
+            >
+                <span className="flex w-full items-center justify-between text-accent-primary">
+                    <Palette size={22} aria-hidden="true" />
+                    {!photoActive && <Check size={16} aria-hidden="true" />}
+                </span>
+                <span className="text-sm font-medium text-twilight-text">Cadence</span>
+                <span className="text-xs text-twilight-text-muted">Preset backgrounds and colors</span>
+            </button>
+            <button
+                type="button"
+                aria-label={hasPhoto ? "Your photo" : "Add a background photo"}
+                aria-pressed={photoActive}
+                disabled={uploading}
+                onClick={onPhoto}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                    event.preventDefault();
+                    const file = event.dataTransfer.files?.[0];
+                    if (file) onDropPhoto(file);
+                }}
+                className={cn(
+                    "flex min-h-28 cursor-pointer flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary",
+                    photoActive ? "border-accent-primary bg-accent-primary/5" : "border-dashed border-twilight-border-light hover:bg-twilight-surface",
+                )}
+            >
+                <span className="flex w-full items-center justify-between text-accent-primary">
+                    {hasPhoto ? <Image size={22} aria-hidden="true" /> : <Plus size={22} aria-hidden="true" />}
+                    {photoActive && <Check size={16} aria-hidden="true" />}
+                </span>
+                <span className="text-sm font-medium text-twilight-text">Your photo</span>
+                <span className="text-xs text-twilight-text-muted">
+                    {photoCaption(photoActive, hasPhoto)}
+                </span>
+            </button>
+        </div>
+    );
+}
+
+type CadenceBackgroundsProps = Pick<BackgroundSettingsProps, "backgroundMode" | "backgroundColor" | "backgroundGradient" | "onModeChange" | "onColorChange" | "onGradientChange"> & {
+    themePreset: ThemePresetId;
+};
+
+/** The theme's own background, gradient presets and solid colours (with a custom one). */
+function CadenceBackgrounds({ backgroundMode, themePreset, backgroundColor, backgroundGradient, onModeChange, onColorChange, onGradientChange }: CadenceBackgroundsProps) {
+    const preset = THEME_PRESET_MAP[themePreset] ?? THEME_PRESET_MAP.default;
+    const defaultBackground = preset.suggestedGradient
+        ? `linear-gradient(${preset.suggestedGradient.direction}deg, ${preset.suggestedGradient.color1}, ${preset.suggestedGradient.color2})`
+        : "var(--color-twilight-deep)";
+    return (
+        <div className="flex flex-col gap-5">
+            <p className="text-sm text-twilight-text-muted">
+                Use {preset.name}’s background, or choose another below. Your accent palette stays the same.
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3" role="group" aria-label="Cadence backgrounds">
+                <button
+                    type="button"
+                    aria-pressed={backgroundMode === "theme"}
+                    onClick={() => onModeChange("theme")}
+                    className={cn(
+                        "relative flex h-24 cursor-pointer flex-col justify-end rounded-xl p-2 text-left ring-1 ring-twilight-border-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary",
+                        backgroundMode === "theme" && "ring-2 ring-accent-primary",
+                    )}
+                    style={{ background: defaultBackground }}
+                >
+                    {backgroundMode === "theme" && <Check size={14} className="absolute right-2 top-2 text-white" aria-hidden="true" />}
+                    <span className="rounded-md bg-twilight-deep/90 px-2 py-1 text-xs text-twilight-text">Theme default</span>
+                </button>
+                {GRADIENT_PRESETS.map((gradient) => (
+                    <GradientSwatch
+                        key={gradient.id}
+                        gradient={gradient}
+                        selected={backgroundMode === "custom" && backgroundGradient === gradient.id}
+                        onSelect={() => onGradientChange(gradient.id)}
+                    />
+                ))}
+            </div>
+            {/* Solid colors */}
+            <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-1.5">
+                    <Palette size={12} className="text-twilight-text-muted" />
+                    <span className="text-[11px] font-medium tracking-wide text-twilight-text-muted uppercase">
+                        Solid Colors
+                    </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {PRESET_COLORS.map((c) => (
+                        <ColorSwatch
+                            key={c.hex}
+                            hex={c.hex}
+                            name={c.name}
+                            selected={
+                                backgroundMode === "custom" && backgroundColor === c.hex && !backgroundGradient
+                            }
+                            onSelect={() => onColorChange(c.hex)}
+                        />
+                    ))}
+                    {/* Custom color input */}
+                    <label
+                        className={cn(
+                            "relative flex h-11 w-11 items-center justify-center rounded-xl cursor-pointer",
+                            "border border-dashed border-twilight-border-light hover:border-twilight-text-muted transition-colors focus-within:ring-2 focus-within:ring-accent-primary",
+                        )}
+
+                    >
+                        <span className="text-[10px] text-twilight-text-muted">+</span>
+                        <input
+                            type="color"
+                            aria-label="Custom background color"
+                            className="absolute inset-0 cursor-pointer opacity-0"
+                            value={backgroundColor ?? "#0f1d32"}
+                            onChange={(e) => onColorChange(e.target.value)}
+                        />
+                    </label>
+                </div>
+            </div>
+
+        </div>
+    );
+}
+
 export function BackgroundSettings({
     backgroundMode,
     themePreset = "default",
@@ -111,10 +258,6 @@ export function BackgroundSettings({
     onImageAdjust,
 }: BackgroundSettingsProps) {
     const photoActive = backgroundMode === "image" && Boolean(backgroundImage);
-    const preset = THEME_PRESET_MAP[themePreset] ?? THEME_PRESET_MAP.default;
-    const defaultBackground = preset.suggestedGradient
-        ? `linear-gradient(${preset.suggestedGradient.direction}deg, ${preset.suggestedGradient.color1}, ${preset.suggestedGradient.color2})`
-        : "var(--color-twilight-deep)";
     const fileInput = useRef<HTMLInputElement>(null);
     const [pendingFile, setPendingFile] = useState<File | null>(null);
     const upload = useUploadBackgroundImage();
@@ -161,56 +304,19 @@ export function BackgroundSettings({
                     }}
                 />
             )}
-            <div className="grid grid-cols-2 gap-3" role="group" aria-label="Background source">
-                <button
-                    type="button"
-                    aria-pressed={!photoActive}
-                    disabled={upload.isPending}
-                    onClick={() => {
-                        if (photoActive) onModeChange(backgroundColor || backgroundGradient ? "custom" : "theme");
-                    }}
-                    className={cn(
-                        "flex min-h-28 cursor-pointer flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary",
-                        !photoActive ? "border-accent-primary bg-accent-primary/5" : "border-twilight-border-light hover:bg-twilight-surface",
-                    )}
-                >
-                    <span className="flex w-full items-center justify-between text-accent-primary">
-                        <Palette size={22} aria-hidden="true" />
-                        {!photoActive && <Check size={16} aria-hidden="true" />}
-                    </span>
-                    <span className="text-sm font-medium text-twilight-text">Cadence</span>
-                    <span className="text-xs text-twilight-text-muted">Preset backgrounds and colors</span>
-                </button>
-                <button
-                    type="button"
-                    aria-label={backgroundImage ? "Your photo" : "Add a background photo"}
-                    aria-pressed={photoActive}
-                    disabled={upload.isPending}
-                    onClick={() => {
-                        if (!backgroundImage) choosePhoto();
-                        else if (!photoActive) onModeChange("image");
-                    }}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => {
-                        event.preventDefault();
-                        const file = event.dataTransfer.files?.[0];
-                        if (file) choosePhoto(file);
-                    }}
-                    className={cn(
-                        "flex min-h-28 cursor-pointer flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary",
-                        photoActive ? "border-accent-primary bg-accent-primary/5" : "border-dashed border-twilight-border-light hover:bg-twilight-surface",
-                    )}
-                >
-                    <span className="flex w-full items-center justify-between text-accent-primary">
-                        {backgroundImage ? <Image size={22} aria-hidden="true" /> : <Plus size={22} aria-hidden="true" />}
-                        {photoActive && <Check size={16} aria-hidden="true" />}
-                    </span>
-                    <span className="text-sm font-medium text-twilight-text">Your photo</span>
-                    <span className="text-xs text-twilight-text-muted">
-                        {photoActive ? "Your background and accents" : backgroundImage ? "Use your saved photo" : "Choose or drop an image"}
-                    </span>
-                </button>
-            </div>
+            <SourceChoice
+                photoActive={photoActive}
+                hasPhoto={Boolean(backgroundImage)}
+                uploading={upload.isPending}
+                onCadence={() => {
+                    if (photoActive) onModeChange(backgroundColor || backgroundGradient ? "custom" : "theme");
+                }}
+                onPhoto={() => {
+                    if (!backgroundImage) choosePhoto();
+                    else if (!photoActive) onModeChange("image");
+                }}
+                onDropPhoto={choosePhoto}
+            />
 
             {photoActive && backgroundImage ? (
                 <PhotoBackgroundPanel
@@ -220,74 +326,15 @@ export function BackgroundSettings({
                     onAdjust={onImageAdjust}
                 />
             ) : (
-                <div className="flex flex-col gap-5">
-                    <p className="text-sm text-twilight-text-muted">
-                        Use {preset.name}’s background, or choose another below. Your accent palette stays the same.
-                    </p>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3" role="group" aria-label="Cadence backgrounds">
-                        <button
-                            type="button"
-                            aria-pressed={backgroundMode === "theme"}
-                            onClick={() => onModeChange("theme")}
-                            className={cn(
-                                "relative flex h-24 cursor-pointer flex-col justify-end rounded-xl p-2 text-left ring-1 ring-twilight-border-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary",
-                                backgroundMode === "theme" && "ring-2 ring-accent-primary",
-                            )}
-                            style={{ background: defaultBackground }}
-                        >
-                            {backgroundMode === "theme" && <Check size={14} className="absolute right-2 top-2 text-white" aria-hidden="true" />}
-                            <span className="rounded-md bg-twilight-deep/90 px-2 py-1 text-xs text-twilight-text">Theme default</span>
-                        </button>
-                        {GRADIENT_PRESETS.map((gradient) => (
-                            <GradientSwatch
-                                key={gradient.id}
-                                gradient={gradient}
-                                selected={backgroundMode === "custom" && backgroundGradient === gradient.id}
-                                onSelect={() => onGradientChange(gradient.id)}
-                            />
-                        ))}
-                    </div>
-                    {/* Solid colors */}
-                    <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-1.5">
-                            <Palette size={12} className="text-twilight-text-muted" />
-                            <span className="text-[11px] font-medium tracking-wide text-twilight-text-muted uppercase">
-                                Solid Colors
-                            </span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {PRESET_COLORS.map((c) => (
-                                <ColorSwatch
-                                    key={c.hex}
-                                    hex={c.hex}
-                                    name={c.name}
-                                    selected={
-                                        backgroundMode === "custom" && backgroundColor === c.hex && !backgroundGradient
-                                    }
-                                    onSelect={() => onColorChange(c.hex)}
-                                />
-                            ))}
-                            {/* Custom color input */}
-                            <label
-                                className={cn(
-                                    "relative flex h-11 w-11 items-center justify-center rounded-xl cursor-pointer",
-                                    "border border-dashed border-twilight-border-light hover:border-twilight-text-muted transition-colors focus-within:ring-2 focus-within:ring-accent-primary",
-                                )}
-
-                            >
-                                <span className="text-[10px] text-twilight-text-muted">+</span>
-                                <input
-                                    type="color"
-                                    aria-label="Custom background color"
-                                    className="absolute inset-0 cursor-pointer opacity-0"
-                                    value={backgroundColor ?? "#0f1d32"}
-                                    onChange={(e) => onColorChange(e.target.value)}
-                                />
-                            </label>
-                        </div>
-                    </div>
-
-                </div>
+                <CadenceBackgrounds
+                    backgroundMode={backgroundMode}
+                    themePreset={themePreset}
+                    backgroundColor={backgroundColor}
+                    backgroundGradient={backgroundGradient}
+                    onModeChange={onModeChange}
+                    onColorChange={onColorChange}
+                    onGradientChange={onGradientChange}
+                />
             )}
         </div>
     );

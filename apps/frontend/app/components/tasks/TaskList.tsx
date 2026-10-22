@@ -8,6 +8,7 @@ import {
     useSensors,
     type DragStartEvent,
     type DragEndEvent,
+    type UniqueIdentifier,
     type DragOverEvent,
     type DragCancelEvent,
 } from "@dnd-kit/core";
@@ -61,6 +62,28 @@ function mergeTasksPreservingLocalOrder(current: Task[], incoming: Task[]) {
     return merged;
 }
 
+/** The list after dropping `activeId` on `overId`, the moved task and its new fractional order index; null when either is gone. */
+function reorderedBy(tasks: Task[], activeId: UniqueIdentifier, overId: UniqueIdentifier) {
+    const oldIndex = tasks.findIndex((t) => t.id === activeId);
+    const newIndex = tasks.findIndex((t) => t.id === overId);
+    if (oldIndex === -1 || newIndex === -1) return null;
+    const reordered = arrayMove(tasks, oldIndex, newIndex);
+    const moved = reordered[newIndex];
+    // Compute fractional order index
+    const prev = reordered[newIndex - 1]?.orderIndex;
+    const next = reordered[newIndex + 1]?.orderIndex;
+    return { reordered, moved, orderIndex: computeMidpointIndex(prev, next, moved.orderIndex) };
+}
+
+/** The card under the finger while it moves. */
+function DragPreview(props: Omit<React.ComponentProps<typeof TaskCard>, "isDragging">) {
+    return (
+        <div className="w-[min(100%,44rem)] cursor-grabbing">
+            <TaskCard task={props.task} tags={props.tags} subtasks={props.subtasks} isSelected={props.isSelected} onSelect={props.onSelect} isDragging variant={props.variant} rationaleLabel={props.rationaleLabel} />
+        </div>
+    );
+}
+
 /** DnD-enabled sortable task list */
 export function TaskList({
     tasks: initialTasks,
@@ -105,6 +128,13 @@ export function TaskList({
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
     );
 
+    /** A card's tags, subtasks and why it is here. */
+    const cardData = (task: Task) => ({
+        tags: tagsByTaskId[task.id] ?? [],
+        subtasks: subtasksByTaskId[task.id] ?? [],
+        rationaleLabel: rationaleByTaskId?.[task.id] ?? null,
+    });
+
     const activeTask = activeTaskId ? tasks.find((task) => task.id === activeTaskId) ?? null : null;
 
     const handleDragStart = (event: DragStartEvent) => {
@@ -126,25 +156,15 @@ export function TaskList({
         setOverTaskId(null);
         const { active, over } = event;
         if (!over || active.id === over.id) return;
-
-        const oldIndex = tasks.findIndex((t) => t.id === active.id);
-        const newIndex = tasks.findIndex((t) => t.id === over.id);
-        if (oldIndex === -1 || newIndex === -1) return;
+        const move = reorderedBy(tasks, active.id, over.id);
+        if (!move) return;
 
         // Optimistically reorder in local state
-        const reordered = arrayMove(tasks, oldIndex, newIndex);
-        const moved = reordered[newIndex];
-        setTasks(reordered);
-
-        // Compute fractional order index
-        const prev = reordered[newIndex - 1]?.orderIndex;
-        const next = reordered[newIndex + 1]?.orderIndex;
-        const newOrderIndex = computeMidpointIndex(prev, next, moved.orderIndex);
-
+        setTasks(move.reordered);
         reorderTask.mutate({
-            id: moved.id,
-            orderIndex: newOrderIndex,
-            orderedTaskIds: reordered.map((task) => task.id),
+            id: move.moved.id,
+            orderIndex: move.orderIndex,
+            orderedTaskIds: move.reordered.map((task) => task.id),
         });
     };
 
@@ -166,13 +186,11 @@ export function TaskList({
                         }}>
                             <SortableTaskCard
                                 task={task}
-                                tags={tagsByTaskId[task.id] ?? []}
-                                subtasks={subtasksByTaskId[task.id] ?? []}
+                                {...cardData(task)}
                                 isSelected={selectedTaskId === task.id}
                                 isDropTarget={overTaskId === task.id && activeTaskId !== task.id}
                                 onSelect={onSelectTask}
                                 variant={cardVariant}
-                                rationaleLabel={rationaleByTaskId?.[task.id] ?? null}
                                 reorderable={reorderable}
                             />
                         </TaskContextMenuWrapper>
@@ -181,18 +199,13 @@ export function TaskList({
             </SortableContext>
             <DragOverlay dropAnimation={{ duration: 90, easing: "cubic-bezier(0.22, 0.86, 0.32, 1)" }}>
                 {activeTask ? (
-                    <div className="w-[min(100%,44rem)] cursor-grabbing">
-                        <TaskCard
-                            task={activeTask}
-                            tags={tagsByTaskId[activeTask.id] ?? []}
-                            subtasks={subtasksByTaskId[activeTask.id] ?? []}
-                            isSelected={selectedTaskId === activeTask.id}
-                            onSelect={onSelectTask}
-                            isDragging
-                            variant={cardVariant}
-                            rationaleLabel={rationaleByTaskId?.[activeTask.id] ?? null}
-                        />
-                    </div>
+                    <DragPreview
+                        task={activeTask}
+                        {...cardData(activeTask)}
+                        isSelected={selectedTaskId === activeTask.id}
+                        onSelect={onSelectTask}
+                        variant={cardVariant}
+                    />
                 ) : null}
             </DragOverlay>
         </DndContext>

@@ -95,6 +95,9 @@ export async function processCapture(
     return { task: toTask(task, taskTagIds), alreadyProcessed: false };
 }
 
+/** Where a ticked-off thought goes: nowhere. */
+const PLACED_NOWHERE = { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null, projectId: null, sectionId: null, recurrenceRule: null };
+
 /** The task row a capture becomes. A ticked-off thought is done and placed nowhere. */
 function captureTaskValues(
     userId: string,
@@ -114,31 +117,61 @@ function captureTaskValues(
         zone,
     );
 
-    const taskWaitingOn = inferred.waitingOn ?? null;
-    return {
+    const waitingOn = inferred.waitingOn ?? null;
+    const { sectionId = null, effort = null, reminderAt = null, notBefore = null } = body;
+    const values = {
         userId,
         title: body.title,
         orderIndex: 0,
         // Waiting on someone is a state, not just a note: the task shows who only while WAITING.
-        state: body.complete ? "COMPLETE" as const : taskWaitingOn ? "WAITING" as const : "ACTIVE" as const,
-        origin: body.complete ? "thought" as const : null,
+        state: waitingOn ? "WAITING" as const : "ACTIVE" as const,
+        origin: null,
         projectId: "projectId" in body ? body.projectId : inferred.projectId,
-        sectionId: body.sectionId ?? null,
+        sectionId,
         priority: inferred.priority ?? 0,
         durationEstimate: inferred.durationEstimate ?? null,
-        effort: body.effort ?? null,
+        effort,
         recurrenceRule: inferred.recurrenceRule ?? null,
-        waitingOn: taskWaitingOn,
-        reminderAt: body.reminderAt ?? null,
-        notBefore: body.notBefore ?? null,
+        waitingOn,
+        reminderAt,
+        notBefore,
         ...temporalFields,
-        ...(body.complete ? { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null, projectId: null, sectionId: null, recurrenceRule: null } : {}),
     };
+    return body.complete ? { ...values, state: "COMPLETE" as const, origin: "thought" as const, ...PLACED_NOWHERE } : values;
 }
 
 async function findTask(tx: Tx, userId: string, taskId: string) {
     const [task] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))));
     return task;
+}
+
+const unset = <T>(value: T | null | undefined): T | undefined => value ?? undefined;
+
+/** The fields the caller sent; unsent (or null) ones are undefined. */
+function explicitFields(body: ProcessInboxItem) {
+    return {
+        projectId: unset(body.projectId),
+        tagIds: unset(body.tagIds),
+        priority: unset(body.priority),
+        durationEstimate: unset(body.durationEstimate),
+        waitingOn: unset(body.waitingOn),
+        recurrenceRule: unset(body.recurrenceRule),
+        // An explicit null stays null: it means "no date", not "not given".
+        dueDate: body.dueDate !== undefined ? body.dueDate : unset(body.scheduledDay),
+        scheduledStart: body.scheduledStart,
+        scheduledEnd: unset(body.scheduledEnd),
+    };
+}
+
+/** Fields the client resolved itself: an absent one is "none". */
+function asResolved(explicit: ReturnType<typeof explicitFields>) {
+    return {
+        ...explicit,
+        tagIds: explicit.tagIds ?? [],
+        dueDate: explicit.dueDate ?? null,
+        scheduledStart: explicit.scheduledStart ?? null,
+        scheduledEnd: explicit.scheduledEnd ?? null,
+    };
 }
 
 /** The capture's fields: what the caller sent, else what its words say. */
@@ -159,27 +192,10 @@ async function inferPlacement(
         userOverrides: {},
     };
     const parsed = parseCanonicalNlpEnvelope(envelope, { context: nlpRuntime.context, clock: nlpRuntime.clock });
-    const explicit = {
-        projectId: body.projectId ?? undefined,
-        tagIds: body.tagIds ?? undefined,
-        priority: body.priority ?? undefined,
-        durationEstimate: body.durationEstimate ?? undefined,
-        waitingOn: body.waitingOn ?? undefined,
-        recurrenceRule: body.recurrenceRule ?? undefined,
-        // An explicit null stays null: it means "no date", not "not given".
-        dueDate: body.dueDate !== undefined ? body.dueDate : body.scheduledDay ?? undefined,
-        scheduledStart: body.scheduledStart,
-        scheduledEnd: body.scheduledEnd ?? undefined,
-    };
+    const explicit = explicitFields(body);
     // `resolved`: the client chose every field; store them as sent (an absent one is "none") and never re-read the words.
     const inferred = body.nlp?.resolved
-        ? {
-            ...explicit,
-            tagIds: explicit.tagIds ?? [],
-            dueDate: explicit.dueDate ?? null,
-            scheduledStart: explicit.scheduledStart ?? null,
-            scheduledEnd: explicit.scheduledEnd ?? null,
-        }
+        ? asResolved(explicit)
         : inferTaskFieldsFromParse(
             parsed,
             explicit,

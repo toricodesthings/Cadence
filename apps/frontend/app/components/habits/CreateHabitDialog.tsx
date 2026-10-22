@@ -14,7 +14,7 @@ import { DayTimes } from "./DayTimes";
 import { ColourDot } from "../shared/ColourDot";
 import { FieldBlock, FieldRow, ValueSelect } from "../shared/DetailPanelSections";
 import { TagField } from "../tasks/TagField";
-import { ROUTINE_DEFAULT_ACCENT, ROUTINE_SWATCHES, routineTone } from "../../lib/utils/habits";
+import { ROUTINE_DEFAULT_ACCENT, ROUTINE_SWATCHES, chosen, routineTone } from "../../lib/utils/habits";
 import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { Composer, type ComposerDraft, ComposerSubmit, ComposerMore, ComposerTabs, ComposerTitle, ComposerToggle, COMPOSER_FIELD } from "../shared/Composer";
 import { CHIP_BASE, CHIP_IDLE, FIELD_LABEL } from "../tasks/task-choice-options";
@@ -45,6 +45,40 @@ export function CreateHabitDialog({ open, onOpenChange }: { open: boolean; onOpe
 }
 
 /** The routine composer: name, which days, when, then everything optional. */
+type RoutineChoices = {
+    title: string;
+    description: string;
+    recurrenceRule: string;
+    colorAccent: string;
+    time: string | null;
+    targetTimes: Record<string, string> | null;
+    manyTimes: string[] | null;
+    emoji: string | null;
+    reminderEnabled: boolean;
+    projectId: string | null;
+    tagIds: string[];
+    steps: RoutineStep[] | null;
+};
+
+/** The new routine as the API takes it: set times replace one time, per-day times and steps; a reminder needs a time. */
+function routineInput(choice: RoutineChoices) {
+    const many = choice.manyTimes;
+    return {
+        title: choice.title,
+        description: choice.description.trim() || undefined,
+        recurrenceRule: choice.recurrenceRule,
+        colorAccent: choice.colorAccent,
+        targetTime: many ? null : choice.time,
+        targetTimes: many ? undefined : choice.targetTimes,
+        times: many ?? undefined,
+        emoji: choice.emoji,
+        reminderEnabled: Boolean(choice.time) && choice.reminderEnabled,
+        projectId: choice.projectId,
+        tagIds: choice.tagIds.length ? choice.tagIds : undefined,
+        steps: many ? undefined : choice.steps ?? undefined,
+    };
+}
+
 export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | null | undefined) => void }): ComposerDraft {
     const shell = useShellMode();
     const { mutate: createHabit, isPending } = useCreateHabit();
@@ -93,10 +127,10 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
         confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
         enabled: intelligence?.nlpEnabled !== false,
     });
-    const recurrenceRule = touched.has("recurrenceRule") ? ruleState : (nlp.fields.recurrenceRule ?? ruleState);
-    const targetTime = touched.has("timeOfDay") ? timeState : (nlp.fields.timeOfDay ?? timeState);
-    const projectId = touched.has("projectId") ? projectState : (nlp.fields.projectId ?? projectState);
-    const tagIds = touched.has("tagIds") ? tagState : (nlp.fields.tagIds.length ? nlp.fields.tagIds : tagState);
+    const recurrenceRule = chosen(touched.has("recurrenceRule"), ruleState, nlp.fields.recurrenceRule);
+    const targetTime = chosen(touched.has("timeOfDay"), timeState, nlp.fields.timeOfDay);
+    const projectId = chosen(touched.has("projectId"), projectState, nlp.fields.projectId);
+    const tagIds = chosen(touched.has("tagIds"), tagState, nlp.fields.tagIds.length ? nlp.fields.tagIds : null);
     const setRecurrenceRule = (rule: string) => { setRuleState(rule); touch("recurrenceRule"); };
     const setTargetTime = (time: string | null) => { setTimeState(time); setManyTimes(null); touch("timeOfDay"); };
     const timeList = manyTimes ?? (targetTime ? [targetTime] : []);
@@ -142,24 +176,22 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
     };
 
     const send = (draft: NlpParseOutput) => {
-        const rule = touched.has("recurrenceRule") ? ruleState : (draft.fields.recurrenceRule ?? ruleState);
-        const time = touched.has("timeOfDay") ? timeState : (draft.fields.timeOfDay ?? timeState);
-        const list = touched.has("projectId") ? projectState : (draft.fields.projectId ?? projectState);
-        const tagged = touched.has("tagIds") ? tagState : (draft.fields.tagIds.length ? draft.fields.tagIds : tagState);
-        const parsed = createHabitSchema.safeParse({
+        const { fields } = draft;
+        const time = chosen(touched.has("timeOfDay"), timeState, fields.timeOfDay);
+        const parsed = createHabitSchema.safeParse(routineInput({
             title: (draft.cleanedTitle || title).trim(),
-            description: description.trim() || undefined,
-            recurrenceRule: rule,
+            description,
+            recurrenceRule: chosen(touched.has("recurrenceRule"), ruleState, fields.recurrenceRule),
             colorAccent,
-            targetTime: manyTimes ? null : time,
-            targetTimes: manyTimes ? undefined : targetTimes,
-            times: manyTimes ?? undefined,
+            time,
+            targetTimes,
+            manyTimes,
             emoji,
-            reminderEnabled: Boolean(time) && reminderEnabled,
-            projectId: list,
-            tagIds: tagged.length ? tagged : undefined,
-            steps: manyTimes ? undefined : steps ?? undefined,
-        });
+            reminderEnabled,
+            projectId: chosen(touched.has("projectId"), projectState, fields.projectId),
+            tagIds: chosen(touched.has("tagIds"), tagState, fields.tagIds.length ? fields.tagIds : null),
+            steps,
+        }));
         if (!parsed.success) {
             toast.error(parsed.error.issues[0]?.message ?? "Couldn't create routine");
             return;

@@ -111,6 +111,64 @@ function getLanguage(locale: string): string {
     return locale.split("-")[0]?.toUpperCase() || "EN";
 }
 
+/** A name in the reader's language, else English, else the first given ("" with none). */
+function localName(names: Array<{ language: string; text: string }>, language: string): string {
+    return names.find((n) => n.language === language)?.text ?? names.find((n) => n.language === "EN")?.text ?? names[0]?.text ?? "";
+}
+
+type OpenHoliday = {
+    startDate: string;
+    name: Array<{ language: string; text: string }>;
+    nationwide?: boolean;
+    subdivisions?: Array<{ code: string }>;
+};
+
+type NagerHoliday = {
+    date: string;
+    localName: string;
+    name: string;
+    countryCode: string;
+    global: boolean;
+    counties: string[] | null;
+    types: string[];
+};
+
+/** Nationwide holidays always; regional ones only within the chosen subdivision. */
+function inScope(isRegional: boolean, scopes: string[], subCode: string | null): boolean {
+    if (!isRegional) return true;
+    return subCode !== null && scopes.includes(subCode);
+}
+
+function fromOpenHoliday(h: OpenHoliday, language: string, cc: string, subCode: string | null): HolidayRecord | null {
+    const scopes = h.subdivisions?.map((s) => s.code) ?? [];
+    const isRegional = h.nationwide === false || scopes.length > 0;
+    if (!inScope(isRegional, scopes, subCode)) return null;
+    const displayName = localName(h.name, language);
+    const englishName = h.name.find((n) => n.language === "EN")?.text ?? displayName;
+    return {
+        date: h.startDate,
+        name: englishName,
+        localName: displayName !== englishName ? displayName : undefined,
+        countryCode: cc,
+        subdivisionCode: subCode,
+        isRegional,
+    };
+}
+
+function fromNagerHoliday(h: NagerHoliday, subCode: string | null): HolidayRecord | null {
+    const scopes = h.counties ?? [];
+    const isRegional = !h.global || scopes.length > 0;
+    if (!inScope(isRegional, scopes, subCode)) return null;
+    return {
+        date: h.date,
+        name: h.name,
+        localName: h.localName !== h.name ? h.localName : undefined,
+        countryCode: h.countryCode,
+        subdivisionCode: subCode,
+        isRegional,
+    };
+}
+
 export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // ── GET /api/proxy/weather ──
     // Short cache: weather changes frequently
@@ -248,12 +306,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 name: Array<{ language: string; text: string }>;
             }>;
             for (const country of countries) {
-                const label =
-                    country.name.find((n) => n.language === language)?.text ??
-                    country.name.find((n) => n.language === "EN")?.text ??
-                    country.name[0]?.text ??
-                    "";
-                merged.set(country.isoCode, { code: country.isoCode, label });
+                merged.set(country.isoCode, { code: country.isoCode, label: localName(country.name, language) });
             }
         }
 
@@ -286,11 +339,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 subdivisions = raw
                     .map((s) => ({
                         code: s.code || s.isoCode || "",
-                        label:
-                            s.name.find((n) => n.language === language)?.text ??
-                            s.name.find((n) => n.language === "EN")?.text ??
-                            s.name[0]?.text ??
-                            "",
+                        label: localName(s.name, language),
                     }))
                     .filter((s) => s.code);
                 upstreamOk = true;
@@ -341,40 +390,9 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
             const res = await upstreamFetch("open-holidays", url, HOLIDAY_CACHE_SECONDS);
             if (res.ok) {
-                const raw = (await res.json()) as Array<{
-                    startDate: string;
-                    name: Array<{ language: string; text: string }>;
-                    nationwide?: boolean;
-                    subdivisions?: Array<{ code: string }>;
-                }>;
-
+                const raw = (await res.json()) as OpenHoliday[];
                 const holidays = raw
-                    .map((h): HolidayRecord | null => {
-                        const scopes = h.subdivisions?.map((s) => s.code) ?? [];
-                        const isRegional = h.nationwide === false || scopes.length > 0;
-
-                        if (subCode) {
-                            if (isRegional && !scopes.includes(subCode)) return null;
-                        } else if (isRegional) {
-                            return null;
-                        }
-
-                        const displayName =
-                            h.name.find((n) => n.language === language)?.text ??
-                            h.name.find((n) => n.language === "EN")?.text ??
-                            h.name[0]?.text ??
-                            "";
-                        const englishName = h.name.find((n) => n.language === "EN")?.text ?? displayName;
-
-                        return {
-                            date: h.startDate,
-                            name: englishName,
-                            localName: displayName !== englishName ? displayName : undefined,
-                            countryCode: cc,
-                            subdivisionCode: subCode,
-                            isRegional,
-                        };
-                    })
+                    .map((h) => fromOpenHoliday(h, language, cc, subCode))
                     .filter((h) => h !== null);
 
                 if (holidays.length > 0) {
@@ -392,37 +410,10 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Holiday service unavailable", status: 502, isRetryable: true }), 502, PRIVATE_NO_STORE);
         }
 
-        const nagerRaw = (await nagerRes.json()) as Array<{
-            date: string;
-            localName: string;
-            name: string;
-            countryCode: string;
-            global: boolean;
-            counties: string[] | null;
-            types: string[];
-        }>;
-
+        const nagerRaw = (await nagerRes.json()) as NagerHoliday[];
         const holidays = nagerRaw
             .filter((h) => h.types.includes("Public"))
-            .map((h): HolidayRecord | null => {
-                const scopes = h.counties ?? [];
-                const isRegional = !h.global || scopes.length > 0;
-
-                if (subCode) {
-                    if (isRegional && !scopes.includes(subCode)) return null;
-                } else if (isRegional) {
-                    return null;
-                }
-
-                return {
-                    date: h.date,
-                    name: h.name,
-                    localName: h.localName !== h.name ? h.localName : undefined,
-                    countryCode: h.countryCode,
-                    subdivisionCode: subCode,
-                    isRegional,
-                };
-            })
+            .map((h) => fromNagerHoliday(h, subCode))
             .filter((h): h is HolidayRecord => h !== null && h.date >= start && h.date <= end);
 
         return c.json({ data: holidays }, 200, cacheHeaders(HOLIDAY_CACHE_SECONDS));

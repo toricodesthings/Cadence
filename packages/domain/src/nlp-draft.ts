@@ -91,27 +91,30 @@ const isNone = (v: unknown) => v === null || v === undefined || (Array.isArray(v
 
 const TIME_ONLY = /^\s*(?:at\s+)?\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?\s*$/i;
 
+/** The field each kind fills; a scheduled start depends on what the surface can hold (`startFieldOf`). */
+const FIELD_OF: Record<Exclude<ParsedEntity["type"], "scheduled_start">, DraftField> = {
+    due_date: "dueDate",
+    recurrence: "recurrenceRule",
+    priority: "priority",
+    project: "projectId",
+    tag: "tagIds",
+    waiting_on: "waitingOn",
+    duration: "durationMinutes",
+    not_before: "notBefore",
+    reminder: "reminderAt",
+};
+
+/** A start with no time is a day; a routine keeps a time with no day; a phrase that also names a day stays in its title. */
+function startFieldOf(e: ParsedEntity, ctx: DraftContext): DraftField | null {
+    const v = e.normalizedValue as DateValue;
+    if (!v.hasTime || !v.time) return "dueDate";
+    if (!ctx.capabilities.has("timeOfDay") || ctx.capabilities.has("scheduledStart")) return "scheduledStart";
+    return TIME_ONLY.test(e.sourceText) ? "timeOfDay" : null;
+}
+
 /** What an entity fills, in fields. */
 function fieldOf(e: ParsedEntity, ctx: DraftContext): DraftField | null {
-    switch (e.type) {
-        case "due_date": return "dueDate";
-        case "scheduled_start": {
-            const v = e.normalizedValue as DateValue;
-            if (!v.hasTime || !v.time) return "dueDate";
-            // A routine keeps a time with no day; a phrase that also names a day stays in its title.
-            return ctx.capabilities.has("timeOfDay") && !ctx.capabilities.has("scheduledStart")
-                ? TIME_ONLY.test(e.sourceText) ? "timeOfDay" : null
-                : "scheduledStart";
-        }
-        case "recurrence": return "recurrenceRule";
-        case "priority": return "priority";
-        case "project": return "projectId";
-        case "tag": return "tagIds";
-        case "waiting_on": return "waitingOn";
-        case "duration": return "durationMinutes";
-        case "not_before": return "notBefore";
-        case "reminder": return "reminderAt";
-    }
+    return e.type === "scheduled_start" ? startFieldOf(e, ctx) : FIELD_OF[e.type];
 }
 
 export function resolveDraft(

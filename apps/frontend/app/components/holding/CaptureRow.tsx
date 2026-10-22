@@ -39,18 +39,216 @@ import { PendingMark } from "../shared/PendingMark";
 /** Explicit nulls: the server must not infer a day from the text. */
 const NO_DAY = { dueDate: null, scheduledStart: null, scheduledEnd: null };
 
-export function CaptureRow({
-    item,
-    task,
-    subtasks = [],
-    lightest,
-    onOpen,
-    selected,
-    onToggleSelection,
-    tabIndex = 0,
-    onFocusRow,
-    stacked: stackedProp = false,
-}: {
+/** What the row shows: a capture (with the person's own edits) or the task it became. */
+function rowSubject(item: InboxItem | undefined, task: Task | undefined) {
+    const overrides = item ? overridesOf(item) : undefined;
+    return {
+        object: (item ?? task)!,
+        overrides,
+        title: task?.title ?? overrides?.title ?? item!.rawText,
+        dismissedIds: (item?.analysis?.dismissedEntityIds ?? []) as string[],
+    };
+}
+
+/** Where Done puts it, as "List · Section". The chip skips a cue word's list: the words already say it. */
+function usePlacementChip(item: InboxItem | undefined, cueProjectId: string | null | undefined) {
+    const placement = item ? placementFor(item, { cue: cueProjectId }) : null;
+    const chip = item?.captureStatus !== "kept" && placement?.projectId !== cueProjectId ? placement : null;
+    const { data: lists = [] } = useProjects();
+    const { data: listSections = [] } = useSections(chip?.projectId);
+    const listName = chip ? lists.find((list) => list.id === chip.projectId)?.name : undefined;
+    const sectionName = chip?.sectionId ? listSections.find((section) => section.id === chip.sectionId)?.name : undefined;
+    return { placement, placementLabelText: listLabel(listName, sectionName) };
+}
+
+function listLabel(listName: string | undefined, sectionName: string | undefined) {
+    if (!listName) return null;
+    return sectionName ? `${listName} · ${sectionName}` : listName;
+}
+
+function rowClass(selected: boolean | undefined, tagOver: boolean) {
+    const tone = selected ? `${COLLECTION_ROW_SELECTED} [--row-wash:color-mix(in_srgb,var(--accent-primary)_10%,transparent)] ring-accent-primary/15` : COLLECTION_ROW_HOVER;
+    return `${COLLECTION_ROW_SURFACE} min-w-0 px-4 py-3.5 sm:px-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${tone} ${tagOver ? "ring-1 ring-accent-primary/40" : ""}`;
+}
+
+type DayPillProps = { day: string; suggested?: boolean; className?: string; disabled: boolean; onPlace: (day: string) => void };
+
+/** Place on a day, named the way the row says it. */
+function DayPill({ day, suggested = false, className = "", disabled, onPlace }: DayPillProps) {
+    return (
+        <Tip label={`Place on ${placementLabel(day)}`}>
+            <Button
+                variant="ghost"
+                size="none"
+                type="button"
+                disabled={disabled}
+                onClick={() => onPlace(day)}
+                aria-label={`Place on ${placementLabel(day)}`}
+                className={`${DAY_PILL} gap-1.5 ${suggested ? DAY_PILL_SUGGESTED : DAY_PILL_PLAIN} ${className}`}
+            >
+                <CalendarPlus size={12} aria-hidden />
+                {placementLabel(day)}
+            </Button>
+        </Tip>
+    );
+}
+
+type SideDayPillProps = { detected: string | null | undefined; lightest: string; offerLightest: boolean; disabled: boolean; onPlace: (day: string) => void };
+
+/** The day the words name; otherwise, on hover, the lightest day. */
+function SideDayPill({ detected, lightest, offerLightest, disabled, onPlace }: SideDayPillProps) {
+    if (detected) return <DayPill day={detected} suggested disabled={disabled} onPlace={onPlace} />;
+    if (!offerLightest) return null;
+    return (
+        <DayPill
+            day={lightest}
+            className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
+            disabled={disabled}
+            onPlace={onPlace}
+        />
+    );
+}
+
+type TickOffProps = { disabled: boolean; onTick: () => void };
+
+function TickOff({ disabled, onTick }: TickOffProps) {
+    return (
+        <Tip label="Tick off thought">
+            <Button
+                variant="ghost"
+                size="none"
+                disabled={disabled}
+                onClick={onTick}
+                aria-label="Tick off thought"
+                className="h-8 w-8 shrink-0 rounded-full hover:bg-transparent press-none"
+            >
+                <span
+                    aria-hidden
+                    className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70 transition-colors duration-200 group-hover:border-accent-primary/50"
+                />
+            </Button>
+        </Tip>
+    );
+}
+
+type RowMenuProps = {
+    item?: InboxItem;
+    task?: Task;
+    title: string;
+    disabled: boolean;
+    place: (when?: LocalDate | Instant, complete?: boolean) => void;
+    discard: () => void;
+    /** The row's own capture actions, so a pending change disables the whole row. */
+    status: ReturnType<typeof useCaptureActions>;
+    subtaskUi: ReturnType<typeof useInlineSubtasks>;
+    onToggleSelection?: () => void;
+};
+
+/** The row's ⋮: place it (today, tomorrow, a day, no day), keep it as a note, add a subtask, select, discard. */
+function RowMenu({ item, task, title, disabled, place, discard, status, subtaskUi, onToggleSelection }: RowMenuProps) {
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [pickerMonth, setPickerMonth] = useState<LocalDate>(() => today());
+    return (
+        <Menu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+            <Tip label="More actions">
+                <Menu.Trigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Actions for ${title}`}
+                        className="shrink-0 opacity-40 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 pointer-coarse:opacity-100"
+                    >
+                        <EllipsisVertical size={16} />
+                    </Button>
+                </Menu.Trigger>
+            </Tip>
+            <Menu.Content
+                align="end"
+                // "Add subtask" focuses its input; handing focus back to ⋮ would blur and close it.
+                onCloseAutoFocus={(e) => subtaskUi.adding && e.preventDefault()}
+            >
+                {item?.captureStatus !== "kept" && (
+                    <>
+                        <Menu.Item
+                            className="gap-2.5"
+                            disabled={disabled}
+                            onSelect={() => place(todayISO())}
+                        >
+                            <Sun size={16} className="text-accent-primary" aria-hidden />
+                            Today
+                        </Menu.Item>
+                        <Menu.Item
+                            className="gap-2.5"
+                            disabled={disabled}
+                            onSelect={() => place(tomorrowISO())}
+                        >
+                            <Sunrise size={16} aria-hidden />
+                            Tomorrow
+                        </Menu.Item>
+                        <Menu.Sub>
+                            <Menu.SubTrigger className="flex items-center gap-2.5" disabled={disabled}>
+                                <Calendar size={16} aria-hidden />
+                                Pick day…
+                            </Menu.SubTrigger>
+                            <Menu.SubContent className="w-72 p-0">
+                                <MonthCalendar
+                                    viewDay={pickerMonth}
+                                    onViewDayChange={setPickerMonth}
+                                    selectedDate=""
+                                    onSelectDate={(day) => {
+                                        place(day);
+                                        setMenuOpen(false);
+                                    }}
+                                />
+                            </Menu.SubContent>
+                        </Menu.Sub>
+                        <Menu.Separator />
+                    </>
+                )}
+                {item && (
+                    <>
+                        <Menu.Item className="gap-2.5" disabled={disabled} onSelect={() => place()}>
+                            <Moon size={16} aria-hidden />
+                            No day yet
+                        </Menu.Item>
+                        <Menu.Item
+                            className="gap-2.5"
+                            disabled={disabled}
+                            onSelect={() =>
+                                void status
+                                    .setStatus(item, item.captureStatus === "kept" ? "clarifying" : "kept")
+                                    .catch(() => {})
+                            }
+                        >
+                            {item.captureStatus === "kept" ? (
+                                <Inbox size={16} aria-hidden />
+                            ) : (
+                                <StickyNote size={16} aria-hidden />
+                            )}
+                            {item.captureStatus === "kept" ? "Back to New" : "Keep as a note"}
+                        </Menu.Item>
+                    </>
+                )}
+                {task && (
+                    <Menu.Item className="gap-2.5" disabled={disabled} onSelect={subtaskUi.startAdding}>
+                        <ListChecks size={16} aria-hidden />
+                        Add subtask
+                    </Menu.Item>
+                )}
+                <Menu.Item className="gap-2.5" onSelect={() => onToggleSelection?.()}>
+                    <CheckSquare size={16} aria-hidden />
+                    Select
+                </Menu.Item>
+                <Menu.Item className="gap-2.5" disabled={disabled} variant="danger" onSelect={discard}>
+                    <Trash2 size={16} aria-hidden />
+                    Discard
+                </Menu.Item>
+            </Menu.Content>
+        </Menu.Root>
+    );
+}
+
+type CaptureRowProps = {
     item?: InboxItem;
     task?: Task;
     subtasks?: Subtask[];
@@ -62,9 +260,22 @@ export function CaptureRow({
     onFocusRow?: () => void;
     /** Narrow layouts (phone, board columns): the day pill drops under the title and the age hides. */
     stacked?: boolean;
-}) {
-    const object = (item ?? task)!;
-    const parse = useThoughtParse(item?.rawText ?? "", (item?.analysis?.dismissedEntityIds ?? []) as string[]);
+};
+
+export function CaptureRow({
+    item,
+    task,
+    subtasks = [],
+    lightest,
+    onOpen,
+    selected,
+    onToggleSelection,
+    tabIndex = 0,
+    onFocusRow,
+    stacked: stackedProp = false,
+}: CaptureRowProps) {
+    const { object, overrides, title, dismissedIds } = rowSubject(item, task);
+    const parse = useThoughtParse(item?.rawText ?? "", dismissedIds);
     const process = useProcessInboxToTask();
     const status = useCaptureActions();
     const update = useUpdateTask();
@@ -78,18 +289,9 @@ export function CaptureRow({
     const quiet = settings?.tasks.intelligence?.lowStimulationMode;
     const ageDays = Math.floor((Date.now() - Date.parse(object.createdAt)) / 86_400_000);
     const { data: allTags = [] } = useTags();
-    // Where Done puts it. The chip skips a cue word's list: the words already say it.
-    const placement = item ? placementFor(item, { cue: parse.projectId }) : null;
-    const chip = item?.captureStatus !== "kept" && placement?.projectId !== parse.projectId ? placement : null;
-    const { data: lists = [] } = useProjects();
-    const { data: listSections = [] } = useSections(chip?.projectId);
-    const listName = chip ? lists.find((list) => list.id === chip.projectId)?.name : undefined;
-    const sectionName = chip?.sectionId ? listSections.find((section) => section.id === chip.sectionId)?.name : undefined;
-    const placementLabelText = listName ? (sectionName ? `${listName} · ${sectionName}` : listName) : null;
-    const [menuOpen, setMenuOpen] = useState(false);
+    const { placement, placementLabelText } = usePlacementChip(item, parse.projectId);
     const subtaskUi = useInlineSubtasks(task?.id ?? "");
     const subtaskPanelId = useId();
-    const [pickerMonth, setPickerMonth] = useState<LocalDate>(() => today());
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(
         () => () => {
@@ -98,8 +300,6 @@ export function CaptureRow({
         [],
     );
     const longPressed = useRef(false);
-    const overrides = item ? overridesOf(item) : undefined;
-    const title = task?.title ?? overrides?.title ?? item!.rawText;
     const disabled = process.isPending || status.isPending;
     const place = (when?: LocalDate | Instant, complete = false) => {
         if (disabled) return;
@@ -109,14 +309,19 @@ export function CaptureRow({
         }
         process.mutate(capturePayload(when, complete));
     };
+    /** Its own title, else the words without what they set (once they placed or tagged it). */
+    const captureTitle = (when: LocalDate | Instant | undefined) =>
+        overrides?.title ?? (when || parse.tagIds.length ? parse.cleanedTitle || title : title);
+    /** The list and section the capture goes to; none unless chosen. */
+    const placedIn = () => ({ projectId: placement?.projectId ?? null, sectionId: placement?.sectionId ?? null });
+    const dateStyle = settings?.dateTime.dateStyle ?? "mdy";
     /** The capture as a task: its words read once, placed on `when` or explicitly on no day. */
     const capturePayload = (when: LocalDate | Instant | undefined, complete: boolean) => ({
         inboxItemId: object.id,
         rawText: item!.rawText,
-        title: overrides?.title ?? (when || parse.tagIds.length ? parse.cleanedTitle || title : title),
+        title: captureTitle(when),
         ...(when ? placeFields(when) : NO_DAY),
-        projectId: placement?.projectId ?? null,
-        sectionId: placement?.sectionId ?? null,
+        ...placedIn(),
         tagIds: overrides?.tagIds ?? parse.tagIds,
         priority: parse.priority ?? 0,
         durationEstimate: parse.durationMinutes,
@@ -127,8 +332,8 @@ export function CaptureRow({
         nlp: resolvedNlp(
             item!.rawText,
             "inbox",
-            settings?.dateTime.dateStyle ?? "mdy",
-            (item?.analysis?.dismissedEntityIds ?? []) as string[],
+            dateStyle,
+            dismissedIds,
             overrides ?? {},
         ),
     });
@@ -222,22 +427,6 @@ export function CaptureRow({
         }
     };
     const detected = item && item.captureStatus !== "kept" ? (parse.scheduledStart ?? parse.dueDate) : null;
-    const pill = (day: string, suggested: boolean, className = "") => (
-        <Tip label={`Place on ${placementLabel(day)}`}>
-            <Button
-                variant="ghost"
-                size="none"
-                type="button"
-                disabled={disabled}
-                onClick={() => place(day)}
-                aria-label={`Place on ${placementLabel(day)}`}
-                className={`${DAY_PILL} gap-1.5 ${suggested ? DAY_PILL_SUGGESTED : DAY_PILL_PLAIN} ${className}`}
-            >
-                <CalendarPlus size={12} aria-hidden />
-                {placementLabel(day)}
-            </Button>
-        </Tip>
-    );
     return (
         <PlaceDraggable id={`capture:${object.id}`} title={title} onPlace={(date) => place(date)}>
             <article
@@ -266,30 +455,12 @@ export function CaptureRow({
                         longPressed.current = false;
                     }
                 }}
-                className={`${COLLECTION_ROW_SURFACE} min-w-0 px-4 py-3.5 sm:px-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${selected ? `${COLLECTION_ROW_SELECTED} [--row-wash:color-mix(in_srgb,var(--accent-primary)_10%,transparent)] ring-accent-primary/15` : COLLECTION_ROW_HOVER} ${tagOver ? "ring-1 ring-accent-primary/40" : ""}`}
+                className={rowClass(selected, tagOver)}
             >
                 {/* Side controls centre on the 44px title line, like task cards, so a tag line hangs below. */}
                 <div className="flex min-h-9 items-start gap-2">
                     <div className="flex h-11 shrink-0 items-center">
-                        {task ? (
-                            <TaskCheckbox task={task} compact />
-                        ) : (
-                            <Tip label="Tick off thought">
-                                <Button
-                                    variant="ghost"
-                                    size="none"
-                                    disabled={disabled}
-                                    onClick={() => place(undefined, true)}
-                                    aria-label="Tick off thought"
-                                    className="h-8 w-8 shrink-0 rounded-full hover:bg-transparent press-none"
-                                >
-                                    <span
-                                        aria-hidden
-                                        className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70 transition-colors duration-200 group-hover:border-accent-primary/50"
-                                    />
-                                </Button>
-                            </Tip>
-                        )}
+                        {task ? <TaskCheckbox task={task} compact /> : <TickOff disabled={disabled} onTick={() => place(undefined, true)} />}
                     </div>
                     {task?.origin === "thought" && (
                         <div className="flex h-11 shrink-0 items-center">
@@ -309,7 +480,7 @@ export function CaptureRow({
                         </Button>
                         {(rowTags.length > 0 || placementLabelText || (stacked && detected)) && (
                             <div className="flex flex-wrap items-center gap-1.5 px-1 pb-0.5">
-                                {stacked && detected && pill(detected, true)}
+                                {stacked && detected && <DayPill day={detected} suggested disabled={disabled} onPlace={place} />}
                                 {placementLabelText && (
                                     <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-twilight-border px-2 py-0.5 text-xs text-twilight-text-soft">
                                         <FolderOpen size={12} aria-hidden />
@@ -331,16 +502,7 @@ export function CaptureRow({
                         )}
                     </div>
                     <div className="flex h-11 shrink-0 items-center">
-                        {!stacked &&
-                            (detected
-                                ? pill(detected, true)
-                                : !shell.isTouch &&
-                                  item?.captureStatus !== "kept" &&
-                                  pill(
-                                      lightest,
-                                      false,
-                                      "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100",
-                                  ))}
+                        {stacked ? null : <SideDayPill detected={detected} lightest={lightest} offerLightest={!shell.isTouch && item?.captureStatus !== "kept"} disabled={disabled} onPlace={place} />}
                     </div>
                     {/* Age only once it means something; fresh rows stay quiet. */}
                     {!quiet && !stacked && ageDays >= 3 && (
@@ -352,102 +514,17 @@ export function CaptureRow({
                             {relativeTime(object.createdAt)}
                         </time>
                     )}
-                    <Menu.Root open={menuOpen} onOpenChange={setMenuOpen}>
-                        <Tip label="More actions">
-                            <Menu.Trigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label={`Actions for ${title}`}
-                                    className="shrink-0 opacity-40 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 pointer-coarse:opacity-100"
-                                >
-                                    <EllipsisVertical size={16} />
-                                </Button>
-                            </Menu.Trigger>
-                        </Tip>
-                        <Menu.Content
-                            align="end"
-                            // "Add subtask" focuses its input; handing focus back to ⋮ would blur and close it.
-                            onCloseAutoFocus={(e) => subtaskUi.adding && e.preventDefault()}
-                        >
-                            {item?.captureStatus !== "kept" && (
-                                <>
-                                    <Menu.Item
-                                        className="gap-2.5"
-                                        disabled={disabled}
-                                        onSelect={() => place(todayISO())}
-                                    >
-                                        <Sun size={16} className="text-accent-primary" aria-hidden />
-                                        Today
-                                    </Menu.Item>
-                                    <Menu.Item
-                                        className="gap-2.5"
-                                        disabled={disabled}
-                                        onSelect={() => place(tomorrowISO())}
-                                    >
-                                        <Sunrise size={16} aria-hidden />
-                                        Tomorrow
-                                    </Menu.Item>
-                                    <Menu.Sub>
-                                        <Menu.SubTrigger className="flex items-center gap-2.5" disabled={disabled}>
-                                            <Calendar size={16} aria-hidden />
-                                            Pick day…
-                                        </Menu.SubTrigger>
-                                        <Menu.SubContent className="w-72 p-0">
-                                            <MonthCalendar
-                                                viewDay={pickerMonth}
-                                                onViewDayChange={setPickerMonth}
-                                                selectedDate=""
-                                                onSelectDate={(day) => {
-                                                    place(day);
-                                                    setMenuOpen(false);
-                                                }}
-                                            />
-                                        </Menu.SubContent>
-                                    </Menu.Sub>
-                                    <Menu.Separator />
-                                </>
-                            )}
-                            {item && (
-                                <>
-                                    <Menu.Item className="gap-2.5" disabled={disabled} onSelect={() => place()}>
-                                        <Moon size={16} aria-hidden />
-                                        No day yet
-                                    </Menu.Item>
-                                    <Menu.Item
-                                        className="gap-2.5"
-                                        disabled={disabled}
-                                        onSelect={() =>
-                                            void status
-                                                .setStatus(item, item.captureStatus === "kept" ? "clarifying" : "kept")
-                                                .catch(() => {})
-                                        }
-                                    >
-                                        {item.captureStatus === "kept" ? (
-                                            <Inbox size={16} aria-hidden />
-                                        ) : (
-                                            <StickyNote size={16} aria-hidden />
-                                        )}
-                                        {item.captureStatus === "kept" ? "Back to New" : "Keep as a note"}
-                                    </Menu.Item>
-                                </>
-                            )}
-                            {task && (
-                                <Menu.Item className="gap-2.5" disabled={disabled} onSelect={subtaskUi.startAdding}>
-                                    <ListChecks size={16} aria-hidden />
-                                    Add subtask
-                                </Menu.Item>
-                            )}
-                            <Menu.Item className="gap-2.5" onSelect={() => onToggleSelection?.()}>
-                                <CheckSquare size={16} aria-hidden />
-                                Select
-                            </Menu.Item>
-                            <Menu.Item className="gap-2.5" disabled={disabled} variant="danger" onSelect={discard}>
-                                <Trash2 size={16} aria-hidden />
-                                Discard
-                            </Menu.Item>
-                        </Menu.Content>
-                    </Menu.Root>
+                    <RowMenu
+                        item={item}
+                        task={task}
+                        title={title}
+                        disabled={disabled}
+                        place={place}
+                        discard={discard}
+                        status={status}
+                        subtaskUi={subtaskUi}
+                        onToggleSelection={onToggleSelection}
+                    />
                 </div>
                 {task && ((subtaskUi.open && subtasks.length > 0) || subtaskUi.adding) && (
                     // Under the checkbox (w-8 at the px-4/sm:px-5 edge, centred on the 44px title line), down past the subtasks.

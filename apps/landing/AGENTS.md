@@ -35,7 +35,7 @@ app/
 │                      # Chapter, Emilie (keystone chapter), Constellation (one <ul> over a compact faceted desktop atlas and a tall portrait chart with alternating labels),
 │                      # Finale (crown, soft sky, glass signup link and one reassurance) + FinaleLand (wooded valley, lamplit hamlet, boats; shared canvas for mobile crop),
 │                      # Sigil (rings of light; still `blossom` backdrop), Drift (particle sets; finale depth layers), Panel, journey.css (scroll-timeline motion)
-└── lib/               # site.ts (URLs + copy), legal/ (terms.ts, privacy.ts: the documents as data, shape in types.ts; edit the text there, never in LegalPage), cloudflare.ts (request context), intro.ts (head script: intro hold + return-visit flag),
+└── lib/               # site.ts (URLs + copy), legal/ (terms.ts, privacy.ts with its assistant sections in privacy-ai.ts: the documents as data, shape in types.ts; edit the text there, never in LegalPage), cloudflare.ts (request context), intro.ts (head script: intro hold + return-visit flag),
                        # geometry.ts (deterministic helpers), branch.ts (bough generator), viewport.ts (which sections are on screen:
                        # cached bounds + scroll, no IntersectionObserver), away.ts (`data-away` on <html> while the tab is hidden or unfocused)
 workers/app.ts         # Worker entry

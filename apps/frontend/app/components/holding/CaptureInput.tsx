@@ -128,6 +128,29 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         .split(/\r?\n/)
         .map((s) => s.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").trim())
         .filter(Boolean);
+    /**
+     * Decide on what Enter saves. The parser still loading (a cold open, typing fast) is the one wait,
+     * and only for a draft that could be a task.
+     */
+    const draftFor = (forceTask: boolean, split: boolean) => {
+        const mayBeTask = !split && (forceTask || picked !== null || isTaskLine(value));
+        if (!mayBeTask) return null;
+        return nlp.ready ? nlp : nlp.finalize();
+    };
+    /** Saves one line as a capture, then (as a task) places it. */
+    const saveLine = async (text: string, draft: Awaited<ReturnType<typeof draftFor>>, task: boolean) => {
+        // Offline the create is queued and returns nothing, but the id is ours,
+        // so "as task" can still be queued right behind it.
+        const id = savedCapture.current?.id ?? crypto.randomUUID();
+        const item = savedCapture.current ?? (await create.mutateAsync({ id, rawText: text, placing: task }));
+        if (task) {
+            savedCapture.current = item ?? savedCapture.current;
+            // What is shown is what is sent, and the server stores it as sent. A task always has its draft.
+            await process.mutateAsync(taskPayload(id, text, draft!, endDate, dateStyle));
+        }
+        savedCapture.current = undefined;
+        return item;
+    };
     /** Saves the draft: a task when it has a day (or `forceTask`, ⌘↵), else a thought; `split` saves each line as a thought. */
     const save = (forceTask = false, split = false) => {
         if (!value.trim() || busy) return;
@@ -136,23 +159,12 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             const original = value;
             let remaining = split ? lines : [value.trim()];
             try {
-                // Decide on what Enter saves. The parser still loading (a cold open, typing fast) is the one wait,
-                // and only for a draft that could be a task.
-                const mayBeTask = !split && (forceTask || picked !== null || isTaskLine(value));
-                const draft = !mayBeTask ? null : nlp.ready ? nlp : await nlp.finalize();
+                // Only a loading parser is awaited: a ready draft (or a thought) saves at once.
+                const pending = draftFor(forceTask, split);
+                const draft = pending instanceof Promise ? await pending : pending;
                 const task = draft !== null && (forceTask || isDated(draft.fields));
                 while (remaining.length) {
-                    const text = remaining[0];
-                    // Offline the create is queued and returns nothing, but the id is ours,
-                    // so "as task" can still be queued right behind it.
-                    const id = savedCapture.current?.id ?? crypto.randomUUID();
-                    const item = savedCapture.current ?? (await create.mutateAsync({ id, rawText: text, placing: task }));
-                    if (task) {
-                        savedCapture.current = item ?? savedCapture.current;
-                        // What is shown is what is sent, and the server stores it as sent.
-                        await process.mutateAsync(taskPayload(id, text, draft, endDate, dateStyle));
-                    }
-                    savedCapture.current = undefined;
+                    const item = await saveLine(remaining[0], draft, task);
                     remaining = remaining.slice(1);
                     setCount((c) => c + 1);
                     if (!split || !remaining.length) onSaved?.(item);

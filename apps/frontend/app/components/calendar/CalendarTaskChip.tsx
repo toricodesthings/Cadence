@@ -68,68 +68,25 @@ function LeadMark({ task, kind, compact }: { task: Task; kind: ScheduleKind; com
     );
 }
 
-export function CalendarTaskChip({
-    task,
-    variant,
-    onSelect,
-    onResize,
-    isSuggested,
-    style,
-    sourceId,
-    month = false,
-    fit = false,
-    tipSide = "right",
-    badge = false,
-}: CalendarTaskChipProps) {
-    const priority = (task.priority ?? 0) as TaskPriority;
-    const kind = scheduleKind(task);
-    const isRecurring = isRecurringTask(task) || isRecurringTaskInstance(task);
-    const isDone = task.state === "COMPLETE";
-    const isUnderNowLine = useIsUnderNowLine(task.scheduledStart, task.scheduledEnd, variant === "block");
-    const chipRef = useRef<HTMLDivElement | null>(null);
-    const presentation = useCalendarItemPresentation([task]);
-    const tone = calendarTone(task);
-
-    const { listeners, setNodeRef, transform, isDragging } = useDraggable({
-        id: `task-${task.id}`,
-        data: { taskId: task.id, sourceId: sourceId ?? null },
-        disabled: Boolean(task.isHabit || isRecurring),
-    });
-    const movable = !task.isHabit && !isRecurring;
-    const isNowLive = isUnderNowLine && !isDragging;
-    useEffect(() => {
-        if (isNowLive) syncNowSheen(chipRef.current);
-    }, [isNowLive]);
-
-    const dragStyle: CSSProperties = {
-        transform: CSS.Translate.toString(transform),
-        ...presentation.style,
-        ...style,
-        ...(isDragging ? { opacity: 0.35 } : {}),
-    };
-
-    const kindClasses =
-        kind === "routine"
-            ? "border-transparent"
-            : kind === "fixed"
-              ? `surface-chip border-twilight-border/30 ${FIXED_WASH}`
-              : `surface-chip border-twilight-border/30 ${PRIORITY_WASH[priority]}`;
-    const kindStyle: CSSProperties | undefined =
-        kind === "routine" ? { borderColor: `color-mix(in srgb, ${tone} 30%, transparent)` } : undefined;
+/** How a chip of this kind looks: its wash and border, edge bar, title and time colours. */
+function chipLook(kind: ScheduleKind, priority: TaskPriority, tone: string, isDone: boolean) {
+    const routine = kind === "routine";
+    const kindClasses = routine
+        ? "border-transparent"
+        : `surface-chip border-twilight-border/30 ${kind === "fixed" ? FIXED_WASH : PRIORITY_WASH[priority]}`;
+    const kindStyle: CSSProperties | undefined = routine ? { borderColor: `color-mix(in srgb, ${tone} 30%, transparent)` } : undefined;
     const barClass = kind === "fixed" ? "bg-moonlit/80" : kind === "task" ? PRIORITY_BAR[priority] : "";
     const titleClass = `${kind === "task" ? "text-twilight-text" : "text-twilight-text-soft"} ${isDone ? "line-through decoration-1" : ""}`;
     const timeClass = kind === "fixed" ? "text-moonlit" : "text-twilight-text-muted";
-    const open = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        onSelect(task.id);
-    };
+    return { kindClasses, kindStyle, barClass, titleClass, timeClass };
+}
 
-    // ── Resize handle state ──
+/** Bottom-edge resize: the snapped drag distance while it moves, and the new length on release. */
+function useChipResize(task: Task, onResize: CalendarTaskChipProps["onResize"]) {
     const [resizeDeltaPx, setResizeDeltaPx] = useState(0);
     const resizeStartY = useRef<number | null>(null);
-    const canResize = !!onResize && movable && !isDragging;
 
-    const handleResizePointerDown = useCallback((e: React.PointerEvent) => {
+    const onPointerDown = useCallback((e: React.PointerEvent) => {
         e.stopPropagation();
         e.preventDefault();
         resizeStartY.current = e.clientY;
@@ -137,7 +94,7 @@ export function CalendarTaskChip({
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
     }, []);
 
-    const handleResizePointerMove = useCallback((e: React.PointerEvent) => {
+    const onPointerMove = useCallback((e: React.PointerEvent) => {
         if (resizeStartY.current === null) return;
         const delta = e.clientY - resizeStartY.current;
         // Snap to slot increments
@@ -145,7 +102,7 @@ export function CalendarTaskChip({
         setResizeDeltaPx(Math.round(delta / slotPx) * slotPx);
     }, []);
 
-    const handleResizePointerUp = useCallback(
+    const onPointerUp = useCallback(
         (e: React.PointerEvent) => {
             if (resizeStartY.current === null) return;
             const delta = e.clientY - resizeStartY.current;
@@ -167,76 +124,110 @@ export function CalendarTaskChip({
         [onResize, task.id, task.scheduledStart, task.scheduledEnd],
     );
 
-    // ── PILL variant (Month view, All-Day lane) ─────────────────────────────
-    if (variant === "pill") {
-        return (
-            <CalendarItem task={task} onSelect={onSelect} tipSide={tipSide} dragging={isDragging}>
-                <motion.div
-                    ref={(el) => {
-                        setNodeRef(el);
-                        chipRef.current = el;
-                    }}
-                    style={{ ...dragStyle, ...kindStyle }}
-                    {...listeners}
-                    data-task-chip
-                    data-dnd-draggable={movable}
-                    className={`
-                        group relative ${fit ? "w-fit max-w-full" : "w-full"}
-                        rounded-full border px-3 py-1.5 text-[13px] font-medium
-                        ${movable ? "cursor-grab" : "cursor-pointer"} select-none ${kind === "routine" ? "" : "bg-transparent"}
-                        transition-[background-color,border-color,box-shadow,opacity] duration-150
-                        ${kindClasses} ${presentation.className}
-                        ${isDragging ? "z-50 shadow-[0_8px_24px_rgba(0,0,0,0.4)]" : ""}
-                        ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
-                    `}
-                    onClick={open}
-                >
-                    <div className="flex min-w-0 items-center gap-2">
-                        <LeadMark task={task} kind={kind} compact />
-                        <button
-                            type="button"
-                            onClick={open}
-                            className={`flex min-w-0 ${fit ? "" : "flex-1"} cursor-pointer items-center gap-1 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60 ${titleClass}`}
-                        >
-                            {month && task.scheduledStart ? (
-                                <span className={`shrink-0 tabular-nums ${timeClass}`}>
-                                    {formatChipTime(task.scheduledStart)}
-                                </span>
-                            ) : null}
-                            <span className="truncate">{task.title}</span>
-                        </button>
-                    </div>
-                </motion.div>
-            </CalendarItem>
-        );
-    }
+    return { resizeDeltaPx, handlers: { onPointerDown, onPointerMove, onPointerUp } };
+}
 
-    const startLabel = task.scheduledStart ? formatChipTime(task.scheduledStart) : null;
-    const rangeLabel = task.scheduledStart ? formatChipTime(task.scheduledStart, task.scheduledEnd) : null;
+/** The block's height while a resize drag is under way (never under 18px); unset when the style sets none. */
+function resizedHeight(style: CSSProperties | undefined, deltaPx: number): CSSProperties {
     const baseHeight = style?.height != null ? parseFloat(String(style.height)) : undefined;
-    const renderedHeight = baseHeight != null ? Math.max(18, baseHeight + resizeDeltaPx) : undefined;
+    return baseHeight != null ? { height: `${Math.max(18, baseHeight + deltaPx)}px` } : {};
+}
+
+/** What both chip shapes share: the task, its look, drag wiring and the open action. */
+type ChipParts = {
+    task: Task;
+    kind: ScheduleKind;
+    look: ReturnType<typeof chipLook>;
+    movable: boolean;
+    isDragging: boolean;
+    isSuggested?: boolean;
+    listeners: ReturnType<typeof useDraggable>["listeners"];
+    setRef: (el: HTMLDivElement | null) => void;
+    dragStyle: CSSProperties;
+    presentationClass: string;
+    open: (e: React.MouseEvent) => void;
+    onSelect: (taskId: string) => void;
+    tipSide: "left" | "right";
+};
+
+/** Month cells and the all-day lane: a rounded pill, the time first in Month. */
+function PillChip({ chip, fit, month }: { chip: ChipParts; fit: boolean; month: boolean }) {
+    const { task, kind, look, movable, isDragging, isSuggested, open } = chip;
+    const showTime = month && task.scheduledStart;
+    return (
+        <CalendarItem task={task} onSelect={chip.onSelect} tipSide={chip.tipSide} dragging={isDragging}>
+            <motion.div
+                ref={chip.setRef}
+                style={{ ...chip.dragStyle, ...look.kindStyle }}
+                {...chip.listeners}
+                data-task-chip
+                data-dnd-draggable={movable}
+                className={`
+                    group relative ${fit ? "w-fit max-w-full" : "w-full"}
+                    rounded-full border px-3 py-1.5 text-[13px] font-medium
+                    ${movable ? "cursor-grab" : "cursor-pointer"} select-none ${kind === "routine" ? "" : "bg-transparent"}
+                    transition-[background-color,border-color,box-shadow,opacity] duration-150
+                    ${look.kindClasses} ${chip.presentationClass}
+                    ${isDragging ? "z-50 shadow-[0_8px_24px_rgba(0,0,0,0.4)]" : ""}
+                    ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
+                `}
+                onClick={open}
+            >
+                <div className="flex min-w-0 items-center gap-2">
+                    <LeadMark task={task} kind={kind} compact />
+                    <button
+                        type="button"
+                        onClick={open}
+                        className={`flex min-w-0 ${fit ? "" : "flex-1"} cursor-pointer items-center gap-1 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60 ${look.titleClass}`}
+                    >
+                        {showTime ? (
+                            <span className={`shrink-0 tabular-nums ${look.timeClass}`}>
+                                {formatChipTime(showTime)}
+                            </span>
+                        ) : null}
+                        <span className="truncate">{task.title}</span>
+                    </button>
+                </div>
+            </motion.div>
+        </CalendarItem>
+    );
+}
+
+type BlockChipProps = {
+    chip: ChipParts;
+    style: CSSProperties | undefined;
+    badge: boolean;
+    isNowLive: boolean;
+    resizeDeltaPx: number;
+    /** The bottom-edge handle's pointer handlers; null when the block can't be resized. */
+    resizeHandlers: ReturnType<typeof useChipResize>["handlers"] | null;
+};
+
+/** Week and Day: an absolutely placed block with its times, resizable from the bottom edge. */
+function BlockChip({ chip, style, badge, isNowLive, resizeDeltaPx, resizeHandlers }: BlockChipProps) {
+    const { task, kind, look, movable, isDragging, isSuggested, open } = chip;
+    const start = task.scheduledStart;
+    const startLabel = start ? formatChipTime(start) : null;
+    const rangeLabel = start ? formatChipTime(start, task.scheduledEnd) : null;
     const blockStyle: CSSProperties = {
-        ...dragStyle,
-        ...kindStyle,
-        ...(renderedHeight != null ? { height: `${renderedHeight}px` } : {}),
+        ...chip.dragStyle,
+        ...look.kindStyle,
+        ...resizedHeight(style, resizeDeltaPx),
     };
 
     return (
-        <CalendarItem task={task} onSelect={onSelect} tipSide={tipSide} dragging={isDragging}>
+        <CalendarItem task={task} onSelect={chip.onSelect} tipSide={chip.tipSide} dragging={isDragging}>
             <motion.div
-                ref={(el) => {
-                    setNodeRef(el);
-                    chipRef.current = el;
-                }}
+                ref={chip.setRef}
                 style={blockStyle}
-                {...listeners}
+                {...chip.listeners}
                 data-task-chip
                 data-dnd-draggable={movable}
                 className={`
                     cal-chip group absolute overflow-hidden rounded-xl border
                     ${movable ? "cursor-grab" : "cursor-pointer"} select-none
                     transition-[border-color,box-shadow,opacity] duration-150
-                    ${kindClasses} ${presentation.className}
+                    ${look.kindClasses} ${chip.presentationClass}
                     ${isDragging ? "z-50 shadow-[0_16px_48px_rgba(0,0,0,0.5)]" : "z-10"}
                     ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
                     ${isNowLive ? "cadence-now-live-chip" : ""}
@@ -247,8 +238,8 @@ export function CalendarTaskChip({
                     className={`cal-chip-row absolute inset-0 flex items-center gap-1.5 pl-3 ${badge ? "pr-12" : "pr-1.5"}`}
                 >
                     {/* Edge bar: priority for a task, moonlit for Fixed */}
-                    {barClass ? (
-                        <div className={`absolute bottom-1.5 left-0 top-1.5 w-1 rounded-full ${barClass}`} />
+                    {look.barClass ? (
+                        <div className={`absolute bottom-1.5 left-0 top-1.5 w-1 rounded-full ${look.barClass}`} />
                     ) : null}
                     <span className="cal-chip-lead flex shrink-0">
                         <LeadMark task={task} kind={kind} />
@@ -259,27 +250,25 @@ export function CalendarTaskChip({
                         aria-label={`Open details for ${task.title}`}
                         className="cal-chip-body flex min-w-0 flex-1 cursor-[inherit] rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/60"
                     >
-                        <span className={`cal-chip-title text-[12px] font-medium leading-tight ${titleClass}`}>
+                        <span className={`cal-chip-title text-[12px] font-medium leading-tight ${look.titleClass}`}>
                             {task.title}
                         </span>
                         {startLabel ? (
-                            <span className={`cal-chip-time-start text-[11px] leading-tight ${timeClass}`}>
+                            <span className={`cal-chip-time-start text-[11px] leading-tight ${look.timeClass}`}>
                                 {startLabel}
                             </span>
                         ) : null}
                         {rangeLabel ? (
-                            <span className={`cal-chip-time text-[11px] leading-tight ${timeClass}`}>{rangeLabel}</span>
+                            <span className={`cal-chip-time text-[11px] leading-tight ${look.timeClass}`}>{rangeLabel}</span>
                         ) : null}
                     </button>
                 </div>
 
                 {/* Bottom-edge resize handle */}
-                {canResize && (
+                {resizeHandlers && (
                     <div
                         className="group/resize absolute z-20 bottom-0 left-2 right-2 flex h-2 cursor-s-resize items-center justify-center"
-                        onPointerDown={handleResizePointerDown}
-                        onPointerMove={handleResizePointerMove}
-                        onPointerUp={handleResizePointerUp}
+                        {...resizeHandlers}
                         data-no-dnd="true"
                     >
                         <div className="h-0.5 w-8 rounded-full bg-transparent transition-colors group-hover/resize:bg-twilight-text-muted/30" />
@@ -287,6 +276,81 @@ export function CalendarTaskChip({
                 )}
             </motion.div>
         </CalendarItem>
+    );
+}
+
+export function CalendarTaskChip({
+    task,
+    variant,
+    onSelect,
+    onResize,
+    isSuggested,
+    style,
+    sourceId,
+    month = false,
+    fit = false,
+    tipSide = "right",
+    badge = false,
+}: CalendarTaskChipProps) {
+    const priority = (task.priority ?? 0) as TaskPriority;
+    const kind = scheduleKind(task);
+    const isRecurring = isRecurringTask(task) || isRecurringTaskInstance(task);
+    const isUnderNowLine = useIsUnderNowLine(task.scheduledStart, task.scheduledEnd, variant === "block");
+    const chipRef = useRef<HTMLDivElement | null>(null);
+    const presentation = useCalendarItemPresentation([task]);
+    const look = chipLook(kind, priority, calendarTone(task), task.state === "COMPLETE");
+
+    const movable = !task.isHabit && !isRecurring;
+    const { listeners, setNodeRef, transform, isDragging } = useDraggable({
+        id: `task-${task.id}`,
+        data: { taskId: task.id, sourceId: sourceId ?? null },
+        disabled: !movable,
+    });
+    const isNowLive = isUnderNowLine && !isDragging;
+    useEffect(() => {
+        if (isNowLive) syncNowSheen(chipRef.current);
+    }, [isNowLive]);
+    const resize = useChipResize(task, onResize);
+
+    const chip: ChipParts = {
+        task,
+        kind,
+        look,
+        movable,
+        isDragging,
+        isSuggested,
+        listeners,
+        setRef: (el) => {
+            setNodeRef(el);
+            chipRef.current = el;
+        },
+        dragStyle: {
+            transform: CSS.Translate.toString(transform),
+            ...presentation.style,
+            ...style,
+            ...(isDragging ? { opacity: 0.35 } : {}),
+        },
+        presentationClass: presentation.className,
+        open: (e) => {
+            e.stopPropagation();
+            onSelect(task.id);
+        },
+        onSelect,
+        tipSide,
+    };
+
+    // ── PILL variant (Month view, All-Day lane) ─────────────────────────────
+    if (variant === "pill") return <PillChip chip={chip} fit={fit} month={month} />;
+    const canResize = !!onResize && movable && !isDragging;
+    return (
+        <BlockChip
+            chip={chip}
+            style={style}
+            badge={badge}
+            isNowLive={isNowLive}
+            resizeDeltaPx={resize.resizeDeltaPx}
+            resizeHandlers={canResize ? resize.handlers : null}
+        />
     );
 }
 

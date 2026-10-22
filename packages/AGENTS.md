@@ -64,7 +64,7 @@ This is asserted at compile time in
 `apps/backend/tests/unit/contract-parity.test.ts` (one `expectTypeOf(...)
 .toEqualTypeOf(...)` per table). A column rename/add/nullability
 change now fails `tsc` there instead of silently breaking a client. **When you
-touch `apps/backend/src/db/schema.ts`, update the matching `xRowSchema` in the
+touch the schema (`apps/backend/src/db/schema/`), update the matching `xRowSchema` in the
 same change.** Watch DB nullability: a Drizzle column with `.default()` but
 **without** `.notNull()` is `T | null` — model it `.nullable()`, not required.
 

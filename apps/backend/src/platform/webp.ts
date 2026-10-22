@@ -76,6 +76,28 @@ function readChunks(bytes: Uint8Array, label: string): Chunk[] {
     return chunks;
 }
 
+function webpErrors(label: string, maxDimension: number) {
+    return {
+        notStill: () => unsupported(`${label} must be a still WebP image`),
+        animated: () => unsupported(`${label} can't be animated`),
+        tooLarge: () => new AppError(413, "IMAGE_TOO_LARGE", `${label} can be at most ${maxDimension}px on a side`),
+    };
+}
+
+/** The one still image's dimensions, from its bitstream header; throws for anything else. */
+function stillDimensions(bytes: Uint8Array, chunks: Chunk[], label: string, maxDimension: number) {
+    const { notStill, animated, tooLarge } = webpErrors(label, maxDimension);
+    if (chunks.some((chunk) => chunk.type === "ANIM" || chunk.type === "ANMF")) throw animated();
+    const images = chunks.filter((chunk) => IMAGE_CHUNKS.has(chunk.type));
+    if (images.length !== 1) throw notStill();
+
+    const image = images[0];
+    const dims = bitstreamDimensions(image.type, bytes.subarray(image.start + 8, image.end));
+    if (!dims || dims.width === 0 || dims.height === 0) throw notStill();
+    if (dims.width > maxDimension || dims.height > maxDimension) throw tooLarge();
+    return dims;
+}
+
 /**
  * Validate a WebP and return a copy without metadata chunks, plus its size.
  * Throws `UNSUPPORTED_IMAGE` (415) for anything that is not one still WebP frame,
@@ -86,21 +108,10 @@ export function sanitizeStillWebp(
     bytes: Uint8Array,
     { maxDimension, label }: StillWebpOptions,
 ): { bytes: Uint8Array<ArrayBuffer>; width: number; height: number } {
-    const notStill = () => unsupported(`${label} must be a still WebP image`);
-    const animated = () => unsupported(`${label} can't be animated`);
-    const tooLarge = () => new AppError(413, "IMAGE_TOO_LARGE", `${label} can be at most ${maxDimension}px on a side`);
-
+    const { notStill, animated, tooLarge } = webpErrors(label, maxDimension);
     if (bytes.length < 20 || fourcc(bytes, 0) !== "RIFF" || fourcc(bytes, 8) !== "WEBP") throw notStill();
     const chunks = readChunks(bytes, label);
-
-    if (chunks.some((chunk) => chunk.type === "ANIM" || chunk.type === "ANMF")) throw animated();
-    const images = chunks.filter((chunk) => IMAGE_CHUNKS.has(chunk.type));
-    if (images.length !== 1) throw notStill();
-
-    const image = images[0];
-    const dims = bitstreamDimensions(image.type, bytes.subarray(image.start + 8, image.end));
-    if (!dims || dims.width === 0 || dims.height === 0) throw notStill();
-    if (dims.width > maxDimension || dims.height > maxDimension) throw tooLarge();
+    const dims = stillDimensions(bytes, chunks, label, maxDimension);
 
     const kept = chunks.filter((chunk) => KEPT_CHUNKS.has(chunk.type));
     const padded = (chunk: Chunk) => chunk.end - chunk.start + ((chunk.end - chunk.start) % 2);

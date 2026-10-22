@@ -18,7 +18,7 @@ import { createSectionSchema } from "@cadence/contracts/section";
 import { insertProjectSchema } from "@cadence/contracts/project";
 
 const SECTION_LIMIT = 200;
-const namePattern = (query: string) => `%${query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+const namePattern = (query: string) => `%${query.replace(/[\\%_]/g, "\\$&")}%`;
 const offsetSchema = z.number().int().min(0).max(2_147_483_647).optional();
 const sectionName = createSectionSchema.shape.name;
 const colorAccent = z.enum(ACCENT_COLORS);

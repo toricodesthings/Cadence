@@ -44,6 +44,18 @@ function assertDay(value: string | null | undefined, field: string): LocalDate |
     return value;
 }
 
+/** A timed block's stored shape: valid instants (end not before start), no endDate, and a real zone. */
+function timedTemporal(start: string, end: string | null, { dueDate, endDate, zone }: { dueDate: LocalDate | null; endDate: LocalDate | null; zone: string }): TaskTemporal {
+    assertInstant(start, "scheduledStart");
+    if (end) {
+        assertInstant(end, "scheduledEnd");
+        if (Date.parse(end) < Date.parse(start)) throw new DomainError("INVALID_TASK_SCHEDULE", "scheduledEnd must not be earlier than scheduledStart");
+    }
+    if (endDate) throw new DomainError("INVALID_TASK_SCHEDULE", "A timed task has no endDate; use scheduledEnd");
+    if (!isZone(zone)) throw new DomainError("INVALID_TASK_SCHEDULE", "zone must be an IANA time zone");
+    return { dueDate, endDate: null, scheduledStart: start, scheduledEnd: end, zone };
+}
+
 /** Validate a task write (LocalDates and instants) into its stored shape (`zone` is the user's zone). */
 export function normalizeTaskTemporalFields(fields: TaskTemporalFields, zone: Zone): TaskTemporal {
     if (!isZone(zone)) throw new DomainError("INVALID_TASK_SCHEDULE", "A time zone is required");
@@ -53,17 +65,7 @@ export function normalizeTaskTemporalFields(fields: TaskTemporalFields, zone: Zo
     const endDate = assertDay(fields.endDate, "endDate");
 
     // A timed block: instants plus the zone it was planned in.
-    if (start) {
-        assertInstant(start, "scheduledStart");
-        if (end) {
-            assertInstant(end, "scheduledEnd");
-            if (Date.parse(end) < Date.parse(start)) throw new DomainError("INVALID_TASK_SCHEDULE", "scheduledEnd must not be earlier than scheduledStart");
-        }
-        if (endDate) throw new DomainError("INVALID_TASK_SCHEDULE", "A timed task has no endDate; use scheduledEnd");
-        const taskZone = fields.zone ?? zone;
-        if (!isZone(taskZone)) throw new DomainError("INVALID_TASK_SCHEDULE", "zone must be an IANA time zone");
-        return { dueDate, endDate: null, scheduledStart: start, scheduledEnd: end, zone: taskZone };
-    }
+    if (start) return timedTemporal(start, end, { dueDate, endDate, zone: fields.zone ?? zone });
     if (end) throw new DomainError("INVALID_TASK_SCHEDULE", "scheduledEnd needs a scheduledStart");
 
     // An all-day task: a day, and for a multi-day task its inclusive last day.

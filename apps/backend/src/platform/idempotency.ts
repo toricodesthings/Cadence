@@ -27,7 +27,8 @@ export async function checkIdempotency(
 
     // Serialize retries of the same key until this transaction ends, so a
     // concurrent duplicate waits and then sees the first one's record.
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${userId}:${idempotencyKey}`}, 0))`);
+    const lockKey = `${userId}:${idempotencyKey}`;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
 
     const [existing] = await tx
         .select({ resultId: mutationDedup.resultId })

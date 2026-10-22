@@ -141,6 +141,37 @@ export function NoteEditor({
         setSlash(null);
     }, []);
 
+    /** Keys while the slash menu is open: move, pick, close. Undefined for any other key. */
+    const slashKey = useCallback((event: KeyboardEvent): boolean | undefined => {
+        const list = matchesRef.current;
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            if (list.length) {
+                const step = event.key === "ArrowDown" ? 1 : -1;
+                slashIndexRef.current = (slashIndexRef.current + step + list.length) % list.length;
+                setSlashIndex(slashIndexRef.current);
+            }
+            return true;
+        }
+        if (event.key === "Enter" || event.key === "Tab") {
+            if (!list.length) return false;
+            pickSlash(list[Math.min(slashIndexRef.current, list.length - 1)]);
+            return true;
+        }
+        if (event.key === "Escape") {
+            dismissSlash();
+            return true;
+        }
+        return undefined;
+    }, [dismissSlash, pickSlash]);
+
+    /** ⌘/Ctrl shortcuts: S saves, F finds, K links. */
+    const shortcutKey = useCallback((key: string) => {
+        if (key === "s") { handlers.current.onSave?.(); return true; }
+        if (key === "f") { handlers.current.onFind?.(); return true; }
+        if (key === "k") { setLinkOpen(true); return true; }
+        return false;
+    }, []);
+
     const editor = useEditor({
         extensions: [...noteExtensions(placeholder), NoteFind],
         content: markdownToDoc(session.getSnapshot().body),
@@ -156,36 +187,12 @@ export function NoteEditor({
                 spellcheck: "true",
             },
             handleKeyDown: (_view, event) => {
-                const mod = event.metaKey || event.ctrlKey;
-                const key = event.key.toLowerCase();
-                const open = slashRef.current;
-                if (open && !event.isComposing) {
-                    const list = matchesRef.current;
-                    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                        if (list.length) {
-                            const step = event.key === "ArrowDown" ? 1 : -1;
-                            slashIndexRef.current = (slashIndexRef.current + step + list.length) % list.length;
-                            setSlashIndex(slashIndexRef.current);
-                        }
-                        return true;
-                    }
-                    if (event.key === "Enter" || event.key === "Tab") {
-                        if (list.length) {
-                            pickSlash(list[Math.min(slashIndexRef.current, list.length - 1)]);
-                            return true;
-                        }
-                        return false;
-                    }
-                    if (event.key === "Escape") {
-                        dismissSlash();
-                        return true;
-                    }
+                if (slashRef.current && !event.isComposing) {
+                    const handled = slashKey(event);
+                    if (handled !== undefined) return handled;
                 }
-                if (!mod || event.isComposing) return false;
-                if (key === "s") { handlers.current.onSave?.(); return true; }
-                if (key === "f") { handlers.current.onFind?.(); return true; }
-                if (key === "k") { setLinkOpen(true); return true; }
-                return false;
+                if (!(event.metaKey || event.ctrlKey) || event.isComposing) return false;
+                return shortcutKey(event.key.toLowerCase());
             },
             handleClick: (view, pos, event) => {
                 // A plain tap just places the caret; following a link is explicit (⌘/Ctrl-click, or Open in the link editor).

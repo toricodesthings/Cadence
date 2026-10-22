@@ -34,6 +34,19 @@ const DEADLINE_DAYS = 7;
 const DECLINES_TO_STOP = 3;
 const STOP_WINDOW_DAYS = 30;
 
+/** A waiting task neither hidden now nor due within the week (Leave for later would hide it past its day). */
+function fitsLater(t: OfferTask, today: LocalDate): boolean {
+    const hidden = !!t.notBefore && t.notBefore > today;
+    const nearDeadline = !!t.dueDate && t.dueDate <= addDays(today, DEADLINE_DAYS);
+    return !hidden && !nearDeadline;
+}
+
+/** A task with no open steps, moved often enough on enough different days lately. */
+function fitsSteps(t: OfferTask, today: LocalDate): boolean {
+    const recent = t.movedOn.filter((d) => d > addDays(today, -MOVE_WINDOW_DAYS) && d <= today);
+    return t.openSteps === 0 && recent.length >= MIN_MOVES && new Set(recent).size >= MIN_MOVE_DAYS;
+}
+
 export function eligibleOffers(
     tasks: readonly OfferTask[],
     ctx: { today: LocalDate; declines: readonly OfferDecline[]; avoid: readonly PlanningOffer[] },
@@ -45,17 +58,15 @@ export function eligibleOffers(
         new Set(declines.filter((d) => d.kind === kind && d.saidOn > addDays(today, -STOP_WINDOW_DAYS)).map((d) => d.taskId)).size >= DECLINES_TO_STOP;
     const declined = (t: OfferTask, kind: PlanningOffer) => declines.some((d) => d.taskId === t.id && d.kind === kind && d.fingerprint === t.fingerprint);
 
+    const offered = (t: OfferTask, kind: PlanningOffer) => !stopped(kind) && !declined(t, kind);
+
     for (const t of tasks) {
         if (t.state === "COMPLETE" || t.state === "ARCHIVED") continue;
-        const waiting = t.state === "WAITING";
-        if (waiting) {
-            const hidden = !!t.notBefore && t.notBefore > today;
-            const nearDeadline = !!t.dueDate && t.dueDate <= addDays(today, DEADLINE_DAYS);
-            if (!hidden && !nearDeadline && !stopped("later") && !declined(t, "later")) out.later.push(t.id);
+        if (t.state === "WAITING") {
+            if (fitsLater(t, today) && offered(t, "later")) out.later.push(t.id);
             continue;
         }
-        const recent = t.movedOn.filter((d) => d > addDays(today, -MOVE_WINDOW_DAYS) && d <= today);
-        if (t.openSteps === 0 && recent.length >= MIN_MOVES && new Set(recent).size >= MIN_MOVE_DAYS && !stopped("steps") && !declined(t, "steps")) out.steps.push(t.id);
+        if (fitsSteps(t, today) && offered(t, "steps")) out.steps.push(t.id);
     }
     return out;
 }

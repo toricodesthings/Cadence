@@ -93,6 +93,29 @@ export interface NewFact {
     key?: string;
 }
 
+/** The row a new fact inserts; optional fields default to empty. */
+function newFactRow(userId: string, fact: NewFact, hash: string) {
+    const { value = null, embedding = null, embeddingModel = null, validThrough = null, sensitive = false, pinned = false, conversationId = null, messageId = null } = fact;
+    return {
+        userId,
+        kind: fact.kind,
+        content: fact.content,
+        value,
+        embedding,
+        embeddingModel: embedding ? embeddingModel : null,
+        contentHash: hash,
+        saidOn: fact.saidOn,
+        lastSeenOn: fact.saidOn,
+        validThrough,
+        source: fact.source,
+        confidence: fact.confidence,
+        sensitive,
+        pinned,
+        sourceConversationId: conversationId,
+        sourceMessageId: messageId,
+    };
+}
+
 /**
  * Inserts a fact. An exact repeat (same normalized text) of an active fact reinforces it instead;
  * a repeat of a forgotten one is refused (`null`), so a forgotten thing isn't relearned.
@@ -112,24 +135,7 @@ export async function insertFact(tx: Tx, userId: string, fact: NewFact): Promise
     }
     const [row] = await tx
         .insert(aiMemories)
-        .values({
-            userId,
-            kind: fact.kind,
-            content: fact.content,
-            value: fact.value ?? null,
-            embedding: fact.embedding ?? null,
-            embeddingModel: fact.embedding ? fact.embeddingModel ?? null : null,
-            contentHash: hash,
-            saidOn: fact.saidOn,
-            lastSeenOn: fact.saidOn,
-            validThrough: fact.validThrough ?? null,
-            source: fact.source,
-            confidence: fact.confidence,
-            sensitive: fact.sensitive ?? false,
-            pinned: fact.pinned ?? false,
-            sourceConversationId: fact.conversationId ?? null,
-            sourceMessageId: fact.messageId ?? null,
-        })
+        .values(newFactRow(userId, fact, hash))
         // Two writers saving the same new words at once (a chat and a note, or `remember` and the job): the
         // second waits for the first to commit, inserts nothing, and reinforces the row the first one made.
         .onConflictDoNothing({ target: [aiMemories.userId, aiMemories.contentHash], where: sql`${aiMemories.status} = 'active'` })
@@ -412,7 +418,7 @@ export async function mergeFacts(tx: Tx, userId: string, keepId: string, dropId:
     await tx
         .update(aiMemories)
         .set({
-            saidOn: keep.saidOn < drop.saidOn ? keep.saidOn : drop.saidOn,
+            saidOn: [keep.saidOn, drop.saidOn].sort()[0],
             seenCount: keep.seenCount + drop.seenCount,
             pinned: keep.pinned || drop.pinned,
             updatedAt: sql`now()`,

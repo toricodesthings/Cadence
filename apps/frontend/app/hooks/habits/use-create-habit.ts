@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
@@ -10,6 +10,60 @@ import { today as getToday } from "../../lib/utils/user-zone";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
 import { clientIdFor } from "../../lib/api/optimistic-id";
+
+/** The new routine as the caches show it until the server answers. */
+function optimisticHabitFrom(input: InsertHabit): Habit {
+    const {
+        description = null, steps = null, targetTime = null, reminderEnabled = false, colorAccent = "lantern",
+        targetTimes = null, times = null, emoji = null, projectId = null, sortOrder = Number.MAX_SAFE_INTEGER,
+        pausedUntil = null, tagIds = [],
+    } = input;
+    return {
+        id: clientIdFor(input),
+        userId: "",
+        title: input.title,
+        description,
+        archived: false,
+        notes: null,
+        steps,
+        recurrenceRule: input.recurrenceRule,
+        targetTime,
+        reminderEnabled,
+        colorAccent,
+        totalCompletions: 0,
+        totalSkips: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        targetTimes,
+        times,
+        emoji,
+        projectId,
+        // Last in a Custom order until the server picks its real place (also last).
+        sortOrder,
+        pausedUntil,
+        tagIds,
+        logs: [], // Will be empty until hydrated by weekly query
+    };
+}
+
+/** Adds the routine to every cached active-routines week that holds today. */
+function addToWeeks(queryClient: QueryClient, habit: Habit, today: string) {
+    queryClient
+        .getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll })
+        .forEach(([key, old]) => {
+            const filters = key[2] as { start?: string; end?: string } | undefined;
+            const archivedFlag = key.at(-1);
+            if (!filters?.start || !filters?.end || archivedFlag !== false) return;
+            if (today < filters.start || today > filters.end) return;
+
+            queryClient.setQueryData(
+                key,
+                transformListCache(old, (items) => [...items, habit], { initialize: true }),
+            );
+        });
+}
 
 export function useCreateHabit() {
     const client = useApiClient();
@@ -32,34 +86,7 @@ export function useCreateHabit() {
             await habitCache.cancel(queryClient);
             const snapshot = habitCache.snapshot(queryClient);
 
-            const optimisticHabit: Habit = {
-                id: clientIdFor(input),
-                userId: "",
-                title: input.title,
-                description: input.description ?? null,
-                archived: false,
-                notes: null,
-                steps: input.steps ?? null,
-                recurrenceRule: input.recurrenceRule,
-                targetTime: input.targetTime ?? null,
-                reminderEnabled: input.reminderEnabled ?? false,
-                colorAccent: input.colorAccent ?? "lantern",
-                totalCompletions: 0,
-                totalSkips: 0,
-                currentStreak: 0,
-                longestStreak: 0,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                targetTimes: input.targetTimes ?? null,
-                times: input.times ?? null,
-                emoji: input.emoji ?? null,
-                projectId: input.projectId ?? null,
-                // Last in a Custom order until the server picks its real place (also last).
-                sortOrder: input.sortOrder ?? Number.MAX_SAFE_INTEGER,
-                pausedUntil: input.pausedUntil ?? null,
-                tagIds: input.tagIds ?? [],
-                logs: [], // Will be empty until hydrated by weekly query
-            };
+            const optimisticHabit = optimisticHabitFrom(input);
 
             queryClient.setQueriesData<Habit[]>(
                 { queryKey: queryKeys.habits.all, exact: true },
@@ -72,19 +99,7 @@ export function useCreateHabit() {
                 logs: [{ id: `virtual-${optimisticHabit.id}-${today}`, habitId: optimisticHabit.id, status: "PENDING", targetDate: today, completedAt: null }],
             };
 
-            queryClient
-                .getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll })
-                .forEach(([key, old]) => {
-                    const filters = key[2] as { start?: string; end?: string } | undefined;
-                    const archivedFlag = key.at(-1);
-                    if (!filters?.start || !filters?.end || archivedFlag !== false) return;
-                    if (today < filters.start || today > filters.end) return;
-
-                    queryClient.setQueryData(
-                        key,
-                        transformListCache(old, (items) => [...items, optimisticWithLog], { initialize: true }),
-                    );
-                });
+            addToWeeks(queryClient, optimisticWithLog, today);
 
             return { snapshot, optimisticId: optimisticHabit.id };
         },

@@ -67,9 +67,8 @@ function formatDateTime(iso: string) {
 }
 
 /** Full task editing panel — notes-first design; metadata revealed on demand */
-export function TaskEditor({ taskId, ...props }: TaskEditorProps) {
+export function TaskEditor({ taskId, onClose, detailMode, onDetailModeChange }: TaskEditorProps) {
     const task = useTask(taskId);
-    const { onClose } = props;
 
     // Removed from elsewhere (assistant, another view): the panel closes instead of staying on a gone task.
     const wasLive = useRef(false);
@@ -85,7 +84,7 @@ export function TaskEditor({ taskId, ...props }: TaskEditorProps) {
             role="complementary"
             aria-label="Task details"
         >
-            {task ? <TaskEditorBody task={task} {...props} /> : <TaskEditorSkeleton />}
+            {task ? <TaskEditorBody task={task} onClose={onClose} detailMode={detailMode} onDetailModeChange={onDetailModeChange} /> : <TaskEditorSkeleton />}
         </div>
     );
 }
@@ -107,12 +106,14 @@ function TaskEditorSkeleton() {
     );
 }
 
+type TaskEditorBodyProps = Omit<TaskEditorProps, "taskId"> & { task: Task };
+
 function TaskEditorBody({
     task,
     onClose,
     detailMode = "peek",
     onDetailModeChange,
-}: Omit<TaskEditorProps, "taskId"> & { task: Task }) {
+}: TaskEditorBodyProps) {
     const taskId = task.id;
     // Below the wide layout this panel is a modal overlay (everything behind it is inert): it steps aside so the room above it is usable.
     const { isWide } = useShellMode();
@@ -289,18 +290,77 @@ function TaskEditorBody({
     );
 }
 
+type TaskDetailsFieldsProps = { task: Task; onDone: () => void; onClose: () => void };
+
 /** The Details pane: state, when, weight and where the task lives. */
-function TaskDetailsFields({ task, onDone, onClose }: { task: Task; onDone: () => void; onClose: () => void }) {
-    const { data: projects } = useProjects();
-    const { data: sections = [] } = useSections(task.projectId);
+function TaskDetailsFields({ task, onDone, onClose }: TaskDetailsFieldsProps) {
+    return (
+        <>
+        <div className="px-4 pb-1 pt-3">
+            <PanelHeader title="Details" onDone={onDone} />
+        </div>
+
+        <StatusGroup task={task} onClose={onClose} />
+        <WhenGroup task={task} />
+        <WeightGroup task={task} />
+        <OrganizeGroup task={task} />
+        </>
+    );
+}
+
+type WaitingFieldsProps = { task: Task; waitingOn: string; onWaitingOnChange: (e: React.ChangeEvent<HTMLInputElement>) => void };
+
+/** Who or what it waits on, and when to check again. */
+function WaitingFields({ task, waitingOn, onWaitingOnChange: handleWaitingOnChange }: WaitingFieldsProps) {
+    const updateTask = useUpdateTask();
+    return (
+        <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+        >
+            <div className="mt-1 flex flex-col gap-1 rounded-xl bg-white/[0.03] px-3 py-2">
+                <div data-focus-container className="flex min-h-10 items-center gap-2">
+                    <Clock size={14} className="shrink-0 text-twilight-text-muted opacity-70" aria-hidden="true" />
+                    <input
+                        type="text"
+                        value={waitingOn}
+                        onChange={handleWaitingOnChange}
+                        aria-label="Waiting on"
+                        placeholder="Waiting on who or what?"
+                        className="min-w-0 flex-1 bg-transparent text-[13px] text-twilight-text-soft outline-none placeholder:text-twilight-text-muted/60"
+                    />
+                </div>
+                <div className="flex min-h-10 items-center gap-2">
+                    <Bell size={14} className="shrink-0 text-twilight-text-muted opacity-70" aria-hidden="true" />
+                    <DeadlinePickerPopover
+                        dueDate={null}
+                        scheduledStart={task.waitingReminder ?? null}
+                        recurrenceRule={null}
+                        variant="moment"
+                        onChange={(updates) => updateTask.mutate({ id: task.id, waitingReminder: updates.scheduledStart })}
+                    >
+                        <button type="button" className={`${VALUE_BTN} -ml-2.5`}>
+                            {task.waitingReminder ? `Check again ${formatDateTime(task.waitingReminder)}` : "Set a check-in reminder"}
+                        </button>
+                    </DeadlinePickerPopover>
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
+type StatusGroupProps = { task: Task; onClose: () => void };
+
+/** State (Fixed blocks are an anchor, never complete), how long it took, waiting, and what kind of repeat it is. */
+function StatusGroup({ task, onClose }: StatusGroupProps) {
     const updateTask = useUpdateTask();
     const convertRepeat = useConvertRepeat();
-    const addTagAssoc = useAddTaskTag();
-    const removeTagAssoc = useRemoveTaskTag();
-    const [waitingOn, setWaitingOn] = useState(task.waitingOn ?? "");
-    const [reminderOpen, setReminderOpen] = useState(false);
     const { data: settings } = useSettings();
-    const morningTime = settings?.notifications?.morningTime ?? "09:00";
+    const [waitingOn, setWaitingOn] = useState(task.waitingOn ?? "");
+    const isPassiveTimetable = isPassiveTimetableTask(task);
+    const canToggleInteractionMode = Boolean(task.recurrenceRule && task.scheduledStart);
 
     // Sync waitingOn when the task changes
     useEffect(() => {
@@ -316,58 +376,11 @@ function TaskDetailsFields({ task, onDone, onClose }: { task: Task; onDone: () =
         debouncedSaveWaitingOn(e.target.value);
     };
 
-    const handlePriorityChange = (priority: TaskPriority) => {
-        updateTask.mutate({ id: task.id, priority });
-    };
-
     const handleStateChange = (state: TaskState) => {
         updateTask.mutate({ id: task.id, state });
     };
 
-    const handleEffortChange = (level: EffortLevel) => {
-        const next = task.effort === level ? null : level;
-        updateTask.mutate({ id: task.id, effort: next, ...(next && { effortOrigin: "manual" as const }) });
-    };
-
-    const handlePinToggle = () => {
-        updateTask.mutate({ id: task.id, isPinned: !task.isPinned });
-    };
-
-    const deadlineInstant = deadlineReminderAt(task, morningTime);
-    const setReminder = (reminderAt: string | null) => {
-        updateTask.mutate({ id: task.id, reminderAt, reminderSilenced: false });
-    };
-    const handleReminderSwitch = (on: boolean) => {
-        if (!on) return setReminder(null);
-        if (deadlineInstant) return setReminder(deadlineInstant);
-        setReminderOpen(true); // nothing to follow: ask when
-    };
-
-    const handleDeadlineChange = (updates: ScheduleUpdates) => {
-        updateTask.mutate({ id: task.id, ...updates });
-    };
-
-    const scheduleSummary = getTaskScheduleSummary(task);
-    const recurrenceSummary = getTaskRecurrenceSummary(task);
-    const isPassiveTimetable = isPassiveTimetableTask(task);
-    const canToggleInteractionMode = Boolean(task.recurrenceRule && task.scheduledStart);
-    // Timetable blocks get direct start/end/day editing instead of the date popover alone.
-    const isTimetableBlock = isPassiveTimetable && canToggleInteractionMode;
-    const scheduleLabel = recurrenceSummary?.label ?? scheduleSummary?.primaryLabel ?? "No schedule";
-    const scheduleFieldLabel = isRecurringTask(task)
-        ? "Series"
-        : scheduleSummary?.isDuration
-            ? "Duration"
-            : scheduleSummary?.isTimed
-                ? (isPassiveTimetable ? "Fixed time" : "Time block")
-                : "Deadline";
-
     return (
-        <>
-        <div className="px-4 pb-1 pt-3">
-            <PanelHeader title="Details" onDone={onDone} />
-        </div>
-
         <DetailGroup title="Status">
             <FieldBlock icon={CircleDot} label="State">
                 <div className="grid grid-cols-3 gap-1.5">
@@ -407,42 +420,7 @@ function TaskDetailsFields({ task, onDone, onClose }: { task: Task; onDone: () =
             {task.state === "COMPLETE" ? <TookRow taskId={task.id} completedAt={task.completedAt} enabled={settings?.assistant?.memoryMode === "full"} /> : null}
 
             <AnimatePresence>
-                {task.state === "WAITING" && (
-                    <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden"
-                    >
-                        <div className="mt-1 flex flex-col gap-1 rounded-xl bg-white/[0.03] px-3 py-2">
-                            <div data-focus-container className="flex min-h-10 items-center gap-2">
-                                <Clock size={14} className="shrink-0 text-twilight-text-muted opacity-70" aria-hidden="true" />
-                                <input
-                                    type="text"
-                                    value={waitingOn}
-                                    onChange={handleWaitingOnChange}
-                                    aria-label="Waiting on"
-                                    placeholder="Waiting on who or what?"
-                                    className="min-w-0 flex-1 bg-transparent text-[13px] text-twilight-text-soft outline-none placeholder:text-twilight-text-muted/60"
-                                />
-                            </div>
-                            <div className="flex min-h-10 items-center gap-2">
-                                <Bell size={14} className="shrink-0 text-twilight-text-muted opacity-70" aria-hidden="true" />
-                                <DeadlinePickerPopover
-                                    dueDate={null}
-                                    scheduledStart={task.waitingReminder ?? null}
-                                    recurrenceRule={null}
-                                    variant="moment"
-                                    onChange={(updates) => updateTask.mutate({ id: task.id, waitingReminder: updates.scheduledStart })}
-                                >
-                                    <button type="button" className={`${VALUE_BTN} -ml-2.5`}>
-                                        {task.waitingReminder ? `Check again ${formatDateTime(task.waitingReminder)}` : "Set a check-in reminder"}
-                                    </button>
-                                </DeadlinePickerPopover>
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
+                {task.state === "WAITING" && <WaitingFields task={task} waitingOn={waitingOn} onWaitingOnChange={handleWaitingOnChange} />}
             </AnimatePresence>
 
             {isRecurringTask(task) && (
@@ -466,7 +444,48 @@ function TaskDetailsFields({ task, onDone, onClose }: { task: Task; onDone: () =
                 </div>
             )}
         </DetailGroup>
+    );
+}
 
+/** "Series", "Duration", "Fixed time", "Time block" or "Deadline": what the When row edits. */
+function scheduleFieldLabelOf(task: Task, scheduleSummary: ReturnType<typeof getTaskScheduleSummary>, isPassiveTimetable: boolean) {
+    if (isRecurringTask(task)) return "Series";
+    if (scheduleSummary?.isDuration) return "Duration";
+    if (scheduleSummary?.isTimed) return isPassiveTimetable ? "Fixed time" : "Time block";
+    return "Deadline";
+}
+
+/** When it happens, how long it takes, its repeat, hide-until and reminder. */
+function WhenGroup({ task }: { task: Task }) {
+    const updateTask = useUpdateTask();
+    const [reminderOpen, setReminderOpen] = useState(false);
+    const { data: settings } = useSettings();
+    const morningTime = settings?.notifications?.morningTime ?? "09:00";
+
+    const deadlineInstant = deadlineReminderAt(task, morningTime);
+    const setReminder = (reminderAt: string | null) => {
+        updateTask.mutate({ id: task.id, reminderAt, reminderSilenced: false });
+    };
+    const handleReminderSwitch = (on: boolean) => {
+        if (!on) return setReminder(null);
+        if (deadlineInstant) return setReminder(deadlineInstant);
+        setReminderOpen(true); // nothing to follow: ask when
+    };
+
+    const handleDeadlineChange = (updates: ScheduleUpdates) => {
+        updateTask.mutate({ id: task.id, ...updates });
+    };
+
+    const scheduleSummary = getTaskScheduleSummary(task);
+    const recurrenceSummary = getTaskRecurrenceSummary(task);
+    const isPassiveTimetable = isPassiveTimetableTask(task);
+    const canToggleInteractionMode = Boolean(task.recurrenceRule && task.scheduledStart);
+    // Timetable blocks get direct start/end/day editing instead of the date popover alone.
+    const isTimetableBlock = isPassiveTimetable && canToggleInteractionMode;
+    const scheduleLabel = recurrenceSummary?.label ?? scheduleSummary?.primaryLabel ?? "No schedule";
+    const scheduleFieldLabel = scheduleFieldLabelOf(task, scheduleSummary, isPassiveTimetable);
+
+    return (
         <DetailGroup title="When">
             {isTimetableBlock ? (
                 <FieldRow icon={Calendar} label="Series">
@@ -546,7 +565,23 @@ function TaskDetailsFields({ task, onDone, onClose }: { task: Task; onDone: () =
                 </div>
             </FieldRow>
         </DetailGroup>
+    );
+}
 
+/** Priority and effort; choosing the current effort again clears it. */
+function WeightGroup({ task }: { task: Task }) {
+    const updateTask = useUpdateTask();
+
+    const handlePriorityChange = (priority: TaskPriority) => {
+        updateTask.mutate({ id: task.id, priority });
+    };
+
+    const handleEffortChange = (level: EffortLevel) => {
+        const next = task.effort === level ? null : level;
+        updateTask.mutate({ id: task.id, effort: next, ...(next && { effortOrigin: "manual" as const }) });
+    };
+
+    return (
         <DetailGroup title="Weight">
             <FieldBlock icon={PRIORITY_ICON} label="Priority">
                 <div className="grid grid-cols-5 gap-1.5">
@@ -592,7 +627,22 @@ function TaskDetailsFields({ task, onDone, onClose }: { task: Task; onDone: () =
                 </div>
             </FieldBlock>
         </DetailGroup>
+    );
+}
 
+/** Its list and section, tags, and pin. */
+function OrganizeGroup({ task }: { task: Task }) {
+    const { data: projects } = useProjects();
+    const { data: sections = [] } = useSections(task.projectId);
+    const updateTask = useUpdateTask();
+    const addTagAssoc = useAddTaskTag();
+    const removeTagAssoc = useRemoveTaskTag();
+
+    const handlePinToggle = () => {
+        updateTask.mutate({ id: task.id, isPinned: !task.isPinned });
+    };
+
+    return (
         <DetailGroup title="Organize">
             <FieldRow icon={FolderOpen} label="List">
                 <ValueSelect
@@ -630,6 +680,5 @@ function TaskDetailsFields({ task, onDone, onClose }: { task: Task; onDone: () =
                 />
             </FieldRow>
         </DetailGroup>
-        </>
     );
 }

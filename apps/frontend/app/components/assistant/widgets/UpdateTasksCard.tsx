@@ -36,59 +36,91 @@ function changePills(patch: TaskPatch): MaybePill[] {
     ];
 }
 
+/** The card's words for one task or several (counting only the rows still ticked). */
+function updateCardText(count: number, kept: number, title: string, updated: number | undefined) {
+    if (count > 1) {
+        return { eyebrow: `UPDATE ${count} TASKS`, primaryLabel: count > kept ? `Update ${kept}` : "Update", doneText: `Updated ${updated ?? count} tasks.` };
+    }
+    return { eyebrow: "TASK UPDATE", primaryLabel: "Update", doneText: `Updated “${title}”.` };
+}
+
+/** Tags the patch adds, then those it takes off. */
+function useTagChanges(patch: TaskPatch) {
+    const lookupTags = useTagsLookup();
+    return [
+        ...lookupTags(patch.addTagIds ?? []).map((tag) => ({ tag, added: true })),
+        ...lookupTags(patch.removeTagIds ?? []).map((tag) => ({ tag, added: false })),
+    ];
+}
+
+type UpdateTargetsProps = {
+    taskIds: string[];
+    title: string;
+    rename?: string;
+    off: ReadonlySet<number>;
+    onToggle: (i: number) => (() => void) | undefined;
+};
+
+/** One task by name (with its rename), or a row per task the user can untick. */
+function UpdateTargets({ taskIds, title, rename, off, onToggle }: UpdateTargetsProps) {
+    const lookupTitle = useTaskTitleLookup();
+    if (taskIds.length === 1) return <IdentityBlock title={title} subtitle={rename ? `Rename to “${rename}”` : undefined} />;
+    return (
+        <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5">
+            {taskIds.map((id, i) => (
+                <TickRow key={id} on={!off.has(i)} onToggle={onToggle(i)} label={`Update ${lookupTitle(id)}`}>
+                    {lookupTitle(id)}
+                </TickRow>
+            ))}
+        </div>
+    );
+}
+
+/** Every change as pills: time, destination (in the first task's list unless it moves), the rest, then tags. */
+function UpdatePills({ patch, firstTaskId }: { patch: TaskPatch; firstTaskId: string | undefined }) {
+    const lookupTask = useTaskLookup();
+    const tags = useTagChanges(patch);
+    const changesDestination = patch.projectId !== undefined || patch.sectionId !== undefined;
+    const projectId = patch.projectId !== undefined ? patch.projectId : lookupTask(firstTaskId!)?.projectId;
+    return (
+        <div className="flex flex-wrap gap-1.5">
+            <MetaPills pills={timePills(patch)} />
+            {changesDestination ? <TaskDestination projectId={projectId} sectionId={patch.sectionId} /> : null}
+            <MetaPills pills={changePills(patch)} />
+            {tags.map(({ tag, added }) => (
+                <TagPill key={tag.id} tag={tag} mark={added ? "add" : "remove"} />
+            ))}
+            <TagNamePills names={patch.addTagNames} mark="add" />
+        </div>
+    );
+}
+
 /** Card for `update_tasks` (design §4.1): what changes, on one task or on rows the user can untick. */
 export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext<"update_tasks"> }) {
     const lookupTitle = useTaskTitleLookup();
-    const lookupTask = useTaskLookup();
-    const lookupTags = useTagsLookup();
     const { off, onToggle, removed } = useUnticked(ctx);
     const taskIds: string[] = ctx.part?.input?.taskIds ?? [];
     const patch = ctx.part?.input?.patch ?? {};
     const count = taskIds.length;
-    const kept = count - off.size;
     const title = count === 1 ? lookupTitle(taskIds[0]) : `${count} tasks`;
     const notes = useNoteProposal(count === 1 ? taskIds[0] : undefined, patch);
 
-    const changesDestination = patch.projectId !== undefined || patch.sectionId !== undefined;
-    const projectId = patch.projectId !== undefined ? patch.projectId : lookupTask(taskIds[0])?.projectId;
-    const tags = [
-        ...lookupTags(patch.addTagIds ?? []).map((tag) => ({ tag, added: true })),
-        ...lookupTags(patch.removeTagIds ?? []).map((tag) => ({ tag, added: false })),
-    ];
-    const updated: number | undefined = ctx.part?.output?.updated;
+    const text = updateCardText(count, count - off.size, title, ctx.part?.output?.updated);
 
     return (
         <ApprovalCard
             ctx={ctx}
-            eyebrow={count > 1 ? `UPDATE ${count} TASKS` : "TASK UPDATE"}
+            eyebrow={text.eyebrow}
             eyebrowGlyph={Pencil}
             ariaLabel={`Update ${title}`}
-            primaryLabel={count > 1 && kept < count ? `Update ${kept}` : "Update"}
+            primaryLabel={text.primaryLabel}
             primaryGlyph={Check}
             removed={removed(taskIds.map(lookupTitle))}
-            doneText={count > 1 ? `Updated ${updated ?? count} tasks.` : `Updated “${title}”.`}
+            doneText={text.doneText}
             declinedText="Kept it as it was."
         >
-            {count === 1 ? (
-                <IdentityBlock title={title} subtitle={patch.title ? `Rename to “${patch.title}”` : undefined} />
-            ) : (
-                <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5">
-                    {taskIds.map((id, i) => (
-                        <TickRow key={id} on={!off.has(i)} onToggle={onToggle(i)} label={`Update ${lookupTitle(id)}`}>
-                            {lookupTitle(id)}
-                        </TickRow>
-                    ))}
-                </div>
-            )}
-            <div className="flex flex-wrap gap-1.5">
-                <MetaPills pills={timePills(patch)} />
-                {changesDestination ? <TaskDestination projectId={projectId} sectionId={patch.sectionId} /> : null}
-                <MetaPills pills={changePills(patch)} />
-                {tags.map(({ tag, added }) => (
-                    <TagPill key={tag.id} tag={tag} mark={added ? "add" : "remove"} />
-                ))}
-                <TagNamePills names={patch.addTagNames} mark="add" />
-            </div>
+            <UpdateTargets taskIds={taskIds} title={title} rename={patch.title} off={off} onToggle={onToggle} />
+            <UpdatePills patch={patch} firstTaskId={taskIds[0]} />
             <NoteDiff diff={notes.diff} />
         </ApprovalCard>
     );

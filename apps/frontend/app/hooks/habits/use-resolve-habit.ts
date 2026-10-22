@@ -35,7 +35,8 @@ function withNextTime(queryClient: QueryClient, habitId: string, vars: ResolveVa
 const latestResolveByCell = new Map<string, string>();
 
 function makeCellKey(habitId: string, targetDate: string, time?: string) {
-    return `${habitId}:${targetDate}${time ? `:${time}` : ""}`;
+    const timePart = time ? `:${time}` : "";
+    return `${habitId}:${targetDate}${timePart}`;
 }
 
 /** Pass `habitId` per call when one hook instance resolves many habits (e.g. schedule rows). */

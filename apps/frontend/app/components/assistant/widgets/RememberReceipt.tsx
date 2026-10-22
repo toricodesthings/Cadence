@@ -6,6 +6,28 @@ import { useForgetMemory, useMemoryPage, useRestoreMemory } from "../../../hooks
 import { queryKeys } from "../../../lib/api/query-keys";
 import { outcomeOf, type ToolRenderContext } from "./ApprovalCard";
 
+const VERBS: Record<string, string> = { forgot: "Forgot", updated: "Updated", kept: "Already remembered" };
+
+/**
+ * What the receipt says now, and whether Undo still applies. `known`: whether the memory page
+ * still lists the fact (undefined until it has been read again).
+ */
+function receiptState(action: string | undefined, known: boolean | undefined, undone: boolean, stale: boolean | undefined) {
+    const forgot = action === "forgot";
+    const gone = !undone && known === false && !forgot;
+    const back = !undone && known === true && forgot;
+    // An update can't be reverted from here (the old wording isn't kept), and a fact already known was not added: the person just asks.
+    const canUndo = !stale && !undone && !gone && !back && known !== undefined && (action === "saved" || forgot);
+    return { label: receiptLabel(action, { undone, gone, back }), canUndo };
+}
+
+function receiptLabel(action: string | undefined, { undone, gone, back }: { undone: boolean; gone: boolean; back: boolean }) {
+    if (undone) return action === "forgot" ? "Brought back" : "Not saved";
+    if (gone) return "No longer remembered";
+    if (back) return "Brought back";
+    return VERBS[action ?? ""] ?? "Remembered";
+}
+
 /**
  * `remember` already ran on the server: this is its one-line receipt, "Remembered: … · Undo".
  * No card and no approval: Undo is the safety. A save is taken back with no trace; a forget
@@ -31,12 +53,7 @@ export function RememberReceipt({ ctx }: { ctx: ToolRenderContext<"remember"> })
     // Nothing to show while it runs, and a failure explains itself in the assistant's own words.
     if (!output || output.ok !== true || !output.id || !output.text) return null;
     const known = page.data && !page.isFetching ? page.data.facts.some((f) => f.id === output.id) : undefined;
-    const gone = !undone && known === false && output.action !== "forgot";
-    const back = !undone && known === true && output.action === "forgot";
-
-    const verb = output.action === "forgot" ? "Forgot" : output.action === "updated" ? "Updated" : output.action === "kept" ? "Already remembered" : "Remembered";
-    // An update can't be reverted from here (the old wording isn't kept), and a fact already known was not added: the person just asks.
-    const canUndo = !stale && !undone && !gone && !back && known !== undefined && (output.action === "saved" || output.action === "forgot");
+    const { label, canUndo } = receiptState(output.action, known, undone, stale);
 
     const undo = () => {
         setUndone(true);
@@ -51,7 +68,7 @@ export function RememberReceipt({ ctx }: { ctx: ToolRenderContext<"remember"> })
         >
             <Brain size={11} aria-hidden className="shrink-0 text-accent-primary" />
             <span className="min-w-0 truncate">
-                {undone ? (output.action === "forgot" ? "Brought back" : "Not saved") : gone ? "No longer remembered" : back ? "Brought back" : verb}: {toastName(output.text, 80)}
+                {label}: {toastName(output.text, 80)}
             </span>
             {canUndo ? (
                 <button type="button" onClick={undo} className="shrink-0 cursor-pointer font-medium text-accent-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">

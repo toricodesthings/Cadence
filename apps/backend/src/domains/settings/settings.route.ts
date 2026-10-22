@@ -156,7 +156,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
             const body = c.req.valid("json");
     
             const row = await withCallerRls(c, async (tx, userId) => {
-                const presentationCount = body.presentationCountIncrement ?? 0;
+                const { firstPresentedAt = null, lastPresentedAt = null, dismissedAt = null, deferredUntil = null, actionTaken = null, presentationCountIncrement: presentationCount = 0 } = body;
 
                 const [updated] = await tx
                     .insert(notificationState)
@@ -165,19 +165,19 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                         objectType: body.objectType,
                         objectId: body.objectId,
                         triggerId: body.triggerId,
-                        firstPresentedAt: body.firstPresentedAt ?? null,
-                        lastPresentedAt: body.lastPresentedAt ?? null,
-                        dismissedAt: body.dismissedAt ?? null,
-                        deferredUntil: body.deferredUntil ?? null,
-                        actionTaken: body.actionTaken ?? null,
+                        firstPresentedAt,
+                        lastPresentedAt,
+                        dismissedAt,
+                        deferredUntil,
+                        actionTaken,
                         presentationCount,
                     })
                     .onConflictDoUpdate({
                         target: [notificationState.userId, notificationState.objectId, notificationState.triggerId],
                         set: {
                             objectType: body.objectType,
-                            firstPresentedAt: sql`coalesce(${notificationState.firstPresentedAt}, ${body.firstPresentedAt ?? null})`,
-                            lastPresentedAt: sql`coalesce(${body.lastPresentedAt ?? null}, ${notificationState.lastPresentedAt})`,
+                            firstPresentedAt: sql`coalesce(${notificationState.firstPresentedAt}, ${firstPresentedAt})`,
+                            lastPresentedAt: sql`coalesce(${lastPresentedAt}, ${notificationState.lastPresentedAt})`,
                             dismissedAt: body.dismissedAt !== undefined ? body.dismissedAt : notificationState.dismissedAt,
                             deferredUntil: body.deferredUntil !== undefined ? body.deferredUntil : notificationState.deferredUntil,
                             actionTaken: body.actionTaken !== undefined ? body.actionTaken : notificationState.actionTaken,

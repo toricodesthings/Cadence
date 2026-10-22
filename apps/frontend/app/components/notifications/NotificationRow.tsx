@@ -16,21 +16,35 @@ export const NOTIFICATION_STYLES: Record<AppNotification["kind"], { icon: typeof
 };
 export const actionClass = "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-sm text-twilight-text-soft transition-colors hover:bg-twilight-surface-muted hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary disabled:cursor-default disabled:opacity-50 cursor-pointer";
 
-function RelativeTime({ iso }: { iso: string }) {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(Math.abs(diff) / 60_000);
-    const amount = mins < 60 ? `${Math.max(1, mins)}m` : mins < 1440 ? `${Math.floor(mins / 60)}h` : `${Math.floor(mins / 1440)}d`;
-    return <time dateTime={iso}>{diff < 0 ? `In ${amount}` : mins < 1 ? "Just now" : `${amount} ago`}</time>;
+/** "5m", "3h", "2d": the distance in its largest whole unit (at least a minute). */
+function amountOf(mins: number) {
+    if (mins < 60) return `${Math.max(1, mins)}m`;
+    return mins < 1440 ? `${Math.floor(mins / 60)}h` : `${Math.floor(mins / 1440)}d`;
 }
 
-export function NotificationRow({ notification: n, onOpen, onToggleRead, onDismiss, onDefer, compact = false }: {
+/** "In 5m", "Just now", "3h ago". */
+function relativeText(iso: string) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(Math.abs(diff) / 60_000);
+    if (diff < 0) return `In ${amountOf(mins)}`;
+    if (mins < 1) return "Just now";
+    return `${amountOf(mins)} ago`;
+}
+
+function RelativeTime({ iso }: { iso: string }) {
+    return <time dateTime={iso}>{relativeText(iso)}</time>;
+}
+
+type NotificationRowProps = {
     notification: AppNotification;
     onOpen: () => void;
     onToggleRead?: () => void;
     onDismiss: () => void;
     onDefer?: (choice: DeferChoice) => void;
     compact?: boolean;
-}) {
+};
+
+export function NotificationRow({ notification: n, onOpen, onToggleRead, onDismiss, onDefer, compact = false }: NotificationRowProps) {
     const { icon: Icon } = NOTIFICATION_STYLES[n.kind];
     const pendingDefer = useRef<DeferChoice | null>(null);
     const readAction = n.read ? "Mark as unread" : "Mark as read";

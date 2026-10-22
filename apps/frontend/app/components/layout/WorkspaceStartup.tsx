@@ -59,6 +59,48 @@ function measureReveal(done: (result: "timeout" | PromiseSettledResult<unknown>[
     return () => { active = false; cancelAnimationFrame(frame); clearTimeout(timer); };
 }
 
+type StartupState = ReturnType<typeof useWorkspaceStartup>["state"];
+
+/** A failed or offline startup is reported once per kind, when diagnostics are on. */
+function reportFailureOnce(state: StartupState, reported: Set<string>, context: ReturnType<typeof sampleContext>) {
+    if ((state !== "error" && state !== "offline") || reported.has(state)) return;
+    reported.add(state);
+    const sample = startupFailureSample(context, state === "offline" ? "network_unavailable" : "error");
+    if (sample) trackPerformance([sample]);
+}
+
+/** The visible-assets sample records a timeout, or an error when an asset failed to load. */
+function markAssetsOutcome(samples: ReturnType<typeof collectStartupSamples>, result: "timeout" | PromiseSettledResult<unknown>[]) {
+    const visible = samples.find((s) => s.phase === "visible_assets");
+    if (visible && result === "timeout") visible.outcome = "timeout";
+    else if (visible && Array.isArray(result) && result.some((asset) => asset.status === "rejected")) visible.outcome = "error";
+}
+
+function startupMessage(state: StartupState, slow: boolean) {
+    if (state === "offline") return "You're offline. Connect to load this workspace.";
+    if (state === "error") return "We couldn't load your workspace. Please try again.";
+    return slow ? "Your workspace is taking longer than usual to load." : null;
+}
+
+type StartupLoadingProps = { state: StartupState; slow: boolean; retry: () => void };
+
+/** The startup screen: what's wrong when something is, with Try again or Reload. */
+function StartupLoading({ state, slow, retry }: StartupLoadingProps) {
+    const message = startupMessage(state, slow);
+    const failed = state === "error" || state === "offline";
+    return (
+        <Loading title="Preparing your workspace">
+            {message && <p role="status" className="mt-6 max-w-sm px-4 text-sm text-twilight-text-soft">{message}</p>}
+            {failed && (
+                <Button variant="secondary" className="mt-4" onClick={retry}>Try again</Button>
+            )}
+            {slow && !failed && (
+                <Button variant="secondary" className="mt-4" onClick={() => window.location.reload()}>Reload</Button>
+            )}
+        </Loading>
+    );
+}
+
 /** Lives above routes so startup completes once per signed-in account. */
 export function WorkspaceStartup({ children }: { children: ReactNode }) {
     const { pathname } = useLocation();
@@ -86,11 +128,7 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
         if (!restoring && cacheClass.current === "unknown") cacheClass.current = cacheClassOf(client);
         if (pending) {
             startupMark("required_data.start");
-            if (settings?.privacy?.usageDiagnostics && (state === "error" || state === "offline") && !reportedFailures.current.has(state)) {
-                reportedFailures.current.add(state);
-                const sample = startupFailureSample(sampleContext(entryRoute.current, cacheClass.current), state === "offline" ? "network_unavailable" : "error");
-                if (sample) trackPerformance([sample]);
-            }
+            if (settings?.privacy?.usageDiagnostics) reportFailureOnce(state, reportedFailures.current, sampleContext(entryRoute.current, cacheClass.current));
             return;
         }
         // This effect runs after the inert/hidden wrapper has committed.
@@ -102,37 +140,19 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
         let delivered = false;
         const cancel = measureReveal((result) => {
             const samples = collectStartupSamples(sampleContext(entryRoute.current, cacheClass.current));
-            const visible = samples.find((s) => s.phase === "visible_assets");
-            if (visible && result === "timeout") visible.outcome = "timeout";
-            else if (visible && Array.isArray(result) && result.some((asset) => asset.status === "rejected")) visible.outcome = "error";
+            markAssetsOutcome(samples, result);
             trackPerformance(samples);
             delivered = true;
         });
         return () => { cancel(); if (!delivered) reported.current = false; };
     }, [authReady, isAuthenticated, pending, state, pathname, client, restoring, settings?.privacy?.usageDiagnostics, Boolean(settings)]);
-    const message = state === "offline"
-        ? "You're offline. Connect to load this workspace."
-        : state === "error"
-            ? "We couldn't load your workspace. Please try again."
-            : slow ? "Your workspace is taking longer than usual to load." : null;
-
     return (
         <StartupRenderContext value={trackRender}>
           <StartupReadyContext value={!pending && authReady && isAuthenticated}>
             <div inert={pending} aria-hidden={pending || undefined} data-startup-hidden={pending || undefined} style={pending ? { visibility: "hidden" } : undefined}>
                 {children}
             </div>
-            {pending && (
-                <Loading title="Preparing your workspace">
-                    {message && <p role="status" className="mt-6 max-w-sm px-4 text-sm text-twilight-text-soft">{message}</p>}
-                    {(state === "error" || state === "offline") && (
-                        <Button variant="secondary" className="mt-4" onClick={retry}>Try again</Button>
-                    )}
-                    {slow && state !== "error" && state !== "offline" && (
-                        <Button variant="secondary" className="mt-4" onClick={() => window.location.reload()}>Reload</Button>
-                    )}
-                </Loading>
-            )}
+            {pending && <StartupLoading state={state} slow={slow} retry={retry} />}
           </StartupReadyContext>
         </StartupRenderContext>
     );

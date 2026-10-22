@@ -26,7 +26,7 @@ import type { ScheduleTaskActions } from "../../hooks/calendar/use-schedule-task
 import type { ScheduleDrag } from "../../hooks/calendar/use-schedule-drag";
 import type { ScheduleCreation } from "../../hooks/calendar/use-schedule-creation";
 
-export function ScheduleCalendar({ shell, navigation, data, selection, actions, drag, creation, swipe }: {
+type ScheduleCalendarProps = {
     shell: ReturnType<typeof useShellMode>;
     navigation: ScheduleNavigation;
     data: ScheduleData;
@@ -35,18 +35,177 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
     drag: ScheduleDrag;
     creation: ScheduleCreation;
     swipe: ReturnType<typeof usePeriodSwipe>;
-}) {
+};
+
+/** "Today", "Tomorrow", "In 3 days", "2 days ago". */
+function relativeDay(days: number) {
+    if (days === 0) return "Today";
+    if (days === 1) return "Tomorrow";
+    if (days === -1) return "Yesterday";
+    return days > 0 ? `In ${days} days` : `${-days} days ago`;
+}
+
+/** Phone header: name what's on screen; the label above zooms out. */
+function usePhoneHeader(navigation: ScheduleNavigation, phoneGroups: ScheduleData["phoneGroups"]) {
+    const { year, month, currentDate, todayIso, viewMode, handleViewMode } = navigation;
+    const { y: todayYear } = parseYMD(todayIso);
+    return useMemo(() => {
+        if (viewMode === "year") return { title: String(year) };
+        if (viewMode === "month") {
+            return {
+                title: year === todayYear ? MONTH_NAMES[month] : `${MONTH_NAMES[month]} ${year}`,
+                backLabel: String(year),
+                onZoomOut: () => handleViewMode("year"),
+            };
+        }
+        const relation = relativeDay(daysBetween(todayIso, currentDate));
+        const items = phoneGroups.get(currentDate) ?? [];
+        return {
+            title: dayHeading(currentDate),
+            meta: items.length ? `${relation} · ${loadWord(dayLoad(items))}` : relation,
+            backLabel: MONTH_NAMES[month],
+            onZoomOut: () => handleViewMode("month"),
+        };
+    }, [currentDate, handleViewMode, month, phoneGroups, todayIso, todayYear, viewMode, year]);
+}
+
+/** The key the slide animation tracks: one per period on screen. */
+function viewKeyOf({ viewMode, year, month, currentDate }: ScheduleNavigation, weekDates: string[]) {
+    if (viewMode === "month") return `month-${year}-${month}`;
+    if (viewMode === "week") return `week-${weekDates[0]}`;
+    return viewMode === "day" ? `day-${currentDate}` : `year-${year}`;
+}
+
+/** The day's holidays and personal events, when those overlays are on. */
+function dayExtras(data: ScheduleData, day: string) {
+    return {
+        holidays: data.holidayOverlay.enabled ? (data.holidaysByDateRecord[day] ?? []) : [],
+        isBirthday: data.birthdayDate === day,
+        personalEvents: data.personalEvents.enabled ? data.personalEvents.getEventsForDate(day) : [],
+    };
+}
+
+// ── Views ───────────────────────────────────────────────────────────────────
+
+function MonthPane({ shell, navigation, data, selection, actions, drag, creation, swipe }: ScheduleCalendarProps) {
+    const { year, month, currentDate } = navigation;
+    if (shell.isPhone) {
+        return (
+            <MonthFold
+                year={year}
+                month={month}
+                selectedIso={currentDate}
+                groups={data.phoneGroups}
+                markers={data.phoneMarkers}
+                routineEmoji={data.routineEmoji}
+                onSelect={navigation.setCurrentDate}
+                onOpenDay={navigation.openDay}
+                onNextMonth={() => navigation.handleNavigate(1)}
+                dragActive={Boolean(drag.activeDragTask)}
+                reducedMotion={Boolean(swipe.reducedMotion)}
+                {...actions.rowHandlers}
+            />
+        );
+    }
+    return (
+        <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4">
+            <CalendarGrid
+                year={year}
+                month={month}
+                selectedDate={currentDate}
+                datesWithTasks={data.datesWithTasks}
+                holidayDays={data.holidayOverlay.enabled ? data.holidayOverlay.holidayDateSet : undefined}
+                birthdayDate={data.birthdayDate}
+                personalEventDays={data.personalEvents.enabled ? data.personalEvents.eventDateSet : undefined}
+                personalEventCountsByDay={data.personalEventDateCounts}
+                onSelectDate={navigation.handleSelectDate}
+                variant="full"
+                tasksByDay={data.tasksByDay}
+                onSelectTask={selection.handleSelectTask}
+                onContextAdd={creation.handleGridClick}
+            />
+        </div>
+    );
+}
+
+function WeekPane({ navigation, data, selection, actions, drag, creation }: ScheduleCalendarProps) {
+    return (
+        <WeekView
+            weekDates={data.weekDates}
+            tasksByDate={data.weekTasksByDate}
+            holidaysByDate={data.holidayOverlay.enabled ? data.holidaysByDateRecord : undefined}
+            birthdayDate={data.birthdayDate}
+            personalEventsByDate={data.personalEvents.enabled ? data.personalEventsByDateRecord : undefined}
+            activeDropPreview={drag.activeDropPreview}
+            draftPlacement={creation.popover?.draftPlacement ?? null}
+            onSelectTask={selection.handleSelectTask}
+            onResizeTask={actions.handleResizeTask}
+            onGridClick={creation.handleGridClick}
+            onJumpToDay={navigation.handleSelectDate}
+            startHour={data.userSettings?.calendar?.timelineStartHour}
+        />
+    );
+}
+
+function DayPane({ shell, navigation, data, selection, actions, drag, creation, swipe }: ScheduleCalendarProps) {
+    const { currentDate } = navigation;
+    const extras = dayExtras(data, currentDate);
+    if (shell.isPhone) {
+        return (
+            <DayAgenda
+                dateIso={currentDate}
+                tasks={data.phoneGroups.get(currentDate) ?? []}
+                {...extras}
+                routineEmoji={data.routineEmoji}
+                hasReady={data.readyTasks.length > 0}
+                onOpenReady={() => actions.setReadyOpen(true)}
+                onAddAt={creation.handleAddAt}
+                dragActive={Boolean(drag.activeDragTask)}
+                reducedMotion={Boolean(swipe.reducedMotion)}
+                {...actions.rowHandlers}
+            />
+        );
+    }
+    return (
+        <DayView
+            currentDate={currentDate}
+            tasks={[...data.visibleTasks, ...data.visibleHabitTasks.filter((t) => taskDays(t).includes(currentDate))]}
+            {...extras}
+            activeDropPreview={drag.activeDropPreview}
+            draftPlacement={creation.popover?.draftPlacement ?? null}
+            onSelectTask={selection.handleSelectTask}
+            onResizeTask={actions.handleResizeTask}
+            onGridClick={creation.handleGridClick}
+            startHour={data.userSettings?.calendar?.timelineStartHour}
+        />
+    );
+}
+
+function YearPane({ shell, navigation, data }: ScheduleCalendarProps) {
+    return (
+        <div className="flex-1 min-h-0 p-4">
+            <YearView
+                year={navigation.year}
+                tasks={data.visibleTasks}
+                holidayDateSet={data.holidayOverlay.enabled ? data.holidayOverlay.holidayDateSet : undefined}
+                birthdayDate={data.birthdayDate}
+                personalEventDateSet={data.personalEvents.enabled ? data.personalEvents.eventDateSet : undefined}
+                personalEventDateCounts={data.personalEventDateCounts}
+                onSelectMonth={navigation.handleYearSelectMonth}
+                onSelectDay={navigation.handleSelectDate}
+                compact={shell.isPhone}
+            />
+        </div>
+    );
+}
+
+const PANES = { month: MonthPane, week: WeekPane, day: DayPane, year: YearPane };
+
+export function ScheduleCalendar(props: ScheduleCalendarProps) {
+    const { shell, navigation, data, selection, actions, swipe } = props;
     const { year, month, currentDate, todayIso, viewMode, isPhoneDay, direction, zoom,
-        handleViewMode, handleNavigate, handleToday, handleSelectDate, handleYearSelectMonth,
-        openDay, setCurrentDate, selectStripDay, shiftStripWeek } = navigation;
-    const { periodRange, weekDates, weekStartsOn, weekLoads, phoneGroups, phoneMarkers, routineEmoji,
-        datesWithTasks, tasksByDay, holidayOverlay, birthdayDate, personalEvents, personalEventDateCounts,
-        holidaysByDateRecord, personalEventsByDateRecord, weekTasksByDate, userSettings,
-        readyTasks, visibleTasks, visibleHabitTasks } = data;
-    const { handleSelectTask } = selection;
-    const { handleResizeTask, setReadyOpen } = actions;
-    const { handleAddAt, handleGridClick, handleAddTaskToolbar } = creation;
-    const draftPlacement = creation.popover?.draftPlacement ?? null;
+        handleViewMode, handleNavigate, handleToday, selectStripDay, shiftStripWeek } = navigation;
+    const { periodRange, weekDates, weekStartsOn, weekLoads, phoneGroups, phoneMarkers } = data;
     const { reducedMotion, dragProps } = swipe;
     const chipActions = useMemo<CalendarChipActions>(() => ({
         complete: actions.completeTask,
@@ -57,35 +216,9 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
     }), [actions.completeTask, actions.resolveRoutine, actions.moveToTomorrow, actions.setPlaceTask, selection.openInRoutines]);
     const slideCustom = useMemo<SlideCustom>(() => ({ direction, distance: reducedMotion || zoom ? 0 : 32, zoom: reducedMotion ? 0 : zoom }),
         [direction, reducedMotion, zoom]);
-    const { y: todayYear } = parseYMD(todayIso);
-    /** Phone header: name what's on screen; the label above zooms out. */
-    const phoneHeader = useMemo(() => {
-        if (viewMode === "year") return { title: String(year) };
-        if (viewMode === "month") {
-            return {
-                title: year === todayYear ? MONTH_NAMES[month] : `${MONTH_NAMES[month]} ${year}`,
-                backLabel: String(year),
-                onZoomOut: () => handleViewMode("year"),
-            };
-        }
-        const days = daysBetween(todayIso, currentDate);
-        const relation = days === 0 ? "Today" : days === 1 ? "Tomorrow" : days === -1 ? "Yesterday" : days > 0 ? `In ${days} days` : `${-days} days ago`;
-        const items = phoneGroups.get(currentDate) ?? [];
-        return {
-            title: dayHeading(currentDate),
-            meta: items.length ? `${relation} · ${loadWord(dayLoad(items))}` : relation,
-            backLabel: MONTH_NAMES[month],
-            onZoomOut: () => handleViewMode("month"),
-        };
-    }, [currentDate, handleViewMode, month, phoneGroups, todayIso, todayYear, viewMode, year]);
-
-    const viewKey = viewMode === "month"
-        ? `month-${year}-${month}`
-        : viewMode === "week"
-            ? `week-${weekDates[0]}`
-            : viewMode === "day"
-                ? `day-${currentDate}`
-                : `year-${year}`;
+    const phoneHeader = usePhoneHeader(navigation, phoneGroups);
+    const isCurrentPeriod = todayIso >= periodRange.start && todayIso <= periodRange.end;
+    const Pane = PANES[viewMode];
 
     return (
         <CalendarChipActionsContext.Provider value={chipActions}>
@@ -100,8 +233,8 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
                 onViewMode={handleViewMode}
                 onNavigate={handleNavigate}
                 onToday={handleToday}
-                isCurrentPeriod={todayIso >= periodRange.start && todayIso <= periodRange.end}
-                onAddTask={handleAddTaskToolbar}
+                isCurrentPeriod={isCurrentPeriod}
+                onAddTask={props.creation.handleAddTaskToolbar}
                 hidePeriodNav={shell.isLaptop}
                 overflowContent={<ScheduleOptions phone={shell.isPhone} navigation={navigation} data={data} actions={actions} />}
                 compact={shell.isCompact}
@@ -129,7 +262,7 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
                 >
                     <AnimatePresence initial={false} custom={slideCustom} mode="wait">
                         <motion.div
-                            key={viewKey}
+                            key={viewKeyOf(navigation, weekDates)}
                             custom={slideCustom}
                             variants={slideVariants}
                             initial="enter"
@@ -142,119 +275,14 @@ export function ScheduleCalendar({ shell, navigation, data, selection, actions, 
                             }}
                             className="absolute inset-0 flex flex-col"
                         >
-                            {/* ── MONTH ── */}
-                            {viewMode === "month" && (
-                                shell.isPhone ? (
-                                    <MonthFold
-                                        year={year}
-                                        month={month}
-                                        selectedIso={currentDate}
-                                        groups={phoneGroups}
-                                        markers={phoneMarkers}
-                                        routineEmoji={routineEmoji}
-                                        onSelect={setCurrentDate}
-                                        onOpenDay={openDay}
-                                        onNextMonth={() => handleNavigate(1)}
-                                        dragActive={Boolean(drag.activeDragTask)}
-                                        reducedMotion={Boolean(reducedMotion)}
-                                        {...actions.rowHandlers}
-                                    />
-                                ) : (
-                                <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4">
-                                    <CalendarGrid
-                                        year={year}
-                                        month={month}
-                                        selectedDate={currentDate}
-                                        datesWithTasks={datesWithTasks}
-                                        holidayDays={holidayOverlay.enabled ? holidayOverlay.holidayDateSet : undefined}
-                                        birthdayDate={birthdayDate}
-                                        personalEventDays={personalEvents.enabled ? personalEvents.eventDateSet : undefined}
-                                        personalEventCountsByDay={personalEventDateCounts}
-                                        onSelectDate={handleSelectDate}
-                                        variant="full"
-                                        tasksByDay={tasksByDay}
-                                        onSelectTask={handleSelectTask}
-                                        onContextAdd={handleGridClick}
-                                    />
-                                </div>
-                                )
-                            )}
-
-                            {/* ── WEEK ── */}
-                            {viewMode === "week" && (
-                                    <WeekView
-                                        weekDates={weekDates}
-                                        tasksByDate={weekTasksByDate}
-                                        holidaysByDate={holidayOverlay.enabled ? holidaysByDateRecord : undefined}
-                                        birthdayDate={birthdayDate}
-                                        personalEventsByDate={personalEvents.enabled ? personalEventsByDateRecord : undefined}
-                                        activeDropPreview={drag.activeDropPreview}
-                                        draftPlacement={draftPlacement}
-                                        onSelectTask={handleSelectTask}
-                                        onResizeTask={handleResizeTask}
-                                        onGridClick={handleGridClick}
-                                        onJumpToDay={handleSelectDate}
-                                        startHour={userSettings?.calendar?.timelineStartHour}
-                                    />
-                            )}
-
-                            {/* ── DAY ── */}
-                            {viewMode === "day" && (
-                                shell.isPhone ? (
-                                    <DayAgenda
-                                        dateIso={currentDate}
-                                        tasks={phoneGroups.get(currentDate) ?? []}
-                                        holidays={holidayOverlay.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
-                                        isBirthday={birthdayDate === currentDate}
-                                        personalEvents={personalEvents.enabled ? personalEvents.getEventsForDate(currentDate) : []}
-                                        routineEmoji={routineEmoji}
-                                        hasReady={readyTasks.length > 0}
-                                        onOpenReady={() => setReadyOpen(true)}
-                                        onAddAt={handleAddAt}
-                                        dragActive={Boolean(drag.activeDragTask)}
-                                        reducedMotion={Boolean(reducedMotion)}
-                                        {...actions.rowHandlers}
-                                    />
-                                ) : (
-                                    <DayView
-                                        currentDate={currentDate}
-                                        tasks={[...visibleTasks, ...visibleHabitTasks.filter((t) => taskDays(t).includes(currentDate))]}
-                                        holidays={holidayOverlay.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
-                                        isBirthday={birthdayDate === currentDate}
-                                        personalEvents={personalEvents.enabled ? personalEvents.getEventsForDate(currentDate) : []}
-                                        activeDropPreview={drag.activeDropPreview}
-                                        draftPlacement={draftPlacement}
-                                        onSelectTask={handleSelectTask}
-                                        onResizeTask={handleResizeTask}
-                                        onGridClick={handleGridClick}
-                                        startHour={userSettings?.calendar?.timelineStartHour}
-                                    />
-                                )
-                            )}
-
-                            {/* ── YEAR ── */}
-                            {viewMode === "year" && (
-                                <div className="flex-1 min-h-0 p-4">
-                                    <YearView
-                                        year={year}
-                                        tasks={visibleTasks}
-                                        holidayDateSet={holidayOverlay.enabled ? holidayOverlay.holidayDateSet : undefined}
-                                        birthdayDate={birthdayDate}
-                                        personalEventDateSet={personalEvents.enabled ? personalEvents.eventDateSet : undefined}
-                                        personalEventDateCounts={personalEventDateCounts}
-                                        onSelectMonth={handleYearSelectMonth}
-                                        onSelectDay={handleSelectDate}
-                                        compact={shell.isPhone}
-                                    />
-                                </div>
-                            )}
+                            <Pane {...props} />
                         </motion.div>
                     </AnimatePresence>
                 </motion.div>
 
             </div>
             {shell.isLaptop ? (
-                <PeriodDock unit={viewMode} isCurrent={todayIso >= periodRange.start && todayIso <= periodRange.end} onNavigate={handleNavigate} onToday={handleToday} />
+                <PeriodDock unit={viewMode} isCurrent={isCurrentPeriod} onNavigate={handleNavigate} onToday={handleToday} />
             ) : null}
         </div>
         </CalendarChipActionsContext.Provider>

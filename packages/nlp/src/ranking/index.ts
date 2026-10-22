@@ -88,6 +88,24 @@ function dateSignal(day: string | null, today: string): [TaskRankReason, number]
   return daysBetweenLocal(today, day) <= 3 ? ["due_soon", 15] : null;
 }
 
+type AddScore = (points: number, reason?: TaskRankReason) => void;
+
+/** How soon: the day's signal, then starting within the next hour (or started in the last half hour). */
+function addTiming(task: RankableTask, day: string | null, now: Date, todayStr: string, add: AddScore) {
+  const date = dateSignal(day, todayStr);
+  if (date) add(date[1], date[0]);
+  const startsIn = task.scheduledStart ? new Date(task.scheduledStart).getTime() - now.getTime() : NaN;
+  if (startsIn >= -30 * 60 * 1000 && startsIn <= 60 * 60 * 1000) add(35, "scheduled_now");
+}
+
+/** How much it matters and how small it is: priority, a quick win, a pin. */
+function addWeight(task: RankableTask, add: AddScore) {
+  if (task.priority >= 3) add(task.priority * 5, "high_priority");
+  else if (task.priority > 0) add(task.priority * 2);
+  if (task.effort === 1 || (task.durationEstimate && task.durationEstimate <= 15)) add(8, "quick_win");
+  if (task.isPinned) add(10, "pinned");
+}
+
 function computeScore(
   task: RankableTask,
   now: Date,
@@ -105,15 +123,8 @@ function computeScore(
   // Not yet (hidden until a later day) and waiting sink; urgency, focus and size rise.
   if (task.notBefore && task.notBefore > todayStr) add(-50, "not_yet");
   if (task.waitingOn) add(-20, "waiting");
-  const date = dateSignal(day, todayStr);
-  if (date) add(date[1], date[0]);
-  // Starting within the next hour, or started in the last half hour.
-  const startsIn = task.scheduledStart ? new Date(task.scheduledStart).getTime() - now.getTime() : NaN;
-  if (startsIn >= -30 * 60 * 1000 && startsIn <= 60 * 60 * 1000) add(35, "scheduled_now");
-  if (task.priority >= 3) add(task.priority * 5, "high_priority");
-  else if (task.priority > 0) add(task.priority * 2);
-  if (task.effort === 1 || (task.durationEstimate && task.durationEstimate <= 15)) add(8, "quick_win");
-  if (task.isPinned) add(10, "pinned");
+  addTiming(task, day, now, todayStr, add);
+  addWeight(task, add);
   // In Today, unscheduled tasks bubble up gently.
   if (!day && options.routeContext === "today") add(2, "needs_date");
 

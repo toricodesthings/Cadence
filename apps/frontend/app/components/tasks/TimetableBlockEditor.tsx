@@ -120,6 +120,36 @@ function EndControl({ end, onChange, onClear, onAdd }: { end: Instant | null | u
     );
 }
 
+type RuleParts = ReturnType<typeof parseRuleParts>;
+
+/** How often it repeats, and its days: a weekly rule without BYDAY repeats on the anchor's weekday. */
+function repeatDaysOf(ruleParts: RuleParts | null, scheduledStart: Instant | null | undefined) {
+    const freq = ruleParts?.find(([key]) => key === "FREQ")?.[1] ?? null;
+    const explicitDays = ruleParts?.find(([key]) => key === "BYDAY")?.[1]?.split(",").filter(Boolean) ?? null;
+    // A weekly rule without BYDAY repeats on the anchor's weekday — show it as the active chip.
+    const anchorDay = scheduledStart
+        ? DAY_ORDER[(weekdayOf(dayOfInstant(scheduledStart)) + 6) % 7]
+        : "MO";
+    return { freq, activeDays: new Set(explicitDays ?? [anchorDay]) };
+}
+
+/** The rule with `day` switched on or off; null when it would leave no day (a block keeps at least one). */
+function withDayToggled(ruleParts: RuleParts, activeDays: Set<string>, day: string): RuleParts | null {
+    const next = new Set(activeDays);
+    if (next.has(day)) {
+        if (next.size === 1) return null; // a block must keep at least one day
+        next.delete(day);
+    } else {
+        next.add(day);
+    }
+    const value = DAY_ORDER.filter((d) => next.has(d)).join(",");
+    const index = ruleParts.findIndex(([key]) => key === "BYDAY");
+    const parts = [...ruleParts];
+    if (index >= 0) parts[index] = ["BYDAY", value];
+    else parts.push(["BYDAY", value]);
+    return parts;
+}
+
 export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task }) => {
     const updateTask = useUpdateTask();
 
@@ -207,29 +237,12 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
         () => (task.recurrenceRule ? parseRuleParts(task.recurrenceRule) : null),
         [task.recurrenceRule],
     );
-    const freq = ruleParts?.find(([key]) => key === "FREQ")?.[1] ?? null;
-    const explicitDays = ruleParts?.find(([key]) => key === "BYDAY")?.[1]?.split(",").filter(Boolean) ?? null;
-    // A weekly rule without BYDAY repeats on the anchor's weekday — show it as the active chip.
-    const anchorDay = task.scheduledStart
-        ? DAY_ORDER[(weekdayOf(dayOfInstant(task.scheduledStart)) + 6) % 7]
-        : "MO";
-    const activeDays = new Set(explicitDays ?? [anchorDay]);
+    const { freq, activeDays } = repeatDaysOf(ruleParts, task.scheduledStart);
 
     const toggleDay = (day: string) => {
         if (!ruleParts || !task.recurrenceRule) return;
-        const next = new Set(activeDays);
-        if (next.has(day)) {
-            if (next.size === 1) return; // a block must keep at least one day
-            next.delete(day);
-        } else {
-            next.add(day);
-        }
-        const value = DAY_ORDER.filter((d) => next.has(d)).join(",");
-        const index = ruleParts.findIndex(([key]) => key === "BYDAY");
-        const parts = [...ruleParts];
-        if (index >= 0) parts[index] = ["BYDAY", value];
-        else parts.push(["BYDAY", value]);
-        updateTask.mutate({ id: task.id, recurrenceRule: joinRuleParts(parts) });
+        const parts = withDayToggled(ruleParts, activeDays, day);
+        if (parts) updateTask.mutate({ id: task.id, recurrenceRule: joinRuleParts(parts) });
     };
 
     if (!task.scheduledStart) return null;

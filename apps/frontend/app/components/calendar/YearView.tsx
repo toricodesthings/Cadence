@@ -27,6 +27,59 @@ interface MiniMonthProps {
     onSelectDay: (day: LocalDate) => void;
 }
 
+type MiniDayProps = Pick<MiniMonthProps, "taskDateCounts" | "holidayDateSet" | "birthdayDate" | "personalEventDateSet" | "personalEventDateCounts" | "today" | "onSelectDay"> & {
+    day: number;
+    dayStr: LocalDate;
+};
+
+/** One day: tinted by how many tasks it holds, with holiday, birthday and event marks. */
+function MiniDay({ day, dayStr, today, taskDateCounts, holidayDateSet, birthdayDate, personalEventDateSet, personalEventDateCounts, onSelectDay }: MiniDayProps) {
+    const isToday = dayStr === today;
+    const taskCount = taskDateCounts.get(dayStr) ?? 0;
+    const hasHoliday = Boolean(holidayDateSet?.has(dayStr));
+    const isBirthday = birthdayDate === dayStr;
+    const hasPersonalEvent = Boolean(personalEventDateSet?.has(dayStr));
+    const personalEventCount = personalEventDateCounts?.[dayStr] ?? 0;
+
+    // Heatmap: opacity scales with density (1→0.25, 2→0.4, 3→0.55, 4+→0.7)
+    const heatOpacity = taskCount === 0 ? 0 : Math.min(0.7, 0.15 + taskCount * 0.15);
+
+    return (
+        <button
+            type="button"
+            onClick={() => onSelectDay(dayStr)}
+            className={`
+                relative w-full aspect-square flex items-center justify-center
+                text-[11px] rounded-xl transition-colors duration-150 cursor-pointer
+                ${isToday
+                    ? "bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary font-bold"
+                    : "text-twilight-text-muted/90 hover:bg-white/[0.05] hover:text-twilight-text-soft"}
+            `}
+            style={taskCount > 0 && !isToday ? { backgroundColor: `color-mix(in srgb, var(--accent-primary) ${Math.round(heatOpacity * 100)}%, transparent)` } : undefined}
+        >
+            {day}
+            {hasHoliday && (
+                <span className="absolute right-[3px] top-[3px] h-[4px] w-[4px] rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.4)]" />
+            )}
+            {isBirthday && (
+                <span className="absolute left-[3px] top-[3px] h-[4px] w-[4px] rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.4)]" />
+            )}
+            {hasPersonalEvent && <MiniEventMark count={personalEventCount} />}
+        </button>
+    );
+}
+
+function MiniEventMark({ count }: { count: number }) {
+    if (count > 1) {
+        return (
+            <span className="absolute left-1/2 top-[3px] inline-flex min-w-4 -translate-x-1/2 items-center justify-center rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/18 px-1 text-[8px] font-semibold text-accent-nav-schedule">
+                {count}
+            </span>
+        );
+    }
+    return <span className="absolute left-1/2 -translate-x-1/2 top-[3px] h-[4px] w-[4px] rounded-full bg-accent-nav-schedule shadow-[0_0_6px_color-mix(in_srgb,var(--accent-nav-schedule)_40%,transparent)]" />;
+}
+
 function MiniMonth({
     year,
     month,
@@ -72,52 +125,20 @@ function MiniMonth({
 
             {/* Day cells */}
             <div className="grid grid-cols-7 gap-y-0.5">
-                {cells.map((day, i) => {
-                    if (!day) return <div key={i} />;
-                    const dayStr = isoDay(year, month, day);
-                    const isToday = dayStr === todayStr;
-                    const taskCount = taskDateCounts.get(dayStr) ?? 0;
-                    const hasHoliday = holidayDateSet?.has(dayStr) ?? false;
-                    const isBirthday = birthdayDate === dayStr;
-                    const hasPersonalEvent = personalEventDateSet?.has(dayStr) ?? false;
-                    const personalEventCount = personalEventDateCounts?.[dayStr] ?? 0;
-
-                    // Heatmap: opacity scales with density (1→0.25, 2→0.4, 3→0.55, 4+→0.7)
-                    const heatOpacity = taskCount === 0 ? 0 : Math.min(0.7, 0.15 + taskCount * 0.15);
-
-                    return (
-                        <button
-                            key={i}
-                            type="button"
-                            onClick={() => onSelectDay(dayStr)}
-                            className={`
-                                relative w-full aspect-square flex items-center justify-center
-                                text-[11px] rounded-xl transition-colors duration-150 cursor-pointer
-                                ${isToday
-                                    ? "bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary font-bold"
-                                    : "text-twilight-text-muted/90 hover:bg-white/[0.05] hover:text-twilight-text-soft"}
-                            `}
-                            style={taskCount > 0 && !isToday ? { backgroundColor: `color-mix(in srgb, var(--accent-primary) ${Math.round(heatOpacity * 100)}%, transparent)` } : undefined}
-                        >
-                            {day}
-                            {hasHoliday && (
-                                <span className="absolute right-[3px] top-[3px] h-[4px] w-[4px] rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.4)]" />
-                            )}
-                            {isBirthday && (
-                                <span className="absolute left-[3px] top-[3px] h-[4px] w-[4px] rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.4)]" />
-                            )}
-                            {hasPersonalEvent && (
-                                personalEventCount > 1 ? (
-                                    <span className="absolute left-1/2 top-[3px] inline-flex min-w-4 -translate-x-1/2 items-center justify-center rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/18 px-1 text-[8px] font-semibold text-accent-nav-schedule">
-                                        {personalEventCount}
-                                    </span>
-                                ) : (
-                                    <span className="absolute left-1/2 -translate-x-1/2 top-[3px] h-[4px] w-[4px] rounded-full bg-accent-nav-schedule shadow-[0_0_6px_color-mix(in_srgb,var(--accent-nav-schedule)_40%,transparent)]" />
-                                )
-                            )}
-                        </button>
-                    );
-                })}
+                {cells.map((day, i) => (day ? (
+                    <MiniDay
+                        key={i}
+                        day={day}
+                        dayStr={isoDay(year, month, day)}
+                        today={todayStr}
+                        taskDateCounts={taskDateCounts}
+                        holidayDateSet={holidayDateSet}
+                        birthdayDate={birthdayDate}
+                        personalEventDateSet={personalEventDateSet}
+                        personalEventDateCounts={personalEventDateCounts}
+                        onSelectDay={onSelectDay}
+                    />
+                ) : <div key={i} />))}
             </div>
         </div>
     );

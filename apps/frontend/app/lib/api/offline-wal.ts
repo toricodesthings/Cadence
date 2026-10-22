@@ -89,8 +89,8 @@ export interface WalEntry {
     createdAt: number;
 }
 
-/** Every entity id an op touches: creates by their client id, batches by each task. */
-export function walTargetIds(op: MutationOp): string[] {
+/** A create's own client id (and its parent's, for a subtask or section); null for any other op. */
+function createdIds(op: MutationOp): string[] | null {
     switch (op.type) {
         case "create_task":
         case "create_inbox":
@@ -100,23 +100,34 @@ export function walTargetIds(op: MutationOp): string[] {
             return [op.payload.id];
         case "create_subtask":
             return [op.payload.id, op.taskId];
+        case "create_section":
+            return op.payload.projectId ? [op.payload.id, op.payload.projectId] : [op.payload.id];
+        case "create_inbox_section":
+            return [];
+        default:
+            return null;
+    }
+}
+
+/** Every entity id an op touches: creates by their client id, batches by each task. */
+export function walTargetIds(op: MutationOp): string[] {
+    const created = createdIds(op);
+    if (created) return created;
+    switch (op.type) {
         case "upsert_note":
             return [op.taskId];
         case "add_task_tag":
         case "remove_task_tag":
             return [op.id, op.tagId];
-        case "create_section":
-            return op.payload.projectId ? [op.payload.id, op.payload.projectId] : [op.payload.id];
         case "batch_state":
         case "batch_reschedule":
         case "batch_delete":
             return op.payload.taskIds;
         case "process_inbox_to_task":
             return [op.payload.inboxItemId];
-        case "create_inbox_section":
-            return [];
         default:
-            return [op.id];
+            // Creates returned above; every other op names its entity.
+            return [(op as Extract<MutationOp, { id: string }>).id];
     }
 }
 

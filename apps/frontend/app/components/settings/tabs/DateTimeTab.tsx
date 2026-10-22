@@ -74,6 +74,22 @@ const segment = <T extends string,>(label: string, value: T, options: ReadonlyAr
     <SegmentedControl ariaLabel={label} className="max-w-full" value={value} options={options} onChange={onChange} />
 );
 
+/** Which kinds the calendar shows; each is on unless switched off. */
+function clutterShown(clutter: Partial<Calendar["clutter"]>) {
+    return {
+        showAllDay: clutter.showAllDay ?? true,
+        showTimedTasks: clutter.showTimedTasks ?? true,
+        showFixed: clutter.showFixed ?? true,
+        showHabitAnchors: clutter.showHabitAnchors ?? true,
+    };
+}
+
+/** "Ontario, Canada · OpenHolidays": the holiday region and where its holidays come from. */
+function regionNoteOf(overlay: { regionLabel?: string | null; source?: keyof typeof HOLIDAY_SOURCE_LABELS | null }) {
+    const source = overlay.source ? ` · ${HOLIDAY_SOURCE_LABELS[overlay.source]}` : "";
+    return `${overlay.regionLabel ?? "Region unknown"}${source}`;
+}
+
 export function DateTimeTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
@@ -89,7 +105,7 @@ export function DateTimeTab() {
 
     const dt: DateTime = { ...SETTINGS_DEFAULTS.dateTime, ...settings?.dateTime };
     const cal = { ...SETTINGS_DEFAULTS.calendar, ...settings?.calendar };
-    const clutter = { ...SETTINGS_DEFAULTS.calendar.clutter, ...cal.clutter };
+    const shown = clutterShown({ ...SETTINGS_DEFAULTS.calendar.clutter, ...cal.clutter });
     const setDate = (patch: DeepPartial<DateTime>) => updateSettings.mutate({ dateTime: patch });
     const setCalendar = (patch: DeepPartial<Calendar>) => updateSettings.mutate({ calendar: patch });
     const setClutter = (patch: DeepPartial<Calendar["clutter"]>) => setCalendar({ clutter: patch });
@@ -104,7 +120,7 @@ export function DateTimeTab() {
         </SettingsRow>
     );
 
-    const regionNote = `${holidayOverlay.regionLabel ?? "Region unknown"}${holidayOverlay.source ? ` · ${HOLIDAY_SOURCE_LABELS[holidayOverlay.source]}` : ""}`;
+    const regionNote = regionNoteOf(holidayOverlay);
     const eventCount = personalEvents.items.length;
 
     return (
@@ -138,10 +154,10 @@ export function DateTimeTab() {
 
             <SettingsSection title="Show on calendar">
                 <SettingsList>
-                    {toggle("All-day tasks", clutter.showAllDay ?? true, (showAllDay) => setClutter({ showAllDay }))}
-                    {toggle("Timed blocks", clutter.showTimedTasks ?? true, (showTimedTasks) => setClutter({ showTimedTasks }))}
-                    {toggle("Fixed blocks", clutter.showFixed ?? true, (showFixed) => setClutter({ showFixed }))}
-                    {toggle("Routines", clutter.showHabitAnchors ?? true, (showHabitAnchors) => setClutter({ showHabitAnchors }))}
+                    {toggle("All-day tasks", shown.showAllDay, (showAllDay) => setClutter({ showAllDay }))}
+                    {toggle("Timed blocks", shown.showTimedTasks, (showTimedTasks) => setClutter({ showTimedTasks }))}
+                    {toggle("Fixed blocks", shown.showFixed, (showFixed) => setClutter({ showFixed }))}
+                    {toggle("Routines", shown.showHabitAnchors, (showHabitAnchors) => setClutter({ showHabitAnchors }))}
                     {toggle("Holidays", holidayOverlay.enabled, holidayOverlay.setEnabled, regionNote,
                         <Button variant="ghost" size="sm" aria-label="Change holiday region" onClick={() => navigate("?settings=location")}>Change</Button>)}
                     {toggle("Yearly events", personalEvents.enabled, personalEvents.setEnabled,

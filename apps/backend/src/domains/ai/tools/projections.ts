@@ -75,6 +75,11 @@ export type TaskRow = Pick<
     sectionName?: string | null;
 };
 
+/** Unset (null) → undefined, which JSON leaves out. */
+const unset = <T>(value: T | null | undefined): T | undefined => value ?? undefined;
+/** A list only when it has items. */
+const nonEmpty = <T>(list: T[] | null | undefined): T[] | undefined => (list?.length ? list : undefined);
+
 /**
  * Project a task row to its minimal, token-frugal shape. Drops `content`.
  * Dates are written the way the user reads them, so the model never converts:
@@ -82,32 +87,33 @@ export type TaskRow = Pick<
  * ("2026-03-10T14:00:00-04:00").
  */
 export function toMinimalTask(row: TaskRow, timezone: string, hint?: { takesAbout?: number; took?: number | string }): MinimalTask {
-    const show = (value: string | null) => (value === null ? undefined : toZonedIso(value, timezone));
+    const show = (value: string | null | undefined) => (value ? toZonedIso(value, timezone) : undefined);
+    const fixedBlock = row.interactionMode === "timetable";
     // Unset fields are undefined, which JSON leaves out, so they cost nothing on the wire.
     return {
         // An expanded occurrence's id is "<series>::<start>"; the model acts on the series.
         id: row.seriesId ?? row.id,
         title: row.title,
-        state: row.interactionMode === "timetable" && row.state === "ACTIVE" ? undefined : row.state,
-        dueDate: row.dueDate ?? undefined,
-        endDate: row.endDate ?? undefined,
+        state: fixedBlock && row.state === "ACTIVE" ? undefined : row.state,
+        dueDate: unset(row.dueDate),
+        endDate: unset(row.endDate),
         scheduledStart: show(row.scheduledStart),
         scheduledEnd: show(row.scheduledEnd),
-        durationEstimate: row.durationEstimate ?? undefined,
+        durationEstimate: unset(row.durationEstimate),
         priority: row.priority || undefined,
-        effort: row.effort ?? undefined,
-        projectId: row.projectId ?? undefined,
-        sectionId: row.sectionId ?? undefined,
-        list: row.listName ?? undefined,
-        section: row.sectionName ?? undefined,
-        waitingOn: row.waitingOn ?? undefined,
-        fixedBlock: row.interactionMode === "timetable" || undefined,
+        effort: unset(row.effort),
+        projectId: unset(row.projectId),
+        sectionId: unset(row.sectionId),
+        list: unset(row.listName),
+        section: unset(row.sectionName),
+        waitingOn: unset(row.waitingOn),
+        fixedBlock: fixedBlock || undefined,
         repeats: !!row.recurrenceRule || undefined,
-        tags: row.tagNames?.length ? row.tagNames : undefined,
+        tags: nonEmpty(row.tagNames),
         pinned: row.isPinned || undefined,
-        reminderAt: row.reminderAt ? toZonedIso(row.reminderAt, timezone) : undefined,
-        checkInAt: row.waitingReminder ? toZonedIso(row.waitingReminder, timezone) : undefined,
-        hiddenUntil: row.notBefore ?? undefined,
+        reminderAt: show(row.reminderAt),
+        checkInAt: show(row.waitingReminder),
+        hiddenUntil: unset(row.notBefore),
         takesAbout: hint?.takesAbout,
         took: hint?.took,
     };
@@ -186,19 +192,20 @@ export type HabitRow = Pick<
 export function toMinimalHabit(row: HabitRow, currentDate: string, recent?: { done: number; missed: number }): MinimalHabit {
     const counted = recent ? recent.done + recent.missed : 0;
     const paused = isPausedOn(row.pausedUntil, currentDate, currentDate);
+    const times = nonEmpty(row.times);
     return {
         id: row.id,
         title: row.title,
-        emoji: row.emoji ?? undefined,
+        emoji: unset(row.emoji),
         recurrenceRule: row.recurrenceRule,
-        targetTime: row.times?.length ? undefined : row.targetTime || undefined,
-        dayTimes: !row.times?.length && row.targetTimes && Object.keys(row.targetTimes).length ? row.targetTimes : undefined,
-        times: row.times?.length ? row.times : undefined,
+        targetTime: times ? undefined : row.targetTime || undefined,
+        dayTimes: !times && row.targetTimes && Object.keys(row.targetTimes).length ? row.targetTimes : undefined,
+        times,
         // "lantern" is the default colour, left out like other defaults.
         colorAccent: row.colorAccent && row.colorAccent !== "lantern" ? row.colorAccent : undefined,
-        projectId: row.projectId ?? undefined,
-        tagIds: row.tagIds?.length ? row.tagIds : undefined,
-        steps: row.steps?.length ? row.steps.map(({ id, title }) => ({ id, title })) : undefined,
+        projectId: unset(row.projectId),
+        tagIds: nonEmpty(row.tagIds),
+        steps: nonEmpty(row.steps)?.map(({ id, title }) => ({ id, title })),
         currentStreak: row.currentStreak,
         longestStreak: row.longestStreak,
         adherence: counted ? Math.round((recent!.done / counted) * 100) / 100 : undefined,

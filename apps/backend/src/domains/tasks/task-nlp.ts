@@ -63,58 +63,69 @@ export function inferTaskFieldsFromParse(
     confidenceThreshold: "high" | "medium" | "low",
     zone: Zone,
 ) {
-    const thresholdRank = confidenceRank(confidenceThreshold);
-    const parsedTagIds = new Set<string>();
-    let parsedProjectId: string | null | undefined;
-    let parsedPriority: number | undefined;
-    let parsedDuration: number | null | undefined;
-    let parsedWaitingOn: string | null | undefined;
-    let parsedRecurrence: string | null | undefined;
-    let parsedTemporal: { dueDate?: string; scheduledStart?: string } | undefined;
+    const found = readEntities(parsed, confidenceThreshold, zone);
+    // Any placement field given (even null) means the caller placed the task itself.
+    const placed = [explicit.dueDate, explicit.scheduledStart, explicit.scheduledEnd, explicit.scheduledDay]
+        .some((field) => field !== undefined);
+    const temporal = placed ? undefined : found.temporal;
+    return {
+        projectId: given(explicit.projectId, found.projectId),
+        tagIds: given(explicit.tagIds, Array.from(found.tagIds)),
+        priority: given(explicit.priority, found.priority),
+        durationEstimate: given(explicit.durationEstimate, found.duration),
+        waitingOn: given(explicit.waitingOn, found.waitingOn),
+        recurrenceRule: given(explicit.recurrenceRule, found.recurrence),
+        dueDate: given(explicit.dueDate, temporal?.dueDate),
+        scheduledStart: given(explicit.scheduledStart, temporal?.scheduledStart),
+        scheduledEnd: explicit.scheduledEnd,
+    };
+}
 
-    // Explicit fields win below, so the loop reads every confident entity.
+/** Every confident entity the parse found, in stored shapes; a later one of a kind replaces an earlier one. */
+function readEntities(parsed: CanonicalNlpSnapshot, confidenceThreshold: "high" | "medium" | "low", zone: Zone) {
+    const thresholdRank = confidenceRank(confidenceThreshold);
+    const found: {
+        tagIds: Set<string>;
+        projectId?: string | null;
+        priority?: number;
+        duration?: number | null;
+        waitingOn?: string | null;
+        recurrence?: string | null;
+        temporal?: { dueDate?: string; scheduledStart?: string };
+    } = { tagIds: new Set<string>() };
     for (const entity of parsed.entities) {
         if (confidenceRank(entity.confidence) < thresholdRank) continue;
         const value = entity.normalizedValue as Record<string, unknown>;
         switch (entity.type) {
             case "project":
-                parsedProjectId = (value.resolvedId ?? value.id ?? parsedProjectId) as string | undefined;
+                found.projectId = idOf(value) ?? found.projectId;
                 break;
             case "tag": {
-                const tagId = (value.resolvedId ?? value.id) as string | undefined;
-                if (tagId) parsedTagIds.add(tagId);
+                const tagId = idOf(value);
+                if (tagId) found.tagIds.add(tagId);
                 break;
             }
-            case "priority": parsedPriority = entity.normalizedValue as number; break;
-            case "duration": parsedDuration = value.minutes as number; break;
-            case "waiting_on": parsedWaitingOn = value.person as string; break;
-            case "recurrence": parsedRecurrence = value.rrule as string; break;
+            case "priority": found.priority = entity.normalizedValue as number; break;
+            case "duration": found.duration = value.minutes as number; break;
+            case "waiting_on": found.waitingOn = value.person as string; break;
+            case "recurrence": found.recurrence = value.rrule as string; break;
             case "due_date":
-            case "scheduled_start": {
-                const { date, time, hasTime } = value as { date: string; time: string | null; hasTime: boolean };
-                parsedTemporal = entity.type === "scheduled_start" && hasTime && time
-                    ? { scheduledStart: atLocal(date, time, zone) }
-                    : { dueDate: date };
+            case "scheduled_start":
+                found.temporal = temporalOf(entity.type, value, zone);
                 break;
-            }
         }
     }
+    return found;
+}
 
-    // Any placement field given (even null) means the caller placed the task itself.
-    const placed = [explicit.dueDate, explicit.scheduledStart, explicit.scheduledEnd, explicit.scheduledDay]
-        .some((field) => field !== undefined);
-    const temporal = placed ? undefined : parsedTemporal;
-    return {
-        projectId: given(explicit.projectId, parsedProjectId),
-        tagIds: given(explicit.tagIds, Array.from(parsedTagIds)),
-        priority: given(explicit.priority, parsedPriority),
-        durationEstimate: given(explicit.durationEstimate, parsedDuration),
-        waitingOn: given(explicit.waitingOn, parsedWaitingOn),
-        recurrenceRule: given(explicit.recurrenceRule, parsedRecurrence),
-        dueDate: given(explicit.dueDate, temporal?.dueDate),
-        scheduledStart: given(explicit.scheduledStart, temporal?.scheduledStart),
-        scheduledEnd: explicit.scheduledEnd,
-    };
+const idOf = (value: Record<string, unknown>) => (value.resolvedId ?? value.id) as string | undefined;
+
+/** A date alone is a day; a scheduled date with a time is a timed start. */
+function temporalOf(type: "due_date" | "scheduled_start", value: Record<string, unknown>, zone: Zone) {
+    const { date, time, hasTime } = value as { date: string; time: string | null; hasTime: boolean };
+    return type === "scheduled_start" && hasTime && time
+        ? { scheduledStart: atLocal(date, time, zone) }
+        : { dueDate: date };
 }
 
 /** An explicit value, even null, wins over a parsed one. */

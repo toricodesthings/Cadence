@@ -122,6 +122,19 @@ export const RoutineDetailsButton = ({ label, children, ...props }: ButtonHTMLAt
     </Tip>
 );
 
+/** "Routine · 7:00", "Fixed · Tue 9–10", "Task · due Mar 8": what it is and when. */
+function chipKindLine(task: Task) {
+    const kind = scheduleKind(task);
+    const start = task.scheduledStart;
+    const when = start ? formatChipTime(start, task.scheduledEnd) : null;
+    if (kind === "routine") return `Routine${when ? ` · ${when}` : ""}`;
+    if (kind === "fixed") {
+        const day = start ? dayOf(start, getUserZone()) : task.dueDate;
+        return `Fixed${day ? ` · ${weekdayName(day, "short")}` : ""}${when ? ` ${when}` : ""}`;
+    }
+    return `Task${when ? ` · ${when}` : task.dueDate ? ` · due ${formatShortDateLabel(task.dueDate)}` : ""}`;
+}
+
 function ChipHoverCard({ task, tasks }: { task: Task; tasks: readonly Task[] }) {
     const { setSeries } = useContext(CalendarHoverContext);
     const { data: projects } = useProjects();
@@ -131,16 +144,7 @@ function ChipHoverCard({ task, tasks }: { task: Task; tasks: readonly Task[] }) 
         setSeries(key);
         return () => setSeries(null);
     }, [key, setSeries]);
-    const kind = scheduleKind(task);
-    const start = task.scheduledStart;
-    const when = start ? formatChipTime(start, task.scheduledEnd) : null;
-    const day = start ? dayOf(start, getUserZone()) : task.dueDate;
-    const kindLine =
-        kind === "routine"
-            ? `Routine${when ? ` · ${when}` : ""}`
-            : kind === "fixed"
-              ? `Fixed${day ? ` · ${weekdayName(day, "short")}` : ""}${when ? ` ${when}` : ""}`
-              : `Task${when ? ` · ${when}` : task.dueDate ? ` · due ${formatShortDateLabel(task.dueDate)}` : ""}`;
+    const kindLine = chipKindLine(task);
     const repeat = getTaskRecurrenceSummary(task)?.cadenceLabel;
     const list = projects?.find((project) => project.id === task.projectId)?.name;
     const section = sections.find((entry) => entry.id === task.sectionId)?.name;

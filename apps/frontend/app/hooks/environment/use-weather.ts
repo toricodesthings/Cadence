@@ -17,17 +17,24 @@ export interface WeatherData {
 /** off: turned off in settings · unavailable: no location to look up · error: the lookup failed */
 export type WeatherStatus = "off" | "unavailable" | "loading" | "ready" | "error";
 
+type Described = { label: string; icon: LucideIcon };
+
 // WMO weather codes (https://open-meteo.com/en/docs), folded into a few plain words.
-function describe(code: number, isDay: boolean): { label: string; icon: LucideIcon } {
+function describe(code: number, isDay: boolean): Described {
     if (code <= 1) return { label: "clear", icon: isDay ? Sun : Moon };
     if (code === 2) return { label: "partly cloudy", icon: isDay ? CloudSun : CloudMoon };
     if (code === 45 || code === 48) return { label: "fog", icon: CloudFog };
+    if (code >= 95) return { label: "storm", icon: CloudLightning };
+    return precipitationOf(code) ?? { label: "cloudy", icon: Cloud };
+}
+
+/** Drizzle, sleet, rain or snow; null for any other code. */
+function precipitationOf(code: number): Described | null {
     if (code >= 51 && code <= 57) return { label: "drizzle", icon: CloudDrizzle };
     if (code === 66 || code === 67) return { label: "sleet", icon: CloudSnow };
     if ((code >= 61 && code <= 65) || (code >= 80 && code <= 82)) return { label: "rain", icon: CloudRain };
     if ((code >= 71 && code <= 77) || code === 85 || code === 86) return { label: "snow", icon: CloudSnow };
-    if (code >= 95) return { label: "storm", icon: CloudLightning };
-    return { label: "cloudy", icon: Cloud };
+    return null;
 }
 
 /** Places that read temperatures in Fahrenheit. */

@@ -25,37 +25,47 @@ export function parseChangelog(markdown: string): ChangelogEntry[] {
         throw new Error(`CHANGELOG.md bullets must be ${MAX_BULLET_LENGTH} characters or fewer:\n${tooLong.join("\n")}`);
     }
 
-    return markdown.split(/^## /m).slice(1).flatMap((block) => {
-        const [heading = "", ...lines] = block.split("\n");
-        const [, version, date] = VERSION_HEADING.exec(heading) ?? [];
-        if (!version) return [];
+    return markdown.split(/^## /m).slice(1).flatMap(parseRelease);
+}
 
-        const groups: ChangelogGroup[] = [];
-        let summary: string | undefined;
+/** One release block: its version heading, then the summary line and the `###` groups' bullets. */
+function parseRelease(block: string): ChangelogEntry[] {
+    const [heading = "", ...lines] = block.split("\n");
+    const [, version, date] = VERSION_HEADING.exec(heading) ?? [];
+    if (!version) return [];
+    const { groups, summary } = readSections(lines);
+    return [{
+        version: formatVersionLabel(version),
+        date,
+        title: summary ?? "Improvements and fixes",
+        groups: groups.filter((group) => group.items.length > 0),
+        glyph: glyphOf(groups),
+    }];
+}
 
-        for (const raw of lines) {
-            const line = raw.trim();
-            if (line.startsWith("### ")) {
-                const kind = line.slice(4).trim().toLowerCase() as ChangelogGroup["kind"];
-                if (GROUP_KINDS.has(kind)) groups.push({ kind, items: [] });
-            } else if (line.startsWith("- ")) {
-                groups.at(-1)?.items.push(line.slice(2).trim());
-            } else if (line && !summary && !line.startsWith("[")) {
-                summary = line;
-            }
+/** The bullets under each known `###` kind, and the first plain line as the summary. */
+function readSections(lines: string[]) {
+    const groups: ChangelogGroup[] = [];
+    let summary: string | undefined;
+    for (const raw of lines) {
+        const line = raw.trim();
+        if (line.startsWith("### ")) {
+            const kind = line.slice(4).trim().toLowerCase() as ChangelogGroup["kind"];
+            if (GROUP_KINDS.has(kind)) groups.push({ kind, items: [] });
+        } else if (line.startsWith("- ")) {
+            groups.at(-1)?.items.push(line.slice(2).trim());
+        } else if (line && !summary && !line.startsWith("[")) {
+            summary = line;
         }
+    }
+    return { groups, summary };
+}
 
-        const kinds = new Set(groups.map((group) => group.kind));
-        const glyph = kinds.has("added") || kinds.has("removed") ? "release" : kinds.has("changed") ? "tune" : "fix";
-
-        return [{
-            version: formatVersionLabel(version),
-            date,
-            title: summary ?? "Improvements and fixes",
-            groups: groups.filter((group) => group.items.length > 0),
-            glyph,
-        }];
-    });
+/** Added/Removed → release, Changed → tune, otherwise fix. */
+function glyphOf(groups: ChangelogGroup[]): ChangelogEntry["glyph"] {
+    const kinds = new Set(groups.map((group) => group.kind));
+    if (kinds.has("added") || kinds.has("removed")) return "release";
+    return kinds.has("changed") ? "tune" : "fix";
 }
 
 export function readReleaseInfo(repoRoot: URL) {

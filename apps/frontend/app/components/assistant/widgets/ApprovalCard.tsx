@@ -46,25 +46,18 @@ export type RetiredRenderContext = Omit<ToolRenderContext, "part"> & { part: any
 
 export type Outcome = "done" | "declined" | "failed" | "unanswered";
 
+const WAITING_STATES = new Set(["input-available", "approval-requested", "approval-responded"]);
+
 /** How a tool part ended, or null while it streams, waits or runs. */
-export function outcomeOf(
-    part: { state?: string; output?: { ok?: boolean }; approval?: { reason?: string } } | undefined,
-    stale = false,
-): Outcome | null {
-    switch (part?.state) {
-        case "output-available":
-            return part.output?.ok === false ? "failed" : "done";
-        case "output-error":
-            return "failed";
-        case "output-denied":
-            return part.approval?.reason === "Not answered" ? "unanswered" : "declined";
-        case "input-available":
-        case "approval-requested":
-        case "approval-responded":
-            return stale ? "unanswered" : null;
-        default:
-            return null;
-    }
+type SettlingPart = { state?: string; output?: { ok?: boolean }; approval?: { reason?: string } };
+
+export function outcomeOf(part: SettlingPart | undefined, stale = false): Outcome | null {
+    const state = part?.state;
+    if (state === "output-available") return part!.output?.ok === false ? "failed" : "done";
+    if (state === "output-error") return "failed";
+    if (state === "output-denied") return part!.approval?.reason === "Not answered" ? "unanswered" : "declined";
+    // Streaming, waiting or running: an older reply's open call was never answered.
+    return stale && WAITING_STATES.has(state ?? "") ? "unanswered" : null;
 }
 
 /** The reason sent with a decline when the user unticked some rows. */

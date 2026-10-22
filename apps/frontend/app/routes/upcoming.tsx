@@ -102,27 +102,33 @@ function getTaskSortAt(task: Task, day: LocalDate) {
     return Date.parse(task.scheduledStart ?? fromTimeValue(day, "12:00"));
 }
 
-function getUpcomingComparator(mode: SortMode) {
-    return (a: UpcomingViewerItem, b: UpcomingViewerItem): number => {
-        switch (mode) {
-            case "priority": {
-                const pa = a.task?.priority ?? 0;
-                const pb = b.task?.priority ?? 0;
-                if (pa !== pb) return pb - pa;
-                if (a.sortAt !== b.sortAt) return a.sortAt - b.sortAt;
-                return a.title.localeCompare(b.title);
-            }
-            case "manual": {
-                const oa = a.task?.orderIndex ?? 0;
-                const ob = b.task?.orderIndex ?? 0;
-                return oa - ob;
-            }
-            default: {
-                if (a.sortAt !== b.sortAt) return a.sortAt - b.sortAt;
-                return a.title.localeCompare(b.title);
-            }
-        }
-    };
+type Compare = (a: UpcomingViewerItem, b: UpcomingViewerItem) => number;
+
+/** Soonest first, then by title. */
+const byTime: Compare = (a, b) => (a.sortAt !== b.sortAt ? a.sortAt - b.sortAt : a.title.localeCompare(b.title));
+/** Highest priority first, then soonest. */
+const byPriority: Compare = (a, b) => {
+    const pa = a.task?.priority ?? 0;
+    const pb = b.task?.priority ?? 0;
+    return pa !== pb ? pb - pa : byTime(a, b);
+};
+/** The list's own order. */
+const byManual: Compare = (a, b) => (a.task?.orderIndex ?? 0) - (b.task?.orderIndex ?? 0);
+
+function getUpcomingComparator(mode: SortMode): Compare {
+    if (mode === "priority") return byPriority;
+    return mode === "manual" ? byManual : byTime;
+}
+
+/** Each bucket in its order: ranked when smart sort is on and chosen, else by the chosen comparator. */
+function sortBuckets(grouped: Buckets, smart: boolean, sortMode: SortMode) {
+    const buckets = Object.keys(grouped) as UpcomingBucketKey[];
+    if (smart) {
+        for (const bucket of buckets) grouped[bucket] = rankBucket(grouped[bucket]);
+        return;
+    }
+    const comparator = getUpcomingComparator(sortMode);
+    for (const bucket of buckets) grouped[bucket].sort(comparator);
 }
 
 function classifyUpcomingBucket(dateOnly: LocalDate, todayISO: LocalDate, tomorrowISO: LocalDate, nextWeekISO: LocalDate): UpcomingBucketKey | null {
@@ -278,13 +284,7 @@ export default function Upcoming() {
             for (const [bucket, item] of habitItems(habit, week)) grouped[bucket].push(item);
         }
 
-        const buckets = Object.keys(grouped) as UpcomingBucketKey[];
-        if (intelligenceEnabled && smartSortEnabled && sortMode === "smart") {
-            for (const bucket of buckets) grouped[bucket] = rankBucket(grouped[bucket]);
-        } else {
-            const comparator = getUpcomingComparator(sortMode);
-            for (const bucket of buckets) grouped[bucket].sort(comparator);
-        }
+        sortBuckets(grouped, intelligenceEnabled && smartSortEnabled && sortMode === "smart", sortMode);
         return grouped;
     }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO, intelligenceEnabled, smartSortEnabled]);
 

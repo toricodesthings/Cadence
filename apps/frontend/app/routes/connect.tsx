@@ -16,6 +16,13 @@ import { MCP_SCOPE_COPY } from "../lib/constants/mcp";
 /** How long the drawn check stays up before the browser returns to the assistant. */
 const SUCCESS_HOLD_MS = 1500;
 
+/** Where the consent page is: waiting for the account or request, a dead link, done, or asking. */
+function connectStage(signedIn: boolean, request: string | null, view: ReturnType<typeof useConnectRequest>, approved: boolean) {
+    if (!signedIn || (request && view.isPending)) return "loading";
+    if (!request || view.isError || !view.data) return "expired";
+    return approved ? "done" : "ask";
+}
+
 /**
  * Consent for an outside assistant (MCP). The assistant sent the browser here from
  * the MCP origin with `?request=`; this page needs a signed-in account, shows who is
@@ -51,17 +58,15 @@ export default function ConnectRoute() {
             },
         });
 
-    let key: string;
+    const key = connectStage(authReady && isAuthenticated, request, view, approved);
     let body: React.ReactNode;
-    if (!authReady || !isAuthenticated || (request && view.isPending)) {
-        key = "loading";
+    if (key === "loading") {
         body = (
             <div className="flex justify-center py-10">
                 <Loader2 className="animate-spin text-twilight-text-soft" aria-label="Loading" />
             </div>
         );
-    } else if (!request || view.isError || !view.data) {
-        key = "expired";
+    } else if (key === "expired" || !view.data) {
         body = (
             <motion.div variants={rise} className="py-4 text-center">
                 <h1 className="font-display text-xl font-semibold text-twilight-text">This link has expired</h1>
@@ -70,97 +75,19 @@ export default function ConnectRoute() {
                 </p>
             </motion.div>
         );
-    } else if (approved) {
-        key = "done";
+    } else if (key === "done") {
         body = <Connected clientName={view.data.clientName} />;
     } else {
-        const client = view.data;
-        key = "ask";
         body = (
-            <>
-                <motion.header variants={rise} className="text-center">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-primary/80">
-                        Connect an assistant
-                    </p>
-                    <h1 className="mt-1.5 font-display text-[1.45rem] font-semibold leading-tight tracking-tight text-twilight-text text-balance">
-                        Allow <span className="text-accent-primary">{client.clientName}</span> to use your Cadence?
-                    </h1>
-                    <p className="mt-2 text-sm leading-6 text-twilight-text-soft text-pretty">
-                        {client.publisher
-                            ? <>Published by <strong className="font-medium text-twilight-text">{client.publisher}</strong>. </>
-                            : "This app named itself, so its name isn't verified. "}
-                        Access goes to <strong className="font-medium text-twilight-text">{client.redirectHost}</strong>.
-                    </p>
-                    {session?.user?.email && (
-                        <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.03] px-2.5 py-0.5 text-xs text-twilight-text-muted">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80" aria-hidden />
-                            Signed in as {session.user.email}
-                        </p>
-                    )}
-                </motion.header>
-
-                {client.localRedirect && (
-                    <motion.p
-                        variants={rise}
-                        className="flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-xs leading-5 text-twilight-text"
-                    >
-                        <TriangleAlert size={14} className="mt-0.5 shrink-0 text-amber-300" aria-hidden />
-                        Access goes to an app on this computer. Continue only if you just started connecting from it.
-                    </motion.p>
-                )}
-
-                <motion.fieldset variants={rise} className="flex flex-col gap-2">
-                    <legend className="mb-1.5 text-xs font-medium text-twilight-text-muted">It would be able to</legend>
-                    {(Object.keys(MCP_SCOPE_COPY) as McpScope[]).map((scope) => {
-                        const on = chosen.has(scope);
-                        return (
-                            <label
-                                key={scope}
-                                className={`flex cursor-pointer items-center justify-between gap-4 rounded-2xl border py-1.5 pl-4 pr-2 transition-colors duration-300 ${on
-                                    ? "border-accent-primary/25 bg-accent-primary/[0.06]"
-                                    : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]"
-                                    }`}
-                            >
-                                <span>
-                                    <span className="block text-sm font-medium text-twilight-text">{MCP_SCOPE_COPY[scope].title}</span>
-                                    <span className="block text-xs leading-5 text-twilight-text-soft">{MCP_SCOPE_COPY[scope].description}</span>
-                                </span>
-                                <Switch
-                                    checked={on}
-                                    disabled={leaving}
-                                    onCheckedChange={(next) => {
-                                        const set = new Set(chosen);
-                                        if (next) set.add(scope);
-                                        else set.delete(scope);
-                                        setScopes(set);
-                                    }}
-                                />
-                            </label>
-                        );
-                    })}
-                </motion.fieldset>
-
-                <motion.p variants={rise} className="flex gap-2.5 text-xs leading-5 text-twilight-text-muted">
-                    <ShieldCheck size={14} className="mt-px shrink-0 text-twilight-text-soft" aria-hidden />
-                    <span>
-                        Your assistant asks you before each change. It can't change your settings. Disconnect anytime in Settings › Integrations;
-                        that stops new access, not what it already read.
-                    </span>
-                </motion.p>
-
-                {answer.isError && (
-                    <p role="alert" className="text-center text-sm text-red-300">That didn't go through. Try again.</p>
-                )}
-
-                <motion.div variants={rise} className="flex gap-3">
-                    <Button variant="secondary" size="md" className="flex-1" disabled={leaving} onClick={() => respond(false)}>
-                        Deny
-                    </Button>
-                    <Button size="md" className="flex-1" disabled={leaving || chosen.size === 0} onClick={() => respond(true)}>
-                        {leaving ? <Loader2 size={16} className="animate-spin" aria-label="Connecting" /> : "Allow"}
-                    </Button>
-                </motion.div>
-            </>
+            <ConnectAsk
+                client={view.data}
+                email={session?.user?.email}
+                chosen={chosen}
+                setScopes={setScopes}
+                leaving={leaving}
+                failed={answer.isError}
+                respond={respond}
+            />
         );
     }
 
@@ -179,6 +106,107 @@ export default function ConnectRoute() {
                 </motion.div>
             </AnimatePresence>
         </CardPage>
+    );
+}
+
+type ConnectClient = NonNullable<ReturnType<typeof useConnectRequest>["data"]>;
+
+type ConnectAskProps = {
+    client: ConnectClient;
+    email: string | null | undefined;
+    chosen: Set<McpScope>;
+    setScopes: (scopes: Set<McpScope>) => void;
+    leaving: boolean;
+    failed: boolean;
+    respond: (approve: boolean) => void;
+};
+
+/** Who is asking, what it could do (each scope switchable), and Allow or Deny. */
+function ConnectAsk({ client, email, chosen, setScopes, leaving, failed, respond }: ConnectAskProps) {
+    return (
+        <>
+            <motion.header variants={rise} className="text-center">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-primary/80">
+                    Connect an assistant
+                </p>
+                <h1 className="mt-1.5 font-display text-[1.45rem] font-semibold leading-tight tracking-tight text-twilight-text text-balance">
+                    Allow <span className="text-accent-primary">{client.clientName}</span> to use your Cadence?
+                </h1>
+                <p className="mt-2 text-sm leading-6 text-twilight-text-soft text-pretty">
+                    {client.publisher
+                        ? <>Published by <strong className="font-medium text-twilight-text">{client.publisher}</strong>. </>
+                        : "This app named itself, so its name isn't verified. "}
+                    Access goes to <strong className="font-medium text-twilight-text">{client.redirectHost}</strong>.
+                </p>
+                {email && (
+                    <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.03] px-2.5 py-0.5 text-xs text-twilight-text-muted">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80" aria-hidden />
+                        Signed in as {email}
+                    </p>
+                )}
+            </motion.header>
+
+            {client.localRedirect && (
+                <motion.p
+                    variants={rise}
+                    className="flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-xs leading-5 text-twilight-text"
+                >
+                    <TriangleAlert size={14} className="mt-0.5 shrink-0 text-amber-300" aria-hidden />
+                    Access goes to an app on this computer. Continue only if you just started connecting from it.
+                </motion.p>
+            )}
+
+            <motion.fieldset variants={rise} className="flex flex-col gap-2">
+                <legend className="mb-1.5 text-xs font-medium text-twilight-text-muted">It would be able to</legend>
+                {(Object.keys(MCP_SCOPE_COPY) as McpScope[]).map((scope) => {
+                    const on = chosen.has(scope);
+                    return (
+                        <label
+                            key={scope}
+                            className={`flex cursor-pointer items-center justify-between gap-4 rounded-2xl border py-1.5 pl-4 pr-2 transition-colors duration-300 ${on
+                                ? "border-accent-primary/25 bg-accent-primary/[0.06]"
+                                : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]"
+                                }`}
+                        >
+                            <span>
+                                <span className="block text-sm font-medium text-twilight-text">{MCP_SCOPE_COPY[scope].title}</span>
+                                <span className="block text-xs leading-5 text-twilight-text-soft">{MCP_SCOPE_COPY[scope].description}</span>
+                            </span>
+                            <Switch
+                                checked={on}
+                                disabled={leaving}
+                                onCheckedChange={(next) => {
+                                    const set = new Set(chosen);
+                                    if (next) set.add(scope);
+                                    else set.delete(scope);
+                                    setScopes(set);
+                                }}
+                            />
+                        </label>
+                    );
+                })}
+            </motion.fieldset>
+
+            <motion.p variants={rise} className="flex gap-2.5 text-xs leading-5 text-twilight-text-muted">
+                <ShieldCheck size={14} className="mt-px shrink-0 text-twilight-text-soft" aria-hidden />
+                <span>
+                    {"Your assistant asks you before each change. It can't change your settings. Disconnect anytime in Settings › Integrations; that stops new access, not what it already read."}
+                </span>
+            </motion.p>
+
+            {failed && (
+                <p role="alert" className="text-center text-sm text-red-300">{"That didn't go through. Try again."}</p>
+            )}
+
+            <motion.div variants={rise} className="flex gap-3">
+                <Button variant="secondary" size="md" className="flex-1" disabled={leaving} onClick={() => respond(false)}>
+                    Deny
+                </Button>
+                <Button size="md" className="flex-1" disabled={leaving || chosen.size === 0} onClick={() => respond(true)}>
+                    {leaving ? <Loader2 size={16} className="animate-spin" aria-label="Connecting" /> : "Allow"}
+                </Button>
+            </motion.div>
+        </>
     );
 }
 

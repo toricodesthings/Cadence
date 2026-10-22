@@ -16,17 +16,30 @@ function useProjectName() {
     return (id?: string) => data?.find((project) => project.id === id)?.name;
 }
 
+type ProjectPatch = { name?: string; emoji?: string | null; colorAccent?: string };
+
+/** "Renamed from “Old” · New emoji · Colour: sage" */
+function projectChanges(patch: ProjectPatch, current: string) {
+    const emoji = patch.emoji === null ? "No emoji" : patch.emoji ? "New emoji" : null;
+    return [
+        patch.name && patch.name !== current ? `Renamed from “${current}”` : null,
+        emoji,
+        patch.colorAccent ? `Colour: ${patch.colorAccent}` : null,
+    ].filter(Boolean).join(" · ");
+}
+
+/** The list's name after the change, its title with the emoji, and what changes. */
+function projectCardText(patch: ProjectPatch, current: string) {
+    const name = patch.name ?? current;
+    const emoji = patch.emoji ? `${patch.emoji} ` : "";
+    return { name, title: `${emoji}${name}`, changes: projectChanges(patch, current) || undefined };
+}
+
 export function UpdateProjectCard({ ctx }: { ctx: ToolRenderContext<"update_project"> }) {
     const projectName = useProjectName();
     const input = ctx.part?.input ?? {};
-    const patch: { name?: string; emoji?: string | null; colorAccent?: string } = input.patch ?? {};
     const current = projectName(input.projectId) ?? ctx.part?.output?.name ?? "this list";
-    const name = patch.name ?? current;
-    const changes = [
-        patch.name && patch.name !== current ? `Renamed from “${current}”` : null,
-        patch.emoji === null ? "No emoji" : patch.emoji ? "New emoji" : null,
-        patch.colorAccent ? `Colour: ${patch.colorAccent}` : null,
-    ].filter(Boolean).join(" · ");
+    const { name, title, changes } = projectCardText(input.patch ?? {}, current);
     return (
         <ApprovalCard
             ctx={ctx}
@@ -37,7 +50,7 @@ export function UpdateProjectCard({ ctx }: { ctx: ToolRenderContext<"update_proj
             primaryGlyph={Check}
             doneText={`Updated “${name}”.`}
         >
-            <IdentityBlock title={`${patch.emoji ? `${patch.emoji} ` : ""}${name}`} subtitle={changes || undefined} />
+            <IdentityBlock title={title} subtitle={changes} />
         </ApprovalCard>
     );
 }
@@ -69,12 +82,26 @@ export function DeleteProjectCard({ ctx }: { ctx: ToolRenderContext<"delete_proj
     );
 }
 
+type TagPatch = { name?: string; color?: string };
+
+/** "Renamed from #old · Colour: sage" */
+function tagChanges(patch: TagPatch, current: { name: string } | undefined) {
+    return [
+        patch.name && current && patch.name !== current.name ? `Renamed from #${current.name}` : null,
+        patch.color ? `Colour: ${patch.color}` : null,
+    ].filter(Boolean).join(" · ") || undefined;
+}
+
+function tagCardName(patch: TagPatch, current: { name: string } | undefined, saved: string | undefined) {
+    return patch.name ?? current?.name ?? saved ?? "this tag";
+}
+
 export function UpdateTagCard({ ctx }: { ctx: ToolRenderContext<"update_tag"> }) {
     const lookupTags = useTagsLookup();
     const input = ctx.part?.input ?? {};
     const [current] = lookupTags(input.tagId ? [input.tagId] : []);
-    const patch: { name?: string; color?: string } = input.patch ?? {};
-    const name = patch.name ?? current?.name ?? ctx.part?.output?.name ?? "this tag";
+    const patch: TagPatch = input.patch ?? {};
+    const name = tagCardName(patch, current, ctx.part?.output?.name);
     return (
         <ApprovalCard
             ctx={ctx}
@@ -85,10 +112,7 @@ export function UpdateTagCard({ ctx }: { ctx: ToolRenderContext<"update_tag"> })
             primaryGlyph={Check}
             doneText={`Updated #${name}.`}
         >
-            <IdentityBlock
-                title={`#${name}`}
-                subtitle={[patch.name && current && patch.name !== current.name ? `Renamed from #${current.name}` : null, patch.color ? `Colour: ${patch.color}` : null].filter(Boolean).join(" · ") || undefined}
-            />
+            <IdentityBlock title={`#${name}`} subtitle={tagChanges(patch, current)} />
             {current ? <div className="flex"><TagPill tag={{ ...current, name, color: patch.color ?? current.color }} /></div> : null}
         </ApprovalCard>
     );
@@ -130,6 +154,26 @@ type ViewFilters = {
 const DUE_COPY: Record<string, string> = { overdue: "Overdue", today: "Due by today", this_week: "Due this week", this_month: "Due this month" };
 const STATE_COPY: Record<string, string> = { ACTIVE: "Open", WAITING: "Waiting", COMPLETE: "Done", ARCHIVED: "Trash" };
 
+/** An option's label ("High"), or the raw value when it has none. */
+const labelOf = (options: readonly { value: number; label: string }[], value: number) =>
+    options.find((o) => o.value === value)?.label ?? value;
+
+/** The filters with a value of their own: priority, effort, time, due window, flags and sort. */
+function valueFilterParts(filters: ViewFilters) {
+    return [
+        filters.needsDate ? "No date" : null,
+        filters.needsProject ? "No list" : null,
+        filters.priorityMin ? `${labelOf(PRIORITY_OPTIONS, filters.priorityMin)}+ priority` : null,
+        filters.effortMin ? `${labelOf(EFFORT_OPTIONS, filters.effortMin)} effort or more` : null,
+        filters.effortMax ? `${labelOf(EFFORT_OPTIONS, filters.effortMax)} effort or less` : null,
+        filters.durationMaxMinutes ? `${filters.durationMaxMinutes} min or less` : null,
+        filters.dueWindow ? DUE_COPY[filters.dueWindow] ?? filters.dueWindow : null,
+        filters.waitingOnly ? "Waiting only" : null,
+        filters.missingStructureOnly ? "Missing a date or list" : null,
+        filters.sortMode ? `Sort: ${filters.sortMode}` : null,
+    ];
+}
+
 /** "Client · High+ · Low effort · Due this week", from the filters a view sets. */
 function useFilterSummary(filters: ViewFilters = {}) {
     const projectName = useProjectName();
@@ -138,16 +182,7 @@ function useFilterSummary(filters: ViewFilters = {}) {
         filters.states?.length ? filters.states.map((state) => STATE_COPY[state] ?? state).join(" + ") : null,
         ...(filters.projectIds ?? []).map((id) => projectName(id) ?? "a list"),
         ...lookupTags(filters.tagIds ?? []).map((tag) => `#${tag.name}`),
-        filters.needsDate ? "No date" : null,
-        filters.needsProject ? "No list" : null,
-        filters.priorityMin ? `${PRIORITY_OPTIONS.find((o) => o.value === filters.priorityMin)?.label ?? filters.priorityMin}+ priority` : null,
-        filters.effortMin ? `${EFFORT_OPTIONS.find((o) => o.value === filters.effortMin)?.label ?? filters.effortMin} effort or more` : null,
-        filters.effortMax ? `${EFFORT_OPTIONS.find((o) => o.value === filters.effortMax)?.label ?? filters.effortMax} effort or less` : null,
-        filters.durationMaxMinutes ? `${filters.durationMaxMinutes} min or less` : null,
-        filters.dueWindow ? DUE_COPY[filters.dueWindow] ?? filters.dueWindow : null,
-        filters.waitingOnly ? "Waiting only" : null,
-        filters.missingStructureOnly ? "Missing a date or list" : null,
-        filters.sortMode ? `Sort: ${filters.sortMode}` : null,
+        ...valueFilterParts(filters),
     ].filter(Boolean).join(" · ") || undefined;
 }
 
@@ -170,17 +205,23 @@ export function CreateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"save_focu
     );
 }
 
+const PIN_COPY: Record<string, string> = { true: "Pin", false: "Unpin" };
+
+/** "Renamed from “Old” · Pin · <filters>" */
+function focusViewChanges(input: { name?: string; pinned?: boolean }, current: string | undefined, summary: string | undefined) {
+    return [
+        input.name && current && input.name !== current ? `Renamed from “${current}”` : null,
+        PIN_COPY[String(input.pinned)],
+        summary,
+    ].filter(Boolean).join(" · ");
+}
+
 export function UpdateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"save_focus_view"> | RetiredRenderContext }) {
     const { data: views } = useFocusViews();
     const input = ctx.part?.input ?? {};
     const current = views?.find((view) => view.id === input.focusViewId)?.name;
     const name: string = input.name ?? current ?? ctx.part?.output?.name ?? "this view";
-    const summary = useFilterSummary(input.filters);
-    const changes = [
-        input.name && current && input.name !== current ? `Renamed from “${current}”` : null,
-        input.pinned === true ? "Pin" : input.pinned === false ? "Unpin" : null,
-        summary,
-    ].filter(Boolean).join(" · ");
+    const changes = focusViewChanges(input, current, useFilterSummary(input.filters));
     return (
         <ApprovalCard
             ctx={ctx}

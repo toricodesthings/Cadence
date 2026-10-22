@@ -52,10 +52,14 @@ function parseOne(text: string): number | null {
     // "1 hour 30 minutes", "1h 30", "2 hrs and 15 min".
     const hm = /^(\d+)\s*(?:h|hrs?|hours?)\s*(?:and\s*)?(\d+)\s*(?:m|mins?|minutes?)?$/.exec(input);
     if (hm) return clamp(Number(hm[1]) * 60 + Number(hm[2]));
+    return parsedWhole(input);
+}
+
+/** The parser's length when it is the whole text: "at least an hour" is not "an hour". */
+function parsedWhole(input: string): number | null {
     const { entities, consumedRanges } = parseDuration(input, { maxMinutes: MAX_MINUTES });
     const minutes = (entities[0]?.normalizedValue as { minutes?: number } | undefined)?.minutes;
     const range = consumedRanges[0];
-    // The whole text must be the length: "at least an hour" is not "an hour".
     return minutes && range && range.start === 0 && range.end === input.length ? clamp(minutes) : null;
 }
 

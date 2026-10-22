@@ -81,7 +81,7 @@ export function DraftQuotes({ draft, compact = false }: { draft: TaskDraft; comp
 
 /** Tags named by the assistant (new ones are made when the change lands). */
 export function TagNamePills({ names, mark }: { names?: string[]; mark?: "add" }) {
-    return <>{names?.map((name) => <MetaPill key={name} icon={TagIcon}>{mark ? "+ " : ""}#{name}</MetaPill>)}</>;
+    return <>{names?.map((name) => <MetaPill key={name} icon={TagIcon}>{`${mark ? "+ " : ""}#${name}`}</MetaPill>)}</>;
 }
 
 /** The draft's fields that read as pills: when, length, priority, effort, repeats, Fixed, reminder, hide-until. */
@@ -153,36 +153,79 @@ export function DraftSteps({ draft }: { draft: TaskDraft }) {
  * Card for `create_tasks` (design §4.1): one task shows whole, with its checklist;
  * several show as rows the user can untick. One tap adds them all.
  */
+/** The card's words: one task by title (Schedule when it has a time), several by count. */
+function batchCardText(drafts: TaskDraft[], kept: number, createdCount: number) {
+    const count = drafts.length;
+    const first = drafts[0] ?? {};
+    const title = first.title ?? "this task";
+    if (count > 1) {
+        const eyebrow = `${count} NEW TASKS`;
+        return {
+            title,
+            eyebrow,
+            ariaLabel: eyebrow,
+            primaryLabel: kept === count ? `Add all ${count}` : `Add ${kept}`,
+            doneText: `Added ${createdCount || count} tasks.`,
+        };
+    }
+    const when = formatWhen(first.scheduledStart ?? first.dueDate);
+    return {
+        title,
+        eyebrow: "NEW TASK",
+        ariaLabel: `NEW TASK: ${title}`,
+        primaryLabel: when ? "Schedule" : "Add",
+        doneText: when ? `Scheduled “${title}” for ${when}.` : `Added “${title}”.`,
+    };
+}
+
+const draftLabel = (draft: TaskDraft, i: number) => draft.title ?? `task ${i + 1}`;
+
+/** One of several drafts: its title, note line, step count and details, untickable. */
+type DraftRowProps = { draft: TaskDraft; i: number; on: boolean; onToggle: (() => void) | undefined; terse: boolean };
+
+function DraftRow({ draft, i, on, onToggle, terse }: DraftRowProps) {
+    const steps = draft.subtasks?.length ?? 0;
+    return (
+        <TickRow on={on} onToggle={onToggle} label={`Add ${draftLabel(draft, i)}`}>
+            <p className="text-twilight-text">{draft.title}</p>
+            {!terse ? <DraftNote note={draft.note} lines={1} /> : null}
+            {steps ? (
+                <p className="text-[10px] text-twilight-text-muted">
+                    {steps} {steps === 1 ? "step" : "steps"}
+                </p>
+            ) : null}
+            <div className="mt-0.5 space-y-0.5">
+                <DraftDetails draft={draft} />
+                <DraftQuotes draft={draft} compact />
+            </div>
+        </TickRow>
+    );
+}
+
+/**
+ * Card for `create_tasks` (design §4.1): one task shows whole, with its checklist;
+ * several show as rows the user can untick. One tap adds them all.
+ */
 export function TaskBatchCard({ ctx }: { ctx: ToolRenderContext<"create_tasks"> }) {
     const persona = useAssistantPersona();
     const { off, onToggle, removed } = useUnticked(ctx);
     const drafts: TaskDraft[] = ctx.part?.input?.tasks ?? [];
-    const count = drafts.length;
-    const kept = count - off.size;
-    const first = drafts[0] ?? {};
-    const title = first.title ?? "this task";
-    const when = formatWhen(first.scheduledStart ?? first.dueDate);
     const created: unknown[] = ctx.part?.output?.created ?? [];
-    const eyebrow = count > 1 ? `${count} NEW TASKS` : "NEW TASK";
+    const { title, eyebrow, ariaLabel, primaryLabel, doneText } = batchCardText(drafts, drafts.length - off.size, created.length);
+    const first = drafts[0] ?? {};
 
     return (
         <ApprovalCard
             ctx={ctx}
             eyebrow={eyebrow}
             eyebrowGlyph={Sparkles}
-            ariaLabel={count > 1 ? eyebrow : `${eyebrow}: ${title}`}
-            primaryLabel={count > 1 ? (kept === count ? `Add all ${count}` : `Add ${kept}`) : when ? "Schedule" : "Add"}
+            ariaLabel={ariaLabel}
+            primaryLabel={primaryLabel}
             primaryGlyph={Check}
-            removed={removed(drafts.map((d, i) => d.title ?? `task ${i + 1}`))}
-            doneText={
-                count > 1
-                    ? `Added ${created.length || count} tasks.`
-                    : when
-                      ? `Scheduled “${title}” for ${when}.`
-                      : `Added “${title}”.`
-            }
+            removed={removed(drafts.map(draftLabel))}
+            doneText={doneText}
         >
-            {count === 1 ? (
+            {drafts.length === 1 ? (
                 <>
                     <IdentityBlock
                         title={title}
@@ -195,24 +238,7 @@ export function TaskBatchCard({ ctx }: { ctx: ToolRenderContext<"create_tasks"> 
             ) : (
                 <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5">
                     {drafts.map((draft, i) => (
-                        <TickRow
-                            key={i}
-                            on={!off.has(i)}
-                            onToggle={onToggle(i)}
-                            label={`Add ${draft.title ?? `task ${i + 1}`}`}
-                        >
-                            <p className="text-twilight-text">{draft.title}</p>
-                            {!persona.terse ? <DraftNote note={draft.note} lines={1} /> : null}
-                            {draft.subtasks?.length ? (
-                                <p className="text-[10px] text-twilight-text-muted">
-                                    {draft.subtasks.length} {draft.subtasks.length === 1 ? "step" : "steps"}
-                                </p>
-                            ) : null}
-                            <div className="mt-0.5 space-y-0.5">
-                                <DraftDetails draft={draft} />
-                                <DraftQuotes draft={draft} compact />
-                            </div>
-                        </TickRow>
+                        <DraftRow key={i} draft={draft} i={i} on={!off.has(i)} onToggle={onToggle(i)} terse={persona.terse} />
                     ))}
                 </div>
             )}

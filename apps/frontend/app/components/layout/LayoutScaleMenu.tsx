@@ -3,6 +3,7 @@ import { EllipsisVertical, Minus, Plus, ZoomIn } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Tip } from "../primitives/Tooltip";
 import { HEADER_ICON_BUTTON } from "./PageHeader";
+import { MENU_HOVER, MENU_ITEM, MENU_SEPARATOR } from "../primitives/menu-styles";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { DESKTOP_LAYOUT_SCALE_DEFAULT, DESKTOP_LAYOUT_SCALES, useDesktopLayoutScale } from "../../hooks/ui/use-desktop-layout-scale";
 
@@ -33,45 +34,35 @@ function useScale() {
 }
 
 const STEP = "w-10 justify-center data-[disabled]:pointer-events-none data-[disabled]:opacity-40";
+/** A panel's step looks exactly like a menu item (`DropdownMenu.Item`'s default row). */
+const PANEL_STEP = `${MENU_ITEM} ${MENU_HOVER} cursor-pointer text-twilight-text-soft hover:text-accent-primary focus:text-accent-primary disabled:pointer-events-none disabled:opacity-40`;
 
-/** The Scale row for a ⋮ `DropdownMenu`: − 100% +, each a menu item that keeps the menu open. */
-export function LayoutScaleMenuRow({ separator = true }: { separator?: boolean }) {
+/**
+ * The Scale row: − 100% +, the percentage resets. In a ⋮ `DropdownMenu` each step is a menu item that keeps the menu
+ * open; in a ⋮ panel (`panel`, Schedule) the same row is drawn with buttons, so the two look identical.
+ */
+export function LayoutScaleMenuRow({ separator = true, panel = false }: { separator?: boolean; panel?: boolean }) {
     const scale = useScale();
     if (!IS_DESKTOP_RUNTIME) return null;
-    const keepOpen = (run: () => void) => (event: Event) => { event.preventDefault(); run(); };
+    const steps = [
+        { id: "smaller", label: "Smaller", disabled: scale.atMin, run: scale.smaller, body: <Minus size={14} aria-hidden="true" />, className: STEP },
+        { id: "reset", label: `Scale ${scale.layoutScale}%, reset to ${DESKTOP_LAYOUT_SCALE_DEFAULT}%`, disabled: false, run: scale.reset, body: `${scale.layoutScale}%`, className: "min-w-14 justify-center text-sm tabular-nums" },
+        { id: "larger", label: "Larger", disabled: scale.atMax, run: scale.larger, body: <Plus size={14} aria-hidden="true" />, className: STEP },
+    ];
     return (
-        <>
-            {separator ? <DropdownMenu.Separator /> : null}
+        <div className={panel ? "-mx-2" : undefined}>
+            {separator ? <div role="separator" className={MENU_SEPARATOR} /> : null}
             <div role="group" aria-label="Layout scale" className="flex items-center gap-0.5 pl-3 pr-1">
                 <ZoomIn size={14} className="shrink-0 text-twilight-text-soft" aria-hidden="true" />
                 <span className="ml-2 flex-1 text-[15px] text-twilight-text-soft">Scale</span>
-                <DropdownMenu.Item aria-label="Smaller" disabled={scale.atMin} onSelect={keepOpen(scale.smaller)} className={STEP}>
-                    <Minus size={14} aria-hidden="true" />
-                </DropdownMenu.Item>
-                <DropdownMenu.Item aria-label={`Scale ${scale.layoutScale}%, reset to ${DESKTOP_LAYOUT_SCALE_DEFAULT}%`} onSelect={keepOpen(scale.reset)} className="min-w-14 justify-center text-sm tabular-nums">
-                    {scale.layoutScale}%
-                </DropdownMenu.Item>
-                <DropdownMenu.Item aria-label="Larger" disabled={scale.atMax} onSelect={keepOpen(scale.larger)} className={STEP}>
-                    <Plus size={14} aria-hidden="true" />
-                </DropdownMenu.Item>
-            </div>
-        </>
-    );
-}
-
-const PANEL_STEP = "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:pointer-events-none disabled:opacity-40";
-
-/** The Scale section for a ⋮ that opens a panel (Schedule, Routines), headed like the panel's other sections. */
-export function LayoutScalePanelRow() {
-    const scale = useScale();
-    if (!IS_DESKTOP_RUNTIME) return null;
-    return (
-        <div>
-            <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-twilight-text-muted">Scale</h4>
-            <div role="group" aria-label="Layout scale" className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] p-1">
-                <button type="button" aria-label="Smaller" disabled={scale.atMin} onClick={scale.smaller} className={PANEL_STEP}><Minus size={14} aria-hidden="true" /></button>
-                <button type="button" aria-label={`Scale ${scale.layoutScale}%, reset to ${DESKTOP_LAYOUT_SCALE_DEFAULT}%`} onClick={scale.reset} className={`${PANEL_STEP} w-auto min-w-14 px-1 text-sm tabular-nums text-twilight-text-soft`}>{scale.layoutScale}%</button>
-                <button type="button" aria-label="Larger" disabled={scale.atMax} onClick={scale.larger} className={PANEL_STEP}><Plus size={14} aria-hidden="true" /></button>
+                {steps.map((step) => panel ? (
+                    <button key={step.id} type="button" aria-label={step.label} disabled={step.disabled} onClick={step.run} className={`${PANEL_STEP} ${step.className}`}>{step.body}</button>
+                ) : (
+                    <DropdownMenu.Item key={step.id} aria-label={step.label} disabled={step.disabled} className={step.className}
+                        onSelect={(event) => { event.preventDefault(); step.run(); }}>
+                        {step.body}
+                    </DropdownMenu.Item>
+                ))}
             </div>
         </div>
     );

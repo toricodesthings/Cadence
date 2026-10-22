@@ -33,6 +33,22 @@ import { computeNlp, loadParse, TASK_FIELDS, useParseModule, type ParseFn } from
 /** Explicit nulls: the server must not infer a day from a thought's words. */
 const NO_DAY = { dueDate: null, scheduledStart: null, scheduledEnd: null };
 
+type ParsedDay = { date?: LocalDate; time?: WallTime | null };
+
+/** "deep work" reads as high effort, "quick call" as low; most words say nothing. */
+function effortOf(rawText: string) {
+    if (/\b(deep|hard|demanding)\b/i.test(rawText)) return 3;
+    return /\b(quick|easy|light)\b/i.test(rawText) ? 1 : null;
+}
+
+/** A typed time is a timed start; a bare day is the due day. */
+function dayFields(day: ParsedDay | undefined) {
+    return {
+        dueDate: day?.time ? null : (day?.date ?? null),
+        scheduledStart: day?.date && day.time ? fromTimeValue(day.date, day.time) : null,
+    };
+}
+
 export function HoldingFeed({
     onSelectTask,
     onClarifyInboxItem,
@@ -71,22 +87,15 @@ export function HoldingFeed({
                 dateStyle: settings?.dateTime.dateStyle,
             });
             const priority = parsed.entities.find((e) => e.type === "priority")?.normalizedValue as number | undefined;
-            const effort = /\b(deep|hard|demanding)\b/i.test(item.rawText)
-                ? 3
-                : /\b(quick|easy|light)\b/i.test(item.rawText)
-                  ? 1
-                  : null;
             const day = parsed.entities.find((e) => e.type === "due_date" || e.type === "scheduled_start")
-                ?.normalizedValue as { date?: LocalDate; time?: WallTime | null } | undefined;
+                ?.normalizedValue as ParsedDay | undefined;
             return {
                 item,
                 priority: priority ?? 0,
-                effort,
+                effort: effortOf(item.rawText),
                 state: "ACTIVE",
                 projectId: null,
-                // A typed time is a timed start; a bare day is the due day.
-                dueDate: day?.time ? null : (day?.date ?? null),
-                scheduledStart: day?.date && day.time ? fromTimeValue(day.date, day.time) : null,
+                ...dayFields(day),
             };
         };
         const compare = (a: { priority: number; createdAt: string; id: string }, b: typeof a) => {

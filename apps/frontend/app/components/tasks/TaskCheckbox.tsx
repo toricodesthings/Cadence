@@ -16,19 +16,158 @@ interface TaskCheckboxProps {
     compact?: boolean;
 }
 
+/** What the box checks off: a task (a Fixed one can't be) or a subtask. */
+function checkboxSubject(task: Task | undefined, subtask: Subtask | undefined) {
+    if (task) {
+        // A Fixed block passes on its own: no check-off.
+        const fixed = !supportsManualTaskCompletion(task);
+        return { id: task.id, title: task.title, fixed, isComplete: task.state === "COMPLETE", isWaiting: task.state === "WAITING" };
+    }
+    return { id: subtask?.id ?? "", title: subtask?.title ?? "", fixed: false, isComplete: subtask?.isComplete, isWaiting: false };
+}
+
+/** How much of the completion countdown is left, 1 → 0. */
+function countdownOf(pending: { commitAt: number; durationMs: number } | undefined, now: number) {
+    return pending ? Math.max(0, Math.min(1, (pending.commitAt - now) / pending.durationMs)) : 0;
+}
+
+type CheckboxLabelState = { fixed: boolean; title: string; isComplete: boolean | undefined; isPendingComplete: boolean; isWaiting: boolean };
+
+function checkboxLabel({ fixed, title, isComplete, isPendingComplete, isWaiting }: CheckboxLabelState) {
+    if (fixed) return `${title} is fixed, no check-off`;
+    if (isComplete) return "Mark incomplete";
+    if (isPendingComplete) return "Undo complete";
+    return isWaiting ? "Finish waiting" : "Mark complete";
+}
+
+function FixedMark({ compact }: { compact: boolean }) {
+    return (
+        <span
+            className={`relative z-10 flex items-center justify-center rounded-full border border-moonlit/35 bg-moonlit/10 text-moonlit ${
+                compact ? "h-6 w-6" : "h-8 w-8 lg:h-6 lg:w-6"
+            }`}
+            aria-hidden="true"
+        >
+            <CalendarClock className="h-3 w-3" />
+        </span>
+    );
+}
+
+function markSize(small: boolean, compact: boolean) {
+    if (small) return "h-5 w-5";
+    return compact ? "h-6 w-6" : "h-8 w-8 lg:h-6 lg:w-6";
+}
+
+function markTone(confirmed: boolean, isWaiting: boolean) {
+    if (confirmed) return "bg-accent-primary/20 border-accent-primary text-accent-primary";
+    return isWaiting ? "border-moonlit/80 text-moonlit/80 group-hover:border-moonlit" : "border-twilight-text-muted/70 group-hover:border-accent-primary/50";
+}
+
+type CheckMarkProps = {
+    compact: boolean;
+    /** A subtask's smaller ring. */
+    small: boolean;
+    confirmed: boolean;
+    isWaiting: boolean;
+    isPendingComplete: boolean;
+    countdownProgress: number;
+    sparkleKey: number;
+};
+
+/** The ring: a countdown halo while completion waits, a check or pause inside, and the celebration burst. */
+function CheckMark({ compact, small, confirmed, isWaiting, isPendingComplete, countdownProgress, sparkleKey }: CheckMarkProps) {
+    return (
+        <>
+            <AnimatePresence>
+                {isPendingComplete && (
+                    <motion.span
+                        key="countdown-halo"
+                        initial={{ opacity: 0, scale: 0.92 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.92 }}
+                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                        className={`absolute rounded-full border border-accent-primary/20 bg-accent-primary/[0.035] ${compact ? "inset-[3px]" : "inset-[5px] lg:inset-[3px]"}`}
+                        style={{
+                            boxShadow: `0 0 ${4 + countdownProgress * 6}px color-mix(in srgb, var(--accent-primary) ${Math.round((0.08 + countdownProgress * 0.08) * 100)}%, transparent)`,
+                        }}
+                        aria-hidden="true"
+                    />
+                )}
+            </AnimatePresence>
+
+            <motion.span
+                animate={
+                    confirmed
+                        ? {
+                            scale: [0.88, 1.06, 1],
+                            boxShadow: [
+                                "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)",
+                                "0 0 18px color-mix(in srgb, var(--accent-primary) 22%, transparent)",
+                                "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)",
+                            ],
+                        }
+                        : { scale: 1, boxShadow: "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)" }
+                }
+                transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+                className={`relative z-10 flex items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color,color] duration-200 ${markSize(small, compact)} ${markTone(confirmed, isWaiting)}`}
+            >
+                <AnimatePresence mode="wait" initial={false}>
+                    {confirmed ? (
+                        <motion.svg
+                            key="check"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 10 10"
+                            fill="none"
+                            className="text-accent-primary"
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                        >
+                            <motion.path
+                                d="M2 5L4 7L8 3"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                initial={{ pathLength: 0 }}
+                                animate={{ pathLength: 1 }}
+                                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                            />
+                        </motion.svg>
+                    ) : isWaiting ? (
+                        <motion.div
+                            key="pause"
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            transition={{ duration: 0.18 }}
+                        >
+                            <Pause className="h-3 w-3" />
+                        </motion.div>
+                    ) : null}
+                </AnimatePresence>
+            </motion.span>
+
+            {/* Celebration sparkle burst */}
+            <AnimatePresence>
+                {sparkleKey > 0 && (
+                    <CelebrationBurst key={sparkleKey} compact={compact} />
+                )}
+            </AnimatePresence>
+        </>
+    );
+}
+
 /** Circular checkbox that toggles task between states */
 export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxProps) {
     const updateTask = useUpdateTask();
     const updateSubtask = useUpdateSubtask(subtask?.taskId ?? "");
     const { data: userSettings } = useSettings();
     const showCelebration = userSettings?.tasks?.showDoneCelebration ?? true;
-    const id = task?.id ?? subtask?.id ?? "";
-    const title = task?.title ?? subtask?.title ?? "";
+    const { id, title, fixed, isComplete, isWaiting } = checkboxSubject(task, subtask);
     const [sparkleKey, setSparkleKey] = useState(0);
-    const allowsManualCompletion = task ? supportsManualTaskCompletion(task) : true;
-
-    const isComplete = task ? task.state === "COMPLETE" : subtask?.isComplete;
-    const isWaiting = task ? task.state === "WAITING" : false;
     const pendingCompletion = useTaskCompletionStore((state) => state.pendingById[id]);
     const queueCompletion = useTaskCompletionStore((state) => state.queueCompletion);
     const cancelCompletion = useTaskCompletionStore((state) => state.cancelCompletion);
@@ -54,9 +193,7 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
         }
     }, [clearCompletion, pendingCompletion, id, isComplete]);
 
-    const countdownProgress = pendingCompletion
-        ? Math.max(0, Math.min(1, (pendingCompletion.commitAt - now) / pendingCompletion.durationMs))
-        : 0;
+    const countdownProgress = countdownOf(pendingCompletion, now);
 
     const trackQuickAction = (outcome: string, inputMethod: "click" | "context_menu") => {
         if (!task) return;
@@ -71,7 +208,7 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
 
     const handleToggle = (e: React.MouseEvent) => {
         e.stopPropagation(); // prevent card expansion click
-        if (task && !allowsManualCompletion) {
+        if (fixed) {
             return;
         }
 
@@ -122,117 +259,24 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
             onClick={handleToggle}
             type="button"
             data-no-dnd="true"
-            disabled={task ? !allowsManualCompletion : false}
+            disabled={fixed}
             className={`group relative flex shrink-0 items-center justify-center rounded-full transition-colors duration-200 ${
-                task && !allowsManualCompletion ? "cursor-default" : "cursor-pointer"
+                fixed ? "cursor-default" : "cursor-pointer"
             } ${compact ? "h-8 w-8" : "mt-0.5 h-11 w-11 lg:h-8 lg:w-8"}`}
-            aria-label={
-                task && !allowsManualCompletion
-                    ? `${title} is fixed, no check-off`
-                    : isComplete
-                        ? "Mark incomplete"
-                        : isPendingComplete
-                            ? "Undo complete"
-                            : isWaiting
-                                ? "Finish waiting"
-                                : "Mark complete"
-            }
+            aria-label={checkboxLabel({ fixed, title, isComplete, isPendingComplete, isWaiting })}
         >
-            {task && !allowsManualCompletion ? (
-                <span
-                    className={`relative z-10 flex items-center justify-center rounded-full border border-moonlit/35 bg-moonlit/10 text-moonlit ${
-                        compact ? "h-6 w-6" : "h-8 w-8 lg:h-6 lg:w-6"
-                    }`}
-                    aria-hidden="true"
-                >
-                    <CalendarClock className="h-3 w-3" />
-                </span>
+            {fixed ? (
+                <FixedMark compact={compact} />
             ) : (
-                <>
-            <AnimatePresence>
-                {isPendingComplete && (
-                    <motion.span
-                        key="countdown-halo"
-                        initial={{ opacity: 0, scale: 0.92 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.92 }}
-                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className={`absolute rounded-full border border-accent-primary/20 bg-accent-primary/[0.035] ${compact ? "inset-[3px]" : "inset-[5px] lg:inset-[3px]"}`}
-                        style={{
-                            boxShadow: `0 0 ${4 + countdownProgress * 6}px color-mix(in srgb, var(--accent-primary) ${Math.round((0.08 + countdownProgress * 0.08) * 100)}%, transparent)`,
-                        }}
-                        aria-hidden="true"
-                    />
-                )}
-            </AnimatePresence>
-
-            <motion.span
-                animate={
-                    showsConfirmedState
-                        ? {
-                            scale: [0.88, 1.06, 1],
-                            boxShadow: [
-                                "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)",
-                                "0 0 18px color-mix(in srgb, var(--accent-primary) 22%, transparent)",
-                                "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)",
-                            ],
-                        }
-                        : { scale: 1, boxShadow: "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)" }
-                }
-                transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
-                className={`relative z-10 flex items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color,color] duration-200 ${subtask ? "h-5 w-5" : compact ? "h-6 w-6" : "h-8 w-8 lg:h-6 lg:w-6"} ${showsConfirmedState
-                    ? "bg-accent-primary/20 border-accent-primary text-accent-primary"
-                    : isWaiting
-                        ? "border-moonlit/80 text-moonlit/80 group-hover:border-moonlit"
-                        : "border-twilight-text-muted/70 group-hover:border-accent-primary/50"
-                    }`}
-            >
-                <AnimatePresence mode="wait" initial={false}>
-                    {showsConfirmedState ? (
-                        <motion.svg
-                            key="check"
-                            width="12"
-                            height="12"
-                            viewBox="0 0 10 10"
-                            fill="none"
-                            className="text-accent-primary"
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
-                            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                        >
-                            <motion.path
-                                d="M2 5L4 7L8 3"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                initial={{ pathLength: 0 }}
-                                animate={{ pathLength: 1 }}
-                                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                            />
-                        </motion.svg>
-                    ) : isWaiting ? (
-                        <motion.div
-                            key="pause"
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
-                            transition={{ duration: 0.18 }}
-                        >
-                            <Pause className="h-3 w-3" />
-                        </motion.div>
-                    ) : null}
-                </AnimatePresence>
-            </motion.span>
-
-            {/* Celebration sparkle burst */}
-            <AnimatePresence>
-                {sparkleKey > 0 && (
-                    <CelebrationBurst key={sparkleKey} compact={compact} />
-                )}
-            </AnimatePresence>
-                </>
+                <CheckMark
+                    compact={compact}
+                    small={Boolean(subtask)}
+                    confirmed={Boolean(showsConfirmedState)}
+                    isWaiting={isWaiting}
+                    isPendingComplete={isPendingComplete}
+                    countdownProgress={countdownProgress}
+                    sparkleKey={sparkleKey}
+                />
             )}
         </button>
     );

@@ -29,6 +29,30 @@ interface AddTaskInputProps {
     tasks: Task[];
 }
 
+/** Whether typed words are read (both switches on), and how. */
+function wordsSettings(userSettings: ReturnType<typeof useSettings>["data"]) {
+    const intelligence = userSettings?.tasks?.intelligence;
+    return {
+        parseOn: intelligence?.nlpEnabled !== false && intelligence?.autoParseOnCapture !== false,
+        confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
+        dateStyle: userSettings?.dateTime?.dateStyle ?? "mdy",
+    };
+}
+
+/** What the user set by hand beats the words: a key that is present wins, even when it is "none". */
+function manualFields(project: string | null | undefined, tags: string[] | undefined, deadline: ScheduleUpdates | null): Partial<DraftFields> {
+    return {
+        ...(project !== undefined && { projectId: project }),
+        ...(tags && { tagIds: tags }),
+        ...(deadline && {
+            dueDate: deadline.dueDate,
+            scheduledStart: deadline.scheduledStart,
+            scheduledEnd: deadline.scheduledEnd,
+            recurrenceRule: deadline.recurrenceRule,
+        }),
+    };
+}
+
 /** Input field for quick task creation — submits on Enter, optimistic insert */
 export function AddTaskInput({
     projectId,
@@ -57,22 +81,8 @@ export function AddTaskInput({
     const { data: tags = [] } = useTags();
     const { data: userSettings } = useSettings();
     const taskDefaults = userSettings?.tasks;
-    const nlpEnabled = taskDefaults?.intelligence?.nlpEnabled !== false;
-    const autoParseOnCapture = taskDefaults?.intelligence?.autoParseOnCapture !== false;
-    const confidenceThreshold = taskDefaults?.intelligence?.confidenceThreshold ?? "medium";
-    const dateStyle = userSettings?.dateTime?.dateStyle ?? "mdy";
-
-    // What the user set by hand beats the words: a key that is present wins, even when it is "none".
-    const manual: Partial<DraftFields> = {
-        ...(manualProject !== undefined && { projectId: manualProject }),
-        ...(manualTags && { tagIds: manualTags }),
-        ...(deadline && {
-            dueDate: deadline.dueDate,
-            scheduledStart: deadline.scheduledStart,
-            scheduledEnd: deadline.scheduledEnd,
-            recurrenceRule: deadline.recurrenceRule,
-        }),
-    };
+    const { parseOn, confidenceThreshold, dateStyle } = wordsSettings(userSettings);
+    const manual = manualFields(manualProject, manualTags, deadline);
     const parsedInput = useNlpParse({
         input: value,
         // Inside a list the list is fixed, so list names stay words in the title (as in the task composer).
@@ -86,7 +96,7 @@ export function AddTaskInput({
         sourceSurface: "inline_add",
         dateStyle,
         confidenceThreshold,
-        enabled: nlpEnabled && autoParseOnCapture,
+        enabled: parseOn,
     });
 
     const effortSuggestion = useEffortSuggestion({

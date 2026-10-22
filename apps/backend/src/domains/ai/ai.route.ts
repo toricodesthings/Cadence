@@ -8,13 +8,13 @@ import {
     type LanguageModelUsage,
     type UIMessage,
 } from "ai";
-import { AI_ERROR_CODES, CONVERSATION_TITLE_DATA_TYPE } from "@cadence/contracts/ai";
+import { CONVERSATION_TITLE_DATA_TYPE } from "@cadence/contracts/ai";
 import { apiValidator } from "../../platform/validation";
 import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
 import { withCallerRls } from "../../platform/caller-rls";
 import { syncUserZoneWithSettings } from "../../platform/user-zone";
-import { getRequestId, setRequestErrorCode } from "../../platform/request-log";
+import { getRequestId } from "../../platform/request-log";
 import { logger, hashIdentifier, issuesFromError, shorten } from "../../platform/log";
 import { getIdempotencyKey } from "../../platform/idempotency";
 import { getRedis, getRateLimitRedis } from "../../platform/redis";
@@ -60,13 +60,15 @@ import {
 import { generateConversationTitle } from "./title/generate-title";
 import { readStepsInput, stepsPromptFor, suggestSteps } from "./steps";
 import { suggestStepsSchema } from "@cadence/contracts/planning";
-import { openStream, closeStream, flushChunks, requestAbort, readMeta } from "./streaming/resume-store";
+import { openStream, closeStream, requestAbort, readMeta } from "./streaming/resume-store";
 import { startAbortWatcher } from "./streaming/abort-watcher";
+import { mirrorChunks } from "./streaming/mirror";
 import { buildResumeStream } from "./streaming/replay";
 import { applyApprovals, keepFinishedWrites, compactOldReads, dropForeignReasoning, dropUnsignedReasoning, recentStart, rowToUIMessage, settleUnanswered, toClientMessage } from "./persistence/message-mapper";
 import { makeFenceNonce, stripNonce } from "./safety/injection-policy";
 import { assertMessageWithinCaps, startAtUser } from "./safety/input-guard";
-import { buildStreamError, streamErrorCause, streamErrorToText, AI_ERROR_MESSAGES } from "./safety/stream-error";
+import { buildStreamError, streamErrorCause, streamErrorToText } from "./safety/stream-error";
+import { admitChatTurn, aiRateLimitResponse } from "./safety/admission";
 import {
     resolveLimits,
     estimateReserve,
@@ -76,9 +78,6 @@ import {
     readMeteredTokens,
     addStepSpend,
     emptyUsage,
-    rateLimitHeaders,
-    type AiLimits,
-    type RemainingByWindow,
     type TurnSpend,
 } from "./safety/rate-limit";
 import { aiImageKey, deleteImageObjects, hydrateImages, imageIdsIn, markSent, resolveTurnImages } from "./images/chat-images";
@@ -118,37 +117,130 @@ function stripNonceFromMessage(message: { parts?: unknown[]; [k: string]: unknow
     return { ...(message as any), parts };
 }
 
+/** The persisted turn: its thread, history, whether a reply continues, and how (logged on `ai_turn`). */
+type StoredTurn = {
+    conversationId: string;
+    history: ChatMessage[];
+    continues: boolean;
+    needsTitle: boolean;
+    continuation: ReturnType<typeof continuationOf> | "approval";
+};
+type TurnTiming = { setupMs?: number; ttftMs?: number; firstTextMs?: number };
+type AiContext = Context<{ Bindings: Env; Variables: AuthVariables }>;
+
 /**
- * Pre-stream 429 for the AI usage budget. The HTTP status is still unsent here, so
- * we use the normal JSON `AppError` envelope (reusing the `AI_RATE_LIMITED` spec the
- * frontend already renders with a Retry affordance) and attach `Retry-After` +
- * `X-RateLimit-*` headers — mirroring the global `rateLimitResponse` in index.ts.
+ * Latest user message (load-by-id). Role is pinned to "user" at the schema
+ * level — a crafted request can never persist an assistant/system row here.
+ * Absent when the request only answers approvals (the turn continues).
+ * Images are `cadence-image:` references (bytes were uploaded first, POST /ai/images).
  */
-function aiRateLimitResponse(
-    c: Context<{ Bindings: Env; Variables: AuthVariables }>,
-    opts: {
-        retryAfterS: number;
-        limits: AiLimits;
-        remaining?: RemainingByWindow;
-        code?: "AI_RATE_LIMITED" | "AI_IMAGE_LIMITED";
-    },
-) {
-    const code = opts.code ?? "AI_RATE_LIMITED";
-    setRequestErrorCode(c, code);
-    const headers: Record<string, string> = { "Retry-After": String(Math.max(1, opts.retryAfterS)) };
-    if (opts.remaining) Object.assign(headers, rateLimitHeaders(opts.remaining, opts.limits));
-    return c.json(
-        {
-            error: {
-                code,
-                message: AI_ERROR_MESSAGES[code],
-                status: 429,
-                isRetryable: AI_ERROR_CODES[code].isRetryable,
-                requestId: getRequestId(c),
-            },
-        },
-        { status: 429, headers },
+function readIncoming(message: unknown, imagesPerMessage: number) {
+    const incoming = message as ChatMessage | undefined;
+    if (!incoming) return { incoming, incomingText: "", imageIds: [] as string[] };
+    assertMessageWithinCaps(incoming, imagesPerMessage); // AI-specific caps → 400 INVALID_REQUEST
+    return { incoming, incomingText: extractText(incoming.parts), imageIds: imageIdsIn(incoming.parts) };
+}
+
+/** The user's zone and settings for this turn, and what recall looks up: this message plus the one before it, so "yes, do that" keeps its subject. */
+async function turnSettings(tx: Tx, userId: string, body: { timezone?: string; conversationId?: string }, incomingText: string) {
+    const { timezone, settings } = await syncUserZoneWithSettings(tx, userId, body.timezone);
+    let previous: string | undefined;
+    try {
+        if (body.conversationId) previous = (await lastUserTexts(tx, userId, body.conversationId, 2)).filter((text) => text !== incomingText).at(-1);
+    } catch {
+        // recall falls back to this message alone
+    }
+    return { timezone, settings, queryText: [previous, incomingText].filter(Boolean).join("\n") || undefined };
+}
+
+/**
+ * Images: ownership check (400 IMAGE_NOT_FOUND) + how many are new sends; a
+ * regenerate/retry/edit re-sends images already sent, which count zero.
+ */
+async function newImageCount(c: AiContext, conversationId: string | undefined, imageIds: string[]) {
+    if (!imageIds.length) return 0;
+    const { newCount } = await withCallerRls(c, (tx) => resolveTurnImages(tx, c.get("userId"), conversationId, imageIds));
+    return newCount;
+}
+
+/** A thread already on the standard model stays there (model-router), so only a basic pick reads the thread's last model. */
+async function pickTurnModel(c: AiContext, conversationId: string | undefined, routed: { text: string; imageCount: number }) {
+    const modelId = pickChatModel(c.env, routed);
+    if (!conversationId || modelId === getModelId(c.env)) return modelId;
+    const previous = await withCallerRls(c, (tx) => getConversation(tx, c.get("userId"), conversationId)).catch(() => null);
+    return pickChatModel(c.env, routed, previous?.model);
+}
+
+/**
+ * Auto-title (first turn only): generate a short title in PARALLEL with the reply
+ * and persist it via waitUntil — so it lands BEFORE the assistant finishes, never
+ * blocking the stream. Always resolves (fast, capped, with a derived fallback), so
+ * the stream can await it without risk of hanging the response.
+ */
+async function startTitle(c: AiContext, turn: { conversationId: string; text: string; hasImages: boolean; requestId: string; userHash: string }) {
+    const { title, spend } = await generateConversationTitle(c.env, turn.text, turn.hasImages, { requestId: turn.requestId, userHash: turn.userHash });
+    c.executionCtx.waitUntil(
+        withCallerRls(c, (tx) => setTitleIfEmpty(tx, c.get("userId"), turn.conversationId, title)).catch(() => {}),
     );
+    return { title, spend };
+}
+
+/** Earlier memory reads replay only while the person's mode still allows what they show (Full → Basic, Forget). */
+async function replayableReads(c: AiContext, messages: ChatMessage[], memoryMode: ReturnType<typeof memoryStateOf>["mode"]) {
+    const cited = citedFactIds(messages);
+    const usableIds = cited.length && memoryMode !== "off"
+        ? new Set(await withCallerRls(c, (tx) => usableFactIds(tx, c.get("userId"), memoryMode, cited)))
+        : new Set<string>();
+    return redactMemoryReads(messages, memoryMode, usableIds);
+}
+
+/** Classifies a stream failure, logs it once (server-side only: the provider's status + reason), and returns the client's text. */
+function reportStreamError(error: unknown, meta: { requestId: string; userHash: string; modelId: string; imageCount: number }): string {
+    const streamError = buildStreamError(error, meta.requestId);
+    const upstream = streamErrorCause(error) as { statusCode?: unknown; responseBody?: unknown };
+    // Provider outages, timeouts and our own bugs are errors; the rest (rate limits, stops) warn.
+    const level = ["AI_TIMEOUT", "AI_UPSTREAM_UNAVAILABLE", "INTERNAL_ERROR"].includes(streamError.code) ? "error" : "warn";
+    logger[level]("ai", "ai_stream_error", {
+        requestId: meta.requestId,
+        userHash: meta.userHash,
+        model: meta.modelId,
+        code: streamError.code,
+        images: meta.imageCount || undefined,
+        upstreamStatus: upstream?.statusCode,
+        upstreamBody: typeof upstream?.responseBody === "string" ? shorten(upstream.responseBody) : undefined,
+        issues: issuesFromError(error),
+    });
+    return streamErrorToText(streamError);
+}
+
+/**
+ * Inject the conversation auto-title as a TRANSIENT data part on the first turn:
+ * merged alongside the agent stream (neither blocks the other) and delivered to
+ * `useChat({ onData })`. The title is persisted separately (setTitleIfEmpty), so the
+ * transient part is intentionally NOT added to the assistant message's parts. It still
+ * rides the SSE pipe → it is mirrored to Redis + replayed on resume/refresh for free.
+ */
+function withTitlePart(agentStream: Awaited<ReturnType<typeof createAgentUIStream>>, titlePromise: Promise<{ title: string }>, conversationId: string) {
+    return createUIMessageStream({
+        execute: async ({ writer }) => {
+            writer.merge(agentStream);
+            const { title } = await titlePromise;
+            if (title) {
+                writer.write({
+                    type: CONVERSATION_TITLE_DATA_TYPE,
+                    data: { conversationId, title },
+                    transient: true,
+                });
+            }
+        },
+    });
+}
+
+/** How a new message's turn continues the thread (logged on `ai_turn`). */
+function continuationOf(kept: boolean, edited: boolean, isRerun: boolean) {
+    if (kept) return "kept_write";
+    if (edited) return "edit";
+    return isRerun ? "rerun" : "message";
 }
 
 // ── Create: the streaming chat turn ──────────────────────────────────
@@ -166,25 +258,11 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     const diagnosticClockStart = performance.now();
     const diagnosticArrivalOffset = since();
     const diagnostics = createRunDiagnostics(() => diagnosticArrivalOffset + performance.now() - diagnosticClockStart);
-    const turnTiming: { setupMs?: number; ttftMs?: number; firstTextMs?: number } = {};
-
-    // Latest user message (load-by-id). Role is pinned to "user" at the schema
-    // level — a crafted request can never persist an assistant/system row here.
-    // Absent when the request only answers approvals (the turn continues).
-    const incoming = body.message as ChatMessage | undefined;
-    if (incoming) assertMessageWithinCaps(incoming, limits.imagesPerMessage); // AI-specific caps → 400 INVALID_REQUEST
-    const incomingText = incoming ? extractText(incoming.parts) : "";
-    // `cadence-image:` references (bytes were uploaded first, POST /ai/images).
-    const imageIds = incoming ? imageIdsIn(incoming.parts) : [];
+    const turnTiming: TurnTiming = {};
+    const { incoming, incomingText, imageIds } = readIncoming(body.message, limits.imagesPerMessage);
 
     const nonce = makeFenceNonce();
-    const routed = { text: incomingText, imageCount: imageIds.length };
-    let modelId = pickChatModel(c.env, routed);
-    // A thread already on the standard model stays there (model-router), so only a basic pick reads the thread's last model.
-    if (body.conversationId && modelId !== getModelId(c.env)) {
-        const previous = await withCallerRls(c, (tx) => getConversation(tx, userId, body.conversationId!)).catch(() => null);
-        modelId = pickChatModel(c.env, routed, previous?.model);
-    }
+    const modelId = await pickTurnModel(c, body.conversationId, { text: incomingText, imageCount: imageIds.length });
     const clientMessageId = body.clientMessageId ?? getIdempotencyKey(c);
 
     // Resumption + hard abort (doc Update 4). Null when unconfigured/disabled →
@@ -198,67 +276,24 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // so an over-budget user produces no orphan turn. Reserve a conservative token
     // hold now; reconcile to actual in onFinish. Layered on top of the per-turn caps
     // + CF short-window limiters — a Redis blip degrades, never bricks chat (§9.5).
-    // Images: ownership check (400 IMAGE_NOT_FOUND) + how many are new sends; a
-    // regenerate/retry/edit re-sends images already sent, which count zero.
     const endAdmission = diagnostics.beginPhase("admission");
-    const { newCount: newImages } = imageIds.length
-        ? await withCallerRls(c, (tx) => resolveTurnImages(tx, userId, body.conversationId, imageIds))
-        : { newCount: 0 };
+    const newImages = await newImageCount(c, body.conversationId, imageIds);
     const rlRedis = getRateLimitRedis(c.env);
     const reserved = estimateReserve(incomingText.length, limits, imageIds.length);
-    let admitted = false;
     // Budget headers echoed on the SUCCESS response so the client holds its own
     // "remaining budget" view (display source of truth) without polling GET /ai/usage.
-    let rlHeaders: Record<string, string> | undefined;
-    if (rlRedis) {
-        try {
-            const admission = await admit(rlRedis, userKey, reserved, limits, newImages);
-            if (!admission.ok) {
-                logger.warn("ai", "ai_ratelimit_rejected", {
-                    requestId,
-                    userHash,
-                    window: admission.window,
-                    dimension: admission.dimension,
-                    retryAfterS: admission.retryAfterS,
-                });
-                return aiRateLimitResponse(c, {
-                    code: admission.code,
-                    retryAfterS: admission.retryAfterS,
-                    limits,
-                    remaining: admission.remaining,
-                });
-            }
-            admitted = true; // only settle a turn we actually reserved against
-            rlHeaders = rateLimitHeaders(admission.remaining, limits);
-        } catch {
-            // Redis unreachable → fail-open (default) or fail-closed per policy. Even
-            // fail-open keeps per-turn caps + the 60s CF limiter as backstops (§9.5).
-            logger.warn("ai", "ai_ratelimit_unavailable", { requestId, userHash, op: "admit" });
-            if (limits.failClosed) return aiRateLimitResponse(c, { retryAfterS: 30, limits });
-            // Fail-open must not mean unmetered: a tight per-person limiter stands in while the budget is blind.
-            if (c.env.RATE_LIMITER_AI && !(await c.env.RATE_LIMITER_AI.limit({ key: userId })).success) {
-                return aiRateLimitResponse(c, { retryAfterS: 30, limits });
-            }
-        }
-    }
+    const { rejected, admitted, headers: rlHeaders } = rlRedis
+        ? await admitChatTurn(c, rlRedis, { userKey, userHash, reserved, limits, newImages })
+        : { admitted: false };
+    if (rejected) return rejected;
 
     endAdmission();
     // Zone/settings preparation overlaps history; continuation context is chosen from stored rows.
-    const settingsReady = diagnostics.measure("zoneRecallQuery", () => withCallerRls(c, async (tx) => {
-        const { timezone, settings } = await syncUserZoneWithSettings(tx, userId, body.timezone);
-        // What recall looks up: this message plus the one before it, so "yes, do that" keeps its subject.
-        let previous: string | undefined;
-        try {
-            if (body.conversationId) previous = (await lastUserTexts(tx, userId, body.conversationId, 2)).filter((text) => text !== incomingText).at(-1);
-        } catch {
-            // recall falls back to this message alone
-        }
-        return { timezone, settings, queryText: [previous, incomingText].filter(Boolean).join("\n") || undefined };
-    }));
+    const settingsReady = diagnostics.measure("zoneRecallQuery", () => withCallerRls(c, (tx) => turnSettings(tx, userId, body, incomingText)));
     settingsReady.catch(() => {});
     const storedHistoryReady = Promise.withResolvers<{ history: ChatMessage[]; continues: boolean }>();
     storedHistoryReady.promise.catch(() => {});
-    async function prepareHistory<T extends { conversationId: string; history: ChatMessage[]; continues: boolean }>(tx: Tx, result: T) {
+    async function prepareHistory(tx: Tx, result: StoredTurn) {
         const { conversationId, history, continues } = result;
         storedHistoryReady.resolve(result);
         const assistantMessageId = continues ? history.at(-1)!.id : generateId();
@@ -303,22 +338,18 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         return { ...result, assistantMessageId, uiMessages, recentFrom, imagesReady };
     }
 
-    // Persist the user turn + reconstruct history (RLS). The DB is the source of truth.
-    // active_stream_id is set in the SAME transaction as the user turn, so the moment
-    // a refreshing client can read the user message it can also resume — closing the
-    // window that made a *fast* refresh (right after send) miss the live stream.
-    const historyReady = diagnostics.measure("historyPersist", () => withCallerRls(c, async (tx) => {
-        if (!incoming) {
-            // Approval answers land on the stored assistant message, never on one the
-            // client sends: only its waiting parts change, signatures stay the server's.
-            const conversation = await getConversation(tx, userId, body.conversationId!);
-            throwIfNotFound(conversation, "Conversation");
-            const rows = await loadConversationMessages(tx, userId, conversation!.id, { historyWindow: true });
-            const last = rows.at(-1);
-            const answered = last?.role === "assistant" ? applyApprovals(rowToUIMessage(last), body.approvals!) : null;
-            if (!answered) throw new AppError(409, "CONFLICT", "Nothing here is waiting for approval.");
-            return prepareHistory(tx, { conversationId: conversation!.id, history: [...rows.slice(0, -1).map(rowToUIMessage), answered], continues: true, needsTitle: false, continuation: "approval" });
-        }
+    // Approval answers land on the stored assistant message, never on one the
+    // client sends: only its waiting parts change, signatures stay the server's.
+    async function continueApproval(tx: Tx) {
+        const conversation = await getConversation(tx, userId, body.conversationId!);
+        throwIfNotFound(conversation, "Conversation");
+        const rows = await loadConversationMessages(tx, userId, conversation!.id, { historyWindow: true });
+        const last = rows.at(-1);
+        const answered = last?.role === "assistant" ? applyApprovals(rowToUIMessage(last), body.approvals!) : null;
+        if (!answered) throw new AppError(409, "CONFLICT", "Nothing here is waiting for approval.");
+        return prepareHistory(tx, { conversationId: conversation!.id, history: [...rows.slice(0, -1).map(rowToUIMessage), answered], continues: true, needsTitle: false, continuation: "approval" });
+    }
+    async function persistMessage(tx: Tx, message: ChatMessage) {
         const { id, title } = await resolveOrCreateConversation(tx, userId, { conversationId: body.conversationId, model: modelId });
         // Explicit message EDIT: the client kept rows up to the anchor and
         // rewrote everything after it — mirror that server-side or the edited-
@@ -334,19 +365,25 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         // A retry of a reply that failed after changing something continues that reply instead.
         const firstRows = body.editAnchorId === undefined
             ? await loadConversationMessages(tx, userId, id, { historyWindow: true }) : undefined;
-        const kept = firstRows ? keepFinishedWrites(firstRows, incoming.id) : null;
-        const isRerun = await truncateMessagesAfter(tx, userId, id, kept?.id ?? incoming.id);
+        const kept = firstRows ? keepFinishedWrites(firstRows, message.id) : null;
+        const isRerun = await truncateMessagesAfter(tx, userId, id, kept?.id ?? message.id);
         const priorRows = !isRerun && !kept && firstRows
             ? firstRows : await loadConversationMessages(tx, userId, id, { historyWindow: true });
-        await appendUserMessage(tx, userId, id, incoming, { clientMessageId });
+        await appendUserMessage(tx, userId, id, message, { clientMessageId });
         await markSent(tx, userId, imageIds);
         // First user turn on a still-untitled thread → auto-title it. On a rerun
         // the anchor row (and a kept reply) are the only prior rows.
         const isFirstTurn = isRerun ? priorRows.length <= (kept ? 2 : 1) : priorRows.length === 0;
         const history = priorRows.map((row) => (row.id === kept?.id ? kept : rowToUIMessage(row)));
         return prepareHistory(tx, { conversationId: id, history, continues: !!kept, needsTitle: isFirstTurn && !title,
-            continuation: kept ? "kept_write" : body.editAnchorId !== undefined ? "edit" : isRerun ? "rerun" : "message" });
-    }));
+            continuation: continuationOf(!!kept, body.editAnchorId !== undefined, isRerun) });
+    }
+
+    // Persist the user turn + reconstruct history (RLS). The DB is the source of truth.
+    // active_stream_id is set in the SAME transaction as the user turn, so the moment
+    // a refreshing client can read the user message it can also resume — closing the
+    // window that made a *fast* refresh (right after send) miss the live stream.
+    const historyReady = diagnostics.measure("historyPersist", () => withCallerRls(c, (tx) => (incoming ? persistMessage(tx, incoming) : continueApproval(tx))));
 
     historyReady.catch(storedHistoryReady.reject);
     const validatedHistory = Promise.all([storedHistoryReady.promise, settingsReady]).then(async ([result, settings]) => {
@@ -371,28 +408,13 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     const { conversationId, continues, needsTitle, continuation, assistantMessageId, uiMessages, recentFrom, imagesReady } = await historyReady;
     const history = await validatedHistory;
 
-    // Auto-title (first turn only): generate a short title in PARALLEL with the reply
-    // and persist it via waitUntil — so it lands BEFORE the assistant finishes, never
-    // blocking the stream. Always resolves (fast, capped, with a derived fallback), so
-    // `execute` below can await it without risk of hanging the response.
+    // Auto-title (first turn only), in parallel with the reply.
     const titlePromise = needsTitle
-        ? (async () => {
-              const { title, spend } = await generateConversationTitle(c.env, incomingText, imageIds.length > 0, { requestId, userHash });
-              c.executionCtx.waitUntil(
-                  withCallerRls(c, (tx) => setTitleIfEmpty(tx, userId, conversationId, title)).catch(() => {}),
-              );
-              return { title, spend };
-          })()
+        ? startTitle(c, { conversationId, text: incomingText, hasImages: imageIds.length > 0, requestId, userHash })
         : null;
 
     const { messages: hydratedMessages, hydrated: imageCount } = await imagesReady;
-    // Earlier memory reads replay only while the person's mode still allows what they show (Full → Basic, Forget).
-    const memoryMode = memoryStateOf((await settingsReady).settings).mode;
-    const cited = citedFactIds(hydratedMessages);
-    const usableIds = cited.length && memoryMode !== "off"
-        ? new Set(await withCallerRls(c, (tx) => usableFactIds(tx, userId, memoryMode, cited)))
-        : new Set<string>();
-    const modelMessages = redactMemoryReads(hydratedMessages, memoryMode, usableIds);
+    const modelMessages = await replayableReads(c, hydratedMessages, memoryStateOf((await settingsReady).settings).mode);
 
     const { agent, promptHash, turnContext } = await agentReady;
     // Each recent user message replays the context it was sent with (stored, from the DB rows
@@ -432,23 +454,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 : undefined;
         },
         onError: (error) => {
-            if (reportedStreamError !== undefined) return reportedStreamError;
-            const streamError = buildStreamError(error, requestId);
-            reportedStreamError = streamErrorToText(streamError);
-            // Server-side only: the provider's status + reason (never reaches the client).
-            const upstream = streamErrorCause(error) as { statusCode?: unknown; responseBody?: unknown };
-            // Provider outages, timeouts and our own bugs are errors; the rest (rate limits, stops) warn.
-            const level = ["AI_TIMEOUT", "AI_UPSTREAM_UNAVAILABLE", "INTERNAL_ERROR"].includes(streamError.code) ? "error" : "warn";
-            logger[level]("ai", "ai_stream_error", {
-                requestId,
-                userHash,
-                model: modelId,
-                code: streamError.code,
-                images: imageCount || undefined,
-                upstreamStatus: upstream?.statusCode,
-                upstreamBody: typeof upstream?.responseBody === "string" ? shorten(upstream.responseBody) : undefined,
-                issues: issuesFromError(error),
-            });
+            reportedStreamError ??= reportStreamError(error, { requestId, userHash, modelId, imageCount });
             return reportedStreamError;
         },
         onEnd: async ({ responseMessage, isAborted, finishReason, outcome }) => {
@@ -499,26 +505,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         },
     });
 
-    // Inject the conversation auto-title as a TRANSIENT data part on the first turn:
-    // merged alongside the agent stream (neither blocks the other) and delivered to
-    // `useChat({ onData })`. The title is persisted separately (setTitleIfEmpty), so the
-    // transient part is intentionally NOT added to the assistant message's parts. It still
-    // rides the SSE pipe → it is mirrored to Redis + replayed on resume/refresh for free.
-    const responseStream = titlePromise
-        ? createUIMessageStream({
-              execute: async ({ writer }) => {
-                  writer.merge(agentStream);
-                  const { title } = await titlePromise;
-                  if (title) {
-                      writer.write({
-                          type: CONVERSATION_TITLE_DATA_TYPE,
-                          data: { conversationId, title },
-                          transient: true,
-                      });
-                  }
-              },
-          })
-        : agentStream;
+    const responseStream = titlePromise ? withTitlePart(agentStream, titlePromise, conversationId) : agentStream;
 
     // Backend delivery milestones; these do not measure client receipt or paint.
     const timedStream = responseStream.pipeThrough(
@@ -576,37 +563,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                         return;
                     }
 
-                    // Batched mirror: coalesce complete SSE frames and flush as ONE
-                    // pipelined XADD per window (§15.3). The abort-flag read is folded
-                    // into each flush → primary abort signal, zero extra RTT (§15.6).
-                    // `stream` is already ReadableStream<string> (SSE text frames).
-                    const reader = stream.getReader();
-                    const FLUSH_MS = 100;
-                    const FLUSH_BYTES = 16 * 1024;
-                    let buf = "";
-                    let lastFlush = Date.now();
-                    const logRedis = redis;
-                    const flush = async () => {
-                        if (!buf) return;
-                        const blob = buf;
-                        buf = "";
-                        lastFlush = Date.now();
-                        const { abortRequested } = await flushChunks(logRedis, userKey, streamId, blob).catch(() => ({
-                            abortRequested: false,
-                        }));
-                        if (abortRequested) abortController.abort(new Error("AI_ABORTED"));
-                    };
-                    try {
-                        for (;;) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-                            if (value) buf += value;
-                            if (buf.length >= FLUSH_BYTES || Date.now() - lastFlush >= FLUSH_MS) await flush();
-                        }
-                        await flush(); // final partial window
-                    } catch {
-                        /* disconnect/abort — onFinish + closeStream still run */
-                    }
+                    await mirrorChunks({ stream, redis, userKey, streamId, controller: abortController });
                 })(),
             );
         },
