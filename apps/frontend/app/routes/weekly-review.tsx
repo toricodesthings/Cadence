@@ -339,6 +339,294 @@ function SkipToNext({ onSkip }: { onSkip: () => void }) {
     );
 }
 
+type ReviewActions = ReturnType<typeof useWeeklyReviewActions>;
+
+type CompactStepHeaderProps = { currentStep: number; onExit: () => void };
+
+/** Without the sidebar: where you are in the reset, and the way out. */
+function CompactStepHeader({ currentStep, onExit }: CompactStepHeaderProps) {
+    return (
+        <div className="photo-shell-surface safe-top sticky top-0 z-20 border-b border-twilight-border bg-twilight-deep/75 px-4 py-3 backdrop-blur-xl">
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
+                        Weekly Reset — Step {currentStep + 1}/{STEPS.length}
+                    </p>
+                    <h2 className="mt-0.5 font-display text-lg font-semibold text-twilight-text truncate">
+                        {STEPS[currentStep].title}
+                    </h2>
+                </div>
+                <button
+                    type="button"
+                    onClick={onExit}
+                    aria-label="Exit weekly reset"
+                    className="touch-target inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-twilight-border px-3 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.04]"
+                >
+                    <ArrowLeft size={14} aria-hidden="true" />
+                    Exit
+                </button>
+            </div>
+
+            {/* Compact step dots */}
+            <div className="mt-2 flex gap-1.5">
+                {STEPS.map((_, i) => (
+                    <div
+                        key={i}
+                        className={`h-1 flex-1 rounded-full transition-colors ${
+                            i < currentStep ? "bg-accent-primary/50" : i === currentStep ? "bg-accent-primary" : "bg-twilight-border/40"
+                        }`}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+}
+
+/* ─── Step 0 · Intro ─── */
+function IntroStep({ onNext }: { onNext: () => void }) {
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="glass flex w-full shrink-0 flex-col items-center justify-center rounded-3xl px-6 py-8 text-center max-w-md mx-auto my-auto"
+        >
+            <WeeklyResetHero className="mb-6 aspect-[2/1] w-full max-w-[300px]" />
+            <h1 className="text-2xl lg:text-3xl font-display font-semibold text-twilight-text mb-3 leading-tight">
+                Weekly Reset
+            </h1>
+            <p className="text-sm text-twilight-text-soft leading-relaxed mb-4">
+                Clear what's accumulated and step into the week with less on your mind.
+            </p>
+            <p className="inline-flex items-center gap-1.5 rounded-full border border-twilight-border/30 bg-white/[0.03] px-3 py-1 text-xs font-medium text-twilight-text-muted mb-8">
+                <Clock size={12} aria-hidden="true" /> About 2 minutes
+            </p>
+            <Button variant="primary" size="lg" onClick={() => {
+                trackUsageEvent("weekly_reset.started", { route: "weekly-review" });
+                onNext();
+            }}>
+                Start <ArrowRight size={16} />
+            </Button>
+        </motion.div>
+    );
+}
+
+type StepProps = { review: ReviewActions; onNext: () => void };
+
+/* ─── Step 1 · Inbox ─── */
+function InboxStep({ review, onNext }: StepProps) {
+    const { inboxItems } = review;
+    return (
+        <StepPanel title="Captured thoughts" intro={inboxItems.length > 0
+                ? `${inboxItems.length} item${inboxItems.length > 1 ? "s" : ""} to sort through.`
+                : "Nothing here — inbox is clear."}>
+            {inboxItems.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                    {inboxItems.map((item) => (
+                        <CaptureReviewRow
+                            key={item.id}
+                            item={item}
+                            onPlace={(choice) => review.placeCapture(item, choice)}
+                            onAction={(action) => review.handleInboxAction(item, action)}
+                            pendingActionKey={review.pendingActionKey}
+                            actionError={review.actionError}
+                            onRunAction={review.runCardAction}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <StepDone label="Inbox is clear." onNext={onNext} />
+            )}
+            {inboxItems.length > 0 && <SkipToNext onSkip={onNext} />}
+        </StepPanel>
+    );
+}
+
+/** What every stabilize row shares: the page's one suggestion, batch picking, and typed changes. */
+type RowsState = {
+    offers: ReturnType<typeof usePlanningOffers>;
+    selectedIds: Set<string>;
+    toggleSelected: (id: string) => void;
+    applyToOne: (task: Task, patch: InstructionPatch) => Promise<void>;
+};
+
+type WorkSectionProps = {
+    label: string;
+    tasks: Task[];
+    kind: "unscheduled" | "waiting";
+    placeholder: string;
+    listClass: string;
+    actionsFor: (task: Task) => ReviewAction[];
+    rows: RowsState;
+    review: ReviewActions;
+};
+
+function WorkSection({ label, tasks, kind, placeholder, listClass, actionsFor, rows, review }: WorkSectionProps) {
+    const { offers } = rows;
+    if (tasks.length === 0) return null;
+    return (
+        <>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">{label}</p>
+            <div className={listClass}>
+                {tasks.map((task) => (
+                    <ReviewListItem
+                        key={task.id}
+                        title={task.title}
+                        taskId={task.id}
+                        offer={offers.task?.id === task.id && offers.kind ? { kind: offers.kind, onAccept: offers.accept, onNotNow: offers.notNow } : null}
+                        actionKeyPrefix={`${kind}:${task.id}`}
+                        select={{ checked: rows.selectedIds.has(task.id), onChange: () => rows.toggleSelected(task.id) }}
+                        typed={{ placeholder, applyLabel: "Apply", onApply: (patch) => rows.applyToOne(task, patch), listId: task.projectId }}
+                        actions={actionsFor(task)}
+                        pendingActionKey={review.pendingActionKey}
+                        actionError={review.actionError}
+                        onRunAction={review.runCardAction}
+                    />
+                ))}
+            </div>
+        </>
+    );
+}
+
+type StabilizeStepProps = StepProps & {
+    rows: RowsState;
+    selectedTasks: Task[];
+    onApplySelected: (patch: InstructionPatch) => Promise<void>;
+    onClearSelected: () => void;
+};
+
+/* ─── Step 2 · Stabilize (unscheduled + waiting) ─── */
+function StabilizeStep({ review, rows, selectedTasks, onApplySelected, onClearSelected, onNext }: StabilizeStepProps) {
+    const { unscheduledTasks, visibleWaiting, handleUnscheduledAction, handleWaitingAction } = review;
+    const count = unscheduledTasks.length + visibleWaiting.length;
+    return (
+        <StepPanel title="Work to stabilize" intro={count > 0
+                ? `${count} item${count > 1 ? "s" : ""} need a home or a decision.`
+                : "Everything is placed and accounted for."}>
+            <WorkSection
+                label="Unscheduled"
+                tasks={unscheduledTasks}
+                kind="unscheduled"
+                placeholder="Friday afternoon for 30 min, in Work, waiting on Alex…"
+                listClass="flex flex-col gap-2 mb-5"
+                rows={rows}
+                review={review}
+                actionsFor={(task) => [
+                    { label: "Assign Today", shortLabel: "Today", icon: Sun, onClick: () => handleUnscheduledAction(task, "today"), variant: "cardPrimary" },
+                    { label: "Assign Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => handleUnscheduledAction(task, "tomorrow") },
+                    { label: "Move to Waitlist", shortLabel: "Later", icon: Moon, onClick: () => handleUnscheduledAction(task, "someday") },
+                    { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => handleUnscheduledAction(task, "delete"), variant: "cardDanger" },
+                ]}
+            />
+            <WorkSection
+                label="Waiting on a decision"
+                tasks={visibleWaiting}
+                kind="waiting"
+                placeholder="follow up next Tuesday, keep waiting until Monday, activate tomorrow…"
+                listClass="flex flex-col gap-2"
+                rows={rows}
+                review={review}
+                actionsFor={(task) => [
+                    { label: "Activate Today", shortLabel: "Today", icon: Sun, onClick: () => handleWaitingAction(task, "today"), variant: "cardPrimary" },
+                    { label: "Activate Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => handleWaitingAction(task, "tomorrow") },
+                    { label: "Keep Waiting", shortLabel: "Keep", icon: Check, onClick: () => { review.setKeptWaitingIds((prev) => new Set(prev).add(task.id)); } },
+                    { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => handleWaitingAction(task, "delete"), variant: "cardDanger" },
+                ]}
+            />
+            {count === 0 && (
+                <StepDone label="Everything is placed." onNext={onNext} />
+            )}
+            {selectedTasks.length > 0 && (
+                <BatchBar count={selectedTasks.length} onApply={onApplySelected} onClear={onClearSelected} />
+            )}
+            {count > 0 && <SkipToNext onSkip={onNext} />}
+        </StepPanel>
+    );
+}
+
+type HabitsStepProps = {
+    habits: ReviewActions["habitReviewItems"];
+    anyHabits: boolean;
+    pauseHabit: ReviewActions["pauseHabit"];
+    onReviewed: (id: string) => void;
+    onNext: () => void;
+};
+
+/* ─── Step 3 · Habits ─── */
+function HabitsStep({ habits, anyHabits, pauseHabit, onReviewed, onNext }: HabitsStepProps) {
+    const navigate = useNavigate();
+    return (
+        <StepPanel title="Routine check-in" intro={habits.length > 0
+                ? `${habits.length} routine${habits.length > 1 ? "s" : ""} to reflect on.`
+                : anyHabits
+                ? "All routines reviewed."
+                : "No routines this week."}>
+            {habits.length > 0 ? (
+                <div className="flex flex-col gap-3">
+                    {habits.map((habit) => (
+                        <HabitReviewRow
+                            key={habit.id}
+                            habit={habit}
+                            onKeep={() => onReviewed(habit.id)}
+                            onPause={() => {
+                                pauseHabit.pause(habit.id);
+                                onReviewed(habit.id);
+                            }}
+                            onOpenInHabits={() => {
+                                onReviewed(habit.id);
+                                navigate("/routines");
+                            }}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <StepDone
+                    label={anyHabits ? "Routines reviewed." : "Visit Routines to start one."}
+                    onNext={onNext}
+                />
+            )}
+            {habits.length > 0 && <SkipToNext onSkip={onNext} />}
+        </StepPanel>
+    );
+}
+
+type ReadyStepProps = { dueSoonCount: number; onFinish: () => void };
+
+/* ─── Step 4 · Done ─── */
+function ReadyStep({ dueSoonCount, onFinish }: ReadyStepProps) {
+    const navigate = useNavigate();
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass flex w-full shrink-0 flex-col items-center justify-center rounded-3xl px-6 py-8 text-center max-w-md mx-auto my-auto"
+        >
+            <WeeklyResetHero className="mb-5 aspect-[2/1] w-full max-w-[300px]" />
+            <div className="w-14 h-14 rounded-2xl bg-accent-primary/15 flex items-center justify-center mb-5">
+                <Check size={26} className="text-accent-primary" aria-hidden="true" />
+            </div>
+            <h1 className="text-2xl font-display font-semibold text-twilight-text mb-2">You're set for the week.</h1>
+            <p className={`text-sm text-twilight-text-soft leading-relaxed ${dueSoonCount > 0 ? "mb-2" : "mb-8"}`}>
+                Everything's been reviewed. Start wherever feels right.
+            </p>
+            {/* Opens Upcoming with Further out unfolded, so every one of them is on screen. */}
+            {dueSoonCount > 0 ? (
+                <button
+                    type="button"
+                    onClick={() => navigate(`/upcoming?${FURTHER_OUT_OPEN_PARAM}`)}
+                    className="mb-6 inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                >
+                    Due in the next 2 weeks: <span className="tabular-nums font-medium text-twilight-text">{dueSoonCount}</span>
+                    <ArrowRight size={14} aria-hidden="true" />
+                </button>
+            ) : null}
+            <Button variant="primary" size="lg" onClick={onFinish} className="w-full max-w-xs justify-center">
+                Go to Today <ArrowRight size={16} />
+            </Button>
+        </motion.div>
+    );
+}
+
 export default function WeeklyReview() {
     const shell = useShellMode();
     const navigate = useNavigate();
@@ -350,23 +638,8 @@ export default function WeeklyReview() {
     const setCurrentStep = (step: number) => saveStep(String(step));
 
 
-    const {
-        inboxItems,
-        unscheduledTasks,
-        visibleWaiting,
-        dueSoonCount,
-        habitReviewItems,
-        pauseHabit,
-        pendingActionKey,
-        actionError,
-        runCardAction,
-        handleInboxAction,
-        placeCapture,
-        applyInstruction,
-        handleUnscheduledAction,
-        handleWaitingAction,
-        setKeptWaitingIds,
-    } = useWeeklyReviewActions(currentStep);
+    const review = useWeeklyReviewActions(currentStep);
+    const { unscheduledTasks, visibleWaiting, habitReviewItems, applyInstruction } = review;
 
     // Rows picked for one typed change; a failed one stays picked so a retry touches only it.
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -417,234 +690,34 @@ export default function WeeklyReview() {
             hideHeader
         >
             <div className="relative flex h-full min-h-0 flex-col">
-                {!showSidebar && (
-                    <div className="photo-shell-surface safe-top sticky top-0 z-20 border-b border-twilight-border bg-twilight-deep/75 px-4 py-3 backdrop-blur-xl">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
-                                    Weekly Reset — Step {currentStep + 1}/{STEPS.length}
-                                </p>
-                                <h2 className="mt-0.5 font-display text-lg font-semibold text-twilight-text truncate">
-                                    {STEPS[currentStep].title}
-                                </h2>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={handleExit}
-                                aria-label="Exit weekly reset"
-                                className="touch-target inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-twilight-border px-3 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.04]"
-                            >
-                                <ArrowLeft size={14} aria-hidden="true" />
-                                Exit
-                            </button>
-                        </div>
-
-                        {/* Compact step dots */}
-                        <div className="mt-2 flex gap-1.5">
-                            {STEPS.map((_, i) => (
-                                <div
-                                    key={i}
-                                    className={`h-1 flex-1 rounded-full transition-colors ${
-                                        i < currentStep ? "bg-accent-primary/50" : i === currentStep ? "bg-accent-primary" : "bg-twilight-border/40"
-                                    }`}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
+                {!showSidebar && <CompactStepHeader currentStep={currentStep} onExit={handleExit} />}
 
                 <div className="z-10 flex flex-1 flex-col overflow-y-auto px-4 py-8 sm:px-8 md:px-12">
                     <AnimatePresence mode="wait">
-                        {/* ─── Step 0 · Intro ─── */}
-                        {currentStep === 0 && (
-                            <motion.div
-                                key="intro"
-                                initial={{ opacity: 0, y: 12 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -12 }}
-                                className="glass flex w-full shrink-0 flex-col items-center justify-center rounded-3xl px-6 py-8 text-center max-w-md mx-auto my-auto"
-                            >
-                                <WeeklyResetHero className="mb-6 aspect-[2/1] w-full max-w-[300px]" />
-                                <h1 className="text-2xl lg:text-3xl font-display font-semibold text-twilight-text mb-3 leading-tight">
-                                    Weekly Reset
-                                </h1>
-                                <p className="text-sm text-twilight-text-soft leading-relaxed mb-4">
-                                    Clear what's accumulated and step into the week with less on your mind.
-                                </p>
-                                <p className="inline-flex items-center gap-1.5 rounded-full border border-twilight-border/30 bg-white/[0.03] px-3 py-1 text-xs font-medium text-twilight-text-muted mb-8">
-                                    <Clock size={12} aria-hidden="true" /> About 2 minutes
-                                </p>
-                                <Button variant="primary" size="lg" onClick={() => {
-                                    trackUsageEvent("weekly_reset.started", { route: "weekly-review" });
-                                    handleNext();
-                                }}>
-                                    Start <ArrowRight size={16} />
-                                </Button>
-                            </motion.div>
-                        )}
-
-                        {/* ─── Step 1 · Inbox ─── */}
-                        {currentStep === 1 && (
-                            <StepPanel key="inbox" title="Captured thoughts" intro={inboxItems.length > 0
-                                    ? `${inboxItems.length} item${inboxItems.length > 1 ? "s" : ""} to sort through.`
-                                    : "Nothing here — inbox is clear."}>
-                                {inboxItems.length > 0 ? (
-                                    <div className="flex flex-col gap-2">
-                                        {inboxItems.map((item) => (
-                                            <CaptureReviewRow
-                                                key={item.id}
-                                                item={item}
-                                                onPlace={(choice) => placeCapture(item, choice)}
-                                                onAction={(action) => handleInboxAction(item, action)}
-                                                pendingActionKey={pendingActionKey}
-                                                actionError={actionError}
-                                                onRunAction={runCardAction}
-                                            />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <StepDone label="Inbox is clear." onNext={handleNext} />
-                                )}
-                                {inboxItems.length > 0 && <SkipToNext onSkip={handleNext} />}
-                            </StepPanel>
-                        )}
-
-                        {/* ─── Step 2 · Stabilize (unscheduled + waiting) ─── */}
+                        {currentStep === 0 && <IntroStep key="intro" onNext={handleNext} />}
+                        {currentStep === 1 && <InboxStep key="inbox" review={review} onNext={handleNext} />}
                         {currentStep === 2 && (
-                            <StepPanel key="stabilize" title="Work to stabilize" intro={unscheduledTasks.length + visibleWaiting.length > 0
-                                    ? `${unscheduledTasks.length + visibleWaiting.length} item${(unscheduledTasks.length + visibleWaiting.length) > 1 ? "s" : ""} need a home or a decision.`
-                                    : "Everything is placed and accounted for."}>
-                                {unscheduledTasks.length > 0 && (
-                                    <>
-                                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">Unscheduled</p>
-                                        <div className="flex flex-col gap-2 mb-5">
-                                            {unscheduledTasks.map((task) => (
-                                                <ReviewListItem
-                                                    key={task.id}
-                                                    title={task.title}
-                                                    taskId={task.id}
-                                                    offer={offers.task?.id === task.id && offers.kind ? { kind: offers.kind, onAccept: offers.accept, onNotNow: offers.notNow } : null}
-                                                    actionKeyPrefix={`unscheduled:${task.id}`}
-                                                    select={{ checked: selectedIds.has(task.id), onChange: () => toggleSelected(task.id) }}
-                                                    typed={{ placeholder: "Friday afternoon for 30 min, in Work, waiting on Alex…", applyLabel: "Apply", onApply: (patch) => applyToOne(task, patch), listId: task.projectId }}
-                                                    actions={[
-                                                        { label: "Assign Today", shortLabel: "Today", icon: Sun, onClick: () => handleUnscheduledAction(task, "today"), variant: "cardPrimary" },
-                                                        { label: "Assign Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => handleUnscheduledAction(task, "tomorrow") },
-                                                        { label: "Move to Waitlist", shortLabel: "Later", icon: Moon, onClick: () => handleUnscheduledAction(task, "someday") },
-                                                        { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => handleUnscheduledAction(task, "delete"), variant: "cardDanger" },
-                                                    ]}
-                                                    pendingActionKey={pendingActionKey}
-                                                    actionError={actionError}
-                                                    onRunAction={runCardAction}
-                                                />
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-                                {visibleWaiting.length > 0 && (
-                                    <>
-                                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">Waiting on a decision</p>
-                                        <div className="flex flex-col gap-2">
-                                            {visibleWaiting.map((task) => (
-                                                <ReviewListItem
-                                                    key={task.id}
-                                                    title={task.title}
-                                                    taskId={task.id}
-                                                    offer={offers.task?.id === task.id && offers.kind ? { kind: offers.kind, onAccept: offers.accept, onNotNow: offers.notNow } : null}
-                                                    actionKeyPrefix={`waiting:${task.id}`}
-                                                    select={{ checked: selectedIds.has(task.id), onChange: () => toggleSelected(task.id) }}
-                                                    typed={{ placeholder: "follow up next Tuesday, keep waiting until Monday, activate tomorrow…", applyLabel: "Apply", onApply: (patch) => applyToOne(task, patch), listId: task.projectId }}
-                                                    actions={[
-                                                        { label: "Activate Today", shortLabel: "Today", icon: Sun, onClick: () => handleWaitingAction(task, "today"), variant: "cardPrimary" },
-                                                        { label: "Activate Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => handleWaitingAction(task, "tomorrow") },
-                                                        { label: "Keep Waiting", shortLabel: "Keep", icon: Check, onClick: () => { setKeptWaitingIds((prev) => new Set(prev).add(task.id)); } },
-                                                        { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => handleWaitingAction(task, "delete"), variant: "cardDanger" },
-                                                    ]}
-                                                    pendingActionKey={pendingActionKey}
-                                                    actionError={actionError}
-                                                    onRunAction={runCardAction}
-                                                />
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-                                {unscheduledTasks.length === 0 && visibleWaiting.length === 0 && (
-                                    <StepDone label="Everything is placed." onNext={handleNext} />
-                                )}
-                                {selectedTasks.length > 0 && (
-                                    <BatchBar count={selectedTasks.length} onApply={applyToSelected} onClear={() => setSelectedIds(new Set())} />
-                                )}
-                                {(unscheduledTasks.length > 0 || visibleWaiting.length > 0) && <SkipToNext onSkip={handleNext} />}
-                            </StepPanel>
+                            <StabilizeStep
+                                key="stabilize"
+                                review={review}
+                                rows={{ offers, selectedIds, toggleSelected, applyToOne }}
+                                selectedTasks={selectedTasks}
+                                onApplySelected={applyToSelected}
+                                onClearSelected={() => setSelectedIds(new Set())}
+                                onNext={handleNext}
+                            />
                         )}
-
-                        {/* ─── Step 3 · Habits ─── */}
                         {currentStep === 3 && (
-                            <StepPanel key="habits" title="Routine check-in" intro={unreviewedHabits.length > 0
-                                    ? `${unreviewedHabits.length} routine${unreviewedHabits.length > 1 ? "s" : ""} to reflect on.`
-                                    : habitReviewItems.length > 0
-                                    ? "All routines reviewed."
-                                    : "No routines this week."}>
-                                {unreviewedHabits.length > 0 ? (
-                                    <div className="flex flex-col gap-3">
-                                        {unreviewedHabits.map((habit) => (
-                                            <HabitReviewRow
-                                                key={habit.id}
-                                                habit={habit}
-                                                onKeep={() => markHabitReviewed(habit.id)}
-                                                onPause={() => {
-                                                    pauseHabit.pause(habit.id);
-                                                    markHabitReviewed(habit.id);
-                                                }}
-                                                onOpenInHabits={() => {
-                                                    markHabitReviewed(habit.id);
-                                                    navigate("/routines");
-                                                }}
-                                            />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <StepDone
-                                        label={habitReviewItems.length > 0 ? "Routines reviewed." : "Visit Routines to start one."}
-                                        onNext={handleNext}
-                                    />
-                                )}
-                                {unreviewedHabits.length > 0 && <SkipToNext onSkip={handleNext} />}
-                            </StepPanel>
+                            <HabitsStep
+                                key="habits"
+                                habits={unreviewedHabits}
+                                anyHabits={habitReviewItems.length > 0}
+                                pauseHabit={review.pauseHabit}
+                                onReviewed={markHabitReviewed}
+                                onNext={handleNext}
+                            />
                         )}
-
-                        {/* ─── Step 4 · Done ─── */}
-                        {currentStep === 4 && (
-                            <motion.div
-                                key="ready"
-                                initial={{ opacity: 0, y: 12 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="glass flex w-full shrink-0 flex-col items-center justify-center rounded-3xl px-6 py-8 text-center max-w-md mx-auto my-auto"
-                            >
-                                <WeeklyResetHero className="mb-5 aspect-[2/1] w-full max-w-[300px]" />
-                                <div className="w-14 h-14 rounded-2xl bg-accent-primary/15 flex items-center justify-center mb-5">
-                                    <Check size={26} className="text-accent-primary" aria-hidden="true" />
-                                </div>
-                                <h1 className="text-2xl font-display font-semibold text-twilight-text mb-2">You're set for the week.</h1>
-                                <p className={`text-sm text-twilight-text-soft leading-relaxed ${dueSoonCount > 0 ? "mb-2" : "mb-8"}`}>
-                                    Everything's been reviewed. Start wherever feels right.
-                                </p>
-                                {/* Opens Upcoming with Further out unfolded, so every one of them is on screen. */}
-                                {dueSoonCount > 0 ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => navigate(`/upcoming?${FURTHER_OUT_OPEN_PARAM}`)}
-                                        className="mb-6 inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                                    >
-                                        Due in the next 2 weeks: <span className="tabular-nums font-medium text-twilight-text">{dueSoonCount}</span>
-                                        <ArrowRight size={14} aria-hidden="true" />
-                                    </button>
-                                ) : null}
-                                <Button variant="primary" size="lg" onClick={handleFinish} className="w-full max-w-xs justify-center">
-                                    Go to Today <ArrowRight size={16} />
-                                </Button>
-                            </motion.div>
-                        )}
+                        {currentStep === 4 && <ReadyStep key="ready" dueSoonCount={review.dueSoonCount} onFinish={handleFinish} />}
                     </AnimatePresence>
                 </div>
             </div>

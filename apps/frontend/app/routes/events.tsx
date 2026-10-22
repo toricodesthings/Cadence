@@ -21,6 +21,7 @@ import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRightPanelStore } from "../stores/right-panel-store";
 import { PersonalEventEditorDialog } from "../components/events/PersonalEventEditorDialog";
 import { useToday } from "../lib/utils/user-zone";
+import { cn } from "../lib/utils";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import type { PersonalEvent } from "../types/settings";
@@ -96,25 +97,57 @@ function EventsMenu({ view, onViewChange, sort, onSortChange }: EventsMenuProps)
     );
 }
 
+function EventsBadge() {
+    return (
+        <div className="flex h-16 w-16 items-center justify-center rounded-[1.6rem] border border-accent-nav-schedule/20 bg-accent-nav-schedule/10 text-accent-nav-schedule">
+            <CalendarHeart size={28} aria-hidden="true" />
+        </div>
+    );
+}
+
 type EmptyEventsProps = { onAdd: () => void };
 
 function EmptyEvents({ onAdd }: EmptyEventsProps) {
     return (
         <section className="rounded-[1.9rem] border border-white/[0.08] bg-white/[0.03] px-6 py-16">
             <div className="mx-auto flex max-w-md flex-col items-center text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-[1.6rem] border border-accent-nav-schedule/20 bg-accent-nav-schedule/10 text-accent-nav-schedule">
-                    <CalendarHeart size={28} aria-hidden="true" />
-                </div>
+                <EventsBadge />
                 <p className="mt-6 text-base font-medium text-twilight-text">
                     No personal events yet.
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-twilight-text-soft">
                     Add birthdays, anniversaries, and other yearly dates you want to keep in view.
                 </p>
-                <Button type="button" variant="cardPrimary" size="md" onClick={onAdd} className={`mt-6 ${ADD_EVENT_CLASS}`}>
+                <Button type="button" variant="cardPrimary" size="md" onClick={onAdd} className={cn("mt-6", ADD_EVENT_CLASS)}>
                     <CalendarPlus size={16} aria-hidden="true" />
                     Add event
                 </Button>
+            </div>
+        </section>
+    );
+}
+
+/** The desktop header's add button; compact screens add from the orb. */
+function AddEventButton({ onAdd }: EmptyEventsProps) {
+    return (
+        <Button type="button" variant="cardPrimary" size="md" onClick={onAdd} aria-label="Add event" className={ADD_EVENT_CLASS}>
+            <CalendarPlus size={16} aria-hidden="true" />
+            <span className="hidden sm:inline">Add event</span>
+        </Button>
+    );
+}
+
+function EventsIntro({ compact }: { compact: boolean }) {
+    return (
+        <section className={compact ? "" : "pt-6"}>
+            <div className="space-y-1">
+                {/* Compact headers already title the page. */}
+                <h1 className={compact ? "sr-only" : "font-display text-2xl font-semibold tracking-tight text-twilight-text"}>
+                    Your Personal Events
+                </h1>
+                <p className="text-sm text-twilight-text-soft">
+                    Yearly recurring dates that stay visible in Schedule.
+                </p>
             </div>
         </section>
     );
@@ -272,12 +305,7 @@ export default function EventsRoute() {
             compactHeaderRightInline
             hideContextualOrb={shell.isCompact}
             headerRight={<div className="flex items-center gap-2">
-                {shell.isCompact ? null : (
-                    <Button type="button" variant="cardPrimary" size="md" onClick={openCreate} aria-label="Add event" className={ADD_EVENT_CLASS}>
-                        <CalendarPlus size={16} aria-hidden="true" />
-                        <span className="hidden sm:inline">Add event</span>
-                    </Button>
-                )}
+                {shell.isCompact ? null : <AddEventButton onAdd={openCreate} />}
                 {events.length > 0 ? <EventsMenu view={view} onViewChange={setSavedView} sort={sortMode} onSortChange={setSavedSort} /> : null}
             </div>}
             shellHeader={{
@@ -289,17 +317,7 @@ export default function EventsRoute() {
         >
             <ScrollAreaWrapper>
                 <PageContent width="full" className="space-y-6">
-                    <section className={shell.isCompact ? "" : "pt-6"}>
-                        <div className="space-y-1">
-                            {/* Compact headers already title the page. */}
-                            <h1 className={shell.isCompact ? "sr-only" : "font-display text-2xl font-semibold tracking-tight text-twilight-text"}>
-                                Your Personal Events
-                            </h1>
-                            <p className="text-sm text-twilight-text-soft">
-                                Yearly recurring dates that stay visible in Schedule.
-                            </p>
-                        </div>
-                    </section>
+                    <EventsIntro compact={shell.isCompact} />
 
                     <EventsBody
                         events={events}

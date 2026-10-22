@@ -44,6 +44,14 @@ const EXACT_ENDPOINTS: Record<string, PerformanceSample["endpoint"]> = {
     "/habits": "habits", "/habits/weekly": "habits_range", "/projects": "projects", "/tags": "tags",
 };
 
+/** Endpoints known by their path's shape, checked in order. */
+const PATTERN_ENDPOINTS: [RegExp, PerformanceSample["endpoint"]][] = [
+    [/^\/tasks\/[^/]+$/, "task_detail"],
+    [/^\/settings\/focus-views/, "focus_views"],
+    [/^[/]proxy[/]/, "proxy"],
+    [/\/subtasks/, "subtasks"],
+];
+
 /** Which task list a `/tasks` read is: history, schedule, capture or open. */
 function tasksEndpoint(params: URLSearchParams): PerformanceSample["endpoint"] {
     if (["COMPLETE", "ARCHIVED"].includes(params.get("state") ?? "")) return "tasks_history";
@@ -54,14 +62,11 @@ function tasksEndpoint(params: URLSearchParams): PerformanceSample["endpoint"] {
 
 /** Never retain URLs, task IDs or arbitrary query predicates in diagnostic dimensions. */
 export function startupEndpoint(url: URL): PerformanceSample["endpoint"] {
-    const path = url.pathname.replace(/^\/api\/v1/, "").replace(/(.)\/$/, "$1");
+    const path = url.pathname.replace(/^\/api\/v1/, "").replace(/(.)[/]$/, "$1");
     if (path === "/tasks") return tasksEndpoint(url.searchParams);
     if (path === "/inbox") return url.searchParams.get("status") === "kept" ? "inbox_kept" : "inbox_clarifying";
     if (EXACT_ENDPOINTS[path]) return EXACT_ENDPOINTS[path];
-    if (/^\/tasks\/[^/]+$/.test(path)) return "task_detail";
-    if (path.startsWith("/settings/focus-views")) return "focus_views";
-    if (path.startsWith("/proxy/")) return "proxy";
-    return path.includes("/subtasks") ? "subtasks" : "other";
+    return PATTERN_ENDPOINTS.find(([pattern]) => pattern.test(path))?.[1] ?? "other";
 }
 
 export function startupRoute(path: string): PerformanceSample["route"] {

@@ -8,7 +8,7 @@ import { useOnlineStatus } from "../core/use-online-status";
 import { acquireNoteSession, releaseNoteSession } from "../../lib/notes/note-registry";
 import { onNoteSaved } from "../../lib/notes/note-channel";
 import { queryKeys } from "../../lib/api/query-keys";
-import { noteStatus, type NoteSession } from "../../lib/notes/note-session";
+import { noteStatus, type NoteSession, type NoteSessionState } from "../../lib/notes/note-session";
 
 /** The shared session for the owner's note, held while `ready` (which implies both ids); never the previous owner's after a switch. */
 function useNoteSession(ready: boolean, userId: string | null, ownerId: string | null, legacy: React.RefObject<string>) {
@@ -67,11 +67,12 @@ export function useTaskNote(taskId: string | null) {
     );
     useRemoteNote(session, userId, ownerId);
 
+    return { task, noteOwnerTask, session, state, ...noteView(session, state) };
+}
+
+/** What the note shows: its save status, and whether it is still loading or failed to load. */
+function noteView(session: NoteSession | null, state: NoteSessionState | null) {
     return {
-        task,
-        noteOwnerTask,
-        session,
-        state,
         status: state ? noteStatus(state) : "loading",
         isLoading: !session || !state?.loaded,
         loadFailed: state?.loadFailed ?? false,

@@ -47,6 +47,8 @@ function rowSubject(item: InboxItem | undefined, task: Task | undefined) {
         overrides,
         title: task?.title ?? overrides?.title ?? item!.rawText,
         dismissedIds: (item?.analysis?.dismissedEntityIds ?? []) as string[],
+        rawText: item?.rawText ?? "",
+        taskId: task?.id ?? "",
     };
 }
 
@@ -81,12 +83,12 @@ function DayPill({ day, suggested = false, className = "", disabled, onPlace }: 
                 variant="ghost"
                 size="none"
                 type="button"
+                aria-label={`Place on ${placementLabel(day)}`}
                 disabled={disabled}
                 onClick={() => onPlace(day)}
-                aria-label={`Place on ${placementLabel(day)}`}
                 className={`${DAY_PILL} gap-1.5 ${suggested ? DAY_PILL_SUGGESTED : DAY_PILL_PLAIN} ${className}`}
             >
-                <CalendarPlus size={12} aria-hidden />
+                <CalendarPlus aria-hidden size={12} />
                 {placementLabel(day)}
             </Button>
         </Tip>
@@ -117,9 +119,9 @@ function TickOff({ disabled, onTick }: TickOffProps) {
             <Button
                 variant="ghost"
                 size="none"
+                aria-label="Tick off thought"
                 disabled={disabled}
                 onClick={onTick}
-                aria-label="Tick off thought"
                 className="h-8 w-8 shrink-0 rounded-full hover:bg-transparent press-none"
             >
                 <span
@@ -174,7 +176,7 @@ function RowMenu({ item, task, title, disabled, place, discard, status, subtaskU
                             disabled={disabled}
                             onSelect={() => place(todayISO())}
                         >
-                            <Sun size={16} className="text-accent-primary" aria-hidden />
+                            <Sun aria-hidden size={16} className="text-accent-primary" />
                             Today
                         </Menu.Item>
                         <Menu.Item
@@ -182,12 +184,12 @@ function RowMenu({ item, task, title, disabled, place, discard, status, subtaskU
                             disabled={disabled}
                             onSelect={() => place(tomorrowISO())}
                         >
-                            <Sunrise size={16} aria-hidden />
+                            <Sunrise aria-hidden size={16} />
                             Tomorrow
                         </Menu.Item>
                         <Menu.Sub>
                             <Menu.SubTrigger className="flex items-center gap-2.5" disabled={disabled}>
-                                <Calendar size={16} aria-hidden />
+                                <Calendar aria-hidden size={16} />
                                 Pick day…
                             </Menu.SubTrigger>
                             <Menu.SubContent className="w-72 p-0">
@@ -208,7 +210,7 @@ function RowMenu({ item, task, title, disabled, place, discard, status, subtaskU
                 {item && (
                     <>
                         <Menu.Item className="gap-2.5" disabled={disabled} onSelect={() => place()}>
-                            <Moon size={16} aria-hidden />
+                            <Moon aria-hidden size={16} />
                             No day yet
                         </Menu.Item>
                         <Menu.Item
@@ -221,9 +223,9 @@ function RowMenu({ item, task, title, disabled, place, discard, status, subtaskU
                             }
                         >
                             {item.captureStatus === "kept" ? (
-                                <Inbox size={16} aria-hidden />
+                                <Inbox aria-hidden size={16} />
                             ) : (
-                                <StickyNote size={16} aria-hidden />
+                                <StickyNote aria-hidden size={16} />
                             )}
                             {item.captureStatus === "kept" ? "Back to New" : "Keep as a note"}
                         </Menu.Item>
@@ -231,16 +233,16 @@ function RowMenu({ item, task, title, disabled, place, discard, status, subtaskU
                 )}
                 {task && (
                     <Menu.Item className="gap-2.5" disabled={disabled} onSelect={subtaskUi.startAdding}>
-                        <ListChecks size={16} aria-hidden />
+                        <ListChecks aria-hidden size={16} />
                         Add subtask
                     </Menu.Item>
                 )}
                 <Menu.Item className="gap-2.5" onSelect={() => onToggleSelection?.()}>
-                    <CheckSquare size={16} aria-hidden />
+                    <CheckSquare aria-hidden size={16} />
                     Select
                 </Menu.Item>
                 <Menu.Item className="gap-2.5" disabled={disabled} variant="danger" onSelect={discard}>
-                    <Trash2 size={16} aria-hidden />
+                    <Trash2 aria-hidden size={16} />
                     Discard
                 </Menu.Item>
             </Menu.Content>
@@ -274,8 +276,8 @@ export function CaptureRow({
     onFocusRow,
     stacked: stackedProp = false,
 }: CaptureRowProps) {
-    const { object, overrides, title, dismissedIds } = rowSubject(item, task);
-    const parse = useThoughtParse(item?.rawText ?? "", dismissedIds);
+    const { object, overrides, title, dismissedIds, rawText, taskId } = rowSubject(item, task);
+    const parse = useThoughtParse(rawText, dismissedIds);
     const process = useProcessInboxToTask();
     const status = useCaptureActions();
     const update = useUpdateTask();
@@ -290,7 +292,7 @@ export function CaptureRow({
     const ageDays = Math.floor((Date.now() - Date.parse(object.createdAt)) / 86_400_000);
     const { data: allTags = [] } = useTags();
     const { placement, placementLabelText } = usePlacementChip(item, parse.projectId);
-    const subtaskUi = useInlineSubtasks(task?.id ?? "");
+    const subtaskUi = useInlineSubtasks(taskId);
     const subtaskPanelId = useId();
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(
@@ -430,12 +432,12 @@ export function CaptureRow({
     return (
         <PlaceDraggable id={`capture:${object.id}`} title={title} onPlace={(date) => place(date)}>
             <article
-                data-capture-row={object.id}
                 data-focus-kind={item ? "inbox" : "task"}
                 data-focus-id={object.id}
-                tabIndex={tabIndex}
                 aria-label={title}
                 data-selected={selected}
+                data-capture-row={object.id}
+                tabIndex={tabIndex}
                 onFocus={() => {
                     onFocusRow?.();
                 }}
@@ -483,7 +485,7 @@ export function CaptureRow({
                                 {stacked && detected && <DayPill day={detected} suggested disabled={disabled} onPlace={place} />}
                                 {placementLabelText && (
                                     <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-twilight-border px-2 py-0.5 text-xs text-twilight-text-soft">
-                                        <FolderOpen size={12} aria-hidden />
+                                        <FolderOpen aria-hidden size={12} />
                                         {placementLabelText}
                                     </span>
                                 )}

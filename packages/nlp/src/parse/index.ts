@@ -57,12 +57,9 @@ export function parse(options: ParseOptions): ParseResult {
   // URLs, emails and `code` are literal too: nothing inside them is a date, a tag or a priority.
   const literalRanges = [
     ...quotedSegments,
-    ...Array.from(input.matchAll(/`[^`]*`|https?:\/\/\S+|www\.\S+|\b[\w.+-]+@[\w-]+\.[\w.-]+\b/gi), (m) => ({ start: m.index ?? 0, end: (m.index ?? 0) + m[0].length })),
+    ...Array.from(input.matchAll(/\x60[^\x60]*\x60|https?:\/\/\S+|www\.\S+|\b[\w.+-]+@[\w-]+\.[\w.-]+\b/gi), (m) => ({ start: m.index ?? 0, end: (m.index ?? 0) + m[0].length })),
   ];
-  const text = literalRanges.reduce(
-    (acc, seg) => acc.slice(0, seg.start) + " ".repeat(seg.end - seg.start) + acc.slice(seg.end),
-    input,
-  );
+  const text = blanked(input, literalRanges);
 
   /**
    * Keep a parser's undismissed entities and consume each one's own range (parsers emit
@@ -94,28 +91,11 @@ export function parse(options: ParseOptions): ParseResult {
   // 3. Dates — skip any that overlap recurrence or duration matches
   // Blank what recurrence/duration already took, so chrono can't merge it into a date ("weekday tomorrow").
   // Refused recurrences ("every Monday except holidays") are blanked too, but stay in the title.
-  const dateText = [...consumedRanges, ...recurrenceResult.protectedRanges].reduce(
-    (acc, r) => acc.slice(0, r.start) + " ".repeat(r.end - r.start) + acc.slice(r.end),
-    text,
-  );
+  const dateText = blanked(text, [...consumedRanges, ...recurrenceResult.protectedRanges]);
   const dateResult = parseDates(dateText, { clock, dateStyle });
 
-  // "every Monday until December 14": the date ends the series; it is not a day for the task.
   const recurrenceEntity = allEntities.find((e) => e.type === "recurrence");
-  const untilCue = recurrenceEntity && /^\s+(?:until|till|through)\s+/i.exec(text.slice(recurrenceEntity.end));
-  if (recurrenceEntity && untilCue) {
-    const from = recurrenceEntity.end + untilCue[0].length;
-    const at = dateResult.entities.findIndex((e) => e.start === from && e.confidence !== "low" && !e.id.endsWith(":am") && !e.id.endsWith(":pm"));
-    if (at >= 0) {
-      const [until] = dateResult.entities.splice(at, 1);
-      dateResult.consumedRanges.splice(at, 1);
-      const value = recurrenceEntity.normalizedValue as { rrule: string; humanLabel: string };
-      const day = (until.normalizedValue as { date: string }).date;
-      recurrenceEntity.normalizedValue = { rrule: `${value.rrule};UNTIL=${day.replaceAll("-", "")}`, humanLabel: `${value.humanLabel} until ${(until.normalizedValue as { humanLabel: string }).humanLabel}` };
-      recurrenceEntity.consumed = { start: recurrenceEntity.consumed?.start ?? recurrenceEntity.start, end: until.end };
-      consumedRanges.push({ start: recurrenceEntity.end, end: until.end });
-    }
-  }
+  if (recurrenceEntity) endSeriesAtUntil(recurrenceEntity, text, dateResult, consumedRanges);
 
   take(dateResult, true, (entity) => {
     if (entity.type === "due_date" && (entity.normalizedValue as { hasTime?: boolean })?.hasTime) {
@@ -126,17 +106,7 @@ export function parse(options: ParseOptions): ParseResult {
     }
   });
 
-  // "starting next week" with a repeat: the cue word goes with the date that anchors the series.
-  if (recurrenceEntity) {
-    for (const entity of allEntities) {
-      if (entity.type !== "scheduled_start" || entity.confidence === "low" || !entity.consumed) continue;
-      const cue = /\b(?:starting|starts?|beginning|from)\s+$/i.exec(text.slice(0, entity.consumed.start));
-      if (cue) {
-        entity.consumed = { start: entity.consumed.start - cue[0].length, end: entity.consumed.end };
-        consumedRanges.push(entity.consumed);
-      }
-    }
-  }
+  if (recurrenceEntity) claimStartCues(allEntities, text, consumedRanges);
 
   // Emit warning if multiple dates detected
   if (dateResult.entities.length > 1) {
@@ -196,6 +166,46 @@ export function parse(options: ParseOptions): ParseResult {
     summary,
     overallConfidence,
   };
+}
+
+type Range = { start: number; end: number };
+
+/** `text` with `ranges` blanked to spaces (same length, so offsets still line up). */
+function blanked(text: string, ranges: Range[]): string {
+  return ranges.reduce((acc, r) => acc.slice(0, r.start) + " ".repeat(r.end - r.start) + acc.slice(r.end), text);
+}
+
+/** "every Monday until December 14": the date ends the series; it is not a day for the task. */
+function endSeriesAtUntil(
+  recurrenceEntity: ParsedEntity,
+  text: string,
+  dateResult: ReturnType<typeof parseDates>,
+  consumedRanges: Range[],
+) {
+  const untilCue = /^\s+(?:until|till|through)\s+/i.exec(text.slice(recurrenceEntity.end));
+  if (!untilCue) return;
+  const from = recurrenceEntity.end + untilCue[0].length;
+  const at = dateResult.entities.findIndex((e) => e.start === from && e.confidence !== "low" && !e.id.endsWith(":am") && !e.id.endsWith(":pm"));
+  if (at < 0) return;
+  const [until] = dateResult.entities.splice(at, 1);
+  dateResult.consumedRanges.splice(at, 1);
+  const value = recurrenceEntity.normalizedValue as { rrule: string; humanLabel: string };
+  const day = (until.normalizedValue as { date: string }).date;
+  recurrenceEntity.normalizedValue = { rrule: `${value.rrule};UNTIL=${day.replaceAll("-", "")}`, humanLabel: `${value.humanLabel} until ${(until.normalizedValue as { humanLabel: string }).humanLabel}` };
+  recurrenceEntity.consumed = { start: recurrenceEntity.consumed?.start ?? recurrenceEntity.start, end: until.end };
+  consumedRanges.push({ start: recurrenceEntity.end, end: until.end });
+}
+
+/** "starting next week" with a repeat: the cue word goes with the date that anchors the series. */
+function claimStartCues(entities: ParsedEntity[], text: string, consumedRanges: Range[]) {
+  for (const entity of entities) {
+    if (entity.type !== "scheduled_start" || entity.confidence === "low" || !entity.consumed) continue;
+    const cue = /\b(?:starting|starts?|beginning|from)\s+$/i.exec(text.slice(0, entity.consumed.start));
+    if (cue) {
+      entity.consumed = { start: entity.consumed.start - cue[0].length, end: entity.consumed.end };
+      consumedRanges.push(entity.consumed);
+    }
+  }
 }
 
 function deriveOverallConfidence(

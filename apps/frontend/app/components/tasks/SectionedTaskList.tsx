@@ -190,45 +190,13 @@ export function SectionedTaskList({
                             </button>
 
                             {/* Section context menu */}
-                            {manageInSheet ? (
-                                <Tip label="Edit section">
-                                    <button
-                                        type="button"
-                                        onClick={() => onManageSections(section.id)}
-                                        className="mobile-icon-button glass-inset"
-                                        aria-label={`Edit section ${section.name}`}
-                                    >
-                                        <EllipsisVertical size={18} aria-hidden="true" />
-                                    </button>
-                                </Tip>
-                            ) : <div className={shell.isCompact ? "opacity-100" : "opacity-0 transition-opacity group-hover:opacity-100"}>
-                                <DropdownMenu.Root>
-                                    <DropdownMenu.Trigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="p-1"
-                                            aria-label={`Open actions for section ${section.name}`}
-                                        >
-                                            <EllipsisVertical size={14} />
-                                        </Button>
-                                    </DropdownMenu.Trigger>
-                                    <DropdownMenu.Content>
-                                        <DropdownMenu.Item onClick={() => setEditingSection(section.id)}>
-                                            <Pencil size={14} className="text-twilight-text-muted mr-2" />
-                                            Rename
-                                        </DropdownMenu.Item>
-                                        <DropdownMenu.Separator />
-                                        <DropdownMenu.Item
-                                            onClick={() => deleteSection.mutate({ id: section.id, name: section.name })}
-                                            className="text-red-400 focus:text-red-400"
-                                        >
-                                            <Trash2 size={14} className="mr-2" />
-                                            Delete section
-                                        </DropdownMenu.Item>
-                                    </DropdownMenu.Content>
-                                </DropdownMenu.Root>
-                            </div>}
+                            <SectionMenu
+                                section={section}
+                                compact={shell.isCompact}
+                                onManage={manageInSheet || undefined}
+                                onRename={() => setEditingSection(section.id)}
+                                onDelete={() => deleteSection.mutate({ id: section.id, name: section.name })}
+                            />
 
                             <div className="flex-1 h-px bg-gradient-to-r from-twilight-border/20 to-transparent" />
                         </div>
@@ -236,36 +204,16 @@ export function SectionedTaskList({
                         {/* Section tasks */}
                         <AnimatePresence initial={false}>
                             {!isCollapsed && (
-                                <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: "auto", opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    transition={SPRINGS.GLIDE}
-                                    className="overflow-hidden"
-                                >
-                                    {sectionTasks.length > 0 ? (
-                                        <TaskList
-                                            className="mt-4"
-                                            tasks={sectionTasks}
-                                            selectedTaskId={selectedTaskId}
-                                            onSelectTask={onSelectTask}
-                                            rationaleByTaskId={rationaleByTaskId}
-                                        />
-                                    ) : (
-                                        <div className="py-4 px-6 text-[12px] text-twilight-text-muted/90 italic">
-                                            No tasks in this section
-                                        </div>
-                                    )}
-                                    {inlineAdd && <div className={inlineAddClass}>
-                                        <AddTaskInput
-                                            projectId={projectId ?? undefined}
-                                            sectionId={section.id}
-                                            tasks={sectionTasks}
-                                            compact
-                                            placeholder={`Add task to ${section.name}...`}
-                                        />
-                                    </div>}
-                                </motion.div>
+                                <SectionTasks
+                                    section={section}
+                                    tasks={sectionTasks}
+                                    projectId={projectId}
+                                    inlineAdd={inlineAdd}
+                                    inlineAddClass={inlineAddClass}
+                                    selectedTaskId={selectedTaskId}
+                                    onSelectTask={onSelectTask}
+                                    rationaleByTaskId={rationaleByTaskId}
+                                />
                             )}
                         </AnimatePresence>
                     </div>
@@ -278,5 +226,105 @@ export function SectionedTaskList({
 
             {footer}
         </div>
+    );
+}
+
+type SectionMenuProps = {
+    section: TaskSection;
+    compact: boolean;
+    /** Compact with a sections sheet: one button opens it instead of the menu. */
+    onManage?: (focus: string) => void;
+    onRename: () => void;
+    onDelete: () => void;
+};
+
+function SectionMenu({ section, compact, onManage, onRename, onDelete }: SectionMenuProps) {
+    if (onManage) {
+        return (
+            <Tip label="Edit section">
+                <button
+                    type="button"
+                    onClick={() => onManage(section.id)}
+                    className="mobile-icon-button glass-inset"
+                    aria-label={`Edit section ${section.name}`}
+                >
+                    <EllipsisVertical size={18} aria-hidden="true" />
+                </button>
+            </Tip>
+        );
+    }
+    return (
+        <div className={compact ? "opacity-100" : "opacity-0 transition-opacity group-hover:opacity-100"}>
+            <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="p-1"
+                        aria-label={`Open actions for section ${section.name}`}
+                    >
+                        <EllipsisVertical size={14} />
+                    </Button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content>
+                    <DropdownMenu.Item onClick={onRename}>
+                        <Pencil size={14} className="text-twilight-text-muted mr-2" />
+                        Rename
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Separator />
+                    <DropdownMenu.Item
+                        onClick={onDelete}
+                        className="text-red-400 focus:text-red-400"
+                    >
+                        <Trash2 size={14} className="mr-2" />
+                        Delete section
+                    </DropdownMenu.Item>
+                </DropdownMenu.Content>
+            </DropdownMenu.Root>
+        </div>
+    );
+}
+
+type SectionTasksProps = Pick<SectionedTaskListProps, "selectedTaskId" | "onSelectTask" | "rationaleByTaskId"> & {
+    section: TaskSection;
+    tasks: Task[];
+    projectId: string | null;
+    inlineAdd: boolean;
+    inlineAddClass: string;
+};
+
+/** An open section's tasks (or its empty line) and, on wide screens, its add field. */
+function SectionTasks({ section, tasks, projectId, inlineAdd, inlineAddClass, selectedTaskId, onSelectTask, rationaleByTaskId }: SectionTasksProps) {
+    return (
+        <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={SPRINGS.GLIDE}
+            className="overflow-hidden"
+        >
+            {tasks.length > 0 ? (
+                <TaskList
+                    className="mt-4"
+                    tasks={tasks}
+                    selectedTaskId={selectedTaskId}
+                    onSelectTask={onSelectTask}
+                    rationaleByTaskId={rationaleByTaskId}
+                />
+            ) : (
+                <div className="py-4 px-6 text-[12px] text-twilight-text-muted/90 italic">
+                    No tasks in this section
+                </div>
+            )}
+            {inlineAdd && <div className={inlineAddClass}>
+                <AddTaskInput
+                    projectId={projectId ?? undefined}
+                    sectionId={section.id}
+                    tasks={tasks}
+                    compact
+                    placeholder={`Add task to ${section.name}...`}
+                />
+            </div>}
+        </motion.div>
     );
 }
