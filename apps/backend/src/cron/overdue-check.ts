@@ -9,7 +9,9 @@ import { withRls } from "../platform/rls";
 import { computeWorkloadSignals, overdueOn } from "../platform/metrics";
 import { userZone } from "../platform/user-zone";
 import { logger, hashIdentifier, issuesFromError } from "../platform/log";
-import { prunePushDeliveries } from "../domains/push/dispatch";
+import { replanReminders } from "../domains/push/reminder-clock";
+import { runMemoryJob } from "../domains/ai/memory/memory-job";
+import { mirroredZones, someZoneAt, writeZoneMirror } from "../platform/zone-mirror";
 import type { Env } from "../types/env";
 import type { Tx } from "../types/db";
 
@@ -115,7 +117,7 @@ export async function pruneUsageEvents(env: Env, now: Date = new Date()) {
 /**
  * The nightly memory pass, once per person: on the run that falls in their 03:00 hour (like the
  * overdue sweep, every zone has exactly one such hour a day). Forgotten facts are reduced to a label
- * by the every-minute memory job, not here.
+ * by their own delayed `scrub` message, not here.
  */
 export async function runMemoryNightly(env: Env, now: Date = new Date()) {
     const db = getDbClient(env);
@@ -165,23 +167,61 @@ export async function pruneAiImages(env: Env, now: Date = new Date()) {
     });
 }
 
+const CLOCK_BATCH = 10;
+
+/**
+ * The daily rebuild of everyone's reminder clock, on their 04:00 pass: a plan reaches 36 hours, so each one stays
+ * covered. `everyone` rebuilds them all (the first run after a deploy, when no clock exists yet).
+ */
+export async function replanClocks(env: Env, now: Date = new Date(), everyone = false) {
+    const userIds = await cronUserIds(getDbClient(env), now, everyone ? null : DAY_BOUNDARY_HOUR);
+    // A few at a time: each rebuild holds a Hyperdrive connection. ponytail: fan out through a queue if one hour's users reach the thousands.
+    for (let i = 0; i < userIds.length; i += CLOCK_BATCH) await Promise.all(userIds.slice(i, i + CLOCK_BATCH).map((userId) => replanReminders(env, userId)));
+    return userIds.length;
+}
+
+/** Rebuilds the KV mirror of users' zones from Postgres, dropping zones no one is in any more. */
+export async function refreshZoneMirror(env: Env, now: Date = new Date()) {
+    if (!env.OAUTH_KV) return undefined;
+    const db = getDbClient(env);
+    const zones = new Set<string>();
+    await forEachUser(db, await cronUserIds(db, now), async (tx, userId) => {
+        zones.add(await userZone(tx, userId));
+        return 0;
+    });
+    await writeZoneMirror(env, zones);
+    return zones.size;
+}
+
 /** Pruning is a calendar-free retention sweep: it runs once a day, on the 06:00 UTC tick of the hourly cron. */
 const PRUNE_HOUR_UTC = 6;
 
-/** The hourly cron: the overdue sweep every run, the prunes on one run a day. Every job runs even if another fails; one `cron_summary` line reports them all. */
+/**
+ * The hourly cron. Postgres is touched only on a run with work: someone at local 04:00 (overdue sweep, clock
+ * rebuild) or 03:00 (nightly memory), per the KV zone mirror, or the 06:00 UTC run (prunes, the memory backstop,
+ * the mirror's rebuild). Any other run returns without a query, so the database can sleep. Every job runs even
+ * if another fails; one `cron_summary` line reports them all.
+ */
 export async function runHourlyCron(env: Env, now: Date = new Date()) {
-    const prune = now.getUTCHours() === PRUNE_HOUR_UTC;
+    const zones = await mirroredZones(env);
+    const daily = now.getUTCHours() === PRUNE_HOUR_UTC;
+    const dayTurns = someZoneAt(zones, now, DAY_BOUNDARY_HOUR);
+    const nightly = someZoneAt(zones, now, MEMORY_NIGHTLY_HOUR);
+    if (!daily && !dayTurns && !nightly) return;
     const skipped = Promise.resolve(undefined);
-    const [overdue, mutations, memories, images, usage, pushClaims] = await Promise.allSettled([
-        handleOverdueCheck(env, now),
-        prune ? pruneStaleMutations(env, now) : skipped,
-        runMemoryNightly(env, now),
-        prune ? pruneAiImages(env, now) : skipped,
-        prune ? pruneUsageEvents(env, now) : skipped,
-        prune ? prunePushDeliveries(env, now) : skipped,
+    const [overdue, clocks, mutations, memories, backstop, images, usage, mirror] = await Promise.allSettled([
+        dayTurns ? handleOverdueCheck(env, now) : skipped,
+        dayTurns ? replanClocks(env, now, zones === null) : skipped,
+        daily ? pruneStaleMutations(env, now) : skipped,
+        nightly ? runMemoryNightly(env, now) : skipped,
+        daily ? runMemoryJob(env, now) : skipped,
+        daily ? pruneAiImages(env, now) : skipped,
+        daily ? pruneUsageEvents(env, now) : skipped,
+        // An unknown mirror is rebuilt at once, so the next run is gated again.
+        daily || zones === null ? refreshZoneMirror(env, now) : skipped,
     ]);
     const ok = <T>(result: PromiseSettledResult<T>) => (result.status === "fulfilled" ? result.value : undefined);
-    const failed = Object.entries({ overdue, mutations, memories, images, usage, pushClaims }).filter(([, r]) => r.status === "rejected");
+    const failed = Object.entries({ overdue, clocks, mutations, memories, backstop, images, usage, mirror }).filter(([, r]) => r.status === "rejected");
     for (const [job, result] of failed) {
         logger.error("cron", "cron_job_failed", { job, issues: issuesFromError((result as PromiseRejectedResult).reason) });
     }
@@ -191,7 +231,8 @@ export async function runHourlyCron(env: Env, now: Date = new Date()) {
         memoryNightlyChanges: ok(memories),
         prunedImages: ok(images),
         prunedUsageEvents: ok(usage),
-        prunedPushClaims: ok(pushClaims),
+        replannedClocks: ok(clocks),
+        mirroredZones: ok(mirror),
         failed: failed.length,
     });
 }

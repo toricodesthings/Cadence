@@ -23,7 +23,8 @@ import { isLearning, memoryStateOf, type MemoryState } from "./memory-mode";
 import { catchUpOf, newBackfill, type Backfill } from "./backfill";
 import { askDuration, clearReports, deleteReport, deleteRoutineReport, durationEvidence, getReport, getRoutineReport, reportDuration, reportRoutine, spendDuration } from "./duration";
 import { clearPlanning, planningEvidence, planningOffers, recordOfferOutcome } from "./planning.service";
-import { clearFacts, deleteFact, forgetFact, listFacts, listForgotten, restoreFact } from "./memory-store";
+import { UNDO_WINDOW_MINUTES, clearFacts, deleteFact, forgetFact, listFacts, listForgotten, restoreFact } from "./memory-store";
+import { scheduleScrub } from "./queue";
 
 /** Answers one person can store a day: far beyond real use, a bound against a script. */
 const MAX_REPORTS_PER_DAY = 200;
@@ -230,6 +231,8 @@ export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
             const done = undo ? await deleteFact(tx, userId, id) : !!(await forgetFact(tx, userId, id));
             throwIfNotFound(done || null, "Memory");
         });
+        // The text is kept for Undo, then reduced to a label.
+        if (!undo) c.executionCtx.waitUntil(scheduleScrub(c.env, userId, UNDO_WINDOW_MINUTES));
         return c.json({ data: { id } });
     })
 

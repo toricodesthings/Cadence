@@ -1,10 +1,11 @@
 /**
- * The every-minute memory job: forgotten facts past their Undo window are reduced to a label, and chats
- * idle for 10 minutes are learned from. `memory_user_ids` (SECURITY DEFINER, ids only) lists who has work;
- * everything else runs per user under RLS.
+ * Memory's per-person work: forgotten facts past their Undo window are reduced to a label, and chats and notes
+ * idle for 10 minutes are learned from. Events queue it with a delay (`scheduleLearn`, `scheduleScrub`); the
+ * daily backstop (`runMemoryJob`) lists who still has work from `memory_user_ids` (SECURITY DEFINER, ids only).
+ * Everything runs per user under RLS.
  */
-import { and, desc, eq, gt, lt, sql } from "drizzle-orm";
-import { aiConversations } from "../../../db/schema";
+import { and, desc, eq, gt, gte, lt, max, sql } from "drizzle-orm";
+import { aiConversations, taskNotes } from "../../../db/schema";
 import { getDbClient } from "../../../platform/db";
 import { withRls } from "../../../platform/rls";
 import { logger, hashIdentifier, issuesFromError } from "../../../platform/log";
@@ -15,10 +16,8 @@ import { learnFromNote, pendingNotes } from "./note-learn";
 import { isLearning, readMemoryState } from "./memory-mode";
 import { scrubForgotten } from "./memory-store";
 import { nightlyForUser } from "./nightly";
-import { memoryMessageSchema, sendMemoryMessages, type MemoryMessage } from "./queue";
+import { IDLE_MINUTES, LEARN_DELAY_SECONDS, learnPendingKey, memoryMessageSchema, sendMemoryMessages, type MemoryMessage } from "./queue";
 
-/** Idle time before a chat is read, so one reading covers a whole sitting. */
-export const IDLE_MINUTES = 10;
 /** Per run: how many people and how many chats each, so a backlog drains over a few minutes instead of one burst. */
 const USERS_PER_RUN = 10;
 const CONVERSATIONS_PER_USER = 3;
@@ -46,16 +45,28 @@ export async function withinDailyCap(env: Env, userId: string, now: Date): Promi
     }
 }
 
-/** One person's turn: forgotten facts scrubbed, then their idle chats and notes read, with the extraction budget as the stop. */
-export async function learnForUser(env: Env, userId: string, now: Date): Promise<{ scrubbed: number; learned: number }> {
+/**
+ * One person's turn: forgotten facts scrubbed, then their idle chats and notes read, with the extraction budget as
+ * the stop. `activeAt` is the latest moment a chat or note still in progress was touched: it isn't idle yet, so its
+ * reading is due 10 minutes after that.
+ */
+export async function learnForUser(env: Env, userId: string, now: Date): Promise<{ scrubbed: number; learned: number; activeAt: string | null }> {
     const db = getDbClient(env);
     let learned = 0;
     let scrubbed = 0;
     const pending = await withRls(db, userId, async (tx) => {
         scrubbed = await scrubForgotten(tx, userId);
         const state = await readMemoryState(tx, userId);
-        if (!isLearning(state.mode)) return { chats: [], notes: [] };
+        if (!isLearning(state.mode)) return { chats: [], notes: [], activeAt: null };
         const idleBefore = new Date(now.getTime() - IDLE_MINUTES * 60_000).toISOString();
+        const [chat] = await tx
+            .select({ at: max(aiConversations.lastMessageAt) })
+            .from(aiConversations)
+            .where(and(eq(aiConversations.userId, userId), gte(aiConversations.lastMessageAt, idleBefore), sql`coalesce(${aiConversations.metadata} ->> 'learn', 'true') <> 'false'`));
+        const [note] = state.mode === "full"
+            ? await tx.select({ at: max(taskNotes.updatedAt) }).from(taskNotes).where(and(eq(taskNotes.userId, userId), gte(taskNotes.updatedAt, idleBefore)))
+            : [];
+        const activeAt = [chat?.at, note?.at].filter((at): at is string => !!at).sort().at(-1) ?? null;
         const recentAfter = new Date(now.getTime() - RECENT_DAYS * 24 * 60 * 60_000).toISOString();
         const found = await tx
             .select({ id: aiConversations.id })
@@ -70,7 +81,7 @@ export async function learnForUser(env: Env, userId: string, now: Date): Promise
             .orderBy(desc(aiConversations.lastMessageAt))
             .limit(CONVERSATIONS_PER_USER);
         const notes = state.mode === "full" ? await pendingNotes(tx, userId, now, IDLE_MINUTES, RECENT_DAYS, NOTES_PER_USER, state.notBefore) : [];
-        return { chats: found.map((c) => c.id), notes };
+        return { chats: found.map((c) => c.id), notes, activeAt };
     });
     const admit = () => withinDailyCap(env, userId, now);
     for (const conversationId of pending.chats) {
@@ -83,7 +94,7 @@ export async function learnForUser(env: Env, userId: string, now: Date): Promise
         if (result?.capped) break;
         if (result) learned += result.saved + result.updated + result.reinforced;
     }
-    return { scrubbed, learned };
+    return { scrubbed, learned, activeAt: pending.activeAt };
 }
 
 /** A person's `learn` message stays "in flight" this long, so a slow reading isn't queued again every minute. */
@@ -109,11 +120,11 @@ async function claimLearn(env: Env, userIds: string[]): Promise<string[]> {
     }
 }
 
+/** The daily backstop: anyone whose delayed message was lost (or never sent) still gets read and scrubbed. */
 export async function runMemoryJob(env: Env, now: Date = new Date()): Promise<void> {
     const db = getDbClient(env);
     try {
-        // A random few each run: someone at their daily cap with chats still waiting stays on the list all day,
-        // and must not hold the same slots every minute.
+        // Without a queue, a random few: someone at their daily cap with chats still waiting must not hold the same slots.
         const queued = Boolean(env.MEMORY_QUEUE);
         const rows = await db
             .select({ id: sql<string>`u.id` })
@@ -140,6 +151,22 @@ export async function runMemoryJob(env: Env, now: Date = new Date()): Promise<vo
 }
 
 /**
+ * After a reading: while the person is still going, the same message comes back when their latest chat or note
+ * goes idle (the pending key stays, so new turns don't queue another); otherwise the sitting is done.
+ */
+async function followUpLearn(env: Env, userId: string, activeAt: string | null) {
+    const redis = getRateLimitRedis(env);
+    const key = await learnPendingKey(userId);
+    if (!activeAt) {
+        await redis?.del(key).catch(() => {});
+        return;
+    }
+    const delaySeconds = Math.max(60, Math.ceil((Date.parse(activeAt) - Date.now()) / 1000) + LEARN_DELAY_SECONDS);
+    await redis?.set(key, 1, { ex: delaySeconds + 60 }).catch(() => {});
+    await sendMemoryMessages(env, [{ kind: "learn", userId, at: new Date().toISOString() }], delaySeconds);
+}
+
+/**
  * The queue consumer: one message per person. A unit that fails (or `nightlyForUser`, which reports failure as
  * null) is retried by the queue, then lands in the dead-letter queue; a malformed message is dropped.
  */
@@ -161,8 +188,12 @@ export async function handleMemoryBatch(batch: MessageBatch<unknown>, env: Env):
                 const result = await nightlyForUser(env, userId, new Date(at));
                 if (!result) throw new Error("nightly failed");
                 changes += result.expired + result.decayed + result.merged + result.activity;
+            } else if (kind === "scrub") {
+                changes += await withRls(getDbClient(env), userId, (tx) => scrubForgotten(tx, userId));
             } else {
-                learned += (await learnForUser(env, userId, new Date(at))).learned;
+                const result = await learnForUser(env, userId, new Date());
+                learned += result.learned;
+                await followUpLearn(env, userId, result.activeAt);
             }
             msg.ack();
             done++;

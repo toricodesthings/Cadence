@@ -30,6 +30,7 @@ import { connectionRoutes } from "./domains/mcp/connections.route";
 import { accountRoutes } from "./domains/account/account.route";
 import { meRoutes } from "./domains/account/me.route";
 import { isMcpRequest, mcpOrigin, mcpProvider } from "./domains/mcp/oauth";
+import { replanAfterWrites } from "./domains/push/reminder-clock";
 
 const PRODUCTION_ORIGIN = "https://dashboard.cadenceapp.cloud";
 
@@ -159,6 +160,9 @@ app.use("/api/v1/*", async (c, next) => {
   await next();
 });
 
+// A person's write can change when their reminders fire, so their reminder clock rebuilds once it has committed.
+app.use("/api/v1/*", replanAfterWrites);
+
 // Tier 3: Admin route limiter (tighter ceiling on debug endpoints)
 app.use("/api/v1/debug/*", async (c, next) => {
   if (c.req.method === "OPTIONS") return next();
@@ -200,10 +204,9 @@ export type AppType = typeof apiApp;
 export type { ToolIO } from "./domains/ai/tools/index";
 
 import { runHourlyCron } from "./cron/overdue-check";
-import { runPushDispatch } from "./domains/push/dispatch";
-import { handleMemoryBatch, runMemoryJob } from "./domains/ai/memory/memory-job";
+import { handleMemoryBatch } from "./domains/ai/memory/memory-job";
 
-const PUSH_CRON = "* * * * *";
+export { ReminderClock } from "./domains/push/reminder-clock";
 
 export default {
   // The MCP origin (outside assistants: OAuth + /mcp) is its own protocol boundary:
@@ -225,9 +228,10 @@ export default {
     if (!env.OAUTH_KV) return new Response("Connecting assistants isn't available right now.", { status: 503 });
     return mcpProvider(env).fetch(request, env, ctx);
   },
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    // Two triggers: every minute sends due device reminders and runs the memory job, every hour does the sweeps.
-    ctx.waitUntil(event.cron === PUSH_CRON ? Promise.all([runPushDispatch(env), runMemoryJob(env)]) : runHourlyCron(env));
+  // One hourly trigger. Reminders fire from each person's ReminderClock and memory's work arrives as delayed queue
+  // messages, so nothing wakes Postgres on a timer (a failing clock retries no sooner than every 5 minutes).
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(runHourlyCron(env));
   },
   // Memory's per-person work (domains/ai/memory/queue.ts). The dead-letter queue has no consumer: read it in the dashboard.
   async queue(batch: MessageBatch<unknown>, env: Env) {

@@ -3,7 +3,7 @@ import { asOwner, createUser, startTestDb } from "../helpers/db";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
-import { handleOverdueCheck, pruneStaleMutations, pruneUsageEvents, runMemoryNightly } from "../../src/cron/overdue-check";
+import { handleOverdueCheck, pruneStaleMutations, pruneUsageEvents, runHourlyCron, runMemoryNightly } from "../../src/cron/overdue-check";
 
 const env = {} as any;
 
@@ -148,5 +148,40 @@ describe("pruning", () => {
         await runCron(pruneUsageEvents);
 
         expect(await sql("SELECT event FROM usage_events WHERE user_id = $1", [userId])).toEqual([{ event: "new" }]);
+    });
+});
+
+describe("the gated hourly run", () => {
+    /** A KV holding the zone mirror (or nothing), recording what the cron writes back. */
+    const kvEnv = (zones: string[] | null) => {
+        const store = new Map<string, string>(zones ? [["cadence:zones", JSON.stringify(zones)]] : []);
+        return { store, env: { OAUTH_KV: { get: async (key: string) => (store.has(key) ? JSON.parse(store.get(key)!) : null), put: async (key: string, value: string) => { store.set(key, value); } } } as any };
+    };
+
+    it("touches nothing when no mirrored zone is at 03:00 or 04:00 and it isn't the 06:00 UTC run", async () => {
+        const userId = await createUser();
+        await setZone(userId, "America/Toronto");
+        const late = await task(userId, "late", "2026-10-01");
+        const { env } = kvEnv(["Asia/Tokyo"]); // 17:30 there: nothing due
+        await runHourlyCron(env, TORONTO_0430);
+        expect(await delayCount(late)).toBeUndefined();
+    });
+
+    it("runs a zone's 04:00 work when the mirror has it", async () => {
+        const userId = await createUser();
+        await setZone(userId, "America/Toronto");
+        const late = await task(userId, "late", "2026-10-01");
+        await runHourlyCron(kvEnv(["America/Toronto"]).env, TORONTO_0430);
+        expect(await delayCount(late)).toBe(1);
+    });
+
+    it("with no mirror, runs as if every hour were due and rebuilds the mirror", async () => {
+        const userId = await createUser();
+        await setZone(userId, "America/Toronto");
+        const late = await task(userId, "late", "2026-10-01");
+        const { env, store } = kvEnv(null);
+        await runHourlyCron(env, TORONTO_0430);
+        expect(await delayCount(late)).toBe(1);
+        expect(JSON.parse(store.get("cadence:zones")!)).toContain("America/Toronto");
     });
 });

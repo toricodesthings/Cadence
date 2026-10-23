@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Reminders arrive right on time, and Cadence runs lighter behind the scenes.
+
+### Fixed
+
+- Reminders on your devices now arrive at their exact time instead of up to a minute late.
+
 ## [0.38.2] - 2026-10-21
 
 ### Added

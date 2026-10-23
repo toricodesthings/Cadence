@@ -7,3 +7,8 @@ export const tracing = {
         return callback(span);
     },
 };
+
+/** Durable Object base: tests pass their own `ctx` (storage + alarm fakes) and env. */
+export class DurableObject<E = unknown> {
+    constructor(protected ctx: any, protected env: E) {}
+}

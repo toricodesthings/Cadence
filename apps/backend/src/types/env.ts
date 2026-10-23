@@ -52,6 +52,8 @@ export interface Env {
     VAPID_PRIVATE_KEY?: string;
     /** `mailto:` or https contact the push services can reach. Defaults to the support address. */
     VAPID_SUBJECT?: string;
+    /** One `ReminderClock` per person: sends their reminders from a plan, without polling Postgres. When absent, nothing is pushed. */
+    REMINDER_CLOCK?: DurableObjectNamespace<import("../domains/push/reminder-clock").ReminderClock>;
 
     // ── Memory work ──
     /** Queue the crons fan memory's per-person work onto. When absent, the crons run it in-process. */

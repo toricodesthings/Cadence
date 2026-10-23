@@ -15,6 +15,7 @@ import { formatInZone } from "@cadence/domain/time";
 import { userZone } from "../../platform/user-zone";
 import { hashIdentifier } from "../../platform/log";
 import { mcpOrigin, type McpProps } from "./oauth";
+import { replanReminders } from "../push/reminder-clock";
 
 /**
  * The MCP endpoint: a thin wrapper over the assistant's own tool factories, so an
@@ -184,6 +185,7 @@ function buildServer(env: Env, userId: string, connectionId: string, scopes: Set
                 const toolCallId = write ? `mcp:${connectionId}:${operationKey}:${await hashIdentifier(JSON.stringify(input))}` : "mcp";
                 const result = await tool.execute!(input, { toolCallId, messages: [] });
                 if (result?.ok === false) return fail(result.error);
+                if (write) ctx.waitUntil?.(replanReminders(env, userId));
                 return ok(name === "get_cadence_help" ? { ...result, text: absoluteLinks(result.text, app) } : result);
             },
         );

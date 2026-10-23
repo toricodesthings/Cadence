@@ -29,7 +29,7 @@ import {
 import { getAgentInstance } from "./agent";
 import { usableFactIds, loadContextFacts } from "./memory/memory-store";
 import { validateStoredContexts } from "./memory/context-reuse";
-import { memoryStateOf } from "./memory/memory-mode";
+import { isLearning, memoryStateOf } from "./memory/memory-mode";
 import { citedFactIds, redactMemoryReads } from "./memory/replay";
 import { userClock } from "./turn";
 import type { Tx } from "../../types/db";
@@ -84,6 +84,8 @@ import { aiImageKey, deleteImageObjects, hydrateImages, imageIdsIn, markSent, re
 import { AppError, throwIfNotFound } from "../../platform/errors";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
+import { replanReminders } from "../push/reminder-clock";
+import { scheduleLearn } from "./memory/queue";
 
 // Router defined below as a single CHAIN (after its helpers) so the route schema
 // flows into AppType for the Hono RPC client.
@@ -486,6 +488,10 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             } catch {
                 logger.warn("ai", "ai_persist_failed", { requestId, userHash, conversationId });
             }
+            // The response returned before the stream ended, so the write hook missed this turn's tool writes;
+            // and the sitting's reading is queued for when the chat goes quiet.
+            const learns = isLearning(memoryStateOf((await settingsReady).settings).mode);
+            c.executionCtx.waitUntil(Promise.all([replanReminders(c.env, userId), learns && scheduleLearn(c.env, userId)]));
             // Close the Redis log (TTLs shrink to a ~60s grace so a late re-attach can
             // still replay it) + authoritatively compare-and-finalize the pointer: clear
             // active_stream_id AND record this as last_stream_id/status, but only if it

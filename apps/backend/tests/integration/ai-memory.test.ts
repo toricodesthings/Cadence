@@ -32,7 +32,9 @@ vi.mock("../../src/domains/ai/memory/consolidate", () => ({
 import { memoryRoutes } from "../../src/domains/ai/memory/memory.route";
 import { settingsRoutes } from "../../src/domains/settings/settings.route";
 import { learnFromConversation } from "../../src/domains/ai/memory/learn";
-import { runMemoryJob } from "../../src/domains/ai/memory/memory-job";
+import { handleMemoryBatch, runMemoryJob } from "../../src/domains/ai/memory/memory-job";
+import { scheduleLearn } from "../../src/domains/ai/memory/queue";
+import { noteRoutes } from "../../src/domains/notes/notes.route";
 import { memoryTools } from "../../src/domains/ai/tools/memory";
 import { nightlyForUser } from "../../src/domains/ai/memory/nightly";
 import { learnFromNote } from "../../src/domains/ai/memory/note-learn";
@@ -184,6 +186,78 @@ describe("forget and undo", () => {
         expect((await memory("DELETE", `/${id}`)).status).toBe(404);
         expect((await memory("GET", "")).body.data.facts).toEqual([]);
         expect(await facts(other)).toHaveLength(1);
+    });
+});
+
+describe("memory's delayed messages (nothing polls)", () => {
+    /** A queue that records what was sent, and the batch the consumer would get. */
+    function queue() {
+        const sent: Array<{ body: any; delaySeconds?: number }> = [];
+        const queueEnv = { ...env, MEMORY_QUEUE: { sendBatch: vi.fn(async (batch: typeof sent) => { sent.push(...batch); }) } };
+        const deliver = async () => {
+            const batch = sent.splice(0).map(({ body }) => ({ body, ack: vi.fn(), retry: vi.fn() }));
+            await handleMemoryBatch({ messages: batch } as any, queueEnv);
+            return batch;
+        };
+        return { sent, queueEnv, deliver };
+    }
+
+    it("Forget queues a scrub for after the Undo window; the scrub labels it, but not one that was undone", async () => {
+        await setMode("basic");
+        const q = queue();
+        const api = apiAs(userId, "/memory", memoryRoutes, q.queueEnv);
+        await insertFact(userId, "Sister Maya's wedding is 2027-06-14");
+        await insertFact(userId, "Plays cello");
+        const [kept, gone] = await facts(userId);
+        await api("DELETE", `/${kept.id}`);
+        await api("DELETE", `/${gone.id}`);
+        expect(q.sent).toEqual([expect.objectContaining({ body: expect.objectContaining({ kind: "scrub", userId }), delaySeconds: 630 }), expect.anything()]);
+        await api("POST", `/${kept.id}/restore`);
+        await sql("UPDATE ai_memories SET forgotten_at = now() - interval '11 minutes' WHERE id = $1", [gone.id]);
+        const [message] = await q.deliver();
+        expect(message.ack).toHaveBeenCalled();
+        const after = await facts(userId);
+        expect(after.find((f) => f.id === kept.id)).toMatchObject({ content: "Sister Maya's wedding is 2027-06-14", status: "active" });
+        expect(after.find((f) => f.id === gone.id)).toMatchObject({ value: { scrubbed: true } });
+    });
+
+    it("a reading comes back later while the chat is still going, and ends once it has been read", async () => {
+        await setMode("basic");
+        const q = queue();
+        const lastAt = new Date(Date.now() - 2 * 60_000).toISOString(); // still talking 2 minutes ago
+        const chat = await seedChat(userId, ["I have night shifts Tuesday and Thursday."], lastAt);
+        q.sent.push({ body: { kind: "learn", userId, at: new Date().toISOString() } });
+        await q.deliver();
+        expect(q.sent).toEqual([expect.objectContaining({ body: expect.objectContaining({ kind: "learn" }) })]);
+        expect(q.sent[0].delaySeconds).toBeGreaterThan(8 * 60); // 10 idle minutes after the last message, plus margin
+        expect(q.sent[0].delaySeconds).toBeLessThanOrEqual(9 * 60);
+
+        await sql("UPDATE ai_conversations SET last_message_at = now() - interval '11 minutes' WHERE id = $1", [chat]);
+        await sql("UPDATE ai_messages SET created_at = now() - interval '11 minutes' WHERE conversation_id = $1", [chat]);
+        model.reply = JSON.stringify({ facts: [{ from: "m1", kind: "life", text: "Works night shifts", validThrough: null, flags: [] }] });
+        await q.deliver();
+        expect(await facts(userId)).toEqual([expect.objectContaining({ content: "Works night shifts" })]);
+        expect(q.sent).toEqual([]); // the sitting is done: nothing comes back
+    });
+
+    it("a note save queues a reading under Full only", async () => {
+        const q = queue();
+        const notes = apiAs(userId, "/api/v1", noteRoutes, q.queueEnv);
+        const [{ id: taskId }] = await sql("INSERT INTO tasks (user_id, title, order_index) VALUES ($1, 'Plan trip', 1) RETURNING id", [userId]);
+        await setMode("basic");
+        expect((await notes("PATCH", `/tasks/${taskId}/note`, { body: "I always fly out of Pearson.", expectedVersion: 0 })).status).toBe(200);
+        expect(q.sent).toEqual([]);
+        await setMode("full");
+        await notes("PATCH", `/tasks/${taskId}/note`, { body: "I always fly out of Pearson. Window seat.", expectedVersion: 1 });
+        expect(q.sent).toEqual([expect.objectContaining({ body: expect.objectContaining({ kind: "learn", userId }), delaySeconds: 630 })]);
+    });
+
+    it("still queues the reading when Redis is down", async () => {
+        const q = queue();
+        vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("redis unreachable"); }));
+        await scheduleLearn({ ...q.queueEnv, UPSTASH_REDIS_REST_URL: "https://redis.example", UPSTASH_REDIS_REST_TOKEN: "t" } as never, userId);
+        vi.unstubAllGlobals();
+        expect(q.sent).toEqual([expect.objectContaining({ body: expect.objectContaining({ kind: "learn", userId }), delaySeconds: 630 })]);
     });
 });
 

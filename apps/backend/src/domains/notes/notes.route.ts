@@ -11,6 +11,7 @@ import { apiValidator } from "../../platform/validation";
 import { writeNote } from "./notes.service";
 import { AppError } from "../../platform/errors";
 import { checkIdempotency, getIdempotencyKey, recordMutation, storedResult } from "../../platform/idempotency";
+import { readMemoryState, scheduleLearn } from "../ai/memory/memory.service";
 
 export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // PATCH /tasks/:taskId/note — upsert note (create or update)
@@ -26,6 +27,7 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
             // A retry under the same key replays the first answer (not whatever is latest now);
             // the same key with a different edit is a client bug.
+            let learnsNotes = false;
             const result = await withCallerRls(c, async (tx, userId) => {
                 if (key && (await checkIdempotency(tx, userId, key))) {
                     const first = (await storedResult(tx, userId, key)) as { fingerprint: string; row: Awaited<ReturnType<typeof writeNote>> };
@@ -34,8 +36,11 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 }
                 const row = await writeNote(tx, userId, taskId, body, { expectedVersion, expectedUpdatedAt });
                 await recordMutation(tx, userId, key, row.id, { fingerprint, row });
+                learnsNotes = (await readMemoryState(tx, userId)).mode === "full";
                 return row;
             });
+            // Full learns from notes: the reading is queued for when this note goes quiet.
+            if (learnsNotes) c.executionCtx.waitUntil(scheduleLearn(c.env, c.get("userId")));
 
             return c.json({ data: result });
         },

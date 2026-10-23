@@ -19,7 +19,8 @@ import { embedTexts, getEmbeddingModelId } from "../memory/embedding";
 import { consolidate } from "../memory/consolidate";
 import { SAME_FACT_DISTANCE } from "../memory/learn";
 import { isLearning, readMemoryState } from "../memory/memory-mode";
-import { type NearFact, forgetFact, insertFact, isForgotten, nearestFacts, recallFacts, reinforceFact, searchPastChats, updateFact } from "../memory/memory-store";
+import { type NearFact, UNDO_WINDOW_MINUTES, forgetFact, insertFact, isForgotten, nearestFacts, recallFacts, reinforceFact, searchPastChats, updateFact } from "../memory/memory-store";
+import { scheduleScrub } from "../memory/queue";
 import { atLocal, dayOf, type Zone } from "@cadence/domain/time";
 
 /** Only what a person can say outright: patterns and durations are computed from activity. */
@@ -205,7 +206,9 @@ export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
         execute: async (input, { toolCallId }) =>
             safeExecute("remember", userId, () => whileLearning(env, userId, async (db) => {
                 if (input.action === "forget") {
-                    return withRls(db, userId, (tx) => once<Outcome>(tx, userId, toolCallId, () => forgetOne(tx, userId, input)));
+                    const outcome = await withRls(db, userId, (tx) => once<Outcome>(tx, userId, toolCallId, () => forgetOne(tx, userId, input)));
+                    if ("ok" in outcome && outcome.ok) ctx.waitUntil?.(scheduleScrub(env, userId, UNDO_WINDOW_MINUTES));
+                    return outcome;
                 }
                 const text = cleanText(input.text ?? "");
                 const problem = factProblem(input, text);

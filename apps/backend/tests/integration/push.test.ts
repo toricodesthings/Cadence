@@ -5,7 +5,9 @@ import { asOwner, createUser, startTestDb } from "../helpers/db";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
 import { pushRoutes } from "../../src/domains/push/push.route";
-import { prunePushDeliveries, runPushDispatch } from "../../src/domains/push/dispatch";
+import { Hono } from "hono";
+import { ReminderClock, replanAfterWrites } from "../../src/domains/push/reminder-clock";
+import { mergeOutcomes } from "../../src/domains/push/plan";
 import { fromBase64Url, toBase64Url } from "../../src/domains/push/web-push";
 import type { Env } from "../../src/types/env";
 
@@ -138,29 +140,96 @@ describe("devices", () => {
     });
 });
 
-describe("push dispatch", () => {
-    it("sends a due reminder once, even if the scheduler runs again", async () => {
+/** A person's clock over in-memory Durable Object storage; `alarm` is where it last armed itself. */
+function clockFor(env: TestEnv) {
+    const data = new Map<string, unknown>();
+    const state = {
+        alarm: null as number | null,
+        storage: {
+            get: async (key: string) => structuredClone(data.get(key)),
+            put: async (key: string | Record<string, unknown>, value?: unknown) => {
+                for (const [k, v] of Object.entries(typeof key === "string" ? { [key]: value } : key)) data.set(k, structuredClone(v));
+            },
+            delete: async (key: string) => data.delete(key),
+            deleteAll: async () => data.clear(),
+            setAlarm: async (at: number) => { state.alarm = at; },
+            deleteAlarm: async () => { state.alarm = null; },
+        },
+    };
+    const clock = new ReminderClock(state as never, env);
+    return { clock, state, data, plan: () => data.get("plan") as { entries: Array<{ at: number; key: string }> } };
+}
+
+/** A write happened (rebuild at `at`), then the alarm went off at `fireAt`. */
+async function replanAndFire(env: TestEnv, userId: string, at: Date, fireAt: Date = at) {
+    const c = clockFor(env);
+    await c.clock.replan(userId, at);
+    await c.clock.fire(fireAt);
+    return c;
+}
+
+/** A `REMINDER_CLOCK` binding that records whose clock was asked to rebuild. */
+function clockNamespace(replanned: string[]) {
+    return { idFromName: (name: string) => name, get: (id: string) => ({ replan: async () => { replanned.push(id); } }) };
+}
+
+const count = (calls: string[], endpoint: string) => calls.filter((url) => url === endpoint).length;
+const later = (ms: number) => new Date(NOW.getTime() + ms);
+
+describe("reminder clock", () => {
+    it("sends a due reminder once, across alarms and rebuilds", async () => {
         const env = await vapidEnv();
         const { userId, endpoint } = await subscriber(env);
         await remind(userId, "Pay rent", "2026-10-07T14:59:00Z");
         const calls = pushService();
-        await runPushDispatch(env, NOW);
-        await runPushDispatch(env, new Date(NOW.getTime() + 60_000));
-        expect(calls.filter((url) => url === endpoint)).toHaveLength(1);
-        expect(await sql("SELECT status FROM push_deliveries WHERE user_id = $1", [userId])).toEqual([{ status: "sent" }]);
+        const { clock } = await replanAndFire(env, userId, NOW);
+        await clock.fire(later(60_000));
+        await clock.replan(userId, later(90_000));
+        await clock.fire(later(90_000));
+        expect(count(calls, endpoint)).toBe(1);
     });
 
-    it("reminds a routine's open time on an untouched day, and not one already marked", async () => {
+    it("arms its alarm for the next alert's exact instant, and sends it then without asking Postgres", async () => {
         const env = await vapidEnv();
         const { userId, endpoint } = await subscriber(env);
-        const [{ id }] = await sql("INSERT INTO habits (user_id, title, recurrence_rule, reminder_enabled, times, created_at) VALUES ($1, 'Medication', 'FREQ=DAILY', true, '[\"08:00\",\"11:10\",\"20:00\"]', '2026-10-01T12:00:00Z') RETURNING id", [userId]);
+        await remind(userId, "Call mum", "2026-10-07T17:00:00Z");
         const calls = pushService();
-        await runPushDispatch(env, NOW); // no log exists yet today
-        expect(calls.filter((url) => url === endpoint)).toHaveLength(1);
+        const { clock, state } = clockFor(env);
+        await clock.replan(userId, NOW);
+        expect(state.alarm).toBe(Date.parse("2026-10-07T17:00:00Z"));
+        await clock.fire(new Date(state.alarm!));
+        expect(count(calls, endpoint)).toBe(1);
+    });
 
-        await sql("INSERT INTO habit_logs (habit_id, user_id, target_date, status, time_marks) VALUES ($1, $2, '2026-10-07', 'PENDING', $3)", [id, userId, JSON.stringify({ "11:10": { status: "COMPLETED", at: "2026-10-07T15:00:00Z" } })]);
-        await runPushDispatch(env, new Date(NOW.getTime() + 60_000));
-        expect(calls.filter((url) => url === endpoint)).toHaveLength(1); // the marked time doesn't alert again
+    it("never sends a reminder that was edited, deleted or marked after the plan was made", async () => {
+        const env = await vapidEnv();
+        const { userId, endpoint } = await subscriber(env);
+        await remind(userId, "Moved", "2026-10-07T17:00:00Z");
+        await remind(userId, "Deleted", "2026-10-07T17:30:00Z");
+        const [{ id: habitId }] = await sql("INSERT INTO habits (user_id, title, recurrence_rule, reminder_enabled, times, created_at) VALUES ($1, 'Medication', 'FREQ=DAILY', true, '[\"14:00\"]', '2026-10-01T12:00:00Z') RETURNING id", [userId]);
+        const calls = pushService();
+        const { clock, plan } = clockFor(env);
+        await clock.replan(userId, NOW);
+        // The routine's 14:00 (15 min lead) today and tomorrow, both inside the 36-hour plan.
+        expect(plan().entries.map((e) => new Date(e.at).toISOString())).toEqual(["2026-10-07T17:00:00.000Z", "2026-10-07T17:30:00.000Z", "2026-10-07T17:45:00.000Z", "2026-10-08T17:45:00.000Z"]);
+
+        await sql("UPDATE tasks SET reminder_at = '2026-10-07T19:00:00Z' WHERE user_id = $1 AND title = 'Moved'", [userId]);
+        await sql("DELETE FROM tasks WHERE user_id = $1 AND title = 'Deleted'", [userId]);
+        await sql("INSERT INTO habit_logs (habit_id, user_id, target_date, status, time_marks) VALUES ($1, $2, '2026-10-07', 'PENDING', $3)", [habitId, userId, JSON.stringify({ "14:00": { status: "COMPLETED", at: "2026-10-07T16:00:00Z" } })]);
+        await clock.replan(userId, later(60_000));
+        for (const at of ["2026-10-07T17:00:00Z", "2026-10-07T17:30:00Z", "2026-10-07T17:45:00Z"]) await clock.fire(new Date(at));
+        expect(calls).toEqual([]);
+        await clock.fire(new Date("2026-10-07T19:00:00Z"));
+        expect(count(calls, endpoint)).toBe(1);
+    });
+
+    it("reminds a routine's open time on an untouched day", async () => {
+        const env = await vapidEnv();
+        const { userId, endpoint } = await subscriber(env);
+        await sql("INSERT INTO habits (user_id, title, recurrence_rule, reminder_enabled, times, created_at) VALUES ($1, 'Medication', 'FREQ=DAILY', true, '[\"08:00\",\"11:10\",\"20:00\"]', '2026-10-01T12:00:00Z')", [userId]);
+        const calls = pushService();
+        await replanAndFire(env, userId, NOW); // no log exists yet today
+        expect(count(calls, endpoint)).toBe(1);
     });
 
     it("skips a device the person turned off, and keeps sending to their others", async () => {
@@ -170,7 +239,7 @@ describe("push dispatch", () => {
         await api(userId, env)("PATCH", `/devices/${installId}`, { enabled: false });
         await remind(userId, "Pay rent", "2026-10-07T14:59:00Z");
         const calls = pushService();
-        await runPushDispatch(env, NOW);
+        await replanAndFire(env, userId, NOW);
         expect(calls).toEqual([phone.endpoint]);
         expect(calls).not.toContain(endpoint);
     });
@@ -191,8 +260,20 @@ describe("push dispatch", () => {
         const [{ id: taskId }] = await sql("SELECT id FROM tasks WHERE user_id = $1", [dismissed.userId]);
         await sql("INSERT INTO notification_state (user_id, object_type, object_id, trigger_id, dismissed_at) VALUES ($1, 'task', $2, $3, now())",
             [dismissed.userId, taskId, `task-reminder::${taskId}::2026-10-07T14:59:00.000Z`]);
-        await runPushDispatch(env, NOW);
+        for (const { userId } of [upcoming, stale, off, quiet, dismissed]) await replanAndFire(env, userId, NOW);
         for (const { endpoint } of [upcoming, stale, off, quiet, dismissed]) expect(calls).not.toContain(endpoint);
+    });
+
+    it("holds an alert in quiet hours and sends it when they end", async () => {
+        const env = await vapidEnv();
+        const { userId, endpoint } = await subscriber(env, { quietHoursEnabled: true, quietHoursStart: "10:00", quietHoursEnd: "12:00" });
+        await remind(userId, "Quiet", "2026-10-07T14:59:00Z");
+        const calls = pushService();
+        const { clock, state } = await replanAndFire(env, userId, NOW);
+        expect(calls).toEqual([]);
+        expect(state.alarm).toBe(Date.parse("2026-10-07T16:00:00Z")); // 12:00 in Toronto
+        await clock.fire(new Date(state.alarm!));
+        expect(count(calls, endpoint)).toBe(1);
     });
 
     it("alerts before a timed block by its lead, and stays silent while paused", async () => {
@@ -206,29 +287,43 @@ describe("push dispatch", () => {
         await block(tooFar.userId, "2026-10-07T15:40:00Z");
         const paused = await subscriber(env, { pausedUntil: "2026-10-07T16:00:00Z" });
         await block(paused.userId, "2026-10-07T15:10:00Z");
-        await runPushDispatch(env, NOW);
+        for (const { userId } of [early, tooFar, paused]) await replanAndFire(env, userId, NOW);
         expect(calls).toContain(early.endpoint);
         expect(calls).not.toContain(tooFar.endpoint);
         expect(calls).not.toContain(paused.endpoint);
     });
 
-    it("retries a failed send on a later run, then gives up on a gone device", async () => {
+    it("keeps a repeating block's local time across the DST change", async () => {
+        const env = await vapidEnv();
+        const { userId } = await subscriber(env);
+        // Daily 09:00 in Toronto; Nov 1 2026 falls back from EDT (-4) to EST (-5).
+        await sql("INSERT INTO tasks (user_id, title, order_index, scheduled_start, scheduled_end, zone, recurrence_rule) VALUES ($1, 'Class', 1, '2026-10-30T13:00:00Z', '2026-10-30T14:00:00Z', 'America/Toronto', 'FREQ=DAILY')", [userId]);
+        const { clock, plan } = clockFor(env);
+        await clock.replan(userId, new Date("2026-10-31T12:00:00Z"));
+        expect(plan().entries.map((e) => new Date(e.at).toISOString())).toEqual(["2026-10-31T12:50:00.000Z", "2026-11-01T13:50:00.000Z"]);
+    });
+
+    it("retries a failed send, then forgets a gone device and writes both back on the next rebuild", async () => {
         const env = await vapidEnv();
         const { userId, endpoint } = await subscriber(env);
         await remind(userId, "Call mum", "2026-10-07T14:59:00Z");
         const failing = pushService(503);
-        await runPushDispatch(env, NOW);
+        const { clock, state } = await replanAndFire(env, userId, NOW);
         expect(failing).toContain(endpoint);
+        expect(state.alarm).toBe(later(60_000).getTime());
         const retry = pushService();
-        await runPushDispatch(env, new Date(NOW.getTime() + 60_000));
+        await clock.fire(later(60_000));
         expect(retry).toContain(endpoint);
-        expect(await sql("SELECT status, attempts FROM push_deliveries WHERE user_id = $1", [userId])).toEqual([{ status: "sent", attempts: 2 }]);
+        await clock.replan(userId, later(120_000));
+        expect(await sql("SELECT failure_count, last_success_at IS NOT NULL AS ok FROM devices WHERE user_id = $1", [userId])).toEqual([{ failure_count: 0, ok: true }]);
 
         const gone = await subscriber(env);
         await remind(gone.userId, "x", "2026-10-07T14:59:00Z");
         pushService(410);
-        await runPushDispatch(env, NOW);
+        const goneClock = await replanAndFire(env, gone.userId, NOW);
+        await goneClock.clock.replan(gone.userId, later(60_000));
         expect(await sql("SELECT 1 FROM devices WHERE user_id = $1", [gone.userId])).toHaveLength(0);
+        expect(goneClock.state.alarm).toBeNull();
     });
 
     it("alerts a deadline at 09:00 on its day, and a deferral again at its new time", async () => {
@@ -236,25 +331,164 @@ describe("push dispatch", () => {
         const { userId, endpoint } = await subscriber(env);
         await sql("INSERT INTO tasks (user_id, title, order_index, due_on, created_at) VALUES ($1, 'Tax', 1, '2026-10-07', '2026-10-01T12:00:00Z')", [userId]);
         const calls = pushService();
-        await runPushDispatch(env, NOW); // 11:00: the 09:00 alert is still owed today
-        expect(calls.filter((url) => url === endpoint)).toHaveLength(1);
+        const { clock } = await replanAndFire(env, userId, NOW); // 11:00: the 09:00 alert is still owed today
+        expect(count(calls, endpoint)).toBe(1);
         const [{ id: taskId }] = await sql("SELECT id FROM tasks WHERE user_id = $1", [userId]);
         await sql("INSERT INTO notification_state (user_id, object_type, object_id, trigger_id, deferred_until) VALUES ($1, 'task', $2, $3, '2026-10-07T20:00:00Z')",
             [userId, taskId, `task-due::${taskId}::2026-10-07`]);
-        await runPushDispatch(env, new Date("2026-10-07T20:00:30Z"));
-        expect(calls.filter((url) => url === endpoint)).toHaveLength(2);
+        await clock.replan(userId, NOW); // the snooze is a write
+        await clock.fire(new Date("2026-10-07T20:00:30Z"));
+        expect(count(calls, endpoint)).toBe(2);
     });
 
-    it("prunes old claims only", async () => {
+    it("rebuilds itself when its plan runs out", async () => {
+        const env = await vapidEnv();
+        const { userId, endpoint } = await subscriber(env);
+        const calls = pushService();
+        const { clock, state } = clockFor(env);
+        await clock.replan(userId, NOW);
+        expect(state.alarm).toBe(later(36 * 3600_000).getTime());
+        const end = new Date(state.alarm!);
+        await remind(userId, "Made while the plan was out", end.toISOString());
+        await clock.fire(end);
+        await clock.fire(end);
+        expect(count(calls, endpoint)).toBe(1);
+    });
+    it("backs off a rebuild that keeps failing, never sooner than 5 minutes, and resets once one succeeds", async () => {
+        const env = await vapidEnv();
+        const { clock, state, data } = clockFor(env);
+        // An expired plan for an id Postgres rejects: every rebuild throws.
+        await state.storage.put({ userId: "not-a-uuid", plan: { targets: [], entries: [], until: 0 } });
+        const start = Date.now();
+        await clock.alarm();
+        expect(state.alarm).toBeGreaterThanOrEqual(start + 5 * 60_000);
+        await clock.alarm();
+        expect(state.alarm).toBeGreaterThanOrEqual(start + 15 * 60_000);
+        expect(data.get("failures")).toBe(2);
+        const { userId } = await subscriber(env);
+        await clock.replan(userId, NOW);
+        expect(data.has("failures")).toBe(false);
+    });
+
+    it("keeps a plan rebuilt while it was sending", async () => {
+        const env = await vapidEnv();
+        const { userId, endpoint } = await subscriber(env);
+        await remind(userId, "Now", "2026-10-07T14:59:00Z");
+        await remind(userId, "Deleted", "2026-10-07T17:30:00Z");
+        let release!: () => void;
+        const held = new Promise<void>((resolve) => { release = resolve; });
+        const calls: string[] = [];
+        vi.stubGlobal("fetch", vi.fn(async (url: string) => { calls.push(url); await held; return new Response(null, { status: 201 }); }));
+        const { clock, plan } = clockFor(env);
+        await clock.replan(userId, NOW);
+        const firing = clock.fire(NOW);
+        await vi.waitFor(() => expect(calls).toHaveLength(1));
+        // A delete lands mid-send and rebuilds the clock.
+        await sql("DELETE FROM tasks WHERE user_id = $1 AND title = 'Deleted'", [userId]);
+        await clock.replan(userId, NOW);
+        release();
+        await firing;
+        expect(plan().entries.some((entry) => entry.at === Date.parse("2026-10-07T17:30:00Z"))).toBe(false);
+        await clock.fire(later(1000));
+        expect(count(calls, endpoint)).toBe(1);
+    });
+
+    it("stays forgotten when the account is deleted mid-send", async () => {
         const env = await vapidEnv();
         const { userId } = await subscriber(env);
-        await remind(userId, "x", "2026-10-07T14:59:00Z");
-        pushService();
-        await runPushDispatch(env, NOW);
-        await sql("UPDATE push_deliveries SET created_at = '2026-10-01T00:00:00Z' WHERE user_id = $1", [userId]);
-        await remind(userId, "y", "2026-10-07T14:59:30Z");
-        await runPushDispatch(env, NOW);
-        await prunePushDeliveries(env, NOW);
-        expect(await sql("SELECT 1 FROM push_deliveries WHERE user_id = $1", [userId])).toHaveLength(1);
+        await remind(userId, "Now", "2026-10-07T14:59:00Z");
+        await remind(userId, "Later", "2026-10-07T17:30:00Z");
+        let release!: () => void;
+        const held = new Promise<void>((resolve) => { release = resolve; });
+        const calls: string[] = [];
+        vi.stubGlobal("fetch", vi.fn(async (url: string) => { calls.push(url); await held; return new Response(null, { status: 201 }); }));
+        const { clock, state, data } = clockFor(env);
+        await clock.replan(userId, NOW);
+        const firing = clock.fire(NOW);
+        await vi.waitFor(() => expect(calls).toHaveLength(1));
+        await clock.forget();
+        release();
+        await firing;
+        expect(state.alarm).toBeNull();
+        expect(data.size).toBe(0);
+    });
+
+    it("gives up on a delivery after three failed tries, and a gone device leaves the others sending", async () => {
+        const env = await vapidEnv();
+        const { userId, endpoint } = await subscriber(env);
+        const other = await registerBrowser(env, userId, "Safari on iPhone");
+        await remind(userId, "Call mum", "2026-10-07T14:59:00Z");
+        const calls: string[] = [];
+        vi.stubGlobal("fetch", vi.fn(async (url: string) => { calls.push(url); return new Response(null, { status: url === other.endpoint ? 410 : 503 }); }));
+        const { clock, state } = clockFor(env);
+        await clock.replan(userId, NOW);
+        for (let minute = 0; minute < 4; minute++) await clock.fire(later(minute * 60_000));
+        expect(count(calls, endpoint)).toBe(3);
+        expect(count(calls, other.endpoint)).toBe(1);
+        expect(state.alarm).toBe(later(36 * 3600_000).getTime()); // no retry left: only the plan's end
+    });
+
+    it("doesn't resend what the old minute cron already sent today", async () => {
+        const env = await vapidEnv();
+        const { userId, endpoint } = await subscriber(env);
+        await sql("INSERT INTO tasks (user_id, title, order_index, due_on, created_at) VALUES ($1, 'Tax', 1, '2026-10-07', '2026-10-01T12:00:00Z')", [userId]);
+        const [{ id: deviceId }] = await sql("SELECT id FROM devices WHERE user_id = $1", [userId]);
+        const [{ id: taskId }] = await sql("SELECT id FROM tasks WHERE user_id = $1", [userId]);
+        await sql("INSERT INTO push_deliveries (user_id, device_id, occurrence_key, status, lease_until) VALUES ($1, $2, $3, 'sent', now())", [userId, deviceId, `task-due::${taskId}::2026-10-07`]);
+        const calls = pushService();
+        await replanAndFire(env, userId, NOW);
+        expect(count(calls, endpoint)).toBe(0);
+    });
+
+    it("forgets everything when the account is deleted", async () => {
+        const env = await vapidEnv();
+        const { userId } = await subscriber(env);
+        await remind(userId, "Call mum", "2026-10-07T17:00:00Z");
+        const { clock, state, data } = clockFor(env);
+        await clock.replan(userId, NOW);
+        await clock.forget();
+        expect(state.alarm).toBeNull();
+        expect(data.size).toBe(0);
+        // The deletion request's own replan (or any late write) runs after the account is gone: it keeps nothing either.
+        await sql("DELETE FROM users WHERE id = $1", [userId]);
+        await clock.replan(userId, NOW);
+        expect(state.alarm).toBeNull();
+        expect(data.size).toBe(0);
+    });
+
+    it("keeps every outcome when a settle fails: failures add up and gone sticks", () => {
+        const older = { a: { failures: 2 }, b: { failures: 0, gone: true }, c: { failures: 1 } };
+        const newer = { a: { failures: 1 }, b: { lastSuccessAt: "2026-10-07T15:00:00Z", failures: 0 }, c: { lastSuccessAt: "2026-10-07T15:00:00Z", failures: 0 } };
+        expect(mergeOutcomes(older, newer)).toEqual({
+            a: { failures: 3, gone: undefined },
+            b: { lastSuccessAt: "2026-10-07T15:00:00Z", failures: 0, gone: true },
+            c: { lastSuccessAt: "2026-10-07T15:00:00Z", failures: 0, gone: undefined },
+        });
+    });
+});
+
+describe("what rebuilds a clock", () => {
+    it("rebuilds a person's clock after their successful writes, not reads, failures, chat or usage events", async () => {
+        const replanned: string[] = [];
+        const pending: Promise<unknown>[] = [];
+        const app = new Hono()
+            .use("*", async (c, next) => { c.set("userId" as never, "someone" as never); await next(); })
+            .use("/api/v1/*", replanAfterWrites as never)
+            .all("/api/v1/*", (c) => c.json({}, c.req.path.endsWith("/bad") ? 422 : 200));
+        const ctx = { waitUntil: (p: Promise<unknown>) => pending.push(p), passThroughOnException() {}, props: {} };
+        const requests = [["POST", "/tasks"], ["DELETE", "/tasks/1"], ["GET", "/tasks"], ["POST", "/tasks/bad"], ["POST", "/events"], ["POST", "/ai/chat"]];
+        for (const [method, path] of requests) await app.request(`/api/v1${path}`, { method }, { REMINDER_CLOCK: clockNamespace(replanned) }, ctx as never);
+        await Promise.all(pending);
+        expect(replanned).toEqual(["someone", "someone"]);
+    });
+
+    it("rebuilds the old owner's clock when someone else's browser takes over their endpoint", async () => {
+        const env = await vapidEnv();
+        const owner = await subscriber(env);
+        const replanned: string[] = [];
+        const taker = await createUser();
+        const body = { installId: crypto.randomUUID(), kind: "computer", label: "Chrome", subscription: { endpoint: owner.endpoint, keys: await keys() } };
+        expect((await api(taker, { ...env, REMINDER_CLOCK: clockNamespace(replanned) })("PUT", "/devices", body)).status).toBe(200);
+        expect(replanned).toEqual([owner.userId]);
     });
 });

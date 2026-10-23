@@ -60,3 +60,5 @@ export async function recordPersonActivity(env: Env, userId: string, activities:
     }
 }
 export { pruneRoutineReports } from "./duration";
+export { scheduleLearn } from "./queue";
+export { readMemoryState } from "./memory-mode";

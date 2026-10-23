@@ -17,6 +17,7 @@ import {
     type PushTestResult,
 } from "@cadence/contracts/push";
 import { uuidParamSchema } from "@cadence/contracts/common";
+import { replanReminders } from "./reminder-clock";
 import { hasValidPushKeys, isAllowedPushEndpoint, sendWebPush, vapidConfigured } from "./web-push";
 
 /** A person's devices: past this, the oldest registration is dropped. */
@@ -67,10 +68,12 @@ export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const seenAt = new Date().toISOString();
         const push = subscription ? { endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth } : { endpoint: null, p256dh: null, auth: null };
 
+        let released: string[] = [];
         const rows = await withRls(getDbClient(c.env), userId, async (tx) => {
             if (subscription) {
                 // One account at a time per browser endpoint, and never two rows of this user for one endpoint.
-                await tx.execute(sql`SELECT push_release_endpoint(${subscription.endpoint}, ${userId}::uuid)`);
+                const owners = await tx.select({ id: sql<string | null>`r.id` }).from(sql`push_release_endpoint(${subscription.endpoint}, ${userId}::uuid) AS r(id)`);
+                released = [...new Set(owners.map((owner) => owner.id).filter((id): id is string => Boolean(id)))];
                 await tx.delete(devices).where(and(eq(devices.userId, userId), eq(devices.endpoint, subscription.endpoint), ne(devices.installId, installId)));
             }
             await tx
@@ -87,6 +90,8 @@ export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     ORDER BY coalesce(last_seen_at, created_at) DESC LIMIT ${MAX_DEVICES})`);
             return listDevices(tx, userId);
         });
+        // The accounts this endpoint was taken from must stop sending to it (this account's clock replans after every write).
+        if (released.length > 0) c.executionCtx.waitUntil(Promise.all(released.map((id) => replanReminders(c.env, id))));
         return c.json({ data: rows.map(toDevice) }, 200);
     })
     // Turn a device on or off from anywhere, including this one.

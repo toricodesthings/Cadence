@@ -48,6 +48,7 @@
   "send_email": [{ "name": "EMAIL" }],
 
   // OAuth provider storage for outside assistants (MCP): clients, grants, token hashes.
+  // Also holds `cadence:zones`, the users' time zones the hourly cron gates on (platform/zone-mirror.ts).
   "kv_namespaces": [
     {
       "binding": "OAUTH_KV",
@@ -85,7 +86,7 @@
     }
   ],
 
-  // Memory's per-person work (nightly pass, learning) fans out here from the crons.
+  // Memory's per-person work: the nightly pass from the cron, learning and scrubs as delayed messages from events.
   // max_concurrency caps load on Neon and OpenRouter; failures retry, then land in the dead-letter queue.
   "queues": {
     "producers": [{ "binding": "MEMORY_QUEUE", "queue": "cadence-memory" }],
@@ -95,14 +96,23 @@
         "max_batch_size": 5,
         "max_concurrency": 5,
         "max_retries": 3,
-        "retry_delay": 60,
+        "retry_delay": 300,
         "dead_letter_queue": "cadence-memory-dlq"
       }
     ]
   },
 
+  // One ReminderClock per person (domains/push): sends reminders from a plan on alarms, so nothing polls Neon.
+  "durable_objects": {
+    "bindings": [{ "name": "REMINDER_CLOCK", "class_name": "ReminderClock" }]
+  },
+  // Inherited by env.dev.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReminderClock"] }],
+
+  // Hourly only, and it touches Neon only when someone is at local 03:00/04:00 or at 06:00 UTC (cron/overdue-check.ts).
+  // Anything more frequent keeps the database from scaling to zero.
   "triggers": {
-    "crons": ["0 * * * *", "* * * * *"]
+    "crons": ["0 * * * *"]
   },
   "preview_urls": false,
   "workers_dev": false,
@@ -204,13 +214,16 @@
             "max_batch_size": 5,
             "max_concurrency": 5,
             "max_retries": 3,
-            "retry_delay": 60,
+            "retry_delay": 300,
             "dead_letter_queue": "cadence-memory-dlq-dev"
           }
         ]
       },
+      "durable_objects": {
+        "bindings": [{ "name": "REMINDER_CLOCK", "class_name": "ReminderClock" }]
+      },
       "triggers": {
-        "crons": ["0 * * * *", "* * * * *"]
+        "crons": ["0 * * * *"]
       }
     }
   }
