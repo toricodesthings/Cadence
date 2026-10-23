@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.38.3] - 2026-10-23
+
 Reminders arrive right on time, and Cadence runs lighter behind the scenes.
 
 ### Fixed
