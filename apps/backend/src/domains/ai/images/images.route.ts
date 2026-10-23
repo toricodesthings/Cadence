@@ -13,7 +13,7 @@ import { getRateLimitRedis } from "../../../platform/redis";
 import { getRequestId } from "../../../platform/request-log";
 import { withRls } from "../../../platform/rls";
 import { apiValidator } from "../../../platform/validation";
-import { sanitizeStillWebp } from "../../../platform/webp";
+import { requireBucket, sanitizeStillWebp, webpResponse } from "../../../platform/webp";
 import type { Env } from "../../../types/env";
 import { readImageUsage, resolveLimits } from "../safety/rate-limit";
 import { AI_IMAGE_CACHE_CONTROL, aiImageKey, contentHash, countPending, REPORT_KEEP_DAYS } from "./chat-images";
@@ -28,13 +28,6 @@ import { AI_IMAGE_CACHE_CONTROL, aiImageKey, contentHash, countPending, REPORT_K
 const UPLOAD_BODY_SLACK = 64 * 1024;
 
 const uploadFormSchema = z.object({ file: z.instanceof(File), conversationId: z.uuid() });
-
-function requireBucket(env: Env): R2Bucket {
-    if (!env.USER_ASSETS) {
-        throw new AppError(503, "STORAGE_UNAVAILABLE", "Image storage is not available right now", true);
-    }
-    return env.USER_ASSETS;
-}
 
 function tooLarge(): AppError {
     return new AppError(413, "IMAGE_TOO_LARGE", "That image is too large");
@@ -76,7 +69,7 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
             }
             const { bytes, width, height } = sanitized;
             const hash = await contentHash(bytes);
-            const bucket = requireBucket(c.env);
+            const bucket = requireBucket(c.env, "Image");
 
             const { id, reused } = await withRls(getDbClient(c.env), userId, async (tx) => {
                 // Same bytes in the same conversation → the image we already have.
@@ -174,7 +167,7 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
     .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const bucket = requireBucket(c.env);
+        const bucket = requireBucket(c.env, "Image");
 
         const [row] = await withRls(getDbClient(c.env), userId, (tx) =>
             tx
@@ -189,21 +182,13 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const object = await bucket.get(aiImageKey(await hashIdentifier(userId), id), { onlyIf: c.req.raw.headers });
         throwIfNotFound(object, "Image");
 
-        const headers = {
-            "Content-Type": "image/webp",
-            "Cache-Control": AI_IMAGE_CACHE_CONTROL,
-            ETag: object.httpEtag,
-            "Content-Security-Policy": "default-src 'none'; sandbox",
-            "X-Content-Type-Options": "nosniff",
-        };
-        if (!("body" in object)) return c.body(null, 304, headers);
-        return c.body(object.body, 200, headers);
+        return webpResponse(object, AI_IMAGE_CACHE_CONTROL);
     })
     // ── Delete: take an attached image off before sending ────────────────
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const bucket = requireBucket(c.env);
+        const bucket = requireBucket(c.env, "Image");
         const userKey = await hashIdentifier(userId);
 
         await withRls(getDbClient(c.env), userId, async (tx) => {

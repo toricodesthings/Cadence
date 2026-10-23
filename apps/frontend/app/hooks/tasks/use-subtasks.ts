@@ -129,6 +129,12 @@ function settleEdit(queryClient: QueryClient, taskId: string, data: unknown, err
     queryClient.invalidateQueries({ queryKey: SUBTASKS_KEY(taskId), exact: true });
 }
 
+/** A `beginEdit` mutation's ends: put the list back on failure, then refetch unless it was queued offline. */
+const editEnds = (queryClient: QueryClient, taskId: string) => ({
+    onError: (_err: unknown, _vars: unknown, context: { previous?: Subtask[] } | undefined) => revertEdit(queryClient, taskId, context),
+    onSettled: (data: unknown, error: unknown) => settleEdit(queryClient, taskId, data, error),
+});
+
 export function useCreateSubtask(taskId: string) {
     const api = useApiClient();
     const queryClient = useQueryClient();
@@ -189,8 +195,7 @@ export function useUpdateSubtask(taskId: string) {
         onSuccess: (updated) => {
             if (updated) reconcileSingleSubtaskCache(queryClient, taskId, updated);
         },
-        onError: (_err, _vars, context) => revertEdit(queryClient, taskId, context),
-        onSettled: (data, error) => settleEdit(queryClient, taskId, data, error),
+        ...editEnds(queryClient, taskId),
     });
 }
 
@@ -208,8 +213,7 @@ export function useDeleteSubtask(taskId: string) {
             },
         ),
         onMutate: (id) => beginEdit(queryClient, taskId, (items) => items.filter((st) => st.id !== id)),
-        onError: (_err, _vars, context) => revertEdit(queryClient, taskId, context),
-        onSettled: (data, error) => settleEdit(queryClient, taskId, data, error),
+        ...editEnds(queryClient, taskId),
     });
 }
 
@@ -235,7 +239,6 @@ export function useReorderSubtasks(taskId: string) {
         onSuccess: (updated) => {
             if (updated) reconcileSingleSubtaskCache(queryClient, taskId, updated);
         },
-        onError: (_err, _vars, context) => revertEdit(queryClient, taskId, context),
-        onSettled: (data, error) => settleEdit(queryClient, taskId, data, error),
+        ...editEnds(queryClient, taskId),
     });
 }

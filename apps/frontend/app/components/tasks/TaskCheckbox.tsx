@@ -120,9 +120,7 @@ function CheckMark({ compact, small, confirmed, isWaiting, isPendingComplete, co
                             viewBox="0 0 10 10"
                             fill="none"
                             className="text-accent-primary"
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
+                            {...MARK_POP}
                             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                         >
                             <motion.path
@@ -139,9 +137,7 @@ function CheckMark({ compact, small, confirmed, isWaiting, isPendingComplete, co
                     ) : isWaiting ? (
                         <motion.div
                             key="pause"
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
+                            {...MARK_POP}
                             transition={{ duration: 0.18 }}
                         >
                             <Pause className="h-3 w-3" />
@@ -161,6 +157,9 @@ function CheckMark({ compact, small, confirmed, isWaiting, isPendingComplete, co
 }
 
 /** Circular checkbox that toggles task between states */
+/** The check or pause mark swapping in and out. */
+const MARK_POP = { initial: { opacity: 0, scale: 0.8 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.8 } };
+
 export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxProps) {
     const updateTask = useUpdateTask();
     const updateSubtask = useUpdateSubtask(subtask?.taskId ?? "");

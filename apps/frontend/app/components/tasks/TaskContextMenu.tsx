@@ -52,6 +52,30 @@ function submenuItem(Menu: GenericMenu, icon: ReactNode, label: string, hint: Re
         </Menu.Item>
     );
 }
+/** A plain menu row: icon, label, and an optional key hint at the far end. */
+function menuRow(Menu: GenericMenu, Icon: LucideIcon, label: string, select: () => void, { hint, iconClass, danger }: { hint?: string; iconClass?: string; danger?: boolean } = {}) {
+    return (
+        <Menu.Item onSelect={select} variant={danger ? "danger" : "default"}>
+            <div className="flex items-center gap-2">
+                <Icon size={16} className={iconClass} />
+                <span>{label}</span>
+                {hint ? <kbd className="ml-auto font-mono text-[10px] opacity-40">{hint}</kbd> : null}
+            </div>
+        </Menu.Item>
+    );
+}
+
+/** The task's planning offer, echoed as the menu's last item so it is always in the same place, never shifting the rest. */
+function suggestedRow(Menu: GenericMenu, offer: ReturnType<typeof useShownOffer>) {
+    return offer ? (
+        <>
+            <Menu.Separator />
+            <div className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-twilight-text-muted">Suggested</div>
+            {menuRow(Menu, ListChecks, OFFER_LABEL[offer.kind], offer.accept)}
+        </>
+    ) : null;
+}
+
 export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Menu, onCloseMenu, holdingContext }: TaskMenuItemsProps) {
     // Place lists tasks for one chosen day: Find a time looks there, not at the task's own day.
     const findDay = useContext(FindTimeDayContext);
@@ -145,27 +169,8 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
     }
 
     const rescheduleItem = submenuItem(Menu, <Calendar size={16} />, "Reschedule", <span>r</span>, () => setMenuView("reschedule-presets"));
-    const findTimeItem = canFindTime(task) ? (
-        <Menu.Item onSelect={() => { trackMenuAction("find_time"); void findTime.run(task, findDay ? { day: findDay } : {}); }}>
-            <div className="flex items-center gap-2">
-                <Clock size={16} />
-                <span>{findDay ? `Find a time on ${formatInZone(atLocal(findDay, "12:00", getUserZone()), getUserZone(), { weekday: "short" })}` : "Find a time"}</span>
-            </div>
-        </Menu.Item>
-    ) : null;
-    /** The offer under the row, echoed as the menu's last item so it is always in the same place, never shifting the rest. */
-    const suggestedItem = shownOffer ? (
-        <>
-            <Menu.Separator />
-            <div className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-twilight-text-muted">Suggested</div>
-            <Menu.Item onSelect={shownOffer.accept}>
-                <div className="flex items-center gap-2">
-                    <ListChecks size={16} />
-                    <span>{OFFER_LABEL[shownOffer.kind]}</span>
-                </div>
-            </Menu.Item>
-        </>
-    ) : null;
+    const findTimeItem = canFindTime(task) ? menuRow(Menu, Clock, findDay ? `Find a time on ${formatInZone(atLocal(findDay, "12:00", getUserZone()), getUserZone(), { weekday: "short" })}` : "Find a time", () => { trackMenuAction("find_time"); void findTime.run(task, findDay ? { day: findDay } : {}); }) : null;
+    const suggestedItem = suggestedRow(Menu, shownOffer);
     const reminderItem = submenuItem(
         Menu,
         <Bell size={16} />,
@@ -182,19 +187,9 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
 
                     {findTimeItem}
 
-                    <Menu.Item onClick={handleTogglePin}>
-                        <div className="flex items-center gap-2">
-                            <Pin size={16} className={task.isPinned ? "fill-accent-primary text-accent-primary" : ""} />
-                            <span>{task.isPinned ? "Unpin task" : "Pin to top"}</span>
-                        </div>
-                    </Menu.Item>
+                    {menuRow(Menu, Pin, task.isPinned ? "Unpin task" : "Pin to top", handleTogglePin, { iconClass: task.isPinned ? "fill-accent-primary text-accent-primary" : "" })}
 
-                    <Menu.Item onClick={() => onRename?.()}>
-                        <div className="flex items-center gap-2">
-                            <Pencil size={16} />
-                            <span>Rename</span>
-                        </div>
-                    </Menu.Item>
+                    {menuRow(Menu, Pencil, "Rename", () => onRename?.())}
 
                     <MoveToSubmenu
                         MenuComponents={Menu}
@@ -204,12 +199,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
 
                     <Menu.Separator />
 
-                    <Menu.Item onSelect={() => archiveTask.mutate(task.id)} variant="danger">
-                        <div className="flex items-center gap-2">
-                            <Trash2 size={16} />
-                            <span>Move to Trash</span>
-                        </div>
-                    </Menu.Item>
+                    {menuRow(Menu, Trash2, "Move to Trash", () => archiveTask.mutate(task.id), { danger: true })}
 
                     {suggestedItem}
                 </>
@@ -235,47 +225,17 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
             <Menu.Separator />
 
             {/* ── Status & Actions ── */}
-            <Menu.Item onClick={handleTogglePin}>
-                <div className="flex items-center gap-2">
-                    <Pin size={16} className={task.isPinned ? "fill-accent-primary text-accent-primary" : ""} />
-                    <span>{task.isPinned ? "Unpin task" : "Pin to top"}</span>
-                    <kbd className="ml-auto text-[10px] opacity-40 font-mono">p</kbd>
-                </div>
-            </Menu.Item>
+            {menuRow(Menu, Pin, task.isPinned ? "Unpin task" : "Pin to top", handleTogglePin, { hint: "p", iconClass: task.isPinned ? "fill-accent-primary text-accent-primary" : "" })}
 
-            <Menu.Item onClick={() => onRename?.()}>
-                <div className="flex items-center gap-2">
-                    <Pencil size={16} />
-                    <span>Rename</span>
-                    <kbd className="ml-auto text-[10px] opacity-40 font-mono">e</kbd>
-                </div>
-            </Menu.Item>
+            {menuRow(Menu, Pencil, "Rename", () => onRename?.(), { hint: "e" })}
 
-            <Menu.Item onClick={() => duplicateTask.mutate(task.id)}>
-                <div className="flex items-center gap-2">
-                    <Copy size={16} />
-                    <span>Duplicate</span>
-                </div>
-            </Menu.Item>
+            {menuRow(Menu, Copy, "Duplicate", () => duplicateTask.mutate(task.id))}
 
-            {onAddSubtask && (
-                <Menu.Item onClick={onAddSubtask}>
-                    <div className="flex items-center gap-2">
-                        <ListChecks size={16} />
-                        <span>Add subtask</span>
-                    </div>
-                </Menu.Item>
-            )}
+            {onAddSubtask && menuRow(Menu, ListChecks, "Add subtask", onAddSubtask)}
 
             <Menu.Separator />
 
-            <Menu.Item onSelect={() => archiveTask.mutate(task.id)} variant="danger">
-                <div className="flex items-center gap-2">
-                    <Trash2 size={16} />
-                    <span>Move to Trash</span>
-                    <span className="ml-auto text-[10px] opacity-60">Del</span>
-                </div>
-            </Menu.Item>
+            {menuRow(Menu, Trash2, "Move to Trash", () => archiveTask.mutate(task.id), { hint: "Del", danger: true })}
 
             {suggestedItem}
                 </>
@@ -440,28 +400,11 @@ function TaskQuickActions({ task }: { task: Task }) {
     const archiveTask = useArchiveTask();
     return (
         <>
-            <DropdownMenu.Item onSelect={() => updateTask.mutate({ id: task.id, isPinned: !task.isPinned })}>
-                <div className="flex items-center gap-2">
-                    <Pin size={16} className={task.isPinned ? "fill-accent-primary text-accent-primary" : ""} />
-                    <span>{task.isPinned ? "Unpin task" : "Pin to top"}</span>
-                </div>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item onSelect={() => duplicateTask.mutate(task.id)}>
-                <div className="flex items-center gap-2"><Copy size={16} /><span>Duplicate</span></div>
-            </DropdownMenu.Item>
+            {menuRow(DropdownMenu, Pin, task.isPinned ? "Unpin task" : "Pin to top", () => updateTask.mutate({ id: task.id, isPinned: !task.isPinned }), { iconClass: task.isPinned ? "fill-accent-primary text-accent-primary" : "" })}
+            {menuRow(DropdownMenu, Copy, "Duplicate", () => duplicateTask.mutate(task.id))}
             <DropdownMenu.Separator />
-            <DropdownMenu.Item onSelect={() => archiveTask.mutate(task.id)} variant="danger">
-                <div className="flex items-center gap-2"><Trash2 size={16} /><span>Move to Trash</span></div>
-            </DropdownMenu.Item>
-            {shownOffer ? (
-                <>
-                    <DropdownMenu.Separator />
-                    <div className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-twilight-text-muted">Suggested</div>
-                    <DropdownMenu.Item onSelect={shownOffer.accept}>
-                        <div className="flex items-center gap-2"><ListChecks size={16} /><span>{OFFER_LABEL[shownOffer.kind]}</span></div>
-                    </DropdownMenu.Item>
-                </>
-            ) : null}
+            {menuRow(DropdownMenu, Trash2, "Move to Trash", () => archiveTask.mutate(task.id), { danger: true })}
+            {suggestedRow(DropdownMenu, shownOffer)}
         </>
     );
 }

@@ -1,4 +1,4 @@
-import { cssVars, n1, pt, rng, type Pt } from "~/lib/geometry";
+import { cssVars, n1, pt, rng, starPath, twinkleBox, type Pt } from "~/lib/geometry";
 
 /*
  * Night sky on the loading screen's 1920×1080 stage (overscanned like `slice`,
@@ -48,14 +48,6 @@ const STARS: Star[][] = (() => {
 
 const BIG = STARS[0].slice(0, 4);
 
-const starPath = (stars: readonly Star[]) =>
-  stars
-    .map(
-      ({ x, y, r }) =>
-        `M${pt(x - r, y)}a${r},${r} 0 1,0 ${n1(2 * r)},0a${r},${r} 0 1,0 ${n1(-2 * r)},0`,
-    )
-    .join("");
-
 /** [stars, class] for the six faded-in paths (cool + warm per tier). */
 const TIER_PATHS: readonly (readonly [readonly Star[], string])[] = [
   [STARS[2], "hero-star-t1"],
@@ -72,17 +64,8 @@ const TWINKLE_PAIRS: readonly { a: Pt; b: Pt; dur: number; delay: number }[] = [
 ];
 
 function twinkleStyle({ a, b, dur, delay }: (typeof TWINKLE_PAIRS)[number]) {
-  const x0 = Math.min(a[0], b[0]) - 8;
-  const y0 = Math.min(a[1], b[1]) - 8;
-  const w = Math.abs(a[0] - b[0]) + 16;
-  const h = Math.abs(a[1] - b[1]) + 16;
-  const at = ([x, y]: Pt) => `${n1(((x - x0) / w) * 100)}% ${n1(((y - y0) / h) * 100)}%`;
   return cssVars({
-    left: `${n1(x0 / 19.2)}%`,
-    top: `${n1(y0 / 10.8)}%`,
-    width: `${n1(w / 19.2)}%`,
-    height: `${n1(h / 10.8)}%`,
-    background: `radial-gradient(circle calc(2.6 * var(--su)) at ${at(a)}, var(--hero-star-cool) 30%, transparent), radial-gradient(circle calc(2.2 * var(--su)) at ${at(b)}, var(--hero-star-warm) 30%, transparent)`,
+    ...twinkleBox(a, b, "var(--hero-star-cool)", "var(--hero-star-warm)"),
     "--tw": `${dur}s`,
     "--delay": `${delay}s`,
   });

@@ -7,6 +7,7 @@
  * model call. Pure functions here, so the rules are testable without a database.
  */
 import { addDays, dayOf, formatInZone, type LocalDate, type Zone } from "@cadence/domain/time";
+import { timeOfDay, type TimeOfDay } from "@cadence/domain/find-time";
 import { estimateDuration, type DurationEvidence } from "@cadence/nlp/duration";
 import { STOP } from "@cadence/nlp/effort";
 
@@ -18,15 +19,7 @@ const MIN_EVENTS = 5;
 const MIN_DAYS = 3;
 const MIN_SHARE = 0.7;
 
-export type TimeOfDay = "early" | "morning" | "afternoon" | "evening" | "late";
-
-export function timeOfDay(hour: number): TimeOfDay {
-    if (hour < 9) return "early";
-    if (hour < 12) return "morning";
-    if (hour < 17) return "afternoon";
-    if (hour < 21) return "evening";
-    return "late";
-}
+export { timeOfDay, type TimeOfDay };
 
 const weekdayOf = (day: LocalDate) => formatInZone(day, "UTC", { weekday: "long" }, "en-US").toLowerCase();
 const hourIn = (instant: string, zone: Zone) => Number(formatInZone(instant, zone, { hour: "numeric", hourCycle: "h23" }, "en-US"));

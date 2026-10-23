@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 
-import { HEART } from "~/components/hero/HeroBough";
+import { EmberBud, EmberCore, HEART } from "~/components/hero/HeroBough";
 import { generateBough, type Bough, type BoughSpec, type Limb } from "~/lib/branch";
 
 import { Foliage, type FoliageKind } from "./Foliage";
@@ -417,11 +417,7 @@ function SegmentDefs({ seg, leaf }: { seg: Seg; leaf: Leaf }) {
           <stop offset="1" stopColor={to} />
         </linearGradient>
       ))}
-      <g id={`${id}-bud`}>
-        <circle r="5" fill="var(--hero-ember)" opacity=".22" />
-        <circle r="2.2" fill="var(--hero-ember)" />
-        <circle r="1" fill="color-mix(in srgb, var(--hero-ember) 35%, white)" />
-      </g>
+      <EmberBud id={`${id}-bud`} />
       <Foliage id={`${id}-ume`} kind={leaf} />
       {limbs.map((limb, i) => (
         <Fragment key={i}>
@@ -572,9 +568,7 @@ function SegmentDrawing({ name, crossing = false }: { name: SegmentName; crossin
 
         {/* The lantern leading the reader: an ember riding the growth front (omitted without motion-path support) */}
         {!mobile && <g className="seg-ember" fill="var(--hero-ember)" style={{ ...timing(main), offsetPath: `path("${main.spine}")` }}>
-          <circle r="7" opacity=".3" />
-          <circle r="3" />
-          <circle r="1.4" fill="color-mix(in srgb, var(--hero-ember) 35%, white)" />
+          <EmberCore />
         </g>}
       </svg>
 

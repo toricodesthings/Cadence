@@ -2,6 +2,7 @@ import { cssVars } from "~/lib/geometry";
 import { EMILIE } from "~/lib/site";
 
 import { BoughSegment, mobileBoughSide, segmentHeight } from "./BoughSegment";
+import { ChapterWords } from "./Chapter";
 import { Drift } from "./Drift";
 import { Panel } from "./Panel";
 import { Sigil } from "./Sigil";
@@ -22,25 +23,7 @@ export function Emilie() {
     >
       <BoughSegment name="emilie" />
       <Drift kind="mote" />
-      <div className="emilie-words">
-        <p className="chapter-eyebrow reveal" style={cssVars({ "--i": 0 })}>
-          {EMILIE.eyebrow}
-        </p>
-        <h3 id="chapter-emilie" className="chapter-title reveal font-display" style={cssVars({ "--i": 1 })}>
-          {EMILIE.title}
-        </h3>
-        <p className="chapter-body reveal" style={cssVars({ "--i": 2 })}>
-          {EMILIE.body}
-        </p>
-        <ul className="chapter-glints emilie-glints">
-          {EMILIE.glints.map((glint, k) => (
-            <li key={glint} className="glint reveal" style={cssVars({ "--i": 3 + k })}>
-              <span className="glint-star" aria-hidden="true" />
-              {glint}
-            </li>
-          ))}
-        </ul>
-      </div>
+      <ChapterWords copy={EMILIE} titleId="chapter-emilie" className="emilie-words" glintsClassName="chapter-glints emilie-glints" />
       <div className="emilie-stage" aria-hidden="true">
         <Sigil className="emilie-sigil reveal" style={cssVars({ "--i": 0 })}>
           <span className="emilie-core" />

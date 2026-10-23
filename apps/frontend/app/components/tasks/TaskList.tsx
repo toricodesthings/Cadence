@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSortSensors } from "../../hooks/ui/use-sort-sensors";
 import {
     DndContext,
     DragOverlay,
     closestCorners,
-    KeyboardSensor,
-    useSensor,
-    useSensors,
     type DragStartEvent,
     type DragEndEvent,
     type UniqueIdentifier,
@@ -15,7 +13,6 @@ import {
 import {
     SortableContext,
     arrayMove,
-    sortableKeyboardCoordinates,
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { SortableTaskCard } from "./SortableTaskCard";
@@ -27,7 +24,6 @@ import { computeMidpointIndex } from "../../lib/utils/order-index";
 import { TaskContextMenuWrapper } from "./TaskContextMenuWrapper";
 import type { Tag } from "@cadence/contracts/tag";
 import type { Task } from "@cadence/contracts/task";
-import { MouseSensor, TouchSensor } from "../../lib/utils/dnd";
 
 interface TaskListProps {
     tasks: Task[];
@@ -122,11 +118,7 @@ export function TaskList({
         });
     }, [activeTaskId, initialTasks, reorderTask.isPending]);
 
-    const sensors = useSensors(
-        useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
-        useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 10 } }),
-        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-    );
+    const sensors = useSortSensors();
 
     /** A card's tags, subtasks and why it is here. */
     const cardData = (task: Task) => ({

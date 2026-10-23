@@ -1,19 +1,33 @@
-import { Bell, Calendar, Check, FolderOpen, Repeat, UserCheck, X, Hourglass, Tag } from "lucide-react";
+import { useState } from "react";
+import { Bell, Calendar, Check, FolderOpen, Repeat, UserCheck, X, Hourglass, Tag, type LucideIcon } from "lucide-react";
 import type { ParsedEntity } from "@cadence/nlp/core";
 import { PRIORITY_ICON } from "./task-choice-options";
 
-const ICON: Record<string, React.ReactNode> = {
-    scheduled_start: <Calendar size={11} aria-hidden="true" />,
-    due_date: <Calendar size={11} aria-hidden="true" />,
-    recurrence: <Repeat size={11} aria-hidden="true" />,
-    priority: <PRIORITY_ICON size={11} aria-hidden="true" />,
-    project: <FolderOpen size={11} aria-hidden="true" />,
-    tag: <Tag size={11} aria-hidden="true" />,
-    duration: <Hourglass size={11} aria-hidden="true" />,
-    waiting_on: <UserCheck size={11} aria-hidden="true" />,
-    reminder: <Bell size={11} aria-hidden="true" />,
-    not_before: <Calendar size={11} aria-hidden="true" />,
+const ICON: Record<string, LucideIcon> = {
+    scheduled_start: Calendar,
+    due_date: Calendar,
+    recurrence: Repeat,
+    priority: PRIORITY_ICON,
+    project: FolderOpen,
+    tag: Tag,
+    duration: Hourglass,
+    waiting_on: UserCheck,
+    reminder: Bell,
+    not_before: Calendar,
 };
+
+function KindIcon({ type }: { type: string }) {
+    const Icon = ICON[type];
+    return Icon ? <Icon size={11} aria-hidden="true" /> : null;
+}
+
+function DismissButton({ label, onClick }: { label: string; onClick: () => void }) {
+    return (
+        <button type="button" onClick={onClick} aria-label={label} className="-mr-1 flex size-6 cursor-pointer items-center justify-center rounded-full opacity-70 hover:opacity-100">
+            <X size={11} aria-hidden="true" />
+        </button>
+    );
+}
 
 /** Each kind's words: the value it reads (its raw phrase when missing), after any lead-in. */
 const LABELS: Partial<Record<ParsedEntity["type"], { field: string; prefix?: string }>> = {
@@ -35,6 +49,27 @@ export function entityLabel(e: ParsedEntity): string {
     const label = LABELS[e.type];
     if (!label) return e.sourceText;
     return `${label.prefix ?? ""}${(v?.[label.field] as string) ?? e.sourceText}`;
+}
+
+/** What the person said about the parsed words: meanings removed, suggestions taken, or "keep as written". `row` spreads onto DraftRow. */
+export function useDraftChoices() {
+    const [dismissed, setDismissed] = useState<string[]>([]);
+    const [accepted, setAccepted] = useState<string[]>([]);
+    const [literal, setLiteral] = useState(false);
+    const dismiss = (id: string) => setDismissed((current) => [...current, id]);
+    return {
+        dismissed,
+        accepted,
+        literal,
+        setLiteral,
+        dismiss,
+        reset: () => {
+            setDismissed([]);
+            setAccepted([]);
+            setLiteral(false);
+        },
+        row: { literal, onDismiss: dismiss, onAccept: (id: string) => setAccepted((current) => [...current, id]), onLiteral: setLiteral },
+    };
 }
 
 interface DraftRowProps {
@@ -69,33 +104,19 @@ export function DraftRow({ applied, suggestions, shownElsewhere = [], literal, o
                 <>
                     {values.map((e) => (
                         <span key={e.id} className={`${CHIP} border-accent-primary/20 bg-accent-primary/10 text-accent-primary`}>
-                            {ICON[e.type]}
+                            <KindIcon type={e.type} />
                             <span>{entityLabel(e)}</span>
-                            <button
-                                type="button"
-                                onClick={() => onDismiss(e.id)}
-                                aria-label={`Remove ${entityLabel(e)}, keep "${e.sourceText}" in the title`}
-                                className="-mr-1 flex size-6 cursor-pointer items-center justify-center rounded-full opacity-70 hover:opacity-100"
-                            >
-                                <X size={11} aria-hidden="true" />
-                            </button>
+                            <DismissButton label={`Remove ${entityLabel(e)}, keep "${e.sourceText}" in the title`} onClick={() => onDismiss(e.id)} />
                         </span>
                     ))}
                     {suggestions.map((e) => (
                         <span key={e.id} className={`${CHIP} border-twilight-border text-twilight-text-soft`}>
-                            {ICON[e.type]}
+                            <KindIcon type={e.type} />
                             <button type="button" onClick={() => onAccept(e.id)} aria-label={`Use ${entityLabel(e)}`} className="flex cursor-pointer items-center gap-1 hover:text-twilight-text">
                                 <Check size={11} aria-hidden="true" />
                                 Use {entityLabel(e)}
                             </button>
-                            <button
-                                type="button"
-                                onClick={() => onDismiss(e.id)}
-                                aria-label={`Keep "${e.sourceText}" as typed`}
-                                className="-mr-1 flex size-6 cursor-pointer items-center justify-center rounded-full opacity-70 hover:opacity-100"
-                            >
-                                <X size={11} aria-hidden="true" />
-                            </button>
+                            <DismissButton label={`Keep "${e.sourceText}" as typed`} onClick={() => onDismiss(e.id)} />
                         </span>
                     ))}
                     {applied.length > 0 || suggestions.length > 0 ? (

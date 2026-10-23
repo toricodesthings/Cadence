@@ -3,9 +3,10 @@ import {
     Calendar, Bell, Tag, FolderOpen,
     Pin, Repeat, CalendarRange, Trash2, SlidersHorizontal,
     CircleDot, EyeOff, Clock, Columns3,
-    ListChecks, StickyNote
+    ListChecks, StickyNote, type LucideIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Reveal } from "../shared/Reveal";
 import { useTask } from "../../hooks/tasks/use-tasks";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
@@ -203,10 +204,7 @@ function TaskEditorBody({
                 {activePanel === "notes" ? (
                     <motion.div
                         key="notes-panel"
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+                        {...PANE_IN}
                         className="flex shrink-0 flex-col gap-3"
                     >
                         <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
@@ -225,23 +223,9 @@ function TaskEditorBody({
                 <PanelTrigger icon={SlidersHorizontal} title="Details" summary={detailsSummary} onOpen={() => setActivePanel("details")} />
             ) : null}
 
-            <AnimatePresence initial={false}>
-                {activePanel === "details" ? (
-                    <motion.div
-                        key="details-panel"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{
-                            height: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] },
-                            opacity: { duration: 0.2 },
-                        }}
-                        className={`${CARD} flex shrink-0 flex-col overflow-hidden`}
-                    >
-                        <TaskDetailsFields task={task} onDone={() => setActivePanel("notes")} onClose={onClose} />
-                    </motion.div>
-                ) : null}
-            </AnimatePresence>
+            <Reveal open={activePanel === "details"} className={`${CARD} flex flex-col`}>
+                <TaskDetailsFields task={task} onDone={() => setActivePanel("notes")} onClose={onClose} />
+            </Reveal>
 
             {/* ── Subtasks pane ── */}
             {activePanel !== "subtasks" ? (
@@ -252,10 +236,7 @@ function TaskEditorBody({
                 {activePanel === "subtasks" ? (
                     <motion.div
                         key="subtasks-panel"
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+                        {...PANE_IN}
                         className={`${CARD} flex min-h-64 flex-1 flex-col overflow-hidden px-4 py-3`}
                     >
                         <div className="mb-2">
@@ -308,18 +289,16 @@ function TaskDetailsFields({ task, onDone, onClose }: TaskDetailsFieldsProps) {
     );
 }
 
+/** Notes and Subtasks panes rise in as they open. */
+const PANE_IN = { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -4 }, transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] } } as const;
+
 type WaitingFieldsProps = { task: Task; waitingOn: string; onWaitingOnChange: (e: React.ChangeEvent<HTMLInputElement>) => void };
 
 /** Who or what it waits on, and when to check again. */
 function WaitingFields({ task, waitingOn, onWaitingOnChange: handleWaitingOnChange }: WaitingFieldsProps) {
     const updateTask = useUpdateTask();
     return (
-        <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-        >
+        <>
             <div className="mt-1 flex flex-col gap-1 rounded-xl bg-white/[0.03] px-3 py-2">
                 <div data-focus-container className="flex min-h-10 items-center gap-2">
                     <Clock size={14} className="shrink-0 text-twilight-text-muted opacity-70" aria-hidden="true" />
@@ -347,7 +326,7 @@ function WaitingFields({ task, waitingOn, onWaitingOnChange: handleWaitingOnChan
                     </DeadlinePickerPopover>
                 </div>
             </div>
-        </motion.div>
+        </>
     );
 }
 
@@ -419,9 +398,9 @@ function StatusGroup({ task, onClose }: StatusGroupProps) {
 
             {task.state === "COMPLETE" ? <TookRow taskId={task.id} completedAt={task.completedAt} enabled={settings?.assistant?.memoryMode === "full"} /> : null}
 
-            <AnimatePresence>
-                {task.state === "WAITING" && <WaitingFields task={task} waitingOn={waitingOn} onWaitingOnChange={handleWaitingOnChange} />}
-            </AnimatePresence>
+            <Reveal open={task.state === "WAITING"}>
+                <WaitingFields task={task} waitingOn={waitingOn} onWaitingOnChange={handleWaitingOnChange} />
+            </Reveal>
 
             {isRecurringTask(task) && (
                 <div className="py-1.5">
@@ -568,6 +547,23 @@ function WhenGroup({ task }: { task: Task }) {
     );
 }
 
+/** One option in a chip grid; `stacked` puts a small label under the icon. */
+function ChoiceChip({ item, kind, active, onClick, stacked = false }: { item: { label: string; icon: LucideIcon }; kind: string; active: boolean; onClick: () => void; stacked?: boolean }) {
+    const Icon = item.icon;
+    return (
+        <button
+            type="button"
+            aria-label={`${kind}: ${item.label}`}
+            aria-pressed={active}
+            onClick={onClick}
+            className={`${CHIP_BASE} ${stacked ? "min-h-12 flex-col gap-0.5 px-1" : ""} ${active ? CHIP_ACTIVE : CHIP_IDLE}`}
+        >
+            <Icon size={14} aria-hidden="true" />
+            {stacked ? <span className="text-[10px] leading-none">{item.label}</span> : item.label}
+        </button>
+    );
+}
+
 /** Priority and effort; choosing the current effort again clears it. */
 function WeightGroup({ task }: { task: Task }) {
     const updateTask = useUpdateTask();
@@ -585,45 +581,17 @@ function WeightGroup({ task }: { task: Task }) {
         <DetailGroup title="Weight">
             <FieldBlock icon={PRIORITY_ICON} label="Priority">
                 <div className="grid grid-cols-5 gap-1.5">
-                    {PRIORITY_OPTIONS.map((item) => {
-                        const Icon = item.icon;
-                        const active = task.priority === item.value;
-                        return (
-                            <button
-                                key={item.value}
-                                type="button"
-                                aria-label={`Priority: ${item.label}`}
-                                aria-pressed={active}
-                                onClick={() => handlePriorityChange(item.value)}
-                                className={`${CHIP_BASE} min-h-12 flex-col gap-0.5 px-1 ${active ? CHIP_ACTIVE : CHIP_IDLE}`}
-                            >
-                                <Icon size={14} aria-hidden="true" />
-                                <span className="text-[10px] leading-none">{item.label}</span>
-                            </button>
-                        );
-                    })}
+                    {PRIORITY_OPTIONS.map((item) => (
+                        <ChoiceChip key={item.value} item={item} kind="Priority" active={task.priority === item.value} onClick={() => handlePriorityChange(item.value)} stacked />
+                    ))}
                 </div>
             </FieldBlock>
 
             <FieldBlock icon={EFFORT_ICON} label="Effort">
                 <div className="grid grid-cols-3 gap-1.5">
-                    {EFFORT_OPTIONS.map((item) => {
-                        const Icon = item.icon;
-                        const active = task.effort === item.value;
-                        return (
-                            <button
-                                key={item.value}
-                                type="button"
-                                aria-label={`Effort: ${item.label}`}
-                                aria-pressed={active}
-                                onClick={() => handleEffortChange(item.value)}
-                                className={`${CHIP_BASE} ${active ? CHIP_ACTIVE : CHIP_IDLE}`}
-                            >
-                                <Icon size={14} aria-hidden="true" />
-                                {item.label}
-                            </button>
-                        );
-                    })}
+                    {EFFORT_OPTIONS.map((item) => (
+                        <ChoiceChip key={item.value} item={item} kind="Effort" active={task.effort === item.value} onClick={() => handleEffortChange(item.value)} />
+                    ))}
                 </div>
             </FieldBlock>
         </DetailGroup>

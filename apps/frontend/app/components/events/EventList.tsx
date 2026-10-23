@@ -3,22 +3,18 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Tip } from "../primitives/Tooltip";
 import type { PersonalEvent } from "../../types/settings";
 import { eventToneStyle, groupPersonalEventsByMonth, type PersonalEventSortMode, type PersonalEventViewModel } from "../../lib/utils/personal-events";
+import type { EventActions } from "./EventCard";
 
 /** Desktop: event · date · countdown · reminder · ⋮. */
 const COLUMNS = "grid grid-cols-[minmax(0,1fr)_7.5rem_8.5rem_2.75rem_2.75rem] items-center gap-2";
 const ICON_BUTTON = "flex size-11 cursor-pointer items-center justify-center rounded-xl text-twilight-text-muted transition-colors hover:bg-[color-mix(in_srgb,var(--event-tone)_10%,transparent)] hover:text-[var(--event-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--event-tone)]/60 lg:size-9";
 
-interface EventListProps {
+interface EventListProps extends EventActions {
     events: PersonalEventViewModel[];
     sort: PersonalEventSortMode;
     today: string;
     stacked: boolean;
     selectedEventId: string | null;
-    onOpen: (event: PersonalEvent) => void;
-    onEdit: (event: PersonalEvent) => void;
-    onDelete: (event: PersonalEvent) => void;
-    onToggleReminder: (event: PersonalEvent) => void;
-    onOpenInSchedule: (event: PersonalEvent) => void;
 }
 
 /**

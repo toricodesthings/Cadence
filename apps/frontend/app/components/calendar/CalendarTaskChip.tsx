@@ -1,6 +1,6 @@
 import { CalendarItem, RoutineRing, calendarTone, useCalendarItemPresentation } from "./CalendarItem";
 import { scheduleKind, type ScheduleKind } from "../../lib/utils/calendar/schedule-day";
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
@@ -96,28 +96,23 @@ function useChipResize(task: Task, onResize: CalendarTaskChipProps["onResize"]) 
 
     const onPointerMove = useCallback((e: React.PointerEvent) => {
         if (resizeStartY.current === null) return;
-        const delta = e.clientY - resizeStartY.current;
-        // Snap to slot increments
-        const slotPx = (CALENDAR_SLOT_MINUTES / 60) * HOUR_HEIGHT;
-        setResizeDeltaPx(Math.round(delta / slotPx) * slotPx);
+        setResizeDeltaPx(snappedSlots(e.clientY - resizeStartY.current) * SLOT_PX);
     }, []);
 
     const onPointerUp = useCallback(
         (e: React.PointerEvent) => {
             if (resizeStartY.current === null) return;
-            const delta = e.clientY - resizeStartY.current;
-            const slotPx = (CALENDAR_SLOT_MINUTES / 60) * HOUR_HEIGHT;
-            const snappedSlots = Math.round(delta / slotPx);
+            const slots = snappedSlots(e.clientY - resizeStartY.current);
             resizeStartY.current = null;
             setResizeDeltaPx(0);
 
-            if (snappedSlots !== 0 && onResize && task.scheduledStart && task.scheduledEnd) {
+            if (slots !== 0 && onResize && task.scheduledStart && task.scheduledEnd) {
                 const startMs = new Date(task.scheduledStart).getTime();
                 const endMs = new Date(task.scheduledEnd).getTime();
                 const currentDuration = Math.round((endMs - startMs) / 60_000);
                 onResize(
                     task.id,
-                    Math.max(CALENDAR_SLOT_MINUTES, currentDuration + snappedSlots * CALENDAR_SLOT_MINUTES),
+                    Math.max(CALENDAR_SLOT_MINUTES, currentDuration + slots * CALENDAR_SLOT_MINUTES),
                 );
             }
         },
@@ -126,6 +121,10 @@ function useChipResize(task: Task, onResize: CalendarTaskChipProps["onResize"]) 
 
     return { resizeDeltaPx, handlers: { onPointerDown, onPointerMove, onPointerUp } };
 }
+
+const SLOT_PX = (CALENDAR_SLOT_MINUTES / 60) * HOUR_HEIGHT;
+/** A resize drag of `deltaPx`, in whole calendar slots. */
+const snappedSlots = (deltaPx: number) => Math.round(deltaPx / SLOT_PX);
 
 /** The block's height while a resize drag is under way (never under 18px); unset when the style sets none. */
 function resizedHeight(style: CSSProperties | undefined, deltaPx: number): CSSProperties {
@@ -150,46 +149,51 @@ type ChipParts = {
     tipSide: "left" | "right";
 };
 
-/** Month cells and the all-day lane: a rounded pill, the time first in Month. */
-function PillChip({ chip, fit, month }: { chip: ChipParts; fit: boolean; month: boolean }) {
-    const { task, kind, look, movable, isDragging, isSuggested, open } = chip;
-    const showTime = month && task.scheduledStart;
+/** The draggable, clickable surface both chip shapes sit on; `className` adds the shape. */
+function ChipShell({ chip, style, className, children }: { chip: ChipParts; style: CSSProperties; className: string; children: ReactNode }) {
     return (
-        <CalendarItem task={task} onSelect={chip.onSelect} tipSide={chip.tipSide} dragging={isDragging}>
+        <CalendarItem task={chip.task} onSelect={chip.onSelect} tipSide={chip.tipSide} dragging={chip.isDragging}>
             <motion.div
                 ref={chip.setRef}
-                style={{ ...chip.dragStyle, ...look.kindStyle }}
+                style={style}
                 {...chip.listeners}
                 data-task-chip
-                data-dnd-draggable={movable}
-                className={`
-                    group relative ${fit ? "w-fit max-w-full" : "w-full"}
-                    rounded-full border px-3 py-1.5 text-[13px] font-medium
-                    ${movable ? "cursor-grab" : "cursor-pointer"} select-none ${kind === "routine" ? "" : "bg-transparent"}
-                    transition-[background-color,border-color,box-shadow,opacity] duration-150
-                    ${look.kindClasses} ${chip.presentationClass}
-                    ${isDragging ? "z-50 shadow-[0_8px_24px_rgba(0,0,0,0.4)]" : ""}
-                    ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
-                `}
-                onClick={open}
+                data-dnd-draggable={chip.movable}
+                className={`${className} ${chip.movable ? "cursor-grab" : "cursor-pointer"} select-none ${chip.look.kindClasses} ${chip.presentationClass} ${chip.isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}`}
+                onClick={chip.open}
             >
-                <div className="flex min-w-0 items-center gap-2">
-                    <LeadMark task={task} kind={kind} compact />
-                    <button
-                        type="button"
-                        onClick={open}
-                        className={`flex min-w-0 ${fit ? "" : "flex-1"} cursor-pointer items-center gap-1 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60 ${look.titleClass}`}
-                    >
-                        {showTime ? (
-                            <span className={`shrink-0 tabular-nums ${look.timeClass}`}>
-                                {formatChipTime(showTime)}
-                            </span>
-                        ) : null}
-                        <span className="truncate">{task.title}</span>
-                    </button>
-                </div>
+                {children}
             </motion.div>
         </CalendarItem>
+    );
+}
+
+/** Month cells and the all-day lane: a rounded pill, the time first in Month. */
+function PillChip({ chip, fit, month }: { chip: ChipParts; fit: boolean; month: boolean }) {
+    const { task, kind, look, isDragging, open } = chip;
+    const showTime = month && task.scheduledStart;
+    return (
+        <ChipShell
+            chip={chip}
+            style={{ ...chip.dragStyle, ...look.kindStyle }}
+            className={`group relative ${fit ? "w-fit max-w-full" : "w-full"} rounded-full border px-3 py-1.5 text-[13px] font-medium ${kind === "routine" ? "" : "bg-transparent"} transition-[background-color,border-color,box-shadow,opacity] duration-150 ${isDragging ? "z-50 shadow-[0_8px_24px_rgba(0,0,0,0.4)]" : ""}`}
+        >
+            <div className="flex min-w-0 items-center gap-2">
+                <LeadMark task={task} kind={kind} compact />
+                <button
+                    type="button"
+                    onClick={open}
+                    className={`flex min-w-0 ${fit ? "" : "flex-1"} cursor-pointer items-center gap-1 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60 ${look.titleClass}`}
+                >
+                    {showTime ? (
+                        <span className={`shrink-0 tabular-nums ${look.timeClass}`}>
+                            {formatChipTime(showTime)}
+                        </span>
+                    ) : null}
+                    <span className="truncate">{task.title}</span>
+                </button>
+            </div>
+        </ChipShell>
     );
 }
 
@@ -205,7 +209,7 @@ type BlockChipProps = {
 
 /** Week and Day: an absolutely placed block with its times, resizable from the bottom edge. */
 function BlockChip({ chip, style, badge, isNowLive, resizeDeltaPx, resizeHandlers }: BlockChipProps) {
-    const { task, kind, look, movable, isDragging, isSuggested, open } = chip;
+    const { task, kind, look, isDragging, open } = chip;
     const start = task.scheduledStart;
     const startLabel = start ? formatChipTime(start) : null;
     const rangeLabel = start ? formatChipTime(start, task.scheduledEnd) : null;
@@ -216,66 +220,52 @@ function BlockChip({ chip, style, badge, isNowLive, resizeDeltaPx, resizeHandler
     };
 
     return (
-        <CalendarItem task={task} onSelect={chip.onSelect} tipSide={chip.tipSide} dragging={isDragging}>
-            <motion.div
-                ref={chip.setRef}
-                style={blockStyle}
-                {...chip.listeners}
-                data-task-chip
-                data-dnd-draggable={movable}
-                className={`
-                    cal-chip group absolute overflow-hidden rounded-xl border
-                    ${movable ? "cursor-grab" : "cursor-pointer"} select-none
-                    transition-[border-color,box-shadow,opacity] duration-150
-                    ${look.kindClasses} ${chip.presentationClass}
-                    ${isDragging ? "z-50 shadow-[0_16px_48px_rgba(0,0,0,0.5)]" : "z-10"}
-                    ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
-                    ${isNowLive ? "cadence-now-live-chip" : ""}
-                `}
-                onClick={open}
+        <ChipShell
+            chip={chip}
+            style={blockStyle}
+            className={`cal-chip group absolute overflow-hidden rounded-xl border transition-[border-color,box-shadow,opacity] duration-150 ${isDragging ? "z-50 shadow-[0_16px_48px_rgba(0,0,0,0.5)]" : "z-10"} ${isNowLive ? "cadence-now-live-chip" : ""}`}
+        >
+            <div
+                className={`cal-chip-row absolute inset-0 flex items-center gap-1.5 pl-3 ${badge ? "pr-12" : "pr-1.5"}`}
             >
-                <div
-                    className={`cal-chip-row absolute inset-0 flex items-center gap-1.5 pl-3 ${badge ? "pr-12" : "pr-1.5"}`}
+                {/* Edge bar: priority for a task, moonlit for Fixed */}
+                {look.barClass ? (
+                    <div className={`absolute bottom-1.5 left-0 top-1.5 w-1 rounded-full ${look.barClass}`} />
+                ) : null}
+                <span className="cal-chip-lead flex shrink-0">
+                    <LeadMark task={task} kind={kind} />
+                </span>
+                <button
+                    type="button"
+                    onClick={open}
+                    aria-label={`Open details for ${task.title}`}
+                    className="cal-chip-body flex min-w-0 flex-1 cursor-[inherit] rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/60"
                 >
-                    {/* Edge bar: priority for a task, moonlit for Fixed */}
-                    {look.barClass ? (
-                        <div className={`absolute bottom-1.5 left-0 top-1.5 w-1 rounded-full ${look.barClass}`} />
-                    ) : null}
-                    <span className="cal-chip-lead flex shrink-0">
-                        <LeadMark task={task} kind={kind} />
+                    <span className={`cal-chip-title text-[12px] font-medium leading-tight ${look.titleClass}`}>
+                        {task.title}
                     </span>
-                    <button
-                        type="button"
-                        onClick={open}
-                        aria-label={`Open details for ${task.title}`}
-                        className="cal-chip-body flex min-w-0 flex-1 cursor-[inherit] rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/60"
-                    >
-                        <span className={`cal-chip-title text-[12px] font-medium leading-tight ${look.titleClass}`}>
-                            {task.title}
+                    {startLabel ? (
+                        <span className={`cal-chip-time-start text-[11px] leading-tight ${look.timeClass}`}>
+                            {startLabel}
                         </span>
-                        {startLabel ? (
-                            <span className={`cal-chip-time-start text-[11px] leading-tight ${look.timeClass}`}>
-                                {startLabel}
-                            </span>
-                        ) : null}
-                        {rangeLabel ? (
-                            <span className={`cal-chip-time text-[11px] leading-tight ${look.timeClass}`}>{rangeLabel}</span>
-                        ) : null}
-                    </button>
-                </div>
+                    ) : null}
+                    {rangeLabel ? (
+                        <span className={`cal-chip-time text-[11px] leading-tight ${look.timeClass}`}>{rangeLabel}</span>
+                    ) : null}
+                </button>
+            </div>
 
-                {/* Bottom-edge resize handle */}
-                {resizeHandlers && (
-                    <div
-                        className="group/resize absolute z-20 bottom-0 left-2 right-2 flex h-2 cursor-s-resize items-center justify-center"
-                        {...resizeHandlers}
-                        data-no-dnd="true"
-                    >
-                        <div className="h-0.5 w-8 rounded-full bg-transparent transition-colors group-hover/resize:bg-twilight-text-muted/30" />
-                    </div>
-                )}
-            </motion.div>
-        </CalendarItem>
+            {/* Bottom-edge resize handle */}
+            {resizeHandlers && (
+                <div
+                    className="group/resize absolute z-20 bottom-0 left-2 right-2 flex h-2 cursor-s-resize items-center justify-center"
+                    {...resizeHandlers}
+                    data-no-dnd="true"
+                >
+                    <div className="h-0.5 w-8 rounded-full bg-transparent transition-colors group-hover/resize:bg-twilight-text-muted/30" />
+                </div>
+            )}
+        </ChipShell>
     );
 }
 

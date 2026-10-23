@@ -2,7 +2,6 @@ import { useQuery, useQueries, useMutation, useQueryClient, type QueryClient } f
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import type { TaskSection } from "@cadence/contracts/section";
-import type { Task } from "@cadence/contracts/task";
 import { queryKeys } from "../../lib/api/query-keys";
 import { useAuthState } from "../auth/use-auth-state";
 import { transformListCache } from "../../lib/api/cache-guards";
@@ -10,6 +9,7 @@ import { clientIdFor } from "../../lib/api/optimistic-id";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { isUndone, undoWindow } from "../../lib/utils/undo-toast";
 import { toastError } from "../../lib/utils/error-toast";
+import { taskCache } from "../tasks/optimistic-helpers";
 
 function sectionsKey(projectId?: string | null) {
     return ["sections", projectId ?? "__none__"] as const;
@@ -26,6 +26,14 @@ async function beginEdit(queryClient: QueryClient, key: ReturnType<typeof sectio
 function revertEdit(queryClient: QueryClient, key: ReturnType<typeof sectionsKey>, context: { previous?: TaskSection[] } | undefined) {
     if (context?.previous) queryClient.setQueryData(key, context.previous);
 }
+
+/** A `beginEdit` mutation's ends: put the list back on failure, then refetch unless it was queued offline. */
+const editEnds = (queryClient: QueryClient, key: ReturnType<typeof sectionsKey>) => ({
+    onError: (_err: unknown, _vars: unknown, context: { previous?: TaskSection[] } | undefined) => revertEdit(queryClient, key, context),
+    onSettled: (data: unknown, error: unknown) => {
+        if (!wasQueued(data, error)) queryClient.invalidateQueries({ queryKey: key });
+    },
+});
 
 export function useSections(projectId?: string | null) {
     const client = useApiClient();
@@ -84,10 +92,7 @@ export function useCreateSection(projectId?: string | null) {
             };
             return beginEdit(queryClient, key, (items) => [...items, optimistic], true);
         },
-        onError: (_err, _vars, context) => revertEdit(queryClient, key, context),
-        onSettled: (data, error) => {
-            if (!wasQueued(data, error)) queryClient.invalidateQueries({ queryKey: key });
-        },
+        ...editEnds(queryClient, key),
     });
 }
 
@@ -102,10 +107,7 @@ export function useUpdateSection(projectId?: string | null) {
             async ({ id, ...updates }) => unwrapResponse(await client.api.sections[":id"].$patch({ param: { id }, json: updates })),
         ),
         onMutate: (variables) => beginEdit(queryClient, key, (items) => items.map((s) => (s.id === variables.id ? { ...s, ...variables } : s))),
-        onError: (_err, _vars, context) => revertEdit(queryClient, key, context),
-        onSettled: (data, error) => {
-            if (!wasQueued(data, error)) queryClient.invalidateQueries({ queryKey: key });
-        },
+        ...editEnds(queryClient, key),
     });
 }
 
@@ -126,17 +128,12 @@ export function useDeleteSection(projectId?: string | null) {
         onMutate: async ({ id }) => {
             const { previous } = await beginEdit(queryClient, key, (items) => items.filter((s) => s.id !== id));
             // The server sets the section's tasks to unsectioned; mirror it so they stay visible.
-            await queryClient.cancelQueries({ queryKey: queryKeys.tasks.all });
-            const previousTasks = queryClient.getQueriesData({ queryKey: queryKeys.tasks.all });
-            queryClient.setQueriesData<Task[]>({ queryKey: queryKeys.tasks.all }, (old) =>
-                transformListCache(old, (items) => items.map((t) => (t.sectionId === id ? { ...t, sectionId: null } : t))),
-            );
-
-            return { previous, previousTasks };
+            const tasks = await taskCache.edit(queryClient, (items) => items.map((t) => (t.sectionId === id ? { ...t, sectionId: null } : t)));
+            return { previous, previousTasks: tasks.snapshot };
         },
         onError: (err, _input, context) => {
             revertEdit(queryClient, key, context);
-            for (const [taskKey, data] of context?.previousTasks ?? []) queryClient.setQueryData(taskKey, data);
+            if (context) taskCache.rollback(queryClient, context.previousTasks);
             if (!isUndone(err)) toastError(err, "Couldn't delete section");
         },
         onSettled: () => {

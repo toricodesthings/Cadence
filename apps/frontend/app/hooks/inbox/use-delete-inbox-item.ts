@@ -4,7 +4,7 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { removeInboxItemFromCaches } from "../../lib/api/cache-sync";
-import { transformListCache } from "../../lib/api/cache-guards";
+import { inboxCache } from "./optimistic-helpers";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
 
@@ -21,28 +21,14 @@ export function useDeleteInboxItem() {
             },
         ),
 
-        onMutate: async (id) => {
-            await queryClient.cancelQueries({ queryKey: queryKeys.inbox.all });
-            const snapshot = queryClient.getQueriesData<InboxItem[]>({ queryKey: queryKeys.inbox.all });
-
-            queryClient.setQueriesData<InboxItem[]>(
-                { queryKey: queryKeys.inbox.all },
-                (old) => transformListCache(old, (items) => items.filter((item) => item.id !== id)),
-            );
-
-            return { snapshot };
-        },
+        onMutate: (id) => inboxCache.edit(queryClient, (items) => items.filter((item) => item.id !== id)),
 
         onSuccess: (_item, id) => {
             removeInboxItemFromCaches(queryClient, id);
         },
 
         onError: (err, _input, context) => {
-            if (context?.snapshot) {
-                for (const [key, data] of context.snapshot) {
-                    queryClient.setQueryData(key, data);
-                }
-            }
+            if (context) inboxCache.rollback(queryClient, context.snapshot);
             toastError(err, "Couldn't delete inbox item");
         },
 

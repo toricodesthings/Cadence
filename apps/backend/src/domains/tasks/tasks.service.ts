@@ -23,6 +23,15 @@ import type { Env } from "../../types/env";
 import { writeNote } from "../notes/notes.service";
 
 // Query pieces other domains (the AI tools) reuse; tasks.service is the only door into this domain.
+/** A task's when: the columns a reschedule or a temporal check reads. */
+const WHEN_COLUMNS = {
+    dueDate: tasks.dueDate,
+    endDate: tasks.endDate,
+    scheduledStart: tasks.scheduledStart,
+    scheduledEnd: tasks.scheduledEnd,
+    zone: tasks.zone,
+};
+
 export { hasNoDay, inDayWindow, onOrBefore } from "./task-filters";
 export { buildTaskWhereClause, readTasks } from "./tasks.read";
 
@@ -279,11 +288,7 @@ async function patchOverStored(
     const [existing] = await tracing.enterSpan("tasks.update.lock", () => tx
         .select({
             id: tasks.id,
-            dueDate: tasks.dueDate,
-            endDate: tasks.endDate,
-            scheduledStart: tasks.scheduledStart,
-            scheduledEnd: tasks.scheduledEnd,
-            zone: tasks.zone,
+            ...WHEN_COLUMNS,
             updatedAt: tasks.updatedAt,
             projectId: tasks.projectId,
             sectionId: tasks.sectionId,
@@ -384,7 +389,7 @@ export async function placeTasks(tx: Tx, userId: string, items: PlaceTaskItem[])
     const rows = await tx
         .select({
             id: tasks.id, state: tasks.state, interactionMode: tasks.interactionMode, recurrenceRule: tasks.recurrenceRule, updatedAt: tasks.updatedAt,
-            scheduledStart: tasks.scheduledStart, scheduledEnd: tasks.scheduledEnd, dueDate: tasks.dueDate, endDate: tasks.endDate, zone: tasks.zone,
+            ...WHEN_COLUMNS,
         })
         .from(tasks)
         .where(and(eq(tasks.userId, userId), inArray(tasks.id, ids)))
@@ -443,11 +448,7 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
     const rows = await tx
         .select({
             id: tasks.id,
-            dueDate: tasks.dueDate,
-            endDate: tasks.endDate,
-            scheduledStart: tasks.scheduledStart,
-            scheduledEnd: tasks.scheduledEnd,
-            zone: tasks.zone,
+            ...WHEN_COLUMNS,
             interactionMode: tasks.interactionMode,
         })
         .from(tasks)

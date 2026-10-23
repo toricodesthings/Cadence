@@ -1,4 +1,4 @@
-import { cloud, cssVars, n1, pt, rng, type Pt } from "./loading-geometry";
+import { cloud, cssVars, rng, starPath, twinkleBox, type Pt } from "./loading-geometry";
 
 interface Star {
     x: number;
@@ -34,9 +34,6 @@ const STAR_SETS: readonly (readonly [number, number, string | undefined])[] = [
     [18, 26, "ls-stars-26"],
 ];
 
-const starPath = (stars: Star[]) =>
-    stars.map(({ x, y, r }) => `M${pt(x - r, y)}a${r},${r} 0 1,0 ${n1(2 * r)},0a${r},${r} 0 1,0 ${n1(-2 * r)},0`).join("");
-
 const MARIA = "M537,290a11,8 0 1,0 22,0a11,8 0 1,0 -22,0M564,306a8,6 0 1,0 16,0a8,6 0 1,0 -16,0M550,318a6,4 0 1,0 12,0a6,4 0 1,0 -12,0";
 
 /** Six twinklers as three opacity-animated pairs of distant stars (keeps the animation budget). */
@@ -47,20 +44,7 @@ const TWINKLE_PAIRS: readonly { a: Pt; b: Pt; dur: number; delay: number }[] = [
 ];
 
 function twinkleStyle({ a, b, dur, delay }: (typeof TWINKLE_PAIRS)[number]) {
-    const x0 = Math.min(a[0], b[0]) - 8;
-    const y0 = Math.min(a[1], b[1]) - 8;
-    const w = Math.abs(a[0] - b[0]) + 16;
-    const h = Math.abs(a[1] - b[1]) + 16;
-    const at = ([x, y]: Pt) => `${n1(((x - x0) / w) * 100)}% ${n1(((y - y0) / h) * 100)}%`;
-    return cssVars({
-        left: `${n1(x0 / 19.2)}%`,
-        top: `${n1(y0 / 10.8)}%`,
-        width: `${n1(w / 19.2)}%`,
-        height: `${n1(h / 10.8)}%`,
-        background: `radial-gradient(circle calc(2.6 * var(--su)) at ${at(a)}, var(--ls-star-cool) 30%, transparent), radial-gradient(circle calc(2.2 * var(--su)) at ${at(b)}, var(--ls-star-warm) 30%, transparent)`,
-        "--dur": `${dur}s`,
-        "--delay": `${delay}s`,
-    });
+    return cssVars({ ...twinkleBox(a, b, "var(--ls-star-cool)", "var(--ls-star-warm)"), "--dur": `${dur}s`, "--delay": `${delay}s` });
 }
 
 /** Drifting cloud bank (one 1920-wide tile, y 120–420): [cx, base, width, height]. */

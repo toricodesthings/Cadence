@@ -299,11 +299,16 @@ export async function liveConnectionIds(env: Env, userId: string): Promise<Set<s
 
 /** Account deletion: drops every grant this person has given, so no assistant's tokens can refresh (best effort, like `revokeConnection`). */
 export async function revokeAllGrants(env: Env, userId: string): Promise<void> {
+    await revokeGrants(env, userId, () => true);
+}
+
+/** Revokes this person's KV grants that `which` picks, so their tokens stop refreshing. Best effort: failures are logged. */
+async function revokeGrants(env: Env, userId: string, which: (grant: { metadata?: { connectionId?: unknown } }) => boolean): Promise<void> {
     if (!env.OAUTH_KV) return;
     try {
         const oauth = oauthApi(env);
         const { items } = await oauth.listUserGrants(userId, { limit: 1000 });
-        await Promise.all(items.map((grant) => oauth.revokeGrant(grant.id, userId)));
+        await Promise.all(items.filter(which).map((grant) => oauth.revokeGrant(grant.id, userId)));
     } catch (error) {
         logger.warn("mcp", "grant_revoke_failed", {
             userHash: await hashIdentifier(userId),
@@ -325,19 +330,6 @@ export async function revokeConnection(env: Env, userId: string, connectionId: s
             .where(and(eq(mcpConnections.id, connectionId), eq(mcpConnections.userId, userId), isNull(mcpConnections.revokedAt)))
             .returning({ id: mcpConnections.id }),
     );
-    if (env.OAUTH_KV) {
-        try {
-            const oauth = oauthApi(env);
-            const { items } = await oauth.listUserGrants(userId, { limit: 1000 });
-            await Promise.all(items
-                .filter((grant) => grant.metadata?.connectionId === connectionId)
-                .map((grant) => oauth.revokeGrant(grant.id, userId)));
-        } catch (error) {
-            logger.warn("mcp", "grant_revoke_failed", {
-                userHash: await hashIdentifier(userId),
-                code: error instanceof Error ? error.name : "UnknownError",
-            });
-        }
-    }
+    await revokeGrants(env, userId, (grant) => grant.metadata?.connectionId === connectionId);
     return Boolean(row);
 }

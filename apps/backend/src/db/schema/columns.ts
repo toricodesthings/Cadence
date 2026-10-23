@@ -19,3 +19,6 @@ export const rlsUserId = sql`(select ((current_setting('request.jwt.claims', tru
 
 /** RLS condition: row belongs to the JWT-authenticated user */
 export const rlsUsing = sql`(user_id = ${rlsUserId})`;
+
+/** When the row was made. */
+export const createdAt = () => timestamptz("created_at").default(sql`now()`).notNull();

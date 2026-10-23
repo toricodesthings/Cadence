@@ -3,8 +3,7 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { removeProjectFromCaches } from "../../lib/api/cache-sync";
 import { projectCache } from "./optimistic-helpers";
-import { toastError } from "../../lib/utils/error-toast";
-import { isUndone, undoWindow } from "../../lib/utils/undo-toast";
+import { undoWindow } from "../../lib/utils/undo-toast";
 
 export function useDeleteProject() {
     const client = useApiClient();
@@ -24,10 +23,7 @@ export function useDeleteProject() {
             removeProjectFromCaches(queryClient, id);
         },
 
-        onError: (err, _input, context) => {
-            if (context) projectCache.rollback(queryClient, context.snapshot);
-            if (!isUndone(err)) toastError(err, "Couldn't delete list");
-        },
+        onError: (err, _input, context) => projectCache.undo(queryClient, err, context, "Couldn't delete list"),
 
         onSettled: () => projectCache.invalidate(queryClient),
     });

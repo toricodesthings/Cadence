@@ -9,19 +9,14 @@ import { EyeOff, Eye, Inbox, Flame, CalendarClock, CalendarRange, Sun } from "lu
 import { MainLayout } from "../components/layout/MainLayout";
 import { Tip } from "../components/primitives";
 import { RoutineAgendaList, routineAgendaItems } from "../components/shared/RoutineAgendaRow";
-import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
-import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
-import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
-import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { EditSidePanel } from "../components/shared/EditSidePanel";
+import { BucketedRouteBody } from "../components/shared/BucketedCollectionView";
+import { PhoneTaskDetails, TaskDetailsRail } from "../components/shared/TaskDetailsPanels";
 import { DaySpine, SpineSummary, SpineTimeline, type SpineItem } from "../components/today/DaySpine";
 import { FitDayPreview } from "../components/today/FitDayPreview";
 import { UtilitySheet } from "../components/shared/UtilitySheet";
 import { fitTodayReason, useFitDay } from "../hooks/tasks/use-fit-day";
 import type { FitDayResult } from "@cadence/domain/fit-day";
 import { TaskList } from "../components/tasks/TaskList";
-import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
-import { EmptyState } from "../components/tasks/EmptyState";
 import { PageContent } from "../components/layout/PageLayout";
 import { useTasks } from "../hooks/tasks/use-tasks";
 import { useHabitsRange } from "../hooks/habits/use-habits";
@@ -71,7 +66,8 @@ export default function TodayRoute() {
     const navigate = useNavigate();
     const { view, setView } = useRouteViewMode("today");
     const { sortMode, setSortMode } = useSortMode("today");
-    const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection();
+    const selection = useTaskDetailSelection();
+    const { selectedTaskId, setSelectedTaskId, setMobilePanelOpen, handleSelectTask } = selection;
 
 
     const [hideRoutines, setHideRoutines] = useDeviceFlag(ROUTINES_STORAGE_KEY);
@@ -184,11 +180,7 @@ export default function TodayRoute() {
     const routinesCount = grouped.routinesOpen.length + grouped.routinesDone.length;
 
     const sidePanel = (
-        <EditSidePanelRail ariaLabel="Resize today sidebar">
-            {shell.isWide && selectedTaskId ? (
-                <EditSidePanel kind="task" taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
-            ) : null}
-        </EditSidePanelRail>
+        <TaskDetailsRail selection={selection} ariaLabel="Resize today sidebar" />
     );
 
     const headerRight = (
@@ -335,44 +327,7 @@ export default function TodayRoute() {
                 ) : null}
                 {!isLoading && totalVisible === 0 ? <DayEventRows events={todayDayEvents} className="pb-2" /> : null}
             </PageContent>
-            {view === "kanban" ? (
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                    {isLoading ? (
-                        <PageContent width="default">
-                            <TaskListSkeleton />
-                        </PageContent>
-                    ) : totalVisible > 0 ? (
-                        <BucketedCollectionView
-                            view={view}
-                            sections={sections}
-                            desktopColumnScroll
-                        />
-                    ) : (
-                        <PageContent width="default">
-                            <EmptyState variant="today" />
-                        </PageContent>
-                    )}
-                </div>
-            ) : (
-                <ScrollAreaWrapper>
-                    <PageContent width="default">
-                        {isLoading ? (
-                            <TaskListSkeleton />
-                        ) : totalVisible > 0 ? (
-                            <>
-                                {spine}
-                                <BucketedCollectionView
-                                    view={view}
-                                    sections={sections}
-                                    desktopColumnScroll
-                                />
-                            </>
-                        ) : (
-                            <EmptyState variant="today" />
-                        )}
-                    </PageContent>
-                </ScrollAreaWrapper>
-            )}
+            <BucketedRouteBody view={view} sections={sections} isLoading={isLoading} isEmpty={totalVisible === 0} empty="today" lead={spine} />
 
             {shell.isCompact ? (
                 <UtilitySheet title="Fit into today’s gaps" fit open={fitDraft !== false} onClose={() => setFitDraft(false)}>
@@ -380,25 +335,7 @@ export default function TodayRoute() {
                 </UtilitySheet>
             ) : null}
 
-            {!shell.isWide && selectedTaskId && (
-                <ResponsiveOverlayPanel
-                    ariaLabel="Today details"
-                    open={mobilePanelOpen}
-                    onClose={() => setMobilePanelOpen(false)}
-                    mode={mobileDetailMode}
-                >
-                    <EditSidePanel kind="task"
-                        key={`today-mobile-edit-${selectedTaskId}`}
-                        taskId={selectedTaskId}
-                        detailMode={mobileDetailMode}
-                        onDetailModeChange={setMobileDetailMode}
-                        onClose={() => {
-                            setSelectedTaskId(null);
-                            setMobilePanelOpen(false);
-                        }}
-                    />
-                </ResponsiveOverlayPanel>
-            )}
+            <PhoneTaskDetails selection={selection} ariaLabel="Today details" />
         </MainLayout>
     );
 }

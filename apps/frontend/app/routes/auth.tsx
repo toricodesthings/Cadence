@@ -25,24 +25,10 @@ import {
     beginSocialSignIn,
     getAuthCallbackUrl,
     IS_DESKTOP_RUNTIME,
+    mergedCallbackParams,
     normalizeRedirectTo,
 } from "../platform/runtime";
 
-function getMergedCallbackParams(location: { search: string; hash: string }) {
-    const params = new URLSearchParams(location.search);
-    const hash = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
-
-    if (hash.includes("=")) {
-        const hashParams = new URLSearchParams(hash);
-        hashParams.forEach((value, key) => {
-            if (!params.has(key)) {
-                params.set(key, value);
-            }
-        });
-    }
-
-    return params;
-}
 
 function ProviderLogo({ provider }: { provider: "google" | "github" }) {
     if (provider === "google") {
@@ -92,7 +78,7 @@ function DesktopAuthCallbackScreen({ redirectTo, location }: { redirectTo: strin
     const { search, hash } = location;
     useEffect(() => {
         let active = true;
-        const params = getMergedCallbackParams({ search, hash });
+        const params = mergedCallbackParams({ search, hash });
         const state = params.get(DESKTOP_AUTH_STATE_PARAM);
         if (!state) {
             setErrorMessage("This sign-in link is incomplete. Please sign in again.");

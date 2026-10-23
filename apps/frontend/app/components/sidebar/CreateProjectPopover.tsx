@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { useCreateProject } from "../../hooks/projects/use-create-project";
-import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
 import { Button } from "../primitives/Button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../primitives/Dialog";
-import { ProjectColorPicker } from "../shared/ProjectColorPicker";
+import { ListIdentityFields } from "../shared/ProjectColorPicker";
 
 /** Dialog form for creating a new project — optimistic insert */
 export function CreateProjectPopover() {
@@ -38,19 +37,7 @@ export function CreateProjectPopover() {
                 <DialogHeader className="space-y-0">
                     <DialogTitle>New List</DialogTitle>
                 </DialogHeader>
-                <div className="flex items-center gap-4">
-                    <EmojiPickerPopover emoji={emoji} onSelect={setEmoji} />
-                    <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                        placeholder="List name…"
-                        autoFocus
-                        className="flex-1 rounded-xl border border-twilight-border bg-white/[0.04] px-4 py-2.5 text-[14px] text-twilight-text outline-none transition-colors placeholder:text-twilight-text-muted/80 focus:border-accent-primary/30"
-                    />
-                </div>
-                <ProjectColorPicker value={colorAccent} onChange={setColorAccent} />
+                <ListIdentityFields emoji={emoji} onEmoji={setEmoji} name={name} onName={setName} color={colorAccent} onColor={setColorAccent} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
                 <Button
                     variant="subtle"
                     size="md"

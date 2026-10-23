@@ -13,6 +13,7 @@ import { useFocusViewStore } from "../../stores/focus-view-store";
 import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 import { today as getToday } from "../../lib/utils/user-zone";
 import type { Task } from "@cadence/contracts/task";
+import type { FocusViewDefinition } from "@cadence/nlp/focus-views";
 import type { FocusKind } from "./use-route-focus";
 
 // ── Result model ──────────────────────────────────────────────────
@@ -78,20 +79,7 @@ const STATIC_PAGES: SearchResult[] = [
 
 const DUE_WINDOW_LABELS = { overdue: "Overdue", today: "Today", this_week: "This week", this_month: "This month" } as const;
 
-function describeFocusView(definition: {
-    states: string[];
-    projectIds: string[];
-    tagIds: string[];
-    needsDate: boolean;
-    needsProject: boolean;
-    priorityMin: number | null;
-    effortMin: number | null;
-    effortMax: number | null;
-    durationMaxMinutes: number | null;
-    dueWindow: "overdue" | "today" | "this_week" | "this_month" | null;
-    waitingOnly: boolean;
-    missingStructureOnly: boolean;
-}): string {
+function describeFocusView(definition: FocusViewDefinition): string {
     const parts: string[] = [];
     if (definition.dueWindow) parts.push(DUE_WINDOW_LABELS[definition.dueWindow]);
     if (definition.waitingOnly) parts.push("Waiting");

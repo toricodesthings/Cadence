@@ -1,21 +1,19 @@
-import { useRef, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useRef, useLayoutEffect, useMemo, useState } from "react";
 import { Flag } from "lucide-react";
 import { TimeGutter } from "./TimeGutter";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import { CalendarHoverContext } from "./CalendarItem";
-import { TimedCalendarColumn } from "./TimedCalendarColumn";
+import { TimedCalendarColumn, useOpenAtHour, type TimelineProps } from "./TimedCalendarColumn";
 import { RoutineStrip } from "./RoutineChips";
 import { AllDayDropLane, AllDayDropPreview } from "./CalendarDropTargets";
 import * as Popover from "../primitives/Popover";
 import { HOUR_HEIGHT, DAY_GRID_HEIGHT } from "../../lib/utils/calendar/calendar-utils";
 import { useToday } from "../../lib/utils/user-zone";
-import { type CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
-import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "@cadence/contracts/proxy";
 import type { PersonalEvent } from "../../types/settings";
 
-export interface DayViewProps {
+export interface DayViewProps extends TimelineProps {
     /** The LocalDate being shown */
     currentDate: string;
     /** All tasks for this day */
@@ -25,13 +23,6 @@ export interface DayViewProps {
     isBirthday?: boolean;
     /** Personal events occurring on this day */
     personalEvents?: PersonalEvent[];
-    activeDropPreview?: CalendarDropPreview | null;
-    /** Ghost block placement for click-to-create preview */
-    draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
-    onSelectTask: (id: string) => void;
-    onResizeTask?: (id: string, durationMinutes: number) => void;
-    /** Callback when user clicks an empty grid cell (opens event popover) */
-    onGridClick?: (info: CalendarEventInfo) => void;
     /** The hour the timeline opens scrolled to. */
     startHour?: number;
 }
@@ -124,14 +115,8 @@ export function DayView({
     startHour = 7,
 }: DayViewProps) {
     const isToday = currentDate === useToday();
-    const scrollRef = useRef<HTMLDivElement>(null);
-
     // Open at the user's chosen hour (7 AM by default)
-    useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = startHour * HOUR_HEIGHT;
-        }
-    }, [currentDate, startHour]);
+    const scrollRef = useOpenAtHour(startHour, currentDate);
 
     const { allDay, anytime, timed } = useMemo(() => {
         const open = tasks.filter((t) => !t.scheduledStart);

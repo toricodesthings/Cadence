@@ -16,7 +16,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { userSettingsSchema, type UserSettings } from "@cadence/contracts/settings";
 import { relations, sql } from 'drizzle-orm';
-import { timestamptz, rlsUserId, rlsUsing } from "./columns";
+import { createdAt, timestamptz, rlsUserId, rlsUsing } from "./columns";
 
 // Settings schema is defined once in the settings domain and imported here.
 export { userSettingsSchema as UserSettingsSchema, type UserSettings };
@@ -81,7 +81,7 @@ export const users = pgTable('users', {
     // The user's IANA zone: the only source every server path reads (`userZone`). The client keeps it
     // equal to the device's zone unless settings pin one. 'UTC' until the first client sync.
     timeZone: text('time_zone').default('UTC').notNull(),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
 }, () => ({
     rlsPolicy: pgPolicy("users_owner_access", {
         as: "permissive",
@@ -91,10 +91,13 @@ export const users = pgTable('users', {
     }),
 })).enableRLS();
 
+/** The owning user; their rows go when the account does. */
+export const ownerId = () => uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull();
+
 // 2. The Adaptive State Engine (Burnout/Stress Tracker)
 export const userMetrics = pgTable('user_metrics', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     rescheduleVelocity: real('reschedule_velocity').default(0).notNull(), // Averages how often tasks are pushed back
     currentBurnoutIndex: integer('current_burnout_index'), // 1-100 score indicating cognitive load; NULL = not enough evidence to say
     completionRatio: real('completion_ratio').default(0).notNull(), // completed / (completed + overdue) over rolling window
@@ -119,11 +122,11 @@ export const userMetrics = pgTable('user_metrics', {
 // In kanban view each section becomes a column.
 export const taskSections = pgTable('task_sections', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     orderIndex: doublePrecision('order_index').notNull(),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
 }, (table) => ({
     userIdIdx: index('task_sections_user_id_idx').on(table.userId),
     projectIdIdx: index('task_sections_project_id_idx').on(table.projectId),
@@ -138,11 +141,11 @@ export const taskSections = pgTable('task_sections', {
 // 5. Projects (Task Containers)
 export const projects = pgTable('projects', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     name: text('name').notNull(),
     colorAccent: text('color_accent').default('luminous-amber'), // Ties strictly to Tailwind CSS Variables
     emoji: text('emoji'),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
 }, (table) => ({
     userIdIdx: index('projects_user_id_idx').on(table.userId),
     rlsPolicy: pgPolicy("projects_owner_access", {
@@ -157,7 +160,7 @@ export const projects = pgTable('projects', {
 export const tasks = pgTable('tasks', {
     origin: text('origin', { enum: ['thought'] }),
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
     sectionId: uuid('section_id').references(() => taskSections.id, { onDelete: 'set null' }),
 
@@ -208,7 +211,7 @@ export const tasks = pgTable('tasks', {
     // names one completion, which is what a "how long did it take?" answer belongs to.
     completedAt: timestamptz('completed_at'),
 
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
     updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
 }, (table) => {
     return {
@@ -244,14 +247,10 @@ export const tasks = pgTable('tasks', {
 // 6. Tags (User-defined labels)
 export const tags = pgTable("tags", {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
-        .references(() => users.id, { onDelete: "cascade" })
-        .notNull(),
+    userId: ownerId(),
     name: text("name").notNull(),
     color: text("color").default("default"),
-    createdAt: timestamptz("created_at")
-        .default(sql`now()`)
-        .notNull(),
+    createdAt: createdAt(),
 }, (table) => ({
     userIdIdx: index("tags_user_id_idx").on(table.userId),
     rlsPolicy: pgPolicy("tags_owner_access", {
@@ -300,10 +299,10 @@ export const taskTagsRelations = relations(taskTags, ({ one }) => ({
 // 8. Asynchronous Inbox Dumps (Webhooks, Siri, Background processing)
 export const inboxSections = pgTable('inbox_sections', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     name: text('name').notNull(),
     orderIndex: integer('order_index').notNull().default(0),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
 }, (table) => ({
     userIdIdx: index('inbox_sections_user_id_idx').on(table.userId),
     rlsPolicy: pgPolicy("inbox_sections_owner_access", {
@@ -316,7 +315,7 @@ export const inboxSections = pgTable('inbox_sections', {
 
 export const inboxItems = pgTable('inbox_items', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     sectionId: uuid('section_id').references(() => inboxSections.id, { onDelete: 'set null' }),
     orderIndex: integer('order_index').notNull().default(0),
     rawText: text('raw_text').notNull(), // The messy input "Call mom tmrw at 4"
@@ -338,7 +337,7 @@ export const inboxItems = pgTable('inbox_items', {
     analysisEntityCount: integer('analysis_entity_count').default(0).notNull(),
     clarifiedAt: timestamptz('clarified_at'),
     appliedAt: timestamptz('applied_at'),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
 }, (table) => ({
     userIdIdx: index('inbox_items_user_id_idx').on(table.userId),
     sectionIdIdx: index('inbox_items_section_id_idx').on(table.sectionId),
@@ -356,9 +355,7 @@ export const habits = pgTable(
     'habits',
     {
         id: uuid('id').defaultRandom().primaryKey(),
-        userId: uuid('user_id')
-            .references(() => users.id, { onDelete: 'cascade' })
-            .notNull(),
+        userId: ownerId(),
 
         // Core Data
         title: text('title').notNull(),
@@ -411,9 +408,7 @@ export const habits = pgTable(
         // Or the one website it opens: a normalised https URL (contracts `parseWebsite`)
         linkedUrl: text('linked_url'),
 
-        createdAt: timestamptz('created_at')
-            .default(sql`now()`)
-            .notNull(),
+        createdAt: createdAt(),
         updatedAt: timestamptz('updated_at')
             .default(sql`now()`)
             .notNull(),
@@ -442,9 +437,7 @@ export const habitTags = pgTable("habit_tags", {
     tagId: uuid("tag_id")
         .references(() => tags.id, { onDelete: "cascade" })
         .notNull(),
-    userId: uuid("user_id")
-        .references(() => users.id, { onDelete: "cascade" })
-        .notNull(),
+    userId: ownerId(),
 }, (table) => ({
     uniquePair: uniqueIndex("habit_tags_unique_pair").on(table.habitId, table.tagId),
     tagIdIdx: index("habit_tags_tag_id_idx").on(table.tagId),
@@ -466,9 +459,7 @@ export const habitLogs = pgTable(
         habitId: uuid('habit_id')
             .references(() => habits.id, { onDelete: 'cascade' })
             .notNull(),
-        userId: uuid('user_id')
-            .references(() => users.id, { onDelete: 'cascade' })
-            .notNull(),
+        userId: ownerId(),
 
         status: habitStatusEnum('status').default('PENDING').notNull(),
 
@@ -485,9 +476,7 @@ export const habitLogs = pgTable(
         // "HH:mm" → { status, at } for a routine at set times; the day's status follows from these
         timeMarks: jsonb('time_marks').$type<Record<string, { status: "COMPLETED" | "SKIPPED"; at: string | null }>>(),
 
-        createdAt: timestamptz('created_at')
-            .default(sql`now()`)
-            .notNull(),
+        createdAt: createdAt(),
     },
     (table) => {
         return {
@@ -514,15 +503,11 @@ export const subtasks = pgTable(
         taskId: uuid("task_id")
             .references(() => tasks.id, { onDelete: "cascade" })
             .notNull(),
-        userId: uuid("user_id")
-            .references(() => users.id, { onDelete: "cascade" })
-            .notNull(),
+        userId: ownerId(),
         title: text("title").notNull(),
         isComplete: boolean("is_complete").default(false).notNull(),
         orderIndex: doublePrecision("order_index").notNull(),
-        createdAt: timestamptz("created_at")
-            .default(sql`now()`)
-            .notNull(),
+        createdAt: createdAt(),
     },
     (table) => ({
         taskIdIdx: index("subtasks_task_id_idx").on(table.taskId),
@@ -544,17 +529,13 @@ export const taskNotes = pgTable(
         taskId: uuid("task_id")
             .references(() => tasks.id, { onDelete: "cascade" })
             .notNull(),
-        userId: uuid("user_id")
-            .references(() => users.id, { onDelete: "cascade" })
-            .notNull(),
+        userId: ownerId(),
         body: text("body").default("").notNull(),
         excerpt: text("excerpt").default("").notNull(), // First ~120 chars for list previews
         wordCount: integer("word_count").default(0).notNull(),
         headingCount: integer("heading_count").default(0).notNull(),
         version: integer("version").default(1).notNull(),
-        createdAt: timestamptz("created_at")
-            .default(sql`now()`)
-            .notNull(),
+        createdAt: createdAt(),
         updatedAt: timestamptz("updated_at")
             .default(sql`now()`)
             .notNull(),
@@ -579,9 +560,7 @@ export const taskMetrics = pgTable(
         taskId: uuid("task_id")
             .references(() => tasks.id, { onDelete: "cascade" })
             .notNull(),
-        userId: uuid("user_id")
-            .references(() => users.id, { onDelete: "cascade" })
-            .notNull(),
+        userId: ownerId(),
         rescheduleCount: integer("reschedule_count").default(0).notNull(),
         delayCount: integer("delay_count").default(0).notNull(),
         createdToDone: integer("created_to_done"),
@@ -589,9 +568,7 @@ export const taskMetrics = pgTable(
         completedAt: timestamptz("completed_at"),
         // When it was last rescheduled: the workload window reads this, not the row's creation time.
         lastRescheduledAt: timestamptz("last_rescheduled_at"),
-        createdAt: timestamptz("created_at")
-            .default(sql`now()`)
-            .notNull(),
+        createdAt: createdAt(),
     },
     (table) => ({
         userIdIdx: index("task_metrics_user_id_idx").on(table.userId),

@@ -394,8 +394,8 @@ export function KanbanBoard({
                 onPointerCancel={dragScroll.onPointerCancel}
             >
                 <div className={`flex h-full min-h-full items-stretch gap-4 ${desktopCanvasPaddingClassName}`.trim()}>
-                {/* Unsectioned column (always first) */}
-                {visibleColumns.filter((column) => column.id === "ungrouped").map((column) => (
+                {/* Unsectioned column first; only section columns can be renamed or deleted */}
+                {[...visibleColumns.filter((column) => column.id === "ungrouped"), ...visibleColumns.filter((column) => column.id !== "ungrouped")].map((column) => (
                     <div key={column.id} className="w-[min(24rem,80vw)] shrink-0">
                         <KanbanColumn
                             section={column.section}
@@ -405,23 +405,8 @@ export function KanbanBoard({
                             selectedTaskId={selectedTaskId}
                             projectId={projectId}
                             onSelectTask={onSelectTask}
-                        />
-                    </div>
-                ))}
-
-                {/* Section columns */}
-                {visibleColumns.filter((column) => column.id !== "ungrouped").map((column) => (
-                    <div key={column.id} className="w-[min(24rem,80vw)] shrink-0">
-                        <KanbanColumn
-                            section={column.section}
-                            tasks={column.tasks}
-                            subtasksByTaskId={subtasksByTaskId}
-                            tagsByTaskId={tagsByTaskId}
-                            selectedTaskId={selectedTaskId}
-                            projectId={projectId}
-                            onSelectTask={onSelectTask}
-                            onRename={(name) => updateSection.mutate({ id: column.id, name })}
-                            onDelete={() => deleteSection.mutate({ id: column.id, name: column.section.name })}
+                            onRename={column.id === "ungrouped" ? undefined : (name) => updateSection.mutate({ id: column.id, name })}
+                            onDelete={column.id === "ungrouped" ? undefined : () => deleteSection.mutate({ id: column.id, name: column.section.name })}
                         />
                     </div>
                 ))}

@@ -6,7 +6,7 @@ import * as DropdownMenu from "../../primitives/DropdownMenu";
 import { SEGMENT_ACTIVE } from "../../primitives/SegmentedControl";
 import { cn } from "../../../lib/utils";
 import { getNoteCommand, runNoteCommand, type NoteCommandId } from "./note-commands";
-import { BLOCK_LABEL, useNoteToolbarState, type ToolbarState } from "./use-note-toolbar-state";
+import { BLOCK_LABEL, markPressed, useNoteToolbarState, type ToolbarState } from "./use-note-toolbar-state";
 import type { ReactNode, CSSProperties } from "react";
 
 const TONE = { "--segment-tone": "var(--accent-primary)" } as CSSProperties;
@@ -126,7 +126,6 @@ function ListMenu({ editor, state }: { editor: Editor; state: ToolbarState }) {
 export function NoteToolbar({ editor, onLink, more, className }: { editor: Editor | null; onLink: () => void; more: ReactNode; className?: string }) {
     const state = useNoteToolbarState(editor);
     const run = (id: NoteCommandId) => editor && runNoteCommand(editor, id);
-    const mark = (m: ToolbarState["bold"]) => (m === "mixed" ? "mixed" : m === "on");
 
     return (
         <div role="toolbar" aria-label="Formatting" className={cn("flex flex-wrap items-center gap-0.5", className)}>
@@ -135,8 +134,8 @@ export function NoteToolbar({ editor, onLink, more, className }: { editor: Edito
             <span aria-hidden="true" className="mx-1 h-6 w-px bg-twilight-border" />
             {editor && <TextStylePicker editor={editor} state={state} />}
             <span aria-hidden="true" className="mx-1 h-6 w-px bg-twilight-border" />
-            <ToolButton id="bold" label="Bold" pressed={mark(state.bold)} onClick={() => run("bold")}><Bold size={18} aria-hidden="true" /></ToolButton>
-            <ToolButton id="italic" label="Italic" pressed={mark(state.italic)} onClick={() => run("italic")}><Italic size={18} aria-hidden="true" /></ToolButton>
+            <ToolButton id="bold" label="Bold" pressed={markPressed(state.bold)} onClick={() => run("bold")}><Bold size={18} aria-hidden="true" /></ToolButton>
+            <ToolButton id="italic" label="Italic" pressed={markPressed(state.italic)} onClick={() => run("italic")}><Italic size={18} aria-hidden="true" /></ToolButton>
             {editor && <ListMenu editor={editor} state={state} />}
             <ToolButton id="link" label="Link" pressed={state.link} onClick={onLink}><Link2 size={18} aria-hidden="true" /></ToolButton>
             {more}

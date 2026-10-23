@@ -22,24 +22,31 @@ import { DeleteAccountDialog } from "../DeleteAccountDialog";
 import { PasswordModal } from "../PasswordModal";
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
 
-function FieldEditorModal({
+/** One profile value in a small dialog: `field` draws its input from the draft; Save is live once it changes, and `onClear` adds Clear. */
+function EditorModal({
     title,
     triggerText = "Edit",
     initialValue,
     onSave,
-    placeholder = "",
-    type = "text"
+    onClear,
+    saveLabel = "Save",
+    field,
 }: {
     title: string;
     triggerText?: string;
     initialValue: string;
     onSave: (val: string) => Promise<void>;
-    placeholder?: string;
-    type?: string;
+    onClear?: () => Promise<void>;
+    saveLabel?: string;
+    field: (val: string, setVal: (val: string) => void) => React.ReactNode;
 }) {
     const [open, setOpen] = useState(false);
     const [val, setVal] = useState(initialValue);
     const [loading, startSave] = useTransition();
+    const save = (run: () => Promise<void>) => startSave(async () => {
+        await run();
+        setOpen(false);
+    });
 
     return (
         <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (isOpen) setVal(initialValue); }}>
@@ -52,89 +59,26 @@ function FieldEditorModal({
                 <Dialog.DialogHeader>
                     <Dialog.DialogTitle>{title}</Dialog.DialogTitle>
                 </Dialog.DialogHeader>
-                <div className="py-4">
-                    <Input
-                        type={type}
-                        value={val}
-                        onChange={(e) => setVal(e.target.value)}
-                        placeholder={placeholder}
-                        autoFocus
-                    />
-                </div>
+                <div className="py-4 flex flex-col gap-3">{field(val, setVal)}</div>
                 <Dialog.DialogFooter>
-                    <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
-                    <Button
-                        variant="primary"
-                        onClick={() => startSave(async () => {
-                            await onSave(val);
-                            setOpen(false);
-                        })}
-                        disabled={loading || val === initialValue}
-                    >
-                        {loading ? "Saving..." : "Save Changes"}
-                    </Button>
-                </Dialog.DialogFooter>
-            </Dialog.DialogContent>
-        </Dialog.Dialog>
-    );
-}
-
-function BirthdayEditorModal({
-    initialValue,
-    onSave,
-}: {
-    initialValue: string | null;
-    onSave: (val: string | null) => Promise<void>;
-}) {
-    const [open, setOpen] = useState(false);
-    const [val, setVal] = useState(initialValue ?? "");
-    const [loading, startSave] = useTransition();
-
-    return (
-        <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (isOpen) setVal(initialValue ?? ""); }}>
-            <Dialog.DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="min-h-11 min-w-11 opacity-100 transition-opacity">
-                    {initialValue ? "Edit" : "Set"}
-                </Button>
-            </Dialog.DialogTrigger>
-            <Dialog.DialogContent>
-                <Dialog.DialogHeader>
-                    <Dialog.DialogTitle>Set Birthday</Dialog.DialogTitle>
-                </Dialog.DialogHeader>
-                <div className="py-4 flex flex-col gap-3">
-                    <p className="text-sm text-warm-white/70">Your birthday will appear as an overlay on the Schedule calendar. You can clear it at any time.</p>
-                    <DatePicker label="Birthday" yearNav value={val} onChange={(date) => date && setVal(date)} />
-                </div>
-                <Dialog.DialogFooter>
-                    {initialValue && (
-                        <Button
-                            variant="ghost"
-                            className="text-red-400 hover:text-red-300 mr-auto"
-                            onClick={() => startSave(async () => {
-                                await onSave(null);
-                                setOpen(false);
-                            })}
-                            disabled={loading}
-                        >
+                    {onClear && (
+                        <Button variant="ghost" className="text-red-400 hover:text-red-300 mr-auto" onClick={() => save(onClear)} disabled={loading}>
                             Clear
                         </Button>
                     )}
                     <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
-                    <Button
-                        variant="primary"
-                        onClick={() => startSave(async () => {
-                            await onSave(val || null);
-                            setOpen(false);
-                        })}
-                        disabled={loading || val === (initialValue ?? "")}
-                    >
-                        {loading ? "Saving..." : "Save"}
+                    <Button variant="primary" onClick={() => save(() => onSave(val))} disabled={loading || val === initialValue}>
+                        {loading ? "Saving..." : saveLabel}
                     </Button>
                 </Dialog.DialogFooter>
             </Dialog.DialogContent>
         </Dialog.Dialog>
     );
 }
+
+const textField = (placeholder: string) => (val: string, setVal: (val: string) => void) => (
+    <Input type="text" value={val} onChange={(e) => setVal(e.target.value)} placeholder={placeholder} autoFocus />
+);
 
 function OAuthConnectionsBlock() {
     const queryClient = useQueryClient();
@@ -553,11 +497,12 @@ export function AccountTab() {
                                 <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Display Name</p>
                                 <p className="text-sm text-warm-white">{!authReady ? "..." : (user?.name || "None")}</p>
                             </div>
-                            <FieldEditorModal
+                            <EditorModal
                                 title="Edit Display Name"
                                 initialValue={user?.name || ""}
                                 onSave={async (val) => await handleUpdateUser("name", val)}
-                                placeholder="Your full name"
+                                saveLabel="Save Changes"
+                                field={textField("Your full name")}
                             />
                         </div>
                         <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
@@ -565,11 +510,12 @@ export function AccountTab() {
                                 <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Pronouns</p>
                                 <p className="text-sm text-warm-white">{profile.pronouns || "Not set"}</p>
                             </div>
-                            <FieldEditorModal
+                            <EditorModal
                                 title="Add Pronouns"
                                 initialValue={profile.pronouns || ""}
                                 onSave={(val) => Promise.resolve(setPronouns(val))}
-                                placeholder="they/them"
+                                saveLabel="Save Changes"
+                                field={textField("they/them")}
                             />
                         </div>
                         <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
@@ -590,9 +536,18 @@ export function AccountTab() {
                                         : "Not set"}
                                 </p>
                             </div>
-                            <BirthdayEditorModal
-                                initialValue={birthday}
-                                onSave={(val) => Promise.resolve(setBirthday(val))}
+                            <EditorModal
+                                title="Set Birthday"
+                                triggerText={birthday ? "Edit" : "Set"}
+                                initialValue={birthday ?? ""}
+                                onSave={(val) => Promise.resolve(setBirthday(val || null))}
+                                onClear={birthday ? () => Promise.resolve(setBirthday(null)) : undefined}
+                                field={(val, setVal) => (
+                                    <>
+                                        <p className="text-sm text-warm-white/70">Your birthday will appear as an overlay on the Schedule calendar. You can clear it at any time.</p>
+                                        <DatePicker label="Birthday" yearNav value={val} onChange={(date) => date && setVal(date)} />
+                                    </>
+                                )}
                             />
                         </div>
                     </div>

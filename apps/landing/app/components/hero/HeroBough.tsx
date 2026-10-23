@@ -233,11 +233,7 @@ export function HeroBough({ name, className, depth }: { name: BoughName; classNa
       <svg className="hero-buds" viewBox={viewBox} focusable="false">
         <defs>
           {/* An ember dot with a faint glow and a white-hot core */}
-          <g id={`${id}-bud`}>
-            <circle r="5" fill="var(--hero-ember)" opacity=".22" />
-            <circle r="2.2" fill="var(--hero-ember)" />
-            <circle r="1" fill="color-mix(in srgb, var(--hero-ember) 35%, white)" />
-          </g>
+          <EmberBud id={`${id}-bud`} />
         </defs>
         {buds.map((bud) => (
           <g key={`${bud.x},${bud.y}`} className="hero-bud" style={cssVars({ "--at": `${bud.at}ms` })}>
@@ -259,11 +255,31 @@ export function HeroBough({ name, className, depth }: { name: BoughName; classNa
         ))}
         {/* Leading ember riding the main limb's growth front (omitted without CSS motion-path support) */}
         <g className="hero-ember" fill="var(--hero-ember)" style={{ ...timing(main), offsetPath: `path("${main.spine}")` }}>
-          <circle r="7" opacity=".3" />
-          <circle r="3" />
-          <circle r="1.4" fill="color-mix(in srgb, var(--hero-ember) 35%, white)" />
+          <EmberCore />
         </g>
       </svg>
     </div>
+  );
+}
+
+/** An ember dot with a faint glow and a white-hot core, for `<use>` by id (the boughs' buds). */
+export function EmberBud({ id }: { id: string }) {
+  return (
+    <g id={id}>
+      <circle r="5" fill="var(--hero-ember)" opacity=".22" />
+      <circle r="2.2" fill="var(--hero-ember)" />
+      <circle r="1" fill="color-mix(in srgb, var(--hero-ember) 35%, white)" />
+    </g>
+  );
+}
+
+/** The leading ember's glow, body and core; the parent `<g>` sets its fill and motion path. */
+export function EmberCore() {
+  return (
+    <>
+      <circle r="7" opacity=".3" />
+      <circle r="3" />
+      <circle r="1.4" fill="color-mix(in srgb, var(--hero-ember) 35%, white)" />
+    </>
   );
 }

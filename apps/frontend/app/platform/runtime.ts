@@ -64,6 +64,18 @@ const loadPlatformRuntime = (() => {
 
 export const IS_DESKTOP_RUNTIME = RUNTIME_TARGET === "desktop";
 
+/** An auth callback's params: the query, plus any the provider put in the hash (the query wins). */
+export function mergedCallbackParams(location: { search: string; hash: string }): URLSearchParams {
+    const params = new URLSearchParams(location.search);
+    const hash = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
+    if (hash.includes("=")) {
+        new URLSearchParams(hash).forEach((value, key) => {
+            if (!params.has(key)) params.set(key, value);
+        });
+    }
+    return params;
+}
+
 export function normalizeRedirectTo(value?: string | null): string {
     if (!value?.startsWith("/")) {
         return "/";

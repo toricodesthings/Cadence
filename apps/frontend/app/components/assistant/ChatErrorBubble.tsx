@@ -3,7 +3,7 @@ import { AlertCircle, RotateCcw, Copy, ChevronDown, Send, ImageUp } from "lucide
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "../primitives/Button";
 import type { StreamError } from "../../lib/ai/stream-error";
-import { EASE_OUT_EXPO } from "../../lib/constants/motion";
+import { bubbleIn } from "../../lib/constants/motion";
 import { Reveal } from "../shared/Reveal";
 import { errorRef } from "../../lib/log";
 
@@ -57,9 +57,7 @@ export function ChatErrorBubble({
 
     return (
         <motion.div
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
-            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-            transition={{ duration: 0.26, ease: EASE_OUT_EXPO }}
+            {...bubbleIn(reduceMotion)}
             className="flex items-start gap-2 pl-9"
             role="alert"
         >

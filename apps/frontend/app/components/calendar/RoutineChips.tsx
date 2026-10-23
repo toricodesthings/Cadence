@@ -25,16 +25,20 @@ function RoutineList({ tasks, onSelect }: { tasks: readonly Task[]; onSelect: (i
     );
 }
 
+type PointProps = { layout: TimedPointLayout; onSelect: (id: string) => void; tipSide: "left" | "right" };
+
+/** A details click inside a draggable chip: open this item without the chip also handling the click. */
+const openOnly = (onSelect: (id: string) => void, id: string) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect(id);
+};
+
 /** Points share the row, but every routine keeps its own check-off and named details button. */
 export function RoutineRow({
     layout,
     onSelect,
     tipSide,
-}: {
-    layout: TimedPointLayout;
-    onSelect: (id: string) => void;
-    tipSide: "left" | "right";
-}) {
+}: PointProps) {
     const { points } = layout;
     const first = points[0];
     const presentation = useCalendarItemPresentation(points);
@@ -56,10 +60,7 @@ export function RoutineRow({
                         <button
                             type="button"
                             aria-label={`Open details for ${task.title}`}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onSelect(task.id);
-                            }}
+                            onClick={openOnly(onSelect, task.id)}
                             className={`min-w-0 flex-1 cursor-pointer truncate rounded text-left text-[12px] font-medium text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60 ${task.state === "COMPLETE" ? "line-through decoration-1" : ""}`}
                         >
                             {task.title}
@@ -81,11 +82,7 @@ export function RoutineBadge({
     layout,
     onSelect,
     tipSide,
-}: {
-    layout: TimedPointLayout;
-    onSelect: (id: string) => void;
-    tipSide: "left" | "right";
-}) {
+}: PointProps) {
     const { points } = layout;
     const first = points[0];
     const presentation = useCalendarItemPresentation(points);
@@ -98,10 +95,7 @@ export function RoutineBadge({
                     <RoutineRing task={first} size={22} />
                     <RoutineDetailsButton
                         label={`Open details for ${first.title}`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onSelect(first.id);
-                        }}
+                        onClick={openOnly(onSelect, first.id)}
                     />
                 </div>
             </CalendarItem>

@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
-import { useSensor, useSensors, type DragEndEvent, type DragOverEvent, type DragStartEvent } from "@dnd-kit/core";
+import { useSortSensors } from "../ui/use-sort-sensors";
+import { type DragEndEvent, type DragOverEvent, type DragStartEvent } from "@dnd-kit/core";
 import type { Task } from "@cadence/contracts/task";
 import { toast } from "sonner";
-import { MouseSensor, TouchSensor } from "../../lib/utils/dnd";
 import { canDragScheduleTask, resolveScheduleDrop } from "../../lib/utils/calendar/schedule-drop";
 import { temporalOf } from "../../lib/utils/calendar/schedule-model";
 import { trackUsageEvent } from "../../lib/api/track-event";
@@ -14,10 +14,7 @@ export function useScheduleDrag(tasks: ReadonlyMap<string, Task>) {
     const guessOf = useDurationGuesser();
     const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
     const [activeDropId, setActiveDropId] = useState<string | null>(null);
-    const sensors = useSensors(
-        useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
-        useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 10 } }),
-    );
+    const sensors = useSortSensors(false);
     const handleDragStart = useCallback((event: DragStartEvent) => {
         const taskId = event.active.data.current?.taskId;
         if (typeof taskId === "string") setActiveDragTask(tasks.get(taskId) ?? null);

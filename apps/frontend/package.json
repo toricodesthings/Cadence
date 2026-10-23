@@ -22,6 +22,7 @@
     "@ai-sdk/react": "^4.0.133",
     "@cadence/contracts": "workspace:*",
     "@cadence/domain": "workspace:*",
+    "@cadence/geometry": "workspace:*",
     "@cadence/nlp": "workspace:*",
     "@cadence/search": "workspace:*",
     "@dnd-kit/core": "^6.3.1",

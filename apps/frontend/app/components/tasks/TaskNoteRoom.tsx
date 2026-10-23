@@ -69,6 +69,7 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
     const shell = useShellMode();
     const phone = shell.isPhone;
     const fade = useReducedMotionSetting() ? 0 : 0.15;
+    const crossfade = { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: fade } };
     const scrollToHeading = useNoteRoomStore((s) => s.scrollToHeading);
     const clearScrollTarget = useNoteRoomStore((s) => s.clearScrollTarget);
 
@@ -342,7 +343,7 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
                             <div className="relative flex shrink-0 items-center">
                                 <AnimatePresence mode="popLayout" initial={false}>
                                     {editing ? (
-                                        <motion.div key="done" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: fade }}>
+                                        <motion.div key="done" {...crossfade}>
                                             <button
                                                 type="button"
                                                 onClick={() => void done()}
@@ -355,7 +356,7 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
                                             </button>
                                         </motion.div>
                                     ) : (
-                                        <motion.div key="back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: fade }} className="header-glass -ml-1 flex">
+                                        <motion.div key="back" {...crossfade} className="header-glass -ml-1 flex">
                                             <Tip label="Close note"><button type="button" onClick={() => void requestClose()} aria-label="Close note"><ChevronLeft size={22} aria-hidden="true" /></button></Tip>
                                         </motion.div>
                                     )}

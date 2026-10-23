@@ -12,7 +12,7 @@ import { DeadlineTrigger } from "./DeadlineTrigger";
 import { isFloatingFocus } from "../../lib/utils/dom";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
 import { QuickAddActionTray } from "./QuickAddActionTray";
-import { DraftRow } from "./DraftRow";
+import { DraftRow, useDraftChoices } from "./DraftRow";
 import { AcceptedEffort, EffortSuggestionRow } from "./TaskWeightFields";
 import { useEffortSuggestion } from "../../hooks/tasks/use-effort-suggestion";
 import { TASK_FIELDS, useNlpParse, type NlpParseOutput } from "../../hooks/use-nlp-parse";
@@ -67,9 +67,8 @@ export function AddTaskInput({
     const [showEventDialog, setShowEventDialog] = useState(false);
     const [manualProject, setManualProject] = useState<string | null | undefined>(undefined);
     const [manualTags, setManualTags] = useState<string[] | undefined>(undefined);
-    const [dismissed, setDismissed] = useState<string[]>([]);
-    const [accepted, setAccepted] = useState<string[]>([]);
-    const [literal, setLiteral] = useState(false);
+    const choices = useDraftChoices();
+    const { dismissed, accepted, literal } = choices;
     const [deadline, setDeadline] = useState<ScheduleUpdates | null>(null);
     // No Effort control here: the only Effort an inline add sets is a suggestion the person used.
     const [effort, setEffort] = useState<EffortLevel>(null);
@@ -143,9 +142,7 @@ export function AddTaskInput({
         setIsTrayOpen(false);
         setManualProject(undefined);
         setManualTags(undefined);
-        setDismissed([]);
-        setAccepted([]);
-        setLiteral(false);
+        choices.reset();
         setDeadline(null);
         setEffort(null);
         setEffortDismissed(false);
@@ -266,10 +263,7 @@ export function AddTaskInput({
                         applied={parsedInput.applied}
                         suggestions={parsedInput.suggestions}
                         shownElsewhere={["due_date", "scheduled_start", "project", "tag"]}
-                        literal={literal}
-                        onDismiss={(id) => setDismissed((current) => [...current, id])}
-                        onAccept={(id) => setAccepted((current) => [...current, id])}
-                        onLiteral={setLiteral}
+                        {...choices.row}
                     />
                     {effort ? (
                         <AcceptedEffort level={effort} onUndo={() => setEffort(null)} />

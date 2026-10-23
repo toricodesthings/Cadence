@@ -5,6 +5,7 @@
  * rebuilt without EXIF/XMP or unknown chunks.
  */
 import { AppError } from "./errors";
+import type { Env } from "../types/env";
 
 /** Chunks a still WebP may carry. Everything else (EXIF, XMP, ANIM, ANMF, unknown) is dropped or rejected. */
 const KEPT_CHUNKS = new Set(["VP8X", "ICCP", "ALPH", "VP8 ", "VP8L"]);
@@ -133,4 +134,24 @@ export function sanitizeStillWebp(
     }
     writeU32(out, 4, out.length - 8);
     return { bytes: out, width: dims.width, height: dims.height };
+}
+
+/** The user-assets bucket, or a retryable 503 naming what can't be stored (`what`: "Background", "Image"). */
+export function requireBucket(env: Env, what: string): R2Bucket {
+    if (!env.USER_ASSETS) {
+        throw new AppError(503, "STORAGE_UNAVAILABLE", `${what} storage is not available right now`, true);
+    }
+    return env.USER_ASSETS;
+}
+
+/** A stored WebP as a sandboxed response; a conditional request that still matches gets 304. */
+export function webpResponse(object: R2ObjectBody | R2Object, cacheControl: string): Response {
+    const headers = {
+        "Content-Type": "image/webp",
+        "Cache-Control": cacheControl,
+        ETag: object.httpEtag,
+        "Content-Security-Policy": "default-src 'none'; sandbox",
+        "X-Content-Type-Options": "nosniff",
+    };
+    return "body" in object ? new Response(object.body, { status: 200, headers }) : new Response(null, { status: 304, headers });
 }

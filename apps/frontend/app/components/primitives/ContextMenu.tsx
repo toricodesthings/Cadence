@@ -17,12 +17,7 @@ export const Sub = RadixContextMenu.Sub;
 /* ── SubTrigger ─────────────────────────────────────────────────── */
 export const SubTrigger = ({ className = "", children, ...props }: RadixContextMenu.ContextMenuSubTriggerProps & { ref?: React.Ref<HTMLDivElement> }) => (
     <RadixContextMenu.SubTrigger
-        className={[
-            MENU_ROW,
-            "text-twilight-text-soft hover:text-twilight-text data-[state=open]:text-twilight-text",
-            MENU_HOVER,
-            className,
-        ].join(" ")}
+        className={`${MENU_ROW} text-twilight-text-soft hover:text-twilight-text data-[state=open]:text-twilight-text ${MENU_HOVER} ${className}`}
         {...props}
     >
         {children}
@@ -33,11 +28,7 @@ export const SubTrigger = ({ className = "", children, ...props }: RadixContextM
 export const SubContent = ({ className = "", sideOffset = 4, ...props }: RadixContextMenu.ContextMenuSubContentProps & { ref?: React.Ref<HTMLDivElement> }) => (
     <RadixContextMenu.SubContent
         sideOffset={sideOffset}
-        className={[
-            MENU_SURFACE,
-            MENU_SUB_SLIDE,
-            className,
-        ].join(" ")}
+        className={`${MENU_SURFACE} ${MENU_SUB_SLIDE} ${className}`}
         {...props}
     />
 );
@@ -45,19 +36,13 @@ export const SubContent = ({ className = "", sideOffset = 4, ...props }: RadixCo
 /* ── Content ────────────────────────────────────────────────────── */
 export const Content = ({ className = "", collisionPadding = 8, onCloseAutoFocus, ...props }: RadixContextMenu.ContextMenuContentProps & { ref?: React.Ref<HTMLDivElement> }) => {
     // A long-press opens the menu under the finger: its release isn't a choice.
-    const { reset, ...guard } = useOpeningReleaseGuard();
+    const guard = useOpeningReleaseGuard(onCloseAutoFocus);
     return (
     <RadixContextMenu.Portal>
         <RadixContextMenu.Content
             {...guard}
-            onCloseAutoFocus={(event) => { reset(); onCloseAutoFocus?.(event); }}
             collisionPadding={collisionPadding}
-            className={[
-                MENU_SURFACE,
-                "max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto overscroll-contain",
-                FLOATING_MORPH,
-                className,
-            ].join(" ")}
+            className={`${MENU_SURFACE} max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto overscroll-contain ${FLOATING_MORPH} ${className}`}
             {...props}
         />
     </RadixContextMenu.Portal>
@@ -74,11 +59,7 @@ export const Item = ({ className = "", variant = "default", ...props }: RadixCon
 
     return (
         <RadixContextMenu.Item
-            className={[
-                MENU_ITEM,
-                variants[variant],
-                className,
-            ].join(" ")}
+            className={`${MENU_ITEM} ${variants[variant]} ${className}`}
             {...props}
         />
     );

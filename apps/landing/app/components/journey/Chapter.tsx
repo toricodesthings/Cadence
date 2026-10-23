@@ -38,17 +38,36 @@ export function Chapter({
     >
       <BoughSegment name={segment} />
       <Drift kind={drift} />
-      <div className="chapter-words">
-        <p className="chapter-eyebrow reveal" style={cssVars({ "--i": 0 })}>
-          {copy.eyebrow}
-        </p>
-        <h3 id={titleId} className="chapter-title reveal font-display" style={cssVars({ "--i": 1 })}>
-          {copy.title}
-        </h3>
+      <ChapterWords copy={copy} titleId={titleId} />
+      <div className="chapter-panel reveal-panel" aria-hidden="true">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/** A chapter's words, each revealed in turn: eyebrow, title, then (when given) the body and its glints. */
+export function ChapterWords({ copy, titleId, className = "chapter-words", glintsClassName = "chapter-glints" }: {
+  copy: { eyebrow: ReactNode; title: ReactNode; body?: ReactNode; glints?: readonly string[] };
+  titleId: string;
+  className?: string;
+  glintsClassName?: string;
+}) {
+  return (
+    <div className={className}>
+      <p className="chapter-eyebrow reveal" style={cssVars({ "--i": 0 })}>
+        {copy.eyebrow}
+      </p>
+      <h3 id={titleId} className="chapter-title reveal font-display" style={cssVars({ "--i": 1 })}>
+        {copy.title}
+      </h3>
+      {copy.body ? (
         <p className="chapter-body reveal" style={cssVars({ "--i": 2 })}>
           {copy.body}
         </p>
-        <ul className="chapter-glints">
+      ) : null}
+      {copy.glints ? (
+        <ul className={glintsClassName}>
           {copy.glints.map((glint, k) => (
             <li key={glint} className="glint reveal" style={cssVars({ "--i": 3 + k })}>
               <span className="glint-star" aria-hidden="true" />
@@ -56,10 +75,7 @@ export function Chapter({
             </li>
           ))}
         </ul>
-      </div>
-      <div className="chapter-panel reveal-panel" aria-hidden="true">
-        {children}
-      </div>
-    </section>
+      ) : null}
+    </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import { toastError } from "../utils/error-toast";
+import { isUndone } from "../utils/undo-toast";
 import { transformListCache } from "./cache-guards";
 
 type CacheSnapshot = Array<[QueryKey, unknown]>;
@@ -56,6 +57,12 @@ export function createOptimisticHelpers<TItem = unknown>(cacheKeys: readonly Que
       if (context?.snapshot) this.rollback(qc, context.snapshot);
       toastError(err, message);
       this.invalidate(qc);
+    },
+
+    /** `onError` for a delete behind an Undo window: put the lists back; pressing Undo is not a failure to report. */
+    undo(qc: QueryClient, err: unknown, context: { snapshot: CacheSnapshot[] } | undefined, message: string) {
+      if (context) this.rollback(qc, context.snapshot);
+      if (!isUndone(err)) toastError(err, message);
     },
   };
 }

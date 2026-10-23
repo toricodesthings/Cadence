@@ -10,7 +10,7 @@ import { useNlpParse } from "../../hooks/use-nlp-parse";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
 import type { DraftField } from "@cadence/domain/nlp-draft";
-import { DraftRow } from "../tasks/DraftRow";
+import { DraftRow, useDraftChoices } from "../tasks/DraftRow";
 import { EVENT_SWATCHES, eventToneStyle } from "../../lib/utils/personal-events";
 
 /** A yearly event stores a month and day: nothing else a title can say. */
@@ -48,9 +48,8 @@ export function PersonalEventEditorDialog({ open, title, description, submitLabe
 
 /** The name's words, read for a day ("Mom's birthday Mar 8") until the date is picked by hand (`pickedDay`). */
 function useEventWords(label: string, open: boolean, pickedDay: string | null) {
-    const [dismissed, setDismissed] = useState<string[]>([]);
-    const [accepted, setAccepted] = useState<string[]>([]);
-    const [literal, setLiteral] = useState(false);
+    const choices = useDraftChoices();
+    const { dismissed, accepted, literal } = choices;
     const { data: settings } = useSettings();
     const intelligence = settings?.tasks?.intelligence;
     const nlp = useNlpParse({
@@ -68,12 +67,7 @@ function useEventWords(label: string, open: boolean, pickedDay: string | null) {
         confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
         enabled: open && intelligence?.nlpEnabled !== false,
     });
-    const resetWords = () => {
-        setDismissed([]);
-        setAccepted([]);
-        setLiteral(false);
-    };
-    return { nlp, literal, setLiteral, setDismissed, setAccepted, resetWords };
+    return { nlp, choices };
 }
 
 type EventTiming = { eventDate: string; trackMilestone: boolean; startedOn: string; notify: boolean };
@@ -164,7 +158,8 @@ export function usePersonalEventComposer({
     const [startedOn, setStartedOn] = useState(startDate);
     const [notify, setNotify] = useState(true);
     const [dateTouched, setDateTouched] = useState(false);
-    const { nlp, literal, setLiteral, setDismissed, setAccepted, resetWords } = useEventWords(label, open, dateTouched ? eventDate : null);
+    const { nlp, choices } = useEventWords(label, open, dateTouched ? eventDate : null);
+    const { literal } = choices;
     const saveThought = useCreateInboxItem();
     // A time or a year can't live on a yearly event: the words stay, we say so, and nothing falls back to today.
     const unfit = literal ? undefined : nlp.unfit[0];
@@ -185,7 +180,7 @@ export function usePersonalEventComposer({
         setStartedOn(startDate);
         setNotify(true);
         setDateTouched(false);
-        resetWords();
+        choices.reset();
     };
 
     const handleSubmit = async () => {
@@ -234,10 +229,7 @@ export function usePersonalEventComposer({
                     applied={nlp.applied}
                     suggestions={nlp.suggestions}
                     shownElsewhere={["due_date", "scheduled_start"]}
-                    literal={literal}
-                    onDismiss={(id) => setDismissed((current) => [...current, id])}
-                    onAccept={(id) => setAccepted((current) => [...current, id])}
-                    onLiteral={setLiteral}
+                    {...choices.row}
                 />
 
                 <PersonalEventDetailsFields

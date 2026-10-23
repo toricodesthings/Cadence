@@ -116,18 +116,24 @@ function newFactRow(userId: string, fact: NewFact, hash: string) {
     };
 }
 
+/** The fact already holding these words (`hash`), other than `exceptId`: an active one first, else a forgotten one. */
+async function factWithHash(tx: Tx, userId: string, hash: string, exceptId?: string) {
+    const [same] = await tx
+        .select({ id: aiMemories.id, status: aiMemories.status })
+        .from(aiMemories)
+        .where(and(eq(aiMemories.userId, userId), eq(aiMemories.contentHash, hash), exceptId ? sql`${aiMemories.id} <> ${exceptId}` : undefined))
+        .orderBy(asc(aiMemories.status)) // 'active' sorts before 'forgotten'
+        .limit(1);
+    return same;
+}
+
 /**
  * Inserts a fact. An exact repeat (same normalized text) of an active fact reinforces it instead;
  * a repeat of a forgotten one is refused (`null`), so a forgotten thing isn't relearned.
  */
 export async function insertFact(tx: Tx, userId: string, fact: NewFact): Promise<{ id: string; created: boolean } | null> {
     const hash = await contentHash(fact.key ?? fact.content);
-    const [same] = await tx
-        .select({ id: aiMemories.id, status: aiMemories.status })
-        .from(aiMemories)
-        .where(and(eq(aiMemories.userId, userId), eq(aiMemories.contentHash, hash)))
-        .orderBy(asc(aiMemories.status)) // 'active' sorts before 'forgotten'
-        .limit(1);
+    const same = await factWithHash(tx, userId, hash);
     if (same?.status === "forgotten") return null;
     if (same) {
         await reinforceFact(tx, userId, same.id, fact.saidOn);
@@ -168,12 +174,7 @@ export async function updateFact(
     const hash = await contentHash(patch.content);
     // The new words are another row's (content_hash is unique among active facts): an active one is the same fact
     // seen again, so this one folds into it; forgotten words are never brought back.
-    const [same] = await tx
-        .select({ id: aiMemories.id, status: aiMemories.status })
-        .from(aiMemories)
-        .where(and(eq(aiMemories.userId, userId), eq(aiMemories.contentHash, hash), sql`${aiMemories.id} <> ${id}`))
-        .orderBy(asc(aiMemories.status))
-        .limit(1);
+    const same = await factWithHash(tx, userId, hash, id);
     if (same?.status === "forgotten") return false;
     if (same) {
         const gone = await tx.delete(aiMemories).where(and(active(userId), eq(aiMemories.id, id))).returning({ id: aiMemories.id });

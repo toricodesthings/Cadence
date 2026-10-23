@@ -2,30 +2,23 @@ import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
 import { ShowOlder } from "../components/shared/ShowOlder";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
-import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { CheckCircle2 } from "lucide-react";
-import { EditSidePanel } from "../components/shared/EditSidePanel";
-import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
+import { PhoneTaskDetails, TaskDetailsRail } from "../components/shared/TaskDetailsPanels";
 import { usePagedTasks } from "../hooks/tasks/use-tasks";
 import { TaskCard } from "../components/tasks/TaskCard";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";
 import { PageContent } from "../components/layout/PageLayout";
-import { useShellMode } from "../hooks/ui/use-shell-mode";
 
 export default function CompletedView() {
-    const shell = useShellMode();
     const { data: tasks, isLoading, isFetching, loadMore } = usePagedTasks("COMPLETE");
-    const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection();
+    const selection = useTaskDetailSelection();
+    const { selectedTaskId, setSelectedTaskId, handleSelectTask } = selection;
 
 
 
     const sidePanel = (
-        <EditSidePanelRail ariaLabel="Resize completed sidebar">
-            {shell.isWide && selectedTaskId ? (
-                <EditSidePanel kind="task" taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
-            ) : null}
-        </EditSidePanelRail>
+        <TaskDetailsRail selection={selection} ariaLabel="Resize completed sidebar" />
     );
 
     return (
@@ -65,28 +58,7 @@ export default function CompletedView() {
                 </PageContent>
             </ScrollAreaWrapper>
 
-            {!shell.isWide && selectedTaskId && (
-                <ResponsiveOverlayPanel
-                    ariaLabel="Completed task details"
-                    open={mobilePanelOpen}
-                    onClose={() => {
-                        setMobilePanelOpen(false);
-                        setSelectedTaskId(null);
-                    }}
-                    mode={mobileDetailMode}
-                >
-                    <EditSidePanel kind="task"
-                        key={`completed-mobile-edit-${selectedTaskId}`}
-                        taskId={selectedTaskId}
-                        detailMode={mobileDetailMode}
-                        onDetailModeChange={setMobileDetailMode}
-                        onClose={() => {
-                            setSelectedTaskId(null);
-                            setMobilePanelOpen(false);
-                        }}
-                    />
-                </ResponsiveOverlayPanel>
-            )}
+            <PhoneTaskDetails selection={selection} ariaLabel="Completed task details" clearOnClose />
         </MainLayout>
     );
 }

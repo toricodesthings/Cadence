@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import type { DurationReportView, DurationValue } from "@cadence/contracts/memory";
 import { ABSOLUTE_CHIPS, ANSWER_HINT, MORE_CHIPS, formatMinutes, formatValue, parseAnswer, relativeChips, type DurationChip } from "@cadence/domain/duration-chips";
 import { toastName } from "../../lib/utils/undo-toast";
+import { useToastLinger } from "../../hooks/ui/use-toast-linger";
 
 const CHIP =
     "min-h-9 pointer-coarse:min-h-11 cursor-pointer rounded-full border border-accent-primary/30 bg-accent-primary/10 px-3 text-[13px] font-medium text-twilight-text transition-colors hover:bg-accent-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
@@ -158,22 +159,8 @@ export function DurationChips({
         }
     };
 
-    // Re-armed by every phase change. Hover and focus are read live when it fires, not counted from events: a chip
-    // that unmounts while focused (picking, Shorter/Longer) never blurs, which left a count stuck and the toast open.
     const waiting = phase.kind === "saving" || phase.kind === "error" || phase.kind === "change";
-    useEffect(() => {
-        if (waiting) return;
-        let timer: ReturnType<typeof setTimeout>;
-        const arm = (ms: number) => {
-            timer = setTimeout(() => {
-                const el = box.current;
-                if (el && (el.matches(":hover") || el.contains(document.activeElement))) arm(1_000);
-                else toast.dismiss(id);
-            }, ms);
-        };
-        arm(phase.kind === "saved" ? SAVED_MS : ASK_MS);
-        return () => clearTimeout(timer);
-    }, [id, waiting, phase.kind]);
+    useToastLinger(id, box, phase.kind === "saved" ? SAVED_MS : ASK_MS, waiting, phase.kind);
 
     const name = toastName(title, 40);
     const label = (value: DurationValue) => formatValue(value);

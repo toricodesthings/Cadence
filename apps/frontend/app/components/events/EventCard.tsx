@@ -5,6 +5,15 @@ import { trackUsageEvent } from "../../lib/api/track-event";
 import type { PersonalEvent } from "../../types/settings";
 import { eventToneColor, eventToneStyle, type PersonalEventViewModel } from "../../lib/utils/personal-events";
 
+/** What can be done to an event from a list row or card. `onOpen` opens it, or closes it when already open. */
+export interface EventActions {
+    onOpen: (event: PersonalEvent) => void;
+    onEdit: (event: PersonalEvent) => void;
+    onDelete: (event: PersonalEvent) => void;
+    onToggleReminder: (event: PersonalEvent) => void;
+    onOpenInSchedule: (event: PersonalEvent) => void;
+}
+
 export function EventCard({
     item,
     onOpen,
@@ -12,15 +21,7 @@ export function EventCard({
     onDelete,
     onToggleReminder,
     onOpenInSchedule,
-}: {
-    item: PersonalEventViewModel;
-    /** Card body and title: opens the event, or closes it when already open. */
-    onOpen: (event: PersonalEvent) => void;
-    onEdit: (event: PersonalEvent) => void;
-    onDelete: (event: PersonalEvent) => void;
-    onToggleReminder: (event: PersonalEvent) => void;
-    onOpenInSchedule: (event: PersonalEvent) => void;
-}) {
+}: EventActions & { item: PersonalEventViewModel }) {
     // A picked colour washes the whole card softly; no colour keeps the plain glass card.
     const tinted = Boolean(eventToneColor(item.event.color));
     return (

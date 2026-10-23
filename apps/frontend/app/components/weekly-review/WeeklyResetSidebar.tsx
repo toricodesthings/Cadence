@@ -1,5 +1,5 @@
 import { ArrowLeft, Sparkles, Inbox, ListTodo, Flame, Sprout, CheckCircle2 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { Reveal } from "../shared/Reveal";
 import { Button } from "../primitives/Button";
 
 export const STEPS = [
@@ -51,19 +51,9 @@ export function WeeklyResetSidebar({ currentStep, compact = false, onExit }: { c
                                 <h3 className={`font-medium transition-colors duration-300 ${isActive ? "text-twilight-text" : isPast ? "text-twilight-text-soft" : "text-twilight-text-soft"}`}>
                                     {step.title}
                                 </h3>
-                                <AnimatePresence initial={false}>
-                                    {isActive && (
-                                        <motion.p
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: "auto" }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                                            className="overflow-hidden text-[12px] text-twilight-text-muted"
-                                        >
-                                            {step.desc}
-                                        </motion.p>
-                                    )}
-                                </AnimatePresence>
+                                <Reveal open={isActive}>
+                                    <p className="text-[12px] text-twilight-text-muted">{step.desc}</p>
+                                </Reveal>
                             </div>
                         </div>
                     );

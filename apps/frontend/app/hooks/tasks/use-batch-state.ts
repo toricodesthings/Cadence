@@ -34,10 +34,8 @@ export function useBatchStateTransition() {
         ),
         onMutate: ({ taskIds, state }) =>
             taskCache.edit(queryClient, (items) => items.map((task) => (taskIds.includes(task.id) ? { ...task, state } : task))),
-        onSuccess: (tasks) => {
-            if (!tasks) return; // Queued offline
-            tasks.forEach((task) => reconcileTaskInCaches(queryClient, task));
-        },
+        // Nothing comes back when it was queued offline.
+        onSuccess: (tasks) => tasks?.forEach((task) => reconcileTaskInCaches(queryClient, task)),
         onError: (err, _vars, context) => taskCache.fail(queryClient, err, context, "Couldn't update tasks"),
     });
 }
@@ -63,10 +61,8 @@ export function useBatchRescheduleTasks() {
                     : { ...task, scheduledStart: input.scheduledStart, zone, endDate: null };
             return taskCache.edit(queryClient, (items) => items.map((task) => (input.taskIds.includes(task.id) ? moved(task) : task)));
         },
-        onSuccess: (tasks) => {
-            if (!tasks) return; // Queued offline
-            tasks.forEach((task) => reconcileTaskInCaches(queryClient, task));
-        },
+        // Nothing comes back when it was queued offline.
+        onSuccess: (tasks) => tasks?.forEach((task) => reconcileTaskInCaches(queryClient, task)),
         onError: (err, _vars, context) => taskCache.fail(queryClient, err, context, "Couldn't reschedule tasks"),
     });
 }

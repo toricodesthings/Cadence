@@ -146,17 +146,6 @@ export async function persistNlpSnapshot(
         .limit(1);
 
     const snapshotRecord = snapshot as unknown as Record<string, unknown>;
-    const currentValues = {
-        taskId,
-        userId,
-        parserVersion: snapshot.parserVersion,
-        sourceSurface: snapshot.sourceSurface,
-        rawInput: snapshot.rawInput,
-        cleanedTitle: snapshot.cleanedTitle,
-        parseResult: snapshotRecord,
-        confidenceTier: snapshot.overallConfidence ?? "medium",
-        isCurrent: true,
-    };
     const updateValues = {
         parserVersion: snapshot.parserVersion,
         sourceSurface: snapshot.sourceSurface,
@@ -166,6 +155,7 @@ export async function persistNlpSnapshot(
         confidenceTier: snapshot.overallConfidence ?? "medium",
         isCurrent: true,
     };
+    const currentValues = { taskId, userId, ...updateValues };
 
     if (existing) {
         const [row] = await tx

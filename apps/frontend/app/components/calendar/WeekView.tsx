@@ -1,20 +1,18 @@
-import { useRef, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { TimeGutter } from "./TimeGutter";
 import { CalendarHoverContext } from "./CalendarItem";
-import { TimedCalendarColumn } from "./TimedCalendarColumn";
+import { TimedCalendarColumn, useOpenAtHour, type TimelineProps } from "./TimedCalendarColumn";
 import { AllDayWeekLane } from "./AllDayWeekLane";
 import { Tip } from "../primitives";
 import { HOUR_HEIGHT, DAY_GRID_HEIGHT } from "../../lib/utils/calendar/calendar-utils";
 import { useToday } from "../../lib/utils/user-zone";
 import { dayOfMonth, weekdayName } from "../../lib/utils/calendar/calendar-math";
-import { type CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
-import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { LocalDate } from "@cadence/domain/time";
 import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "@cadence/contracts/proxy";
 import type { PersonalEvent } from "../../types/settings";
 
-export interface WeekViewProps {
+export interface WeekViewProps extends TimelineProps {
     /** The 7 LocalDates of this week in the active configured order */
     weekDates: LocalDate[];
     /** Tasks grouped by LocalDate */
@@ -24,13 +22,6 @@ export interface WeekViewProps {
     birthdayDate?: string | null;
     /** Personal events grouped by ISO date string */
     personalEventsByDate?: Record<string, PersonalEvent[]>;
-    activeDropPreview?: CalendarDropPreview | null;
-    /** Ghost block placement for click-to-create preview */
-    draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
-    onSelectTask: (id: string) => void;
-    onResizeTask?: (id: string, durationMinutes: number) => void;
-    /** Callback when user clicks an empty grid cell (opens event popover) */
-    onGridClick?: (info: CalendarEventInfo) => void;
     /** Callback to switch to day view for a specific date */
     onJumpToDay?: (dateStr: string) => void;
     /** The hour the timeline opens scrolled to. */
@@ -52,14 +43,8 @@ export function WeekView({
     startHour = 7,
 }: WeekViewProps) {
     const todayStr = useToday();
-    const scrollRef = useRef<HTMLDivElement>(null);
-
     // Open at the user's chosen hour (7 AM by default)
-    useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = startHour * HOUR_HEIGHT;
-        }
-    }, [startHour]);
+    const scrollRef = useOpenAtHour(startHour);
 
     // The series whose hover card is open: its chips light up, the rest dim.
     const [hoveredSeries, setHoveredSeries] = useState<string | null>(null);

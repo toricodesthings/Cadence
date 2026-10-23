@@ -7,6 +7,7 @@ import { reconcileInboxItemInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
+import { inboxCache } from "./optimistic-helpers";
 import { useSettings } from "../core/use-settings";
 
 /** `id` is chosen by the caller (`crypto.randomUUID()`), so it can place the capture before it syncs. */
@@ -33,8 +34,8 @@ export function useCreateInboxItem() {
 
         onMutate: async ({ id, rawText, placing }) => {
             if (placing) return undefined;
-            await queryClient.cancelQueries({ queryKey: queryKeys.inbox.all });
-            const snapshot = queryClient.getQueriesData<InboxItem[]>({ queryKey: queryKeys.inbox.all });
+            await inboxCache.cancel(queryClient);
+            const snapshot = inboxCache.snapshot(queryClient);
 
             const optimisticItem: InboxItem = {
                 id,
@@ -71,11 +72,7 @@ export function useCreateInboxItem() {
         },
 
         onError: (err, _input, context) => {
-            if (context?.snapshot) {
-                for (const [key, data] of context.snapshot) {
-                    queryClient.setQueryData(key, data);
-                }
-            }
+            if (context) inboxCache.rollback(queryClient, context.snapshot);
             toastError(err, "Couldn't add inbox item");
         },
 

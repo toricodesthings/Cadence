@@ -12,6 +12,7 @@ by every client (`apps/backend`, `apps/frontend`, and downstream
 ```
 packages/
   search/     Conservative token search / ranking.     deps: minisearch, stemmer
+  geometry/   Deterministic SVG scene math (loading screen + landing). deps: none
   nlp/        NLP parse / resolve / title / effort / duration / rank / focus-views.   deps: chrono-node, fuse.js
   contracts/  Zod schemas → inferred types (wire shapes). deps: zod, @cadence/nlp
   domain/     Pure domain logic (no I/O, no framework).   deps: rrule, @cadence/contracts, @cadence/nlp
@@ -23,6 +24,7 @@ packages/
 ```
 app  →  domain  →  contracts  →  nlp
 app  →  search
+app  →  geometry   (imports no other package)
 ```
 
 No package imports an app. No package imports `drizzle-orm`, `hono`, `react`, or

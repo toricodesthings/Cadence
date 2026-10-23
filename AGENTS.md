@@ -24,7 +24,11 @@ The graph tracks structure, not behaviour, and lags uncommitted edits. Open the 
 
 ## Commands (repo root)
 
-`pnpm dev` (backend + frontend) · `pnpm typecheck` · `pnpm lint` (runs `check:time` first; rules live in root `.oxlintrc.json`, which Codacy also reads) · `pnpm test` · `pnpm test:tz` (suites in four zones). Per-app commands are in each guide.
+`pnpm dev` (backend + frontend) · `pnpm typecheck` · `pnpm lint` (runs `check:time` and the duplication gate first; rules live in root `.oxlintrc.json`, which Codacy also reads) · `pnpm check:dupes` (lists every clone) · `pnpm test` · `pnpm test:tz` (suites in four zones). Per-app commands are in each guide.
+
+## Say it once in code too
+
+Duplication is gated like lint: `jscpd` with root `.jscpd.json` (35 tokens, weak mode, the same scope Codacy measures) fails `pnpm lint` and CI above its `threshold`. Before copying a block, look for the helper that already does it; a second copy gets extracted into the nearest shared home (`@cadence/geometry` for scene math shared by app and landing). Lower `threshold` when duplication drops; never raise it to pass. Import blocks, thin Hono handlers (abstracting them breaks RPC inference) and the insert/update contract families are expected repeats.
 
 ## AGENTS.md files are the current truth
 

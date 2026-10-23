@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, CalendarHeart, Focus, ArrowRight } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
 import { CalendarTaskChip } from "./CalendarTaskChip";
@@ -15,6 +15,26 @@ import {
 import { trackUsageEvent } from "../../lib/api/track-event";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 
+/** What Day and Week pass through to their timed columns. */
+export interface TimelineProps {
+    activeDropPreview?: CalendarDropPreview | null;
+    /** Ghost block placement for click-to-create preview */
+    draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
+    onSelectTask: (id: string) => void;
+    onResizeTask?: (id: string, durationMinutes: number) => void;
+    /** Callback when user clicks an empty grid cell (opens event popover) */
+    onGridClick?: (info: CalendarEventInfo) => void;
+}
+
+/** The timeline's scroll box, opened at `startHour` (and again whenever `day` changes). */
+export function useOpenAtHour(startHour: number, day?: string) {
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (ref.current) ref.current.scrollTop = startHour * HOUR_HEIGHT;
+    }, [startHour, day]);
+    return ref;
+}
+
 /** Day and Week share grid geometry, marker dispatch, drop previews and context creation. */
 export function TimedCalendarColumn({
     dateStr,
@@ -28,16 +48,11 @@ export function TimedCalendarColumn({
     onGridClick,
     onJumpToDay,
     className = "",
-}: {
+}: TimelineProps & {
     dateStr: string;
     tasks: Task[];
     isToday: boolean;
-    activeDropPreview?: CalendarDropPreview | null;
-    draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
     tipSide?: "left" | "right";
-    onSelectTask: (id: string) => void;
-    onResizeTask?: (id: string, durationMinutes: number) => void;
-    onGridClick?: (info: CalendarEventInfo) => void;
     onJumpToDay?: (date: string) => void;
     className?: string;
 }) {

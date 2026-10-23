@@ -239,18 +239,27 @@ function parseShorthand(
   context: ParseOptions["context"],
   dismissed: Set<string>,
 ): ParsedEntity[] {
+  if (!context) return [];
+  const tags = shorthand(input, /(^|\s)#([\p{L}\p{N}_-]+)/giu, (name) => context.tags.find((t) => t.name.toLowerCase() === name), "tag", (t) => `Tag: #${t.name}`, dismissed);
+  // Only one project
+  const projects = shorthand(input, /(^|\s)\/([\p{L}\p{N}_-]+)/giu, (name) => context.projects.find((p) => p.name.toLowerCase().replace(/\s+/g, "-") === name), "project", (p) => `List: ${p.name}`, dismissed).slice(0, 1);
+  return [...tags, ...projects];
+}
+
+/** Each `sigil`-name in the input that names a known item (`find` gets the lowercased name) and wasn't dismissed. */
+function shorthand<T extends { id: string; name: string }>(
+  input: string,
+  sigil: RegExp,
+  find: (name: string) => T | undefined,
+  type: "tag" | "project",
+  explanation: (item: T) => string,
+  dismissed: Set<string>,
+): ParsedEntity[] {
   const entities: ParsedEntity[] = [];
-
-  if (!context) return entities;
-
-  // #tag
-  for (const match of input.matchAll(/(^|\s)#([\p{L}\p{N}_-]+)/giu)) {
-    const rawName = match[2];
-    const tag = context.tags.find(
-      (t) => t.name.toLowerCase() === rawName.toLowerCase(),
-    );
-    if (!tag) continue;
-    const id = `tag:${tag.id}`;
+  for (const match of input.matchAll(sigil)) {
+    const item = find(match[2].toLowerCase());
+    if (!item) continue;
+    const id = `${type}:${item.id}`;
     if (dismissed.has(id)) continue;
 
     const fullMatch = match[0];
@@ -259,44 +268,15 @@ function parseShorthand(
 
     entities.push({
       id,
-      type: "tag",
+      type,
       sourceText: fullMatch.trim(),
       start,
       end,
       confidence: "high",
-      normalizedValue: { id: tag.id, resolvedId: tag.id, name: tag.name },
-      explanation: `Tag: #${tag.name}`,
+      normalizedValue: { id: item.id, resolvedId: item.id, name: item.name },
+      explanation: explanation(item),
     });
   }
-
-  // /project
-  for (const match of input.matchAll(/(^|\s)\/([\p{L}\p{N}_-]+)/giu)) {
-    const rawName = match[2];
-    const project = context.projects.find(
-      (p) =>
-        p.name.toLowerCase().replace(/\s+/g, "-") === rawName.toLowerCase(),
-    );
-    if (!project) continue;
-    const id = `project:${project.id}`;
-    if (dismissed.has(id)) continue;
-
-    const fullMatch = match[0];
-    const start = (match.index ?? 0) + (fullMatch.length - match[0].trimStart().length);
-    const end = (match.index ?? 0) + fullMatch.length;
-
-    entities.push({
-      id,
-      type: "project",
-      sourceText: fullMatch.trim(),
-      start,
-      end,
-      confidence: "high",
-      normalizedValue: { id: project.id, resolvedId: project.id, name: project.name },
-      explanation: `List: ${project.name}`,
-    });
-    break; // Only one project
-  }
-
   return entities;
 }
 

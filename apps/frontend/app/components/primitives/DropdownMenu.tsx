@@ -19,12 +19,7 @@ export const RadioGroup = RadixDropdownMenu.RadioGroup;
 /* ── SubTrigger ─────────────────────────────────────────────────── */
 export const SubTrigger = ({ className = "", children, ...props }: RadixDropdownMenu.DropdownMenuSubTriggerProps & { ref?: React.Ref<HTMLDivElement> }) => (
     <RadixDropdownMenu.SubTrigger
-        className={[
-            MENU_ROW,
-            "text-twilight-text-soft hover:text-accent-primary data-[state=open]:text-accent-primary",
-            MENU_HOVER,
-            className,
-        ].join(" ")}
+        className={`${MENU_ROW} text-twilight-text-soft hover:text-accent-primary data-[state=open]:text-accent-primary ${MENU_HOVER} ${className}`}
         {...props}
     >
         {children}
@@ -35,12 +30,7 @@ export const SubTrigger = ({ className = "", children, ...props }: RadixDropdown
 export const SubContent = ({ className = "", sideOffset = 4, ...props }: RadixDropdownMenu.DropdownMenuSubContentProps & { ref?: React.Ref<HTMLDivElement> }) => (
     <RadixDropdownMenu.SubContent
         sideOffset={sideOffset}
-        className={[
-            MENU_SURFACE,
-            "shadow-xl shadow-black/30 ring-1 ring-white/[0.06]",
-            MENU_SUB_SLIDE,
-            className,
-        ].join(" ")}
+        className={`${MENU_SURFACE} shadow-xl shadow-black/30 ring-1 ring-white/[0.06] ${MENU_SUB_SLIDE} ${className}`}
         {...props}
     />
 );
@@ -48,21 +38,15 @@ export const SubContent = ({ className = "", sideOffset = 4, ...props }: RadixDr
 
 /* ── Content ────────────────────────────────────────────────────── */
 export const Content = ({ className = "", sideOffset = 4, collisionPadding = 8, fromRadius, style, onCloseAutoFocus, ...props }: RadixDropdownMenu.DropdownMenuContentProps & { fromRadius?: string; ref?: React.Ref<HTMLDivElement> }) => {
-    const { reset, ...guard } = useOpeningReleaseGuard();
+    const guard = useOpeningReleaseGuard(onCloseAutoFocus);
     return (
     <RadixDropdownMenu.Portal>
         <RadixDropdownMenu.Content
             {...guard}
-            onCloseAutoFocus={(event) => { reset(); onCloseAutoFocus?.(event); }}
             sideOffset={sideOffset}
             collisionPadding={collisionPadding}
             style={morphFrom(fromRadius, sideOffset, style)}
-            className={[
-                MENU_SURFACE,
-                "max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto overscroll-contain",
-                FLOATING_MORPH,
-                className,
-            ].join(" ")}
+            className={`${MENU_SURFACE} max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto overscroll-contain ${FLOATING_MORPH} ${className}`}
             {...props}
         />
     </RadixDropdownMenu.Portal>
@@ -79,11 +63,7 @@ export const Item = ({ className = "", variant = "default", ...props }: RadixDro
 
     return (
         <RadixDropdownMenu.Item
-            className={[
-                MENU_ITEM,
-                variants[variant],
-                className,
-            ].join(" ")}
+            className={`${MENU_ITEM} ${variants[variant]} ${className}`}
             {...props}
         />
     );

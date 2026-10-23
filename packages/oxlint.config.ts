@@ -4,6 +4,7 @@
 const forbidden = ["drizzle-orm", "hono", "react", "@cloudflare/workers-types", "@cadence/backend", "@cadence/frontend"];
 const layers: [string, string[]][] = [
     ["domain", []],
+    ["geometry", ["@cadence"]],
     ["contracts", ["@cadence/domain"]],
     ["nlp", ["@cadence/contracts", "@cadence/domain"]],
     ["search", ["@cadence/domain", "@cadence/contracts", "@cadence/nlp"]],

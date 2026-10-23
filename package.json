@@ -18,8 +18,9 @@
     "build:desktop": "pnpm --filter @cadence/desktop build",
     "typecheck": "turbo run typecheck",
     "typecheck:desktop": "pnpm --filter @cadence/desktop typecheck",
-    "lint": "node scripts/check-time.mjs && turbo run lint",
+    "lint": "node scripts/check-time.mjs && jscpd --silent && turbo run lint",
     "check:time": "node scripts/check-time.mjs",
+    "check:dupes": "jscpd",
     "test": "turbo run test",
     "test:tz": "turbo run test:tz",
     "cf-typegen": "turbo run cf-typegen",
@@ -35,6 +36,7 @@
   },
   "devDependencies": {
     "@release-it/keep-a-changelog": "^8.0.1",
+    "jscpd": "^4.3.0",
     "oxlint": "^1.85.0",
     "release-it": "^21.1.0",
     "turbo": "^2.11.4"

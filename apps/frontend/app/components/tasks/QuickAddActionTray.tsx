@@ -43,6 +43,22 @@ const choiceTone = (active: boolean) => (active
     ? "bg-accent-primary/12 text-accent-primary"
     : "text-twilight-text-soft hover:bg-white/[0.05]");
 
+const tagDotColor = (color: string | null | undefined) => (!color || color === "default" ? "var(--color-twilight-text-muted)" : color);
+
+/** One list or tag in a picker popover: its emoji or colour dot, then its name; `active` marks the chosen ones. */
+export function PickerChoice({ item, active = false, onClick }: { item: { name: string; emoji?: string | null; color?: string | null }; active?: boolean; onClick: () => void }) {
+    return (
+        <button type="button" onClick={onClick} className={`flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm transition-colors ${choiceTone(active)}`}>
+            {"color" in item ? (
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tagDotColor(item.color) }} />
+            ) : item.emoji ? (
+                <span aria-hidden="true">{item.emoji}</span>
+            ) : null}
+            <span className="truncate">{item.name}</span>
+        </button>
+    );
+}
+
 type DateActionProps = Pick<QuickAddActionTrayProps, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "recurrenceRule" | "onScheduleChange"> & { iconOnly: boolean };
 
 function DateAction({ dueDate, endDate, scheduledStart, scheduledEnd, recurrenceRule, onScheduleChange, iconOnly }: DateActionProps) {
@@ -126,15 +142,7 @@ function ProjectAction({ projectId, onProjectChange, iconOnly }: ProjectActionPr
                         No list
                     </button>
                     {projects.map((project) => (
-                        <button
-                            key={project.id}
-                            type="button"
-                            onClick={() => onProjectChange(project.id)}
-                            className={`flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm transition-colors ${choiceTone(selectedProject?.id === project.id)}`}
-                        >
-                            {project.emoji ? <span aria-hidden="true">{project.emoji}</span> : null}
-                            <span className="truncate">{project.name}</span>
-                        </button>
+                        <PickerChoice key={project.id} item={project} active={selectedProject?.id === project.id} onClick={() => onProjectChange(project.id)} />
                     ))}
                 </div>
             </Popover.Content>
@@ -145,8 +153,6 @@ function ProjectAction({ projectId, onProjectChange, iconOnly }: ProjectActionPr
 type TagActionProps = Pick<QuickAddActionTrayProps, "tagIds" | "onToggleTag"> & { iconOnly: boolean };
 
 const tagCountLabel = (count: number) => (count ? `${count} tag${count === 1 ? "" : "s"}` : "Tags");
-const tagDotColor = (color: string | null | undefined) => (!color || color === "default" ? "var(--color-twilight-text-muted)" : color);
-
 function TagAction({ tagIds, onToggleTag, iconOnly }: TagActionProps) {
     const { data: tags = [] } = useTags();
     const selectedCount = tags.filter((item) => tagIds.includes(item.id)).length;
@@ -164,18 +170,7 @@ function TagAction({ tagIds, onToggleTag, iconOnly }: TagActionProps) {
             <Popover.Content className="w-56 p-1">
                 <div className="max-h-64 space-y-1 overflow-auto">
                     {tags.map((tag) => (
-                        <button
-                            key={tag.id}
-                            type="button"
-                            onClick={() => onToggleTag(tag.id)}
-                            className={`flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm transition-colors ${choiceTone(tagIds.includes(tag.id))}`}
-                        >
-                            <span
-                                className="h-2.5 w-2.5 rounded-full"
-                                style={{ backgroundColor: tagDotColor(tag.color) }}
-                            />
-                            <span className="truncate">{tag.name}</span>
-                        </button>
+                        <PickerChoice key={tag.id} item={tag} active={tagIds.includes(tag.id)} onClick={() => onToggleTag(tag.id)} />
                     ))}
                     {!tags.length ? (
                         <p className="px-3 py-3 text-sm text-twilight-text-muted">Create a tag first to use quick tagging.</p>

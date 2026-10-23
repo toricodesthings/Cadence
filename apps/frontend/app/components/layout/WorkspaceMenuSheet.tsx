@@ -76,19 +76,22 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
         close();
     };
 
+    const nameInput = (label: string) => (
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={label} aria-label={label} enterKeyHint="done" className={INPUT} />
+    );
     const forms: Record<Exclude<View, "menu">, ReactNode> = {
         project: (
             <CreateForm label="Create list" disabled={!name.trim()} onSubmit={() => { createProject.mutate({ name: name.trim(), colorAccent: color, emoji }); setView("menu"); }}>
                 <div className="flex items-center gap-3">
                     <EmojiPickerPopover emoji={emoji} onSelect={setEmoji} />
-                    <input value={name} onChange={(e) => setName(e.target.value)} placeholder="List name" aria-label="List name" enterKeyHint="done" className={INPUT} />
+                    {nameInput("List name")}
                 </div>
                 <Swatches value={color} onChange={setColor} options={PROJECT_ACCENT_OPTIONS.map((o) => ({ value: o.value, color: o.varName, label: o.label }))} />
             </CreateForm>
         ),
         tag: (
             <CreateForm label="Create tag" disabled={!name.trim()} onSubmit={() => { createTag.mutate({ name: name.trim(), color }); setView("menu"); }}>
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tag name" aria-label="Tag name" enterKeyHint="done" className={INPUT} />
+                {nameInput("Tag name")}
                 <Swatches value={color} onChange={setColor} options={TAG_SWATCHES} />
             </CreateForm>
         ),

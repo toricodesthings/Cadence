@@ -27,6 +27,7 @@ import {
     getCurrentAuthCallback,
     IS_DESKTOP_RUNTIME,
     listenForAuthCallback,
+    mergedCallbackParams,
     normalizeRedirectTo,
 } from "./platform/runtime";
 import { installDesktopE2EBridge } from "./platform/desktop-e2e";
@@ -82,18 +83,7 @@ function DesktopAuthCallbacks() {
         let active = true;
 
         const handleCallback = (url: URL) => {
-            const params = new URLSearchParams(url.search);
-            const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
-
-            if (hash.includes("=")) {
-                const hashParams = new URLSearchParams(hash);
-                hashParams.forEach((value, key) => {
-                    if (!params.has(key)) {
-                        params.set(key, value);
-                    }
-                });
-            }
-
+            const params = mergedCallbackParams(url);
             params.set("redirectTo", normalizeRedirectTo(params.get("redirectTo")));
 
             const search = params.toString();

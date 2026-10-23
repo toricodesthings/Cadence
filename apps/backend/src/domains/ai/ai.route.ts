@@ -245,6 +245,13 @@ function continuationOf(kept: boolean, edited: boolean, isRerun: boolean) {
 
 // ── Create: the streaming chat turn ──────────────────────────────────
 
+/** Removes these chat images from storage (a no-op without storage). Callers do this before deleting rows, so a failure leaves them to retry. */
+async function deleteStoredImages(env: Env, userId: string, imageIds: string[]) {
+    if (imageIds.length === 0 || !env.USER_ASSETS) return;
+    const userKey = await hashIdentifier(userId);
+    await deleteImageObjects(env.USER_ASSETS, imageIds.map((imageId) => aiImageKey(userKey, imageId)));
+}
+
 export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/chat", apiValidator("json", chatRequestSchema), async (c) => {
     const userId = c.get("userId");
@@ -751,10 +758,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
         // Storage first, as for one thread: if it fails, the rows stay and the clear can be retried.
         const imageIds = await withCallerRls(c, (tx) => listArchivedImageIds(tx, userId));
-        if (imageIds.length > 0 && c.env.USER_ASSETS) {
-            const userKey = await hashIdentifier(userId);
-            await deleteImageObjects(c.env.USER_ASSETS, imageIds.map((imageId) => aiImageKey(userKey, imageId)));
-        }
+        await deleteStoredImages(c.env, userId, imageIds);
         const deleted = await withCallerRls(c, (tx) => deleteArchivedConversations(tx, userId));
 
         return c.json({ data: { deleted } });
@@ -766,10 +770,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     // Its images go with it. Storage first: if that fails, the rows stay and the delete can be retried.
     const imageIds = await withCallerRls(c, (tx) => listConversationImageIds(tx, userId, id));
-    if (imageIds.length > 0 && c.env.USER_ASSETS) {
-        const userKey = await hashIdentifier(userId);
-        await deleteImageObjects(c.env.USER_ASSETS, imageIds.map((imageId) => aiImageKey(userKey, imageId)));
-    }
+    await deleteStoredImages(c.env, userId, imageIds);
     await withCallerRls(c, (tx) => deleteConversation(tx, userId, id));
 
     return c.json({ data: { id, deleted: true } });

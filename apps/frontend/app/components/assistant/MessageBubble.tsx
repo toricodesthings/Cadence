@@ -7,7 +7,7 @@ import { Markdown } from "./Markdown";
 import { MessageActions } from "./MessageActions";
 import { AssistantSigil } from "./AssistantSigil";
 import { ChatImages } from "./ChatImage";
-import { EASE_OUT_EXPO } from "../../lib/constants/motion";
+import { bubbleIn } from "../../lib/constants/motion";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 
 /** Conversation avatar — the sigil for the assistant, the signed-in user's photo
@@ -185,9 +185,7 @@ export function ChatMessage({
 
     return (
         <motion.div
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
-            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-            transition={{ duration: 0.26, ease: EASE_OUT_EXPO }}
+            {...bubbleIn(reduceMotion)}
             className={`group/msg flex gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}
         >
             {!isUser ? (

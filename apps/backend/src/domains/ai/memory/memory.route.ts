@@ -80,6 +80,13 @@ async function writeMode(tx: Tx, userId: string, mode: "off" | "basic" | "full" 
     return before;
 }
 
+/** "How long did it take?" answers share one daily cap per person (it fails open if the budget store is down). */
+async function withinReportBudget(env: Env, userId: string) {
+    if (!(await withinDailyBudget(env, "duration-report", await hashIdentifier(userId), MAX_REPORTS_PER_DAY, new Date(), { failOpen: true }))) {
+        throw new AppError(429, "TOO_MANY_REQUESTS", "Too many answers today");
+    }
+}
+
 export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .get("/", apiValidator("query", memoryPageQuerySchema), async (c) => {
         const userId = c.get("userId");
@@ -106,9 +113,7 @@ export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
     .post("/duration", apiValidator("json", durationReportSchema), async (c) => {
         const userId = c.get("userId");
         const body = c.req.valid("json");
-        if (!(await withinDailyBudget(c.env, "duration-report", await hashIdentifier(userId), MAX_REPORTS_PER_DAY, new Date(), { failOpen: true }))) {
-            throw new AppError(429, "TOO_MANY_REQUESTS", "Too many answers today");
-        }
+        await withinReportBudget(c.env, userId);
         const view = await withRls(getDbClient(c.env), userId, (tx) => reportDuration(tx, userId, body));
         return c.json({ data: view });
     })
@@ -118,9 +123,7 @@ export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
     .post("/duration/routine", apiValidator("json", routineDurationSchema), async (c) => {
         const userId = c.get("userId");
         const body = c.req.valid("json");
-        if (!(await withinDailyBudget(c.env, "duration-report", await hashIdentifier(userId), MAX_REPORTS_PER_DAY, new Date(), { failOpen: true }))) {
-            throw new AppError(429, "TOO_MANY_REQUESTS", "Too many answers today");
-        }
+        await withinReportBudget(c.env, userId);
         const view = await withRls(getDbClient(c.env), userId, (tx) => reportRoutine(tx, userId, body));
         return c.json({ data: view });
     })

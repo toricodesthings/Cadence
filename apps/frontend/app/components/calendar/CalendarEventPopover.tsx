@@ -4,7 +4,7 @@ import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { FIELD_LABEL } from "../tasks/task-choice-options";
 import { ComposerEffortRow, EffortField, PriorityField, TimeRangeFields } from "../tasks/TaskWeightFields";
 import { useComposerEffort } from "../../hooks/tasks/use-composer-effort";
-import { DraftRow } from "../tasks/DraftRow";
+import { DraftRow, useDraftChoices } from "../tasks/DraftRow";
 import { addDays, atLocal, untilClause, weekdayOf, type LocalDate } from "@cadence/domain/time";
 import { addMinutesToTime, formatShortDateLabel, formatWallTime } from "../../lib/utils/date-format";
 import { getUserZone } from "../../lib/utils/user-zone";
@@ -201,9 +201,8 @@ function NotesField({ value, onChange }: { value: string; onChange: (value: stri
 
 /** "Dinner with Sam Fri 7pm": the title's words, read for a day, time, priority and repeat until a field is touched. */
 function useBlockWords(info: CalendarEventInfo, title: string, priority: TaskPriority, active: boolean) {
-    const [dismissed, setDismissed] = useState<string[]>([]);
-    const [accepted, setAccepted] = useState<string[]>([]);
-    const [literal, setLiteral] = useState(false);
+    const choices = useDraftChoices();
+    const { dismissed, accepted, literal } = choices;
     const { data: userSettings } = useSettings();
     const intelligence = userSettings?.tasks?.intelligence;
     const startTime = minutesToWallTime(info.startHour * 60 + info.startMinute);
@@ -223,7 +222,7 @@ function useBlockWords(info: CalendarEventInfo, title: string, priority: TaskPri
         dateStyle: userSettings?.dateTime?.dateStyle ?? "mdy",
         confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
     });
-    return { nlp, nlpOn, typed: typedWhen.bind(nlp), literal, setLiteral, setDismissed, setAccepted };
+    return { nlp, nlpOn, typed: typedWhen.bind(nlp), choices };
 }
 
 /**
@@ -254,7 +253,8 @@ function useTaskBlockComposer(info: CalendarEventInfo, active: boolean, onClose:
     const [priority, setPriority] = useState<TaskPriority>(0);
     const [interactionMode, setInteractionMode] = useState<TaskInteractionMode>("timetable");
 
-    const { nlp, nlpOn, typed, literal, setLiteral, setDismissed, setAccepted } = useBlockWords(info, title, priority, active);
+    const { nlp, nlpOn, typed, choices } = useBlockWords(info, title, priority, active);
+    const { literal } = choices;
     const repeat = useBlockRepeat(info.date, nlp.fields.recurrenceRule);
     const { mode, recurrenceRule } = repeat;
     const { date: whenStartDate, start: whenStartTime, end: whenEndTime } = typed.when;
@@ -333,10 +333,7 @@ function useTaskBlockComposer(info: CalendarEventInfo, active: boolean, onClose:
                         applied={nlp.applied}
                         suggestions={nlp.suggestions}
                         shownElsewhere={["due_date", "scheduled_start"]}
-                        literal={literal}
-                        onDismiss={(id) => setDismissed((current) => [...current, id])}
-                        onAccept={(id) => setAccepted((current) => [...current, id])}
-                        onLiteral={setLiteral}
+                        {...choices.row}
                     />
                 ) : null}
                 <ComposerEffortRow choice={effortChoice} />
@@ -347,7 +344,7 @@ function useTaskBlockComposer(info: CalendarEventInfo, active: boolean, onClose:
                         repeat.setMode(next);
                         // "Once" over a typed repeat: set the repeat aside, so its words go back to the title.
                         const typedRepeat = nlp.applied.find((e) => e.type === "recurrence");
-                        if (next === "once" && typedRepeat) setDismissed((current) => [...current, typedRepeat.id]);
+                        if (next === "once" && typedRepeat) choices.dismiss(typedRepeat.id);
                     }}
                     weekdays={repeat.weekdays}
                     onWeekdays={repeat.setWeekdays}

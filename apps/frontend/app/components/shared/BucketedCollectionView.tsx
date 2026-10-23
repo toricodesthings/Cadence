@@ -2,6 +2,10 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { BoardCanvas } from "./BoardCanvas";
 import { Reveal } from "./Reveal";
+import { ScrollAreaWrapper } from "./ScrollAreaWrapper";
+import { PageContent } from "../layout/PageLayout";
+import { EmptyState, type EmptyStateVariant } from "../tasks/EmptyState";
+import { TaskListSkeleton } from "../tasks/TaskListSkeleton";
 
 export interface BucketedCollectionSection {
     key: string;
@@ -93,5 +97,31 @@ export function BucketedCollectionView({ sections, view, desktopColumnScroll = f
                 onExpand: section.onBoardExpand,
             }))}
         />
+    );
+}
+
+/** A bucketed task route's body: a board that scrolls by column, or a scrolling list (`lead` above it); skeleton while loading, `empty` when nothing shows. */
+export function BucketedRouteBody({ view, sections, isLoading, isEmpty, empty, lead }: {
+    view: "list" | "kanban";
+    sections: BucketedCollectionSection[];
+    isLoading: boolean;
+    isEmpty: boolean;
+    empty: EmptyStateVariant;
+    lead?: ReactNode;
+}) {
+    const body = (content: ReactNode) => (isLoading ? <TaskListSkeleton /> : isEmpty ? <EmptyState variant={empty} /> : content);
+    if (view === "kanban") {
+        return (
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                {!isLoading && !isEmpty ? <BucketedCollectionView view={view} sections={sections} desktopColumnScroll /> : <PageContent width="default">{body(null)}</PageContent>}
+            </div>
+        );
+    }
+    return (
+        <ScrollAreaWrapper>
+            <PageContent width="default">
+                {body(<>{lead}<BucketedCollectionView view={view} sections={sections} desktopColumnScroll /></>)}
+            </PageContent>
+        </ScrollAreaWrapper>
     );
 }

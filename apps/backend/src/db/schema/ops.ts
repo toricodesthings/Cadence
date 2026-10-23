@@ -13,22 +13,18 @@ import {
     pgPolicy,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { timestamptz, rlsUsing } from "./columns";
-import { confidenceTierEnum, sourceSurfaceEnum, focusViewSourceEnum, users, tasks } from "./core";
+import { createdAt, timestamptz, rlsUsing } from "./columns";
+import { confidenceTierEnum, sourceSurfaceEnum, focusViewSourceEnum, ownerId, tasks } from "./core";
 
 // 13. Usage Events (opt-in diagnostics; the daily cron deletes events older than USAGE_EVENT_RETENTION_DAYS)
 export const usageEvents = pgTable(
     "usage_events",
     {
         id: uuid("id").defaultRandom().primaryKey(),
-        userId: uuid("user_id")
-            .references(() => users.id, { onDelete: "cascade" })
-            .notNull(),
+        userId: ownerId(),
         event: text("event").notNull(), // e.g. "task.complete", "task.reschedule", "habit.complete"
         metadata: jsonb("metadata").$type<Record<string, unknown>>(),
-        createdAt: timestamptz("created_at")
-            .default(sql`now()`)
-            .notNull(),
+        createdAt: createdAt(),
     },
     (table) => ({
         userCreatedIdx: index("usage_events_user_created_idx").on(table.userId, table.createdAt), // per-person retention sweep
@@ -46,9 +42,7 @@ export const notificationState = pgTable(
     "notification_state",
     {
         id: uuid("id").defaultRandom().primaryKey(),
-        userId: uuid("user_id")
-            .references(() => users.id, { onDelete: "cascade" })
-            .notNull(),
+        userId: ownerId(),
         objectType: text("object_type").notNull(), // "task" | "habit" | "event"
         objectId: uuid("object_id").notNull(),
         triggerId: text("trigger_id").notNull(), // e.g. "due_date_reminder", "habit_due"
@@ -58,9 +52,7 @@ export const notificationState = pgTable(
         deferredUntil: timestamptz("deferred_until"),
         actionTaken: text("action_taken"),
         presentationCount: integer("presentation_count").default(0).notNull(),
-        createdAt: timestamptz("created_at")
-            .default(sql`now()`)
-            .notNull(),
+        createdAt: createdAt(),
         updatedAt: timestamptz("updated_at")
             .default(sql`now()`)
             .notNull(),
@@ -83,9 +75,7 @@ export const devices = pgTable(
     "devices",
     {
         id: uuid("id").defaultRandom().primaryKey(),
-        userId: uuid("user_id")
-            .references(() => users.id, { onDelete: "cascade" })
-            .notNull(),
+        userId: ownerId(),
         /** Stable identity of this browser profile or app install; survives a changed push endpoint. */
         installId: text("install_id").notNull(),
         /** "phone" | "computer" | "desktop-app" */
@@ -100,9 +90,7 @@ export const devices = pgTable(
         lastSeenAt: timestamptz("last_seen_at"),
         lastSuccessAt: timestamptz("last_success_at"),
         failureCount: integer("failure_count").default(0).notNull(),
-        createdAt: timestamptz("created_at")
-            .default(sql`now()`)
-            .notNull(),
+        createdAt: createdAt(),
     },
     (table) => ({
         userInstallIdx: uniqueIndex("devices_user_install_unique").on(table.userId, table.installId),
@@ -122,9 +110,7 @@ export const pushDeliveries = pgTable(
     "push_deliveries",
     {
         id: uuid("id").defaultRandom().primaryKey(),
-        userId: uuid("user_id")
-            .references(() => users.id, { onDelete: "cascade" })
-            .notNull(),
+        userId: ownerId(),
         deviceId: uuid("device_id")
             .references(() => devices.id, { onDelete: "cascade" })
             .notNull(),
@@ -133,9 +119,7 @@ export const pushDeliveries = pgTable(
         status: text("status").default("pending").notNull(),
         attempts: integer("attempts").default(1).notNull(),
         leaseUntil: timestamptz("lease_until").notNull(),
-        createdAt: timestamptz("created_at")
-            .default(sql`now()`)
-            .notNull(),
+        createdAt: createdAt(),
     },
     (table) => ({
         occurrenceIdx: uniqueIndex("push_deliveries_device_occurrence_unique").on(table.deviceId, table.occurrenceKey),
@@ -154,16 +138,12 @@ export const mutationDedup = pgTable(
     "mutation_dedup",
     {
         id: uuid("id").defaultRandom().primaryKey(),
-        userId: uuid("user_id")
-            .references(() => users.id, { onDelete: "cascade" })
-            .notNull(),
+        userId: ownerId(),
         clientMutationId: text("client_mutation_id").notNull(),
         resultId: uuid("result_id"),
         /** What the first call returned (assistant tools), so a retry gets the same ids back. */
         result: jsonb("result"),
-        createdAt: timestamptz("created_at")
-            .default(sql`now()`)
-            .notNull(),
+        createdAt: createdAt(),
     },
     (table) => ({
         dedupIdx: uniqueIndex("mutation_dedup_user_mutation_idx").on(
@@ -187,9 +167,7 @@ export const taskNlpMetadata = pgTable(
         taskId: uuid("task_id")
             .references(() => tasks.id, { onDelete: "cascade" })
             .notNull(),
-        userId: uuid("user_id")
-            .references(() => users.id, { onDelete: "cascade" })
-            .notNull(),
+        userId: ownerId(),
         parserVersion: text("parser_version").default("2.0.0").notNull(),
         sourceSurface: sourceSurfaceEnum("source_surface").default("quick_add").notNull(),
         rawInput: text("raw_input").notNull(),
@@ -213,9 +191,7 @@ export const taskNlpMetadata = pgTable(
         mediumConfidenceEntityCount: integer("medium_confidence_entity_count").default(0).notNull(),
         lowConfidenceEntityCount: integer("low_confidence_entity_count").default(0).notNull(),
         isCurrent: boolean("is_current").default(true).notNull(),
-        createdAt: timestamptz("created_at")
-            .default(sql`now()`)
-            .notNull(),
+        createdAt: createdAt(),
     },
     (table) => ({
         taskIdIdx: uniqueIndex("task_nlp_metadata_task_id_unique").on(table.taskId),
@@ -234,17 +210,13 @@ export const savedFocusViews = pgTable(
     "saved_focus_views",
     {
         id: uuid("id").defaultRandom().primaryKey(),
-        userId: uuid("user_id")
-            .references(() => users.id, { onDelete: "cascade" })
-            .notNull(),
+        userId: ownerId(),
         name: text("name").notNull(),
         definition: jsonb("definition").$type<Record<string, unknown>>().default({}).notNull(),
         isPinned: boolean("is_pinned").default(false).notNull(),
         source: focusViewSourceEnum("source").default("preset").notNull(),
         orderIndex: doublePrecision("order_index").default(0).notNull(),
-        createdAt: timestamptz("created_at")
-            .default(sql`now()`)
-            .notNull(),
+        createdAt: createdAt(),
         updatedAt: timestamptz("updated_at")
             .default(sql`now()`)
             .notNull(),
@@ -265,9 +237,7 @@ export const dataExports = pgTable(
     "data_exports",
     {
         id: uuid("id").defaultRandom().primaryKey(),
-        userId: uuid("user_id")
-            .references(() => users.id, { onDelete: "cascade" })
-            .notNull(),
+        userId: ownerId(),
         email: text("email").notNull(), // where it was sent, as the sign-in account had it then
         status: text("status").$type<"pending" | "sent" | "failed">().default("pending").notNull(),
         bytes: integer("bytes"), // size of the attached file once built

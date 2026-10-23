@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Proposal } from "@cadence/domain/find-time";
 import { formatInZone, type Zone } from "@cadence/domain/time";
@@ -6,6 +6,7 @@ import { formatTime } from "../../lib/utils/date-format";
 import { proposalLabel } from "../../lib/planning/day-plan";
 import { CADENCE_UNDO_DURATION } from "../../lib/utils/cadence-toast";
 import { toastName } from "../../lib/utils/undo-toast";
+import { useToastLinger } from "../../hooks/ui/use-toast-linger";
 
 const BUTTON =
     "min-h-9 pointer-coarse:min-h-11 cursor-pointer rounded-full border border-accent-primary/30 bg-accent-primary/10 px-3 text-[13px] font-medium text-twilight-text transition-colors hover:bg-accent-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-default disabled:opacity-60";
@@ -45,20 +46,7 @@ export function FindTimeToast({
     const proposal = proposals[index];
     const last = index >= proposals.length - 1;
 
-    // Re-armed by every step. Hover and focus are read live when it fires, not counted from events.
-    useEffect(() => {
-        if (busy) return;
-        let timer: ReturnType<typeof setTimeout>;
-        const arm = (ms: number) => {
-            timer = setTimeout(() => {
-                const el = box.current;
-                if (el && (el.matches(":hover") || el.contains(document.activeElement))) arm(1_000);
-                else toast.dismiss(id);
-            }, ms);
-        };
-        arm(CADENCE_UNDO_DURATION);
-        return () => clearTimeout(timer);
-    }, [id, index, busy]);
+    useToastLinger(id, box, CADENCE_UNDO_DURATION, busy, index);
 
     const another = async () => {
         setBusy(true);

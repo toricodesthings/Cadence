@@ -8,13 +8,8 @@ import { Inbox, CalendarRange, Layers3, Sunrise, Sun } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { AgendaHabitDivider } from "../components/shared/AgendaRow";
 import { RoutineAgendaRow } from "../components/shared/RoutineAgendaRow";
-import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
-import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
-import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
-import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { EditSidePanel } from "../components/shared/EditSidePanel";
-import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
-import { EmptyState } from "../components/tasks/EmptyState";
+import { BucketedRouteBody } from "../components/shared/BucketedCollectionView";
+import { PhoneTaskDetails, TaskDetailsRail } from "../components/shared/TaskDetailsPanels";
 import { TaskList } from "../components/tasks/TaskList";
 import { FURTHER_OUT_OPEN_PARAM, useFurtherOutSection, type FurtherOutItem } from "../components/upcoming/FurtherOutSection";
 import { PageContent } from "../components/layout/PageLayout";
@@ -218,7 +213,8 @@ export default function Upcoming() {
     const navigate = useNavigate();
     const { view, setView } = useRouteViewMode("upcoming");
     const { sortMode, setSortMode } = useSortMode("upcoming");
-    const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection();
+    const selection = useTaskDetailSelection();
+    const { selectedTaskId, setSelectedTaskId, setMobilePanelOpen, handleSelectTask } = selection;
 
 
     const { mutate: resolveHabit } = useResolveHabit();
@@ -304,11 +300,7 @@ export default function Upcoming() {
     };
 
     const sidePanel = (
-        <EditSidePanelRail ariaLabel="Resize upcoming sidebar">
-            {shell.isWide && selectedTaskId ? (
-                <EditSidePanel kind="task" taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
-            ) : null}
-        </EditSidePanelRail>
+        <TaskDetailsRail selection={selection} ariaLabel="Resize upcoming sidebar" />
     );
 
     const openHabits = () => navigate("/routines");
@@ -439,53 +431,9 @@ export default function Upcoming() {
                     />
                 ) : null}
             </PageContent>
-            {view === "kanban" ? (
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                    {isLoading ? (
-                        <PageContent width="default">
-                            <TaskListSkeleton />
-                        </PageContent>
-                    ) : totalVisible > 0 ? (
-                        <BucketedCollectionView view={view} sections={sections} desktopColumnScroll />
-                    ) : (
-                        <PageContent width="default">
-                            <EmptyState variant="upcoming" />
-                        </PageContent>
-                    )}
-                </div>
-            ) : (
-                <ScrollAreaWrapper>
-                    <PageContent width="default">
-                        {isLoading ? (
-                            <TaskListSkeleton />
-                        ) : totalVisible > 0 ? (
-                            <BucketedCollectionView view={view} sections={sections} desktopColumnScroll />
-                        ) : (
-                            <EmptyState variant="upcoming" />
-                        )}
-                    </PageContent>
-                </ScrollAreaWrapper>
-            )}
+            <BucketedRouteBody view={view} sections={sections} isLoading={isLoading} isEmpty={totalVisible === 0} empty="upcoming" />
 
-            {!shell.isWide && selectedTaskId && (
-                <ResponsiveOverlayPanel
-                    ariaLabel="Upcoming details"
-                    open={mobilePanelOpen}
-                    onClose={() => setMobilePanelOpen(false)}
-                    mode={mobileDetailMode}
-                >
-                    <EditSidePanel kind="task"
-                        key={`upcoming-mobile-edit-${selectedTaskId}`}
-                        taskId={selectedTaskId}
-                        detailMode={mobileDetailMode}
-                        onDetailModeChange={setMobileDetailMode}
-                        onClose={() => {
-                            setSelectedTaskId(null);
-                            setMobilePanelOpen(false);
-                        }}
-                    />
-                </ResponsiveOverlayPanel>
-            )}
+            <PhoneTaskDetails selection={selection} ariaLabel="Upcoming details" />
         </MainLayout>
     );
 }

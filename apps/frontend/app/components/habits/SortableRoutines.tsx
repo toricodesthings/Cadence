@@ -1,11 +1,11 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { DndContext, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useSortSensors } from "../../hooks/ui/use-sort-sensors";
+import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, rectSortingStrategy, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import type { Habit } from "@cadence/contracts/habit";
 import { computeGappedOrderIndex, computeMidpointIndex } from "@cadence/domain/ordering";
-import { MouseSensor, TouchSensor } from "../../lib/utils/dnd";
 import type { RoutineSort } from "../../lib/utils/habits";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
@@ -28,11 +28,7 @@ export function SortableRoutines({ habits, sort, onSortChange, layout, children 
 }) {
     const updateHabit = useUpdateHabit();
     const [held, setHeld] = useState<string[] | null>(null);
-    const sensors = useSensors(
-        useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
-        useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 10 } }),
-        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-    );
+    const sensors = useSortSensors();
 
     const ordered = useMemo(() => {
         if (!held) return habits;

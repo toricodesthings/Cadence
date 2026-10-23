@@ -1,4 +1,5 @@
 import { Tip } from "../primitives/Tooltip";
+import { EmojiPickerPopover } from "./EmojiPickerPopover";
 import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../../lib/constants/colors";
 
 /** A list's colour: the named accents, or any hex through the native picker (a hex value means "custom"). */
@@ -37,5 +38,34 @@ export function ProjectColorPicker({ value, onChange }: { value: string; onChang
                 </div>
             </Tip>
         </div>
+    );
+}
+
+/** A list's look and name, as creating and editing a list both ask for it: emoji, name, then colour. */
+export function ListIdentityFields({ emoji, onEmoji, name, onName, color, onColor, onKeyDown }: {
+    emoji: string;
+    onEmoji: (emoji: string) => void;
+    name: string;
+    onName: (name: string) => void;
+    color: string;
+    onColor: (color: string) => void;
+    onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+}) {
+    return (
+        <>
+            <div className="flex items-center gap-3">
+                <EmojiPickerPopover emoji={emoji} onSelect={onEmoji} />
+                <input
+                    autoFocus
+                    value={name}
+                    onChange={(e) => onName(e.target.value)}
+                    onKeyDown={onKeyDown}
+                    placeholder="List name"
+                    aria-label="List name"
+                    className="w-full flex-1 rounded-xl border border-twilight-border bg-white/[0.06] px-4 py-2.5 text-sm text-twilight-text outline-none transition-colors placeholder:text-twilight-text-muted/80 focus:border-accent-primary/40"
+                />
+            </div>
+            <ProjectColorPicker value={color} onChange={onColor} />
+        </>
     );
 }

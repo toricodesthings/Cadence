@@ -27,87 +27,35 @@ function patchList(
     return snapshot;
 }
 
-/** Rename a conversation (optimistic title swap). */
-export function useRenameConversation() {
+type ConversationPatch = { id: string; title?: string; archived?: boolean; learn?: boolean };
+
+/** Change a conversation's title or flags, shown in the list at once and put back if the server refuses. */
+function useConversationPatch(failure: string) {
     const client = useApiClient();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ id, title }: { id: string; title: string }) => {
-            const res = await client.api.ai.conversations[":id"].$patch({
-                param: { id },
-                json: { title },
-            });
-            return unwrapResponse(res);
-        },
-        onMutate: async ({ id, title }) => {
+        mutationFn: async ({ id, ...json }: ConversationPatch) => unwrapResponse(await client.api.ai.conversations[":id"].$patch({ param: { id }, json })),
+        onMutate: async ({ id, ...patch }) => {
             await queryClient.cancelQueries({ queryKey: queryKeys.ai.conversations });
-            const snapshot = patchList(queryClient, (rows) =>
-                rows.map((r) => (r.id === id ? { ...r, title } : r)),
-            );
-            return { snapshot };
-        },
-        onError: (err, _vars, context) => {
-            if (context?.snapshot) {
-                queryClient.setQueryData(queryKeys.ai.conversations, context.snapshot);
-            }
-            toastError(err, "Couldn’t rename that conversation");
-        },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
-    });
-}
-
-/** Archive / unarchive a conversation (optimistic flag flip). */
-export function useArchiveConversation() {
-    const client = useApiClient();
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async ({ id, archived }: { id: string; archived: boolean }) => {
-            const res = await client.api.ai.conversations[":id"].$patch({
-                param: { id },
-                json: { archived },
-            });
-            return unwrapResponse(res);
-        },
-        onMutate: async ({ id, archived }) => {
-            await queryClient.cancelQueries({ queryKey: queryKeys.ai.conversations });
-            const snapshot = patchList(queryClient, (rows) =>
-                rows.map((r) => (r.id === id ? { ...r, archived } : r)),
-            );
-            return { snapshot };
-        },
-        onError: (err, _vars, context) => {
-            if (context?.snapshot) {
-                queryClient.setQueryData(queryKeys.ai.conversations, context.snapshot);
-            }
-            toastError(err, "Couldn’t update that conversation");
-        },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
-    });
-}
-
-/** "Don't learn from this chat" (optimistic flag flip): memory skips the thread. */
-export function useSetConversationLearn() {
-    const client = useApiClient();
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async ({ id, learn }: { id: string; learn: boolean }) => {
-            const res = await client.api.ai.conversations[":id"].$patch({ param: { id }, json: { learn } });
-            return unwrapResponse(res);
-        },
-        onMutate: async ({ id, learn }) => {
-            await queryClient.cancelQueries({ queryKey: queryKeys.ai.conversations });
-            return { snapshot: patchList(queryClient, (rows) => rows.map((r) => (r.id === id ? { ...r, learn } : r))) };
+            return { snapshot: patchList(queryClient, (rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r))) };
         },
         onError: (err, _vars, context) => {
             if (context?.snapshot) queryClient.setQueryData(queryKeys.ai.conversations, context.snapshot);
-            toastError(err, "Couldn’t update that conversation");
+            toastError(err, failure);
         },
         onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
     });
 }
+
+/** Rename a conversation (optimistic title swap). */
+export const useRenameConversation = () => useConversationPatch("Couldn’t rename that conversation");
+
+/** Archive / unarchive a conversation (optimistic flag flip). */
+export const useArchiveConversation = () => useConversationPatch("Couldn’t update that conversation");
+
+/** "Don't learn from this chat" (optimistic flag flip): memory skips the thread. */
+export const useSetConversationLearn = () => useConversationPatch("Couldn’t update that conversation");
 
 /** Delete a conversation (optimistic remove from the list). */
 export function useDeleteConversation() {

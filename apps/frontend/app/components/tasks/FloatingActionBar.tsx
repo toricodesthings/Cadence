@@ -13,6 +13,7 @@ import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { addDays } from "@cadence/domain/time";
 import { today } from "../../lib/utils/user-zone";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
+import { PickerChoice } from "./QuickAddActionTray";
 
 function BarButton({ icon: Icon, label, className, ...rest }: { icon: LucideIcon; label: string } & Omit<ComponentProps<typeof Button>, "children" | "variant" | "size">) {
     return (
@@ -138,15 +139,7 @@ export function FloatingActionBar() {
                                 Capture
                             </button>
                             {projects.map((project) => (
-                                <button
-                                    key={project.id}
-                                    type="button"
-                                    onClick={() => void handleMove(project.id)}
-                                    className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm text-twilight-text-soft hover:bg-white/[0.05]"
-                                >
-                                    {project.emoji ? <span aria-hidden="true">{project.emoji}</span> : null}
-                                    <span className="truncate">{project.name}</span>
-                                </button>
+                                <PickerChoice key={project.id} item={project} onClick={() => void handleMove(project.id)} />
                             ))}
                         </div>
                     </Popover.Content>
@@ -159,18 +152,7 @@ export function FloatingActionBar() {
                     <Popover.Content className="w-52 p-1">
                         <div className="max-h-64 space-y-1 overflow-auto">
                             {tags.map((tag) => (
-                                <button
-                                    key={tag.id}
-                                    type="button"
-                                    onClick={() => void handleTag(tag.id)}
-                                    className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm text-twilight-text-soft hover:bg-white/[0.05]"
-                                >
-                                    <span
-                                        className="h-2.5 w-2.5 rounded-full"
-                                        style={{ backgroundColor: !tag.color || tag.color === "default" ? "var(--color-twilight-text-muted)" : tag.color }}
-                                    />
-                                    <span className="truncate">{tag.name}</span>
-                                </button>
+                                <PickerChoice key={tag.id} item={tag} onClick={() => void handleTag(tag.id)} />
                             ))}
                             {!tags.length ? (
                                 <p className="px-3 py-3 text-sm text-twilight-text-muted">Create a tag first.</p>

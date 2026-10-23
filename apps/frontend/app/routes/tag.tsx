@@ -6,9 +6,7 @@ import { PageContent } from "../components/layout/PageLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { TaskList } from "../components/tasks/TaskList";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
-import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
-import { EditSidePanel } from "../components/shared/EditSidePanel";
-import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
+import { PhoneTaskDetails, TaskDetailsRail } from "../components/shared/TaskDetailsPanels";
 import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { Composer } from "../components/shared/Composer";
 import { UtilitySheet } from "../components/shared/UtilitySheet";
@@ -48,7 +46,8 @@ export default function TagView() {
     const updateTag = useUpdateTag();
     const deleteTag = useDeleteTag();
     const { data: activeTasks, isLoading } = useTasks({ state: "ACTIVE" });
-    const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection();
+    const selection = useTaskDetailSelection();
+    const { selectedTaskId, setSelectedTaskId, handleSelectTask } = selection;
     const [addOpen, setAddOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [name, setName] = useState("");
@@ -127,11 +126,7 @@ export default function TagView() {
                 requireAuth
                 hideContextualOrb={shell.isCompact}
                 sidePanel={
-                    <EditSidePanelRail ariaLabel="Resize task panel" minWidth={300} maxWidth={500}>
-                        {shell.isWide && selectedTaskId ? (
-                            <EditSidePanel kind="task" taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
-                        ) : null}
-                    </EditSidePanelRail>
+                    <TaskDetailsRail selection={selection} ariaLabel="Resize task panel" minWidth={300} maxWidth={500} />
                 }
                 sidePanelActive={Boolean(selectedTaskId)}
                 onCloseSidePanel={() => setSelectedTaskId(null)}
@@ -191,25 +186,7 @@ export default function TagView() {
                 </>}
             </MainLayout>
 
-            {!shell.isWide && selectedTaskId && (
-                <ResponsiveOverlayPanel
-                    ariaLabel="Tag task details"
-                    open={mobilePanelOpen}
-                    onClose={() => setMobilePanelOpen(false)}
-                    mode={mobileDetailMode}
-                >
-                    <EditSidePanel kind="task"
-                        key={`tag-mobile-edit-${selectedTaskId}`}
-                        taskId={selectedTaskId}
-                        detailMode={mobileDetailMode}
-                        onDetailModeChange={setMobileDetailMode}
-                        onClose={() => {
-                            setSelectedTaskId(null);
-                            setMobilePanelOpen(false);
-                        }}
-                    />
-                </ResponsiveOverlayPanel>
-            )}
+            <PhoneTaskDetails selection={selection} ariaLabel="Tag task details" />
         </>
     );
 }

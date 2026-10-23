@@ -17,9 +17,7 @@ import { useSections } from "../hooks/sections/use-sections";
 import { KanbanBoard } from "../components/kanban/KanbanBoard";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { AddTaskInput } from "../components/tasks/AddTaskInput";
-import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
-import { EditSidePanel } from "../components/shared/EditSidePanel";
-import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
+import { PhoneTaskDetails, TaskDetailsRail } from "../components/shared/TaskDetailsPanels";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
 import { rankTasksForRoute } from "../lib/utils/ranking-reasons";
@@ -93,7 +91,8 @@ export default function ProjectView() {
     const deleteProject = useDeleteProject();
     const shell = useShellMode();
     const { view, setView } = useRouteViewMode("project");
-    const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection();
+    const selection = useTaskDetailSelection();
+    const { selectedTaskId, setSelectedTaskId, handleSelectTask } = selection;
 
 
     const [renameOpen, setRenameOpen] = useState(false);
@@ -166,11 +165,7 @@ export default function ProjectView() {
     }, []);
 
     const sidePanel = (
-        <EditSidePanelRail ariaLabel="Resize task panel" minWidth={300} maxWidth={500}>
-            {shell.isWide && selectedTaskId ? (
-                <EditSidePanel kind="task" taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
-            ) : null}
-        </EditSidePanelRail>
+        <TaskDetailsRail selection={selection} ariaLabel="Resize task panel" minWidth={300} maxWidth={500} />
     );
 
     /* ── Project not-found state ── */
@@ -339,25 +334,7 @@ export default function ProjectView() {
                 </>}
             </MainLayout>
 
-            {!shell.isWide && selectedTaskId && (
-                <ResponsiveOverlayPanel
-                    ariaLabel="List task details"
-                    open={mobilePanelOpen}
-                    onClose={() => setMobilePanelOpen(false)}
-                    mode={mobileDetailMode}
-                >
-                    <EditSidePanel kind="task"
-                        key={`project-mobile-edit-${selectedTaskId}`}
-                        taskId={selectedTaskId}
-                        detailMode={mobileDetailMode}
-                        onDetailModeChange={setMobileDetailMode}
-                        onClose={() => {
-                            setSelectedTaskId(null);
-                            setMobilePanelOpen(false);
-                        }}
-                    />
-                </ResponsiveOverlayPanel>
-            )}
+            <PhoneTaskDetails selection={selection} ariaLabel="List task details" />
         </>
     );
 }

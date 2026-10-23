@@ -122,70 +122,48 @@ export function useUpdateSettings() {
         },
     });
 
-    const flushPending = useCallback(async () => {
-        if (!pendingPatch.current || Object.keys(pendingPatch.current).length === 0) {
-            if (debounceTimer.current) {
-                clearTimeout(debounceTimer.current);
-                debounceTimer.current = null;
-            }
-            return;
-        }
+    /** Show `patch` at once (query cache + this device's copy); returns what was there before. */
+    const applyLocal = useCallback((patch: DeepPartial<UserSettings>) => {
+        const previous = queryClient.getQueryData<UserSettings>(queryKey);
+        const next = deepMerge(previous || {}, patch);
+        queryClient.setQueryData(queryKey, next);
+        writeLocalCache(storageKey, next);
+        return previous;
+    }, [queryClient, queryKey, storageKey]);
 
-        const coalescedPatch = pendingPatch.current;
-        pendingPatch.current = {};
-
+    /** Everything waiting to be sent, with its debounce timer stopped. */
+    const takePending = useCallback(() => {
         if (debounceTimer.current) {
             clearTimeout(debounceTimer.current);
             debounceTimer.current = null;
         }
+        const patch = pendingPatch.current;
+        pendingPatch.current = {};
+        return patch;
+    }, []);
 
-        await mutation.mutateAsync(coalescedPatch);
-    }, [mutation]);
+    const flushPending = useCallback(async () => {
+        const patch = takePending();
+        if (Object.keys(patch).length > 0) await mutation.mutateAsync(patch);
+    }, [mutation, takePending]);
 
+    /** Shows the change at once, then sends it with any others made within the debounce window. */
     const mutate = useCallback(
         (patch: DeepPartial<UserSettings>) => {
-            // 1. Optimistic: update cache + localStorage immediately
-            const previous = queryClient.getQueryData<UserSettings>(queryKey);
-            const next = deepMerge(previous || {}, patch);
-            queryClient.setQueryData(queryKey, next);
-            writeLocalCache(storageKey, next);
-
-            // 2. Accumulate the patch
+            applyLocal(patch);
             pendingPatch.current = deepMerge(pendingPatch.current, patch);
-
-            // 3. Debounce the network call
             if (debounceTimer.current) clearTimeout(debounceTimer.current);
-            debounceTimer.current = setTimeout(() => {
-                const coalescedPatch = pendingPatch.current;
-                pendingPatch.current = {};
-                debounceTimer.current = null;
-                mutation.mutate(coalescedPatch);
-            }, DEBOUNCE_MS);
+            debounceTimer.current = setTimeout(() => mutation.mutate(takePending()), DEBOUNCE_MS);
         },
-        [queryClient, queryKey, storageKey, mutation],
+        [applyLocal, takePending, mutation],
     );
 
-    /** Flush immediately without debounce — returns a promise for await-style usage */
+    /** Flush immediately without debounce (with anything pending) — returns a promise for await-style usage */
     const mutateAsync = useCallback(
         async (patch: DeepPartial<UserSettings>) => {
-            // Capture previous state for rollback
-            const previous = queryClient.getQueryData<UserSettings>(queryKey);
-
-            // Optimistic local update
-            const next = deepMerge(previous || {}, patch);
-            queryClient.setQueryData(queryKey, next);
-            writeLocalCache(storageKey, next);
-
-            // Flush any pending debounced patches together with this one
-            const coalescedPatch = deepMerge(pendingPatch.current, patch);
-            pendingPatch.current = {};
-            if (debounceTimer.current) {
-                clearTimeout(debounceTimer.current);
-                debounceTimer.current = null;
-            }
-
+            const previous = applyLocal(patch);
             try {
-                return await mutation.mutateAsync(coalescedPatch);
+                return await mutation.mutateAsync(deepMerge(takePending(), patch));
             } catch (err) {
                 // Rollback optimistic update on failure
                 if (previous) {
@@ -195,7 +173,7 @@ export function useUpdateSettings() {
                 throw err;
             }
         },
-        [queryClient, queryKey, storageKey, mutation],
+        [applyLocal, takePending, queryClient, queryKey, storageKey, mutation],
     );
 
     useEffect(() => {

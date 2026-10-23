@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import type { InboxItem, UpdateInboxItem } from "@cadence/contracts/inbox";
 import { queryKeys } from "../../lib/api/query-keys";
-import { transformListCache } from "../../lib/api/cache-guards";
+import { inboxCache } from "./optimistic-helpers";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
 
@@ -29,24 +29,10 @@ export function useUpdateInboxItem() {
         // (captureStatus → "discarded") drops it from the holding feed; a
         // section move updates it in place. Both feel instant instead of
         // waiting on the round-trip.
-        onMutate: async ({ id, ...data }) => {
-            await queryClient.cancelQueries({ queryKey: queryKeys.inbox.all });
-            const snapshot = queryClient.getQueriesData<InboxItem[]>({ queryKey: queryKeys.inbox.all });
-            queryClient.setQueriesData<InboxItem[]>(
-                { queryKey: queryKeys.inbox.all },
-                (old) =>
-                    transformListCache(old, (items) =>
-                        items.map((item) => (item.id === id ? { ...item, ...data } as InboxItem : item)),
-                    ),
-            );
-            return { snapshot };
-        },
+        onMutate: ({ id, ...data }) =>
+            inboxCache.edit(queryClient, (items) => items.map((item) => (item.id === id ? { ...item, ...data } as InboxItem : item))),
         onError: (err, _variables, context) => {
-            if (context?.snapshot) {
-                for (const [key, data] of context.snapshot) {
-                    queryClient.setQueryData(key, data);
-                }
-            }
+            if (context) inboxCache.rollback(queryClient, context.snapshot);
             toastError(err, "Couldn't update capture");
         },
         onSettled: (data, error) => {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus, AlertCircle, ChevronRight, ChevronDown } from "lucide-react";
 import { AssistantSigil } from "./AssistantSigil";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Reveal } from "../shared/Reveal";
 import * as ScrollArea from "../primitives/ScrollArea";
 import { Button } from "../primitives/Button";
 import { OverlayPanel } from "./OverlayPanel";
@@ -16,7 +16,6 @@ import {
 import { ConversationListItem } from "./ConversationListItem";
 import { useMemoryPage } from "../../hooks/ai/use-memory";
 import { ClearArchiveButton } from "./ClearArchiveButton";
-import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 
 /**
  * The saved-conversations history drawer (design §7). An in-panel surface
@@ -34,7 +33,6 @@ export function ConversationList({
     onNewChat: () => void;
     onSelect: (id: string) => void;
 }) {
-    const reduceMotion = useReducedMotion();
     const { data: conversations, isLoading, isError, refetch } = useConversations();
     const rename = useRenameConversation();
     const archive = useArchiveConversation();
@@ -47,6 +45,18 @@ export function ConversationList({
 
     const active = (conversations ?? []).filter((c) => !c.archived);
     const archived = (conversations ?? []).filter((c) => c.archived);
+    const conversationItem = (c: (typeof active)[number]) => (
+        <ConversationListItem
+            key={c.id}
+            conversation={c}
+            active={c.id === activeConversationId}
+            onSelect={() => onSelect(c.id)}
+            onRename={(title) => rename.mutate({ id: c.id, title })}
+            onArchive={(archived) => archive.mutate({ id: c.id, archived })}
+            onDelete={() => del.mutate({ id: c.id, title: c.title?.trim() || "conversation" })}
+            onToggleLearn={learnSwitch ? (learn) => setLearn.mutate({ id: c.id, learn }) : undefined}
+        />
+    );
 
     return (
         <OverlayPanel label="Saved conversations" title="Conversations" onClose={onClose} autoFocusBack={false} action={(
@@ -107,18 +117,7 @@ export function ConversationList({
                         </div>
                     ) : (
                         <div className="space-y-0.5 p-1">
-                            {active.map((c) => (
-                                <ConversationListItem
-                                    key={c.id}
-                                    conversation={c}
-                                    active={c.id === activeConversationId}
-                                    onSelect={() => onSelect(c.id)}
-                                    onRename={(title) => rename.mutate({ id: c.id, title })}
-                                    onArchive={(archived) => archive.mutate({ id: c.id, archived })}
-                                    onDelete={() => del.mutate({ id: c.id, title: c.title?.trim() || "conversation" })}
-                                    onToggleLearn={learnSwitch ? (learn) => setLearn.mutate({ id: c.id, learn }) : undefined}
-                                />
-                            ))}
+                            {active.map(conversationItem)}
 
                             {archived.length > 0 ? (
                                 <div className="pt-1">
@@ -134,35 +133,12 @@ export function ConversationList({
                                         )}
                                         Show archived ({archived.length})
                                     </button>
-                                    <AnimatePresence initial={false}>
-                                        {showArchived ? (
-                                            <motion.div
-                                                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                                                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, height: "auto" }}
-                                                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                                                transition={{ duration: 0.3, ease: EASE_OUT_EXPO }}
-                                                className="space-y-0.5 overflow-hidden"
-                                            >
-                                                {archived.map((c) => (
-                                                    <ConversationListItem
-                                                        key={c.id}
-                                                        conversation={c}
-                                                        active={c.id === activeConversationId}
-                                                        onSelect={() => onSelect(c.id)}
-                                                        onRename={(title) => rename.mutate({ id: c.id, title })}
-                                                        onArchive={(archived) =>
-                                                            archive.mutate({ id: c.id, archived })
-                                                        }
-                                                        onDelete={() => del.mutate({ id: c.id, title: c.title?.trim() || "conversation" })}
-                                                        onToggleLearn={learnSwitch ? (learn) => setLearn.mutate({ id: c.id, learn }) : undefined}
-                                                    />
-                                                ))}
-                                                <div className="flex justify-center px-2 pb-1 pt-3">
-                                                    <ClearArchiveButton />
-                                                </div>
-                                            </motion.div>
-                                        ) : null}
-                                    </AnimatePresence>
+                                    <Reveal open={showArchived} className="space-y-0.5">
+                                        {archived.map(conversationItem)}
+                                        <div className="flex justify-center px-2 pb-1 pt-3">
+                                            <ClearArchiveButton />
+                                        </div>
+                                    </Reveal>
                                 </div>
                             ) : null}
                         </div>

@@ -1,0 +1,26 @@
+{
+  "path": [
+    "apps",
+    "packages"
+  ],
+  "format": [
+    "typescript",
+    "tsx",
+    "javascript",
+    "jsx"
+  ],
+  "minTokens": 35,
+  "mode": "weak",
+  "gitignore": true,
+  "ignore": [
+    "**/tests/**",
+    "**/*.d.ts",
+    "apps/backend/drizzle/**",
+    "**/node_modules/**"
+  ],
+  "reporters": [
+    "consoleFull"
+  ],
+  "absolute": false,
+  "threshold": 0.7
+}

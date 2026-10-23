@@ -24,3 +24,10 @@ export const slideVariants = {
     center: { x: 0, scale: 1, opacity: 1 },
     exit: ({ direction, distance, zoom = 0 }: SlideCustom) => ({ x: direction > 0 ? -distance : distance, scale: 1 + zoom * ZOOM_STEP, opacity: 0 }),
 };
+
+/** A chat bubble arriving: rises 10px and fades in (fade only under reduced motion). Spread on a `motion` element. */
+export const bubbleIn = (reduced: boolean | null) => ({
+    initial: reduced ? { opacity: 0 } : { opacity: 0, y: 10 },
+    animate: reduced ? { opacity: 1 } : { opacity: 1, y: 0 },
+    transition: { duration: 0.26, ease: EASE_OUT_EXPO },
+});

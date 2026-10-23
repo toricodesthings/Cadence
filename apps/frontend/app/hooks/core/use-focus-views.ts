@@ -42,69 +42,34 @@ export function useFocusViews() {
     return query;
 }
 
-export function useCreateFocusView() {
+/** Writes a saved view, then refetches the list. */
+function useFocusViewWrite<TInput, TResult>(write: (client: ReturnType<typeof useApiClient>, input: TInput) => Promise<TResult>) {
     const client = useApiClient();
     const queryClient = useQueryClient();
     const { session } = useAuthState();
-
     return useMutation({
-        mutationFn: async (input: FocusViewInput) => {
-            const res = await client.api.settings["focus-views"].$post({
-                // "custom" is a FE-only source; it is never persisted (DB enum is
-                // preset|composed|manual), so map it to "manual" on write. The nlp
-                // definition types `states` as the loose `string[]`; the values are
-                // valid task states, so we narrow to the contract shape.
-                json: {
-                    ...input,
-                    source: input.source === "custom" ? "manual" : input.source,
-                    definition: input.definition as FocusViewDefinitionInput,
-                },
-            });
-            return unwrapResponse(res);
-        },
+        mutationFn: (input: TInput) => write(client, input),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.settings.focusViews(session?.user.id) });
         },
     });
 }
 
-export function useUpdateFocusView() {
-    const client = useApiClient();
-    const queryClient = useQueryClient();
-    const { session } = useAuthState();
+// "custom" is a FE-only source; it is never persisted (DB enum is preset|composed|manual), so it is written as
+// "manual". The nlp definition types `states` as the loose `string[]`; the values are valid task states, so it
+// narrows to the contract shape.
+const toWire = <T extends Partial<FocusViewInput>>(view: T) => ({
+    ...view,
+    source: view.source === "custom" ? "manual" as const : view.source,
+    definition: view.definition as FocusViewDefinitionInput,
+});
 
-    return useMutation({
-        mutationFn: async ({ id, ...patch }: FocusViewPatch) => {
-            const res = await client.api.settings["focus-views"][":id"].$patch({
-                param: { id },
-                json: {
-                    ...patch,
-                    source: patch.source === "custom" ? "manual" : patch.source,
-                    definition: patch.definition as FocusViewDefinitionInput | undefined,
-                },
-            });
-            return unwrapResponse(res);
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.settings.focusViews(session?.user.id) });
-        },
-    });
-}
+export const useCreateFocusView = () =>
+    useFocusViewWrite(async (client, input: FocusViewInput) => unwrapResponse(await client.api.settings["focus-views"].$post({ json: toWire(input) })));
 
-export function useDeleteFocusView() {
-    const client = useApiClient();
-    const queryClient = useQueryClient();
-    const { session } = useAuthState();
+export const useUpdateFocusView = () =>
+    useFocusViewWrite(async (client, { id, ...patch }: FocusViewPatch) =>
+        unwrapResponse(await client.api.settings["focus-views"][":id"].$patch({ param: { id }, json: { ...toWire(patch), definition: patch.definition as FocusViewDefinitionInput | undefined } })));
 
-    return useMutation({
-        mutationFn: async (id: string) => {
-            const res = await client.api.settings["focus-views"][":id"].$delete({
-                param: { id },
-            });
-            return unwrapResponse(res);
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.settings.focusViews(session?.user.id) });
-        },
-    });
-}
+export const useDeleteFocusView = () =>
+    useFocusViewWrite(async (client, id: string) => unwrapResponse(await client.api.settings["focus-views"][":id"].$delete({ param: { id } })));

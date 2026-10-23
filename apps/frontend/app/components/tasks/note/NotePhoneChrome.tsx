@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import type { Editor } from "@tiptap/core";
 import { Keyboard, ChevronLeft } from "lucide-react";
 import { Code2, Bold, Italic, Strikethrough, ListTodo, List, ListOrdered, IndentDecrease, IndentIncrease, Slash, Link2, Table2, Minus, SquareCode, Quote, ChevronRight } from "lucide-react";
@@ -7,14 +7,14 @@ import { Reveal } from "../../shared/Reveal";
 import { MENU_ITEM } from "../../primitives/menu-styles";
 import { cn } from "../../../lib/utils";
 import { getNoteCommand, runNoteCommand, TEMPLATE_COMMANDS, type NoteCommandId } from "./note-commands";
-import { BLOCK_LABEL, useNoteToolbarState, type ToolbarState } from "./use-note-toolbar-state";
+import { BLOCK_LABEL, markPressed, useNoteToolbarState, type ToolbarState } from "./use-note-toolbar-state";
 import type { CSSProperties } from "react";
 
 const TONE = { "--segment-tone": "var(--accent-primary)" } as CSSProperties;
 /** Buttons here must never take focus: the editor keeps its caret, selection and keyboard. */
 const keep = { onMouseDown: (e: { preventDefault: () => void }) => e.preventDefault(), onPointerDown: (e: { preventDefault: () => void }) => e.preventDefault() };
 
-function StripButton({ label, pressed, disabled, onClick, children }: { label: string; pressed?: boolean | "mixed"; disabled?: boolean; onClick: () => void; children: ReactNode }) {
+function StripButton({ icon: Icon, label, pressed, disabled, onClick }: { icon: typeof Bold; label: string; pressed?: boolean | "mixed"; disabled?: boolean; onClick: () => void }) {
     return (
         <button
             type="button"
@@ -29,8 +29,25 @@ function StripButton({ label, pressed, disabled, onClick, children }: { label: s
                 pressed && SEGMENT_ACTIVE,
             )}
         >
-            {children}
+            <Icon size={18} aria-hidden="true" />
         </button>
+    );
+}
+
+const MARKS = [["bold", "Bold", Bold], ["italic", "Italic", Italic], ["strike", "Strikethrough", Strikethrough], ["code", "Code", Code2]] as const;
+
+/** Bold, italic and strikethrough (plus inline code with `code`), pressed when the selection carries them. */
+function MarkButtons({ state, run, code = false }: { state: ToolbarState; run: (id: NoteCommandId) => void; code?: boolean }) {
+    return (code ? MARKS : MARKS.slice(0, 3)).map(([id, label, icon]) => <StripButton key={id} icon={icon} label={label} pressed={markPressed(state[id])} onClick={() => run(id)} />);
+}
+
+/** Outdent and indent, live only inside a list. */
+function IndentButtons({ state, run }: { state: ToolbarState; run: (id: NoteCommandId) => void }) {
+    return (
+        <>
+            <StripButton icon={IndentDecrease} label="Outdent" disabled={!state.inList} onClick={() => run("outdent")} />
+            <StripButton icon={IndentIncrease} label="Indent" disabled={!state.inList} onClick={() => run("indent")} />
+        </>
     );
 }
 
@@ -43,7 +60,6 @@ const Divider = () => <span aria-hidden="true" className="mx-0.5 h-6 w-px shrink
 export function NoteQuickStrip({ editor, bottom, onSlash }: { editor: Editor | null; bottom: string; onSlash: () => void }) {
     const s = useNoteToolbarState(editor);
     const run = (id: NoteCommandId) => editor && runNoteCommand(editor, id);
-    const mark = (m: ToolbarState["bold"]) => (m === "mixed" ? "mixed" : m === "on");
     return (
         <div
             role="toolbar"
@@ -52,17 +68,14 @@ export function NoteQuickStrip({ editor, bottom, onSlash }: { editor: Editor | n
             style={{ bottom }}
             className="glass-surface fixed inset-x-2 z-[1] flex items-center gap-0.5 overflow-x-auto rounded-full px-1.5 py-1 [mask-image:linear-gradient(to_right,transparent,#000_14px,#000_calc(100%-14px),transparent)] scrollbar-hide"
         >
-            <StripButton label="Commands" onClick={onSlash}><Slash size={18} aria-hidden="true" /></StripButton>
-            <StripButton label="Bold" pressed={mark(s.bold)} onClick={() => run("bold")}><Bold size={18} aria-hidden="true" /></StripButton>
-            <StripButton label="Italic" pressed={mark(s.italic)} onClick={() => run("italic")}><Italic size={18} aria-hidden="true" /></StripButton>
-            <StripButton label="Strikethrough" pressed={mark(s.strike)} onClick={() => run("strike")}><Strikethrough size={18} aria-hidden="true" /></StripButton>
+            <StripButton icon={Slash} label="Commands" onClick={onSlash} />
+            <MarkButtons state={s} run={run} />
             <Divider />
-            <StripButton label="Checklist" pressed={s.task} onClick={() => run("checklist")}><ListTodo size={18} aria-hidden="true" /></StripButton>
-            <StripButton label="Bullets" pressed={s.bullet} onClick={() => run("bullet-list")}><List size={18} aria-hidden="true" /></StripButton>
-            <StripButton label="Numbers" pressed={s.ordered} onClick={() => run("numbered-list")}><ListOrdered size={18} aria-hidden="true" /></StripButton>
+            <StripButton icon={ListTodo} label="Checklist" pressed={s.task} onClick={() => run("checklist")} />
+            <StripButton icon={List} label="Bullets" pressed={s.bullet} onClick={() => run("bullet-list")} />
+            <StripButton icon={ListOrdered} label="Numbers" pressed={s.ordered} onClick={() => run("numbered-list")} />
             <Divider />
-            <StripButton label="Outdent" disabled={!s.inList} onClick={() => run("outdent")}><IndentDecrease size={18} aria-hidden="true" /></StripButton>
-            <StripButton label="Indent" disabled={!s.inList} onClick={() => run("indent")}><IndentIncrease size={18} aria-hidden="true" /></StripButton>
+            <IndentButtons state={s} run={run} />
         </div>
     );
 }
@@ -103,7 +116,6 @@ export function NotePhonePanel({
     const [templates, setTemplates] = useState(false);
     const s = useNoteToolbarState(editor);
     const run = (id: NoteCommandId) => editor && runNoteCommand(editor, id);
-    const mark = (m: ToolbarState["bold"]) => (m === "mixed" ? "mixed" : m === "on");
 
     return (
         <div
@@ -140,10 +152,7 @@ export function NotePhonePanel({
                         </Reveal>
                         <div className="my-1 h-px bg-twilight-border" />
                         <div className="flex items-center justify-between gap-1 px-1 py-1">
-                            <StripButton label="Bold" pressed={mark(s.bold)} onClick={() => run("bold")}><Bold size={18} aria-hidden="true" /></StripButton>
-                            <StripButton label="Italic" pressed={mark(s.italic)} onClick={() => run("italic")}><Italic size={18} aria-hidden="true" /></StripButton>
-                            <StripButton label="Strikethrough" pressed={mark(s.strike)} onClick={() => run("strike")}><Strikethrough size={18} aria-hidden="true" /></StripButton>
-                            <StripButton label="Code" pressed={mark(s.code)} onClick={() => run("code")}><Code2 size={18} aria-hidden="true" /></StripButton>
+                            <MarkButtons state={s} run={run} code />
                         </div>
                         <PanelRow icon={getNoteCommand("clear-formatting").icon} label="Clear formatting" onClick={() => run("clear-formatting")} />
                     </>
@@ -156,8 +165,7 @@ export function NotePhonePanel({
                         <PanelRow icon={Quote} label="Quote" pressed={s.block === "quote"} onClick={() => run("quote")} />
                         <PanelRow icon={SquareCode} label="Code block" pressed={s.block === "code-block"} onClick={() => run("code-block")} />
                         <div className="flex gap-1 px-1 pt-1">
-                            <StripButton label="Outdent" disabled={!s.inList} onClick={() => run("outdent")}><IndentDecrease size={18} aria-hidden="true" /></StripButton>
-                            <StripButton label="Indent" disabled={!s.inList} onClick={() => run("indent")}><IndentIncrease size={18} aria-hidden="true" /></StripButton>
+                            <IndentButtons state={s} run={run} />
                         </div>
                     </>
                 )}

@@ -35,22 +35,25 @@ export function prefetchSavedWorkspace(): void {
     early ??= readSaved().catch(() => undefined);
 }
 
+/** Drops this device's saved copy (the desktop store, or IndexedDB). */
+async function deleteSaved() {
+    if (IS_DESKTOP_RUNTIME) {
+        const store = await getNativeStore("cadence_cache");
+        if (store) {
+            await store.del(IDB_KEY);
+            return;
+        }
+    }
+    await del(IDB_KEY);
+}
+
 /**
  * Settings' repair: drop this device's saved copy of server data and reload, so everything is
  * fetched fresh. Unsynced changes and note drafts live in the WAL, which this never touches.
  */
 export async function repairWorkspaceCache(): Promise<void> {
     frozen = true;
-    await serialize(async () => {
-        if (IS_DESKTOP_RUNTIME) {
-            const store = await getNativeStore("cadence_cache");
-            if (store) {
-                await store.del(IDB_KEY);
-                return;
-            }
-        }
-        await del(IDB_KEY);
-    });
+    await serialize(deleteSaved);
     window.location.reload();
 }
 
@@ -132,16 +135,7 @@ export function createIDBPersister(): ManagedPersister {
             latest = undefined;
             pending?.resolve();
             pending = undefined;
-            await serialize(async () => {
-                if (IS_DESKTOP_RUNTIME) {
-                    const store = await getNativeStore("cadence_cache");
-                    if (store) {
-                        await store.del(IDB_KEY);
-                        return;
-                    }
-                }
-                await del(IDB_KEY);
-            });
+            await serialize(deleteSaved);
         },
     };
 }

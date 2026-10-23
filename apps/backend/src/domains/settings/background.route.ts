@@ -18,7 +18,7 @@ import { withCallerRls } from "../../platform/caller-rls";
 import { apiValidator } from "../../platform/validation";
 import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
-import { sanitizeStillWebp } from "../../platform/webp";
+import { requireBucket, sanitizeStillWebp, webpResponse } from "../../platform/webp";
 import {
     BACKGROUND_CACHE_CONTROL,
     BACKGROUND_MAX_DIMENSION,
@@ -39,13 +39,6 @@ import { normalizeSettings } from "./settings.route";
 const UPLOAD_BODY_SLACK = 64 * 1024;
 
 const uploadFormSchema = backgroundUploadMetaSchema.extend({ file: z.instanceof(File) });
-
-function requireBucket(env: Env): R2Bucket {
-    if (!env.USER_ASSETS) {
-        throw new AppError(503, "STORAGE_UNAVAILABLE", "Background storage is not available right now", true);
-    }
-    return env.USER_ASSETS;
-}
 
 async function readSettings(tx: Tx, userId: string): Promise<SettingsView> {
     const [user] = await tx
@@ -97,7 +90,7 @@ export const backgroundRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
                 maxDimension: BACKGROUND_MAX_DIMENSION,
                 label: "Background image",
             });
-            const bucket = requireBucket(c.env);
+            const bucket = requireBucket(c.env, "Background");
             const idempotencyKey = getIdempotencyKey(c);
     
             const replayed = await withCallerRls(c, async (tx) =>
@@ -155,24 +148,17 @@ export const backgroundRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
     .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const bucket = requireBucket(c.env);
+        const bucket = requireBucket(c.env, "Background");
 
         // The key is built from the caller's own user id, so one user can never read another's photo.
         const object = await bucket.get(backgroundObjectKey(userId, id), { onlyIf: c.req.raw.headers });
         throwIfNotFound(object, "Background");
 
-        const headers = {
-            "Content-Type": "image/webp",
-            "Cache-Control": BACKGROUND_CACHE_CONTROL,
-            ETag: object.httpEtag,
-            "Content-Security-Policy": "default-src 'none'; sandbox",
-        };
-        if (!("body" in object)) return c.body(null, 304, headers);
-        return c.body(object.body, 200, headers);
+        return webpResponse(object, BACKGROUND_CACHE_CONTROL);
     })
     .delete("/", async (c) => {
         const userId = c.get("userId");
-        const bucket = requireBucket(c.env);
+        const bucket = requireBucket(c.env, "Background");
 
         // Storage first: if it fails, settings still point at the photo and the user can retry.
         await deleteBackgrounds(bucket, userId);

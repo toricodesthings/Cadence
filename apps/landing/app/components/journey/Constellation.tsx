@@ -2,6 +2,7 @@ import { cssVars, n1 } from "~/lib/geometry";
 import { CONSTELLATION } from "~/lib/site";
 
 import { BoughSegment, mobileBoughSide, segmentHeight } from "./BoughSegment";
+import { ChapterWords } from "./Chapter";
 
 /*
  * The small things, done with care: a constellation chart (the game's, and the page's own vocabulary). Nine
@@ -95,14 +96,7 @@ export function Constellation() {
       style={cssVars({ "--h": segmentHeight("constellation") })}
     >
       <BoughSegment name="constellation" />
-      <div className="chapter-words">
-        <p className="chapter-eyebrow reveal" style={cssVars({ "--i": 0 })}>
-          {CONSTELLATION.eyebrow}
-        </p>
-        <h3 id="constellation-title" className="chapter-title reveal font-display" style={cssVars({ "--i": 1 })}>
-          {CONSTELLATION.title}
-        </h3>
-      </div>
+      <ChapterWords copy={CONSTELLATION} titleId="constellation-title" />
 
       <div className="chapter-panel constellation-chart">
         {CHARTS.map(({ name, height, stars, dust, companions }) => (

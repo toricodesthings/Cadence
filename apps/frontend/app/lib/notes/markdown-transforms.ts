@@ -30,117 +30,65 @@ export function applyMarkdownAction(
   action: MarkdownAction,
 ): TransformResult {
   const selected = value.slice(start, end);
-  let nextValue = value;
-  let nextStart = start;
-  let nextEnd = end;
+  /** Replaces the selection with `text`, selecting `from`..`to` within it. */
+  const insert = (text: string, from: number, to: number): TransformResult => ({
+    value: value.slice(0, start) + text + value.slice(end),
+    selectionStart: start + from,
+    selectionEnd: start + to,
+  });
+  /** Drops the `n`-character marks either side of the selection, keeping it selected. */
+  const unwrap = (n: number): TransformResult => ({
+    value: value.slice(0, start - n) + selected + value.slice(end + n),
+    selectionStart: start - n,
+    selectionEnd: start - n + selected.length,
+  });
+  /** Wraps the selection (or `placeholder`) in `mark`, selecting the words inside. */
+  const wrap = (mark: string, placeholder: string) => {
+    const inner = selected || placeholder;
+    return insert(mark + inner + mark, mark.length, mark.length + inner.length);
+  };
+  /** Prefixes each selected line (or one `placeholder` line), selecting from after the first prefix. */
+  const lines = (prefix: (i: number) => string, placeholder: string) => {
+    const text = selected ? selected.split("\n").map((line, i) => prefix(i) + line).join("\n") : prefix(0) + placeholder;
+    return insert(text, prefix(0).length, text.length);
+  };
 
   switch (action) {
-    case "bold": {
+    case "bold":
       // Toggle: unwrap if already bold
-      if (start >= 2 && value.slice(start - 2, start) === "**" && value.slice(end, end + 2) === "**") {
-        nextValue = value.slice(0, start - 2) + selected + value.slice(end + 2);
-        nextStart = start - 2;
-        nextEnd = nextStart + selected.length;
-      } else {
-        const wrapped = `**${selected || "bold"}**`;
-        nextValue = `${value.slice(0, start)}${wrapped}${value.slice(end)}`;
-        nextStart = start + 2;
-        nextEnd = start + wrapped.length - 2;
-      }
-      break;
-    }
+      return start >= 2 && value.slice(start - 2, start) === "**" && value.slice(end, end + 2) === "**" ? unwrap(2) : wrap("**", "bold");
     case "italic": {
       // Toggle: unwrap if already italic (but not bold **)
       const charBefore = start >= 1 ? value[start - 1] : "";
       const charAfter = end < value.length ? value[end] : "";
       const twoBefore = start >= 2 ? value[start - 2] : "";
       const twoAfter = end + 1 < value.length ? value[end + 1] : "";
-      if (charBefore === "*" && charAfter === "*" && twoBefore !== "*" && twoAfter !== "*") {
-        nextValue = value.slice(0, start - 1) + selected + value.slice(end + 1);
-        nextStart = start - 1;
-        nextEnd = nextStart + selected.length;
-      } else {
-        const wrapped = `*${selected || "italic"}*`;
-        nextValue = `${value.slice(0, start)}${wrapped}${value.slice(end)}`;
-        nextStart = start + 1;
-        nextEnd = start + wrapped.length - 1;
-      }
-      break;
+      return charBefore === "*" && charAfter === "*" && twoBefore !== "*" && twoAfter !== "*" ? unwrap(1) : wrap("*", "italic");
     }
-    case "heading": {
-      const prefix = selected ? `## ${selected}` : "## Heading";
-      nextValue = `${value.slice(0, start)}${prefix}${value.slice(end)}`;
-      nextStart = start + 3;
-      nextEnd = start + prefix.length;
-      break;
-    }
-    case "bullet-list": {
-      const prefix = selected
-        ? selected.split("\n").map((line) => `- ${line}`).join("\n")
-        : "- List item";
-      nextValue = `${value.slice(0, start)}${prefix}${value.slice(end)}`;
-      nextStart = start + 2;
-      nextEnd = start + prefix.length;
-      break;
-    }
-    case "numbered-list": {
-      const prefix = selected
-        ? selected.split("\n").map((line, i) => `${i + 1}. ${line}`).join("\n")
-        : "1. List item";
-      nextValue = `${value.slice(0, start)}${prefix}${value.slice(end)}`;
-      nextStart = start + 3;
-      nextEnd = start + prefix.length;
-      break;
-    }
-    case "checklist": {
-      const prefix = selected
-        ? selected.split("\n").map((line) => `- [ ] ${line}`).join("\n")
-        : "- [ ] Checklist item";
-      nextValue = `${value.slice(0, start)}${prefix}${value.slice(end)}`;
-      nextStart = start + 6;
-      nextEnd = start + prefix.length;
-      break;
-    }
-    case "link": {
-      const prefix = `[${selected || "Link text"}](https://)`;
-      nextValue = `${value.slice(0, start)}${prefix}${value.slice(end)}`;
-      nextStart = start + 1;
-      nextEnd = start + (selected ? selected.length + 1 : 10);
-      break;
-    }
-    case "code": {
+    case "code":
       // Toggle: unwrap if already in backticks
-      if (start >= 1 && value[start - 1] === "`" && end < value.length && value[end] === "`") {
-        nextValue = value.slice(0, start - 1) + selected + value.slice(end + 1);
-        nextStart = start - 1;
-        nextEnd = nextStart + selected.length;
-      } else {
-        const prefix = selected ? `\`${selected}\`` : "`code`";
-        nextValue = `${value.slice(0, start)}${prefix}${value.slice(end)}`;
-        nextStart = start + 1;
-        nextEnd = start + prefix.length - 1;
-      }
-      break;
+      return start >= 1 && value[start - 1] === "`" && end < value.length && value[end] === "`" ? unwrap(1) : wrap("`", "code");
+    case "heading": {
+      const text = `## ${selected || "Heading"}`;
+      return insert(text, 3, text.length);
     }
-    case "quote": {
-      const prefix = selected
-        ? selected.split("\n").map((line) => `> ${line}`).join("\n")
-        : "> Quote";
-      nextValue = `${value.slice(0, start)}${prefix}${value.slice(end)}`;
-      nextStart = start + 2;
-      nextEnd = start + prefix.length;
-      break;
+    case "bullet-list":
+      return lines(() => "- ", "List item");
+    case "numbered-list":
+      return lines((i) => `${i + 1}. `, "List item");
+    case "checklist":
+      return lines(() => "- [ ] ", "Checklist item");
+    case "quote":
+      return lines(() => "> ", "Quote");
+    case "link": {
+      const inner = selected || "Link text";
+      return insert(`[${inner}](https://)`, 1, 1 + inner.length);
     }
     case "divider": {
-      const prefix = `${start > 0 ? "\n" : ""}\n---\n`;
-      nextValue = `${value.slice(0, start)}${prefix}${value.slice(end)}`;
-      nextStart = start + prefix.length;
-      nextEnd = nextStart;
-      break;
+      const text = `${start > 0 ? "\n" : ""}\n---\n`;
+      return insert(text, text.length, text.length);
     }
   }
-
-  return { value: nextValue, selectionStart: nextStart, selectionEnd: nextEnd };
 }
 
 /**

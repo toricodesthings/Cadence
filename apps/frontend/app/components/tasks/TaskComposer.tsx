@@ -7,7 +7,7 @@ import { FIELD_LABEL } from "./task-choice-options";
 import { ComposerEffortRow, EffortField, PriorityField, TimeRangeFields } from "./TaskWeightFields";
 import { useComposerEffort } from "../../hooks/tasks/use-composer-effort";
 import { QuickAddActionTray } from "./QuickAddActionTray";
-import { DraftRow } from "./DraftRow";
+import { DraftRow, useDraftChoices } from "./DraftRow";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
@@ -80,9 +80,8 @@ export function useTaskComposer({
     const [title, setTitle] = useState("");
     const [notes, setNotes] = useState("");
     const [priority, setPriority] = useState<TaskPriority>(0);
-    const [dismissedEntityIds, setDismissedEntityIds] = useState<string[]>([]);
-    const [acceptedEntityIds, setAcceptedEntityIds] = useState<string[]>([]);
-    const [literal, setLiteral] = useState(false);
+    const choices = useDraftChoices();
+    const { dismissed: dismissedEntityIds, accepted: acceptedEntityIds, literal } = choices;
     const [manualProject, setManualProject] = useState<string | null | undefined>(undefined);
     const [manualTags, setManualTags] = useState<string[] | undefined>(undefined);
 
@@ -124,7 +123,7 @@ export function useTaskComposer({
     const { effort } = effortChoice;
 
     const reset = () => {
-        setTitle(""); setNotes(""); setPriority(0); effortChoice.reset(); setManualProject(undefined); setManualTags(undefined); setDismissedEntityIds([]); setAcceptedEntityIds([]); setLiteral(false);
+        setTitle(""); setNotes(""); setPriority(0); effortChoice.reset(); setManualProject(undefined); setManualTags(undefined); choices.reset();
         typed.reset();
     };
 
@@ -215,10 +214,7 @@ export function useTaskComposer({
                         applied={nlp.applied}
                         suggestions={nlp.suggestions}
                         shownElsewhere={["due_date", "scheduled_start", "project", "tag"]}
-                        literal={literal}
-                        onDismiss={(id) => setDismissedEntityIds((prev) => [...prev, id])}
-                        onAccept={(id) => setAcceptedEntityIds((prev) => [...prev, id])}
-                        onLiteral={setLiteral}
+                        {...choices.row}
                     />
                     <ComposerEffortRow choice={effortChoice} />
                     <QuickAddActionTray

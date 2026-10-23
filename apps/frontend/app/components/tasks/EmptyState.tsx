@@ -1,7 +1,7 @@
 import { Feather, Plus, CalendarRange, CalendarClock, Inbox, CheckCircle2, Flame, Archive } from "lucide-react";
 import { useNavigate } from "react-router";
 
-type EmptyStateVariant = "today" | "upcoming" | "holding" | "completed" | "schedule" | "routines" | "routines-archived" | "default";
+export type EmptyStateVariant = "today" | "upcoming" | "holding" | "completed" | "schedule" | "routines" | "routines-archived" | "default";
 
 interface EmptyStateProps {
     variant?: EmptyStateVariant;

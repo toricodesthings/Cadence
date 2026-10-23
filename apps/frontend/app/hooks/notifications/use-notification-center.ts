@@ -72,6 +72,11 @@ function writePersistedState() {
     }
 }
 
+/** The synced state when the person acts on a notification at `now`. */
+function actedOn(actionTaken: UpsertNotificationState["actionTaken"], now: string, extra: { dismissedAt?: string; deferredUntil?: string } = {}) {
+    return { firstPresentedAt: null, lastPresentedAt: now, dismissedAt: null, deferredUntil: null, actionTaken, ...extra };
+}
+
 function toNotificationRecord(notification: AppNotification): { objectType: "task" | "habit" | "event"; objectId: string; triggerId: string } | null {
     if (!notification.entityId) return null;
 
@@ -279,13 +284,7 @@ export function useNotificationCenter() {
         emitChange();
         const notification = notifications.find((item) => item.id === id);
         if (notification) {
-            void syncNotificationState(notification, {
-                firstPresentedAt: null,
-                lastPresentedAt: new Date().toISOString(),
-                dismissedAt: null,
-                deferredUntil: null,
-                actionTaken: read ? "read" : "unread",
-            });
+            void syncNotificationState(notification, actedOn(read ? "read" : "unread", new Date().toISOString()));
         }
     }, [notifications, syncNotificationState]);
 
@@ -295,13 +294,7 @@ export function useNotificationCenter() {
     const markAllRead = useCallback(() => {
         for (const n of notifications) {
             readIds.add(n.id);
-            void syncNotificationState(n, {
-                firstPresentedAt: null,
-                lastPresentedAt: new Date().toISOString(),
-                dismissedAt: null,
-                deferredUntil: null,
-                actionTaken: "read",
-            });
+            void syncNotificationState(n, actedOn("read", new Date().toISOString()));
         }
         emitChange();
     }, [notifications, syncNotificationState]);
@@ -313,13 +306,7 @@ export function useNotificationCenter() {
             if (!selected.has(notification.id)) continue;
             trackUsageEvent("reminder.dismissed");
             dismissedIds.add(notification.id);
-            void syncNotificationState(notification, {
-                firstPresentedAt: null,
-                lastPresentedAt: nowIso,
-                dismissedAt: nowIso,
-                deferredUntil: null,
-                actionTaken: "dismissed",
-            });
+            void syncNotificationState(notification, actedOn("dismissed", nowIso, { dismissedAt: nowIso }));
         }
         emitChange();
     }, [notifications, syncNotificationState]);
@@ -334,13 +321,7 @@ export function useNotificationCenter() {
         emitChange();
         const notification = notifications.find((item) => item.id === id);
         if (notification) {
-            void syncNotificationState(notification, {
-                firstPresentedAt: null,
-                lastPresentedAt: new Date().toISOString(),
-                dismissedAt: null,
-                deferredUntil: until,
-                actionTaken: "deferred",
-            });
+            void syncNotificationState(notification, actedOn("deferred", new Date().toISOString(), { deferredUntil: until }));
         }
     }, [notifications, syncNotificationState, prefs]);
 

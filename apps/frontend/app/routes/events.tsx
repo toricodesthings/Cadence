@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { ArrowDownAZ, ArrowUpDown, Bell, CalendarDays, CalendarHeart, CalendarPlus, Check, EllipsisVertical, Eye, LayoutGrid, LayoutList, Timer, type LucideIcon } from "lucide-react";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import { EventCard } from "../components/events/EventCard";
+import { EventCard, type EventActions } from "../components/events/EventCard";
 import { EventList } from "../components/events/EventList";
 import { ClaimHeaderMenu, LayoutScaleMenuRow } from "../components/layout/LayoutScaleMenu";
 import { HEADER_ICON_BUTTON } from "../components/layout/PageHeader";
@@ -153,7 +153,7 @@ function EventsIntro({ compact }: { compact: boolean }) {
     );
 }
 
-type EventsBodyProps = {
+type EventsBodyProps = EventActions & {
     events: ReturnType<typeof sortPersonalEventViewModels>;
     view: PersonalEventView;
     sort: React.ComponentProps<typeof EventList>["sort"];
@@ -161,11 +161,6 @@ type EventsBodyProps = {
     stacked: boolean;
     selectedEventId: string | null;
     onAdd: () => void;
-    onOpen: (event: PersonalEvent) => void;
-    onEdit: (event: PersonalEvent) => void;
-    onDelete: (event: PersonalEvent) => void;
-    onToggleReminder: (event: PersonalEvent) => void;
-    onOpenInSchedule: (event: PersonalEvent) => void;
 };
 
 /** The events as a list or as cards; the first-event invitation when there are none. */

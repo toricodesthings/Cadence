@@ -17,8 +17,8 @@ import {
     pgPolicy,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { timestamptz, rlsUsing } from "./columns";
-import { memoryKindEnum, memorySourceEnum, memoryConfidenceEnum, memoryStatusEnum, memorySignalKindEnum, aiMessageRoleEnum, aiMessageStatusEnum, users, tasks, habits } from "./core";
+import { createdAt, timestamptz, rlsUsing } from "./columns";
+import { memoryKindEnum, memorySourceEnum, memoryConfidenceEnum, memoryStatusEnum, memorySignalKindEnum, aiMessageRoleEnum, aiMessageStatusEnum, ownerId, tasks, habits } from "./core";
 
 // 3. AI memory: what the assistant remembers about the person (domains/ai/memory).
 // A forgotten row keeps only a topic label (and its embedding) so extraction can drop a repeat.
@@ -27,7 +27,7 @@ const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
 export const aiMemories = pgTable('ai_memories', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     kind: memoryKindEnum('kind').notNull(),
     content: text('content').notNull(),                           // plain text, 300 chars at most, any date written in
     value: jsonb('value').$type<Record<string, unknown>>(),       // typed only where code computes with it (constraint, pattern, duration, alias)
@@ -48,7 +48,7 @@ export const aiMemories = pgTable('ai_memories', {
     sourceConversationId: uuid('source_conversation_id')
         .references(() => aiConversations.id, { onDelete: 'set null' }),
     sourceMessageId: text('source_message_id'),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
     updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
 }, (table) => {
     return {
@@ -69,7 +69,7 @@ export const aiMemories = pgTable('ai_memories', {
 // pruned after 90 days. A bucket is a coarse label ("tuesday|early"), a subject the thing's short name.
 export const aiMemorySignals = pgTable('ai_memory_signals', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     kind: memorySignalKindEnum('kind').notNull(),
     on: date('on', { mode: 'string' }).notNull(),                 // LocalDate in the person's zone
     bucket: text('bucket').notNull(),
@@ -78,7 +78,7 @@ export const aiMemorySignals = pgTable('ai_memory_signals', {
     // Reserved for routine reports and reschedule signals (0.37.0); duration reports moved to duration_reports.
     taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'set null' }),
     habitId: uuid('habit_id').references(() => habits.id, { onDelete: 'cascade' }),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
 }, (table) => ({
     userKindIdx: index('ai_memory_signals_user_kind_idx').on(table.userId, table.kind, table.on),
     rlsPolicy: pgPolicy('ai_memory_signals_owner_access', { as: 'permissive', for: 'all', using: rlsUsing, withCheck: rlsUsing }),
@@ -91,7 +91,7 @@ export const aiMemorySignals = pgTable('ai_memory_signals', {
 // window ends.
 export const durationReports = pgTable('duration_reports', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),                 // exactly one of task / habit
     completedAt: timestamptz('completed_at'),                     // a task's completion; null for a routine
     habitId: uuid('habit_id').references(() => habits.id, { onDelete: 'cascade' }),
@@ -105,7 +105,7 @@ export const durationReports = pgTable('duration_reports', {
     groupKey: text('group_key').notNull(),                        // durationGroup(title) or series:<task_or_habit_id>
     saidOn: date('said_on', { mode: 'string' }).notNull(),        // LocalDate in the person's zone when last answered
     forgottenAt: timestamptz('forgotten_at'),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
     updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
 }, (table) => ({
     completionUnique: unique('duration_reports_task_completed_unique').on(table.taskId, table.completedAt),
@@ -124,7 +124,7 @@ export const durationReports = pgTable('duration_reports', {
 // (declined) or the offered action done (chosen) on a planning offer. Forget on the pattern hides its rows until Undo ends.
 export const planningRecords = pgTable('planning_records', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
     kind: text('kind').notNull(),                                 // slot | steps | later
     projectId: uuid('project_id'),                                // the task's list at the time (context for slot preference); no FK
@@ -135,7 +135,7 @@ export const planningRecords = pgTable('planning_records', {
     fingerprint: text('fingerprint'),                             // steps / later: hash of what Not now was said about (title, steps, waiting on)
     saidOn: date('said_on', { mode: 'string' }).notNull(),        // LocalDate in the person's zone
     forgottenAt: timestamptz('forgotten_at'),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
 }, (table) => ({
     userKindIdx: index('planning_records_user_kind_idx').on(table.userId, table.kind, table.saidOn.desc()),
     taskIdx: index('planning_records_task_idx').on(table.taskId),
@@ -147,7 +147,7 @@ export const planningRecords = pgTable('planning_records', {
 // 3b'. Which lines of a task note memory has already read, so a save is learned from by its changed text only
 // (the note itself is never copied). Full only.
 export const aiMemoryNotes = pgTable('ai_memory_notes', {
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }).notNull(),
     lineHashes: text('line_hashes').array().notNull(),
     readAt: timestamptz('read_at').default(sql`now()`).notNull(),
@@ -159,7 +159,7 @@ export const aiMemoryNotes = pgTable('ai_memory_notes', {
 // 3c. AI Conversations — one row per chat thread (owner RLS). See docs/ai_upgrade/08.
 export const aiConversations = pgTable('ai_conversations', {
     id: uuid('id').defaultRandom().primaryKey(),                 // = chatId used by useChat
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     title: text('title'),                                        // AI-generated short title; null until set
     model: text('model'),                                        // model id used for the thread
     lastMessageAt: timestamptz('last_message_at'),
@@ -174,7 +174,7 @@ export const aiConversations = pgTable('ai_conversations', {
     // text, and drives the client's Retry affordance after reload (doc Update 4 §7.10).
     lastStreamId: text('last_stream_id'),
     lastStreamStatus: text('last_stream_status'),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
     updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
 }, (table) => ({
     userRecentIdx: index('ai_conversations_user_recent_idx').on(table.userId, table.lastMessageAt),
@@ -188,14 +188,14 @@ export const aiMessages = pgTable('ai_messages', {
     id: text('id').primaryKey(),                                 // SDK-generated message id (generateId)
     conversationId: uuid('conversation_id')
         .references(() => aiConversations.id, { onDelete: 'cascade' }).notNull(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     role: aiMessageRoleEnum('role').notNull(),
     parts: jsonb('parts').$type<unknown[]>().notNull(),         // the UIMessage.parts array (text, tool, data…)
     metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}).notNull(), // usage, model, timing
     status: aiMessageStatusEnum('status').default('complete').notNull(),
     orderIndex: doublePrecision('order_index').notNull(),       // stable fractional ordering within a thread
     searchText: text('search_text'),                            // the person's own words in a user message: what search_past_chats reads (never embedded)
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
 }, (table) => ({
     convoOrderIdx: index('ai_messages_convo_order_idx').on(table.conversationId, table.orderIndex),
     userIdIdx: index('ai_messages_user_id_idx').on(table.userId),
@@ -211,13 +211,13 @@ export const aiMessages = pgTable('ai_messages', {
 // image. conversation_id has no FK: the client mints it before the thread exists.
 export const aiImages = pgTable('ai_images', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     conversationId: uuid('conversation_id').notNull(),
     contentHash: text('content_hash').notNull(),                 // sha256 of the stored bytes; dedup only
     bytes: integer('bytes').notNull(),
     width: integer('width').notNull(),
     height: integer('height').notNull(),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
     sentAt: timestamptz('sent_at'),                              // null = attached, not sent yet
     lastUsedAt: timestamptz('last_used_at').default(sql`now()`).notNull(), // 30-day idle expiry
     diagnosticsSharedAt: timestamptz('diagnostics_shared_at'),   // the user shared it with an error report
@@ -233,12 +233,12 @@ export const aiImages = pgTable('ai_images', {
 // call checks, so Disconnect holds immediately (KV revocation is eventually consistent).
 export const mcpConnections = pgTable('mcp_connections', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: ownerId(),
     clientId: text('client_id').notNull(),
     clientName: text('client_name').notNull(),
     redirectUri: text('redirect_uri').notNull(),
     scopes: text('scopes').array().notNull(),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    createdAt: createdAt(),
     lastUsedAt: timestamptz('last_used_at'),
     revokedAt: timestamptz('revoked_at'),
 }, (table) => ({

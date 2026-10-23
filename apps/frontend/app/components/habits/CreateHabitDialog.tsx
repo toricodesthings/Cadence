@@ -8,7 +8,7 @@ import { useTags } from "../../hooks/tags/use-tags";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useNlpParse, type NlpParseOutput } from "../../hooks/use-nlp-parse";
 import type { DraftField } from "@cadence/domain/nlp-draft";
-import { DraftRow } from "../tasks/DraftRow";
+import { DraftRow, useDraftChoices } from "../tasks/DraftRow";
 import { CadencePicker } from "./CadencePicker";
 import { DayTimes } from "./DayTimes";
 import { ColourDot } from "../shared/ColourDot";
@@ -96,9 +96,8 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
     const [projectState, setProjectState] = useState<string | null>(null);
     const [tagState, setTagState] = useState<string[]>([]);
     const [touched, setTouched] = useState<ReadonlySet<DraftField>>(new Set());
-    const [dismissed, setDismissed] = useState<string[]>([]);
-    const [accepted, setAccepted] = useState<string[]>([]);
-    const [literal, setLiteral] = useState(false);
+    const choices = useDraftChoices();
+    const { dismissed, accepted, literal } = choices;
     const [steps, setSteps] = useState<RoutineStep[] | null>(null);
     // Two or more daily times (a routine at set times); one time stays the usual `targetTime`.
     const [manyTimes, setManyTimes] = useState<string[] | null>(null);
@@ -164,9 +163,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
         setManyTimes(null);
         setReminderTouched(false);
         setTouched(new Set());
-        setDismissed([]);
-        setAccepted([]);
-        setLiteral(false);
+        choices.reset();
     };
 
     const submit = async () => {
@@ -248,10 +245,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
                     applied={nlp.applied}
                     suggestions={nlp.suggestions}
                     shownElsewhere={["recurrence", "scheduled_start", "project", "tag"]}
-                    literal={literal}
-                    onDismiss={(id) => setDismissed((current) => [...current, id])}
-                    onAccept={(id) => setAccepted((current) => [...current, id])}
-                    onLiteral={setLiteral}
+                    {...choices.row}
                 />
                 {title.trim() ? null : (
                     <div className="flex flex-wrap gap-1.5" role="group" aria-label="Ideas">
