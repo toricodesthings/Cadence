@@ -115,6 +115,25 @@ describe("cues that are not instructions", () => {
         expect(of(run("Call Sam p2"), "priority")[0]?.normalizedValue).toBe(3);
     });
 
+    it("reads asap, trailing important and low cues (0.39.0)", () => {
+        const pr = (t: string) => of(run(t), "priority")[0]?.normalizedValue;
+        expect(pr("Call bank asap")).toBe(4);
+        expect(pr("Call bank, important")).toBe(3);
+        expect(pr("Call bank - top priority")).toBe(3);
+        expect(pr("Tidy desk no rush")).toBe(1);
+        expect(pr("Tidy desk, whenever")).toBe(1);
+        expect(run("Call bank, important").cleanedTitle).toBe("Call bank");
+    });
+
+    it("keeps important/low cues literal mid-sentence and negated", () => {
+        for (const t of ["Important email to Sam", "Call me whenever you can", "Not urgent, no rush"]) {
+            expect(of(run(t), "priority").map((e) => e.normalizedValue)).not.toContain(4);
+        }
+        expect(of(run("Important email to Sam"), "priority")).toHaveLength(0);
+        expect(of(run("Call me whenever you can"), "priority")).toHaveLength(0);
+        expect(run("Important email to Sam").cleanedTitle).toBe("Important email to Sam");
+    });
+
     it("keeps a negated waiting literal", () => {
         const r = run("Not waiting on Sam anymore");
         expect(of(r, "waiting_on")).toHaveLength(0);

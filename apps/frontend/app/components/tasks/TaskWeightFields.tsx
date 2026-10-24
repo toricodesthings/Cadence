@@ -70,11 +70,21 @@ export function EffortField({ value, onChange }: { value: EffortLevel; onChange:
  * "Suggested effort: High": a recommendation from the person's own earlier choices, never applied on its own.
  * One press uses a level; the separate × dismisses it for this draft. Saving without touching it leaves Effort unset.
  */
-export function EffortSuggestionRow({ suggestion, onUse, onDismiss }: { suggestion: EffortSuggestion; onUse: (level: 1 | 2 | 3) => void; onDismiss: () => void }) {
+export function EffortSuggestionRow({ suggestion, onUse, onDismiss, guess }: {
+    suggestion: EffortSuggestion;
+    onUse: (level: 1 | 2 | 3) => void;
+    onDismiss: () => void;
+    /** A saved task's guess: marked `~` (announced as a guess) with its own Why. */
+    guess?: { why?: string };
+}) {
     return (
         <div role="group" aria-label="Suggested effort" className="flex flex-wrap items-center gap-1.5 text-[11px] text-twilight-text-soft">
             <EFFORT_ICON size={12} aria-hidden="true" />
-            <span>Suggested effort: {suggestionLabel(suggestion)}</span>
+            {guess ? (
+                <span aria-label={`Effort guess: ${suggestionLabel(suggestion)}`}>~{suggestionLabel(suggestion)}</span>
+            ) : (
+                <span>Suggested effort: {suggestionLabel(suggestion)}</span>
+            )}
             {suggestionLevels(suggestion).map((level) => (
                 <button
                     key={level}
@@ -96,7 +106,9 @@ export function EffortSuggestionRow({ suggestion, onUse, onDismiss }: { suggesti
             </button>
             <details className="w-full">
                 <summary className="min-h-6 cursor-pointer text-twilight-text-muted">Why?</summary>
-                <p className="pt-1 text-twilight-text-muted">From the Effort you chose on {suggestion.support} similar task{suggestion.support === 1 ? "" : "s"}.</p>
+                <p className="pt-1 text-twilight-text-muted">
+                    {guess?.why ?? `From the Effort you chose on ${suggestion.support} similar task${suggestion.support === 1 ? "" : "s"}.`}
+                </p>
             </details>
         </div>
     );

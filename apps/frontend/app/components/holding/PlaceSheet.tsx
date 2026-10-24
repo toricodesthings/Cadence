@@ -22,6 +22,7 @@ import { proposalTime } from "../../lib/planning/day-plan";
 import { getUserZone, useToday } from "../../lib/utils/user-zone";
 import { dayLoads, dayMinutes, formatDayMinutes, lightestDay, loadWord } from "../../lib/utils/task/day-load";
 import { useDurationGuesser } from "../../hooks/ai/use-duration-guess";
+import { useEffortGuess } from "../../hooks/tasks/use-effort-guess";
 import { FindTimeDayContext, useFindTime } from "../../hooks/tasks/use-find-time";
 import { PlanningOfferProvider, usePlanningOffers } from "../../hooks/ai/use-planning-offers";
 import { PlanningOfferChip } from "../tasks/PlanningOfferChip";
@@ -37,7 +38,8 @@ export function useWeekLoad(start: LocalDate, enabled = true, days = 7) {
     const end = addDays(start, days - 1);
     const { data: tasks = [] } = useTasks({ state: "ACTIVE", range: { from: start, to: end }, enabled });
     const routines = useVirtualHabitTasks({ start, end, enabled });
-    const loads = dayLoads([...tasks, ...routines.filter((r) => r.state !== "COMPLETE")], start, days);
+    const guessOf = useEffortGuess();
+    const loads = dayLoads([...tasks, ...routines.filter((r) => r.state !== "COMPLETE")], start, days, (task) => guessOf(task)?.level);
     return { tasks, routines, loads, lightest: lightestDay(new Map([...loads].slice(0, 7)))! };
 }
 

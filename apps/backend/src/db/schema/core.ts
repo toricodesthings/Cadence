@@ -204,6 +204,11 @@ export const tasks = pgTable('tasks', {
     // later suggestions. NULL = unknown (the assistant, an import, a copy, or a value from before this was recorded).
     effortOrigin: text('effort_origin'),
     effortChosenAt: timestamptz('effort_chosen_at'),
+    // A guess is never `effort`. 'model' = the decision model's score from this person's own choices (`effort_guess` set);
+    // 'dismissed' = they said no, kept until the title or list changes. Cleared when `effort` is set or the title/list changes.
+    effortGuess: integer('effort_guess'),
+    effortGuessSource: text('effort_guess_source'),
+    effortGuessAt: timestamptz('effort_guess_at'),
     notBefore: date('hidden_until', { mode: 'string' }), // Hidden until this day
     linkedAppId: text('linked_app_id'), // The one app this task opens (a frontend catalogue id); never a URL
     linkedUrl: text('linked_url'), // Or the one website it opens: a normalised https URL (contracts `parseWebsite`)
@@ -229,6 +234,8 @@ export const tasks = pgTable('tasks', {
         completedAtCheck: check('tasks_completed_at_check', sql`(state = 'COMPLETE') = (completed_at IS NOT NULL)`),
         effortCheck: check('tasks_effort_check', sql`effort IS NULL OR effort BETWEEN 1 AND 3`),
         effortOriginCheck: check('tasks_effort_origin_check', sql`effort_origin IS NULL OR (effort IS NOT NULL AND effort_origin IN ('manual', 'accepted'))`),
+        effortGuessCheck: check('tasks_effort_guess_check', sql`effort_guess IS NULL OR effort_guess BETWEEN 1 AND 3`),
+        effortGuessSourceCheck: check('tasks_effort_guess_source_check', sql`effort_guess_source IS NULL OR effort_guess_source IN ('model', 'dismissed')`),
         // The evidence read: one account's own recorded choices, newest first.
         userEffortIdx: index('tasks_user_effort_idx').on(table.userId, table.effortChosenAt.desc()).where(sql`${table.effortOrigin} IS NOT NULL`),
         timedHasZoneCheck: check('tasks_timed_zone_check', sql`scheduled_start IS NULL OR zone IS NOT NULL`),

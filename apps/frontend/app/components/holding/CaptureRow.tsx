@@ -22,7 +22,7 @@ import { TagSignal } from "../tasks/TagSignal";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useSections } from "../../hooks/sections/use-sections";
-import { overridesOf, placementFor } from "../../lib/utils/task/suggested-placement";
+import { overridesOf, placementFor, priorityFromWords } from "../../lib/utils/task/suggested-placement";
 import { useAddTaskTag } from "../../hooks/tags/use-task-tags";
 import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
 import { TAG_DRAG_TYPE } from "../sidebar/TagBubble";
@@ -325,7 +325,7 @@ export function CaptureRow({
         ...(when ? placeFields(when) : NO_DAY),
         ...placedIn(),
         tagIds: overrides?.tagIds ?? parse.tagIds,
-        priority: parse.priority ?? 0,
+        priority: parse.priority ?? priorityFromWords(item!),
         durationEstimate: parse.durationMinutes,
         waitingOn: parse.waitingOn,
         reminderAt: parse.fields.reminderAt,

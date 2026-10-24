@@ -76,9 +76,11 @@ describe("S1: pre-sorted captures", () => {
         for (const id of [a.id, b.id]) expect(rows.find((i: any) => i.id === id).analysis?.suggestedPlacement).toBeUndefined();
     });
 
-    it("makes no call with no lists, with the switch off, or with no model set", async () => {
+    it("asks no placement question with no lists, and no call with the switch off or no model set", async () => {
         modelPicks("Work");
         await inbox("POST", "", { rawText: "no lists yet" });
+        expect(Object.keys(sent[0].questions)).toEqual(["priority"]);
+        sent = [];
         await roster();
         await apiAs(userId, "/settings", (await import("../../src/domains/settings/settings.route")).settingsRoutes)("PATCH", "", { tasks: { intelligence: { smartPlacement: false } } });
         await inbox("POST", "", { rawText: "switch is off" });
@@ -86,6 +88,26 @@ describe("S1: pre-sorted captures", () => {
         const off = apiAs(userId, "/inbox", inboxRoutes, { ...env, AI_DECISION_MODEL: "" });
         await off("POST", "", { rawText: "no model" });
         expect(sent).toHaveLength(0);
+    });
+
+    it("stores a priority the writer's words state, only when the parser found none, in the same call", async () => {
+        await roster();
+        vi.stubGlobal("fetch", vi.fn(async (_url: string, init: { body: string }) => {
+            const body = JSON.parse(init.body);
+            sent.push(body);
+            const criteria = body.questions.priority.criteria as Record<string, string>;
+            const key = Object.keys(criteria).find((k) => criteria[k].includes("important"));
+            return new Response(JSON.stringify({
+                model: "vendor/model-20260101",
+                answers: { pick: { type: "choice", choice: "none", probabilities: { none: 0.9 } }, priority: { type: "choice", choice: key, probabilities: { [key!]: 0.97 } } },
+            }), { status: 200, headers: { "content-type": "application/json" } });
+        }));
+        const said = (await inbox("POST", "", { rawText: "this really matters to me" })).body.data;
+        expect(sent).toHaveLength(1);
+        await inbox("POST", "", { rawText: "call bank asap" });
+        expect(Object.keys(sent[1].questions)).toEqual(["pick"]);
+        const row = (await inbox("GET", "")).body.data.find((i: any) => i.id === said.id);
+        expect(row.analysis.suggestedPriority).toMatchObject({ priority: 3 });
     });
 
     it("never fails the save when the provider errors", async () => {

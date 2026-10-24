@@ -9,6 +9,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Reveal } from "../shared/Reveal";
 import { useTask } from "../../hooks/tasks/use-tasks";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { useEffortGuess } from "../../hooks/tasks/use-effort-guess";
+import { EffortSuggestionRow } from "./TaskWeightFields";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useArchiveTask } from "../../hooks/tasks/use-archive-task";
 import { useProjects } from "../../hooks/projects/use-projects";
@@ -567,6 +569,7 @@ function ChoiceChip({ item, kind, active, onClick, stacked = false }: { item: { 
 /** Priority and effort; choosing the current effort again clears it. */
 function WeightGroup({ task }: { task: Task }) {
     const updateTask = useUpdateTask();
+    const guess = useEffortGuess()(task);
 
     const handlePriorityChange = (priority: TaskPriority) => {
         updateTask.mutate({ id: task.id, priority });
@@ -593,6 +596,14 @@ function WeightGroup({ task }: { task: Task }) {
                         <ChoiceChip key={item.value} item={item} kind="Effort" active={task.effort === item.value} onClick={() => handleEffortChange(item.value)} />
                     ))}
                 </div>
+                {guess && (
+                    <EffortSuggestionRow
+                        suggestion={{ kind: "level", level: guess.level, support: guess.support }}
+                        guess={{ why: guess.source === "model" ? "From the Effort you chose on tasks like this one." : undefined }}
+                        onUse={(level) => updateTask.mutate({ id: task.id, effort: level, effortOrigin: "accepted" })}
+                        onDismiss={() => updateTask.mutate({ id: task.id, effortGuessSource: "dismissed" })}
+                    />
+                )}
             </FieldBlock>
         </DetailGroup>
     );

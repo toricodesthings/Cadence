@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { instantSchema, localDateSchema } from "./common";
-import { canonicalNlpEnvelopeSchema, effortLevelSchema, sourceSurfaceSchema } from "./task";
+import { canonicalNlpEnvelopeSchema, effortLevelSchema, effortOriginSchema, sourceSurfaceSchema } from "./task";
 
 export const inboxQuerySchema = z.object({ status: z.enum(["clarifying", "kept"]).default("clarifying") });
 
@@ -52,6 +52,7 @@ export const processInboxItemSchema = z.object({
     tagIds: z.array(z.uuid()).nullish(),
     priority: z.number().int().min(0).max(4).nullish(),
     effort: effortLevelSchema.nullish(),
+    effortOrigin: effortOriginSchema.optional(),
     durationEstimate: z.number().int().min(1).max(480).nullish(),
     recurrenceRule: z.string().max(500).nullish(),
     waitingOn: z.string().max(200).nullish(),
@@ -134,3 +135,14 @@ export const suggestedPlacementSchema = z.object({
     ms: z.number().optional(),
 });
 export type SuggestedPlacement = z.infer<typeof suggestedPlacementSchema>;
+
+/**
+ * The priority a decision model read in a capture's own words ("asap", "this matters a lot"), stored at
+ * `analysis.suggestedPriority` only when the deterministic parser found none. It translates what was said; it never infers.
+ */
+export const suggestedPriorityFromWordsSchema = z.object({
+    priority: z.number().int().min(1).max(4),
+    model: z.string(),
+    probability: z.number(),
+});
+export type SuggestedPriorityFromWords = z.infer<typeof suggestedPriorityFromWordsSchema>;

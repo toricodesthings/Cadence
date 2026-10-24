@@ -1,4 +1,4 @@
-import { suggestedPlacementSchema, type InboxItem, type SuggestedPlacement } from "@cadence/contracts/inbox";
+import { suggestedPlacementSchema, suggestedPriorityFromWordsSchema, type InboxItem, type SuggestedPlacement } from "@cadence/contracts/inbox";
 
 /** What the user set on a thought before it became a task (Clarify, the row menu), saved at `analysis.userOverrides`. */
 export type ThoughtOverrides = { title?: string; projectId?: string | null; sectionId?: string | null; tagIds?: string[] };
@@ -25,4 +25,10 @@ export function placementFor(
     if (!projectId) return null;
     const sectionId = picked.sectionId !== undefined ? picked.sectionId : suggestion?.projectId === projectId ? suggestion.sectionId : null;
     return { projectId, sectionId };
+}
+
+/** The priority read from the capture's own words by the model (0 when none): shown as "from your words" and used when the parser found none. */
+export function priorityFromWords(item: InboxItem): number {
+    const parsed = suggestedPriorityFromWordsSchema.safeParse(item.analysis?.suggestedPriority);
+    return parsed.success ? parsed.data.priority : 0;
 }

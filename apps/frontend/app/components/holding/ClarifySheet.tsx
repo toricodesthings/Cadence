@@ -8,7 +8,8 @@ import { useCaptureActions } from "../../hooks/inbox/use-capture-actions";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useSections } from "../../hooks/sections/use-sections";
-import { overridesOf, placementFor, storedSuggestion, type ThoughtOverrides } from "../../lib/utils/task/suggested-placement";
+import { PRIORITY_ICON, PRIORITY_OPTIONS } from "../tasks/task-choice-options";
+import { overridesOf, placementFor, priorityFromWords, storedSuggestion, type ThoughtOverrides } from "../../lib/utils/task/suggested-placement";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import { DetailTitle } from "../shared/DetailTitle";
 import { CARD, DetailGroup, FieldBlock, FieldRow, ValueSelect } from "../shared/DetailPanelSections";
@@ -75,7 +76,7 @@ export function ClarifySheet({
             projectId,
             sectionId,
             tagIds,
-            priority: parse.priority,
+            priority: parse.priority ?? (priorityFromWords(item) || undefined),
             durationEstimate: parse.durationMinutes,
             // A picked schedule: an all-day day (or a span's first day) or a timed block; else a placement; else none.
             ...(useCustom
@@ -139,6 +140,12 @@ export function ClarifySheet({
                     onAccept={() => {}}
                     onLiteral={() => {}}
                 />
+                {parse.priority === undefined && priorityFromWords(item) > 0 && (
+                    <p className="mt-2 flex items-center gap-1.5 text-xs text-twilight-text-muted">
+                        <PRIORITY_ICON size={12} aria-hidden="true" />
+                        Priority: {PRIORITY_OPTIONS.find((o) => o.value === priorityFromWords(item))?.label} · from your words
+                    </p>
+                )}
                 {title.trim() !== item.rawText.trim() && (
                     <p className="mt-2 text-xs text-twilight-text-muted">From: {item.rawText}</p>
                 )}

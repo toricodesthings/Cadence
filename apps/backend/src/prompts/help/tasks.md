@@ -1,6 +1,7 @@
 # Tasks
 - **Add:** press `T` (Quick Add, rebindable in [Keyboard Shortcuts](?settings=shortcuts)) or type in [Capture](/). Only a title is needed; typing "tomorrow 3pm" in the title fills the date.
-- **Edit:** open a task to change its title, notes, subtasks, tags, list, priority (None → Urgent), effort (Low/Medium/High) and **Takes** (how long it will take; with Full memory a muted "about 45 min" shows what your own answers suggest, and picking a length stores it), set a Reminder, or Hide until a day. The ⋮ menu pins or duplicates it; drag to reorder.
+- **Priority:** only from your words ("asap", "important", "no rush" in Quick Add, Capture or chat); Cadence never sets it for you.
+- **Edit:** open a task to change its title, notes, subtasks, tags, list, priority (None → Urgent), effort (Low/Medium/High; a muted ~High is Cadence's guess from your own choices, one tap to keep) and **Takes** (how long it will take; with Full memory a muted "about 45 min" shows what your own answers suggest, and picking a length stores it), set a Reminder, or Hide until a day. The ⋮ menu pins or duplicates it; drag to reorder.
 - **Waiting:** set a task to Waiting when it's blocked on someone; you can add who it's waiting on and a check-in reminder.
 - **Done:** tick it off. Finished tasks live in [Completed](/completed).
 - **Delete:** deleting moves a task to [Trash](/trash), where you can restore it. Permanently deleting from Trash, one task or all of them with Empty Trash, can't be undone.

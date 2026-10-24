@@ -98,6 +98,8 @@ export const updateTaskSchema = z.object({
     waitingReminder: instantSchema.nullable().optional(),
     effort: effortLevelSchema.nullable().optional(),
     effortOrigin: effortOriginSchema.optional(),
+    /** "dismissed": the person said no to the Effort guess; kept until the title or list changes. */
+    effortGuessSource: z.literal("dismissed").optional(),
     notBefore: localDateSchema.nullable().optional(),
     linkedAppId: linkedAppIdSchema.nullable().optional(),
     linkedUrl: linkedUrlSchema.nullable().optional(),
@@ -184,6 +186,9 @@ export const taskRowSchema = z.object({
     effort: z.number().int().min(1).max(3).nullable(),
     effortOrigin: z.string().nullable(),
     effortChosenAt: instantSchema.nullable(),
+    effortGuess: z.number().int().min(1).max(3).nullable(),
+    effortGuessSource: z.string().nullable(),
+    effortGuessAt: instantSchema.nullable(),
     notBefore: localDateSchema.nullable(),
     linkedAppId: z.string().nullable(),
     linkedUrl: z.string().nullable(),
@@ -196,7 +201,10 @@ export type TaskRow = z.infer<typeof taskRowSchema>;
 
 // ── Entity schema — row + API enrichment (joins/derived). Narrows priority/effort
 //    to the canonical literal unions that the client consumes. ──
-export const taskSchema = taskRowSchema.omit({ effortOrigin: true, effortChosenAt: true }).extend({
+export const taskSchema = taskRowSchema.omit({ effortOrigin: true, effortChosenAt: true, effortGuessAt: true }).extend({
+    /** A guess from the person's own Effort choices (never their Effort): shown as `~`, used for day load. Absent on older data. */
+    effortGuess: effortLevelSchema.nullable().optional(),
+    effortGuessSource: z.enum(["model", "dismissed"]).nullable().optional(),
     origin: z.enum(["thought"]).nullable().optional(),
     priority: taskPrioritySchema,
     effort: effortLevelSchema.nullable(),

@@ -50,6 +50,16 @@ export function effortProvenance(effort: number | null | undefined, origin: "man
         : { effortOrigin: null, effortChosenAt: null };
 }
 
+/**
+ * Effort guess columns after a write: a chosen Effort, or a new title or list, makes the guess stale and clears it
+ * (and a "no thanks" with it); a "no thanks" in the same write is kept.
+ */
+export function guessAfterWrite(patch: { effort?: unknown; title?: unknown; projectId?: unknown; effortGuessSource?: "dismissed" }) {
+    if (patch.effortGuessSource) return { effortGuess: null, effortGuessSource: patch.effortGuessSource, effortGuessAt: null };
+    const stale = (patch.effort !== undefined && patch.effort !== null) || patch.title !== undefined || patch.projectId !== undefined;
+    return stale ? { effortGuess: null, effortGuessSource: null, effortGuessAt: null } : {};
+}
+
 /** A task as the assistant drafts it: plain fields, plus checklist steps and a note. */
 export type TaskDraft = Partial<Pick<InsertTask,
     "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "projectId" | "sectionId" |
@@ -121,7 +131,8 @@ export function trackTaskChanges(
  * (the contract validates them), so the columns narrow to their literal unions.
  */
 export function toTask(row: TaskRow & Pick<Task, "seriesId" | "isRecurringInstance" | "occurrenceStart" | "occurrenceEnd">, tagIds: string[]): Task {
-    return { ...row, priority: row.priority as TaskPriority, effort: row.effort as EffortLevel | null, tagIds };
+    return { ...row, priority: row.priority as TaskPriority, effort: row.effort as EffortLevel | null,
+        effortGuess: row.effortGuess as EffortLevel | null, effortGuessSource: row.effortGuessSource as Task["effortGuessSource"], tagIds };
 }
 
 /** `toTask` for rows fresh from a write: loads their tag ids in one query. */
@@ -335,7 +346,10 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
 
     // A changed Effort carries who chose it; the origin is never a column the caller writes directly.
     const { effortOrigin, ...columns } = patch as typeof patch & { effortOrigin?: "manual" | "accepted" };
-    const provenance = columns.effort !== undefined ? effortProvenance(columns.effort as number | null, effortOrigin) : {};
+    const provenance = {
+        ...(columns.effort !== undefined ? effortProvenance(columns.effort as number | null, effortOrigin) : {}),
+        ...guessAfterWrite(columns as Parameters<typeof guessAfterWrite>[0]),
+    };
 
     const [row] = await tracing.enterSpan("tasks.update.write", () => tx
         .update(tasks)
@@ -539,3 +553,4 @@ export async function deleteTrashedTasks(tx: Tx, userId: string) {
         .returning({ id: tasks.id });
     return deleted.length;
 }
+export { readEffortEvidence } from "./tasks.read";

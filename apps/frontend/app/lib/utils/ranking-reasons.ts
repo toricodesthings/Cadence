@@ -1,5 +1,6 @@
 import { rankTasks, type RankableTask, type TaskRankReason } from "@cadence/nlp/ranking";
 import type { Task } from "@cadence/contracts/task";
+import type { GuessOf } from "../../hooks/tasks/use-effort-guess";
 import { dayOfInstant, nlpClock } from "./date-format";
 
 /** §11.6: One-sentence reasoning for Today and Upcoming rationale display */
@@ -8,6 +9,7 @@ const REASON_SENTENCES: Record<TaskRankReason, string> = {
     due_today: "This task is due today",
     due_soon: "This task is due within the next few days",
     quick_win: "This is a quick task you can finish fast",
+    looks_quick: "Looks quick, going by the Effort you chose on similar tasks",
     high_priority: "This task has a high priority level",
     needs_date: "This task needs a date to be scheduled",
     waiting: "This task is waiting on someone else",
@@ -20,6 +22,7 @@ const REASON_SENTENCES: Record<TaskRankReason, string> = {
 const MATERIAL_REASONS: Set<TaskRankReason> = new Set([
     "overdue",
     "quick_win",
+    "looks_quick",
     "high_priority",
     "pinned",
     "scheduled_now",
@@ -39,7 +42,7 @@ export function getMaterialRankingLabel(reasons: TaskRankReason[]): string | nul
 type RankRoute = NonNullable<Parameters<typeof rankTasks>[1]["routeContext"]>;
 
 /** Smart-sorts a route's tasks, returning them in rank order and the one-line reason for each that moved. */
-export function rankTasksForRoute(tasks: Task[], routeContext: RankRoute) {
+export function rankTasksForRoute(tasks: Task[], routeContext: RankRoute, guessOf?: GuessOf) {
     const rankable: RankableTask[] = tasks.map((t) => ({
         id: t.id,
         priority: t.priority,
@@ -50,6 +53,7 @@ export function rankTasksForRoute(tasks: Task[], routeContext: RankRoute) {
         scheduledStart: t.scheduledStart,
         scheduledEnd: t.scheduledEnd,
         effort: t.effort,
+        effortGuess: guessOf?.(t)?.level ?? null,
         waitingOn: t.waitingOn ?? null,
         notBefore: t.notBefore ?? null,
         durationEstimate: t.durationEstimate,

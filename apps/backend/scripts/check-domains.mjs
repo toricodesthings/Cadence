@@ -8,6 +8,7 @@ const ROOT = "src/domains";
 const PUBLIC = [
     "ai/tools/", // the MCP server and debug scenarios publish the assistant's tools
     "ai/turn",
+    "decisions/effort-guess",
     "decisions/placement",
     "decisions/did-you-mean",
     "mcp/oauth",

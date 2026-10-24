@@ -6,19 +6,28 @@
  * `inbox_items.analysis.suggestedPlacement`. Clarify and Sort all read it from there.
  */
 import { and, eq, sql } from "drizzle-orm";
-import type { SuggestedPlacement } from "@cadence/contracts/inbox";
+import type { SuggestedPlacement, SuggestedPriorityFromWords } from "@cadence/contracts/inbox";
 import { inboxItems, projects, taskSections } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
 import { hashIdentifier, logger } from "../../platform/log";
 import { withRls } from "../../platform/rls";
 import type { Env } from "../../types/env";
-import { decideChoice, decisionModel, smartPlacementOn, type DecisionCandidate } from "./decision";
+import { parsePriority } from "@cadence/nlp/parse";
+import { decide, decisionModel, smartPlacementOn, type DecisionCandidate, type DecisionQuestion } from "./decision";
 import instructions from "../../prompts/decisions/placement.md";
+import prioritySaid from "../../prompts/decisions/priority-said.md";
 
 const MAX_TEXT = 1_000;
 const MAX_PAIRS = 255;
 
 const INSTRUCTIONS = instructions.trimEnd();
+const PRIORITY_INSTRUCTIONS = prioritySaid.trimEnd();
+const PRIORITY_LEVELS: DecisionCandidate[] = [
+    { id: "1", label: "The writer says it is low priority or can wait." },
+    { id: "2", label: "The writer says it is of medium importance." },
+    { id: "3", label: "The writer says it is important." },
+    { id: "4", label: "The writer says it is urgent or needed right away." },
+];
 
 const words = (text: string) => new Set(text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? []);
 
@@ -52,49 +61,63 @@ export async function suggestPlacement(env: Env, userId: string, captureId: stri
             ]);
             return { text: capture.rawText, lists, sections };
         });
-        if (!loaded || loaded.lists.length === 0) return;
+        if (!loaded) return;
 
-        const pairs: DecisionCandidate[] = loaded.lists.flatMap((list) => [
-            { id: `${list.id}|`, label: list.name },
-            ...loaded.sections
-                .filter((section) => section.projectId === list.id)
-                .map((section) => ({ id: `${list.id}|${section.id}`, label: `${list.name} › ${section.name}` })),
-        ]);
         const text = loaded.text.slice(0, MAX_TEXT);
-        const decision = await decideChoice(env, {
-            kind: "placement",
-            state: text,
-            instructions: INSTRUCTIONS,
-            candidates: shortlist(pairs, text),
-            userHash: await hashIdentifier(userId),
-        });
-        if (!decision?.id) return;
+        const questions: Record<string, DecisionQuestion> = {};
+        const kinds: Record<string, "placement" | "priority_said"> = {};
+        if (loaded.lists.length > 0) {
+            const pairs: DecisionCandidate[] = loaded.lists.flatMap((list) => [
+                { id: `${list.id}|`, label: list.name },
+                ...loaded.sections
+                    .filter((section) => section.projectId === list.id)
+                    .map((section) => ({ id: `${list.id}|${section.id}`, label: `${list.name} › ${section.name}` })),
+            ]);
+            questions.pick = { type: "choice", instructions: INSTRUCTIONS, candidates: shortlist(pairs, text) };
+            kinds.pick = "placement";
+        }
+        // Only when the words held no cue the parser reads: this translates what they said, it never infers.
+        if (parsePriority(loaded.text).entities.length === 0) {
+            questions.priority = { type: "choice", instructions: PRIORITY_INSTRUCTIONS, candidates: PRIORITY_LEVELS };
+            kinds.priority = "priority_said";
+        }
+        if (!Object.keys(questions).length) return;
 
-        const [projectId, sectionId = ""] = decision.id.split("|");
-        const suggestion: SuggestedPlacement = {
-            projectId,
-            sectionId: sectionId || null,
-            model: decision.model,
-            probability: decision.probability,
-            ...(decision.costUsd !== undefined && { costUsd: decision.costUsd }),
-            ms: decision.ms,
-        };
+        // One request: one call, one budget unit.
+        const answers = await decide(env, { kinds, state: text, questions, userHash: await hashIdentifier(userId) });
+
+        const stored: Record<string, unknown> = {};
+        const said = answers.priority;
+        if (said?.id) {
+            const priority: SuggestedPriorityFromWords = { priority: Number(said.id), model: said.model, probability: said.probability };
+            stored.suggestedPriority = priority;
+        }
 
         // Re-check in a fresh transaction: the pair and the capture may have changed during the call.
         await withRls(db, userId, async (tx) => {
-            const [list] = await tx.select({ id: projects.id }).from(projects).where(and(eq(projects.id, projectId), eq(projects.userId, userId)));
-            if (!list) return;
-            if (suggestion.sectionId) {
-                const [section] = await tx
+            const decision = answers.pick;
+            if (decision?.id) {
+                const [projectId, sectionId = ""] = decision.id.split("|");
+                const suggestion: SuggestedPlacement = {
+                    projectId,
+                    sectionId: sectionId || null,
+                    model: decision.model,
+                    probability: decision.probability,
+                    ...(decision.costUsd !== undefined && { costUsd: decision.costUsd }),
+                    ms: decision.ms,
+                };
+                const [list] = await tx.select({ id: projects.id }).from(projects).where(and(eq(projects.id, projectId), eq(projects.userId, userId)));
+                const [section] = !list || !suggestion.sectionId ? [{ id: "" }] : await tx
                     .select({ id: taskSections.id })
                     .from(taskSections)
                     .where(and(eq(taskSections.id, suggestion.sectionId), eq(taskSections.userId, userId), eq(taskSections.projectId, projectId)));
-                if (!section) return;
+                if (list && section) stored.suggestedPlacement = suggestion;
             }
+            if (!Object.keys(stored).length) return;
             // Merged in SQL so a concurrent edit of `analysis` (userOverrides) is never overwritten.
             await tx
                 .update(inboxItems)
-                .set({ analysis: sql`coalesce(${inboxItems.analysis}, '{}'::jsonb) || ${JSON.stringify({ suggestedPlacement: suggestion })}::jsonb` })
+                .set({ analysis: sql`coalesce(${inboxItems.analysis}, '{}'::jsonb) || ${JSON.stringify(stored)}::jsonb` })
                 .where(and(eq(inboxItems.id, captureId), eq(inboxItems.userId, userId), eq(inboxItems.captureStatus, "clarifying"), eq(inboxItems.processed, false)));
         });
     } catch (error) {

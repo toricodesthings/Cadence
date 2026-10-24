@@ -1,5 +1,5 @@
 /**
- * Decision adapter: one `choice` question to an OpenRouter decision model.
+ * Decision adapter: one request of named questions (`choice` or `score`) to an OpenRouter decision model.
  *
  * A decision model returns probabilities over options the app supplies, never text, so it can only
  * pick among the user's real ids. This NEVER throws: no model, a timeout, an error or
@@ -14,7 +14,7 @@ import { logger } from "../../platform/log";
 import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
 
-export type DecisionKind = "placement" | "search" | "assistant_search";
+export type DecisionKind = "placement" | "search" | "assistant_search" | "effort" | "priority_said";
 export type DecisionOutcome = "chose" | "abstained" | "below_threshold" | "timeout" | "error";
 
 /** Shown only when the top option's probability is at least this. Used for a model with no entry below. */
@@ -64,6 +64,13 @@ export interface DecisionResult {
     outcome: DecisionOutcome;
 }
 
+export type DecisionQuestion =
+    | { type: "choice"; instructions: string; candidates: DecisionCandidate[] }
+    /** An ordered rubric, lowest first. The result's `id` is the winning level's index as a string ("0"…). */
+    | { type: "score"; instructions: string; levels: string[] };
+
+type Answer = { choice?: unknown; probabilities?: Record<string, number> };
+
 /** The winner is the largest probability; fall back to the answer's own `choice` when none are given. */
 function winner(answer: { choice?: unknown; probabilities?: Record<string, number> } | undefined) {
     let best = typeof answer?.choice === "string" ? answer.choice : null;
@@ -74,45 +81,51 @@ function winner(answer: { choice?: unknown; probabilities?: Record<string, numbe
     return { best, probability };
 }
 
-export async function decideChoice(
+/**
+ * Asks every question in one request: one network call, one budget unit, one log line. Each question has its own
+ * kind (its own threshold). A question that can't be asked, or a whole request that fails, resolves to null / a non-"chose" outcome.
+ */
+export async function decide(
     env: Env,
-    input: {
-        kind: DecisionKind;
-        state: string;
-        instructions: string;
-        candidates: DecisionCandidate[];
-        userHash?: string;
-    },
-): Promise<DecisionResult | null> {
+    input: { kinds: Record<string, DecisionKind>; state: string | object; questions: Record<string, DecisionQuestion>; userHash?: string },
+): Promise<Record<string, DecisionResult | null>> {
     const model = decisionModel(env);
-    const candidates = input.candidates.slice(0, MAX_OPTIONS);
-    if (!model || candidates.length === 0) return null;
+    const names = Object.keys(input.questions).filter((name) => {
+        const q = input.questions[name];
+        return q.type === "score" ? q.levels.length > 0 : q.candidates.length > 0;
+    });
+    const out: Record<string, DecisionResult | null> = Object.fromEntries(Object.keys(input.questions).map((name) => [name, null]));
+    if (!model || names.length === 0) return out;
     // Counted before the fetch so a flood can't spend tokens. No userHash = not a person's call (the eval).
-    if (input.userHash && !(await withinDailyBudget(env, "decision", input.userHash, DAILY_DECISIONS))) return null;
+    if (input.userHash && !(await withinDailyBudget(env, "decision", input.userHash, DAILY_DECISIONS))) return out;
 
     const startedAt = Date.now();
+    const outcomes: Record<string, DecisionOutcome> = {};
     const finish = (
+        name: string,
         outcome: DecisionOutcome,
-        extra: { id?: string | null; top?: string | null; probability?: number; servedModel?: string; inputTokens?: number; costUsd?: number } = {},
-    ): DecisionResult => {
-        const ms = Date.now() - startedAt;
-        logger.info("ai", "ai_decision", {
-            kind: input.kind,
-            model,
-            servedModel: extra.servedModel,
-            inputTokens: extra.inputTokens,
-            costUsd: extra.costUsd,
-            ms,
-            outcome,
-            userHash: input.userHash,
-        });
-        return { id: extra.id ?? null, top: extra.top ?? null, probability: extra.probability ?? 0, model, costUsd: extra.costUsd, ms, outcome };
+        meta: { servedModel?: string; inputTokens?: number; costUsd?: number },
+        extra: { id?: string | null; top?: string | null; probability?: number } = {},
+    ) => {
+        outcomes[name] = outcome;
+        out[name] = { id: extra.id ?? null, top: extra.top ?? null, probability: extra.probability ?? 0, model, costUsd: meta.costUsd, ms: Date.now() - startedAt, outcome };
+    };
+    const log = (meta: { servedModel?: string; inputTokens?: number; costUsd?: number } = {}) =>
+        logger.info("ai", "ai_decision", { kind: names.map((n) => input.kinds[n]).join(","), model, ...meta, ms: Date.now() - startedAt, outcome: names.map((n) => outcomes[n]).join(","), outcomes, userHash: input.userHash });
+    const failAll = (outcome: DecisionOutcome) => {
+        for (const name of names) finish(name, outcome, {});
+        log();
+        return out;
     };
 
     // Opaque keys: the model never sees an id, and the user's labels never double as keys.
-    const keys = candidates.map((_, i) => `o${i + 1}`);
-    const criteria: Record<string, string> = { none: "None of the options clearly fits." };
-    candidates.forEach((candidate, i) => (criteria[keys[i]] = candidate.label));
+    const asked = Object.fromEntries(names.map((name) => {
+        const q = input.questions[name];
+        if (q.type === "score") return [name, { type: "score", instructions: q.instructions, criteria: q.levels }];
+        const criteria: Record<string, string> = { none: "None of the options clearly fits." };
+        q.candidates.slice(0, MAX_OPTIONS).forEach((candidate, i) => (criteria[`o${i + 1}`] = candidate.label));
+        return [name, { type: "choice", instructions: q.instructions, criteria }];
+    }));
 
     try {
         const response = await fetch(ENDPOINT, {
@@ -123,25 +136,43 @@ export async function decideChoice(
                 // No fallback providers: the model that answers is the one calibrated above.
                 provider: { allow_fallbacks: false },
                 state: input.state,
-                questions: { pick: { type: "choice", instructions: input.instructions, criteria } },
+                questions: asked,
             }),
             signal: AbortSignal.timeout(TIMEOUT_MS),
         });
-        if (!response.ok) return finish("error");
-        const body = (await response.json()) as {
-            model?: string;
-            answers?: { pick?: { choice?: unknown; probabilities?: Record<string, number> } };
-            usage?: { input_tokens?: number; cost?: number };
-        };
+        if (!response.ok) return failAll("error");
+        const body = (await response.json()) as { model?: string; answers?: Record<string, Answer>; usage?: { input_tokens?: number; cost?: number } };
         const meta = { servedModel: body.model, inputTokens: body.usage?.input_tokens, costUsd: body.usage?.cost };
-        const { best, probability } = winner(body.answers?.pick);
-        if (!best || best === "none") return finish("abstained", { ...meta, probability });
-        const index = keys.indexOf(best);
-        if (index < 0) return finish("error", meta);
-        const threshold = DECISION_THRESHOLDS[model]?.[input.kind] ?? UNCALIBRATED_THRESHOLD;
-        if (probability < threshold) return finish("below_threshold", { ...meta, probability, top: candidates[index].id });
-        return finish("chose", { ...meta, id: candidates[index].id, top: candidates[index].id, probability });
+        for (const name of names) {
+            const q = input.questions[name];
+            const { best, probability } = winner(body.answers?.[name]);
+            const threshold = DECISION_THRESHOLDS[model]?.[input.kinds[name]] ?? UNCALIBRATED_THRESHOLD;
+            if (q.type === "score") {
+                const level = best !== null ? Number(best) : NaN;
+                if (!Number.isInteger(level) || level < 0 || level >= q.levels.length) finish(name, "abstained", meta, { probability });
+                else if (probability < threshold) finish(name, "below_threshold", meta, { probability, top: String(level) });
+                else finish(name, "chose", meta, { id: String(level), top: String(level), probability });
+                continue;
+            }
+            const candidates = q.candidates.slice(0, MAX_OPTIONS);
+            if (!best || best === "none") { finish(name, "abstained", meta, { probability }); continue; }
+            const index = Number(/^o(\d+)$/.exec(best)?.[1]) - 1;
+            if (!candidates[index]) finish(name, "error", meta);
+            else if (probability < threshold) finish(name, "below_threshold", meta, { probability, top: candidates[index].id });
+            else finish(name, "chose", meta, { id: candidates[index].id, top: candidates[index].id, probability });
+        }
+        log(meta);
+        return out;
     } catch (error) {
-        return finish(error instanceof Error && error.name === "TimeoutError" ? "timeout" : "error");
+        return failAll(error instanceof Error && error.name === "TimeoutError" ? "timeout" : "error");
     }
+}
+
+/** One `choice` question: placement and search. */
+export async function decideChoice(
+    env: Env,
+    input: { kind: DecisionKind; state: string; instructions: string; candidates: DecisionCandidate[]; userHash?: string },
+): Promise<DecisionResult | null> {
+    const { kind, candidates, instructions, state, userHash } = input;
+    return (await decide(env, { kinds: { pick: kind }, state, questions: { pick: { type: "choice", instructions, candidates } }, userHash })).pick;
 }

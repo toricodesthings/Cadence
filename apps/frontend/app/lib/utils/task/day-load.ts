@@ -6,25 +6,26 @@ import { dayOfInstant } from "../date-format";
 /** What a task with no effort set weighs: unknown is not light, so it counts as a middling one. */
 const UNKNOWN_EFFORT = 2;
 
+type Level = 1 | 2 | 3;
 type Weighed = Pick<Task, "dueDate" | "scheduledStart" | "scheduledEnd" | "effort" | "isHabit">;
 
 /**
  * A routine day weighs 1 (known and light, but it takes part of the day). A timed block weighs at least its hours
  * (capped at the heaviest effort), so a 3-hour class is not "light".
  */
-function weight(task: Weighed) {
+function weight(task: Weighed, guess: Level | null) {
     if (task.isHabit) return 1;
     const hours = task.scheduledStart && task.scheduledEnd ? Math.ceil((Date.parse(task.scheduledEnd) - Date.parse(task.scheduledStart)) / 3_600_000) : 0;
-    return Math.max(task.effort ?? UNKNOWN_EFFORT, Math.min(3, hours));
+    return Math.max(task.effort ?? guess ?? UNKNOWN_EFFORT, Math.min(3, hours));
 }
 
-/** Effort-weighted load per day; unset effort counts as middling, a timed block by its length, a routine day as 1. */
-export function dayLoads(tasks: Weighed[], start: LocalDate, days = 7) {
+/** Effort-weighted load per day; unset effort counts as its guess, else middling; a timed block by its length, a routine day as 1. */
+export function dayLoads<T extends Weighed>(tasks: T[], start: LocalDate, days = 7, guessOf?: (task: T) => Level | null | undefined) {
     const loads = new Map<LocalDate, number>();
     for (let i = 0; i < days; i++) loads.set(addDays(start, i), 0);
     for (const task of tasks) {
         const iso = task.scheduledStart ? dayOfInstant(task.scheduledStart) : task.dueDate;
-        if (iso && loads.has(iso)) loads.set(iso, loads.get(iso)! + weight(task));
+        if (iso && loads.has(iso)) loads.set(iso, loads.get(iso)! + weight(task, guessOf?.(task) ?? null));
     }
     return loads;
 }

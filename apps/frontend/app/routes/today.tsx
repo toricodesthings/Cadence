@@ -36,6 +36,7 @@ import { dayOfInstant, nlpClock } from "../lib/utils/date-format";
 import { getUserZone, useToday } from "../lib/utils/user-zone";
 import { getPassiveTimetableOccurrenceAnchor, getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task/task-scheduling";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
+import { useEffortGuess } from "../hooks/tasks/use-effort-guess";
 import { rankTasksForRoute } from "../lib/utils/ranking-reasons";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
@@ -63,6 +64,7 @@ function EyeToggle({ hidden, label, onToggle }: { hidden: boolean; label: string
 
 export default function TodayRoute() {
     const shell = useShellMode();
+    const guessOf = useEffortGuess();
     const navigate = useNavigate();
     const { view, setView } = useRouteViewMode("today");
     const { sortMode, setSortMode } = useSortMode("today");
@@ -132,7 +134,7 @@ export default function TodayRoute() {
 
         const sortBucket = (bucket: Task[]): Task[] => {
             if (!useRanking) return sortTasks(bucket, sortMode);
-            const ranked = rankTasksForRoute(bucket, "today");
+            const ranked = rankTasksForRoute(bucket, "today", guessOf);
             Object.assign(rationaleByTaskId, ranked.rationaleByTaskId);
             return ranked.tasks;
         };
@@ -145,7 +147,7 @@ export default function TodayRoute() {
             routinesDone: routines.filter((routine) => routine.done),
             rationaleByTaskId,
         };
-    }, [activeTagId, filteredTasks, habits, todayISO, sortMode, intelligenceEnabled, smartSortEnabled]);
+    }, [activeTagId, filteredTasks, habits, todayISO, sortMode, intelligenceEnabled, smartSortEnabled, guessOf]);
 
     const spineItems = useMemo<SpineItem[]>(() => {
         const items: SpineItem[] = [];

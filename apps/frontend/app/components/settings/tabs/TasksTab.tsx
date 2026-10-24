@@ -181,7 +181,7 @@ function IntelligenceSection({ intelligence, updateSettings }: { intelligence: I
                     />
                     <SwitchSetting
                         title="Suggest Effort"
-                        description="Offer an Effort level from the choices you've made on similar tasks. You always pick; nothing is filled in for you."
+                        description="Cadence guesses an Effort from the ones you've chosen on similar tasks and uses it for day load. Guesses are marked ~; you always pick what's saved."
                         checked={intelligence.effortSuggestions}
                         onChange={(val) => setIntel({ effortSuggestions: val })}
                     />
@@ -195,8 +195,8 @@ function IntelligenceSection({ intelligence, updateSettings }: { intelligence: I
                 </>
             )}
             <SwitchSetting
-                title="Suggest where captures go"
-                description="Sends a new capture's text, or a search that found nothing, with your list, section and task names, to an AI provider to suggest a destination or a match. Off sends nothing."
+                title="Suggest with an AI provider"
+                description="Sends a new capture's text, a search that found nothing, or a new task's title with your own earlier Effort choices, to an AI provider to suggest a destination, a match or an Effort. Off sends nothing."
                 checked={intelligence.smartPlacement !== false}
                 onChange={(val) => setIntel({ smartPlacement: val })}
             />

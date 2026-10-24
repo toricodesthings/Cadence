@@ -58,6 +58,8 @@ export interface MinimalTask {
     hiddenUntil?: string;
     /** What it usually takes them, in minutes, when Cadence is sure from their own answers (an open task with no length of its own). */
     takesAbout?: number;
+    /** A guess at its Effort from the levels they chose on similar tasks (never their Effort): say "looks light", never "your Effort". */
+    effortGuess?: "low" | "medium" | "high";
     /** What a finished task took, as they said it: minutes, or a range like "30–60". */
     took?: number | string;
 }
@@ -75,6 +77,8 @@ export type TaskRow = Pick<
     sectionName?: string | null;
 };
 
+const EFFORT_WORDS = { 1: "low", 2: "medium", 3: "high" } as const;
+
 /** Unset (null) → undefined, which JSON leaves out. */
 const unset = <T>(value: T | null | undefined): T | undefined => value ?? undefined;
 /** A list only when it has items. */
@@ -86,7 +90,7 @@ const nonEmpty = <T>(list: T[] | null | undefined): T[] | undefined => (list?.le
  * days as stored ("2026-03-10"), instants as the user's wall clock with offset
  * ("2026-03-10T14:00:00-04:00").
  */
-export function toMinimalTask(row: TaskRow, timezone: string, hint?: { takesAbout?: number; took?: number | string }): MinimalTask {
+export function toMinimalTask(row: TaskRow, timezone: string, hint?: { takesAbout?: number; took?: number | string; effortGuess?: 1 | 2 | 3 }): MinimalTask {
     const show = (value: string | null | undefined) => (value ? toZonedIso(value, timezone) : undefined);
     const fixedBlock = row.interactionMode === "timetable";
     // Unset fields are undefined, which JSON leaves out, so they cost nothing on the wire.
@@ -116,6 +120,7 @@ export function toMinimalTask(row: TaskRow, timezone: string, hint?: { takesAbou
         hiddenUntil: unset(row.notBefore),
         takesAbout: hint?.takesAbout,
         took: hint?.took,
+        effortGuess: hint?.effortGuess && EFFORT_WORDS[hint.effortGuess],
     };
 }
 

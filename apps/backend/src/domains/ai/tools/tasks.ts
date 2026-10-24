@@ -44,7 +44,9 @@ import { writeNote } from "../../notes/notes.service";
 import { batchTaskIdsSchema, waitingOnSchema } from "@cadence/contracts/task";
 import { readFocusView } from "./focus-views";
 import { taskSearch, taskSearchColumns, taskPlaceColumns } from "../../tasks/task-search.service";
-import { durationHints } from "../memory/duration";
+import { effortGuesses, taskHints } from "../memory/task-hints";
+import { suggestEffortGuess } from "../../decisions/effort-guess";
+import { checkSaid } from "./said";
 
 /**
  * The whole filtered candidate set that matches `query`, best match first unless the
@@ -84,6 +86,8 @@ export const taskCoreColumns = {
     durationEstimate: tasks.durationEstimate,
     priority: tasks.priority,
     effort: tasks.effort,
+    effortGuess: tasks.effortGuess,
+    effortGuessSource: tasks.effortGuessSource,
     projectId: tasks.projectId,
     sectionId: tasks.sectionId,
     waitingOn: tasks.waitingOn,
@@ -241,7 +245,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             : await selection.limit(limit + 1).offset(offset);
                         const shown = rows.slice(0, limit);
                         const tagNames = await tagNamesFor(tx, shown.map((row) => row.id));
-                        const hints = await durationHints(tx, userId, shown);
+                        const hints = await taskHints(tx, userId, shown, ctx.today);
                         const more = rows.length > limit;
                         return {
                             ...(view && { view }),
@@ -307,7 +311,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         const shown = noteText.slice(0, NOTE_READ_LIMIT);
 
                         return {
-                            task: toMinimalTask(row, ctx.timezone, (await durationHints(tx, userId, [row])).get(row.id)),
+                            task: toMinimalTask(row, ctx.timezone, (await taskHints(tx, userId, [row], ctx.today)).get(row.id)),
                             subtasks: subs.map(toMinimalSubtask),
                             tags: tagRows.map(toMinimalTag),
                             note: {
@@ -339,12 +343,16 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     "A task from a capture can't be a Fixed block",
                 )).min(1).max(20),
             }),
-            execute: async ({ tasks: drafts }, { toolCallId }) =>
-                write("create_tasks", toolCallId, async (tx) => {
+            execute: async ({ tasks: drafts }, { toolCallId }) => {
+                const result = await write("create_tasks", toolCallId, async (tx) => {
                     // One lookup for every draft's tag names, so two drafts never make the same tag twice.
                     const named = await tagIdsByName(tx, drafts.flatMap((draft) => draft.tagNames ?? []));
                     const created: { taskId: string; title: string; subtaskIds?: string[]; inboxItemId?: string }[] = [];
-                    for (const { fromImage: _quotes, tagNames = [], hideUntil, tagIds = [], inboxItemId, ...draft } of drafts) {
+                    const ignored: string[] = [];
+                    for (const { fromImage, said, tagNames = [], hideUntil, tagIds = [], inboxItemId, ...unchecked } of drafts) {
+                        const checked = checkSaid(unchecked, said, ctx.userTexts, !!fromImage?.priority);
+                        const draft = { ...checked.fields, ...(checked.effortOrigin && { effortOrigin: checked.effortOrigin }) };
+                        ignored.push(...(checked.ignored ?? []).map((reason) => `${unchecked.title}: ${reason}`));
                         const allTagIds = [...tagIds, ...tagNames.map((name) => named.get(name.trim().toLowerCase())!)];
                         if (!inboxItemId) {
                             created.push(...await createTasks(tx, userId, [{ ...draft, tagIds: allTagIds, notBefore: hideUntil }]));
@@ -365,8 +373,18 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         }, { subtasks: steps, note });
                         created.push({ inboxItemId, taskId: task.id, title: task.title });
                     }
-                    return { result: { created }, id: created[0].taskId, changes: { created: created.map((task) => task.taskId) } };
-                }),
+                    // A guess from their own choices, for the card's one-tap Use. Never written with the batch.
+                    const guesses = await effortGuesses(tx, userId, created.map((c, i) => ({
+                        id: c.taskId, title: c.title, projectId: drafts[i].projectId ?? null, state: "ACTIVE",
+                        recurrenceRule: drafts[i].recurrenceRule ?? null, interactionMode: drafts[i].fixed ? "timetable" : "task", effort: drafts[i].effort ?? null,
+                    })), ctx.today);
+                    for (const c of created) { const level = guesses.get(c.taskId); if (level) (c as { effortGuess?: number }).effortGuess = level; }
+                    return { result: { created, ...(ignored.length && { ignored }) }, id: created[0].taskId, changes: { created: created.map((task) => task.taskId) } };
+                });
+                // After the commit, so the task exists for the background guess.
+                for (const c of (result as { created?: { taskId: string; inboxItemId?: string }[] }).created ?? []) if (!c.inboxItemId) track(suggestEffortGuess(env, userId, c.taskId));
+                return result;
+            },
         }),
 
         duplicate_tasks: tool({
@@ -410,7 +428,9 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     "Nothing to change: set a field, or name it in clear to empty it (null changes nothing)"),
             execute: async ({ taskIds, patch }, { toolCallId }) =>
                 write("update_tasks", toolCallId, async (tx) => {
-                    const { addTagIds = [], addTagNames, removeTagIds = [], removeTagNames, note, appendNote, noteVersion, checkInAt, hideUntil, fixed, ...fields } = patch;
+                    const { addTagIds = [], addTagNames, removeTagIds = [], removeTagNames, note, appendNote, noteVersion, checkInAt, hideUntil, fixed, said, ...unchecked } = patch;
+                    const checked = checkSaid(unchecked, said, ctx.userTexts);
+                    const fields = { ...checked.fields, ...(checked.effortOrigin && { effortOrigin: checked.effortOrigin }) };
                     const rows = await updateTasks(tx, userId, {
                         taskIds,
                         patch: {
@@ -424,7 +444,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     });
                     if (note !== undefined || appendNote) await changeNote(tx, userId, taskIds[0], { note, appendNote, noteVersion });
                     const changes = hasTaskTemporalMutation(fields) ? { rescheduled: rows } : undefined;
-                    return { result: { updated: rows.length }, id: taskIds[0], changes };
+                    return { result: { updated: rows.length, ...(checked.ignored && { ignored: checked.ignored }) }, id: taskIds[0], changes };
                 }),
         }),
 

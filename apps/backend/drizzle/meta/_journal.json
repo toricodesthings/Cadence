@@ -183,6 +183,13 @@
       "when": 1792730088065,
       "tag": "0025_push_release_returns_owners",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792731724991,
+      "tag": "0026_effort_guess",
+      "breakpoints": true
     }
   ]
 }

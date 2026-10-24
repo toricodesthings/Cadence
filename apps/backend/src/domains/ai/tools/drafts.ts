@@ -5,6 +5,7 @@
  * is rejected); a time means a timed block (`scheduledStart` instant with offset) or a reminder.
  */
 import { z } from "zod";
+import { saidSchema } from "./said";
 import { insertTagSchema } from "@cadence/contracts/tag";
 import { insertTaskSchema, taskPrioritySchema, updateTaskSchema } from "@cadence/contracts/task";
 
@@ -40,6 +41,7 @@ export const taskDraftSchema = insertTaskSchema
         priority: priority.optional(),
         effort: insertTaskSchema.shape.effort.describe("1 low, 2 medium, 3 high."),
         durationEstimate: insertTaskSchema.shape.durationEstimate.describe("Minutes."),
+        said: saidSchema,
         subtasks: z.array(step).max(30).optional().describe("Checklist steps, in order."),
         fixed: z.boolean().optional().describe("A class or shift that just passes (timetable)."),
         note: z.string().max(5_000).optional().describe("The new task's note."),
@@ -64,6 +66,7 @@ export const taskPatchSchema = updateTaskSchema
         priority: priority.optional(),
         effort: updateTaskSchema.shape.effort.describe("1 low, 2 medium, 3 high, null clears."),
         durationEstimate: updateTaskSchema.shape.durationEstimate.describe("Minutes, null clears."),
+        said: saidSchema,
         addTagIds: z.array(z.uuid()).max(20).optional(),
         removeTagIds: z.array(z.uuid()).max(20).optional(),
         addTagNames: tagNames.optional().describe("Tags to add by name: an existing tag matches, a new name makes one."),

@@ -19,6 +19,7 @@ import { fitDay, fitMinutes, isFitCandidate } from "@cadence/domain/fit-day";
 import type { TimeOfDay } from "@cadence/contracts/planning";
 import { toMinimalTask } from "./projections";
 import { durationHints } from "../memory/duration";
+import { taskHints } from "../memory/task-hints";
 import { planningEvidence } from "../memory/planning.service";
 import { readSnapshotRoutines, routinesDue, type SnapshotRoutineReader } from "./routine-reads";
 export { routinesDue } from "./routine-reads";
@@ -98,7 +99,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                     const inRange = [...dated.slice(0, WINDOW_ROW_GUARD), ...expanded].sort((a, b) => when(a).localeCompare(when(b)));
                     const shown = inRange.slice(offset, offset + cap);
                     const idOf = (row: (typeof shown)[number]) => (row as { seriesId?: string }).seriesId ?? row.id;
-                    const hints = await durationHints(tx, userId, shown.map((row) => ({ ...row, id: idOf(row) })));
+                    const hints = await taskHints(tx, userId, shown.map((row) => ({ ...row, id: idOf(row) })), ctx.today);
                     const more = inRange.length > offset + cap || dated.length > WINDOW_ROW_GUARD;
                     return {
                         range: { start: from, end: to, timezone: ctx.timezone },

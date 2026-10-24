@@ -11,6 +11,7 @@ import { PARSER_VERSION } from "../core/index.js";
 import { parseDates } from "./date-parser.js";
 import { parseRecurrence } from "./recurrence-parser.js";
 import { parsePriority } from "./priority-parser.js";
+export { parsePriority };
 import { parseDuration, parseRelativeReminder, parseWaitingOn } from "./entity-parser.js";
 export { parseDuration };
 import { resolveProjectsAndTags } from "../resolve/index.js";

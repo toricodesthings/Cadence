@@ -20,6 +20,7 @@ import { AddTaskInput } from "../components/tasks/AddTaskInput";
 import { PhoneTaskDetails, TaskDetailsRail } from "../components/shared/TaskDetailsPanels";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
+import { useEffortGuess } from "../hooks/tasks/use-effort-guess";
 import { rankTasksForRoute } from "../lib/utils/ranking-reasons";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { resolveAccentColor } from "../lib/utils/color-resolver";
@@ -86,6 +87,7 @@ function LinkedHabitRow({
 
 export default function ProjectView() {
     const { projectId } = useParams();
+    const guessOf = useEffortGuess();
     const navigate = useNavigate();
     const { data: projects } = useProjects();
     const deleteProject = useDeleteProject();
@@ -136,9 +138,9 @@ export default function ProjectView() {
         if (activeDefinition && intelligenceEnabled && focusViewsEnabled) {
             filtered = applyFocusView(filtered, activeDefinition, { clock: nlpClock(), dayOf: dayOfInstant });
         }
-        if (intelligenceEnabled && smartSortEnabled && sortMode === "smart") return rankTasksForRoute(filtered, "project");
+        if (intelligenceEnabled && smartSortEnabled && sortMode === "smart") return rankTasksForRoute(filtered, "project", guessOf);
         return { tasks: sortTasks(filtered, sortMode), rationaleByTaskId: {} as Record<string, string | null> };
-    }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, smartSortEnabled, projectId, todayISO]);
+    }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, smartSortEnabled, projectId, todayISO, guessOf]);
 
     const handleRenameOpen = () => setRenameOpen(true);
 

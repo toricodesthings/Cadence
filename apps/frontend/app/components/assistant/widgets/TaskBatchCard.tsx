@@ -10,6 +10,8 @@ import { PRIORITY_CONFIG } from "../../../lib/constants/priority";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { getTaskRecurrenceSummary } from "../../../lib/utils/task/task-scheduling";
 import type { CreateTaskInput } from "@cadence/contracts/task";
+import { effortName } from "@cadence/domain/effort-evidence";
+import { useUpdateTask } from "../../../hooks/tasks/use-update-task";
 
 type Quoted = "title" | "dueDate" | "scheduledStart" | "priority" | "subtasks" | "note";
 
@@ -202,6 +204,30 @@ function DraftRow({ draft, i, on, onToggle, terse }: DraftRowProps) {
     );
 }
 
+type Created = { taskId: string; title: string; effortGuess?: 1 | 2 | 3 };
+
+/** "~High effort · Use": a guess from their own Effort choices, kept only on a tap. */
+function EffortGuessPills({ created }: { created: Created[] }) {
+    const updateTask = useUpdateTask();
+    const guessed = created.filter((c) => c.effortGuess);
+    if (!guessed.length) return null;
+    return (
+        <div className="flex flex-wrap gap-1.5 px-1 pt-1.5">
+            {guessed.map(({ taskId, title, effortGuess }) => (
+                <button
+                    key={taskId}
+                    type="button"
+                    onClick={() => updateTask.mutate({ id: taskId, effort: effortGuess!, effortOrigin: "accepted" })}
+                    aria-label={`Use ${effortName(effortGuess!)} effort for ${title}`}
+                    className="min-h-8 cursor-pointer rounded-full border border-twilight-border px-2.5 text-[11px] text-twilight-text-soft hover:border-twilight-text-muted/40"
+                >
+                    <span aria-label="Guess">~</span>{effortName(effortGuess!)} effort · Use{guessed.length > 1 ? ` (${title})` : ""}
+                </button>
+            ))}
+        </div>
+    );
+}
+
 /**
  * Card for `create_tasks` (design §4.1): one task shows whole, with its checklist;
  * several show as rows the user can untick. One tap adds them all.
@@ -215,6 +241,7 @@ export function TaskBatchCard({ ctx }: { ctx: ToolRenderContext<"create_tasks"> 
     const first = drafts[0] ?? {};
 
     return (
+        <>
         <ApprovalCard
             ctx={ctx}
             eyebrow={eyebrow}
@@ -243,5 +270,7 @@ export function TaskBatchCard({ ctx }: { ctx: ToolRenderContext<"create_tasks"> 
                 </div>
             )}
         </ApprovalCard>
+        <EffortGuessPills created={created as Created[]} />
+        </>
     );
 }

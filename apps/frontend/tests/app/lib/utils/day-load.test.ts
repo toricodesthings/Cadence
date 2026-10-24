@@ -33,4 +33,12 @@ describe("day load", () => {
         expect([...loads.values()]).toEqual([2, 0]);
         expect(lightestDay(loads)).toBe("2026-09-22");
     });
+
+    it("weighs an unset effort by its guess, and a chosen effort over it", () => {
+        const loads = dayLoads([
+            { dueDate: "2026-09-21", scheduledStart: null, scheduledEnd: null, effort: null },
+            { dueDate: "2026-09-22", scheduledStart: null, scheduledEnd: null, effort: 3 },
+        ], start, 2, () => 1);
+        expect([...loads.values()]).toEqual([1, 3]);
+    });
 });

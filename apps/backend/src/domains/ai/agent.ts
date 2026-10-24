@@ -97,6 +97,7 @@ export interface AgentBuildOptions {
     modelId?: string;        // the router's pick for this turn (model-router.ts); default the standard model
     nonce: string;           // per-request data-fence nonce (safety/injection-policy)
     queryText?: string;      // the person's last two messages: what recall looks up
+    userTexts?: string[];    // the person's own recent messages: what `said` quotes are checked against
     requestId?: string;      // tags the turn's side-call log lines (embedding)
     diagnostics?: RunDiagnostics;
     reusedTurnContext?: Promise<string | undefined>; // server-validated continuation only
@@ -257,6 +258,7 @@ export async function getAgentInstance(
         nonce: opts.nonce,
         waitUntil: opts.waitUntil,
         approvalMode: opts.approvalMode,
+        userTexts: opts.userTexts,
         nullableOptionals: !isClaude(modelId),
     };
     const tools = buildToolRegistry(env, userId, agentCtx);

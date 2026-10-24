@@ -43,6 +43,8 @@ export interface AgentContext {
     rawNotes?: boolean;
     /** Keeps post-commit metrics alive after the response (the Worker's `waitUntil`). */
     waitUntil?: (promise: Promise<unknown>) => void;
+    /** The person's own recent messages (never tool output or image text). Unset off the chat (MCP): no `said` check. */
+    userTexts?: string[];
     /** The chat's approval mode, so a tool knows when the user tapped to approve its call. Unset off the chat (MCP). */
     approvalMode?: ApprovalMode;
     /**
@@ -317,7 +319,8 @@ export async function validateLenient<R extends { success: boolean; value?: unkn
 function reportIgnored(output: unknown, input: unknown): unknown {
     const ignored = isRecord(input) ? (input as Record<symbol, unknown>)[IGNORED] as string[] | undefined : undefined;
     if (!ignored?.length || !isRecord(output)) return output;
-    return { ...output, ignored: `Dropped placeholder values for ${ignored.join(", ")}. Leave out every field you don't mean.` };
+    const note = `Dropped placeholder values for ${ignored.join(", ")}. Leave out every field you don't mean.`;
+    return { ...output, ignored: Array.isArray(output.ignored) ? [...output.ignored, note] : note };
 }
 
 /** True when a (full, zod-made) JSON schema accepts null. */

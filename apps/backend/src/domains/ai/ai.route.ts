@@ -146,13 +146,16 @@ function readIncoming(message: unknown, imagesPerMessage: number) {
 /** The user's zone and settings for this turn, and what recall looks up: this message plus the one before it, so "yes, do that" keeps its subject. */
 async function turnSettings(tx: Tx, userId: string, body: { timezone?: string; conversationId?: string }, incomingText: string) {
     const { timezone, settings } = await syncUserZoneWithSettings(tx, userId, body.timezone);
-    let previous: string | undefined;
+    let stored: string[] = [];
     try {
-        if (body.conversationId) previous = (await lastUserTexts(tx, userId, body.conversationId, 2)).filter((text) => text !== incomingText).at(-1);
+        if (body.conversationId) stored = (await lastUserTexts(tx, userId, body.conversationId, 3)) ?? [];
     } catch {
         // recall falls back to this message alone
     }
-    return { timezone, settings, queryText: [previous, incomingText].filter(Boolean).join("\n") || undefined };
+    const previous = stored.filter((text) => text !== incomingText).slice(-1)[0];
+    // Their own words only (this message and the last two), what a draft's `said` quote is checked against.
+    const userTexts = [...new Set([...stored, incomingText].filter(Boolean))];
+    return { timezone, settings, userTexts, queryText: [previous, incomingText].filter(Boolean).join("\n") || undefined };
 }
 
 /**
@@ -407,8 +410,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         return storedTurnContext([...history].reverse().find((m) => m.role === "user") ?? { role: "assistant" });
     });
     reusedContext.catch(() => {});
-    const agentReady = settingsReady.then(({ timezone, settings, queryText }) => getAgentInstance(c.env, userId, {
-        timezone, settings, queryText, reusedTurnContext: reusedContext,
+    const agentReady = settingsReady.then(({ timezone, settings, queryText, userTexts }) => getAgentInstance(c.env, userId, {
+        timezone, settings, queryText, userTexts, reusedTurnContext: reusedContext,
         requestId, diagnostics, currentDate: body.currentDate, locale: body.locale,
         approvalMode: body.approvalMode, modelId, nonce,
         waitUntil: (promise) => c.executionCtx.waitUntil(promise),

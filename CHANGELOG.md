@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Cadence guesses a task's Effort from the ones you've chosen before; tap to keep it, and day load uses it meanwhile.
+
+### Changed
+
+- Typing or saying 'asap', 'important' or 'no rush' sets priority; the assistant only sets priority from your words.
+- The assistant matches tasks to your energy and asks one quick question only when it needs the answer.
+
 ## [0.38.3] - 2026-10-23
 
 Reminders arrive right on time, and Cadence runs lighter behind the scenes.

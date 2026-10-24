@@ -32,6 +32,7 @@ import { addDays, wallTimeOf, type LocalDate } from "@cadence/domain/time";
 import { dayOfInstant, formatShortDate, formatTime, formatWallTime, fromTimeValue, nlpClock } from "../lib/utils/date-format";
 import { getUserZone, useToday } from "../lib/utils/user-zone";
 import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task/task-scheduling";
+import { useEffortGuess, type GuessOf } from "../hooks/tasks/use-effort-guess";
 import { rankTasksForRoute } from "../lib/utils/ranking-reasons";
 import type { SortMode } from "../lib/utils/task/sort-tasks";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
@@ -116,10 +117,10 @@ function getUpcomingComparator(mode: SortMode): Compare {
 }
 
 /** Each bucket in its order: ranked when smart sort is on and chosen, else by the chosen comparator. */
-function sortBuckets(grouped: Buckets, smart: boolean, sortMode: SortMode) {
+function sortBuckets(grouped: Buckets, smart: boolean, sortMode: SortMode, guessOf: GuessOf) {
     const buckets = Object.keys(grouped) as UpcomingBucketKey[];
     if (smart) {
-        for (const bucket of buckets) grouped[bucket] = rankBucket(grouped[bucket]);
+        for (const bucket of buckets) grouped[bucket] = rankBucket(grouped[bucket], guessOf);
         return;
     }
     const comparator = getUpcomingComparator(sortMode);
@@ -189,10 +190,10 @@ function habitItems(habit: RangeHabit, week: { today: LocalDate; tomorrow: Local
 }
 
 /** Smart sort: ranked tasks first, each with its reason, then routines in their place. */
-function rankBucket(items: UpcomingViewerItem[]): UpcomingViewerItem[] {
+function rankBucket(items: UpcomingViewerItem[], guessOf: GuessOf): UpcomingViewerItem[] {
     const tasks = items.filter((item): item is UpcomingViewerItem & { task: Task } => item.kind === "task" && Boolean(item.task));
     const byId = new Map(tasks.map((item) => [item.task.id, item]));
-    const { tasks: rankedTasks, rationaleByTaskId } = rankTasksForRoute(tasks.map(({ task }) => task), "upcoming");
+    const { tasks: rankedTasks, rationaleByTaskId } = rankTasksForRoute(tasks.map(({ task }) => task), "upcoming", guessOf);
     const ranked = rankedTasks.map((task) => ({ ...byId.get(task.id)!, rationaleLabel: rationaleByTaskId[task.id] ?? null }));
     return [...ranked, ...items.filter((item) => item.kind !== "task")];
 }
@@ -208,6 +209,7 @@ function UpcomingEmptyState({ title }: { title: string }) {
 export default function Upcoming() {
     const { data: tasks = [], isLoading: tasksLoading } = useTasks({ state: "ACTIVE" });
     const { data: projects = [] } = useProjects();
+    const guessOf = useEffortGuess();
     const { activeTagId } = useTagFilterStore();
     const { activeDefinition } = useFocusViewStore();
     const navigate = useNavigate();
@@ -280,9 +282,9 @@ export default function Upcoming() {
             for (const [bucket, item] of habitItems(habit, week)) grouped[bucket].push(item);
         }
 
-        sortBuckets(grouped, intelligenceEnabled && smartSortEnabled && sortMode === "smart", sortMode);
+        sortBuckets(grouped, intelligenceEnabled && smartSortEnabled && sortMode === "smart", sortMode, guessOf);
         return grouped;
-    }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO, intelligenceEnabled, smartSortEnabled]);
+    }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO, intelligenceEnabled, smartSortEnabled, guessOf]);
 
     // Past the week: Further out (tasks only; routines and yearly events keep to the week).
     const furtherItems = useMemo(() => tagFilteredTasks.flatMap((task): FurtherOutItem[] => {

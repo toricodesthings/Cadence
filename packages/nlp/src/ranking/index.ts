@@ -21,6 +21,8 @@ export interface RankableTask {
   scheduledEnd: string | null;
   /** 1-3 effort estimate or null */
   effort: number | null;
+  /** A guess from the person's own Effort choices, read only while `effort` is unset. */
+  effortGuess?: number | null;
   /** "waiting on" text or null */
   waitingOn: string | null;
   /** LocalDate or null — do not show before this day */
@@ -40,6 +42,7 @@ export type TaskRankReason =
   | "due_today"
   | "due_soon"
   | "quick_win"
+  | "looks_quick"
   | "high_priority"
   | "needs_date"
   | "waiting"
@@ -103,6 +106,7 @@ function addWeight(task: RankableTask, add: AddScore) {
   if (task.priority >= 3) add(task.priority * 5, "high_priority");
   else if (task.priority > 0) add(task.priority * 2);
   if (task.effort === 1 || (task.durationEstimate && task.durationEstimate <= 15)) add(8, "quick_win");
+  else if (task.effort == null && task.effortGuess === 1) add(8, "looks_quick");
   if (task.isPinned) add(10, "pinned");
 }
 

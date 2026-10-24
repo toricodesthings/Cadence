@@ -1,0 +1,1 @@
+How much effort would THIS person call the task in the state, judging only from how they rated their own similar tasks in their_choices? If their choices don't clearly show it, the answer is uncertain.

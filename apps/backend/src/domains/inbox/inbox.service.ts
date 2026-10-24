@@ -8,7 +8,7 @@ import { assertOwnership } from "../../platform/ownership";
 import { throwIfNotFound } from "../../platform/errors";
 import type { Tx } from "../../types/db";
 import { sourceSurfaceSchema } from "@cadence/contracts/task";
-import { temporalColumns, toTask, withTagIds } from "../tasks/tasks.service";
+import { effortProvenance, temporalColumns, toTask, withTagIds } from "../tasks/tasks.service";
 import { userZone } from "../../platform/user-zone";
 import type { Zone } from "@cadence/domain/time";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "../tasks/task-nlp";
@@ -85,6 +85,7 @@ export async function processCapture(
             analysis: {
                 ...(parsed as unknown as Record<string, unknown>),
                 ...(item.analysis?.suggestedPlacement ? { suggestedPlacement: item.analysis.suggestedPlacement } : {}),
+                ...(item.analysis?.suggestedPriority ? { suggestedPriority: item.analysis.suggestedPriority } : {}),
             },
             sourceSurface: parsed.sourceSurface,
         })
@@ -131,6 +132,7 @@ function captureTaskValues(
         priority: inferred.priority ?? 0,
         durationEstimate: inferred.durationEstimate ?? null,
         effort,
+        ...effortProvenance(effort, body.effortOrigin),
         recurrenceRule: inferred.recurrenceRule ?? null,
         waitingOn,
         reminderAt,

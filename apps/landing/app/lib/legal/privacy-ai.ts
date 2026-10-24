@@ -35,7 +35,7 @@ export const AI_SECTIONS: LegalDoc["sections"] = [
       { kind: "sub", title: "Suggestions in Capture and search" },
       {
         kind: "p",
-        text: "Separately from the assistant, Cadence can suggest where a new capture belongs and which task you meant when a search finds nothing. This is on by default. Turn it off in Settings, Tasks & Routines, under Suggest where captures go: nothing is sent for these suggestions once it is off, and the server checks the switch before every request.",
+        text: "Separately from the assistant, Cadence can suggest where a new capture belongs, which task you meant when a search finds nothing, and an Effort for a new task from the titles of tasks whose Effort you chose. This is on by default. Turn it off in Settings, Tasks & Routines, under Suggest with an AI provider: nothing is sent for these suggestions once it is off, and the server checks the switch before every request.",
       },
       {
         kind: "list",

@@ -21,6 +21,7 @@ import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
 import { recordSlot } from "../ai/memory/planning.service";
+import { suggestEffortGuess } from "../decisions/effort-guess";
 import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, placeTasks, rescheduleTasks, setTaskState, slotsOf, temporalColumns, toTask, trackTaskChanges, updateTask, withTagIds, type TaskSlot } from "./tasks.service";
 import { userZone } from "../../platform/user-zone";
 import type { Zone } from "@cadence/domain/time";
@@ -234,6 +235,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             });
 
         trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { created: [task.id] });
+        c.executionCtx.waitUntil(suggestEffortGuess(c.env, userId, task.id));
 
         return c.json({ data: task }, 201);
     })
@@ -315,6 +317,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             completed: body.state === "COMPLETE" ? [id] : [],
             from,
         }, { env: c.env });
+        if (body.title !== undefined || body.projectId !== undefined) c.executionCtx.waitUntil(suggestEffortGuess(c.env, userId, id));
         // A choice about when to start something: the person's own (a drop, the time field) or a Cadence proposal they
         // picked or undid. Best-effort and silent; it never changes the response.
         if (moving || findTime) {

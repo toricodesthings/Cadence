@@ -1,13 +1,8 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { effortEvidenceRowSchema, type EffortLevel } from "@cadence/contracts/task";
-import { projectEffortSuggestion, toEvidence } from "@cadence/domain/effort-evidence";
-import { useApiClient } from "../auth/use-api-client";
-import { useAuthState } from "../auth/use-auth-state";
-import { useSettings } from "../core/use-settings";
-import { queryKeys } from "../../lib/api/query-keys";
-import { unwrapResponse } from "../../lib/api/helpers";
-import { getUserZone, today } from "../../lib/utils/user-zone";
+import type { EffortLevel } from "@cadence/contracts/task";
+import { projectEffortSuggestion } from "@cadence/domain/effort-evidence";
+import { useEffortEvidence } from "./use-effort-guess";
+import { today } from "../../lib/utils/user-zone";
 
 /**
  * The Effort suggestion beside a composer's Effort control: from this account's own earlier choices, or nothing.
@@ -22,21 +17,7 @@ export function useEffortSuggestion({ title, projectId, chosen, dismissed, liter
     literal?: boolean;
     open?: boolean;
 }) {
-    const client = useApiClient();
-    const { authReady, isAuthenticated } = useAuthState();
-    const { data: settings } = useSettings();
-    const intelligence = settings?.tasks?.intelligence;
-    const enabled = intelligence?.nlpEnabled !== false && intelligence?.effortSuggestions !== false;
-
-    const { data: rows } = useQuery({
-        queryKey: queryKeys.effortEvidence,
-        queryFn: async () => (await unwrapResponse(await client.api.tasks["effort-evidence"].$get())).map((r) => effortEvidenceRowSchema.parse(r)),
-        enabled: open && enabled && authReady && isAuthenticated,
-        staleTime: 5 * 60_000,
-    });
-    const zone = getUserZone();
-    const evidence = useMemo(() => toEvidence(rows ?? [], zone), [rows, zone]);
-
+    const { evidence, enabled } = useEffortEvidence(open);
     return useMemo(
         () => projectEffortSuggestion({ title, projectId, evidence, today: today(), chosen, dismissed, literal, enabled, supported: true }),
         [title, projectId, evidence, chosen, dismissed, literal, enabled],
