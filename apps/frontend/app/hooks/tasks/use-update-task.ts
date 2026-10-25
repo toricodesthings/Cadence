@@ -50,8 +50,10 @@ export function useUpdateTask() {
     /** The newest version any cache holds: an inactive list (another range, a restored cache) can lag behind. */
     function getExpectedUpdatedAt(id: string): string | undefined {
         let latest: string | undefined;
-        for (const [, tasks] of queryClient.getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all })) {
-            if (!Array.isArray(tasks)) continue;
+        for (const [key, tasks] of queryClient.getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all })) {
+            // Lists only (`["tasks", filters]`), the caches a server row reconciles: an optimistic create can seed an
+            // empty detail or note key with its client-clock copy, which would otherwise win as "latest" forever.
+            if (typeof key[1] !== "object" || !Array.isArray(tasks)) continue;
             const task = tasks.find((item) => item.id === id);
             if (task?.updatedAt && (!latest || Date.parse(task.updatedAt) > Date.parse(latest))) latest = task.updatedAt;
         }

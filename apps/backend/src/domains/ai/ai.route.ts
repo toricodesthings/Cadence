@@ -86,6 +86,7 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { replanReminders } from "../push/reminder-clock";
 import { scheduleLearn } from "./memory/queue";
+import { settleFieldQuestion } from "./tools/ask";
 
 // Router defined below as a single CHAIN (after its helpers) so the route schema
 // flows into AppType for the Hono RPC client.
@@ -152,10 +153,11 @@ async function turnSettings(tx: Tx, userId: string, body: { timezone?: string; c
     } catch {
         // recall falls back to this message alone
     }
+    const answeredField = await settleFieldQuestion(tx, userId, settings, incomingText);
     const previous = stored.filter((text) => text !== incomingText).slice(-1)[0];
     // Their own words only (this message and the last two), what a draft's `said` quote is checked against.
     const userTexts = [...new Set([...stored, incomingText].filter(Boolean))];
-    return { timezone, settings, userTexts, queryText: [previous, incomingText].filter(Boolean).join("\n") || undefined };
+    return { timezone, settings, userTexts, answeredField, queryText: [previous, incomingText].filter(Boolean).join("\n") || undefined };
 }
 
 /**
@@ -410,8 +412,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         return storedTurnContext([...history].reverse().find((m) => m.role === "user") ?? { role: "assistant" });
     });
     reusedContext.catch(() => {});
-    const agentReady = settingsReady.then(({ timezone, settings, queryText, userTexts }) => getAgentInstance(c.env, userId, {
-        timezone, settings, queryText, userTexts, reusedTurnContext: reusedContext,
+    const agentReady = settingsReady.then(({ timezone, settings, queryText, userTexts, answeredField }) => getAgentInstance(c.env, userId, {
+        timezone, settings, queryText, userTexts, answeredField, reusedTurnContext: reusedContext,
         requestId, diagnostics, currentDate: body.currentDate, locale: body.locale,
         approvalMode: body.approvalMode, modelId, nonce,
         waitUntil: (promise) => c.executionCtx.waitUntil(promise),

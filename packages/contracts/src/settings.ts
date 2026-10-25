@@ -134,6 +134,8 @@ export const backgroundUploadMetaSchema = z.object({
 // The PATCH schema (`settingsPatchSchema`) is derived with `deepPartial`.
 // Defaults in `SETTINGS_DEFAULTS` must satisfy this schema exactly.
 
+const fieldAskEntrySchema = z.object({ lastOn: z.string().nullable(), misses: z.number().int().min(0), labels: z.array(z.string()).optional() });
+
 export const userSettingsSchema = z.object({
     profile: z.object({
         pronouns: z.string().optional(),
@@ -334,6 +336,8 @@ export const userSettingsSchema = z.object({
         }).nullable().optional(),
         // "How long did it take?" budget (server-owned: written only by /ai/memory/duration/ask and /shown).
         durationAsk: z.object({ lastOn: z.string().nullable(), misses: z.number().int().min(0) }).nullable().optional(),
+        // "Which matters most?" / "Which is heaviest?" back-off (server-owned: written only by ask_user and the reply's turn).
+        fieldAsk: z.object({ priority: fieldAskEntrySchema.optional(), effort: fieldAskEntrySchema.optional() }).nullable().optional(),
         adaptiveTone: z.boolean().optional(),
         // Opening the assistant after the app starts shows the last conversation (true) or a new one (false).
         resumeLastChat: z.boolean().optional(),
@@ -413,7 +417,7 @@ export function deepMerge<R = Record<string, unknown>>(target: unknown, source: 
 
 // Patch schema — recursively partial version of the canonical schema.
 // The memory consent fields (and the backfill's progress) are written only by POST /ai/memory/mode and the memory jobs.
-const SERVER_OWNED_ASSISTANT = { memoryMode: true, memoryChoiceAt: true, memoryEpoch: true, memoryLearningNotBefore: true, memoryBackfill: true, durationAsk: true } as const;
+const SERVER_OWNED_ASSISTANT = { memoryMode: true, memoryChoiceAt: true, memoryEpoch: true, memoryLearningNotBefore: true, memoryBackfill: true, durationAsk: true, fieldAsk: true } as const;
 const patchSource = userSettingsSchema.extend({
     assistant: userSettingsSchema.shape.assistant
         .unwrap()
@@ -584,6 +588,7 @@ export const SETTINGS_DEFAULTS = {
         memoryLearningNotBefore: null as string | null,
         memoryBackfill: null as { since: string; before: string; chats: "pending" | "done"; notes: "pending" | "done"; learned?: number; doneAt?: string; failedNights?: number } | null,
         durationAsk: null as { lastOn: string | null; misses: number } | null,
+        fieldAsk: null as { priority?: { lastOn: string | null; misses: number; labels?: string[] }; effort?: { lastOn: string | null; misses: number; labels?: string[] } } | null,
         adaptiveTone: true,
         resumeLastChat: true,
     },

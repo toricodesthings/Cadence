@@ -56,8 +56,12 @@ export function effortProvenance(effort: number | null | undefined, origin: "man
  */
 export function guessAfterWrite(patch: { effort?: unknown; title?: unknown; projectId?: unknown; effortGuessSource?: "dismissed" }) {
     if (patch.effortGuessSource) return { effortGuess: null, effortGuessSource: patch.effortGuessSource, effortGuessAt: null };
-    const stale = (patch.effort !== undefined && patch.effort !== null) || patch.title !== undefined || patch.projectId !== undefined;
-    return stale ? { effortGuess: null, effortGuessSource: null, effortGuessAt: null } : {};
+    if (patch.title !== undefined || patch.projectId !== undefined) return { effortGuess: null, effortGuessSource: null, effortGuessAt: null };
+    // A chosen Effort ends the guess but keeps a "no thanks", so clearing the Effort later doesn't bring it back.
+    if (patch.effort !== undefined && patch.effort !== null) {
+        return { effortGuess: null, effortGuessSource: sql<"dismissed" | null>`nullif(${tasks.effortGuessSource}, 'model')`, effortGuessAt: null };
+    }
+    return {};
 }
 
 /** A task as the assistant drafts it: plain fields, plus checklist steps and a note. */

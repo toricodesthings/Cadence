@@ -75,3 +75,22 @@ describe("model effort guess", () => {
         await expect(suggestEffortGuess(env, userId, id)).resolves.toBeUndefined();
     });
 });
+
+describe("capture batching", () => {
+    it("asks effort in the placement call and the processed task keeps it as a guess", async () => {
+        const { suggestPlacement } = await import("../../src/domains/decisions/placement");
+        const { processCapture } = await import("../../src/domains/inbox/inbox.service");
+        const { inboxItems } = await import("../../src/db/schema");
+        await history();
+        const fetch = vi.fn(async () => new Response(JSON.stringify({ answers: { effort: { probabilities: { "2": 0.97 } } } }), { status: 200 }));
+        vi.stubGlobal("fetch", fetch);
+        const [capture] = await withRls(getTestDb(), userId, (tx) => tx.insert(inboxItems).values({ userId, rawText: "Write up the lab" }).returning());
+
+        await suggestPlacement(env, userId, capture.id);
+        expect(fetch).toHaveBeenCalledTimes(1);
+        expect(Object.keys(JSON.parse((fetch.mock.calls[0] as any)[1].body).questions).sort()).toEqual(["effort", "priority"]);
+
+        const { task } = await withRls(getTestDb(), userId, (tx) => processCapture(tx, userId, capture.id, { title: "Write up the lab" } as never));
+        expect(await row(task.id)).toMatchObject({ effort: null, effortGuess: 3, effortGuessSource: "model" });
+    });
+});

@@ -45,6 +45,8 @@ export interface AgentContext {
     waitUntil?: (promise: Promise<unknown>) => void;
     /** The person's own recent messages (never tool output or image text). Unset off the chat (MCP): no `said` check. */
     userTexts?: string[];
+    /** This message answered that field's question (A2): its whole text is a valid `said` quote for it. */
+    answeredField?: "priority" | "effort";
     /** The chat's approval mode, so a tool knows when the user tapped to approve its call. Unset off the chat (MCP). */
     approvalMode?: ApprovalMode;
     /**
@@ -143,7 +145,7 @@ export function clampLimit(limit: number | undefined, fallback = 20): number {
  * The integration in agent.ts spreads the result into `streamText({ tools })`.
  */
 export function buildToolRegistry(env: Env, userId: string, ctx: AgentContext) {
-    return withoutPatterns(ctx.nullableOptionals !== false, { ...coreTools(env, userId, ctx), ...askTools() });
+    return withoutPatterns(ctx.nullableOptionals !== false, { ...coreTools(env, userId, ctx), ...askTools(env, userId, ctx) });
 }
 
 /** Every tool the in-app assistant and MCP share (the assistant adds its ask tool). */

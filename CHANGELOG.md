@@ -14,6 +14,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 - Typing or saying 'asap', 'important' or 'no rush' sets priority; the assistant only sets priority from your words.
 - The assistant matches tasks to your energy and asks one quick question only when it needs the answer.
+- Capture suggests a list only when it's surer, and questions or "boss says it's urgent" no longer set priority.
 
 ## [0.38.3] - 2026-10-23
 

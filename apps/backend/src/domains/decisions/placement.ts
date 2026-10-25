@@ -6,14 +6,15 @@
  * `inbox_items.analysis.suggestedPlacement`. Clarify and Sort all read it from there.
  */
 import { and, eq, sql } from "drizzle-orm";
-import type { SuggestedPlacement, SuggestedPriorityFromWords } from "@cadence/contracts/inbox";
+import type { SuggestedEffort, SuggestedPlacement, SuggestedPriorityFromWords } from "@cadence/contracts/inbox";
 import { inboxItems, projects, taskSections } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
 import { hashIdentifier, logger } from "../../platform/log";
 import { withRls } from "../../platform/rls";
 import type { Env } from "../../types/env";
 import { parsePriority } from "@cadence/nlp/parse";
-import { decide, decisionModel, smartPlacementOn, type DecisionCandidate, type DecisionQuestion } from "./decision";
+import { decide, decisionModel, intelligenceOf, type DecisionCandidate, type DecisionKind, type DecisionQuestion } from "./decision";
+import { effortQuestion, levelOf } from "./effort-guess";
 import instructions from "../../prompts/decisions/placement.md";
 import prioritySaid from "../../prompts/decisions/priority-said.md";
 
@@ -43,13 +44,21 @@ function shortlist(pairs: DecisionCandidate[], text: string): DecisionCandidate[
         .map(({ pair }) => pair);
 }
 
+/** S1's list question over `list` and `list › section` pairs. */
+export const placementQuestion = (pairs: DecisionCandidate[], text: string): DecisionQuestion => ({ type: "choice", instructions: INSTRUCTIONS, candidates: shortlist(pairs, text) });
+
+/** The `priority_said` question, only when the words hold no cue the parser reads: it translates what they said, it never infers. */
+export const priorityQuestion = (text: string): DecisionQuestion | null =>
+    parsePriority(text).entities.length === 0 ? { type: "choice", instructions: PRIORITY_INSTRUCTIONS, candidates: PRIORITY_LEVELS } : null;
+
 export async function suggestPlacement(env: Env, userId: string, captureId: string): Promise<void> {
     try {
         if (!decisionModel(env)) return;
         const db = getDbClient(env);
 
         const loaded = await withRls(db, userId, async (tx) => {
-            if (!(await smartPlacementOn(tx, userId))) return null;
+            const intelligence = await intelligenceOf(tx, userId);
+            if (intelligence?.smartPlacement === false) return null;
             const [capture] = await tx
                 .select({ rawText: inboxItems.rawText })
                 .from(inboxItems)
@@ -59,13 +68,15 @@ export async function suggestPlacement(env: Env, userId: string, captureId: stri
                 tx.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.userId, userId)),
                 tx.select({ id: taskSections.id, name: taskSections.name, projectId: taskSections.projectId }).from(taskSections).where(eq(taskSections.userId, userId)),
             ]);
-            return { text: capture.rawText, lists, sections };
+            // E3 batched: the capture's text is the title its task will most likely have.
+            const effort = await effortQuestion(tx, userId, { title: capture.rawText.slice(0, MAX_TEXT), projectId: null }, intelligence);
+            return { text: capture.rawText, lists, sections, effort, readWords: intelligence?.nlpEnabled !== false };
         });
         if (!loaded) return;
 
         const text = loaded.text.slice(0, MAX_TEXT);
         const questions: Record<string, DecisionQuestion> = {};
-        const kinds: Record<string, "placement" | "priority_said"> = {};
+        const kinds: Record<string, DecisionKind> = {};
         if (loaded.lists.length > 0) {
             const pairs: DecisionCandidate[] = loaded.lists.flatMap((list) => [
                 { id: `${list.id}|`, label: list.name },
@@ -73,24 +84,34 @@ export async function suggestPlacement(env: Env, userId: string, captureId: stri
                     .filter((section) => section.projectId === list.id)
                     .map((section) => ({ id: `${list.id}|${section.id}`, label: `${list.name} › ${section.name}` })),
             ]);
-            questions.pick = { type: "choice", instructions: INSTRUCTIONS, candidates: shortlist(pairs, text) };
+            questions.pick = placementQuestion(pairs, text);
             kinds.pick = "placement";
         }
-        // Only when the words held no cue the parser reads: this translates what they said, it never infers.
-        if (parsePriority(loaded.text).entities.length === 0) {
-            questions.priority = { type: "choice", instructions: PRIORITY_INSTRUCTIONS, candidates: PRIORITY_LEVELS };
+        const priority = loaded.readWords ? priorityQuestion(loaded.text) : null;
+        if (priority) {
+            questions.priority = priority;
             kinds.priority = "priority_said";
+        }
+        if (loaded.effort) {
+            questions.effort = loaded.effort.question;
+            kinds.effort = "effort";
         }
         if (!Object.keys(questions).length) return;
 
-        // One request: one call, one budget unit.
-        const answers = await decide(env, { kinds, state: text, questions, userHash: await hashIdentifier(userId) });
+        // One request: one call, one budget unit. With the effort question the state carries their choices beside the text.
+        const state = loaded.effort ? loaded.effort.state : text;
+        const answers = await decide(env, { kinds, state, questions, userHash: await hashIdentifier(userId) });
 
         const stored: Record<string, unknown> = {};
         const said = answers.priority;
         if (said?.id) {
             const priority: SuggestedPriorityFromWords = { priority: Number(said.id), model: said.model, probability: said.probability };
             stored.suggestedPriority = priority;
+        }
+        const level = levelOf(answers.effort);
+        if (level) {
+            const effort: SuggestedEffort = { effort: level, model: answers.effort!.model, probability: answers.effort!.probability };
+            stored.suggestedEffort = effort;
         }
 
         // Re-check in a fresh transaction: the pair and the capture may have changed during the call.

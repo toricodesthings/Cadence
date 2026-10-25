@@ -81,7 +81,7 @@ export function EffortSuggestionRow({ suggestion, onUse, onDismiss, guess }: {
         <div role="group" aria-label="Suggested effort" className="flex flex-wrap items-center gap-1.5 text-[11px] text-twilight-text-soft">
             <EFFORT_ICON size={12} aria-hidden="true" />
             {guess ? (
-                <span aria-label={`Effort guess: ${suggestionLabel(suggestion)}`}>~{suggestionLabel(suggestion)}</span>
+                <span><span className="sr-only">Effort guess: </span><span aria-hidden="true">~</span>{suggestionLabel(suggestion)}</span>
             ) : (
                 <span>Suggested effort: {suggestionLabel(suggestion)}</span>
             )}

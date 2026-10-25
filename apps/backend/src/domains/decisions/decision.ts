@@ -25,8 +25,10 @@ const UNCALIBRATED_THRESHOLD = 0.9;
  * A model with no entry is "uncalibrated" and uses the conservative fallback.
  */
 export const DECISION_THRESHOLDS: Record<string, Partial<Record<DecisionKind, number>>> = {
-    // 2026-10 eval: placement 90% coverage / 3% wrong; search 95% / 0%; nothing shown when nothing fits.
-    "microsoft/microsoft-decision-1-20261009": { placement: 0.5, search: 0.6, assistant_search: 0.6 },
+    // 2026-10-25 eval (2 passes, held-out confirmed): each the lowest swept threshold above every wrong answer seen.
+    // placement 88% coverage, 0 wrong (0.5 showed 6% wrong); search 97% / 0; priority_said 79% / 0 invented;
+    // effort 83% / 0 guesses where their choices show none.
+    "microsoft/microsoft-decision-1-20261009": { placement: 0.8, search: 0.6, assistant_search: 0.6, priority_said: 0.85, effort: 0.9 },
 };
 
 const ENDPOINT = "https://openrouter.ai/api/alpha/decisions";
@@ -41,9 +43,14 @@ export function decisionModel(env: Env): string | null {
 }
 
 /** The switch in Settings › Tasks & Routines: on unless it is exactly `false`. */
-export async function smartPlacementOn(tx: Tx, userId: string): Promise<boolean> {
+/** `settings.tasks.intelligence`: the switches every model decision reads first. */
+export async function intelligenceOf(tx: Tx, userId: string) {
     const [user] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
-    return user?.settings?.tasks?.intelligence?.smartPlacement !== false;
+    return user?.settings?.tasks?.intelligence;
+}
+
+export async function smartPlacementOn(tx: Tx, userId: string): Promise<boolean> {
+    return (await intelligenceOf(tx, userId))?.smartPlacement !== false;
 }
 
 export interface DecisionCandidate {

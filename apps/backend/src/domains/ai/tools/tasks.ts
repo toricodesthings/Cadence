@@ -349,10 +349,12 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     const named = await tagIdsByName(tx, drafts.flatMap((draft) => draft.tagNames ?? []));
                     const created: { taskId: string; title: string; subtaskIds?: string[]; inboxItemId?: string }[] = [];
                     const ignored: string[] = [];
+                    const efforts: (number | null)[] = [];
                     for (const { fromImage, said, tagNames = [], hideUntil, tagIds = [], inboxItemId, ...unchecked } of drafts) {
-                        const checked = checkSaid(unchecked, said, ctx.userTexts, !!fromImage?.priority);
+                        const checked = checkSaid(unchecked, said, ctx, !!fromImage?.priority);
                         const draft = { ...checked.fields, ...(checked.effortOrigin && { effortOrigin: checked.effortOrigin }) };
                         ignored.push(...(checked.ignored ?? []).map((reason) => `${unchecked.title}: ${reason}`));
+                        efforts.push(checked.fields.effort ?? null);
                         const allTagIds = [...tagIds, ...tagNames.map((name) => named.get(name.trim().toLowerCase())!)];
                         if (!inboxItemId) {
                             created.push(...await createTasks(tx, userId, [{ ...draft, tagIds: allTagIds, notBefore: hideUntil }]));
@@ -376,13 +378,14 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     // A guess from their own choices, for the card's one-tap Use. Never written with the batch.
                     const guesses = await effortGuesses(tx, userId, created.map((c, i) => ({
                         id: c.taskId, title: c.title, projectId: drafts[i].projectId ?? null, state: "ACTIVE",
-                        recurrenceRule: drafts[i].recurrenceRule ?? null, interactionMode: drafts[i].fixed ? "timetable" : "task", effort: drafts[i].effort ?? null,
+                        recurrenceRule: drafts[i].recurrenceRule ?? null, interactionMode: drafts[i].fixed ? "timetable" : "task", effort: efforts[i],
                     })), ctx.today);
                     for (const c of created) { const level = guesses.get(c.taskId); if (level) (c as { effortGuess?: number }).effortGuess = level; }
                     return { result: { created, ...(ignored.length && { ignored }) }, id: created[0].taskId, changes: { created: created.map((task) => task.taskId) } };
                 });
-                // After the commit, so the task exists for the background guess.
-                for (const c of (result as { created?: { taskId: string; inboxItemId?: string }[] }).created ?? []) if (!c.inboxItemId) track(suggestEffortGuess(env, userId, c.taskId));
+                // After the commit, so the task exists for the background guess; a replayed call already started it.
+                const done = result as { created?: { taskId: string }[]; deduped?: boolean };
+                if (!done.deduped) for (const c of done.created ?? []) track(suggestEffortGuess(env, userId, c.taskId));
                 return result;
             },
         }),
@@ -426,11 +429,16 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 .refine(({ patch }) => patch.note === undefined || patch.noteVersion !== undefined, "note needs noteVersion from get_task_detail")
                 .refine(({ patch }) => Object.values(patch).some((v) => v !== undefined),
                     "Nothing to change: set a field, or name it in clear to empty it (null changes nothing)"),
-            execute: async ({ taskIds, patch }, { toolCallId }) =>
-                write("update_tasks", toolCallId, async (tx) => {
+            execute: async ({ taskIds, patch }, { toolCallId }) => {
+                const result = await write("update_tasks", toolCallId, async (tx) => {
                     const { addTagIds = [], addTagNames, removeTagIds = [], removeTagNames, note, appendNote, noteVersion, checkInAt, hideUntil, fixed, said, ...unchecked } = patch;
-                    const checked = checkSaid(unchecked, said, ctx.userTexts);
+                    const checked = checkSaid(unchecked, said, ctx);
                     const fields = { ...checked.fields, ...(checked.effortOrigin && { effortOrigin: checked.effortOrigin }) };
+                    const rest = [checkInAt, hideUntil, fixed, note, appendNote, addTagNames?.length || undefined, removeTagNames?.length || undefined, addTagIds.length || undefined, removeTagIds.length || undefined];
+                    // Everything they asked for was dropped: write nothing, so the reply can't claim a change.
+                    if (checked.ignored && [...Object.values(checked.fields), ...rest].every((v) => v === undefined)) {
+                        return { result: { updated: 0, ignored: checked.ignored }, id: taskIds[0] };
+                    }
                     const rows = await updateTasks(tx, userId, {
                         taskIds,
                         patch: {
@@ -445,7 +453,11 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     if (note !== undefined || appendNote) await changeNote(tx, userId, taskIds[0], { note, appendNote, noteVersion });
                     const changes = hasTaskTemporalMutation(fields) ? { rescheduled: rows } : undefined;
                     return { result: { updated: rows.length, ...(checked.ignored && { ignored: checked.ignored }) }, id: taskIds[0], changes };
-                }),
+                });
+                // A new title or list: the old guess was cleared, so score the new one.
+                if (patch.title !== undefined || patch.projectId !== undefined) for (const id of taskIds) track(suggestEffortGuess(env, userId, id));
+                return result;
+            },
         }),
 
         reorder_tasks: tool({

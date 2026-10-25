@@ -16,7 +16,7 @@ export const PRIVACY: LegalDoc = {
     "Cadence is run by one person with no company behind it. The apps contain no advertising or third-party analytics code, and your data is not sold.",
     "Your workspace lives in a Neon Postgres database, separated per account by row-level security. Cloudflare runs the servers.",
     "If you message the assistant, that message, related tasks and notes, and any photos you attach go to AI model providers through OpenRouter. Their retention and training terms are not something this project can verify.",
-    "Unless you switch it off in Settings (Suggest with an AI provider), a new capture's text, a search that found nothing, or a new task's title with titles of tasks whose Effort you chose, goes to an AI provider with your list, section and task names, to suggest where it belongs, what you meant or an Effort.",
+    "Unless you switch it off in Settings (Suggest with an AI provider), a new capture's text, a search that found nothing, or a new task's title with titles of tasks whose Effort you chose, goes to an AI provider with your list, section and task names, to suggest where it belongs, what you meant, an Effort, or the priority its words state.",
     "The assistant remembers what you tell it, from the start (Basic is on until you choose). Full is your choice and also learns from what you do in the app. You can see all of it, forget anything with one tap, or choose Off.",
     "Usage diagnostics are on by default (you can switch them off) and record which actions you use, not your text. The Crash reports switch currently does nothing.",
     "You can delete your account yourself in Settings: it is permanent and cannot be undone. You can also have a JSON copy of your data emailed to you from Settings.",

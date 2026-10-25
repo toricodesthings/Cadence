@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { parseCanonicalNlpEnvelope } from "@cadence/nlp";
-import type { ProcessInboxItem } from "@cadence/contracts/inbox";
+import { suggestedEffortSchema, type ProcessInboxItem } from "@cadence/contracts/inbox";
 import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { inboxItems, subtasks, tasks, taskTags } from "../../db/schema";
 import { checkIdempotency, recordMutation } from "../../platform/idempotency";
@@ -40,7 +40,8 @@ export async function processCapture(
     const zone = await userZone(tx, userId);
     const { parsed, inferred } = await inferPlacement(tx, userId, item, body, zone);
 
-    const taskValues = captureTaskValues(userId, body, inferred, zone);
+    const values = captureTaskValues(userId, body, inferred, zone);
+    const taskValues = { ...values, ...(values.effort == null && !values.recurrenceRule && effortGuessFromCapture(item.analysis)) };
     const taskTagIds = Array.from(new Set(inferred.tagIds));
 
     validateTaskRecurrenceRule(taskValues.recurrenceRule, taskValues.zone ?? zone);
@@ -86,6 +87,7 @@ export async function processCapture(
                 ...(parsed as unknown as Record<string, unknown>),
                 ...(item.analysis?.suggestedPlacement ? { suggestedPlacement: item.analysis.suggestedPlacement } : {}),
                 ...(item.analysis?.suggestedPriority ? { suggestedPriority: item.analysis.suggestedPriority } : {}),
+                ...(item.analysis?.suggestedEffort ? { suggestedEffort: item.analysis.suggestedEffort } : {}),
             },
             sourceSurface: parsed.sourceSurface,
         })
@@ -94,6 +96,12 @@ export async function processCapture(
     await recordMutation(tx, userId, idempotencyKey, task.id);
 
     return { task: toTask(task, taskTagIds), alreadyProcessed: false };
+}
+
+/** The model's Effort score for the capture (placement's batched E3) becomes the task's guess, never its Effort. */
+function effortGuessFromCapture(analysis: unknown) {
+    const parsed = suggestedEffortSchema.safeParse((analysis as { suggestedEffort?: unknown } | null)?.suggestedEffort);
+    return parsed.success ? { effortGuess: parsed.data.effort, effortGuessSource: "model" as const, effortGuessAt: new Date().toISOString() } : {};
 }
 
 /** Where a ticked-off thought goes: nowhere. */

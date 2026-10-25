@@ -146,3 +146,11 @@ export const suggestedPriorityFromWordsSchema = z.object({
     probability: z.number(),
 });
 export type SuggestedPriorityFromWords = z.infer<typeof suggestedPriorityFromWordsSchema>;
+
+/** The Effort a decision model scored for a capture from the person's own earlier choices (`analysis.suggestedEffort`); its task gets it as a guess, never as its Effort. */
+export const suggestedEffortSchema = z.object({
+    effort: z.number().int().min(1).max(3),
+    model: z.string(),
+    probability: z.number(),
+});
+export type SuggestedEffort = z.infer<typeof suggestedEffortSchema>;

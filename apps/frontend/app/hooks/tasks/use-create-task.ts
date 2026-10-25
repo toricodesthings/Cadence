@@ -115,8 +115,9 @@ export function useCreateTask() {
             // The optimistic row already has the id the server will keep.
             const optimisticTask = buildOptimisticTask(clientIdFor(input), input);
 
+            // Lists only (`["tasks", filters]`): seeding an empty detail or note key would leave a copy no server row reconciles.
             queryClient.setQueriesData<Task[]>(
-                { queryKey: queryKeys.tasks.all },
+                { queryKey: queryKeys.tasks.all, predicate: (query) => typeof query.queryKey[1] === "object" },
                 (old) => transformListCache(old, (items) => [...items, optimisticTask], { initialize: true }),
             );
 

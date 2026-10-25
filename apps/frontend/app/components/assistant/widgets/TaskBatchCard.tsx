@@ -11,7 +11,9 @@ import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { getTaskRecurrenceSummary } from "../../../lib/utils/task/task-scheduling";
 import type { CreateTaskInput } from "@cadence/contracts/task";
 import { effortName } from "@cadence/domain/effort-evidence";
+import { useState } from "react";
 import { useUpdateTask } from "../../../hooks/tasks/use-update-task";
+import { useTask } from "../../../hooks/tasks/use-tasks";
 
 type Quoted = "title" | "dueDate" | "scheduledStart" | "priority" | "subtasks" | "note";
 
@@ -207,23 +209,46 @@ function DraftRow({ draft, i, on, onToggle, terse }: DraftRowProps) {
 type Created = { taskId: string; title: string; effortGuess?: 1 | 2 | 3 };
 
 /** "~High effort · Use": a guess from their own Effort choices, kept only on a tap. */
-function EffortGuessPills({ created }: { created: Created[] }) {
+/** One created task's guess, read against the live task: gone once it has an Effort (or is gone), "kept · Undo" after Use. */
+function EffortGuessPill({ taskId, title, effortGuess, named }: Created & { named: boolean }) {
     const updateTask = useUpdateTask();
+    const task = useTask(taskId);
+    const [used, setUsed] = useState(false);
+    const level = effortGuess!;
+    if (!task || task.state === "ARCHIVED" || (task.effort != null && !(used && task.effort === level))) return null;
+    const name = `${effortName(level)} effort${named ? ` (${title})` : ""}`;
+    if (used) {
+        return (
+            <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-twilight-border px-2.5 text-[11px] text-twilight-text-soft">
+                <Check size={11} aria-hidden="true" /> {name} kept
+                <button
+                    type="button"
+                    onClick={() => { setUsed(false); updateTask.mutate({ id: taskId, effort: null }); }}
+                    className="cursor-pointer underline-offset-2 hover:underline"
+                >
+                    Undo
+                </button>
+            </span>
+        );
+    }
+    return (
+        <button
+            type="button"
+            onClick={() => { setUsed(true); updateTask.mutate({ id: taskId, effort: level, effortOrigin: "accepted" }); }}
+            aria-label={`Use ${effortName(level)} effort for ${title}`}
+            className="min-h-8 cursor-pointer rounded-full border border-twilight-border px-2.5 text-[11px] text-twilight-text-soft hover:border-twilight-text-muted/40"
+        >
+            <span aria-hidden="true">~</span>{name} · Use
+        </button>
+    );
+}
+
+function EffortGuessPills({ created }: { created: Created[] }) {
     const guessed = created.filter((c) => c.effortGuess);
     if (!guessed.length) return null;
     return (
         <div className="flex flex-wrap gap-1.5 px-1 pt-1.5">
-            {guessed.map(({ taskId, title, effortGuess }) => (
-                <button
-                    key={taskId}
-                    type="button"
-                    onClick={() => updateTask.mutate({ id: taskId, effort: effortGuess!, effortOrigin: "accepted" })}
-                    aria-label={`Use ${effortName(effortGuess!)} effort for ${title}`}
-                    className="min-h-8 cursor-pointer rounded-full border border-twilight-border px-2.5 text-[11px] text-twilight-text-soft hover:border-twilight-text-muted/40"
-                >
-                    <span aria-label="Guess">~</span>{effortName(effortGuess!)} effort · Use{guessed.length > 1 ? ` (${title})` : ""}
-                </button>
-            ))}
+            {guessed.map((c) => <EffortGuessPill key={c.taskId} {...c} named={guessed.length > 1} />)}
         </div>
     );
 }
@@ -242,35 +267,35 @@ export function TaskBatchCard({ ctx }: { ctx: ToolRenderContext<"create_tasks"> 
 
     return (
         <>
-        <ApprovalCard
-            ctx={ctx}
-            eyebrow={eyebrow}
-            eyebrowGlyph={Sparkles}
-            ariaLabel={ariaLabel}
-            primaryLabel={primaryLabel}
-            primaryGlyph={Check}
-            removed={removed(drafts.map(draftLabel))}
-            doneText={doneText}
-        >
-            {drafts.length === 1 ? (
-                <>
-                    <IdentityBlock
-                        title={title}
-                        subtitle={!persona.terse && first.note ? <DraftNote note={first.note} /> : undefined}
-                    />
-                    <DraftDetails draft={first} />
-                    <DraftSteps draft={first} />
-                    <DraftQuotes draft={first} />
-                </>
-            ) : (
-                <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5">
-                    {drafts.map((draft, i) => (
-                        <DraftRow key={i} draft={draft} i={i} on={!off.has(i)} onToggle={onToggle(i)} terse={persona.terse} />
-                    ))}
-                </div>
-            )}
-        </ApprovalCard>
-        <EffortGuessPills created={created as Created[]} />
+            <ApprovalCard
+                ctx={ctx}
+                eyebrow={eyebrow}
+                eyebrowGlyph={Sparkles}
+                ariaLabel={ariaLabel}
+                primaryLabel={primaryLabel}
+                primaryGlyph={Check}
+                removed={removed(drafts.map(draftLabel))}
+                doneText={doneText}
+            >
+                {drafts.length === 1 ? (
+                    <>
+                        <IdentityBlock
+                            title={title}
+                            subtitle={!persona.terse && first.note ? <DraftNote note={first.note} /> : undefined}
+                        />
+                        <DraftDetails draft={first} />
+                        <DraftSteps draft={first} />
+                        <DraftQuotes draft={first} />
+                    </>
+                ) : (
+                    <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5">
+                        {drafts.map((draft, i) => (
+                            <DraftRow key={i} draft={draft} i={i} on={!off.has(i)} onToggle={onToggle(i)} terse={persona.terse} />
+                        ))}
+                    </div>
+                )}
+            </ApprovalCard>
+            <EffortGuessPills created={created as Created[]} />
         </>
     );
 }

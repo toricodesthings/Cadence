@@ -1,1 +1,1 @@
-Only if the state itself says how important or urgent it is to the writer. Deadlines, topics, places and who it is for are not statements of importance: choose none.
+Only if the captured text itself (task.title when the state is an object; never their_choices) says how important or urgent it is to the writer. Deadlines, topics, places and who it is for are not statements of importance, and neither are capitals, exclamation marks or stress: choose none. A word inside a name (urgent care, Priority Mail, high school) is a topic.

@@ -26,6 +26,7 @@ const persona: AssistantPersona = {
         memoryLearningNotBefore: null,
     memoryBackfill: null,
     durationAsk: null,
+    fieldAsk: null,
     adaptiveTone: true,
     resumeLastChat: true,
 };

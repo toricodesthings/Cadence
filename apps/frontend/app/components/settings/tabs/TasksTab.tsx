@@ -196,7 +196,7 @@ function IntelligenceSection({ intelligence, updateSettings }: { intelligence: I
             )}
             <SwitchSetting
                 title="Suggest with an AI provider"
-                description="Sends a new capture's text, a search that found nothing, or a new task's title with your own earlier Effort choices, to an AI provider to suggest a destination, a match or an Effort. Off sends nothing."
+                description="Sends a new capture's text, a search that found nothing, or a new task's title with your own earlier Effort choices, to an AI provider to suggest a destination, a match, an Effort, or the priority its words state. Off sends nothing."
                 checked={intelligence.smartPlacement !== false}
                 onChange={(val) => setIntel({ smartPlacement: val })}
             />

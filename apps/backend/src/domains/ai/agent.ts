@@ -1,4 +1,4 @@
-import { ToolLoopAgent, asSchema, hasToolCall, isStepCount, type SystemModelMessage, type ToolSet } from "ai";
+import { ToolLoopAgent, asSchema, isStepCount, type StopCondition, type SystemModelMessage, type ToolSet } from "ai";
 import { createOpenRouter, type OpenRouterChatSettings } from "@openrouter/ai-sdk-provider";
 import { eq } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
@@ -98,6 +98,7 @@ export interface AgentBuildOptions {
     nonce: string;           // per-request data-fence nonce (safety/injection-policy)
     queryText?: string;      // the person's last two messages: what recall looks up
     userTexts?: string[];    // the person's own recent messages: what `said` quotes are checked against
+    answeredField?: "priority" | "effort"; // this message answered that field's question (A2), so it may be quoted whole
     requestId?: string;      // tags the turn's side-call log lines (embedding)
     diagnostics?: RunDiagnostics;
     reusedTurnContext?: Promise<string | undefined>; // server-validated continuation only
@@ -235,6 +236,10 @@ function getPromptHash(tools: ToolSet, variant: boolean, memoryOn: boolean): Pro
  * message metadata / conversation.model) and the per-turn context, which the
  * caller appends to the last user message (`withTurnContext`).
  */
+/** A question that was asked ends the turn; one held back by the field-question back-off (`asked: false`) lets the reply go on. */
+const askedUser: StopCondition<ToolSet> = ({ steps }) =>
+    steps.at(-1)?.toolResults?.some((result) => result.toolName === "ask_user" && (result.output as { asked?: boolean } | undefined)?.asked !== false) ?? false;
+
 export async function getAgentInstance(
     env: Env,
     userId: string,
@@ -259,6 +264,7 @@ export async function getAgentInstance(
         waitUntil: opts.waitUntil,
         approvalMode: opts.approvalMode,
         userTexts: opts.userTexts,
+        answeredField: opts.answeredField,
         nullableOptionals: !isClaude(modelId),
     };
     const tools = buildToolRegistry(env, userId, agentCtx);
@@ -294,7 +300,7 @@ export async function getAgentInstance(
         instructions: chatInstructions(instructions, modelId, opts.cacheVariant),
         tools: chatTools(tools, memoryOn),
         // A question to the user ends the turn: their reply is the next message.
-        stopWhen: [isStepCount(MAX_TOOL_STEPS), hasToolCall("ask_user")],
+        stopWhen: [isStepCount(MAX_TOOL_STEPS), askedUser],
         maxOutputTokens: MAX_OUTPUT_TOKENS,
         // Writes run here on the server; this decides which wait for the user's tap.
         // Approvals are HMAC-signed at issue, so an edited or forged one fails closed.

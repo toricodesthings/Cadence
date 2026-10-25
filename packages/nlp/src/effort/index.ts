@@ -38,7 +38,21 @@ export const HALF_LIFE_DAYS = 120;
 export const STOP = new Set(["a", "an", "the", "to", "for", "of", "and", "or", "with", "on", "at", "in", "my", "do", "up"]);
 
 /** The words that carry a task's meaning: lower case, no punctuation, no filler, no 1-2 digit numbering (Lab 3 is Lab 4; STAT 3503 is not STAT 2509). */
-export function meaningOf(title: string): Set<string> {
+// Read-only sets shared across calls: guesses compare every task against every past choice on each render.
+// ponytail: cleared whole at the cap; an LRU only if titles churn past it.
+const MEANINGS = new Map<string, ReadonlySet<string>>();
+const MEANINGS_CAP = 5_000;
+
+export function meaningOf(title: string): ReadonlySet<string> {
+  const known = MEANINGS.get(title);
+  if (known) return known;
+  if (MEANINGS.size >= MEANINGS_CAP) MEANINGS.clear();
+  const meaning = readMeaning(title);
+  MEANINGS.set(title, meaning);
+  return meaning;
+}
+
+function readMeaning(title: string): Set<string> {
   const words = title
     .toLowerCase()
     .normalize("NFKD")
@@ -49,7 +63,7 @@ export function meaningOf(title: string): Set<string> {
 }
 
 /** Jaccard overlap of two titles' meaningful words. */
-export function similarity(a: Set<string>, b: Set<string>): number {
+export function similarity(a: ReadonlySet<string>, b: ReadonlySet<string>): number {
   if (a.size === 0 || b.size === 0) return 0;
   let both = 0;
   for (const w of a) if (b.has(w)) both++;

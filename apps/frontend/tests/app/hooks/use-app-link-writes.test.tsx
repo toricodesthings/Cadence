@@ -69,6 +69,20 @@ describe("saving an app on a task", () => {
     });
 });
 
+describe("the version an edit sends", () => {
+    it("comes from the lists, never a stray copy in a detail or note key", async () => {
+        api.patch.mockResolvedValue(Response.json({ data: makeTask({ id: "other" }) }));
+        const qc = seed();
+        const listed = qc.getQueryData<Task[]>(listKey)!.find((t) => t.id === "other")!;
+        // What an optimistic create used to leave behind: a client-clock copy under a note key.
+        qc.setQueryData(queryKeys.notes.detail("x"), [{ ...listed, updatedAt: "2099-01-01T00:00:00.000Z" }]);
+        const { result } = renderHook(useUpdateTask, { wrapper: withClient(qc) });
+        act(() => { result.current.mutate({ id: "other", priority: 1 }); });
+        await waitFor(() => expect(api.patch).toHaveBeenCalled());
+        expect(api.patch.mock.calls[0][0].json.expectedUpdatedAt).toBe(listed.updatedAt);
+    });
+});
+
 describe("a queued app change", () => {
     it("replays an explicit null and drops the version check", () => {
         const [task] = toRequests({ type: "update_task", id: "t", payload: { linkedAppId: null, expectedUpdatedAt: "2026-10-12T00:00:00.000Z" } });

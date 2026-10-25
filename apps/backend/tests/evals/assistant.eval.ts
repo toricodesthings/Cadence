@@ -22,7 +22,8 @@ import { buildToolRegistry } from "../../src/domains/ai/tools";
 import { evaluationOptions, evaluationVars } from "./run-options";
 import type { Env } from "../../src/types/env";
 import { withRls } from "../../src/platform/rls";
-import { habits } from "../../src/db/schema";
+import { habits, users } from "../../src/db/schema";
+import { settleFieldQuestion } from "../../src/domains/ai/tools/ask";
 import { insertFact } from "../../src/domains/ai/memory/memory-store";
 import { eq } from "drizzle-orm";
 import { todayIn } from "@cadence/domain/time";
@@ -53,7 +54,8 @@ interface Scenario {
     smoke?: boolean;
     memoryMode?: "basic" | "full";
     seed?: (t: Tools) => Promise<Record<string, any>>;
-    turns: (string | { text: string; image: string })[];
+    /** A function reads the calls so far: a reply to the card the model just showed. */
+    turns: (string | { text: string; image: string } | ((calls: Call[]) => string))[];
     /** The user's clock for this scenario (default: NOW). */
     now?: string;
     /** Pick each turn's model with the router, as the chat route does (default: always the standard model). */
@@ -87,9 +89,16 @@ async function converse(userId: string, turns: Scenario["turns"], now = NOW, rou
     let steps = 0;
     let tokens = 0, inputTokens = 0, outputTokens = 0, cached = 0, written = 0, cost = 0, unknownCostSteps = 0;
     const started = Date.now();
+    const said: string[] = [];
     for (const turn of turns) {
-        const request = typeof turn === "string" ? turn : turn.text;
-        const image = typeof turn === "string" ? null : readFileSync(join(__dirname, "../fixtures/ai", turn.image));
+        const request = typeof turn === "function" ? turn(calls) : typeof turn === "string" ? turn : turn.text;
+        const image = typeof turn === "object" ? readFileSync(join(__dirname, "../fixtures/ai", turn.image)) : null;
+        // Like turnSettings: this message settles a waiting field question, and `said` quotes are checked against their recent messages.
+        const answeredField = await withRls(getTestDb(), userId, async (tx: any) => {
+            const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId));
+            return settleFieldQuestion(tx, userId, row?.settings, request);
+        });
+        said.push(request);
         // Like the chat route: the thread's model so far decides whether it may still go basic.
         const modelId = routed ? pickChatModel(env, { text: request, imageCount: image ? 1 : 0 }, models.at(-1)) : getModelId(env);
         // Like dropForeignReasoning: a model never replays another model's reasoning.
@@ -97,7 +106,7 @@ async function converse(userId: string, turns: Scenario["turns"], now = NOW, rou
             for (const m of messages) if (m.role === "assistant" && Array.isArray(m.content)) m.content = m.content.filter((p: any) => p.type !== "reasoning");
         }
         models.push(modelId);
-        const { agent, turnContext } = await getAgentInstance(env, userId, { ...variant, timezone: TZ, currentDate: now, approvalMode: "full", nonce: "evalnonce", modelId });
+        const { agent, turnContext } = await getAgentInstance(env, userId, { ...variant, timezone: TZ, currentDate: now, approvalMode: "full", nonce: "evalnonce", modelId, userTexts: [...new Set(said.slice(-4))], answeredField });
         // Like production: each user message keeps the context it was sent with, so later turns replay
         // it unchanged and read the earlier ones from the prompt cache.
         const textContent = `${request}\n\n${turnContext}`;
@@ -221,7 +230,7 @@ const SCENARIOS: Scenario[] = [
                 ...need(rows.length === 1, "one assignment, not separate tasks for its steps"),
                 ...need(task?.projectId === seeded.projectId && task?.sectionId === seeded.sections[0].sectionId, "placed in the named empty section"),
                 ...need(task?.dueDate === "2026-10-20" && !task?.scheduledStart, "deadline is a day, not a scheduled block"),
-                ...need(task?.priority === 3, "visible High priority saved"),
+                ...need(task?.priority === 3, `visible High priority saved (${JSON.stringify(run.calls.filter((c) => /create_tasks|update_tasks/.test(c.name)).map((c) => [c.input, c.output?.ignored]))})`),
                 ...need(/11:59|23:59/.test(detail?.note?.text ?? ""), "visible deadline time preserved in note"),
                 ...need(detail?.subtasks.length === 2 && detail.subtasks.every((s: any) => !/read brief/i.test(s.title)), "only the two unchecked steps saved"),
                 ...need(create.length === 1 && JSON.stringify(create[0]?.input).includes("fromImage"), "image evidence accompanies the write, with no duplicate task"),
@@ -869,6 +878,137 @@ const SCENARIOS: Scenario[] = [
                 ...need(saved?.input?.avoid === "steps", "tagged avoid: steps"),
             ];
         },
+    },
+    // ── 0.39.0: priority and effort only from their words; field questions (A2) ──
+    {
+        name: "priority from words: asap is Urgent with its quote, a deadline sets none",
+        level: "simple",
+        runs: 3,
+        turns: ["add call the bank asap, and the dentist on friday"],
+        check: async (run, t) => {
+            const rows = await openTasks(t);
+            const bank = titled(rows, "bank"), dentist = titled(rows, "dentist");
+            const draft = called(run, "create_tasks").flatMap((c) => c.input.tasks ?? []).find((d: any) => /bank/i.test(d.title));
+            return [
+                ...need(bank?.priority === 4, `bank is Urgent (got ${bank?.priority})`),
+                ...need(/asap/i.test(draft?.said?.priority ?? ""), "the quote names asap"),
+                ...need(!dentist?.priority && dentist?.dueDate === "2026-09-25", "dentist on Friday with no priority"),
+            ];
+        },
+    },
+    {
+        name: "priority from words: shouting and venting set none",
+        level: "simple",
+        runs: 3,
+        turns: ["CALL THE BANK!!! ugh and I really need to do my taxes"],
+        check: async (run, t) => {
+            const rows = await openTasks(t);
+            return [
+                ...need(rows.length === 2, `two tasks (got ${rows.length})`),
+                ...need(rows.every((r) => !r.priority), `no priority (got ${rows.map((r) => r.priority).join(", ")})`),
+            ];
+        },
+    },
+    {
+        name: "priority from words: 'no rush' is Low",
+        level: "simple",
+        runs: 3,
+        turns: ["no rush, but add repaint the fence"],
+        check: async (_run, t) => {
+            const fence = titled(await openTasks(t), "fence");
+            return need(fence?.priority === 1, `fence is Low (got ${fence?.priority}; ${JSON.stringify(called(_run, "create_tasks").map((c) => [c.input.tasks, c.output?.ignored]))})`);
+        },
+    },
+    {
+        name: "effort from words: big essay is High, quick email is Low",
+        level: "simple",
+        runs: 3,
+        turns: ["add the big history essay and a quick email to Jo"],
+        check: async (_run, t) => {
+            const rows = await openTasks(t);
+            const essay = titled(rows, "essay"), email = titled(rows, "jo");
+            return [
+                ...need(essay?.effort === 3, `essay High (got ${essay?.effort})`),
+                ...need(email?.effort === 1, `email Low (got ${email?.effort})`),
+                ...need(rows.every((r) => !r.priority), "no priority"),
+            ];
+        },
+    },
+    {
+        name: "plain creation asks nothing and fills nothing",
+        level: "simple",
+        runs: 3,
+        turns: ["add buy milk and pick up dry cleaning"],
+        check: async (run, t) => {
+            const rows = await openTasks(t);
+            return [
+                ...need(rows.length === 2, `two tasks (got ${rows.length})`),
+                ...need(!called(run, "ask_user").length, "no question"),
+                ...need(rows.every((r) => !r.priority && !r.effort), "no priority or effort"),
+            ];
+        },
+    },
+    ...([
+        ["plan my day: asks which matters most", undefined],
+        ["plan my day: a question skipped yesterday is held back", { priority: { lastOn: "2026-09-22", misses: 1 } }],
+    ] as const).map(([name, fieldAsk]): Scenario => ({
+        name,
+        level: "medium",
+        runs: 3,
+        seed: async (t) => {
+            await t("create_tasks", { tasks: ["Essay draft", "Laundry", "Email the landlord", "Groceries"].map((title) => ({ title, dueDate: TODAY })) });
+            if (fieldAsk) await withRls(getTestDb(), t.userId!, (tx: any) => tx.update(users).set({ settings: { assistant: { fieldAsk } } }).where(eq(users.id, t.userId!)));
+            return {};
+        },
+        turns: ["plan my day"],
+        check: async (run, t) => {
+            const asks = called(run, "ask_user");
+            const shown = asks.filter((c) => c.output?.asked === true);
+            const rows = await openTasks(t);
+            if (fieldAsk) return [
+                ...need(!shown.length, `no question card (got ${JSON.stringify(asks.map((c) => [c.input, c.output]))})`),
+                ...need(run.text.trim().length > 0, "carried on with a plan"),
+                ...need(rows.every((r) => !r.priority), "no priority set"),
+            ];
+            return [
+                ...need(shown.length === 1 && shown[0].input.field === "priority", `one priority question (got ${asks.map((c) => c.input.field).join(", ") || "none"})`),
+                ...need(rows.every((r) => !r.priority), "nothing set before they answer"),
+            ];
+        },
+    })),
+    {
+        name: "plan my day: the tapped title becomes High",
+        level: "complex",
+        runs: 3,
+        seed: async (t) => t("create_tasks", { tasks: ["Essay draft", "Laundry", "Email the landlord", "Groceries"].map((title) => ({ title, dueDate: TODAY })) }),
+        turns: ["plan my day", (calls) => calls.filter((c) => c.name === "ask_user").at(-1)?.input.options.find((o: any) => !/none|same/i.test(o.label))?.label ?? "Laundry"],
+        check: async (run, t) => {
+            const label = called(run, "ask_user").at(-1)?.input.options.find((o: any) => !/none|same/i.test(o.label))?.label ?? "";
+            const rows = await openTasks(t);
+            const chosen = rows.find((r) => label && label.toLowerCase().includes(r.title.toLowerCase()));
+            return [
+                ...need(called(run, "ask_user").filter((c) => c.output?.asked === true).length === 1, "asked once"),
+                ...need(called(run, "ask_user").at(-1)?.input.field === "priority", `the priority question (got ${JSON.stringify(called(run, "ask_user").map((c) => c.input))})`),
+                ...need(chosen?.priority === 3, `"${label}" is High (got ${chosen?.priority})`),
+                ...need(rows.filter((r) => r.priority).length === 1, "only that one"),
+            ];
+        },
+    },
+    {
+        name: "I'm wiped: offers the light task, changes nothing",
+        level: "medium",
+        runs: 3,
+        seed: async (t) => t("create_tasks", { tasks: [
+            { title: "Write the grant proposal", dueDate: TODAY, effort: 3 },
+            { title: "Water the plants", dueDate: TODAY, effort: 1 },
+            { title: "Deep clean the oven", dueDate: TODAY, effort: 3 },
+        ] }),
+        turns: ["I'm wiped. Anything small I can do today?"],
+        check: async (run) => [
+            ...need(/plant/i.test(run.text), "names the light task"),
+            ...need(!run.calls.some((c) => !c.name.startsWith("get_") && c.name !== "ask_user"), "changed nothing"),
+            ...need(!/you (should|need to|must)|you've got this|great job/i.test(run.text), "no advice or cheerleading"),
+        ],
     },
     {
         name: "router: greeting and how-to stay on the basic model",

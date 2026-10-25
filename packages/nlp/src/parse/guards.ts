@@ -7,7 +7,7 @@
 
 /** Words that turn the cue right after them into a denial, not an instruction. */
 const NEGATION_BEFORE =
-    /(?:^|[\s,;:!?])(?:not|never|hardly|barely|no\s+longer|isn'?t|aren'?t|wasn'?t|weren'?t|don'?t|doesn'?t|didn'?t|won'?t|can'?t|cannot)(?:\s+(?:really|so|that|very|quite|actually))*\s*$/i;
+    /(?:^|[\s,;:!?])(?:not|pas|nicht|never|hardly|barely|no\s+longer|isn'?t|aren'?t|wasn'?t|weren'?t|don'?t|doesn'?t|didn'?t|won'?t|can'?t|cannot)(?:\s+(?:really|so|that|very|quite|actually))*\s*$/i;
 
 /** True when the text right before `start` negates whatever cue begins at `start`. */
 export function isNegatedBefore(text: string, start: number): boolean {

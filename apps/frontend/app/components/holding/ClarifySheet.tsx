@@ -18,7 +18,7 @@ import { Tip } from "../primitives/Tooltip";
 import * as Menu from "../primitives/DropdownMenu";
 import { TagField } from "../tasks/TagField";
 import { resolvedNlp } from "../../lib/utils/task/resolved-nlp";
-import { DraftRow } from "../tasks/DraftRow";
+import { DismissButton, DraftRow } from "../tasks/DraftRow";
 import { QuickScheduleSurface, type ScheduleUpdates } from "../tasks/QuickScheduleSurface";
 import type { Instant, LocalDate } from "@cadence/domain/time";
 import { today } from "../../lib/utils/user-zone";
@@ -47,6 +47,8 @@ export function ClarifySheet({
     const stored = overridesOf(item);
     // Read once: a suggestion that arrives after the sheet is open never changes a field under the user.
     const [suggestion] = useState(() => storedSuggestion(item));
+    // The priority their own words stated, read by the model; × declines it for this placing.
+    const [wordsPriority, setWordsPriority] = useState(() => priorityFromWords(item));
     const dismissed = (item.analysis?.dismissedEntityIds ?? []) as string[];
     const parse = useThoughtParse(item.rawText, dismissed);
     const title = stored.title ?? (parse.cleanedTitle || item.rawText);
@@ -76,7 +78,7 @@ export function ClarifySheet({
             projectId,
             sectionId,
             tagIds,
-            priority: parse.priority ?? (priorityFromWords(item) || undefined),
+            priority: parse.priority ?? (wordsPriority || undefined),
             durationEstimate: parse.durationMinutes,
             // A picked schedule: an all-day day (or a span's first day) or a timed block; else a placement; else none.
             ...(useCustom
@@ -140,10 +142,11 @@ export function ClarifySheet({
                     onAccept={() => {}}
                     onLiteral={() => {}}
                 />
-                {parse.priority === undefined && priorityFromWords(item) > 0 && (
+                {parse.priority == null && wordsPriority > 0 && (
                     <p className="mt-2 flex items-center gap-1.5 text-xs text-twilight-text-muted">
                         <PRIORITY_ICON size={12} aria-hidden="true" />
-                        Priority: {PRIORITY_OPTIONS.find((o) => o.value === priorityFromWords(item))?.label} · from your words
+                        Priority: {PRIORITY_OPTIONS.find((o) => o.value === wordsPriority)?.label} · from your words
+                        <DismissButton label="Don't set this priority" onClick={() => setWordsPriority(0)} />
                     </p>
                 )}
                 {title.trim() !== item.rawText.trim() && (

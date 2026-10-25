@@ -21,7 +21,7 @@ function KindIcon({ type }: { type: string }) {
     return Icon ? <Icon size={11} aria-hidden="true" /> : null;
 }
 
-function DismissButton({ label, onClick }: { label: string; onClick: () => void }) {
+export function DismissButton({ label, onClick }: { label: string; onClick: () => void }) {
     return (
         <button type="button" onClick={onClick} aria-label={label} className="-mr-1 flex size-6 cursor-pointer items-center justify-center rounded-full opacity-70 hover:opacity-100">
             <X size={11} aria-hidden="true" />

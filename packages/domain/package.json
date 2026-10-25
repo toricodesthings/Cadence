@@ -16,6 +16,7 @@
     "./task-instruction": "./src/task-instruction.ts",
     "./effort-evidence": "./src/effort-evidence.ts",
     "./effort-guess": "./src/effort-guess.ts",
+    "./field-ask": "./src/field-ask.ts",
     "./duration-ask": "./src/duration-ask.ts",
     "./duration-chips": "./src/duration-chips.ts",
     "./task-length": "./src/task-length.ts",
