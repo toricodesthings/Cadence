@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-10-25
+
 ### Added
 
 - Cadence guesses a task's Effort from the ones you've chosen before; tap to keep it, and day load uses it meanwhile.
