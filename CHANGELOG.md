@@ -6,6 +6,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Default priority is now a switch to start new tasks at Low; higher defaults made every task look important.
+
+### Removed
+
+- The confidence, Smart Capture and Smart sort settings are gone; Cadence uses the setting that worked best for everyone.
+
+### Fixed
+
+- Cadence no longer learns a habit from one unusual week.
+- Shortcuts like 'tmrw', 'fri' and 'nxt wk', and spoken times like 'five pm', are read as dates and times.
+- Typing today's weekday ('tuesday' on a Tuesday) always means today, or next week if its time has passed.
+
 ## [0.39.0] - 2026-10-25
 
 ### Added

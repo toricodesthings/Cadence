@@ -220,7 +220,6 @@ function useBlockWords(info: CalendarEventInfo, title: string, priority: TaskPri
         enabled: nlpOn,
         sourceSurface: "quick_add",
         dateStyle: userSettings?.dateTime?.dateStyle ?? "mdy",
-        confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
     });
     return { nlp, nlpOn, typed: typedWhen.bind(nlp), choices };
 }

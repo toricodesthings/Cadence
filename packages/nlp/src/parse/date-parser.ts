@@ -14,6 +14,7 @@ import type {
   ConfidenceTier,
   DateStyle,
 } from "../core/index.js";
+import { expandShortcuts } from "./shortcuts.js";
 
 /** Date phrases that should always be high-confidence */
 const HIGH_CONFIDENCE_PATTERNS = [
@@ -126,10 +127,31 @@ export interface DateParseResult {
 }
 
 /**
- * Parse date and time expressions from natural language text.
- * Uses chrono-node for robust date extraction.
+ * Parse date and time expressions from natural language text, shortcuts and dictated times included
+ * ("tmrw", "nxt fri", "half past three"). Spans are the person's own characters; a date read through
+ * a shortcut is never "high", one step below what the full words would get.
  */
-export function parseDates(
+export function parseDates(input: string, options: DateParseOptions): DateParseResult {
+  const expanded = expandShortcuts(input);
+  if (expanded.text === input) return capShortcuts(readDates(input, options), expanded, input);
+  const read = readDates(expanded.text, options);
+  const span = (r: { start: number; end: number }) => ({ start: expanded.start(r.start), end: expanded.end(r.end) });
+  return capShortcuts({
+    entities: read.entities.map((e) => {
+      const at = span(e);
+      return { ...e, ...at, sourceText: input.slice(at.start, at.end) };
+    }),
+    consumedRanges: read.consumedRanges.map(span),
+  }, expanded, input);
+}
+
+function capShortcuts(result: DateParseResult, expanded: ReturnType<typeof expandShortcuts>, input: string): DateParseResult {
+  for (const e of result.entities) if (e.confidence === "high" && expanded.shortcut(e, input)) e.confidence = "medium";
+  return result;
+}
+
+/** Chrono plus Cadence's own rules over text whose shortcuts are already spelled out. */
+function readDates(
   input: string,
   options: DateParseOptions,
 ): DateParseResult {
@@ -239,6 +261,16 @@ export function parseDates(
 
     const parsed = result.start.date();
     let day: LocalDate = `${parsed.getUTCFullYear()}-${pad(parsed.getUTCMonth() + 1)}-${pad(parsed.getUTCDate())}`;
+    // A bare weekday is its nearest day from today ("tuesday" on a Tuesday is today). Chrono's answer for
+    // today's own weekday depends on the machine zone and the hour, so the day is set here instead.
+    const weekday = /^(?:(?:on|this)\s+)?(sun|mon|tue|wed|thu|fri|sat)[a-z]*\b/i.exec(sourceText);
+    if (weekday && !/\b(?:next|last|past)\b/i.test(lead.slice(-6) + sourceText)) {
+      const want = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"].indexOf(weekday[1].toLowerCase());
+      day = addDaysLocal(clock.today, (want - weekdayLocal(clock.today) + 7) % 7);
+      // "tuesday at 3pm" typed at 4pm on a Tuesday is next week's.
+      const at = `${pad(parsed.getUTCHours())}:${pad(parsed.getUTCMinutes())}`;
+      if (day === clock.today && (result.start.isCertain("hour") || result.start.isCertain("minute")) && at <= clock.now) day = addDaysLocal(day, 7);
+    }
     const hasTime = result.start.isCertain("hour") || result.start.isCertain("minute");
 
     const hide = /\b(?:(?:hide|hidden|snooze)(?:\s+it)?\s+until|not\s+before)\s+$/i.exec(lead);

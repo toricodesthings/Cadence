@@ -50,6 +50,13 @@ describe("settingsPatchSchema", () => {
         expect(settingsPatchSchema.parse(patch)).toEqual(patch);
     });
 
+    it("strips the removed intelligence keys an older client still sends, without refusing the patch", () => {
+        const old = { autoParseOnCapture: false, confidenceThreshold: "low", smartSortEnabled: false, nlpEnabled: false };
+        expect(settingsPatchSchema.parse({ tasks: { defaultPriority: "high", intelligence: old } })).toEqual({
+            tasks: { defaultPriority: "high", intelligence: { nlpEnabled: false } },
+        });
+    });
+
     it("strips the retired holiday location fields", () => {
         expect(
             settingsPatchSchema.parse({ calendar: { holidays: { enabled: true, usePreciseLocation: true, locationMode: "manual" } } }),

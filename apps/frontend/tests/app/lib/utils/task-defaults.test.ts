@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resolveDefaultDueDate } from "../../../../app/lib/utils/task/task-defaults";
+import { mapPriorityNameToNumber, resolveDefaultDueDate } from "../../../../app/lib/utils/task/task-defaults";
 import { setUserZone } from "../../../../app/lib/utils/user-zone";
 
 describe("resolveDefaultDueDate", () => {
@@ -18,5 +18,12 @@ describe("resolveDefaultDueDate", () => {
         setUserZone("Pacific/Kiritimati");
         expect(resolveDefaultDueDate("Today")).toBe("2026-10-06");
         expect(resolveDefaultDueDate("Next Week")).toBe("2026-10-12");
+    });
+});
+
+describe("mapPriorityNameToNumber", () => {
+    it("starts tasks at Low or None only; a stored higher default acts as None", () => {
+        expect(mapPriorityNameToNumber("low")).toBe(1);
+        for (const name of ["none", "medium", "high", "urgent", null, undefined]) expect(mapPriorityNameToNumber(name)).toBe(0);
     });
 });

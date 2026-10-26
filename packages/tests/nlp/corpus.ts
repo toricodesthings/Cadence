@@ -48,6 +48,22 @@ function family(name: string, surface: Surface, make: (verb: string) => { text: 
 // ── Days ──
 const DAYS: Array<[string, string]> = [["tomorrow", "2026-10-07"], ["today", "2026-10-06"], ["this Friday", "2026-10-09"], ["next Monday", "2026-10-12"], ["on Oct 20", "2026-10-20"], ["in 3 days", "2026-10-09"], ["in two weeks", "2026-10-20"], ["on 2026-11-02", "2026-11-02"]];
 for (const [phrase, day] of DAYS) family(`day:${phrase}`, "task", (v) => ({ text: `${v} ${phrase}`, fields: { dueDate: day } }), { verbs: VERBS.slice(0, 6) });
+// Typed fast: shortcuts and misspellings still mean a day (read at medium, never high). "tom" stays text: it is also a name.
+const SHORT: Array<[string, Fields]> = [
+    ["tmrw", { dueDate: "2026-10-07" }], ["tmr", { dueDate: "2026-10-07" }], ["2moro", { dueDate: "2026-10-07" }], ["tommorow", { dueDate: "2026-10-07" }],
+    ["fri", { dueDate: "2026-10-09" }], ["tues", { dueDate: "2026-10-06" }], ["weds", { dueDate: "2026-10-07" }], ["thurs", { dueDate: "2026-10-08" }],
+    ["nxt mon", { dueDate: "2026-10-12" }], ["this wknd", { dueDate: "2026-10-10" }], ["by eod", { dueDate: "2026-10-06" }], ["by eom", { dueDate: "2026-10-31" }],
+    ["tmrw 9am", { scheduledStart: at("2026-10-07", "09:00") }], ["nxt tues at 3pm", { scheduledStart: at("2026-10-13", "15:00") }],
+];
+for (const [phrase, fields] of SHORT) {
+    family(`abbrev:${phrase}`, "task", (v) => ({ text: `${v.toLowerCase()} ${phrase}`, fields, title: v.toLowerCase() }), { verbs: VERBS.slice(0, 4) });
+}
+// Dictated times: number words read as the hour; a bare one ("at five", "half past three") stays ambiguous.
+const SPOKEN: Array<[string, string]> = [["at five pm", "17:00"], ["at seven thirty pm", "19:30"], ["at quarter to four pm", "15:45"], ["at half past two pm", "14:30"]];
+for (const [phrase, time] of SPOKEN) family(`spoken:${phrase}`, "task", (v) => ({ text: `${v} tomorrow ${phrase}`, fields: { scheduledStart: at("2026-10-07", time) } }), { verbs: VERBS.slice(0, 4) });
+for (const text of ["call mum tom", "Email Tom the notes", "report nxt wk", "Lunch tomorrow at half past three", "call mom tomorrow at five and also buy milk"]) {
+    add({ id: `abbrev-neg:${text}`, family: `abbrev-neg:${text}`, surface: "task", text, fields: {}, title: text, negative: true });
+}
 for (const [phrase, day] of DAYS.slice(0, 3)) family(`day-first:${phrase}`, "task", (v) => ({ text: `${phrase} ${v}`, fields: { dueDate: day } }), { verbs: VERBS.slice(5, 8) });
 
 // ── Deadlines ──
@@ -114,7 +130,7 @@ const LITERAL: Array<[string, string]> = [
     ["Email sam@example.com the notes", "email"], ["Plan a day off", "day off"], ["Order one day passes", "one day"], ["Watch Saturday Night Live", "snl"],
     ["Write the March of the Penguins review", "march"], ["Update the weekly standup agenda", "weekly standup"], ["Check the August Wilson reading list", "august"], ["Review sunday school plan", "sunday school"],
     ["Book a table for the sunday brunch", "sunday brunch"], ["Fall cleanup in the yard", "fall"], ["Winter coat shopping", "winter"], ["Think about Heaven's Night", "heavens"],
-    ["TGIF planning", "tgif"], ["Happy Friday card", "happy friday"], ["Yesterday's meeting notes", "yesterdays"], ["Buy tomatoes", "tomato"],
+    ["TGIF planning", "tgif"], ["Happy Friday card", "happy friday"], ["Yesterday's meeting notes", "yesterdays"], ["Quick call with mum", "quick"], ["cant do anything this wk", "burnout"], ["Buy tomatoes", "tomato"],
 ];
 for (const [text, key] of LITERAL) add({ id: `literal:${key}`, family: `literal:${key}`, surface: "task", text, fields: {}, title: text, negative: true });
 for (const quoted of ['Read "every Monday" book', 'Write "Call tomorrow" on the card', 'Title is "p1 launch"']) {

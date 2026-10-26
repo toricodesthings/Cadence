@@ -151,7 +151,6 @@ export function useWeeklyReviewActions(currentStep: number) {
             tags,
             sourceSurface: "inbox",
             dateStyle: settings?.dateTime?.dateStyle ?? "mdy",
-            confidenceThreshold: settings?.tasks?.intelligence?.confidenceThreshold ?? "medium",
             enabled: settings?.tasks?.intelligence?.nlpEnabled !== false,
             literal: stale,
             manual: manualFromPatch(patch, day),

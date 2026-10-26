@@ -28,6 +28,12 @@ describe("slots and times of day", () => {
 describe("derivePatterns", () => {
     const days = ["2026-10-01", "2026-10-02", "2026-10-05", "2026-10-06", "2026-10-08", "2026-10-09"];
 
+    it("needs two weeks: six reschedules in one burnout week claim nothing", () => {
+        const oneWeek = ["2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-09"].map((d) => row("reschedule", d, "tuesday|early"));
+        expect(derivePatterns(oneWeek, TODAY)).toEqual([]);
+        expect(derivePatterns([...oneWeek.slice(0, 5), row("reschedule", "2026-09-30", "tuesday|early")], TODAY)).toHaveLength(1);
+    });
+
     it("claims a pattern only with 5+ events, on 3+ days, with 70%+ in one bucket", () => {
         const six = days.map((d) => row("reschedule", d, "tuesday|early"));
         expect(derivePatterns(six, TODAY)).toEqual([

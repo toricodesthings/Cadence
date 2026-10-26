@@ -80,7 +80,7 @@ export default function TodayRoute() {
     const todayISO = useToday();
     const { activeTagId } = useTagFilterStore();
     const { activeDefinition } = useFocusViewStore();
-    const { smartSortEnabled, intelligenceEnabled, focusViewsEnabled } = useTaskIntelligence();
+    const { intelligenceEnabled, focusViewsEnabled } = useTaskIntelligence();
 
     const personalEvents = usePersonalEvents(Number(todayISO.slice(0, 4)));
     const todayEvents = personalEvents.enabled ? personalEvents.getEventsForDate(todayISO) : [];
@@ -129,7 +129,7 @@ export default function TodayRoute() {
 
         const routines = routineAgendaItems(activeTagId ? [] : habits, todayISO);
 
-        const useRanking = intelligenceEnabled && smartSortEnabled && sortMode === "smart";
+        const useRanking = intelligenceEnabled && sortMode === "smart";
         const rationaleByTaskId: Record<string, string | null> = {};
 
         const sortBucket = (bucket: Task[]): Task[] => {
@@ -147,7 +147,7 @@ export default function TodayRoute() {
             routinesDone: routines.filter((routine) => routine.done),
             rationaleByTaskId,
         };
-    }, [activeTagId, filteredTasks, habits, todayISO, sortMode, intelligenceEnabled, smartSortEnabled, guessOf]);
+    }, [activeTagId, filteredTasks, habits, todayISO, sortMode, intelligenceEnabled, guessOf]);
 
     const spineItems = useMemo<SpineItem[]>(() => {
         const items: SpineItem[] = [];

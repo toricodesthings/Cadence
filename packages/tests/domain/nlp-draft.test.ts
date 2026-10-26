@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parse } from "@cadence/nlp";
-import { resolveDraft, type DraftDecisions, type DraftField } from "@cadence/domain/nlp-draft";
+import { appliesWithoutChoice, resolveDraft, type DraftDecisions, type DraftField } from "@cadence/domain/nlp-draft";
 
 const CLOCK = { today: "2026-10-06", now: "10:00", weekStart: "Sunday" as const };
 const ALL = new Set<DraftField>([
@@ -114,5 +114,15 @@ describe("routine and yearly-event capabilities", () => {
         const d = draft("Mom's birthday May 12", {}, new Set<DraftField>(["dueDate"]));
         expect(d.fields.dueDate).toMatch(/-05-12$/);
         expect(d.title).toBe("Mom's birthday");
+    });
+});
+
+describe("appliesWithoutChoice", () => {
+    it("applies medium and high; a fuzzy list or tag name and anything lower is a suggestion", () => {
+        expect(appliesWithoutChoice({ type: "due_date", confidence: "medium" })).toBe(true);
+        expect(appliesWithoutChoice({ type: "due_date", confidence: "low" })).toBe(false);
+        expect(appliesWithoutChoice({ type: "project", confidence: "high" })).toBe(true);
+        expect(appliesWithoutChoice({ type: "project", confidence: "medium" })).toBe(false);
+        expect(appliesWithoutChoice({ type: "tag", confidence: "medium" })).toBe(false);
     });
 });

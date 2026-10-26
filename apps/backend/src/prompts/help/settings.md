@@ -4,7 +4,7 @@
 - [Appearance](?settings=appearance): theme, accent, background, motion, low stimulation, density.
 - [Notifications](?settings=notifications): reminders and lead times for tasks, due dates, timed blocks, routines and yearly events; pause, quiet hours, my morning/evening, the dot on Routines; daily summary is upcoming.
 - [Calendar & Time](?settings=datetime): time zone, time and date format, week start, default view, the hour Day and Week open at, and what shows on the calendar (task kinds, holidays, yearly events).
-- [Tasks & Routines](?settings=tasks): task defaults, views, routine streaks, Quick Add, smart features (typed dates, Effort suggestions, suggested destinations, smart sort, focus views).
+- [Tasks & Routines](?settings=tasks): task defaults, views, routine streaks, Quick Add, smart features (typed dates, Effort suggestions, suggested destinations, focus views).
 - [Keyboard Shortcuts](?settings=shortcuts): every shortcut, and the keys you can change.
 - [Cadence Assistant](?settings=assistant): the assistant's name, voice and behavior.
 - [Integrations](?settings=integrations): Connected assistants, where outside assistants like Claude that can read your Cadence, add to Capture or change your data are listed, each with Disconnect. Calendar and notes sync are coming soon.

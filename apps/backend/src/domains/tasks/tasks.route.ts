@@ -211,7 +211,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                             scheduledStart: body.scheduledStart,
                             scheduledEnd: body.scheduledEnd,
                         },
-                        (fromWords.runtime.settings.tasks?.intelligence?.confidenceThreshold ?? "medium") as "high" | "medium" | "low",
                         zone,
                     )
                     : null;

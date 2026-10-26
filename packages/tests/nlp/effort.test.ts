@@ -124,3 +124,17 @@ describe("evaluation against a modal baseline", () => {
         expect(hits).toBeGreaterThan(0);
     });
 });
+
+describe("suggestEffort on irregular lives", () => {
+    it("three weeks of silence leave the suggestion unchanged and unpenalised", () => {
+        const before = suggestEffort("Class X Lab", null, labs([3, 3, 3, 3]), TODAY);
+        const away = suggestEffort("Class X Lab", null, labs([3, 3, 3, 3]).map((e) => ({ ...e, day: addDaysLocal(e.day, -21) })), TODAY);
+        expect(before).toMatchObject({ kind: "level", level: 3 });
+        expect(away).toMatchObject({ kind: "level", level: 3 });
+    });
+    it("one evening of identical choices is real evidence, and one different tap does not flip it", () => {
+        const binge = Array.from({ length: 10 }, (_, i) => ev(`Class X Lab ${i + 1}`, 3, 0));
+        expect(suggestEffort("Class X Lab", null, binge, TODAY)).toMatchObject({ kind: "level", level: 3 });
+        expect(suggestEffort("Class X Lab", null, [...binge, ev("Class X Lab 11", 1, 0)], TODAY)).toMatchObject({ kind: "level", level: 3 });
+    });
+});

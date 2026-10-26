@@ -2,11 +2,8 @@ import { eq, and } from "drizzle-orm";
 import { type CanonicalNlpSnapshot } from "@cadence/nlp";
 import { atLocal, isZone, todayIn, wallTimeOf, type Zone } from "@cadence/domain/time";
 import { users, projects, tags, taskNlpMetadata } from "../../db/schema";
+import { appliesWithoutChoice } from "@cadence/domain/nlp-draft";
 import type { Tx } from "../../types/db";
-
-function confidenceRank(confidence: "high" | "medium" | "low" | undefined) {
-    return confidence === "high" ? 2 : confidence === "medium" ? 1 : 0;
-}
 
 export async function loadNlpRuntime(tx: Tx, userId: string) {
     const [user] = await tx
@@ -60,10 +57,9 @@ export function inferTaskFieldsFromParse(
         scheduledEnd?: string | null;
         scheduledDay?: string | null;
     },
-    confidenceThreshold: "high" | "medium" | "low",
     zone: Zone,
 ) {
-    const found = readEntities(parsed, confidenceThreshold, zone);
+    const found = readEntities(parsed, zone);
     // Any placement field given (even null) means the caller placed the task itself.
     const placed = [explicit.dueDate, explicit.scheduledStart, explicit.scheduledEnd, explicit.scheduledDay]
         .some((field) => field !== undefined);
@@ -82,8 +78,7 @@ export function inferTaskFieldsFromParse(
 }
 
 /** Every confident entity the parse found, in stored shapes; a later one of a kind replaces an earlier one. */
-function readEntities(parsed: CanonicalNlpSnapshot, confidenceThreshold: "high" | "medium" | "low", zone: Zone) {
-    const thresholdRank = confidenceRank(confidenceThreshold);
+function readEntities(parsed: CanonicalNlpSnapshot, zone: Zone) {
     const found: {
         tagIds: Set<string>;
         projectId?: string | null;
@@ -94,7 +89,7 @@ function readEntities(parsed: CanonicalNlpSnapshot, confidenceThreshold: "high" 
         temporal?: { dueDate?: string; scheduledStart?: string };
     } = { tagIds: new Set<string>() };
     for (const entity of parsed.entities) {
-        if (confidenceRank(entity.confidence) < thresholdRank) continue;
+        if (!appliesWithoutChoice(entity)) continue;
         const value = entity.normalizedValue as Record<string, unknown>;
         switch (entity.type) {
             case "project":

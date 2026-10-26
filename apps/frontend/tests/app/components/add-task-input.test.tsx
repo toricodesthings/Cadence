@@ -30,8 +30,6 @@ vi.mock("../../../app/hooks/core/use-settings", () => ({
                 newTaskPlacement: "bottom",
                 intelligence: {
                     nlpEnabled: true,
-                    autoParseOnCapture: true,
-                    confidenceThreshold: "medium",
                     lowStimulationMode: false,
                 },
             },

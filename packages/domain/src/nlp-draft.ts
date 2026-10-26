@@ -67,8 +67,6 @@ export interface DraftContext {
     zone: Zone;
     /** Fields this surface can store; anything else stays in the title untouched. */
     capabilities: ReadonlySet<DraftField>;
-    /** Lowest confidence that applies without a choice (default medium). */
-    threshold?: "high" | "medium" | "low";
     /** The surface stores a month and day only (a yearly event): a time or a year is reported in `unfit`, never applied or dropped. */
     monthDayOnly?: boolean;
 }
@@ -85,7 +83,14 @@ export interface Draft {
     unfit: ParsedEntity[];
 }
 
-const RANK = { low: 0, medium: 1, high: 2 } as const;
+/**
+ * One rule for every reader (client draft and server create): medium confidence or better applies without a choice,
+ * and a fuzzy list or tag name is only ever a suggestion. Fixed from the corpus sweep, never a setting.
+ */
+export function appliesWithoutChoice(e: { type: string; confidence?: "high" | "medium" | "low" }): boolean {
+  if ((e.type === "project" || e.type === "tag") && e.confidence !== "high") return false;
+  return e.confidence === "high" || e.confidence === "medium";
+}
 
 const isNone = (v: unknown) => v === null || v === undefined || (Array.isArray(v) && v.length === 0);
 
@@ -130,7 +135,6 @@ export function resolveDraft(
 
     const dismissed = new Set(decisions.dismissed ?? []);
     const accepted = new Set(decisions.accepted ?? []);
-    const threshold = RANK[ctx.threshold ?? "medium"];
     const filled = new Set<DraftField>();
     const removed: Array<{ start: number; end: number }> = [];
     const take = (e: ParsedEntity) => removed.push(e.consumed ?? e);
@@ -155,9 +159,8 @@ export function resolveDraft(
         }
         if (field !== "tagIds" && filled.has(field)) continue;
 
-        // Fuzzy names are a suggestion until chosen; so is anything under the threshold.
-        const fuzzy = (e.type === "project" || e.type === "tag") && e.confidence !== "high";
-        if (!accepted.has(e.id) && (fuzzy || RANK[e.confidence] < threshold)) {
+        // Fuzzy names are a suggestion until chosen; so is anything under medium.
+        if (!accepted.has(e.id) && !appliesWithoutChoice(e)) {
             out.suggestions.push(e);
             continue;
         }

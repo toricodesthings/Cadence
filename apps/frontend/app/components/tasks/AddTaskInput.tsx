@@ -29,12 +29,11 @@ interface AddTaskInputProps {
     tasks: Task[];
 }
 
-/** Whether typed words are read (both switches on), and how. */
+/** Whether typed words are read, and how dates are written. */
 function wordsSettings(userSettings: ReturnType<typeof useSettings>["data"]) {
     const intelligence = userSettings?.tasks?.intelligence;
     return {
-        parseOn: intelligence?.nlpEnabled !== false && intelligence?.autoParseOnCapture !== false,
-        confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
+        parseOn: intelligence?.nlpEnabled !== false,
         dateStyle: userSettings?.dateTime?.dateStyle ?? "mdy",
     };
 }
@@ -80,7 +79,7 @@ export function AddTaskInput({
     const { data: tags = [] } = useTags();
     const { data: userSettings } = useSettings();
     const taskDefaults = userSettings?.tasks;
-    const { parseOn, confidenceThreshold, dateStyle } = wordsSettings(userSettings);
+    const { parseOn, dateStyle } = wordsSettings(userSettings);
     const manual = manualFields(manualProject, manualTags, deadline);
     const parsedInput = useNlpParse({
         input: value,
@@ -94,7 +93,6 @@ export function AddTaskInput({
         capabilities: TASK_FIELDS,
         sourceSurface: "inline_add",
         dateStyle,
-        confidenceThreshold,
         enabled: parseOn,
     });
 

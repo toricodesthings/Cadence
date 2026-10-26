@@ -123,7 +123,6 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
         capabilities: ROUTINE_FIELDS,
         sourceSurface: "quick_add",
         dateStyle: settings?.dateTime?.dateStyle ?? "mdy",
-        confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
         enabled: intelligence?.nlpEnabled !== false,
     });
     const recurrenceRule = chosen(touched.has("recurrenceRule"), ruleState, nlp.fields.recurrenceRule);

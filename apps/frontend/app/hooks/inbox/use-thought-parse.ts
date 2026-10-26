@@ -17,6 +17,5 @@ export function useThoughtParse(text: string, dismissedEntityIds: string[] = [])
         sourceSurface: "clarify_sheet",
         dateStyle: settings?.dateTime?.dateStyle,
         enabled: settings?.tasks.intelligence?.nlpEnabled !== false,
-        confidenceThreshold: settings?.tasks.intelligence?.confidenceThreshold,
     });
 }

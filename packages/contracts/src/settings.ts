@@ -249,11 +249,8 @@ export const userSettingsSchema = z.object({
         }).optional(),
         intelligence: z.object({
             nlpEnabled: z.boolean().optional(),
-            autoParseOnCapture: z.boolean().optional(),
             /** Suggest an Effort from this account's own earlier choices. */
             effortSuggestions: z.boolean().optional(),
-            confidenceThreshold: z.enum(["high", "medium", "low"]).optional(),
-            smartSortEnabled: z.boolean().optional(),
             /** Suggest a list and section for captures, and a "did you mean" task when a search finds nothing. On unless `false`. */
             smartPlacement: z.boolean().optional(),
             focusViewsEnabled: z.boolean().optional(),
@@ -521,10 +518,7 @@ export const SETTINGS_DEFAULTS = {
         },
         intelligence: {
             nlpEnabled: true,
-            autoParseOnCapture: true,
             effortSuggestions: true,
-            confidenceThreshold: "medium" as const,
-            smartSortEnabled: true,
             smartPlacement: true,
             focusViewsEnabled: true,
             lowStimulationMode: false,

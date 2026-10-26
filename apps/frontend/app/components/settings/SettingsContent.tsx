@@ -44,7 +44,7 @@ export const SETTINGS_CATEGORIES = [
     { id: "appearance", label: "Appearance", icon: Paintbrush, keywords: ["theme", "daylight", "twilight", "dark", "light", "palette", "accent", "intensity", "background", "photo", "loading screen", "motion", "animation", "low stimulation", "density", "compact", "scale"] },
     { id: "notifications", label: "Notifications", icon: Bell, keywords: ["reminders", "alerts", "push", "devices", "due dates", "overdue", "follow-ups", "blocks", "routines", "dot", "yearly events", "pause", "quiet hours", "morning", "evening", "background"] },
     { id: "datetime", label: "Calendar & Time", icon: Clock, keywords: ["time zone", "12-hour", "24-hour", "date format", "week starts", "calendar view", "timeline", "all-day", "fixed", "routines", "holidays", "yearly events"] },
-    { id: "tasks", label: "Tasks & Routines", icon: CheckSquare, keywords: ["due date", "priority", "placement", "rows", "board", "kanban", "completed", "trash", "celebration", "streaks", "quick add", "tray", "smart features", "smart capture", "effort", "confidence", "captures", "smart sort", "focus views", "intelligence"] },
+    { id: "tasks", label: "Tasks & Routines", icon: CheckSquare, keywords: ["due date", "priority", "placement", "rows", "board", "kanban", "completed", "trash", "celebration", "streaks", "quick add", "tray", "smart features", "effort", "captures", "focus views", "intelligence"] },
     { id: "shortcuts", label: "Keyboard Shortcuts", icon: Keyboard, keywords: ["keys", "bindings", "hotkeys", "command palette", "quick capture"] },
 
     { label: "Workspace", isHeader: true },

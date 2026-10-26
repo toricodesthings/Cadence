@@ -64,7 +64,6 @@ function useEventWords(label: string, open: boolean, pickedDay: string | null) {
         monthDayOnly: true,
         sourceSurface: "quick_add",
         dateStyle: settings?.dateTime?.dateStyle ?? "mdy",
-        confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
         enabled: open && intelligence?.nlpEnabled !== false,
     });
     return { nlp, choices };

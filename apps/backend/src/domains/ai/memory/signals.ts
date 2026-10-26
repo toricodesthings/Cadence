@@ -6,7 +6,7 @@
  * durations from the person's answers (`duration_reports`), deterministically in the nightly pass, with no
  * model call. Pure functions here, so the rules are testable without a database.
  */
-import { addDays, dayOf, formatInZone, type LocalDate, type Zone } from "@cadence/domain/time";
+import { addDays, daysBetween, dayOf, formatInZone, type LocalDate, type Zone } from "@cadence/domain/time";
 import { timeOfDay, type TimeOfDay } from "@cadence/domain/find-time";
 import { estimateDuration, type DurationEvidence } from "@cadence/nlp/duration";
 import { STOP } from "@cadence/nlp/effort";
@@ -14,13 +14,16 @@ import { STOP } from "@cadence/nlp/effort";
 /** The window patterns are read over, and how long signals are kept. */
 export const PATTERN_WINDOW_DAYS = 28;
 export const SIGNAL_RETENTION_DAYS = 90;
-/** At least this many events, on at least this many days, with this share in one bucket, or nothing is claimed. */
+/** At least this many events, on at least this many days in at least this many weeks, with this share in one bucket, or nothing is claimed. One bad week is not a pattern. */
 const MIN_EVENTS = 5;
 const MIN_DAYS = 3;
+const MIN_WEEKS = 2;
 const MIN_SHARE = 0.7;
 
 export { timeOfDay, type TimeOfDay };
 
+/** Monday-based week number; 1970-01-05 was a Monday. */
+const weekOf = (day: LocalDate) => Math.floor(daysBetween("1970-01-05", day) / 7);
 const weekdayOf = (day: LocalDate) => formatInZone(day, "UTC", { weekday: "long" }, "en-US").toLowerCase();
 const hourIn = (instant: string, zone: Zone) => Number(formatInZone(instant, zone, { hour: "numeric", hourCycle: "h23" }, "en-US"));
 
@@ -74,6 +77,7 @@ export function derivePatterns(rows: SignalRow[], today: LocalDate): DerivedFact
     const out: DerivedFact[] = [];
     for (const [groupKey, group] of groups) {
         if (group.length < MIN_EVENTS || new Set(group.map((r) => r.on)).size < MIN_DAYS) continue;
+        if (new Set(group.map((r) => weekOf(r.on))).size < MIN_WEEKS) continue;
         const counts = new Map<string, number>();
         for (const row of group) counts.set(row.bucket, (counts.get(row.bucket) ?? 0) + 1);
         const [bucket, n] = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];

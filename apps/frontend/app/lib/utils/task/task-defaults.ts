@@ -1,11 +1,10 @@
 import { addDays, weekdayOf, type LocalDate } from "@cadence/domain/time";
 import { today } from "../user-zone";
 import type { TaskPriority } from "@cadence/contracts/task";
-import { TASK_PRIORITY_NAMES, type TaskPriorityName } from "@cadence/contracts/constants";
 
+/** A default above Low would give every task an importance the person never stated, so only "low" counts. */
 export function mapPriorityNameToNumber(name?: string | null): TaskPriority {
-    const level = TASK_PRIORITY_NAMES.indexOf(name as TaskPriorityName);
-    return level < 0 ? 0 : (level as TaskPriority);
+    return name === "low" ? 1 : 0;
 }
 
 /** The default due day a new task gets (a LocalDate), from Settings. */

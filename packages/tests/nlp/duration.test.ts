@@ -80,3 +80,16 @@ describe("estimateDuration (worked examples)", () => {
         expect(estimateDuration(Q, [ev(10, 10), ev(120, 8), ev(15, 7), ev(100, 6)], TODAY)).toBeNull();
     });
 });
+
+describe("estimateDuration on irregular lives", () => {
+    it("a 2× day moves the estimate only a step, and a 6× day makes it abstain rather than swing", () => {
+        const g = estimateDuration(Q, [ev(45, 10), ev(50, 8), ev(60, 8), ev(100, 2)], TODAY);
+        expect(g?.minutes).toBeGreaterThanOrEqual(50);
+        expect(g?.minutes).toBeLessThanOrEqual(60);
+        expect(estimateDuration(Q, [ev(45, 10), ev(50, 8), ev(60, 8), ev(300, 2)], TODAY)).toBeNull();
+    });
+    it("three weeks of silence keep the estimate", () => {
+        const g = estimateDuration(Q, [ev(45, 31), ev(50, 29), ev(60, 29)], TODAY);
+        expect(g).toMatchObject({ state: "supported", minutes: 50 });
+    });
+});

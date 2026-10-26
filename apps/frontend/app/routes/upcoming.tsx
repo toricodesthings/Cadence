@@ -116,7 +116,7 @@ function getUpcomingComparator(mode: SortMode): Compare {
     return mode === "manual" ? byManual : byTime;
 }
 
-/** Each bucket in its order: ranked when smart sort is on and chosen, else by the chosen comparator. */
+/** Each bucket in its order: ranked when Smart is chosen, else by the chosen comparator. */
 function sortBuckets(grouped: Buckets, smart: boolean, sortMode: SortMode, guessOf: GuessOf) {
     const buckets = Object.keys(grouped) as UpcomingBucketKey[];
     if (smart) {
@@ -221,7 +221,7 @@ export default function Upcoming() {
 
     const { mutate: resolveHabit } = useResolveHabit();
     const shell = useShellMode();
-    const { smartSortEnabled, intelligenceEnabled, focusViewsEnabled } = useTaskIntelligence();
+    const { intelligenceEnabled, focusViewsEnabled } = useTaskIntelligence();
 
     const todayISO = useToday();
     const tomorrowISO = addDays(todayISO, 1);
@@ -282,9 +282,9 @@ export default function Upcoming() {
             for (const [bucket, item] of habitItems(habit, week)) grouped[bucket].push(item);
         }
 
-        sortBuckets(grouped, intelligenceEnabled && smartSortEnabled && sortMode === "smart", sortMode, guessOf);
+        sortBuckets(grouped, intelligenceEnabled && sortMode === "smart", sortMode, guessOf);
         return grouped;
-    }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO, intelligenceEnabled, smartSortEnabled, guessOf]);
+    }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO, intelligenceEnabled, guessOf]);
 
     // Past the week: Further out (tasks only; routines and yearly events keep to the week).
     const furtherItems = useMemo(() => tagFilteredTasks.flatMap((task): FurtherOutItem[] => {

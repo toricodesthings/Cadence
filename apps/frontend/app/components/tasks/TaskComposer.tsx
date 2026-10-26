@@ -109,10 +109,9 @@ export function useTaskComposer({
             ...(manualTags && { tagIds: manualTags }),
         },
         capabilities: TASK_FIELDS,
-        enabled: open && intelligence?.nlpEnabled !== false && intelligence?.autoParseOnCapture !== false,
+        enabled: open && intelligence?.nlpEnabled !== false,
         sourceSurface: project ? "inline_add" : "quick_add",
         dateStyle,
-        confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
     });
     const typed = typedWhen.bind(nlp);
     const { when } = typed;

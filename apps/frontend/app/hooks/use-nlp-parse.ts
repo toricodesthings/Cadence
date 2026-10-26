@@ -84,7 +84,6 @@ interface UseNlpParseOptions {
     monthDayOnly?: boolean;
     sourceSurface?: SourceSurface;
     dateStyle?: "mdy" | "dmy" | "ymd";
-    confidenceThreshold?: "high" | "medium" | "low";
     /** Accepted for old callers; presentation never changes what is understood. */
     lowStimulationMode?: boolean;
     enabled?: boolean;
@@ -145,7 +144,7 @@ const emptyResult = (input: string, sourceSurface: SourceSurface): ParseResult =
 /** The draft for `options` right now: parse, then the shared domain policy. No debounce, no stale state. */
 export function computeNlp(parse: ParseFn | null, options: UseNlpParseOptions, zone: Zone = getUserZone()): NlpParseOutput {
     const {
-        input, projects, tags, sourceSurface = "inline_add", dateStyle = "mdy", confidenceThreshold = "medium",
+        input, projects, tags, sourceSurface = "inline_add", dateStyle = "mdy",
         ignoredTokenIds = [], dismissedEntityIds = [], acceptedEntityIds = [], manual, literal, capabilities = ALL_FIELDS, monthDayOnly, enabled = true,
     } = options;
     const dismissed = [...ignoredTokenIds, ...dismissedEntityIds];
@@ -156,7 +155,7 @@ export function computeNlp(parse: ParseFn | null, options: UseNlpParseOptions, z
             dismissedEntityIds: dismissed,
         })
         : emptyResult(input, sourceSurface);
-    const draft = resolveDraft(input, parsed.entities, { dismissed, accepted: acceptedEntityIds, manual, literal }, { zone, capabilities, threshold: confidenceThreshold, monthDayOnly });
+    const draft = resolveDraft(input, parsed.entities, { dismissed, accepted: acceptedEntityIds, manual, literal }, { zone, capabilities, monthDayOnly });
     const f = draft.fields;
     const applied = parsed.entities.filter((e) => draft.applied.includes(e.id));
     const tokens = applied.map(entityToToken).filter((t): t is QuickAddParsedToken => t !== null);
@@ -195,7 +194,7 @@ export function useNlpParse(options: UseNlpParseOptions): NlpParseOutput & { fin
     const zone = getUserZone();
     const key = JSON.stringify([
         input, options.projects, options.tags, options.ignoredTokenIds, options.dismissedEntityIds, options.acceptedEntityIds,
-        options.manual, options.literal, options.monthDayOnly, options.sourceSurface, options.dateStyle, options.confidenceThreshold, enabled, zone,
+        options.manual, options.literal, options.monthDayOnly, options.sourceSurface, options.dateStyle, enabled, zone,
     ]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` covers every option by value
     const output = useMemo(() => computeNlp(parse, options, zone), [parse, key]);

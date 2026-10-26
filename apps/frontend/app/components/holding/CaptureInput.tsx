@@ -99,7 +99,6 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     const { data: settings } = useSettings();
     const nlpEnabled = settings?.tasks?.intelligence?.nlpEnabled !== false;
     const dateStyle = settings?.dateTime?.dateStyle ?? "mdy";
-    const confidenceThreshold = settings?.tasks?.intelligence?.confidenceThreshold ?? "medium";
     const { isTouch } = useShellMode();
     const savedCapture = useRef<InboxItem | undefined>(undefined);
     // A day set in the picker (or cleared there: "No date"). Picked beats typed.
@@ -117,7 +116,6 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         capabilities: TASK_FIELDS,
         sourceSurface: "inbox",
         dateStyle,
-        confidenceThreshold,
         enabled: nlpEnabled,
     });
     const asTask = isDated(nlp.fields);

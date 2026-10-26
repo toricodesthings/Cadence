@@ -109,7 +109,7 @@ export default function ProjectView() {
     const { data: rawTasks, isLoading } = useTasks({ projectId, state: "ACTIVE" });
     const { activeTagId } = useTagFilterStore();
     const { activeDefinition } = useFocusViewStore();
-    const { smartSortEnabled, intelligenceEnabled, focusViewsEnabled } = useTaskIntelligence();
+    const { intelligenceEnabled, focusViewsEnabled } = useTaskIntelligence();
     const { sortMode, setSortMode } = useSortMode(`project:${projectId}`);
 
     useRouteFocus();
@@ -138,9 +138,9 @@ export default function ProjectView() {
         if (activeDefinition && intelligenceEnabled && focusViewsEnabled) {
             filtered = applyFocusView(filtered, activeDefinition, { clock: nlpClock(), dayOf: dayOfInstant });
         }
-        if (intelligenceEnabled && smartSortEnabled && sortMode === "smart") return rankTasksForRoute(filtered, "project", guessOf);
+        if (intelligenceEnabled && sortMode === "smart") return rankTasksForRoute(filtered, "project", guessOf);
         return { tasks: sortTasks(filtered, sortMode), rationaleByTaskId: {} as Record<string, string | null> };
-    }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, smartSortEnabled, projectId, todayISO, guessOf]);
+    }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, projectId, todayISO, guessOf]);
 
     const handleRenameOpen = () => setRenameOpen(true);
 

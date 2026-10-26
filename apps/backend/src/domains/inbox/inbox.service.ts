@@ -209,7 +209,6 @@ async function inferPlacement(
         : inferTaskFieldsFromParse(
             parsed,
             explicit,
-            (settings.tasks?.intelligence?.confidenceThreshold ?? "medium") as "high" | "medium" | "low",
             zone,
         );
     return { parsed, inferred };

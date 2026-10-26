@@ -55,7 +55,6 @@ export function InstructionField({
         capabilities: INSTRUCTION_FIELDS,
         sourceSurface: "task_edit_title",
         dateStyle: settings?.dateTime?.dateStyle ?? "mdy",
-        confidenceThreshold: settings?.tasks?.intelligence?.confidenceThreshold ?? "medium",
         enabled: settings?.tasks?.intelligence?.nlpEnabled !== false,
     });
     const section = resolveSection(mention, nlp.fields.projectId ?? listId);

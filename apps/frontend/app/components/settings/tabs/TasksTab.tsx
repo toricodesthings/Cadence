@@ -7,13 +7,6 @@ import { SETTINGS_DEFAULTS } from "../../../types/settings";
 
 type Updater = ReturnType<typeof useUpdateSettings>;
 type Intelligence = NonNullable<TaskSettings["intelligence"]>;
-const PRIORITY_OPTIONS: SettingOption[] = [
-    { value: "none", label: "None" },
-    { value: "low", label: "Low" },
-    { value: "medium", label: "Medium" },
-    { value: "high", label: "High" },
-    { value: "urgent", label: "Urgent" },
-];
 const DUE_OPTIONS: SettingOption[] = [
     { value: "None", label: "None" },
     { value: "Today", label: "Today" },
@@ -32,11 +25,6 @@ const STYLE_OPTIONS: SettingOption[] = [
     { value: "label", label: "Icon + label" },
     { value: "icon", label: "Icon only" },
 ];
-const CONFIDENCE_OPTIONS: SettingOption[] = [
-    { value: "high", label: "High — only certain matches" },
-    { value: "medium", label: "Medium — balanced" },
-    { value: "low", label: "Low — everything detected" },
-];
 const QUICK_ADD_CHOICES = [
     { value: "date", label: "Date" },
     { value: "priority", label: "Priority" },
@@ -54,12 +42,11 @@ function TaskDefaultsSection({ taskSettings, updateSettings }: { taskSettings: T
                 options={DUE_OPTIONS}
                 onChange={(val) => set({ defaultDueDate: val === "None" ? null : val as TaskSettings["defaultDueDate"] })}
             />
-            <SelectSetting
-                title="Default priority"
-                description="New tasks start at this priority level unless you change it."
-                value={taskSettings.defaultPriority}
-                options={PRIORITY_OPTIONS}
-                onChange={(val) => set({ defaultPriority: val as TaskSettings["defaultPriority"] })}
+            <SwitchSetting
+                title="Start new tasks at Low priority"
+                description="Off leaves new tasks with no priority, so only what you mark stands out."
+                checked={taskSettings.defaultPriority === "low"}
+                onChange={(val) => set({ defaultPriority: val ? "low" : "none" })}
             />
             <SelectSetting
                 title="New task placement"
@@ -174,23 +161,10 @@ function IntelligenceSection({ intelligence, updateSettings }: { intelligence: I
             {intelligence.nlpEnabled && (
                 <>
                     <SwitchSetting
-                        title="Smart Capture"
-                        description="Automatically recognize dates, priorities, lists, and tags as you type."
-                        checked={intelligence.autoParseOnCapture}
-                        onChange={(val) => setIntel({ autoParseOnCapture: val })}
-                    />
-                    <SwitchSetting
                         title="Suggest Effort"
                         description="Cadence guesses an Effort from the ones you've chosen on similar tasks and uses it for day load. Guesses are marked ~; you always pick what's saved."
                         checked={intelligence.effortSuggestions}
                         onChange={(val) => setIntel({ effortSuggestions: val })}
-                    />
-                    <SelectSetting
-                        title="Confidence threshold"
-                        description="Only apply what's recognized at this confidence. Lower means more automation, higher means more control."
-                        value={intelligence.confidenceThreshold}
-                        options={CONFIDENCE_OPTIONS}
-                        onChange={(val) => setIntel({ confidenceThreshold: val as "high" | "medium" | "low" })}
                     />
                 </>
             )}
@@ -199,12 +173,6 @@ function IntelligenceSection({ intelligence, updateSettings }: { intelligence: I
                 description="Sends a new capture's text, a search that found nothing, or a new task's title with your own earlier Effort choices, to an AI provider to suggest a destination, a match, an Effort, or the priority its words state. Off sends nothing."
                 checked={intelligence.smartPlacement !== false}
                 onChange={(val) => setIntel({ smartPlacement: val })}
-            />
-            <SwitchSetting
-                title="Smart sort"
-                description="Rank tasks by urgency, due dates, effort and pins. Runs on your device, no AI involved."
-                checked={intelligence.smartSortEnabled}
-                onChange={(val) => setIntel({ smartSortEnabled: val })}
             />
             <SwitchSetting
                 title="Focus Views"
