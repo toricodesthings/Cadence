@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-10-25
+
 ### Changed
 
 - Default priority is now a switch to start new tasks at Low; higher defaults made every task look important.
