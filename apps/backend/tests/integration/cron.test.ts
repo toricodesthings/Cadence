@@ -1,9 +1,15 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { asOwner, createUser, startTestDb } from "../helpers/db";
+import { asOwner, createUser, getTestDb, startTestDb } from "../helpers/db";
 
-vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
+const getDbClient = vi.hoisted(() => vi.fn());
+vi.mock("../../src/platform/db", async () => {
+    const { getTestDb } = await import("../helpers/db");
+    getDbClient.mockImplementation(getTestDb);
+    return { getDbClient };
+});
 
-import { handleOverdueCheck, pruneStaleMutations, pruneUsageEvents, runHourlyCron, runMemoryNightly } from "../../src/cron/overdue-check";
+import { computeWorkloadSignals, signalsStale } from "../../src/platform/metrics";
+import { pruneStaleMutations, pruneUsageEvents, runHourlyCron, runMemoryNightly } from "../../src/cron/overdue-check";
 
 const env = {} as any;
 
@@ -26,85 +32,39 @@ async function task(userId: string, title: string, dueOn: string | null, extra: 
 }
 
 const setZone = (userId: string, zone: string) => sql("UPDATE users SET time_zone = $2 WHERE id = $1", [userId, zone]);
-const delayCount = async (taskId: string) => (await sql("SELECT delay_count FROM task_metrics WHERE task_id = $1", [taskId]))[0]?.delay_count;
+const overdueLoad = async (userId: string) => {
+    await computeWorkloadSignals(getTestDb() as never, userId);
+    return (await sql("SELECT overdue_carry_load FROM user_metrics WHERE user_id = $1", [userId]))[0]?.overdue_carry_load;
+};
 
-// 2026-10-05 08:30Z: 04:30 in Toronto (EDT), 15:30 in Kiritimati (+14), 17:30 in Tokyo.
-const TORONTO_0430 = new Date("2026-10-05T08:30:00Z");
-
-describe("overdue check", () => {
-    it("adds a delay to each swept user's overdue active tasks, refreshes their workload signals, and counts once per run", async () => {
-        const [alice, bob] = [await createUser(), await createUser()];
-        await setZone(alice, "America/Toronto");
-        await setZone(bob, "America/Toronto");
-        const late = await task(alice, "late", "2026-10-01");
-        const bobLate = await task(bob, "bob late", "2026-10-02");
-        const done = await task(alice, "done", "2026-10-01", { state: "COMPLETE" });
-        const future = await task(alice, "future", "2999-01-01");
-
-        await runCron((e) => handleOverdueCheck(e, TORONTO_0430));
-        // Another run in the same local hour must not be the way a day is counted twice: the hourly cron fires once per hour.
-        await runCron((e) => handleOverdueCheck(e, new Date("2026-10-06T08:30:00Z")));
-
-        expect([await delayCount(late), await delayCount(bobLate)]).toEqual([2, 2]);
-        expect([await delayCount(done), await delayCount(future)]).toEqual([undefined, undefined]);
-        expect(await sql("SELECT user_id FROM user_metrics WHERE user_id = ANY($1) ORDER BY user_id", [[alice, bob].sort()])).toEqual(
-            [alice, bob].sort().map((user_id) => ({ user_id })),
-        );
-    });
-
-    it("sweeps only users whose local hour is 04, so each user is counted once a day", async () => {
-        const [toronto, kiritimati] = [await createUser(), await createUser()];
-        await setZone(toronto, "America/Toronto");
-        await setZone(kiritimati, "Pacific/Kiritimati");
-        const a = await task(toronto, "t", "2026-10-01");
-        const b = await task(kiritimati, "k", "2026-10-01");
-
-        await runCron((e) => handleOverdueCheck(e, TORONTO_0430)); // 15:30 in Kiritimati
-        expect([await delayCount(a), await delayCount(b)]).toEqual([1, undefined]);
-
-        await runCron((e) => handleOverdueCheck(e, new Date("2026-10-04T14:30:00Z"))); // 04:30 on Oct 5 in Kiritimati
-        expect([await delayCount(a), await delayCount(b)]).toEqual([1, 1]);
-    });
-
-    it("never counts a repeating series or a Fixed (timetable) block as overdue", async () => {
+// Overdue is judged on read now (workload signals), by the same rule the old 04:00 pass used.
+describe("workload signals' overdue load", () => {
+    it("counts only open, one-off, non-Fixed tasks whose day is before the user's today", async () => {
         const userId = await createUser();
-        await setZone(userId, "America/Toronto");
-        const series = await task(userId, "rent", "2026-09-01", { rule: "FREQ=MONTHLY" });
-        const fixed = await task(userId, "class", "2026-09-01", { mode: "timetable" });
-        const plain = await task(userId, "plain", "2026-09-01");
-
-        await runCron((e) => handleOverdueCheck(e, TORONTO_0430));
-
-        expect([await delayCount(series), await delayCount(fixed), await delayCount(plain)]).toEqual([undefined, undefined, 1]);
+        await setZone(userId, "UTC");
+        await task(userId, "late", "2000-01-01");
+        await task(userId, "done", "2000-01-01", { state: "COMPLETE" });
+        await task(userId, "future", "2999-01-01");
+        await task(userId, "rent", "2000-01-01", { rule: "FREQ=MONTHLY" });
+        await task(userId, "class", "2000-01-01", { mode: "timetable" });
+        expect(await overdueLoad(userId)).toBe(1);
     });
 
-    it("judges overdue by the user's today: due today is not late, yesterday is, in any zone", async () => {
-        const [toronto, tokyo] = [await createUser(), await createUser()];
-        await setZone(toronto, "America/Toronto");
-        await setZone(tokyo, "Asia/Tokyo");
-        // 2026-10-05 04:30 Toronto is 17:30 Tokyo; run the Tokyo sweep at its own 04:30 (2026-10-04T19:30Z, its day 10-05).
-        const tDueToday = await task(toronto, "today", "2026-10-05");
-        const tYesterday = await task(toronto, "yesterday", "2026-10-04");
-        const kDueToday = await task(tokyo, "today", "2026-10-05");
-        const kYesterday = await task(tokyo, "yesterday", "2026-10-04");
-
-        await runCron((e) => handleOverdueCheck(e, TORONTO_0430));
-        await runCron((e) => handleOverdueCheck(e, new Date("2026-10-04T19:30:00Z")));
-
-        expect([await delayCount(tDueToday), await delayCount(tYesterday)]).toEqual([undefined, 1]);
-        expect([await delayCount(kDueToday), await delayCount(kYesterday)]).toEqual([undefined, 1]);
-    });
-
-    it("judges a timed task by its start against the start of the user's today", async () => {
+    it("judges by the user's today in their zone, and a timed task by its start", async () => {
         const userId = await createUser();
-        await setZone(userId, "America/Toronto");
-        // Toronto's today starts 2026-10-05T04:00Z: 03:59Z is last night, 04:00Z is today.
-        const lastNight = await task(userId, "late", null, { start: "2026-10-05T03:59:00Z" });
-        const today = await task(userId, "today", null, { start: "2026-10-05T04:00:00Z" });
+        await setZone(userId, "Pacific/Kiritimati");
+        const today = new Date(Date.now() + 14 * 3600_000).toISOString().slice(0, 10); // ponytail: test-only day of a +14 zone
+        await task(userId, "today", today);
+        await task(userId, "timed past", null, { start: new Date(Date.now() - 3 * 24 * 3600_000).toISOString() });
+        expect(await overdueLoad(userId)).toBe(1);
+    });
 
-        await runCron((e) => handleOverdueCheck(e, TORONTO_0430));
-
-        expect([await delayCount(lastNight), await delayCount(today)]).toEqual([1, undefined]);
+    it("is recomputed when missing or older than a day, not when fresh", () => {
+        const now = Date.parse("2026-10-05T12:00:00Z");
+        expect(signalsStale(undefined, now)).toBe(true);
+        expect(signalsStale("2026-10-04T11:59:00Z", now)).toBe(true);
+        expect(signalsStale("2026-10-05 08:30:00+00", now)).toBe(false);
+        expect(signalsStale("garbage", now)).toBe(true);
     });
 });
 
@@ -131,8 +91,7 @@ describe("pruning", () => {
         await insert("ends today", "2026-10-05");
         await insert("no end", null);
 
-        // 03:30 local (UTC user): the person's nightly hour.
-        await runMemoryNightly({} as any, new Date("2026-10-05T03:30:00Z"));
+        await runMemoryNightly({} as any, new Date("2026-10-05T06:30:00Z"));
 
         expect((await sql("SELECT content FROM ai_memories WHERE user_id = $1 ORDER BY content", [userId])).map((r) => r.content)).toEqual([
             "ended yesterday", // the day after it ended is still inside the grace
@@ -151,37 +110,22 @@ describe("pruning", () => {
     });
 });
 
-describe("the gated hourly run", () => {
-    /** A KV holding the zone mirror (or nothing), recording what the cron writes back. */
-    const kvEnv = (zones: string[] | null) => {
-        const store = new Map<string, string>(zones ? [["cadence:zones", JSON.stringify(zones)]] : []);
-        return { store, env: { OAUTH_KV: { get: async (key: string) => (store.has(key) ? JSON.parse(store.get(key)!) : null), put: async (key: string, value: string) => { store.set(key, value); } } } as any };
-    };
+describe("the daily run", () => {
+    const at = (hour: number) => new Date(Date.UTC(2026, 9, 5, hour, 30));
 
-    it("touches nothing when no mirrored zone is at 03:00 or 04:00 and it isn't the 06:00 UTC run", async () => {
-        const userId = await createUser();
-        await setZone(userId, "America/Toronto");
-        const late = await task(userId, "late", "2026-10-01");
-        const { env } = kvEnv(["Asia/Tokyo"]); // 17:30 there: nothing due
-        await runHourlyCron(env, TORONTO_0430);
-        expect(await delayCount(late)).toBeUndefined();
+    it("does nothing at any hour but 06:00 UTC (no database call)", async () => {
+        getDbClient.mockClear();
+        for (const hour of [0, 3, 4, 5, 7, 13, 23]) await runHourlyCron({} as any, at(hour));
+        expect(getDbClient).not.toHaveBeenCalled();
     });
 
-    it("runs a zone's 04:00 work when the mirror has it", async () => {
-        const userId = await createUser();
-        await setZone(userId, "America/Toronto");
-        const late = await task(userId, "late", "2026-10-01");
-        await runHourlyCron(kvEnv(["America/Toronto"]).env, TORONTO_0430);
-        expect(await delayCount(late)).toBe(1);
-    });
-
-    it("with no mirror, runs as if every hour were due and rebuilds the mirror", async () => {
-        const userId = await createUser();
-        await setZone(userId, "America/Toronto");
-        const late = await task(userId, "late", "2026-10-01");
-        const { env, store } = kvEnv(null);
-        await runHourlyCron(env, TORONTO_0430);
-        expect(await delayCount(late)).toBe(1);
-        expect(JSON.parse(store.get("cadence:zones")!)).toContain("America/Toronto");
+    it("at 06:00 UTC prunes and sends memory's nightly for every person, in any zone", async () => {
+        const [toronto, tokyo] = [await createUser({ zone: "America/Toronto" }), await createUser({ zone: "Asia/Tokyo" })];
+        await sql("INSERT INTO mutation_dedup (user_id, client_mutation_id, created_at) VALUES ($1, 'old', '2026-09-01')", [toronto]);
+        const sent: Array<{ userId: string }> = [];
+        const env = { MEMORY_QUEUE: { sendBatch: async (batch: Array<{ body: { userId: string } }>) => { sent.push(...batch.map((m) => m.body)); } } } as any;
+        await runHourlyCron(env, at(6));
+        expect(await sql("SELECT 1 FROM mutation_dedup WHERE user_id = $1", [toronto])).toEqual([]);
+        expect(sent.map((m) => m.userId)).toEqual(expect.arrayContaining([toronto, tokyo]));
     });
 });

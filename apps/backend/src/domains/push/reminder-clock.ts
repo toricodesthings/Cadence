@@ -1,18 +1,21 @@
 /**
  * `ReminderClock`: one Durable Object per person that sends their reminders on time without asking Postgres.
  * Postgres stays the truth; the clock holds only a derived plan (`plan.ts`), rebuilt whenever that person
- * writes (Neon is awake then anyway), on their 04:00 pass, and by itself when the plan runs out. Its one alarm
- * is the next alert: `setAlarm` overwrites, so an edit or delete simply replaces the plan and the old alert is gone.
+ * writes (Neon is awake then anyway) and by itself when the plan runs out. Its one alarm is the next alert:
+ * `setAlarm` overwrites, so an edit or delete simply replaces the plan and the old alert is gone.
+ *
+ * It also holds the person's live-sync WebSockets (hibernated, so idle sockets cost nothing). After every write it
+ * sends each one `{ v }`, a counter that carries no content: the client refetches when `v` changed, which replaces polling.
  */
 import { DurableObject } from "cloudflare:workers";
 import type { MiddlewareHandler } from "hono";
 import { LATE_ALERT_MS } from "@cadence/domain/reminders";
 import { getDbClient } from "../../platform/db";
-import { rememberZone } from "../../platform/zone-mirror";
 import { logger, hashIdentifier, issuesFromError } from "../../platform/log";
 import { sendWebPush, vapidConfigured } from "./web-push";
 import { deliveryKey, legacySent, loadReminderPlan, mergeOutcomes, recordOutcome, settleOutcomes, type DeviceOutcome, type ReminderPlan } from "./plan";
-import type { AuthVariables } from "../../platform/auth";
+import { verifyAppToken, type AuthVariables } from "../../platform/auth";
+import { AppError } from "../../platform/errors";
 import type { Env } from "../../types/env";
 
 /** Sent keys are kept this long: longer than any alert can stay due, so nothing goes out twice. */
@@ -27,9 +30,44 @@ const deviceOf = (delivery: string) => delivery.slice(delivery.lastIndexOf("|") 
 const entryOf = (delivery: string) => delivery.slice(0, delivery.lastIndexOf("|"));
 const timely = (entry: { at: number }, now: number) => entry.at <= now && now - entry.at <= LATE_ALERT_MS;
 
+/** The live socket's path, its subprotocol, and the close codes the client acts on (see `use-live-sync.ts`). */
+export const LIVE_PATH = "/api/v1/live";
+const LIVE_PROTOCOL = "cadence.live";
+const CLOSE = { badToken: 4401, rateLimited: 4429, accountGone: 4001, error: 1011 } as const;
+
 export class ReminderClock extends DurableObject<Env> {
     private dirty = false;
     private building: Promise<void> | null = null;
+
+    constructor(ctx: DurableObjectState, env: Env) {
+        super(ctx, env);
+        // Answered without waking the object, so a 45 s keep-alive costs nothing while hibernated.
+        ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+    }
+
+    /** A live-sync socket (already authenticated by `connectLive`). It gets the current version and then every ping. */
+    override async fetch(): Promise<Response> {
+        const { 0: client, 1: server } = new WebSocketPair();
+        this.ctx.acceptWebSocket(server);
+        server.send(JSON.stringify({ v: (await this.ctx.storage.get<number>("liveVersion")) ?? 0 }));
+        return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": LIVE_PROTOCOL } });
+    }
+
+    override webSocketMessage() {}
+    override webSocketError() {}
+    // compatibility_date predates web_socket_auto_reply_to_close, so finish the close ourselves.
+    override webSocketClose(ws: WebSocket, code: number) {
+        try { ws.close(code === 1005 || code === 1006 ? 1000 : code); } catch { /* already closed */ }
+    }
+
+    /** Tell every open socket that something changed. Always bumps, so a reconnect can see what it missed. */
+    private async ping() {
+        const v = ((await this.ctx.storage.get<number>("liveVersion")) ?? 0) + 1;
+        await this.ctx.storage.put("liveVersion", v);
+        for (const ws of this.ctx.getWebSockets()) {
+            try { ws.send(JSON.stringify({ v })); } catch { /* closing */ }
+        }
+    }
 
     /**
      * Rebuild the plan from Postgres. Calls arriving mid-build coalesce into one more build, so the last
@@ -37,6 +75,8 @@ export class ReminderClock extends DurableObject<Env> {
      */
     async replan(userId: string, now?: Date): Promise<void> {
         await this.ctx.storage.put("userId", userId);
+        // The write has committed: other devices needn't wait for (or depend on) VAPID or Neon.
+        await this.ping();
         this.dirty = true;
         this.building ??= (async () => {
             try {
@@ -51,8 +91,11 @@ export class ReminderClock extends DurableObject<Env> {
         return this.building;
     }
 
-    /** The account is gone: no alarm, nothing kept. */
+    /** The account is gone: sockets closed, no alarm, nothing kept. */
     async forget(): Promise<void> {
+        for (const ws of this.ctx.getWebSockets()) {
+            try { ws.close(CLOSE.accountGone, "account deleted"); } catch { /* closing */ }
+        }
         await this.ctx.storage.deleteAlarm();
         await this.ctx.storage.deleteAll();
     }
@@ -71,8 +114,8 @@ export class ReminderClock extends DurableObject<Env> {
     }
 
     private async rebuild(userId: string, now: Date) {
-        // Without VAPID keys nothing can be pushed, so there is nothing worth keeping.
-        if (!vapidConfigured(this.env)) return this.forget();
+        // Without VAPID keys nothing can be pushed, so there is no plan worth keeping (the live version and sockets stay).
+        if (!vapidConfigured(this.env)) return this.standDown();
         const db = getDbClient(this.env);
         try {
             // Taken before settling, so a send that lands during the settle starts a fresh record instead of being lost.
@@ -94,12 +137,16 @@ export class ReminderClock extends DurableObject<Env> {
             if (!plan) return await this.forget();
             await this.ctx.storage.put("plan", plan);
             await this.ctx.storage.delete("failures");
-            if (plan.zone) await rememberZone(this.env, plan.zone).catch(() => {});
             await this.arm(plan, now.getTime());
         } finally {
             // A Durable Object outlives the request, so close the connection rather than leave it idle.
             await db.$client.end?.({ timeout: 1 }).catch(() => {});
         }
+    }
+
+    private async standDown() {
+        await this.ctx.storage.deleteAlarm();
+        await this.ctx.storage.delete(["plan", "sent", "tries", "outcomes", "failures"]);
     }
 
     /** The next alarm: now for an unsent due alert, soon for a retry, else the next alert or the plan's end (to rebuild); none without a device. */
@@ -163,7 +210,7 @@ export class ReminderClock extends DurableObject<Env> {
 }
 
 /**
- * Ask a person's clock to rebuild. Best-effort and never throws: the 04:00 pass rebuilds every clock daily.
+ * Ask a person's clock to rebuild (and ping their open devices). Best-effort and never throws: the clock rebuilds itself when its plan runs out.
  * Call it after a write has committed, inside `waitUntil`.
  */
 export async function replanReminders(env: Env, userId: string): Promise<void> {
@@ -182,7 +229,7 @@ export async function replanReminders(env: Env, userId: string): Promise<void> {
 export const replanAfterWrites: MiddlewareHandler<{ Bindings: Env; Variables: AuthVariables }> = async (c, next) => {
     await next();
     if (c.req.method === "GET" || c.req.method === "OPTIONS" || c.res.status >= 300) return;
-    if (c.req.path.startsWith("/api/v1/ai/") || c.req.path.startsWith("/api/v1/events")) return;
+    if (["/api/v1/ai/", "/api/v1/events", "/api/v1/search"].some((prefix) => c.req.path.startsWith(prefix))) return;
     c.executionCtx.waitUntil(replanReminders(c.env, c.get("userId")));
 };
 
@@ -194,4 +241,32 @@ export async function forgetReminders(env: Env, userId: string): Promise<void> {
     } catch (err) {
         logger.warn("cron", "reminder_forget_failed", { userHash: await hashIdentifier(userId), issues: issuesFromError(err) });
     }
+}
+
+/**
+ * `GET /api/v1/live` (WebSocket). Dispatched before the Hono app: a browser can't send `Authorization` on a WebSocket
+ * (the JWT rides in `Sec-WebSocket-Protocol: cadence.live, <jwt>`) and sees no HTTP status on a failed handshake, so a
+ * refusal is an accepted socket closed at once with a 4xxx code.
+ */
+export async function connectLive(request: Request, env: Env): Promise<Response> {
+    if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") return new Response("Expected a WebSocket", { status: 426 });
+    const [protocol, token] = (request.headers.get("Sec-WebSocket-Protocol") ?? "").split(",").map((part) => part.trim());
+    if (protocol !== LIVE_PROTOCOL || !token) return new Response("Bad protocol", { status: 400 });
+
+    const refuse = (code: number, reason: string) => {
+        const { 0: client, 1: server } = new WebSocketPair();
+        server.accept();
+        server.close(code, reason);
+        return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": LIVE_PROTOCOL } });
+    };
+    if (env.RATE_LIMITER && !(await env.RATE_LIMITER.limit({ key: request.headers.get("cf-connecting-ip") || "unknown" })).success) return refuse(CLOSE.rateLimited, "slow down");
+    let userId: string;
+    try {
+        ({ userId } = await verifyAppToken(env, token));
+    } catch (err) {
+        return err instanceof AppError && err.statusCode === 401 ? refuse(CLOSE.badToken, "sign in again") : refuse(CLOSE.error, "unavailable");
+    }
+    if (env.RATE_LIMITER_READ && !(await env.RATE_LIMITER_READ.limit({ key: userId })).success) return refuse(CLOSE.rateLimited, "slow down");
+    if (!env.REMINDER_CLOCK) return refuse(CLOSE.error, "unavailable");
+    return env.REMINDER_CLOCK.get(env.REMINDER_CLOCK.idFromName(userId)).fetch(request);
 }

@@ -93,6 +93,13 @@ export async function trackBatchEvents(
     }
 }
 
+/** Signals older than this are recomputed when the assistant next needs them (Neon is awake then); nothing recomputes them on a timer. */
+export const SIGNALS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/** True when there are no stored signals or they're past {@link SIGNALS_MAX_AGE_MS} (instant arithmetic only). */
+export const signalsStale = (lastCalculatedAt: string | undefined, now = Date.now()) =>
+    !lastCalculatedAt || !(now - Date.parse(lastCalculatedAt) <= SIGNALS_MAX_AGE_MS); // an unparseable time counts as stale
+
 /** Recompute user workload signals from existing data and persist in user_metrics. */
 export async function computeWorkloadSignals(db: DbClient, userId: string) {
     await withRls(db, userId, async (tx) => {

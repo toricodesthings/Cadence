@@ -137,21 +137,12 @@ async function verifyToken(token: string, keySet: ReturnType<typeof createRemote
     }
 }
 
-export const authMiddleware = createMiddleware<{
-    Bindings: Env;
-    Variables: AuthVariables;
-}>(async (c, next) => {
-    const header = c.req.header("Authorization");
-    const jwksUrl = c.env.NEON_AUTH_JWKS_URL;
-    const expectedIssuer = c.env.JWT_ISSUER;
-    const expectedAudience = c.env.JWT_AUDIENCE;
-
+/** Verify an app JWT (issuer, audience, expiry) and return who it names. Throws an `AppError` (401 for a bad token). */
+export async function verifyAppToken(env: Env, token: string): Promise<{ userId: string; email?: string }> {
     try {
-        if (!header?.startsWith("Bearer ")) {
-            throw new AppError(401, "UNAUTHORIZED", "Missing token");
-        }
-
-        const token = header.slice(7);
+        const jwksUrl = env.NEON_AUTH_JWKS_URL;
+        const expectedIssuer = env.JWT_ISSUER;
+        const expectedAudience = env.JWT_AUDIENCE;
 
         if (!jwksUrl) {
             throw new AppError(500, "INTERNAL_ERROR", "Missing NEON_AUTH_JWKS_URL");
@@ -161,7 +152,7 @@ export const authMiddleware = createMiddleware<{
         // trusted issuer. Without it, jwtVerify degrades into a bare signature
         // check. Audience stays optional — Neon Auth's native tokens may omit
         // the `aud` claim — but is still verified when JWT_AUDIENCE is set.
-        if (getDeploymentStage(c.env) !== "development" && !expectedIssuer) {
+        if (getDeploymentStage(env) !== "development" && !expectedIssuer) {
             throw new AppError(
                 500,
                 "AUTH_MISCONFIGURED",
@@ -178,21 +169,38 @@ export const authMiddleware = createMiddleware<{
         if (!payload?.sub) {
             throw new AppError(401, "UNAUTHORIZED", "Missing subject in token");
         }
+        return { userId: payload.sub, ...(typeof payload.email === "string" && { email: payload.email }) };
+    } catch (e) {
+        throw e instanceof AppError ? e : classifyAuthFailure(e);
+    }
+}
 
-        c.set("userId", payload.sub);
-        if (typeof payload.email === "string") {
-            c.set("userEmail", payload.email);
+export const authMiddleware = createMiddleware<{
+    Bindings: Env;
+    Variables: AuthVariables;
+}>(async (c, next) => {
+    const header = c.req.header("Authorization");
+
+    try {
+        if (!header?.startsWith("Bearer ")) {
+            throw new AppError(401, "UNAUTHORIZED", "Missing token");
+        }
+
+        const { userId, email } = await verifyAppToken(c.env, header.slice(7));
+
+        c.set("userId", userId);
+        if (email) {
+            c.set("userEmail", email);
         }
 
         // Synchronous user bootstrap on write requests to prevent FK race conditions (F02)
         const isWrite = c.req.method !== "GET" && c.req.method !== "HEAD";
         if (isWrite) {
-            const userId = payload.sub;
             try {
                 await tracing.enterSpan("auth.user.ensure", () => ensureUserExists(c.env, userId));
             } catch (dbErr) {
                 logger.error("auth", "user_sync_failed", {
-                    userHash: await hashIdentifier(payload.sub),
+                    userHash: await hashIdentifier(userId),
                     issues: issuesFromError(dbErr),
                 });
                 // Non-fatal: the user row may already exist. Let the route attempt proceed.

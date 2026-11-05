@@ -6,7 +6,7 @@ vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../h
 
 import { pushRoutes } from "../../src/domains/push/push.route";
 import { Hono } from "hono";
-import { ReminderClock, replanAfterWrites } from "../../src/domains/push/reminder-clock";
+import { ReminderClock, connectLive, replanAfterWrites } from "../../src/domains/push/reminder-clock";
 import { mergeOutcomes } from "../../src/domains/push/plan";
 import { fromBase64Url, toBase64Url } from "../../src/domains/push/web-push";
 import type { Env } from "../../src/types/env";
@@ -142,22 +142,26 @@ describe("devices", () => {
 
 /** A person's clock over in-memory Durable Object storage; `alarm` is where it last armed itself. */
 function clockFor(env: TestEnv) {
+    vi.stubGlobal("WebSocketRequestResponsePair", class { constructor(public request: string, public response: string) {} });
     const data = new Map<string, unknown>();
+    const sockets: Array<{ send: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }> = [];
     const state = {
         alarm: null as number | null,
+        setWebSocketAutoResponse: () => {},
+        getWebSockets: () => sockets,
         storage: {
             get: async (key: string) => structuredClone(data.get(key)),
             put: async (key: string | Record<string, unknown>, value?: unknown) => {
                 for (const [k, v] of Object.entries(typeof key === "string" ? { [key]: value } : key)) data.set(k, structuredClone(v));
             },
-            delete: async (key: string) => data.delete(key),
+            delete: async (key: string | string[]) => [key].flat().map((k) => data.delete(k)).some(Boolean),
             deleteAll: async () => data.clear(),
             setAlarm: async (at: number) => { state.alarm = at; },
             deleteAlarm: async () => { state.alarm = null; },
         },
     };
     const clock = new ReminderClock(state as never, env);
-    return { clock, state, data, plan: () => data.get("plan") as { entries: Array<{ at: number; key: string }> } };
+    return { clock, state, data, sockets, plan: () => data.get("plan") as { entries: Array<{ at: number; key: string }> } };
 }
 
 /** A write happened (rebuild at `at`), then the alarm went off at `fireAt`. */
@@ -210,8 +214,10 @@ describe("reminder clock", () => {
         const calls = pushService();
         const { clock, plan } = clockFor(env);
         await clock.replan(userId, NOW);
-        // The routine's 14:00 (15 min lead) today and tomorrow, both inside the 36-hour plan.
-        expect(plan().entries.map((e) => new Date(e.at).toISOString())).toEqual(["2026-10-07T17:00:00.000Z", "2026-10-07T17:30:00.000Z", "2026-10-07T17:45:00.000Z", "2026-10-08T17:45:00.000Z"]);
+        // The routine's 14:00 (15 min lead) today and tomorrow, all inside the 7-day plan.
+        const planned = plan().entries.map((e) => new Date(e.at).toISOString());
+        expect(planned.slice(0, 4)).toEqual(["2026-10-07T17:00:00.000Z", "2026-10-07T17:30:00.000Z", "2026-10-07T17:45:00.000Z", "2026-10-08T17:45:00.000Z"]);
+        expect(planned).toContain("2026-10-13T17:45:00.000Z"); // day 6 is planned too
 
         await sql("UPDATE tasks SET reminder_at = '2026-10-07T19:00:00Z' WHERE user_id = $1 AND title = 'Moved'", [userId]);
         await sql("DELETE FROM tasks WHERE user_id = $1 AND title = 'Deleted'", [userId]);
@@ -300,7 +306,7 @@ describe("reminder clock", () => {
         await sql("INSERT INTO tasks (user_id, title, order_index, scheduled_start, scheduled_end, zone, recurrence_rule) VALUES ($1, 'Class', 1, '2026-10-30T13:00:00Z', '2026-10-30T14:00:00Z', 'America/Toronto', 'FREQ=DAILY')", [userId]);
         const { clock, plan } = clockFor(env);
         await clock.replan(userId, new Date("2026-10-31T12:00:00Z"));
-        expect(plan().entries.map((e) => new Date(e.at).toISOString())).toEqual(["2026-10-31T12:50:00.000Z", "2026-11-01T13:50:00.000Z"]);
+        expect(plan().entries.map((e) => new Date(e.at).toISOString()).slice(0, 2)).toEqual(["2026-10-31T12:50:00.000Z", "2026-11-01T13:50:00.000Z"]);
     });
 
     it("retries a failed send, then forgets a gone device and writes both back on the next rebuild", async () => {
@@ -347,7 +353,7 @@ describe("reminder clock", () => {
         const calls = pushService();
         const { clock, state } = clockFor(env);
         await clock.replan(userId, NOW);
-        expect(state.alarm).toBe(later(36 * 3600_000).getTime());
+        expect(state.alarm).toBe(later(7 * 24 * 3600_000).getTime());
         const end = new Date(state.alarm!);
         await remind(userId, "Made while the plan was out", end.toISOString());
         await clock.fire(end);
@@ -425,7 +431,7 @@ describe("reminder clock", () => {
         for (let minute = 0; minute < 4; minute++) await clock.fire(later(minute * 60_000));
         expect(count(calls, endpoint)).toBe(3);
         expect(count(calls, other.endpoint)).toBe(1);
-        expect(state.alarm).toBe(later(36 * 3600_000).getTime()); // no retry left: only the plan's end
+        expect(state.alarm).toBe(later(7 * 24 * 3600_000).getTime()); // no retry left: only the plan's end
     });
 
     it("doesn't resend what the old minute cron already sent today", async () => {
@@ -456,6 +462,35 @@ describe("reminder clock", () => {
         expect(data.size).toBe(0);
     });
 
+    it("pings every open live socket with a rising version on each replan, with or without VAPID", async () => {
+        const env = await vapidEnv();
+        const { userId } = await subscriber(env);
+        const { clock, sockets, data } = clockFor(env);
+        sockets.push({ send: vi.fn(), close: vi.fn() }, { send: vi.fn(() => { throw new Error("closing"); }), close: vi.fn() });
+        await clock.replan(userId, NOW);
+        await clock.replan(userId, NOW);
+        expect(sockets[0].send.mock.calls).toEqual([['{"v":1}'], ['{"v":2}']]);
+        expect(data.get("liveVersion")).toBe(2);
+
+        // No VAPID: the plan goes, the version and the sockets stay.
+        const bare = clockFor({ ...env, VAPID_PRIVATE_KEY: undefined } as never);
+        bare.sockets.push({ send: vi.fn(), close: vi.fn() });
+        await bare.clock.replan(userId, NOW);
+        await bare.clock.replan(userId, NOW);
+        expect(bare.sockets[0].send.mock.calls).toEqual([['{"v":1}'], ['{"v":2}']]);
+        expect(bare.sockets[0].close).not.toHaveBeenCalled();
+        expect(bare.data.get("liveVersion")).toBe(2);
+    });
+
+    it("closes live sockets with 4001 when the account is forgotten", async () => {
+        const env = await vapidEnv();
+        const { clock, sockets, data } = clockFor(env);
+        sockets.push({ send: vi.fn(), close: vi.fn() });
+        await clock.forget();
+        expect(sockets[0].close).toHaveBeenCalledWith(4001, expect.any(String));
+        expect(data.size).toBe(0);
+    });
+
     it("keeps every outcome when a settle fails: failures add up and gone sticks", () => {
         const older = { a: { failures: 2 }, b: { failures: 0, gone: true }, c: { failures: 1 } };
         const newer = { a: { failures: 1 }, b: { lastSuccessAt: "2026-10-07T15:00:00Z", failures: 0 }, c: { lastSuccessAt: "2026-10-07T15:00:00Z", failures: 0 } };
@@ -468,7 +503,7 @@ describe("reminder clock", () => {
 });
 
 describe("what rebuilds a clock", () => {
-    it("rebuilds a person's clock after their successful writes, not reads, failures, chat or usage events", async () => {
+    it("rebuilds a person's clock after their successful writes, not reads, failures, chat, searches or usage events", async () => {
         const replanned: string[] = [];
         const pending: Promise<unknown>[] = [];
         const app = new Hono()
@@ -476,7 +511,7 @@ describe("what rebuilds a clock", () => {
             .use("/api/v1/*", replanAfterWrites as never)
             .all("/api/v1/*", (c) => c.json({}, c.req.path.endsWith("/bad") ? 422 : 200));
         const ctx = { waitUntil: (p: Promise<unknown>) => pending.push(p), passThroughOnException() {}, props: {} };
-        const requests = [["POST", "/tasks"], ["DELETE", "/tasks/1"], ["GET", "/tasks"], ["POST", "/tasks/bad"], ["POST", "/events"], ["POST", "/ai/chat"]];
+        const requests = [["POST", "/tasks"], ["DELETE", "/tasks/1"], ["GET", "/tasks"], ["POST", "/tasks/bad"], ["POST", "/events"], ["POST", "/ai/chat"], ["POST", "/search/did-you-mean"]];
         for (const [method, path] of requests) await app.request(`/api/v1${path}`, { method }, { REMINDER_CLOCK: clockNamespace(replanned) }, ctx as never);
         await Promise.all(pending);
         expect(replanned).toEqual(["someone", "someone"]);
@@ -490,5 +525,16 @@ describe("what rebuilds a clock", () => {
         const body = { installId: crypto.randomUUID(), kind: "computer", label: "Chrome", subscription: { endpoint: owner.endpoint, keys: await keys() } };
         expect((await api(taker, { ...env, REMINDER_CLOCK: clockNamespace(replanned) })("PUT", "/devices", body)).status).toBe(200);
         expect(replanned).toEqual([owner.userId]);
+    });
+});
+
+describe("the live socket's door", () => {
+    const ask = (headers: Record<string, string>) => connectLive(new Request("https://x/api/v1/live", { headers }), {} as Env);
+
+    it("refuses a plain request (426) and a missing or wrong subprotocol (400)", async () => {
+        expect((await ask({})).status).toBe(426);
+        expect((await ask({ Upgrade: "websocket" })).status).toBe(400);
+        expect((await ask({ Upgrade: "websocket", "Sec-WebSocket-Protocol": "cadence.live" })).status).toBe(400);
+        expect((await ask({ Upgrade: "websocket", "Sec-WebSocket-Protocol": "other, token" })).status).toBe(400);
     });
 });

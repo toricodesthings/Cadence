@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { users, userMetrics } from "../../db/schema";
 import { withRls } from "../../platform/rls";
+import { computeWorkloadSignals, signalsStale } from "../../platform/metrics";
 import { logger, hashIdentifier, issuesFromError } from "../../platform/log";
 import { SETTINGS_DEFAULTS, type UserSettings } from "@cadence/contracts/settings";
 import { buildToolRegistry, type AgentContext } from "./tools/index";
@@ -117,11 +118,12 @@ async function loadUserContext(
     env: Env,
     userId: string,
     settings?: UserSettings,
+    waitUntil?: (promise: Promise<unknown>) => void,
 ): Promise<{ burnoutIndex: number | null; persona: AssistantPersona; weekStart: PromptRuntimeContext["weekStart"]; settings: UserSettings }> {
     const db = getDbClient(env);
-    return withRls(db, userId, async (tx) => {
+    const context = await withRls(db, userId, async (tx) => {
         const [metricsRow] = await tx
-            .select({ currentBurnoutIndex: userMetrics.currentBurnoutIndex })
+            .select({ currentBurnoutIndex: userMetrics.currentBurnoutIndex, lastCalculatedAt: userMetrics.lastCalculatedAt })
             .from(userMetrics)
             .where(eq(userMetrics.userId, userId))
             .limit(1);
@@ -133,8 +135,16 @@ async function loadUserContext(
             .limit(1);
 
         // No metrics row (or a null index) means no evidence yet — unknown, not a low score.
-        return { burnoutIndex: metricsRow?.currentBurnoutIndex ?? null, ...assistantContext(userRow?.settings ?? {}) };
+        return { burnoutIndex: metricsRow?.currentBurnoutIndex ?? null, stale: signalsStale(metricsRow?.lastCalculatedAt), ...assistantContext(userRow?.settings ?? {}) };
     });
+    // Signals are computed on read, not by a nightly pass: this turn uses the stored value, the next sees the fresh one.
+    const { stale, ...rest } = context;
+    if (stale && waitUntil) {
+        waitUntil(computeWorkloadSignals(db, userId).catch(async (err) => {
+            logger.error("ai", "workload_recompute_failed", { userHash: await hashIdentifier(userId), issues: issuesFromError(err) });
+        }));
+    }
+    return rest;
 }
 
 /** Skip the recall tier for a bare command with no conversation behind it ("ok", "done"): nothing to look up. */
@@ -249,7 +259,7 @@ export async function getAgentInstance(
     const modelId = opts.modelId ?? getModelId(env);
     const userHash = await hashIdentifier(userId);
     const clock = userClock(opts.timezone, opts.currentDate);
-    const userContext = measurePhase(opts.diagnostics, "settings", () => loadUserContext(env, userId, opts.settings));
+    const userContext = measurePhase(opts.diagnostics, "settings", () => loadUserContext(env, userId, opts.settings, opts.waitUntil));
     userContext.catch(() => {}); // construction can fail before Promise.all attaches below
     // With authoritative settings already available, metrics need only finish before
     // prompt composition. Independent profile/snapshot work can start immediately.

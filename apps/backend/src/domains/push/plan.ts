@@ -16,8 +16,8 @@ import { normalizeSettings } from "../settings/settings.route";
 import type { PushMessage, PushOutcome } from "./web-push";
 import type { DbClient } from "../../platform/db";
 
-/** How far ahead a plan reaches. The 04:00 pass rebuilds it daily; the clock rebuilds itself when it runs out. */
-export const PLAN_HORIZON_MS = 36 * 3600_000;
+/** How far ahead a plan reaches. Every write rebuilds it; the clock rebuilds itself when it runs out. */
+export const PLAN_HORIZON_MS = 7 * 24 * 3600_000;
 /** A device that has failed this many sends in a row is dropped. */
 const MAX_FAILURES = 10;
 const HOUR = 3600_000;

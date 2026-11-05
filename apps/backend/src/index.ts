@@ -30,7 +30,7 @@ import { connectionRoutes } from "./domains/mcp/connections.route";
 import { accountRoutes } from "./domains/account/account.route";
 import { meRoutes } from "./domains/account/me.route";
 import { isMcpRequest, mcpOrigin, mcpProvider } from "./domains/mcp/oauth";
-import { replanAfterWrites } from "./domains/push/reminder-clock";
+import { LIVE_PATH, connectLive, replanAfterWrites } from "./domains/push/reminder-clock";
 
 const PRODUCTION_ORIGIN = "https://dashboard.cadenceapp.cloud";
 
@@ -216,7 +216,7 @@ export default {
     const url = new URL(request.url);
     // Clients that show a connector by its domain's favicon get Cadence's.
     if (url.pathname === "/favicon.ico" && url.origin === mcpOrigin(env)) return Response.redirect(`${appOrigin(env)}/favicon.ico`, 301);
-    if (!isMcpRequest(request, env)) return app.fetch(request, env, ctx);
+    if (!isMcpRequest(request, env)) return url.pathname === LIVE_PATH ? connectLive(request, env) : app.fetch(request, env, ctx);
     const ip = request.headers.get("cf-connecting-ip") || "unknown";
     // Registration comes from assistants' servers (shared IPs), so it gets the roomier limit; /authorize comes from a person's browser.
     // ponytail: per-IP only; key registration by client name too if one assistant's egress IP ever hits 120/min.

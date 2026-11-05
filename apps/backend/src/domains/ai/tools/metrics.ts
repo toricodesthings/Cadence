@@ -3,6 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { userMetrics } from "../../../db/schema";
+import { computeWorkloadSignals, signalsStale } from "../../../platform/metrics";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
@@ -19,6 +20,8 @@ export const metricTools = (env: Env, userId: string, _ctx?: AgentContext) => ({
         execute: async () =>
             safeExecute("get_user_metrics", userId, async () => {
                 const db = getDbClient(env);
+                const [stored] = await withRls(db, userId, (tx) => tx.select({ at: userMetrics.lastCalculatedAt }).from(userMetrics).where(eq(userMetrics.userId, userId)).limit(1));
+                if (signalsStale(stored?.at)) await computeWorkloadSignals(db, userId);
                 const result = await withRls(db, userId, async (tx) => {
                     const [row] = await tx
                         .select({

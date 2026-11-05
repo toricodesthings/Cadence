@@ -67,6 +67,17 @@ async function _fetchAuthJwtOnce(): Promise<string | null> {
     return typeof token === "string" && jwtExpiry(token) > Date.now() ? token : null;
 }
 
+/** The current JWT for the live socket (cached like API calls). */
+export const getAuthJwt = () => fetchAuthJwt();
+
+/** Forget `token` if it is the cached one (the socket was refused with it). Unlike `clearAuthJwtCache`, aborts nothing in flight. */
+export function dropAuthJwt(token: string): void {
+    if (_cachedJwt === token) {
+        _cachedJwt = null;
+        _cachedJwtExpiry = 0;
+    }
+}
+
 async function fetchAuthJwt(): Promise<string | null> {
     // Return cached token if still valid
     if (_cachedJwt && Date.now() < _cachedJwtExpiry) {

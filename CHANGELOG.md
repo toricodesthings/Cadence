@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Changes you make on one device now show up on your other open devices right away.
+
 ## [0.40.0] - 2026-10-25
 
 ### Changed

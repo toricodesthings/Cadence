@@ -8,13 +8,15 @@ import { WAKE_EVENT } from "./use-wake-refresh";
 
 /**
  * Keeps the app's zone and `users.time_zone` equal to the device's (or the zone Settings pins).
- * Syncs on start, when the page becomes visible again (a laptop that crossed zones, the desktop app
- * resuming from sleep) and when the pin changes. `PUT /me/time-zone` is idempotent and cheap; a failed
- * call is simply retried on the next trigger.
+ * Checks on start, when the page becomes visible again (a laptop that crossed zones, the desktop app
+ * resuming from sleep) and when the pin changes, but only writes when the zone differs from the last one
+ * this app instance stored: a write wakes the database. A failed call is retried on the next trigger.
  */
+let synced: { userId: string | undefined; zone: string } | null = null;
+
 export function useZoneSync() {
     const client = useApiClient();
-    const { authReady, isAuthenticated } = useAuthState();
+    const { authReady, isAuthenticated, session } = useAuthState();
     const { data: settings } = useSettings();
     const setting = settings?.dateTime?.timezone;
 
@@ -22,12 +24,15 @@ export function useZoneSync() {
         const zone = resolveZone(setting);
         setUserZone(zone);
         if (!authReady || !isAuthenticated || !navigator.onLine) return;
+        const userId = session?.user.id;
+        if (synced && synced.userId === userId && synced.zone === zone) return;
         try {
             await unwrapResponse(await client.api.me["time-zone"].$put({ json: { timeZone: zone } }));
+            synced = { userId, zone };
         } catch {
             // Offline or a blip: the next start / visibility change tries again.
         }
-    }, [client, authReady, isAuthenticated, setting]);
+    }, [client, authReady, isAuthenticated, session?.user.id, setting]);
 
     useEffect(() => {
         void sync();

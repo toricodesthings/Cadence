@@ -8,7 +8,7 @@ import { apiValidator } from "../../platform/validation";
 import type { Env } from "../../types/env";
 
 export const meRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    // The client calls this on start, when the tab becomes visible and on desktop resume. Idempotent and cheap.
+    // The client calls this on start and when the zone really changes (not on every focus: a write wakes the database).
     .put("/time-zone", apiValidator("json", setTimeZoneSchema), async (c) => {
         const userId = c.get("userId");
         const { timeZone } = c.req.valid("json");

@@ -48,7 +48,6 @@
   "send_email": [{ "name": "EMAIL" }],
 
   // OAuth provider storage for outside assistants (MCP): clients, grants, token hashes.
-  // Also holds `cadence:zones`, the users' time zones the hourly cron gates on (platform/zone-mirror.ts).
   "kv_namespaces": [
     {
       "binding": "OAUTH_KV",
@@ -109,7 +108,7 @@
   // Inherited by env.dev.
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReminderClock"] }],
 
-  // Hourly only, and it touches Neon only when someone is at local 03:00/04:00 or at 06:00 UTC (cron/overdue-check.ts).
+  // Hourly only, and it touches Neon only at 06:00 UTC (cron/overdue-check.ts).
   // Anything more frequent keeps the database from scaling to zero.
   "triggers": {
     "crons": ["0 * * * *"]
