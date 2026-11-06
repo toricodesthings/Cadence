@@ -21,6 +21,8 @@ const rangeOf = ({ start, end }: { start: string; end: string }) => ({ from: sta
  * Keep the phone views' data saved for a week back and three weeks ahead, with
  * the same keys the views use, so they open offline even if not visited lately.
  * Batch task lists; warm at most three transports, skipping hour-fresh data.
+ * No timer: a hidden desktop window can still say "visible", and an hourly warm-up kept the database awake
+ * all night. It warms on start, on showing, on reconnecting, and after any read (a live refresh included).
  */
 export function useOfflineWindow() {
     const startupReady = useContext(StartupReadyContext);
@@ -79,7 +81,6 @@ export function useOfflineWindow() {
         };
 
         run();
-        const timer = window.setInterval(run, STALE_TIMES.OFFLINE_WINDOW);
         document.addEventListener("visibilitychange", run);
         window.addEventListener("online", run);
         // A foreground read completing makes background work eligible again.
@@ -88,7 +89,6 @@ export function useOfflineWindow() {
         return () => {
             stopped = true;
             controller.abort();
-            window.clearInterval(timer);
             document.removeEventListener("visibilitychange", run);
             window.removeEventListener("online", run);
             unsubscribe();

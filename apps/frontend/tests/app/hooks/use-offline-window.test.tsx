@@ -122,6 +122,14 @@ describe("offline window background requests", () => {
         queryClient.clear();
     });
 
+    it("never warms on a timer: a window in the tray must let the database sleep", async () => {
+        const setInterval = vi.spyOn(window, "setInterval");
+        const { queryClient, unmount } = setup();
+        await waitFor(() => expect(read).toHaveBeenCalled());
+        expect(setInterval.mock.calls.filter(([, ms]) => (ms ?? 0) >= 60_000)).toEqual([]);
+        unmount(); queryClient.clear();
+    });
+
     it("does not start the rest of an account's requests after its workspace unmounts", async () => {
         const { queryClient, unmount } = setup();
         await waitFor(() => expect(read).toHaveBeenCalledTimes(3));

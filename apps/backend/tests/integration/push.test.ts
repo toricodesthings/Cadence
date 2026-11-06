@@ -560,6 +560,51 @@ describe("what rebuilds a clock", () => {
     });
 });
 
+describe("live reconnect tickets", () => {
+    /** WebSocketPair and a 101 Response exist only in the Workers runtime: stand-ins that record what the clock did. */
+    function socketRuntime() {
+        const opened: Array<{ sent: string[]; closed?: number; accepted: boolean }> = [];
+        vi.stubGlobal("WebSocketPair", class {
+            0 = {};
+            1: { sent: string[]; closed?: number; accepted: boolean; send: (data: string) => void; accept: () => void; close: (code: number) => void };
+            constructor() {
+                const end = { sent: [] as string[], closed: undefined as number | undefined, accepted: false, send: (data: string) => { end.sent.push(data); }, accept: () => { end.accepted = true; }, close: (code: number) => { end.closed = code; } };
+                this[1] = end;
+                opened.push(end);
+            }
+        });
+        vi.stubGlobal("Response", class { constructor(public body: unknown, public init: unknown) {} });
+        return opened;
+    }
+    const open = (clock: ReminderClock, token: string, auth: "jwt" | "ticket", user = "8b1f3a4e-0000-4000-8000-000000000001") =>
+        clock.fetch(new Request("https://x/api/v1/live", { headers: { "Sec-WebSocket-Protocol": `cadence.live, ${token}, tab-1`, "X-Live-Auth": auth, "X-Live-User": user } }));
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("hands a ticket to a JWT socket, lets it reconnect without Neon Auth, and refuses a made-up or forgotten one", async () => {
+        const env = await vapidEnv();
+        const opened = socketRuntime();
+        const { clock, state } = clockFor(env);
+        const accepted: unknown[] = [];
+        Object.assign(state, { acceptWebSocket: (ws: unknown) => accepted.push(ws) });
+
+        await open(clock, "a.jwt", "jwt");
+        const { v, ticket } = JSON.parse(opened[0].sent[0]) as { v: number; ticket: string };
+        expect(v).toBe(0);
+        expect(ticket).toMatch(/^t\.8b1f3a4e-0000-4000-8000-000000000001\.[0-9a-f]{32}$/);
+
+        await open(clock, ticket, "ticket");
+        expect(JSON.parse(opened[1].sent[0])).toEqual({ v: 0 }); // no new ticket for a ticket
+        expect(accepted).toHaveLength(2);
+
+        await open(clock, `${ticket.slice(0, -1)}${ticket.endsWith("0") ? "1" : "0"}`, "ticket");
+        expect(opened[2].closed).toBe(4401);
+        await clock.forget();
+        await open(clock, ticket, "ticket");
+        expect(opened[3].closed).toBe(4401);
+        expect(accepted).toHaveLength(2);
+    });
+});
+
 describe("the live socket's door", () => {
     const ask = (headers: Record<string, string>) => connectLive(new Request("https://x/api/v1/live", { headers }), {} as Env);
 

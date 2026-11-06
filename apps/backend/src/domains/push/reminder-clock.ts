@@ -39,6 +39,26 @@ const originOf = (value: string | null | undefined) => (value && /^[\w-]{1,64}$/
 const offeredProtocols = (request: Request) => (request.headers.get("Sec-WebSocket-Protocol") ?? "").split(",").map((part) => part.trim());
 const CLOSE = { badToken: 4401, rateLimited: 4429, accountGone: 4001, error: 1011 } as const;
 
+/**
+ * A reconnect ticket (`t.<userId>.<secret>`), handed out on a socket opened with a JWT and kept only in that page's memory.
+ * Reconnecting with it asks nothing of Neon Auth (no token fetch, no key-set read), whose reads wake the database.
+ * It opens nothing but this content-free socket; account deletion drops every ticket.
+ */
+const TICKET_TTL_MS = 7 * 24 * 3600_000;
+const MAX_TICKETS = 20;
+const ticketOf = (token: string) => /^t\.([0-9a-f-]{36})\.([0-9a-f]{32})$/.exec(token);
+/** Set by `connectLive` only (any copy the client sent is overwritten): who the socket is for, and how they proved it. */
+const LIVE_USER_HEADER = "X-Live-User";
+const LIVE_AUTH_HEADER = "X-Live-Auth";
+
+/** A browser sees no HTTP status on a failed handshake, so a refusal is an accepted socket closed at once with a 4xxx code. */
+function refuse(code: number, reason: string) {
+    const { 0: client, 1: server } = new WebSocketPair();
+    server.accept();
+    server.close(code, reason);
+    return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": LIVE_PROTOCOL } });
+}
+
 export class ReminderClock extends DurableObject<Env> {
     private dirty = false;
     private building: Promise<void> | null = null;
@@ -49,12 +69,30 @@ export class ReminderClock extends DurableObject<Env> {
         ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
     }
 
-    /** A live-sync socket (already authenticated by `connectLive`). It gets the current version and then every ping. */
+    /**
+     * A live-sync socket, routed here by `connectLive`. A JWT was verified there and earns a reconnect ticket; a ticket
+     * is checked here. The socket gets the current version (and its ticket) and then every ping.
+     */
     override async fetch(request: Request): Promise<Response> {
+        const [, token, origin] = offeredProtocols(request);
+        const now = Date.now();
+        const stored = (await this.ctx.storage.get<Record<string, number>>("tickets")) ?? {};
+        const tickets = Object.fromEntries(Object.entries(stored).filter(([, until]) => until > now));
+        let ticket: string | undefined;
+        if (request.headers.get(LIVE_AUTH_HEADER) === "jwt") {
+            const secret = [...crypto.getRandomValues(new Uint8Array(16))].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+            tickets[secret] = now + TICKET_TTL_MS;
+            ticket = `t.${request.headers.get(LIVE_USER_HEADER)}.${secret}`;
+        } else if (!tickets[ticketOf(token ?? "")?.[2] ?? ""]) {
+            return refuse(CLOSE.badToken, "sign in again");
+        }
+        // The newest few only: one per open copy of Cadence is all that's ever in use.
+        await this.ctx.storage.put("tickets", Object.fromEntries(Object.entries(tickets).sort(([, a], [, b]) => b - a).slice(0, MAX_TICKETS)));
+
         const { 0: client, 1: server } = new WebSocketPair();
-        const origin = originOf(offeredProtocols(request)[2]);
-        this.ctx.acceptWebSocket(server, origin ? [origin] : []);
-        server.send(JSON.stringify({ v: (await this.ctx.storage.get<number>("liveVersion")) ?? 0 }));
+        const tag = originOf(origin);
+        this.ctx.acceptWebSocket(server, tag ? [tag] : []);
+        server.send(JSON.stringify({ v: (await this.ctx.storage.get<number>("liveVersion")) ?? 0, ...(ticket && { ticket }) }));
         return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": LIVE_PROTOCOL } });
     }
 
@@ -281,29 +319,30 @@ export async function forgetReminders(env: Env, userId: string): Promise<void> {
 }
 
 /**
- * `GET /api/v1/live` (WebSocket). Dispatched before the Hono app: a browser can't send `Authorization` on a WebSocket
- * (the JWT rides in `Sec-WebSocket-Protocol: cadence.live, <jwt>`) and sees no HTTP status on a failed handshake, so a
- * refusal is an accepted socket closed at once with a 4xxx code.
+ * `GET /api/v1/live` (WebSocket). Dispatched before the Hono app: a browser can't send `Authorization` on a WebSocket,
+ * so the JWT (or a reconnect ticket, checked by the person's clock) rides in `Sec-WebSocket-Protocol: cadence.live, <token>`.
  */
 export async function connectLive(request: Request, env: Env): Promise<Response> {
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") return new Response("Expected a WebSocket", { status: 426 });
     const [protocol, token] = offeredProtocols(request);
     if (protocol !== LIVE_PROTOCOL || !token) return new Response("Bad protocol", { status: 400 });
 
-    const refuse = (code: number, reason: string) => {
-        const { 0: client, 1: server } = new WebSocketPair();
-        server.accept();
-        server.close(code, reason);
-        return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": LIVE_PROTOCOL } });
-    };
     if (env.RATE_LIMITER && !(await env.RATE_LIMITER.limit({ key: request.headers.get("cf-connecting-ip") || "unknown" })).success) return refuse(CLOSE.rateLimited, "slow down");
+    const ticket = ticketOf(token);
     let userId: string;
-    try {
-        ({ userId } = await verifyAppToken(env, token));
-    } catch (err) {
-        return err instanceof AppError && err.statusCode === 401 ? refuse(CLOSE.badToken, "sign in again") : refuse(CLOSE.error, "unavailable");
+    if (ticket) {
+        userId = ticket[1];
+    } else {
+        try {
+            ({ userId } = await verifyAppToken(env, token));
+        } catch (err) {
+            return err instanceof AppError && err.statusCode === 401 ? refuse(CLOSE.badToken, "sign in again") : refuse(CLOSE.error, "unavailable");
+        }
     }
     if (env.RATE_LIMITER_READ && !(await env.RATE_LIMITER_READ.limit({ key: userId })).success) return refuse(CLOSE.rateLimited, "slow down");
     if (!env.REMINDER_CLOCK) return refuse(CLOSE.error, "unavailable");
-    return env.REMINDER_CLOCK.get(env.REMINDER_CLOCK.idFromName(userId)).fetch(request);
+    const headers = new Headers(request.headers);
+    headers.set(LIVE_USER_HEADER, userId);
+    headers.set(LIVE_AUTH_HEADER, ticket ? "ticket" : "jwt");
+    return env.REMINDER_CLOCK.get(env.REMINDER_CLOCK.idFromName(userId)).fetch(new Request(request, { headers }));
 }

@@ -26,6 +26,8 @@ const isLive = (q: { queryKey: readonly unknown[] }) => LIVE_ROOTS.has(String(q.
  * `{ v }` (a counter, never content) after any write of the account. A changed `v` refetches what is on screen,
  * so a routine logged on the phone reaches the desktop at once, even hidden in the tray, and nothing asks the
  * database on a timer. A dropped socket reconnects with backoff; an unchanged `v` after a reconnect costs no refetch.
+ * A reconnect uses the ticket the server handed this page (kept in memory only): fetching a JWT, and the server
+ * checking one, both reach Neon Auth, which wakes the database.
  */
 export function useLiveSync() {
     const queryClient = useQueryClient();
@@ -41,6 +43,7 @@ export function useLiveSync() {
         let connecting = false;
         let socket: WebSocket | null = null;
         let lastV: number | null = null;
+        let ticket: string | null = null;
         let pending = false;
         let attempt = 0;
         let authRetried = false;
@@ -95,6 +98,11 @@ export function useLiveSync() {
             if (Date.now() - openedAt >= STABLE_MS && openedAt) attempt = 0;
             openedAt = 0;
             if (code === ACCOUNT_GONE) { gone = true; return; }
+            if (code === BAD_TOKEN && sentToken === ticket) {
+                ticket = null; // expired or forgotten: sign in with a JWT once more, right away
+                void connect();
+                return;
+            }
             if (code === BAD_TOKEN) {
                 dropAuthJwt(sentToken);
                 getAuthJwt().then((fresh) => {
@@ -118,7 +126,7 @@ export function useLiveSync() {
             if (isSessionHeld()) return schedule();
             connecting = true;
             try {
-                const token = await getAuthJwt();
+                const token = ticket ?? await getAuthJwt();
                 if (disposed || socket) return;
                 if (!token) return schedule();
                 const ws = new WebSocket(liveUrl(), ["cadence.live", token, PAGE_ORIGIN]);
@@ -131,8 +139,10 @@ export function useLiveSync() {
                 ws.onmessage = (event) => {
                     if (disposed || socket !== ws) return;
                     if (event.data === "pong") { window.clearTimeout(pongTimer); return; }
-                    let v: unknown;
-                    try { v = (JSON.parse(String(event.data)) as { v?: unknown }).v; } catch { return; }
+                    let message: { v?: unknown; ticket?: unknown };
+                    try { message = JSON.parse(String(event.data)) as typeof message; } catch { return; }
+                    if (typeof message.ticket === "string") ticket = message.ticket;
+                    const { v } = message;
                     if (typeof v !== "number") return;
                     authRetried = false;
                     // A socket's first answer refreshes only if something changed while it was away, or a live read failed

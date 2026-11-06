@@ -224,6 +224,19 @@ describe("useLiveSync", () => {
         expect(FakeSocket.all).toHaveLength(2);
     });
 
+    it("reconnects with the server's ticket instead of a new JWT, and falls back to a JWT if the ticket is refused", async () => {
+        await mount();
+        last().message({ v: 1, ticket: "t.u1.secret" });
+        last().drop(1006);
+        await advance(1_000);
+        expect(last().protocols).toEqual(["cadence.live", "t.u1.secret", "tab-1"]);
+        last().open();
+        last().drop(4401); // expired or forgotten ticket
+        await settle();
+        expect(last().protocols).toEqual(["cadence.live", "jwt-1", "tab-1"]);
+        expect(dropAuthJwt).not.toHaveBeenCalled();
+    });
+
     it("closes on unmount and ignores later events", async () => {
         const { unmount } = await mount();
         const socket = last();
