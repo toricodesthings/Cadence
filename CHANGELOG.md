@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.40.2] - 2026-11-05
+
 ### Fixed
 
 - Other devices keep staying up to date after a lost connection or sleep, and no longer refresh on every screen change.
