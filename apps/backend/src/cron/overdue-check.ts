@@ -68,15 +68,34 @@ export async function pruneUsageEvents(env: Env, now: Date = new Date()) {
 export async function runMemoryNightly(env: Env, now: Date = new Date()) {
     const db = getDbClient(env);
     const userIds = await cronUserIds(db, now);
-    // With a queue each person is their own message; the consumer logs the changes (`memory_queue`).
-    if (await sendMemoryMessages(env, userIds.map((userId) => ({ kind: "nightly" as const, userId, at: now.toISOString() })))) return undefined;
+    // With a queue each person is their own message; the consumer logs the changes (`memory_queue`). Sent a chunk a
+    // minute, so a chat's `learn` never waits behind everyone's nightly pass (the gaps are too short for Neon to sleep).
+    // ponytail: queue delays cap at 12 h, so this spreads at most 720 chunks (18k people); past that, grow the chunk.
+    if (env.MEMORY_QUEUE) {
+        for (let i = 0; i * NIGHTLY_CHUNK < userIds.length; i++) {
+            const chunk = userIds.slice(i * NIGHTLY_CHUNK, (i + 1) * NIGHTLY_CHUNK).map((userId) => ({ kind: "nightly" as const, userId, at: now.toISOString() }));
+            await sendMemoryMessages(env, chunk, Math.min(i * 60, 43_200) || undefined);
+        }
+        return undefined;
+    }
+    // No queue (self-hosted): as many as fit in one invocation, in a new order each night so nobody is always last.
     let changed = 0;
-    for (const userId of userIds) {
+    const started = Date.now();
+    const order = [...userIds].sort(() => Math.random() - 0.5);
+    for (const [i, userId] of order.entries()) {
+        if (Date.now() - started > NIGHTLY_BUDGET_MS) {
+            logger.warn("cron", "memory_nightly_budget", { skipped: order.length - i });
+            break;
+        }
         const result = await nightlyForUser(env, userId, now);
         changed += result ? result.expired + result.decayed + result.merged + result.activity : 0;
     }
     return changed;
 }
+
+const NIGHTLY_CHUNK = 25;
+/** Under a scheduled Worker's 15-minute limit, with room for the other daily jobs. */
+const NIGHTLY_BUDGET_MS = 8 * 60_000;
 
 /**
  * Chat image retention: deletes images attached but never sent (older than a

@@ -30,7 +30,7 @@ import { connectionRoutes } from "./domains/mcp/connections.route";
 import { accountRoutes } from "./domains/account/account.route";
 import { meRoutes } from "./domains/account/me.route";
 import { isMcpRequest, mcpOrigin, mcpProvider } from "./domains/mcp/oauth";
-import { LIVE_PATH, connectLive, replanAfterWrites } from "./domains/push/reminder-clock";
+import { LIVE_PATH, ORIGIN_HEADER, connectLive, replanAfterWrites } from "./domains/push/reminder-clock";
 
 const PRODUCTION_ORIGIN = "https://dashboard.cadenceapp.cloud";
 
@@ -93,7 +93,7 @@ app.use(
       return PRODUCTION_ORIGIN;
     },
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "X-Queued-At"],
+    allowHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "X-Queued-At", ORIGIN_HEADER],
     credentials: true,
     // Retry delay and response timing (which excludes waitUntil work).
     exposeHeaders: ["Retry-After", "Server-Timing"],

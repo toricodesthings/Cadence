@@ -30,10 +30,7 @@ import { useNotificationCenter } from "../../hooks/notifications/use-notificatio
 import { useBrowserNotifications } from "../../hooks/notifications/use-browser-notifications";
 import { useNotificationTapRouting } from "../../hooks/notifications/use-open-notification";
 import { useInstalledApp } from "../../hooks/ui/use-installed-app";
-import { useWakeRefresh } from "../../hooks/core/use-wake-refresh";
 import { useThemeSync } from "../../hooks/ui/use-theme-sync";
-import { useZoneSync } from "../../hooks/core/use-zone-sync";
-import { useLiveSync } from "../../hooks/core/use-live-sync";
 import { useViewMode } from "../../hooks/ui/use-view-mode";
 import { useFocusViewStore } from "../../stores/focus-view-store";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
@@ -317,9 +314,6 @@ export function MainLayout({
 
     // Sync appearance settings (theme, motion) to the DOM
     useThemeSync();
-    useZoneSync();
-    useWakeRefresh();
-    useLiveSync();
 
 
     useEffect(() => {

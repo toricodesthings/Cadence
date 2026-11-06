@@ -33,6 +33,10 @@ const timely = (entry: { at: number }, now: number) => entry.at <= now && now - 
 /** The live socket's path, its subprotocol, and the close codes the client acts on (see `use-live-sync.ts`). */
 export const LIVE_PATH = "/api/v1/live";
 const LIVE_PROTOCOL = "cadence.live";
+/** One open copy of Cadence: sent on its requests (`X-Cadence-Origin`) and its socket, so its own writes don't make it refetch. */
+export const ORIGIN_HEADER = "X-Cadence-Origin";
+const originOf = (value: string | null | undefined) => (value && /^[\w-]{1,64}$/.test(value) ? value : undefined);
+const offeredProtocols = (request: Request) => (request.headers.get("Sec-WebSocket-Protocol") ?? "").split(",").map((part) => part.trim());
 const CLOSE = { badToken: 4401, rateLimited: 4429, accountGone: 4001, error: 1011 } as const;
 
 export class ReminderClock extends DurableObject<Env> {
@@ -46,9 +50,10 @@ export class ReminderClock extends DurableObject<Env> {
     }
 
     /** A live-sync socket (already authenticated by `connectLive`). It gets the current version and then every ping. */
-    override async fetch(): Promise<Response> {
+    override async fetch(request: Request): Promise<Response> {
         const { 0: client, 1: server } = new WebSocketPair();
-        this.ctx.acceptWebSocket(server);
+        const origin = originOf(offeredProtocols(request)[2]);
+        this.ctx.acceptWebSocket(server, origin ? [origin] : []);
         server.send(JSON.stringify({ v: (await this.ctx.storage.get<number>("liveVersion")) ?? 0 }));
         return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": LIVE_PROTOCOL } });
     }
@@ -60,23 +65,29 @@ export class ReminderClock extends DurableObject<Env> {
         try { ws.close(code === 1005 || code === 1006 ? 1000 : code); } catch { /* already closed */ }
     }
 
-    /** Tell every open socket that something changed. Always bumps, so a reconnect can see what it missed. */
-    private async ping() {
+    /**
+     * Tell every open socket that something changed, except the copy of Cadence that made the change (`origin`):
+     * it already shows it. Always bumps, so a reconnect can see what it missed.
+     */
+    async ping(origin?: string) {
         const v = ((await this.ctx.storage.get<number>("liveVersion")) ?? 0) + 1;
         await this.ctx.storage.put("liveVersion", v);
         for (const ws of this.ctx.getWebSockets()) {
+            if (origin && this.ctx.getTags(ws).includes(origin)) continue;
             try { ws.send(JSON.stringify({ v })); } catch { /* closing */ }
         }
     }
 
     /**
      * Rebuild the plan from Postgres. Calls arriving mid-build coalesce into one more build, so the last
-     * plan always reflects the last write. `now` is for tests.
+     * plan always reflects the last write. A failed rebuild marks the plan stale and retries on the alarm's backoff,
+     * so an edit or delete is never left to a 7-day-old plan. `quiet` skips the ping (nothing another device shows
+     * changed); `origin` is the copy of Cadence that wrote. `now` is for tests.
      */
-    async replan(userId: string, now?: Date): Promise<void> {
+    async replan(userId: string, now?: Date, live: { origin?: string; quiet?: boolean } = {}): Promise<void> {
         await this.ctx.storage.put("userId", userId);
         // The write has committed: other devices needn't wait for (or depend on) VAPID or Neon.
-        await this.ping();
+        if (!live.quiet) await this.ping(live.origin);
         this.dirty = true;
         this.building ??= (async () => {
             try {
@@ -84,6 +95,9 @@ export class ReminderClock extends DurableObject<Env> {
                     this.dirty = false;
                     await this.rebuild(userId, now ?? new Date());
                 }
+            } catch (err) {
+                await this.ctx.storage.put("stale", true);
+                await this.retryLater(err);
             } finally {
                 this.building = null;
             }
@@ -104,13 +118,19 @@ export class ReminderClock extends DurableObject<Env> {
         try {
             await this.fire(new Date());
         } catch (err) {
-            // Re-arm ourselves (a throwing alarm is retried only a few times, and the clock must never stop silently),
-            // backing off so a rebuild that keeps failing can't keep Postgres awake.
-            const failures = ((await this.ctx.storage.get<number>("failures")) ?? 0) + 1;
-            await this.ctx.storage.put("failures", failures);
-            logger.error("cron", "reminder_clock_failed", { failures, issues: issuesFromError(err) });
-            await this.ctx.storage.setAlarm(Date.now() + FAILURE_BACKOFF_MS[Math.min(failures, FAILURE_BACKOFF_MS.length) - 1]);
+            await this.retryLater(err);
         }
+    }
+
+    /**
+     * Re-arm ourselves (a throwing alarm is retried only a few times, and the clock must never stop silently),
+     * backing off so a rebuild that keeps failing can't keep Postgres awake.
+     */
+    private async retryLater(err: unknown) {
+        const failures = ((await this.ctx.storage.get<number>("failures")) ?? 0) + 1;
+        await this.ctx.storage.put("failures", failures);
+        logger.error("cron", "reminder_clock_failed", { failures, issues: issuesFromError(err) });
+        await this.ctx.storage.setAlarm(Date.now() + FAILURE_BACKOFF_MS[Math.min(failures, FAILURE_BACKOFF_MS.length) - 1]);
     }
 
     private async rebuild(userId: string, now: Date) {
@@ -136,7 +156,7 @@ export class ReminderClock extends DurableObject<Env> {
             // Deleted accounts keep nothing, whichever rebuild (a late write, the deletion's own request) gets here last.
             if (!plan) return await this.forget();
             await this.ctx.storage.put("plan", plan);
-            await this.ctx.storage.delete("failures");
+            await this.ctx.storage.delete(["failures", "stale"]);
             await this.arm(plan, now.getTime());
         } finally {
             // A Durable Object outlives the request, so close the connection rather than leave it idle.
@@ -144,9 +164,10 @@ export class ReminderClock extends DurableObject<Env> {
         }
     }
 
+    /** No plan: nothing to send, and no account id kept (the live version is only a counter). */
     private async standDown() {
         await this.ctx.storage.deleteAlarm();
-        await this.ctx.storage.delete(["plan", "sent", "tries", "outcomes", "failures"]);
+        await this.ctx.storage.delete(["userId", "plan", "sent", "tries", "outcomes", "failures", "stale"]);
     }
 
     /** The next alarm: now for an unsent due alert, soon for a retry, else the next alert or the plan's end (to rebuild); none without a device. */
@@ -165,9 +186,10 @@ export class ReminderClock extends DurableObject<Env> {
     async fire(now: Date): Promise<void> {
         const plan = await this.ctx.storage.get<ReminderPlan>("plan");
         const userId = await this.ctx.storage.get<string>("userId");
-        if (!plan || !userId) return;
+        if (!userId) return;
         const at = now.getTime();
-        if (at >= plan.until) return this.replan(userId, now);
+        // Ran out, or the last rebuild failed (the plan may still hold an edited or deleted reminder): rebuild first.
+        if (!plan || at >= plan.until || (await this.ctx.storage.get("stale"))) return this.replan(userId, now, { quiet: true });
 
         const alreadySent = (await this.ctx.storage.get<Record<string, number>>("sent")) ?? {};
         // ponytail: an alarm that runs later than LATE_ALERT_MS (an outage) drops what it missed, like the app's own rule.
@@ -213,24 +235,39 @@ export class ReminderClock extends DurableObject<Env> {
  * Ask a person's clock to rebuild (and ping their open devices). Best-effort and never throws: the clock rebuilds itself when its plan runs out.
  * Call it after a write has committed, inside `waitUntil`.
  */
-export async function replanReminders(env: Env, userId: string): Promise<void> {
+export async function replanReminders(env: Env, userId: string, live?: { origin?: string; quiet?: boolean }): Promise<void> {
     if (!env.REMINDER_CLOCK) return;
     try {
-        await env.REMINDER_CLOCK.get(env.REMINDER_CLOCK.idFromName(userId)).replan(userId);
+        await env.REMINDER_CLOCK.get(env.REMINDER_CLOCK.idFromName(userId)).replan(userId, undefined, live);
     } catch (err) {
         logger.warn("cron", "reminder_replan_failed", { userHash: await hashIdentifier(userId), issues: issuesFromError(err) });
     }
 }
 
+/** A write made outside a request (a background suggestion): the person's other devices refetch, every one of them. No replan. */
+export async function pingLive(env: Env, userId: string): Promise<void> {
+    if (!env.REMINDER_CLOCK) return;
+    try {
+        await env.REMINDER_CLOCK.get(env.REMINDER_CLOCK.idFromName(userId)).ping();
+    } catch (err) {
+        logger.warn("cron", "live_ping_failed", { userHash: await hashIdentifier(userId), issues: issuesFromError(err) });
+    }
+}
+
 /**
- * After a committed write, the person's clock rebuilds (Neon is awake for the write anyway). Chat replans when
- * its stream ends; usage events never change a reminder.
+ * After a committed write, the person's clock rebuilds (Neon is awake for the write anyway) and their other devices
+ * hear of it. Chat replans when its stream ends; assistant memory writes count (the mode lives in settings); usage
+ * events and searches never change a reminder.
  */
 export const replanAfterWrites: MiddlewareHandler<{ Bindings: Env; Variables: AuthVariables }> = async (c, next) => {
     await next();
     if (c.req.method === "GET" || c.req.method === "OPTIONS" || c.res.status >= 300) return;
-    if (["/api/v1/ai/", "/api/v1/events", "/api/v1/search"].some((prefix) => c.req.path.startsWith(prefix))) return;
-    c.executionCtx.waitUntil(replanReminders(c.env, c.get("userId")));
+    const path = c.req.path;
+    if (path.startsWith("/api/v1/ai/") && !path.startsWith("/api/v1/ai/memory/")) return;
+    if (["/api/v1/events", "/api/v1/search"].some((prefix) => path.startsWith(prefix))) return;
+    // A device saying hello changes who gets reminders (replan) but nothing another device shows (no ping).
+    const quiet = c.req.method === "PUT" && path === "/api/v1/push/devices";
+    c.executionCtx.waitUntil(replanReminders(c.env, c.get("userId"), { origin: originOf(c.req.header(ORIGIN_HEADER)), quiet }));
 };
 
 /** Account deletion: stop the clock and drop what it holds. Never throws: if it fails, the replan after the request finds no account and forgets. */
@@ -250,7 +287,7 @@ export async function forgetReminders(env: Env, userId: string): Promise<void> {
  */
 export async function connectLive(request: Request, env: Env): Promise<Response> {
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") return new Response("Expected a WebSocket", { status: 426 });
-    const [protocol, token] = (request.headers.get("Sec-WebSocket-Protocol") ?? "").split(",").map((part) => part.trim());
+    const [protocol, token] = offeredProtocols(request);
     if (protocol !== LIVE_PROTOCOL || !token) return new Response("Bad protocol", { status: 400 });
 
     const refuse = (code: number, reason: string) => {

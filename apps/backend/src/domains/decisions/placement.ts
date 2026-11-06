@@ -11,6 +11,7 @@ import { inboxItems, projects, taskSections } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
 import { hashIdentifier, logger } from "../../platform/log";
 import { withRls } from "../../platform/rls";
+import { pingLive } from "../push/reminder-clock";
 import type { Env } from "../../types/env";
 import { parsePriority } from "@cadence/nlp/parse";
 import { decide, decisionModel, intelligenceOf, type DecisionCandidate, type DecisionKind, type DecisionQuestion } from "./decision";
@@ -115,7 +116,7 @@ export async function suggestPlacement(env: Env, userId: string, captureId: stri
         }
 
         // Re-check in a fresh transaction: the pair and the capture may have changed during the call.
-        await withRls(db, userId, async (tx) => {
+        const wrote = await withRls(db, userId, async (tx) => {
             const decision = answers.pick;
             if (decision?.id) {
                 const [projectId, sectionId = ""] = decision.id.split("|");
@@ -134,13 +135,17 @@ export async function suggestPlacement(env: Env, userId: string, captureId: stri
                     .where(and(eq(taskSections.id, suggestion.sectionId), eq(taskSections.userId, userId), eq(taskSections.projectId, projectId)));
                 if (list && section) stored.suggestedPlacement = suggestion;
             }
-            if (!Object.keys(stored).length) return;
+            if (!Object.keys(stored).length) return false;
             // Merged in SQL so a concurrent edit of `analysis` (userOverrides) is never overwritten.
-            await tx
+            const updated = await tx
                 .update(inboxItems)
                 .set({ analysis: sql`coalesce(${inboxItems.analysis}, '{}'::jsonb) || ${JSON.stringify(stored)}::jsonb` })
-                .where(and(eq(inboxItems.id, captureId), eq(inboxItems.userId, userId), eq(inboxItems.captureStatus, "clarifying"), eq(inboxItems.processed, false)));
+                .where(and(eq(inboxItems.id, captureId), eq(inboxItems.userId, userId), eq(inboxItems.captureStatus, "clarifying"), eq(inboxItems.processed, false)))
+                .returning({ id: inboxItems.id });
+            return updated.length > 0;
         });
+        // Written after the response (and its ping): tell the person's devices, the one that captured too.
+        if (wrote) await pingLive(env, userId);
     } catch (error) {
         logger.warn("ai", "placement_suggestion_failed", { reason: error instanceof Error ? error.message.slice(0, 117) : "unknown_error" });
     }

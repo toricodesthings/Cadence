@@ -22,7 +22,7 @@ export function useWakeRefresh() {
             if (!slept) return;
             // Hidden (the tray): only mark stale, since a refetch would wake the database; showing the window refetches.
             if (document.visibilityState === "visible") void queryClient.refetchQueries({ type: "active" });
-            else void queryClient.invalidateQueries({ refetchType: "none" });
+            else void queryClient.invalidateQueries({ type: "active", refetchType: "none" });
             window.dispatchEvent(new Event(WAKE_EVENT));
         }, TICK_MS);
         return () => window.clearInterval(id);

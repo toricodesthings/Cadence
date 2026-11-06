@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { users, userMetrics } from "../../db/schema";
 import { withRls } from "../../platform/rls";
-import { computeWorkloadSignals, signalsStale } from "../../platform/metrics";
+import { SIGNALS_MAX_AGE_MS, computeWorkloadSignals, signalsStale } from "../../platform/metrics";
 import { logger, hashIdentifier, issuesFromError } from "../../platform/log";
 import { SETTINGS_DEFAULTS, type UserSettings } from "@cadence/contracts/settings";
 import { buildToolRegistry, type AgentContext } from "./tools/index";
@@ -134,8 +134,10 @@ async function loadUserContext(
             .where(eq(users.id, userId))
             .limit(1);
 
-        // No metrics row (or a null index) means no evidence yet — unknown, not a low score.
-        return { burnoutIndex: metricsRow?.currentBurnoutIndex ?? null, stale: signalsStale(metricsRow?.lastCalculatedAt), ...assistantContext(userRow?.settings ?? {}) };
+        // No metrics row (or a null index) means no evidence yet — unknown, not a low score. Neither is a reading
+        // from weeks ago (the person hasn't chatted since): this turn treats it as unknown while it recomputes.
+        const old = signalsStale(metricsRow?.lastCalculatedAt, Date.now() - 6 * SIGNALS_MAX_AGE_MS);
+        return { burnoutIndex: old ? null : metricsRow?.currentBurnoutIndex ?? null, stale: signalsStale(metricsRow?.lastCalculatedAt), ...assistantContext(userRow?.settings ?? {}) };
     });
     // Signals are computed on read, not by a nightly pass: this turn uses the stored value, the next sees the fresh one.
     const { stale, ...rest } = context;

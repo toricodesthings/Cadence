@@ -144,11 +144,12 @@ describe("devices", () => {
 function clockFor(env: TestEnv) {
     vi.stubGlobal("WebSocketRequestResponsePair", class { constructor(public request: string, public response: string) {} });
     const data = new Map<string, unknown>();
-    const sockets: Array<{ send: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }> = [];
+    const sockets: Array<{ send: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn>; tags?: string[] }> = [];
     const state = {
         alarm: null as number | null,
         setWebSocketAutoResponse: () => {},
         getWebSockets: () => sockets,
+        getTags: (ws: { tags?: string[] }) => ws.tags ?? [],
         storage: {
             get: async (key: string) => structuredClone(data.get(key)),
             put: async (key: string | Record<string, unknown>, value?: unknown) => {
@@ -173,8 +174,8 @@ async function replanAndFire(env: TestEnv, userId: string, at: Date, fireAt: Dat
 }
 
 /** A `REMINDER_CLOCK` binding that records whose clock was asked to rebuild. */
-function clockNamespace(replanned: string[]) {
-    return { idFromName: (name: string) => name, get: (id: string) => ({ replan: async () => { replanned.push(id); } }) };
+function clockNamespace(replanned: string[], live: unknown[] = []) {
+    return { idFromName: (name: string) => name, get: (id: string) => ({ replan: async (_: string, __: unknown, how: unknown) => { replanned.push(id); live.push(how); } }) };
 }
 
 const count = (calls: string[], endpoint: string) => calls.filter((url) => url === endpoint).length;
@@ -480,6 +481,34 @@ describe("reminder clock", () => {
         expect(bare.sockets[0].send.mock.calls).toEqual([['{"v":1}'], ['{"v":2}']]);
         expect(bare.sockets[0].close).not.toHaveBeenCalled();
         expect(bare.data.get("liveVersion")).toBe(2);
+        expect(bare.data.has("userId")).toBe(false); // nothing to send, so no account id kept
+    });
+
+    it("doesn't ping the copy of Cadence that wrote, and a quiet replan pings nobody", async () => {
+        const env = await vapidEnv();
+        const { userId } = await subscriber(env);
+        const { clock, sockets, data } = clockFor(env);
+        sockets.push({ send: vi.fn(), close: vi.fn(), tags: ["writer"] }, { send: vi.fn(), close: vi.fn(), tags: ["other"] });
+        await clock.replan(userId, NOW, { origin: "writer" });
+        await clock.replan(userId, NOW, { quiet: true });
+        expect(sockets[0].send).not.toHaveBeenCalled();
+        expect(sockets[1].send.mock.calls).toEqual([['{"v":1}']]);
+        expect(data.get("liveVersion")).toBe(1);
+    });
+
+    it("retries a failed write's rebuild on the alarm's backoff, rebuilding before sending", async () => {
+        const env = await vapidEnv();
+        const { clock, state, data } = clockFor(env);
+        const start = Date.now();
+        await clock.replan("not-a-uuid", NOW); // Postgres rejects it: the rebuild fails, but the write's replan doesn't throw
+        expect(data.get("stale")).toBe(true);
+        expect(data.get("failures")).toBe(1);
+        expect(state.alarm).toBeGreaterThanOrEqual(start + 5 * 60_000);
+        const { userId } = await subscriber(env);
+        await state.storage.put("userId", userId);
+        await clock.fire(NOW);
+        expect(data.has("stale")).toBe(false);
+        expect(data.has("plan")).toBe(true);
     });
 
     it("closes live sockets with 4001 when the account is forgotten", async () => {
@@ -503,7 +532,7 @@ describe("reminder clock", () => {
 });
 
 describe("what rebuilds a clock", () => {
-    it("rebuilds a person's clock after their successful writes, not reads, failures, chat, searches or usage events", async () => {
+    it("rebuilds a person's clock after their successful writes (memory mode too), not reads, failures, chat, searches or usage events", async () => {
         const replanned: string[] = [];
         const pending: Promise<unknown>[] = [];
         const app = new Hono()
@@ -511,10 +540,13 @@ describe("what rebuilds a clock", () => {
             .use("/api/v1/*", replanAfterWrites as never)
             .all("/api/v1/*", (c) => c.json({}, c.req.path.endsWith("/bad") ? 422 : 200));
         const ctx = { waitUntil: (p: Promise<unknown>) => pending.push(p), passThroughOnException() {}, props: {} };
-        const requests = [["POST", "/tasks"], ["DELETE", "/tasks/1"], ["GET", "/tasks"], ["POST", "/tasks/bad"], ["POST", "/events"], ["POST", "/ai/chat"], ["POST", "/search/did-you-mean"]];
-        for (const [method, path] of requests) await app.request(`/api/v1${path}`, { method }, { REMINDER_CLOCK: clockNamespace(replanned) }, ctx as never);
+        const live: unknown[] = [];
+        const requests = [["POST", "/tasks"], ["DELETE", "/tasks/1"], ["GET", "/tasks"], ["POST", "/tasks/bad"], ["POST", "/events"], ["POST", "/ai/chat"], ["POST", "/search/did-you-mean"], ["POST", "/ai/memory/mode"], ["PUT", "/push/devices"]];
+        for (const [method, path] of requests) await app.request(`/api/v1${path}`, { method, headers: { "X-Cadence-Origin": "tab-1" } }, { REMINDER_CLOCK: clockNamespace(replanned, live) }, ctx as never);
         await Promise.all(pending);
-        expect(replanned).toEqual(["someone", "someone"]);
+        expect(replanned).toEqual(["someone", "someone", "someone", "someone"]);
+        // The writer is named so it isn't pinged; a device's hello replans (who gets reminders) without a ping.
+        expect(live).toEqual([{ origin: "tab-1", quiet: false }, { origin: "tab-1", quiet: false }, { origin: "tab-1", quiet: false }, { origin: "tab-1", quiet: true }]);
     });
 
     it("rebuilds the old owner's clock when someone else's browser takes over their endpoint", async () => {

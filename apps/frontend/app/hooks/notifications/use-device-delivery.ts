@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Device } from "@cadence/contracts/push";
 import { useSettings, useUpdateSettings } from "../core/use-settings";
@@ -49,6 +49,8 @@ const store = createExternalStore<LocalState>({ permission: "default", busy: fal
 const patch = (next: Partial<LocalState>) => store.set({ ...store.get(), ...next });
 
 const OFFER_KEY = "cadence_notification_offer_dismissed";
+/** The account this load already said hello for: once per load, not once per screen. */
+let announcedFor: string | null = null;
 const offerDismissed = () => { try { return window.localStorage.getItem(OFFER_KEY) === "1"; } catch { return false; } };
 
 /** The state of reminders on this device and the account's other devices. Enable and test must be called from a tap. */
@@ -192,7 +194,6 @@ export function useDeviceDeliverySync() {
     const queryClient = useQueryClient();
     const userId = useAuthState().session?.user.id;
     const devicesKey = useMemo(() => queryKeys.settings.devices(userId), [userId]);
-    const announced = useRef<string | null>(null);
 
     useEffect(() => {
         warmPlatformRuntime();
@@ -212,10 +213,10 @@ export function useDeviceDeliverySync() {
     // Enabled here: say hello once per account per load, so the list shows it as used today and a
     // lapsed subscription (or one from before this release) reconnects without the person doing anything.
     useEffect(() => {
-        if (!userId || announced.current === userId) return;
+        if (!userId || announcedFor === userId) return;
         if (status === "off" || status === "denied" || status === "unsupported" || status === "install") return;
         if (!IS_DESKTOP_RUNTIME && !canPush() && status !== "local") return;
-        announced.current = userId;
+        announcedFor = userId;
         void registerThisDevice(client).then((result) => {
             patch({ pushIssue: result.push === "blocked" ? "blocked" : null });
             if (result.devices) queryClient.setQueryData(devicesKey, result.devices);

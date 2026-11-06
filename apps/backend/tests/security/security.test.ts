@@ -88,6 +88,18 @@ describe("authentication", () => {
         expect((await response.json() as any).error.code).toBe(code);
     });
 
+    it.each([
+        { name: "a key-set HTTP failure", error: Object.assign(new Error("Expected 200 OK from the JSON Web Key Set HTTP response"), { code: "ERR_JOSE_GENERIC" }) },
+        { name: "a key-set timeout", error: Object.assign(new Error("request timed out"), { code: "ERR_JWKS_TIMEOUT" }) },
+    ])("treats $name as the provider being down (503), not a bad token", async ({ error }) => {
+        jwtVerifyMock.mockRejectedValue(error);
+
+        const response = await send(authedRequest(USAGE));
+
+        expect(response.status).toBe(503);
+        expect((await response.json() as any).error.code).toBe("AUTH_PROVIDER_UNAVAILABLE");
+    });
+
     it("marks an unreachable auth provider as retryable", async () => {
         jwtVerifyMock.mockRejectedValue(new Error("fetch failed: network error"));
 

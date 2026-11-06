@@ -51,12 +51,13 @@ export function isAdminUser(env: Env, identity: { userId: string; email?: string
 function classifyAuthFailure(error: unknown) {
     const message = (error instanceof Error ? error.message : "Invalid token").toLowerCase();
 
-    if (message.includes("exp")) {
-        return new AppError(401, "TOKEN_EXPIRED", "Session expired");
+    // First: a key-set outage ("Expected 200 OK from the JSON Web Key Set…", a timeout) is no reason to sign in again.
+    if (isTransientKeyFailure(error)) {
+        return new AppError(503, "AUTH_PROVIDER_UNAVAILABLE", "Authentication provider unavailable", true);
     }
 
-    if (message.includes("fetch") || message.includes("network")) {
-        return new AppError(503, "AUTH_PROVIDER_UNAVAILABLE", "Authentication provider unavailable", true);
+    if (message.includes("exp")) {
+        return new AppError(401, "TOKEN_EXPIRED", "Session expired");
     }
 
     if (message.includes("iss") || message.includes("issuer")) {
@@ -120,7 +121,7 @@ function keySetFor(jwksUrl: string) {
 /** A failure fetching the key set is worth retrying; a bad token is not. */
 function isTransientKeyFailure(err: unknown) {
     const { code, message } = (err ?? {}) as { code?: string; message?: string };
-    return code === "ERR_JOSE_GENERIC" || Boolean(message?.includes("fetch") || message?.includes("network"));
+    return code === "ERR_JOSE_GENERIC" || code === "ERR_JWKS_TIMEOUT" || Boolean(message?.includes("fetch") || message?.includes("network"));
 }
 
 const MAX_VERIFY_ATTEMPTS = 3;

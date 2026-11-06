@@ -50,4 +50,21 @@ describe("useZoneSync", () => {
         await waitFor(() => expect(put).toHaveBeenCalledTimes(5));
         u3();
     });
+
+    it("says its zone again after an hour, in case another device in another zone stored its own", async () => {
+        zone = "America/Halifax"; userId = "u3";
+        const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+        const { unmount } = renderHook(() => useZoneSync());
+        await waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+        Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+        now.mockReturnValue(1_000_000 + 59 * 60_000);
+        document.dispatchEvent(new Event("visibilitychange"));
+        await new Promise((r) => setTimeout(r));
+        expect(put).toHaveBeenCalledTimes(1);
+        now.mockReturnValue(1_000_000 + 61 * 60_000);
+        document.dispatchEvent(new Event("visibilitychange"));
+        await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
+        unmount();
+        now.mockRestore();
+    });
 });

@@ -6,10 +6,11 @@ import type { ReactNode } from "react";
 const wal: { status: string }[] = [];
 const walListeners = new Set<() => void>();
 let signedIn = true;
-let jwt = "jwt-1";
+let jwt: string | Error = "jwt-1";
 const dropAuthJwt = vi.fn((token: string) => { if (jwt === token) jwt = "jwt-2"; });
+const getAuthJwt = async () => { if (jwt instanceof Error) throw jwt; return jwt; };
 vi.mock("../../../app/lib/api/offline-wal", () => ({ getWalSnapshot: () => wal, subscribeWal: (cb: () => void) => { walListeners.add(cb); return () => walListeners.delete(cb); } }));
-vi.mock("../../../app/lib/api/client", () => ({ getAuthJwt: async () => jwt, dropAuthJwt: (t: string) => dropAuthJwt(t), isSessionHeld: () => false }));
+vi.mock("../../../app/lib/api/client", () => ({ getAuthJwt: () => getAuthJwt(), dropAuthJwt: (t: string) => dropAuthJwt(t), isSessionHeld: () => false, PAGE_ORIGIN: "tab-1" }));
 vi.mock("../../../app/lib/env", () => ({ API_BASE_URL: "https://app.test" }));
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
     useAuthState: () => ({ authReady: true, isAuthenticated: signedIn, session: signedIn ? { user: { id: "u1" } } : null }),
@@ -63,10 +64,10 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("useLiveSync", () => {
-    it("connects with the subprotocol and jwt, and the first version only records", async () => {
+    it("connects with the subprotocol, jwt and page origin, and the first version only records", async () => {
         await mount();
         expect(last().url).toBe("wss://app.test/api/v1/live");
-        expect(last().protocols).toEqual(["cadence.live", "jwt-1"]);
+        expect(last().protocols).toEqual(["cadence.live", "jwt-1", "tab-1"]);
         last().message({ v: 4 });
         await advance(10_000);
         expect(invalidate).not.toHaveBeenCalled();
@@ -78,14 +79,15 @@ describe("useLiveSync", () => {
         expect(FakeSocket.all).toHaveLength(0);
     });
 
-    it("a new version refreshes only active live-root queries, once for a burst", async () => {
+    it("a new version marks live roots stale and refetches those on screen, once for a burst, never restarting a refetch", async () => {
         await mount();
         last().message({ v: 1 });
         for (let v = 2; v <= 11; v++) last().message({ v });
         await advance(1_000);
         expect(invalidate).toHaveBeenCalledOnce();
-        const filters = invalidate.mock.calls[0][0] as { type: string; predicate: (q: { queryKey: unknown[] }) => boolean };
-        expect(filters.type).toBe("active");
+        const filters = invalidate.mock.calls[0][0] as { refetchType: string; predicate: (q: { queryKey: unknown[] }) => boolean };
+        expect(filters.refetchType).toBe("active");
+        expect(invalidate.mock.calls[0][1]).toEqual({ cancelRefetch: false });
         expect(filters.predicate({ queryKey: ["tasks", {}] })).toBe(true);
         expect(filters.predicate({ queryKey: ["weather"] })).toBe(false);
         expect(filters.predicate({ queryKey: ["ai", "chat"] })).toBe(false);
@@ -184,6 +186,42 @@ describe("useLiveSync", () => {
         act(() => { window.dispatchEvent(new Event("online")); });
         await settle();
         expect(FakeSocket.all).toHaveLength(1);
+    });
+
+    it("a socket's first version refreshes when a live read failed while it was away", async () => {
+        client.getQueryCache().build(client, { queryKey: ["tasks"] }).setState({ status: "error" });
+        vi.spyOn(client.getQueryCache(), "findAll").mockImplementation(() => client.getQueryCache().getAll());
+        await mount();
+        last().message({ v: 3 });
+        await advance(1_000);
+        expect(invalidate).toHaveBeenCalledOnce();
+    });
+
+    it("a token fetch that fails retries with backoff instead of stopping", async () => {
+        jwt = new Error("offline");
+        await mount();
+        expect(FakeSocket.all).toHaveLength(0);
+        jwt = "jwt-1";
+        await advance(1_000);
+        expect(FakeSocket.all).toHaveLength(1);
+        // ...and after a 4401 too
+        last().open();
+        jwt = new Error("auth down");
+        last().drop(4401);
+        await settle();
+        jwt = "jwt-3";
+        await advance(2_000);
+        expect(FakeSocket.all).toHaveLength(2);
+    });
+
+    it("a wake doesn't cut short a 4429's minute", async () => {
+        await mount();
+        last().drop(4429);
+        act(() => { window.dispatchEvent(new Event(WAKE_EVENT)); });
+        await settle();
+        expect(FakeSocket.all).toHaveLength(1);
+        await advance(60_000);
+        expect(FakeSocket.all).toHaveLength(2);
     });
 
     it("closes on unmount and ignores later events", async () => {

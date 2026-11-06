@@ -11,6 +11,9 @@ import { startupMark, recordStartupRead, startupEndpoint, startupCollecting, typ
 import { errorCodeSchema } from "@cadence/contracts/common";
 import { PERFORMANCE_CATEGORIES, type PerformanceSample } from "@cadence/contracts/events";
 
+/** This open copy of Cadence, on its requests and its live socket, so the server doesn't tell it about its own writes. */
+export const PAGE_ORIGIN = crypto.randomUUID();
+
 export interface AuthenticatedFetchOptions extends RequestInit {
     authenticated?: boolean;
 }
@@ -233,6 +236,7 @@ async function authorize(a: Attempt, method: string): Promise<void> {
         });
     }
     a.headers.set("Authorization", `Bearer ${token}`);
+    a.headers.set("X-Cadence-Origin", PAGE_ORIGIN);
     if (method.toUpperCase() === "GET") a.init.cache = "no-store";
 }
 

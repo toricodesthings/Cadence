@@ -14,6 +14,7 @@ import { projects, tasks } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
 import { hashIdentifier, logger } from "../../platform/log";
 import { withRls } from "../../platform/rls";
+import { pingLive } from "../push/reminder-clock";
 import { userZone } from "../../platform/user-zone";
 import type { Env } from "../../types/env";
 import { readEffortEvidence } from "../tasks/tasks.service";
@@ -97,10 +98,13 @@ export async function suggestEffortGuess(env: Env, userId: string, taskId: strin
         if (!level) return;
 
         // Only if nothing changed during the call: still unset, same title and list, no guess or "no thanks" yet.
-        await withRls(db, userId, (tx) =>
+        const updated = await withRls(db, userId, (tx) =>
             tx.update(tasks)
                 .set({ effortGuess: level, effortGuessSource: "model", effortGuessAt: new Date().toISOString() })
-                .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), eq(tasks.title, loaded.title), loaded.projectId ? eq(tasks.projectId, loaded.projectId) : isNull(tasks.projectId), isNull(tasks.effort), isNull(tasks.effortGuessSource))));
+                .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), eq(tasks.title, loaded.title), loaded.projectId ? eq(tasks.projectId, loaded.projectId) : isNull(tasks.projectId), isNull(tasks.effort), isNull(tasks.effortGuessSource)))
+                .returning({ id: tasks.id }));
+        // Written after the response (and its ping): tell the person's devices, the one that made the task too.
+        if (updated.length > 0) await pingLive(env, userId);
     } catch (error) {
         logger.warn("ai", "effort_guess_failed", { reason: error instanceof Error ? error.message.slice(0, 117) : "unknown_error" });
     }

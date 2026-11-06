@@ -1,7 +1,7 @@
 import { QueryClient, QueryCache, MutationCache, defaultShouldDehydrateQuery } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { AuthUIBoundary } from "./components/shared/AuthUIBoundary";
-import { useNavigate, Link as RouterLink } from "react-router";
+import { useLocation, useNavigate, Link as RouterLink } from "react-router";
 import { toast } from "sonner";
 import { authClient } from "./lib/auth-client";
 import { STALE_TIMES } from "./lib/api/query-keys";
@@ -16,6 +16,9 @@ import { OfflineBanner } from "./components/shared/OfflineBanner";
 import { Provider as TooltipProvider } from "./components/primitives/Tooltip";
 import { MotionConfig } from "framer-motion";
 import { useSettings } from "./hooks/core/use-settings";
+import { useZoneSync } from "./hooks/core/use-zone-sync";
+import { useWakeRefresh } from "./hooks/core/use-wake-refresh";
+import { useLiveSync } from "./hooks/core/use-live-sync";
 import { SPRINGS } from "./lib/constants/motion";
 import { getWalSnapshot, initWal } from "./lib/api/offline-wal";
 import { startWalSync } from "./lib/api/mutation-executor";
@@ -123,6 +126,7 @@ function ProvidersInner({ children }: { children: ReactNode }) {
 
 function AccountProviders({ children }: { children: ReactNode }) {
     const navigate = useNavigate();
+    const { pathname } = useLocation();
     const { session, authReady } = useAuthState();
     const hasCheckedForUpdates = useRef(false);
 
@@ -381,6 +385,8 @@ function AccountProviders({ children }: { children: ReactNode }) {
                             <TooltipProvider delayDuration={300}>
                                 <WorkspaceStartup>{children}</WorkspaceStartup>
                                 <OfflineBanner />
+                                {/* The quick-capture window is a second copy of the app: the main window keeps things in sync. */}
+                                {!pathname.startsWith("/desktop/") && <AccountSync />}
                             </TooltipProvider>
                         </AppMotion>
                     </div>
@@ -389,6 +395,14 @@ function AccountProviders({ children }: { children: ReactNode }) {
             </div>
         </PersistQueryClientProvider>
     );
+}
+
+/** Zone, wake and live sync, mounted once per account: a screen change never reconnects or drops a pending refresh. */
+function AccountSync() {
+    useZoneSync();
+    useWakeRefresh();
+    useLiveSync();
+    return null;
 }
 
 const REDUCED_MOTION = { reduced: "always", full: "never" } as const;

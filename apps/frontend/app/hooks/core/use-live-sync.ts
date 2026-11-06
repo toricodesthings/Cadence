@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthState } from "../auth/use-auth-state";
 import { API_BASE_URL } from "../../lib/env";
-import { dropAuthJwt, getAuthJwt, isSessionHeld } from "../../lib/api/client";
+import { dropAuthJwt, getAuthJwt, isSessionHeld, PAGE_ORIGIN } from "../../lib/api/client";
 import { getWalSnapshot, subscribeWal } from "../../lib/api/offline-wal";
 import { WAKE_EVENT } from "./use-wake-refresh";
 
@@ -19,6 +19,7 @@ const RATE_LIMITED = 4429;
 const ACCOUNT_GONE = 4001;
 
 const liveUrl = () => `${API_BASE_URL.replace(/^http/, "ws")}/api/v1/live`;
+const isLive = (q: { queryKey: readonly unknown[] }) => LIVE_ROOTS.has(String(q.queryKey[0]));
 
 /**
  * Cross-device freshness without polling. The server keeps one WebSocket per open copy of Cadence and sends
@@ -44,6 +45,7 @@ export function useLiveSync() {
         let attempt = 0;
         let authRetried = false;
         let openedAt = 0;
+        let notBefore = 0; // after a 4429, not even a wake reconnects sooner
         let retryTimer: number | undefined;
         let pingTimer: number | undefined;
         let pongTimer: number | undefined;
@@ -59,8 +61,9 @@ export function useLiveSync() {
             window.clearTimeout(maxTimer);
             debounceTimer = maxTimer = undefined;
             pending = false;
-            // ponytail: "active" only, so the offline warm-up isn't re-downloaded on every ping; inactive lists catch up on mount or focus.
-            void queryClient.invalidateQueries({ type: "active", predicate: (q) => LIVE_ROOTS.has(String(q.queryKey[0])) });
+            // Everything live is marked stale (a list opened next refetches on mount); only what's on screen refetches now.
+            // A refetch already running finishes rather than restarting.
+            void queryClient.invalidateQueries({ predicate: isLive, refetchType: "active" }, { cancelRefetch: false });
         };
         const markPending = () => {
             pending = true;
@@ -81,6 +84,7 @@ export function useLiveSync() {
             window.clearTimeout(retryTimer);
             if (disposed || gone || paused) return;
             const backoff = Math.min(1000 * 2 ** attempt++, BACKOFF_CAP_MS) * (0.8 + Math.random() * 0.4);
+            if (minimumMs) notBefore = Date.now() + minimumMs;
             retryTimer = window.setTimeout(() => void connect(), Math.max(backoff, minimumMs));
         };
         const closed = (ws: WebSocket, code: number, sentToken: string) => {
@@ -93,10 +97,11 @@ export function useLiveSync() {
             if (code === ACCOUNT_GONE) { gone = true; return; }
             if (code === BAD_TOKEN) {
                 dropAuthJwt(sentToken);
-                void getAuthJwt().then((fresh) => {
-                    if (disposed) return;
+                getAuthJwt().then((fresh) => {
+                    // A wake may have reconnected meanwhile: then this answer is stale and must not pause the new socket.
+                    if (disposed || socket || connecting) return;
                     if (fresh && fresh !== sentToken && !authRetried) { authRetried = true; void connect(); } else paused = true;
-                });
+                }, () => schedule()); // no answer at all (offline, auth down) is not a bad token: try again later
                 return;
             }
             schedule(code === RATE_LIMITED ? 60_000 : 0);
@@ -114,8 +119,10 @@ export function useLiveSync() {
             connecting = true;
             try {
                 const token = await getAuthJwt();
-                if (disposed || socket || !token) return;
-                const ws = new WebSocket(liveUrl(), ["cadence.live", token]);
+                if (disposed || socket) return;
+                if (!token) return schedule();
+                const ws = new WebSocket(liveUrl(), ["cadence.live", token, PAGE_ORIGIN]);
+                let first = true;
                 socket = ws;
                 ws.onopen = () => {
                     openedAt = Date.now();
@@ -128,11 +135,16 @@ export function useLiveSync() {
                     try { v = (JSON.parse(String(event.data)) as { v?: unknown }).v; } catch { return; }
                     if (typeof v !== "number") return;
                     authRetried = false;
-                    // The first answer after mount only records: startup already refetched stale data.
-                    if (lastV !== null && v !== lastV) markPending();
+                    // A socket's first answer refreshes only if something changed while it was away, or a live read failed
+                    // then (startup offline, a dropped connection: nothing else refetches on reconnect). Startup itself already read.
+                    const missed = first && queryClient.getQueryCache().findAll({ type: "active", predicate: isLive }).some((q) => q.state.status === "error");
+                    first = false;
+                    if ((lastV !== null && v !== lastV) || missed) markPending();
                     lastV = v;
                 };
                 ws.onclose = (event) => closed(ws, event.code, token);
+            } catch {
+                schedule(); // the token couldn't be fetched (offline, auth down): retry with backoff, never give up silently
             } finally {
                 connecting = false;
             }
@@ -143,6 +155,7 @@ export function useLiveSync() {
             if (disposed || gone) return;
             paused = false;
             if (socket) return ping(socket);
+            if (Date.now() < notBefore) return; // rate-limited: the scheduled retry stands
             window.clearTimeout(retryTimer);
             void connect();
         };

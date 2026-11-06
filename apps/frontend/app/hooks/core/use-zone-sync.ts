@@ -9,10 +9,12 @@ import { WAKE_EVENT } from "./use-wake-refresh";
 /**
  * Keeps the app's zone and `users.time_zone` equal to the device's (or the zone Settings pins).
  * Checks on start, when the page becomes visible again (a laptop that crossed zones, the desktop app
- * resuming from sleep) and when the pin changes, but only writes when the zone differs from the last one
- * this app instance stored: a write wakes the database. A failed call is retried on the next trigger.
+ * resuming from sleep) and when the pin changes, but only calls when the zone differs from the last one
+ * this app instance stored, or an hour has passed (another device in another zone may have stored its own since;
+ * the device in use wins). A failed call is retried on the next trigger.
  */
-let synced: { userId: string | undefined; zone: string } | null = null;
+const RESYNC_MS = 60 * 60_000;
+let synced: { userId: string | undefined; zone: string; at: number } | null = null;
 
 export function useZoneSync() {
     const client = useApiClient();
@@ -25,10 +27,10 @@ export function useZoneSync() {
         setUserZone(zone);
         if (!authReady || !isAuthenticated || !navigator.onLine) return;
         const userId = session?.user.id;
-        if (synced && synced.userId === userId && synced.zone === zone) return;
+        if (synced && synced.userId === userId && synced.zone === zone && Date.now() - synced.at < RESYNC_MS) return;
         try {
             await unwrapResponse(await client.api.me["time-zone"].$put({ json: { timeZone: zone } }));
-            synced = { userId, zone };
+            synced = { userId, zone, at: Date.now() };
         } catch {
             // Offline or a blip: the next start / visibility change tries again.
         }

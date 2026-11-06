@@ -9,6 +9,7 @@ import {
     type UIMessage,
 } from "ai";
 import { CONVERSATION_TITLE_DATA_TYPE } from "@cadence/contracts/ai";
+import { TOOL_CATALOG } from "@cadence/contracts/ai-tools";
 import { apiValidator } from "../../platform/validation";
 import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
@@ -495,8 +496,14 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             }
             // The response returned before the stream ended, so the write hook missed this turn's tool writes;
             // and the sitting's reading is queued for when the chat goes quiet.
+            // Only a turn whose tools wrote replans (and pings every device, this one too: its screen didn't make the change).
             const learns = isLearning(memoryStateOf((await settingsReady).settings).mode);
-            c.executionCtx.waitUntil(Promise.all([replanReminders(c.env, userId), learns && scheduleLearn(c.env, userId)]));
+            const wrote = ((responseMessage as { parts?: Array<{ type: string }> }).parts ?? []).some(({ type }) => {
+                if (!type.startsWith("tool-")) return false;
+                const kind = (TOOL_CATALOG as Record<string, { kind: string } | undefined>)[type.slice(5)]?.kind;
+                return kind !== "read" && kind !== "ask";
+            });
+            c.executionCtx.waitUntil(Promise.all([wrote && replanReminders(c.env, userId), learns && scheduleLearn(c.env, userId)]));
             // Close the Redis log (TTLs shrink to a ~60s grace so a late re-attach can
             // still replay it) + authoritatively compare-and-finalize the pointer: clear
             // active_stream_id AND record this as last_stream_id/status, but only if it

@@ -43,7 +43,7 @@ it("only marks data stale when the window is hidden in the tray (a refetch would
     vi.setSystemTime(Date.now() + 10 * 60_000);
     vi.advanceTimersByTime(30_000);
     expect(refetch).not.toHaveBeenCalled();
-    expect(invalidate).toHaveBeenCalledWith({ refetchType: "none" });
+    expect(invalidate).toHaveBeenCalledWith({ type: "active", refetchType: "none" });
     expect(woke).toHaveBeenCalledOnce();
 
     window.removeEventListener(WAKE_EVENT, woke);

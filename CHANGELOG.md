@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Other devices keep staying up to date after a lost connection or sleep, and no longer refresh on every screen change.
+- A reminder you edit or delete during a brief server outage no longer goes out from the old plan.
+
 ## [0.40.1] - 2026-11-05
 
 ### Changed
