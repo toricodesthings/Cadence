@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.41.1] - 2026-11-09
+
 ### Changed
 
 - Page headers are quieter: the small label above the title stays only on Schedule and Routines.
