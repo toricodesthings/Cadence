@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Drag a tag to reorder it: the others slide aside as you go and it settles into place.
+
 ## [0.41.3] - 2026-11-09
 
 ### Fixed

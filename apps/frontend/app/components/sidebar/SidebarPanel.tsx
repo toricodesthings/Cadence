@@ -19,6 +19,8 @@ import { useTags } from "../../hooks/tags/use-tags";
 import { useTagReorder } from "../../hooks/tags/use-tag-reorder";
 import { useTagFilterStore } from "../../stores/tag-filter-store";
 import { useSettings } from "../../hooks/core/use-settings";
+import { motion } from "framer-motion";
+import { SPRINGS } from "../../lib/constants/motion";
 
 /** Main sidebar panel with live projects and inbox count */
 export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
@@ -211,21 +213,24 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                         </div>
                         <Reveal open={tagsOpen} id="tags-list">
                             {/* Tag bubbles */}
-                            <div className="flex min-w-0 flex-wrap gap-2 px-3">
-                                {filteredTags.map((tag, index) => (
+                            <div className="flex min-w-0 flex-wrap gap-2 px-3" onDragOver={tagOrder.onDragOver} onDrop={tagOrder.onDrop}>
+                                {(tagSearch ? filteredTags : tagOrder.ordered).map((tag, index) => (
+                                    // While a drag is live the others glide aside on a spring and the dropped tag settles into its slot.
+                                    <motion.div key={tag.id} layout={tagOrder.active ? "position" : false} transition={SPRINGS.GLIDE} className="flex min-w-0 max-w-full">
                                     <TagBubble
-                                        key={tag.id}
                                         tag={tag}
                                         // Positions in a filtered list are ambiguous, so searching turns reordering off.
                                         reorder={tagSearch ? undefined : {
                                             first: index === 0,
                                             last: index === tags.length - 1,
                                             onMove: (by) => tagOrder.move(tag.id, by),
-                                            onDropNear: (draggedId, side) => tagOrder.dropNear(draggedId, tag.id, side),
+                                            onDragStart: () => tagOrder.start(tag.id),
+                                            dragging: tagOrder.draggingId === tag.id,
                                         }}
                                         isActive={activeTagId === tag.id}
                                         onClick={() => handleToggleTag(tag.id)}
                                     />
+                                    </motion.div>
                                 ))}
                             </div>
                             {/* Inline create tag */}

@@ -1,9 +1,10 @@
+import { Fragment } from "react";
 import { weekdayOf } from "@cadence/domain/time";
 import { today } from "../../lib/utils/user-zone";
 import { ActivityBadge } from "../primitives/ActivityBadge";
 import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
 import {
-    Search, Plus, Settings, Flame, Calendar, CalendarHeart, Inbox, Sprout, LogOut, LifeBuoy, Sparkles, RefreshCw, Info, ShieldCheck, FileText, History,
+    Search, Plus, Settings, Flame, Calendar, CalendarHeart, Inbox, Sprout, LogOut, LifeBuoy, RefreshCw, Info, ShieldCheck, FileText, History,
 } from "lucide-react";
 
 import { Link, useLocation, useNavigate } from "react-router";
@@ -19,6 +20,7 @@ import { useAdminCapabilities } from "../../hooks/auth/use-admin-capabilities";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useSignOut } from "../../hooks/auth/use-sign-out";
 import { useAssistantStore } from "../../stores/assistant-store";
+import { AssistantSigil } from "../assistant/AssistantSigil";
 import { CADENCE_PRIVACY_URL, CADENCE_TERMS_URL } from "../../lib/constants/app-info";
 import { openExternalUrl } from "../../platform/runtime";
 import { cn } from "../../lib/utils";
@@ -140,7 +142,26 @@ export function IconRail({
                     const showDot = to !== "/routines" && notificationFn?.();
                     const count = to === "/" ? captureCount : to === "/routines" ? routineDueCount : 0;
                     return (
-                        <Tip key={to} label={label} side="right">
+                        <Fragment key={to}>
+                        {to === "/weekly-review" && (<>
+<div className="w-[60%] h-px bg-twilight-border rounded-full my-0.5" aria-hidden="true" />
+            <Tip label="Ask Assistant" side="right">
+                <button
+                    onClick={onAssistantOpen ?? toggleAssistantPanel}
+                    aria-label={replyUnread ? "Toggle AI Assistant Panel, new reply" : "Toggle AI Assistant Panel"}
+                    aria-pressed={assistantPanelOpen}
+                    className={`btn-icon press relative cursor-pointer rounded-2xl border transition-[background-color,border-color,color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
+                        assistantPanelOpen
+                            ? "accent-fill border-transparent text-[var(--primary-foreground)]"
+                            : "border-accent-primary/20 bg-accent-primary/10 text-accent-primary hover:border-accent-primary/35 hover:bg-accent-primary/15"
+                    }`}
+                >
+                    {/* The dock's sigil, rail-sized: an unread reply morphs its satellite into a bead, as on phone. */}
+                    <AssistantSigil size={22} notice={replyUnread && !assistantPanelOpen} />
+                </button>
+            </Tip>
+</>)}
+                        <Tip label={label} side="right">
                             <Link
                                 to={to}
                                 aria-label={to === "/routines" && count > 0 ? `${label}, ${count} due today` : to === "/" ? `${label}, ${count} items` : label}
@@ -160,28 +181,12 @@ export function IconRail({
                                 )}
                             </Link>
                         </Tip>
+                        </Fragment>
                     );
                 })}
             </nav>
 
-            <div className="w-[60%] h-px bg-twilight-border rounded-full my-0.5" aria-hidden="true" />
 
-            <Tip label="Ask Assistant" side="right">
-                <button
-                    onClick={onAssistantOpen ?? toggleAssistantPanel}
-                    aria-label={replyUnread ? "Toggle AI Assistant Panel, new reply" : "Toggle AI Assistant Panel"}
-                    className={`
-                        btn-icon relative rounded-2xl transition-all duration-200 outline-none
-                        ${assistantPanelOpen 
-                            ? "text-accent-primary bg-accent-primary/10 border border-accent-primary/20 glow-lantern shadow-[0_0_16px_rgba(230,165,85,0.15)]" 
-                            : "text-twilight-text-muted hover:text-accent-primary hover:bg-white/[0.04]"
-                        }
-                    `}
-                >
-                    <Sparkles size={18} aria-hidden="true" className={assistantPanelOpen ? "animate-pulse" : ""} />
-                    {replyUnread && !assistantPanelOpen && <ActivityBadge className="absolute right-1 top-1" />}
-                </button>
-            </Tip>
 
             <Tip label="Search" side="right">
                 <button
@@ -203,9 +208,9 @@ export function IconRail({
                 </button>
             </Tip>
 
-            <SyncButton />
-
             <div className="flex-1" />
+
+            <div className="w-[60%] h-px bg-twilight-border rounded-full my-0.5" aria-hidden="true" />
 
             <NotificationPreview />
 
@@ -218,6 +223,8 @@ export function IconRail({
                     <Settings size={18} aria-hidden="true" />
                 </button>
             </Tip>
+
+            <SyncButton />
 
             {canUseDeveloperTools ? <DeveloperTools /> : null}
 

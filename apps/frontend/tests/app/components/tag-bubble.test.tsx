@@ -1,4 +1,4 @@
-import { createEvent, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TagBubble } from "../../../app/components/sidebar/TagBubble";
 
@@ -23,42 +23,22 @@ describe("TagBubble colour menu", () => {
 });
 
 describe("TagBubble reordering", () => {
-    const onDropNear = vi.fn();
-    const setup = () => {
-        render(<TagBubble tag={tag} isActive={false} onClick={vi.fn()} reorder={{ first: false, last: false, onMove: vi.fn(), onDropNear }} />);
-        const chip = screen.getByRole("button", { name: "Filter by tag: work" });
-        chip.getBoundingClientRect = () => ({ left: 100, width: 100, top: 0, right: 200, bottom: 20, height: 20, x: 100, y: 0, toJSON: () => ({}) });
-        return chip;
-    };
-    /** jsdom's DragEvent drops clientX, so set it on the event. */
-    const drag = (type: "dragOver" | "drop", chip: HTMLElement, clientX: number, dataTransfer: object) => {
-        const event = createEvent[type](chip, { dataTransfer });
-        Object.defineProperty(event, "clientX", { value: clientX });
-        fireEvent(chip, event);
-    };
-    const data = { types: ["application/x-cadence-tag"], getData: () => "tag-9", dropEffect: "" };
+    const reorder = (over: object = {}) => ({ first: false, last: false, onMove: vi.fn(), onDragStart: vi.fn(), dragging: false, ...over });
 
-    it("a tag dropped on the left half lands before, on the right half after", () => {
-        const chip = setup();
-        drag("dragOver", chip, 120, data);
-        drag("drop", chip, 120, data);
-        drag("dragOver", chip, 180, data);
-        drag("drop", chip, 180, data);
-        expect(onDropNear.mock.calls).toEqual([["tag-9", "before"], ["tag-9", "after"]]);
-    });
-
-    it("ignores drags that aren't tags", () => {
-        const chip = setup();
-        fireEvent.dragOver(chip, { clientX: 120, dataTransfer: { types: ["text/plain"], getData: () => "" } });
-        fireEvent.drop(chip, { clientX: 120, dataTransfer: { types: ["text/plain"], getData: () => "" } });
-        expect(onDropNear).not.toHaveBeenCalled();
+    it("picking it up starts the reorder and still carries the tag for capture rows", () => {
+        const props = reorder();
+        render(<TagBubble tag={tag} isActive={false} onClick={vi.fn()} reorder={props} />);
+        const setData = vi.fn();
+        fireEvent.dragStart(screen.getByRole("button", { name: "Filter by tag: work" }), { dataTransfer: { setData } });
+        expect(setData).toHaveBeenCalledWith("application/x-cadence-tag", "tag-1");
+        expect(props.onDragStart).toHaveBeenCalledOnce();
     });
 
     it("Move later in the menu moves one step", () => {
-        const onMove = vi.fn();
-        render(<TagBubble tag={tag} isActive={false} onClick={vi.fn()} reorder={{ first: false, last: false, onMove, onDropNear }} />);
+        const props = reorder();
+        render(<TagBubble tag={tag} isActive={false} onClick={vi.fn()} reorder={props} />);
         fireEvent.contextMenu(screen.getByRole("button", { name: "Filter by tag: work" }));
         fireEvent.click(screen.getByRole("menuitem", { name: "Move later" }));
-        expect(onMove).toHaveBeenCalledWith(1);
+        expect(props.onMove).toHaveBeenCalledWith(1);
     });
 });

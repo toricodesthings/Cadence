@@ -1,6 +1,5 @@
 import type { Tag } from "@cadence/contracts/tag";
 import * as ContextMenu from "../primitives/ContextMenu";
-import { useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Palette, Trash2 } from "lucide-react";
 import { TAG_COLOR_NAMES, TAG_PALETTE } from "@cadence/contracts/constants";
 import { useDeleteTag } from "../../hooks/tags/use-delete-tag";
@@ -15,12 +14,14 @@ interface TagBubbleProps {
     tag: Tag;
     isActive: boolean;
     onClick: () => void;
-    /** Reordering (desktop): a tag dropped on this chip lands before or after it; the menu moves one step. */
+    /** Reordering (desktop): dragging starts it (the cloud moves the others), the menu moves one step. */
     reorder?: {
         first: boolean;
         last: boolean;
         onMove: (by: -1 | 1) => void;
-        onDropNear: (draggedId: string, side: "before" | "after") => void;
+        onDragStart: () => void;
+        /** This chip is the one being dragged: it stays as the slot it will land in. */
+        dragging: boolean;
     };
 }
 
@@ -33,7 +34,6 @@ export function TagBubble({ tag, isActive, onClick, reorder }: TagBubbleProps) {
     const { isCompact } = useShellMode();
     const deleteTag = useDeleteTag();
     const updateTag = useUpdateTag();
-    const [dropSide, setDropSide] = useState<"before" | "after" | null>(null);
 
     const bubble = (
         <button
@@ -42,26 +42,13 @@ export function TagBubble({ tag, isActive, onClick, reorder }: TagBubbleProps) {
             onDragStart={(e) => {
                 e.dataTransfer.setData(TAG_DRAG_TYPE, tag.id);
                 e.dataTransfer.effectAllowed = "copyMove";
+                reorder?.onDragStart();
             }}
-            onDragOver={reorder ? (e) => {
-                if (!e.dataTransfer.types.includes(TAG_DRAG_TYPE)) return;
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-                const box = e.currentTarget.getBoundingClientRect();
-                setDropSide(e.clientX < box.left + box.width / 2 ? "before" : "after");
-            } : undefined}
-            onDragLeave={reorder ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropSide(null); } : undefined}
-            onDrop={reorder ? (e) => {
-                const draggedId = e.dataTransfer.getData(TAG_DRAG_TYPE);
-                if (!draggedId) return;
-                e.preventDefault();
-                setDropSide(null);
-                if (draggedId !== tag.id && dropSide) reorder.onDropNear(draggedId, dropSide);
-            } : undefined}
-            onDragEnd={() => setDropSide(null)}
+            data-tag-id={tag.id}
             className={`
                 tag-bubble inline-flex max-w-full items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium
-                transition-all duration-200 cursor-pointer shrink-0
+                transition-[opacity,scale,filter,box-shadow] duration-200 cursor-pointer shrink-0
+                ${reorder?.dragging ? "opacity-35 scale-95" : ""}
                 ${isCompact ? "min-h-11" : ""}
                 ${isActive
                     ? "ring-1 ring-offset-1 ring-offset-twilight-deep shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_10%,transparent)]"
@@ -89,12 +76,6 @@ export function TagBubble({ tag, isActive, onClick, reorder }: TagBubbleProps) {
 
     return (
         <span className="relative inline-flex min-w-0 max-w-full shrink-0">
-            {dropSide ? (
-                <span
-                    aria-hidden="true"
-                    className={`pointer-events-none absolute inset-y-0.5 w-0.5 rounded-full bg-accent-primary ${dropSide === "before" ? "-left-1.5" : "-right-1.5"}`}
-                />
-            ) : null}
         <ContextMenu.Root>
             <ContextMenu.Trigger asChild>{bubble}</ContextMenu.Trigger>
             <ContextMenu.Content>
