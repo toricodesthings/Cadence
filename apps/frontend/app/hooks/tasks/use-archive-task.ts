@@ -5,7 +5,7 @@ import { taskCache } from "./optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { useRestoreTask } from "./use-restore-task";
-import { toastUndo } from "../../lib/utils/undo-toast";
+import { toastName, toastUndo } from "../../lib/utils/undo-toast";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 /** Move a task to trash (ARCHIVED state) with optimistic removal from active caches */
@@ -24,7 +24,7 @@ export function useArchiveTask() {
 
         onSuccess: (task, id) => {
             if (task) reconcileTaskInCaches(queryClient, task);
-            toastUndo("Task moved to Trash", () => restoreTask.mutate(id));
+            toastUndo("Task moved to Trash", () => restoreTask.mutate(id), { description: task ? toastName(task.title) : undefined });
         },
 
         onError: (err, _input, context) => taskCache.fail(queryClient, err, context, "Couldn't move task to trash"),
