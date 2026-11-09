@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Desktop updates install silently and Cadence reopens on its own, with download progress and a note once it's done.
+
+### Fixed
+
+- On Windows, Cadence opens on screen after installing an update instead of staying hidden in the tray.
+
 ## [0.41.4] - 2026-11-09
 
 ### Changed

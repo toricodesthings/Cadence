@@ -32,6 +32,7 @@ import type {
     SocialProvider,
 } from "./runtime";
 import { getAuthCallbackUrl } from "./runtime";
+import { markUpdating } from "./desktop-update-state";
 
 const OAUTH_CALLBACK_PORTS = [61827, 61828];
 
@@ -430,22 +431,25 @@ export const desktopRuntime = {
             version: update.version,
             date: update.date,
             body: update.body,
-            install: async () => {
+            install: async (onProgress) => {
                 // Download progress on the taskbar button; cleared on failure so it never sticks.
                 const win = getCurrentWindow();
                 let total = 0;
                 let received = 0;
+                markUpdating(update.version);
                 try {
                     await update.downloadAndInstall((event) => {
                         if (event.event === "Started") total = event.data.contentLength ?? 0;
                         else if (event.event === "Progress") received += event.data.chunkLength;
                         const progress = total ? Math.min(100, Math.round((received / total) * 100)) : undefined;
+                        onProgress?.(event.event === "Finished" ? 100 : progress ?? null);
                         void win.setProgressBar(progress === undefined
                             ? { status: ProgressBarStatus.Indeterminate }
                             : { status: ProgressBarStatus.Normal, progress }).catch(() => undefined);
                     });
                 } catch (error) {
                     await win.setProgressBar({ status: ProgressBarStatus.None }).catch(() => undefined);
+                    markUpdating(null);
                     throw error;
                 }
                 await relaunch();

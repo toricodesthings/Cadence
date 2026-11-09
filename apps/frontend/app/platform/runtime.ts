@@ -9,7 +9,8 @@ export interface AvailableAppUpdate {
     version: string;
     date?: string;
     body?: string;
-    install: () => Promise<void>;
+    /** Downloads, then installs and restarts. `onProgress` gets 0–100, or null while the size is unknown. */
+    install: (onProgress?: (percent: number | null) => void) => Promise<void>;
 }
 
 export interface PlatformNotification {

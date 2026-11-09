@@ -34,7 +34,7 @@ import {
     normalizeRedirectTo,
 } from "./platform/runtime";
 import { installDesktopE2EBridge } from "./platform/desktop-e2e";
-import { announceDesktopUpdate, publishAvailableDesktopUpdate } from "./platform/desktop-update-state";
+import { announceDesktopUpdate, confirmDesktopUpdate, publishAvailableDesktopUpdate } from "./platform/desktop-update-state";
 
 /**
  * Reload onto the newest deploy. The service worker opens the app from its saved shell, so a
@@ -216,6 +216,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
         }
 
         hasCheckedForUpdates.current = true;
+        confirmDesktopUpdate(() => void navigate("/changelog"));
         let active = true;
 
         void checkForAppUpdate().then((update) => {
@@ -233,7 +234,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
         return () => {
             active = false;
         };
-    }, [authReady]);
+    }, [authReady, navigate]);
 
     // Web only (desktop ships its own updater): when a newer build is live, keep a
     // Reload toast up until the user acts on it.

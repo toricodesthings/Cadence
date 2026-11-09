@@ -294,6 +294,7 @@ mod background {
     const PREFERENCES_STORE: &str = "cadence_desktop_preferences.dat";
     const TRAY_ID: &str = "main";
     pub const AUTOSTART_ARG: &str = "--autostart";
+    const LAST_VERSION_KEY: &str = "last_launched_version";
 
     fn requested_at_startup(app: &App) -> bool {
         app.store(PREFERENCES_STORE)
@@ -347,8 +348,29 @@ mod background {
     }
 
     /// A login launch (autostart passes this flag) with the tray ready starts quietly in the tray.
+    /// The updater relaunches with the same args, so the first launch of a new version always shows.
     pub fn starts_hidden(app: &App) -> bool {
-        std::env::args().any(|arg| arg == AUTOSTART_ARG) && app.tray_by_id(TRAY_ID).is_some()
+        let first_run_of_version = record_version(app);
+        !first_run_of_version
+            && std::env::args().any(|arg| arg == AUTOSTART_ARG)
+            && app.tray_by_id(TRAY_ID).is_some()
+    }
+
+    /// Stores the running version; true when it differs from the last launch (e.g. just updated).
+    fn record_version(app: &App) -> bool {
+        let Ok(store) = app.store(PREFERENCES_STORE) else {
+            return true;
+        };
+        let version = app.package_info().version.to_string();
+        if store
+            .get(LAST_VERSION_KEY)
+            .is_some_and(|v| v.as_str() == Some(version.as_str()))
+        {
+            return false;
+        }
+        store.set(LAST_VERSION_KEY, version);
+        let _ = store.save();
+        true
     }
 
     /// Hide instead of quitting exactly when the tray exists, so the window is never hidden

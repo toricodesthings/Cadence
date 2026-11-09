@@ -12,11 +12,14 @@ const VERSION_PILL = "rounded-full border border-white/[0.08] bg-white/[0.04] px
 /** The "update ready" prompt: what's new, then Install (restarts the app) or Later. */
 export function UpdateDialog({ update, onClose }: { update: AvailableAppUpdate; onClose: () => void }) {
     const [installing, setInstalling] = useState(false);
+    // 0–100 while downloading, null while the size is unknown; 100 means it's restarting.
+    const [progress, setProgress] = useState<number | null>(null);
 
     const install = async () => {
         setInstalling(true);
+        setProgress(null);
         try {
-            await update.install();
+            await update.install(setProgress);
         } catch (error) {
             log.error("desktop-update", "Couldn't install the update.", error);
             toast.error("Cadence could not install the downloaded update.");
@@ -33,7 +36,7 @@ export function UpdateDialog({ update, onClose }: { update: AvailableAppUpdate; 
                     </span>
                     <AlertDialog.Title>Update ready to install</AlertDialog.Title>
                     <AlertDialog.Description>
-                        Installing will restart Cadence. Your work is saved and will be right where you left it.
+                        Cadence closes for a few seconds and reopens on its own. Your work is saved and will be right where you left it.
                     </AlertDialog.Description>
                 </AlertDialog.Header>
 
@@ -77,7 +80,7 @@ export function UpdateDialog({ update, onClose }: { update: AvailableAppUpdate; 
                                 void install();
                             }}
                         >
-                            {installing ? "Installing…" : "Install update"}
+                            {!installing ? "Install update" : progress === 100 ? "Restarting…" : `Downloading${progress === null ? "…" : ` ${progress}%`}`}
                         </Button>
                     </AlertDialog.Action>
                 </AlertDialog.Footer>
