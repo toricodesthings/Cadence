@@ -27,7 +27,6 @@ interface BoardCanvasProps {
     mobileMode?: "single" | "pager";
     emptyState?: React.ReactNode;
     className?: string;
-    desktopColumnScroll?: boolean;
     /** Compact shells: control the chosen column from outside. */
     activeColumnId?: string;
     onActiveColumnChange?: (id: string) => void;
@@ -116,7 +115,6 @@ export function BoardCanvas({
     mobileMode = "single",
     emptyState = null,
     className = "",
-    desktopColumnScroll = false,
     activeColumnId: controlledId,
     onActiveColumnChange,
     compactTrailing,
@@ -183,19 +181,17 @@ export function BoardCanvas({
                 onPointerMove={dragScroll.onPointerMove}
                 onPointerUp={dragScroll.onPointerUp}
                 onPointerCancel={dragScroll.onPointerCancel}
-                className={`h-full min-h-0 flex-1 overflow-x-auto px-4 pb-4 pt-2 scrollbar-thin cursor-grab sm:px-6 lg:px-8 ${
-                    desktopColumnScroll ? "overflow-y-hidden" : "overflow-y-auto"
-                }`}
+                className="h-full min-h-0 flex-1 overflow-x-auto overflow-y-hidden px-4 pb-4 pt-2 scrollbar-thin cursor-grab sm:px-6 lg:px-8"
             >
                 <div
-                    className={`flex items-stretch gap-3 ${desktopColumnScroll ? "h-full min-h-0" : "min-h-full"} ${
+                    className={`flex items-stretch gap-3 h-full min-h-0 ${
                         mobileMode === "pager" ? "snap-x snap-mandatory" : ""
                     }`}
                 >
                     {columns.map((column) => (
                         <div
                             key={column.id}
-                            className={`${column.collapsed ? "w-[4.75rem]" : "w-[min(clamp(24rem,28vw,30rem),78vw)]"} shrink-0 transition-[width] duration-200 ease-out ${desktopColumnScroll ? "h-full min-h-0" : ""} ${
+                            className={`${column.collapsed ? "w-[4.75rem]" : "w-[min(clamp(24rem,28vw,30rem),78vw)]"} shrink-0 transition-[width] duration-200 ease-out h-full min-h-0 ${
                                 mobileMode === "pager" ? "snap-start" : ""
                             }`}
                         >

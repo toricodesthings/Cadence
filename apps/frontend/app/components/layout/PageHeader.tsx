@@ -38,7 +38,7 @@ export function PageHeaderIdentity({ icon, pageName, title, meta, accentColor, c
             <div className="flex min-w-0 flex-col gap-1">
                 {pageName ? <PageNameLabel>{pageName}</PageNameLabel> : null}
                 <div className="flex min-w-0 items-baseline gap-2">
-                <h1 className={`truncate font-display font-semibold leading-tight tracking-tight text-twilight-text ${compact ? "text-base" : "text-lg"}`}>
+                <h1 className={`truncate font-display font-semibold leading-tight tracking-tight text-twilight-text ${compact ? "text-base" : "text-xl"}`}>
                     {title}
                 </h1>
                 {meta && !compact ? (

@@ -1,4 +1,4 @@
-import { Bell, BellOff, Calendar, Pencil, Trash2 } from "lucide-react";
+import { ArrowUpRight, Bell, BellOff, Pencil, Trash2 } from "lucide-react";
 import type { GenericMenu } from "../primitives/menu-styles";
 import type { PersonalEvent } from "../../types/settings";
 import type { EventActions } from "./EventCard";
@@ -11,7 +11,7 @@ export function EventMenuItems({ Menu, event, onEdit, onOpenInSchedule, onToggle
     return (
         <>
             <Menu.Item onSelect={() => onEdit(event)}><Pencil size={14} aria-hidden="true" />Edit event</Menu.Item>
-            <Menu.Item onSelect={() => onOpenInSchedule(event)}><Calendar size={14} aria-hidden="true" />Open in schedule</Menu.Item>
+            <Menu.Item onSelect={() => onOpenInSchedule(event)}><ArrowUpRight size={14} aria-hidden="true" />Open in Schedule</Menu.Item>
             <Menu.Item onSelect={() => onToggleReminder(event)}>
                 {event.notify ? <BellOff size={14} aria-hidden="true" /> : <Bell size={14} aria-hidden="true" />}
                 {event.notify ? "Turn off reminder" : "Remind me"}

@@ -303,7 +303,6 @@ export function HoldingFeed({
                 {toolbar}
                 <BucketedCollectionView
                     view="kanban"
-                    desktopColumnScroll
                     sections={[
                         {
                             key: "new",

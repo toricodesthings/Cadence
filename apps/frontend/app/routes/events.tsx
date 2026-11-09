@@ -149,10 +149,11 @@ type EventsBodyProps = EventActions & {
     stacked: boolean;
     selectedEventId: string | null;
     onAdd: () => void;
+    onRename: (event: PersonalEvent, label: string) => void;
 };
 
 /** The events as a list or as cards; the first-event invitation when there are none. */
-function EventsBody({ events, view, sort, today, stacked, selectedEventId, onAdd, onOpen, onEdit, onDelete, onToggleReminder, onOpenInSchedule }: EventsBodyProps) {
+function EventsBody({ events, view, sort, today, stacked, selectedEventId, onAdd, onOpen, onEdit, onDelete, onToggleReminder, onOpenInSchedule, onRename }: EventsBodyProps) {
     if (events.length === 0) return <EmptyEvents onAdd={onAdd} />;
     if (view === "list") {
         return (
@@ -183,6 +184,7 @@ function EventsBody({ events, view, sort, today, stacked, selectedEventId, onAdd
                     onDelete={onDelete}
                     onToggleReminder={onToggleReminder}
                     onOpenInSchedule={onOpenInSchedule}
+                    onRename={onRename}
                 />
             ))}
         </section>
@@ -314,6 +316,7 @@ export default function EventsRoute() {
                         onDelete={deleteEvent}
                         onToggleReminder={toggleReminder}
                         onOpenInSchedule={(event) => handleOpenSchedule(getNextPersonalEventDate(event))}
+                        onRename={(event, label) => personalEvents.updateEvent(event.id, { ...event, label })}
                     />
                 </PageContent>
             </ScrollAreaWrapper>

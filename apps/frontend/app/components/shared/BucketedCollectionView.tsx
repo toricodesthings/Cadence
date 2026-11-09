@@ -34,7 +34,6 @@ export interface BucketedCollectionSection {
 interface BucketedCollectionViewProps {
     sections: BucketedCollectionSection[];
     view: "list" | "kanban";
-    desktopColumnScroll?: boolean;
 }
 
 export function BucketedSectionHeader({
@@ -63,7 +62,7 @@ export function BucketedSectionHeader({
     );
 }
 
-export function BucketedCollectionView({ sections, view, desktopColumnScroll = false }: BucketedCollectionViewProps) {
+export function BucketedCollectionView({ sections, view }: BucketedCollectionViewProps) {
     if (view === "list") {
         return (
             <div className="flex flex-col gap-6">
@@ -84,7 +83,6 @@ export function BucketedCollectionView({ sections, view, desktopColumnScroll = f
 
     return (
         <BoardCanvas
-            desktopColumnScroll={desktopColumnScroll}
             columns={sections.map((section) => ({
                 id: section.key,
                 title: section.title,
@@ -113,14 +111,14 @@ export function BucketedRouteBody({ view, sections, isLoading, isEmpty, empty, l
     if (view === "kanban") {
         return (
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                {!isLoading && !isEmpty ? <BucketedCollectionView view={view} sections={sections} desktopColumnScroll /> : <PageContent width="default">{body(null)}</PageContent>}
+                {!isLoading && !isEmpty ? <BucketedCollectionView view={view} sections={sections} /> : <PageContent width="default">{body(null)}</PageContent>}
             </div>
         );
     }
     return (
         <ScrollAreaWrapper>
             <PageContent width="default">
-                {body(<>{lead}<BucketedCollectionView view={view} sections={sections} desktopColumnScroll /></>)}
+                {body(<>{lead}<BucketedCollectionView view={view} sections={sections} /></>)}
             </PageContent>
         </ScrollAreaWrapper>
     );

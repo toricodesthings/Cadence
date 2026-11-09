@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Tap an event card's name to rename it in place; Open in Schedule now says where it takes you.
+
+### Fixed
+
+- Long board columns scroll on their own instead of stretching the whole page.
+
 ## [0.41.1] - 2026-11-09
 
 ### Changed
