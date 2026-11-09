@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.41.2] - 2026-11-09
+
 ### Changed
 
 - Tap an event card's name to rename it in place; Open in Schedule now says where it takes you.
