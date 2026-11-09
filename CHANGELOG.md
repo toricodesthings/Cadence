@@ -6,15 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Long board columns scroll on their own instead of stretching the whole page.
+- Section are aligned and spaced evenly on the board, and their drag handles are visible.
+
 ## [0.41.2] - 2026-11-09
 
 ### Changed
 
 - Tap an event card's name to rename it in place; Open in Schedule now says where it takes you.
-
-### Fixed
-
-- Long board columns scroll on their own instead of stretching the whole page.
 
 ## [0.41.1] - 2026-11-09
 
