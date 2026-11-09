@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.41.3] - 2026-11-09
+
 ### Fixed
 
 - Long board columns scroll on their own instead of stretching the whole page.
