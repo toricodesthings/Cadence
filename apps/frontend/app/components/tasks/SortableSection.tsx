@@ -6,6 +6,21 @@ import { GripVertical } from "lucide-react";
 /** Marks a sortable section so a board's card drags can tell it from a card. */
 export const SECTION_SORT = "SectionSort";
 
+/**
+ * A board column that folds sideways (width + fade, closing its gap) while a filter
+ * leaves it empty, and unfolds when the filter clears. `shared/Reveal` is the vertical twin.
+ */
+export function FoldColumn({ hidden, children }: { hidden: boolean; children: ReactNode }) {
+    return (
+        <div
+            inert={hidden}
+            className={`grid shrink-0 transition-[grid-template-columns,opacity,margin] duration-200 ease-out motion-reduce:transition-none [html[data-motion=reduced]_&]:transition-none ${hidden ? "grid-cols-[0fr] -mr-4 opacity-0" : "grid-cols-[1fr]"}`}
+        >
+            <div className="min-w-0 overflow-x-clip">{children}</div>
+        </div>
+    );
+}
+
 /** One section's place in a sortable list or board: `children` gets its grip to put in the header. */
 export function SortableSection({ id, name, className, children }: {
     /** The section's id as the list knows it. */

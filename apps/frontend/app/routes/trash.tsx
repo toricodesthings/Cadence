@@ -3,7 +3,7 @@ import { ShowOlder } from "../components/shared/ShowOlder";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { UtilitySheet } from "../components/shared/UtilitySheet";
-import { Trash2, RotateCcw, AlertTriangle, ChevronRight } from "lucide-react";
+import { Trash2, RotateCcw, TriangleAlert, ChevronRight } from "lucide-react";
 import { usePagedTasks } from "../hooks/tasks/use-tasks";
 import { useRestoreTask } from "../hooks/tasks/use-restore-task";
 import { useDeleteTask, useEmptyTrash } from "../hooks/tasks/use-delete-task";
@@ -137,7 +137,6 @@ export default function TrashView() {
             headerRight={hasTasks ? <EmptyTrashButton compact={shell.isCompact} /> : undefined}
             shellHeader={{
                 title: "Trash",
-                eyebrow: "Recovery",
                 icon: <Trash2 size={18} aria-hidden="true" />,
                 accentColor: "var(--color-priority-urgent)",
             }}
@@ -145,7 +144,7 @@ export default function TrashView() {
             <ScrollAreaWrapper>
                 <PageContent width="default">
                     <div className="mb-4 flex items-start gap-3 rounded-2xl border border-twilight-border/20 bg-twilight-surface/30 px-4 py-3">
-                        <AlertTriangle size={16} className="mt-0.5 shrink-0 text-accent-primary/70" />
+                        <TriangleAlert size={16} className="mt-0.5 shrink-0 text-accent-primary/70" />
                         <p className="text-xs leading-relaxed text-twilight-text-muted">
                             Tasks here can be restored to your active workspace. Permanently deleting a task cannot be undone.
                         </p>

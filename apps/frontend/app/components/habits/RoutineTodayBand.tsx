@@ -59,7 +59,8 @@ export function RoutineTodayBand({ habits, today, bloom, columns, onOpen }: {
     const toggle = () => setCollapsed(!collapsed);
 
     return (
-        <section aria-label="Today's routines" className="surface-card mb-4 rounded-[28px] px-2 py-2">
+        <section aria-label="Today's routines" className="surface-card mb-4 rounded-[37px] px-2 py-2">
+            {/* Concentric: its rows are 28px pills at a 9px inset (1px border + 8px padding). */}
             <div className="flex min-h-14 items-center gap-3 px-2">
                 <ProgressRing done={done} total={items.length} still={!bloom} />
                 <span className="min-w-0 flex-1">

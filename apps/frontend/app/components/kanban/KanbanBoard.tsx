@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { EmptyState } from "../tasks/EmptyState";
 import { groupTasksBySection } from "../../lib/utils/task/group-by-section";
 import {
     DndContext, DragOverlay, closestCenter, closestCorners,
@@ -10,7 +11,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { Plus, EllipsisVertical, Pencil, Trash2, ArrowLeft, ArrowRight } from "lucide-react";
 import { useSections, useCreateSection, useDeleteSection, useUpdateSection } from "../../hooks/sections/use-sections";
 import { useSectionReorder } from "../../hooks/sections/use-section-reorder";
-import { SECTION_SORT, SortableSection } from "../tasks/SortableSection";
+import { FoldColumn, SECTION_SORT, SortableSection } from "../tasks/SortableSection";
 import { useSubtasksByTaskIds } from "../../hooks/tasks/use-subtasks";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useTags } from "../../hooks/tags/use-tags";
@@ -41,6 +42,8 @@ interface KanbanBoardProps {
     onActiveSectionChange?: (id: string) => void;
     /** Compact shells: opens the route's section management sheet. */
     onManageSections?: () => void;
+    /** A filter is on: fold away columns it leaves empty. */
+    hideEmptySections?: boolean;
 }
 
 /** A single column (droppable zone) in the Kanban board */
@@ -213,6 +216,7 @@ export function KanbanBoard({
     activeSectionId,
     onActiveSectionChange,
     onManageSections,
+    hideEmptySections = false,
 }: KanbanBoardProps) {
     const shell = useShellMode();
     const { data: sections = [] } = useSections(projectId);
@@ -409,9 +413,7 @@ export function KanbanBoard({
                                 cardVariant="board"
                             />
                         ) : (
-                            <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/90">
-                                Nothing in {column.name} yet.
-                            </div>
+                            <EmptyState title={`Nothing in ${column.name} yet.`} description={null} compact />
                         ),
                     }))}
                 />
@@ -437,13 +439,16 @@ export function KanbanBoard({
                 <div className={`flex h-full min-h-full items-stretch gap-4 ${desktopCanvasPaddingClassName}`.trim()}>
                 {/* Unsectioned column first; only section columns can be renamed, moved or deleted */}
                 {visibleColumns.filter((column) => column.id === "ungrouped").map((column) => (
-                    <div key={column.id} className="w-[min(24rem,80vw)] shrink-0">
-                        <KanbanColumn {...columnProps(column)} />
-                    </div>
+                    <FoldColumn key={column.id} hidden={hideEmptySections && column.tasks.length === 0}>
+                        <div className="h-full w-[min(24rem,80vw)]">
+                            <KanbanColumn {...columnProps(column)} />
+                        </div>
+                    </FoldColumn>
                 ))}
                 <SortableContext items={sections.map((s) => `section:${s.id}`)} strategy={horizontalListSortingStrategy}>
                     {visibleColumns.filter((column) => column.id !== "ungrouped").map((column, index, columns) => (
-                        <SortableSection key={column.id} id={column.id} name={column.name} className="w-[min(24rem,80vw)] shrink-0">
+                        <FoldColumn key={column.id} hidden={hideEmptySections && column.tasks.length === 0}>
+                        <SortableSection id={column.id} name={column.name} className="h-full w-[min(24rem,80vw)]">
                             {(grip) => (
                                 <KanbanColumn
                                     {...columnProps(column)}
@@ -454,6 +459,7 @@ export function KanbanBoard({
                                 />
                             )}
                         </SortableSection>
+                        </FoldColumn>
                     ))}
                 </SortableContext>
 

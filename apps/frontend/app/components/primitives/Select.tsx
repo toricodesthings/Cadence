@@ -12,14 +12,14 @@ const SelectValue = SelectPrimitive.Value
 const SelectTrigger = ({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Trigger>) => (
     <SelectPrimitive.Trigger
         className={cn(
-            "flex h-11 w-full items-center justify-between whitespace-nowrap rounded-xl border border-twilight-border-light bg-white/[0.05] px-3 py-2 text-sm text-twilight-text shadow-sm ring-offset-twilight-base placeholder:text-twilight-text-muted focus:outline-none focus:ring-1 focus:ring-accent-primary/40 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 cursor-pointer hover:bg-white/[0.08] transition-[background-color,opacity]",
+            "flex h-11 w-full items-center justify-between whitespace-nowrap rounded-xl border border-twilight-border-light bg-white/[0.05] px-3 py-2 text-sm text-twilight-text shadow-sm ring-offset-twilight-base placeholder:text-twilight-text-muted focus:outline-none focus:ring-1 focus:ring-accent-primary/40 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 cursor-pointer hover:bg-white/[0.08] transition-[background-color,opacity] [&[data-state=open]>svg]:rotate-180",
             className
         )}
         {...props}
     >
         {children}
         <SelectPrimitive.Icon asChild>
-            <ChevronDown className="h-4 w-4 opacity-50" />
+            <ChevronDown className="h-4 w-4 shrink-0 text-twilight-text-muted transition-transform duration-200 ease-[var(--ease-out-quart)]" aria-hidden="true" />
         </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
 );
@@ -53,15 +53,15 @@ const SelectContent = ({ className, children, position = "popper", sideOffset = 
 const SelectItem = ({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Item>) => (
     <SelectPrimitive.Item
         className={cn(
-            "relative flex w-full cursor-pointer select-none items-center rounded-lg py-2 pl-8 pr-2 text-sm outline-none focus:text-accent-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+            "relative flex min-h-11 w-full cursor-pointer select-none items-center rounded-lg py-2 pl-9 pr-3 text-[15px] text-twilight-text-soft outline-none focus:text-twilight-text data-[state=checked]:font-medium data-[state=checked]:text-accent-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
             MENU_HOVER,
             className
         )}
         {...props}
     >
-        <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+        <span className="absolute left-3 flex size-4 items-center justify-center">
             <SelectPrimitive.ItemIndicator>
-                <Check className="h-4 w-4" />
+                <Check size={15} aria-hidden="true" />
             </SelectPrimitive.ItemIndicator>
         </span>
         <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>

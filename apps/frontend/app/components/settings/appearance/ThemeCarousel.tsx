@@ -32,7 +32,7 @@ function ThemePresetCard({ preset, selected, onSelect }: ThemePresetCardProps) {
         >
             {/* Mini preview */}
             <div
-                className="relative flex h-20 w-full flex-col justify-between overflow-hidden rounded-lg p-2"
+                className="relative flex h-20 w-full flex-col justify-between overflow-hidden rounded-[5px] p-2"
                 style={{
                     background: preset.suggestedGradient
                         ? `linear-gradient(${preset.suggestedGradient.direction}deg, ${preset.suggestedGradient.color1}, ${preset.suggestedGradient.color2})`

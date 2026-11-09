@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, AlertCircle, ChevronRight, ChevronDown } from "lucide-react";
+import { Plus, CircleAlert, ChevronRight, ChevronDown } from "lucide-react";
 import { AssistantSigil } from "./AssistantSigil";
 import { Reveal } from "../shared/Reveal";
 import * as ScrollArea from "../primitives/ScrollArea";
@@ -90,7 +90,7 @@ export function ConversationList({
                             onClick={() => void refetch()}
                             className="flex w-full items-start gap-2 rounded-xl border border-twilight-border bg-twilight-surface px-3 py-3 text-left text-twilight-text-soft transition-colors hover:bg-twilight-surface-hover cursor-pointer"
                         >
-                            <AlertCircle size={14} className="mt-0.5 shrink-0 text-feedback-error" />
+                            <CircleAlert size={14} className="mt-0.5 shrink-0 text-feedback-error" />
                             <span className="text-sm">
                                 Couldn’t load your conversations. Tap to try again.
                             </span>

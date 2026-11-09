@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { ArrowUpRight, ChevronDown, CircleCheck, Code2, Download, FileText, Globe, Heart, LifeBuoy, Monitor, RefreshCw, ScrollText, ShieldCheck, Smartphone, Tag } from "lucide-react";
+import { ArrowUpRight, ChevronDown, CheckCircle2, Code2, Download, FileText, Globe, Heart, LifeBuoy, Monitor, RefreshCw, ScrollText, ShieldCheck, Smartphone, Tag } from "lucide-react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { Button } from "../../primitives/Button";
@@ -64,7 +64,7 @@ function DesktopUpdatePanel() {
         title = `Cadence ${update.version} is available`;
         detail = checkedLabel ?? detail;
     } else if (checkedLabel) {
-        Icon = CircleCheck;
+        Icon = CheckCircle2;
         title = "Cadence is up to date";
         detail = checkedLabel;
     }

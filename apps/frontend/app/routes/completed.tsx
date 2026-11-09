@@ -31,7 +31,6 @@ export default function CompletedView() {
             sidePanelLabel="Task"
             shellHeader={{
                 title: "Completed",
-                eyebrow: "Archive",
                 icon: <CheckCircle2 size={18} aria-hidden="true" />,
                 accentColor: "var(--accent-primary)",
             }}

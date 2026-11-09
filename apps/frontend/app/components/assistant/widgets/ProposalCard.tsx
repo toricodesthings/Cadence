@@ -1,5 +1,5 @@
 import React from "react";
-import { Check, X, AlertCircle, Loader2, Plus, Minus, type LucideIcon } from "lucide-react";
+import { Check, X, CircleAlert, LoaderCircle, Plus, Minus, type LucideIcon } from "lucide-react";
 import type { Tag } from "@cadence/contracts/tag";
 import { resolveTagColor } from "../../../lib/utils/color-resolver";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -160,7 +160,7 @@ export function ProposalCard({
 
                         {writeError ? (
                             <p className="mt-2.5 flex items-center gap-1 text-[11px] text-feedback-error">
-                                <AlertCircle size={12} className="shrink-0" />
+                                <CircleAlert size={12} className="shrink-0" />
                                 {writeError}
                             </p>
                         ) : null}
@@ -175,7 +175,7 @@ export function ProposalCard({
                             >
                                 {resolving ? (
                                     <>
-                                        <Loader2 size={12} className="animate-spin" />
+                                        <LoaderCircle size={12} className="animate-spin" />
                                         Saving…
                                     </>
                                 ) : (

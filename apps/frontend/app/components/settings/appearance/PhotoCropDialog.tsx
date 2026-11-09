@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BusyOverlay } from "../../shared/BusyOverlay";
 import Cropper, { type Area, type MediaSize, type Point, type Size } from "react-easy-crop";
-import { Loader2, Move, ZoomIn } from "lucide-react";
+import { LoaderCircle, Move, ZoomIn } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -38,7 +38,7 @@ function StageNotice({ failed }: { failed: boolean }) {
                 "Cadence couldn't read that image."
             ) : (
                 <span className="flex items-center gap-2">
-                    <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                    <LoaderCircle size={14} className="animate-spin" aria-hidden="true" />
                     Opening your photo…
                 </span>
             )}

@@ -8,7 +8,7 @@
  * then proposes the rest again as a new card.
  */
 import { useState, type ComponentProps, type ReactNode } from "react";
-import { AlertCircle, Check, Trash2 } from "lucide-react";
+import { CircleAlert, Check, Trash2 } from "lucide-react";
 import type { ToolIO } from "@cadence/backend";
 import type { ToolName } from "@cadence/contracts/ai-tools";
 import { ProposalCard } from "./ProposalCard";
@@ -118,10 +118,10 @@ export function DeleteApprovalCard({ primaryLabel = "Delete it", ...props }: Omi
     return (
         <ApprovalCard
             tone="danger"
-            eyebrowGlyph={AlertCircle}
+            eyebrowGlyph={CircleAlert}
             primaryLabel={primaryLabel}
             primaryGlyph={Trash2}
-            primaryVariant="cardDanger"
+            primaryVariant="danger"
             declineLabel="Keep it"
             declinedText="Kept it."
             {...props}

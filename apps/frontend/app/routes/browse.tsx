@@ -57,7 +57,6 @@ export default function BrowsePage() {
         }
         shellHeader={{
             title: "Browse",
-            eyebrow: "Everything else",
             icon: <LayoutGrid size={18} aria-hidden="true" />,
         }}
     >

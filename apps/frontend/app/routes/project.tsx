@@ -228,7 +228,6 @@ export default function ProjectView() {
                 pageTitle={project?.name ?? "List"}
                 shellHeader={{
                     title: project?.name ?? "List",
-                    eyebrow: "List",
                     icon: project?.emoji ? (
                         <span className="text-xl leading-none">{project.emoji}</span>
                     ) : (
@@ -253,6 +252,7 @@ export default function ProjectView() {
                                 activeSectionId={activeSectionId}
                                 onActiveSectionChange={setActiveSectionId}
                                 onManageSections={() => setSectionsFocus("")}
+                                hideEmptySections={!!activeTagId}
                             />
                         )}
                     </div>
@@ -275,6 +275,7 @@ export default function ProjectView() {
                                     onSelectTask={handleSelectTask}
                                     rationaleByTaskId={rationaleByTaskId}
                                     onManageSections={setSectionsFocus}
+                                    hideEmptySections={!!activeTagId}
                                 />
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-20 px-4 text-center">

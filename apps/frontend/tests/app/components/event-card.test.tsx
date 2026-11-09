@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EventCard } from "../../../app/components/events/EventCard";
 import { toPersonalEventViewModel } from "../../../app/lib/utils/personal-events";
+import { Provider as TooltipProvider } from "../../../app/components/primitives/Tooltip";
 
 vi.mock("../../../app/lib/api/track-event", () => ({ trackUsageEvent: vi.fn() }));
 const event = { id: "event-1", label: "Anniversary", emoji: null, monthDay: "09-20", startedOn: null, notify: true };
@@ -12,21 +13,20 @@ const onToggleReminder = vi.fn();
 const onOpenInSchedule = vi.fn();
 beforeEach(() => vi.clearAllMocks());
 function setup() {
-    return render(<EventCard item={toPersonalEventViewModel(event)} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onToggleReminder={onToggleReminder} onOpenInSchedule={onOpenInSchedule} />);
+    return render(<TooltipProvider><EventCard item={toPersonalEventViewModel(event)} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onToggleReminder={onToggleReminder} onOpenInSchedule={onOpenInSchedule} /></TooltipProvider>);
 }
 describe("EventCard selection", () => {
     it("opens from the card background and informational surfaces", () => {
         const { container } = setup();
         fireEvent.click(container.querySelector("[data-event-card]")!);
-        fireEvent.click(screen.getByText("Countdown"));
-        fireEvent.click(screen.getByText("Date"));
-        expect(onOpen).toHaveBeenCalledTimes(3);
+        fireEvent.click(screen.getByText(toPersonalEventViewModel(event).countdownLabel));
+        expect(onOpen).toHaveBeenCalledTimes(2);
         expect(onOpen).toHaveBeenLastCalledWith(event);
         expect(onEdit).not.toHaveBeenCalled();
     });
     it("keeps reminder, delete and schedule actions independent", () => {
         setup();
-        fireEvent.click(screen.getByRole("button", { name: "Disable reminder for Anniversary" }));
+        fireEvent.click(screen.getByRole("button", { name: "Turn off reminder for Anniversary" }));
         fireEvent.click(screen.getByRole("button", { name: "Delete Anniversary" }));
         fireEvent.click(screen.getByRole("button", { name: "Schedule" }));
         expect(onToggleReminder).toHaveBeenCalledOnce();

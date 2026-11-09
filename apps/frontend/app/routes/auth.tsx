@@ -1,5 +1,5 @@
 import { AuthView } from "@neondatabase/auth/react/ui";
-import { Loader2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { useDocumentTitle } from "../hooks/core/use-document-title";
 import { useEffect, useState } from "react";
@@ -115,7 +115,7 @@ function DesktopAuthCallbackScreen({ redirectTo, location }: { redirectTo: strin
                     Back to sign in
                 </Button>
             ) : (
-                <Loader2 className="animate-spin text-twilight-text-soft" aria-label="Restoring session" />
+                <LoaderCircle className="animate-spin text-twilight-text-soft" aria-label="Restoring session" />
             )}
         />
     );
@@ -352,7 +352,7 @@ function WebAuthCallbackScreen({ authError }: { authError: string | null }) {
                     Back to sign in
                 </Button>
             ) : (
-                <Loader2 className="animate-spin text-twilight-text-soft" aria-label="Restoring session" />
+                <LoaderCircle className="animate-spin text-twilight-text-soft" aria-label="Restoring session" />
             )}
         />
     );

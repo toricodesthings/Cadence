@@ -1,4 +1,4 @@
-import { RefreshCw, WifiOff, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { RefreshCw, WifiOff, TriangleAlert, CheckCircle2, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../primitives/Dialog";
 import { useMutationOutbox } from "../../lib/api/mutation-outbox";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
@@ -67,7 +67,7 @@ export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onO
                         {outbox.failed.length > 0 ? (
                             <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/[0.06] p-4 text-sm text-twilight-text-soft">
                                 <div className="flex items-center gap-2 font-medium text-twilight-text">
-                                    <AlertTriangle size={16} className="text-red-300" />
+                                    <TriangleAlert size={16} className="text-red-300" />
                                     Failed sync attempts need attention
                                 </div>
                                 <p className="mt-2">

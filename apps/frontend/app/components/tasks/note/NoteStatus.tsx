@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import type { NoteStatus as Status } from "../../../lib/notes/note-session";
 import { cn } from "../../../lib/utils";
 
@@ -49,7 +49,7 @@ export function NoteStatus({ status, onAct, className }: { status: Status; onAct
     const actionable = status !== "saved" && onAct;
     const body = (
         <>
-            {status === "saving" || status === "device-syncing" ? <Loader2 size={12} className="motion-safe:animate-spin" aria-hidden="true" /> : null}
+            {status === "saving" || status === "device-syncing" ? <LoaderCircle size={12} className="motion-safe:animate-spin" aria-hidden="true" /> : null}
             <span>{label}</span>
         </>
     );

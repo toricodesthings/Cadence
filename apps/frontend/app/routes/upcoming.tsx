@@ -1,3 +1,4 @@
+import { EmptyState } from "../components/tasks/EmptyState";
 import { TaskRouteControls } from "../components/shared/TaskRouteControls";
 import { useTaskIntelligence } from "../hooks/core/use-task-intelligence";
 import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
@@ -198,14 +199,6 @@ function rankBucket(items: UpcomingViewerItem[], guessOf: GuessOf): UpcomingView
     return [...ranked, ...items.filter((item) => item.kind !== "task")];
 }
 
-function UpcomingEmptyState({ title }: { title: string }) {
-    return (
-        <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
-            Nothing in {title.toLowerCase()}.
-        </div>
-    );
-}
-
 export default function Upcoming() {
     const { data: tasks = [], isLoading: tasksLoading } = useTasks({ state: "ACTIVE" });
     const { data: projects = [] } = useProjects();
@@ -316,7 +309,7 @@ export default function Upcoming() {
         cardVariant?: "list" | "board",
     ) => {
         if (items.length === 0) {
-            return <UpcomingEmptyState title={title} />;
+            return <EmptyState variant="upcoming" title={`Nothing in ${title.toLowerCase()}.`} description={null} compact />;
         }
 
         const taskItems = items.filter((item) => item.kind === "task" && item.task);
@@ -419,7 +412,6 @@ export default function Upcoming() {
             )}
             shellHeader={{
                 title: "Upcoming",
-                eyebrow: "Horizon",
                 icon: <CalendarRange size={18} aria-hidden="true" />,
                 accentColor: "var(--accent-nav-upcoming, var(--accent-primary))",
             }}

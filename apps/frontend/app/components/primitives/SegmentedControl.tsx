@@ -11,9 +11,10 @@ export interface SegmentedOption<T extends string> {
     tone?: string;
 }
 
+/* Concentric: inner radius = outer radius − inset (1px border + padding). sm 11 − 3 = 8, md 12 − 4 = 8. */
 const SIZES = {
-    sm: { root: "rounded-xl p-0.5", item: "rounded-lg px-3 py-1 text-[13px]", lens: "inset-y-0.5 rounded-lg" },
-    md: { root: "min-h-11 rounded-xl p-0.5", item: "h-9 rounded-lg px-3.5 text-sm", lens: "top-1/2 h-9 -translate-y-1/2 rounded-lg" },
+    sm: { root: "rounded-[11px] p-0.5", item: "rounded-lg px-3 py-1 text-[13px]", lens: "inset-y-0.5 rounded-lg" },
+    md: { root: "min-h-11 rounded-xl p-[3px]", item: "h-9 rounded-lg px-3.5 text-sm", lens: "top-1/2 h-9 -translate-y-1/2 rounded-lg" },
 } as const;
 
 /** The chosen/idle look of one segment, shared with other pressed controls (formatting toggles). Needs `--segment-tone` on the element or an ancestor. */

@@ -75,7 +75,7 @@ export function RoutineIdentity({ habit, today, showStreaks, selected, onSelect 
             aria-label={`Open ${habit.title}`}
             className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--routine-tone)]/60"
         >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--routine-tone)_14%,transparent)] text-[var(--routine-tone)]">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--routine-tone)_14%,transparent)] text-[var(--routine-tone)]">
                 <RoutineMark emoji={habit.emoji} size={16} />
             </span>
             <span className="min-w-0 flex-1">

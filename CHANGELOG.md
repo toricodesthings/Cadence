@@ -6,6 +6,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Page headers are quieter: the small label above the title stays only on Schedule and Routines.
+- Page ⋮ menus now match: quiet group labels, a view switch on top, and toggles as plain rows.
+- Empty days, sections and board columns now show a clear, centred empty state.
+- Event cards are simpler: the countdown with its date, and the bell shows whether the reminder is on.
+- Filtering a list by tag now folds away sections with no matching tasks, and they return when you clear it.
+
+### Fixed
+
+- Switches, segmented controls and rounded rows now sit evenly, and touch press feedback swells as intended.
+
 ## [0.41.0] - 2026-11-09
 
 ### Added

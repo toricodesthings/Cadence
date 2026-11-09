@@ -39,8 +39,6 @@ const variants = {
         "border border-twilight-border-light bg-twilight-deep text-twilight-text hover:bg-white/[0.04] hover:border-twilight-border",
     cardPrimary:
         "border border-accent-primary/30 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 shadow-[inset_0_1px_rgba(255,255,255,0.1)] glow-lantern",
-    cardDanger:
-        "border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20",
 } as const;
 
 const sizes = {
@@ -48,7 +46,6 @@ const sizes = {
     sm: "min-h-11 rounded-lg px-3.5 text-xs",
     md: "min-h-11 rounded-xl px-5 text-sm",
     lg: "min-h-12 rounded-2xl px-8 text-[15px] [--press-scale:1.025]",
-    xl: "min-h-12 rounded-2xl px-8 text-[15px] [--press-scale:1.025]",
     icon: "h-11 w-11 rounded-xl",
     card: "flex-col gap-3 p-4 rounded-2xl text-[13px] tracking-wide",
 } as const;

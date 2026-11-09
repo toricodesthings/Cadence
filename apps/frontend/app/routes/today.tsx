@@ -1,4 +1,5 @@
 import { TaskRouteControls } from "../components/shared/TaskRouteControls";
+import { EmptyState } from "../components/tasks/EmptyState";
 import { useTaskIntelligence } from "../hooks/core/use-task-intelligence";
 import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
 import { useMemo, useState } from "react";
@@ -210,7 +211,7 @@ export default function TodayRoute() {
         grouped.fixed.length +
         (routinesHidden ? 0 : routinesCount);
 
-    const renderTaskBucket = (tasks: Task[], cardVariant?: "list" | "board", emptyLabel?: string) => {
+    const renderTaskBucket = (tasks: Task[], cardVariant?: "list" | "board") => {
         if (tasks.length > 0) {
             return (
                 <TaskList
@@ -224,11 +225,7 @@ export default function TodayRoute() {
             );
         }
 
-        return (
-            <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/90">
-                {emptyLabel}
-            </div>
-        );
+        return <EmptyState variant="today" compact />;
     };
 
     const renderRoutines = () => {
@@ -277,11 +274,11 @@ export default function TodayRoute() {
             accentClass: "text-accent-primary",
             count: grouped.today.length,
             description: todayEvents.length > 0 ? <DayEventRows events={todayDayEvents} /> : undefined,
-            listContent: renderTaskBucket(grouped.today, undefined, "Nothing planned for today yet."),
+            listContent: renderTaskBucket(grouped.today, undefined),
             boardContent: (
                 <>
                     <DayEventRows events={todayDayEvents} className="mb-2.5" />
-                    {renderTaskBucket(grouped.today, "board", "Nothing planned for today yet.")}
+                    {renderTaskBucket(grouped.today, "board")}
                 </>
             ),
         },
@@ -314,7 +311,6 @@ export default function TodayRoute() {
             compactHeaderRightInline
             shellHeader={{
                 title: "Today",
-                eyebrow: "Focus",
                 icon: <Sun size={18} aria-hidden="true" />,
                 accentColor: "var(--accent-nav-today, var(--accent-primary))",
             }}

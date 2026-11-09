@@ -78,7 +78,7 @@ export function ReviewListItem({
                 {actions.map((act, i) => {
                     const key = `${actionKeyPrefix}:${i}`;
                     const isPending = pendingActionKey === key;
-                    const isDanger = act.variant === "cardDanger";
+                    const isDanger = act.variant === "danger";
                     const isPrimary = act.variant === "cardPrimary";
                     const Icon = act.icon;
                     // Primary action carries its label so the dominant choice is

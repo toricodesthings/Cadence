@@ -31,6 +31,12 @@
       "skillPath": "skills/analytics/SKILL.md",
       "computedHash": "f7f83a1c1c4ad904deba3164076b0407df00832463e93d998b36efe781f26867"
     },
+    "apple-design": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/apple-design/SKILL.md",
+      "computedHash": "0190417d092a0df447b000154e39733ea6d97efad6d3bec8a6ce3845aeb88914"
+    },
     "aso": {
       "source": "coreyhaines31/marketingskills",
       "sourceType": "github",

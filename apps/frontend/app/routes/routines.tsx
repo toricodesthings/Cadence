@@ -19,12 +19,12 @@ import * as DropdownMenu from "../components/primitives/DropdownMenu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/primitives/Select";
 import { EmptyState } from "../components/tasks/EmptyState";
 import { SegmentedControl } from "../components/primitives/SegmentedControl";
-import { Switch } from "../components/primitives/Switch";
+import { MENU_SEGMENT } from "../components/primitives/menu-styles";
 import { useRightPanelStore } from "../stores/right-panel-store";
 import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { ChevronLeft, ChevronRight, Plus, Flame, EllipsisVertical, CalendarPlus, Clock, ArrowDownAZ, ArrowUpDown, Check, GripVertical, type LucideIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Flame, EllipsisVertical, CalendarPlus, Clock, ArrowDownAZ, GripVertical, type LucideIcon } from "lucide-react";
 import type { RoutineSort } from "../lib/utils/habits";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useReducedMotionSetting } from "../hooks/ui/use-reduced-motion";
@@ -45,8 +45,6 @@ const ROUTINE_SORTS: { value: RoutineSort; label: string; icon: LucideIcon }[] =
     { value: "name", label: "Name", icon: ArrowDownAZ },
     { value: "custom", label: "Custom", icon: GripVertical },
 ];
-
-const MENU_LABEL = "flex items-center gap-1.5 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-twilight-text-muted";
 
 /** The Routines ⋮, built like Today's (`shared/SortMenu`): the choices up top, then Sort by rows, streaks, and the scale. */
 type RoutinesMenuProps = {
@@ -71,27 +69,21 @@ function RoutinesMenu({ phone, display, onDisplayChange, show, onShowChange, sor
                 </button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end" className="w-[min(17rem,calc(100vw-2rem))]">
-                <div className="space-y-2 px-3 pb-2.5 pt-2">
+                <DropdownMenu.Label>View</DropdownMenu.Label>
+                <div className={`space-y-2 ${MENU_SEGMENT}`}>
                     {phone ? <SegmentedControl ariaLabel="Routine view" className="flex w-full [&>button]:flex-1" value={display} onChange={onDisplayChange}
                         options={[{ value: "week", label: "Week" }, { value: "month", label: "Month" }]} /> : null}
                     <SegmentedControl ariaLabel="Which routines" className="flex w-full [&>button]:flex-1" value={show} onChange={onShowChange}
                         options={[{ value: "active", label: "Active" }, { value: "archived", label: "Archived" }]} />
                 </div>
                 <DropdownMenu.Separator />
-                <div className={MENU_LABEL}><ArrowUpDown size={11} aria-hidden="true" />Sort by</div>
-                {ROUTINE_SORTS.map(({ value, label, icon: Icon }) => (
-                    <DropdownMenu.Item key={value} onSelect={() => onSortChange(value)}>
-                        <Icon size={14} aria-hidden="true" />
-                        <span className="flex-1">{label}</span>
-                        {sort === value ? <Check size={14} className="text-accent-primary" aria-hidden="true" /> : null}
-                    </DropdownMenu.Item>
+                <DropdownMenu.Label>Sort by</DropdownMenu.Label>
+                {ROUTINE_SORTS.map(({ value, label, icon }) => (
+                    <DropdownMenu.CheckItem key={value} icon={icon} label={label} checked={sort === value} onSelect={() => onSortChange(value)} />
                 ))}
                 <DropdownMenu.Separator />
-                <DropdownMenu.Item onSelect={(event) => { event.preventDefault(); onStreaksChange(!streaks); }} role="menuitemcheckbox" aria-checked={streaks}>
-                    <Flame size={14} aria-hidden="true" />
-                    <span className="flex-1">Show streaks</span>
-                    <Switch checked={streaks} tabIndex={-1} aria-hidden="true" className="pointer-events-none" />
-                </DropdownMenu.Item>
+                <DropdownMenu.Label>Show</DropdownMenu.Label>
+                <DropdownMenu.SwitchItem icon={Flame} label="Streaks" checked={streaks} onCheckedChange={onStreaksChange} />
                 <LayoutScaleMenuRow />
             </DropdownMenu.Content>
         </DropdownMenu.Root>
@@ -292,7 +284,7 @@ type RoutinesPhoneHeaderProps = { title: string; periodWord: string; onNavigate:
 function RoutinesPhoneHeader({ title, periodWord, onNavigate, menu }: RoutinesPhoneHeaderProps) {
     return (
         <PhonePageHeader
-            eyebrow="Routines"
+            pageName="Routines"
             title={title}
             actions={<div className="flex shrink-0 items-center gap-2">
                 <button type="button" onClick={() => onNavigate(-1)} className={`${NAV_BUTTON} touch-target rounded-full`} aria-label={`Previous ${periodWord}`}>
@@ -324,7 +316,7 @@ function RoutinesDesktopHeader({ heading, meta, periodNav, displayMode, onDispla
         <PageHeader
             icon={<Flame size={18} aria-hidden="true" />}
             accentColor={HABITS_ACCENT}
-            eyebrow="Routines"
+            pageName="Routines"
             title={heading}
             meta={meta}
             actions={<>

@@ -7,7 +7,8 @@ export const NAV_GROUP = "overflow-hidden rounded-2xl border border-twilight-bor
 /** Small caps heading above a `NAV_GROUP`, set outside the card like an inset grouped list. */
 export const NAV_GROUP_LABEL = "px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-soft/90";
 
-const ROW = "flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left text-[15px] text-twilight-text transition-colors hover:bg-white/[0.04] active:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
+/** Concentric with NAV_GROUP: 16px − 1px border − 4px padding. */
+const ROW = "flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[11px] px-3 text-left text-[15px] text-twilight-text transition-colors hover:bg-white/[0.04] active:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
 /** Marks the coming view transition as a push (`data-nav-push` in app.css) until its slide ends. */
 function markPush() {

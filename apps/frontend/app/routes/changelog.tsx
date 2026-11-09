@@ -121,7 +121,6 @@ export default function ChangelogRoute() {
             pageTitle="Changelog"
             shellHeader={{
                 title: "Changelog",
-                eyebrow: "Release notes",
                 icon: <History size={18} aria-hidden="true" />,
                 accentColor: "var(--accent-primary)",
             }}

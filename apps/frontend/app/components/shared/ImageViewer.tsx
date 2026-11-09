@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ImageOff, Loader2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImageOff, LoaderCircle, X } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "../primitives/Dialog";
 
 export interface ViewerImage {
@@ -77,7 +77,7 @@ export function ImageViewer({
                                     Couldn’t load this image
                                 </span>
                             ) : (
-                                <Loader2 size={20} className="animate-spin text-twilight-text-muted" aria-label="Loading image" />
+                                <LoaderCircle size={20} className="animate-spin text-twilight-text-muted" aria-label="Loading image" />
                             )}
                         </div>
 

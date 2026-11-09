@@ -11,7 +11,7 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
         <div
             data-slot="skeleton"
             className={cn(
-                "relative overflow-hidden rounded-xl bg-white/[0.04] animate-pulse",
+                "relative overflow-hidden rounded-xl bg-white/[0.04]",
                 "before:absolute before:inset-0",
                 "before:-translate-x-full",
                 "before:animate-[shimmer_2s_infinite_ease-out]",

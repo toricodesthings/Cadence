@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { Feather, Wrench } from "lucide-react";
+import { CalendarHeart, Clock, Feather, Flag, Flame, CheckSquare, Lock, Settings, type LucideIcon } from "lucide-react";
+import { MENU_LABEL, MENU_SEPARATOR, MENU_SWITCH, MENU_TOGGLE_ROW } from "../primitives/menu-styles";
 import { Switch } from "../primitives/Switch";
 import { Tip } from "../primitives";
 import * as Popover from "../primitives/Popover";
@@ -11,10 +12,10 @@ import type { ScheduleData } from "../../hooks/calendar/use-schedule-data";
 import type { ScheduleTaskActions } from "../../hooks/calendar/use-schedule-task-actions";
 
 const CLUTTER_ROWS = [
-    { field: "showAllDay", label: "Show all-day tasks" },
-    { field: "showTimedTasks", label: "Show timed blocks" },
-    { field: "showFixed", label: "Show fixed blocks" },
-    { field: "showHabitAnchors", label: "Show routine markers" },
+    { field: "showAllDay", label: "All-day tasks", icon: CheckSquare },
+    { field: "showTimedTasks", label: "Timed blocks", icon: Clock },
+    { field: "showFixed", label: "Fixed blocks", icon: Lock },
+    { field: "showHabitAnchors", label: "Routine markers", icon: Flame },
 ] as const;
 
 export function ScheduleOptions({ phone, navigation, data, actions }: {
@@ -28,35 +29,35 @@ export function ScheduleOptions({ phone, navigation, data, actions }: {
     const { calendarClutter, holidayOverlay, personalEvents, lightenCandidates } = data;
     const { viewMode, handleViewMode, isPhoneDay, currentDate, todayIso } = navigation;
     const updateClutter = (clutter: Partial<typeof calendarClutter>) => updateSettings.mutate({ calendar: { clutter } });
-    const extra = (label: string, to: string) => (
+    const extra = (label: string, to: string, Icon: LucideIcon) => (
         <Tip label={label} side="top">
             <button type="button" aria-label={label}
-                className={phone
-                    ? "btn-icon glass-inset rounded-lg text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
-                    : "rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"}
+                className="press inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text"
                 onClick={(event) => { event.preventDefault(); navigate(to); }}>
-                <Wrench size={14} />
+                <Icon size={14} aria-hidden="true" />
             </button>
         </Tip>
     );
     const overlayRows = [
-        { section: "Holidays", label: "Show holidays", checked: holidayOverlay.enabled, onChange: holidayOverlay.setEnabled,
-            extra: holidayOverlay.enabled ? extra("Configure holiday location", "?settings=location") : null },
-        { section: "Events", label: "Show personal events", checked: personalEvents.enabled, onChange: personalEvents.setEnabled,
-            extra: personalEvents.enabled ? extra("Manage events", "/events") : null },
+        { section: "Holidays", label: "Holidays", icon: Flag, checked: holidayOverlay.enabled, onChange: holidayOverlay.setEnabled,
+            extra: holidayOverlay.enabled ? extra("Holiday location", "?settings=location", Settings) : null },
+        { section: "Events", label: "Personal events", icon: CalendarHeart, checked: personalEvents.enabled, onChange: personalEvents.setEnabled,
+            extra: personalEvents.enabled ? extra("Events", "/events", CalendarHeart) : null },
     ];
+    const overlays = overlayRows.map((row) => <ToggleRow key={row.section} icon={row.icon} label={phone ? row.section : row.label}
+        checked={row.checked} onChange={row.onChange} extra={row.extra} />);
     if (phone) return (
-        <div className="space-y-4">
+        <div className="space-y-3">
+            <h4 className={`-mx-2 -mb-2 ${MENU_LABEL}`}>View</h4>
             <PhoneViewPicker value={viewMode} onChange={handleViewMode}
                 options={[{ value: "day", label: "Day" }, { value: "month", label: "Month" }, { value: "year", label: "Year" }]} />
-            <div>
-                <h4 className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted">Show</h4>
-                <ToggleRow phone label="Fixed" checked={calendarClutter.showFixed !== false} onChange={(showFixed) => updateClutter({ showFixed })} />
-                <ToggleRow phone label="Routines" checked={calendarClutter.showHabitAnchors !== false} onChange={(showHabitAnchors) => updateClutter({ showHabitAnchors })} />
-                <ToggleRow phone label="Tasks" checked={calendarClutter.showAllDay !== false && calendarClutter.showTimedTasks !== false}
+            <div className="-mx-2">
+                <h4 className={MENU_LABEL}>Show</h4>
+                <ToggleRow icon={Lock} label="Fixed" checked={calendarClutter.showFixed !== false} onChange={(showFixed) => updateClutter({ showFixed })} />
+                <ToggleRow icon={Flame} label="Routines" checked={calendarClutter.showHabitAnchors !== false} onChange={(showHabitAnchors) => updateClutter({ showHabitAnchors })} />
+                <ToggleRow icon={CheckSquare} label="Tasks" checked={calendarClutter.showAllDay !== false && calendarClutter.showTimedTasks !== false}
                     onChange={(value) => updateClutter({ showAllDay: value, showTimedTasks: value })} />
-                {overlayRows.map((row) => <ToggleRow key={row.section} phone label={row.section}
-                    checked={row.checked} onChange={row.onChange} extra={row.extra} />)}
+                {overlays}
             </div>
             {isPhoneDay && currentDate === todayIso && lightenCandidates.length > 0 ? (
                 <Popover.Close asChild>
@@ -70,43 +71,33 @@ export function ScheduleOptions({ phone, navigation, data, actions }: {
         </div>
     );
     return (
-        <div className="space-y-4">
-            <div>
-                <h4 className="text-xs font-medium uppercase tracking-wider text-twilight-text-muted mb-2">Clutter</h4>
-                <div className="space-y-2">
-                    {CLUTTER_ROWS.map(({ field, label }) => <ToggleRow key={field} phone={false} label={label}
-                        checked={field === "showFixed" ? calendarClutter[field] !== false : calendarClutter[field]}
-                        onChange={(value) => updateClutter({ [field]: value })} />)}
-                </div>
-            </div>
-            {overlayRows.map((row) => (
-                <div key={row.section}>
-                    <h4 className="text-xs font-medium uppercase tracking-wider text-twilight-text-muted mb-2">{row.section}</h4>
-                    <div className="space-y-2">
-                        <ToggleRow phone={false} label={row.label} checked={row.checked} onChange={row.onChange} extra={row.extra} />
-                    </div>
-                </div>
-            ))}
-        </div>
+        <>
+            <h4 className={MENU_LABEL}>Show</h4>
+            {CLUTTER_ROWS.map(({ field, label, icon }) => <ToggleRow key={field} icon={icon} label={label}
+                checked={field === "showFixed" ? calendarClutter[field] !== false : calendarClutter[field]}
+                onChange={(value) => updateClutter({ [field]: value })} />)}
+            <div role="separator" className={MENU_SEPARATOR} />
+            <h4 className={MENU_LABEL}>Dates</h4>
+            {overlays}
+        </>
     );
 }
 
-function ToggleRow({ phone, label, checked, onChange, extra }: {
-    phone: boolean;
+/** A menu row (`MENU_TOGGLE_ROW`): icon, label, an optional shortcut, and the switch the whole row toggles. */
+function ToggleRow({ icon: Icon, label, checked, onChange, extra }: {
+    icon: LucideIcon;
     label: string;
     checked: boolean;
     onChange: (value: boolean) => void;
     extra?: ReactNode;
 }) {
     const switchId = useId();
-    const control = <Switch id={switchId} aria-label={label} checked={checked} onCheckedChange={onChange} />;
     return (
-        <label htmlFor={switchId} className={phone
-            ? "flex min-h-11 items-center justify-between gap-3 rounded-xl px-2 text-sm text-twilight-text"
-            : "flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft"}>
-            <span>{label}</span>
-            {phone ? <span className="flex items-center gap-1">{extra}{control}</span>
-                : extra ? <div className="flex items-center gap-2">{extra}{control}</div> : control}
+        <label htmlFor={switchId} className={`${MENU_TOGGLE_ROW} min-h-11 py-1!`}>
+            <Icon size={14} aria-hidden="true" className="shrink-0" />
+            <span className="flex-1">{label}</span>
+            {extra}
+            <Switch id={switchId} aria-label={label} checked={checked} onCheckedChange={onChange} className={MENU_SWITCH} />
         </label>
     );
 }

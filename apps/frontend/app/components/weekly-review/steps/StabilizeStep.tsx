@@ -98,7 +98,7 @@ export function StabilizeStep({ review, rows, selectedTasks, onApplySelected, on
                     { label: "Assign Today", shortLabel: "Today", icon: Sun, onClick: () => handleUnscheduledAction(task, "today"), variant: "cardPrimary" },
                     { label: "Assign Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => handleUnscheduledAction(task, "tomorrow") },
                     { label: "Move to Waitlist", shortLabel: "Later", icon: Moon, onClick: () => handleUnscheduledAction(task, "someday") },
-                    { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => handleUnscheduledAction(task, "delete"), variant: "cardDanger" },
+                    { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => handleUnscheduledAction(task, "delete"), variant: "danger" },
                 ]}
             />
             <WorkSection
@@ -113,7 +113,7 @@ export function StabilizeStep({ review, rows, selectedTasks, onApplySelected, on
                     { label: "Activate Today", shortLabel: "Today", icon: Sun, onClick: () => handleWaitingAction(task, "today"), variant: "cardPrimary" },
                     { label: "Activate Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => handleWaitingAction(task, "tomorrow") },
                     { label: "Keep Waiting", shortLabel: "Keep", icon: Check, onClick: () => { review.setKeptWaitingIds((prev) => new Set(prev).add(task.id)); } },
-                    { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => handleWaitingAction(task, "delete"), variant: "cardDanger" },
+                    { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => handleWaitingAction(task, "delete"), variant: "danger" },
                 ]}
             />
             {count === 0 && (

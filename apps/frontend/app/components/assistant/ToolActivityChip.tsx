@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronRight, Loader2, Inbox, X } from "lucide-react";
+import { Check, ChevronRight, LoaderCircle, Inbox, X } from "lucide-react";
 import { AssistantSigil } from "./AssistantSigil";
 import { motion, useReducedMotion } from "framer-motion";
 import { Reveal } from "../shared/Reveal";
@@ -70,7 +70,7 @@ export function ToolActivityChip({ calls, pending }: { calls: ToolCall[]; /** Tr
                 {/* Attribution: a faint sigil marks this as something Cadence ran. */}
                 <AssistantSigil size={12} className={pending ? "text-accent-primary" : "text-accent-primary/60"} />
                 {pending ? (
-                    <Loader2 size={11} className="animate-spin text-accent-primary" />
+                    <LoaderCircle size={11} className="animate-spin text-accent-primary" />
                 ) : (
                     <motion.span
                         initial={reduceMotion ? false : { scale: 0.4, opacity: 0 }}
@@ -94,7 +94,7 @@ export function ToolActivityChip({ calls, pending }: { calls: ToolCall[]; /** Tr
                         return (
                             <li key={i} className="flex min-w-0 items-center gap-2">
                                 {c.pending ? (
-                                    <Loader2 size={10} className="shrink-0 animate-spin text-accent-primary" />
+                                    <LoaderCircle size={10} className="shrink-0 animate-spin text-accent-primary" />
                                 ) : c.failed ? (
                                     <X size={10} className="shrink-0 text-feedback-error" aria-label="Failed" />
                                 ) : (

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, type RefObject } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, ArrowUp, ImagePlus, Slash, Zap, ShieldCheck, ShieldOff, ChevronDown, Loader2, AlertCircle } from "lucide-react";
+import { X, ArrowUp, ImagePlus, Slash, Zap, ShieldCheck, ShieldOff, ChevronDown, LoaderCircle, CircleAlert } from "lucide-react";
 import type { ApprovalMode } from "@cadence/contracts/ai";
 import { Tip, DropdownMenu } from "../primitives";
 import { ImageViewer } from "../shared/ImageViewer";
@@ -301,9 +301,9 @@ function AttachmentStatus({ uploading }: { uploading: boolean }) {
             aria-label={uploading ? "Uploading image" : "Image didn’t attach"}
         >
             {uploading ? (
-                <Loader2 size={18} className="animate-spin text-twilight-text" aria-hidden />
+                <LoaderCircle size={18} className="animate-spin text-twilight-text" aria-hidden />
             ) : (
-                <AlertCircle size={18} className="text-feedback-error" aria-hidden />
+                <CircleAlert size={18} className="text-feedback-error" aria-hidden />
             )}
         </span>
     );

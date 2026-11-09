@@ -47,7 +47,7 @@ export function CaptureReviewRow({
                 ...(proposed ? [{ label: "Do Today", shortLabel: "Today", icon: Sun, onClick: () => onAction("today") }] : []),
                 { label: "Do Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => onAction("tomorrow") },
                 { label: "Decide Later", shortLabel: "Later", icon: Moon, onClick: () => onAction("someday") },
-                { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => onAction("delete"), variant: "cardDanger" },
+                { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => onAction("delete"), variant: "danger" },
             ]}
             typed={{ placeholder: "Friday 3pm for 30 min, in Work…", applyLabel: "Place", onApply: (patch) => onPlace({ patch }) }}
             pendingActionKey={pendingActionKey}

@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from "react";
+import { EmptyState } from "../tasks/EmptyState";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, Clock } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, Clock } from "lucide-react";
 import type { Habit } from "@cadence/contracts/habit";
 import { nextOpenTime, routineTimeOn, timeMarksOn, timeProgress } from "@cadence/domain/repeats";
 import { wallTimeOf } from "@cadence/domain/time";
@@ -94,7 +95,7 @@ export function RoutineAgendaRow({
             )}
             onOpen={onOpen}
             ariaLabel={`Open routine ${title}`}
-            className="items-center py-1.5 hover:bg-moonlit/[0.05]"
+            className="items-center rounded-[28px] px-1.5 py-1.5 hover:bg-moonlit/[0.05]"
         >
             <div className="flex min-w-0 items-baseline gap-3">
                 <span className={`min-w-0 flex-1 truncate text-[15px] leading-snug ${done ? "text-twilight-text-muted line-through decoration-twilight-text-muted/60" : "text-twilight-text"}`}>
@@ -173,7 +174,7 @@ export function RoutineAgendaList({ items, animate = false, columns = false, onO
     return (
         <div className="flex flex-col">
             {open.length === 0 ? (
-                <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/90">All done for today.</div>
+                <EmptyState icon={CheckCircle2} title="All done for today." description={null} compact />
             ) : (
                 <div className={rowsClass}>
                     <AnimatePresence initial={false}>

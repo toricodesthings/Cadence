@@ -157,7 +157,6 @@ export default function TagView() {
                 pageTitle={tag?.name ?? "Tag"}
                 shellHeader={{
                     title: tag?.name ?? "Tag",
-                    eyebrow: "Tag",
                     icon: <span className="h-3 w-3 rounded-full" style={{ backgroundColor: accent, boxShadow: `0 0 10px ${accent}` }} aria-hidden="true" />,
                     accentColor: accent,
                 }}

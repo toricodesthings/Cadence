@@ -161,7 +161,6 @@ export default function HomeRoute() {
             compactHeaderRightInline
             shellHeader={{
                 title: "Capture",
-                eyebrow: "Unload",
                 icon: <Inbox size={18} aria-hidden="true" />,
                 accentColor: "var(--accent-nav-capture, var(--accent-primary))",
             }}

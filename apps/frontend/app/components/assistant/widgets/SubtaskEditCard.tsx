@@ -38,7 +38,7 @@ function checklistRows(input: SubtaskEdit, nameOf: (id: string) => string): Chec
 const onlyAdds = (input: SubtaskEdit) => !input.update?.length && !input.remove?.length && !input.order?.length;
 
 /** A card that only removes steps reads as a delete. */
-const REMOVE_LOOK = { tone: "danger" as const, primaryGlyph: Trash2, primaryVariant: "cardDanger" as const, declineLabel: "Keep them" };
+const REMOVE_LOOK = { tone: "danger" as const, primaryGlyph: Trash2, primaryVariant: "danger" as const, declineLabel: "Keep them" };
 
 function primaryLabelFor(onlyAdds: boolean, onlyRemoves: boolean, kept: number) {
     if (onlyAdds) return `Add ${kept === 1 ? "step" : `${kept} steps`}`;

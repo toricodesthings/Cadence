@@ -1,8 +1,9 @@
 import React, { useState, useTransition } from "react";
+import { EmptyState } from "../../tasks/EmptyState";
 import { formatInZone } from "@cadence/domain/time";
 import { formatShortDateTime } from "../../../lib/utils/date-format";
 import { getUserZone } from "../../../lib/utils/user-zone";
-import { Camera, UserRound } from "lucide-react";
+import { Camera, Link2, UserRound } from "lucide-react";
 import { Button, Input } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -175,9 +176,7 @@ function OAuthConnectionsBlock() {
                     ))}
                 </div>
             ) : (
-                <div className="py-4 px-2">
-                    <p className="text-sm text-warm-white/30 italic">No third-party accounts connected. Use the options below to link one.</p>
-                </div>
+                <EmptyState icon={Link2} title="No accounts linked." description="Use the options below to link one." compact />
             )}
 
             <div className="pt-4 border-t border-twilight-border flex flex-wrap gap-2">

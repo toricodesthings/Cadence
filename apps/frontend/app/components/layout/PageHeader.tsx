@@ -16,14 +16,15 @@ export const HEADER_ICON_BUTTON =
 
 export interface PageHeaderIdentityProps {
     icon?: ReactNode;
-    eyebrow?: ReactNode;
+    /** Only where the title isn't the page's name (a date on Schedule and Routines). */
+    pageName?: ReactNode;
     title: ReactNode;
     meta?: ReactNode;
     accentColor?: string;
     compact?: boolean;
 }
 
-export function PageHeaderIdentity({ icon, eyebrow, title, meta, accentColor, compact = false }: PageHeaderIdentityProps) {
+export function PageHeaderIdentity({ icon, pageName, title, meta, accentColor, compact = false }: PageHeaderIdentityProps) {
     return (
         <div className="flex min-w-0 items-center gap-3">
             {icon ? (
@@ -35,25 +36,25 @@ export function PageHeaderIdentity({ icon, eyebrow, title, meta, accentColor, co
                 </span>
             ) : null}
             <div className="flex min-w-0 flex-col gap-1">
-                {eyebrow ? (
-                    <p className="text-[10.5px] font-semibold uppercase leading-none tracking-[0.18em] text-twilight-text-muted">
-                        {eyebrow}
-                    </p>
-                ) : null}
+                {pageName ? <PageNameLabel>{pageName}</PageNameLabel> : null}
                 <div className="flex min-w-0 items-baseline gap-2">
-                    <h1 className={`truncate font-display font-semibold leading-tight tracking-tight text-twilight-text ${compact ? "text-base" : "text-lg"}`}>
-                        {title}
-                    </h1>
-                    {meta && !compact ? (
-                        <span className="hidden min-w-0 shrink-[999] items-baseline gap-2 truncate text-[13px] text-twilight-text-soft md:flex">
-                            <span aria-hidden="true" className="text-twilight-text-muted">·</span>
-                            {meta}
-                        </span>
-                    ) : null}
+                <h1 className={`truncate font-display font-semibold leading-tight tracking-tight text-twilight-text ${compact ? "text-base" : "text-lg"}`}>
+                    {title}
+                </h1>
+                {meta && !compact ? (
+                    <span className="hidden min-w-0 shrink-[999] items-baseline gap-2 truncate text-[13px] text-twilight-text-soft md:flex">
+                        <span aria-hidden="true" className="text-twilight-text-muted">·</span>
+                        {meta}
+                    </span>
+                ) : null}
                 </div>
             </div>
         </div>
     );
+}
+
+function PageNameLabel({ children }: { children: ReactNode }) {
+    return <p className="text-[10.5px] font-semibold uppercase leading-none tracking-[0.18em] text-twilight-text-muted">{children}</p>;
 }
 
 /** Single-row desktop page header, sized to the shared shell-header height so it lines up with side-panel headers. */
@@ -73,25 +74,21 @@ export function PageHeader({
     );
 }
 
-/** Phone header type: eyebrow (or the zoom-out label), a large display title, and a quiet meta line. */
-export function PhoneHeaderIdentity({ eyebrow, title, meta, backLabel }: {
-    eyebrow?: ReactNode;
+/** Phone header type: the zoom-out label or page name (when the title isn't it), a large display title, and a quiet meta line. */
+export function PhoneHeaderIdentity({ pageName, title, meta, backLabel }: {
+    pageName?: ReactNode;
     title: ReactNode;
     meta?: ReactNode;
     backLabel?: string | null;
 }) {
     return (
         <span className="flex min-w-0 flex-col gap-0.5 text-left">
-            {backLabel || eyebrow ? (
-                <span className="flex items-center gap-0.5 text-[12px] font-semibold uppercase leading-none tracking-[0.14em] text-twilight-text-muted">
-                    {backLabel ? (
-                        <>
-                            <ChevronLeft size={14} aria-hidden="true" className="-ml-1 text-accent-primary" />
-                            <span className="text-accent-primary normal-case tracking-normal">{backLabel}</span>
-                        </>
-                    ) : eyebrow}
+            {backLabel ? (
+                <span className="flex items-center gap-0.5 text-[12px] font-semibold leading-none text-accent-primary">
+                    <ChevronLeft size={14} aria-hidden="true" className="-ml-1" />
+                    {backLabel}
                 </span>
-            ) : null}
+            ) : pageName ? <PageNameLabel>{pageName}</PageNameLabel> : null}
             <span className="truncate font-display text-[22px] font-semibold leading-tight tracking-tight text-twilight-text">
                 {title}
             </span>
@@ -101,8 +98,8 @@ export function PhoneHeaderIdentity({ eyebrow, title, meta, backLabel }: {
 }
 
 /** Phone page header: one row. The label above the title zooms out when `backLabel` is set; `options` open under a sliders icon. */
-export function PhonePageHeader({ eyebrow, title, meta, backLabel, onZoomOut, leading, actions, options, children }: {
-    eyebrow?: ReactNode;
+export function PhonePageHeader({ pageName, title, meta, backLabel, onZoomOut, leading, actions, options, children }: {
+    pageName?: ReactNode;
     title: ReactNode;
     /** Quiet line under the title, e.g. "Today · light". */
     meta?: string | null;
@@ -114,7 +111,7 @@ export function PhonePageHeader({ eyebrow, title, meta, backLabel, onZoomOut, le
     /** A row under the title (e.g. page controls). */
     children?: ReactNode;
 }) {
-    const identity = <PhoneHeaderIdentity eyebrow={eyebrow} title={title} meta={meta} backLabel={backLabel} />;
+    const identity = <PhoneHeaderIdentity pageName={pageName} title={title} meta={meta} backLabel={backLabel} />;
 
     return (
         <header className={`${PAGE_HEADER_SURFACE} safe-header-top px-4 pb-2`}>

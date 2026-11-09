@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, RotateCcw, Copy, ChevronDown, Send, ImageUp } from "lucide-react";
+import { CircleAlert, RotateCcw, Copy, ChevronDown, Send, ImageUp } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "../primitives/Button";
 import type { StreamError } from "../../lib/ai/stream-error";
@@ -63,7 +63,7 @@ export function ChatErrorBubble({
         >
             <div className="max-w-[80%] rounded-2xl rounded-bl-md border border-feedback-error/20 bg-feedback-error/10 px-3.5 py-2.5">
                 <div className="flex items-start gap-2">
-                    <AlertCircle size={14} className="mt-0.5 shrink-0 text-feedback-error" />
+                    <CircleAlert size={14} className="mt-0.5 shrink-0 text-feedback-error" />
                     <p className="text-[14px] leading-relaxed text-twilight-text-soft">{error.message}</p>
                 </div>
 

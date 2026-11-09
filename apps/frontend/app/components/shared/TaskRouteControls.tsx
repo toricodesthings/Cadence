@@ -73,7 +73,7 @@ export function TaskRouteControls({ routeKey, title, view, onViewChange, sortMod
     }
 
     const sections: ControlsSheetSection[] = [
-        { id: "view", label: "View", content: <ViewToggle view={view} onViewChange={onViewChange} compact /> },
+        { id: "view", label: "View", content: <ViewToggle view={view} onViewChange={onViewChange} /> },
         {
             id: "sort",
             label: "Sort",

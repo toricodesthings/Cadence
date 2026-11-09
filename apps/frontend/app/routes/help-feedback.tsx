@@ -14,7 +14,6 @@ export default function HelpFeedbackRoute() {
             pageTitle="Help & Feedback"
             shellHeader={{
                 title: "Help & Feedback",
-                eyebrow: "A little guidance",
                 icon: <LifeBuoy size={18} aria-hidden="true" />,
                 accentColor: "var(--accent-primary)",
             }}

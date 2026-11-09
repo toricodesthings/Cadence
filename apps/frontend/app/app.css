@@ -1284,9 +1284,10 @@ textarea {
   transition-timing-function: var(--ease-out-expo);
 }
 
-/* Subtle scale-down on active press for tactile feedback */
-button:active:not(:disabled),
-a:active {
+/* Subtle scale-down on active press for tactile feedback. `press` controls own their response (the
+   touch swell), so this transform must not stack on top of it. */
+button:active:not(:disabled, .press, .press-none),
+a:active:not(.press, .press-none) {
   transform: scale(0.98);
   transition-duration: 80ms;
 }
@@ -2937,7 +2938,7 @@ button.surface-control:not(:disabled):hover {
     backdrop-filter: blur(12px) saturate(1.4);
     transition: scale var(--spring-snap), filter var(--duration-fast) ease, color var(--duration-normal) ease, background-color var(--duration-normal) ease, opacity var(--duration-normal) ease;
     @media (pointer: coarse) {
-      &:active:not(:disabled) { scale: 1.08; filter: brightness(1.08); }
+      &:active:not(:disabled) { scale: 1.08; filter: brightness(1.08); transform: none; }
     }
   }
   /* In a tight row (schedule options, section headers, notification actions,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { ArrowDownAZ, ArrowUpDown, Bell, CalendarDays, CalendarHeart, CalendarPlus, Check, EllipsisVertical, Eye, LayoutGrid, LayoutList, Timer, type LucideIcon } from "lucide-react";
+import { ArrowDownAZ, Bell, CalendarDays, CalendarHeart, CalendarPlus, EllipsisVertical, LayoutGrid, LayoutList, Timer, type LucideIcon } from "lucide-react";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { EventCard, type EventActions } from "../components/events/EventCard";
 import { EventList } from "../components/events/EventList";
@@ -12,6 +12,8 @@ import { MainLayout } from "../components/layout/MainLayout";
 import { PageContent } from "../components/layout/PageLayout";
 import { Button } from "../components/primitives/Button";
 import * as DropdownMenu from "../components/primitives/DropdownMenu";
+import { MENU_SEGMENT } from "../components/primitives/menu-styles";
+import { SegmentedControl } from "../components/primitives/SegmentedControl";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
@@ -41,24 +43,10 @@ const SORTS: { value: PersonalEventSortMode; label: string; icon: LucideIcon }[]
     { value: "alphabetical", label: "Name", icon: ArrowDownAZ },
     { value: "reminders", label: "Reminders first", icon: Bell },
 ];
-const VIEWS: { value: PersonalEventView; label: string; icon: LucideIcon }[] = [
-    { value: "cards", label: "Cards", icon: LayoutGrid },
-    { value: "list", label: "List", icon: LayoutList },
-];
-const MENU_LABEL = "flex items-center gap-1.5 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-twilight-text-muted";
-
-type ChoiceRowProps = { icon: LucideIcon; label: string; checked: boolean; onSelect: () => void };
-
-/** A checkable menu row; the chosen one carries the check. */
-function ChoiceRow({ icon: Icon, label, checked, onSelect }: ChoiceRowProps) {
-    return (
-        <DropdownMenu.Item onSelect={onSelect}>
-            <Icon size={14} aria-hidden="true" />
-            <span className="flex-1">{label}</span>
-            {checked ? <Check size={14} className="text-accent-primary" aria-hidden="true" /> : null}
-        </DropdownMenu.Item>
-    );
-}
+const VIEWS = [
+    { value: "cards", label: "Cards", icon: <LayoutGrid size={14} aria-hidden="true" /> },
+    { value: "list", label: "List", icon: <LayoutList size={14} aria-hidden="true" /> },
+] as const satisfies readonly { value: PersonalEventView; label: string; icon: React.ReactNode }[];
 
 type EventsMenuProps = {
     view: PersonalEventView;
@@ -81,14 +69,14 @@ function EventsMenu({ view, onViewChange, sort, onSortChange }: EventsMenuProps)
                     </DropdownMenu.Trigger>
                 </Tip>
                 <DropdownMenu.Content align="end" className="min-w-[15rem]">
-                    <div className={MENU_LABEL}><Eye size={11} aria-hidden="true" />View</div>
-                    {VIEWS.map((option) => (
-                        <ChoiceRow key={option.value} icon={option.icon} label={option.label} checked={view === option.value} onSelect={() => onViewChange(option.value)} />
-                    ))}
+                    <DropdownMenu.Label>View</DropdownMenu.Label>
+                    <div className={MENU_SEGMENT}>
+                        <SegmentedControl ariaLabel="Event view" className="flex w-full [&>button]:flex-1" value={view} onChange={onViewChange} options={VIEWS} />
+                    </div>
                     <DropdownMenu.Separator />
-                    <div className={MENU_LABEL}><ArrowUpDown size={11} aria-hidden="true" />Sort by</div>
+                    <DropdownMenu.Label>Sort by</DropdownMenu.Label>
                     {SORTS.map((option) => (
-                        <ChoiceRow key={option.value} icon={option.icon} label={option.label} checked={sort === option.value} onSelect={() => onSortChange(option.value)} />
+                        <DropdownMenu.CheckItem key={option.value} icon={option.icon} label={option.label} checked={sort === option.value} onSelect={() => onSortChange(option.value)} />
                     ))}
                     <LayoutScaleMenuRow />
                 </DropdownMenu.Content>
@@ -146,7 +134,7 @@ function EventsIntro({ compact }: { compact: boolean }) {
                     Your Personal Events
                 </h1>
                 <p className="text-sm text-twilight-text-soft">
-                    Yearly recurring dates that stay visible in Schedule.
+                    Yearly dates, also shown in Schedule.
                 </p>
             </div>
         </section>
@@ -305,7 +293,6 @@ export default function EventsRoute() {
             </div>}
             shellHeader={{
                 title: "Events",
-                eyebrow: "Calendar",
                 icon: <CalendarHeart size={18} aria-hidden="true" />,
                 accentColor: "var(--accent-nav-schedule, var(--accent-primary))",
             }}

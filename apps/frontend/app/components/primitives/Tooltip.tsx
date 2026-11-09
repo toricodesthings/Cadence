@@ -26,7 +26,7 @@ const Content = ({ className = "", sideOffset = 10, ...props }: RadixTooltip.Too
             "data-[state=delayed-open]:animate-in data-[state=closed]:animate-out",
             "data-[state=delayed-open]:fade-in data-[state=closed]:fade-out",
             "data-[state=delayed-open]:zoom-in-95 data-[state=closed]:zoom-out-95",
-            "duration-200",
+            "origin-(--radix-tooltip-content-transform-origin) duration-150 data-[state=closed]:duration-100",
             className,
         ].join(" ")}
         {...props}

@@ -1,9 +1,10 @@
-import { EllipsisVertical, ArrowUpDown, Sparkles, GripVertical, Check } from "lucide-react";
+import { EllipsisVertical, Sparkles, GripVertical } from "lucide-react";
 import { PRIORITY_ICON } from "../tasks/task-choice-options";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import type { SortMode } from "../../lib/utils/task/sort-tasks";
 import type { ViewMode } from "../../hooks/ui/use-view-mode";
 import { ViewToggle } from "./ViewToggle";
+import { MENU_SEGMENT } from "../primitives/menu-styles";
 import { HEADER_ICON_BUTTON } from "../layout/PageHeader";
 import { ClaimHeaderMenu, LayoutScaleMenuRow } from "../layout/LayoutScaleMenu";
 
@@ -47,40 +48,23 @@ export function SortMenu({ mode, onModeChange, view, onViewChange, actions = [] 
             <DropdownMenu.Content align="end">
                 {view !== undefined && onViewChange && (
                     <>
-                        <div className="px-3 pt-2 pb-2.5">
-                            <ViewToggle view={view} onViewChange={onViewChange} compact />
-                        </div>
+                        <DropdownMenu.Label>View</DropdownMenu.Label>
+                        <div className={MENU_SEGMENT}><ViewToggle view={view} onViewChange={onViewChange} /></div>
                         {onModeChange && <DropdownMenu.Separator />}
                     </>
                 )}
                 {onModeChange && (
                     <>
-                        <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-twilight-text-muted">
-                            <div className="flex items-center gap-1.5">
-                                <ArrowUpDown size={11} aria-hidden="true" />
-                                Sort by
-                            </div>
-                        </div>
-                        {SORT_OPTIONS.map(({ value, label, icon: Icon }) => (
-                            <DropdownMenu.Item
-                                key={value}
-                                onSelect={() => onModeChange(value)}
-                            >
-                                <Icon size={14} aria-hidden="true" />
-                                <span className="flex-1">{label}</span>
-                                {mode === value && (
-                                    <Check size={14} className="text-accent-primary" aria-hidden="true" />
-                                )}
-                            </DropdownMenu.Item>
+                        <DropdownMenu.Label>Sort by</DropdownMenu.Label>
+                        {SORT_OPTIONS.map(({ value, label, icon }) => (
+                            <DropdownMenu.CheckItem key={value} icon={icon} label={label} checked={mode === value} onSelect={() => onModeChange(value)} />
                         ))}
                     </>
                 )}
                 {actions.length > 0 && (
                     <>
                         <DropdownMenu.Separator />
-                        <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-twilight-text-muted">
-                            Actions
-                        </div>
+                        <DropdownMenu.Label>Actions</DropdownMenu.Label>
                         {actions.map(({ label, onSelect, icon: Icon, danger, disabledReason }) => (
                             <DropdownMenu.Item
                                 key={label}

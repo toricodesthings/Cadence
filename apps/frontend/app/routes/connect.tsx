@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, ShieldCheck, TriangleAlert } from "lucide-react";
+import { LoaderCircle, ShieldCheck, TriangleAlert } from "lucide-react";
 import type { McpScope } from "@cadence/contracts/connections";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { Button } from "../components/primitives/Button";
@@ -63,7 +63,7 @@ export default function ConnectRoute() {
     if (key === "loading") {
         body = (
             <div className="flex justify-center py-10">
-                <Loader2 className="animate-spin text-twilight-text-soft" aria-label="Loading" />
+                <LoaderCircle className="animate-spin text-twilight-text-soft" aria-label="Loading" />
             </div>
         );
     } else if (key === "expired" || !view.data) {
@@ -203,7 +203,7 @@ function ConnectAsk({ client, email, chosen, setScopes, leaving, failed, respond
                     Deny
                 </Button>
                 <Button size="md" className="flex-1" disabled={leaving || chosen.size === 0} onClick={() => respond(true)}>
-                    {leaving ? <Loader2 size={16} className="animate-spin" aria-label="Connecting" /> : "Allow"}
+                    {leaving ? <LoaderCircle size={16} className="animate-spin" aria-label="Connecting" /> : "Allow"}
                 </Button>
             </motion.div>
         </>

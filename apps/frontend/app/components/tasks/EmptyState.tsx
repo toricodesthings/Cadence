@@ -5,6 +5,12 @@ export type EmptyStateVariant = "today" | "upcoming" | "holding" | "completed" |
 
 interface EmptyStateProps {
     variant?: EmptyStateVariant;
+    /** Overrides the variant's copy or icon (e.g. a named column). `description: null` drops the second line. */
+    icon?: typeof Feather;
+    title?: string;
+    description?: string | null;
+    /** Inside a section or board column: smaller, centred in the space it has. */
+    compact?: boolean;
     /** Runs the CTA in place (e.g. opens a composer) instead of navigating. */
     onAction?: () => void;
 }
@@ -12,7 +18,7 @@ interface EmptyStateProps {
 const VARIANTS: Record<EmptyStateVariant, {
     icon: typeof Feather;
     title: string;
-    description: string;
+    description?: string;
     cta?: { label: string; to?: string };
 }> = {
     today: {
@@ -61,23 +67,26 @@ const VARIANTS: Record<EmptyStateVariant, {
     },
 };
 
-/** Empty state with optional CTA for core surfaces */
-export function EmptyState({ variant = "default", onAction }: EmptyStateProps) {
+/** The one empty state: icon, title, optional line and CTA, centred where the content would be. */
+export function EmptyState({ variant = "default", onAction, icon, title, description, compact = false }: EmptyStateProps) {
     const navigate = useNavigate();
     const config = VARIANTS[variant];
-    const Icon = config.icon;
+    const Icon = icon ?? config.icon;
+    const line = description === undefined ? config.description : description;
 
     return (
-        <div className="flex flex-col items-center justify-center py-24 px-8">
-            <div className="w-16 h-16 rounded-3xl bg-twilight-surface flex items-center justify-center mb-6 ring-1 ring-twilight-border">
-                <Icon size={26} className="text-twilight-text-muted" />
+        <div className={`flex flex-col items-center justify-center px-8 ${compact ? "h-full min-h-48 py-10" : "py-24"}`}>
+            <div className={`flex items-center justify-center bg-twilight-surface ring-1 ring-twilight-border ${compact ? "mb-4 h-12 w-12 rounded-2xl" : "mb-6 h-16 w-16 rounded-3xl"}`}>
+                <Icon size={compact ? 20 : 26} aria-hidden="true" className="text-twilight-text-muted" />
             </div>
-            <p className="text-base text-twilight-text-soft text-center mb-1.5">
-                {config.title}
+            <p className={`text-center text-twilight-text-soft ${compact ? "text-sm" : "text-base"} ${line ? "mb-1.5" : ""}`}>
+                {title ?? config.title}
             </p>
-            <p className="text-sm text-twilight-text-muted/90 text-center max-w-[280px] leading-relaxed">
-                {config.description}
-            </p>
+            {line ? (
+                <p className="text-sm text-twilight-text-muted/90 text-center max-w-[280px] leading-relaxed">
+                    {line}
+                </p>
+            ) : null}
             {config.cta && (
                 <button
                     type="button"

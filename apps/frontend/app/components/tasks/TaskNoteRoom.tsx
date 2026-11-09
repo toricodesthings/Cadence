@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDeviceFlag } from "../../hooks/ui/use-device-flag";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronLeft, Loader2, ListTree, Pencil, Plus, X, Type } from "lucide-react";
+import { Check, ChevronLeft, LoaderCircle, ListTree, Pencil, Plus, X, Type } from "lucide-react";
 import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import { toast } from "sonner";
@@ -351,7 +351,7 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
                                                 aria-label="Done"
                                                 className="surface-control surface-control-accent inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-twilight-border/40 px-3 text-[15px] font-medium text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 min-[360px]:px-4"
                                             >
-                                                {finishing ? <Loader2 size={18} className="motion-safe:animate-spin" aria-hidden="true" /> : <Check size={18} aria-hidden="true" />}
+                                                {finishing ? <LoaderCircle size={18} className="motion-safe:animate-spin" aria-hidden="true" /> : <Check size={18} aria-hidden="true" />}
                                                 <span className="max-[359px]:sr-only">Done</span>
                                             </button>
                                         </motion.div>
@@ -438,8 +438,8 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
             className="note-room"
             header={
                 <PageHeader
-                    eyebrow={scope ?? undefined}
                     title={title}
+                    meta={scope ?? undefined}
                     actions={
                         <>
                             {editing && compactTablet && <Button variant="secondary" size="md" onClick={() => void done()} disabled={finishing} aria-label="Done"><Check size={16} aria-hidden="true" />Done</Button>}

@@ -102,7 +102,7 @@ describe("schedule route composition", () => {
     });
     it("patches desktop clutter controls individually", () => {
         setup("month");
-        fireEvent.click(screen.getByRole("switch", { name: "Show fixed blocks" }));
+        fireEvent.click(screen.getByRole("switch", { name: "Fixed blocks" }));
         expect(mocks.settings).toHaveBeenCalledWith({ calendar: { clutter: { showFixed: false } } });
     });
     it("changes both task categories together on phone and keeps the overlay controls separate", () => {

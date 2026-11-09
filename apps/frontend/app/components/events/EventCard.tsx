@@ -1,4 +1,5 @@
 import { Bell, BellOff, Trash2, Calendar, Pencil } from "lucide-react";
+import { Tip } from "../primitives/Tooltip";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { EventMenuItems } from "./EventMenuItems";
 import { Button } from "../primitives/Button";
@@ -43,9 +44,9 @@ export function EventCard({
                 <button
                     type="button"
                     onClick={() => onOpen(item.event)}
-                    className="flex min-w-0 cursor-pointer items-center gap-3 rounded-2xl -m-2 p-2 text-left transition-colors hover:bg-white/[0.03]"
+                    className="flex min-w-0 cursor-pointer items-center gap-3 rounded-[18px] -m-2 p-2 text-left transition-colors hover:bg-white/[0.03]"
                 >
-                    <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[color-mix(in_srgb,var(--event-tone)_20%,transparent)] bg-[color-mix(in_srgb,var(--event-tone)_12%,transparent)] text-xl text-[var(--event-ink)] transition-colors duration-300">
+                    <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border border-[color-mix(in_srgb,var(--event-tone)_20%,transparent)] bg-[color-mix(in_srgb,var(--event-tone)_12%,transparent)] text-xl text-[var(--event-ink)] transition-colors duration-300">
                         {item.event.emoji ?? "🎉"}
                     </span>
                     <span className="min-w-0">
@@ -56,14 +57,17 @@ export function EventCard({
                 </button>
 
                 <div className="flex items-center gap-1 shrink-0">
+                    <Tip label={item.event.notify ? "Reminder on" : "Reminder off"} side="top">
                     <button
                         type="button"
                         onClick={() => onToggleReminder(item.event)}
-                        aria-label={item.event.notify ? `Disable reminder for ${item.event.label}` : `Enable reminder for ${item.event.label}`}
-                        className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-transparent text-twilight-text-muted transition-colors hover:border-[color-mix(in_srgb,var(--event-tone)_20%,transparent)] hover:bg-[color-mix(in_srgb,var(--event-tone)_10%,transparent)] hover:text-[var(--event-ink)]"
+                        aria-label={`${item.event.notify ? "Turn off" : "Turn on"} reminder for ${item.event.label}`}
+                        className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-transparent transition-colors ${item.event.notify ? "text-[var(--event-ink)]" : "text-twilight-text-muted"} hover:border-[color-mix(in_srgb,var(--event-tone)_20%,transparent)] hover:bg-[color-mix(in_srgb,var(--event-tone)_10%,transparent)] hover:text-[var(--event-ink)]`}
                     >
                         {item.event.notify ? <Bell size={16} aria-hidden="true" /> : <BellOff size={16} aria-hidden="true" />}
                     </button>
+                    </Tip>
+                    <Tip label="Delete" side="top">
                     <button
                         type="button"
                         onClick={() => onDelete(item.event)}
@@ -72,29 +76,16 @@ export function EventCard({
                     >
                         <Trash2 size={16} aria-hidden="true" />
                     </button>
+                    </Tip>
                 </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">Date</p>
-                    <p className="mt-1 text-sm font-medium text-twilight-text">{item.monthDayLabel}</p>
-                </div>
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">Reminder</p>
-                    <p className="mt-1 flex items-center gap-2 text-sm font-medium text-twilight-text">
-                        {item.event.notify ? <Bell size={14} className="text-[var(--event-ink)]" aria-hidden="true" /> : <BellOff size={14} className="text-twilight-text-muted" aria-hidden="true" />}
-                        <span>{item.event.notify ? "On" : "Off"}</span>
-                    </p>
-                </div>
-            </div>
-
-            <div className="mt-3 rounded-[1.35rem] border border-[color-mix(in_srgb,var(--event-tone)_16%,transparent)] bg-[color-mix(in_srgb,var(--event-tone)_10%,transparent)] px-3 py-3 transition-colors duration-300">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--event-ink-soft)]">Countdown</p>
-                <p className="mt-1 text-base font-semibold text-[var(--event-ink)] transition-colors duration-300">{item.countdownLabel}</p>
-                {item.milestoneLabel ? (
-                    <p className="mt-1 text-xs font-medium text-[var(--event-ink-soft)]">{item.milestoneLabel}</p>
-                ) : null}
+            {/* One block: the countdown, then its day. Concentric with the card: 27px − 17px inset = 10px. */}
+            <div className="mt-4 rounded-[10px] border border-[color-mix(in_srgb,var(--event-tone)_16%,transparent)] bg-[color-mix(in_srgb,var(--event-tone)_10%,transparent)] px-3 py-3 transition-colors duration-300">
+                <p className="text-base font-semibold text-[var(--event-ink)] transition-colors duration-300">{item.countdownLabel}</p>
+                <p className="mt-1 text-xs font-medium text-[var(--event-ink-soft)]">
+                    {item.milestoneLabel ? `${item.monthDayLabel} · ${item.milestoneLabel}` : item.monthDayLabel}
+                </p>
             </div>
 
             <div className="mt-3 flex items-center justify-end gap-2">

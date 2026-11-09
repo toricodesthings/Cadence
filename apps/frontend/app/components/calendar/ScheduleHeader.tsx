@@ -17,6 +17,9 @@ import { HEADER_ICON_BUTTON, HEADER_SELECT_TRIGGER, PAGE_HEADER_SURFACE, PageHea
 import { PeriodNav, PeriodTodayButton } from "../layout/PeriodNav";
 import { LayoutScaleMenuRow } from "../layout/LayoutScaleMenu";
 
+/** The ⋮ holds switches, so it is a Popover, drawn in a menu's shape (`MENU_SURFACE`: 12px radius, 4px inset). */
+const SCHEDULE_MENU = "w-72 rounded-xl! p-1!";
+
 export type CalendarViewMode = "day" | "week" | "month" | "year";
 
 const MONTH_ICONS: LucideIcon[] = [
@@ -108,7 +111,7 @@ export function ScheduleHeader({
     if (phone) {
         // Phone: one row. Period changes are swipes and taps on the calendar
         // itself; the label above the title zooms out (Day → Month → Year).
-        return <PhonePageHeader eyebrow="Schedule" {...phone} options={<div className="space-y-3">{overflowContent}<LayoutScaleMenuRow panel /></div>} />;
+        return <PhonePageHeader pageName="Schedule" {...phone} options={<div className="space-y-3">{overflowContent}<div className="-mx-2"><LayoutScaleMenuRow panel /></div></div>} />;
     }
 
     if (compact) {
@@ -123,7 +126,7 @@ export function ScheduleHeader({
                             compact
                             icon={<CurrentIcon size={16} aria-hidden="true" />}
                             accentColor="var(--accent-nav-schedule, var(--accent-primary))"
-                            eyebrow="Schedule"
+                            pageName="Schedule"
                             title={mainHeading}
                         />
                     </div>
@@ -156,8 +159,8 @@ export function ScheduleHeader({
                                     <EllipsisVertical size={18} aria-hidden="true" />
                                 </button>
                             </Popover.Trigger>
-                            <Popover.Content side="bottom" align="end" className="w-80 p-3">
-                                <div className="space-y-3">{overflowContent}<LayoutScaleMenuRow panel /></div>
+                            <Popover.Content side="bottom" align="end" className={SCHEDULE_MENU}>
+                                {overflowContent}<LayoutScaleMenuRow panel />
                             </Popover.Content>
                         </Popover.Root>
                     )}
@@ -181,7 +184,7 @@ export function ScheduleHeader({
         <PageHeader
             icon={<CurrentIcon size={18} aria-hidden="true" />}
             accentColor="var(--accent-nav-schedule, var(--accent-primary))"
-            eyebrow="Schedule"
+            pageName="Schedule"
             title={mainHeading}
             meta={<span>{subtitleLabel}</span>}
             actions={<>
@@ -229,8 +232,8 @@ export function ScheduleHeader({
                                 <EllipsisVertical size={18} aria-hidden="true" />
                             </button>
                         </Popover.Trigger>
-                        <Popover.Content side="bottom" align="end" className="w-80 p-3">
-                            <div className="space-y-3">{overflowContent}<LayoutScaleMenuRow panel /></div>
+                        <Popover.Content side="bottom" align="end" className={SCHEDULE_MENU}>
+                            {overflowContent}<LayoutScaleMenuRow panel />
                         </Popover.Content>
                     </Popover.Root>
                 )}

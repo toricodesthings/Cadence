@@ -50,7 +50,7 @@ export function LayoutScaleMenuRow({ separator = true, panel = false }: { separa
         { id: "larger", label: "Larger", disabled: scale.atMax, run: scale.larger, body: <Plus size={14} aria-hidden="true" />, className: STEP },
     ];
     return (
-        <div className={panel ? "-mx-2" : undefined}>
+        <div>
             {separator ? <div role="separator" className={MENU_SEPARATOR} /> : null}
             <div role="group" aria-label="Layout scale" className="flex items-center gap-0.5 pl-3 pr-1">
                 <ZoomIn size={14} className="shrink-0 text-twilight-text-soft" aria-hidden="true" />

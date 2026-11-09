@@ -91,7 +91,6 @@ function AssistantShell({ width }: { width?: number }) {
 
 interface ShellHeaderConfig {
     title?: React.ReactNode;
-    eyebrow?: React.ReactNode;
     icon?: React.ReactNode;
     accentColor?: string;
 }
@@ -431,7 +430,6 @@ export function MainLayout({
 
     const headerIdentityProps = {
         title: headerTitle,
-        eyebrow: shellHeader?.eyebrow,
         icon: shellHeader?.icon,
         accentColor: shellHeader?.accentColor,
     };
@@ -523,7 +521,7 @@ export function MainLayout({
                     {/* Off phone the header is a single row, so it takes the shared
                         height and its bottom border lines up with side-panel headers. */}
                     {!hideHeader && !railOnly && (shell.isPhone ? (
-                        <PhonePageHeader eyebrow={shellHeader?.eyebrow} title={headerTitle} leading={workspaceMenuButton} actions={compactHeaderActions}>
+                        <PhonePageHeader title={headerTitle} leading={workspaceMenuButton} actions={compactHeaderActions}>
                             {compactControls}
                         </PhonePageHeader>
                     ) : shell.isCompact ? (

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { EmptyState } from "./EmptyState";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, EllipsisVertical, Pencil, Trash2 } from "lucide-react";
 import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -8,6 +9,7 @@ import { useSections, useCreateSection, useUpdateSection, useDeleteSection } fro
 import { useSectionReorder } from "../../hooks/sections/use-section-reorder";
 import { useSortSensors } from "../../hooks/ui/use-sort-sensors";
 import { SortableSection } from "./SortableSection";
+import { Reveal } from "../shared/Reveal";
 import { AddTaskInput } from "./AddTaskInput";
 import { AddSectionControl } from "./AddSectionControl";
 import { groupTasksBySection } from "../../lib/utils/task/group-by-section";
@@ -31,6 +33,8 @@ interface SectionedTaskListProps {
     footer?: React.ReactNode;
     /** Compact: open the sections sheet, renaming the given section id ("" for none). */
     onManageSections?: (focus: string) => void;
+    /** A filter is on: fold away sections it leaves empty. */
+    hideEmptySections?: boolean;
 }
 
 /**
@@ -47,6 +51,7 @@ export function SectionedTaskList({
     rationaleByTaskId,
     footer,
     onManageSections,
+    hideEmptySections = false,
 }: SectionedTaskListProps) {
     const { data: sections = [] } = useSections(projectId);
     const createSection = useCreateSection(projectId);
@@ -133,6 +138,7 @@ export function SectionedTaskList({
         <div className={`flex flex-col gap-3 ${shell.isCompact ? "pb-2" : "gap-1"}`}>
             {/* Unsectioned tasks (no section) */}
             {(ungroupedTasks.length > 0 || hasCustomSections) && (
+                <Reveal open={!(hideEmptySections && ungroupedTasks.length === 0)}>
                 <div className={shell.isCompact ? sectionSurfaceClass : "mt-4"}>
                     <div className="flex items-center gap-2 group">
                         <div className="flex items-center gap-2 flex-1 py-1.5 text-left">
@@ -164,6 +170,7 @@ export function SectionedTaskList({
                         </div>
                     ) : null}
                 </div>
+                </Reveal>
             )}
 
             {/* User-defined sections */}
@@ -173,7 +180,8 @@ export function SectionedTaskList({
                 const isEditing = editingSection === section.id;
 
                 return (
-                    <Block key={section.id} id={section.id} name={section.name} className={shell.isCompact ? sectionSurfaceClass : "mt-4"}>
+                    <Reveal key={section.id} open={!(hideEmptySections && sectionTasks.length === 0)}>
+                    <Block id={section.id} name={section.name} className={shell.isCompact ? sectionSurfaceClass : "mt-4"}>
                       {(grip) => (<>
                         {/* Section header */}
                         <div className="flex items-center gap-2 group">
@@ -242,6 +250,7 @@ export function SectionedTaskList({
                         </AnimatePresence>
                       </>)}
                     </Block>
+                    </Reveal>
                 );
             }))}
 
@@ -353,9 +362,7 @@ function SectionTasks({ section, tasks, projectId, inlineAdd, inlineAddClass, se
                     rationaleByTaskId={rationaleByTaskId}
                 />
             ) : (
-                <div className="py-4 px-6 text-[12px] text-twilight-text-muted/90 italic">
-                    No tasks in this section
-                </div>
+                <EmptyState title="Nothing in this section yet." description={null} compact />
             )}
             {inlineAdd && <div className={inlineAddClass}>
                 <AddTaskInput
