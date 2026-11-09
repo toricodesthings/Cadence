@@ -42,7 +42,7 @@ export function SortableSection({ id, name, className, children }: {
             {...listeners}
             data-no-dnd="true"
             aria-label={`Drag to reorder section ${name}`}
-            className="shrink-0 cursor-grab touch-none rounded-lg p-0.5 text-twilight-text-muted opacity-0 transition-opacity hover:text-twilight-text focus-visible:opacity-100 group-hover:opacity-100 touch-reveal"
+            className="shrink-0 cursor-grab touch-none rounded-lg p-0.5 text-twilight-text-muted/40 transition-colors hover:text-twilight-text-soft active:cursor-grabbing"
         >
             <GripVertical size={14} aria-hidden="true" />
         </button>

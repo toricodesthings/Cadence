@@ -89,7 +89,7 @@ function KanbanColumn({
     return (
         <div className="flex flex-col h-full surface-card rounded-[28px] min-w-[280px]">
             {/* Header */}
-            <div className="relative flex items-start justify-between gap-3 border-b border-twilight-border/30 px-5 py-4 group">
+            <div className="relative flex items-center justify-between gap-3 border-b border-twilight-border/30 px-5 py-4 group">
                 {isRenaming && onRename ? (
                     <input
                         autoFocus
@@ -104,7 +104,8 @@ function KanbanColumn({
                 ) : (
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                            {grip}
+                            {/* The grip sits in the header's left padding so every title lines up with Unsectioned's. */}
+                            {grip ? <span className="absolute left-0.5 top-1/2 flex -translate-y-1/2">{grip}</span> : null}
                             <h3 className="truncate font-display text-base font-semibold text-twilight-text">
                                 {section.name}
                             </h3>
@@ -124,7 +125,7 @@ function KanbanColumn({
                                     className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 touch-reveal hover:bg-white/[0.05] hover:text-twilight-text focus-visible:opacity-100"
                                     aria-label={`Open actions for column ${section.name}`}
                                 >
-                                    <EllipsisVertical size={14} aria-hidden="true" />
+                                    <EllipsisVertical size={16} aria-hidden="true" />
                                 </button>
                             </DropdownMenu.Trigger>
                             <DropdownMenu.Content align="end" sideOffset={4}>
