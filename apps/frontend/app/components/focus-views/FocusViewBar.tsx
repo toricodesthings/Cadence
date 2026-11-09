@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { useFocusViewUrl } from "../../hooks/ui/use-focus-view-url";
 import { FOCUS_VIEW_PRESETS, composeFocusView } from "@cadence/nlp/focus-views";
 import { useFocusViewStore, type CaptureOrder } from "../../stores/focus-view-store";
 import { useCreateFocusView, useDeleteFocusView, useFocusViews, useUpdateFocusView } from "../../hooks/core/use-focus-views";
@@ -128,13 +129,13 @@ function SavedViews({ views, activeId, onSelect }: SavedViewsProps) {
                         </ContextMenu.Trigger>
                         <ContextMenu.Content>
                             <ContextMenu.Item onSelect={() => rename(view)}>
-                                <Pencil size={14} className="mr-2 opacity-60" />
+                                <Pencil size={14} className="opacity-60" />
                                 Rename
                             </ContextMenu.Item>
                             <ContextMenu.Item
                                 onSelect={() => updateFocusView.mutate({ id: view.id, isPinned: false })}
                             >
-                                <Pin size={14} className="mr-2 opacity-60" />
+                                <Pin size={14} className="opacity-60" />
                                 Unpin
                             </ContextMenu.Item>
                             <ContextMenu.Separator />
@@ -142,7 +143,7 @@ function SavedViews({ views, activeId, onSelect }: SavedViewsProps) {
                                 variant="danger"
                                 onSelect={() => deleteFocusViewMutation.mutate(view.id)}
                             >
-                                <Trash2 size={14} className="mr-2" />
+                                <Trash2 size={14} />
                                 Delete
                             </ContextMenu.Item>
                         </ContextMenu.Content>
@@ -313,6 +314,7 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
     } = useFocusViewStore();
 
     const [open, setOpen] = useState(false);
+    useFocusViewUrl(capture);
 
     useEffect(() => {
         if (!enabled && activeDefinition) {

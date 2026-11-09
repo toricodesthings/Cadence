@@ -1,9 +1,19 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, max, sql } from "drizzle-orm";
+import { TAG_PALETTE } from "@cadence/contracts/constants";
 import type { InsertTag, UpdateTag } from "@cadence/contracts/tag";
 import { tags } from "../../db/schema";
 import { throwIfNotFound } from "../../platform/errors";
 import { createOnce } from "../../platform/idempotency";
 import type { Tx } from "../../types/db";
+
+/** A palette colour for a tag nobody coloured (index 0 is the grey "default"). */
+const randomTagColor = () => TAG_PALETTE[1 + Math.floor(Math.random() * (TAG_PALETTE.length - 1))];
+
+/** Where a new tag goes: after the person's last one. */
+async function nextSortOrder(tx: Tx, userId: string) {
+    const [row] = await tx.select({ last: max(tags.sortOrder) }).from(tags).where(eq(tags.userId, userId));
+    return (row?.last ?? 0) + 1000;
+}
 
 /** Create a tag. A replayed idempotency key returns the first one. */
 export async function createTag(tx: Tx, userId: string, body: InsertTag, idempotencyKey?: string) {
@@ -12,7 +22,7 @@ export async function createTag(tx: Tx, userId: string, body: InsertTag, idempot
         userId,
         idempotencyKey,
         (id) => tx.select().from(tags).where(and(eq(tags.id, id), eq(tags.userId, userId))),
-        () => tx.insert(tags).values({ ...body, userId }).returning(),
+        async () => tx.insert(tags).values({ ...body, color: body.color ?? randomTagColor(), sortOrder: body.sortOrder ?? await nextSortOrder(tx, userId), userId }).returning(),
     );
 }
 
@@ -33,13 +43,14 @@ export async function findOrCreateTags(tx: Tx, userId: string, names: string[]) 
     );
     const missing = [...wanted].filter(([key]) => !ids.has(key));
     if (missing.length) {
-        const rows = await tx.insert(tags).values(missing.map(([, name]) => ({ userId, name }))).returning({ id: tags.id, name: tags.name });
+        const first = await nextSortOrder(tx, userId);
+        const rows = await tx.insert(tags).values(missing.map(([, name], i) => ({ userId, name, color: randomTagColor(), sortOrder: first + i * 1000 }))).returning({ id: tags.id, name: tags.name });
         for (const row of rows) ids.set(row.name.toLowerCase(), row.id);
     }
     return names.map((name) => name.trim()).filter(Boolean).map((name) => ids.get(name.toLowerCase())!);
 }
 
-/** Rename or recolour a tag. 404 when it isn't the caller's. */
+/** Rename, recolour or move a tag. 404 when it isn't the caller's. */
 export async function updateTag(tx: Tx, userId: string, id: string, body: UpdateTag) {
     const [row] = await tx
         .update(tags)

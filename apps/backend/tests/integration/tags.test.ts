@@ -1,6 +1,11 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { TAG_PALETTE } from "@cadence/contracts/constants";
 import { apiAs } from "../helpers/app";
-import { createUser, startTestDb } from "../helpers/db";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { asOwner, createUser, getTestDb, startTestDb } from "../helpers/db";
+import { withRls } from "../../src/platform/rls";
+import { findOrCreateTags } from "../../src/domains/tags/tags.service";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
@@ -16,21 +21,68 @@ beforeEach(async () => {
 });
 
 describe("tags", () => {
-    it("creates a tag, letting the DB default the colour", async () => {
+    it("gives a tag with no colour a random palette colour", async () => {
         const { status, body } = await api("POST", "", { name: "urgent" });
 
         expect(status).toBe(201);
-        expect(body.data).toMatchObject({ name: "urgent", color: "default" });
+        expect(TAG_PALETTE.slice(1)).toContain(body.data.color);
     });
 
-    it("lists only the caller's tags, ordered by name", async () => {
+    it("colours tags made by name from the palette", async () => {
+        const userId = await createUser();
+        await withRls(getTestDb(), userId, (tx) => findOrCreateTags(tx, userId, ["fresh"]));
+
+        const { body } = await apiAs(userId, "/tags", tagRoutes)("GET", "");
+
+        expect(TAG_PALETTE.slice(1)).toContain(body.data[0].color);
+    });
+
+    it("keeps a colour the caller chose, even the grey default", async () => {
+        const { body } = await api("POST", "", { name: "plain", color: "default" });
+
+        expect(body.data.color).toBe("default");
+    });
+
+    it("lists only the caller's tags", async () => {
         await api("POST", "", { name: "work" });
         await api("POST", "", { name: "home", color: "#7ee787" });
         await otherUser("POST", "", { name: "secret" });
 
         const { body } = await api("GET", "");
 
-        expect(body.data.map((t: any) => t.name)).toEqual(["home", "work"]);
+        expect(body.data.map((t: any) => t.name)).toEqual(["work", "home"]);
+    });
+
+    it("puts new tags last, in the person's own order", async () => {
+        await api("POST", "", { name: "zeta" });
+        await api("POST", "", { name: "alpha" });
+
+        const { body } = await api("GET", "");
+
+        expect(body.data.map((t: any) => t.name)).toEqual(["zeta", "alpha"]);
+    });
+
+    it("migration 0027 keeps tags in their alphabetical order", async () => {
+        const userId = await createUser();
+        const backfill = readFileSync(resolve(import.meta.dirname, "../../drizzle/0027_tag_sort_order.sql"), "utf8").split("--> statement-breakpoint").pop()!;
+        const order = await asOwner(async (pg) => {
+            for (const name of ["pear", "Apple", "mango"]) await pg.query("INSERT INTO tags (user_id, name, sort_order) VALUES ($1, $2, 0)", [userId, name]);
+            await pg.exec(backfill);
+            return (await pg.query<{ name: string }>("SELECT name FROM tags WHERE user_id = $1 ORDER BY sort_order", [userId])).rows.map((r) => r.name);
+        });
+
+        expect(order).toEqual(["Apple", "mango", "pear"]);
+    });
+
+    it("moves a tag by its sort order", async () => {
+        const { body: a } = await api("POST", "", { name: "a" });
+        const { body: b } = await api("POST", "", { name: "b" });
+
+        const { status, body } = await api("PATCH", `/${b.data.id}`, { sortOrder: a.data.sortOrder - 1 });
+
+        expect(status).toBe(200);
+        expect(body.data.sortOrder).toBe(a.data.sortOrder - 1);
+        expect((await api("GET", "")).body.data.map((t: any) => t.name)).toEqual(["b", "a"]);
     });
 
     it("renames a tag without touching its colour", async () => {

@@ -1,9 +1,9 @@
-import { Bell, BellOff, Calendar, EllipsisVertical, Pencil, Trash2 } from "lucide-react";
+import { Bell, BellOff, EllipsisVertical } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Tip } from "../primitives/Tooltip";
-import type { PersonalEvent } from "../../types/settings";
 import { eventToneStyle, groupPersonalEventsByMonth, type PersonalEventSortMode, type PersonalEventViewModel } from "../../lib/utils/personal-events";
 import type { EventActions } from "./EventCard";
+import { EventMenuItems } from "./EventMenuItems";
 
 /** Desktop: event · date · countdown · reminder · ⋮. */
 const COLUMNS = "grid grid-cols-[minmax(0,1fr)_7.5rem_8.5rem_2.75rem_2.75rem] items-center gap-2";
@@ -75,14 +75,7 @@ function EventRow({ item, stacked, selected, onOpen, onEdit, onDelete, onToggleR
                 </DropdownMenu.Trigger>
             </Tip>
             <DropdownMenu.Content align="end">
-                <DropdownMenu.Item className="gap-2" onSelect={() => onEdit(event)}><Pencil size={14} aria-hidden="true" />Edit event</DropdownMenu.Item>
-                <DropdownMenu.Item className="gap-2" onSelect={() => onOpenInSchedule(event)}><Calendar size={14} aria-hidden="true" />Open in schedule</DropdownMenu.Item>
-                <DropdownMenu.Item className="gap-2" onSelect={() => onToggleReminder(event)}>
-                    {event.notify ? <BellOff size={14} aria-hidden="true" /> : <Bell size={14} aria-hidden="true" />}
-                    {event.notify ? "Turn off reminder" : "Remind me"}
-                </DropdownMenu.Item>
-                <DropdownMenu.Separator />
-                <DropdownMenu.Item variant="danger" className="gap-2" onSelect={() => onDelete(event)}><Trash2 size={14} aria-hidden="true" />Delete event</DropdownMenu.Item>
+                <EventMenuItems Menu={DropdownMenu} event={event} onEdit={onEdit} onOpenInSchedule={onOpenInSchedule} onToggleReminder={onToggleReminder} onDelete={onDelete} />
             </DropdownMenu.Content>
         </DropdownMenu.Root>
     );

@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, ChevronRight, GripVertical, Plus, X } from "lucide-react";
 import type { Subtask } from "@cadence/contracts/subtask";
-import { useCreateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
+import { useCreateSubtask, useDeleteSubtask, useReorderSubtasks, useUpdateSubtask } from "../../hooks/tasks/use-subtasks";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { Reveal } from "../shared/Reveal";
+import { useTitleDraft } from "./SubtaskList";
 import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { SuggestedSteps, SuggestStepsButton } from "./SuggestSteps";
@@ -113,15 +114,22 @@ export function SubtaskChip({
 function InlineSubtaskItem({
     subtask,
     onDelete,
+    onRename,
     dragHandleProps,
     isDragging,
 }: {
     subtask: Subtask;
     onDelete: (id: string) => void;
+    onRename: (id: string, title: string) => void;
     dragHandleProps: SortableSubtaskRenderProps["dragHandleProps"];
     isDragging: boolean;
 }) {
     const { isTouch } = useShellMode();
+    const [editing, setEditing] = useState(false);
+    const draft = useTitleDraft(subtask.title, (next) => onRename(subtask.id, next));
+    const titleClass = `min-w-0 flex-1 text-[13px] leading-5 transition-colors ${
+        subtask.isComplete ? "text-twilight-text-muted/40 line-through" : "text-twilight-text-soft"
+    }`;
     const reveal = isTouch ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100 group-focus-within/sub:opacity-100";
     return (
         <motion.div
@@ -143,13 +151,35 @@ function InlineSubtaskItem({
                 <GripVertical size={14} aria-hidden="true" />
             </div>
             <TaskCheckbox subtask={subtask} compact />
-            <span
-                className={`min-w-0 flex-1 text-[13px] leading-5 transition-colors ${
-                    subtask.isComplete ? "text-twilight-text-muted/40 line-through" : "text-twilight-text-soft"
-                }`}
-            >
-                {subtask.title}
-            </span>
+            {editing ? (
+                <input
+                    type="text"
+                    autoFocus
+                    onFocus={(e) => e.currentTarget.select()}
+                    data-no-dnd="true"
+                    data-no-open="true"
+                    value={draft.value}
+                    onChange={(e) => draft.setValue(e.target.value)}
+                    onBlur={() => { draft.commit(); setEditing(false); }}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (e.key === "Escape") { draft.cancel(); e.currentTarget.blur(); }
+                    }}
+                    aria-label="Subtask name"
+                    className={`${titleClass} bg-transparent outline-none`}
+                />
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    data-no-dnd="true"
+                    data-no-open="true"
+                    aria-label={`Rename subtask ${subtask.title}`}
+                    className={`${titleClass} cursor-text rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary`}
+                >
+                    {subtask.title}
+                </button>
+            )}
             <button
                 type="button"
                 onClick={() => onDelete(subtask.id)}
@@ -182,6 +212,7 @@ export function InlineSubtaskPanel({
 }) {
     const createSubtask = useCreateSubtask(taskId);
     const deleteSubtask = useDeleteSubtask(taskId);
+    const updateSubtask = useUpdateSubtask(taskId);
     const reorderSubtask = useReorderSubtasks(taskId);
     const suggest = useSuggestSteps(taskId, subtasks);
     const [title, setTitle] = useState("");
@@ -216,6 +247,7 @@ export function InlineSubtaskPanel({
                             <InlineSubtaskItem
                                 subtask={subtask}
                                 onDelete={(subtaskId) => deleteSubtask.mutate(subtaskId)}
+                                onRename={(id, next) => updateSubtask.mutate({ id, title: next })}
                                 dragHandleProps={dragHandleProps}
                                 isDragging={isDragging}
                             />

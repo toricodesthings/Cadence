@@ -31,3 +31,18 @@ export function computeMidpointIndex(
 export function computeGappedOrderIndex(position: number): number {
     return position * ORDER_INDEX_GAP;
 }
+
+/**
+ * The writes that move item `id` to index `to` in an ordered list: one midpoint write when its new
+ * neighbours leave room, otherwise the whole list laid out again on even gaps (only rows that change).
+ */
+export function reorderWrites(items: { id: string; order: number }[], id: string, to: number): { id: string; order: number }[] {
+    const from = items.findIndex((item) => item.id === id);
+    if (from < 0 || to < 0 || to >= items.length || from === to) return [];
+    const next = [...items];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    const [prev, after] = [next[to - 1]?.order, next[to + 1]?.order];
+    const mid = computeMidpointIndex(prev, after, 0);
+    if ((prev === undefined || mid > prev) && (after === undefined || mid < after)) return [{ id, order: mid }];
+    return next.map((item, index) => ({ id: item.id, order: computeGappedOrderIndex(index + 1) })).filter((write, index) => next[index].order !== write.order);
+}

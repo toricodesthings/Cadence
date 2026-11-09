@@ -51,7 +51,7 @@ export function HabitContextMenu({ habit, onEdit, children }: { habit: Habit; on
     );
 }
 
-const ITEM = "flex items-center gap-2 text-[13px]";
+const ITEM = "text-[13px]";
 
 function HabitMenuItems({ habit, actions, Menu, onEdit }: {
     habit: Habit;

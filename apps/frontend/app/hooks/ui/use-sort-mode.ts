@@ -1,11 +1,11 @@
 import type { SortMode } from "../../lib/utils/task/sort-tasks";
-import { useDeviceValue } from "./use-device-flag";
+import { useUrlState } from "./use-url-state";
 
 const SORT_MODES: readonly SortMode[] = ["smart", "priority", "manual"];
+const parseSort = (raw: string | null) => SORT_MODES.find((mode) => mode === raw) ?? null;
 
-/** A task page's sort ("today", "upcoming", "project:<id>"), kept on this device only; "smart" until picked. */
+/** A task page's sort ("today", "upcoming", "project:<id>"): `?sort=` in the address, else this device's choice; "smart" until picked. */
 export function useSortMode(page: string) {
-    const [saved, setSaved] = useDeviceValue(`cadence:sort:${page}`);
-    const sortMode: SortMode = SORT_MODES.find((mode) => mode === saved) ?? "smart";
-    return { sortMode, setSortMode: setSaved as (mode: SortMode) => void } as const;
+    const [sortMode, setSortMode] = useUrlState<SortMode>("sort", { parse: parseSort, fallback: "smart", deviceKey: `cadence:sort:${page}` });
+    return { sortMode, setSortMode } as const;
 }

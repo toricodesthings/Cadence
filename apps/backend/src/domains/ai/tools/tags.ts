@@ -46,7 +46,7 @@ export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
 
     // ── W ──────────────────────────────────────────────────────────────────
     create_tag: tool({
-        description: "Creates a tag. Returns its tagId. (Task writes can also tag by name, making the tag on the way.)",
+        description: "Creates a tag. Leave colour out unless they named one; Cadence picks one. Returns its tagId. (Task writes can also tag by name, making the tag on the way.)",
         inputSchema: z.object({
             name: insertTagSchema.shape.name,
             color: color.optional(),

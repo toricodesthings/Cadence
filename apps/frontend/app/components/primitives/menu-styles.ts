@@ -14,7 +14,7 @@ export const morphFrom = (fromRadius: string | undefined, sideOffset: number, st
 
 /* ContextMenu and DropdownMenu rows. */
 export const MENU_ROW = "px-3 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none transition-colors";
-export const MENU_ITEM = `flex items-center ${MENU_ROW}`;
+export const MENU_ITEM = `flex items-center gap-2 ${MENU_ROW}`;
 export const MENU_ITEM_DANGER = "text-red-400/70 hover:bg-red-500/10 focus:bg-red-500/10";
 export const MENU_SURFACE = `${FLOATING_SURFACE} glass-edge relative min-w-[200px] rounded-xl p-1`;
 /** Submenus slide in sideways instead of morphing. */

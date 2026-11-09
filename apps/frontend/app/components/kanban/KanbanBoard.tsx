@@ -1,14 +1,16 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { groupTasksBySection } from "../../lib/utils/task/group-by-section";
 import {
-    DndContext, DragOverlay, closestCorners,
+    DndContext, DragOverlay, closestCenter, closestCorners,
     KeyboardSensor, PointerSensor, useSensor, useSensors,
 } from "@dnd-kit/core";
-import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import type { CollisionDetection, DragStartEvent, DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
-import { Plus, EllipsisVertical, Pencil, Trash2 } from "lucide-react";
+import { Plus, EllipsisVertical, Pencil, Trash2, ArrowLeft, ArrowRight } from "lucide-react";
 import { useSections, useCreateSection, useDeleteSection, useUpdateSection } from "../../hooks/sections/use-sections";
+import { useSectionReorder } from "../../hooks/sections/use-section-reorder";
+import { SECTION_SORT, SortableSection } from "../tasks/SortableSection";
 import { useSubtasksByTaskIds } from "../../hooks/tasks/use-subtasks";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useTags } from "../../hooks/tags/use-tags";
@@ -51,6 +53,10 @@ function KanbanColumn({
     onSelectTask,
     onRename,
     onDelete,
+    onMove,
+    first,
+    last,
+    grip,
     projectId,
 }: {
     section: TaskSection | { id: "ungrouped"; name: string };
@@ -61,6 +67,11 @@ function KanbanColumn({
     onSelectTask?: (id: string) => void;
     onRename?: (name: string) => void;
     onDelete?: () => void;
+    onMove?: (by: -1 | 1) => void;
+    first?: boolean;
+    last?: boolean;
+    /** The column's drag grip (sections only). */
+    grip?: React.ReactNode;
     projectId?: string | null;
 }) {
     const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
@@ -90,6 +101,7 @@ function KanbanColumn({
                 ) : (
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
+                            {grip}
                             <h3 className="truncate font-display text-base font-semibold text-twilight-text">
                                 {section.name}
                             </h3>
@@ -113,16 +125,21 @@ function KanbanColumn({
                                 </button>
                             </DropdownMenu.Trigger>
                             <DropdownMenu.Content align="end" sideOffset={4}>
-                                {section.id !== "ungrouped" && (<>
                                 <DropdownMenu.Item onClick={() => setIsRenaming(true)}>
-                                    <Pencil size={14} className="text-twilight-text-muted mr-2 shrink-0" />
+                                    <Pencil size={14} className="text-twilight-text-muted shrink-0" />
                                     Rename
                                 </DropdownMenu.Item>
+                                <DropdownMenu.Item disabled={first} onSelect={() => onMove?.(-1)}>
+                                    <ArrowLeft size={14} className="text-twilight-text-muted shrink-0" />
+                                    Move left
+                                </DropdownMenu.Item>
+                                <DropdownMenu.Item disabled={last} onSelect={() => onMove?.(1)}>
+                                    <ArrowRight size={14} className="text-twilight-text-muted shrink-0" />
+                                    Move right
+                                </DropdownMenu.Item>
                                 <DropdownMenu.Separator />
-                                </>
-                                )}
                                 <DropdownMenu.Item onClick={onDelete} className="text-red-400 focus:text-red-400">
-                                    <Trash2 size={14} className="mr-2 shrink-0" />
+                                    <Trash2 size={14} className="shrink-0" />
                                     Delete
                                 </DropdownMenu.Item>
                             </DropdownMenu.Content>
@@ -202,6 +219,7 @@ export function KanbanBoard({
     const createSection = useCreateSection(projectId);
     const updateSection = useUpdateSection(projectId);
     const deleteSection = useDeleteSection(projectId);
+    const reorder = useSectionReorder(projectId, sections);
     const updateTask = useUpdateTask();
 
     const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -231,8 +249,14 @@ export function KanbanBoard({
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-        useSensor(KeyboardSensor),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
     );
+    // A column drag only meets other columns; a card drag never meets one.
+    const collision: CollisionDetection = (args) => {
+        const isColumn = args.active.data.current?.type === SECTION_SORT;
+        const containers = args.droppableContainers.filter((c) => (c.data.current?.type === SECTION_SORT) === isColumn);
+        return (isColumn ? closestCenter : closestCorners)({ ...args, droppableContainers: containers });
+    };
 
     const { ungroupedTasks, sectionTaskMap } = useMemo(() => groupTasksBySection(tasks), [tasks]);
 
@@ -272,6 +296,11 @@ export function KanbanBoard({
         setActiveTask(null);
         const { active, over } = e;
         if (!over || active.id === over.id) return;
+
+        if (active.data.current?.type === SECTION_SORT) {
+            reorder.moveTo(String(active.data.current.sectionId), sections.findIndex((s) => `section:${s.id}` === over.id));
+            return;
+        }
 
         const taskId = active.id as string;
         const overData = over.data.current;
@@ -329,6 +358,18 @@ export function KanbanBoard({
         }
     };
 
+    const columnProps = (column: (typeof visibleColumns)[number]) => ({
+        section: column.section,
+        tasks: column.tasks,
+        subtasksByTaskId,
+        tagsByTaskId,
+        selectedTaskId,
+        projectId,
+        onSelectTask,
+        onRename: column.id === "ungrouped" ? undefined : (name: string) => updateSection.mutate({ id: column.id, name }),
+        onDelete: column.id === "ungrouped" ? undefined : () => deleteSection.mutate({ id: column.id, name: column.section.name }),
+    });
+
     const handleCreateColumn = () => {
         const name = newColumnName.trim();
         if (!name) return;
@@ -381,7 +422,7 @@ export function KanbanBoard({
     return (
         <DndContext
             sensors={sensors}
-            collisionDetection={closestCorners}
+            collisionDetection={collision}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
@@ -394,22 +435,27 @@ export function KanbanBoard({
                 onPointerCancel={dragScroll.onPointerCancel}
             >
                 <div className={`flex h-full min-h-full items-stretch gap-4 ${desktopCanvasPaddingClassName}`.trim()}>
-                {/* Unsectioned column first; only section columns can be renamed or deleted */}
-                {[...visibleColumns.filter((column) => column.id === "ungrouped"), ...visibleColumns.filter((column) => column.id !== "ungrouped")].map((column) => (
+                {/* Unsectioned column first; only section columns can be renamed, moved or deleted */}
+                {visibleColumns.filter((column) => column.id === "ungrouped").map((column) => (
                     <div key={column.id} className="w-[min(24rem,80vw)] shrink-0">
-                        <KanbanColumn
-                            section={column.section}
-                            tasks={column.tasks}
-                            subtasksByTaskId={subtasksByTaskId}
-                            tagsByTaskId={tagsByTaskId}
-                            selectedTaskId={selectedTaskId}
-                            projectId={projectId}
-                            onSelectTask={onSelectTask}
-                            onRename={column.id === "ungrouped" ? undefined : (name) => updateSection.mutate({ id: column.id, name })}
-                            onDelete={column.id === "ungrouped" ? undefined : () => deleteSection.mutate({ id: column.id, name: column.section.name })}
-                        />
+                        <KanbanColumn {...columnProps(column)} />
                     </div>
                 ))}
+                <SortableContext items={sections.map((s) => `section:${s.id}`)} strategy={horizontalListSortingStrategy}>
+                    {visibleColumns.filter((column) => column.id !== "ungrouped").map((column, index, columns) => (
+                        <SortableSection key={column.id} id={column.id} name={column.name} className="w-[min(24rem,80vw)] shrink-0">
+                            {(grip) => (
+                                <KanbanColumn
+                                    {...columnProps(column)}
+                                    grip={grip}
+                                    onMove={(by) => reorder.move(column.id, by)}
+                                    first={index === 0}
+                                    last={index === columns.length - 1}
+                                />
+                            )}
+                        </SortableSection>
+                    ))}
+                </SortableContext>
 
                 {/* Add column button */}
                 <div ref={addColumnRef} className="w-[min(20rem,70vw)] shrink-0">

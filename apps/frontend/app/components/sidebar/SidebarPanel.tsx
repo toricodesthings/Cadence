@@ -16,6 +16,7 @@ import { SearchField, SearchTrigger } from "../primitives/SearchField";
 import { TagBubble } from "./TagBubble";
 import { CreateTagInline } from "./CreateTagInline";
 import { useTags } from "../../hooks/tags/use-tags";
+import { useTagReorder } from "../../hooks/tags/use-tag-reorder";
 import { useTagFilterStore } from "../../stores/tag-filter-store";
 import { useSettings } from "../../hooks/core/use-settings";
 
@@ -35,6 +36,7 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
     }, [listTasks]);
     const { count: captureCount, isLoading: captureLoading } = useCaptureFeed();
     const { data: tags = [], isLoading: tagsLoading } = useTags();
+    const tagOrder = useTagReorder(tags);
     const { activeTagId, setActiveTag } = useTagFilterStore();
     const { data: userSettings } = useSettings();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -134,7 +136,7 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                             <button
                                 type="button"
                                 onClick={() => setListsOpen(!listsOpen)}
-                                className="text-[12px] font-semibold text-twilight-text-muted uppercase tracking-[0.12em] hover:text-twilight-text-soft transition-colors cursor-pointer"
+                                className="shrink-0 text-[12px] font-semibold text-twilight-text-muted uppercase tracking-[0.12em] hover:text-twilight-text-soft transition-colors cursor-pointer"
                                 aria-expanded={listsOpen}
                                 aria-controls="projects-list"
                             >
@@ -175,7 +177,7 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
 
                     {/* Tags */}
                     <div>
-                        <div className="flex items-center justify-between px-3 mb-2">
+                        <div className="flex items-center gap-2 px-3 mb-2">
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -186,36 +188,41 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                             >
                                 Tags
                             </Button>
+                            {tagsOpen && tags.length > 5 ? (
+                                <SearchField
+                                    size="sm"
+                                    value={tagSearch}
+                                    onValueChange={setTagSearch}
+                                    placeholder="Search"
+                                    aria-label="Search tags"
+                                    onKeyDown={(e) => { if (e.key === "Escape" && tagSearch) { e.stopPropagation(); setTagSearch(""); } }}
+                                    className="min-w-0 flex-1 rounded-lg"
+                                />
+                            ) : <span className="flex-1" aria-hidden="true" />}
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => setShowCreateTag(true)}
                                 aria-label="Create tag"
-                                className="rounded-2xl text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text"
+                                className="shrink-0 rounded-2xl text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text"
                             >
                                 <Plus size={16} />
                             </Button>
                         </div>
                         <Reveal open={tagsOpen} id="tags-list">
-                            {/* Mini search */}
-                            {tags.length > 5 && (
-                                <div className="px-3 mb-2">
-                                    <SearchField
-                                        size="sm"
-                                        value={tagSearch}
-                                        onValueChange={setTagSearch}
-                                        placeholder="Search tags"
-                                        aria-label="Search tags"
-                                        className="rounded-lg"
-                                    />
-                                </div>
-                            )}
                             {/* Tag bubbles */}
                             <div className="flex min-w-0 flex-wrap gap-2 px-3">
-                                {filteredTags.map(tag => (
+                                {filteredTags.map((tag, index) => (
                                     <TagBubble
                                         key={tag.id}
                                         tag={tag}
+                                        // Positions in a filtered list are ambiguous, so searching turns reordering off.
+                                        reorder={tagSearch ? undefined : {
+                                            first: index === 0,
+                                            last: index === tags.length - 1,
+                                            onMove: (by) => tagOrder.move(tag.id, by),
+                                            onDropNear: (draggedId, side) => tagOrder.dropNear(draggedId, tag.id, side),
+                                        }}
                                         isActive={activeTagId === tag.id}
                                         onClick={() => handleToggleTag(tag.id)}
                                     />

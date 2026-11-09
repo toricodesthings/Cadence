@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Check, Pencil, Trash2, Columns3 } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Pencil, Trash2, Columns3 } from "lucide-react";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { Composer } from "../shared/Composer";
 import { useTaskComposer, tasksIn, UNSECTIONED_ID } from "./TaskComposer";
 import { Tip } from "../primitives/Tooltip";
 import { Button } from "../primitives/Button";
 import { useSections, useCreateSection, useUpdateSection, useDeleteSection } from "../../hooks/sections/use-sections";
+import { useSectionReorder } from "../../hooks/sections/use-section-reorder";
 import type { TaskSection } from "@cadence/contracts/section";
 import type { Task } from "@cadence/contracts/task";
 
@@ -46,13 +47,16 @@ export function ProjectTaskSheet({ open, onClose, projectId, projectName, tasks,
     return <Composer open={open} onClose={() => { reset(); onClose(); }} {...draft} />;
 }
 
-function SectionRow({ section, count, editing, onEditingChange, onRename, onDelete }: {
+function SectionRow({ section, count, editing, onEditingChange, onRename, onDelete, onMove, first, last }: {
     section: TaskSection;
     count: number;
     editing: boolean;
     onEditingChange: (editing: boolean) => void;
     onRename: (name: string) => void;
     onDelete: () => void;
+    onMove: (by: -1 | 1) => void;
+    first: boolean;
+    last: boolean;
 }) {
     return (
         <li className="flex min-h-14 items-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] pl-4 pr-1">
@@ -68,6 +72,12 @@ function SectionRow({ section, count, editing, onEditingChange, onRename, onDele
                 <>
                     <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-twilight-text">{section.name}</span>
                     <span className="text-[12px] tabular-nums text-twilight-text-soft/90">{count}</span>
+                    <Tip label="Move up"><button type="button" disabled={first} onClick={() => onMove(-1)} className="mobile-icon-button disabled:opacity-30" aria-label={`Move ${section.name} up`}>
+                        <ArrowUp size={16} aria-hidden="true" />
+                    </button></Tip>
+                    <Tip label="Move down"><button type="button" disabled={last} onClick={() => onMove(1)} className="mobile-icon-button disabled:opacity-30" aria-label={`Move ${section.name} down`}>
+                        <ArrowDown size={16} aria-hidden="true" />
+                    </button></Tip>
                     <Tip label="Rename section"><button type="button" onClick={() => onEditingChange(true)} className="mobile-icon-button" aria-label={`Rename ${section.name}`}>
                         <Pencil size={16} aria-hidden="true" />
                     </button></Tip>
@@ -116,6 +126,7 @@ export function ProjectSectionsSheet({ open, onClose, projectId, tasks, focus }:
     const createSection = useCreateSection(projectId);
     const updateSection = useUpdateSection(projectId);
     const deleteSection = useDeleteSection(projectId);
+    const reorder = useSectionReorder(projectId, sections);
     const [newName, setNewName] = useState("");
     const [editingId, setEditingId] = useState<string | null>(null);
     const [wasOpen, setWasOpen] = useState(false);
@@ -156,9 +167,12 @@ export function ProjectSectionsSheet({ open, onClose, projectId, tasks, focus }:
             >
                 {sections.length > 0 ? (
                     <ul className="flex flex-col gap-2 pt-3">
-                        {sections.map((section) => (
+                        {sections.map((section, index) => (
                             <SectionRow
                                 key={section.id}
+                                onMove={(by) => reorder.move(section.id, by)}
+                                first={index === 0}
+                                last={index === sections.length - 1}
                                 section={section}
                                 count={tasksIn(tasks, section.id).length}
                                 editing={editingId === section.id}

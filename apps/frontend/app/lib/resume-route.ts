@@ -27,3 +27,13 @@ export function forgetRoute(): void {
  * back/forward), so links, notification targets, sign-in returns and a tab never move.
  */
 export const RESUME_ROUTE_SCRIPT = `(function(){try{var l=location,e=performance.getEntriesByType&&performance.getEntriesByType('navigation')[0];if(l.pathname!=='/'||l.search||l.hash||document.referrer||(e&&e.type!=='navigate'))return;if(!(navigator.standalone===true||matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches))return;var s=JSON.parse(localStorage.getItem(${JSON.stringify(RESUME_ROUTE_KEY)})||'null');if(s&&typeof s.path==='string'&&${RESUMABLE}.test(s.path)&&Date.now()-s.at<${RESUME_FOR_MS})history.replaceState(null,'',s.path)}catch(x){}})()`;
+
+/** The last real screen shown outside the Weekly Reset (memory only), so leaving the reset can go back to it. */
+let lastWorkspacePath: string | null = null;
+
+export const noteWorkspacePath = (pathname: string, search: string): void => {
+    if (pathname !== "/weekly-review" && RESUMABLE.test(pathname)) lastWorkspacePath = pathname + search;
+};
+
+/** Where leaving the Weekly Reset goes: where the person was, or Today after a reload or a direct launch. */
+export const returnPath = (): string => lastWorkspacePath ?? "/today";

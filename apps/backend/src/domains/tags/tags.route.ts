@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, and } from "drizzle-orm";
+import { asc, eq, and } from "drizzle-orm";
 import { getIdempotencyKey } from "../../platform/idempotency";
 import { withCallerRls } from "../../platform/caller-rls";
 import { tags } from "../../db/schema";
@@ -46,7 +46,7 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 .select()
                 .from(tags)
                 .where(eq(tags.userId, userId))
-                .orderBy(tags.name),
+                .orderBy(asc(tags.sortOrder), asc(tags.name)),
         );
 
         return c.json({ data: userTags });

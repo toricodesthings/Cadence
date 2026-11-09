@@ -32,7 +32,7 @@ import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { HEADER_ICON_BUTTON, HEADER_SELECT_TRIGGER, PageHeader, PhonePageHeader } from "../components/layout/PageHeader";
 import { PeriodDock, PeriodNav, PeriodTodayPill } from "../components/layout/PeriodNav";
 import { LayoutScaleMenuRow } from "../components/layout/LayoutScaleMenu";
-import { useDeviceValue } from "../hooks/ui/use-device-flag";
+import { useUrlState } from "../hooks/ui/use-url-state";
 
 const HABITS_ACCENT = "var(--accent-nav-habits, var(--accent-primary))";
 const NAV_BUTTON = "btn-icon cursor-pointer rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text";
@@ -80,14 +80,14 @@ function RoutinesMenu({ phone, display, onDisplayChange, show, onShowChange, sor
                 <DropdownMenu.Separator />
                 <div className={MENU_LABEL}><ArrowUpDown size={11} aria-hidden="true" />Sort by</div>
                 {ROUTINE_SORTS.map(({ value, label, icon: Icon }) => (
-                    <DropdownMenu.Item key={value} onSelect={() => onSortChange(value)} className="flex items-center gap-2">
+                    <DropdownMenu.Item key={value} onSelect={() => onSortChange(value)}>
                         <Icon size={14} aria-hidden="true" />
                         <span className="flex-1">{label}</span>
                         {sort === value ? <Check size={14} className="text-accent-primary" aria-hidden="true" /> : null}
                     </DropdownMenu.Item>
                 ))}
                 <DropdownMenu.Separator />
-                <DropdownMenu.Item onSelect={(event) => { event.preventDefault(); onStreaksChange(!streaks); }} role="menuitemcheckbox" aria-checked={streaks} className="flex items-center gap-2">
+                <DropdownMenu.Item onSelect={(event) => { event.preventDefault(); onStreaksChange(!streaks); }} role="menuitemcheckbox" aria-checked={streaks}>
                     <Flame size={14} aria-hidden="true" />
                     <span className="flex-1">Show streaks</span>
                     <Switch checked={streaks} tabIndex={-1} aria-hidden="true" className="pointer-events-none" />
@@ -181,7 +181,7 @@ function RoutinesFloating({ shell, periodWord, isCurrentPeriod, reducedMotion, o
     );
 }
 
-const routineSortOf = (saved: unknown): RoutineSort => ROUTINE_SORTS.find((option) => option.value === saved)?.value ?? "created";
+const parseRoutineSort = (raw: string | null): RoutineSort | null => ROUTINE_SORTS.find((option) => option.value === raw)?.value ?? null;
 
 /** On a desktop week the grid's today column already is today's check-in, so the band shows only where today is scattered (month cards, phone cards). */
 const showsTodayBand = (viewMode: ViewMode, displayMode: DisplayMode, compact: boolean) => viewMode === "active" && (displayMode === "month" || compact);
@@ -371,8 +371,7 @@ export default function Routines() {
     // doesn't render Monday-first and then jump once settings load.
     const { settings, updateSettings, weekStartsOn, showStreaks, reducedMotion, bloom } = useRoutineSettings();
     // The order is this device's own (a drag still saves the Custom order itself to the account).
-    const [savedSort, setRoutineSort] = useDeviceValue("cadence:routines:sort");
-    const routineSort = routineSortOf(savedSort);
+    const [routineSort, setRoutineSort] = useUrlState<RoutineSort>("sort", { parse: parseRoutineSort, fallback: "created", deviceKey: "cadence:routines:sort" });
 
     const periodYear = Number(currentDate.slice(0, 4));
     const periodMonth = Number(currentDate.slice(5, 7)) - 1;

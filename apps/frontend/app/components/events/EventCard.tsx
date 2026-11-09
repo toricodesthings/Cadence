@@ -1,5 +1,6 @@
 import { Bell, BellOff, Trash2, Calendar, Pencil } from "lucide-react";
 import * as ContextMenu from "../primitives/ContextMenu";
+import { EventMenuItems } from "./EventMenuItems";
 import { Button } from "../primitives/Button";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import type { PersonalEvent } from "../../types/settings";
@@ -121,26 +122,7 @@ export function EventCard({
         </div>
             </ContextMenu.Trigger>
             <ContextMenu.Content>
-                <ContextMenu.Item onSelect={() => onEdit(item.event)}>
-                    <Pencil size={14} aria-hidden="true" />
-                    Edit event
-                </ContextMenu.Item>
-                <ContextMenu.Item onSelect={() => onOpenInSchedule(item.event)}>
-                    <Calendar size={14} aria-hidden="true" />
-                    Open in schedule
-                </ContextMenu.Item>
-                <ContextMenu.Item onSelect={() => onToggleReminder(item.event)}>
-                    {item.event.notify ? <BellOff size={14} aria-hidden="true" /> : <Bell size={14} aria-hidden="true" />}
-                    {item.event.notify ? "Disable reminder" : "Enable reminder"}
-                </ContextMenu.Item>
-                <ContextMenu.Separator />
-                <ContextMenu.Item
-                    className="text-red-400 focus:text-red-400 focus:bg-red-500/10"
-                    onSelect={() => onDelete(item.event)}
-                >
-                    <Trash2 size={14} aria-hidden="true" />
-                    Delete event
-                </ContextMenu.Item>
+                <EventMenuItems Menu={ContextMenu} event={item.event} onEdit={onEdit} onOpenInSchedule={onOpenInSchedule} onToggleReminder={onToggleReminder} onDelete={onDelete} />
             </ContextMenu.Content>
         </ContextMenu.Root>
     );

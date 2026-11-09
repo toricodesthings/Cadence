@@ -8,6 +8,8 @@ export const insertTagSchema = z.object({
     id: z.uuid().optional(),
     name: z.string().min(1).max(100),
     color: z.string().max(50).optional(),
+    /** Place among the person's tags; a new tag without one goes last. */
+    sortOrder: z.number().optional(),
 });
 export type InsertTag = z.infer<typeof insertTagSchema>;
 
@@ -23,6 +25,7 @@ export const tagRowSchema = z.object({
     userId: z.uuid(),
     name: z.string(),
     color: z.string().nullable(),
+    sortOrder: z.number(),
     createdAt: instantSchema,
 });
 export type TagRow = z.infer<typeof tagRowSchema>;

@@ -164,12 +164,12 @@ export function ConversationListItem({
                     </DropdownMenu.Trigger>
                 </Tip>
                 <DropdownMenu.Content align="end" className="min-w-[160px]">
-                    <DropdownMenu.Item onSelect={() => setEditing(true)} className="gap-2 text-[14px]">
+                    <DropdownMenu.Item onSelect={() => setEditing(true)} className="text-[14px]">
                         <Pencil size={14} />
                         Rename
                     </DropdownMenu.Item>
                     {onToggleLearn ? (
-                        <DropdownMenu.Item onSelect={() => onToggleLearn(!conversation.learn)} className="gap-2 text-[14px]">
+                        <DropdownMenu.Item onSelect={() => onToggleLearn(!conversation.learn)} className="text-[14px]">
                             {conversation.learn ? <EyeOff size={14} /> : <Brain size={14} />}
                             {conversation.learn ? "Don’t learn from this chat" : "Learn from this chat"}
                         </DropdownMenu.Item>
@@ -178,7 +178,7 @@ export function ConversationListItem({
                     <DropdownMenu.Item
                         variant="danger"
                         onSelect={() => onDelete()}
-                        className="gap-2 text-[14px]"
+                        className="text-[14px]"
                     >
                         <Trash2 size={14} />
                         Delete

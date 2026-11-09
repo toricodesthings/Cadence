@@ -143,11 +143,11 @@ export default function TagView() {
                             </DropdownMenu.Trigger>
                         </Tip>
                         <DropdownMenu.Content align="end" className="w-52">
-                            <DropdownMenu.Item className="flex min-h-11 items-center gap-2" onSelect={openEdit}>
+                            <DropdownMenu.Item className="min-h-11" onSelect={openEdit}>
                                 <Pencil size={15} aria-hidden="true" /> Rename or recolour
                             </DropdownMenu.Item>
                             <DropdownMenu.Separator />
-                            <DropdownMenu.Item variant="danger" className="flex min-h-11 items-center gap-2" onSelect={handleDelete}>
+                            <DropdownMenu.Item variant="danger" className="min-h-11" onSelect={handleDelete}>
                                 <Trash2 size={15} aria-hidden="true" /> Delete tag
                             </DropdownMenu.Item>
                             <LayoutScaleMenuRow />

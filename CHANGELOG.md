@@ -6,6 +6,25 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Right-click a tag to change its colour.
+- Drag tags in the sidebar to put them in your own order.
+- Drag sections to reorder them in List and Board, or use Move in their menu.
+- Rename a subtask right on its row by tapping its name.
+- In the browser, sort and filters now show in the address, so you can bookmark or share a view.
+
+### Changed
+
+- Tags the assistant creates now get their own colour instead of plain grey.
+- Leaving or finishing the Weekly Reset takes you back to where you were.
+- The tag search sits beside the Tags heading in the sidebar.
+
+### Fixed
+
+- Menu icons no longer crowd their labels.
+- Menus and dropdowns open faster, especially on phones.
+
 ## [0.40.3] - 2026-11-06
 
 ### Fixed

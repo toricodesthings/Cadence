@@ -75,7 +75,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                     </DropdownMenu.Trigger>
                     <DropdownMenu.Content align="end" side="right">
                         <DropdownMenu.Item
-                            className="flex items-center gap-2 text-[13px]"
+                            className="text-[13px]"
                             onSelect={openRename}
                         >
                             <Pencil size={12} aria-hidden="true" />
@@ -83,7 +83,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                         </DropdownMenu.Item>
                         <DropdownMenu.Separator />
                         <DropdownMenu.Item
-                            className="flex items-center gap-2 text-[13px] text-red-400 focus:text-red-400 focus:bg-red-500/10"
+                            className="text-[13px] text-red-400 focus:text-red-400 focus:bg-red-500/10"
                             onSelect={handleDelete}
                         >
                             <Trash2 size={12} aria-hidden="true" />

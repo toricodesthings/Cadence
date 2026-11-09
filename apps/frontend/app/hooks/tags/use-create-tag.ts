@@ -32,6 +32,7 @@ export function useCreateTag() {
                 userId: "",
                 name: input.name,
                 color: input.color ?? "default",
+                sortOrder: input.sortOrder ?? Math.max(0, ...(queryClient.getQueryData<Tag[]>(queryKeys.tags.all) ?? []).map((t) => t.sortOrder)) + 1000,
                 createdAt: new Date().toISOString(),
             };
 

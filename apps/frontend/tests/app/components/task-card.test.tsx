@@ -26,6 +26,7 @@ vi.mock("../../../app/hooks/tasks/use-subtasks", () => ({
     useCreateSubtask: () => ({ mutate: vi.fn() }),
     useDeleteSubtask: () => ({ mutate: vi.fn() }),
     useReorderSubtasks: () => ({ mutate: vi.fn() }),
+    useUpdateSubtask: () => ({ mutate: vi.fn() }),
 }));
 
 vi.mock("../../../app/stores/task-selection-store", () => ({

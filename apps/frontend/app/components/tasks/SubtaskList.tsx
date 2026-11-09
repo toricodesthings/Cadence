@@ -17,6 +17,30 @@ interface EditableSubtaskRowProps<T extends EditableItem> extends SortableSubtas
     deleteLabel?: string;
 }
 
+/**
+ * A title being edited: trimmed on commit, an empty one restores the old title, and nothing is written when
+ * it's unchanged. Cancel drops the draft; the blur that follows must not write it back.
+ */
+export function useTitleDraft(title: string, onCommit: (next: string) => void) {
+    const [value, setValue] = useState(title);
+    const cancelled = useRef(false);
+    useEffect(() => setValue(title), [title]);
+    const commit = () => {
+        if (cancelled.current) {
+            cancelled.current = false;
+            return;
+        }
+        const next = value.trim() || title;
+        setValue(next);
+        if (next !== title) onCommit(next);
+    };
+    const cancel = () => {
+        cancelled.current = true;
+        setValue(title);
+    };
+    return { value, setValue, commit, cancel };
+}
+
 /** An editable, draggable title row; subtasks and routine steps share it. */
 export function EditableSubtaskRow<T extends EditableItem>({
     subtask,
@@ -27,13 +51,7 @@ export function EditableSubtaskRow<T extends EditableItem>({
     leading,
     deleteLabel = "Delete subtask",
 }: EditableSubtaskRowProps<T>) {
-    const [editingTitle, setEditingTitle] = useState(subtask.title);
-
-    const handleBlur = () => {
-        if (editingTitle.trim() !== subtask.title) {
-            onTitleChange(subtask.id, editingTitle.trim() || subtask.title);
-        }
-    };
+    const draft = useTitleDraft(subtask.title, (next) => onTitleChange(subtask.id, next));
 
     return (
         <motion.div
@@ -55,10 +73,13 @@ export function EditableSubtaskRow<T extends EditableItem>({
 
             <input
                 type="text"
-                value={editingTitle}
-                onChange={(e) => setEditingTitle(e.target.value)}
-                onBlur={handleBlur}
-                onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                value={draft.value}
+                onChange={(e) => draft.setValue(e.target.value)}
+                onBlur={draft.commit}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                    if (e.key === "Escape") { draft.cancel(); e.currentTarget.blur(); }
+                }}
                 className={`flex-1 min-w-0 bg-transparent outline-none text-[14px] leading-6 transition-all duration-300 ${
                     subtask.isComplete ? "text-twilight-text-muted/50 line-through" : "text-twilight-text"
                 }`}

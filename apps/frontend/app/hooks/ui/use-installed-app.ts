@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router";
-import { rememberRoute } from "../../lib/resume-route";
+import { noteWorkspacePath, rememberRoute } from "../../lib/resume-route";
 import { isInstalledApp, keepAppStorage, syncAppBadge } from "../../platform/installed-app";
 
 /**
@@ -9,7 +9,10 @@ import { isInstalledApp, keepAppStorage, syncAppBadge } from "../../platform/ins
  * once to keep its storage.
  */
 export function useInstalledApp(unreadCount: number) {
-    const { pathname } = useLocation();
+    const { pathname, search } = useLocation();
+
+    // Tabs need this too, so it comes before the installed-app gate below.
+    useEffect(() => noteWorkspacePath(pathname, search), [pathname, search]);
 
     useEffect(() => {
         if (!isInstalledApp()) return;

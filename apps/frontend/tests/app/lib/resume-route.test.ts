@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RESUME_FOR_MS, RESUME_ROUTE_KEY, RESUME_ROUTE_SCRIPT, forgetRoute, rememberRoute } from "../../../app/lib/resume-route";
+import { RESUME_FOR_MS, RESUME_ROUTE_KEY, RESUME_ROUTE_SCRIPT, forgetRoute, noteWorkspacePath, rememberRoute, returnPath } from "../../../app/lib/resume-route";
 
 const installed = (standalone: boolean) => vi.stubGlobal("matchMedia", (query: string) => ({ matches: standalone && query.includes("standalone") }));
 
@@ -54,5 +54,15 @@ describe("resume route", () => {
             localStorage.setItem(RESUME_ROUTE_KEY, saved);
             expect(launch("/")).toBe("/");
         }
+    });
+});
+
+describe("return from the Weekly Reset", () => {
+    it("goes to Today until a screen has been noted, then back to the last one", () => {
+        expect(returnPath()).toBe("/today");
+        noteWorkspacePath("/project/x", "?view=board");
+        noteWorkspacePath("/weekly-review", "");
+        noteWorkspacePath("/auth/callback", "");
+        expect(returnPath()).toBe("/project/x?view=board");
     });
 });

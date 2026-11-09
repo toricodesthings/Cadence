@@ -52,7 +52,7 @@ type ChoiceRowProps = { icon: LucideIcon; label: string; checked: boolean; onSel
 /** A checkable menu row; the chosen one carries the check. */
 function ChoiceRow({ icon: Icon, label, checked, onSelect }: ChoiceRowProps) {
     return (
-        <DropdownMenu.Item onSelect={onSelect} className="flex items-center gap-2">
+        <DropdownMenu.Item onSelect={onSelect}>
             <Icon size={14} aria-hidden="true" />
             <span className="flex-1">{label}</span>
             {checked ? <Check size={14} className="text-accent-primary" aria-hidden="true" /> : null}

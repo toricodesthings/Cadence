@@ -65,7 +65,6 @@ export function SortMenu({ mode, onModeChange, view, onViewChange, actions = [] 
                             <DropdownMenu.Item
                                 key={value}
                                 onSelect={() => onModeChange(value)}
-                                className="flex items-center gap-2"
                             >
                                 <Icon size={14} aria-hidden="true" />
                                 <span className="flex-1">{label}</span>

@@ -257,6 +257,8 @@ export const tags = pgTable("tags", {
     userId: ownerId(),
     name: text("name").notNull(),
     color: text("color").default("default"),
+    /** The person's own order of their tags (sidebar, pickers); new tags go last. */
+    sortOrder: doublePrecision("sort_order").notNull().default(0),
     createdAt: createdAt(),
 }, (table) => ({
     userIdIdx: index("tags_user_id_idx").on(table.userId),
