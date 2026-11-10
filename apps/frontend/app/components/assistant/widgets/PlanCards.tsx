@@ -10,7 +10,7 @@ import { useTask } from "../../../hooks/tasks/use-tasks";
 import { useUpdateTask } from "../../../hooks/tasks/use-update-task";
 import { useOnlineStatus } from "../../../hooks/core/use-online-status";
 import { temporalOf } from "../../../lib/utils/calendar/schedule-model";
-import { formatChipTime } from "../../../lib/utils/date-format";
+import { formatChipTime, formatWeekdayLong } from "../../../lib/utils/date-format";
 import { toastError } from "../../../lib/utils/error-toast";
 import { toastName, toastUndo } from "../../../lib/utils/undo-toast";
 import { getUserZone, useToday } from "../../../lib/utils/user-zone";
@@ -22,7 +22,6 @@ const SETTLED = "mt-2 flex w-full items-center gap-1.5 rounded-xl border border-
 
 const toInstant = (zoned: string) => new Date(zoned).toISOString();
 
-type FitDayOutput = NonNullable<ToolRenderContext<"fit_day">["part"]["output"]>;
 type FindTimeOutput = NonNullable<ToolRenderContext<"find_time">["part"]["output"]>;
 
 /**
@@ -33,11 +32,17 @@ export function FitDayCard({ ctx }: { ctx: ToolRenderContext<"fit_day"> }) {
     const output = ctx.part.state === "output-available" ? ctx.part.output : undefined;
     // Running shows the read chip's spinner; a failure is explained in the assistant's own words.
     if (!output || output.ok !== true || !output.day) return null;
-    return <FitDayCardBody output={output} day={output.day} />;
+    // "Spread my week": one section per day, each placed on its own tap.
+    if ("days" in output && output.days) return <div className="flex flex-col gap-2">{output.days.map((plan) => <FitDayCardBody key={plan.day} output={plan} />)}</div>;
+    return <FitDayCardBody output={output as DayPlan} />;
 }
 
-function FitDayCardBody({ output, day: planned }: { output: FitDayOutput; day: string }) {
+type DayPlan = { day: string; placed?: FitDayPlaced; didntFit?: { id: string; title: string }[]; notSized?: { id: string; title: string }[] };
+type FitDayPlaced = { id: string; title: string; start: string; end: string }[];
+
+function FitDayCardBody({ output }: { output: DayPlan }) {
     const today = useToday();
+    const planned = output.day;
     const stale = planned < today;
     const day = stale ? today : planned;
     const placedOut = output.placed ?? [];
@@ -63,7 +68,7 @@ function FitDayCardBody({ output, day: planned }: { output: FitDayOutput; day: s
     }
     return (
         <section className={FRAME} aria-label="Plan for the day">
-            <p className={EYEBROW}><CalendarRange size={12} aria-hidden="true" />Fit into {day === today ? "today’s" : "the day’s"} gaps</p>
+            <p className={EYEBROW}><CalendarRange size={12} aria-hidden="true" />Fit into {day === today ? "today’s" : `${formatWeekdayLong(day)}’s`} gaps</p>
             <FitDayPreview day={day} fit={fit} initial={initial} titles={titles} notice={stale ? "Your day changed" : undefined} onDone={(placed) => setState(placed ? "placed" : "closed")} />
         </section>
     );

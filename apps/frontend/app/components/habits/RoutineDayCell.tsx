@@ -49,6 +49,7 @@ export function RoutineDayCell({
     tabIndex,
     gridPosition,
     onEdit,
+    openRing = false,
 }: {
     habit: Pick<Habit, "id" | "title" | "emoji" | "colorAccent" | "pausedUntil" | "steps" | "times">;
     date: string;
@@ -65,6 +66,8 @@ export function RoutineDayCell({
     /** Row/column in a roving-focus grid. */
     gridPosition?: { row: number; col: number };
     onEdit?: () => void;
+    /** A look back (Weekly Reset): an open earlier day shows a soft ring in the routine's tone instead of resting as a dot. */
+    openRing?: boolean;
 }) {
     const { mutate: resolve } = useResolveHabit(habit.id);
     const { isTouch } = useShellMode();
@@ -152,7 +155,9 @@ export function RoutineDayCell({
                 ? "border-[1.5px] border-[color-mix(in_srgb,var(--routine-tone)_60%,transparent)] text-[var(--routine-tone)] hover:bg-[color-mix(in_srgb,var(--routine-tone)_10%,transparent)]"
                 : progress
                     ? "border border-[color-mix(in_srgb,var(--routine-tone)_35%,transparent)] text-twilight-text-soft hover:border-[color-mix(in_srgb,var(--routine-tone)_60%,transparent)]"
-                    : "border border-dashed border-transparent text-twilight-text-soft hover:border-twilight-text-muted focus-visible:border-twilight-text-muted";
+                    : openRing
+                        ? "border-[1.5px] border-[color-mix(in_srgb,var(--routine-tone)_28%,transparent)] text-twilight-text-soft hover:border-[color-mix(in_srgb,var(--routine-tone)_60%,transparent)] hover:bg-[color-mix(in_srgb,var(--routine-tone)_8%,transparent)]"
+                        : "border border-dashed border-transparent text-twilight-text-soft hover:border-twilight-text-muted focus-visible:border-twilight-text-muted";
 
     return (
         <Popover.Root open={menuOpen} onOpenChange={onMenuOpenChange}>
@@ -216,7 +221,7 @@ export function RoutineDayCell({
                         </>
                     ) : status === "COMPLETED" ? <Check size={size === "md" ? 18 : 13} strokeWidth={3} aria-hidden="true" />
                         : status === "SKIPPED" ? <X size={size === "md" ? 14 : 11} aria-hidden="true" />
-                            : label ?? progress ?? (isToday ? <RoutineMark emoji={habit.emoji} size={13} /> : <span aria-hidden="true" className="h-1 w-1 rounded-full bg-twilight-text-muted/70" />)}
+                            : label ?? progress ?? (isToday ? <RoutineMark emoji={habit.emoji} size={13} /> : openRing ? null : <span aria-hidden="true" className="h-1 w-1 rounded-full bg-twilight-text-muted/70" />)}
                 </button>
             </Popover.Anchor>
             <Popover.Content

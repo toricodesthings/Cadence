@@ -2639,16 +2639,9 @@ button.surface-control:not(:disabled):hover {
 /* ── Weekly Reset hero — gentle ambient life (§5 Motion: regulation, not
    celebration). Pure CSS so the in-app data-motion="reduced" rule and the OS
    prefers-reduced-motion query both collapse it to a static gradient. ── */
-@keyframes weeklyResetSway {
-    0% {
-        transform: rotate(-2deg);
-    }
-    50% {
-        transform: rotate(2deg);
-    }
-    100% {
-        transform: rotate(-2deg);
-    }
+@keyframes weekly-reset-sway {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
 }
 
 @keyframes weekly-reset-drift {
@@ -2659,7 +2652,7 @@ button.surface-control:not(:disabled):hover {
 }
 
 .weekly-reset-sway {
-  animation: weekly-reset-sway 7.5s var(--ease-in-out-quart) infinite;
+  animation: weekly-reset-sway 6s var(--ease-in-out-quart) infinite;
 }
 
 .weekly-reset-drift {

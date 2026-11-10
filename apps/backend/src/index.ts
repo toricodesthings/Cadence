@@ -11,6 +11,7 @@ import { taskRoutes } from "./domains/tasks/tasks.route";
 import { projectRoutes } from "./domains/projects/projects.route";
 import { inboxRoutes } from "./domains/inbox/inbox.route";
 import { searchRoutes } from "./domains/decisions/search.route";
+import { decisionRoutes } from "./domains/decisions/reset.route";
 import { healthRoutes } from "./domains/health/health.route";
 import { debugRoutes } from "./domains/debug/debug.route";
 import { tagRoutes } from "./domains/tags/tags.route";
@@ -194,6 +195,7 @@ const apiApp = app
   .route("/api/v1/debug", debugRoutes)
   .route("/api/v1/ai/images", aiImageRoutes)
   .route("/api/v1/ai/memory", memoryRoutes)
+  .route("/api/v1/ai/decisions", decisionRoutes)
   .route("/api/v1/ai", aiRoutes)
   .route("/api/v1/connections", connectionRoutes)
   .route("/api/v1/account", accountRoutes)

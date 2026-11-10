@@ -9,6 +9,7 @@ import { projectRoutes } from "../../src/domains/projects/projects.route";
 import { sectionRoutes } from "../../src/domains/sections/sections.route";
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
 import { searchRoutes } from "../../src/domains/decisions/search.route";
+import { decisionRoutes } from "../../src/domains/decisions/reset.route";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
 
 const env = { OPENROUTER_API_KEY: "k", AI_DECISION_MODEL: "vendor/model-20260101" };
@@ -230,5 +231,53 @@ describe("S2: did you mean", () => {
         const registry = buildToolRegistry(env as any, userId, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
         const result = await registry.get_tasks.execute({ query: "tenancy", state: "COMPLETE", limit: 20 }, { toolCallId: "t", messages: [] });
         expect(result.possibleMatch).toMatchObject({ id: task.id, title: "Renew lease" });
+    });
+});
+
+describe("Weekly Reset guesses (reset_disposition)", () => {
+    /** Every row's question answered with the option whose label contains `pick`. */
+    function modelAnswers(pick: string, p = 0.97) {
+        vi.stubGlobal("fetch", vi.fn(async (_url: string, init: { body: string }) => {
+            const body = JSON.parse(init.body);
+            sent.push(body);
+            const answers = Object.fromEntries(Object.entries(body.questions as Record<string, { criteria: Record<string, string> }>).map(([name, q]) => {
+                const key = Object.keys(q.criteria).find((k) => q.criteria[k].includes(pick)) ?? "none";
+                return [name, { type: "choice", choice: key, probabilities: { [key]: p } }];
+            }));
+            return new Response(JSON.stringify({ model: "vendor/model-20260101", answers, usage: { input_tokens: 50, cost: 0.00001 } }), { status: 200, headers: { "content-type": "application/json" } });
+        }));
+    }
+    const reset = () => apiAs(userId, "/ai/decisions", decisionRoutes, env);
+
+    it("answers only for the person's own rows, in one request, with no notes in the state", async () => {
+        const mine = (await tasks("POST", "", { title: "Renew passport", orderIndex: 1, notes: "secret note" })).body.data;
+        const other = await createUser();
+        const theirs = (await apiAs(other, "/tasks", taskRoutes, env)("POST", "", { title: "Not yours", orderIndex: 1 })).body.data;
+        modelAnswers("Next week");
+        const { status, body } = await reset()("POST", "/reset", { step: "loose_ends", ids: [mine.id, theirs.id] });
+        expect(status).toBe(200);
+        // Uncalibrated threshold 0.9: 0.97 clears it.
+        expect(body.data.suggestions).toEqual({ [mine.id]: "next_week" });
+        expect(sent).toHaveLength(1);
+        const wire = JSON.stringify(sent[0]);
+        expect(wire).not.toContain("Not yours");
+        expect(wire).not.toContain("secret note");
+        expect(wire).not.toContain(mine.id);
+    });
+
+    it("refuses more than 30 ids", async () => {
+        const ids = Array.from({ length: 31 }, () => crypto.randomUUID());
+        expect((await reset()("POST", "/reset", { step: "loose_ends", ids })).status).toBe(400);
+    });
+
+    it("returns nothing and calls no model with the switch off, or below the threshold", async () => {
+        const task = (await tasks("POST", "", { title: "Tidy desk", orderIndex: 1 })).body.data;
+        modelAnswers("Next week", 0.5);
+        expect((await reset()("POST", "/reset", { step: "loose_ends", ids: [task.id] })).body.data.suggestions).toEqual({});
+        sent = [];
+        await apiAs(userId, "/settings", (await import("../../src/domains/settings/settings.route")).settingsRoutes, env)("PATCH", "", { tasks: { intelligence: { smartPlacement: false } } });
+        modelAnswers("Next week");
+        expect((await reset()("POST", "/reset", { step: "loose_ends", ids: [task.id] })).body.data.suggestions).toEqual({});
+        expect(sent).toHaveLength(0);
     });
 });

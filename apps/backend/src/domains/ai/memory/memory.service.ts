@@ -1,6 +1,8 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { formatInZone, todayIn } from "@cadence/domain/time";
-import { aiMemorySignals, habits } from "../../../db/schema";
+import { aiMemories, aiMemorySignals, habits } from "../../../db/schema";
+import type { Tx } from "../../../types/db";
+import { usableBy } from "./memory-store";
 import { getDbClient } from "../../../platform/db";
 import { withRls } from "../../../platform/rls";
 import { userZone } from "../../../platform/user-zone";
@@ -62,3 +64,16 @@ export async function recordPersonActivity(env: Env, userId: string, activities:
 export { pruneRoutineReports } from "./duration";
 export { scheduleLearn } from "./queue";
 export { readMemoryState } from "./memory-mode";
+
+/**
+ * What the person said about how they plan (preferences and constraints), as one line for a decision model's state.
+ * Only what their memory mode may read (`usableBy`); empty with memory off.
+ */
+export async function planningSaid(tx: Tx, userId: string, maxChars: number): Promise<string> {
+    const { mode } = await readMemoryState(tx, userId);
+    if (!isLearning(mode)) return "";
+    const rows = await tx.select({ content: aiMemories.content }).from(aiMemories)
+        .where(and(usableBy(userId, mode), inArray(aiMemories.kind, ["preference", "constraint"])))
+        .orderBy(desc(aiMemories.pinned), desc(aiMemories.updatedAt)).limit(10);
+    return rows.map((m) => m.content).join(" · ").slice(0, maxChars);
+}

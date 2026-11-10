@@ -2,7 +2,7 @@
  * Prompt types shared by the block set (prompt-blocks.ts), the composer and
  * agent.ts. Keep names stable.
  */
-import type { ApprovalMode } from "@cadence/contracts/ai";
+import type { ApprovalMode, ChatSurface } from "@cadence/contracts/ai";
 import type { UserSettings } from "@cadence/contracts/settings";
 import type { ProfileLine } from "../memory/memory-store";
 
@@ -20,6 +20,10 @@ export interface PromptBlocks {
     customInstructions: string;
     environment: string;
     snapshot: string;
+    /** An embedded chat's own short instructions, per surface (per-turn, so the cached prefix stays shared). */
+    surfaces: Record<ChatSurface, string>;
+    /** The Weekly Reset's 7-day context, in place of the snapshot. */
+    weekAhead: string;
     /** Data-only templates: the policy is static in the system prompt, facts arrive as data. */
     memoryFacts: string;
     memoryFact: string;
@@ -51,6 +55,10 @@ export interface PromptRuntimeContext {
     persona: AssistantPersona;
     /** Today at a glance: the turn's opening reads as JSON (turn.ts `loadSnapshot`). User data, fenced. */
     snapshot?: string;
+    /** Where the chat is embedded (the Weekly Reset's closing chat). */
+    surface?: ChatSurface;
+    /** The week ahead as JSON (turn.ts `loadWeekAhead`), replacing the snapshot on the reset surface. User data, fenced. */
+    weekAhead?: string;
     /** The always-present memory profile (Basic or Full on). User text, fenced. */
     memories?: ProfileLine[];
     /** Memory exists but the person hasn't turned it on (off, or not chosen yet). */

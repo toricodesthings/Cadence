@@ -12,12 +12,14 @@ const updateTask = vi.fn();
 const deleteItem = vi.fn();
 vi.mock("../../../app/hooks/inbox/use-inbox", () => ({ useInbox: () => ({ data: [] }) }));
 vi.mock("../../../app/hooks/inbox/use-delete-inbox-item", () => ({ useDeleteInboxItem: () => ({ mutateAsync: deleteItem }) }));
+vi.mock("../../../app/hooks/inbox/use-update-inbox-item", () => ({ useUpdateInboxItem: () => ({ mutateAsync: vi.fn() }) }));
 vi.mock("../../../app/hooks/inbox/use-process-inbox-to-task", () => ({ useProcessInboxToTask: () => ({ mutateAsync: process }) }));
 vi.mock("../../../app/hooks/tasks/use-tasks", () => ({ useTasks: () => ({ data: [] }) }));
 vi.mock("../../../app/hooks/tasks/use-update-task", () => ({ useUpdateTask: () => ({ mutateAsync: updateTask }) }));
 vi.mock("../../../app/hooks/tasks/use-archive-task", () => ({ useArchiveTask: () => ({ mutateAsync: vi.fn() }) }));
 vi.mock("../../../app/hooks/tasks/use-apply-instruction", () => ({ useApplyInstruction: () => ({ apply: vi.fn() }) }));
-vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: () => ({ data: [] }) }));
+const habitsRange = vi.fn((_options: { start: string; end: string; enabled?: boolean }) => ({ data: [] as unknown[] }));
+vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: (options: { start: string; end: string; enabled?: boolean }) => habitsRange(options) }));
 vi.mock("../../../app/hooks/habits/use-pause-habit", () => ({ usePauseHabit: () => ({ pause: vi.fn() }) }));
 vi.mock("../../../app/hooks/projects/use-projects", () => ({ useProjects: () => ({ data: [] }) }));
 vi.mock("../../../app/hooks/tags/use-tags", () => ({ useTags: () => ({ data: [] }) }));
@@ -29,7 +31,7 @@ beforeEach(() => { vi.clearAllMocks(); process.mockResolvedValue({ id: "task-1" 
 
 describe("Weekly Reset capture placement", () => {
     it("places through the one transactional path: no second task, nothing deleted", async () => {
-        const { result } = renderHook(() => useWeeklyReviewActions(1));
+        const { result } = renderHook(() => useWeeklyReviewActions());
         await act(() => result.current.handleInboxAction(capture("Call Sam p2"), "today"));
         expect(process).toHaveBeenCalledTimes(1);
         expect(process.mock.calls[0][0]).toMatchObject({ inboxItemId: "cap-1", title: "Call Sam", dueDate: today(), priority: 3, nlp: { resolved: true } });
@@ -37,20 +39,20 @@ describe("Weekly Reset capture placement", () => {
     });
 
     it("keeps a day I chose over the day in the words, and cleans that phrase", async () => {
-        const { result } = renderHook(() => useWeeklyReviewActions(1));
+        const { result } = renderHook(() => useWeeklyReviewActions());
         await act(() => result.current.handleInboxAction(capture("Call Sam tomorrow"), "today"));
         expect(process.mock.calls[0][0]).toMatchObject({ title: "Call Sam", dueDate: today() });
     });
 
     it("keeps an earlier day's words literal: its 'tomorrow' is not today's", async () => {
         const old = new Date(Date.now() - 3 * 86_400_000).toISOString();
-        const { result } = renderHook(() => useWeeklyReviewActions(1));
+        const { result } = renderHook(() => useWeeklyReviewActions());
         await act(() => result.current.handleInboxAction(capture("Call Sam tomorrow", old), "today"));
         expect(process.mock.calls[0][0]).toMatchObject({ title: "Call Sam tomorrow", dueDate: today() });
     });
 
     it("decide-later places then waitlists the new task, never a delete", async () => {
-        const { result } = renderHook(() => useWeeklyReviewActions(1));
+        const { result } = renderHook(() => useWeeklyReviewActions());
         await act(() => result.current.handleInboxAction(capture("Maybe learn Rust"), "someday"));
         expect(process.mock.calls[0][0].dueDate).toBeNull();
         expect(updateTask).toHaveBeenCalledWith({ id: "task-1", state: "WAITING" });
@@ -58,9 +60,22 @@ describe("Weekly Reset capture placement", () => {
     });
 
     it("a typed change places a timed block with the estimate and a follow-up", async () => {
-        const { result } = renderHook(() => useWeeklyReviewActions(1));
+        const { result } = renderHook(() => useWeeklyReviewActions());
         await act(() => result.current.placeCapture(capture("Draft memo"), { patch: { scheduledStart: "2026-10-09T19:00:00.000Z", scheduledEnd: "2026-10-09T19:30:00.000Z", durationEstimate: 30, waitingReminder: "2026-10-13T13:00:00.000Z" } }));
         expect(process.mock.calls[0][0]).toMatchObject({ scheduledStart: "2026-10-09T19:00:00.000Z", durationEstimate: 30 });
         expect(updateTask).toHaveBeenCalledWith({ id: "task-1", waitingReminder: "2026-10-13T13:00:00.000Z" });
+    });
+});
+
+describe("Weekly Reset routines", () => {
+    it("reads the last 7 days of routines on every step, so the Routines step is never empty on a first visit", () => {
+        const day = today();
+        habitsRange.mockReturnValue({ data: [{ id: "h1", title: "Gym", archived: false, colorAccent: null, logs: [{ targetDate: day, status: "SKIPPED" }] }] });
+        const { result } = renderHook(() => useWeeklyReviewActions());
+        expect(habitsRange).toHaveBeenCalledWith(expect.objectContaining({ end: day }));
+        expect(habitsRange.mock.calls[0]![0].enabled).not.toBe(false);
+        expect(result.current.habitReviewItems).toHaveLength(1);
+        expect(result.current.habitReviewItems[0]).toMatchObject({ allSkipped: true });
+        expect(result.current.habitReviewItems[0]!.week).toHaveLength(7);
     });
 });

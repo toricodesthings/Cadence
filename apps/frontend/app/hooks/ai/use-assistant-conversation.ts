@@ -22,6 +22,8 @@ import { queryKeys } from "../../lib/api/query-keys";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { stopServerStream } from "../../lib/ai/stop-stream";
 import { log } from "../../lib/log";
+import { formatShortDateLabel } from "../../lib/utils/date-format";
+import { today } from "../../lib/utils/user-zone";
 
 // Locally seeded snapshots have only the metadata known before the first server read.
 type ConversationSnapshot = {
@@ -57,13 +59,16 @@ function trackTurnTiming(current: TurnTiming | null, status: ChatStatus, last: U
 }
 
 /** Owns the active chat session and its persisted/cross-tab lifecycle. */
-export function useAssistantConversation({ online, onNotice, clearAttachments, onTurnSubmitted }: {
+export function useAssistantConversation({ online, onNotice, clearAttachments, onTurnSubmitted, open: embeddedOpen }: {
     online: boolean;
+    /** Embedded outside the side panel (the Weekly Reset's chat): the thread loads while it's mounted. */
+    open?: boolean;
     onNotice: (notice: string | null) => void;
     clearAttachments: (discard: boolean) => void;
     onTurnSubmitted: () => void;
 }) {
-    const { assistantPanelOpen, activeConversationId, startNewConversation, setActiveConversation } = useAssistantStore();
+    const { assistantPanelOpen: panelOpen, activeConversationId, startNewConversation, setActiveConversation, surface } = useAssistantStore();
+    const assistantPanelOpen = embeddedOpen ?? panelOpen;
     const queryClient = useQueryClient();
     const client = useApiClient();
     const resumeLastChat = useSettings().data?.assistant?.resumeLastChat !== false;
@@ -142,7 +147,7 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
             const convId = conversationIdRef.current;
             if (convId) syncMessagesToCache(convId, finished);
             const store = useAssistantStore.getState();
-            if (document.hidden || !store.assistantPanelOpen) store.setReplyUnread(true);
+            if (document.hidden || (!store.assistantPanelOpen && !store.surface)) store.setReplyUnread(true);
         },
         // Transient title data updates the header and sidebar.
         onData: (part) => {
@@ -421,7 +426,8 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
         for (const a of readyImages) if (a.blob) queryClient.setQueryData(queryKeys.ai.image(a.imageId), a.blob);
         const convId = conversationIdRef.current;
         if (convId && isFreshThread && messages.length === 0) {
-            applyTitle(convId, deriveFallbackTitle(text, imageIds.length > 0));
+            // The reset's thread is named by its day (the server names it the same way, with no title model call).
+            applyTitle(convId, surface === "weekly_reset" ? `Weekly Reset · ${formatShortDateLabel(today())}` : deriveFallbackTitle(text, imageIds.length > 0));
         }
         const files = imageIds.map(imageFilePart);
         sendLocal(text ? { text, files } : { files });

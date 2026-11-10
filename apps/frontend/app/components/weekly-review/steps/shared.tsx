@@ -1,10 +1,13 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
-import { Button } from "../../primitives/Button";
 import { Tip } from "../../primitives";
-import { ArrowRight, Check, LoaderCircle, Pencil } from "lucide-react";
-import { motion } from "framer-motion";
+import { ArrowRight, Calendar, Check, LoaderCircle, MessageSquareText, Moon, Pencil, Sparkles, Sun, Sunrise, Trash2, X } from "lucide-react";
+import { addDays, type LocalDate } from "@cadence/domain/time";
+import type { ResetDisposition } from "@cadence/contracts/planning";
+import type { useWeekRoom } from "../../../hooks/core/use-week-room";
+import { formatWeekdayLong, formatWeekdayShort } from "../../../lib/utils/date-format";
+import { Reveal } from "../../shared/Reveal";
 import { useWeeklyReviewActions } from "../../../hooks/core/use-weekly-review-actions";
 import { InstructionField } from "../../weekly-review/InstructionField";
 import type { InstructionPatch } from "@cadence/domain/task-instruction";
@@ -19,6 +22,8 @@ export interface ReviewAction {
     icon: LucideIcon;
     onClick: () => Promise<void> | void;
     variant?: string;
+    /** The decision model's pick: shown as the primary with a small mark, never applied without the tap. */
+    guess?: boolean;
 }
 
 /** A row's subtask panel, opened by "Break into steps?": the cursor is already in the field (`useInlineSubtasks` takes the ask). */
@@ -29,6 +34,54 @@ export function ReviewSteps({ taskId }: { taskId: string }) {
         <div className="w-full pl-7">
             <InlineSubtaskPanel taskId={taskId} subtasks={subtasks} open adding={ui.adding} onAddingChange={ui.setAdding} />
         </div>
+    );
+}
+
+/**
+ * The row's title, renamed in place: hovering shows a pencil, a click turns it into a field with Save and Cancel.
+ * Enter saves, Escape cancels; leaving the field keeps the draft open (nothing is lost or saved by accident).
+ */
+function RenamableTitle({ title, onRename }: { title: string; onRename?: (title: string) => void }) {
+    const [draft, setDraft] = useState<string | null>(null);
+    const text = "truncate text-[0.9375rem] font-medium text-twilight-text";
+    if (!onRename) return <span className={text}>{title}</span>;
+    if (draft === null) {
+        return (
+            <button type="button" onClick={() => setDraft(title)} aria-label={`Rename ${title}`}
+                className="group/title -mx-1.5 flex min-w-0 max-w-fit cursor-text items-center gap-2 rounded-lg px-1.5 py-0.5 text-left transition-colors hover:bg-accent-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+                <span className={text}>{title}</span>
+                <Pencil size={14} aria-hidden="true" className="shrink-0 text-twilight-text-muted opacity-0 transition-opacity group-hover/title:opacity-100 group-focus-visible/title:opacity-100 [@media(hover:none)]:opacity-60" />
+            </button>
+        );
+    }
+    const next = draft.trim();
+    const save = () => {
+        if (next && next !== title) onRename(next);
+        setDraft(null);
+    };
+    return (
+        <form className="flex min-w-0 items-center gap-1" onSubmit={(e) => { e.preventDefault(); save(); }}>
+            <input
+                autoFocus
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setDraft(null); } }}
+                onFocus={(e) => e.currentTarget.select()}
+                maxLength={500}
+                aria-label="New name"
+                className="surface-control min-h-9 min-w-0 flex-1 rounded-lg px-2.5 text-[0.9375rem] font-medium text-twilight-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+            />
+            <Tip label="Save" side="top">
+                <button type="submit" disabled={!next} aria-label="Save name" className="glass-none touch-target inline-flex cursor-pointer items-center justify-center rounded-lg px-2 text-accent-primary hover:bg-accent-primary/10 disabled:opacity-40">
+                    <Check size={17} aria-hidden="true" />
+                </button>
+            </Tip>
+            <Tip label="Cancel" side="top">
+                <button type="button" onClick={() => setDraft(null)} aria-label="Cancel rename" className="glass-none touch-target inline-flex cursor-pointer items-center justify-center rounded-lg px-2 text-twilight-text-soft hover:bg-accent-primary/5 hover:text-twilight-text">
+                    <X size={17} aria-hidden="true" />
+                </button>
+            </Tip>
+        </form>
     );
 }
 
@@ -43,8 +96,12 @@ export function ReviewListItem({
     onRunAction,
     select,
     typed,
+    chip,
+    onRename,
 }: {
     title: string;
+    /** Rename in place (the title becomes a field). */
+    onRename?: (title: string) => Promise<void>;
     taskId?: string;
     /** The one suggestion on this page, when it is for this row. */
     offer?: { kind: PlanningOffer; onAccept: () => void; onNotNow: () => void } | null;
@@ -57,87 +114,88 @@ export function ReviewListItem({
     select?: { checked: boolean; onChange: () => void };
     /** Say a change in words instead of tapping a fixed choice. */
     typed?: { placeholder: string; applyLabel: string; onApply: (patch: InstructionPatch) => Promise<void>; listId?: string | null };
+    /** A quiet chip under the title (a capture's suggested list). */
+    chip?: ReactNode;
 }) {
     const [typing, setTyping] = useState(false);
     const [stepsOpen, setStepsOpen] = useState(false);
+    const quiet = "glass-none touch-target inline-flex cursor-pointer items-center justify-center rounded-xl px-2.5 text-twilight-text-soft transition-colors hover:bg-accent-primary/5 hover:text-twilight-text disabled:opacity-40";
     return (
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-twilight-border/40 bg-twilight-surface/30 px-4 py-3 transition-colors hover:bg-white/[0.03]">
-            {select ? (
-                <input
-                    type="checkbox"
-                    checked={select.checked}
-                    onChange={select.onChange}
-                    aria-label={`Select ${title}`}
-                    className="size-5 shrink-0 cursor-pointer accent-[var(--accent-primary)]"
-                />
-            ) : null}
-            <span className="w-full sm:w-auto sm:flex-1 min-w-0 truncate text-sm font-medium text-twilight-text">
-                {title}
-            </span>
-            <div className="flex items-center gap-1.5 shrink-0">
+        <div className="surface-row flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl px-4 py-3">
+            <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:flex-1">
+                {select ? (
+                    <input
+                        type="checkbox"
+                        checked={select.checked}
+                        onChange={select.onChange}
+                        aria-label={`Pick ${title}`}
+                        className="size-5 shrink-0 cursor-pointer accent-[var(--accent-primary)]"
+                    />
+                ) : null}
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <RenamableTitle title={title} onRename={onRename && ((next) => onRunAction(`${actionKeyPrefix}:rename`, () => onRename(next)))} />
+                    {chip}
+                </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
                 {actions.map((act, i) => {
                     const key = `${actionKeyPrefix}:${i}`;
                     const isPending = pendingActionKey === key;
                     const isDanger = act.variant === "danger";
                     const isPrimary = act.variant === "cardPrimary";
                     const Icon = act.icon;
-                    // Primary action carries its label so the dominant choice is
-                    // obvious in <2s (§6.3); the rest demote to icon-only with a
-                    // stylized Tip + aria-label (§6.6) to keep the row scannable.
+                    // The primary carries its label so the likely choice reads in under 2s; the rest are icons with a Tip.
                     const button = (
                         <button
                             type="button"
                             disabled={Boolean(pendingActionKey)}
                             onClick={() => onRunAction(key, async () => { await act.onClick(); })}
-                            aria-label={act.label}
-                            className={`touch-target inline-flex items-center justify-center gap-1.5 rounded-xl text-xs font-medium transition-colors disabled:opacity-40 ${
-                                isPrimary ? "px-3.5" : "px-2.5"
-                            } ${
-                                isDanger
-                                    ? "text-feedback-error hover:bg-feedback-error/10"
-                                    : isPrimary
-                                        ? "bg-accent-primary/14 text-accent-primary hover:bg-accent-primary/20"
-                                        : "text-twilight-text-soft hover:bg-white/[0.06] hover:text-twilight-text"
-                            }`}
+                            aria-label={act.guess ? `${act.label} (my guess from your week)` : act.label}
+                            className={isPrimary
+                                ? "surface-control-accent touch-target inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3.5 text-sm font-medium text-accent-primary disabled:opacity-40"
+                                : `${quiet} ${isDanger ? "text-feedback-error hover:bg-feedback-error/10 hover:text-feedback-error" : ""}`}
                         >
                             {isPending ? (
                                 <LoaderCircle size={15} className="sync-spin" aria-hidden="true" />
                             ) : (
-                                <Icon size={isPrimary ? 14 : 16} aria-hidden="true" />
+                                <Icon size={isPrimary ? 15 : 17} aria-hidden="true" />
                             )}
                             {isPrimary && !isPending && <span>{act.shortLabel ?? act.label}</span>}
+                            {act.guess && !isPending ? <Sparkles size={12} aria-hidden="true" className="opacity-80" /> : null}
                         </button>
                     );
                     return (
-                        <Tip key={i} label={act.label} side="top">
+                        <Tip key={i} label={act.guess ? "My guess from your week" : act.label} side="top">
                             {button}
                         </Tip>
                     );
                 })}
+                {typed ? (
+                    <Tip label="Say it instead" side="top">
+                        <button
+                            type="button"
+                            onClick={() => setTyping((open) => !open)}
+                            aria-label="Say it instead"
+                            aria-expanded={typing}
+                            className={quiet}
+                        >
+                            <MessageSquareText size={17} aria-hidden="true" />
+                        </button>
+                    </Tip>
+                ) : null}
             </div>
-            {typed ? (
-                <Tip label="Type a change" side="top">
-                    <button
-                        type="button"
-                        onClick={() => setTyping((open) => !open)}
-                        aria-label="Type a change"
-                        aria-expanded={typing}
-                        className="touch-target inline-flex items-center justify-center rounded-xl px-2.5 text-twilight-text-soft hover:bg-white/[0.06] hover:text-twilight-text"
-                    >
-                        <Pencil size={16} aria-hidden="true" />
-                    </button>
-                </Tip>
-            ) : null}
-            {typing && typed ? (
-                <InstructionField
-                    autoFocus
-                    placeholder={typed.placeholder}
-                    applyLabel={typed.applyLabel}
-                    listId={typed.listId}
-                    disabled={Boolean(pendingActionKey)}
-                    onApply={async (patch) => { await typed.onApply(patch); setTyping(false); }}
-                />
-            ) : null}
+            <Reveal open={typing && !!typed} className="w-full">
+                {typed ? (
+                    <InstructionField
+                        autoFocus
+                        placeholder={typed.placeholder}
+                        applyLabel={typed.applyLabel}
+                        listId={typed.listId}
+                        disabled={Boolean(pendingActionKey)}
+                        onApply={async (patch) => { await typed.onApply(patch); setTyping(false); }}
+                    />
+                ) : null}
+            </Reveal>
             {offer ? (
                 <div className="w-full">
                     <PlanningOfferChip
@@ -149,58 +207,52 @@ export function ReviewListItem({
             ) : null}
             {stepsOpen && taskId ? <ReviewSteps taskId={taskId} /> : null}
             {actionError && (
-                <span className="text-xs text-feedback-error">{actionError}</span>
+                <span role="alert" className="w-full text-xs text-feedback-error">{actionError}</span>
             )}
-        </div>
-    );
-}
-
-
-/* ──────── Step empty state ──────── */
-
-export function StepDone({ label, onNext }: { label: string; onNext: () => void }) {
-    return (
-        <div className="flex flex-col items-center justify-center text-center py-12">
-            <div className="w-14 h-14 rounded-full bg-accent-primary/10 flex items-center justify-center mb-4">
-                <Check size={24} className="text-accent-primary" />
-            </div>
-            <p className="text-sm text-twilight-text-soft mb-6">{label}</p>
-            <Button variant="primary" size="md" onClick={onNext}>
-                Continue <ArrowRight size={16} />
-            </Button>
-        </div>
-    );
-}
-
-/* ──────────────────────────── Page ──────────────────────────── */
-
-export function StepPanel({ title, intro, children }: { title: string; intro: ReactNode; children: ReactNode }) {
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            className="glass max-w-xl mx-auto w-full rounded-3xl p-4 sm:p-6"
-        >
-            <div className="mb-6">
-                <h2 className="text-lg font-display font-semibold text-twilight-text">{title}</h2>
-                <p className="text-sm text-twilight-text-soft mt-1">{intro}</p>
-            </div>
-            {children}
-        </motion.div>
-    );
-}
-
-export function SkipToNext({ onSkip }: { onSkip: () => void }) {
-    return (
-        <div className="mt-6 flex justify-end">
-            <Button variant="ghost" size="sm" onClick={onSkip}>
-                Skip to next step <ArrowRight size={14} />
-            </Button>
         </div>
     );
 }
 
 export type ReviewActions = ReturnType<typeof useWeeklyReviewActions>;
 
-export type StepProps = { review: ReviewActions; onNext: () => void };
+export type StepProps = { review: ReviewActions };
+
+export type DayChoice = { day: LocalDate } | { later: true };
+type DayFor = ReturnType<typeof useWeekRoom>["dayFor"];
+
+/**
+ * A row's day choices, in one fixed order: the primary (the day its words name, else the model's guess, else Today),
+ * then Today · Tomorrow · Later, then Trash. A guess only moves into the primary slot; nothing else moves or goes.
+ */
+export function dayActions({ words, guess, dayFor, minutes, place, trash }: {
+    words?: ReviewAction | null;
+    guess?: ResetDisposition;
+    dayFor: DayFor;
+    minutes?: number | null;
+    place: (choice: DayChoice) => Promise<void>;
+    trash: () => Promise<void>;
+}): ReviewAction[] {
+    const today = dayFor("today", minutes);
+    const tomorrow = addDays(today, 1);
+    const todayAct: ReviewAction = { label: "Today", icon: Sun, onClick: () => place({ day: today }) };
+    const tomorrowAct: ReviewAction = { label: "Tomorrow", icon: Sunrise, onClick: () => place({ day: tomorrow }) };
+    const laterAct: ReviewAction = { label: "Later", icon: Moon, onClick: () => place({ later: true }) };
+    const base = [todayAct, tomorrowAct, laterAct];
+    const guessed = (): ReviewAction | null => {
+        if (guess === "today") return todayAct;
+        if (guess === "later") return laterAct;
+        if (guess === "next_week") return { label: "Next week", icon: ArrowRight, onClick: () => place({ day: dayFor("next_week", minutes) }) };
+        if (guess !== "this_week") return null;
+        const day = dayFor("this_week", minutes);
+        if (day === tomorrow) return tomorrowAct;
+        if (day === today) return todayAct;
+        return { label: formatWeekdayLong(day), shortLabel: formatWeekdayShort(day), icon: Calendar, onClick: () => place({ day }) };
+    };
+    const fromGuess = words ? null : guessed();
+    const primary = words ?? fromGuess ?? todayAct;
+    return [
+        { ...primary, variant: "cardPrimary", guess: !!fromGuess },
+        ...base.filter((a) => a !== primary),
+        { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: trash, variant: "danger" },
+    ];
+}

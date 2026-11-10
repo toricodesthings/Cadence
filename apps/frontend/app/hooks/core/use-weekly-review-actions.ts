@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useInbox } from "../inbox/use-inbox";
 import { useDeleteInboxItem } from "../inbox/use-delete-inbox-item";
+import { useUpdateInboxItem } from "../inbox/use-update-inbox-item";
 import { useProcessInboxToTask } from "../inbox/use-process-inbox-to-task";
 import { useProjects } from "../projects/use-projects";
 import { useTags } from "../tags/use-tags";
@@ -19,19 +20,24 @@ import { usePauseHabit } from "../habits/use-pause-habit";
 import { addDays, type LocalDate } from "@cadence/domain/time";
 import { today, useToday } from "../../lib/utils/user-zone";
 import type { Task } from "@cadence/contracts/task";
+import type { Habit } from "@cadence/contracts/habit";
 
 export interface HabitReviewItem {
     id: string;
+    /** The routine itself, for its day cells (logging a past day in place). */
+    habit: Habit;
     title: string;
-    completedThisWeek: number;
-    skippedThisWeek: number;
-    pendingThisWeek: number;
-    totalThisWeek: number;
-    hasTargetTime: boolean;
+    colorAccent: string | null;
+    /** The last 7 days (oldest first): a scheduled day's status, or null when it wasn't due. */
+    week: { day: LocalDate; status: "COMPLETED" | "SKIPPED" | "PENDING" | null }[];
+    /** Skipped on every day it was due so far this week: "Skip next week?" shows. */
+    allSkipped: boolean;
 }
 
 const getToday = today;
 const getTomorrow = () => addDays(today(), 1);
+/** The routine look-back: the last 7 days, today included. */
+const WEEK_DAYS = 7;
 
 
 /** The person's choices for a placed capture: the day or patch wins over its words, and its own date words never decide placement. */
@@ -54,7 +60,7 @@ function followUpEdits(patch: InstructionPatch, waitlist: boolean | undefined) {
     const { state, notBefore, waitingReminder } = patch;
     return { ...(waitlist ? { state: "WAITING" as const } : state ? { state } : {}), ...(notBefore ? { notBefore } : {}), ...(waitingReminder ? { waitingReminder } : {}) };
 }
-export function useWeeklyReviewActions(currentStep: number) {
+export function useWeeklyReviewActions() {
     const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
     const [keptWaitingIds, setKeptWaitingIds] = useState<Set<string>>(new Set());
@@ -66,60 +72,48 @@ export function useWeeklyReviewActions(currentStep: number) {
     const updateTask = useUpdateTask();
     const archiveTask = useArchiveTask();
     const deleteInboxItem = useDeleteInboxItem();
+    const updateInboxItem = useUpdateInboxItem();
     const processCapture = useProcessInboxToTask();
     const { apply: applyInstruction } = useApplyInstruction();
     const { data: projects = [] } = useProjects();
     const { data: tags = [] } = useTags();
     const { data: settings } = useSettings();
 
+    const todayDay = useToday();
+    // Hidden tasks (Hide until a later day) aren't loose ends until they come back.
     const unscheduledTasks = useMemo(
-        () => activeTasks.filter((t) => !t.dueDate && !t.scheduledStart),
-        [activeTasks],
+        () => activeTasks.filter((t) => !t.dueDate && !t.scheduledStart && (!t.notBefore || t.notBefore <= todayDay)),
+        [activeTasks, todayDay],
     );
 
     const visibleWaiting = waitingTasks.filter((t) => !keptWaitingIds.has(t.id));
 
-    const todayDay = useToday();
-    // The Ready step's look ahead: deadlines in the 14 days from today.
-    const dueSoonCount = useMemo(() => {
-        const until = addDays(todayDay, 14);
-        return activeTasks.filter((t) => t.dueDate && t.dueDate >= todayDay && t.dueDate < until).length;
-    }, [activeTasks, todayDay]);
-
-    // Habit stats
-    const { data: habits = [] } = useHabitsRange({
-        start: addDays(todayDay, -7),
-        end: todayDay,
-        enabled: currentStep === 4,
-    });
-
-    const habitStats = useMemo(() => {
-        let total = 0;
-        let completed = 0;
-        for (const h of habits) {
-            const logs = h.logs ?? [];
-            total += logs.length;
-            completed += logs.filter((l) => l.status === "COMPLETED").length;
-        }
-        return { total, completed };
-    }, [habits]);
+    // Every step reads the routines (Welcome and the step list count them), so the query is never gated by step.
+    const weekStart = addDays(todayDay, -(WEEK_DAYS - 1));
+    const { data: habits = [] } = useHabitsRange({ start: weekStart, end: todayDay });
 
     const habitReviewItems = useMemo<HabitReviewItem[]>(() => {
+        // Your own routine order, so a row never jumps while you log its days (a save can reshuffle the cache).
         return habits
             .filter((h) => !h.archived)
+            .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt))
             .map((h) => {
-                const logs = h.logs ?? [];
+                const byDay = new Map((h.logs ?? []).map((l) => [l.targetDate, l.status]));
+                const week = Array.from({ length: WEEK_DAYS }, (_, i) => {
+                    const day = addDays(weekStart, i);
+                    return { day, status: byDay.get(day) ?? null };
+                });
+                const due = week.filter((d) => d.status !== null && d.day <= todayDay);
                 return {
                     id: h.id,
+                    habit: h,
                     title: h.title,
-                    completedThisWeek: logs.filter((l) => l.status === "COMPLETED").length,
-                    skippedThisWeek: logs.filter((l) => l.status === "SKIPPED").length,
-                    pendingThisWeek: logs.filter((l) => l.status === "PENDING").length,
-                    totalThisWeek: logs.length,
-                    hasTargetTime: !!h.targetTime,
+                    colorAccent: h.colorAccent ?? null,
+                    week,
+                    allSkipped: due.length > 0 && due.every((d) => d.status === "SKIPPED"),
                 };
             });
-    }, [habits]);
+    }, [habits, weekStart, todayDay]);
 
     const pauseHabit = usePauseHabit();
 
@@ -129,8 +123,8 @@ export function useWeeklyReviewActions(currentStep: number) {
         setActionError(null);
         try {
             await actionFn();
-        } catch (error) {
-            setActionError(error instanceof Error ? error.message : "Something went wrong while processing this step.");
+        } catch {
+            setActionError("Couldn\u2019t save that. Try again?");
         } finally {
             setPendingActionKey(null);
         }
@@ -184,36 +178,28 @@ export function useWeeklyReviewActions(currentStep: number) {
         else await placeCapture(item, { waitlist: true });
     }, [deleteInboxItem, placeCapture]);
 
-    const handleUnscheduledAction = useCallback(async (task: Task, action: "today" | "tomorrow" | "someday" | "delete") => {
-        if (action === "delete") {
-            await archiveTask.mutateAsync(task.id);
-        } else if (action === "today") {
-            await updateTask.mutateAsync({ id: task.id, dueDate: getToday(), scheduledStart: null, scheduledEnd: null });
-        } else if (action === "tomorrow") {
-            await updateTask.mutateAsync({ id: task.id, dueDate: getTomorrow(), scheduledStart: null, scheduledEnd: null });
-        } else if (action === "someday") {
-            await updateTask.mutateAsync({ id: task.id, state: "WAITING" });
-        }
+    const handleUnscheduledAction = useCallback(async (task: Task, action: "day" | "someday" | "delete", day?: LocalDate) => {
+        if (action === "delete") await archiveTask.mutateAsync(task.id);
+        else if (action === "day") await updateTask.mutateAsync({ id: task.id, dueDate: day ?? getToday(), scheduledStart: null, scheduledEnd: null });
+        else await updateTask.mutateAsync({ id: task.id, state: "WAITING" });
     }, [archiveTask, updateTask]);
 
     const handleWaitingAction = useCallback(async (task: Task, action: "today" | "tomorrow" | "keep" | "delete") => {
-        if (action === "delete") {
-            await archiveTask.mutateAsync(task.id);
-        } else if (action === "today") {
-            await updateTask.mutateAsync({ id: task.id, dueDate: getToday(), scheduledStart: null, scheduledEnd: null, state: "ACTIVE" });
-        } else if (action === "tomorrow") {
-            await updateTask.mutateAsync({ id: task.id, dueDate: getTomorrow(), scheduledStart: null, scheduledEnd: null, state: "ACTIVE" });
-        } else if (action === "keep") {
-            setKeptWaitingIds((prev) => new Set(prev).add(task.id));
-        }
+        if (action === "delete") await archiveTask.mutateAsync(task.id);
+        else if (action === "keep") setKeptWaitingIds((prev) => new Set(prev).add(task.id));
+        else await updateTask.mutateAsync({ id: task.id, dueDate: action === "today" ? getToday() : getTomorrow(), scheduledStart: null, scheduledEnd: null, state: "ACTIVE" });
     }, [archiveTask, updateTask]);
+
+    const renameCapture = useCallback(async (item: InboxItem, rawText: string) => { await updateInboxItem.mutateAsync({ id: item.id, rawText }); }, [updateInboxItem]);
+    const renameTask = useCallback(async (task: Task, title: string) => { await updateTask.mutateAsync({ id: task.id, title }); }, [updateTask]);
 
     return {
         inboxItems,
+        habits,
+        renameCapture,
+        renameTask,
         unscheduledTasks,
         visibleWaiting,
-        dueSoonCount,
-        habitStats,
         habitReviewItems,
         pauseHabit,
         pendingActionKey,

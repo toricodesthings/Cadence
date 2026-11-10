@@ -135,6 +135,9 @@ export function formatDateSpan(start: LocalDate, end: LocalDate): string {
 /** "Thursday" for a day. */
 export const formatWeekdayLong = (day: LocalDate): string => format(day, { weekday: "long" });
 
+/** "Thu" for a day. */
+export const formatWeekdayShort = (day: LocalDate): string => format(day, { weekday: "short" });
+
 /** "T" for a day (calendar tile headers). */
 export const formatWeekdayNarrow = (day: LocalDate): string => format(day, { weekday: "narrow" });
 

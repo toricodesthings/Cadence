@@ -31,14 +31,14 @@ describe("InstructionField", () => {
     it("names what it could not read and offers nothing for nonsense", async () => {
         const { input, apply } = setup();
         fireEvent.change(input, { target: { value: "sort of soon" } });
-        expect((await screen.findByRole("status")).textContent).toMatch(/Nothing I can change/);
+        expect((await screen.findByRole("status")).textContent).toMatch(/Not sure what to change yet/);
         expect(apply.disabled).toBe(true);
     });
 
     it("puts in an existing list by name and flags the leftover", async () => {
         const { input } = setup();
         fireEvent.change(input, { target: { value: "put these in Work / Admin" } });
-        await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/Work.*not read: “Admin”/));
+        await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/Work.*skipped “Admin”/));
     });
 
     it("names a section, shown as list › section, never as a date", async () => {

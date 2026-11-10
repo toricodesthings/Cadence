@@ -1,7 +1,7 @@
 /**
  * Decision-model evals and threshold calibration: S1 placement and `priority_said` (asked together, as a capture
  * asks them), E3 `effort` (persona histories, held-out titles, beside `priority_said` as a capture with E3 asks it) and
- * S2 did-you-mean, against a real decision model. The questions come from the production builders. Every kind is asked at
+ * S2 did-you-mean and the Weekly Reset's `reset_disposition` (8 rows per request), against a real decision model. The questions come from the production builders. Every kind is asked at
  * threshold 0 and swept afterwards: a threshold is chosen on the tuning split (70%) and confirmed on the held-out split (30%).
  * Pass 2 (full) re-cases and reshuffles labels, lowercases the text and reverses Effort's levels, so position or
  * spelling bias shows up. Answers are cached by request in root `output/evals/decisions-cache.json`, so a re-run asks only
@@ -10,7 +10,7 @@
  *
  * Gates: placement wrong ≤ 5% of shown, coverage ≥ 60%; search right ≥ 70% where one exists, wrong ≤ 10% where none does;
  * priority_said nothing invented and wrong ≤ 5% of shown; effort off by two ≤ 2% and wrong (a guess where their choices show
- * none) ≤ 5% of shown, coverage ≥ 40% of the titles
+ * none) ≤ 5% of shown, coverage ≥ 40% of the titles; reset_disposition no wrong guess shown, coverage ≥ 30%
  * `suggestEffort` left open. The local parser and `suggestEffort` are scored on the same cases for free.
  */
 import { afterAll, describe, expect, it } from "vitest";
@@ -26,7 +26,9 @@ import { placementQuestion, priorityQuestion } from "../../src/domains/decisions
 import { effortAsk, effortChoices } from "../../src/domains/decisions/effort-guess";
 import { evaluationOptions, evaluationVars } from "./run-options";
 import type { Env } from "../../src/types/env";
-import { EFFORT_PERSONAS, PLACEMENT_CASES, PRIORITY_CASES, ROSTER, SEARCH_CASES, TASKS } from "./decisions-data";
+import { EFFORT_PERSONAS, PLACEMENT_CASES, PRIORITY_CASES, RESET_CASES, RESET_WEEK, ROSTER, SEARCH_CASES, TASKS } from "./decisions-data";
+import { resetQuestions } from "../../src/domains/decisions/reset";
+import { RESET_DISPOSITIONS } from "@cadence/contracts/planning";
 import didYouMeanPrompt from "../../src/prompts/decisions/did-you-mean.md";
 
 const vars = evaluationVars();
@@ -152,7 +154,7 @@ function summarize(kind: string, gate: Gate) {
 }
 
 const DECISION_THRESHOLDS_BEFORE = { ...DECISION_THRESHOLDS[model] };
-const RAW: Partial<Record<DecisionKind, number>> = { placement: 0, search: 0, priority_said: 0, effort: 0 };
+const RAW: Partial<Record<DecisionKind, number>> = { placement: 0, search: 0, priority_said: 0, effort: 0, reset_disposition: 0 };
 
 describe.skipIf(!live)("decisions", () => {
     it("S1: placement and priority_said, one request per capture", async () => {
@@ -211,6 +213,19 @@ describe.skipIf(!live)("decisions", () => {
         expect(rows.some((r) => r.kind === "search")).toBe(true);
     });
 
+    it("Reset: reset_disposition, one request per reset of 8 rows", async () => {
+        DECISION_THRESHOLDS[model] = RAW;
+        const resets = Array.from({ length: Math.ceil(RESET_CASES.length / 8) }, (_, i) => RESET_CASES.slice(i * 8, i * 8 + 8));
+        const jobs = resets.flatMap((cases, i) => Array.from({ length: PASSES }, (_, p) => ({ cases: shuffled(cases, i * 13 + p), pass: p + 1 })));
+        await pool(jobs, 4, async ({ cases, pass }) => {
+            const rows = cases.map((c, i) => ({ id: `row${i}`, options: RESET_DISPOSITIONS[c.kind], facts: c.facts }));
+            const state = { today: "2026-10-25 Sun", week: RESET_WEEK, rows: Object.fromEntries(rows.map((r, i) => [`r${i + 1}`, r.facts])) };
+            const answers = await decide(env, { ...resetQuestions(rows), state });
+            cases.forEach((c, i) => push("reset_disposition", JSON.stringify(c.facts), pass, c.ok, answers[`r${i + 1}`], c.kind));
+        });
+        expect(rows.some((r) => r.kind === "reset_disposition")).toBe(true);
+    });
+
     afterAll(() => {
         DECISION_THRESHOLDS[model] = DECISION_THRESHOLDS_BEFORE;
         const localScore = (kind: string) => {
@@ -227,6 +242,8 @@ describe.skipIf(!live)("decisions", () => {
             priority_said: summarize("priority_said", (s) => s.invented === 0 && s.wrongOfShown <= 0.05),
             effort: summarize("effort", (s) => s.offByTwo <= 0.02 && s.wrongOfShown <= 0.05 && s.coverage >= 0.4),
             search: summarize("search", (s) => s.coverage >= 0.7 && s.shownWhereNone <= 0.1),
+            // A wrong guess only moves a button, but it must stay rare: no wrong shown, some coverage.
+            reset_disposition: summarize("reset_disposition", (s) => s.wrongOfShown === 0 && s.coverage >= 0.3),
             parser: localScore("parser"),
             suggestEffort: localScore("suggestEffort"),
             effortNotAsked: notAsked,
@@ -234,12 +251,12 @@ describe.skipIf(!live)("decisions", () => {
         mkdirSync(DIR, { recursive: true });
         writeFileSync(CACHE, JSON.stringify(cache));
         writeFileSync(join(DIR, `decisions-${model.replace(/[^a-z0-9.]+/gi, "_")}-${evaluation.profile}.json`), JSON.stringify(report, null, 2));
-        const line = (k: "placement" | "priority_said" | "effort" | "search") => {
+        const line = (k: "placement" | "priority_said" | "effort" | "search" | "reset_disposition") => {
             const s = report[k];
             return s && `${k.padEnd(14)} ${String(s.cases).padStart(4)} rows · chosen ${s.chosenOnTuning ?? "none meets gate"} (now ${s.current}) · held-out ${JSON.stringify(s.heldOutAtChosen)}`;
         };
         console.info([`decisions [${evaluation.profile}] ${model}: ${spent.calls} new calls ($${spent.costUsd.toFixed(5)}), ${spent.cached} cached`,
-            line("placement"), line("priority_said"), line("effort"), line("search"),
+            line("placement"), line("priority_said"), line("effort"), line("search"), line("reset_disposition"),
             `parser misreads ${report.parser.wrong}/${report.parser.cases} · suggestEffort wrong ${report.suggestEffort.wrong}/${report.suggestEffort.cases}`].join("\n"));
     });
 });

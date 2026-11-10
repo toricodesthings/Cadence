@@ -6,7 +6,7 @@
  * Two outputs, sections joined by a blank line:
  *   instructions (system prompt): base sections, plus compact memory policy when enabled — stable per variant,
  *     so provider prefix caching holds it (with the tool definitions) warm across everyone.
- *   turnContext: voice (+ workload modifier) · custom instructions · Environment · snapshot · memory
+ *   turnContext: voice (+ workload modifier) · custom instructions · Environment · surface · snapshot (or the week ahead) · memory
  *     — per-user and per-turn, appended to the user message by `withTurnContext` and kept server-side
  *     on that message's metadata, so later turns replay it unchanged (never in its parts, never sent to the client).
  *
@@ -89,9 +89,13 @@ export function composePrompt(
               })
             : null,
         environmentSection(blocks, ctx, nonce),
-        ctx.snapshot
-            ? interpolate(blocks.snapshot, { snapshot: fence("snapshot", sanitizeUntrusted(ctx.snapshot, nonce), nonce) })
-            : null,
+        ctx.surface ? interpolate(blocks.surfaces[ctx.surface], {}) : null,
+        // The reset's week replaces Today at a glance (today is its first day), so nothing is said twice.
+        ctx.weekAhead
+            ? interpolate(blocks.weekAhead, { weekAhead: fence("week_ahead", sanitizeUntrusted(ctx.weekAhead, nonce), nonce) })
+            : ctx.snapshot
+              ? interpolate(blocks.snapshot, { snapshot: fence("snapshot", sanitizeUntrusted(ctx.snapshot, nonce), nonce) })
+              : null,
         memories.length > 0
             ? interpolate(blocks.memoryFacts, {
                   memory: fence(

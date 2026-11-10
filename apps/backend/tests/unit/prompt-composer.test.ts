@@ -236,3 +236,21 @@ describe("turn contexts", () => {
         expect(turnContexts([user("u1")], "u1", "TUE", true).current).toBe("TUE");
     });
 });
+
+describe("the Weekly Reset surface", () => {
+    it("adds its instructions and the week ahead to the turn context, in place of the snapshot, and leaves the instructions byte-identical", () => {
+        const plain = parts(ctx({ snapshot: "{\"today\":1}" }));
+        const reset = parts(ctx({ snapshot: "{\"today\":1}", surface: "weekly_reset", weekAhead: "[{\"day\":1}]" }));
+        expect(reset.instructions).toBe(plain.instructions);
+        expect(reset.turnContext).toContain("## Weekly Reset");
+        expect(reset.turnContext).toContain("## The week ahead");
+        expect(reset.turnContext).toContain('kind="week_ahead"');
+        expect(reset.turnContext).not.toContain("## Today at a glance");
+        expect(plain.turnContext).not.toContain("## Weekly Reset");
+    });
+
+    it("throws on an unknown placeholder in a surface block", () => {
+        const blocks = { ...PROMPT_BLOCKS, surfaces: { weekly_reset: "## Weekly Reset {{oops}}" } };
+        expect(() => composePrompt(blocks, ctx({ surface: "weekly_reset" }), "N")).toThrow("prompt_placeholder_unknown");
+    });
+});

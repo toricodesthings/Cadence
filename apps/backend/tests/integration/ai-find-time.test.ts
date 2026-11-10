@@ -83,6 +83,22 @@ describe("fit_day", () => {
     it("refuses a day that has passed", async () => {
         expect(await run("fit_day", { day: "2026-10-18" })).toMatchObject({ ok: false });
     });
+
+    it("with through: one entry per day, carries what didn't fit (never past its deadline), offers undated tasks, and never goes past day+6", async () => {
+        // Monday is full from 10:15 on, so Tuesday's work and an undated task have to look further.
+        await tasks("POST", "", { title: "Workshop", orderIndex: 1, scheduledStart: "2026-10-19T14:00:00.000Z", scheduledEnd: "2026-10-20T01:45:00.000Z", zone: ZONE });
+        const flexible = (await tasks("POST", "", { title: "Read paper", orderIndex: 2, dueDate: "2026-10-19", durationEstimate: 60 })).body.data;
+        const loose = (await tasks("POST", "", { title: "Call bank", orderIndex: 3, durationEstimate: 30 })).body.data;
+
+        const fit = await run("fit_day", { day: "2026-10-19", through: "2026-10-30", includeUnscheduled: true });
+        expect(fit.ok).toBe(true);
+        expect(fit.days.map((d: any) => d.day)).toEqual(["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23", "2026-10-24", "2026-10-25"]);
+        // Due Monday: it stays a Monday "didn't fit", never moved past its deadline.
+        expect(fit.days[0].didntFit.map((t: any) => t.id)).toContain(flexible.id);
+        // No deadline: carried to Tuesday and placed there.
+        expect(fit.days[1].placed.map((p: any) => p.id)).toContain(loose.id);
+        expect((await tasks("GET", `/${loose.id}`)).body.data.scheduledStart).toBeNull();
+    });
 });
 
 describe("what a task takes, in the assistant's reads", () => {

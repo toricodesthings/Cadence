@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { ApprovalMode } from "@cadence/contracts/ai";
+import type { ApprovalMode, ChatSurface } from "@cadence/contracts/ai";
 
 interface AssistantState {
     pendingMessage: string | null;
@@ -25,6 +25,9 @@ interface AssistantState {
      * full: every proposal from a live turn commits itself. Sent with each turn.
      */
     approvalMode: ApprovalMode;
+    /** Where the chat is embedded (not persisted): the Weekly Reset's closing chat, sent with each turn. */
+    surface: ChatSurface | null;
+    setSurface: (surface: ChatSurface | null) => void;
     /** A reply arrived while the panel was closed or the tab hidden, and hasn't been seen. */
     replyUnread: boolean;
     setReplyUnread: (unread: boolean) => void;
@@ -51,6 +54,8 @@ export const useAssistantStore = create<AssistantState>()(
             historyOpen: false,
             memoryOpen: false,
             approvalMode: "ask",
+            surface: null,
+            setSurface: (surface) => set({ surface }),
             replyUnread: false,
             setReplyUnread: (replyUnread) => set({ replyUnread }),
             toggleAssistantPanel: () => set((s) => ({ assistantPanelOpen: !s.assistantPanelOpen })),

@@ -1,43 +1,51 @@
-import { ArrowLeft } from "lucide-react";
-import { STEPS } from "../weekly-review/WeeklyResetSidebar";
+import { ChevronLeft, X } from "lucide-react";
+import { Tip } from "../primitives";
+import { PhonePageHeader } from "../layout/PageHeader";
+import { STEPS, type StepNavProps } from "./WeeklyResetSidebar";
 
-export type CompactStepHeaderProps = { currentStep: number; onExit: () => void };
-
-/** Without the sidebar: where you are in the reset, and the way out. */
-export function CompactStepHeader({ currentStep, onExit }: CompactStepHeaderProps) {
+/** Without the sidebar: Back, the step's name (once its large title has scrolled away), the way out, and tappable progress. */
+export function CompactStepHeader({ currentStep, counts, onStep, onBack, onExit, showTitle }: StepNavProps & {
+    onBack: () => void;
+    onExit: () => void;
+    /** The large title is off screen, so the header carries the name. */
+    showTitle: boolean;
+}) {
+    const icon = "btn-icon touch-target cursor-pointer rounded-full text-twilight-text-soft hover:text-twilight-text";
     return (
-        <div className="photo-shell-surface safe-top sticky top-0 z-20 border-b border-twilight-border bg-twilight-deep/75 px-4 py-3 backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
-                        Weekly Reset — Step {currentStep + 1}/{STEPS.length}
-                    </p>
-                    <h2 className="mt-0.5 font-display text-lg font-semibold text-twilight-text truncate">
-                        {STEPS[currentStep].title}
-                    </h2>
-                </div>
-                <button
-                    type="button"
-                    onClick={onExit}
-                    aria-label="Exit weekly reset"
-                    className="touch-target inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-twilight-border px-3 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.04]"
-                >
-                    <ArrowLeft size={14} aria-hidden="true" />
-                    Exit
-                </button>
-            </div>
-
-            {/* Compact step dots */}
-            <div className="mt-2 flex gap-1.5">
-                {STEPS.map((_, i) => (
-                    <div
-                        key={i}
-                        className={`h-1 flex-1 rounded-full transition-colors ${
-                            i < currentStep ? "bg-accent-primary/50" : i === currentStep ? "bg-accent-primary" : "bg-twilight-border/40"
-                        }`}
-                    />
+        <PhonePageHeader
+            title={<span className={`transition-opacity duration-200 ${showTitle ? "opacity-100" : "opacity-0"}`}>{STEPS[currentStep].title}</span>}
+            leading={
+                <Tip label={currentStep === 0 ? "Save & exit" : "Back"} side="bottom">
+                    <button type="button" onClick={onBack} aria-label={currentStep === 0 ? "Save & exit" : "Back"} className={icon}>
+                        <ChevronLeft size={20} aria-hidden="true" />
+                    </button>
+                </Tip>
+            }
+            actions={currentStep === 0 ? undefined : (
+                <Tip label="Save & exit" side="bottom">
+                    <button type="button" onClick={onExit} aria-label="Save & exit" className={icon}>
+                        <X size={18} aria-hidden="true" />
+                    </button>
+                </Tip>
+            )}
+        >
+            <ol className="flex gap-1.5" aria-label="Weekly Reset steps">
+                {STEPS.map((step, i) => (
+                    <li key={step.id} className="flex-1">
+                        <button
+                            type="button"
+                            onClick={() => onStep(i)}
+                            aria-current={i === currentStep ? "step" : undefined}
+                            aria-label={counts[i] ? `${step.title}, ${counts[i]} left` : step.title}
+                            className="glass-none block w-full cursor-pointer py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 rounded-full"
+                        >
+                            <span className={`block h-1 rounded-full transition-colors ${
+                                i < currentStep ? "bg-accent-primary/50" : i === currentStep ? "bg-accent-primary" : "bg-twilight-border/40"
+                            }`} />
+                        </button>
+                    </li>
                 ))}
-            </div>
-        </div>
+            </ol>
+        </PhonePageHeader>
     );
 }

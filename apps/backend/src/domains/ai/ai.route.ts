@@ -33,6 +33,7 @@ import { validateStoredContexts } from "./memory/context-reuse";
 import { isLearning, memoryStateOf } from "./memory/memory-mode";
 import { citedFactIds, redactMemoryReads } from "./memory/replay";
 import { userClock } from "./turn";
+import { formatInZone } from "@cadence/domain/time";
 import type { Tx } from "../../types/db";
 import { createRunDiagnostics } from "./run-diagnostics";
 import { storedTurnContext, turnContexts, withTurnContext } from "./prompt/prompt-composer";
@@ -191,6 +192,18 @@ async function startTitle(c: AiContext, turn: { conversationId: string; text: st
         withCallerRls(c, (tx) => setTitleIfEmpty(tx, c.get("userId"), turn.conversationId, title)).catch(() => {}),
     );
     return { title, spend };
+}
+
+/** The reset's thread is named by its day ("Weekly Reset · Mon, Nov 9"): no title model call. */
+function resetTitle(timezone: string, currentDate: string) {
+    const { now, timezone: zone } = userClock(timezone, currentDate);
+    return `Weekly Reset · ${formatInZone(now.toISOString(), zone, { weekday: "short", month: "short", day: "numeric" }, "en-US")}`;
+}
+
+/** A title known without a model: stored the same way, and streamed like the generated one. */
+async function fixedTitle(c: AiContext, conversationId: string, title: string) {
+    c.executionCtx.waitUntil(withCallerRls(c, (tx) => setTitleIfEmpty(tx, c.get("userId"), conversationId, title)).catch(() => {}));
+    return { title, spend: undefined };
 }
 
 /** Earlier memory reads replay only while the person's mode still allows what they show (Full → Basic, Forget). */
@@ -416,7 +429,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     const agentReady = settingsReady.then(({ timezone, settings, queryText, userTexts, answeredField }) => getAgentInstance(c.env, userId, {
         timezone, settings, queryText, userTexts, answeredField, reusedTurnContext: reusedContext,
         requestId, diagnostics, currentDate: body.currentDate, locale: body.locale,
-        approvalMode: body.approvalMode, modelId, nonce,
+        approvalMode: body.approvalMode, surface: body.surface, modelId, nonce,
         waitUntil: (promise) => c.executionCtx.waitUntil(promise),
     }));
     agentReady.catch(() => {});
@@ -425,7 +438,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     // Auto-title (first turn only), in parallel with the reply.
     const titlePromise = needsTitle
-        ? startTitle(c, { conversationId, text: incomingText, hasImages: imageIds.length > 0, requestId, userHash })
+        ? body.surface === "weekly_reset"
+            ? settingsReady.then(({ timezone }) => fixedTitle(c, conversationId, resetTitle(timezone, body.currentDate))).catch(() => ({ title: "", spend: undefined }))
+            : startTitle(c, { conversationId, text: incomingText, hasImages: imageIds.length > 0, requestId, userHash })
         : null;
 
     const { messages: hydratedMessages, hydrated: imageCount } = await imagesReady;
@@ -554,6 +569,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             replyId: assistantMessageId,
             runId: diagnostics.runId,
             continuation,
+            surface: body.surface,
             promptHash,
             diagnostics: diagnostics.snapshot(),
             model: modelId,

@@ -1,87 +1,97 @@
-import { Sun, Sunrise, Moon, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { AnimatePresence } from "framer-motion";
+import { Calendar, FolderOpen, Inbox } from "lucide-react";
+import type { ResetDisposition } from "@cadence/contracts/planning";
+import type { InboxItem } from "@cadence/contracts/inbox";
+import type { InstructionPatch } from "@cadence/domain/task-instruction";
 import { today } from "../../../lib/utils/user-zone";
 import { useThoughtParse } from "../../../hooks/inbox/use-thought-parse";
+import { useProjects } from "../../../hooks/projects/use-projects";
 import { toDay, formatShortDate, formatShortDateTime } from "../../../lib/utils/date-format";
-import type { InstructionPatch } from "@cadence/domain/task-instruction";
-import type { InboxItem } from "@cadence/contracts/inbox";
-import { type ReviewAction, ReviewListItem, SkipToNext, StepDone, StepPanel, type StepProps } from "./shared";
+import { storedSuggestion } from "../../../lib/utils/task/suggested-placement";
+import { ResolvingRow, StepEmpty, StepShell } from "../StepShell";
+import { dayActions, ReviewListItem, type ReviewAction, type ReviewActions } from "./shared";
+import type { useWeekRoom } from "../../../hooks/core/use-week-room";
 
-
-/** A capture row: the one obvious placement is the day its words name (when they are today's words), else Today. */
-export function CaptureReviewRow({
-    item,
-    onPlace,
-    onAction,
-    pendingActionKey,
-    actionError,
-    onRunAction,
-}: {
+/**
+ * A capture row. The primary is the day its words name (today's words only), else the model's guess, else Today.
+ * A list the server already suggested shows as a chip; tapping it puts the task in that list on placement.
+ */
+export function CaptureReviewRow({ item, guess, dayFor, review }: {
     item: InboxItem;
-    onPlace: (choice: { day?: string; patch?: InstructionPatch }) => Promise<void>;
-    onAction: (action: "today" | "tomorrow" | "someday" | "delete") => Promise<void>;
-    pendingActionKey: string | null;
-    actionError: string | null;
-    onRunAction: (key: string, fn: () => Promise<void>) => void;
+    guess?: ResetDisposition;
+    dayFor: ReturnType<typeof useWeekRoom>["dayFor"];
+    review: ReviewActions;
 }) {
     const parse = useThoughtParse(item.rawText, (item.analysis?.dismissedEntityIds ?? []) as string[]);
+    const { data: projects = [] } = useProjects();
+    const suggestion = storedSuggestion(item);
+    const list = suggestion ? projects.find((p) => p.id === suggestion.projectId) : undefined;
+    const [useList, setUseList] = useState(false);
+    const listPatch: InstructionPatch = useList && suggestion ? { projectId: suggestion.projectId, ...(suggestion.sectionId && { sectionId: suggestion.sectionId }) } : {};
     // A capture from an earlier day: its "tomorrow" is not today's, so no day is proposed from its words.
     const fresh = toDay(item.createdAt) === today();
     const start = fresh ? parse.scheduledStart : null;
     const day = fresh ? parse.dueDate : null;
-    const proposed = start ?? day;
-    const primary: ReviewAction = proposed
-        ? {
-            label: `Place on ${start ? formatShortDateTime(start) : formatShortDate(day!)}`,
-            shortLabel: start ? formatShortDateTime(start) : formatShortDate(day!),
-            icon: Sun,
-            onClick: () => onPlace(start ? { patch: { scheduledStart: start, scheduledEnd: parse.scheduledEnd, dueDate: null } } : { day: day! }),
-            variant: "cardPrimary",
-        }
-        : { label: "Do Today", shortLabel: "Today", icon: Sun, onClick: () => onAction("today"), variant: "cardPrimary" };
+    const words: ReviewAction | null = start
+        ? { label: formatShortDateTime(start), icon: Calendar, onClick: () => review.placeCapture(item, { patch: { ...listPatch, scheduledStart: start, scheduledEnd: parse.scheduledEnd, dueDate: null } }) }
+        : day ? { label: formatShortDate(day), icon: Calendar, onClick: () => review.placeCapture(item, { day, patch: listPatch }) } : null;
     return (
         <ReviewListItem
             title={item.rawText || "Empty"}
+            onRename={(text) => review.renameCapture(item, text)}
             actionKeyPrefix={`inbox:${item.id}`}
-            actions={[
-                primary,
-                ...(proposed ? [{ label: "Do Today", shortLabel: "Today", icon: Sun, onClick: () => onAction("today") }] : []),
-                { label: "Do Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => onAction("tomorrow") },
-                { label: "Decide Later", shortLabel: "Later", icon: Moon, onClick: () => onAction("someday") },
-                { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => onAction("delete"), variant: "danger" },
-            ]}
-            typed={{ placeholder: "Friday 3pm for 30 min, in Work…", applyLabel: "Place", onApply: (patch) => onPlace({ patch }) }}
-            pendingActionKey={pendingActionKey}
-            actionError={actionError}
-            onRunAction={onRunAction}
+            chip={list ? (
+                <button
+                    type="button"
+                    onClick={() => setUseList((on) => !on)}
+                    aria-pressed={useList}
+                    aria-label={`Put in ${list.name}`}
+                    className={`inline-flex min-h-8 w-fit cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors ${
+                        useList ? "surface-control-accent text-accent-primary" : "surface-control text-twilight-text-soft hover:text-twilight-text"
+                    }`}
+                >
+                    <FolderOpen size={13} aria-hidden="true" /> → {list.name}
+                </button>
+            ) : null}
+            actions={dayActions({
+                words,
+                guess,
+                dayFor,
+                place: (choice) => review.placeCapture(item, "later" in choice ? { waitlist: true, patch: listPatch } : { day: choice.day, patch: listPatch }),
+                trash: () => review.handleInboxAction(item, "delete"),
+            })}
+            typed={{ placeholder: "Say when, like “Fri 3pm”", applyLabel: "Place", onApply: (patch) => review.placeCapture(item, { patch: { ...listPatch, ...patch } }) }}
+            pendingActionKey={review.pendingActionKey}
+            actionError={review.actionError}
+            onRunAction={review.runCardAction}
         />
     );
 }
 
-/* ─── Step 1 · Inbox ─── */
-export function InboxStep({ review, onNext }: StepProps) {
+/* ─── Step 1 · Captures ─── */
+export function InboxStep({ review, guesses, dayFor, onTitleVisible }: {
+    review: ReviewActions;
+    guesses: Record<string, ResetDisposition>;
+    dayFor: ReturnType<typeof useWeekRoom>["dayFor"];
+    onTitleVisible?: (visible: boolean) => void;
+}) {
     const { inboxItems } = review;
     return (
-        <StepPanel title="Captured thoughts" intro={inboxItems.length > 0
-                ? `${inboxItems.length} item${inboxItems.length > 1 ? "s" : ""} to sort through.`
-                : "Nothing here — inbox is clear."}>
+        <StepShell step={1} count={inboxItems.length} onTitleVisible={onTitleVisible}>
             {inboxItems.length > 0 ? (
-                <div className="flex flex-col gap-2">
-                    {inboxItems.map((item) => (
-                        <CaptureReviewRow
-                            key={item.id}
-                            item={item}
-                            onPlace={(choice) => review.placeCapture(item, choice)}
-                            onAction={(action) => review.handleInboxAction(item, action)}
-                            pendingActionKey={review.pendingActionKey}
-                            actionError={review.actionError}
-                            onRunAction={review.runCardAction}
-                        />
-                    ))}
+                <div className="grid gap-2 @5xl:grid-cols-2">
+                    <AnimatePresence initial={false}>
+                        {inboxItems.map((item) => (
+                            <ResolvingRow key={item.id}>
+                                <CaptureReviewRow item={item} guess={guesses[item.id]} dayFor={dayFor} review={review} />
+                            </ResolvingRow>
+                        ))}
+                    </AnimatePresence>
                 </div>
             ) : (
-                <StepDone label="Inbox is clear." onNext={onNext} />
+                <StepEmpty icon={Inbox} title="All clear" />
             )}
-            {inboxItems.length > 0 && <SkipToNext onSkip={onNext} />}
-        </StepPanel>
+        </StepShell>
     );
 }

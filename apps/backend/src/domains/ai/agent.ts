@@ -13,7 +13,7 @@ import { composePrompt, isWorkloadHigh } from "./prompt/prompt-composer";
 import type { AssistantPersona, PromptRuntimeContext } from "./prompt/prompt-blocks.schema";
 import { HELP_TOPICS } from "./tools/help";
 import { approvalFor } from "./safety/approval";
-import type { ApprovalMode } from "@cadence/contracts/ai";
+import type { ApprovalMode, ChatSurface } from "@cadence/contracts/ai";
 import { MAX_OUTPUT_TOKENS, MAX_TOOL_STEPS } from "./safety/input-guard";
 import { getModelId } from "./model-router";
 import { embedText, getEmbeddingModelId } from "./memory/embedding";
@@ -21,7 +21,7 @@ import { isLearning } from "./memory/memory-mode";
 import { isMemoryTool } from "@cadence/contracts/ai-tools";
 import { loadProfileCoverage, recallFacts, type ProfileLine } from "./memory/memory-store";
 import type { Env } from "../../types/env";
-import { loadAgentSnapshot, userClock } from "./turn";
+import { loadAgentSnapshot, loadWeekAhead, userClock } from "./turn";
 import { projectEvents } from "./tools/events";
 import { normalizeSettings } from "../settings/settings.route";
 import type { RunDiagnostics } from "./run-diagnostics";
@@ -95,6 +95,7 @@ export interface AgentBuildOptions {
     currentDate: string;     // the client's current instant, ISO-8601 (usually UTC "Z")
     locale?: string;
     approvalMode: ApprovalMode;
+    surface?: ChatSurface;   // an embedded chat (the Weekly Reset's): its own instructions and the week ahead instead of today
     modelId?: string;        // the router's pick for this turn (model-router.ts); default the standard model
     nonce: string;           // per-request data-fence nonce (safety/injection-policy)
     queryText?: string;      // the person's last two messages: what recall looks up
@@ -282,10 +283,13 @@ export async function getAgentInstance(
     const tools = buildToolRegistry(env, userId, agentCtx);
     const memoryOn = isLearning(persona.memoryMode);
     const reused = await opts.reusedTurnContext;
+    const resetSurface = opts.surface === "weekly_reset";
     const [{ burnoutIndex }, memories, snapshot] = await Promise.all([
         userContext,
         reused ? [] : loadMemoryContext(env, userId, userHash, persona, clock.today, opts.queryText, opts.requestId, opts.diagnostics),
-        reused ? undefined : measurePhase(opts.diagnostics, "snapshot", () => loadAgentSnapshot(env, userId, agentCtx, tools, projectEvents(normalizeSettings(settings), clock.today))),
+        reused ? undefined : measurePhase(opts.diagnostics, "snapshot", () => resetSurface
+            ? loadWeekAhead(env, userId, agentCtx).catch(() => undefined) // a failed read is left out, as the snapshot's are
+            : loadAgentSnapshot(env, userId, agentCtx, tools, projectEvents(normalizeSettings(settings), clock.today))),
     ]);
 
     const endPrompt = opts.diagnostics?.beginPhase("prompt");
@@ -299,7 +303,8 @@ export async function getAgentInstance(
             approvalMode: opts.approvalMode,
             workloadHigh: isWorkloadHigh(burnoutIndex, persona.adaptiveTone),
             persona,
-            snapshot,
+            surface: opts.surface,
+            ...(resetSurface ? { weekAhead: snapshot } : { snapshot }),
             memories,
             memoryOff: !memoryOn,
         },

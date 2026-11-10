@@ -24,6 +24,9 @@ import { planningEvidence } from "../memory/planning.service";
 import { readSnapshotRoutines, routinesDue, type SnapshotRoutineReader } from "./routine-reads";
 export { routinesDue } from "./routine-reads";
 
+/** `fit_day through` spreads at most this many days: today and the six after. */
+const MAX_FIT_DAYS = 7;
+
 /** Hard cap on the span a single schedule-window read may cover. */
 const MAX_RANGE_DAYS = 62;
 
@@ -41,7 +44,7 @@ const WINDOW_ROW_GUARD = 500;
 const FIND_TIME_PROPOSALS = 3;
 
 /** The calendar's first hour: where Find a time and Fit today start looking (never before 06:00). */
-async function timelineStartHour(tx: Tx, userId: string): Promise<number> {
+export async function timelineStartHour(tx: Tx, userId: string): Promise<number> {
     const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId));
     return (row?.settings as { calendar?: { timelineStartHour?: number } } | null)?.calendar?.timelineStartHour ?? 7;
 }
@@ -162,47 +165,68 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
         description:
             "Lays one local day's untimed open tasks into its calendar gaps, in the person's own order, the way Fit today does: " +
             "placed (each with a gap that fits its known length, a buffer around other blocks), didntFit (a known length, no gap left) " +
-            "and notSized (no known length). Never touches timed tasks, Fixed blocks or repeating tasks. Read-only: nothing is placed.",
+            "and notSized (no known length). Never touches timed tasks, Fixed blocks or repeating tasks. Read-only: nothing is placed. " +
+            "With `through` it spreads several days (≤ 6 after `day`) in one call: what didn't fit carries to the next day (never past " +
+            "its own deadline), and the result is `days`, one entry per day.",
         inputSchema: z.object({
             day: z.iso.date().describe("The local day, YYYY-MM-DD; today unless they named another."),
+            through: z.iso.date().optional().describe("Spread over several days: the last local day, at most 6 days after `day`. Omit for one day."),
+            includeUnscheduled: z.boolean().default(false).describe("With through: also offer open tasks that have no day or time yet, from the first day with room."),
         }),
-        execute: async ({ day }) =>
+        execute: async ({ day, through, includeUnscheduled }) =>
             safeExecute("fit_day", userId, async () => {
                 const zone = ctx.timezone as Zone;
                 if (day < ctx.today) return { ok: false as const, error: "That day has passed; look at today or later." };
+                const max = addDays(day, MAX_FIT_DAYS - 1);
+                const last = !through || through <= day ? day : through > max ? max : through;
                 return withRls(getDbClient(env), userId, async (tx) => {
-                    const onDay = await readTasks(tx, userId, { from: day, to: day });
+                    const inRange = await readTasks(tx, userId, { from: day, to: last });
                     // Today's own set also holds what's still open from earlier days, first, as Today shows it.
                     const carried = day === ctx.today ? (await readTasks(tx, userId, { state: "ACTIVE", effectiveOnOrBeforeDate: day })).filter((t) => (taskDay(t, zone) ?? day) < day) : [];
-                    const candidates = [...carried, ...onDay].filter((t, i, all) => isFitCandidate(t) && all.findIndex((o) => o.id === t.id) === i);
-                    const hints = await durationHints(tx, userId, candidates);
+                    const loose = includeUnscheduled && last > day
+                        ? (await readTasks(tx, userId, { state: "ACTIVE" })).filter((t) => !t.dueDate && !t.scheduledStart && isFitCandidate(t))
+                        : [];
+                    const unique = <T extends { id: string }>(list: T[]) => list.filter((t, i, all) => all.findIndex((o) => o.id === t.id) === i);
+                    const everyone = unique([...carried, ...inRange, ...loose].filter(isFitCandidate));
+                    const hints = await durationHints(tx, userId, everyone);
                     const lists = new Map((await tx.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.userId, userId))).map((p) => [p.id, p.name]));
                     const evidence = await planningEvidence(tx, userId);
-                    const sized = candidates.map((t) => {
+                    const startHour = await timelineStartHour(tx, userId);
+                    const sized = new Map(everyone.map((t) => {
                         const takesAbout = hints.get(t.id)?.takesAbout;
-                        return { ...t, minutes: fitMinutes(t, takesAbout ? { state: "supported", minutes: takesAbout } : null), notBefore: t.notBefore ?? null };
-                    });
-                    const result = fitDay(
-                        sized,
-                        { day, zone, now: ctx.currentDate, busy: busyBlocks(onDay, ""), timelineStartHour: await timelineStartHour(tx, userId) },
-                        (t, feasible) => preferredBuckets(evidence, { title: t.title, projectId: t.projectId, listName: t.projectId ? lists.get(t.projectId) ?? null : null }, feasible, ctx.today),
-                    );
-                    const byId = new Map(sized.map((t) => [t.id, t]));
+                        return [t.id, { ...t, minutes: fitMinutes(t, takesAbout ? { state: "supported", minutes: takesAbout } : null), notBefore: t.notBefore ?? null }] as const;
+                    }));
                     const clock = (instant: string) => formatInZone(instant, zone, { hour: "numeric", minute: "2-digit" });
-                    return {
-                        ok: true as const,
-                        day,
-                        placed: result.placed.map((p) => ({
-                            id: p.taskId,
-                            title: byId.get(p.taskId)!.title,
-                            start: toZonedIso(p.start, zone),
-                            end: toZonedIso(p.end, zone),
-                            label: `${clock(p.start)}–${clock(p.end)}`,
-                        })),
-                        didntFit: result.didntFit.map((id) => ({ id, title: byId.get(id)!.title, minutes: byId.get(id)!.minutes })),
-                        notSized: result.notSized.map((id) => ({ id, title: byId.get(id)!.title })),
-                        gaps: true as const,
-                    };
+                    const titleOf = (id: string) => sized.get(id)!.title;
+                    let carry: string[] = [];
+                    const days = [];
+                    for (let d = day; d <= last; d = addDays(d, 1)) {
+                        const onDay = inRange.filter((t) => taskDay(t, zone) === d);
+                        const own = [...(d === ctx.today ? carried : []), ...onDay].filter((t) => sized.has(t.id)).map((t) => t.id);
+                        const offered = unique([...carry, ...own, ...(d === day ? loose.map((t) => t.id) : [])].map((id) => sized.get(id)!));
+                        const result = fitDay(
+                            offered,
+                            { day: d, zone, now: ctx.currentDate, busy: busyBlocks(onDay, ""), timelineStartHour: startHour },
+                            (t, feasible) => preferredBuckets(evidence, { title: t.title, projectId: t.projectId, listName: t.projectId ? lists.get(t.projectId) ?? null : null }, feasible, ctx.today),
+                        );
+                        // What didn't fit tries the next day, unless that's past its own deadline.
+                        const next = addDays(d, 1);
+                        carry = d < last ? result.didntFit.filter((id) => { const due = sized.get(id)!.dueDate; return !due || due >= next; }) : [];
+                        days.push({
+                            day: d,
+                            placed: result.placed.map((p) => ({
+                                id: p.taskId,
+                                title: titleOf(p.taskId),
+                                start: toZonedIso(p.start, zone),
+                                end: toZonedIso(p.end, zone),
+                                label: `${clock(p.start)}–${clock(p.end)}`,
+                            })),
+                            didntFit: result.didntFit.filter((id) => !carry.includes(id)).map((id) => ({ id, title: titleOf(id), minutes: sized.get(id)!.minutes })),
+                            notSized: result.notSized.map((id) => ({ id, title: titleOf(id) })),
+                        });
+                    }
+                    if (last === day) return { ok: true as const, ...days[0]!, gaps: true as const };
+                    return { ok: true as const, day, through: last, days, gaps: true as const };
                 });
             }),
     }),

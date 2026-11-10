@@ -1,6 +1,11 @@
 /** Per-turn context shared by the chat agent and the MCP server: the user's clock and today's snapshot. */
-import { isZone, todayIn, toZonedIso } from "@cadence/domain/time";
-import { calendarTools } from "./tools/calendar";
+import { addDays, formatInZone, isZone, todayIn, toZonedIso, type Zone } from "@cadence/domain/time";
+import { weekRoom } from "@cadence/domain/fit-day";
+import { taskDay } from "@cadence/domain/task-recurrence";
+import { getDbClient } from "../../platform/db";
+import { withRls } from "../../platform/rls";
+import { readTasks } from "../tasks/tasks.service";
+import { calendarTools, routinesDue, timelineStartHour } from "./tools/calendar";
 import { habitTools } from "./tools/habits";
 import { readSnapshotRoutines, type SnapshotRoutineReader } from "./tools/routine-reads";
 import type { Env } from "../../types/env";
@@ -34,6 +39,38 @@ export async function loadSnapshot(tools: SnapshotTools, today: string, eventsSn
         routines: routines?.statuses.map((s: any) => ({ ...s, targetTime: targetTime.get(s.habitId) ?? undefined })),
         capture,
         events: events?.events.filter((e: { daysUntil: number }) => e.daysUntil <= 7),
+    });
+}
+
+/** Deadlines per day in the week ahead, and the characters of each title. */
+const WEEK_DEADLINES = 5;
+const WEEK_TITLE_CHARS = 60;
+
+/**
+ * The Weekly Reset's week: per day from today for 7 days, booked and open minutes (`weekRoom`, the same rule as
+ * the reset's week strip), deadlines (capped), Fixed block count and routines due. Read before the model starts,
+ * so "spread my week" and "what's due?" need no read step. ≈1.5k chars; replaces the snapshot on that surface.
+ */
+export async function loadWeekAhead(env: Env, userId: string, ctx: Pick<AgentContext, "timezone" | "today" | "currentDate">): Promise<string> {
+    const zone = ctx.timezone as Zone;
+    const last = addDays(ctx.today, 6);
+    return withRls(getDbClient(env), userId, async (tx) => {
+        const [tasks, routines, startHour] = await Promise.all([
+            readTasks(tx, userId, { from: ctx.today, to: last }),
+            readSnapshotRoutines(tx, userId),
+            timelineStartHour(tx, userId),
+        ]);
+        const due = routinesDue(routines, ctx.today, last, ctx.today, zone);
+        const room = weekRoom(tasks, { from: ctx.today, days: 7, zone, timelineStartHour: startHour, now: ctx.currentDate });
+        return JSON.stringify(room.map((d) => ({
+            day: `${d.day} ${formatInZone(d.day, "UTC", { weekday: "short" }, "en-US")}`,
+            bookedMinutes: d.bookedMinutes,
+            openMinutes: d.openMinutes,
+            deadlines: d.deadlines.slice(0, WEEK_DEADLINES).map((t) => ({ id: t.id, title: t.title.slice(0, WEEK_TITLE_CHARS) })),
+            ...(d.deadlines.length > WEEK_DEADLINES && { more: true }),
+            fixedBlocks: tasks.filter((t) => t.interactionMode === "timetable" && taskDay(t, zone) === d.day).length,
+            routinesDue: due.filter((r) => r.days.includes(d.day)).length,
+        })));
     });
 }
 

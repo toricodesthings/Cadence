@@ -69,6 +69,8 @@ export function makeChatTransport(
                     locale: typeof navigator !== "undefined" ? navigator.language : undefined,
                     // The composer's approval mode → the prompt's Environment.
                     approvalMode: useAssistantStore.getState().approvalMode,
+                    // An embedded chat (the Weekly Reset's) gets its own short context on the server.
+                    surface: useAssistantStore.getState().surface ?? undefined,
                 },
                 headers: { "Idempotency-Key": clientMessageId },
             };

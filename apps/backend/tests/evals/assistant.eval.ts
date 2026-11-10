@@ -60,6 +60,8 @@ interface Scenario {
     now?: string;
     /** Pick each turn's model with the router, as the chat route does (default: always the standard model). */
     routed?: boolean;
+    /** The chat is embedded there (the Weekly Reset's closing chat). */
+    surface?: "weekly_reset";
     /** Model runs to repeat, all of which must pass (luna is not deterministic; the time scenarios run 3). */
     runs?: number;
     /** Problems found, empty when it passed. */
@@ -80,7 +82,7 @@ function toolsFor(userId: string, now = NOW) {
     };
 }
 
-async function converse(userId: string, turns: Scenario["turns"], now = NOW, routed = false, variant = optimization): Promise<Run> {
+async function converse(userId: string, turns: Scenario["turns"], now = NOW, routed = false, variant = optimization, surface?: Scenario["surface"]): Promise<Run> {
     const calls: Call[] = [];
     const messages: any[] = [];
     let text = "";
@@ -106,7 +108,7 @@ async function converse(userId: string, turns: Scenario["turns"], now = NOW, rou
             for (const m of messages) if (m.role === "assistant" && Array.isArray(m.content)) m.content = m.content.filter((p: any) => p.type !== "reasoning");
         }
         models.push(modelId);
-        const { agent, turnContext } = await getAgentInstance(env, userId, { ...variant, timezone: TZ, currentDate: now, approvalMode: "full", nonce: "evalnonce", modelId, userTexts: [...new Set(said.slice(-4))], answeredField });
+        const { agent, turnContext } = await getAgentInstance(env, userId, { ...variant, timezone: TZ, currentDate: now, approvalMode: "full", surface, nonce: "evalnonce", modelId, userTexts: [...new Set(said.slice(-4))], answeredField });
         // Like production: each user message keeps the context it was sent with, so later turns replay
         // it unchanged and read the earlier ones from the prompt cache.
         const textContent = `${request}\n\n${turnContext}`;
@@ -831,6 +833,105 @@ const SCENARIOS: Scenario[] = [
             ];
         },
     },
+    // 0.42.0: the Weekly Reset's closing chat. Short replies, one fit_day for the week, nothing written unasked.
+    ...((): Scenario[] => {
+        const sentences = (text: string) => text.split(/[.!?](\s|$)/).filter((p) => p.trim().length > 1).length;
+        const week = async (t: Tools) => {
+            await t("create_tasks", { tasks: [
+                { title: "Essay draft", dueDate: "2026-09-25", durationEstimate: 90 },
+                { title: "Email Sam", dueDate: TODAY, durationEstimate: 15 },
+                { title: "Call bank", durationEstimate: 30 },
+                { title: "Read chapter 4", durationEstimate: 60 },
+            ] });
+            await t("create_habit", { title: "Gym", recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH" });
+            return {};
+        };
+        // The reply alone: a question asked with ask_user (and its options) is appended to run.text by converse.
+        const reply = (run: Run) => called(run, "ask_user").reduce((text, c) => text.replace(String(c.input?.question ?? ""), ""), run.text).split("\n")[0]!;
+        const quiet = (run: Run) => [
+            ...need(sentences(reply(run)) <= 3, `kept it short: "${run.text.slice(0, 200)}"`),
+            ...need(!/great job|awesome|you've got this|!\s*$/i.test(run.text), "no praise or pep talk"),
+        ];
+        return [
+            {
+                name: "reset chat: spread my week is one fit_day through the week, placing nothing",
+                level: "medium", runs: 3, surface: "weekly_reset", seed: week,
+                turns: ["Spread this week's tasks into my free time"],
+                check: async (run) => {
+                    const fits = called(run, "fit_day");
+                    return [
+                        ...need(fits.length === 1, `one fit_day call, got ${fits.length}`),
+                        ...need(!!fits[0]?.input?.through && fits[0].input.through > TODAY, "spread through later days"),
+                        ...need(!called(run, "update_tasks").length && !called(run, "reschedule_tasks").length, "wrote nothing: Place is the person's tap"),
+                        ...quiet(run),
+                    ];
+                },
+            },
+            {
+                name: "reset chat: what's due answers from the week ahead without a read",
+                level: "simple", runs: 3, surface: "weekly_reset", seed: week,
+                turns: ["What's due this week?"],
+                check: async (run) => [
+                    ...need(/essay/i.test(run.text), "names the essay deadline"),
+                    ...need(!run.calls.some((c) => c.name.startsWith("get_")), "used The week ahead, no read"),
+                    ...quiet(run),
+                ],
+            },
+            {
+                name: "reset chat: cancel gym Thursday skips that routine day, nothing else",
+                level: "medium", runs: 3, surface: "weekly_reset", seed: week,
+                turns: ["cancel gym Thursday"],
+                check: async (run) => [
+                    ...need(!called(run, "delete_habit").length, "never deleted the routine"),
+                    ...need(called(run, "log_habit").length > 0 || called(run, "ask_user").length > 0, "skipped Thursday (or asked which)"),
+                    ...need(!called(run, "create_tasks").length, "added nothing"),
+                ],
+            },
+            {
+                name: "reset chat: nothing, thanks ends in one line and does nothing",
+                level: "simple", runs: 3, surface: "weekly_reset", seed: week,
+                turns: ["nothing, thanks"],
+                check: async (run) => [
+                    ...need(run.calls.length === 0, `no tools, got ${run.calls.map((c) => c.name).join(", ")}`),
+                    ...need(sentences(run.text) <= 2, `one line: "${run.text}"`),
+                ],
+            },
+            {
+                name: "reset chat: an overloaded week offers what can move, writing nothing unasked",
+                level: "complex", runs: 3, surface: "weekly_reset",
+                seed: async (t) => {
+                    const days = ["2026-09-23", "2026-09-24", "2026-09-25"];
+                    await t("create_tasks", { tasks: days.flatMap((d, i) => [
+                        { title: `Shift ${i + 1}`, scheduledStart: `${d}T09:00:00-04:00`, scheduledEnd: `${d}T19:00:00-04:00` },
+                        { title: `Report ${i + 1}`, dueDate: d, durationEstimate: 120 },
+                        { title: `Errand ${i + 1}`, dueDate: d, durationEstimate: 45 },
+                    ]) });
+                    return {};
+                },
+                turns: ["My busiest day is too full, what can move?"],
+                check: async (run, t) => {
+                    const shifts = (await openTasks(t)).filter((task) => /^Shift/.test(task.title));
+                    return [
+                        ...need(/errand|report/i.test(run.text) || called(run, "reschedule_tasks").length > 0 || called(run, "ask_user").length > 0, "names or moves what can go (or asks which day)"),
+                        ...need(shifts.every((task) => task.scheduledStart?.includes("T09:00")), "left the shifts where they were"),
+                        ...need(!called(run, "create_tasks").length, "added nothing"),
+                        ...need(!/urgent/i.test(run.text), "assigns no urgency"),
+                        ...quiet(run),
+                    ];
+                },
+            },
+            {
+                name: "reset chat: an empty week says so plainly",
+                level: "simple", runs: 3, surface: "weekly_reset",
+                turns: ["What's due this week?"],
+                check: async (run) => [
+                    ...need(!called(run, "create_tasks").length, "added nothing"),
+                    ...need(/nothing|no deadlines|clear|none/i.test(run.text), `says nothing is due: "${run.text.slice(0, 160)}"`),
+                    ...quiet(run),
+                ],
+            },
+        ];
+    })(),
     {
         // 0.38.0 F2: one task at one time stays find_time; the whole-day card is for the whole day.
         name: "put the essay in tonight uses find_time, not fit_day",
@@ -1079,7 +1180,7 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
                 const t = Object.assign(toolsFor(userId, scenario.now), { userId });
                 const seeded = (await scenario.seed?.(t)) ?? {};
                 let run: Run;
-                try { run = await converse(userId, scenario.turns, scenario.now, scenario.routed, variant); }
+                try { run = await converse(userId, scenario.turns, scenario.now, scenario.routed, variant, scenario.surface); }
                 catch (error) {
                     total.failedRuns++;
                     problems.push(`run ${attempt}: generation failed (${error instanceof Error ? error.name : "unknown error"}); usage/cost unknown`);

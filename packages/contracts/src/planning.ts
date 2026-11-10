@@ -74,3 +74,21 @@ export const suggestStepsSchema = z.object({
 });
 export type SuggestStepsInput = z.infer<typeof suggestStepsSchema>;
 export const suggestedStepsSchema = z.object({ steps: z.array(z.string().max(STEP_MAX_CHARS)).min(1).max(7) });
+
+/** The most rows one Weekly Reset suggestion call reads. */
+export const RESET_SUGGESTION_MAX = 30;
+
+/** What the decision model may guess for a reset row: a bucket, never a date (the device turns "this week" into a day). */
+export const RESET_DISPOSITIONS = { captures: ["today", "this_week", "next_week", "later", "none"], unscheduled: ["today", "this_week", "next_week", "later", "none"], waiting: ["activate", "keep_waiting", "none"] } as const;
+export const resetDispositionSchema = z.enum(["today", "this_week", "next_week", "later", "activate", "keep_waiting"]);
+export type ResetDisposition = z.infer<typeof resetDispositionSchema>;
+
+/** `POST /ai/decisions/reset`: ids only; the server reads every row itself (under RLS) and never trusts client text. */
+export const resetSuggestionsRequestSchema = z.object({
+    step: z.enum(["captures", "loose_ends"]),
+    ids: z.array(z.uuid()).min(1).max(RESET_SUGGESTION_MAX),
+});
+export type ResetSuggestionsRequest = z.infer<typeof resetSuggestionsRequestSchema>;
+/** Only confident picks: a row the model left at `none` (or that fell below the threshold) is absent. */
+export const resetSuggestionsSchema = z.object({ suggestions: z.record(z.string(), resetDispositionSchema) });
+export type ResetSuggestions = z.infer<typeof resetSuggestionsSchema>;

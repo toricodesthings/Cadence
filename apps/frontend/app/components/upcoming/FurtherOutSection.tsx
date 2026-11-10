@@ -9,7 +9,7 @@ import { groupFurtherOut } from "../../lib/utils/task/horizon";
 
 const OPEN_STORAGE_KEY = "cadence-upcoming-further-open";
 
-/** Weekly Reset's look-ahead opens Upcoming with Further out unfolded. */
+/** `/upcoming?further` opens Upcoming with Further out unfolded, for one visit. */
 export const FURTHER_OUT_OPEN_PARAM = "further";
 
 export interface FurtherOutItem {

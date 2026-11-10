@@ -14,7 +14,7 @@ import { logger } from "../../platform/log";
 import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
 
-export type DecisionKind = "placement" | "search" | "assistant_search" | "effort" | "priority_said";
+export type DecisionKind = "placement" | "search" | "assistant_search" | "effort" | "priority_said" | "reset_disposition";
 export type DecisionOutcome = "chose" | "abstained" | "below_threshold" | "timeout" | "error";
 
 /** Shown only when the top option's probability is at least this. Used for a model with no entry below. */

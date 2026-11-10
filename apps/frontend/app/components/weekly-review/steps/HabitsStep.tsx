@@ -1,102 +1,109 @@
-import { useNavigate } from "react-router";
+import type { CSSProperties } from "react";
+import { AnimatePresence } from "framer-motion";
 import { Check, Pause, Flame, Pencil } from "lucide-react";
-import { type ReviewActions, SkipToNext, StepDone, StepPanel } from "./shared";
+import type { HabitReviewItem } from "../../../hooks/core/use-weekly-review-actions";
+import { useSettings } from "../../../hooks/core/use-settings";
+import { useToday } from "../../../lib/utils/user-zone";
+import { routineTone } from "../../../lib/utils/habits";
+import { formatWeekdayNarrow } from "../../../lib/utils/date-format";
+import { RoutineDayCell } from "../../habits/RoutineDayCell";
+import { ResolvingRow, StepEmpty, StepShell } from "../StepShell";
+import type { ReviewActions } from "./shared";
 
-/* ──────── Habit review row ──────── */
-
-export function HabitReviewRow({
-    habit,
-    onKeep,
-    onPause,
-    onOpenInHabits,
-}: {
-    habit: { id: string; title: string; completedThisWeek: number; skippedThisWeek: number; pendingThisWeek: number; hasTargetTime: boolean };
-    onKeep: () => void;
-    onPause: () => void;
-    onOpenInHabits: () => void;
-}) {
+/**
+ * The last seven days as the app's own day cells: tap to check a day off (or un-check it), right-click or
+ * long-press for Skip and Clear. A day it wasn't due is a dot; an earlier day left open stays quiet, never a miss.
+ */
+function RoutineWeek({ item, today, bloom }: { item: HabitReviewItem; today: string; bloom: boolean }) {
+    const logs = new Map((item.habit.logs ?? []).map((l) => [l.targetDate, l]));
     return (
-        <div className="rounded-2xl border border-twilight-border/40 bg-twilight-surface/30 px-5 py-4">
-            <div className="flex items-center gap-3 mb-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent-secondary/10 text-accent-secondary">
-                    <Flame size={14} />
+        <div role="group" aria-label={`${item.title}, last 7 days`} className="grid w-full grid-cols-7 gap-1 @3xl:w-auto @3xl:grid-cols-[repeat(7,2.75rem)] @3xl:gap-1.5">
+            {item.week.map(({ day }) => (
+                <div key={day} className="flex flex-col items-center gap-1.5">
+                    <span aria-hidden="true" className={`text-[0.6875rem] font-medium uppercase tracking-[0.04em] ${day === today ? "text-[var(--routine-tone)]" : "text-twilight-text-muted"}`}>
+                        {formatWeekdayNarrow(day)}
+                    </span>
+                    <RoutineDayCell size="fit" habit={item.habit} date={day} log={logs.get(day)} today={today} bloom={bloom} openRing />
                 </div>
-                <h4 className="text-sm font-medium text-twilight-text flex-1 truncate">{habit.title}</h4>
-            </div>
-            <div className="flex items-center gap-4 mb-3 text-xs text-twilight-text-muted">
-                <span><span className="text-accent-primary font-semibold">{habit.completedThisWeek}</span> done</span>
-                <span><span className="font-semibold">{habit.skippedThisWeek}</span> skipped</span>
-                <span><span className="text-accent-secondary font-semibold">{habit.pendingThisWeek}</span> pending</span>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-                <button
-                    type="button"
-                    onClick={onKeep}
-                    className="touch-target inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-accent-primary/14 px-3 text-xs font-medium text-accent-primary hover:bg-accent-primary/20 transition-colors"
-                >
-                    <Check size={13} /> Keep
-                </button>
-                <button
-                    type="button"
-                    onClick={onPause}
-                    className="touch-target inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-medium text-twilight-text-soft hover:bg-white/[0.06] transition-colors"
-                >
-                    <Pause size={13} /> Pause
-                </button>
-                <button
-                    type="button"
-                    onClick={onOpenInHabits}
-                    className="touch-target inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-medium text-twilight-text-soft hover:bg-white/[0.06] transition-colors"
-                >
-                    <Pencil size={13} /> Edit
-                </button>
-            </div>
+            ))}
         </div>
     );
 }
 
-export type HabitsStepProps = {
-    habits: ReviewActions["habitReviewItems"];
+function HabitReviewCard({ item, today, bloom, onKeep, onPause, onEdit }: {
+    item: HabitReviewItem;
+    today: string;
+    bloom: boolean;
+    onKeep: () => void;
+    onPause: () => void;
+    onEdit: () => void;
+}) {
+    const quiet = "glass-none touch-target inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-accent-primary/5 hover:text-twilight-text";
+    return (
+        <article
+            aria-label={item.title}
+            className="surface-card flex flex-wrap items-center gap-x-6 gap-y-4 rounded-[1.25rem] px-4 py-4 @3xl:flex-nowrap @3xl:py-3"
+            style={{ "--routine-tone": routineTone(item.colorAccent) } as CSSProperties}
+        >
+            <div className="flex min-w-0 flex-1 basis-full items-center gap-3 @3xl:basis-0">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--routine-tone)_14%,transparent)] text-[var(--routine-tone)]">
+                    <Flame size={18} aria-hidden="true" />
+                </span>
+                <h3 className="min-w-0 truncate text-base font-medium tracking-[-0.005em] text-twilight-text">{item.title}</h3>
+            </div>
+            <RoutineWeek item={item} today={today} bloom={bloom} />
+            <div className="flex w-full items-center gap-1 @3xl:w-auto">
+                <button type="button" onClick={onKeep} className="surface-control-accent touch-target inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 text-sm font-medium text-accent-primary">
+                    <Check size={15} aria-hidden="true" /> Keep
+                </button>
+                {item.allSkipped ? (
+                    <button type="button" onClick={onPause} className="surface-control touch-target inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-twilight-text">
+                        <Pause size={15} aria-hidden="true" /> Skip next week?
+                    </button>
+                ) : (
+                    <button type="button" onClick={onPause} className={quiet}><Pause size={15} aria-hidden="true" /> Pause</button>
+                )}
+                <button type="button" onClick={onEdit} className={`${quiet} ml-auto @3xl:ml-0`}><Pencil size={15} aria-hidden="true" /> Edit</button>
+            </div>
+        </article>
+    );
+}
+
+/* ─── Step 3 · Routines ─── */
+export function HabitsStep({ habits, anyHabits, pauseHabit, onReviewed, onEdit, onTitleVisible }: {
+    habits: HabitReviewItem[];
     anyHabits: boolean;
     pauseHabit: ReviewActions["pauseHabit"];
     onReviewed: (id: string) => void;
-    onNext: () => void;
-};
-
-/* ─── Step 3 · Habits ─── */
-export function HabitsStep({ habits, anyHabits, pauseHabit, onReviewed, onNext }: HabitsStepProps) {
-    const navigate = useNavigate();
+    /** Opens the routine's panel beside the list; the card stays until Keep or Pause. */
+    onEdit: (id: string) => void;
+    onTitleVisible?: (visible: boolean) => void;
+}) {
+    const today = useToday();
+    const { data: settings } = useSettings();
+    const bloom = !settings?.tasks?.intelligence?.lowStimulationMode;
     return (
-        <StepPanel title="Routine check-in" intro={habits.length > 0
-                ? `${habits.length} routine${habits.length > 1 ? "s" : ""} to reflect on.`
-                : anyHabits
-                ? "All routines reviewed."
-                : "No routines this week."}>
+        <StepShell step={3} count={habits.length} onTitleVisible={onTitleVisible}>
             {habits.length > 0 ? (
-                <div className="flex flex-col gap-3">
-                    {habits.map((habit) => (
-                        <HabitReviewRow
-                            key={habit.id}
-                            habit={habit}
-                            onKeep={() => onReviewed(habit.id)}
-                            onPause={() => {
-                                pauseHabit.pause(habit.id);
-                                onReviewed(habit.id);
-                            }}
-                            onOpenInHabits={() => {
-                                onReviewed(habit.id);
-                                navigate("/routines");
-                            }}
-                        />
-                    ))}
+                <div className="flex flex-col gap-2.5">
+                    <AnimatePresence initial={false}>
+                        {habits.map((item) => (
+                            <ResolvingRow key={item.id}>
+                                <HabitReviewCard
+                                    item={item}
+                                    today={today}
+                                    bloom={bloom}
+                                    onKeep={() => onReviewed(item.id)}
+                                    onPause={() => { pauseHabit.pause(item.id); onReviewed(item.id); }}
+                                    onEdit={() => onEdit(item.id)}
+                                />
+                            </ResolvingRow>
+                        ))}
+                    </AnimatePresence>
                 </div>
             ) : (
-                <StepDone
-                    label={anyHabits ? "Routines reviewed." : "Visit Routines to start one."}
-                    onNext={onNext}
-                />
+                <StepEmpty icon={Flame} title={anyHabits ? "All good" : "No routines yet"} />
             )}
-            {habits.length > 0 && <SkipToNext onSkip={onNext} />}
-        </StepPanel>
+        </StepShell>
     );
 }

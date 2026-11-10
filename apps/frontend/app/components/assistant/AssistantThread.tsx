@@ -1,4 +1,4 @@
-import { useMemo, type Ref } from "react";
+import { useMemo, type ReactNode, type Ref } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowDown, Sunrise, AlarmClock, Inbox } from "lucide-react";
 import * as ScrollArea from "../primitives/ScrollArea";
@@ -203,7 +203,8 @@ export function AssistantThread({
     contentRef,
     showJump,
     scrollToBottom,
-    submitText
+    submitText,
+    empty
 }: {
     conversation: AssistantConversation;
     assistantName: string;
@@ -215,6 +216,8 @@ export function AssistantThread({
     showJump: boolean;
     scrollToBottom: () => void;
     submitText: (text: string) => void;
+    /** What an empty thread shows instead of the panel's welcome (the Weekly Reset's greeting). */
+    empty?: ReactNode;
 }) {
     const { messages, status, handleRetry, streamError, imageError, sendWithoutImages, shareImages } = conversation;
     const reduceMotion = useReducedMotion();
@@ -230,7 +233,7 @@ export function AssistantThread({
                     {conversation.restoring ? (
                         <RestoringThread reduceMotion={reduceMotion} />
                     ) : messages.length === 0 ? (
-                        <EmptyThread assistantName={assistantName} submitText={submitText} />
+                        (empty ?? <EmptyThread assistantName={assistantName} submitText={submitText} />)
                     ) : null}
 
                     <AnimatePresence initial={false}>

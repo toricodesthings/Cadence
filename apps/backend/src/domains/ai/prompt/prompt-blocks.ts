@@ -26,6 +26,8 @@ import memoryFacts from "../../../prompts/assistant/user/memory-facts.md";
 import memoryFact from "../../../prompts/assistant/user/memory-fact.md";
 import memoryOff from "../../../prompts/assistant/user/memory-off.md";
 import snapshot from "../../../prompts/assistant/user/snapshot.md";
+import weekAhead from "../../../prompts/assistant/user/week-ahead.md";
+import weeklyReset from "../../../prompts/assistant/surface/weekly-reset.md";
 
 const t = (text: string) => text.trimEnd();
 const authority = [identity, rules, changes];
@@ -38,6 +40,8 @@ export const PROMPT_BLOCKS: PromptBlocks = {
     customInstructions: t(customInstructions),
     environment: t(environment),
     snapshot: t(snapshot),
+    surfaces: { weekly_reset: t(weeklyReset) },
+    weekAhead: t(weekAhead),
     memoryFacts: t(memoryFacts),
     memoryFact: t(memoryFact),
     memoryOff: t(memoryOff),

@@ -89,6 +89,10 @@ export const toolApprovalDecisionSchema = z.object({
 });
 export type ToolApprovalDecision = z.infer<typeof toolApprovalDecisionSchema>;
 
+/** Where a chat is embedded: the Weekly Reset's closing chat gets its own short context and a dated title. */
+export const chatSurfaceSchema = z.enum(["weekly_reset"]);
+export type ChatSurface = z.infer<typeof chatSurfaceSchema>;
+
 export const chatRequestSchema = z.object({
     conversationId: z.uuid().optional(),
     /** The new user turn. Omitted when the request only answers approvals. */
@@ -103,6 +107,7 @@ export const chatRequestSchema = z.object({
     clientMessageId: z.string().max(64).optional(),
     /** The composer's approval mode, rendered into the prompt's Environment. */
     approvalMode: approvalModeSchema.default("ask"),
+    surface: chatSurfaceSchema.optional(),
     /**
      * Edit-truncation anchor. Sent ONLY on an explicit message edit: the id of
      * the last message the client kept (rows after it are dropped server-side

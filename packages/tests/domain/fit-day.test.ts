@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { atLocal } from "@cadence/domain/time";
-import { fitDay, fitMinutes, isFitCandidate, type FitDayInput, type FitTask } from "@cadence/domain/fit-day";
+import { dispositionDay, fitDay, fitMinutes, isFitCandidate, roomiestDay, weekRoom, type FitDayInput, type FitTask, type RoomTask } from "@cadence/domain/fit-day";
 
 const zone = "America/Toronto";
 const day = "2026-10-20";
@@ -73,5 +73,51 @@ describe("what sizes and what takes part", () => {
         expect(isFitCandidate({ ...t, interactionMode: "timetable" })).toBe(false);
         expect(isFitCandidate({ ...t, recurrenceRule: "FREQ=DAILY" })).toBe(false);
         expect(isFitCandidate({ ...t, endDate: "2026-10-22" })).toBe(false);
+    });
+});
+
+describe("weekRoom / roomiestDay", () => {
+    const t = (id: string, over: Partial<RoomTask> = {}): RoomTask => ({ id, title: id, state: "ACTIVE", dueDate: null, scheduledStart: null, scheduledEnd: null, durationEstimate: null, ...over });
+    const opts = { from: day, days: 7, zone, timelineStartHour: 7 };
+
+    it("an empty week is all open (07:00–22:00 = 900 minutes a day) and the first later day has room", () => {
+        const room = weekRoom([], opts);
+        expect(room).toHaveLength(7);
+        expect(room.every((r) => r.bookedMinutes === 0 && r.openMinutes === 900)).toBe(true);
+        expect(roomiestDay(room, 60, { after: day })).toBe("2026-10-21");
+    });
+
+    it("counts overlapping blocks once, adds estimates of untimed tasks due that day, and lists deadlines", () => {
+        const room = weekRoom([
+            t("a", { scheduledStart: at("09:00"), scheduledEnd: at("11:00") }),
+            t("b", { scheduledStart: at("10:00"), scheduledEnd: at("12:00") }),
+            t("c", { dueDate: day, durationEstimate: 30 }),
+            t("d", { dueDate: day, state: "COMPLETE", durationEstimate: 600 }),
+        ], opts);
+        expect(room[0]).toMatchObject({ bookedMinutes: 210, openMinutes: 690, deadlines: [{ id: "c", title: "c" }] });
+    });
+
+    it("a full week falls back to the day with the most room", () => {
+        const busy = Array.from({ length: 7 }, (_, i) => {
+            const d = `2026-10-2${i}`;
+            return t(`x${i}`, { scheduledStart: at("07:00", d), scheduledEnd: at(i === 4 ? "21:00" : "22:00", d) });
+        });
+        const room = weekRoom(busy, opts);
+        expect(roomiestDay(room, 120, { after: day })).toBe("2026-10-24");
+    });
+
+    it("keeps the same local window across a DST change (the 23- and 25-hour days still read 900 minutes)", () => {
+        const room = weekRoom([], { ...opts, from: "2026-10-30" });
+        expect(room.map((r) => r.openMinutes)).toEqual(Array(7).fill(900));
+    });
+});
+
+describe("dispositionDay", () => {
+    const room = weekRoom([], { from: day, days: 7, zone, timelineStartHour: 7 }); // Tue 2026-10-20 …
+    it("maps this_week through roomiestDay, inside this week only, and next_week to the week's first day", () => {
+        expect(dispositionDay("today", { today: day, room, minutes: 30, weekStart: "Monday" })).toBe(day);
+        expect(dispositionDay("this_week", { today: day, room, minutes: 30, weekStart: "Monday" })).toBe("2026-10-21");
+        expect(dispositionDay("next_week", { today: day, room, minutes: 30, weekStart: "Monday" })).toBe("2026-10-26");
+        expect(dispositionDay("next_week", { today: day, room, minutes: 30, weekStart: "Sunday" })).toBe("2026-10-25");
     });
 });

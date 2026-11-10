@@ -6,6 +6,25 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+A calmer Weekly Reset that does more of the sorting for you.
+
+### Added
+
+- Go back a step in the Weekly Reset, jump to any step, or rename an item where it sits.
+- Huddle in the Weekly Reset: an optional chat to rearrange your week, with ready-made questions.
+- See your next 7 days at the end of the Weekly Reset and open any day, task or routine in place.
+- The Weekly Reset makes a guess for each item. Your other choices are still one tap away.
+- Check off or skip a routine's past days right from the Weekly Reset.
+
+### Changed
+
+- The Weekly Reset got a fresh look, with fewer words and more room on big screens.
+- "Stabilize" is now "Loose ends".
+
+### Fixed
+
+- Routines now show up the first time you open that Weekly Reset step.
+
 ## [0.41.5] - 2026-11-09
 
 ### Changed

@@ -84,12 +84,12 @@ export function InstructionField({
                     onChange={(e) => setText(e.target.value)}
                     placeholder={placeholder}
                     aria-label={placeholder}
-                    className="min-h-10 flex-1 rounded-xl border border-twilight-border/40 bg-transparent px-3 text-sm text-twilight-text outline-none placeholder:text-twilight-text-muted/60 focus:border-accent-primary/40"
+                    className="surface-control min-h-11 flex-1 rounded-xl border border-twilight-border/40 px-3 text-[0.9375rem] text-twilight-text outline-none placeholder:text-twilight-text-muted/60 focus:border-accent-primary/40"
                 />
                 <button
                     type="submit"
                     disabled={!ready || disabled}
-                    className="touch-target inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-accent-primary/14 px-3.5 text-xs font-medium text-accent-primary transition-colors hover:bg-accent-primary/20 disabled:cursor-default disabled:opacity-40"
+                    className="surface-control-accent touch-target inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl px-3.5 text-sm font-medium text-accent-primary disabled:cursor-default disabled:opacity-40"
                 >
                     {applyLabel}
                     <ArrowRight size={14} aria-hidden="true" />
@@ -97,8 +97,8 @@ export function InstructionField({
             </form>
             {text.trim() ? (
                 <p role="status" className="text-xs text-twilight-text-soft">
-                    {parts.length ? parts.join(" · ") : "Nothing I can change from that yet."}
-                    {unread && parts.length ? <span className="text-twilight-text-muted"> · not read: “{unread}”</span> : null}
+                    {parts.length ? parts.join(" · ") : "Not sure what to change yet"}
+                    {unread && parts.length ? <span className="text-twilight-text-muted"> · skipped “{unread}”</span> : null}
                 </p>
             ) : null}
         </div>

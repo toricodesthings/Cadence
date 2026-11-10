@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { planningOffersSchema, type PlanningOffer } from "@cadence/contracts/planning";
 import type { Task } from "@cadence/contracts/task";
@@ -81,7 +81,19 @@ export function usePlanningOffers(ordered: readonly Task[]) {
         if (task && kind) void report(task.id, kind, "declined");
     }, [kind, report, task]);
 
-    return { task: task ?? null, kind, accept, notNow, shown: task && kind ? { taskId: task.id, kind, accept } satisfies ShownOffer : null };
+    // Weekly Reset's relief: two or more rows that keep slipping, hidden together with one tap (and one Undo).
+    const slipping = useMemo(() => (eligible ? ordered.filter((t) => eligible.steps.includes(t.id)) : []), [eligible, ordered]);
+    const hideSlipping = useCallback(() => {
+        const before = slipping.map((t) => ({ id: t.id, notBefore: t.notBefore ?? null }));
+        let until = today();
+        for (const t of slipping) {
+            until = leaveUntil({ waitingReminderDay: t.waitingReminder ? dayOf(t.waitingReminder, getUserZone()) : null }, today());
+            updateTask.mutate({ id: t.id, notBefore: until });
+        }
+        toastUndo(`${slipping.length} tasks`, () => before.forEach((b) => updateTask.mutate(b)), { description: `Hidden until ${formatShortDateLabel(until)}` });
+    }, [slipping, updateTask]);
+
+    return { task: task ?? null, kind, accept, notNow, slipping: slipping.length >= 2 ? slipping : [], hideSlipping, shown: task && kind ? { taskId: task.id, kind, accept } satisfies ShownOffer : null };
 }
 
 export function PlanningOfferProvider({ shown, children }: { shown: ShownOffer | null; children: ReactNode }) {
