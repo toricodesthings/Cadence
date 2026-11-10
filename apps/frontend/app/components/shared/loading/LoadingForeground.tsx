@@ -6,7 +6,7 @@
  */
 
 /** Circumference of the r=46 ring is ~289; each dash pattern sums to that so the arcs tile once. */
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type Ref } from "react";
 
 const RING_A = "78 16 5 16 46 128";
 const RING_B = "120 40 4 125";
@@ -22,7 +22,8 @@ function HaloRing({ variant, dash, sparks }: { variant: "a" | "b"; dash: string;
     );
 }
 
-export function LoadingForeground({ title, children }: { title?: string; children?: ReactNode }) {
+/** `slotRef` receives the box the current request's children portal into, under the dots. */
+export function LoadingForeground({ title, slotRef }: { title?: string; slotRef?: Ref<HTMLDivElement> }) {
     const cubeRef = useRef<HTMLSpanElement>(null);
 
     useLayoutEffect(() => {
@@ -36,8 +37,36 @@ export function LoadingForeground({ title, children }: { title?: string; childre
         return () => observer.disconnect();
     }, [title]);
 
+    const columnRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        const column = columnRef.current;
+        if (!column) return;
+        // The column is centred, so a wider title, a settling font or a message under the dots
+        // snaps every part to a new spot. Glide each part there instead, in step with the title roll.
+        const parts = [...column.querySelectorAll<HTMLElement>(".ls-logo-block, .ls-wordmark, .ls-rule, .loading-dots")];
+        // Each part's centre against its positioned parent's centre: transform-free, and blind to window size.
+        const place = (el: HTMLElement) => {
+            const parent = el.offsetParent as HTMLElement | null;
+            return parent ? [el.offsetLeft + (el.offsetWidth - parent.offsetWidth) / 2, el.offsetTop + (el.offsetHeight - parent.offsetHeight) / 2] : null;
+        };
+        let last = parts.map(place);
+        const observer = new ResizeObserver(() => {
+            const now = parts.map(place);
+            const still = getComputedStyle(column).getPropertyValue("--ls-still").trim() === "none";
+            parts.forEach((el, i) => {
+                const [from, to] = [last[i], now[i]];
+                if (still || !from || !to || Math.abs(from[0] - to[0]) + Math.abs(from[1] - to[1]) < 0.5) return;
+                el.animate({ translate: [`${from[0] - to[0]}px ${from[1] - to[1]}px`, "0 0"] }, { duration: 320, easing: "cubic-bezier(0.65, 0, 0.35, 1)" });
+            });
+            last = now;
+        });
+        observer.observe(column);
+        parts.forEach((el) => observer.observe(el));
+        return () => observer.disconnect();
+    }, []);
+
     return (
-        <div className="relative z-10 flex flex-col items-center text-center mt-20">
+        <div ref={columnRef} className="relative z-10 flex flex-col items-center text-center mt-20">
             <div className="ls-enter ls-logo-block mb-6 relative flex items-center justify-center">
                 <div className="ls-aura-core absolute top-1/2 left-1/2 w-64 h-64 pointer-events-none" />
                 <HaloRing variant="b" dash={RING_B} sparks={[300]} />
@@ -66,7 +95,7 @@ export function LoadingForeground({ title, children }: { title?: string; childre
                     <span key={delay} className="ls-dot w-1.5 h-1.5 rounded-full" style={{ animationDelay: `${delay}ms` }} />
                 ))}
             </div>
-            {children}
+            <div ref={slotRef} className="contents" />
         </div>
     );
 }

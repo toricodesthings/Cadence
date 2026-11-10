@@ -11,7 +11,7 @@ import {
   ScrollRestoration,
 } from "react-router";
 
-import { Loading } from "./components/shared/Loading";
+import { Loading, LoadingHost } from "./components/shared/Loading";
 import { CardPage } from "./components/shared/CardPage";
 import { ErrorDetails } from "./components/shared/ErrorDetails";
 import { Button } from "./components/primitives/Button";
@@ -24,6 +24,8 @@ import { RESUME_ROUTE_SCRIPT } from "./lib/resume-route";
 // One render-blocking stylesheet link; Vite updates its URL during HMR.
 // Do not also side-effect-import app.css, which would load a second copy.
 import appStylesHref from "./app.css?url";
+// The loading wordmark's face: fetched with the stylesheet so its first paint isn't the fallback.
+import outfitLatinHref from "@fontsource-variable/outfit/files/outfit-latin-wght-normal.woff2?url";
 import "@fontsource-variable/outfit";
 import "@fontsource-variable/sora";
 
@@ -31,6 +33,7 @@ import type { LinksFunction } from "react-router";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: appStylesHref },
+  { rel: "preload", href: outfitLatinHref, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
   ...(RUNTIME_TARGET === "desktop"
     ? []
     : [
@@ -92,12 +95,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
             __html: `(function(){try{var d=document.documentElement,s=JSON.parse(localStorage.getItem('cadence-appearance')||'{}');if(s.theme==='daylight')d.setAttribute('data-theme','daylight');else if(s.theme==='system'&&window.matchMedia('(prefers-color-scheme:light)').matches)d.setAttribute('data-theme','daylight');if(s.palette&&s.palette!=='lantern')d.setAttribute('data-palette',s.palette);if(s.themePreset&&s.themePreset!=='default'&&s.themePreset!=='daylight-default')d.setAttribute('data-theme-preset',s.themePreset);}catch(e){}})()`
           }}
         />
-        <script dangerouslySetInnerHTML={{ __html: LOADING_BOOT_SCRIPT }} /> {/* nosemgrep */}
+        {/* nosemgrep */}
+        <script dangerouslySetInnerHTML={{ __html: LOADING_BOOT_SCRIPT }} />
         <Meta />
         <Links />
       </head>
       <body className="bg-twilight text-twilight-text">
         {children}
+        {/* Here, not in each route: the Layout outlives hydration, so the boot shows one scene throughout. */}
+        <LoadingHost />
         <ScrollRestoration />
         <Scripts />
         {RUNTIME_TARGET !== "desktop" && !import.meta.env.DEV && (
