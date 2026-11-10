@@ -6,7 +6,7 @@
  */
 
 /** Circumference of the r=46 ring is ~289; each dash pattern sums to that so the arcs tile once. */
-import { useLayoutEffect, useRef, type Ref } from "react";
+import { useLayoutEffect, useRef, type Ref, type RefObject } from "react";
 
 const RING_A = "78 16 5 16 46 128";
 const RING_B = "120 40 4 125";
@@ -22,8 +22,51 @@ function HaloRing({ variant, dash, sparks }: { variant: "a" | "b"; dash: string;
     );
 }
 
+/** Reduced motion: the tokens set `--ls-still: none`, and motion jumps to its end. */
+const isStill = (el: Element) => getComputedStyle(el).getPropertyValue("--ls-still").trim() === "none";
+
+// The fill's clip box overhangs the text by the glow (1.5em a side); at `p` its edge sits at p × (text + 1.5em).
+const fillAt = (p: number) => `calc(${p - 1} * (100% - 1.5em)) 0`;
+const textAt = (p: number) => `calc(${1 - p} * (100% - 1.5em)) 0`;
+const CREEP_MS = 8000;
+
+/**
+ * Fills the title to `progress`: quickly to each new mark, then a slow creep toward 90% so a long wait
+ * still moves. Never backwards. A clip box slides one way and the text inside slides back, both on the
+ * compositor, so the fill stays smooth while the workspace renders underneath.
+ */
+function useTitleFill(fillRef: RefObject<HTMLSpanElement | null>, progress: number | undefined) {
+    const run = useRef<{ from: number; to: number; anims: Animation[] }>({ from: 0.1, to: 0.1, anims: [] });
+    useLayoutEffect(() => {
+        const box = fillRef.current;
+        const text = box?.firstElementChild;
+        if (!box || !text || progress === undefined) {
+            run.current = { from: 0.1, to: 0.1, anims: [] };
+            return;
+        }
+        const now = () => {
+            const { from, to, anims } = run.current;
+            return from + (to - from) * (anims[0]?.effect?.getComputedTiming().progress ?? 1);
+        };
+        const go = (to: number, duration: number, easing: string, then?: () => void) => {
+            const from = now();
+            run.current.anims.forEach((anim) => anim.cancel());
+            const timing = { duration: isStill(box) ? 0 : duration, easing, fill: "forwards" as const };
+            const anims = [box.animate({ translate: [fillAt(from), fillAt(to)] }, timing), text.animate({ translate: [textAt(from), textAt(to)] }, timing)];
+            run.current = { from, to, anims };
+            if (then) anims[0].finished.then(then, () => undefined);
+        };
+        const creep = () => go(0.9, CREEP_MS, "cubic-bezier(0.3, 0.6, 0.35, 1)");
+        if (progress >= 1) go(1, 50, "cubic-bezier(0.22, 1, 0.36, 1)");
+        else if (progress > now()) go(progress, 420, "cubic-bezier(0.22, 1, 0.36, 1)", creep);
+        else if (!run.current.anims.length) creep();
+    }, [fillRef, progress]);
+}
+
 /** `slotRef` receives the box the current request's children portal into, under the dots. */
-export function LoadingForeground({ title, slotRef }: { title?: string; slotRef?: Ref<HTMLDivElement> }) {
+export function LoadingForeground({ title, progress, slotRef }: { title?: string; progress?: number; slotRef?: Ref<HTMLDivElement> }) {
+    const fillRef = useRef<HTMLSpanElement>(null);
+    useTitleFill(fillRef, title ? progress : undefined);
     const cubeRef = useRef<HTMLSpanElement>(null);
 
     useLayoutEffect(() => {
@@ -52,7 +95,7 @@ export function LoadingForeground({ title, slotRef }: { title?: string; slotRef?
         let last = parts.map(place);
         const observer = new ResizeObserver(() => {
             const now = parts.map(place);
-            const still = getComputedStyle(column).getPropertyValue("--ls-still").trim() === "none";
+            const still = isStill(column);
             parts.forEach((el, i) => {
                 const [from, to] = [last[i], now[i]];
                 if (still || !from || !to || Math.abs(from[0] - to[0]) + Math.abs(from[1] - to[1]) < 0.5) return;
@@ -84,7 +127,16 @@ export function LoadingForeground({ title, slotRef }: { title?: string; slotRef?
                 <span className="ls-wordmark-flip" aria-hidden="true">
                     <span className="ls-wordmark-cube" ref={cubeRef}>
                         <span className="ls-wordmark-brand uppercase">Cadence</span>
-                        {title && <span className="ls-wordmark-title">{title}</span>}
+                        {title && (
+                            <span className="ls-wordmark-title">
+                                {progress === undefined ? title : (
+                                    <>
+                                        <span className="ls-title-muted">{title}</span>
+                                        <span className="ls-title-fill" ref={fillRef}><span>{title}</span></span>
+                                    </>
+                                )}
+                            </span>
+                        )}
                     </span>
                 </span>
                 <span className="ls-rule ls-rule-r" aria-hidden="true" />

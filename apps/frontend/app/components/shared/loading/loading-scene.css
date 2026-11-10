@@ -513,6 +513,31 @@
     transform: rotateX(-90deg) translateZ(var(--ls-wordmark-depth));
 }
 
+/* With progress the title is a bar: a muted line the full colour fills from the left (useTitleFill).
+   The fill box overhangs the text so the glow isn't clipped; it starts at 10%. */
+.ls-title-muted,
+.ls-title-fill {
+    grid-area: 1 / 1;
+}
+
+.ls-title-muted {
+    opacity: 0.4;
+    text-shadow: none;
+}
+
+.ls-title-fill {
+    margin: -1em -1.5em;
+    padding: 1em 0;
+    overflow: hidden;
+    translate: calc(-0.9 * (100% - 1.5em)) 0;
+}
+
+.ls-title-fill > span {
+    display: block;
+    padding: 0 1.5em;
+    translate: calc(0.9 * (100% - 1.5em)) 0;
+}
+
 @keyframes ls-wordmark-roll {
     from { transform: translateZ(calc(-1 * var(--ls-wordmark-depth))) rotateX(0deg); }
     to { transform: translateZ(calc(-1 * var(--ls-wordmark-depth))) rotateX(90deg); }

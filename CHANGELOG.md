@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- "Preparing your workspace" now fills in as your workspace loads, so you can see how close it is.
+
+### Fixed
+
+- The loading screen no longer flickers or jumps on its way to your workspace, and uses less power while it waits.
+
 ## [0.43.0] - 2026-11-10
 
 Safer sign-in, fairer assistant limits, and tighter connections.

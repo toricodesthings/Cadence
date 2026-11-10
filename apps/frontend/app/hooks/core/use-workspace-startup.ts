@@ -75,6 +75,14 @@ export function useWorkspaceStartup(enabled: boolean, pathname: string) {
         return queries.length ? "pending" : "ready";
     }, [blockers, complete, enabled]);
     const state = useSyncExternalStore(subscribe, snapshot, () => "pending");
+    // Share of the first screen in hand: gating queries with data, loaded chunks, the restored cache.
+    // Later queries grow the total, so this can dip; the bar never moves back.
+    const progressOf = useCallback(() => {
+        const unknown = pendingChunks + (restoring ? 1 : 0);
+        const total = cache.getAll().filter((query) => query.isActive() && gatesStartup(route, query.queryKey)).length + unknown;
+        return total ? 1 - (blockers().length + unknown) / total : 0;
+    }, [blockers, cache, pendingChunks, restoring, route]);
+    const progress = useSyncExternalStore(subscribe, progressOf, () => 0);
 
     useEffect(() => {
         if (!enabled || complete) return;
@@ -101,5 +109,5 @@ export function useWorkspaceStartup(enabled: boolean, pathname: string) {
         void client.refetchQueries({ predicate: needsInitialData, type: "active" });
     }, [client]);
 
-    return { pending: enabled && !complete, state, slow, retry, trackRender };
+    return { pending: enabled && !complete, state, progress, slow, retry, trackRender };
 }
