@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.43.1] - 2026-11-10
+
 ### Changed
 
 - "Preparing your workspace" now fills in as your workspace loads, so you can see how close it is.
