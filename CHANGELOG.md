@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-10
+
 Safer sign-in, fairer assistant limits, and tighter connections.
 
 ### Added
