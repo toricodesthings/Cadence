@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
 import { asOwner, createUser, startTestDb } from "../helpers/db";
 
@@ -613,5 +613,39 @@ describe("the live socket's door", () => {
         expect((await ask({ Upgrade: "websocket" })).status).toBe(400);
         expect((await ask({ Upgrade: "websocket", "Sec-WebSocket-Protocol": "cadence.live" })).status).toBe(400);
         expect((await ask({ Upgrade: "websocket", "Sec-WebSocket-Protocol": "other, token" })).status).toBe(400);
+    });
+    describe("reconnect tickets", () => {
+        const A = "8b1f3a4e-0000-4000-8000-000000000001";
+        const secret = "0".repeat(32);
+        function env() {
+            const fetch = vi.fn(async () => ({ status: 101 }));
+            return {
+                RATE_LIMITER: { limit: vi.fn(async () => ({ success: true })) },
+                RATE_LIMITER_READ: { limit: vi.fn(async () => ({ success: true })) },
+                REMINDER_CLOCK: { idFromName: vi.fn((name: string) => name), get: vi.fn(() => ({ fetch })) },
+            };
+        }
+        const knock = (e: ReturnType<typeof env>, token: string) => connectLive(new Request("https://x/api/v1/live", {
+            headers: { Upgrade: "websocket", "Sec-WebSocket-Protocol": `cadence.live, ${token}`, "cf-connecting-ip": "203.0.113.9" },
+        }), e as unknown as Env);
+        beforeEach(() => {
+            vi.stubGlobal("WebSocketPair", class { 0 = {}; 1 = { accept() {}, close() {} }; });
+            vi.stubGlobal("Response", class { constructor(public body: unknown, public init: unknown) {} });
+        });
+        afterEach(() => vi.unstubAllGlobals());
+
+        it("spends the caller's IP budget for a ticket, never the named person's", async () => {
+            const e = env();
+            await knock(e, `t.${A}.${secret}`);
+            expect(e.RATE_LIMITER_READ.limit).toHaveBeenCalledWith({ key: "live:203.0.113.9" });
+            expect(e.RATE_LIMITER_READ.limit).not.toHaveBeenCalledWith({ key: A });
+        });
+
+        it("refuses a ticket whose id isn't a UUID before any clock is woken", async () => {
+            const e = env();
+            await knock(e, `t.${"-".repeat(36)}.${secret}`);
+            expect(e.REMINDER_CLOCK.get).not.toHaveBeenCalled();
+            expect(e.RATE_LIMITER_READ.limit).not.toHaveBeenCalled();
+        });
     });
 });

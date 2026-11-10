@@ -10,7 +10,7 @@ import { generateText } from "ai";
 import { aiRoutes } from "../../src/domains/ai/ai.route";
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
 
-const ENV = { OPENROUTER_API_KEY: "test", AI_CHAT_MODEL: "test/model" };
+const ENV = { DEPLOYMENT_STAGE: "development", OPENROUTER_API_KEY: "test", AI_CHAT_MODEL: "test/model" };
 let userId: string;
 let ai: ReturnType<typeof apiAs>;
 let tasks: ReturnType<typeof apiAs>;

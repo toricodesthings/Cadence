@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Safer sign-in, fairer assistant limits, and tighter connections.
+
+### Added
+
+- Sign-in pauses for a minute after too many attempts, and codes to one address are limited the same way.
+- If the assistant reaches its daily limit for everyone, it rests until tomorrow. Everything else works.
+
+### Changed
+
+- In Full approval mode, the assistant still asks before deleting anything while an image is in the chat.
+- Links in assistant replies show where they go when the link text doesn't.
+- Stopping the assistant mid-reply now counts toward your assistant usage.
+
 ## [0.42.0] - 2026-11-09
 
 A calmer Weekly Reset that does more of the sorting for you.

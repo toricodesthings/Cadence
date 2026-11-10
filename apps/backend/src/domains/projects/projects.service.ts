@@ -4,6 +4,7 @@ import { projects, tasks } from "../../db/schema";
 import { throwIfNotFound } from "../../platform/errors";
 import { createOnce } from "../../platform/idempotency";
 import type { Tx } from "../../types/db";
+import { assertRowRoom } from "../../platform/storage-ceiling";
 
 /** Create a project. A replayed idempotency key returns the first one. */
 export async function createProject(tx: Tx, userId: string, body: InsertProject, idempotencyKey?: string) {
@@ -12,7 +13,10 @@ export async function createProject(tx: Tx, userId: string, body: InsertProject,
         userId,
         idempotencyKey,
         (id) => tx.select().from(projects).where(and(eq(projects.id, id), eq(projects.userId, userId))),
-        () => tx.insert(projects).values({ ...body, userId }).returning(),
+        async () => {
+            await assertRowRoom(tx, userId, "lists");
+            return tx.insert(projects).values({ ...body, userId }).returning();
+        },
     );
 }
 

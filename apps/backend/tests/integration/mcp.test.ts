@@ -54,6 +54,18 @@ const call = async (mcp: ReturnType<typeof mcpAs>, name: string, args: object = 
 const setMemoryMode = (userId: string, mode: "off" | "basic") =>
     asOwner((pg) => pg.query(`UPDATE users SET settings = jsonb_set(settings, '{assistant}', $2::jsonb) WHERE id = $1`, [userId, JSON.stringify({ memoryMode: mode })]));
 
+describe("per-person limit", () => {
+    it("refuses before any database work once the person's MCP budget is spent", async () => {
+        const userId = await createUser();
+        const limit = vi.fn(async () => ({ success: false }));
+        // A connection id with no row: reaching the database would answer 401, not 429.
+        const { status, headers } = await mcpAs(userId, crypto.randomUUID(), ["cadence:read"], { RATE_LIMITER_READ: { limit } })("tools/list");
+        expect(status).toBe(429);
+        expect(headers.get("retry-after")).toBe("60");
+        expect(limit).toHaveBeenCalledWith({ key: `mcp:${userId}` });
+    });
+});
+
 describe("catalog and scopes", () => {
     it("publishes reads, get_today and help with read scope; never writes", async () => {
         const userId = await createUser();

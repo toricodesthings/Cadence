@@ -39,7 +39,7 @@ const IMAGE_BLOCKED_CODES = new Set(["AI_IMAGE_LIMITED", "IMAGE_NOT_FOUND"]);
 
 /** How an image error can be got past: resend without the images, or share them again. */
 function imageErrorFix(code: string | null | undefined): "drop" | "share" | null {
-    if (!code || code === "AI_RATE_LIMITED") return null;
+    if (!code || code === "AI_RATE_LIMITED" || code === "AI_SPEND_CAPPED") return null;
     return IMAGE_BLOCKED_CODES.has(code) ? "drop" : "share";
 }
 

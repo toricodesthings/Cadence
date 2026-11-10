@@ -1,0 +1,12 @@
+# Tasks, Subtasks & Notes — Agent Instructions
+
+Part of the backend: `apps/backend/AGENTS.md` §6 (envelope, idempotency) and §5 (ownership, RLS) apply to every route here.
+
+## Routes
+
+- **tasks** (`/tasks`): CRUD, reorder, batch state/reschedule/delete (≤50 ids; reschedule to a value, or to a local `date` keeping each task's time), `DELETE /trash` empties Trash (registered before `/:id`), duplicate, tag associations, `POST /place` (Fit today: ≤50 placements in one transaction, all or nothing; a changed task is a 409 naming it in `issues`; returns `previous`, which sent back is the Undo; never a slot record or reschedule signal). Lists have no default limit; Done and Trash come newest first so their pages can send one. `GET /batch` warms ≤10 open lists (schedule ranges ≤42 days): one RLS transaction and task/tag query, compact shared rows; single/batch reads share `tasks.read.ts`
+- **subtasks, notes:** nested under `/tasks/:taskId/*` + standalone PATCH/DELETE; note PATCH takes `expectedVersion` (0 = no note yet; 409 on mismatch), serializes writers per note and replays the first result for a repeated `Idempotency-Key` (422 if reused for another edit); `GET /subtasks?taskIds=a,b` (≤200) reads many tasks' subtasks, `POST /subtasks/bulk` stays for older desktop builds
+
+## Model
+
+`tasks.linked_app_id` and `habits.linked_app_id` hold the one app a task or routine opens (a known id from `@cadence/contracts/app-link`, never a URL; null removes, omitted keeps); `linked_url` holds a typed website instead (`linkedUrlSchema`; a CHECK keeps it `https://`, ≤2048); the task copy carries both, and no assistant/MCP tool writes it. Task writes carrying `nlp.resolved` (create, inbox process) are stored as sent: the server never re-infers them (older clients without it keep the inference path). `tasks.effort_origin`/`effort_chosen_at` record who chose an Effort (`effortProvenance`; any write that changes `effort` without an origin clears it, so assistant/import/copy values never count); `GET /tasks/effort-evidence` returns only the account's own recorded choices outside Trash and repeating series. Effort set before provenance existed counts only on tasks with an NLP record (app composers), as `accepted` (migration 0008). Inbox process stores `reminderAt`/`notBefore` and a multi-day `endDate`, and a `waitingOn` makes the task WAITING.

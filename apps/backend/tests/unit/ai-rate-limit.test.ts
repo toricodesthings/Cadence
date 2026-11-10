@@ -7,6 +7,7 @@ import {
     settle,
     readUsage,
     readMeteredTokens,
+    meterUsage,
     addStepSpend,
     emptyUsage,
     type AiLimits,
@@ -34,7 +35,7 @@ const k = rlKeys(USER_KEY);
 const asRedis = (r: FakeRedis) => r as unknown as Parameters<typeof admit>[0];
 
 describe("resolveLimits", () => {
-    it("falls back to the §6 defaults when env is empty", () => {
+    it("falls back to the defaults when env is empty (production fails closed)", () => {
         const l = resolveLimits({} as Env);
         expect(l).toMatchObject({
             requests5h: 150,
@@ -43,8 +44,13 @@ describe("resolveLimits", () => {
             tokens7d: 6_000_000,
             maxConcurrent: 3,
             reserve: 6_000,
-            failClosed: false,
+            failClosed: true,
         });
+    });
+
+    it("fails open by default outside production, and an explicit open wins in production", () => {
+        expect(resolveLimits({ DEPLOYMENT_STAGE: "development" } as Env).failClosed).toBe(false);
+        expect(resolveLimits({ AI_RATE_LIMIT_FAIL_MODE: "open" } as Env).failClosed).toBe(false);
     });
 
     it("parses overrides and the fail-closed switch", () => {
@@ -80,7 +86,7 @@ describe("estimateReserve", () => {
 
     it("holds tokens for each image", () => {
         const big = { ...limits, reserve: 1 };
-        expect(estimateReserve(0, big, 2) - estimateReserve(0, big)).toBe(2_400);
+        expect(estimateReserve(0, big, 2) - estimateReserve(0, big)).toBe(3_200);
     });
 
     it("scales above the floor with input size and never drops below the reserve", () => {
@@ -119,6 +125,15 @@ describe("readMeteredTokens", () => {
     it("returns 0 with no usage (refund path)", () => {
         expect(readMeteredTokens({ metadata: {} })).toBe(0);
         expect(readMeteredTokens(null)).toBe(0);
+    });
+});
+
+describe("meterUsage", () => {
+    it("meters one step's usage the way a finished turn is metered", () => {
+        const usage = { inputTokens: 1_000, outputTokens: 50, inputTokenDetails: { cacheReadTokens: 800, cacheWriteTokens: 0 } };
+        expect(meterUsage(usage)).toBe(readMeteredTokens({ metadata: { totalUsage: usage } }));
+        expect(meterUsage(usage)).toBe(330);
+        expect(meterUsage(undefined)).toBe(0);
     });
 });
 

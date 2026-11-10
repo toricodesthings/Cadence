@@ -16,7 +16,7 @@ import { withRls } from "../../platform/rls";
 import { withCallerRls } from "../../platform/caller-rls";
 import { syncUserZoneWithSettings } from "../../platform/user-zone";
 import { getRequestId } from "../../platform/request-log";
-import { logger, hashIdentifier, issuesFromError, shorten } from "../../platform/log";
+import { logger, hashIdentifier, issuesFromError } from "../../platform/log";
 import { getIdempotencyKey } from "../../platform/idempotency";
 import { getRedis, getRateLimitRedis } from "../../platform/redis";
 import { uuidParamSchema } from "@cadence/contracts/common";
@@ -70,14 +70,15 @@ import { applyApprovals, keepFinishedWrites, compactOldReads, dropForeignReasoni
 import { makeFenceNonce, stripNonce } from "./safety/injection-policy";
 import { assertMessageWithinCaps, startAtUser } from "./safety/input-guard";
 import { buildStreamError, streamErrorCause, streamErrorToText } from "./safety/stream-error";
-import { admitChatTurn, aiRateLimitResponse } from "./safety/admission";
+import { admitChatTurn } from "./safety/admission";
+import { addDailySpend } from "../../platform/daily-budget";
 import {
     resolveLimits,
     estimateReserve,
-    admit,
     settle,
     readUsage,
     readMeteredTokens,
+    meterUsage,
     addStepSpend,
     emptyUsage,
     type TurnSpend,
@@ -92,6 +93,9 @@ import { settleFieldQuestion } from "./tools/ask";
 
 // Router defined below as a single CHAIN (after its helpers) so the route schema
 // flows into AppType for the Hono RPC client.
+
+/** Parts a client's Stop snapshot may store: what the reply said, never tool parts. */
+const SNAPSHOT_PART_TYPES = new Set(["text", "reasoning", "step-start"]);
 
 /** Hard wall-clock ceiling for a single streamed turn (improves on the old blunt 12s). */
 const STREAM_TIMEOUT_MS = 45_000;
@@ -215,6 +219,18 @@ async function replayableReads(c: AiContext, messages: ChatMessage[], memoryMode
     return redactMemoryReads(messages, memoryMode, usableIds);
 }
 
+/** The provider's error `code`/`type` only: the rest of its body can quote the prompt. */
+function providerErrorKind(body: unknown): { upstreamCode?: string; upstreamType?: string } {
+    if (typeof body !== "string") return {};
+    try {
+        const error = (JSON.parse(body) as { error?: { code?: unknown; type?: unknown } }).error;
+        const text = (v: unknown) => (typeof v === "string" || typeof v === "number" ? String(v).slice(0, 64) : undefined);
+        return { upstreamCode: text(error?.code), upstreamType: text(error?.type) };
+    } catch {
+        return {};
+    }
+}
+
 /** Classifies a stream failure, logs it once (server-side only: the provider's status + reason), and returns the client's text. */
 function reportStreamError(error: unknown, meta: { requestId: string; userHash: string; modelId: string; imageCount: number }): string {
     const streamError = buildStreamError(error, meta.requestId);
@@ -228,7 +244,7 @@ function reportStreamError(error: unknown, meta: { requestId: string; userHash: 
         code: streamError.code,
         images: meta.imageCount || undefined,
         upstreamStatus: upstream?.statusCode,
-        upstreamBody: typeof upstream?.responseBody === "string" ? shorten(upstream.responseBody) : undefined,
+        ...providerErrorKind(upstream?.responseBody),
         issues: issuesFromError(error),
     });
     return streamErrorToText(streamError);
@@ -310,305 +326,323 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     const reserved = estimateReserve(incomingText.length, limits, imageIds.length);
     // Budget headers echoed on the SUCCESS response so the client holds its own
     // "remaining budget" view (display source of truth) without polling GET /ai/usage.
-    const { rejected, admitted, headers: rlHeaders } = rlRedis
-        ? await admitChatTurn(c, rlRedis, { userKey, userHash, reserved, limits, newImages })
-        : { admitted: false };
+    const { rejected, admitted, headers: rlHeaders } = await admitChatTurn(c, rlRedis, { userKey, userHash, reserved, limits, newImages });
     if (rejected) return rejected;
 
     endAdmission();
-    // Zone/settings preparation overlaps history; continuation context is chosen from stored rows.
-    const settingsReady = diagnostics.measure("zoneRecallQuery", () => withCallerRls(c, (tx) => turnSettings(tx, userId, body, incomingText)));
-    settingsReady.catch(() => {});
-    const storedHistoryReady = Promise.withResolvers<{ history: ChatMessage[]; continues: boolean }>();
-    storedHistoryReady.promise.catch(() => {});
-    async function prepareHistory(tx: Tx, result: StoredTurn) {
-        const { conversationId, history, continues } = result;
-        storedHistoryReady.resolve(result);
-        const assistantMessageId = continues ? history.at(-1)!.id : generateId();
-        // Tool-specialized UIMessage typing is internal to the SDK; the runtime shapes
-        // are genuine UIMessages reconstructed from the DB + the validated incoming turn.
-        // The incoming id is filtered from history (a rerun's anchor row is already
-        // there) and system-role rows are dropped defensively — no persisted row may
-        // ever re-enter model context with system authority. Older turns' read rows
-        // shrink to ids (compactOldReads).
-        // Open calls in earlier turns replay as declined; an approval answer keeps the
-        // message it answers as is, so the SDK runs what was approved.
-        const turn = continues
-            ? [...settleUnanswered(history.slice(0, -1)), history.at(-1)!]
-            : [...settleUnanswered(history.filter((m) => m.id !== incoming!.id)), incoming!];
-        // A turn that switched models (model-router) must not replay the previous
-        // model's thought signatures — they belong to a family this one never used.
-        // Older turns compact together once every few turns (`recentStart`), so the
-        // replayed history only grows between those steps and stays prompt-cached.
-        const replayed = startAtUser(turn.filter((m) => m.role !== "system"));
-        const recentFrom = recentStart(replayed);
-        const uiMessages = compactOldReads(
-            dropForeignReasoning(dropUnsignedReasoning(replayed), modelId),
-            recentFrom,
-        ) as ChatMessage[];
-        // Recent `cadence-image:` references become data URLs for the model; older or
-        // expired ones a text stub. Memory extraction and the stored reply keep the
-        // references (never base64).
-        const imagesReady = diagnostics.measure("images", () => hydrateImages(uiMessages, c.env.USER_ASSETS, userKey, recentFrom));
-        imagesReady.catch(() => {}); // transaction failure must not leave a detached rejection
-        if (redis) {
-            const endResume = diagnostics.beginPhase("resumeInit");
-            try {
-                await openStream(redis, userKey, streamId, { conversationId, userId, messageId: assistantMessageId, model: modelId });
-            } catch {
-                logger.warn("ai", "ai_redis_unavailable", { op: "openStream" });
-                redis = null; // no pointer to an uninitialized log; ordinary streaming still works
-            } finally {
-                endResume();
-            }
-            if (redis) await setActiveStream(tx, userId, conversationId, streamId);
-        }
-        return { ...result, assistantMessageId, uiMessages, recentFrom, imagesReady };
-    }
-
-    // Approval answers land on the stored assistant message, never on one the
-    // client sends: only its waiting parts change, signatures stay the server's.
-    async function continueApproval(tx: Tx) {
-        const conversation = await getConversation(tx, userId, body.conversationId!);
-        throwIfNotFound(conversation, "Conversation");
-        const rows = await loadConversationMessages(tx, userId, conversation!.id, { historyWindow: true });
-        const last = rows.at(-1);
-        const answered = last?.role === "assistant" ? applyApprovals(rowToUIMessage(last), body.approvals!) : null;
-        if (!answered) throw new AppError(409, "CONFLICT", "Nothing here is waiting for approval.");
-        return prepareHistory(tx, { conversationId: conversation!.id, history: [...rows.slice(0, -1).map(rowToUIMessage), answered], continues: true, needsTitle: false, continuation: "approval" });
-    }
-    async function persistMessage(tx: Tx, message: ChatMessage) {
-        const { id, title } = await resolveOrCreateConversation(tx, userId, { conversationId: body.conversationId, model: modelId });
-        // Explicit message EDIT: the client kept rows up to the anchor and
-        // rewrote everything after it — mirror that server-side or the edited-
-        // away tail resurrects on reload. Anchor null = first message edited →
-        // the thread restarts. An unknown anchor id is a safe no-op.
-        if (body.editAnchorId !== undefined) {
-            if (body.editAnchorId === null) await deleteAllMessages(tx, userId, id);
-            else await truncateMessagesAfter(tx, userId, id, body.editAnchorId);
-        }
-        // Regenerate/retry re-runs an EXISTING user message id: drop every row
-        // after it BEFORE loading history, or the superseded assistant reply
-        // leaks back into model context and resurrects on reload.
-        // A retry of a reply that failed after changing something continues that reply instead.
-        const firstRows = body.editAnchorId === undefined
-            ? await loadConversationMessages(tx, userId, id, { historyWindow: true }) : undefined;
-        const kept = firstRows ? keepFinishedWrites(firstRows, message.id) : null;
-        const isRerun = await truncateMessagesAfter(tx, userId, id, kept?.id ?? message.id);
-        const priorRows = !isRerun && !kept && firstRows
-            ? firstRows : await loadConversationMessages(tx, userId, id, { historyWindow: true });
-        await appendUserMessage(tx, userId, id, message, { clientMessageId });
-        await markSent(tx, userId, imageIds);
-        // First user turn on a still-untitled thread → auto-title it. On a rerun
-        // the anchor row (and a kept reply) are the only prior rows.
-        const isFirstTurn = isRerun ? priorRows.length <= (kept ? 2 : 1) : priorRows.length === 0;
-        const history = priorRows.map((row) => (row.id === kept?.id ? kept : rowToUIMessage(row)));
-        return prepareHistory(tx, { conversationId: id, history, continues: !!kept, needsTitle: isFirstTurn && !title,
-            continuation: continuationOf(!!kept, body.editAnchorId !== undefined, isRerun) });
-    }
-
-    // Persist the user turn + reconstruct history (RLS). The DB is the source of truth.
-    // active_stream_id is set in the SAME transaction as the user turn, so the moment
-    // a refreshing client can read the user message it can also resume — closing the
-    // window that made a *fast* refresh (right after send) miss the live stream.
-    const historyReady = diagnostics.measure("historyPersist", () => withCallerRls(c, (tx) => (incoming ? persistMessage(tx, incoming) : continueApproval(tx))));
-
-    historyReady.catch(storedHistoryReady.reject);
-    const validatedHistory = Promise.all([storedHistoryReady.promise, settingsReady]).then(async ([result, settings]) => {
-        const clock = userClock(settings.timezone, body.currentDate);
-        return diagnostics.measure("contextValidation", () => validateStoredContexts(result.history, memoryStateOf(settings.settings).mode,
-            (ids) => withCallerRls(c, (tx) => loadContextFacts(tx, userId, ids, clock.today, memoryStateOf(settings.settings).mode))));
-    });
-    validatedHistory.catch(() => {});
-    const reusedContext = storedHistoryReady.promise.then(async (result) => {
-        if (!result.continues) return undefined; // new turns can build while history commits and old contexts validate
-        const history = await validatedHistory;
-        return storedTurnContext([...history].reverse().find((m) => m.role === "user") ?? { role: "assistant" });
-    });
-    reusedContext.catch(() => {});
-    const agentReady = settingsReady.then(({ timezone, settings, queryText, userTexts, answeredField }) => getAgentInstance(c.env, userId, {
-        timezone, settings, queryText, userTexts, answeredField, reusedTurnContext: reusedContext,
-        requestId, diagnostics, currentDate: body.currentDate, locale: body.locale,
-        approvalMode: body.approvalMode, surface: body.surface, modelId, nonce,
-        waitUntil: (promise) => c.executionCtx.waitUntil(promise),
-    }));
-    agentReady.catch(() => {});
-    const { conversationId, continues, needsTitle, continuation, assistantMessageId, uiMessages, recentFrom, imagesReady } = await historyReady;
-    const history = await validatedHistory;
-
-    // Auto-title (first turn only), in parallel with the reply.
-    const titlePromise = needsTitle
-        ? body.surface === "weekly_reset"
-            ? settingsReady.then(({ timezone }) => fixedTitle(c, conversationId, resetTitle(timezone, body.currentDate))).catch(() => ({ title: "", spend: undefined }))
-            : startTitle(c, { conversationId, text: incomingText, hasImages: imageIds.length > 0, requestId, userHash })
-        : null;
-
-    const { messages: hydratedMessages, hydrated: imageCount } = await imagesReady;
-    const modelMessages = await replayableReads(c, hydratedMessages, memoryStateOf((await settingsReady).settings).mode);
-
-    const { agent, promptHash, turnContext } = await agentReady;
-    // Each recent user message replays the context it was sent with (stored, from the DB rows
-    // only — never a client copy). The new message gets this turn's; a continued turn
-    // (approval, kept retry) keeps its original so the reply resumes on the same prefix.
-    const lastUser = [...uiMessages].reverse().find((m) => m.role === "user");
-    const { contexts, current: lastUserContext, stored: storedLastContext } = turnContexts(history, lastUser?.id, turnContext, continues);
-    turnTiming.setupMs = since(); // auth, budget, DB, prompt build: everything before the model call
-
-    // Cross-isolate stop (Redis) aborts through this; the SDK `timeout` below owns the ceilings.
-    const abortController = new AbortController();
-    // Summed per step; saved with the reply and logged, never streamed to the client.
-    let spend: TurnSpend = {};
-
-    // Fallback watcher covers SILENT stretches (long tool calls, no flushes); the
-    // flush path (consumeSseStream below) is the PRIMARY abort signal (§7.4/§15.6).
-    if (redis) {
-        startAbortWatcher({ redis, userKey, streamId, controller: abortController, signal: abortController.signal });
-    }
-
-    // The SDK calls onError again while consuming its own serialized error part.
-    // Keep the first terminal error: one classification and one log per turn.
-    let reportedStreamError: string | undefined;
-    const agentStream = await createAgentUIStream({
-        agent,
-        uiMessages: withTurnContext(modelMessages as { id: string; role: string; parts: unknown[] }[], contexts, recentFrom),
-        abortSignal: abortController.signal,
-        // Hard ceilings cancel the upstream model call (no zombie spend, doc 09 §3.1);
-        // firstChunkMs fails a hung provider fast instead of waiting out the whole turn.
-        timeout: { totalMs: STREAM_TIMEOUT_MS, firstChunkMs: FIRST_CHUNK_TIMEOUT_MS },
-        originalMessages: uiMessages as any,
-        generateMessageId: () => assistantMessageId,
-        messageMetadata: ({ part }) => {
-            if (part.type === "finish-step") spend = addStepSpend(spend, part);
-            return part.type === "finish"
-                ? ({ totalUsage: (part as any).totalUsage, model: modelId, promptHash } as any)
-                : undefined;
-        },
-        onError: (error) => {
-            reportedStreamError ??= reportStreamError(error, { requestId, userHash, modelId, imageCount });
-            return reportedStreamError;
-        },
-        onEnd: async ({ responseMessage, isAborted, finishReason, outcome }) => {
-            const totalMs = since();
-            abortController.abort(); // stop the fallback watcher loop
-            // Terminal status drives the client's Retry affordance after reload (doc 09 §3.3).
-            // A model call that throws ends with outcome "failed" and no finishReason.
-            const status = isAborted ? "aborted" : outcome.status === "failed" || finishReason === "error" ? "failed" : "complete";
-            try {
-                const titleSpend = (await titlePromise)?.spend; // always resolves, ≤4s
-                const cleaned = stripNonceFromMessage(responseMessage as any, nonce);
-                await withCallerRls(c, async (tx) => {
-                    await saveAssistantMessage(tx, userId, conversationId, cleaned, {
-                        status,
-                        metadata: { ...cleaned.metadata, ...spend, titleSpend },
-                    });
-                    await touchConversation(tx, userId, conversationId, { model: modelId });
-                    if (lastUser && storedLastContext !== lastUserContext) {
-                        await setTurnContext(tx, userId, conversationId, lastUser.id, lastUserContext);
-                    }
-                });
-            } catch {
-                logger.warn("ai", "ai_persist_failed", { requestId, userHash, conversationId });
-            }
-            // The response returned before the stream ended, so the write hook missed this turn's tool writes;
-            // and the sitting's reading is queued for when the chat goes quiet.
-            // Only a turn whose tools wrote replans (and pings every device, this one too: its screen didn't make the change).
-            const learns = isLearning(memoryStateOf((await settingsReady).settings).mode);
-            const wrote = ((responseMessage as { parts?: Array<{ type: string }> }).parts ?? []).some(({ type }) => {
-                if (!type.startsWith("tool-")) return false;
-                const kind = (TOOL_CATALOG as Record<string, { kind: string } | undefined>)[type.slice(5)]?.kind;
-                return kind !== "read" && kind !== "ask";
-            });
-            c.executionCtx.waitUntil(Promise.all([wrote && replanReminders(c.env, userId), learns && scheduleLearn(c.env, userId)]));
-            // Close the Redis log (TTLs shrink to a ~60s grace so a late re-attach can
-            // still replay it) + authoritatively compare-and-finalize the pointer: clear
-            // active_stream_id AND record this as last_stream_id/status, but only if it
-            // still points at THIS stream — never clobbers a newer turn (§7.9).
+    // Anything thrown before the stream starts (409, 404, a DB error) hands the reserve and concurrency slot back.
+    try {
+        // Zone/settings preparation overlaps history; continuation context is chosen from stored rows.
+        const settingsReady = diagnostics.measure("zoneRecallQuery", () => withCallerRls(c, (tx) => turnSettings(tx, userId, body, incomingText)));
+        settingsReady.catch(() => {});
+        const storedHistoryReady = Promise.withResolvers<{ history: ChatMessage[]; continues: boolean }>();
+        storedHistoryReady.promise.catch(() => {});
+        async function prepareHistory(tx: Tx, result: StoredTurn) {
+            const { conversationId, history, continues } = result;
+            storedHistoryReady.resolve(result);
+            const assistantMessageId = continues ? history.at(-1)!.id : generateId();
+            // Tool-specialized UIMessage typing is internal to the SDK; the runtime shapes
+            // are genuine UIMessages reconstructed from the DB + the validated incoming turn.
+            // The incoming id is filtered from history (a rerun's anchor row is already
+            // there) and system-role rows are dropped defensively — no persisted row may
+            // ever re-enter model context with system authority. Older turns' read rows
+            // shrink to ids (compactOldReads).
+            // Open calls in earlier turns replay as declined; an approval answer keeps the
+            // message it answers as is, so the SDK runs what was approved.
+            const turn = continues
+                ? [...settleUnanswered(history.slice(0, -1)), history.at(-1)!]
+                : [...settleUnanswered(history.filter((m) => m.id !== incoming!.id)), incoming!];
+            // A turn that switched models (model-router) must not replay the previous
+            // model's thought signatures — they belong to a family this one never used.
+            // Older turns compact together once every few turns (`recentStart`), so the
+            // replayed history only grows between those steps and stays prompt-cached.
+            const replayed = startAtUser(turn.filter((m) => m.role !== "system"));
+            const recentFrom = recentStart(replayed);
+            const uiMessages = compactOldReads(
+                dropForeignReasoning(dropUnsignedReasoning(replayed), modelId),
+                recentFrom,
+            ) as ChatMessage[];
+            // Recent `cadence-image:` references become data URLs for the model; older or
+            // expired ones a text stub. Memory extraction and the stored reply keep the
+            // references (never base64).
+            const imagesReady = diagnostics.measure("images", () => hydrateImages(uiMessages, c.env.USER_ASSETS, userKey, recentFrom));
+            imagesReady.catch(() => {}); // transaction failure must not leave a detached rejection
             if (redis) {
-                const streamState =
-                    status === "complete" ? "done" : status === "failed" ? "error" : "aborted";
-                await closeStream(redis, userKey, streamId, streamState).catch(() => {});
-                await withCallerRls(c, (tx) =>
-                    finalizeActiveStream(tx, userId, conversationId, streamId, status),
-                ).catch(() => {});
+                const endResume = diagnostics.beginPhase("resumeInit");
+                try {
+                    await openStream(redis, userKey, streamId, { conversationId, userId, messageId: assistantMessageId, model: modelId });
+                } catch {
+                    logger.warn("ai", "ai_redis_unavailable", { op: "openStream" });
+                    redis = null; // no pointer to an uninitialized log; ordinary streaming still works
+                } finally {
+                    endResume();
+                }
+                if (redis) await setActiveStream(tx, userId, conversationId, streamId);
             }
-            // Settle the usage budget: reconcile the admission reserve to the ACTUAL
-            // tokens the model reported (refund/top-up) and release the concurrency
-            // slot. Idempotent per streamId (settle-once guard) so an onFinish/stop
-            // race counts a turn exactly once (§9.2/§15.6). Only when we admitted.
-            if (rlRedis && admitted) {
-                const actualTokens = readMeteredTokens(responseMessage);
-                await settle(rlRedis, userKey, reserved, actualTokens).catch(() =>
-                    logger.warn("ai", "ai_ratelimit_settle_failed", { requestId, userHash }),
-                );
+            return { ...result, assistantMessageId, uiMessages, recentFrom, imagesReady };
+        }
+
+        // Approval answers land on the stored assistant message, never on one the
+        // client sends: only its waiting parts change, signatures stay the server's.
+        async function continueApproval(tx: Tx) {
+            const conversation = await getConversation(tx, userId, body.conversationId!);
+            throwIfNotFound(conversation, "Conversation");
+            const rows = await loadConversationMessages(tx, userId, conversation!.id, { historyWindow: true });
+            const last = rows.at(-1);
+            const answered = last?.role === "assistant" ? applyApprovals(rowToUIMessage(last), body.approvals!) : null;
+            if (!answered) throw new AppError(409, "CONFLICT", "Nothing here is waiting for approval.");
+            return prepareHistory(tx, { conversationId: conversation!.id, history: [...rows.slice(0, -1).map(rowToUIMessage), answered], continues: true, needsTitle: false, continuation: "approval" });
+        }
+        async function persistMessage(tx: Tx, message: ChatMessage) {
+            const { id, title } = await resolveOrCreateConversation(tx, userId, { conversationId: body.conversationId, model: modelId });
+            // Explicit message EDIT: the client kept rows up to the anchor and
+            // rewrote everything after it — mirror that server-side or the edited-
+            // away tail resurrects on reload. Anchor null = first message edited →
+            // the thread restarts. An unknown anchor id is a safe no-op.
+            if (body.editAnchorId !== undefined) {
+                if (body.editAnchorId === null) await deleteAllMessages(tx, userId, id);
+                else await truncateMessagesAfter(tx, userId, id, body.editAnchorId);
             }
-            logTurn(responseMessage, status, totalMs);
-        },
-    });
+            // Regenerate/retry re-runs an EXISTING user message id: drop every row
+            // after it BEFORE loading history, or the superseded assistant reply
+            // leaks back into model context and resurrects on reload.
+            // A retry of a reply that failed after changing something continues that reply instead.
+            const firstRows = body.editAnchorId === undefined
+                ? await loadConversationMessages(tx, userId, id, { historyWindow: true }) : undefined;
+            const kept = firstRows ? keepFinishedWrites(firstRows, message.id) : null;
+            const isRerun = await truncateMessagesAfter(tx, userId, id, kept?.id ?? message.id);
+            const priorRows = !isRerun && !kept && firstRows
+                ? firstRows : await loadConversationMessages(tx, userId, id, { historyWindow: true });
+            await appendUserMessage(tx, userId, id, message, { clientMessageId });
+            await markSent(tx, userId, imageIds);
+            // First user turn on a still-untitled thread → auto-title it. On a rerun
+            // the anchor row (and a kept reply) are the only prior rows.
+            const isFirstTurn = isRerun ? priorRows.length <= (kept ? 2 : 1) : priorRows.length === 0;
+            const history = priorRows.map((row) => (row.id === kept?.id ? kept : rowToUIMessage(row)));
+            return prepareHistory(tx, { conversationId: id, history, continues: !!kept, needsTitle: isFirstTurn && !title,
+                continuation: continuationOf(!!kept, body.editAnchorId !== undefined, isRerun) });
+        }
 
-    const responseStream = titlePromise ? withTitlePart(agentStream, titlePromise, conversationId) : agentStream;
+        // Persist the user turn + reconstruct history (RLS). The DB is the source of truth.
+        // active_stream_id is set in the SAME transaction as the user turn, so the moment
+        // a refreshing client can read the user message it can also resume — closing the
+        // window that made a *fast* refresh (right after send) miss the live stream.
+        const historyReady = diagnostics.measure("historyPersist", () => withCallerRls(c, (tx) => (incoming ? persistMessage(tx, incoming) : continueApproval(tx))));
 
-    // Backend delivery milestones; these do not measure client receipt or paint.
-    const timedStream = responseStream.pipeThrough(
-        new TransformStream({
-            transform(chunk, controller) {
-                if (chunk.type === "reasoning-delta" || chunk.type === "text-delta") turnTiming.ttftMs ??= since();
-                if (chunk.type === "text-delta") turnTiming.firstTextMs ??= since();
-                controller.enqueue(chunk);
-            },
-        }),
-    );
-    function logTurn(message: UIMessage, outcome: string, totalMs: number) {
-        const usage = (message.metadata as { totalUsage?: LanguageModelUsage } | undefined)?.totalUsage;
-        const outputTokens = usage?.outputTokens;
-        // Tool turns include tool run time here, so their speed reads low; compare like with like.
-        const streamS = turnTiming.ttftMs === undefined ? 0 : (totalMs - turnTiming.ttftMs) / 1000;
-        logger.info("ai", "ai_turn", {
-            requestId,
-            userHash,
-            conversationId,
-            replyId: assistantMessageId,
-            runId: diagnostics.runId,
-            continuation,
-            surface: body.surface,
-            promptHash,
-            diagnostics: diagnostics.snapshot(),
-            model: modelId,
-            outcome,
-            steps: message.parts.filter((p) => p.type === "step-start").length,
-            toolCalls: message.parts.filter((p) => p.type.startsWith("tool-") || p.type === "dynamic-tool").length,
-            images: imageCount || undefined,
-            ...turnTiming,
-            totalMs,
-            inputTokens: usage?.inputTokens,
-            cachedInputTokens: usage?.inputTokenDetails?.cacheReadTokens,
-            cacheWriteTokens: usage?.inputTokenDetails?.cacheWriteTokens,
-            outputTokens,
-            reasoningTokens: usage?.outputTokenDetails?.reasoningTokens,
-            tokensPerSec: outputTokens && streamS > 0 ? Math.round(outputTokens / streamS) : undefined,
-            ...spend,
+        historyReady.catch(storedHistoryReady.reject);
+        const validatedHistory = Promise.all([storedHistoryReady.promise, settingsReady]).then(async ([result, settings]) => {
+            const clock = userClock(settings.timezone, body.currentDate);
+            return diagnostics.measure("contextValidation", () => validateStoredContexts(result.history, memoryStateOf(settings.settings).mode,
+                (ids) => withCallerRls(c, (tx) => loadContextFacts(tx, userId, ids, clock.today, memoryStateOf(settings.settings).mode))));
         });
+        validatedHistory.catch(() => {});
+        const reusedContext = storedHistoryReady.promise.then(async (result) => {
+            if (!result.continues) return undefined; // new turns can build while history commits and old contexts validate
+            const history = await validatedHistory;
+            return storedTurnContext([...history].reverse().find((m) => m.role === "user") ?? { role: "assistant" });
+        });
+        reusedContext.catch(() => {});
+        // Set once images hydrate (before the model runs); Full asks before a permanent delete while one is in context.
+        let imageCount = 0;
+        const agentReady = settingsReady.then(({ timezone, settings, queryText, userTexts, answeredField }) => getAgentInstance(c.env, userId, {
+            timezone, settings, queryText, userTexts, answeredField, reusedTurnContext: reusedContext,
+            requestId, diagnostics, currentDate: body.currentDate, locale: body.locale,
+            approvalMode: body.approvalMode, hasImages: () => imageCount > 0, surface: body.surface, modelId, nonce,
+            waitUntil: (promise) => c.executionCtx.waitUntil(promise),
+        }));
+        agentReady.catch(() => {});
+        const { conversationId, continues, needsTitle, continuation, assistantMessageId, uiMessages, recentFrom, imagesReady } = await historyReady;
+        const history = await validatedHistory;
+
+        // Auto-title (first turn only), in parallel with the reply.
+        const titlePromise = needsTitle
+            ? body.surface === "weekly_reset"
+                ? settingsReady.then(({ timezone }) => fixedTitle(c, conversationId, resetTitle(timezone, body.currentDate))).catch(() => ({ title: "", spend: undefined }))
+                : startTitle(c, { conversationId, text: incomingText, hasImages: imageIds.length > 0, requestId, userHash })
+            : null;
+
+        const { messages: hydratedMessages, hydrated } = await imagesReady;
+        imageCount = hydrated;
+        const modelMessages = await replayableReads(c, hydratedMessages, memoryStateOf((await settingsReady).settings).mode);
+
+        const { agent, promptHash, turnContext } = await agentReady;
+        // Each recent user message replays the context it was sent with (stored, from the DB rows
+        // only — never a client copy). The new message gets this turn's; a continued turn
+        // (approval, kept retry) keeps its original so the reply resumes on the same prefix.
+        const lastUser = [...uiMessages].reverse().find((m) => m.role === "user");
+        const { contexts, current: lastUserContext, stored: storedLastContext } = turnContexts(history, lastUser?.id, turnContext, continues);
+        turnTiming.setupMs = since(); // auth, budget, DB, prompt build: everything before the model call
+
+        // Cross-isolate stop (Redis) aborts through this; the SDK `timeout` below owns the ceilings.
+        const abortController = new AbortController();
+        // Summed per step; saved with the reply and logged, never streamed to the client.
+        let spend: TurnSpend = {};
+        // Every finished model step's metered tokens: what a stopped or failed turn is charged (it never reaches `finish`).
+        let stepTokens = 0;
+
+        // Fallback watcher covers SILENT stretches (long tool calls, no flushes); the
+        // flush path (consumeSseStream below) is the PRIMARY abort signal (§7.4/§15.6).
+        if (redis) {
+            startAbortWatcher({ redis, userKey, streamId, controller: abortController, signal: abortController.signal });
+        }
+
+        // The SDK calls onError again while consuming its own serialized error part.
+        // Keep the first terminal error: one classification and one log per turn.
+        let reportedStreamError: string | undefined;
+        const agentStream = await createAgentUIStream({
+            agent,
+            uiMessages: withTurnContext(modelMessages as { id: string; role: string; parts: unknown[] }[], contexts, recentFrom),
+            abortSignal: abortController.signal,
+            // Hard ceilings cancel the upstream model call (no zombie spend, doc 09 §3.1);
+            // firstChunkMs fails a hung provider fast instead of waiting out the whole turn.
+            timeout: { totalMs: STREAM_TIMEOUT_MS, firstChunkMs: FIRST_CHUNK_TIMEOUT_MS },
+            originalMessages: uiMessages as any,
+            generateMessageId: () => assistantMessageId,
+            messageMetadata: ({ part }) => {
+                if (part.type === "finish-step") {
+                    spend = addStepSpend(spend, part);
+                    stepTokens += meterUsage(part.usage);
+                }
+                return part.type === "finish"
+                    ? ({ totalUsage: (part as any).totalUsage, model: modelId, promptHash } as any)
+                    : undefined;
+            },
+            onError: (error) => {
+                reportedStreamError ??= reportStreamError(error, { requestId, userHash, modelId, imageCount });
+                return reportedStreamError;
+            },
+            onEnd: async ({ responseMessage, isAborted, finishReason, outcome }) => {
+                const totalMs = since();
+                abortController.abort(); // stop the fallback watcher loop
+                // Terminal status drives the client's Retry affordance after reload (doc 09 §3.3).
+                // A model call that throws ends with outcome "failed" and no finishReason.
+                const status = isAborted ? "aborted" : outcome.status === "failed" || finishReason === "error" ? "failed" : "complete";
+                const titleSpend = (await titlePromise)?.spend; // always resolves, ≤4s
+                c.executionCtx.waitUntil(addDailySpend(c.env, (spend.costUsd ?? 0) + (titleSpend?.costUsd ?? 0)));
+                try {
+                    const cleaned = stripNonceFromMessage(responseMessage as any, nonce);
+                    await withCallerRls(c, async (tx) => {
+                        await saveAssistantMessage(tx, userId, conversationId, cleaned, {
+                            status,
+                            metadata: { ...cleaned.metadata, ...spend, titleSpend },
+                        });
+                        await touchConversation(tx, userId, conversationId, { model: modelId });
+                        if (lastUser && storedLastContext !== lastUserContext) {
+                            await setTurnContext(tx, userId, conversationId, lastUser.id, lastUserContext);
+                        }
+                    });
+                } catch {
+                    logger.warn("ai", "ai_persist_failed", { requestId, userHash, conversationId });
+                }
+                // The response returned before the stream ended, so the write hook missed this turn's tool writes;
+                // and the sitting's reading is queued for when the chat goes quiet.
+                // Only a turn whose tools wrote replans (and pings every device, this one too: its screen didn't make the change).
+                const learns = isLearning(memoryStateOf((await settingsReady).settings).mode);
+                const wrote = ((responseMessage as { parts?: Array<{ type: string }> }).parts ?? []).some(({ type }) => {
+                    if (!type.startsWith("tool-")) return false;
+                    const kind = (TOOL_CATALOG as Record<string, { kind: string } | undefined>)[type.slice(5)]?.kind;
+                    return kind !== "read" && kind !== "ask";
+                });
+                c.executionCtx.waitUntil(Promise.all([wrote && replanReminders(c.env, userId), learns && scheduleLearn(c.env, userId)]));
+                // Close the Redis log (TTLs shrink to a ~60s grace so a late re-attach can
+                // still replay it) + authoritatively compare-and-finalize the pointer: clear
+                // active_stream_id AND record this as last_stream_id/status, but only if it
+                // still points at THIS stream — never clobbers a newer turn (§7.9).
+                if (redis) {
+                    const streamState =
+                        status === "complete" ? "done" : status === "failed" ? "error" : "aborted";
+                    await closeStream(redis, userKey, streamId, streamState).catch(() => {});
+                    await withCallerRls(c, (tx) =>
+                        finalizeActiveStream(tx, userId, conversationId, streamId, status),
+                    ).catch(() => {});
+                }
+                // Settle the usage budget: reconcile the admission reserve to the ACTUAL
+                // tokens the model reported (refund/top-up) and release the concurrency
+                // slot. Idempotent per streamId (settle-once guard) so an onFinish/stop
+                // race counts a turn exactly once (§9.2/§15.6). Only when we admitted.
+                if (rlRedis && admitted) {
+                    // A turn that failed before the model said anything is refunded (an outage costs the person nothing);
+                    // an interrupted step is charged its reserve, since its real input is unknown.
+                    const started = turnTiming.ttftMs !== undefined;
+                    const actualTokens = status === "complete"
+                        ? readMeteredTokens(responseMessage) || stepTokens
+                        : stepTokens + (started ? reserved : 0);
+                    await settle(rlRedis, userKey, reserved, actualTokens).catch(() =>
+                        logger.warn("ai", "ai_ratelimit_settle_failed", { requestId, userHash }),
+                    );
+                }
+                logTurn(responseMessage, status, totalMs);
+            },
+        });
+
+        const responseStream = titlePromise ? withTitlePart(agentStream, titlePromise, conversationId) : agentStream;
+
+        // Backend delivery milestones; these do not measure client receipt or paint.
+        const timedStream = responseStream.pipeThrough(
+            new TransformStream({
+                transform(chunk, controller) {
+                    if (chunk.type === "reasoning-delta" || chunk.type === "text-delta") turnTiming.ttftMs ??= since();
+                    if (chunk.type === "text-delta") turnTiming.firstTextMs ??= since();
+                    controller.enqueue(chunk);
+                },
+            }),
+        );
+        function logTurn(message: UIMessage, outcome: string, totalMs: number) {
+            const usage = (message.metadata as { totalUsage?: LanguageModelUsage } | undefined)?.totalUsage;
+            const outputTokens = usage?.outputTokens;
+            // Tool turns include tool run time here, so their speed reads low; compare like with like.
+            const streamS = turnTiming.ttftMs === undefined ? 0 : (totalMs - turnTiming.ttftMs) / 1000;
+            logger.info("ai", "ai_turn", {
+                requestId,
+                userHash,
+                conversationId,
+                replyId: assistantMessageId,
+                runId: diagnostics.runId,
+                continuation,
+                surface: body.surface,
+                promptHash,
+                diagnostics: diagnostics.snapshot(),
+                model: modelId,
+                outcome,
+                steps: message.parts.filter((p) => p.type === "step-start").length,
+                toolCalls: message.parts.filter((p) => p.type.startsWith("tool-") || p.type === "dynamic-tool").length,
+                images: imageCount || undefined,
+                ...turnTiming,
+                totalMs,
+                inputTokens: usage?.inputTokens,
+                cachedInputTokens: usage?.inputTokenDetails?.cacheReadTokens,
+                cacheWriteTokens: usage?.inputTokenDetails?.cacheWriteTokens,
+                outputTokens,
+                reasoningTokens: usage?.outputTokenDetails?.reasoningTokens,
+                tokensPerSec: outputTokens && streamS > 0 ? Math.round(outputTokens / streamS) : undefined,
+                ...spend,
+            });
+        }
+
+        return createUIMessageStreamResponse({
+            stream: timedStream,
+            // Echo the post-admission budget so the client tracks "remaining" locally (§9.4).
+            headers: rlHeaders,
+            consumeSseStream: ({ stream }) => {
+                c.executionCtx.waitUntil(
+                    (async () => {
+                        // Current behavior when resumption is off: drain a tee'd copy so the
+                        // pipeline (and onFinish persistence) completes even on client
+                        // disconnect (doc 08 §3 / doc 09 §3.2).
+                        if (!redis) {
+                            await stream.pipeTo(new WritableStream()).catch(() => {});
+                            return;
+                        }
+
+                        await mirrorChunks({ stream, redis, userKey, streamId, controller: abortController });
+                    })(),
+                );
+            },
+        });
+    } catch (error) {
+        if (rlRedis && admitted) c.executionCtx.waitUntil(settle(rlRedis, userKey, reserved, 0).catch(() => {}));
+        throw error;
     }
-
-    return createUIMessageStreamResponse({
-        stream: timedStream,
-        // Echo the post-admission budget so the client tracks "remaining" locally (§9.4).
-        headers: rlHeaders,
-        consumeSseStream: ({ stream }) => {
-            c.executionCtx.waitUntil(
-                (async () => {
-                    // Current behavior when resumption is off: drain a tee'd copy so the
-                    // pipeline (and onFinish persistence) completes even on client
-                    // disconnect (doc 08 §3 / doc 09 §3.2).
-                    if (!redis) {
-                        await stream.pipeTo(new WritableStream()).catch(() => {});
-                        return;
-                    }
-
-                    await mirrorChunks({ stream, redis, userKey, streamId, controller: abortController });
-                })(),
-            );
-        },
-    });
     })
     // ── Resume: re-attach to an in-flight stream (`useChat({ resume: true })`) ──
     // ── Create: Suggest steps (a draft only; Keep writes subtasks) ─────────
@@ -621,17 +655,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         const rlRedis = getRateLimitRedis(c.env);
         // Counts toward AI usage like a chat turn: admitted first, then settled to what it cost.
         const reserved = estimateReserve(stepsPromptFor(input, smaller).length, limits);
-        let admitted = false;
-        if (rlRedis) {
-            try {
-                const admission = await admit(rlRedis, userHash, reserved, limits);
-                if (!admission.ok) return aiRateLimitResponse(c, { code: admission.code, retryAfterS: admission.retryAfterS, limits, remaining: admission.remaining });
-                admitted = true;
-            } catch {
-                logger.warn("ai", "ai_ratelimit_unavailable", { requestId: getRequestId(c), userHash, op: "admit" });
-                if (limits.failClosed) return aiRateLimitResponse(c, { retryAfterS: 30, limits });
-            }
-        }
+        const { rejected, admitted } = await admitChatTurn(c, rlRedis, { userKey: userHash, userHash, reserved, limits, newImages: 0 });
+        if (rejected) return rejected;
         let tokens = 0;
         try {
             const drafted = await suggestSteps(c.env, userHash, input, smaller);
@@ -713,12 +738,16 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                     const meta = await readMeta(redis, userKey, sid);
                     if (meta && meta.userId === userId && meta.messageId === body.assistantMessage.id) {
                         assertMessageWithinCaps(body.assistantMessage);
-                        await withRls(getDbClient(c.env), userId, (tx) =>
-                            saveAssistantMessage(tx, userId, id, body.assistantMessage!, {
-                                status: "aborted",
-                                metadata: {},
-                            }),
-                        );
+                        // Only what the reply said: tool parts (results, approval requests) come from the server alone.
+                        const parts = body.assistantMessage.parts.filter((part) => SNAPSHOT_PART_TYPES.has(part.type));
+                        if (parts.length > 0) {
+                            await withRls(getDbClient(c.env), userId, (tx) =>
+                                saveAssistantMessage(tx, userId, id, { ...body.assistantMessage!, parts }, {
+                                    status: "aborted",
+                                    metadata: {},
+                                }),
+                            );
+                        }
                     }
                 } catch {
                     // Best-effort snapshot — never fails the stop.

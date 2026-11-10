@@ -34,6 +34,7 @@ export const AI_ERROR_CODES = {
     INVALID_REQUEST: { status: 400, isRetryable: false },
     AI_RATE_LIMITED: { status: 429, isRetryable: true },
     AI_IMAGE_LIMITED: { status: 429, isRetryable: false },
+    AI_SPEND_CAPPED: { status: 429, isRetryable: false },
     IMAGE_NOT_FOUND: { status: 404, isRetryable: false },
     AI_TIMEOUT: { status: 504, isRetryable: true },
     AI_ABORTED: { status: null, isRetryable: true },

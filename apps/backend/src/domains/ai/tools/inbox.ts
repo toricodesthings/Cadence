@@ -15,6 +15,7 @@ import { NOTE_READ_LIMIT } from "./drafts";
 import { deleteCaptures, processCapture, unprocessCapture, updateCapture } from "../../inbox/inbox.service";
 import { insertInboxItemSchema } from "@cadence/contracts/inbox";
 import { suggestPlacement } from "../../decisions/placement";
+import { assertRowRoom, assertStorageRoom } from "../../../platform/storage-ceiling";
 
 const selectInboxPage = (tx: Parameters<Parameters<typeof withRls>[2]>[0], userId: string, includeProcessed: boolean, limit: number, offset: number) =>
     tx
@@ -119,6 +120,8 @@ export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         }
                     }
 
+                    await assertRowRoom(tx, userId, "captures");
+                    await assertStorageRoom(tx, userId, [rawText]);
                     const [row] = await tx
                         .insert(inboxItems)
                         .values({ userId, rawText, captureKind })

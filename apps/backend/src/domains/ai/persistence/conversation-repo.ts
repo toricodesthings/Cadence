@@ -24,6 +24,7 @@ import {
     type MessageStatus,
     type StoredMessage,
 } from "./message-mapper";
+import { assertRowRoom } from "../../../platform/storage-ceiling";
 
 /** Default page size when loading a thread's messages. */
 const DEFAULT_MESSAGE_LIMIT = 100;
@@ -62,6 +63,7 @@ export async function resolveOrCreateConversation(
         // Create-if-absent with the client-chosen id (still ownership-scoped by
         // userId) so the client can own the thread id — needed for the sidebar /
         // load-by-id flow where the frontend mints a UUID before the first turn.
+        await assertRowRoom(tx, userId, "conversations");
         const [created] = await tx
             .insert(aiConversations)
             .values({ id: args.conversationId, userId, model: args.model ?? null })
@@ -74,6 +76,7 @@ export async function resolveOrCreateConversation(
         return { id: created.id, created: true, title: null };
     }
 
+    await assertRowRoom(tx, userId, "conversations");
     const [row] = await tx
         .insert(aiConversations)
         .values({ userId, model: args.model ?? null })

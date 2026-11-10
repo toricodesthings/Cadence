@@ -62,8 +62,8 @@ describe("WeekView", () => {
         renderWeek({ "2026-03-19": [prep], "2026-03-20": [prep], "2026-03-21": [prep] });
         const bars = screen.getAllByText("Reading week prep");
         expect(bars).toHaveLength(1);
-        const cell = within(bars[0].closest("[style*='grid-column']") as HTMLElement);
+        const cell = within(bars[0].closest("[style*='grid-']") as HTMLElement);
         expect(cell.getByText("Reading week prep")).toBeTruthy();
-        expect((bars[0].closest("[style*='grid-column']") as HTMLElement).style.gridColumn).toBe("5 / 8");
+        expect((bars[0].closest("[style*='grid-']") as HTMLElement).style.gridColumn).toBe("5 / 8");
     });
 });

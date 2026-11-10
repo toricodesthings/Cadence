@@ -12,6 +12,7 @@ import { z } from "zod";
 import { logger } from "../../../platform/log";
 import { getModelId } from "../model-router";
 import { addStepSpend } from "../safety/rate-limit";
+import { addDailySpend } from "../../../platform/daily-budget";
 import type { Env } from "../../../types/env";
 import type { NearFact } from "./memory-store";
 import consolidatePrompt from "../../../prompts/memory/consolidate.md";
@@ -61,14 +62,16 @@ export async function consolidate(env: Env, userHash: string, items: Consolidati
             maxRetries: 1,
             abortSignal: AbortSignal.timeout(TIMEOUT_MS),
         });
+        const spend = addStepSpend({}, { providerMetadata, response });
         logger.info("ai", "ai_memory_match", {
             userHash,
             items: withNear.length,
             inputTokens: usage?.inputTokens,
             outputTokens: usage?.outputTokens,
             ms: Date.now() - startedAt,
-            ...addStepSpend({}, { providerMetadata, response }),
+            ...spend,
         });
+        await addDailySpend(env, spend.costUsd);
         const out = [...none];
         for (const m of output.matches) {
             const target = withNear[m.new - 1];

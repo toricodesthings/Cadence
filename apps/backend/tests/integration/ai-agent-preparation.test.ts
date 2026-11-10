@@ -22,7 +22,7 @@ import * as routineReads from "../../src/domains/ai/tools/routine-reads";
 
 let userId: string;
 const now = "2026-10-13T18:00:00Z";
-const env = {} as Env;
+const env = { TOOL_APPROVAL_SECRET: "test-secret" } as Env;
 const settings: UserSettings = { assistant: { memoryMode: "basic" }, dateTime: { weekStart: "Monday", timezone: "America/Toronto", timeDisplay: "12h" } };
 
 beforeAll(startTestDb);

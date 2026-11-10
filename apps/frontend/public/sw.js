@@ -244,6 +244,15 @@ async function changeQueue(userId, change) {
     new BroadcastChannel("cadence-wal").postMessage(userId);
 }
 
+function isOwnApi(href) {
+    try {
+        const url = new URL(href, self.location.origin);
+        return url.origin === self.location.origin && url.pathname.startsWith("/api/v1/");
+    } catch {
+        return false;
+    }
+}
+
 async function replayQueue(userId) {
     const response = await fetch("/api/auth/token", { credentials: "include", cache: "no-store" });
     const { token } = response.ok ? await response.json() : {};
@@ -260,6 +269,8 @@ async function replayQueue(userId) {
         if (entry.op.type === "upsert_note" && !entry.attempted) {
             await changeQueue(userId, (all) => all.map((e) => (e.id === entry.id ? { ...e, attempted: true } : e)));
         }
+        // The session token goes only to this origin's API, whatever a queue entry names.
+        if (!entry.requests.every((r) => isOwnApi(r.url))) throw new Error("Not this app's API"); // The app replays it.
         for (const [index, request] of entry.requests.entries()) {
             const key = request.key ?? entry.id;
             const res = await fetch(request.url, {

@@ -35,7 +35,7 @@ import { getAgentInstance } from "../../src/domains/ai/agent";
 import { aiRoutes } from "../../src/domains/ai/ai.route";
 
 const CONV_ID = "22222222-2222-4222-8222-222222222222";
-const ENV = { AI_CHAT_MODEL: "std/model", AI_CHAT_MODEL_BASIC: "basic/model" };
+const ENV = { DEPLOYMENT_STAGE: "development", AI_CHAT_MODEL: "std/model", AI_CHAT_MODEL_BASIC: "basic/model" };
 
 beforeEach(() => {
     vi.clearAllMocks();

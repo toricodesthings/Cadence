@@ -178,3 +178,15 @@ describe("development worker cleanup", () => {
         expect(reload).toHaveBeenCalledTimes(controlled ? 1 : 0);
     });
 });
+
+describe("background sync", () => {
+    it("sends the session token only to this origin's API", () => {
+        const context: Record<string, any> = { self: { location: { origin }, addEventListener() {} }, caches: {}, fetch: vi.fn(), URL, Response, AbortSignal, setTimeout, clearTimeout };
+        runInNewContext(source, context);
+        expect(context.isOwnApi(`${origin}/api/v1/tasks`)).toBe(true);
+        expect(context.isOwnApi("/api/v1/inbox")).toBe(true);
+        expect(context.isOwnApi("https://evil.example/api/v1/tasks")).toBe(false);
+        expect(context.isOwnApi(`${origin}/api/auth/token`)).toBe(false);
+        expect(context.isOwnApi("//evil.example/api/v1/x")).toBe(false);
+    });
+});

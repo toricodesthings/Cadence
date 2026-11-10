@@ -20,7 +20,8 @@ import { embedText, getEmbeddingModelId } from "./memory/embedding";
 import { isLearning } from "./memory/memory-mode";
 import { isMemoryTool } from "@cadence/contracts/ai-tools";
 import { loadProfileCoverage, recallFacts, type ProfileLine } from "./memory/memory-store";
-import type { Env } from "../../types/env";
+import { getDeploymentStage, type Env } from "../../types/env";
+import { AppError } from "../../platform/errors";
 import { loadAgentSnapshot, loadWeekAhead, userClock } from "./turn";
 import { projectEvents } from "./tools/events";
 import { normalizeSettings } from "../settings/settings.route";
@@ -95,6 +96,7 @@ export interface AgentBuildOptions {
     currentDate: string;     // the client's current instant, ISO-8601 (usually UTC "Z")
     locale?: string;
     approvalMode: ApprovalMode;
+    hasImages?: () => boolean; // the turn's recent context holds an image (read at tool-call time): Full still asks before a permanent delete
     surface?: ChatSurface;   // an embedded chat (the Weekly Reset's): its own instructions and the week ahead instead of today
     modelId?: string;        // the router's pick for this turn (model-router.ts); default the standard model
     nonce: string;           // per-request data-fence nonce (safety/injection-policy)
@@ -258,6 +260,10 @@ export async function getAgentInstance(
     userId: string,
     opts: AgentBuildOptions,
 ): Promise<{ agent: ToolLoopAgent<never, ChatTools>; modelId: string; promptHash: string; turnContext: string }> {
+    // Unsigned approvals would let an edited approval run; never in production.
+    if (!env.TOOL_APPROVAL_SECRET && getDeploymentStage(env) === "production") {
+        throw new AppError(500, "AUTH_MISCONFIGURED", "TOOL_APPROVAL_SECRET must be configured in production");
+    }
     const locale = opts.locale ?? "en";
     const modelId = opts.modelId ?? getModelId(env);
     const userHash = await hashIdentifier(userId);
@@ -321,7 +327,7 @@ export async function getAgentInstance(
         maxOutputTokens: MAX_OUTPUT_TOKENS,
         // Writes run here on the server; this decides which wait for the user's tap.
         // Approvals are HMAC-signed at issue, so an edited or forged one fails closed.
-        toolApproval: approvalFor(opts.approvalMode),
+        toolApproval: approvalFor(opts.approvalMode, { hasImages: opts.hasImages }),
         experimental_toolApprovalSecret: env.TOOL_APPROVAL_SECRET,
         ...opts.diagnostics?.hooks,
     });

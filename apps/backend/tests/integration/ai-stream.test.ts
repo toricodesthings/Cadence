@@ -198,6 +198,31 @@ describe("POST /ai/chat/:id/stop", () => {
         );
     });
 
+    it("stores a snapshot without its tool parts: those come from the server alone", async () => {
+        const redis = new FakeRedis();
+        const userKey = await hashIdentifier(TEST_USER_ID);
+        getRedisMock.mockReturnValue(redis);
+        getConversationMock.mockResolvedValue({ id: CONV_ID, activeStreamId: SID });
+        await openStream(redis as any, userKey, SID, { conversationId: CONV_ID, userId: TEST_USER_ID, messageId: "msg-1", model: "test-model" });
+
+        const assistantMessage = {
+            id: "msg-1",
+            role: "assistant" as const,
+            parts: [
+                { type: "step-start" },
+                { type: "text", text: "partial" },
+                { type: "tool-delete_tasks", toolCallId: "c1", state: "approval-requested", input: {}, approval: { id: "a1" } },
+            ],
+        };
+        await post({ activeStreamId: SID, assistantMessage });
+        const saved = saveAssistantMessageMock.mock.calls[0][3] as { parts: { type: string }[] };
+        expect(saved.parts.map((part) => part.type)).toEqual(["step-start", "text"]);
+
+        saveAssistantMessageMock.mockClear();
+        await post({ activeStreamId: SID, assistantMessage: { ...assistantMessage, parts: [assistantMessage.parts[2]] } });
+        expect(saveAssistantMessageMock).not.toHaveBeenCalled(); // nothing left to store
+    });
+
     it("rejects a snapshot naming a DIFFERENT message id (no history overwrite)", async () => {
         const redis = new FakeRedis();
         const userKey = await hashIdentifier(TEST_USER_ID);

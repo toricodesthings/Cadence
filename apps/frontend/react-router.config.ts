@@ -1,6 +1,7 @@
 import type { Config } from "@react-router/dev/config";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { hardenCsp } from "./build-csp";
 
 export default {
   // Server-side render by default, to enable SPA mode set this to `false`
@@ -28,5 +29,8 @@ export default {
     const marker = "/*__PRECACHE__*/[]";
     if (!source.includes(marker)) throw new Error("sw.js is missing the precache marker");
     await writeFile(worker, source.replace(marker, JSON.stringify(ordered.map((name) => `/assets/${name}`))));
+    // CSP without 'unsafe-inline': hash the shell's inline scripts into the deployed policy.
+    const headersFile = path.join(client, "_headers");
+    await writeFile(headersFile, hardenCsp(await readFile(headersFile, "utf8"), await readFile(path.join(client, "index.html"), "utf8")));
   },
 } satisfies Config;

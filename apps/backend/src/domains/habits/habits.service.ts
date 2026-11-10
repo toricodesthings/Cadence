@@ -9,6 +9,7 @@ import { assertOwnership } from "../../platform/ownership";
 import { userZone } from "../../platform/user-zone";
 import type { Tx } from "../../types/db";
 import { pruneRoutineReports } from "../ai/memory/memory.service";
+import { assertRowRoom } from "../../platform/storage-ceiling";
 
 // ── Utility ───────────────────────────────────────────────────────────
 
@@ -231,6 +232,7 @@ export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: I
     if (body.times?.length && body.reminderEnabled === undefined) body.reminderEnabled = true; // like the composer: set times remind at each one
     assertStepsOrTimes(body);
     await assertOwnership(tx, userId, { projectId: body.projectId, tagIds });
+    await assertRowRoom(tx, userId, "routines");
     // A new routine goes last in the person's own (Custom) order.
     if (body.sortOrder === undefined) {
         const [{ last }] = await tx.select({ last: max(habits.sortOrder) }).from(habits).where(eq(habits.userId, userId));

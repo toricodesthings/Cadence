@@ -3,7 +3,7 @@ import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { deleteAccountSchema, type DataExport } from "@cadence/contracts/account";
 import { dataExports, users } from "../../db/schema";
-import type { AuthVariables } from "../../platform/auth";
+import { markAccountDeleted, type AuthVariables } from "../../platform/auth";
 import { getDbClient } from "../../platform/db";
 import { AppError } from "../../platform/errors";
 import { hashIdentifier, logger } from "../../platform/log";
@@ -14,6 +14,7 @@ import type { Env } from "../../types/env";
 import { backgroundPrefix } from "../settings/background-image";
 import { revokeAllGrants } from "../mcp/oauth";
 import { deliverExport } from "./data-export.service";
+import { withinDailyBudget } from "../../platform/daily-budget";
 
 /** One export an hour: each one reads every table, and the file goes to an inbox that may be shared or slow. */
 const EXPORT_COOLDOWN_MS = 60 * 60 * 1000;
@@ -69,11 +70,19 @@ export async function verifyPresence(
             body: JSON.stringify({ email: identity.email, type: "sign-in", otp: proof.otp }),
         });
     if (!res.ok) throw fail();
-    const body = (await res.json().catch(() => null)) as { user?: { id?: string }; success?: boolean } | null;
+    const body = (await res.json().catch(() => null)) as { user?: { id?: string }; success?: boolean; token?: string } | null;
+    // The password check signed in a real session: sign it out again (best effort), so checks leave nothing behind.
+    const token = res.headers.get("set-auth-token") ?? body?.token;
+    if (proof.password && token) {
+        await fetch(`${base}/sign-out`, { method: "POST", headers: { Authorization: `Bearer ${token}` } }).catch(() => {}); // nosemgrep
+    }
     // A password must belong to this very account; an OTP check answers only success
     const ok = proof.password ? body?.user?.id === identity.userId : body?.success === true;
     if (!ok) throw fail();
 }
+
+/** Presence checks a person may try per UTC day; past it, a stolen session can't keep guessing. */
+const REAUTH_TRIES_PER_DAY = 10;
 
 /** Removes the sign-in identity. A 404 means it is already gone, which is what a retry wants. */
 export async function deleteAuthUser(env: Env, userId: string): Promise<void> {
@@ -108,15 +117,19 @@ export const accountRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         }
 
         const { password, otp } = c.req.valid("json");
+        const userHash = await hashIdentifier(userId);
+        if (!(await withinDailyBudget(c.env, "reauth", userHash, REAUTH_TRIES_PER_DAY))) {
+            throw new AppError(429, "TOO_MANY_REQUESTS", "Too many tries. Try again tomorrow.");
+        }
         await verifyPresence(c.env, { userId, email: c.get("userEmail") }, { password, otp });
 
-        const userHash = await hashIdentifier(userId);
         if (c.env.USER_ASSETS) {
             await deletePrefix(c.env.USER_ASSETS, backgroundPrefix(userId));
             await deletePrefix(c.env.USER_ASSETS, `ai-images/${userHash}/`);
         }
         await revokeAllGrants(c.env, userId);
         await withRls(getDbClient(c.env), userId, (tx) => tx.delete(users).where(eq(users.id, userId)));
+        await markAccountDeleted(c.env, userId);
         await forgetReminders(c.env, userId);
         await deleteAuthUser(c.env, userId);
 

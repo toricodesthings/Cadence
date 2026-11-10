@@ -3,7 +3,8 @@
  * onFinish, headers on both paths. Drives the real route with a scripted model.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { agentOf, textModel } from "../helpers/ai";
+import { MockLanguageModelV4 } from "ai/test";
+import { agentOf, streamOf, textChunks, textModel } from "../helpers/ai";
 import { apiAs, TEST_USER_ID } from "../helpers/app";
 import { hashIdentifier } from "../../src/platform/log";
 import { FakeRedis } from "../helpers/fake-redis";
@@ -26,6 +27,7 @@ vi.mock("../../src/domains/ai/images/chat-images", async (original) => ({
 
 import {
     appendUserMessage,
+    getConversation,
     loadConversationMessages,
     resolveOrCreateConversation,
     truncateMessagesAfter,
@@ -86,7 +88,7 @@ describe("POST /ai/chat — usage budget", () => {
         expect(response.headers.get("Retry-After")).toBe(String(5 * 60 * 60));
         expect(response.headers.get("X-RateLimit-Remaining-Requests-5h")).toBe("0");
         expect(appendUserMessage).not.toHaveBeenCalled();
-        expect(redis.commandLog).toEqual(["eval"]); // no settle for a turn never admitted
+        expect(redis.commandLog).toEqual(["get", "eval"]); // spend-cap read + admit; no settle for a turn never admitted
     });
 
     it("rejects only on the image quota as AI_IMAGE_LIMITED", async () => {
@@ -104,14 +106,88 @@ describe("POST /ai/chat — usage budget", () => {
         expect(appendUserMessage).not.toHaveBeenCalled();
     });
 
-    it("fails open by default when the store is unreachable, and never settles", async () => {
+    it("fails open outside production when the store is unreachable, and never settles", async () => {
         const evalMock = vi.fn(async () => {
             throw new Error("redis down");
         });
-        getRateLimitRedisMock.mockReturnValue({ eval: evalMock });
+        getRateLimitRedisMock.mockReturnValue({ eval: evalMock, get: async () => null });
 
-        expect((await chat()).status).toBe(200);
+        expect((await chat({ DEPLOYMENT_STAGE: "development" })).status).toBe(200);
         expect(evalMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("fails closed by default in production when the store is unreachable", async () => {
+        getRateLimitRedisMock.mockReturnValue({ eval: async () => { throw new Error("redis down"); }, get: async () => null });
+
+        expect((await chat()).status).toBe(429);
+        expect(appendUserMessage).not.toHaveBeenCalled();
+    });
+
+    it("refuses to run unmetered in production without a budget store; development still runs", async () => {
+        getRateLimitRedisMock.mockReturnValue(null);
+
+        const refused = await chat();
+        expect(refused.status).toBe(503);
+        expect(refused.body.error.code).toBe("AI_UPSTREAM_UNAVAILABLE");
+        expect(appendUserMessage).not.toHaveBeenCalled();
+        expect((await chat({ DEPLOYMENT_STAGE: "development" })).status).toBe(200);
+    });
+
+    it("rests the assistant for everyone once today's spend reaches the cap", async () => {
+        const redis = new FakeRedis();
+        redis.strings.set(`budget:ai-spend:${new Date().toISOString().slice(0, 10)}`, "0.02"); // time-ok: the UTC-day bucket key
+        getRateLimitRedisMock.mockReturnValue(redis);
+
+        const { status, body, response } = await chat({ AI_DAILY_SPEND_CAP_USD: "0.01" });
+
+        expect(status).toBe(429);
+        expect(body.error).toMatchObject({ code: "AI_SPEND_CAPPED", isRetryable: false });
+        expect(Number(response.headers.get("Retry-After"))).toBeGreaterThan(0);
+        expect(redis.strings.get(keys.req5h)).toBeUndefined(); // nothing admitted
+    });
+
+    it("charges a turn that fails mid-stream at least its reserve", async () => {
+        const redis = new FakeRedis();
+        getRateLimitRedisMock.mockReturnValue(redis);
+        vi.mocked(getAgentInstance).mockResolvedValue(agentOf(new MockLanguageModelV4({
+            doStream: async () => streamOf(...textChunks("Half a").slice(0, 2), { type: "error", error: new Error("provider dropped") }),
+        })));
+
+        const { status } = await chat();
+
+        expect(status).toBe(200);
+        expect(Number(redis.strings.get(keys.tok5h))).toBeGreaterThanOrEqual(6_000);
+        expect(redis.strings.get(keys.inflight)).toBe("0");
+    });
+
+    it("refunds a turn that fails before the model says anything", async () => {
+        const redis = new FakeRedis();
+        getRateLimitRedisMock.mockReturnValue(redis);
+        vi.mocked(getAgentInstance).mockResolvedValue(agentOf(new MockLanguageModelV4({
+            doStream: async () => { throw new Error("provider down"); },
+        })));
+
+        await chat();
+
+        expect(redis.strings.get(keys.tok5h)).toBe("0");
+        expect(redis.strings.get(keys.inflight)).toBe("0");
+    });
+
+    it("hands the reserve and slot back when the request fails after admission", async () => {
+        const redis = new FakeRedis();
+        getRateLimitRedisMock.mockReturnValue(redis);
+        vi.mocked(getConversation).mockResolvedValue({ id: CONV_ID } as never);
+
+        const { status } = await apiAs(TEST_USER_ID, "/ai", aiRoutes)("POST", "/chat", {
+            conversationId: CONV_ID,
+            approvals: [{ id: "approval-1", approved: true }],
+            currentDate: "2026-09-29T14:00:00.000Z",
+            timezone: "UTC",
+        });
+
+        expect(status).toBe(409);
+        expect(redis.strings.get(keys.tok5h)).toBe("0");
+        expect(redis.strings.get(keys.inflight)).toBe("0");
     });
 
     it("fails closed (429) when the store is unreachable and FAIL_MODE=closed", async () => {

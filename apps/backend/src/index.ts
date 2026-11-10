@@ -220,9 +220,9 @@ export default {
     if (url.pathname === "/favicon.ico" && url.origin === mcpOrigin(env)) return Response.redirect(`${appOrigin(env)}/favicon.ico`, 301);
     if (!isMcpRequest(request, env)) return url.pathname === LIVE_PATH ? connectLive(request, env) : app.fetch(request, env, ctx);
     const ip = request.headers.get("cf-connecting-ip") || "unknown";
-    // Registration comes from assistants' servers (shared IPs), so it gets the roomier limit; /authorize comes from a person's browser.
-    // ponytail: per-IP only; key registration by client name too if one assistant's egress IP ever hits 120/min.
-    const doorLimiter = url.pathname === "/oauth/register" ? env.RATE_LIMITER_WRITE : url.pathname === "/authorize" ? env.RATE_LIMITER_ADMIN : undefined;
+    // Registration (anyone, and each one writes KV) and /authorize get the tight door, per IP.
+    // ponytail: per-IP only; key registration by client name too if one assistant's egress IP ever hits 30/min.
+    const doorLimiter = url.pathname === "/oauth/register" || url.pathname === "/authorize" ? env.RATE_LIMITER_ADMIN : undefined;
     const limits = [env.RATE_LIMITER?.limit({ key: ip }), doorLimiter?.limit({ key: `${url.pathname}:${ip}` })];
     if ((await Promise.all(limits)).some((result) => result && !result.success)) {
       return new Response("Too many requests", { status: 429, headers: { "Retry-After": "60" } });

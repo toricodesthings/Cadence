@@ -13,6 +13,7 @@ import { AppError, throwIfNotFound } from "../../platform/errors";
 import { logger } from "../../platform/log";
 import { getModelId } from "./model-router";
 import { addStepSpend } from "./safety/rate-limit";
+import { addDailySpend } from "../../platform/daily-budget";
 import type { Env } from "../../types/env";
 import type { Tx } from "../../types/db";
 import stepsPrompt from "../../prompts/assistant/steps.md";
@@ -69,13 +70,15 @@ export async function suggestSteps(env: Env, userHash: string, input: StepsInput
             maxRetries: 0,
             abortSignal: AbortSignal.timeout(STEPS_TIMEOUT_MS),
         });
+        const spend = addStepSpend({}, { providerMetadata, response });
         logger.info("ai", "ai_steps", {
             userHash,
             inputTokens: usage?.inputTokens,
             outputTokens: usage?.outputTokens,
             ms: Date.now() - startedAt,
-            ...addStepSpend({}, { providerMetadata, response }),
+            ...spend,
         });
+        await addDailySpend(env, spend.costUsd);
         const steps = output.steps
             .map((s) => s.replace(/\s+/g, " ").trim())
             .filter(Boolean)

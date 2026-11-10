@@ -25,7 +25,7 @@
  */
 import type { Redis } from "@upstash/redis/cloudflare";
 import { CHAT_IMAGE_LIMITS, type AiImageUsage, type AiUsage } from "@cadence/contracts/ai";
-import type { Env } from "../../../types/env";
+import { getDeploymentStage, type Env } from "../../../types/env";
 import { MAX_OUTPUT_TOKENS } from "./input-guard";
 import {
     rlKeys,
@@ -39,8 +39,8 @@ import {
 
 /** Flat token allowance folded into the reserve for history + tool round-trips. */
 const HISTORY_TOOL_BUDGET = 3_000;
-/** Tokens one image costs at Gemini's default media resolution. */
-const TOKENS_PER_IMAGE = 1_200;
+/** Tokens one image costs on Claude: (width × height) / 750, about 1,600 at its 1.15-megapixel ceiling. */
+const TOKENS_PER_IMAGE = 1_600;
 
 // SECURITY NOTE: `redis.eval` runs Redis server-side Lua (NOT JavaScript eval). Both
 // scripts below are STATIC module constants — no value is ever interpolated into the
@@ -129,7 +129,7 @@ export interface AiLimits {
     imagesPerMessage: number;
     /** Attached-but-unsent uploads a user may have waiting. */
     imagesMaxPending: number;
-    /** When Redis is unreachable: true → reject (429), false → admit (default). */
+    /** When Redis is unreachable: true → reject (429; default in production), false → admit behind `RATE_LIMITER_AI`. */
     failClosed: boolean;
 }
 
@@ -176,11 +176,13 @@ export function intEnv(raw: string | undefined, fallback: number): number {
 }
 
 /**
- * Resolve limits from env with the §6 defaults (sized for `google/gemini-2.5-flash`
- * + a heavy-but-legitimate user). All are env-overridable so policy can be retuned
- * per model cost without a code deploy.
+ * Resolve limits from env. The defaults were first sized for a cheaper model and kept for
+ * `anthropic/claude-haiku-5.5` (a heavy-but-legitimate user stays under them; the global daily
+ * spend ceiling bounds the total). All are env-overridable, so policy can be retuned from
+ * `ai_turn.costUsd` without a code deploy.
  */
 export function resolveLimits(env: Env): AiLimits {
+    const failMode = env.AI_RATE_LIMIT_FAIL_MODE?.trim().toLowerCase();
     return {
         requests5h: intEnv(env.AI_RL_REQUESTS_5H, 150),
         tokens5h: intEnv(env.AI_RL_TOKENS_5H, 750_000),
@@ -191,7 +193,7 @@ export function resolveLimits(env: Env): AiLimits {
         images24h: intEnv(env.AI_RL_IMAGES_24H, 20),
         imagesPerMessage: intEnv(env.AI_IMAGES_PER_MESSAGE, CHAT_IMAGE_LIMITS.perMessage),
         imagesMaxPending: intEnv(env.AI_IMAGES_MAX_PENDING, 8),
-        failClosed: env.AI_RATE_LIMIT_FAIL_MODE?.trim().toLowerCase() === "closed",
+        failClosed: failMode ? failMode === "closed" : getDeploymentStage(env) === "production",
     };
 }
 
@@ -214,35 +216,42 @@ export const CACHE_READ_WEIGHT = 0.1;
 export const CACHE_WRITE_WEIGHT = 1.25;
 
 /**
- * The tokens a turn spends from the budget. `messageMetadata` attaches
- * `{ totalUsage, model }` to the finish part (ai.route.ts), so the usage lands on
- * `responseMessage.metadata.totalUsage`. Input the provider served from its prompt
- * cache counts at {@link CACHE_READ_WEIGHT} and cache writes at
- * {@link CACHE_WRITE_WEIGHT}, as they're billed: `inputTokens` includes both, so a
- * raw total would charge a cached turn as if nothing were cached. Falls back to
- * the total, then input+output, then 0 (a hard error/abort with no usage → 0 →
- * settlement REFUNDS the reservation).
+ * The budget tokens one usage object spends. Input the provider served from its prompt
+ * cache counts at {@link CACHE_READ_WEIGHT} and cache writes at {@link CACHE_WRITE_WEIGHT},
+ * as they're billed: `inputTokens` includes both, so a raw total would charge a cached
+ * turn as if nothing were cached. Falls back to the total, then input+output, then 0.
  */
-export function readMeteredTokens(responseMessage: unknown): number {
-    const usage = (responseMessage as { metadata?: { totalUsage?: unknown } } | null)?.metadata?.totalUsage as
+export function meterUsage(usage: unknown): number {
+    const u = usage as
         | {
               totalTokens?: unknown;
               inputTokens?: unknown;
               outputTokens?: unknown;
               inputTokenDetails?: { cacheReadTokens?: unknown; cacheWriteTokens?: unknown };
           }
+        | null
         | undefined;
-    if (!usage || typeof usage !== "object") return 0;
+    if (!u || typeof u !== "object") return 0;
     const count = (n: unknown) => (typeof n === "number" && n > 0 ? n : 0);
-    const input = count(usage.inputTokens);
-    const output = count(usage.outputTokens);
-    const read = Math.min(count(usage.inputTokenDetails?.cacheReadTokens), input);
-    const write = Math.min(count(usage.inputTokenDetails?.cacheWriteTokens), input - read);
+    const input = count(u.inputTokens);
+    const output = count(u.outputTokens);
+    const read = Math.min(count(u.inputTokenDetails?.cacheReadTokens), input);
+    const write = Math.min(count(u.inputTokenDetails?.cacheWriteTokens), input - read);
     if (read + write > 0) {
         return Math.ceil(input - read - write + read * CACHE_READ_WEIGHT + write * CACHE_WRITE_WEIGHT + output);
     }
-    if (typeof usage.totalTokens === "number" && usage.totalTokens >= 0) return usage.totalTokens;
+    if (typeof u.totalTokens === "number" && u.totalTokens >= 0) return u.totalTokens;
     return input + output;
+}
+
+/**
+ * The tokens a finished turn spends. `messageMetadata` attaches `{ totalUsage, model }` to
+ * the finish part (ai.route.ts), so the usage lands on `responseMessage.metadata.totalUsage`.
+ * A stopped or failed turn has none (no finish part): the route charges its summed
+ * `finish-step` usage instead.
+ */
+export function readMeteredTokens(responseMessage: unknown): number {
+    return meterUsage((responseMessage as { metadata?: { totalUsage?: unknown } } | null)?.metadata?.totalUsage);
 }
 
 /** What a turn cost OpenRouter's side: exact USD and the model that actually answered. */

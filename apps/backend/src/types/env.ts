@@ -11,11 +11,10 @@ export interface Env {
     HYPERDRIVE: Hyperdrive;
 
     // ── Auth / JWT trust contract ──
+    /** Plain var in wrangler.jsonc (public URL, one per stage). */
     NEON_AUTH_JWKS_URL: string;
     /** Optional JWT issuer claim — when set, tokens with a different `iss` are rejected. */
     JWT_ISSUER?: string;
-    /** Optional JWT audience claim — when set, tokens not minted for this API are rejected. */
-    JWT_AUDIENCE?: string;
 
     // ── Deployment boundary ──
     /** Explicit deployment stage. Defaults to "production" if absent. */
@@ -122,8 +121,10 @@ export interface Env {
     AI_IMAGES_PER_MESSAGE?: string;
     /** Attached-but-unsent image uploads a user may have waiting. Default 8. */
     AI_IMAGES_MAX_PENDING?: string;
-    /** "open" (allow on Redis outage, default) | "closed" (reject when the store is down). */
+    /** "open" (allow on Redis outage) | "closed" (reject when the store is down). Default closed in production, open elsewhere. */
     AI_RATE_LIMIT_FAIL_MODE?: string;
+    /** Global assistant spend per UTC day, in USD, across everyone. Default 10; reaching it rests the assistant until midnight UTC. */
+    AI_DAILY_SPEND_CAP_USD?: string;
 }
 
 /** Parse DEPLOYMENT_STAGE with safe fallback to "production". */

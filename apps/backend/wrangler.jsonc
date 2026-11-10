@@ -132,6 +132,8 @@
   // Set AI_DECISION_MODEL here, not only in the dashboard: deploys overwrite it.
   "vars": {
     "DEPLOYMENT_STAGE": "production",
+    // Public key set Neon Auth signs app tokens with (production branch).
+    "NEON_AUTH_JWKS_URL": "https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth/.well-known/jwks.json",
     // Public half of the Web Push key pair. The private half is the VAPID_PRIVATE_KEY secret.
     "VAPID_PUBLIC_KEY": "BPQMDLo4FUNgt4CTWVPFeqAxGU7ni1Cn8trfCiq5N3antgRnaL3QI34L4Fykn3buTQ9Nv_YlmOg3nGVCsQ2WJw4",
     "AI_CHAT_MODEL": "anthropic/claude-haiku-5.5",
@@ -139,6 +141,8 @@
     "AI_TITLE_MODEL": "openai/gpt-oss-20b:nitro",
     "AI_EMBEDDING_MODEL": "qwen/qwen3-embedding-8b",
     "AI_DECISION_MODEL": "microsoft/microsoft-decision-1-20261009",
+    // Everyone's assistant spend per UTC day (USD); reaching it rests the assistant until midnight UTC.
+    "AI_DAILY_SPEND_CAP_USD": "10",
   },
 
   "env": {
@@ -169,12 +173,14 @@
       // MCP and its OAuth endpoints share the dev server's origin; consent opens the local web app.
       "vars": {
         "DEPLOYMENT_STAGE": "development",
+        "NEON_AUTH_JWKS_URL": "https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech/neondb/auth/.well-known/jwks.json",
         "VAPID_PUBLIC_KEY": "BPQMDLo4FUNgt4CTWVPFeqAxGU7ni1Cn8trfCiq5N3antgRnaL3QI34L4Fykn3buTQ9Nv_YlmOg3nGVCsQ2WJw4",
         "AI_CHAT_MODEL": "anthropic/claude-haiku-5.5",
         "AI_CHAT_MODEL_BASIC":"deepseek/deepseek-v4.1-flash",
         "AI_TITLE_MODEL": "openai/gpt-oss-20b:nitro",
         "AI_EMBEDDING_MODEL": "qwen/qwen3-embedding-8b",
         "AI_DECISION_MODEL": "microsoft/microsoft-decision-1-20261009",
+        "AI_DAILY_SPEND_CAP_USD": "10",
         "MCP_ORIGIN": "http://localhost:8787",
         "APP_ORIGIN": "http://localhost:8788"
       },

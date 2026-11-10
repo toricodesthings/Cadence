@@ -13,6 +13,7 @@ import { userZone } from "../../platform/user-zone";
 import type { Zone } from "@cadence/domain/time";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "../tasks/task-nlp";
 import { writeNote } from "../notes/notes.service";
+import { assertRowRoom } from "../../platform/storage-ceiling";
 
 /**
  * Turn a capture into a task in one transaction: the task, its tags, checklist
@@ -54,6 +55,7 @@ export async function processCapture(
     });
 
     // 1. Create the task atomically
+    await assertRowRoom(tx, userId, "tasks");
     const [task] = await tx
         .insert(tasks)
         .values(taskValues)

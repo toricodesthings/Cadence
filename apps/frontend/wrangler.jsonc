@@ -14,6 +14,13 @@
   // Same-origin API: /api/v1/* goes to the backend over a service binding (no CORS preflight,
   // no second TLS handshake). The MCP/OAuth origin and desktop stay on api.cadenceapp.cloud.
   "services": [{ "binding": "BACKEND", "service": "cadence-backend" }],
+  // Sign-in proxy limits, keyed per IP (sensitive POSTs) and per email (mail-sending paths): Neon Auth sees only
+  // Cloudflare's IP through the proxy, so its own per-IP limits can't tell visitors apart.
+  "ratelimits": [
+    { "name": "AUTH_LIMITER", "namespace_id": "2026111001", "simple": { "limit": 300, "period": 60 } },
+    { "name": "AUTH_SENSITIVE_LIMITER", "namespace_id": "2026111002", "simple": { "limit": 10, "period": 60 } },
+    { "name": "AUTH_EMAIL_LIMITER", "namespace_id": "2026111003", "simple": { "limit": 3, "period": 60 } }
+  ],
 
   "vars": {
     "NEON_AUTH_BASE_URL": "https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth"
@@ -35,6 +42,11 @@
     "dev": {
       "name": "cadence-frontend-dev",
       "services": [{ "binding": "BACKEND", "service": "cadence-backend-dev" }],
+      "ratelimits": [
+        { "name": "AUTH_LIMITER", "namespace_id": "2026111011", "simple": { "limit": 300, "period": 60 } },
+        { "name": "AUTH_SENSITIVE_LIMITER", "namespace_id": "2026111012", "simple": { "limit": 10, "period": 60 } },
+        { "name": "AUTH_EMAIL_LIMITER", "namespace_id": "2026111013", "simple": { "limit": 3, "period": 60 } }
+      ],
       "vars": {
         "NEON_AUTH_BASE_URL": "https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech/neondb/auth"
       }

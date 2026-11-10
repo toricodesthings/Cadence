@@ -41,7 +41,7 @@ const optimization = optimizationOptions(vars);
 const reportName = vars.AI_EVAL_REPORT_NAME ?? `assistant-${evaluation.profile}`;
 if (!/^[a-z0-9-]+$/i.test(reportName)) throw new Error("Invalid AI_EVAL_REPORT_NAME");
 const variants = [optimization];
-const env = { OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY, AI_CHAT_MODEL: vars.AI_CHAT_MODEL, AI_CHAT_MODEL_BASIC: vars.AI_CHAT_MODEL_BASIC ?? "deepseek/deepseek-v4.1-flash" } as unknown as Env;
+const env = { DEPLOYMENT_STAGE: "development", OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY, AI_CHAT_MODEL: vars.AI_CHAT_MODEL, AI_CHAT_MODEL_BASIC: vars.AI_CHAT_MODEL_BASIC ?? "deepseek/deepseek-v4.1-flash" } as unknown as Env;
 /** Iteration defaults to one pass; full restores each scenario's repeat count. */
 const maxRuns = evaluation.assistantRuns;
 

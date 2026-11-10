@@ -65,6 +65,8 @@ function oauthOptions(env: Env): OAuthProviderOptions<Env> {
             bearer_methods_supported: ["header"],
             resource_name: "Cadence",
         },
+        // A dynamically registered client expires 90 days after it was last used (the provider refreshes it on use).
+        clientRegistrationTTL: 90 * 24 * 60 * 60,
         // A connection lasts while it's used: each refresh moves expiry 30 days out.
         refreshTokenIdleTTL: 30 * 24 * 60 * 60,
         // Tokens are only issued while the connection row is active, so a disconnect whose KV

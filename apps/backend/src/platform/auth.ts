@@ -9,6 +9,7 @@ import { logger, hashIdentifier, issuesFromError } from "./log";
 import { getDbClient } from "./db";
 import { withRls } from "./rls";
 import { users } from "../db/schema";
+import { getRateLimitRedis } from "./redis";
 import { tracing } from "cloudflare:workers";
 
 let jwksCache: ReturnType<typeof createRemoteJWKSet> | null = null;
@@ -87,17 +88,34 @@ function respondWithError(c: Context<any>, error: AppError) {
 }
 
 /**
- * Users whose row this isolate already ensured. Rows are never deleted by the app,
- * so a hit skips a whole transaction on every later write.
+ * Users whose row this isolate already ensured, so a hit skips a whole transaction on every later write.
+ * Account deletion removes its entry (`markAccountDeleted`).
  */
 const ensuredUsers = new Set<string>();
 
+/** How long a deleted account's still-valid JWTs are refused: longer than any token lives. */
+const DELETED_TTL_S = 60 * 60;
+const deletedKey = (userHash: string) => `deleted:${userHash}`;
+
+/** After account deletion: another device replaying its offline queue must not recreate the `users` row. Best effort. */
+export async function markAccountDeleted(env: Env, userId: string): Promise<void> {
+    ensuredUsers.delete(userId);
+    try {
+        await getRateLimitRedis(env)?.set(deletedKey(await hashIdentifier(userId)), "1", { ex: DELETED_TTL_S });
+    } catch {
+        // the JWT expires on its own within the hour
+    }
+}
+
 /**
  * Ensures a `users` row exists for the authenticated subject before a write's
- * handler runs, preventing FK violations. Once per user per isolate.
+ * handler runs, preventing FK violations. Once per user per isolate; a just-deleted
+ * account is refused (401) instead of recreated.
  */
 async function ensureUserExists(env: Env, userId: string) {
     if (ensuredUsers.has(userId)) return;
+    const deleted = await getRateLimitRedis(env)?.get(deletedKey(await hashIdentifier(userId))).catch(() => null);
+    if (deleted) throw new AppError(401, "UNAUTHORIZED", "This account was deleted");
     const db = getDbClient(env);
     await withRls(db, userId, async (tx) => {
         await tx.insert(users).values({ id: userId }).onConflictDoNothing();
@@ -138,12 +156,11 @@ async function verifyToken(token: string, keySet: ReturnType<typeof createRemote
     }
 }
 
-/** Verify an app JWT (issuer, audience, expiry) and return who it names. Throws an `AppError` (401 for a bad token). */
+/** Verify an app JWT (issuer, expiry) and return who it names. Throws an `AppError` (401 for a bad token). */
 export async function verifyAppToken(env: Env, token: string): Promise<{ userId: string; email?: string }> {
     try {
         const jwksUrl = env.NEON_AUTH_JWKS_URL;
         const expectedIssuer = env.JWT_ISSUER;
-        const expectedAudience = env.JWT_AUDIENCE;
 
         if (!jwksUrl) {
             throw new AppError(500, "INTERNAL_ERROR", "Missing NEON_AUTH_JWKS_URL");
@@ -151,8 +168,7 @@ export async function verifyAppToken(env: Env, token: string): Promise<{ userId:
 
         // Fail closed outside development: tokens MUST be bound to this API's
         // trusted issuer. Without it, jwtVerify degrades into a bare signature
-        // check. Audience stays optional — Neon Auth's native tokens may omit
-        // the `aud` claim — but is still verified when JWT_AUDIENCE is set.
+        // check. Neon Auth tokens carry no `aud` claim, so there is none to check.
         if (getDeploymentStage(env) !== "development" && !expectedIssuer) {
             throw new AppError(
                 500,
@@ -163,7 +179,7 @@ export async function verifyAppToken(env: Env, token: string): Promise<{ userId:
 
         const payload = await verifyToken(token, keySetFor(jwksUrl), {
             ...(expectedIssuer && { issuer: expectedIssuer }),
-            ...(expectedAudience && { audience: expectedAudience }),
+            algorithms: ["EdDSA"], // Neon Auth signs with Ed25519; nothing else is accepted
             clockTolerance: CLOCK_TOLERANCE_SECONDS,
         });
 
@@ -200,6 +216,7 @@ export const authMiddleware = createMiddleware<{
             try {
                 await tracing.enterSpan("auth.user.ensure", () => ensureUserExists(c.env, userId));
             } catch (dbErr) {
+                if (dbErr instanceof AppError) throw dbErr; // a deleted account: refused, never recreated
                 logger.error("auth", "user_sync_failed", {
                     userHash: await hashIdentifier(userId),
                     issues: issuesFromError(dbErr),

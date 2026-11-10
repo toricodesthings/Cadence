@@ -19,12 +19,12 @@ function scriptedModel(toolName: string, input: unknown) {
     });
 }
 
-async function runTurn(mode: ApprovalMode, messages: UIMessage[], call: { name: string; input: unknown }) {
+async function runTurn(mode: ApprovalMode, messages: UIMessage[], call: { name: string; input: unknown }, hasImages = false) {
     const execute = vi.fn(async () => ({ ok: true }));
     const agent = new ToolLoopAgent({
         model: scriptedModel(call.name, call.input),
         tools: { [call.name]: tool({ inputSchema: z.object({ name: z.string() }).passthrough(), execute }) },
-        toolApproval: approvalFor(mode),
+        toolApproval: approvalFor(mode, { hasImages: () => hasImages }),
         experimental_toolApprovalSecret: SECRET,
     });
     const last = messages.at(-1)!;
@@ -90,6 +90,16 @@ describe("approval on the server", () => {
 
         expect(execute).toHaveBeenCalledTimes(runs ? 1 : 0);
         expect(toolPart(message).state).toBe(runs ? "output-available" : "approval-requested");
+    });
+
+    it("Full still waits before a permanent delete while an image is in context, and only then", async () => {
+        const input = { name: "x", tasks: [{ taskId: "t", title: "x" }] };
+        const withImage = await runTurn("full", [user], { name: "delete_tasks", input }, true);
+        expect(withImage.execute).not.toHaveBeenCalled();
+        expect(toolPart(withImage.message).state).toBe("approval-requested");
+
+        const otherWrite = await runTurn("full", [user], { name: "create_tag", input: { name: "Errands" } }, true);
+        expect(otherWrite.execute).toHaveBeenCalledTimes(1);
     });
 
     it("an approval left unanswered when the user moves on replays as declined", async () => {

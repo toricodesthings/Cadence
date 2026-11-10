@@ -21,6 +21,7 @@ import { userZone } from "../../../platform/user-zone";
 import { logger, hashIdentifier, issuesFromError } from "../../../platform/log";
 import { getModelId } from "../model-router";
 import { addStepSpend } from "../safety/rate-limit";
+import { addDailySpend } from "../../../platform/daily-budget";
 import type { Env } from "../../../types/env";
 import type { Tx } from "../../../types/db";
 import { acceptCandidates, extractReplySchema } from "./candidates";
@@ -239,15 +240,18 @@ export async function extract(env: Env, userHash: string, today: string, reading
     const modelId = getModelId(env);
     const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY });
     const startedAt = Date.now();
-    const log = (usage: { inputTokens?: number; outputTokens?: number } | undefined, step: { providerMetadata?: unknown; response?: { modelId?: string } }) =>
+    const log = async (usage: { inputTokens?: number; outputTokens?: number } | undefined, step: { providerMetadata?: unknown; response?: { modelId?: string } }) => {
+        const spend = addStepSpend({}, step);
         logger.info("ai", "ai_memory_extract", {
             userHash,
             model: modelId,
             inputTokens: usage?.inputTokens,
             outputTokens: usage?.outputTokens,
             ms: Date.now() - startedAt,
-            ...addStepSpend({}, step),
+            ...spend,
         });
+        await addDailySpend(env, spend.costUsd);
+    };
     try {
         const { output, usage, providerMetadata, response } = await generateText({
             model: openrouter(modelId, { user: userHash }),
@@ -259,11 +263,11 @@ export async function extract(env: Env, userHash: string, today: string, reading
             maxRetries: 1,
             abortSignal: AbortSignal.timeout(EXTRACT_TIMEOUT_MS),
         });
-        log(usage, { providerMetadata, response });
+        await log(usage, { providerMetadata, response });
         return output;
     } catch (error) {
         if (!NoObjectGeneratedError.isInstance(error)) throw error;
-        log(error.usage, { response: error.response });
+        await log(error.usage, { response: error.response });
         return null;
     }
 }

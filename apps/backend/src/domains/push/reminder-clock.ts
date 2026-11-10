@@ -9,6 +9,7 @@
  */
 import { DurableObject } from "cloudflare:workers";
 import type { MiddlewareHandler } from "hono";
+import { z } from "zod";
 import { LATE_ALERT_MS } from "@cadence/domain/reminders";
 import { getDbClient } from "../../platform/db";
 import { logger, hashIdentifier, issuesFromError } from "../../platform/log";
@@ -327,10 +328,14 @@ export async function connectLive(request: Request, env: Env): Promise<Response>
     const [protocol, token] = offeredProtocols(request);
     if (protocol !== LIVE_PROTOCOL || !token) return new Response("Bad protocol", { status: 400 });
 
-    if (env.RATE_LIMITER && !(await env.RATE_LIMITER.limit({ key: request.headers.get("cf-connecting-ip") || "unknown" })).success) return refuse(CLOSE.rateLimited, "slow down");
+    const ip = request.headers.get("cf-connecting-ip") || "unknown";
+    if (env.RATE_LIMITER && !(await env.RATE_LIMITER.limit({ key: ip })).success) return refuse(CLOSE.rateLimited, "slow down");
     const ticket = ticketOf(token);
     let userId: string;
     if (ticket) {
+        // The ticket's id is unchecked until the clock reads the secret: it never names a clock that isn't a person's id,
+        // and it spends the caller's (IP) budget, never that person's.
+        if (!z.uuid().safeParse(ticket[1]).success) return refuse(CLOSE.badToken, "sign in again");
         userId = ticket[1];
     } else {
         try {
@@ -339,7 +344,7 @@ export async function connectLive(request: Request, env: Env): Promise<Response>
             return err instanceof AppError && err.statusCode === 401 ? refuse(CLOSE.badToken, "sign in again") : refuse(CLOSE.error, "unavailable");
         }
     }
-    if (env.RATE_LIMITER_READ && !(await env.RATE_LIMITER_READ.limit({ key: userId })).success) return refuse(CLOSE.rateLimited, "slow down");
+    if (env.RATE_LIMITER_READ && !(await env.RATE_LIMITER_READ.limit({ key: ticket ? `live:${ip}` : userId })).success) return refuse(CLOSE.rateLimited, "slow down");
     if (!env.REMINDER_CLOCK) return refuse(CLOSE.error, "unavailable");
     const headers = new Headers(request.headers);
     headers.set(LIVE_USER_HEADER, userId);

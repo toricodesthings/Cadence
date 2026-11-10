@@ -9,7 +9,7 @@
  */
 import { eq } from "drizzle-orm";
 import { users } from "../../db/schema";
-import { withinDailyBudget } from "../../platform/daily-budget";
+import { addDailySpend, withinDailyBudget } from "../../platform/daily-budget";
 import { logger } from "../../platform/log";
 import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
@@ -150,6 +150,7 @@ export async function decide(
         if (!response.ok) return failAll("error");
         const body = (await response.json()) as { model?: string; answers?: Record<string, Answer>; usage?: { input_tokens?: number; cost?: number } };
         const meta = { servedModel: body.model, inputTokens: body.usage?.input_tokens, costUsd: body.usage?.cost };
+        await addDailySpend(env, meta.costUsd);
         for (const name of names) {
             const q = input.questions[name];
             const { best, probability } = winner(body.answers?.[name]);

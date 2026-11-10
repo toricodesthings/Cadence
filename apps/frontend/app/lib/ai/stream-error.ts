@@ -20,6 +20,7 @@ export type StreamError = Omit<WireStreamError, "code"> & { code: string };
 const ERROR_LINES: Partial<Record<AiErrorCode, string>> = {
     AI_RATE_LIMITED: "A lot going on right now. Give it a moment, then try again.",
     AI_IMAGE_LIMITED: "That’s all the images for today. Your words can still go on their own.",
+    AI_SPEND_CAPPED: "The assistant is resting until tomorrow. Everything else works.",
     IMAGE_NOT_FOUND: "That image expired. Attach it again, or send without it.",
     AI_TIMEOUT: "I lost the thread for a second. Want me to try that again?",
     AI_UPSTREAM_UNAVAILABLE: "I can’t reach my brain right now. Try again in a bit?",

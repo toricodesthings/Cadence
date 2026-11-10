@@ -10,7 +10,7 @@
  */
 export type StreamEntry = { id: string; fields: Record<string, string> };
 
-type SetOpts = { ex?: number };
+type SetOpts = { ex?: number; nx?: boolean };
 type ExpireOpt = "NX";
 
 export class FakeRedis {
@@ -161,10 +161,26 @@ export class FakeRedis {
     }
 
     // ── direct (single round-trip) methods ──
-    async set(key: string, val: unknown, opts?: SetOpts): Promise<"OK"> {
+    async set(key: string, val: unknown, opts?: SetOpts): Promise<"OK" | null> {
         this.requests += 1;
         this.commandLog.push("set");
+        if (opts?.nx && this._exists(key)) return null;
         return this._set(key, val, opts);
+    }
+    async incrbyfloat(key: string, by: number): Promise<number> {
+        this.requests += 1;
+        this.commandLog.push("incrbyfloat");
+        return this._incrby(key, by);
+    }
+    async incr(key: string): Promise<number> {
+        this.requests += 1;
+        this.commandLog.push("incr");
+        return this._incrby(key, 1);
+    }
+    async expire(key: string, ttl: number): Promise<0 | 1> {
+        this.requests += 1;
+        this.commandLog.push("expire");
+        return this._expire(key, ttl);
     }
     async get<T = string | null>(key: string): Promise<T> {
         this.requests += 1;

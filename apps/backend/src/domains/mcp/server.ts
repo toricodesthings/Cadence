@@ -217,6 +217,10 @@ function buildServer(env: Env, userId: string, connectionId: string, scopes: Set
 /** `/mcp`, after the OAuth provider verified the token (audience, expiry) and decrypted its props. */
 export async function serveMcp(request: Request, env: Env, ctx: OAuthResourceContext<McpProps>): Promise<Response> {
     const { userId, connectionId } = ctx.props;
+    // Before any Postgres work: `initialize` and `tools/list` spend this too. Its own key, so MCP can't starve the app's reads.
+    if (env.RATE_LIMITER_READ && !(await env.RATE_LIMITER_READ.limit({ key: `mcp:${userId}` })).success) {
+        return Response.json({ error: "rate_limited", error_description: "Too many requests. Try again in a minute." }, { status: 429, headers: { "Retry-After": "60", "Cache-Control": "no-store" } });
+    }
     const connection = await openConnection(env, userId, connectionId);
     if (!connection) return invalidToken(env);
 

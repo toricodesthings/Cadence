@@ -164,7 +164,7 @@ function OAuthConnectionsBlock() {
                                 size="sm"
                                 className="text-red-400/60 hover:text-red-400 hover:bg-red-400/10 h-8 font-medium"
                                 onClick={() => startAction(async () => {
-                                    const error = await authError(authClient.unlinkAccount({ providerId: acc.providerId }));
+                                    const error = await authError(authClient.unlinkAccount({ accountId: acc.id }));
                                     if (error) toast.error(error.message || "Failed to unlink account");
                                     else void queryClient.invalidateQueries({ queryKey: queryKeys.auth.accounts });
                                 })}

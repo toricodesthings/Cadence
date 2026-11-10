@@ -8,7 +8,9 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { jwtVerifyMock } = vi.hoisted(() => ({ jwtVerifyMock: vi.fn() }));
+const { jwtVerifyMock, redisMock } = vi.hoisted(() => ({ jwtVerifyMock: vi.fn(), redisMock: { current: null as unknown } }));
+
+vi.mock("../../src/platform/redis", () => ({ getRedis: () => null, getRateLimitRedis: () => redisMock.current }));
 
 vi.mock("jose", () => ({
     createRemoteJWKSet: vi.fn(() => ({ jwks: true })),
@@ -35,7 +37,6 @@ function send(request: Request, env: Record<string, unknown> = {}) {
         HYPERDRIVE: {},
         NEON_AUTH_JWKS_URL: "https://auth.cadenceapp.cloud/jwks.json",
         JWT_ISSUER: "https://auth.cadenceapp.cloud",
-        JWT_AUDIENCE: "cadence-api",
         DEPLOYMENT_STAGE: "development",
         ENABLE_DEBUG_ROUTES: "true",
         RATE_LIMITER: limiter(),
@@ -116,8 +117,6 @@ describe("authentication", () => {
 
     it.each([
         { stage: "development", missing: "JWT_ISSUER", status: 200 },
-        { stage: "development", missing: "JWT_AUDIENCE", status: 200 },
-        { stage: "staging", missing: "JWT_AUDIENCE", status: 200 },
         { stage: "production", missing: "JWT_ISSUER", status: 500 },
         { stage: undefined, missing: "JWT_ISSUER", status: 500 },
     ])("with $missing unset in stage $stage, answers $status", async ({ stage, missing, status }) => {
@@ -226,6 +225,39 @@ describe("rate limiting", () => {
 
         expect(response.status).toBe(429);
         expect((await response.json() as any).error.code).toBe("TOO_MANY_REQUESTS");
+    });
+});
+
+describe("token checks", () => {
+    it("accepts only Neon Auth's signing algorithm", async () => {
+        await send(authedRequest(USAGE));
+        expect(jwtVerifyMock.mock.calls[0][2]).toMatchObject({ algorithms: ["EdDSA"] });
+    });
+
+    it("refuses a write from a just-deleted account instead of recreating it", async () => {
+        jwtVerifyMock.mockResolvedValue({ payload: { sub: "deleted-user" } });
+        redisMock.current = { get: vi.fn(async () => "1") };
+        const request = authedRequest("/api/v1/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "x" }) });
+
+        const response = await send(request);
+        redisMock.current = null;
+
+        expect(response.status).toBe(401);
+    });
+});
+
+describe("MCP origin doors", () => {
+    it("gives open client registration the tight per-IP door", async () => {
+        const admin = limiter(false);
+        const request = new Request("http://localhost:8787/oauth/register", {
+            method: "POST",
+            headers: { "content-type": "application/json", "cf-connecting-ip": "203.0.113.9" },
+            body: "{}",
+        });
+        const response = await send(request, { MCP_ORIGIN: "http://localhost:8787", RATE_LIMITER_ADMIN: admin });
+
+        expect(response.status).toBe(429);
+        expect(admin.limit).toHaveBeenCalledWith({ key: "/oauth/register:203.0.113.9" });
     });
 });
 

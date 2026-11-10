@@ -54,7 +54,7 @@ function firstPartyCookie(setCookie: string): string {
 	return [...parts, "Secure", "SameSite=None"].join("; ");
 }
 
-async function fetchNeonAuth(env: Env, request: Request, path: string, search: string, origin: string): Promise<Response> {
+async function fetchNeonAuth(env: Env, request: Request, path: string, search: string, origin: string, body?: ArrayBuffer): Promise<Response> {
 	const headers = new Headers();
 	for (const name of REQUEST_HEADERS) {
 		const value = request.headers.get(name);
@@ -72,7 +72,7 @@ async function fetchNeonAuth(env: Env, request: Request, path: string, search: s
 	return fetch(upstream, { // nosemgrep
 		method: request.method,
 		headers,
-		body: hasBody ? await request.arrayBuffer() : undefined,
+		body: hasBody ? (body ?? await request.arrayBuffer()) : undefined,
 		redirect: "manual",
 	});
 }
@@ -83,11 +83,56 @@ function appendCookies(target: Headers, upstream: Response) {
 	}
 }
 
+/** Sign-in, sign-up, codes, resets: what a password guesser or a mail bomber would POST. */
+const SENSITIVE_PATHS = ["sign-in/", "sign-up/", "email-otp/", "forget-password", "request-password-reset", "reset-password", "send-verification-email", "change-email", "change-password", "delete-user"];
+/** The POSTs that send an email: also limited per address, whatever the IP. */
+const MAIL_PATHS = ["sign-up/email", "email-otp/send-verification-otp", "forget-password", "request-password-reset", "send-verification-email", "sign-in/magic-link"];
+
+function tooManyAttempts(): Response {
+	return Response.json(
+		{ code: "RATE_LIMITED", message: "Too many attempts. Try again in a minute." },
+		{ status: 429, headers: { "retry-after": "60", "cache-control": "no-store", "x-content-type-options": "nosniff" } },
+	);
+}
+
+async function sha256Hex(text: string): Promise<string> {
+	const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+	return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/** The lowercased `email` of a JSON body, if it has one. */
+function emailOf(body: ArrayBuffer): string | undefined {
+	try {
+		const email = (JSON.parse(new TextDecoder().decode(body)) as { email?: unknown }).email;
+		return typeof email === "string" && email.trim() ? email.trim().toLowerCase() : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * True when this request is within the proxy's limits. Every request counts per IP (generously: sessions refresh
+ * constantly and offices share an IP); sensitive POSTs count tighter; mail-sending POSTs also count per address.
+ * A missing binding (local preview) never blocks.
+ */
+async function withinAuthLimits(env: Env, request: Request, path: string, body: ArrayBuffer | undefined): Promise<boolean> {
+	const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
+	const checks = [env.AUTH_LIMITER?.limit({ key: ip })];
+	if (request.method === "POST" && SENSITIVE_PATHS.some((prefix) => path.startsWith(prefix))) {
+		checks.push(env.AUTH_SENSITIVE_LIMITER?.limit({ key: ip }));
+		const email = body && MAIL_PATHS.some((prefix) => path.startsWith(prefix)) ? emailOf(body) : undefined;
+		if (email) checks.push(env.AUTH_EMAIL_LIMITER?.limit({ key: await sha256Hex(email) }));
+	}
+	return (await Promise.all(checks)).every((result) => !result || result.success);
+}
+
 async function proxyAuth(request: Request, env: Env, url: URL): Promise<Response> {
 	const origin = request.headers.get("origin") ?? url.origin;
 	const path = url.pathname.slice(AUTH_PROXY_PREFIX.length);
-	const upstream = await fetchNeonAuth(env, request, path, url.search, origin);
-	const headers = new Headers({ "cache-control": "no-store" });
+	const body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer();
+	if (!(await withinAuthLimits(env, request, path, body))) return tooManyAttempts();
+	const upstream = await fetchNeonAuth(env, request, path, url.search, origin, body);
+	const headers = new Headers({ "cache-control": "no-store", "x-content-type-options": "nosniff" });
 	for (const name of RESPONSE_HEADERS) {
 		const value = upstream.headers.get(name);
 		if (value) headers.set(name, value);
@@ -103,11 +148,14 @@ async function proxyAuth(request: Request, env: Env, url: URL): Promise<Response
  */
 function continueTo(target: string, headers: Headers): Response {
 	const href = JSON.stringify(target).replace(/</g, "\\u003c");
+	const nonce = crypto.randomUUID().replace(/-/g, "");
 	headers.set("content-type", "text/html; charset=utf-8");
 	headers.set("referrer-policy", "no-referrer");
+	headers.set("x-content-type-options", "nosniff");
+	headers.set("content-security-policy", `default-src 'none'; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`);
 	return new Response(
 		`<!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><title>Signing in…</title>` +
-			`<script>location.replace(${href})</script>` +
+			`<script nonce="${nonce}">location.replace(${href})</script>` +
 			`<noscript><a href=${href}>Continue to Cadence</a></noscript>`,
 		{ status: 200, headers },
 	);

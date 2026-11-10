@@ -93,7 +93,7 @@ This means:
 
 ### Environment Configuration
 
-- Set `NEON_AUTH_JWKS_URL` in Worker secrets for the production Neon Auth branch.
+- `NEON_AUTH_JWKS_URL` is a plain var in `wrangler.jsonc`, one per stage.
 - Keep debug capabilities off in production unless there is an intentional operational reason to enable them (`ENABLE_DEBUG_ROUTES` must be explicitly set to `"true"`).
 
 ### Pre-Push Checklist

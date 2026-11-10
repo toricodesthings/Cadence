@@ -12,6 +12,7 @@ import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import { processCapture, unprocessCapture } from "./inbox.service";
 import { suggestPlacement } from "../decisions/placement";
+import { assertRowRoom, assertStorageRoom } from "../../platform/storage-ceiling";
 
 export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // ── Atomic Inbox→Task Processing (Section 11.2C) ──
@@ -42,6 +43,8 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 (id) => tx.select().from(inboxItems).where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId))),
                 async () => {
                     await assertOwnership(tx, userId, { inboxSectionId: body.sectionId });
+                    await assertRowRoom(tx, userId, "captures");
+                    await assertStorageRoom(tx, userId, [body.rawText]);
                     return tx.insert(inboxItems).values({ ...body, userId }).returning();
                 },
             ));

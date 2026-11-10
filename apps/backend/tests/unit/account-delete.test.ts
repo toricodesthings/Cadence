@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { deleteAuthUser, verifyPresence } from "../../src/domains/account/account.route";
+
+const budget = vi.hoisted(() => ({ within: true }));
+vi.mock("../../src/platform/daily-budget", () => ({ withinDailyBudget: async () => budget.within }));
+
+import { accountRoutes, deleteAuthUser, verifyPresence } from "../../src/domains/account/account.route";
+import { createTestApp } from "../helpers/app";
 import type { Env } from "../../src/types/env";
 
 const env = { NEON_API_KEY: "k", NEON_PROJECT_ID: "p", NEON_BRANCH_ID: "b" } as Env;
@@ -66,5 +71,36 @@ describe("verifyPresence", () => {
         await verifyPresence(authEnv, me, { otp: "123456" });
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ success: false })));
         await expect(verifyPresence(authEnv, me, { otp: "000000" })).rejects.toMatchObject({ statusCode: 403 });
+    });
+});
+
+describe("presence checks are bounded", () => {
+    const authEnv = { NEON_AUTH_JWKS_URL: "https://auth.test/neondb/auth/.well-known/jwks.json" } as Env;
+    const me = { userId: user, email: "me@test.dev" };
+
+    it("signs the password check's session out again", async () => {
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify({ user: { id: user } }), { headers: { "set-auth-token": "sess-1" } }))
+            .mockResolvedValueOnce(new Response(null, { status: 200 }));
+        vi.stubGlobal("fetch", fetchMock);
+        await verifyPresence(authEnv, me, { password: "pw" });
+        expect(fetchMock).toHaveBeenLastCalledWith("https://auth.test/neondb/auth/sign-out", expect.objectContaining({
+            method: "POST", headers: { Authorization: "Bearer sess-1" },
+        }));
+    });
+
+    it("refuses past the day's tries without asking Neon Auth", async () => {
+        budget.within = false;
+        const fetchMock = vi.fn();
+        vi.stubGlobal("fetch", fetchMock);
+        const app = createTestApp("/account", accountRoutes);
+        const res = await app.request("/account/delete", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ confirmation: "delete my account", password: "guess" }),
+        }, { ...env, ...authEnv });
+        expect(res.status).toBe(429);
+        expect(fetchMock).not.toHaveBeenCalled();
+        budget.within = true;
     });
 });

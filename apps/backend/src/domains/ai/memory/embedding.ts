@@ -10,6 +10,7 @@ import { embed, embedMany } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { logger } from "../../../platform/log";
 import { addStepSpend, type TurnSpend } from "../safety/rate-limit";
+import { addDailySpend } from "../../../platform/daily-budget";
 import type { Env } from "../../../types/env";
 
 /** Dimensionality of the `ai_memories.embedding` column (halfvec) — embeddings MUST match. */
@@ -77,6 +78,7 @@ export async function embedText(
         ...addStepSpend({}, { providerMetadata, response: { modelId: (response?.body as { model?: string } | undefined)?.model } }),
     };
     logger.info("ai", "ai_embedding", { ...ctx, ...spend });
+    await addDailySpend(env, spend.costUsd);
     return { embedding: assertDimensions(embedding), spend };
 }
 
@@ -87,5 +89,6 @@ export async function embedTexts(env: Env, texts: string[], ctx: { userHash?: st
     const { embeddings, usage, providerMetadata } = await embedMany({ model: getEmbeddingModel(env, ctx.userHash), values: texts, abortSignal: AbortSignal.timeout(timeout) });
     const spend = addStepSpend({}, { providerMetadata });
     logger.info("ai", "ai_embedding", { userHash: ctx.userHash, model: getEmbeddingModelId(env), inputTokens: usage?.tokens, texts: texts.length, costUsd: spend.costUsd });
+    await addDailySpend(env, spend.costUsd);
     return embeddings.map(assertDimensions);
 }

@@ -30,6 +30,24 @@ export function isInAppPath(href: string): boolean {
 const LINK_CLASS =
     "font-medium text-accent-primary underline decoration-accent-primary/40 underline-offset-2 transition-colors hover:decoration-accent-primary";
 
+/** The plain text a link shows. */
+function textOf(node: ReactNode): string {
+    if (typeof node === "string" || typeof node === "number") return String(node);
+    if (Array.isArray(node)) return node.map(textOf).join("");
+    if (node && typeof node === "object" && "props" in node) return textOf((node.props as { children?: ReactNode }).children);
+    return "";
+}
+
+/** An external link's host, when its text doesn't already show it: a steered reply can't hide where a click goes. */
+export function hiddenHost(href: string, text: string): string | null {
+    try {
+        const host = new URL(href).hostname.replace(/^www\./, "");
+        return host && !text.toLowerCase().includes(host.toLowerCase()) ? host : null;
+    } catch {
+        return null;
+    }
+}
+
 function AssistantLink({ href = "", children }: { href?: string; children?: ReactNode }) {
     const navigate = useNavigate();
     const { openSettings } = useUtilityNavigation();
@@ -37,10 +55,14 @@ function AssistantLink({ href = "", children }: { href?: string; children?: Reac
     const settingsTab = href.startsWith("?settings=") ? new URLSearchParams(href).get("settings") : null;
 
     if (!settingsTab && !isInAppPath(href)) {
+        const host = hiddenHost(href, textOf(children));
         return (
-            <a href={href} target="_blank" rel="noreferrer noopener" className={LINK_CLASS}>
-                {children}
-            </a>
+            <>
+                <a href={href} target="_blank" rel="noreferrer noopener" className={LINK_CLASS}>
+                    {children}
+                </a>
+                {host && <span className="text-twilight-text-muted"> ({host})</span>}
+            </>
         );
     }
 

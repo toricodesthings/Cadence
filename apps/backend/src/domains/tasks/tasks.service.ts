@@ -21,6 +21,7 @@ import { recordPersonActivity, type PersonActivity } from "../ai/memory/memory.s
 import type { DbClient, Tx } from "../../types/db";
 import type { Env } from "../../types/env";
 import { writeNote } from "../notes/notes.service";
+import { assertRowRoom, assertStorageRoom } from "../../platform/storage-ceiling";
 
 // Query pieces other domains (the AI tools) reuse; tasks.service is the only door into this domain.
 /** A task's when: the columns a reschedule or a temporal check reads. */
@@ -156,6 +157,8 @@ export async function withTagIds(tx: Tx, rows: TaskRow[]): Promise<Task[]> {
 export async function createTask(tx: Tx, userId: string, values: NewTask, tagIds: string[] = []) {
     validateTaskRecurrenceRule(values.recurrenceRule, values.zone ?? "UTC");
     await assertOwnership(tx, userId, { projectId: values.projectId ?? null, sectionId: values.sectionId, tagIds });
+    await assertRowRoom(tx, userId, "tasks");
+    await assertStorageRoom(tx, userId, [values.content]);
 
     const [row] = await insertWithClientId(() => tx
         .insert(tasks)
@@ -214,6 +217,8 @@ export async function duplicateTask(tx: Tx, userId: string, id: string, title?: 
         .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
     throwIfNotFound(original, "Task");
     validateTaskRecurrenceRule(original.recurrenceRule, original.zone ?? "UTC");
+    await assertRowRoom(tx, userId, "tasks");
+    await assertStorageRoom(tx, userId, [original.content]);
 
     const [dup] = await tx
         .insert(tasks)
@@ -347,6 +352,7 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
         ? await patchOverStored(tx, userId, id, body, expectedUpdatedAt, { placementChanged, temporalChanged })
         : body;
     const versionCondition = !needsExisting && expectedUpdatedAt ? sameVersionSql(expectedUpdatedAt) : undefined;
+    await assertStorageRoom(tx, userId, [body.content]);
 
     // A changed Effort carries who chose it; the origin is never a column the caller writes directly.
     const { effortOrigin, ...columns } = patch as typeof patch & { effortOrigin?: "manual" | "accepted" };

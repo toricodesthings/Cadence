@@ -35,6 +35,7 @@ const vars = evaluationVars();
 const evaluation = evaluationOptions(vars);
 const optimization = optimizationOptions(vars);
 const env = {
+    DEPLOYMENT_STAGE: "development",
     OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY,
     AI_CHAT_MODEL: vars.AI_CHAT_MODEL,
     AI_CHAT_MODEL_BASIC: vars.AI_CHAT_MODEL_BASIC,

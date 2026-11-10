@@ -2,7 +2,8 @@
  * Which tool calls wait for the user's tap, decided on the server (AI SDK
  * `toolApproval`). Reads and capture never wait. Ask waits on every other tool,
  * so a new write tool waits by default. Auto waits only on what `needsTap` flags.
- * Full never waits.
+ * Full waits only for a permanent delete while the recent context holds an image
+ * (text in a screenshot is someone else's words, and could be steering the turn).
  */
 import type { ApprovalMode } from "@cadence/contracts/ai";
 
@@ -27,10 +28,11 @@ export function needsTap(toolName: string, input: unknown): boolean {
     return (args.taskIds?.length ?? args.tasks?.length ?? args.items?.length ?? 0) > AUTO_TASK_LIMIT;
 }
 
-/** The agent's `toolApproval` for one turn's approval mode. */
-export function approvalFor(mode: ApprovalMode) {
+/** The agent's `toolApproval` for one turn's approval mode. `hasImages` is read at call time: images hydrate after the agent is built. */
+export function approvalFor(mode: ApprovalMode, { hasImages = () => false }: { hasImages?: () => boolean } = {}) {
     return ({ toolCall }: { toolCall: { toolName: string; input: unknown } }) => {
-        if (mode === "full" || isFree(toolCall.toolName)) return undefined;
+        if (isFree(toolCall.toolName)) return undefined;
+        if (mode === "full") return toolCall.toolName.startsWith("delete_") && hasImages() ? ("user-approval" as const) : undefined;
         if (mode === "ask" || needsTap(toolCall.toolName, toolCall.input)) return "user-approval" as const;
         return undefined;
     };

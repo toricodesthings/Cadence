@@ -19,12 +19,15 @@ let ai: ReturnType<typeof apiAs>;
 let otherId: string;
 let otherAi: ReturnType<typeof apiAs>;
 
+/** No budget store in these tests: run as development (production refuses to run unmetered). */
+const DEV = { DEPLOYMENT_STAGE: "development" };
+
 beforeAll(startTestDb);
 beforeEach(async () => {
     userId = await createUser();
     otherId = await createUser();
-    ai = apiAs(userId, "/ai", aiRoutes);
-    otherAi = apiAs(otherId, "/ai", aiRoutes);
+    ai = apiAs(userId, "/ai", aiRoutes, DEV);
+    otherAi = apiAs(otherId, "/ai", aiRoutes, DEV);
 });
 
 /** A persisted thread: one user turn plus one assistant turn, seeded through the real repo. */
