@@ -3,9 +3,9 @@
   "version": "0.45.3",
   "private": true,
   "license": "AGPL-3.0-only",
-  "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
+  "packageManager": "pnpm@12.18.0+sha512.9d7882d5dc82147ecfc4e062aa34834e0ad0296710a1837a1115ae012127d36b7109e321ac1598a1dd0a65597681b1e99917e12ed0d749eae91187943363beb3",
   "engines": {
-    "node": ">=22.22.0"
+    "node": ">=24.21.0"
   },
   "scripts": {
     "dev": "turbo run dev --parallel --filter=@cadence/backend --filter=@cadence/frontend",
@@ -40,35 +40,5 @@
     "oxlint": "^1.85.0",
     "release-it": "^21.1.0",
     "turbo": "^2.11.4"
-  },
-  "pnpm": {
-    "overrides": {
-      "esbuild": "^0.28.1",
-      "hono": "^4.13.7",
-      "zod": "^4.6.7",
-      "undici@>=7.0.0 <7.30.1": "^7.30.1",
-      "@daveyplate/better-auth-ui>@better-auth/api-key": "1.6.23",
-      "better-auth@<1.7.7": "~1.7.20"
-    },
-    "peerDependencyRules": {
-      "ignoreMissing": [
-        "@better-auth/passkey",
-        "@daveyplate/better-auth-tanstack",
-        "@instantdb/react",
-        "@tanstack/react-query",
-        "@triplit/client",
-        "@triplit/react"
-      ],
-      "allowedVersions": {
-        "pg": ">=0",
-        "react": ">=19",
-        "better-auth>vitest": "5",
-        "@better-auth/api-key>better-call": "2",
-        "@triplit/logger>typescript": "7"
-      }
-    },
-    "patchedDependencies": {
-      "rrule@2.8.1": "patches/rrule@2.8.1.patch"
-    }
   }
 }

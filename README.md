@@ -64,7 +64,7 @@ Recent releases brought offline editing and sync review, connected assistants, r
 
 ## Run it locally
 
-**Requirements:** Node.js 22.22.0 or newer and Corepack/pnpm. Running the full workspace also needs development credentials and bindings for Neon Auth, Neon Postgres, and Cloudflare Workers; see the [backend environment guide](./apps/backend/AGENTS.md#14-environment--bindings) and [frontend guide](./apps/frontend/AGENTS.md).
+**Requirements:** Node.js 24.21.0 or newer and Corepack/pnpm. Running the full workspace also needs development credentials and bindings for Neon Auth, Neon Postgres, and Cloudflare Workers; see the [backend environment guide](./apps/backend/AGENTS.md#14-environment--bindings) and [frontend guide](./apps/frontend/AGENTS.md).
 
 ```bash
 corepack enable

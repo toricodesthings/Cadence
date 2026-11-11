@@ -40,6 +40,8 @@
     "active": true,
     "targets": [
       "appimage",
+      "deb",
+      "rpm",
       "dmg",
       "nsis"
     ],

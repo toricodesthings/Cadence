@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Cadence now installs on Linux (AppImage, .deb and .rpm) and updates itself like the Windows app.
+
 ## [0.45.3] - 2026-11-11
 
 A quieter Events page.

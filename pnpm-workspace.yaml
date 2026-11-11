@@ -2,12 +2,41 @@ packages:
   - apps/*
   - packages/*
 
-onlyBuiltDependencies:
-  - '@prisma/engines'
-  - '@sentry-internal/node-cpu-profiler'
-  - core-js
-  - esbuild
-  - prisma
-  - sharp
-  - unrs-resolver
-  - workerd
+autoInstallPeers: false
+preferWorkspacePackages: true
+
+allowBuilds:
+  '@prisma/engines': true
+  '@sentry-internal/node-cpu-profiler': true
+  core-js: true
+  esbuild: true
+  prisma: true
+  sharp: true
+  unrs-resolver: true
+  workerd: true
+
+overrides:
+  'esbuild': '^0.28.1'
+  'hono': '^4.13.7'
+  'zod': '^4.6.7'
+  'undici@>=7.0.0 <7.30.1': '^7.30.1'
+  '@daveyplate/better-auth-ui>@better-auth/api-key': '1.6.23'
+  'better-auth@<1.7.7': '~1.7.20'
+
+peerDependencyRules:
+  ignoreMissing:
+    - '@better-auth/passkey'
+    - '@daveyplate/better-auth-tanstack'
+    - '@instantdb/react'
+    - '@tanstack/react-query'
+    - '@triplit/client'
+    - '@triplit/react'
+  allowedVersions:
+    'pg': '>=0'
+    'react': '>=19'
+    'better-auth>vitest': '5'
+    '@better-auth/api-key>better-call': '2'
+    '@triplit/logger>typescript': '7'
+
+patchedDependencies:
+  'rrule@2.8.1': 'patches/rrule@2.8.1.patch'
