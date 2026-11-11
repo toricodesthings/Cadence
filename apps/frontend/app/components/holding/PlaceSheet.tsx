@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
-import { DndContext, DragOverlay, useDraggable, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragOverlay, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { MouseSensor } from "../../lib/utils/dnd";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -46,7 +46,17 @@ export function useWeekLoad(start: LocalDate, enabled = true, days = 7) {
 /** Drop-target id prefix for a placement day: `place:YYYY-MM-DD`. */
 export const PLACE_DROP = "place:";
 
-type PlaceDragData = { title: string; onPlace: (day: LocalDate) => void };
+/** Drop-target id prefix for Capture's own groups: `capture-column:new` or `capture-column:no-day`. */
+export const CAPTURE_COLUMN_DROP = "capture-column:";
+export type CaptureColumn = "new" | "no-day";
+
+type PlaceDragData = { title: string; onPlace: (day: LocalDate) => void; onColumn?: (column: CaptureColumn) => void };
+
+/** A Capture group that takes a dragged row: a thought dropped on No day yet becomes a task, a task dropped on New a thought. */
+export function CaptureColumnDrop({ column, className = "", children }: { column: CaptureColumn; className?: string; children: ReactNode }) {
+    const { setNodeRef, isOver } = useDroppable({ id: `${CAPTURE_COLUMN_DROP}${column}` });
+    return <div ref={setNodeRef} className={`${className} rounded-[28px] transition-shadow ${isOver ? "ring-2 ring-accent-primary/40" : ""}`}>{children}</div>;
+}
 
 /** Desktop Capture: lets captures and Ready tasks be dragged onto the Place rail's days. */
 export function PlaceDndProvider({ children }: { children: ReactNode }) {
@@ -59,7 +69,9 @@ export function PlaceDndProvider({ children }: { children: ReactNode }) {
             onDragEnd={({ active: drag, over }) => {
                 setActive(null);
                 const id = String(over?.id ?? "");
-                if (id.startsWith(PLACE_DROP)) (drag.data.current as PlaceDragData | undefined)?.onPlace(id.slice(PLACE_DROP.length));
+                const data = drag.data.current as PlaceDragData | undefined;
+                if (id.startsWith(PLACE_DROP)) data?.onPlace(id.slice(PLACE_DROP.length));
+                if (id.startsWith(CAPTURE_COLUMN_DROP)) data?.onColumn?.(id.slice(CAPTURE_COLUMN_DROP.length) as CaptureColumn);
             }}>
             {children}
             <DragOverlay dropAnimation={null}>
@@ -69,8 +81,8 @@ export function PlaceDndProvider({ children }: { children: ReactNode }) {
     );
 }
 
-export function PlaceDraggable({ id, title, onPlace, className = "", children }: { id: string; className?: string; children: ReactNode } & PlaceDragData) {
-    const { setNodeRef, listeners, isDragging } = useDraggable({ id, data: { title, onPlace } satisfies PlaceDragData });
+export function PlaceDraggable({ id, title, onPlace, onColumn, className = "", children }: { id: string; className?: string; children: ReactNode } & PlaceDragData) {
+    const { setNodeRef, listeners, isDragging } = useDraggable({ id, data: { title, onPlace, onColumn } satisfies PlaceDragData });
     return <div ref={setNodeRef} {...listeners} data-dnd-draggable="true" className={`${className} ${isDragging ? "opacity-40" : ""}`}>{children}</div>;
 }
 

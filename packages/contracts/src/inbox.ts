@@ -37,6 +37,8 @@ export type UpdateInboxItem = z.infer<typeof updateInboxItemSchema>;
 
 /** Schema for the atomic inbox→task processing endpoint */
 export const processInboxItemSchema = z.object({
+    /** Client-chosen id for the new task, so the optimistic row is the real row. */
+    taskId: z.uuid().optional(),
     title: z.string().min(1).max(2_000),
     complete: z.boolean().optional(),
     /** An all-day placement: the day (a deadline is a day). */

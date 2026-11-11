@@ -1,5 +1,5 @@
 import { COLLECTION_ROW_SURFACE, COLLECTION_ROW_HOVER, COLLECTION_ROW_SELECTED, COLLECTION_ROW_TITLE } from "../tasks/task-row-styles";
-import { useRef, useState, useEffect, useId } from "react";
+import { useRef, useState, useEffect, useId, type ReactElement } from "react";
 import {
     CalendarPlus, CheckSquare, FolderOpen, ListChecks, Inbox, EllipsisVertical, Moon, StickyNote, Sun, Trash2, Calendar, Sunrise,
 } from "lucide-react";
@@ -31,7 +31,13 @@ import { InlineSubtaskPanel, SUBTASK_RAIL, SubtaskChip, useInlineSubtasks } from
 import { Button } from "../primitives/Button";
 import { Tip } from "../primitives/Tooltip";
 import * as Menu from "../primitives/DropdownMenu";
-import { PlaceDraggable, usePlaceTask } from "./PlaceSheet";
+import * as ContextMenu from "../primitives/ContextMenu";
+import type { GenericMenu } from "../primitives/menu-styles";
+import { MoveToSubmenu } from "../tasks/MoveToSubmenu";
+import { toastName, toastUndo } from "../../lib/utils/undo-toast";
+import { PlaceDraggable, usePlaceTask, type CaptureColumn } from "./PlaceSheet";
+import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
+import { useDeleteInboxItem } from "../../hooks/inbox/use-delete-inbox-item";
 import { DAY_PILL, DAY_PILL_PLAIN, DAY_PILL_SUGGESTED, placeFields } from "./CaptureDayChips";
 import { toast } from "sonner";
 import { PendingMark } from "../shared/PendingMark";
@@ -139,6 +145,7 @@ type RowMenuProps = {
     title: string;
     disabled: boolean;
     place: (when?: LocalDate | Instant, complete?: boolean) => void;
+    moveToList: (projectId: string | null, sectionId: string | null) => void;
     discard: () => void;
     /** The row's own capture actions, so a pending change disables the whole row. */
     status: ReturnType<typeof useCaptureActions>;
@@ -146,10 +153,95 @@ type RowMenuProps = {
     onToggleSelection?: () => void;
 };
 
-/** The row's ⋮: place it (today, tomorrow, a day, no day), keep it as a note, add a subtask, select, discard. */
-function RowMenu({ item, task, title, disabled, place, discard, status, subtaskUi, onToggleSelection }: RowMenuProps) {
-    const [menuOpen, setMenuOpen] = useState(false);
+/**
+ * The row's actions, for its ⋮ and its right-click menu alike: place it (today, tomorrow, a day, no day), file it in
+ * a list, keep it as a note, add a subtask, select, discard. `closeMenu` exists only where the menu can be closed by
+ * hand, so only there can a calendar (which isn't a menu item) pick a day.
+ */
+function RowMenuItems({ Menu, item, task, disabled, place, moveToList, discard, status, subtaskUi, onToggleSelection, closeMenu }: Omit<RowMenuProps, "title"> & { Menu: GenericMenu; closeMenu?: () => void }) {
     const [pickerMonth, setPickerMonth] = useState<LocalDate>(() => today());
+    return (
+        <>
+            {item?.captureStatus !== "kept" && (
+                <>
+                    <Menu.Item className="gap-2.5" disabled={disabled} onSelect={() => place(todayISO())}>
+                        <Sun aria-hidden size={16} className="text-accent-primary" />
+                        Today
+                    </Menu.Item>
+                    <Menu.Item className="gap-2.5" disabled={disabled} onSelect={() => place(tomorrowISO())}>
+                        <Sunrise aria-hidden size={16} />
+                        Tomorrow
+                    </Menu.Item>
+                    {closeMenu && (
+                        <Menu.Sub>
+                            <Menu.SubTrigger className="flex items-center gap-2.5" disabled={disabled}>
+                                <Calendar aria-hidden size={16} />
+                                Pick day…
+                            </Menu.SubTrigger>
+                            <Menu.SubContent className="w-72 p-0">
+                                <MonthCalendar
+                                    viewDay={pickerMonth}
+                                    onViewDayChange={setPickerMonth}
+                                    selectedDate=""
+                                    onSelectDate={(day) => {
+                                        place(day);
+                                        closeMenu();
+                                    }}
+                                />
+                            </Menu.SubContent>
+                        </Menu.Sub>
+                    )}
+                    <Menu.Separator />
+                </>
+            )}
+            {item && (
+                <Menu.Item className="gap-2.5" disabled={disabled} onSelect={() => place()}>
+                    <Moon aria-hidden size={16} />
+                    No day yet
+                </Menu.Item>
+            )}
+            {!disabled && (
+                <MoveToSubmenu
+                    MenuComponents={Menu}
+                    currentProjectId={task?.projectId ?? null}
+                    currentSectionId={task?.sectionId ?? null}
+                    hideNoList
+                    onSelect={moveToList}
+                />
+            )}
+            {item && (
+                <Menu.Item
+                    className="gap-2.5"
+                    disabled={disabled}
+                    onSelect={() =>
+                        void status.setStatus(item, item.captureStatus === "kept" ? "clarifying" : "kept").catch(() => {})
+                    }
+                >
+                    {item.captureStatus === "kept" ? <Inbox aria-hidden size={16} /> : <StickyNote aria-hidden size={16} />}
+                    {item.captureStatus === "kept" ? "Back to New" : "Keep as a note"}
+                </Menu.Item>
+            )}
+            {task && (
+                <Menu.Item className="gap-2.5" disabled={disabled} onSelect={subtaskUi.startAdding}>
+                    <ListChecks aria-hidden size={16} />
+                    Add subtask
+                </Menu.Item>
+            )}
+            <Menu.Item className="gap-2.5" onSelect={() => onToggleSelection?.()}>
+                <CheckSquare aria-hidden size={16} />
+                Select
+            </Menu.Item>
+            <Menu.Item className="gap-2.5" disabled={disabled} variant="danger" onSelect={discard}>
+                <Trash2 aria-hidden size={16} />
+                Discard
+            </Menu.Item>
+        </>
+    );
+}
+
+/** The row's ⋮. */
+function RowMenu({ title, ...props }: RowMenuProps) {
+    const [menuOpen, setMenuOpen] = useState(false);
     return (
         <Menu.Root open={menuOpen} onOpenChange={setMenuOpen}>
             <Tip label="More actions">
@@ -167,86 +259,25 @@ function RowMenu({ item, task, title, disabled, place, discard, status, subtaskU
             <Menu.Content
                 align="end"
                 // "Add subtask" focuses its input; handing focus back to ⋮ would blur and close it.
-                onCloseAutoFocus={(e) => subtaskUi.adding && e.preventDefault()}
+                onCloseAutoFocus={(e) => props.subtaskUi.adding && e.preventDefault()}
             >
-                {item?.captureStatus !== "kept" && (
-                    <>
-                        <Menu.Item
-                            className="gap-2.5"
-                            disabled={disabled}
-                            onSelect={() => place(todayISO())}
-                        >
-                            <Sun aria-hidden size={16} className="text-accent-primary" />
-                            Today
-                        </Menu.Item>
-                        <Menu.Item
-                            className="gap-2.5"
-                            disabled={disabled}
-                            onSelect={() => place(tomorrowISO())}
-                        >
-                            <Sunrise aria-hidden size={16} />
-                            Tomorrow
-                        </Menu.Item>
-                        <Menu.Sub>
-                            <Menu.SubTrigger className="flex items-center gap-2.5" disabled={disabled}>
-                                <Calendar aria-hidden size={16} />
-                                Pick day…
-                            </Menu.SubTrigger>
-                            <Menu.SubContent className="w-72 p-0">
-                                <MonthCalendar
-                                    viewDay={pickerMonth}
-                                    onViewDayChange={setPickerMonth}
-                                    selectedDate=""
-                                    onSelectDate={(day) => {
-                                        place(day);
-                                        setMenuOpen(false);
-                                    }}
-                                />
-                            </Menu.SubContent>
-                        </Menu.Sub>
-                        <Menu.Separator />
-                    </>
-                )}
-                {item && (
-                    <>
-                        <Menu.Item className="gap-2.5" disabled={disabled} onSelect={() => place()}>
-                            <Moon aria-hidden size={16} />
-                            No day yet
-                        </Menu.Item>
-                        <Menu.Item
-                            className="gap-2.5"
-                            disabled={disabled}
-                            onSelect={() =>
-                                void status
-                                    .setStatus(item, item.captureStatus === "kept" ? "clarifying" : "kept")
-                                    .catch(() => {})
-                            }
-                        >
-                            {item.captureStatus === "kept" ? (
-                                <Inbox aria-hidden size={16} />
-                            ) : (
-                                <StickyNote aria-hidden size={16} />
-                            )}
-                            {item.captureStatus === "kept" ? "Back to New" : "Keep as a note"}
-                        </Menu.Item>
-                    </>
-                )}
-                {task && (
-                    <Menu.Item className="gap-2.5" disabled={disabled} onSelect={subtaskUi.startAdding}>
-                        <ListChecks aria-hidden size={16} />
-                        Add subtask
-                    </Menu.Item>
-                )}
-                <Menu.Item className="gap-2.5" onSelect={() => onToggleSelection?.()}>
-                    <CheckSquare aria-hidden size={16} />
-                    Select
-                </Menu.Item>
-                <Menu.Item className="gap-2.5" disabled={disabled} variant="danger" onSelect={discard}>
-                    <Trash2 aria-hidden size={16} />
-                    Discard
-                </Menu.Item>
+                <RowMenuItems Menu={Menu} closeMenu={() => setMenuOpen(false)} {...props} />
             </Menu.Content>
         </Menu.Root>
+    );
+}
+
+/** Right-click on a desktop shell opens the same actions; touch keeps long-press for selection. */
+function RowContextMenu({ children, title: _title, ...props }: RowMenuProps & { children: ReactElement }) {
+    const shell = useShellMode();
+    if (shell.isCompact) return children;
+    return (
+        <ContextMenu.Root>
+            <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
+            <ContextMenu.Content onCloseAutoFocus={(e) => props.subtaskUi.adding && e.preventDefault()}>
+                <RowMenuItems Menu={ContextMenu} {...props} />
+            </ContextMenu.Content>
+        </ContextMenu.Root>
     );
 }
 
@@ -281,6 +312,8 @@ export function CaptureRow({
     const process = useProcessInboxToTask();
     const status = useCaptureActions();
     const update = useUpdateTask();
+    const createCapture = useCreateInboxItem();
+    const deleteCapture = useDeleteInboxItem();
     const addTaskTag = useAddTaskTag();
     const updateItem = useUpdateInboxItem();
     const [tagOver, setTagOver] = useState(false);
@@ -340,6 +373,36 @@ export function CaptureRow({
             overrides ?? {},
         ),
     });
+    const { data: lists = [] } = useProjects();
+    /** A thought becomes a task with no day in that list; a task just changes list. Either way it leaves Capture. */
+    const moveToList = (projectId: string | null, sectionId: string | null) => {
+        if (disabled || !projectId) return;
+        if (!task) {
+            process.mutate({ ...capturePayload(undefined, false), projectId, sectionId });
+            return;
+        }
+        const was = { projectId: task.projectId, sectionId: task.sectionId ?? null };
+        // Toasted now, not on success: the row leaves the feed at once, and a per-call callback dies with it.
+        update.mutate({ id: task.id, projectId, sectionId });
+        toastUndo(toastName(task.title), () => update.mutate({ id: task.id, ...was }), {
+            description: `In ${lists.find((list) => list.id === projectId)?.name ?? "a list"}`,
+        });
+    };
+    /** A task dragged back to New becomes a thought again; the task goes to Trash, so Undo (or Trash) restores it whole. */
+    const toThought = () => {
+        if (disabled || !task) return;
+        const captureId = crypto.randomUUID();
+        createCapture.mutate({ id: captureId, rawText: task.title });
+        update.mutate({ id: task.id, state: "ARCHIVED" });
+        toastUndo(toastName(task.title), () => {
+            deleteCapture.mutate(captureId);
+            update.mutate({ id: task.id, state: task.state });
+        }, { description: "Back in New" });
+    };
+    const dropOnColumn = (column: CaptureColumn) => {
+        if (column === "no-day" && item && item.captureStatus !== "kept") place();
+        if (column === "new") toThought();
+    };
     const discard = () => {
         if (item) {
             void status.setStatus(item, "discarded").catch(() => {});
@@ -429,9 +492,11 @@ export function CaptureRow({
             actions[e.key]();
         }
     };
+    const menuProps: RowMenuProps = { item, task, title, disabled, place, moveToList, discard, status, subtaskUi, onToggleSelection };
     const detected = item && item.captureStatus !== "kept" ? (parse.scheduledStart ?? parse.dueDate) : null;
     return (
-        <PlaceDraggable id={`capture:${object.id}`} title={title} onPlace={(date) => place(date)}>
+        <PlaceDraggable id={`capture:${object.id}`} title={title} onPlace={(date) => place(date)} onColumn={dropOnColumn}>
+            <RowContextMenu {...menuProps}>
             <article
                 data-focus-kind={item ? "inbox" : "task"}
                 data-focus-id={object.id}
@@ -517,17 +582,7 @@ export function CaptureRow({
                             {relativeTime(object.createdAt)}
                         </time>
                     )}
-                    <RowMenu
-                        item={item}
-                        task={task}
-                        title={title}
-                        disabled={disabled}
-                        place={place}
-                        discard={discard}
-                        status={status}
-                        subtaskUi={subtaskUi}
-                        onToggleSelection={onToggleSelection}
-                    />
+                    <RowMenu {...menuProps} />
                 </div>
                 {task && ((subtaskUi.open && subtasks.length > 0) || subtaskUi.adding) && (
                     // Under the checkbox (w-8 at the px-4/sm:px-5 edge, centred on the 44px title line), down past the subtasks.
@@ -552,6 +607,7 @@ export function CaptureRow({
                     </div>
                 )}
             </article>
+            </RowContextMenu>
         </PlaceDraggable>
     );
 }

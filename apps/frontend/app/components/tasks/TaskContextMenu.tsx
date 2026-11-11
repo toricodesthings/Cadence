@@ -194,7 +194,8 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                     <MoveToSubmenu
                         MenuComponents={Menu}
                         currentProjectId={task.projectId}
-                        onSelect={(projectId) => updateTask.mutate({ id: task.id, projectId })}
+                        currentSectionId={task.sectionId ?? null}
+                        onSelect={(projectId, sectionId) => updateTask.mutate({ id: task.id, projectId, sectionId })}
                     />
 
                     <Menu.Separator />
@@ -380,7 +381,8 @@ function OrganizeItems({ Menu, task, onUpdate, onAddTag, onRemoveTag }: Organize
             <MoveToSubmenu
                 MenuComponents={Menu}
                 currentProjectId={task.projectId}
-                onSelect={(projectId) => onUpdate({ projectId })}
+                currentSectionId={task.sectionId ?? null}
+                onSelect={(projectId, sectionId) => onUpdate({ projectId, sectionId })}
             />
 
             <MoveToSectionSubmenu

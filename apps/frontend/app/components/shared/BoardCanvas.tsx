@@ -32,16 +32,21 @@ interface BoardCanvasProps {
     onActiveColumnChange?: (id: string) => void;
     /** Compact shells: control pinned beside the column chooser (it doesn't scroll), e.g. manage sections. */
     compactTrailing?: React.ReactNode;
+    /** Wide shells: columns share the width evenly instead of a fixed width each (Capture's few columns). */
+    fill?: boolean;
+    /** Each open column's icon leads its title (Capture). */
+    headerIcons?: boolean;
 }
 
-type ColumnHeaderProps = Pick<BoardColumn, "title" | "count" | "description" | "headerAction" | "titleHidden">;
+type ColumnHeaderProps = Pick<BoardColumn, "title" | "count" | "description" | "headerAction" | "titleHidden" | "icon"> & { showIcon?: boolean };
 
-function ColumnHeader({ title, count, description, headerAction, titleHidden }: ColumnHeaderProps) {
+function ColumnHeader({ title, count, description, headerAction, titleHidden, icon, showIcon }: ColumnHeaderProps) {
     return (
         <div className="flex items-start justify-between gap-3 px-5 pb-1 pt-4">
             <div className="min-w-0">
                 {titleHidden ? null : (
                     <div className="flex h-6 items-center gap-2">
+                        {showIcon && icon}
                         <h3 className="font-display text-base font-semibold text-twilight-text">{title}</h3>
                         <span className="rounded-full border border-twilight-border/40 bg-white/[0.03] px-2.5 py-0.5 text-[11px] tabular-nums text-twilight-text-soft">
                             {count}
@@ -88,13 +93,14 @@ function BoardColumnShell({
     collapsed,
     onExpand,
     titleHidden = false,
-}: BoardColumn) {
+    showIcon,
+}: BoardColumn & { showIcon?: boolean }) {
     if (collapsed) return <CollapsedRail title={title} count={count} icon={icon} onExpand={onExpand} />;
 
     return (
         <section className="surface-card animate-in fade-in flex h-full min-h-0 flex-col rounded-[28px]">
             {!titleHidden || description || headerAction ? (
-                <ColumnHeader title={title} count={count} description={description} headerAction={headerAction} titleHidden={titleHidden} />
+                <ColumnHeader title={title} count={count} icon={icon} showIcon={showIcon} description={description} headerAction={headerAction} titleHidden={titleHidden} />
             ) : null}
 
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 scrollbar-thin">
@@ -118,6 +124,8 @@ export function BoardCanvas({
     activeColumnId: controlledId,
     onActiveColumnChange,
     compactTrailing,
+    fill = false,
+    headerIcons = false,
 }: BoardCanvasProps) {
     const shell = useShellMode();
     const dragScroll = useDragScroll();
@@ -191,11 +199,11 @@ export function BoardCanvas({
                     {columns.map((column) => (
                         <div
                             key={column.id}
-                            className={`${column.collapsed ? "w-[4.75rem]" : "w-[min(clamp(24rem,28vw,30rem),78vw)]"} shrink-0 transition-[width] duration-200 ease-out h-full min-h-0 ${
+                            className={`${column.collapsed ? "w-[4.75rem] shrink-0" : fill ? "min-w-0 flex-1" : "w-[min(clamp(24rem,28vw,30rem),78vw)] shrink-0"} transition-[width] duration-200 ease-out h-full min-h-0 ${
                                 mobileMode === "pager" ? "snap-start" : ""
                             }`}
                         >
-                            <BoardColumnShell {...column} />
+                            <BoardColumnShell {...column} showIcon={headerIcons} />
                         </div>
                     ))}
                 </div>

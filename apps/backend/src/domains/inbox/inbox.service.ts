@@ -58,7 +58,7 @@ export async function processCapture(
     await assertRowRoom(tx, userId, "tasks");
     const [task] = await tx
         .insert(tasks)
-        .values(taskValues)
+        .values(body.taskId ? { ...taskValues, id: body.taskId } : taskValues)
         .returning();
 
     if (taskTagIds.length > 0) {

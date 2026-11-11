@@ -34,6 +34,9 @@ interface ProcessInboxParams extends ProcessInboxPayload {
 /** What is sent (and queued offline): everything but the client-side options. */
 const toPayload = ({ successLabel: _label, skipOptimisticRemoval: _skip, silent: _silent, ...payload }: ProcessInboxParams): ProcessInboxPayload => payload;
 
+/** The task's id is chosen here, once, so the optimistic task is the saved one and never swaps keys on screen. */
+const withTaskId = (params: ProcessInboxParams): ProcessInboxParams => (params.taskId ? params : { ...params, taskId: crypto.randomUUID() });
+
 /** The day it was placed on: the saved task's, else what was sent. */
 function placedDay(task: Task, variables: ProcessInboxParams) {
     return task.scheduledStart ?? task.dueDate ?? variables.scheduledStart ?? variables.scheduledDay ?? variables.dueDate;
@@ -87,7 +90,7 @@ export function useProcessInboxToTask() {
     const unprocess = useUnprocessInbox();
     const queryClient = useQueryClient();
 
-    return useMutation({
+    const mutation = useMutation({
         mutationFn: withOfflineSupport<ProcessInboxParams, Task>(
             (params) => ({ type: "process_inbox_to_task", payload: toPayload(params) }),
             async (params) => {
@@ -105,15 +108,15 @@ export function useProcessInboxToTask() {
             removeInboxItemFromCaches(queryClient, params.inboxItemId);
             if (params.complete) return { snapshot };
             await taskCache.cancel(queryClient);
-            const optimistic = buildOptimisticTask(crypto.randomUUID(), optimisticFields(params));
+            const optimistic = buildOptimisticTask(params.taskId ?? crypto.randomUUID(), optimisticFields(params));
             reconcileTaskInCaches(queryClient, optimistic);
             return { snapshot, optimisticId: optimistic.id };
         },
         onSuccess: (_data, variables, context) => {
             if (!_data) return; // Queued offline: the optimistic task stays until sync.
             reconcileTaskInCaches(queryClient, _data, context?.optimisticId);
+            // The saved task is already in every list; refetching tasks here only risks a stale list snapping it back.
             queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });
-            queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
             const label = variables.successLabel ?? (variables.complete ? "Ticked off" : whereItWent(_data, variables, queryClient));
             if (variables.silent) return;
             // It left the screen, so the toast names it and says where it went.
@@ -134,6 +137,11 @@ export function useProcessInboxToTask() {
             toastError(err, "Couldn't process capture");
         },
     });
+    return {
+        ...mutation,
+        mutate: (params: ProcessInboxParams, options?: Parameters<typeof mutation.mutate>[1]) => mutation.mutate(withTaskId(params), options),
+        mutateAsync: (params: ProcessInboxParams, options?: Parameters<typeof mutation.mutateAsync>[1]) => mutation.mutateAsync(withTaskId(params), options),
+    };
 }
 
 export const todayISO = (): LocalDate => today();

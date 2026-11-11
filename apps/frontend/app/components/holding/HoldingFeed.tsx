@@ -21,13 +21,14 @@ import { CaptureDayChips } from "./CaptureDayChips";
 import type { LocalDate, WallTime } from "@cadence/domain/time";
 import { dayOfInstant, fromTimeValue, nlpClock, toDay } from "../../lib/utils/date-format";
 import { today } from "../../lib/utils/user-zone";
-import { useWeekLoad, usePlaceTask } from "./PlaceSheet";
+import { useWeekLoad, usePlaceTask, CaptureColumnDrop } from "./PlaceSheet";
 import { toast } from "sonner";
 import { toastUndo } from "../../lib/utils/undo-toast";
 import { useUnprocessInbox } from "../../hooks/inbox/use-unprocess-inbox";
 import { overridesOf, placementFor } from "../../lib/utils/task/suggested-placement";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { Reveal } from "../shared/Reveal";
+import { EmptyState } from "../tasks/EmptyState";
 import { computeNlp, loadParse, TASK_FIELDS, useParseModule, type ParseFn } from "../../hooks/use-nlp-parse";
 
 /** Explicit nulls: the server must not infer a day from a thought's words. */
@@ -296,13 +297,26 @@ export function HoldingFeed({
             ))}
         </>
     );
-    const empty = (text: string) => <p className="py-4 text-sm text-twilight-text-muted">{text}</p>;
+    const empty = (icon: typeof Inbox, title: string) => <EmptyState compact icon={icon} title={title} description={null} />;
+    const shortcuts = !isTouch && (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-twilight-text-muted">
+            {SHORTCUTS.map(([key, label]) => (
+                <span key={key} className="inline-flex items-center gap-1.5">
+                    <kbd className={KBD}>{key}</kbd>
+                    {label}
+                </span>
+            ))}
+        </p>
+    );
     if (board)
         return (
-            <>
+            <div className="flex h-full min-h-0 flex-col">
                 {toolbar}
+                <div className="min-h-0 flex-1">
                 <BucketedCollectionView
                     view="kanban"
+                    fill
+                    headerIcons
                     sections={[
                         {
                             key: "new",
@@ -313,15 +327,15 @@ export function HoldingFeed({
                             headerAction: thoughtsAction || undefined,
                             listContent: null,
                             boardContent: (
-                                <div className="space-y-2">
+                                <CaptureColumnDrop column="new" className="min-h-full space-y-2">
                                     {rows(ordered.thoughts)}
-                                    {!ordered.thoughts.length && empty("Nothing new. Add a thought whenever you need.")}
+                                    {!ordered.thoughts.length && empty(Inbox, "Nothing new. Add a thought whenever you need.")}
                                     {ordered.older.length > 0 && (
                                         <Fold title="Older" count={ordered.older.length}>
                                             {rows(ordered.older)}
                                         </Fold>
                                     )}
-                                </div>
+                                </CaptureColumnDrop>
                             ),
                         },
                         {
@@ -332,10 +346,10 @@ export function HoldingFeed({
                             count: ordered.tasks.length,
                             listContent: null,
                             boardContent: (
-                                <div className="space-y-2">
+                                <CaptureColumnDrop column="no-day" className="min-h-full space-y-2">
                                     {taskRows}
-                                    {!ordered.tasks.length && empty("No tasks waiting for a day.")}
-                                </div>
+                                    {!ordered.tasks.length && empty(CalendarClock, "No tasks waiting for a day.")}
+                                </CaptureColumnDrop>
                             ),
                         },
                         ...(feed.notes.length
@@ -353,12 +367,15 @@ export function HoldingFeed({
                             : []),
                     ]}
                 />
-            </>
+                </div>
+                {shortcuts && <div className="shrink-0 px-4 pb-4 sm:px-6 lg:px-8">{shortcuts}</div>}
+            </div>
         );
     return (
         <div className="flex min-w-0 flex-col gap-6 pb-24">
             {toolbar}
-            <section aria-label="New" className="surface-card flex flex-col gap-3 rounded-[28px] px-3 py-4 sm:px-4">
+            <CaptureColumnDrop column="new">
+            <section aria-label="New" className="flex flex-col gap-3">
                 <BucketedSectionHeader
                     title="New"
                     icon={Inbox}
@@ -367,13 +384,11 @@ export function HoldingFeed({
                     headerAction={thoughtsAction || undefined}
                 />
                 <div className="space-y-2">{rows(ordered.thoughts)}</div>
-                {!ordered.thoughts.length && (
-                    <p className="py-4 text-sm text-twilight-text-muted">
-                        Nothing new. Add a thought whenever you need.
-                    </p>
-                )}
+                {!ordered.thoughts.length && empty(Inbox, "Nothing new. Add a thought whenever you need.")}
             </section>
-            <section aria-label="No day yet" className="surface-card flex flex-col gap-3 rounded-[28px] px-3 py-4 sm:px-4">
+            </CaptureColumnDrop>
+            <CaptureColumnDrop column="no-day">
+            <section aria-label="No day yet" className="flex flex-col gap-3">
                 <BucketedSectionHeader
                     title="No day yet"
                     icon={CalendarClock}
@@ -382,9 +397,10 @@ export function HoldingFeed({
                 />
                 <div className="space-y-2">{taskRows}</div>
                 {!ordered.tasks.length && (
-                    empty("No tasks waiting for a day.")
+                    empty(CalendarClock, "No tasks waiting for a day.")
                 )}
             </section>
+            </CaptureColumnDrop>
             {ordered.older.length > 0 && (
                 <Fold title="Older" count={ordered.older.length}>
                     {rows(ordered.older)}
@@ -395,16 +411,7 @@ export function HoldingFeed({
                     {rows(feed.notes)}
                 </Fold>
             )}
-            {!isTouch && (
-                <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-twilight-text-muted">
-                    {SHORTCUTS.map(([key, label]) => (
-                        <span key={key} className="inline-flex items-center gap-1.5">
-                            <kbd className={KBD}>{key}</kbd>
-                            {label}
-                        </span>
-                    ))}
-                </p>
-            )}
+            {shortcuts}
         </div>
     );
 }
@@ -424,7 +431,7 @@ function Fold({ title, count, children }: { title: string; count: number; childr
     const [open, setOpen] = useState(false);
     const id = useId();
     return (
-        <div className="surface-card rounded-[28px] px-3 py-2 sm:px-4">
+        <div>
             <button
                 type="button"
                 onClick={() => setOpen((value) => !value)}

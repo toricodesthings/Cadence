@@ -34,6 +34,10 @@ export interface BucketedCollectionSection {
 interface BucketedCollectionViewProps {
     sections: BucketedCollectionSection[];
     view: "list" | "kanban";
+    /** Board columns share the width evenly. */
+    fill?: boolean;
+    /** Board column titles lead with their icon. */
+    headerIcons?: boolean;
 }
 
 export function BucketedSectionHeader({
@@ -62,7 +66,7 @@ export function BucketedSectionHeader({
     );
 }
 
-export function BucketedCollectionView({ sections, view }: BucketedCollectionViewProps) {
+export function BucketedCollectionView({ sections, view, fill, headerIcons }: BucketedCollectionViewProps) {
     if (view === "list") {
         return (
             <div className="flex flex-col gap-6">
@@ -83,6 +87,8 @@ export function BucketedCollectionView({ sections, view }: BucketedCollectionVie
 
     return (
         <BoardCanvas
+            fill={fill}
+            headerIcons={headerIcons}
             columns={sections.map((section) => ({
                 id: section.key,
                 title: section.title,

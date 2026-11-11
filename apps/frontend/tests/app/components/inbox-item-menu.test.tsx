@@ -14,6 +14,8 @@ vi.mock("../../../app/hooks/tags/use-tags", () => ({ useTags: () => ({ data: [] 
 vi.mock("../../../app/hooks/tags/use-task-tags", () => ({ useAddTaskTag: () => ({ mutate: vi.fn() }) }));
 vi.mock("../../../app/hooks/inbox/use-update-inbox-item", () => ({ useUpdateInboxItem: () => ({ mutate: vi.fn() }) }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: null }) }));
+vi.mock("../../../app/hooks/inbox/use-create-inbox-item", () => ({ useCreateInboxItem: () => ({ mutate: vi.fn() }) }));
+vi.mock("../../../app/hooks/inbox/use-delete-inbox-item", () => ({ useDeleteInboxItem: () => ({ mutate: vi.fn() }) }));
 stubTouch(false);
 vi.mock("../../../app/components/holding/PlaceSheet", () => ({ PlaceDraggable: ({ children }: any) => children, usePlaceTask: () => vi.fn() }));
 vi.mock("../../../app/components/primitives/Tooltip", () => ({ Tip: ({ children }: any) => children }));

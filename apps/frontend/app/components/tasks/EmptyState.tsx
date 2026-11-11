@@ -86,7 +86,8 @@ export function EmptyState({ variant = "default", onAction, icon, title, descrip
                     {line}
                 </p>
             ) : null}
-            {config.cta && (
+            {/* The variant's action belongs to an empty page, never to one empty section or column. */}
+            {config.cta && !compact && (
                 <button
                     type="button"
                     onClick={() => onAction ? onAction() : config.cta?.to && navigate(config.cta.to)}

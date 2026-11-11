@@ -8,7 +8,7 @@ import {
 import type { CollisionDetection, DragStartEvent, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
-import { Plus, EllipsisVertical, Pencil, Trash2, ArrowLeft, ArrowRight } from "lucide-react";
+import { Columns3, Plus, EllipsisVertical, Pencil, Trash2, ArrowLeft, ArrowRight } from "lucide-react";
 import { useSections, useCreateSection, useDeleteSection, useUpdateSection } from "../../hooks/sections/use-sections";
 import { useSectionReorder } from "../../hooks/sections/use-section-reorder";
 import { FoldColumn, SECTION_SORT, SortableSection } from "../tasks/SortableSection";
@@ -177,9 +177,7 @@ function KanbanColumn({
                 </SortableContext>
 
                 {tasks.length === 0 && (
-                    <div className="h-full flex items-center justify-center text-center p-6 border-2 border-dashed border-twilight-border/30 rounded-xl text-twilight-text-muted/50 text-sm">
-                        Drop here
-                    </div>
+                    <EmptyState icon={Columns3} title={`Nothing in ${section.name} yet.`} description="Drop a task here." compact />
                 )}
             </div>
 
