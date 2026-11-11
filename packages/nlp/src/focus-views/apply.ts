@@ -28,7 +28,7 @@ function matchesPlacement(task: FocusTask, definition: FocusViewDefinition): boo
   if (!inChosen(definition.states, task.state) || !inChosen(definition.projectIds, task.projectId ?? "")) return false;
   if (definition.needsDate && hasDate) return false;
   if (definition.needsProject && task.projectId) return false;
-  if (definition.waitingOnly && !task.waitingOn) return false;
+  if (definition.waitingOnly && task.state !== "WAITING") return false;
   return !(definition.missingStructureOnly && hasDate && task.projectId);
 }
 

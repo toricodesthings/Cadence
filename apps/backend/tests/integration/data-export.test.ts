@@ -90,6 +90,12 @@ describe("data export", () => {
         expect((count.rows[0] as any).n).toBe(0);
     });
 
+    it("reads a request stuck pending for over 15 minutes as failed", async () => {
+        const userId = await createUser();
+        await asOwner((pg) => pg.query("INSERT INTO data_exports (user_id, email, status, requested_at) VALUES ($1, 'a@example.com', 'pending', now() - interval '1 hour')", [userId]));
+        expect((await accountAs(userId, "a@example.com").call("GET")).body.data.status).toBe("failed");
+    });
+
     it("has nothing to show before the first request", async () => {
         expect((await accountAs(await createUser(), "a@example.com").call("GET")).body.data).toBeNull();
     });

@@ -2,7 +2,7 @@ import { createSearchIndex } from "@cadence/search";
 import { didYouMean } from "../../decisions/did-you-mean";
 import { tool } from "ai";
 import { z } from "zod";
-import { and, asc, desc, eq, exists, gte, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gte, inArray, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { savedFocusViews, tasks, subtasks, taskNotes, taskTags, tags } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
@@ -641,7 +641,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         if (view.effortMax !== null) conditions.push(or(isNull(tasks.effort), lte(tasks.effort, view.effortMax)));
         // Short = a known estimate at most this long; unknown length is not known-short.
         if (view.durationMaxMinutes !== null) conditions.push(lte(tasks.durationEstimate, view.durationMaxMinutes));
-        if (view.waitingOnly) conditions.push(isNotNull(tasks.waitingOn));
+        if (view.waitingOnly) conditions.push(eq(tasks.state, "WAITING"));
         if (view.missingStructureOnly) conditions.push(or(hasNoDay(), isNull(tasks.projectId)));
         if (view.dueWindow === "overdue") conditions.push(onOrBefore(addDays(ctx.today, -1), zone));
         else if (view.dueWindow) conditions.push(or(hasNoDay(), onOrBefore(resolveDueWindow(view.dueWindow, ctx.today, weekStartsOn).to, zone)));

@@ -45,12 +45,14 @@ export const learnPendingKey = async (userId: string) => `memory:learn-pending:$
  */
 export async function scheduleLearn(env: Env, userId: string): Promise<void> {
     if (!env.MEMORY_QUEUE) return;
+    const redis = getRateLimitRedis(env);
     try {
-        const redis = getRateLimitRedis(env);
         const waiting = redis && (await redis.set(await learnPendingKey(userId), 1, { nx: true, ex: LEARN_DELAY_SECONDS + 60 }).catch(() => "unknown")) === null;
         if (waiting) return;
         await sendMemoryMessages(env, [{ kind: "learn", userId, at: new Date().toISOString() }], LEARN_DELAY_SECONDS);
     } catch (err) {
+        // The marker says "queued" and nothing is: clear it so the next turn schedules again.
+        await redis?.del(await learnPendingKey(userId)).catch(() => {});
         logger.warn("ai", "memory_schedule_failed", { kind: "learn", userHash: await hashIdentifier(userId), issues: issuesFromError(err) });
     }
 }

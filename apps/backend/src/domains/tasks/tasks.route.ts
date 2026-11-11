@@ -22,7 +22,7 @@ import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
 import { recordSlot } from "../ai/memory/planning.service";
 import { suggestEffortGuess } from "../decisions/effort-guess";
-import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, placeTasks, rescheduleTasks, setTaskState, slotsOf, temporalColumns, toTask, trackTaskChanges, updateTask, withTagIds, type TaskSlot } from "./tasks.service";
+import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, justCompleted, placeTasks, rescheduleTasks, setTaskState, slotsOf, temporalColumns, toTask, trackTaskChanges, updateTask, withTagIds, type TaskSlot } from "./tasks.service";
 import { userZone } from "../../platform/user-zone";
 import type { Zone } from "@cadence/domain/time";
 
@@ -313,7 +313,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         });
         trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, {
             rescheduled: moving ? [updated] : [],
-            completed: body.state === "COMPLETE" ? [id] : [],
+            completed: justCompleted(updated) ? [id] : [],
             from,
         }, { env: c.env });
         if (body.title !== undefined || body.projectId !== undefined) c.executionCtx.waitUntil(suggestEffortGuess(c.env, userId, id));
@@ -378,7 +378,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
         const updatedTasks = await withRls(db, userId, async (tx) => withTagIds(tx, await setTaskState(tx, userId, taskIds, state)));
         trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, {
-            completed: state === "COMPLETE" ? updatedTasks.map((task) => task.id) : [],
+            completed: updatedTasks.filter(justCompleted).map((task) => task.id),
         }, { env: c.env });
 
         return c.json({ data: updatedTasks });

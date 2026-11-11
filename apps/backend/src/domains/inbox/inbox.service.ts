@@ -1,11 +1,11 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { parseCanonicalNlpEnvelope } from "@cadence/nlp";
 import { suggestedEffortSchema, type ProcessInboxItem } from "@cadence/contracts/inbox";
 import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { inboxItems, subtasks, tasks, taskTags } from "../../db/schema";
-import { checkIdempotency, recordMutation } from "../../platform/idempotency";
+import { checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
-import { throwIfNotFound } from "../../platform/errors";
+import { AppError, throwIfNotFound } from "../../platform/errors";
 import type { Tx } from "../../types/db";
 import { sourceSurfaceSchema } from "@cadence/contracts/task";
 import { effortProvenance, temporalColumns, toTask, withTagIds } from "../tasks/tasks.service";
@@ -56,10 +56,10 @@ export async function processCapture(
 
     // 1. Create the task atomically
     await assertRowRoom(tx, userId, "tasks");
-    const [task] = await tx
+    const [task] = await insertWithClientId(() => tx
         .insert(tasks)
         .values(body.taskId ? { ...taskValues, id: body.taskId } : taskValues)
-        .returning();
+        .returning());
 
     if (taskTagIds.length > 0) {
         await tx.insert(taskTags).values(
@@ -253,8 +253,12 @@ export async function updateCapture(
     const [row] = await tx
         .update(inboxItems)
         .set(change)
-        .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)))
+        .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId), change.captureStatus ? isNull(inboxItems.placedTaskId) : undefined))
         .returning();
+    if (!row && change.captureStatus) {
+        const [exists] = await tx.select({ id: inboxItems.id }).from(inboxItems).where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)));
+        if (exists) throw new AppError(409, "CONFLICT", "This capture was already placed");
+    }
     throwIfNotFound(row, "Inbox item");
     return row;
 }

@@ -18,6 +18,7 @@ import { withinDailyBudget } from "../../platform/daily-budget";
 
 /** One export an hour: each one reads every table, and the file goes to an inbox that may be shared or slow. */
 const EXPORT_COOLDOWN_MS = 60 * 60 * 1000;
+const EXPORT_STUCK_MS = 15 * 60 * 1000;
 
 const exportColumns = { id: dataExports.id, email: dataExports.email, status: dataExports.status, requestedAt: dataExports.requestedAt, completedAt: dataExports.completedAt };
 
@@ -161,5 +162,7 @@ export const accountRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const userId = c.get("userId");
         const [latest] = await withRls(getDbClient(c.env), userId, (tx) =>
             tx.select(exportColumns).from(dataExports).where(eq(dataExports.userId, userId)).orderBy(desc(dataExports.requestedAt)).limit(1));
-        return c.json({ data: (latest ?? null) satisfies DataExport | null }, 200);
+        // A request stuck pending (isolate died mid-send) reads as failed; nothing is stored.
+        const stuck = latest?.status === "pending" && Date.now() - new Date(latest.requestedAt).getTime() > EXPORT_STUCK_MS;
+        return c.json({ data: (latest && stuck ? { ...latest, status: "failed" } : latest ?? null) satisfies DataExport | null }, 200);
     });

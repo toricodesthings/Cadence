@@ -8,7 +8,9 @@ vi.mock("../../src/domains/ai/memory/note-learn", () => ({ learnFromNote: vi.fn(
 vi.mock("../../src/platform/db", () => ({ getDbClient: () => ({}) }));
 
 const { handleMemoryBatch } = await import("../../src/domains/ai/memory/memory-job");
-const { sendMemoryMessages } = await import("../../src/domains/ai/memory/queue");
+const { sendMemoryMessages, scheduleLearn, learnPendingKey } = await import("../../src/domains/ai/memory/queue");
+const { FakeRedis } = await import("../helpers/fake-redis");
+const redisAccess = await import("../../src/platform/redis");
 
 const at = "2026-10-12T07:00:00Z";
 const message = (body: unknown) => ({ body, ack: vi.fn(), retry: vi.fn() });
@@ -34,5 +36,16 @@ describe("memory queue", () => {
         expect(failed.retry).toHaveBeenCalled();
         expect(failed.ack).not.toHaveBeenCalled();
         expect(bad.ack).toHaveBeenCalled();
+    });
+
+    it("clears the 'already queued' marker when the send fails", async () => {
+        const redis = new FakeRedis();
+        const spy = vi.spyOn(redisAccess, "getRateLimitRedis").mockReturnValue(redis as never);
+        try {
+            const sendBatch = vi.fn().mockRejectedValue(new Error("queue down"));
+            await scheduleLearn({ MEMORY_QUEUE: { sendBatch } } as any, "user-1");
+            expect(sendBatch).toHaveBeenCalled();
+            expect(redis.strings.has(await learnPendingKey("user-1"))).toBe(false);
+        } finally { spy.mockRestore(); }
     });
 });

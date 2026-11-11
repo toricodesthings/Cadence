@@ -91,7 +91,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 |---|---|---|
 | tasks | `/tasks` | CRUD, reorder, batch state/reschedule/delete, Trash, duplicate, tag links, `POST /place` (Fit today), `GET /batch` warm reads — see `src/domains/tasks/AGENTS.md` |
 | projects, tags, sections | `/projects`, `/tags`, `/sections` | CRUD; tags list by `sort_order` (new ones last, a tag made without a colour gets a random palette one) |
-| inbox | `/inbox` | items + sections CRUD; clarifying or kept reads, stable newest first; atomic process/complete + unprocess Undo |
+| inbox | `/inbox` | items + sections CRUD; clarifying or kept reads, stable newest first; atomic process/complete + unprocess Undo; `PATCH` can't write `placed`, `processed` or `placedTaskId` and answers 409 for a status change on a placed capture; the app discards (restorable) and deletes only on request |
 | subtasks, notes | `/tasks/:taskId/*` + standalone | nested under tasks, standalone PATCH/DELETE; versioned note edits — see `src/domains/tasks/AGENTS.md` |
 | habits | `/habits` | CRUD, resolve (streaks, steps, set times), `/weekly` range view — see `src/domains/habits/AGENTS.md` |
 | settings | `/settings`, `/settings/background` | GET + PATCH (deep-merge), background photo in R2 — see `src/domains/settings/AGENTS.md` |
@@ -130,7 +130,7 @@ Outside assistants reach the app through an OAuth-protected MCP server (§4); to
 
 ## 12. Auth (`platform/auth.ts`)
 
-Reads `Authorization: Bearer`, loads JWKS from `NEON_AUTH_JWKS_URL` (URL-keyed cache, retries transient failures), attaches `userId` from JWT `sub`, pins `EdDSA` (Neon Auth's signing algorithm), and before a write ensures the `users` row exists (once per user per isolate; an account deleted in the last hour, `markAccountDeleted` in Upstash, gets 401 instead of a recreated row). Never introduce cookies/sessions/non-JWT auth without explicit design sign-off (the MCP OAuth boundary in §9b is the one signed-off exception; it never accepts app JWTs, and app routes never accept its tokens).
+Reads `Authorization: Bearer`, loads JWKS from `NEON_AUTH_JWKS_URL` (URL-keyed cache, retries transient failures), attaches `userId` from JWT `sub`, pins `EdDSA` (Neon Auth's signing algorithm), and before a write ensures the `users` row exists (once per user per isolate; an account deleted in the last hour, `markAccountDeleted` in Upstash, gets 401 instead of a recreated row; `POST /account/delete` is exempt, so a failed deletion can be retried). Never introduce cookies/sessions/non-JWT auth without explicit design sign-off (the MCP OAuth boundary in §9b is the one signed-off exception; it never accepts app JWTs, and app routes never accept its tokens).
 
 ## 13. Background Jobs
 

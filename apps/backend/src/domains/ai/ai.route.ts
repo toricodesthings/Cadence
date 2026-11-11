@@ -40,6 +40,7 @@ import { storedTurnContext, turnContexts, withTurnContext } from "./prompt/promp
 import { getModelId, pickChatModel } from "./model-router";
 import {
     resolveOrCreateConversation,
+    lockActiveStream,
     loadConversationMessages,
     appendUserMessage,
     truncateMessagesAfter,
@@ -330,6 +331,10 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     if (rejected) return rejected;
 
     endAdmission();
+    // Cross-isolate stop (Redis) aborts through this; the SDK `timeout` below owns the ceilings.
+    const abortController = new AbortController();
+    // Set once the history commit published the stream pointer: a failure after it must close that stream.
+    let publishedConversationId: string | undefined;
     // Anything thrown before the stream starts (409, 404, a DB error) hands the reserve and concurrency slot back.
     try {
         // Zone/settings preparation overlaps history; continuation context is chosen from stored rows.
@@ -384,7 +389,14 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
         // Approval answers land on the stored assistant message, never on one the
         // client sends: only its waiting parts change, signatures stay the server's.
+        // A pointer is only a live turn while its stream still has meta in Redis (a stale one expires in minutes).
+        async function assertNoLiveTurn(activeStreamId?: string | null) {
+            if (activeStreamId && redis && await readMeta(redis, userKey, activeStreamId).catch(() => null)) {
+                throw new AppError(409, "CONFLICT", "A reply is already on its way.");
+            }
+        }
         async function continueApproval(tx: Tx) {
+            await assertNoLiveTurn(await lockActiveStream(tx, userId, body.conversationId!));
             const conversation = await getConversation(tx, userId, body.conversationId!);
             throwIfNotFound(conversation, "Conversation");
             const rows = await loadConversationMessages(tx, userId, conversation!.id, { historyWindow: true });
@@ -394,7 +406,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             return prepareHistory(tx, { conversationId: conversation!.id, history: [...rows.slice(0, -1).map(rowToUIMessage), answered], continues: true, needsTitle: false, continuation: "approval" });
         }
         async function persistMessage(tx: Tx, message: ChatMessage) {
-            const { id, title } = await resolveOrCreateConversation(tx, userId, { conversationId: body.conversationId, model: modelId });
+            const { id, title, activeStreamId } = await resolveOrCreateConversation(tx, userId, { conversationId: body.conversationId, model: modelId });
+            await assertNoLiveTurn(activeStreamId);
             // Explicit message EDIT: the client kept rows up to the anchor and
             // rewrote everything after it — mirror that server-side or the edited-
             // away tail resurrects on reload. Anchor null = first message edited →
@@ -452,6 +465,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         }));
         agentReady.catch(() => {});
         const { conversationId, continues, needsTitle, continuation, assistantMessageId, uiMessages, recentFrom, imagesReady } = await historyReady;
+        publishedConversationId = conversationId;
         const history = await validatedHistory;
 
         // Auto-title (first turn only), in parallel with the reply.
@@ -473,8 +487,6 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         const { contexts, current: lastUserContext, stored: storedLastContext } = turnContexts(history, lastUser?.id, turnContext, continues);
         turnTiming.setupMs = since(); // auth, budget, DB, prompt build: everything before the model call
 
-        // Cross-isolate stop (Redis) aborts through this; the SDK `timeout` below owns the ceilings.
-        const abortController = new AbortController();
         // Summed per step; saved with the reply and logged, never streamed to the client.
         let spend: TurnSpend = {};
         // Every finished model step's metered tokens: what a stopped or failed turn is charged (it never reaches `finish`).
@@ -640,7 +652,16 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             },
         });
     } catch (error) {
+        abortController.abort(); // stops the abort watcher if it started
         if (rlRedis && admitted) c.executionCtx.waitUntil(settle(rlRedis, userKey, reserved, 0).catch(() => {}));
+        // A turn that failed after its stream was published ends it as an error, or resumes tail an empty log.
+        if (redis && publishedConversationId) {
+            const conversationId = publishedConversationId;
+            c.executionCtx.waitUntil((async () => {
+                await closeStream(redis!, userKey, streamId, "error").catch(() => {});
+                await withCallerRls(c, (tx) => finalizeActiveStream(tx, userId, conversationId, streamId, "failed")).catch(() => {});
+            })());
+        }
         throw error;
     }
     })
@@ -724,7 +745,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
             // Optionally persist the partial snapshot the client already rendered, so a
             // refresh before the producer's own onFinish lands shows the partial text.
-            // PK-upsert converges with the producer's later onFinish("aborted").
+            // Insert-only: if the producer's onEnd already saved the row (full parts,
+            // metadata), the snapshot leaves it alone; otherwise onEnd upserts over it.
             //
             // SECURITY: the snapshot is accepted ONLY when it names the exact assistant
             // message id of the live stream (owner-scoped Redis meta) — this path can
@@ -745,6 +767,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                                 saveAssistantMessage(tx, userId, id, { ...body.assistantMessage!, parts }, {
                                     status: "aborted",
                                     metadata: {},
+                                    onlyIfAbsent: true,
                                 }),
                             );
                         }

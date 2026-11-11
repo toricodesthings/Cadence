@@ -3,7 +3,7 @@
  * caller's RLS transaction and returns rows; metrics run after commit through
  * `trackTaskChanges`.
  */
-import { and, asc, eq, inArray, isNull, notInArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, notInArray, sql, type SQL } from "drizzle-orm";
 import { tracing } from "cloudflare:workers";
 import type { BatchReschedule, EffortLevel, InsertTask, PlaceTaskItem, Task, TaskPriority, TaskRow, TaskState, UpdateTask } from "@cadence/contracts/task";
 import { hasTaskTemporalMutation, normalizeHiddenUntil, normalizeTaskTemporalFields, rescheduleToDay, type TaskTemporalFields } from "@cadence/domain/task-temporal";
@@ -353,6 +353,12 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
         : body;
     const versionCondition = !needsExisting && expectedUpdatedAt ? sameVersionSql(expectedUpdatedAt) : undefined;
     await assertStorageRoom(tx, userId, [body.content]);
+    if (body.state === "COMPLETE") {
+        const [stored] = await tx.select({ interactionMode: tasks.interactionMode }).from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+        if ((body.interactionMode ?? stored?.interactionMode) === "timetable") {
+            throw new AppError(400, "VALIDATION_ERROR", "A Fixed block just passes; it isn't checked off");
+        }
+    }
 
     // A changed Effort carries who chose it; the origin is never a column the caller writes directly.
     const { effortOrigin, ...columns } = patch as typeof patch & { effortOrigin?: "manual" | "accepted" };
@@ -434,7 +440,14 @@ export async function placeTasks(tx: Tx, userId: string, items: PlaceTaskItem[])
     };
 }
 
-/** Move tasks to a state (Done, Trash, back to open, Waiting, with its check-in). Unknown ids are skipped. */
+const OPEN_STATES: ("ACTIVE" | "WAITING")[] = ["ACTIVE", "WAITING"];
+
+/** True when this write is what made the task Done: the `tasks_completed_at` trigger stamps `completed_at` with the same instant as `updated_at`. */
+export function justCompleted(task: { completedAt: string | null; updatedAt: string }): boolean {
+    return !!task.completedAt && sameVersion(task.completedAt, task.updatedAt);
+}
+
+/** Move tasks to a state (Done, Trash, back to open, Waiting, with its check-in). Unknown ids, and Fixed blocks asked to be Done, are skipped. */
 export async function setTaskState(
     tx: Tx,
     userId: string,
@@ -451,14 +464,14 @@ export async function setTaskState(
             ...(waitingReminder !== undefined && { waitingReminder }),
             updatedAt: sql`NOW()`,
         })
-        .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)))
+        .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds), ...(state === "COMPLETE" ? [ne(tasks.interactionMode, "timetable")] : [])))
         .returning();
 }
 
 /**
  * Move tasks: to one exact `scheduledStart`, or to a local `date` where each keeps its own
  * time (all-day stays all-day), in the user's zone. Fixed blocks stay put unless they're all
- * that was asked to move.
+ * that was asked to move. Done and Trashed tasks are skipped.
  */
 export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, scheduledStart, date }: BatchReschedule) {
     const zone = await userZone(tx, userId);
@@ -466,7 +479,7 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
         return tx
             .update(tasks)
             .set({ ...temporalColumns({ scheduledStart }, zone), updatedAt: sql`NOW()` })
-            .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)))
+            .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds), inArray(tasks.state, OPEN_STATES)))
             .returning();
     }
     const rows = await tx
@@ -476,7 +489,7 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
             interactionMode: tasks.interactionMode,
         })
         .from(tasks)
-        .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)));
+        .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds), inArray(tasks.state, OPEN_STATES)));
     const onlyFixed = rows.every((row) => row.interactionMode === "timetable");
     // Each task gets its own values; the updates are pipelined like `updateTasks`.
     return Promise.all(

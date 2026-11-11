@@ -17,6 +17,7 @@ import {
     setTitleIfEmpty,
     setTurnContext,
     loadConversationMessages,
+    saveAssistantMessage,
 } from "../../src/domains/ai/persistence/conversation-repo";
 import { historyWindowStart, MAX_HISTORY_TURNS } from "../../src/domains/ai/safety/input-guard";
 import { withRls } from "../../src/platform/rls";
@@ -131,5 +132,21 @@ describe("setTurnContext", () => {
 
         await bypassingRls((tx) => setTurnContext(tx, owner, conv, `${conv}-c`, "CTX"));
         expect(await metadata(`${conv}-c`)).toEqual({ clientMessageId: "client-1", turnContext: "CTX" });
+    });
+});
+
+describe("saveAssistantMessage onlyIfAbsent", () => {
+    it("never overwrites a reply that is already saved", async () => {
+        const conv = await seedThread(owner, 1);
+        const id = crypto.randomUUID();
+        const full = { id, role: "assistant", parts: [{ type: "text", text: "done" }, { type: "tool-create_tasks", toolCallId: "t1", state: "output-available", input: {}, output: {} }] };
+        await withRls(getTestDb(), owner, async (tx) => {
+            await saveAssistantMessage(tx, owner, conv, full, { status: "complete", metadata: { model: "m" } });
+            await saveAssistantMessage(tx, owner, conv, { id, role: "assistant", parts: [{ type: "text", text: "par" }] }, { status: "aborted", metadata: {}, onlyIfAbsent: true });
+        });
+        const { rows } = await asOwner((pg) => pg.query<{ parts: unknown[]; metadata: unknown; status: string }>("SELECT parts, metadata, status FROM ai_messages WHERE id = $1", [id]));
+        expect(rows[0].parts).toHaveLength(2);
+        expect(rows[0].metadata).toEqual({ model: "m" });
+        expect(rows[0].status).toBe("complete");
     });
 });

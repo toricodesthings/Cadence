@@ -45,6 +45,7 @@ export const focusViewSourceEnum = pgEnum('focus_view_source', ['preset', 'compo
 
 // AI assistant enums (see docs/ai_upgrade 08 — persistence)
 export const aiMessageRoleEnum = pgEnum('ai_message_role', ['user', 'assistant', 'system']);
+// 'streaming' is never written (saveAssistantMessage takes complete | failed | aborted); a Postgres enum value can't be dropped cheaply.
 export const aiMessageStatusEnum = pgEnum('ai_message_status', ['streaming', 'complete', 'failed', 'aborted']);
 
 
@@ -328,7 +329,7 @@ export const inboxItems = pgTable('inbox_items', {
     sectionId: uuid('section_id').references(() => inboxSections.id, { onDelete: 'set null' }),
     orderIndex: integer('order_index').notNull().default(0),
     rawText: text('raw_text').notNull(), // The messy input "Call mom tmrw at 4"
-    processed: boolean('processed').default(false).notNull(), // Has the Cloudflare AI Queue converted this into a structured Task yet?
+    processed: boolean('processed').default(false).notNull(), // Always equals capture_status = 'placed' (processCapture sets it); reads use capture_status.
     captureKind: captureKindEnum('capture_kind').default('unknown').notNull(),
     captureStatus: captureStatusEnum('capture_status').default('clarifying').notNull(),
     placedTaskId: uuid('placed_task_id').references(() => tasks.id, { onDelete: 'set null' }), // Link to task created from this capture
@@ -344,6 +345,7 @@ export const inboxItems = pgTable('inbox_items', {
     analysisNeedsReview: boolean('analysis_needs_review').default(false).notNull(),
     analysisReviewReason: text('analysis_review_reason'),
     analysisEntityCount: integer('analysis_entity_count').default(0).notNull(),
+    // clarified_at and applied_at are never written (the settings reset only nulls them).
     clarifiedAt: timestamptz('clarified_at'),
     appliedAt: timestamptz('applied_at'),
     createdAt: createdAt(),
@@ -470,6 +472,7 @@ export const habitLogs = pgTable(
             .notNull(),
         userId: ownerId(),
 
+        // PENDING is stored only for a partly marked day (steps or set times); a fully open day has no row.
         status: habitStatusEnum('status').default('PENDING').notNull(),
 
         // The localized day/date the action was due, stored as YYYY-MM-DD

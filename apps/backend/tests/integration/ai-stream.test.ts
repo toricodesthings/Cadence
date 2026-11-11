@@ -194,7 +194,7 @@ describe("POST /ai/chat/:id/stop", () => {
             TEST_USER_ID,
             CONV_ID,
             expect.objectContaining({ id: "msg-1" }),
-            { status: "aborted", metadata: {} },
+            { status: "aborted", metadata: {}, onlyIfAbsent: true },
         );
     });
 

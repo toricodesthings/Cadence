@@ -477,8 +477,23 @@ export async function updateHabit(tx: Tx, userId: string, id: string, { expected
 
     if (tagIds !== undefined) await replaceHabitTags(tx, userId, id, tagIds);
 
-    if (body.times === undefined) return row;
-    return (await followTimes(tx, userId, id, before?.times ?? [], row.times ?? [])) ?? row;
+    if (body.times !== undefined) return (await followTimes(tx, userId, id, before?.times ?? [], row.times ?? [])) ?? row;
+    if (body.steps !== undefined) return (await followSteps(tx, userId, id, row)) ?? row;
+    return row;
+}
+
+/**
+ * After steps change, today's day follows its step marks over the new steps (a done day with a new
+ * step opens; a day whose remaining steps are all ticked closes). Returns the routine when it changed.
+ * Past days keep their stored status.
+ */
+async function followSteps(tx: Tx, userId: string, id: string, habit: HabitDbRow) {
+    const stepIds = (habit.steps ?? []).map((step) => step.id);
+    if (!stepIds.length || habit.times?.length) return undefined;
+    const today = todayIn(await userZone(tx, userId));
+    const [log] = await tx.select().from(habitLogs).where(and(eq(habitLogs.habitId, id), eq(habitLogs.targetDate, today)));
+    if (!log?.stepStatus || stepDayStatus(stepIds, log.stepStatus).status === log.status) return undefined;
+    return (await resolveHabit(tx, userId, id, { targetDate: today, status: "PENDING", stepStatus: log.stepStatus })).habit;
 }
 
 /**

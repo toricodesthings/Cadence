@@ -22,10 +22,9 @@ export const updateInboxItemSchema = z.object({
     sectionId: z.uuid().nullable().optional(),
     orderIndex: z.number().optional(),
     captureKind: captureKindSchema.optional(),
-    captureStatus: captureStatusSchema.optional(),
-    placedTaskId: z.uuid().nullable().optional(),
+    // `placed` (and the link to its task) is set only by processing a capture, and left only by Undo.
+    captureStatus: z.enum(["clarifying", "kept", "discarded"]).optional(),
     aiSuggestion: z.string().max(10_000).nullable().optional(),
-    processed: z.boolean().optional(),
     // NLP analysis fields
     analysisStatus: inboxAnalysisStatusSchema.optional(),
     analysisVersion: z.string().max(20).optional(),

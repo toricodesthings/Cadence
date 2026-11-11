@@ -264,3 +264,23 @@ describe("Capture exits", () => {
         expect((await inbox("GET", "")).body.data.map((i: any) => i.id)).toEqual([a.id, b.id].sort().reverse());
     });
 });
+
+describe("capture lifecycle", () => {
+    it("a placed capture can't be moved back by PATCH, and the schema refuses lifecycle fields", async () => {
+        const item = await capture("Call the bank");
+        const { body } = await inbox("POST", `/${item.id}/process`, { title: "Call the bank" });
+        const patch = await inbox("PATCH", `/${item.id}`, { captureStatus: "kept" });
+        expect(patch.status).toBe(409);
+        expect((await tasks("GET", `/${body.data.id}`)).body.data.state).toBe("ACTIVE");
+        expect((await inbox("PATCH", `/${item.id}`, { captureStatus: "placed" })).status).toBe(400);
+        expect((await inbox("PATCH", `/${(await capture("Open one")).id}`, { captureStatus: "kept" })).status).toBe(200);
+    });
+
+    it("a reused task id answers 409, not 500", async () => {
+        const taskId = crypto.randomUUID();
+        const item = await capture("Reuse");
+        expect((await inbox("POST", `/${item.id}/process`, { title: "Reuse", taskId })).status).toBe(201);
+        await inbox("POST", `/${item.id}/unprocess`);
+        expect((await inbox("POST", `/${item.id}/process`, { title: "Reuse", taskId })).status).toBe(409);
+    });
+});

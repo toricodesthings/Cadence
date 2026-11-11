@@ -636,3 +636,36 @@ describe("what a task opens", () => {
         expect((await tasks("PATCH", `/${task.id}`, { linkedUrl: null })).body.data.linkedUrl).toBeNull();
     });
 });
+
+describe("task state rules", () => {
+    it("counts a completion once, however often Done is sent", async () => {
+        const a = await create({ title: "A" });
+        await tasks("PATCH", "/batch/state", { taskIds: [a.id], state: "COMPLETE" });
+        const stamp = async () => (await asOwner((pg) => pg.query<{ completed_at: string }>("SELECT completed_at FROM task_metrics WHERE task_id = $1", [a.id]))).rows[0]?.completed_at;
+        const first = await stamp();
+        expect(first).toBeTruthy();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        await tasks("PATCH", "/batch/state", { taskIds: [a.id], state: "COMPLETE" });
+        await tasks("PATCH", `/${a.id}`, { state: "COMPLETE" });
+        expect(await stamp()).toEqual(first);
+    });
+
+    it("batch reschedule moves only open tasks", async () => {
+        const [open, done, trashed] = [await create({ title: "Open" }), await create({ title: "Done", state: "COMPLETE" }), await create({ title: "Trash", state: "ARCHIVED" })];
+        for (const body of [{ date: "2026-03-10" }, { scheduledStart: "2026-03-10T15:00:00.000Z" }]) {
+            const res = await tasks("POST", "/batch/reschedule", { taskIds: [open.id, done.id, trashed.id], ...body });
+            expect(titles(res.body.data)).toEqual(["Open"]);
+        }
+        expect((await tasks("GET", `/${done.id}`)).body.data.dueDate).toBeNull();
+        expect((await tasks("GET", `/${trashed.id}`)).body.data.scheduledStart).toBeNull();
+    });
+
+    it("a Fixed block can't be marked Done", async () => {
+        const fixed = await create({ title: "Class", interactionMode: "timetable", scheduledStart: "2026-03-10T15:00:00.000Z", scheduledEnd: "2026-03-10T16:00:00.000Z" });
+        const normal = await create({ title: "Normal" });
+        const batch = await tasks("PATCH", "/batch/state", { taskIds: [fixed.id, normal.id], state: "COMPLETE" });
+        expect(titles(batch.body.data)).toEqual(["Normal"]);
+        expect((await tasks("PATCH", `/${fixed.id}`, { state: "COMPLETE" })).status).toBe(400);
+        expect((await tasks("GET", `/${fixed.id}`)).body.data.state).toBe("ACTIVE");
+    });
+});

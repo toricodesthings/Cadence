@@ -51,14 +51,16 @@ export async function resolveOrCreateConversation(
     tx: Tx,
     userId: string,
     args: { conversationId?: string; model?: string },
-): Promise<{ id: string; created: boolean; title: string | null }> {
+): Promise<{ id: string; created: boolean; title: string | null; activeStreamId?: string | null }> {
     if (args.conversationId) {
+        // Locked, so two turns on one thread persist one after the other (no shared order index).
         const [existing] = await tx
-            .select({ id: aiConversations.id, title: aiConversations.title })
+            .select({ id: aiConversations.id, title: aiConversations.title, activeStreamId: aiConversations.activeStreamId })
             .from(aiConversations)
-            .where(and(eq(aiConversations.id, args.conversationId), eq(aiConversations.userId, userId)));
+            .where(and(eq(aiConversations.id, args.conversationId), eq(aiConversations.userId, userId)))
+            .for("update");
 
-        if (existing) return { id: existing.id, created: false, title: existing.title };
+        if (existing) return { id: existing.id, created: false, title: existing.title, activeStreamId: existing.activeStreamId };
 
         // Create-if-absent with the client-chosen id (still ownership-scoped by
         // userId) so the client can own the thread id — needed for the sidebar /
@@ -73,7 +75,7 @@ export async function resolveOrCreateConversation(
         // No row back means the id exists but RLS hides it: another user's thread.
         // Never adopt it, or this user's turns would be written under their id.
         if (!created) throw new AppError(404, "NOT_FOUND", "Conversation not found");
-        return { id: created.id, created: true, title: null };
+        return { id: created.id, created: true, title: null, activeStreamId: null };
     }
 
     await assertRowRoom(tx, userId, "conversations");
@@ -82,7 +84,17 @@ export async function resolveOrCreateConversation(
         .values({ userId, model: args.model ?? null })
         .returning({ id: aiConversations.id });
 
-    return { id: row.id, created: true, title: null };
+    return { id: row.id, created: true, title: null, activeStreamId: null };
+}
+
+/** Lock a thread's row and return its stream pointer (null when idle or not the caller's). */
+export async function lockActiveStream(tx: Tx, userId: string, conversationId: string): Promise<string | null> {
+    const [row] = await tx
+        .select({ activeStreamId: aiConversations.activeStreamId })
+        .from(aiConversations)
+        .where(and(eq(aiConversations.id, conversationId), eq(aiConversations.userId, userId)))
+        .for("update");
+    return row?.activeStreamId ?? null;
 }
 
 /**
@@ -266,15 +278,16 @@ export async function deleteAllMessages(
 
 /**
  * Upsert the assistant UIMessage row. onConflictDoUpdate on the PK allows status
- * transitions (streaming → complete/failed/aborted) and part/metadata refreshes
- * across `onFinish` saves. Order index is placed after the latest message.
+ * transitions (complete/failed/aborted) and part/metadata refreshes across `onFinish`
+ * saves. With `onlyIfAbsent` it only creates the row (a Stop snapshot never overwrites
+ * the producer's authoritative save). Order index is placed after the latest message.
  */
 export async function saveAssistantMessage(
     tx: Tx,
     userId: string,
     conversationId: string,
     msg: { id: string; role: string; parts?: unknown[]; metadata?: Record<string, unknown> },
-    opts: { status?: "complete" | "failed" | "aborted"; metadata?: Record<string, unknown> },
+    opts: { status?: "complete" | "failed" | "aborted"; metadata?: Record<string, unknown>; onlyIfAbsent?: boolean },
 ): Promise<void> {
     const status: MessageStatus = opts.status ?? "complete";
     const lastOrderIndex = await getLastOrderIndex(tx, conversationId);
@@ -287,6 +300,11 @@ export async function saveAssistantMessage(
             status,
         },
     );
+
+    if (opts.onlyIfAbsent) {
+        await tx.insert(aiMessages).values(row).onConflictDoNothing({ target: aiMessages.id });
+        return;
+    }
 
     await tx
         .insert(aiMessages)

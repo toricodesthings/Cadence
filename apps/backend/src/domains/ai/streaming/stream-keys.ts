@@ -11,7 +11,7 @@
 export const STREAM_NS = "cadence:ai:stream";
 
 /** TTL while a stream is `active` — refreshed on each flush so long turns never expire mid-flight. */
-export const CHUNKS_TTL_S = 60 * 60; // 1h
+export const CHUNKS_TTL_S = 5 * 60; // 5 min: refreshed on every flush; no turn outlives 45 s
 /** TTL the keys are shrunk to on terminal close, so Redis self-evicts the turn ~1min later (§15.2). */
 export const CLOSE_GRACE_S = 60;
 /** TTL on the abort flag, so a never-consumed flag self-clears (§5). */

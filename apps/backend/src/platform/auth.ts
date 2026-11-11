@@ -211,7 +211,8 @@ export const authMiddleware = createMiddleware<{
         }
 
         // Synchronous user bootstrap on write requests to prevent FK race conditions (F02)
-        const isWrite = c.req.method !== "GET" && c.req.method !== "HEAD";
+        // Account deletion is exempt from the user-row check: its retry (after a failed last step) must reach the route.
+        const isWrite = c.req.method !== "GET" && c.req.method !== "HEAD" && c.req.path !== "/api/v1/account/delete";
         if (isWrite) {
             try {
                 await tracing.enterSpan("auth.user.ensure", () => ensureUserExists(c.env, userId));

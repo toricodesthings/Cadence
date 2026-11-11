@@ -202,6 +202,22 @@ describe("resolving occurrences", () => {
         expect(single).toMatchObject({ times: null, targetTime: "09:00" });
     });
 
+    it("steps: editing the steps re-derives today from its marks", async () => {
+        const two = [{ id: "a", title: "A" }, { id: "b", title: "B" }];
+        const habit = await create({ steps: two });
+        const mark = (stepStatus: Record<string, string>) => habits("POST", `/${habit.id}/resolve`, { targetDate: day(), status: "PENDING", stepStatus });
+        const today = async () => (await habits("GET", `/weekly?start=${day()}&end=${day()}`)).body.data[0];
+
+        await mark({ a: "COMPLETED", b: "COMPLETED" });
+        await habits("PATCH", `/${habit.id}`, { steps: [...two, { id: "c", title: "C" }] });
+        expect((await today()).logs[0].status).toBe("PENDING");
+        expect((await today()).totalCompletions).toBe(0);
+
+        await mark({ a: "COMPLETED" }); // partial over a, b, c
+        await habits("PATCH", `/${habit.id}`, { steps: [two[0]] });
+        expect((await today()).logs[0].status).toBe("COMPLETED");
+    });
+
     it("set times: moving a time keeps its mark, removing the open one closes today, steps and times don't mix", async () => {
         const habit = await create({ title: "Medication", times: ["08:00", "14:00", "20:00"] });
         const mark = (time: string) => habits("POST", `/${habit.id}/resolve`, { targetDate: day(), status: "COMPLETED", time });

@@ -11,6 +11,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 ### Changed
 
 - Swiping between board sections on a phone now follows your finger, with the next section sliding in beside it.
+- Adding a thought shows Date and a Task switch right under the text, like adding a task, instead of at the bottom.
 
 ### Fixed
 

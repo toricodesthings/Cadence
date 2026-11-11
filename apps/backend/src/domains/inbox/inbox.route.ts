@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, isNull } from "drizzle-orm";
 import { getIdempotencyKey, createOnce } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { withCallerRls } from "../../platform/caller-rls";
@@ -8,7 +8,7 @@ import { inboxQuerySchema, insertInboxItemSchema, updateInboxItemSchema, insertI
 import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
-import { throwIfNotFound } from "../../platform/errors";
+import { AppError, throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import { processCapture, unprocessCapture } from "./inbox.service";
 import { suggestPlacement } from "../decisions/placement";
@@ -74,13 +74,19 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
 
-        const [updated] = await withCallerRls(c, async (tx, userId) => {
+        const updated = await withCallerRls(c, async (tx, userId) => {
             await assertOwnership(tx, userId, { inboxSectionId: body.sectionId });
-            return tx
+            // A placed capture leaves `placed` only through /unprocess.
+            const [row] = await tx
                 .update(inboxItems)
                 .set(body)
-                .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)))
+                .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId), body.captureStatus ? isNull(inboxItems.placedTaskId) : undefined))
                 .returning();
+            if (!row && body.captureStatus) {
+                const [exists] = await tx.select({ id: inboxItems.id }).from(inboxItems).where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)));
+                if (exists) throw new AppError(409, "CONFLICT", "This capture was already placed");
+            }
+            return row;
         });
 
         throwIfNotFound(updated, "Inbox item");

@@ -15,6 +15,9 @@ import { readSince } from "./resume-store";
 /** Idle backoff between tail polls when the producer hasn't emitted new frames. */
 const TAIL_IDLE_MS = 200;
 
+/** A live producer flushes within a turn's 45 s ceiling; an `active` log silent for longer has no producer. */
+const SILENT_PRODUCER_MS = 60_000;
+
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export function buildResumeStream(
@@ -24,23 +27,29 @@ export function buildResumeStream(
 ): ReadableStream<Uint8Array> {
     const enc = new TextEncoder();
     let lastId = "-"; // "-" = from the start (full replay), then exclusive tail
+    let lastFrameAt = Date.now();
     return new ReadableStream<Uint8Array>({
         async pull(controller) {
-            // ONE pipelined request returns the tail AND the terminal state.
-            const { frames, state } = await readSince(redis, userKey, sid, lastId);
-            for (const { id, frame } of frames) {
-                controller.enqueue(enc.encode(frame));
-                lastId = id;
+            // A pull that enqueues nothing is never called again, so idle polling loops here.
+            for (;;) {
+                // ONE pipelined request returns the tail AND the terminal state.
+                const { frames, state } = await readSince(redis, userKey, sid, lastId);
+                for (const { id, frame } of frames) {
+                    controller.enqueue(enc.encode(frame));
+                    lastId = id;
+                    lastFrameAt = Date.now();
+                }
+                if (frames.length > 0) return;
+                // Caught up and not still producing → end the resume cleanly. A null
+                // state means the log expired (orphan from a crashed isolate, §7.9/§10);
+                // a terminal state means the producer finished. An `active` log silent
+                // for a minute has no producer either; the client falls back to stored messages.
+                if (state !== "active" || Date.now() - lastFrameAt > SILENT_PRODUCER_MS) {
+                    controller.close();
+                    return;
+                }
+                await sleep(TAIL_IDLE_MS);
             }
-            // Caught up and not still producing → end the resume cleanly. A null
-            // state means the log expired (orphan from a crashed isolate, §7.9/§10);
-            // a terminal state means the producer finished — both close immediately.
-            if (frames.length === 0 && state !== "active") {
-                controller.close();
-                return;
-            }
-            // Caught up but still active → back off before the next tail poll.
-            if (frames.length === 0) await sleep(TAIL_IDLE_MS);
         },
         cancel() {
             /* reader gave up; nothing to clean — the producer owns the log */

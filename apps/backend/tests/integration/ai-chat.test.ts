@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MockLanguageModelV4 } from "ai/test";
 import { APICallError, RetryError, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
-import { logger } from "../../src/platform/log";
+import { logger, hashIdentifier } from "../../src/platform/log";
 import * as redisAccess from "../../src/platform/redis";
 import * as resumeStore from "../../src/domains/ai/streaming/resume-store";
 import * as images from "../../src/domains/ai/images/chat-images";
@@ -32,6 +32,7 @@ import {
     saveAssistantMessage,
     setTitleIfEmpty,
     setActiveStream,
+    finalizeActiveStream,
     setTurnContext,
     truncateMessagesAfter,
 } from "../../src/domains/ai/persistence/conversation-repo";
@@ -253,6 +254,42 @@ describe("what is saved", () => {
         expect(sse).toContain("INTERNAL_ERROR");
         expect(sse).not.toContain("SELECT");
         expect(opts.status).toBe("failed");
+    });
+});
+
+describe("overlapping and failing turns", () => {
+    const sid = "stream-live";
+
+    it("refuses a second turn while a reply is on its way (409), and saves no second reply", async () => {
+        const redis = new FakeRedis();
+        const userKey = await hashIdentifier(TEST_USER_ID);
+        await resumeStore.openStream(redis as never, userKey, sid, { conversationId: CONV_ID, userId: TEST_USER_ID, messageId: "a1", model: "m" });
+        const spy = vi.spyOn(redisAccess, "getRedis").mockReturnValue(redis as never);
+        vi.mocked(resolveOrCreateConversation).mockResolvedValue({ id: CONV_ID, created: false, title: "Existing", activeStreamId: sid });
+        try {
+            const { status } = await apiAs(TEST_USER_ID, "/ai", aiRoutes, DEV)("POST", "/chat", {
+                conversationId: CONV_ID, message: { id: "m-new", role: "user", parts: [{ type: "text", text: "again" }] },
+                currentDate: "2026-09-29T14:00:00.000Z", timezone: "UTC",
+            });
+            expect(status).toBe(409);
+            expect(saveAssistantMessage).not.toHaveBeenCalled();
+        } finally { spy.mockRestore(); }
+    });
+
+    it("a turn that fails after its stream was published ends that stream as an error", async () => {
+        const redis = new FakeRedis();
+        const spy = vi.spyOn(redisAccess, "getRedis").mockReturnValue(redis as never);
+        vi.mocked(getAgentInstance).mockRejectedValue(new Error("misconfigured"));
+        try {
+            const { status } = await apiAs(TEST_USER_ID, "/ai", aiRoutes, DEV)("POST", "/chat", {
+                conversationId: CONV_ID, message: { id: "m-new", role: "user", parts: [{ type: "text", text: "hi" }] },
+                currentDate: "2026-09-29T14:00:00.000Z", timezone: "UTC",
+            });
+            expect(status).toBe(500);
+            await vi.waitFor(() => expect(finalizeActiveStream).toHaveBeenCalledWith(expect.anything(), TEST_USER_ID, CONV_ID, expect.any(String), "failed"));
+            const states = [...redis.strings.entries()].filter(([key]) => key.endsWith(":state")).map(([, value]) => value);
+            expect(states).toEqual(["error"]);
+        } finally { spy.mockRestore(); }
     });
 });
 

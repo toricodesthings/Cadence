@@ -167,6 +167,11 @@ export class FakeRedis {
         if (opts?.nx && this._exists(key)) return null;
         return this._set(key, val, opts);
     }
+    async del(key: string): Promise<number> {
+        this.requests += 1;
+        this.commandLog.push("del");
+        return this._del(key);
+    }
     async incrbyfloat(key: string, by: number): Promise<number> {
         this.requests += 1;
         this.commandLog.push("incrbyfloat");

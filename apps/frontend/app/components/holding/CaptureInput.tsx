@@ -3,11 +3,12 @@ import { resolvedNlp } from "../../lib/utils/task/resolved-nlp";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useSettings } from "../../hooks/core/use-settings";
-import { useState, useRef, useEffect, useLayoutEffect, useContext, useTransition, type KeyboardEvent } from "react";
-import { Inbox, MessageSquare, Plus } from "lucide-react";
+import { useCallback, useState, useRef, useEffect, useLayoutEffect, useContext, useTransition, type KeyboardEvent } from "react";
+import { Calendar, CheckSquare, Inbox, MessageSquare, Plus } from "lucide-react";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
 import { useProcessInboxToTask } from "../../hooks/inbox/use-process-inbox-to-task";
-import { COMPOSER_FIELD, type ComposerDraft } from "../shared/Composer";
+import { COMPOSER_FIELD, ComposerRow, ComposerRows, type ComposerDraft } from "../shared/Composer";
+import { Switch } from "../primitives";
 import { Button } from "../primitives/Button";
 import { Reveal } from "../shared/Reveal";
 import { StartupReadyContext } from "../../hooks/core/use-workspace-startup";
@@ -92,6 +93,12 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     const [error, setError] = useState(false);
     const [pasted, setPasted] = useState(false);
     const input = useRef<HTMLTextAreaElement>(null);
+    // autoFocus without the scroll: in a phone sheet the field mounts while the sheet is still below the screen,
+    // and a plain focus makes iOS pan the whole page up to reach it, over the top of the screen.
+    const takeFocus = useCallback((el: HTMLTextAreaElement | null) => {
+        input.current = el;
+        el?.focus({ preventScroll: true });
+    }, []);
     const create = useCreateInboxItem();
     const process = useProcessInboxToTask();
     const { data: projects = [] } = useProjects();
@@ -118,7 +125,10 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         dateStyle,
         enabled: nlpEnabled,
     });
-    const asTask = isDated(nlp.fields);
+    // The sheet's Task switch: an undated draft saves as a task too. A day already makes it one.
+    const [taskMode, setTaskMode] = useState(false);
+    const dated = isDated(nlp.fields);
+    const asTask = dated || taskMode;
     const endDate = picked?.endDate ?? null;
     const { dueDate, scheduledStart, scheduledEnd, recurrenceRule } = nlp.fields;
     const schedule: ScheduleUpdates = { dueDate, endDate, scheduledStart, scheduledEnd, recurrenceRule };
@@ -187,7 +197,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         if (event.nativeEvent.isComposing) return;
         if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
-            save(event.metaKey || event.ctrlKey);
+            save(event.metaKey || event.ctrlKey || taskMode);
         }
         if (event.key === "Escape") {
             event.stopPropagation();
@@ -196,13 +206,12 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     };
     const field = (rows: number, inline = false, spellCheck = true) => (
         <textarea
-            ref={input}
+            ref={takeFocus}
             data-escape-owner
             value={value}
             rows={rows}
             spellCheck={spellCheck}
             enterKeyHint="done"
-            autoFocus
             data-initial-focus
             aria-label="What's on your mind?"
             aria-keyshortcuts="Meta+Enter Control+Enter"
@@ -241,7 +250,19 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         el?.setSelectionRange(el.value.length, el.value.length);
     };
     // After picking, focus is back in the field, so Enter saves (not reopens the picker).
-    const dayControl = <DeadlineTrigger schedule={schedule} onChange={(next) => setPick({ for: value, schedule: next })} returnFocus={focusField} />;
+    const pickDay = (next: ScheduleUpdates) => setPick({ for: value, schedule: next });
+    const dayControl = <DeadlineTrigger schedule={schedule} onChange={pickDay} returnFocus={focusField} />;
+    // The sheet's when, in the iOS grouped card under the field: the date, then whether it's a task.
+    const rows = (
+        <ComposerRows>
+            <ComposerRow icon={Calendar} label="Date">
+                <DeadlineTrigger row schedule={schedule} onChange={pickDay} returnFocus={focusField} />
+            </ComposerRow>
+            <ComposerRow icon={CheckSquare} label="Task">
+                <Switch checked={asTask} disabled={dated} onCheckedChange={setTaskMode} aria-label="Save as a task" />
+            </ComposerRow>
+        </ComposerRows>
+    );
     // No day yet: this (or ⌘↵) still saves it as a task, undated. Touch has no ⌘, so it says it in words.
     const taskControl = asTask ? null : (
         <Button
@@ -270,6 +291,8 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         asTask,
         dayControl,
         taskControl,
+        rows,
+        taskMode,
         submitLabel,
         splitCount: pasted && lines.length > 1 ? lines.length : 0,
         error,
@@ -283,6 +306,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             setCount(0);
             setPasted(false);
             setPick(null);
+            setTaskMode(false);
         },
     };
 }
@@ -300,11 +324,11 @@ export function useCaptureComposer({
         isDirty: Boolean(draft.value.trim()),
         discardTitle: "Discard this thought?",
         reset: draft.reset,
-        actions: <>{draft.dayControl}{draft.taskControl}</>,
-        submit: { onSubmit: () => draft.save(), submitLabel: draft.submitLabel, icon: draft.asTask ? Plus : Inbox, disabled: !draft.value.trim() || draft.busy },
+        submit: { onSubmit: () => draft.save(draft.taskMode), submitLabel: draft.submitLabel, icon: draft.asTask ? Plus : Inbox, disabled: !draft.value.trim() || draft.busy },
         children: (
             <>
                 {draft.field(5)}
+                {draft.rows}
                 {draft.feedback}
                 {draft.count > 0 && (
                     <p role="status" className="text-sm text-twilight-text-muted">

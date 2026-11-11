@@ -58,7 +58,7 @@ describe("update schemas carry only the fields that were sent", () => {
         ["project", updateProjectSchema, { name: "x" }],
         ["section", updateSectionSchema, { orderIndex: 3 }],
         ["subtask", updateSubtaskSchema, { isComplete: true }],
-        ["inbox item", updateInboxItemSchema, { processed: true }],
+        ["inbox item", updateInboxItemSchema, { captureStatus: "kept" }],
         ["inbox section", updateInboxSectionSchema, { name: "x" }],
         ["habit", updateHabitSchema, { archived: true }],
         ["task", updateTaskSchema, { effort: 2 }],
@@ -85,6 +85,11 @@ describe("required fields and nullable clears", () => {
 
     it("lets a project clear its emoji with null", () => {
         expect(updateProjectSchema.parse({ emoji: null })).toEqual({ emoji: null });
+    });
+
+    it("keeps a capture's placed state out of a client update", () => {
+        expect(updateInboxItemSchema.safeParse({ captureStatus: "placed" }).success).toBe(false);
+        expect(updateInboxItemSchema.parse({ processed: true, placedTaskId: crypto.randomUUID(), rawText: "x" })).toEqual({ rawText: "x" });
     });
 
     it("lets an inbox item move out of its section with null", () => {

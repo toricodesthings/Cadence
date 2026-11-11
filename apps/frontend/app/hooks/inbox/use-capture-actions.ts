@@ -13,7 +13,7 @@ export function useCaptureActions() {
             })
             .then(() => {
                 // It leaves this list, so the toast names it and says where it went.
-                toastUndo(toastName(item.rawText), () => update.mutate({ id: item.id, captureStatus: item.captureStatus }), {
+                toastUndo(toastName(item.rawText), () => update.mutate({ id: item.id, captureStatus: item.captureStatus === "placed" ? "clarifying" : item.captureStatus }), {
                     description: status === "discarded" ? "Discarded" : status === "kept" ? "Kept as a note" : "Back in New",
                 });
             });

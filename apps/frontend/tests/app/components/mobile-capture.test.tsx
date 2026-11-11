@@ -122,12 +122,13 @@ describe("Capture composer", () => {
         expect(process.mock.calls[0][0]).toMatchObject({ dueDate: null, scheduledStart: null, endDate: null });
         expect(process.mock.calls[0][0].title).toContain("friday");
     });
-    it("touch has no ⌘↵: As task saves the thought as an undated task", async () => {
+    it("touch has no ⌘↵: the Task switch saves the thought as an undated task", async () => {
         create.mockResolvedValue({ id: "one" });
         process.mockResolvedValue({ id: "task" });
         render(<Host />);
         fireEvent.change(screen.getByRole("textbox"), { target: { value: "Renew passport" } });
-        fireEvent.click(await screen.findByRole("button", { name: "As task" }));
+        fireEvent.click(await screen.findByRole("switch", { name: "Save as a task" }));
+        fireEvent.click(await screen.findByRole("button", { name: "Add task", exact: true }));
         await waitFor(() => expect(process).toHaveBeenCalled());
         expect(process.mock.calls[0][0]).toMatchObject({ title: "Renew passport", dueDate: null, scheduledStart: null });
     });

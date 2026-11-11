@@ -142,6 +142,20 @@ describe("replay (buildResumeStream)", () => {
         const text = await drain(buildResumeStream(redis as any, USER_KEY, SID));
         expect(text).toBe("data: partial\n\n");
     });
+
+    it("closes an active stream that has produced nothing for over a minute", async () => {
+        vi.useFakeTimers();
+        try {
+            await openStream(redis as any, USER_KEY, SID, META);
+            const done = drain(buildResumeStream(redis as any, USER_KEY, SID));
+            await vi.advanceTimersByTimeAsync(300); // first empty poll
+            vi.setSystemTime(Date.now() + 61_000);
+            await vi.advanceTimersByTimeAsync(300);
+            expect(await done).toBe("");
+        } finally {
+            vi.useRealTimers();
+        }
+    });
 });
 
 describe("abort-watcher", () => {
