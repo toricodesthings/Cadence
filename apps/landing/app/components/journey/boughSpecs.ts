@@ -147,11 +147,22 @@ export const SEGMENTS = {
     seed: 953,
     h: CHAPTER_H,
     w0: 9,
-    wEnd: 8,
+    wEnd: 8.5,
     keys: fit([[500, 0], [500, 70], [522, 220], [482, 400], [514, 580], [490, 740], [500, 830], [500, 900]]),
     forks: chapterForks(-1, -2),
     // Bare wood, and what it carries is ice, not blossom (the kind below)
     bloomShare: 0.35,
+  },
+  // Today, the lantern-lit night before spring: panel right, so the limb leans as spring's did.
+  today: {
+    id: "js-today",
+    seed: 967,
+    h: CHAPTER_H,
+    w0: 8.5,
+    wEnd: 8,
+    keys: fit([[500, 0], [500, 70], [478, 220], [520, 400], [486, 580], [508, 740], [500, 830], [500, 900]]),
+    forks: chapterForks(1, 2),
+    bloomShare: 0.4,
   },
   constellation: {
     id: "js-constellation",
@@ -240,7 +251,9 @@ export const SEGMENTS = {
 
 export type SegmentName = keyof typeof SEGMENTS;
 
-export const FEATURES = ["spring", "summer", "autumn", "emilie", "winter", "constellation"] as const;
+export const FEATURES = ["spring", "summer", "autumn", "emilie", "winter", "today", "constellation"] as const;
+/** The last feature runs straight down its own (left) side into the crown, so it draws no crossing. */
+export const LAST_FEATURE = FEATURES[FEATURES.length - 1];
 export type FeatureName = typeof FEATURES[number];
 export const mobileBoughSide = (name: SegmentName) => FEATURES.indexOf(name as FeatureName) % 2 === 1 ? "right" : "left";
 
@@ -253,6 +266,7 @@ export const FOLIAGE: Record<SegmentName, FoliageKind> = {
   autumn: "maple",
   emilie: "ume",
   winter: "frost",
+  today: "ume",
   constellation: "ume",
   finale: "ume",
   "finale-mobile": "ume",

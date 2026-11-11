@@ -17,7 +17,8 @@ import { SkyBody } from "./JourneySkyScene";
 /*
  * The journey: one year on one weeping bough. Four chapters wear the four
  * seasons (and four of the app's palettes), Emilie keeps the lantern between
- * autumn and winter, and the finale is spring returning. The night deepens as
+ * autumn and winter, Today carries it through the night after winter, and the
+ * finale is spring returning. The night deepens as
  * you descend, so what's lit is the content. Everything that moves is bound to
  * scroll in CSS (journey.css). The only JS is one viewport watcher (lib/viewport.ts,
  * not an IntersectionObserver, which would cost every running loop a main-thread
@@ -154,6 +155,9 @@ export function Journey() {
       </Chapter>
       <Emilie />
       <Chapter copy={CHAPTERS.rhythm} segment="winter" drift="snow">
+        <Panel />
+      </Chapter>
+      <Chapter copy={CHAPTERS.today} segment="today" prev="winter" drift="lantern">
         <Panel />
       </Chapter>
 

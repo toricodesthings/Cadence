@@ -1409,7 +1409,9 @@
   .journey > .jsec { contain-intrinsic-size: auto 1050px; }
   .journey > .prelude { contain-intrinsic-size: auto 800px; }
   .journey > .emilie { contain-intrinsic-size: auto 1350px; }
-  .journey > .constellation { contain-intrinsic-size: auto 1450px; }
+  .journey > .constellation { contain-intrinsic-size: auto 1300px; }
+  /* The last strand has no crossing: it runs straight down into the crown */
+  .journey > .constellation { --bough-crossing: 0px; }
   .finale { contain-intrinsic-size: auto 940px; }
 }
 

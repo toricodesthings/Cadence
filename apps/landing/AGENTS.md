@@ -31,8 +31,8 @@ app/
 │   │                  # shared with FinaleLand), HeroBough, HeroWordmark, hero.css; `*Scene.tsx` / `HeroSkyStage` hold the static drawings the wrappers render at build time (intro + return-visit entrance)
 │   ├── legal/         # LegalPage (masthead, contents, "In short" panel, one seasonal section per clause; renders a LegalDoc) + legal.css
 │   └── journey/       # Journey (`.journey` is the size container narrow-screen maths reads with `cqw`; the crown is watched only once the finale is near; deepening sticky sky, mist, Prelude with a mobile reading pause before its side-entering branch, offscreen pause), BoughSegment (+ boughSpecs.ts, BoughSegmentScene; per-section bough,
-│                      # joined head to tail, behind all UI; fades into the copper crown; narrow strands alternate sides with curved crossings, then join the right-sweeping crown), Foliage (what each season's tips carry),
-│                      # Chapter, Emilie (keystone chapter), Constellation (one <ul> over a compact faceted desktop atlas and a tall portrait chart with alternating labels),
+│                      # joined head to tail, behind all UI; fades into the copper crown; narrow strands alternate sides with curved crossings, the last running straight into the right-sweeping crown), Foliage (what each season's tips carry),
+│                      # Chapter (five; Today wears no season, only the lantern), Emilie (keystone chapter), Constellation (one <ul> over a compact faceted desktop atlas and a tall portrait chart with alternating labels),
 │                      # Finale (crown, soft sky, the blossom seal around the signup link, one reassurance) + FinaleLand (wooded valley, lamplit hamlet, boats; shared canvas for mobile crop),
 │                      # Sigil (rings of light; `blossom` seal that holds the finale's link), Drift (particle sets; finale depth layers), Panel, journey.css (scroll-timeline motion)
 ├── assets/            # logo-mark.png (96px crop for the header and footer; hashed by the bundler)

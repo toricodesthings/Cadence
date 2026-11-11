@@ -91,7 +91,6 @@ export function Constellation() {
     <section
       className="jsec chapter constellation"
       data-panel="right"
-      data-prev="winter"
       data-bough-side={mobileBoughSide("constellation")}
       aria-labelledby="constellation-title"
       style={cssVars({ "--h": segmentHeight("constellation") })}

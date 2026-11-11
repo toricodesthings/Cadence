@@ -4,7 +4,7 @@ import { EmberBud, EmberCore, HEART } from "~/components/hero/HeroBoughScene";
 import { generateBough, type Bough, type Limb } from "~/lib/branch";
 import { cssVars, n1, type Pt } from "~/lib/geometry";
 
-import { CLOCK, FEATURES, FOLIAGE, mobileBoughSide, SEGMENTS, W, type FeatureName, type SegmentName } from "./boughSpecs";
+import { CLOCK, FEATURES, FOLIAGE, LAST_FEATURE, mobileBoughSide, SEGMENTS, W, type FeatureName, type SegmentName } from "./boughSpecs";
 import { Foliage } from "./Foliage";
 
 /* The journey bough's drawing: generated and rendered at build time only (BoughSegment wraps it in StaticSvg). */
@@ -27,7 +27,7 @@ const BUILT = Object.fromEntries(
 
 /** A separate, aspect-matched crossing below each feature keeps curved wood clear of its content. */
 const CROSSING_KEYS: readonly Pt[] = [[0, 0], [0, 60], [54, 148], [224, 220], [456, 266], [704, 316], [934, 388], [1000, 440], [1000, 500]];
-const CROSSINGS = Object.fromEntries(FEATURES.map((name) => {
+const CROSSINGS = Object.fromEntries(FEATURES.filter((name) => name !== LAST_FEATURE).map((name) => {
   const right = mobileBoughSide(name) === "right";
   return [name, generateBough({
     id: `js-${name}-crossing`,
@@ -49,7 +49,7 @@ const CROSSINGS = Object.fromEntries(FEATURES.map((name) => {
     bloom: "tip",
     bloomShare: SEGMENTS[name].bloomShare,
   })];
-})) as Record<FeatureName, Bough>;
+})) as Record<Exclude<FeatureName, typeof LAST_FEATURE>, Bough>;
 
 const n3 = (v: number) => Math.round(v * 1000) / 1000;
 /** A stretch of the segment's clock, as fractions the CSS turns into a scroll range. */
@@ -223,7 +223,7 @@ function Heart({ seg }: { seg: Seg }) {
 }
 
 export function SegmentDrawing({ name, crossing = false }: { name: SegmentName; crossing?: boolean }) {
-  const { id, viewBox, limbs, buds, flowers } = crossing ? CROSSINGS[name as FeatureName] : BUILT[name];
+  const { id, viewBox, limbs, buds, flowers } = crossing ? CROSSINGS[name as keyof typeof CROSSINGS] : BUILT[name];
   const h = crossing ? 500 : SEGMENTS[name].h;
   const leaf = FOLIAGE[name];
   const mobile = crossing || name.endsWith("-mobile");

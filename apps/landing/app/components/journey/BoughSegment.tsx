@@ -1,6 +1,6 @@
 import { StaticSvg } from "~/components/StaticSvg";
 
-import { mobileBoughSide, type SegmentName } from "./boughSpecs";
+import { LAST_FEATURE, mobileBoughSide, type SegmentName } from "./boughSpecs";
 import { SegmentDrawing, StrandBody } from "./BoughSegmentScene";
 
 export { mobileBoughSide, segmentHeight } from "./boughSpecs";
@@ -20,7 +20,8 @@ export type { SegmentName } from "./boughSpecs";
  * - it always passes behind the panels and the words, never over them.
  * The last segment is the crown. On narrow and portrait screens the segments
  * give way to alternating gutter strands with curved crossings between features;
- * the crown continues from the final left gutter to the right.
+ * the last feature's strand runs straight down the left gutter, and the crown
+ * continues from there to the right.
  */
 
 /** Which bough frame: crown, prelude or feature, wide or mobile (a crossing has none). */
@@ -56,9 +57,11 @@ export function BoughSegment({ name }: { name: SegmentName }) {
         <StaticSvg className="bough-strand" viewBox="0 0 24 1000" preserveAspectRatio="none" focusable="false">
           {import.meta.env.SSR ? <StrandBody /> : null}
         </StaticSvg>
-        <div className="bough-crossing">
-          <Drawing name={name} crossing />
-        </div>
+        {name === LAST_FEATURE ? null : (
+          <div className="bough-crossing">
+            <Drawing name={name} crossing />
+          </div>
+        )}
       </div>
     </>
   );
