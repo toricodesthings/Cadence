@@ -10,6 +10,7 @@ import {
 import type { Route } from "./+types/root";
 import { ButtonLink } from "./components/ButtonLink";
 import { HEAD_SCRIPT } from "./lib/intro";
+import { SPECULATION_RULES } from "./lib/site";
 import appStylesHref from "./app.css?url";
 import outfitLatinHref from "@fontsource-variable/outfit/files/outfit-latin-wght-normal.woff2?url";
 import soraLatinHref from "@fontsource-variable/sora/files/sora-latin-wght-normal.woff2?url";
@@ -20,7 +21,7 @@ export const links: Route.LinksFunction = () => [
   { rel: "preload", href: outfitLatinHref, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
   { rel: "stylesheet", href: appStylesHref },
   { rel: "icon", href: "/favicon.ico", sizes: "any" },
-  { rel: "apple-touch-icon", href: "/logo.png" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -30,11 +31,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content="dark" />
         {/* Blocking on purpose: it must hold the intro and flag a return visit before the first paint */}
         <script dangerouslySetInnerHTML={{ __html: HEAD_SCRIPT }} /> {/* nosemgrep */}
         <meta name="theme-color" content="#070e1a" />
         <Meta />
         <Links />
+        <script type="speculationrules" dangerouslySetInnerHTML={{ __html: SPECULATION_RULES }} />
       </head>
       <body>
         {children}

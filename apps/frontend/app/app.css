@@ -3077,6 +3077,8 @@ body:has([data-capture-selection]) .mobile-floating-action:not([data-capture-sel
 @media (pointer: fine) and (min-width: 768px) {
   .note-content:not([data-size="chat"]) { --note-size: 18px; --note-leading: 1.72; }
 }
+/* The task panel's note reads at panel size; the writing room keeps the large page. */
+[data-note-inline] .note-content { --note-size: 15px; --note-leading: 1.6; }
 /* Focus is shown by the surface's soft glow, never a ring round the page. */
 .note-content:focus, .note-content:focus-visible, [data-theme="daylight"] .note-content:focus-visible { outline: none; box-shadow: none; }
 .note-content > * + * { margin-top: 0.85em; }

@@ -1,3 +1,4 @@
+import logoMark from "~/assets/logo-mark.png";
 import { SIGN_IN_URL, SIGN_UP_LABEL, SIGN_UP_URL, SITE_NAME } from "~/lib/site";
 
 import { ButtonLink } from "./ButtonLink";
@@ -24,7 +25,7 @@ export function SiteHeader({ className }: { className?: string }) {
         className="flex min-h-11 items-center gap-2.5 rounded-xl font-display text-xl font-semibold tracking-tight sm:text-2xl"
       >
         <img
-          src="/logo-mark.png"
+          src={logoMark}
           alt=""
           width={40}
           height={40}

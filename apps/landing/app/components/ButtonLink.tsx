@@ -29,17 +29,11 @@ const EMBERS: readonly (readonly [number, number, number])[] = [
 
 type ButtonLinkProps = ComponentProps<"a"> & {
   variant?: keyof typeof VARIANTS;
-  /** Keep the glass and rim, with optional gems and animated accents. */
-  ornate?: boolean;
-  /** Show the hero's paired rim accents independently of the animated ornaments. */
-  sideAccents?: boolean;
 };
 
 /** A link styled as a button. Plain `<a>` so it works before hydration and across domains. */
 export function ButtonLink({
   variant = "primary",
-  ornate = true,
-  sideAccents = ornate,
   className,
   children,
   ...props
@@ -53,28 +47,20 @@ export function ButtonLink({
         <>
           <span className="button-glow" aria-hidden="true" />
           <span className="button-rim" aria-hidden="true" />
-          {sideAccents && (
-            <>
-              <span className="button-gem button-gem-l" aria-hidden="true" />
-              <span className="button-gem button-gem-r" aria-hidden="true" />
-            </>
-          )}
-          {ornate && (
-            <>
-              <span className="button-aura" aria-hidden="true" />
-              <span className="button-stars" aria-hidden="true">
-                {STARS.map(([x, y, size, delay]) => (
-                  <span
-                    key={x}
-                    style={cssVars({ "--x": `${x}%`, "--y": `${y}%`, "--size": `${size}px`, "--d": `${delay}ms` })}
-                  />
-                ))}
-              </span>
-            </>
-          )}
+          <span className="button-gem button-gem-l" aria-hidden="true" />
+          <span className="button-gem button-gem-r" aria-hidden="true" />
+          <span className="button-aura" aria-hidden="true" />
+          <span className="button-stars" aria-hidden="true">
+            {STARS.map(([x, y, size, delay]) => (
+              <span
+                key={x}
+                style={cssVars({ "--x": `${x}%`, "--y": `${y}%`, "--size": `${size}px`, "--d": `${delay}ms` })}
+              />
+            ))}
+          </span>
         </>
       )}
-      {variant === "primary" && ornate && (
+      {variant === "primary" && (
         <span className="button-embers" aria-hidden="true">
           {EMBERS.map(([x, dx, delay]) => (
             <span key={x} style={cssVars({ "--x": `${x}%`, "--dx": `${dx}px`, "--d": `${delay}ms` })} />

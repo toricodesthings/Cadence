@@ -1,3 +1,4 @@
+import logoMark from "~/assets/logo-mark.png";
 import {
   APP_URL,
   CHANGELOG_URL,
@@ -51,7 +52,7 @@ export function SiteFooter() {
           <div>
             <div className="flex items-center gap-2.5">
               <img
-                src="/logo-mark.png"
+                src={logoMark}
                 alt=""
                 width={36}
                 height={36}

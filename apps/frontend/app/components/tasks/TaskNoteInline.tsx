@@ -31,6 +31,17 @@ export function TaskNoteInline({ taskId, onOpenRoom }: { taskId: string; onOpenR
     const [source, setSource] = useState(false);
     const [checked, setChecked] = useState(false);
 
+    /**
+     * The bar stays while focus is in it or one of its menus (text style, lists): those take focus from the
+     * editor, and hiding the bar then would unmount the menu the moment it opened.
+     */
+    const trackFocus = (next: boolean) => {
+        if (next) return setFocused(true);
+        requestAnimationFrame(() => {
+            if (!document.activeElement?.closest("[role=toolbar],[role=listbox],[role=menu],[data-note-inline]")) setFocused(false);
+        });
+    };
+
     const body = state?.body ?? "";
     // A note the visual editor can't carry whole is edited as Markdown, never trimmed.
     if (state?.loaded && !checked) {
@@ -49,10 +60,7 @@ export function TaskNoteInline({ taskId, onOpenRoom }: { taskId: string; onOpenR
                 ) : <Skeleton className="h-40 w-full rounded-2xl" />
             ) : (
                 <>
-                    <Reveal open={focused && !source}>
-                        <NoteToolbar editor={editor} onLink={() => setLinkOpen(true)} more={null} className="pb-2" />
-                    </Reveal>
-                    <div className="note-surface min-h-[240px] px-1" data-note-inline>
+                    <div className="note-surface relative min-h-[240px] px-1 pb-8" data-note-inline>
                         {source ? (
                             <NoteSourceEditor value={body} onChange={(t) => session.edit(t, "inline-source")} onSave={() => void session.flush()} />
                         ) : (
@@ -65,10 +73,29 @@ export function TaskNoteInline({ taskId, onOpenRoom }: { taskId: string; onOpenR
                                 onEditor={setEditor}
                                 onSave={() => void session.flush()}
                                 onUnfaithful={() => setSource(true)}
-                                onFocusChange={setFocused}
+                                onFocusChange={trackFocus}
                             />
                         )}
+                        {/* Save state sits in the note's own corner instead of a row of its own. */}
+                        <div className="pointer-events-none absolute bottom-1 right-2 flex items-center gap-3 [&_button]:pointer-events-auto">
+                            <NoteStatus
+                                status={status}
+                                onAct={(s) => (s === "save-failed"
+                                    ? copyNote(body)
+                                    : s === "review" && task ? (onOpenRoom?.(), openRoom(task.id, task.title)) : void session.flush())}
+                            />
+                            {/* The counter only surfaces near the limit: no running tally to watch. */}
+                            {near && (
+                                <span className="text-[13px] tabular-nums text-accent-primary" aria-label={`${body.length} of ${NOTE_MAX_CHARS} characters used`}>
+                                    {body.length.toLocaleString()} / {NOTE_MAX_CHARS.toLocaleString()}
+                                </span>
+                            )}
+                        </div>
                     </div>
+                    {/* Below the text, so opening it never pushes what's being read. */}
+                    <Reveal open={focused && !source}>
+                        <NoteToolbar editor={editor} onLink={() => setLinkOpen(true)} more={null} />
+                    </Reveal>
                     {editor && <NoteLinkPopover editor={editor} open={linkOpen} onOpenChange={setLinkOpen} />}
                     {lines > 0 && (
                         <button
@@ -88,23 +115,7 @@ export function TaskNoteInline({ taskId, onOpenRoom }: { taskId: string; onOpenR
                         <ExternalLink size={14} aria-hidden="true" />
                         Open writing room
                     </button>
-                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
-                        {scope ? <span className="rounded-md bg-moonlit/10 px-1.5 py-0.5 text-[11px] font-medium text-moonlit">{scope}</span> : <span />}
-                        <div className="flex items-center gap-3">
-                            <NoteStatus
-                                status={status}
-                                onAct={(s) => (s === "save-failed"
-                                    ? copyNote(body)
-                                    : s === "review" && task ? (onOpenRoom?.(), openRoom(task.id, task.title)) : void session.flush())}
-                            />
-                            {/* The counter only surfaces near the limit: no running tally to watch. */}
-                            {near && (
-                                <span className="text-[13px] tabular-nums text-accent-primary" aria-label={`${body.length} of ${NOTE_MAX_CHARS} characters used`}>
-                                    {body.length.toLocaleString()} / {NOTE_MAX_CHARS.toLocaleString()}
-                                </span>
-                            )}
-                        </div>
-                    </div>
+                    {scope && <span className="w-fit rounded-md bg-moonlit/10 px-1.5 py-0.5 text-[11px] font-medium text-moonlit">{scope}</span>}
                     {task && <NoteConvertSheet open={convertOpen} onClose={() => setConvertOpen(false)} taskId={task.id} taskTitle={task.title} body={body} seriesNote={!!scope} />}
                 </>
             )}

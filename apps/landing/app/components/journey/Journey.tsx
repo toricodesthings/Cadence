@@ -49,13 +49,22 @@ export function Journey() {
     // The sections, and the mist over the seam: it belongs to no section, and its drift would run on far offscreen.
     // Loops pause at the screen's edge (a loop off screen falls back to the main thread); a section's bough and
     // particles are dropped only a quarter screen out, more than any limb overhangs its section, so nothing pops.
+    const finale = root.querySelector(".finale");
+    const crown = root.querySelector(".finale-crown");
+    let stopCrown: (() => void) | undefined;
+    const onSection = (section: Element, share: number, near: boolean) => {
+      section.classList.toggle("is-offscreen", share === 0);
+      section.classList.toggle("is-far", !near);
+      if (!scrubs && share >= 0.2) section.classList.add("is-grown");
+      if (section === finale && near && !stopCrown && crown) {
+        // The crown lives inside the finale, which the browser skips until it is near (content-visibility).
+        // Measuring it earlier would force the whole finale to lay out during hydration.
+        requestAnimationFrame(() => { stopCrown ??= watchViewport([crown], onSection, { steps: [0.2], margin: 0.25 }); });
+      }
+    };
     const stopSections = watchViewport(
-      Array.from(root.querySelectorAll(".jsec, .finale, .journey-mist")),
-      (section, share, near) => {
-        section.classList.toggle("is-offscreen", share === 0);
-        section.classList.toggle("is-far", !near);
-        if (!scrubs && share >= 0.2) section.classList.add("is-grown");
-      },
+      Array.from(root.querySelectorAll(":scope > .jsec, .finale, .journey-mist")),
+      onSection,
       { steps: [0.2], margin: 0.25 },
     );
     // Mobile branches wait for their own area below the text or panel, including each crossing.
@@ -65,7 +74,7 @@ export function Journey() {
         if (share >= 0.2) el.classList.add("is-grown");
       }, { steps: [0.2] })
       : undefined;
-    return () => { stopSections(); stopBranches?.(); };
+    return () => { stopSections(); stopCrown?.(); stopBranches?.(); };
   }, []);
 
   return (

@@ -270,35 +270,13 @@
   --hero-petal-shade: color-mix(in srgb, var(--color-personal) 72%, var(--hero-bark));
 }
 
-/* Both invitations share a restrained copper rim and a light tint over the dark glass. */
-.hero-action.button-lantern,
-.finale-action.button-lantern {
-  --button-halo: color-mix(in srgb, var(--accent-ember) 22%, transparent);
-  --button-gem: color-mix(in srgb, var(--accent-ember) 80%, var(--color-twilight-deep));
-  --button-rim: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--accent-primary) 55%, white),
-    color-mix(in srgb, var(--accent-ember) 42%, transparent) 45%,
-    color-mix(in srgb, var(--accent-ember) 20%, transparent)
-  );
-}
-
-.hero-action.button-lantern::before,
-.finale-action.button-lantern::before {
-  background:
-    radial-gradient(120% 110% at 45% 0%, color-mix(in srgb, var(--accent-ember) 18%, transparent), transparent 72%),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--accent-ember) 18%, var(--color-twilight-deep)),
-      color-mix(in srgb, var(--accent-ember) 8%, var(--color-twilight-void))
-    );
-}
-
 /* === PALETTE INDIRECTION — Lantern defaults (reference --accent-*, not --color-lantern) === */
 :root {
   --accent-primary: var(--color-lantern);
   --accent-primary-soft: var(--color-lantern-soft);
   --accent-primary-dim: var(--color-lantern-dim);
+  /* The copper every primary button wears; the home scenery pins its own below its seasonal tints */
+  --accent-ember: color-mix(in srgb, var(--color-solstice) 85%, var(--accent-primary));
   --accent-secondary: var(--color-moonlit);
   --accent-secondary-soft: var(--color-moonlit-soft);
   --accent-tertiary: #d4a07e;
@@ -356,6 +334,7 @@
     @apply font-sans antialiased;
     background-color: var(--color-twilight-void);
     color: var(--color-twilight-text);
+    scrollbar-color: color-mix(in srgb, var(--color-twilight-text) 22%, transparent) var(--color-twilight-void);
   }
 
   body {
@@ -601,18 +580,18 @@
 
   /* Lantern */
   .button-lantern {
-    --button-halo: color-mix(in srgb, var(--accent-primary) 42%, transparent);
+    --button-halo: color-mix(in srgb, var(--accent-ember) 22%, transparent);
     --button-aura: color-mix(in srgb, var(--accent-primary) 45%, white);
     --button-star: color-mix(in srgb, var(--accent-primary) 70%, white);
     --button-star-glow: color-mix(in srgb, var(--accent-primary) 45%, transparent);
-    --button-gem: color-mix(in srgb, var(--accent-primary) 80%, var(--color-twilight-deep));
+    --button-gem: color-mix(in srgb, var(--accent-ember) 80%, var(--color-twilight-deep));
     --button-gem-lit: color-mix(in srgb, var(--accent-primary) 35%, white);
     --button-gem-glow: color-mix(in srgb, var(--accent-primary) 60%, transparent);
     --button-rim: linear-gradient(
       180deg,
       color-mix(in srgb, var(--accent-primary) 55%, white),
-      color-mix(in srgb, var(--accent-primary) 70%, transparent) 45%,
-      color-mix(in srgb, var(--accent-primary) 28%, transparent)
+      color-mix(in srgb, var(--accent-ember) 42%, transparent) 45%,
+      color-mix(in srgb, var(--accent-ember) 20%, transparent)
     );
     --button-rim-lit: linear-gradient(
       180deg,
@@ -627,11 +606,11 @@
 
   .button-lantern::before {
     background:
-      radial-gradient(120% 100% at 50% 0%, color-mix(in srgb, var(--accent-primary) 34%, transparent), transparent 72%),
+      radial-gradient(120% 110% at 45% 0%, color-mix(in srgb, var(--accent-ember) 18%, transparent), transparent 72%),
       linear-gradient(
         180deg,
-        color-mix(in srgb, color-mix(in srgb, var(--accent-primary) 34%, var(--color-twilight-deep)) 90%, transparent),
-        color-mix(in srgb, color-mix(in srgb, var(--accent-primary) 16%, var(--color-twilight-deep)) 90%, transparent)
+        color-mix(in srgb, var(--accent-ember) 18%, var(--color-twilight-deep)),
+        color-mix(in srgb, var(--accent-ember) 8%, var(--color-twilight-void))
       );
     box-shadow:
       inset 0 1px 0 color-mix(in srgb, var(--color-twilight-text) 22%, transparent),

@@ -25,6 +25,7 @@
   overflow-x: clip;
   view-timeline: --journey block;
   timeline-scope: --t-spring, --t-summer, --t-autumn, --t-winter;
+  container-type: inline-size;
 }
 
 /* ── Sky: the hero's night, pinned to the screen (sticky, never background-attachment: fixed) ── */
@@ -162,7 +163,7 @@
     overflow-clip-margin: 100vw;
   }
 
-  .finale { contain-intrinsic-size: auto 1650px; }
+  .finale { contain-intrinsic-size: auto 1535px; }
 }
 
 .chapter[data-season="spring"] { view-timeline-name: --seg, --t-spring; }
@@ -1053,85 +1054,101 @@
   color: var(--color-twilight-text-soft);
 }
 
-/* One glass action, backed by the page's flower. The outline belongs to the scenery, outside the link. */
+/* One lantern action, held by the page's flower */
 .finale-invitation {
   position: relative;
   isolation: isolate;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.25rem;
+  gap: 1rem;
   width: 100%;
-  margin-top: 2rem;
+  margin-top: 1.5rem;
   padding-bottom: 1rem;
 }
 
-.finale-action-frame {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 18rem;
-  background: radial-gradient(ellipse 10rem 7rem at center, color-mix(in srgb, var(--accent-ember) 8%, transparent), transparent 78%);
-}
-
+/* The seal: wider than the stage's padding on a phone, so the flower keeps its size and the button its room */
 .finale-blossom {
-  --sigil: min(18rem, 100%);
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  translate: -50% -50%;
-  opacity: 0.6;
-  z-index: -1;
-  pointer-events: none;
+  --sigil: min(24rem, 100cqw - 2rem);
+  --blossom-light: color-mix(in srgb, var(--accent-ember) 45%, white);
+  flex: none;
+  view-timeline: --blossom block;
 }
 
+/* The petals hold still around the button; the light is what moves */
 .finale-blossom .sigil-ring { animation: none; }
+
+/* A warm pool behind the glass, breathing (the base rule's hero-breath) */
+.finale-blossom .sigil-glow {
+  width: 86%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--accent-ember) 16%, transparent),
+    color-mix(in srgb, var(--accent-ember) 7%, transparent) 55%,
+    transparent
+  );
+}
+
+/* Light travelling the petals: the buttons' aura, on the flower. The outline is a mask on this box; inside it a
+   conic square only rotates, so the circling is composited */
+.blossom-aura {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.5;
+  -webkit-mask: var(--blossom-mask) center / 100% 100% no-repeat;
+  mask: var(--blossom-mask) center / 100% 100% no-repeat;
+  transition: opacity var(--duration-expressive) var(--ease-out-quart);
+}
+
+.blossom-aura::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 142%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  background: conic-gradient(
+    transparent 0 16%,
+    var(--blossom-light) 30%,
+    transparent 42% 66%,
+    var(--blossom-light) 80%,
+    transparent 92%
+  );
+  animation: var(--hero-still, button-aura 22s linear infinite var(--hero-loop, running));
+}
+
+/* Reaching for the button brightens the light; it never speeds up */
+.finale-blossom:has(.finale-action:is(:hover, :focus-visible)) .blossom-aura { opacity: 1; }
 
 .sigil-petals {
   fill: none;
   stroke: var(--sigil-ink);
-  stroke-width: 1;
+  stroke-width: 0.8;
   stroke-linejoin: round;
 }
 
+/* The hero's lantern button, a size up, held inside the flower: 54% of the seal keeps its corners inside the petals' cusps */
 .finale-action.button {
-  width: clamp(14rem, 24vw, 16rem);
-  max-width: 100%;
+  width: 54%;
+  min-width: fit-content;
   min-height: 4rem;
-  padding-inline: 2rem;
+  padding-inline: 1.25rem;
   border-radius: 1.25rem;
   font-size: 1.125rem;
-  font-weight: 500;
   letter-spacing: 0.01em;
-  color: var(--color-twilight-text);
-  text-shadow: none;
-  box-shadow: 0 12px 32px -20px var(--accent-glow);
-  transition: scale 140ms var(--ease-out-quart);
 }
 
-.finale-action .button-label { gap: 1rem; }
+.finale-action .button-label { gap: 0.75rem; }
 .finale-action .button-icon { width: 1.25rem; height: 1.25rem; }
-.finale-action .button-glow { opacity: 0.35; }
-
-@media (hover: hover) and (pointer: fine) {
-  .finale-action.button:hover { translate: none; }
-  .finale-action.button:hover .button-arrow { translate: 2px 0; }
-  .finale-action.button:hover .button-glow { opacity: 0.55; scale: 1; }
-}
-
-.finale-action.button:active { scale: 0.98; }
-.finale-action.button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 5px; }
 
 .finale-reassurance {
   font-size: 0.875rem;
   line-height: 1.5;
   color: var(--color-twilight-text-soft);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .finale-action.button:active { scale: none; }
-  .finale-action.button:hover .button-arrow { translate: none; }
 }
 
 /* The second valley: the ground the footer stands on */
@@ -1224,7 +1241,7 @@
   }
 
   .jsec[data-bough-side] {
-    --bough-crossing: calc((100vw - 4.5rem) / 2);
+    --bough-crossing: calc((100cqw - 4.5rem) / 2);
     padding-block: 5rem calc(4rem + var(--bough-crossing));
   }
   .jsec[data-bough-side="right"] { padding-inline: 0 3rem; }
@@ -1393,7 +1410,7 @@
   .journey > .prelude { contain-intrinsic-size: auto 800px; }
   .journey > .emilie { contain-intrinsic-size: auto 1350px; }
   .journey > .constellation { contain-intrinsic-size: auto 1450px; }
-  .finale { contain-intrinsic-size: auto 850px; }
+  .finale { contain-intrinsic-size: auto 940px; }
 }
 
 /* ── Scroll-bound motion ── */
@@ -1517,6 +1534,12 @@
     animation-range:
       cover calc(12vh + (var(--reveal-at) + 0.12) * (100% - 100vh))
       cover calc(12vh + (var(--reveal-at) + 0.26) * (100% - 100vh));
+  }
+
+  /* The blossom is inked as it comes into view, on its own timeline: it sits far below the finale's top */
+  .finale-blossom .sigil-ink {
+    animation-timeline: --blossom;
+    animation-range: entry 25% cover 38%;
   }
 
   /* The valley's lamps wake one by one as it comes into view */

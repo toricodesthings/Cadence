@@ -16,6 +16,7 @@ import { rng, TAU } from "~/lib/geometry";
 
 /** Once the front bank has covered the screen, leave. */
 const NAVIGATE_MS = 1050;
+let preconnected = false;
 const REDUCED_MS = 260;
 /** Canvas pixels per CSS pixel. */
 const RES = 0.5;
@@ -239,6 +240,14 @@ export function CloudPass() {
       if (!link) return;
       e.preventDefault();
       if (timer) return;
+      // Open the connection to the app while the clouds roll, so its page starts on a warm one
+      if (!preconnected) {
+        preconnected = true;
+        const hint = document.createElement("link");
+        hint.rel = "preconnect";
+        hint.href = new URL(link.href).origin;
+        document.head.append(hint);
+      }
       warm();
       setOn(true);
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;

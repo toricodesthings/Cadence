@@ -11,7 +11,7 @@ import { SkyBody } from "./FinaleSkyScene";
 import { Sigil } from "./Sigil";
 
 /* The crown opens over a quiet invitation. Petals, lanterns and the valley carry the fantasy scenery;
- * the stationary blossom frames one glass link, followed by a single reassurance. */
+ * the blossom holds the one signup link, followed by a single reassurance. */
 
 export function Finale() {
   return (
@@ -35,13 +35,12 @@ export function Finale() {
           {FINALE.body}
         </p>
         <div className="finale-invitation">
-          <div className="finale-action-frame">
-            <Sigil className="finale-blossom" blossom />
-            <ButtonLink className="finale-action" ornate={false} sideAccents href={SIGN_UP_URL} data-cloud="">
+          <Sigil className="finale-blossom" blossom>
+            <ButtonLink className="finale-action" href={SIGN_UP_URL} data-cloud="">
               {FINALE.invite}
               <ArrowIcon className="button-icon button-arrow" />
             </ButtonLink>
-          </div>
+          </Sigil>
           <p className="finale-reassurance">{FINALE.reassurance}</p>
         </div>
       </div>

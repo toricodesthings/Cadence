@@ -138,6 +138,8 @@ export function legalMeta(doc: LegalDoc, path: string): MetaDescriptor[] {
     { property: "og:title", content: title },
     { property: "og:description", content: doc.description },
     { property: "og:image", content: `${SITE_URL}/og-image.png` },
+    { property: "og:image:type", content: "image/png" },
+    { property: "og:locale", content: "en_US" },
     { name: "twitter:card", content: "summary_large_image" },
   ];
 }

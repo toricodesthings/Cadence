@@ -8,15 +8,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [0.44.1] - 2026-11-10
 
+The Cadence website starts sooner and its last invitation blooms.
+
 ### Added
 - Capture rows have Move to list (right-click or ⋮), straight into a section; thoughts become tasks with no day.
 - Drag a thought onto No day yet to make it a task, or a task onto New to make it a thought again.
 
 ### Changed
 - Capture's board columns now share the width evenly.
+- The website's closing invitation is a blossom that draws itself around the button.
+- Every Start free button on the website now shares one copper glass.
 
 ### Fixed
 - Placing a thought no longer makes the new task flicker or jump back.
+- The website's opening animation starts sooner on slower phones.
+- The branch on the website no longer shows a gap in narrow desktop windows.
 
 ## [0.44.0] - 2026-11-10
 

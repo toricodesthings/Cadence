@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { KanbanBoard } from "../../../app/components/kanban/KanbanBoard";
@@ -66,7 +67,7 @@ vi.mock("../../../app/components/tasks/RenameTaskDialog", () => ({
 
 describe("KanbanBoard", () => {
     it("keeps the Unsectioned column and add-section trigger visible for an empty project board", () => {
-        const { container } = render(<KanbanBoard tasks={[]} projectId="project-1" />);
+        const { container } = render(<MemoryRouter><KanbanBoard tasks={[]} projectId="project-1" /></MemoryRouter>);
 
         expect(screen.getByText("Unsectioned")).toBeTruthy();
         expect(screen.getByTestId("add-task-ungrouped")).toBeTruthy();

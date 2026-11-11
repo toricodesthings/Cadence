@@ -786,6 +786,12 @@
   animation: var(--hero-still, hero-rise calc(500ms * var(--hero-dur-scale)) var(--ease-out-quart) calc((2400ms + var(--i) * 60ms) * var(--hero-dur-scale)) both);
 }
 
+/* Where the pair would wrap, stack it as two equal buttons */
+@media (max-width: 27.5rem) {
+  .hero-actions { flex-direction: column; align-items: center; }
+  .hero-action { width: min(100%, 14rem); }
+}
+
 /* The main call to action is never quite still: its halo breathes like the lamps, its aura circles faintly,
    and a star flares on its rim every few seconds. Hover brings the aura to full strength and the quick
    twinkle (app.css). Unscaled idle loops that start once the copy is in */

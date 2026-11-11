@@ -171,6 +171,21 @@ function TaskEditorBody({
         task.priority > 0 ? `${PRIORITY_CONFIG[task.priority].label} priority` : null,
     ].filter(Boolean).join(" · ");
 
+    // A Fixed block has no app to add; one that already has an app keeps the pane to open, change or remove it.
+    const hasApp = Boolean(task.linkedAppId || task.linkedUrl);
+    const appPane = !isPassiveTimetable || hasApp ? (
+        <AppPane
+            value={task.linkedAppId}
+            url={task.linkedUrl}
+            title={task.title}
+            kind="task"
+            hint={isRecurringTask(task) ? "Used for every occurrence" : undefined}
+            open={activePanel === "app"}
+            onOpenChange={(open) => setActivePanel(open ? "app" : "notes")}
+            onChange={(patch) => updateTask.mutate({ id: getTaskSeriesId(task), ...patch })}
+        />
+    ) : null;
+
     return (
         <DetailPanelLayout
             mode={detailMode}
@@ -183,19 +198,8 @@ function TaskEditorBody({
             <DetailTitle value={task.title} label="Task title" textareaRef={titleTextareaRef}
                 onSave={(title) => updateTask.mutate({ id: task.id, title })} />
 
-            {/* A Fixed block has no app to add; one that already has an app keeps the pane to open, change or remove it. */}
-            {!isPassiveTimetable || task.linkedAppId || task.linkedUrl ? (
-                <AppPane
-                    value={task.linkedAppId}
-                    url={task.linkedUrl}
-                    title={task.title}
-                    kind="task"
-                    hint={isRecurringTask(task) ? "Used for every occurrence" : undefined}
-                    open={activePanel === "app"}
-                    onOpenChange={(open) => setActivePanel(open ? "app" : "notes")}
-                    onChange={(patch) => updateTask.mutate({ id: getTaskSeriesId(task), ...patch })}
-                />
-            ) : null}
+            {/* An attached app is one tap from the title; an empty one waits quietly above Details. */}
+            {hasApp ? appPane : null}
 
             {/* ── Notes pane ── */}
             {activePanel !== "notes" ? (
@@ -212,13 +216,11 @@ function TaskEditorBody({
                         <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
                             <TaskNoteInline taskId={task.id} onOpenRoom={isWide ? undefined : onClose} />
                         </Suspense>
-                        <p className="px-1 text-[13px] leading-relaxed text-twilight-text-muted" aria-label="Task metadata">
-                            Created {formatDateTime(task.createdAt)}
-                            {task.updatedAt !== task.createdAt && <> · Updated {formatDateTime(task.updatedAt)}</>}
-                        </p>
                     </motion.div>
                 ) : null}
             </AnimatePresence>
+
+            {hasApp ? null : appPane}
 
             {/* ── Details pane ── */}
             {activePanel !== "details" ? (
@@ -269,6 +271,11 @@ function TaskEditorBody({
                     </span>
                 </span>
             </Button>
+
+            <p className="shrink-0 px-1 text-xs leading-relaxed text-twilight-text-muted" aria-label="Task metadata">
+                Created {formatDateTime(task.createdAt)}
+                {task.updatedAt !== task.createdAt && <> · Updated {formatDateTime(task.updatedAt)}</>}
+            </p>
         </DetailPanelLayout>
     );
 }
