@@ -125,19 +125,6 @@ function AddEventButton({ onAdd }: EmptyEventsProps) {
     );
 }
 
-function EventsIntro({ compact }: { compact: boolean }) {
-    return (
-        <section className={compact ? "" : "pt-6"}>
-            <div className="space-y-1">
-                {/* Compact headers already title the page. */}
-                <h1 className={compact ? "sr-only" : "font-display text-2xl font-semibold tracking-tight text-twilight-text"}>
-                    Your Personal Events
-                </h1>
-            </div>
-        </section>
-    );
-}
-
 type EventsBodyProps = EventActions & {
     events: ReturnType<typeof sortPersonalEventViewModels>;
     view: PersonalEventView;
@@ -298,7 +285,7 @@ export default function EventsRoute() {
         >
             <ScrollAreaWrapper>
                 <PageContent width="full" className="space-y-6">
-                    <EventsIntro compact={shell.isCompact} />
+                    <h1 className="sr-only">Events</h1>
 
                     <EventsBody
                         events={events}

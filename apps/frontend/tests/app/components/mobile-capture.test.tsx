@@ -128,7 +128,7 @@ describe("Capture composer", () => {
         render(<Host />);
         fireEvent.change(screen.getByRole("textbox"), { target: { value: "Renew passport" } });
         fireEvent.click(await screen.findByRole("switch", { name: "Save as a task" }));
-        fireEvent.click(await screen.findByRole("button", { name: "Add task", exact: true }));
+        fireEvent.click(await screen.findByRole("button", { name: "Add task" }));
         await waitFor(() => expect(process).toHaveBeenCalled());
         expect(process.mock.calls[0][0]).toMatchObject({ title: "Renew passport", dueDate: null, scheduledStart: null });
     });

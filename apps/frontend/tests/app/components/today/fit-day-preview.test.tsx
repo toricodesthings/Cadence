@@ -6,6 +6,8 @@ import { makeTask } from "../../../helpers";
 const m = vi.hoisted(() => ({ place: vi.fn(), mutateAsync: vi.fn(), online: true }));
 vi.mock("../../../../app/hooks/tasks/use-fit-day", () => ({ usePlaceTasks: () => m.place }));
 vi.mock("../../../../app/hooks/tasks/use-update-task", () => ({ useUpdateTask: () => ({ mutateAsync: m.mutateAsync }) }));
+// `useToday` reads a store set at import from the real clock; pin it to the day these tests use.
+vi.mock("../../../../app/lib/utils/user-zone", async (importOriginal) => ({ ...(await importOriginal<object>()), useToday: () => "2026-10-20" }));
 vi.mock("../../../../app/hooks/core/use-online-status", () => ({ useOnlineStatus: () => m.online }));
 
 import { FitDayPreview } from "../../../../app/components/today/FitDayPreview";

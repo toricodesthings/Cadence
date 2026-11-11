@@ -6,9 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+A quieter Events page.
+
+### Removed
+
+- The "Your Personal Events" heading above the Events list.
+
 ## [0.45.2] - 2026-11-11
 
-### Improved
+### Fixed
 
 Backend performance and stability.
 
