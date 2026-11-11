@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.45.3] - 2026-11-11
+
 A quieter Events page.
 
 ### Removed
