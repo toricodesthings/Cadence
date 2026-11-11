@@ -1,3 +1,4 @@
+import { StaticSvg } from "~/components/StaticSvg";
 import { cssVars, n1 } from "~/lib/geometry";
 import { CONSTELLATION } from "~/lib/site";
 
@@ -100,7 +101,7 @@ export function Constellation() {
 
       <div className="chapter-panel constellation-chart">
         {CHARTS.map(({ name, height, stars, dust, companions }) => (
-          <svg
+          <StaticSvg
             key={name}
             className={`constellation-map-${name}`}
             viewBox={`0 0 100 ${height}`}
@@ -108,46 +109,8 @@ export function Constellation() {
             aria-hidden="true"
             focusable="false"
           >
-            {name === "wide" && (
-              <g className="constellation-orbits">
-                <ellipse cx="51" cy="43" rx="28" ry="38" transform="rotate(18 51 43)" />
-                <ellipse cx="51" cy="43" rx="21" ry="32" transform="rotate(-24 51 43)" />
-                <path d="M49,0v3M49,85v3M18,43h3M81,43h3" />
-              </g>
-            )}
-            {dust.map(([x, y]) => (
-              <circle key={`${x},${y}`} className="constellation-dust" cx={x} cy={y} r=".26" />
-            ))}
-            {EDGES.map(([a, b], k) => (
-              <path
-                key={k}
-                className="constellation-line"
-                d={`M${stars[a][0]},${stars[a][1]}L${stars[b][0]},${stars[b][1]}`}
-                pathLength={1}
-                style={cssVars({
-                  "--d0": n1((DRAW_FROM + (k * DRAW_SPAN) / EDGES.length) * 100) / 100,
-                  "--d1": n1((DRAW_FROM + ((k + 1) * DRAW_SPAN) / EDGES.length) * 100) / 100,
-                })}
-              />
-            ))}
-            {companions.map(([x, y, a, b], k) => (
-              <g key={k}>
-                <path
-                  className="constellation-line constellation-companion-line"
-                  d={`M${stars[a][0]},${stars[a][1]}L${x},${y}L${stars[b][0]},${stars[b][1]}`}
-                  pathLength={1}
-                  style={cssVars({ "--d0": 0.2 + k * 0.06, "--d1": 0.26 + k * 0.06 })}
-                />
-                <circle className="constellation-companion" cx={x} cy={y} r=".45" />
-              </g>
-            ))}
-            {name === "wide" && stars.map(([x, y], k) => (
-              <g key={`halo-${k}`} className="constellation-node-halo">
-                <circle cx={x} cy={y} r={STARS[k][3] ? 1.8 : 1.2} />
-                {STARS[k][3] && <circle className="constellation-node-ring" cx={x} cy={y} r="2.6" />}
-              </g>
-            ))}
-          </svg>
+            {import.meta.env.SSR ? <ChartBody name={name} stars={stars} dust={dust} companions={companions} /> : null}
+          </StaticSvg>
         ))}
         <ul className="constellation-stars">
           {CONSTELLATION.stars.map((star, k) => {
@@ -176,5 +139,53 @@ export function Constellation() {
         </ul>
       </div>
     </section>
+  );
+}
+
+type Chart = (typeof CHARTS)[number];
+
+function ChartBody({ name, stars, dust, companions }: Pick<Chart, "name" | "stars" | "dust" | "companions">) {
+  return (
+    <>
+      {name === "wide" && (
+        <g className="constellation-orbits">
+          <ellipse cx="51" cy="43" rx="28" ry="38" transform="rotate(18 51 43)" />
+          <ellipse cx="51" cy="43" rx="21" ry="32" transform="rotate(-24 51 43)" />
+          <path d="M49,0v3M49,85v3M18,43h3M81,43h3" />
+        </g>
+      )}
+      {dust.map(([x, y]) => (
+        <circle key={`${x},${y}`} className="constellation-dust" cx={x} cy={y} r=".26" />
+      ))}
+      {EDGES.map(([a, b], k) => (
+        <path
+          key={k}
+          className="constellation-line"
+          d={`M${stars[a][0]},${stars[a][1]}L${stars[b][0]},${stars[b][1]}`}
+          pathLength={1}
+          style={cssVars({
+            "--d0": n1((DRAW_FROM + (k * DRAW_SPAN) / EDGES.length) * 100) / 100,
+            "--d1": n1((DRAW_FROM + ((k + 1) * DRAW_SPAN) / EDGES.length) * 100) / 100,
+          })}
+        />
+      ))}
+      {companions.map(([x, y, a, b], k) => (
+        <g key={k}>
+          <path
+            className="constellation-line constellation-companion-line"
+            d={`M${stars[a][0]},${stars[a][1]}L${x},${y}L${stars[b][0]},${stars[b][1]}`}
+            pathLength={1}
+            style={cssVars({ "--d0": 0.2 + k * 0.06, "--d1": 0.26 + k * 0.06 })}
+          />
+          <circle className="constellation-companion" cx={x} cy={y} r=".45" />
+        </g>
+      ))}
+      {name === "wide" && stars.map(([x, y], k) => (
+        <g key={`halo-${k}`} className="constellation-node-halo">
+          <circle cx={x} cy={y} r={STARS[k][3] ? 1.8 : 1.2} />
+          {STARS[k][3] && <circle className="constellation-node-ring" cx={x} cy={y} r="2.6" />}
+        </g>
+      ))}
+    </>
   );
 }

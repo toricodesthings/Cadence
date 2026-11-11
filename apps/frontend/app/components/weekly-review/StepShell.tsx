@@ -35,7 +35,7 @@ export function StepShell({ step, title: titleOverride, count, center = false, o
         };
     }, [onTitleVisible]);
     return (
-        <section aria-labelledby={`reset-step-${step}`} className="mx-auto flex w-full flex-col gap-6 md:max-w-[44rem] lg:max-w-[60rem] 2xl:max-w-[76rem]">
+        <section aria-labelledby={`reset-step-${step}`} className="mx-auto flex w-full flex-1 flex-col gap-6 md:max-w-[44rem] lg:max-w-[60rem] 2xl:max-w-[76rem]">
             <header className={`flex items-center gap-3 ${center ? "justify-center" : ""}`}>
                 <h1 ref={titleRef} id={`reset-step-${step}`} className="font-display text-[clamp(1.625rem,1.3rem+0.8vw,2.125rem)] font-semibold leading-[1.08] tracking-[-0.02em] text-twilight-text">
                     {title}
@@ -44,7 +44,7 @@ export function StepShell({ step, title: titleOverride, count, center = false, o
                     <span className="rounded-full bg-accent-primary/12 px-2.5 py-0.5 text-sm font-semibold tabular-nums text-accent-primary">{count}</span>
                 ) : null}
             </header>
-            <div className="@container">{children}</div>
+            <div className="@container flex flex-1 flex-col">{children}</div>
         </section>
     );
 }
@@ -63,7 +63,7 @@ export function StepFooter({ step, onBack, onNext, onDone, children }: {
         <div className="sticky bottom-0 layer-shell-header -mx-4 mt-auto sm:-mx-8 md:-mx-12">
             {/* A scroll-edge fade instead of a border: the content scrolls under the bar. */}
             <div aria-hidden="true" className="pointer-events-none h-6 bg-[linear-gradient(to_top,color-mix(in_srgb,var(--color-panel)_55%,transparent),transparent)]" />
-            <div className="surface-shell photo-shell-surface safe-bottom px-4 py-3 sm:px-8 md:px-12">
+            <div className="surface-shell safe-bottom px-4 py-3 sm:px-8 md:px-12">
                 <div className="mx-auto flex w-full items-center gap-2 md:max-w-[44rem] lg:max-w-[60rem] 2xl:max-w-[76rem]">
                     {children ?? (
                         <>
@@ -85,7 +85,7 @@ export function StepFooter({ step, onBack, onNext, onDone, children }: {
 
 /** An empty step: an icon and two words. Next is in the footer. */
 export function StepEmpty({ icon, title }: { icon: LucideIcon; title: string }) {
-    return <EmptyState icon={icon} title={title} description={null} compact />;
+    return <div className="flex flex-1 flex-col justify-center"><EmptyState icon={icon} title={title} description={null} compact /></div>;
 }
 
 /** A row that leaves by closing its gap (height + fade) instead of the list jumping. */

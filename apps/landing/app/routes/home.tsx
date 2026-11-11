@@ -31,11 +31,6 @@ export const meta: Route.MetaFunction = () => [
   { name: "twitter:card", content: "summary_large_image" },
 ];
 
-// Content only changes on deploy.
-export const headers: Route.HeadersFunction = () => ({
-  "Cache-Control": "public, max-age=300",
-});
-
 export default function Home() {
   // Idle loops rest while the tab is hidden or the window is in the background (lib/away.ts)
   useEffect(() => watchAway(), []);

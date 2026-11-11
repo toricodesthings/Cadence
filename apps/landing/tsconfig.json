@@ -14,8 +14,7 @@
     ],
     "types": [
       "node",
-      "vite/client",
-      "@cloudflare/workers-types"
+      "vite/client"
     ],
     "jsx": "react-jsx",
     "rootDirs": [

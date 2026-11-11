@@ -1,4 +1,4 @@
-import { Ume } from "~/components/hero/HeroBough";
+import { Ume } from "~/components/hero/HeroBoughScene";
 
 /*
  * What the bough carries, season by season (6.4). Foliage is what the eye reads as the season; colour only

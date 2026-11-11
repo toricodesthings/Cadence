@@ -9,7 +9,6 @@ import {
 
 import type { Route } from "./+types/root";
 import { ButtonLink } from "./components/ButtonLink";
-import { NotFound } from "./components/NotFound";
 import { HEAD_SCRIPT } from "./lib/intro";
 import appStylesHref from "./app.css?url";
 import outfitLatinHref from "@fontsource-variable/outfit/files/outfit-latin-wght-normal.woff2?url";
@@ -51,26 +50,13 @@ export default function App() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  // A missing page is not an error to apologise for: it gets the scene, framed by the portrait boughs.
-  if (isRouteErrorResponse(error) && error.status === 404) {
-    return (
-      <>
-        <title>Page not found · Cadence</title>
-        <NotFound />
-      </>
-    );
-  }
-
   let message = "Something went wrong";
   let details = "An unexpected error occurred.";
   let stack: string | undefined;
 
   if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "Page not found" : "Error";
-    details =
-      error.status === 404
-        ? "There's nothing at this address."
-        : error.statusText || details;
+    message = "Error";
+    details = error.statusText || details;
   } else if (import.meta.env.DEV && error instanceof Error) {
     details = error.message;
     stack = error.stack;

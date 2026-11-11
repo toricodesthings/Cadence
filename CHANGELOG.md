@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+The Cadence website opens faster, especially on phones.
+
+### Changed
+
+- The Cadence website opens faster, especially on phones.
+
+### Fixed
+
+- Weekly Reset's empty steps now sit centred on the page.
+- Weekly Reset's bottom bar blurs what scrolls under it over a photo background, so buttons stay readable.
+- Board columns with many tasks now scroll inside the column instead of stretching the page.
+- Section drag handles line up with task handles, with matching size and spacing.
+
 ## [0.43.1] - 2026-11-10
 
 ### Changed

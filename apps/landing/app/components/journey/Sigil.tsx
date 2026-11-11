@@ -1,5 +1,6 @@
 import { useId, type CSSProperties, type ReactNode } from "react";
 
+import { StaticSvg } from "~/components/StaticSvg";
 import { cssVars } from "~/lib/geometry";
 
 /** A four-point star centred on (x, y): the crest's star, drawn as four concave arms. */
@@ -38,49 +39,65 @@ export function Sigil({
       {!blossom && <span className="sigil-glow" aria-hidden="true" />}
       {/* The animated ring turns on a box around its SVG; the blossom remains still. */}
       <span className="sigil-ring sigil-ring-outer" aria-hidden="true">
-        <svg viewBox="-100 -100 200 200" focusable="false">
-          <defs>
-            <linearGradient id={ink} gradientUnits="userSpaceOnUse" x1="-100" y1="-100" x2="100" y2="100">
-              <stop offset=".08" stopColor="var(--hero-sigil-berry)" />
-              <stop offset=".3" stopColor="var(--hero-sigil-coral)" />
-              <stop offset=".48" stopColor="var(--hero-sigil-orange)" />
-              <stop offset=".68" stopColor="var(--hero-sigil-amber)" />
-              <stop offset=".9" stopColor="var(--hero-sigil-orange)" />
-            </linearGradient>
-          </defs>
-          {blossom ? (
-            <>
-              <path className="sigil-petals" d={UMEBACHI} />
-              <path className="sigil-star" d={star(0, -98, 3.2) + star(-91, -28, 2.6) + star(83, 48, 2.6)} />
-              <circle className="sigil-dot" cx="-36" cy="88" r="1.3" />
-              <circle className="sigil-dot" cx="81" cy="-49" r="1.1" />
-            </>
-          ) : (
-            <>
-              <circle className="sigil-faint" r="87" />
-              <circle className="sigil-ink" r="95" pathLength={1} transform="rotate(-90)" />
-              {QUARTERS.map((a) => (
-                <path key={a} className="sigil-star" d={star(0, -95, 7.5)} transform={`rotate(${a})`} />
-              ))}
-              {TICKS.map((a) => (
-                <circle key={a} className="sigil-dot" r="1.4" cy="-95" transform={`rotate(${a})`} />
-              ))}
-            </>
-          )}
-        </svg>
+        <StaticSvg viewBox="-100 -100 200 200" focusable="false">
+          {import.meta.env.SSR ? <OuterBody ink={ink} blossom={blossom} /> : null}
+        </StaticSvg>
       </span>
       {!blossom && (
         <span className="sigil-ring sigil-ring-inner" aria-hidden="true">
-          <svg viewBox="-100 -100 200 200" focusable="false">
-            <circle className="sigil-ink" r="72" pathLength={1} transform="rotate(135)" />
-            <path className="sigil-ink sigil-ink-late" d="M0,-60 60,0 0,60 -60,0Z" pathLength={1} />
-            {QUARTERS.map((a) => (
-              <path key={a} className="sigil-star" d="M0,-80 4,-72 0,-64 -4,-72Z" transform={`rotate(${a + 45})`} />
-            ))}
-          </svg>
+          <StaticSvg viewBox="-100 -100 200 200" focusable="false">
+            {import.meta.env.SSR ? <InnerBody /> : null}
+          </StaticSvg>
         </span>
       )}
       {children}
     </div>
+  );
+}
+
+function OuterBody({ ink, blossom }: { ink: string; blossom: boolean }) {
+  return (
+    <>
+      <defs>
+        <linearGradient id={ink} gradientUnits="userSpaceOnUse" x1="-100" y1="-100" x2="100" y2="100">
+          <stop offset=".08" stopColor="var(--hero-sigil-berry)" />
+          <stop offset=".3" stopColor="var(--hero-sigil-coral)" />
+          <stop offset=".48" stopColor="var(--hero-sigil-orange)" />
+          <stop offset=".68" stopColor="var(--hero-sigil-amber)" />
+          <stop offset=".9" stopColor="var(--hero-sigil-orange)" />
+        </linearGradient>
+      </defs>
+      {blossom ? (
+        <>
+          <path className="sigil-petals" d={UMEBACHI} />
+          <path className="sigil-star" d={star(0, -98, 3.2) + star(-91, -28, 2.6) + star(83, 48, 2.6)} />
+          <circle className="sigil-dot" cx="-36" cy="88" r="1.3" />
+          <circle className="sigil-dot" cx="81" cy="-49" r="1.1" />
+        </>
+      ) : (
+        <>
+          <circle className="sigil-faint" r="87" />
+          <circle className="sigil-ink" r="95" pathLength={1} transform="rotate(-90)" />
+          {QUARTERS.map((a) => (
+            <path key={a} className="sigil-star" d={star(0, -95, 7.5)} transform={`rotate(${a})`} />
+          ))}
+          {TICKS.map((a) => (
+            <circle key={a} className="sigil-dot" r="1.4" cy="-95" transform={`rotate(${a})`} />
+          ))}
+        </>
+      )}
+    </>
+  );
+}
+
+function InnerBody() {
+  return (
+    <>
+      <circle className="sigil-ink" r="72" pathLength={1} transform="rotate(135)" />
+      <path className="sigil-ink sigil-ink-late" d="M0,-60 60,0 0,60 -60,0Z" pathLength={1} />
+      {QUARTERS.map((a) => (
+        <path key={a} className="sigil-star" d="M0,-80 4,-72 0,-64 -4,-72Z" transform={`rotate(${a + 45})`} />
+      ))}
+    </>
   );
 }

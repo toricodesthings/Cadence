@@ -42,6 +42,12 @@ export function Hero() {
     if (!hero) return;
     let settled = false;
     let done = 0;
+    const events = ["scroll", "pointerdown", "keydown", "touchstart"] as const;
+    // Once the intro is settled and running there is nothing left to listen for.
+    function detach() {
+      events.forEach((e) => window.removeEventListener(e, onInput));
+      document.removeEventListener("visibilitychange", onVisible);
+    }
     const settle = () => {
       if (settled) return;
       settled = true;
@@ -52,26 +58,29 @@ export function Hero() {
         // Storage blocked: the intro simply plays again next time.
       }
     };
-    if (document.documentElement.hasAttribute("data-hero-return")) settle();
-    const cancelRelease = releaseIntro();
-    const events = ["scroll", "pointerdown", "keydown", "touchstart"] as const;
-    const onInput = () => {
+    function onInput() {
       settle();
       startIntro();
-    };
-    const onVisible = () => {
+    }
+    function onVisible() {
       if (document.visibilityState === "visible") onInput();
-    };
+    }
     events.forEach((e) => window.addEventListener(e, onInput, { passive: true }));
     document.addEventListener("visibilitychange", onVisible);
+    if (document.documentElement.hasAttribute("data-hero-return")) settle();
+    const cancelRelease = releaseIntro();
     const cancelStart = onIntroStart(() => {
-      done = window.setTimeout(settle, INTRO_MS);
+      if (settled) detach();
+      else
+        done = window.setTimeout(() => {
+          settle();
+          detach();
+        }, INTRO_MS);
     });
     return () => {
       cancelRelease();
       cancelStart();
-      events.forEach((e) => window.removeEventListener(e, onInput));
-      document.removeEventListener("visibilitychange", onVisible);
+      detach();
       window.clearTimeout(done);
     };
   }, []);

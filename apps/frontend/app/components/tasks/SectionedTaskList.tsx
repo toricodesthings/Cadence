@@ -185,7 +185,7 @@ export function SectionedTaskList({
                       {(grip) => (<>
                         {/* Section header */}
                         <div className="flex items-center gap-2 group">
-                            {grip}
+                            {grip ? <span className="-ml-2 -mr-0.5 flex">{grip}</span> : null}
                             <button
                                 type="button"
                                 onClick={() => toggleCollapse(section.id)}

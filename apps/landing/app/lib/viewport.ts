@@ -9,7 +9,18 @@
  * crosses one of `steps` (`share`: the part of its height inside the viewport, like an IntersectionObserver's
  * ratio). `near` counts `margin` (a share of the viewport's height) around the screen, so work can resume a little
  * before anything of it shows. Returns a cleanup.
+ *
+ * Every watcher shares one `scroll` listener, one `resize` listener and one ResizeObserver, so a resize measures
+ * each target once however many watchers there are.
  */
+type Watcher = { measure: () => void; update: () => void; targets: readonly Element[] };
+
+const watchers = new Set<Watcher>();
+let ro: ResizeObserver | undefined;
+
+const measureAll = () => watchers.forEach((w) => w.measure());
+const updateAll = () => watchers.forEach((w) => w.update());
+
 export function watchViewport(
   targets: readonly Element[],
   onChange: (el: Element, share: number, near: boolean) => void,
@@ -43,17 +54,26 @@ export function watchViewport(
     update();
   };
 
-  // Anything that moves a section changes the size of the document or of a section
-  const ro = new ResizeObserver(measure);
-  ro.observe(document.documentElement);
-  targets.forEach((el) => ro.observe(el));
-  window.addEventListener("scroll", update, { passive: true });
-  window.addEventListener("resize", measure);
+  const watcher: Watcher = { measure, update, targets };
+  if (!watchers.size) {
+    // Anything that moves a section changes the size of the document or of a section
+    ro = new ResizeObserver(measureAll);
+    ro.observe(document.documentElement);
+    window.addEventListener("scroll", updateAll, { passive: true });
+    window.addEventListener("resize", measureAll);
+  }
+  watchers.add(watcher);
+  targets.forEach((el) => ro!.observe(el));
   measure();
 
   return () => {
-    ro.disconnect();
-    window.removeEventListener("scroll", update);
-    window.removeEventListener("resize", measure);
+    watchers.delete(watcher);
+    targets.forEach((el) => ro?.unobserve(el));
+    if (!watchers.size) {
+      ro?.disconnect();
+      ro = undefined;
+      window.removeEventListener("scroll", updateAll);
+      window.removeEventListener("resize", measureAll);
+    }
   };
 }

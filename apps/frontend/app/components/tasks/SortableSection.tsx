@@ -14,9 +14,9 @@ export function FoldColumn({ hidden, children }: { hidden: boolean; children: Re
     return (
         <div
             inert={hidden}
-            className={`grid shrink-0 transition-[grid-template-columns,opacity,margin] duration-200 ease-out motion-reduce:transition-none [html[data-motion=reduced]_&]:transition-none ${hidden ? "grid-cols-[0fr] -mr-4 opacity-0" : "grid-cols-[1fr]"}`}
+            className={`grid min-h-0 shrink-0 grid-rows-[minmax(0,1fr)] transition-[grid-template-columns,opacity,margin] duration-200 ease-out motion-reduce:transition-none [html[data-motion=reduced]_&]:transition-none ${hidden ? "grid-cols-[0fr] -mr-4 opacity-0" : "grid-cols-[1fr]"}`}
         >
-            <div className="min-w-0 overflow-x-clip">{children}</div>
+            <div className="h-full min-h-0 min-w-0 overflow-x-clip">{children}</div>
         </div>
     );
 }
@@ -42,9 +42,9 @@ export function SortableSection({ id, name, className, children }: {
             {...listeners}
             data-no-dnd="true"
             aria-label={`Drag to reorder section ${name}`}
-            className="shrink-0 cursor-grab touch-none rounded-lg p-0.5 text-twilight-text-muted/40 transition-colors hover:text-twilight-text-soft active:cursor-grabbing"
+            className="flex h-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-twilight-text-muted/40 transition-colors hover:text-twilight-text-soft active:cursor-grabbing"
         >
-            <GripVertical size={14} aria-hidden="true" />
+            <GripVertical size={16} aria-hidden="true" />
         </button>
     );
     return (

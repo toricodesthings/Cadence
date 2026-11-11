@@ -104,8 +104,8 @@ function KanbanColumn({
                 ) : (
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                            {/* The grip sits in the header's left padding so every title lines up with Unsectioned's. */}
-                            {grip ? <span className="absolute left-0.5 top-1/2 flex -translate-y-1/2">{grip}</span> : null}
+                            {/* The grip is part of the header, starting at the same padding as Unsectioned's title. */}
+                            {grip ? <span className="-my-1 flex">{grip}</span> : null}
                             <h3 className="truncate font-display text-base font-semibold text-twilight-text">
                                 {section.name}
                             </h3>

@@ -1,18 +1,17 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "cadence-landing",
-  "main": "./workers/app.ts",
   "compatibility_date": "2026-09-01",
+  // No Worker: the prerendered site is served straight from the asset store (headers in public/_headers).
+  "assets": {
+    "directory": "./build/client",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  },
   "observability": {
     "enabled": true
   },
+  "workers_dev": false,
   "preview_urls": false
-
-  // Root domain. Uncomment once you're ready to attach it (the dashboard lives on
-  // dashboard.cadenceapp.cloud and the API on api.cadenceapp.cloud):
-  // "workers_dev": false,
-  // "routes": [
-  //   { "pattern": "cadenceapp.cloud", "custom_domain": true },
-  //   { "pattern": "www.cadenceapp.cloud", "custom_domain": true }
-  // ]
+  // cadenceapp.cloud and www are attached to this Worker as custom domains in the Cloudflare dashboard.
 }

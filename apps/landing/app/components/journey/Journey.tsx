@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef } from "react";
 
-import { cssVars, n1, pt, rng } from "~/lib/geometry";
+import { StaticSvg } from "~/components/StaticSvg";
+import { cssVars } from "~/lib/geometry";
 import { CHAPTERS, PRELUDE } from "~/lib/site";
 import { watchViewport } from "~/lib/viewport";
 
@@ -11,6 +12,7 @@ import { Drift } from "./Drift";
 import { Emilie } from "./Emilie";
 import { Finale } from "./Finale";
 import { Panel } from "./Panel";
+import { SkyBody } from "./JourneySkyScene";
 
 /*
  * The journey: one year on one weeping bough. Four chapters wear the four
@@ -22,32 +24,6 @@ import { Panel } from "./Panel";
  * frame): it pauses sections that are out of view and, where the browser has no
  * scroll timelines, grows each section's bough once on entry.
  */
-
-const TINTS = ["spring", "summer", "autumn", "winter"] as const;
-
-/** The sticky sky's stars: faint, fixed to the screen like a real sky, one path per warmth. */
-const SKY = (() => {
-  const rand = rng(83);
-  let cool = "";
-  let warm = "";
-  for (let i = 0; i < 46; i++) {
-    const x = 20 + rand() * 1880;
-    const y = 20 + rand() * 1040;
-    const r = n1(0.5 + rand() * 0.7);
-    const d = `M${pt(x - r, y)}a${r},${r} 0 1,0 ${n1(2 * r)},0a${r},${r} 0 1,0 ${n1(-2 * r)},0`;
-    if (rand() < 0.28) warm += d;
-    else cool += d;
-  }
-  return { cool, warm };
-})();
-
-/** Four stars that twinkle in the sticky sky: [x %, y %, duration s, delay s]. */
-const TWINKLES: readonly (readonly [number, number, number, number])[] = [
-  [11, 16, 5.3, -1.4],
-  [83, 11, 6.7, -3.9],
-  [66, 36, 7.9, -0.8],
-  [24, 42, 4.9, -2.6],
-];
 
 const LEAD_SENTENCES = PRELUDE.lead.split(/(?<=\.)\s+/).map((sentence, i, sentences) => ({
   words: sentence.split(" "),
@@ -94,22 +70,9 @@ export function Journey() {
 
   return (
     <section ref={ref} className="journey" aria-labelledby="journey-title">
-      <div className="journey-sky" aria-hidden="true">
-        <svg className="journey-stars" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" focusable="false">
-          <path d={SKY.cool} fill="var(--hero-star-cool)" />
-          <path d={SKY.warm} fill="var(--hero-star-warm)" />
-        </svg>
-        {TWINKLES.map(([x, y, dur, delay]) => (
-          <span
-            key={x}
-            className="journey-twinkle"
-            style={cssVars({ "--x": `${x}%`, "--y": `${y}%`, "--dur": `${dur}s`, "--delay": `${delay}s` })}
-          />
-        ))}
-        {TINTS.map((season) => (
-          <span key={season} className={`journey-tint journey-tint-${season}`} />
-        ))}
-      </div>
+      <StaticSvg as="div" className="journey-sky" aria-hidden="true">
+        {import.meta.env.SSR ? <SkyBody /> : null}
+      </StaticSvg>
       <div className="journey-fade" aria-hidden="true" />
       {/* The valley's weather over the seam, so the hero's ground and the journey's sky are one night */}
       <div className="journey-mist" aria-hidden="true">

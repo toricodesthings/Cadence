@@ -155,7 +155,7 @@ export default function WeeklyReview() {
                             animate="center"
                             exit="exit"
                             transition={SPRINGS.GLIDE}
-                            className={currentStep === 0 ? "my-auto pb-8" : "pb-8"}
+                            className={currentStep === 0 ? "my-auto pb-8" : "flex flex-1 flex-col pb-8"}
                         >
                             {step}
                         </motion.div>

@@ -10,6 +10,8 @@ import { startIntro } from "~/lib/intro";
 import type { LegalBlock, LegalDoc } from "~/lib/legal/types";
 import { SITE_NAME, SITE_URL } from "~/lib/site";
 
+import "./legal.css";
+
 /*
  * A legal document in the page's own night: a masthead under twinkling stars, a lit "In short" panel, then one
  * section per clause, each wearing the next season (the journey's palettes) so a long read keeps a rhythm.
