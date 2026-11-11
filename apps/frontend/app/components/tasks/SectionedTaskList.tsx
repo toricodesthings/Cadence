@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { EmptyState } from "./EmptyState";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, EllipsisVertical, Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, Columns3, EllipsisVertical, Pencil, Trash2 } from "lucide-react";
 import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { AnimatePresence, motion } from "framer-motion";
@@ -17,6 +17,7 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { Tip } from "../primitives/Tooltip";
+import { useDeviceValue } from "../../hooks/ui/use-device-flag";
 import { ManageSectionsButton } from "./ProjectSheets";
 import type { TaskSection } from "@cadence/contracts/section";
 import type { Task } from "@cadence/contracts/task";
@@ -69,17 +70,27 @@ export function SectionedTaskList({
         </div>
     ) : null;
 
-    const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+    // Folded sections, remembered on this device (ids are unique, so one key serves every list).
+    const [foldedRaw, setFoldedRaw] = useDeviceValue("cadence-fold:list-sections");
+    const collapsedSections = useMemo(() => {
+        try {
+            return new Set<string>(foldedRaw ? (JSON.parse(foldedRaw) as string[]) : []);
+        } catch {
+            return new Set<string>(); // Unreadable: start with everything open.
+        }
+    }, [foldedRaw]);
     const [editingSection, setEditingSection] = useState<string | null>(null);
 
+    // Unsectioned has no id of its own, so its fold is keyed by the list.
+    const ungroupedKey = `ungrouped:${projectId ?? "none"}`;
+    const ungroupedFolded = collapsedSections.has(ungroupedKey);
+
     const toggleCollapse = useCallback((sectionId: string) => {
-        setCollapsedSections((prev) => {
-            const next = new Set(prev);
-            if (next.has(sectionId)) next.delete(sectionId);
-            else next.add(sectionId);
-            return next;
-        });
-    }, []);
+        const next = new Set(collapsedSections);
+        if (next.has(sectionId)) next.delete(sectionId);
+        else next.add(sectionId);
+        setFoldedRaw(next.size ? JSON.stringify([...next]) : null);
+    }, [collapsedSections, setFoldedRaw]);
 
     const { ungroupedTasks, sectionTaskMap } = useMemo(() => groupTasksBySection(tasks), [tasks]);
 
@@ -123,9 +134,15 @@ export function SectionedTaskList({
         );
     }
 
-    const sectionSurfaceClass = shell.isCompact
-        ? "surface-card rounded-[28px] px-3 py-3"
-        : "";
+    // Phone rows: sections sit open on the page like Today's (fading line, no box); Board already boxes them.
+    const sectionSurfaceClass = shell.isCompact ? "mt-2" : "";
+    const titleClass = shell.isCompact
+        ? "text-[12px] font-semibold uppercase tracking-[0.18em] text-twilight-text"
+        : "text-[13px] font-display font-semibold uppercase tracking-[0.16em] text-twilight-text";
+    const lineClass = shell.isCompact
+        ? "h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent"
+        : "flex-1 h-px bg-gradient-to-r from-twilight-border/20 to-transparent";
+    const sectionIcon = shell.isCompact ? <Columns3 size={14} aria-hidden="true" className="shrink-0 text-twilight-text-soft" /> : null;
     const inlineAddClass = shell.isCompact ? "mt-3" : "mt-2";
     const Block = draggable ? SortableSection : PlainSection;
     const wrapSections = (blocks: React.ReactNode) => draggable ? (
@@ -141,17 +158,25 @@ export function SectionedTaskList({
                 <Reveal open={!(hideEmptySections && ungroupedTasks.length === 0)}>
                 <div className={shell.isCompact ? sectionSurfaceClass : "mt-4"}>
                     <div className="flex items-center gap-2 group">
-                        <div className="flex items-center gap-2 flex-1 py-1.5 text-left">
-                            <span className="text-[13px] font-display font-semibold uppercase tracking-[0.16em] text-twilight-text">
+                        <Tip label={ungroupedFolded ? "Expand" : "Collapse"}><button
+                            type="button"
+                            onClick={() => toggleCollapse(ungroupedKey)}
+                            className="flex min-w-0 items-center gap-2 py-1.5 text-left cursor-pointer"
+                            aria-expanded={!ungroupedFolded}
+                        >
+                            <ChevronRight size={14} aria-hidden="true" className={`shrink-0 text-twilight-text-soft transition-transform duration-200 motion-reduce:transition-none ${ungroupedFolded ? "" : "rotate-90"}`} />
+                            {sectionIcon}
+                            <span className={titleClass}>
                                 Unsectioned
                             </span>
                             <span className="text-[12px] text-twilight-text-soft/90 tabular-nums">
                                 {ungroupedTasks.length}
                             </span>
-                        </div>
+                        </button></Tip>
 
-                        <div className="flex-1 h-px bg-gradient-to-r from-twilight-border/20 to-transparent" />
+                        <div className={lineClass} />
                     </div>
+                    <Reveal open={!ungroupedFolded}>
                     <TaskList
                         className="mt-4"
                         tasks={ungroupedTasks}
@@ -169,6 +194,7 @@ export function SectionedTaskList({
                             />
                         </div>
                     ) : null}
+                    </Reveal>
                 </div>
                 </Reveal>
             )}
@@ -186,16 +212,14 @@ export function SectionedTaskList({
                         {/* Section header */}
                         <div className="flex items-center gap-2 group">
                             {grip ? <span className="-ml-2 -mr-0.5 flex">{grip}</span> : null}
-                            <button
+                            <Tip label={isCollapsed ? "Expand" : "Collapse"}><button
                                 type="button"
                                 onClick={() => toggleCollapse(section.id)}
-                                className="flex items-center gap-2 flex-1 py-1.5 text-left cursor-pointer"
+                                className="flex min-w-0 items-center gap-2 py-1.5 text-left cursor-pointer"
                                 aria-expanded={!isCollapsed}
                             >
-                                {isCollapsed
-                                    ? <ChevronRight size={14} className="text-twilight-text-muted shrink-0" />
-                                    : <ChevronDown size={14} className="text-twilight-text-muted shrink-0" />
-                                }
+                                <ChevronRight size={14} aria-hidden="true" className={`shrink-0 text-twilight-text-soft transition-transform duration-200 motion-reduce:transition-none ${isCollapsed ? "" : "rotate-90"}`} />
+                                {sectionIcon}
                                 {isEditing ? (
                                     <input
                                         autoFocus
@@ -209,14 +233,16 @@ export function SectionedTaskList({
                                         onClick={(e) => e.stopPropagation()}
                                     />
                                 ) : (
-                                    <span className="text-[13px] font-display font-semibold uppercase tracking-[0.16em] text-twilight-text">
+                                    <span className={titleClass}>
                                         {section.name}
                                     </span>
                                 )}
                                 <span className="text-[12px] text-twilight-text-soft/90 tabular-nums">
                                     {sectionTasks.length}
                                 </span>
-                            </button>
+                            </button></Tip>
+
+                            <div className={lineClass} />
 
                             {/* Section context menu */}
                             <SectionMenu
@@ -229,8 +255,6 @@ export function SectionedTaskList({
                                 first={index === 0}
                                 last={index === sections.length - 1}
                             />
-
-                            <div className="flex-1 h-px bg-gradient-to-r from-twilight-border/20 to-transparent" />
                         </div>
 
                         {/* Section tasks */}
@@ -287,7 +311,7 @@ function SectionMenu({ section, compact, onManage, onRename, onDelete, onMove, f
                 <button
                     type="button"
                     onClick={() => onManage(section.id)}
-                    className="mobile-icon-button glass-inset"
+                    className="mobile-icon-button glass-inset ml-auto shrink-0"
                     aria-label={`Edit section ${section.name}`}
                 >
                     <EllipsisVertical size={18} aria-hidden="true" />
@@ -296,7 +320,7 @@ function SectionMenu({ section, compact, onManage, onRename, onDelete, onMove, f
         );
     }
     return (
-        <div className={compact ? "opacity-100" : "opacity-0 transition-opacity group-hover:opacity-100"}>
+        <div className={`ml-auto shrink-0 ${compact ? "opacity-100" : "opacity-0 transition-opacity group-hover:opacity-100"}`}>
             <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                     <Button

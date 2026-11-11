@@ -454,7 +454,7 @@ export function TaskCard({
             </div>
 
             {/* Context menu — subtly visible, full opacity on hover */}
-            <div data-no-dnd="true" className={isBoardCard ? "absolute right-1.5 top-2 pointer-coarse:right-2 pointer-fine:top-2.5 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity" : `pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}>
+            <div data-no-dnd="true" className={isBoardCard ? "absolute right-1.5 top-2 pointer-coarse:right-2 pointer-fine:top-2.5 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity" : `-mr-2.5 shrink-0 sm:-mr-3.5 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}>
                 <TaskContextMenu task={task} onAddSubtask={holdingContext ? undefined : subtaskUi.startAdding} onRename={handleRename} holdingContext={holdingContext} />
             </div>
 

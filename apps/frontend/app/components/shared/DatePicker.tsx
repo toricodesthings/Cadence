@@ -6,7 +6,6 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { LocalDate } from "@cadence/domain/time";
 import { formatMonthName, formatMonthYear, formatShortDateLabel, isoDay, isoMonthStart } from "../../lib/utils/date-format";
 import { today } from "../../lib/utils/user-zone";
-import { COMPOSER_FIELD } from "./Composer";
 
 // Plain tinted chevrons, as in the iOS calendar: arrows inside a card are not chrome, so no glass.
 const NAV_BTN = "glass-none touch-target flex cursor-pointer items-center justify-center rounded-lg text-accent-primary transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
@@ -105,20 +104,38 @@ export function DatePicker(props: DatePickerProps) {
     return useShellMode().isTouch ? <NativeDateField {...props} /> : <DesktopDatePicker {...props} />;
 }
 
-function NativeDateField({ value, onChange, label, clearLabel, disabled, className, children }: DatePickerProps) {
-    const input = (overlay: boolean) => (
+/** The field-styled trigger both pickers show, so an empty touch field still reads as a date. */
+function DateFieldButton({ value, label, placeholder = "Pick a date", className, ...rest }: Pick<DatePickerProps, "value" | "placeholder" | "className"> & { label?: string } & Omit<React.ComponentProps<"button">, "value">) {
+    return (
+        <button
+            type="button"
+            aria-label={label}
+            {...rest}
+            className={`flex min-h-11 w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-left text-sm transition-colors hover:border-white/[0.10] hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed disabled:opacity-30 ${className ?? ""}`}
+        >
+            <Calendar size={15} className="shrink-0 text-moonlit" aria-hidden="true" />
+            <span className={value ? "truncate font-medium text-twilight-text" : "truncate text-twilight-text-muted"}>
+                {value ? formatShortDateLabel(value, { year: value.slice(0, 4) !== today().slice(0, 4) }) : placeholder}
+            </span>
+        </button>
+    );
+}
+
+function NativeDateField({ value, onChange, label, clearLabel, disabled, placeholder, className, children }: DatePickerProps) {
+    const input = () => (
         <input
             type="date"
             value={value ?? ""}
             disabled={disabled}
             aria-label={label}
             onChange={(e) => { if (e.target.value || clearLabel) onChange(e.target.value || null); }}
-            className={overlay ? "absolute inset-0 cursor-pointer opacity-0" : `${COMPOSER_FIELD} min-h-11 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 ${className ?? ""}`}
+            className="absolute inset-0 min-w-0 cursor-pointer opacity-0"
         />
     );
-    if (!children) return input(false);
     // The visible trigger stays; a transparent native input over it takes the tap.
-    return <span className={`relative grid ${className ?? ""}`}>{React.cloneElement(children, { tabIndex: -1, "aria-hidden": true } as object)}{input(true)}</span>;
+    // A custom trigger takes `className` on its wrapper; the default button takes it itself.
+    const trigger = children ?? <DateFieldButton value={value} placeholder={placeholder} disabled={disabled} className={className} />;
+    return <span className={`relative grid min-w-0 ${children ? className ?? "" : "shrink-0"}`}>{React.cloneElement(trigger, { tabIndex: -1, "aria-hidden": true } as object)}{input()}</span>;
 }
 
 function DesktopDatePicker({ value, onChange, label, clearLabel, yearNav, disabled, placeholder = "Pick a date", className, children }: DatePickerProps) {
@@ -138,16 +155,7 @@ function DesktopDatePicker({ value, onChange, label, clearLabel, yearNav, disabl
         <Popover.Root open={open} onOpenChange={onOpenChange}>
             <Popover.Trigger asChild disabled={disabled}>
                 {children ?? (
-                    <button
-                        type="button"
-                        aria-label={label}
-                        className={`flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-left text-sm transition-colors hover:border-white/[0.10] hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed disabled:opacity-30 ${className ?? ""}`}
-                    >
-                        <Calendar size={15} className="shrink-0 text-moonlit" aria-hidden="true" />
-                        <span className={value ? "font-medium text-twilight-text" : "text-twilight-text-muted"}>
-                            {value ? formatShortDateLabel(value, { year: true }) : placeholder}
-                        </span>
-                    </button>
+                    <DateFieldButton value={value} label={label} placeholder={placeholder} className={className} />
                 )}
             </Popover.Trigger>
             <Popover.Content

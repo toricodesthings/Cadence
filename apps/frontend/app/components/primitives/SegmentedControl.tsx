@@ -52,7 +52,7 @@ export function SegmentedControl<T extends string>({
             {...handlers}
             role="radiogroup"
             aria-label={ariaLabel}
-            className={cn("surface-control relative inline-flex touch-pan-y items-center gap-0.5 border border-twilight-border/30", SIZES[size].root, className)}
+            className={cn("surface-control relative inline-flex touch-none items-center gap-0.5 border border-twilight-border/30", SIZES[size].root, className)}
             style={{ "--segment-tone": tone } as CSSProperties}
         >
             <motion.span

@@ -7,7 +7,7 @@ interface RecurrencePickerProps {
     onChange: (rrule: string | null) => void;
 }
 
-const PRESETS = [
+export const REPEAT_PRESETS = [
     { label: "None", rrule: null },
     { label: "Daily", rrule: "FREQ=DAILY;INTERVAL=1" },
     { label: "Weekdays", rrule: RRULE_WEEKDAYS },
@@ -27,7 +27,7 @@ export const RecurrencePicker: React.FC<RecurrencePickerProps> = ({
                 Repeat
             </div>
             <div className="grid grid-cols-2 gap-1">
-                {PRESETS.map((preset) => (
+                {REPEAT_PRESETS.map((preset) => (
                     <button
                         key={preset.label}
                         onClick={() => onChange(preset.rrule)}

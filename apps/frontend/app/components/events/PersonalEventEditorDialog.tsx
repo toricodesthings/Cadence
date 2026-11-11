@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CalendarHeart } from "lucide-react";
-import { Composer, ComposerSubmit, ComposerTitle, type ComposerDraft } from "../shared/Composer";
+import { Composer, ComposerTitle, type ComposerDraft } from "../shared/Composer";
 import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { ColourDot } from "../shared/ColourDot";
 import { PersonalEventDetailsFields } from "./PersonalEventDetailsFields";
@@ -39,7 +39,7 @@ export function PersonalEventEditorDialog({ open, title, description, submitLabe
             subtitle={description ?? draft.subtitle}
             isDirty={draft.isDirty}
             discardTitle={draft.discardTitle}
-            footer={draft.footer}
+            submit={draft.submit}
         >
             {draft.children}
         </Composer>
@@ -207,7 +207,7 @@ export function usePersonalEventComposer({
         subtitle: "Yearly personal event",
         isDirty: Boolean(label.trim() || emoji.trim() || color || dateTouched) || isMovedFrom(startDate, { eventDate, trackMilestone, startedOn, notify }),
         discardTitle: "Discard this event?",
-        footer: <ComposerSubmit onSubmit={() => void handleSubmit()} submitLabel={submitLabel} icon={CalendarHeart} tone="schedule" disabled={!label.trim() || Boolean(unfit)} />,
+        submit: { onSubmit: () => void handleSubmit(), submitLabel, icon: CalendarHeart, tone: "schedule", disabled: !label.trim() || Boolean(unfit) },
         reset,
         titleRef,
         children: (

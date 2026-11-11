@@ -582,7 +582,7 @@ export function CaptureRow({
                             {relativeTime(object.createdAt)}
                         </time>
                     )}
-                    <RowMenu {...menuProps} />
+                    <div className="-mr-2.5 shrink-0 sm:-mr-3.5"><RowMenu {...menuProps} /></div>
                 </div>
                 {task && ((subtaskUi.open && subtasks.length > 0) || subtaskUi.adding) && (
                     // Under the checkbox (w-8 at the px-4/sm:px-5 edge, centred on the 44px title line), down past the subtasks.

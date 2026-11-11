@@ -89,7 +89,7 @@ export function QuickAddSurface({
             {...active}
             // Thoughts save on each return and the tab stays open, so leaving is "Done".
             closeLabel={tab === "capture" && mode !== "standalone" ? "Done" : undefined}
-            band={<ComposerTabs role="tablist" ariaLabel="What to add" value={tab} onChange={setTab} options={TABS} />}
+            switcher={<ComposerTabs role="tablist" ariaLabel="What to add" value={tab} onChange={setTab} options={TABS} />}
             isDirty={task.isDirty || capture.isDirty || routine.isDirty}
             discardDescription="This closes Quick Add and loses what you've typed in any tab."
             onClose={() => {

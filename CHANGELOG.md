@@ -6,6 +6,30 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Every section in row view can be collapsed and expanded from the › beside its title, and stays that way.
+- Swipe sideways across a board on your phone to move between its sections.
+- Capture can show as a board on phones too.
+- Adding a task now offers Repeat right beside its date, and Tags under More options.
+
+### Changed
+
+- Sheets put Close on the left and a check to save on the right, with no Cancel or Add buttons at the bottom.
+- Adding a task or thought closes or clears right away instead of waiting for the server.
+- Events no longer shows a line of explanation under its title.
+- On phones, Capture greets you with the weather in a soft sky that tints with the time of day, and fills an empty New.
+- Creation sheets follow the iOS layout: the type switcher sits between Close and ✓, and the when is one grouped card.
+- A new task's list is a List row with a menu under More options, instead of a small chip.
+
+### Fixed
+
+- The keyboard now opens when you add a task from a list on iPhone.
+- The Capture sheet no longer hides its text box above the keyboard.
+- Sheets slide closed smoothly after you add something.
+- Swiping the section chooser on a phone now switches to the section you land on.
+- Empty date fields on phones show a placeholder instead of a blank, overflowing box.
+
 ## [0.44.1] - 2026-11-10
 
 The Cadence website starts sooner and its last invitation blooms.

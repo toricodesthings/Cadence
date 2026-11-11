@@ -1,4 +1,8 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
+import { useLocation } from "react-router";
+import { ChevronRight } from "lucide-react";
+import { Tip } from "../primitives/Tooltip";
+import { useDeviceFlag } from "../../hooks/ui/use-device-flag";
 import type { LucideIcon } from "lucide-react";
 import { BoardCanvas } from "./BoardCanvas";
 import { Reveal } from "./Reveal";
@@ -27,6 +31,8 @@ export interface BucketedCollectionSection {
     lineTint?: string;
     /** List view: content rides inside the section until `listOpen` is false (animated). */
     listOpen?: boolean;
+    /** List view: false for a section that already folds itself (Further out); others get the shared ›. */
+    foldable?: boolean;
     listContent: ReactNode;
     boardContent: ReactNode;
 }
@@ -47,9 +53,11 @@ export function BucketedSectionHeader({
     count,
     headerAction,
     lineTint,
-}: Pick<BucketedCollectionSection, "title" | "icon" | "accentClass" | "count" | "headerAction" | "lineTint">) {
+    fold,
+}: Pick<BucketedCollectionSection, "title" | "icon" | "accentClass" | "count" | "headerAction" | "lineTint"> & { fold?: SectionFold }) {
     return (
         <div className="flex items-center gap-3">
+            {fold ? <FoldButton fold={fold} title={title} /> : null}
             <div className="flex items-center gap-2">
                 <Icon size={14} className={accentClass} aria-hidden="true" />
                 <h2 className="text-[12px] font-semibold uppercase tracking-[0.18em] text-twilight-text">
@@ -66,21 +74,60 @@ export function BucketedSectionHeader({
     );
 }
 
+/** A row section's minimise/expand state; `id` names the region it hides. */
+export type SectionFold = { open: boolean; toggle: () => void; id: string };
+
+/** Folds a row section, remembered on this device per page and section (`key` must be stable). */
+export function useSectionFold(key: string): SectionFold {
+    const { pathname } = useLocation();
+    const [folded, setFolded] = useDeviceFlag(`cadence-fold:${pathname}:${key}`);
+    return { open: !folded, toggle: () => setFolded(!folded), id: useId() };
+}
+
+/** The › before a section's title: points down while open; its tooltip says what a tap does. */
+export function FoldButton({ fold, title }: { fold: SectionFold; title: string }) {
+    const label = fold.open ? "Collapse" : "Expand";
+    return (
+        <Tip label={label}>
+            <button
+                type="button"
+                onClick={fold.toggle}
+                aria-expanded={fold.open}
+                aria-controls={fold.id}
+                aria-label={`${label} ${title}`}
+                className="glass-none -my-2 -ml-2 -mr-1 flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+            >
+                <ChevronRight size={14} aria-hidden="true" className={`transition-transform duration-200 motion-reduce:transition-none ${fold.open ? "rotate-90" : ""}`} />
+            </button>
+        </Tip>
+    );
+}
+
+/** One list-view section with its own fold. */
+function ListSection({ section }: { section: BucketedCollectionSection }) {
+    const fold = useSectionFold(section.key);
+    return (
+        <section data-section-key={section.key} className={`flex flex-col gap-3 ${section.listSectionClassName ?? ""}`}>
+            <BucketedSectionHeader title={section.title} icon={section.icon} accentClass={section.accentClass} count={section.count} headerAction={section.headerAction} lineTint={section.lineTint} fold={section.foldable === false ? undefined : fold} />
+            <Reveal open={section.foldable === false || fold.open} id={fold.id}>
+                <div className="flex flex-col gap-3">
+                    {section.description ? (
+                        <div className="text-sm leading-relaxed text-twilight-text-soft">
+                            {section.description}
+                        </div>
+                    ) : null}
+                    {section.listOpen === undefined ? section.listContent : <Reveal open={section.listOpen}>{section.listContent}</Reveal>}
+                </div>
+            </Reveal>
+        </section>
+    );
+}
+
 export function BucketedCollectionView({ sections, view, fill, headerIcons }: BucketedCollectionViewProps) {
     if (view === "list") {
         return (
             <div className="flex flex-col gap-6">
-                {sections.map((section) => (
-                    <section key={section.key} data-section-key={section.key} className={`flex flex-col gap-3 ${section.listSectionClassName ?? ""}`}>
-                        <BucketedSectionHeader title={section.title} icon={section.icon} accentClass={section.accentClass} count={section.count} headerAction={section.headerAction} lineTint={section.lineTint} />
-                        {section.description ? (
-                            <div className="text-sm leading-relaxed text-twilight-text-soft">
-                                {section.description}
-                            </div>
-                        ) : null}
-                        {section.listOpen === undefined ? section.listContent : <Reveal open={section.listOpen}>{section.listContent}</Reveal>}
-                    </section>
-                ))}
+                {sections.map((section) => <ListSection key={section.key} section={section} />)}
             </div>
         );
     }

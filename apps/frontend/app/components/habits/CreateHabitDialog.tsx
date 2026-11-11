@@ -16,7 +16,7 @@ import { FieldBlock, FieldRow, ValueSelect } from "../shared/DetailPanelSections
 import { TagField } from "../tasks/TagField";
 import { ROUTINE_DEFAULT_ACCENT, ROUTINE_SWATCHES, chosen, routineTone } from "../../lib/utils/habits";
 import { EmojiMarkButton } from "../shared/EmojiMarkButton";
-import { Composer, type ComposerDraft, ComposerSubmit, ComposerMore, ComposerTabs, ComposerTitle, ComposerToggle, COMPOSER_FIELD } from "../shared/Composer";
+import { Composer, type ComposerDraft, ComposerMore, ComposerTabs, ComposerTitle, ComposerToggle, COMPOSER_FIELD } from "../shared/Composer";
 import { CHIP_BASE, CHIP_IDLE, FIELD_LABEL } from "../tasks/task-choice-options";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
 import { fromTimeValue } from "../../lib/utils/date-format";
@@ -180,7 +180,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
             recurrenceRule: chosen(touched.has("recurrenceRule"), ruleState, fields.recurrenceRule),
             colorAccent,
             time,
-            targetTimes,
+            targetTimes: time ? targetTimes : null,
             manyTimes,
             emoji,
             reminderEnabled,
@@ -209,7 +209,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
     const cadence = recurrenceRule === "FREQ=DAILY" ? "Every day" : (summary?.label ?? "Repeats");
 
     const projectName = projects.find((project) => project.id === projectId)?.name;
-    const moreSummary = [steps ? `${steps.length} step${steps.length > 1 ? "s" : ""}` : null, targetTimes ? "times by day" : null, projectName, tagIds.length ? `${tagIds.length} tag${tagIds.length > 1 ? "s" : ""}` : null, description.trim() ? "purpose" : null]
+    const moreSummary = [steps ? `${steps.length} step${steps.length > 1 ? "s" : ""}` : null, projectName, tagIds.length ? `${tagIds.length} tag${tagIds.length > 1 ? "s" : ""}` : null, description.trim() ? "purpose" : null]
         .filter(Boolean)
         .join(" · ");
 
@@ -220,7 +220,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
         subtitle,
         isDirty,
         discardTitle: "Discard this routine?",
-        footer: <ComposerSubmit onSubmit={() => void submit()} submitLabel={isPending ? "Creating…" : "Create routine"} icon={Flame} tone="habits" disabled={!title.trim() || isPending} />,
+        submit: { onSubmit: () => void submit(), submitLabel: isPending ? "Creating…" : "Create routine", icon: Flame, tone: "habits", disabled: !title.trim() || isPending },
         reset,
         children: (
             <>
@@ -297,6 +297,14 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
                 ) : null}
             </div>
 
+            {manyTimes || !targetTime ? null : <div role="group" aria-label="Times by day">
+                <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
+                    <CalendarClock size={12} aria-hidden="true" />
+                    Times by day
+                </span>
+                <DayTimes value={targetTimes} usualTime={targetTime} onChange={setTargetTimes} />
+            </div>}
+
             <ComposerMore summary={moreSummary}>
                 {manyTimes ? null : <div role="group" aria-label="Steps">
                     <span className={`mb-1 flex items-center gap-1.5 ${FIELD_LABEL}`}>
@@ -320,13 +328,6 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
                     />
                 </label>
 
-                {manyTimes ? null : <div role="group" aria-label="Times by day">
-                    <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
-                        <CalendarClock size={12} aria-hidden="true" />
-                        Times by day
-                    </span>
-                    <DayTimes value={targetTimes} usualTime={targetTime} onChange={setTargetTimes} />
-                </div>}
 
                 <div>
                     {projects.length > 0 ? (

@@ -40,9 +40,9 @@ describe("PersonalEventEditor", () => {
         fireEvent.click(screen.getByRole("button", { name: /Details/ }));
         fireEvent.change(screen.getByLabelText("Event date"), { target: { value: "2027-03-15" } });
         expect(onChange).toHaveBeenCalledWith({ monthDay: "03-15" });
-        fireEvent.click(screen.getByRole("switch", { name: "Enable milestone tracking for this personal event" }));
+        fireEvent.click(screen.getByRole("switch", { name: "Count the days since it began" }));
         expect(onChange).toHaveBeenCalledWith({ startedOn: expect.stringMatching(/^\d{4}-10-12$/) });
-        fireEvent.click(screen.getByRole("switch", { name: "Enable notifications for this personal event" }));
+        fireEvent.click(screen.getByRole("switch", { name: "Show a reminder dot for this event" }));
         expect(onChange).toHaveBeenCalledWith({ notify: false });
         expect(onClose).not.toHaveBeenCalled();
     });

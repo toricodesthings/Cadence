@@ -41,10 +41,14 @@ export interface ComposerProps {
     /** Colours the icon and the dialog's glow. */
     tone?: ComposerTone;
     subtitle?: ReactNode;
-    /** Sits between the header and the body, e.g. a type switcher. */
+    /** Sits between the header and the body, e.g. a list's section chips. */
     band?: ReactNode;
-    /** The primary action (`ComposerSubmit`); Cancel is built in and asks before discarding. */
-    footer: ReactNode;
+    /** What kind of thing is being made (`ComposerTabs`): the header's centre in a compact sheet, text only, between X and ✓; a band in a dialog. */
+    switcher?: ReactNode;
+    /** The primary action: a footer button in a dialog, the header ✓ in a compact sheet. Cancel/X is built in and asks before discarding. */
+    submit: ComposerSubmitProps;
+    /** Extra controls at the footer's left (Capture's day and task toggles). */
+    actions?: ReactNode;
     /** The built-in close button's label; "Done" when every entry is already saved. */
     closeLabel?: string;
     isDirty: boolean;
@@ -60,7 +64,7 @@ export interface ComposerProps {
  * One creator's contents for `Composer`, from its `use…Composer` hook, so a host
  * can hold several drafts in one shell (Quick Add's tabs) or wrap one alone.
  */
-export type ComposerDraft = Pick<ComposerProps, "title" | "icon" | "tone" | "subtitle" | "band" | "footer" | "closeLabel" | "isDirty" | "discardTitle" | "discardDescription" | "children"> & {
+export type ComposerDraft = Pick<ComposerProps, "title" | "icon" | "tone" | "subtitle" | "band" | "switcher" | "submit" | "actions" | "closeLabel" | "isDirty" | "discardTitle" | "discardDescription" | "children"> & {
     /** Empties the draft; hosts call it on close. */
     reset: () => void;
 };
@@ -72,7 +76,9 @@ export function Composer({
     tone = "primary",
     subtitle,
     band,
-    footer,
+    switcher,
+    submit,
+    actions,
     closeLabel = "Cancel",
     isDirty,
     discardTitle = "Discard this draft?",
@@ -85,18 +91,24 @@ export function Composer({
     const [discardOpen, setDiscardOpen] = useState(false);
     const requestClose = () => (isDirty ? setDiscardOpen(true) : onClose());
 
-    const bandNode = band ? <div className={`${BAND} border-b border-white/[0.06] px-5 py-4 sm:px-6`}>{band}</div> : null;
+    const bandOf = (content: ReactNode) => (content ? <div className={`${BAND} border-b border-white/[0.06] px-5 py-4 sm:px-6`}>{content}</div> : null);
+    const bandNode = bandOf((switcher || band) && <>{switcher}{band ? <div className={switcher ? "mt-3" : ""}>{band}</div> : null}</>);
+    const sheetBand = bandOf(band);
     const body = (
         <div className="min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:stable] px-5 py-4 sm:px-6 sm:py-5">
             <div className="space-y-5">{children}</div>
         </div>
     );
+    const actionsNode = actions ? <div className="mr-auto flex min-w-0 items-center gap-1">{actions}</div> : null;
     const footerNode = (
         <div className={`${BAND} flex items-center justify-end gap-2 border-t border-white/[0.06] px-5 py-4 sm:px-6`}>
+            {actionsNode}
             <Button variant="ghost" size="md" onClick={requestClose}>{closeLabel}</Button>
-            {footer}
+            <ComposerSubmit {...submit} />
         </div>
     );
+    // A compact sheet: X and ✓ in the header, so only extra controls stay at the bottom.
+    const sheetFooter = actionsNode ? <div className={`${BAND} flex items-center border-t border-white/[0.06] px-5 py-3`}>{actionsNode}</div> : undefined;
 
     const toneStyle = { "--glow-tone": TONE_VAR[tone] } as React.CSSProperties;
     const Title = inline ? "h2" : DialogTitle;
@@ -124,7 +136,7 @@ export function Composer({
             {inline ? (
                 <section aria-label={title} style={toneStyle} className="surface-dialog dialog-glow relative flex max-h-[90dvh] flex-col overflow-hidden rounded-[30px]">{frame}</section>
             ) : shell.isCompact ? (
-                <UtilitySheet title={title} subtitle={subtitle} open={open} onClose={requestClose} band={bandNode} footer={footerNode} scrollable={false} flush>
+                <UtilitySheet title={title} subtitle={subtitle} open={open} onClose={requestClose} center={switcher ? <div className="[&_svg]:hidden">{switcher}</div> : undefined} band={sheetBand} footer={sheetFooter} confirm={{ label: submit.submitLabel, onConfirm: submit.onSubmit, disabled: submit.disabled }} scrollable={false} flush>
                     {body}
                 </UtilitySheet>
             ) : (
@@ -159,20 +171,16 @@ export function Composer({
     );
 }
 
-/** The composer's primary action. */
-export function ComposerSubmit({
-    onSubmit,
-    submitLabel,
-    icon: Icon,
-    disabled,
-    tone = "primary",
-}: {
+export interface ComposerSubmitProps {
     onSubmit: () => void;
     submitLabel: string;
     icon: ComponentType<{ size?: number; "aria-hidden"?: boolean }>;
     disabled?: boolean;
     tone?: ComposerTone;
-}) {
+}
+
+/** The composer's primary action. */
+function ComposerSubmit({ onSubmit, submitLabel, icon: Icon, disabled, tone = "primary" }: ComposerSubmitProps) {
     return (
         <Button
             variant="subtle"
@@ -198,6 +206,7 @@ export function ComposerTitle({
             {leading ? <div className="mb-2 shrink-0">{leading}</div> : null}
             <input
                 ref={inputRef}
+                data-initial-focus
                 {...input}
                 className="min-w-0 flex-1 bg-transparent pb-3 font-display text-xl text-twilight-text outline-none placeholder:text-twilight-text-muted/60"
             />
@@ -344,6 +353,36 @@ export function ComposerToggle({
         </div>
     );
 }
+
+/** An iOS-style grouped card: one row per setting, hairlines between (`ComposerRow`). */
+export function ComposerRows({ children }: { children: ReactNode }) {
+    return <div className={`${TILE} divide-y divide-white/[0.05]`}>{children}</div>;
+}
+
+/** A label (with its icon) on the left, its controls on the right; `detail` drops a full-width line underneath. */
+export function ComposerRow({ icon: Icon, label, children, detail }: {
+    icon?: ComposerIcon;
+    label: string;
+    children: ReactNode;
+    detail?: ReactNode;
+}) {
+    return (
+        <div className="px-4 py-2">
+            <div className="flex min-h-11 items-center justify-between gap-3">
+                <span className="flex shrink-0 items-center gap-2.5 text-sm text-twilight-text">
+                    {Icon ? <Icon size={15} className="shrink-0 text-moonlit" aria-hidden /> : null}
+                    {label}
+                </span>
+                <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">{children}</div>
+            </div>
+            {detail ? <div className="pb-1 pt-2">{detail}</div> : null}
+        </div>
+    );
+}
+
+/** Field classes that turn `DatePicker`/`TimePicker` into the compact pills a `ComposerRow` holds. */
+/** The row already shows the field's icon, so the pill drops its own. */
+export const ROW_PILL = "w-auto! shrink-0 whitespace-nowrap min-h-10 rounded-full! px-3.5 [&>svg]:hidden [&>span>svg]:hidden";
 
 /** Everything optional folds in here, closed by default; `summary` echoes what's set inside. */
 export function ComposerMore({ summary, children }: { summary?: string | null; children: ReactNode }) {

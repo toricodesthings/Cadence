@@ -26,10 +26,17 @@ export const GREETINGS = {
 } as const;
 
 /** A greeting for the part of the day. It holds all morning (or evening) and changes day to day, so it never reshuffles on a revisit. */
+export type DayPeriod = keyof typeof GREETINGS;
+
+/** The part of the day in the user's zone; it also tints Capture's window. */
+export function dayPeriodOf(now: Date = new Date()): DayPeriod {
+    const hour = Number(wallTimeOf(now, getUserZone()).slice(0, 2));
+    return hour >= 5 && hour < 12 ? "morning" : hour >= 12 && hour < 17 ? "afternoon" : hour >= 17 && hour < 22 ? "evening" : "night";
+}
+
 export function getTimeBasedGreeting(now: Date = new Date(), name?: string): string {
     const zone = getUserZone();
-    const hour = Number(wallTimeOf(now, zone).slice(0, 2));
-    const period = hour >= 5 && hour < 12 ? "morning" : hour >= 12 && hour < 17 ? "afternoon" : hour >= 17 && hour < 22 ? "evening" : "night";
+    const period = dayPeriodOf(now);
     const options = GREETINGS[period];
     const [named, bare] = options[Number(dayOf(now, zone).replaceAll("-", "")) % options.length];
     return name ? named.replace("{name}", name) : bare;

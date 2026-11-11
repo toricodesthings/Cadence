@@ -95,9 +95,6 @@ function SheetHeader({ title, onClose }: { title: string; onClose: () => void })
 
 const BACKDROP_LAYER = { room: "layer-room-sheet-backdrop", route: "layer-route-backdrop" } as const;
 
-/** The tallest a sheet may be while the keyboard is up; null without a keyboard. */
-const aboveKeyboardHeight = (keyboard: number) => (keyboard ? `calc(100dvh - ${keyboard}px - max(0.5rem, env(safe-area-inset-top)))` : null);
-
 /** Focus the sheet's own first field (or its heading) instead of Radix's first focusable. */
 function focusInitial(panel: HTMLElement | null, event: Event) {
     const target = panel?.querySelector<HTMLElement>("[data-initial-focus]") ?? panel?.querySelector<HTMLElement>("[data-sheet-heading]");
@@ -130,8 +127,11 @@ export function ResponsiveOverlayPanel({
     const isPeekMobile = isMobile && !isFocus;
     // The keyboard never covers a sheet: it rides on top, footer controls (day, submit) just above the keys,
     // as in the writing room. iOS keeps fixed elements in the layout viewport, under the keyboard.
-    const { inset: keyboard } = useKeyboardInset(open && isMobile);
-    const aboveKeyboard = aboveKeyboardHeight(keyboard);
+    const live = useKeyboardInset(open && isMobile);
+    // Closing keeps the open shape, so the exit slides from where the sheet was instead of jumping first.
+    const [held, setHeld] = useState({ inset: 0, aboveKeyboard: null as string | null });
+    if (open && (held.inset !== live.inset || held.aboveKeyboard !== live.aboveKeyboard)) setHeld({ inset: live.inset, aboveKeyboard: live.aboveKeyboard });
+    const { inset: keyboard, aboveKeyboard } = open ? live : held;
     const panelRef = useRef<HTMLElement | null>(null);
     const [panel, setPanel] = useState<HTMLElement | null>(null);
     const attachPanel = useCallback((node: HTMLElement | null) => { panelRef.current = node; setPanel(node); }, []);

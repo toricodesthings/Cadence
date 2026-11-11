@@ -1,7 +1,8 @@
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { CaptureWindow } from "./CaptureGreeting";
 import { Inbox, CalendarClock, ChevronRight, StickyNote, Trash2, X } from "lucide-react";
 import type { ReactNode } from "react";
-import { BucketedCollectionView, BucketedSectionHeader } from "../shared/BucketedCollectionView";
+import { BucketedCollectionView, BucketedSectionHeader, useSectionFold } from "../shared/BucketedCollectionView";
 import { useId, useMemo, useState, useTransition } from "react";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import type { InboxItem } from "@cadence/contracts/inbox";
@@ -54,11 +55,14 @@ export function HoldingFeed({
     onSelectTask,
     onClarifyInboxItem,
     view = "list",
+    greet = false,
 }: {
     onSelectTask: (id: string) => void;
     onClarifyInboxItem: (id: string) => void;
     /** Desktop Rows / Board; compact shells always get rows. */
     view?: "list" | "kanban";
+    /** Touch rows: Capture's window tops the feed, or fills New when it's empty. */
+    greet?: boolean;
 }) {
     const feed = useCaptureFeed();
     const { isTouch } = useShellMode();
@@ -209,6 +213,8 @@ export function HoldingFeed({
     const available = [...ordered.thoughts, ...ordered.tasks, ...ordered.older, ...feed.notes];
     const activeId = available.some((item) => item.id === focusedId) ? focusedId : available[0]?.id;
     const board = view === "kanban";
+    const newFold = useSectionFold("new");
+    const dayFold = useSectionFold("no-day");
     const { data: subtasksByTaskId = {} } = useSubtasksByTaskIds(ordered.tasks.map((t) => t.id));
     const rows = (items: InboxItem[]) =>
         items.map((item) => (
@@ -374,6 +380,7 @@ export function HoldingFeed({
     return (
         <div className="flex min-w-0 flex-col gap-6 pb-24">
             {toolbar}
+            {greet && ordered.thoughts.length > 0 && <CaptureWindow variant="band" />}
             <CaptureColumnDrop column="new">
             <section aria-label="New" className="flex flex-col gap-3">
                 <BucketedSectionHeader
@@ -382,9 +389,12 @@ export function HoldingFeed({
                     accentClass="text-twilight-text-soft"
                     count={ordered.thoughts.length}
                     headerAction={thoughtsAction || undefined}
+                    fold={newFold}
                 />
-                <div className="space-y-2">{rows(ordered.thoughts)}</div>
-                {!ordered.thoughts.length && empty(Inbox, "Nothing new. Add a thought whenever you need.")}
+                <Reveal open={newFold.open} id={newFold.id}>
+                    <div className="space-y-2">{rows(ordered.thoughts)}</div>
+                    {!ordered.thoughts.length && (greet ? <CaptureWindow variant="empty" /> : empty(Inbox, "Nothing new. Add a thought whenever you need."))}
+                </Reveal>
             </section>
             </CaptureColumnDrop>
             <CaptureColumnDrop column="no-day">
@@ -394,11 +404,12 @@ export function HoldingFeed({
                     icon={CalendarClock}
                     accentClass="text-twilight-text-soft"
                     count={ordered.tasks.length}
+                    fold={dayFold}
                 />
-                <div className="space-y-2">{taskRows}</div>
-                {!ordered.tasks.length && (
-                    empty(CalendarClock, "No tasks waiting for a day.")
-                )}
+                <Reveal open={dayFold.open} id={dayFold.id}>
+                    <div className="space-y-2">{taskRows}</div>
+                    {!ordered.tasks.length && empty(CalendarClock, "No tasks waiting for a day.")}
+                </Reveal>
             </section>
             </CaptureColumnDrop>
             {ordered.older.length > 0 && (
@@ -432,7 +443,7 @@ function Fold({ title, count, children }: { title: string; count: number; childr
     const id = useId();
     return (
         <div>
-            <button
+            <Tip label={open ? "Collapse" : "Expand"}><button
                 type="button"
                 onClick={() => setOpen((value) => !value)}
                 aria-expanded={open}
@@ -449,7 +460,7 @@ function Fold({ title, count, children }: { title: string; count: number; childr
                 </span>
                 <span className="ml-1 text-[12px] tabular-nums text-twilight-text-soft/90">{count}</span>
                 <span className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
-            </button>
+            </button></Tip>
             <Reveal open={open} id={id}>
                 <div className="mb-2 mt-1 space-y-2">{children}</div>
             </Reveal>

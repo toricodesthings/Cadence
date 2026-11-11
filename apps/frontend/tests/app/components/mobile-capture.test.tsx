@@ -18,7 +18,7 @@ function Host({ onSaved = vi.fn() }: { onSaved?: () => void }) {
 }
 beforeEach(() => { vi.clearAllMocks(); });
 describe("Capture composer", () => {
-    it("saves with Enter, waits for success, and stays ready for another thought", async () => {
+    it("saves with Enter, clears at once, and stays ready for another thought", async () => {
         const { promise, resolve } = Promise.withResolvers();
         create.mockReturnValue(promise);
         const onSaved = vi.fn();
@@ -30,7 +30,7 @@ describe("Capture composer", () => {
         fireEvent.keyDown(input, { key: "Enter" });
         fireEvent.keyDown(input, { key: "Enter" });
         expect(create).toHaveBeenCalledTimes(1);
-        expect(input.value).toContain("Call Maya");
+        expect(input.value).toBe("");
         await act(async () => resolve({ id: "saved" }));
         expect(input.value).toBe("");
         expect(onSaved).toHaveBeenCalledOnce();

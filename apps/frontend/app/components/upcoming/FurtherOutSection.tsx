@@ -84,6 +84,7 @@ export function useFurtherOutSection({ items, today, focusTaskId, openRequested,
         ),
         headerAction: toggleButton,
         listOpen: open,
+        foldable: false,
         listContent: content(),
         // A desktop board folds it to a rail; a phone board shows one column at a time, so there is nothing to fold.
         boardCollapsed: !compact && !open,

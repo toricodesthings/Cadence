@@ -29,7 +29,7 @@ import { ClaimHeaderMenu, LayoutScaleMenuRow } from "../components/layout/Layout
 
 /** The orb's direct add: every task made here carries this tag. */
 function TagTaskSheet({ open, onClose, tag, tasks }: { open: boolean; onClose: () => void; tag: { id: string; name: string }; tasks: Task[] }) {
-    const { reset, ...draft } = useTaskComposer({ open, tasks, lockedTag: tag, onSaved: onClose });
+    const { reset, ...draft } = useTaskComposer({ open, tasks, lockedTag: tag, onSaved: () => undefined, onSubmitted: onClose });
     return <Composer open={open} onClose={() => { reset(); onClose(); }} {...draft} />;
 }
 
@@ -103,11 +103,7 @@ export default function TagView() {
                 title="Edit tag"
                 open={editOpen}
                 onClose={() => setEditOpen(false)}
-                footer={
-                    <div className="border-t border-twilight-border px-4 py-3">
-                        <Button type="submit" form="edit-tag" variant="primary" size="md" disabled={!name.trim()} className="min-h-12 w-full">Save</Button>
-                    </div>
-                }
+                confirm={{ label: "Save", onConfirm: saveEdit, disabled: !name.trim() }}
             >
                 <form id="edit-tag" className="space-y-5" onSubmit={(e) => { e.preventDefault(); saveEdit(); }}>
                     <input

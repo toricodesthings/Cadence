@@ -1,6 +1,6 @@
 import { HEADER_ICON_BUTTON } from "../components/layout/PageHeader";
 import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
-import { lazy, useState, useMemo, useCallback, useRef } from "react";
+import { lazy, useState, useMemo, useCallback } from "react";
 import { StartupSuspense } from "../components/shared/StartupSuspense";
 import { CalendarDays, Inbox, PanelRightClose, PanelRightOpen } from "lucide-react";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
@@ -11,7 +11,7 @@ import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { Composer } from "../components/shared/Composer";
 import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { CaptureInput, useCaptureComposer } from "../components/holding/CaptureInput";
-import { CaptureGreeting } from "../components/holding/CaptureGreeting";
+import { CaptureGreeting, CaptureWindow } from "../components/holding/CaptureGreeting";
 import { HoldingFeed } from "../components/holding/HoldingFeed";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
@@ -33,8 +33,7 @@ export default function HomeRoute() {
     const shell = useShellMode();
     const { view, setView } = useRouteViewMode("capture");
     // Board is a desktop layout; compact shells always get rows.
-    const board = !shell.isCompact && view === "kanban";
-    const focusProxy = useRef<HTMLInputElement>(null);
+    const board = view === "kanban";
     const [captureOpen, setCaptureOpen] = useState(false);
     // The draft lives with the page, so closing the sheet keeps it and needs no discard prompt.
     const { reset: _resetCapture, ...captureComposer } = useCaptureComposer({
@@ -147,6 +146,7 @@ export default function HomeRoute() {
             onSelectTask={handleSelectTask}
             onClarifyInboxItem={handleClarifyInboxItem}
             view={board ? "kanban" : "list"}
+            greet={shell.isTouch && !board}
         />
     );
 
@@ -157,7 +157,7 @@ export default function HomeRoute() {
             sidePanel={sidePanel}
             sidePanelActive={Boolean(hasPanelContent)}
             sidePanelLabel="Place"
-            headerRight={<div className="flex items-center gap-2"><StartupSuspense fallback={null}><LazyFocusViewBar capture /></StartupSuspense>{!shell.isCompact && <SortMenu view={view} onViewChange={setView} />}{headerRight}</div>}
+            headerRight={<div className="flex items-center gap-2"><StartupSuspense fallback={null}><LazyFocusViewBar capture /></StartupSuspense><SortMenu view={view} onViewChange={setView} />{headerRight}</div>}
             compactHeaderRightInline
             shellHeader={{
                 title: "Capture",
@@ -167,24 +167,25 @@ export default function HomeRoute() {
         >
             {board ? <>
                 <PageContent width="default">
-                    <LocationNotice />
+                    {!shell.isCompact && <LocationNotice />}
                     <div className="group/capture">
-                        <CaptureGreeting className={`mb-2 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0 ${shell.isTouch ? "pl-3 sm:pl-4" : "pl-4"}`} />
-                        {!shell.isTouch && <CaptureInput />}
+                        {shell.isTouch ? <CaptureWindow variant="band" /> : <>
+                            <CaptureGreeting className="mb-2 pl-4 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0" />
+                            <CaptureInput />
+                        </>}
                     </div>
                 </PageContent>
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col">{feed}</div>
             </> : <ScrollAreaWrapper><PageContent width="default">
                 {!shell.isCompact && <LocationNotice />}
-                <div className={`group/capture pt-1 ${shell.isTouch ? "mb-3" : "mb-6"}`}>
-                    <CaptureGreeting className={`mb-2 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0 ${shell.isTouch ? "pl-3 sm:pl-4" : "pl-4"}`} />
-                    {!shell.isTouch && <CaptureInput />}
-                </div>
+                {!shell.isTouch && <div className="group/capture mb-6 pt-1">
+                    <CaptureGreeting className="mb-2 pl-4 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0" />
+                    <CaptureInput />
+                </div>}
                 {feed}
             </PageContent></ScrollAreaWrapper>}
             {shell.isTouch && <>
-                <input ref={focusProxy} tabIndex={-1} aria-hidden="true" className="pointer-events-none fixed bottom-0 left-0 h-px w-px opacity-0" />
-                <ContextualAddOrb directCapture onOpen={() => { focusProxy.current?.focus(); setCaptureOpen(true); }} />
+                <ContextualAddOrb directCapture onOpen={() => setCaptureOpen(true)} />
                 {/* Every return already saved, so closing is "Done", not a discard. */}
                 <Composer open={captureOpen} onClose={() => setCaptureOpen(false)} {...captureComposer} isDirty={false} closeLabel="Done" />
             </>}

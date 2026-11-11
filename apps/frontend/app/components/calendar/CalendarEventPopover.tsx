@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarHeart, CalendarRange, StickyNote, CheckSquare } from "lucide-react";
+import { Calendar, CalendarHeart, CalendarRange, CalendarX, CheckSquare, Clock, Repeat, StickyNote } from "lucide-react";
+import { SegmentedControl } from "../primitives/SegmentedControl";
+import { TimePicker } from "../primitives/TimePicker";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { FIELD_LABEL } from "../tasks/task-choice-options";
-import { ComposerEffortRow, EffortField, PriorityField, TimeRangeFields } from "../tasks/TaskWeightFields";
+import { ComposerEffortRow, EffortField, PriorityField } from "../tasks/TaskWeightFields";
 import { useComposerEffort } from "../../hooks/tasks/use-composer-effort";
 import { DraftRow, useDraftChoices } from "../tasks/DraftRow";
 import { addDays, atLocal, untilClause, weekdayOf, type LocalDate } from "@cadence/domain/time";
@@ -12,18 +14,19 @@ import { minutesToWallTime } from "../../lib/utils/calendar/calendar-dnd";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useNlpParse } from "../../hooks/use-nlp-parse";
 import type { DraftField } from "@cadence/domain/nlp-draft";
-import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useTypedWhen } from "../../hooks/use-typed-when";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
 import { DatePicker } from "../shared/DatePicker";
 import {
     Composer,
-    ComposerSubmit,
     ComposerMore,
+    ComposerRow,
+    ComposerRows,
     ComposerTabs,
     ComposerTitle,
     ComposerToggle,
     COMPOSER_FIELD,
+    ROW_PILL,
     WeekdayPicker,
     WEEKDAY_ORDER,
     type WeekdayCode,
@@ -83,99 +86,76 @@ const TASK_BLOCK_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>(["dueDate
 /** The days of a plain weekly rule ("every Mon and Wed"), which the weekday picker can show; anything richer stays a typed rule. */
 const weeklyDaysOf = (rule: string | null) => (/^FREQ=WEEKLY;BYDAY=([A-Z,]+)$/.exec(rule ?? "")?.[1].split(",") as WeekdayCode[] | undefined) ?? null;
 
-type WhenFieldsProps = {
+type WhenRowsProps = {
     mode: ComposerMode;
+    onMode: (next: ComposerMode) => void;
     date: LocalDate;
     start: string;
     end: string;
     onEdit: ReturnType<ReturnType<typeof useTypedWhen>["bind"]>["edit"];
+    weekdays: WeekdayCode[];
     onWeekdays: (days: WeekdayCode[]) => void;
     endDate: LocalDate | "";
     setEndDate: (date: LocalDate | "") => void;
     hasEndDate: boolean;
     setHasEndDate: (update: (value: boolean) => boolean) => void;
+    interactionMode: TaskInteractionMode;
+    onInteractionMode: (mode: TaskInteractionMode) => void;
 };
 
-/** Start and end times, the day (From, for a weekly series) and an optional Until. */
-function WhenFields({ mode, date, start, end, onEdit, onWeekdays, endDate, setEndDate, hasEndDate, setHasEndDate }: WhenFieldsProps) {
+const REPEAT_OPTIONS = [{ value: "once", label: "Once" }, { value: "weekly", label: "Weekly" }] as const;
+
+/** The when, as one grouped card: Starts (day + time), Ends, Repeat, and for a weekly series its days, Until and Fixed. */
+function WhenRows({ mode, onMode, date, start, end, onEdit, weekdays, onWeekdays, endDate, setEndDate, hasEndDate, setHasEndDate, interactionMode, onInteractionMode }: WhenRowsProps) {
     const weekly = mode === "weekly";
-    const dayLabel = weekly ? "From" : "Date";
+    const fixed = interactionMode === "timetable";
+    const time = <T extends "start" | "end">(key: T, value: string, label: string) => (
+        <TimePicker label={label} value={value} onChange={(next) => onEdit({ [key]: next })} className={ROW_PILL} />
+    );
     return (
         <>
-            <TimeRangeFields start={start} end={end} onChange={onEdit} />
-
-            <div className={`grid gap-3 ${weekly ? "grid-cols-2" : "grid-cols-1"}`}>
-                <div className="space-y-1.5">
-                    <span className={`flex h-6 items-center ${FIELD_LABEL}`}>{dayLabel}</span>
+            <ComposerRows>
+                <ComposerRow icon={Calendar} label={weekly ? "From" : "Starts"}>
                     <DatePicker
-                        label={dayLabel}
+                        label={weekly ? "From" : "Date"}
                         value={date}
+                        className={ROW_PILL}
                         onChange={(next) => {
                             if (!next) return;
                             onEdit({ date: next });
                             if (weekly) onWeekdays([toWeekdayCode(next)]);
                         }}
                     />
-                </div>
-
-                {weekly ? <div className="space-y-1.5">
-                    <div className="flex h-6 items-center justify-between">
-                        <span className={FIELD_LABEL}>Until</span>
+                    {time("start", start, "Start time")}
+                </ComposerRow>
+                <ComposerRow icon={Clock} label="Ends">{time("end", end, "End time")}</ComposerRow>
+                <ComposerRow icon={Repeat} label="Repeat" detail={weekly ? <WeekdayPicker value={weekdays} onChange={onWeekdays} /> : null}>
+                    <SegmentedControl size="sm" ariaLabel="Repeat" value={mode} onChange={onMode} options={REPEAT_OPTIONS} />
+                </ComposerRow>
+                {weekly ? (
+                    <ComposerRow icon={CalendarX} label="Until">
+                        {hasEndDate ? <DatePicker label="Until" value={endDate} className={ROW_PILL} onChange={(next) => next && setEndDate(next)} /> : null}
                         <button
                             type="button"
                             onClick={() => {
                                 setHasEndDate((value) => !value);
                                 setEndDate(hasEndDate ? "" : date);
                             }}
-                            className={`flex min-h-9 cursor-pointer items-center rounded-lg px-2 text-[11px] font-medium transition-colors sm:-mr-2 ${hasEndDate ? "text-accent-primary" : "text-twilight-text-soft hover:text-twilight-text"}`}
+                            className="flex min-h-10 cursor-pointer items-center rounded-full px-3 text-sm text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                         >
-                            {hasEndDate ? "Remove" : "Add end date"}
+                            {hasEndDate ? "Remove" : "Never"}
                         </button>
-                    </div>
-                    <DatePicker
-                        label="Until"
-                        value={endDate}
-                        onChange={(next) => next && setEndDate(next)}
-                        disabled={!hasEndDate}
-                    />
-                </div> : null}
-            </div>
-        </>
-    );
-}
-
-type RepeatFieldsProps = {
-    mode: ComposerMode;
-    onMode: (next: ComposerMode) => void;
-    weekdays: WeekdayCode[];
-    onWeekdays: (days: WeekdayCode[]) => void;
-    interactionMode: TaskInteractionMode;
-    onInteractionMode: (mode: TaskInteractionMode) => void;
-};
-
-/** Once or weekly; a weekly series picks its days and whether it is Fixed. */
-function RepeatFields({ mode, onMode, weekdays, onWeekdays, interactionMode, onInteractionMode }: RepeatFieldsProps) {
-    const fixed = interactionMode === "timetable";
-    return (
-        <>
-            <ComposerTabs
-                ariaLabel="Repeat"
-                value={mode}
-                onChange={onMode}
-                options={[{ id: "once", label: "Once" }, { id: "weekly", label: "Repeats weekly" }]}
-            />
-
-            {mode === "weekly" ? (
-                <>
-                    <WeekdayPicker value={weekdays} onChange={onWeekdays} />
-                    <ComposerToggle
-                        label="Fixed"
-                        description={fixed ? "It just passes if missed. No check-off." : "Still owed if missed. Carries over until checked off."}
-                        checked={fixed}
-                        onCheckedChange={(checked) => onInteractionMode(checked ? "timetable" : "task")}
-                        ariaLabel="Make this a fixed block"
-                    />
-                </>
+                    </ComposerRow>
+                ) : null}
+            </ComposerRows>
+            {weekly ? (
+                <ComposerToggle
+                    label="Fixed"
+                    description={fixed ? "It just passes if missed. No check-off." : "Still owed if missed. Carries over until checked off."}
+                    checked={fixed}
+                    onCheckedChange={(checked) => onInteractionMode(checked ? "timetable" : "task")}
+                    ariaLabel="Make this a fixed block"
+                />
             ) : null}
         </>
     );
@@ -246,7 +226,6 @@ function useTaskBlockComposer(info: CalendarEventInfo, active: boolean, onClose:
     const titleRef = useRef<HTMLInputElement>(null);
     const { mutate: createTask, isPending } = useCreateTask();
     // Phones lead with one line to type; the exact times wait under More.
-    const isPhone = useShellMode().isPhone;
     const [title, setTitle] = useState("");
     const [notes, setNotes] = useState("");
     const [priority, setPriority] = useState<TaskPriority>(0);
@@ -295,34 +274,12 @@ function useTaskBlockComposer(info: CalendarEventInfo, active: boolean, onClose:
     }, [createTask, effortChoice.saved, interactionMode, nlp.fields.priority, notes, onClose, priority, recurrenceRule, submitTitle, whenEndTime, whenStartDate, whenStartTime]);
 
     const timeRange = formatTimeRange(whenStartTime, whenEndTime);
-    const whenFields = (
-        <WhenFields
-            mode={mode}
-            date={whenStartDate}
-            start={whenStartTime}
-            end={whenEndTime}
-            onEdit={typed.edit}
-            onWeekdays={repeat.setWeekdays}
-            endDate={repeat.endDate}
-            setEndDate={repeat.setEndDate}
-            hasEndDate={repeat.hasEndDate}
-            setHasEndDate={repeat.setHasEndDate}
-        />
-    );
-
     return {
         titleRef,
         isDirty,
         title: `Create on ${formatShortDateLabel(whenStartDate)}`,
         subtitle: recurrenceRule ? (summary?.label ?? "Repeats every week") : timeRange,
-        footer: (
-            <ComposerSubmit
-                onSubmit={handleTaskSubmit}
-                submitLabel={submitLabelFor(isPending, mode)}
-                icon={CheckSquare}
-                disabled={!submitTitle || isPending}
-            />
-        ),
+        submit: { onSubmit: handleTaskSubmit, submitLabel: submitLabelFor(isPending, mode), icon: CheckSquare, disabled: !submitTitle || isPending },
         children: (
             <>
                 <ComposerTitle inputRef={titleRef} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What, and when? e.g. Lunch with Sam Fri 1pm" aria-label="Block title" />
@@ -337,7 +294,7 @@ function useTaskBlockComposer(info: CalendarEventInfo, active: boolean, onClose:
                 ) : null}
                 <ComposerEffortRow choice={effortChoice} />
 
-                <RepeatFields
+                <WhenRows
                     mode={mode}
                     onMode={(next) => {
                         repeat.setMode(next);
@@ -345,16 +302,21 @@ function useTaskBlockComposer(info: CalendarEventInfo, active: boolean, onClose:
                         const typedRepeat = nlp.applied.find((e) => e.type === "recurrence");
                         if (next === "once" && typedRepeat) choices.dismiss(typedRepeat.id);
                     }}
+                    date={whenStartDate}
+                    start={whenStartTime}
+                    end={whenEndTime}
+                    onEdit={typed.edit}
                     weekdays={repeat.weekdays}
                     onWeekdays={repeat.setWeekdays}
+                    endDate={repeat.endDate}
+                    setEndDate={repeat.setEndDate}
+                    hasEndDate={repeat.hasEndDate}
+                    setHasEndDate={repeat.setHasEndDate}
                     interactionMode={interactionMode}
                     onInteractionMode={setInteractionMode}
                 />
 
-                {isPhone ? null : whenFields}
-
-                <ComposerMore summary={isPhone ? timeRange : null}>
-                    {isPhone ? whenFields : null}
+                <ComposerMore>
                     <NotesField value={notes} onChange={setNotes} />
 
                     <PriorityField value={priority} onChange={setPriority} />
@@ -404,8 +366,8 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
         />
     );
     const shown = tab === "task"
-        ? { title: task.title, icon: CalendarRange, tone: "primary" as const, subtitle: task.subtitle, footer: task.footer, children: task.children }
-        : { title: "Add event", icon: event.icon, tone: event.tone, subtitle: "Yearly personal event", footer: event.footer, children: event.children };
+        ? { title: task.title, icon: CalendarRange, tone: "primary" as const, subtitle: task.subtitle, submit: task.submit, children: task.children }
+        : { title: "Add event", icon: event.icon, tone: event.tone, subtitle: "Yearly personal event", submit: event.submit, children: event.children };
 
     return (
         <Composer
@@ -414,12 +376,12 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
             icon={shown.icon}
             tone={shown.tone}
             subtitle={shown.subtitle}
-            band={typeTabs}
+            switcher={typeTabs}
             isDirty={task.isDirty || event.isDirty}
             discardTitle="Discard this schedule draft?"
             discardDescription="This will close the composer and lose any unsaved task or event details."
             onClose={onClose}
-            footer={shown.footer}
+            submit={shown.submit}
         >
             {shown.children}
         </Composer>

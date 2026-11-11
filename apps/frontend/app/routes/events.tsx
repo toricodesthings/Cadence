@@ -133,9 +133,6 @@ function EventsIntro({ compact }: { compact: boolean }) {
                 <h1 className={compact ? "sr-only" : "font-display text-2xl font-semibold tracking-tight text-twilight-text"}>
                     Your Personal Events
                 </h1>
-                <p className="text-sm text-twilight-text-soft">
-                    Yearly dates, also shown in Schedule.
-                </p>
             </div>
         </section>
     );

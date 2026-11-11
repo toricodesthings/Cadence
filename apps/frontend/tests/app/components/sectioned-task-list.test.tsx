@@ -1,3 +1,4 @@
+import { Provider as TooltipProvider } from "../../../app/components/primitives/Tooltip";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionedTaskList } from "../../../app/components/tasks/SectionedTaskList";
@@ -50,6 +51,7 @@ describe("SectionedTaskList", () => {
                     makeTask({ id: "task-b", title: "Second task" }),
                 ]}
             />,
+            { wrapper: TooltipProvider },
         );
 
         expect(mocks.useSections).toHaveBeenCalledWith(null);
@@ -70,6 +72,7 @@ describe("SectionedTaskList", () => {
                     makeTask({ id: "holding-task", title: "Holding task", sectionId: "holding-section" }),
                 ]}
             />,
+            { wrapper: TooltipProvider },
         );
 
         expect(mocks.useSections).toHaveBeenCalledWith(null);
@@ -91,6 +94,7 @@ describe("SectionedTaskList", () => {
                     makeTask({ id: "sectioned-task", title: "Scoped task", sectionId: "project-section", projectId: "project-123" }),
                 ]}
             />,
+            { wrapper: TooltipProvider },
         );
 
         expect(mocks.useSections).toHaveBeenCalledWith("project-123");

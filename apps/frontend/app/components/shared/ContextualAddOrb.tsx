@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckSquare, Flame, MessageSquare, Plus, X } from "lucide-react";
 import { Tip } from "../primitives/Tooltip";
@@ -19,6 +19,9 @@ const OPTIONS: Array<{ tab: QuickAddTab; label: string; icon: typeof CheckSquare
 
 export function ContextualAddOrb({ onOpen, directCapture = false, directLabel = "Add a thought" }: ContextualAddOrbProps) {
     const [open, setOpen] = useState(false);
+    // iOS opens the keyboard only for focus inside the tap: hold it on a proxy until the composer's field takes it.
+    const focusProxy = useRef<HTMLInputElement>(null);
+    const openTab = (tab: QuickAddTab) => { focusProxy.current?.focus(); onOpen(tab); };
 
     return (
         <div className="layer-floating-bar pointer-events-none mobile-floating-action fixed bottom-5 right-4 flex flex-col items-end gap-3 sm:right-5">
@@ -53,7 +56,7 @@ export function ContextualAddOrb({ onOpen, directCapture = false, directLabel = 
                                 exit={{ opacity: 0, x: 12 }}
                                 transition={{ delay: index * 0.03 }}
                                 onClick={() => {
-                                    onOpen(tab);
+                                    openTab(tab);
                                     setOpen(false);
                                 }}
                                 className="inline-flex min-h-12 items-center gap-3 rounded-full border border-twilight-border/40 bg-twilight-deep/96 px-4 text-sm font-medium text-twilight-text shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl"
@@ -68,9 +71,10 @@ export function ContextualAddOrb({ onOpen, directCapture = false, directLabel = 
                 ) : null}
             </AnimatePresence>
 
+            <input ref={focusProxy} tabIndex={-1} aria-hidden="true" className="pointer-events-none fixed bottom-0 left-0 h-px w-px opacity-0" />
             <Tip label={directCapture ? directLabel : "Add"}><button
                 type="button"
-                onClick={() => directCapture ? onOpen("capture") : setOpen((value) => !value)}
+                onClick={() => directCapture ? openTab("capture") : setOpen((value) => !value)}
                 aria-label={directCapture ? directLabel : open ? "Close quick add menu" : "Open quick add menu"}
                 className="pointer-events-auto relative flex h-14 w-14 items-center justify-center rounded-full accent-fill press"
             >

@@ -42,7 +42,8 @@ export function ProjectTaskSheet({ open, onClose, projectId, projectName, tasks,
         open,
         tasks,
         project: { id: projectId, name: projectName, sectionId, onSectionChange },
-        onSaved: onClose,
+        onSaved: () => undefined,
+        onSubmitted: onClose,
     });
     return <Composer open={open} onClose={() => { reset(); onClose(); }} {...draft} />;
 }

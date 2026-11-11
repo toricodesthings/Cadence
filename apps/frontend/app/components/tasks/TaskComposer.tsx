@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckSquare, Clock, Plus, StickyNote } from "lucide-react";
+import { Calendar, CheckSquare, Clock, FolderOpen, Plus, Repeat, StickyNote, Tag, X } from "lucide-react";
 import { ChipScroller } from "../shared/ChipScroller";
-import { ComposerMore, ComposerSubmit, ComposerTitle, ComposerToggle, COMPOSER_FIELD, type ComposerDraft } from "../shared/Composer";
+import { ComposerMore, ComposerRow, ComposerRows, ComposerTitle, COMPOSER_FIELD, ROW_PILL, type ComposerDraft } from "../shared/Composer";
 import { DatePicker } from "../shared/DatePicker";
+import { REPEAT_PRESETS } from "./RecurrencePicker";
+import { Switch } from "../primitives";
+import { TimePicker } from "../primitives/TimePicker";
+import { ValueSelect } from "../shared/DetailPanelSections";
+import { TagField } from "./TagField";
 import { FIELD_LABEL } from "./task-choice-options";
-import { ComposerEffortRow, EffortField, PriorityField, TimeRangeFields } from "./TaskWeightFields";
+import { ComposerEffortRow, EffortField, PriorityField } from "./TaskWeightFields";
 import { useComposerEffort } from "../../hooks/tasks/use-composer-effort";
-import { QuickAddActionTray } from "./QuickAddActionTray";
 import { DraftRow, useDraftChoices } from "./DraftRow";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { useProjects } from "../../hooks/projects/use-projects";
@@ -18,7 +22,7 @@ import { useTypedWhen } from "../../hooks/use-typed-when";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
 import { mapPriorityNameToNumber, resolveDefaultDueDate } from "../../lib/utils/task/task-defaults";
 import { buildTypedTaskInput } from "../../lib/utils/task/typed-task-input";
-import { formatShortDateLabel, formatWallTime } from "../../lib/utils/date-format";
+
 import { trackUsageEvent } from "../../lib/api/track-event";
 import type { Task, TaskPriority } from "@cadence/contracts/task";
 
@@ -34,6 +38,8 @@ export const chipClass = (active: boolean) =>
             ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"
             : "border-twilight-border/45 bg-white/[0.03] text-twilight-text-soft"
     }`;
+
+const REPEAT_CHOICES = REPEAT_PRESETS.map((p) => ({ value: p.rrule ?? "", label: p.rrule ? p.label : "Never" }));
 
 const INITIAL_WHEN = { date: "", allDay: true, start: "09:00", end: "10:00" };
 
@@ -58,6 +64,7 @@ export function useTaskComposer({
     project,
     lockedTag,
     onSaved,
+    onSubmitted,
 }: {
     open: boolean;
     /** Siblings for the order index: the project's tasks, or every task. */
@@ -66,6 +73,9 @@ export function useTaskComposer({
     /** The tag page it's added from: always applied, can't be untoggled. */
     lockedTag?: { id: string; name: string };
     onSaved: (created: Task | null | undefined) => void;
+    /** Right after submit, before the server answers: the task is already on screen, so a sheet can close.
+     * The draft stays until the save lands, so a failed one reopens with it. */
+    onSubmitted?: () => void;
 }): ComposerDraft {
     const { data: sections = [] } = useSections(project?.id);
     const { data: projects = [] } = useProjects();
@@ -84,6 +94,7 @@ export function useTaskComposer({
     const { dismissed: dismissedEntityIds, accepted: acceptedEntityIds, literal } = choices;
     const [manualProject, setManualProject] = useState<string | null | undefined>(undefined);
     const [manualTags, setManualTags] = useState<string[] | undefined>(undefined);
+    const [manualRepeat, setManualRepeat] = useState<string | null | undefined>(undefined);
 
     useEffect(() => {
         if (!open) return;
@@ -107,6 +118,7 @@ export function useTaskComposer({
             ...(priority > 0 && { priority }),
             ...(manualProject !== undefined && { projectId: manualProject }),
             ...(manualTags && { tagIds: manualTags }),
+            ...(manualRepeat !== undefined && { recurrenceRule: manualRepeat }),
         },
         capabilities: TASK_FIELDS,
         enabled: open && intelligence?.nlpEnabled !== false,
@@ -122,13 +134,16 @@ export function useTaskComposer({
     const { effort } = effortChoice;
 
     const reset = () => {
-        setTitle(""); setNotes(""); setPriority(0); effortChoice.reset(); setManualProject(undefined); setManualTags(undefined); choices.reset();
+        setTitle(""); setNotes(""); setPriority(0); effortChoice.reset(); setManualProject(undefined); setManualTags(undefined); setManualRepeat(undefined); choices.reset();
         typed.reset();
     };
 
-    const whenSummary = when.date
-        ? `${formatShortDateLabel(when.date)}${when.allDay ? "" : ` · ${formatWallTime(when.start)}`}`
-        : null;
+    const listName = project ? null : projects.find((p) => p.id === resolvedProjectId)?.name ?? null;
+
+    const toggleTag = (tagId: string) => tagId !== lockedTag?.id && setManualTags((current) => {
+        const shown = current ?? nlp.fields.tagIds;
+        return shown.includes(tagId) ? shown.filter((id) => id !== tagId) : [...shown, tagId];
+    });
 
     const submit = async () => {
         if (!title.trim() || createTask.isPending) return;
@@ -175,6 +190,7 @@ export function useTaskComposer({
                 },
             },
         );
+        onSubmitted?.();
     };
 
     const band = projectSections.length > 0 ? (
@@ -194,9 +210,9 @@ export function useTaskComposer({
             ? (projectSections.length > 0 ? `${project.name} · ${targetName}` : project.name)
             : lockedTag ? `Tagged #${lockedTag.name}` : "Lands in Capture unless you pick a list",
         band,
-        isDirty: Boolean(title.trim() || notes.trim() || typed.touched || priority > 0 || effort !== null || manualProject || manualTags?.length),
+        isDirty: Boolean(title.trim() || notes.trim() || typed.touched || manualRepeat || priority > 0 || effort !== null || manualProject || manualTags?.length),
         discardTitle: "Discard this task?",
-        footer: <ComposerSubmit onSubmit={() => void submit()} submitLabel={createTask.isPending ? "Adding…" : "Add task"} icon={Plus} disabled={!submitTitle || createTask.isPending} />,
+        submit: { onSubmit: () => void submit(), submitLabel: createTask.isPending ? "Adding…" : "Add task", icon: Plus, disabled: !submitTitle || createTask.isPending },
         reset,
         children: (
             <>
@@ -216,58 +232,66 @@ export function useTaskComposer({
                         {...choices.row}
                     />
                     <ComposerEffortRow choice={effortChoice} />
-                    <QuickAddActionTray
-                        quickAddSettings={settings?.tasks?.quickAdd}
-                        projectLocked={Boolean(project)}
-                        excludeActions={["date", "priority"]}
-                        dueDate={null}
-                        scheduledStart={null}
-                        recurrenceRule={null}
-                        priority={null}
-                        projectId={resolvedProjectId}
-                        tagIds={resolvedTagIds}
-                        onScheduleChange={() => undefined}
-                        onPriorityChange={() => undefined}
-                        onProjectChange={setManualProject}
-                        onToggleTag={(tagId) => tagId !== lockedTag?.id && setManualTags((current) => {
-                            const shown = current ?? nlp.fields.tagIds;
-                            return shown.includes(tagId) ? shown.filter((id) => id !== tagId) : [...shown, tagId];
-                        })}
-                    />
                 </form>
 
-                <ComposerMore summary={whenSummary}>
-                    <div className="space-y-1.5">
-                        <span className="flex h-6 items-center justify-between">
-                            <span className={FIELD_LABEL}>Date</span>
-                            {when.date ? (
-                                <button
-                                    type="button"
-                                    onClick={() => typed.edit({ date: "", allDay: true })}
-                                    className="flex min-h-9 cursor-pointer items-center rounded-lg px-2 text-[11px] font-medium text-twilight-text-soft transition-colors hover:text-twilight-text"
-                                >
-                                    Clear
-                                </button>
-                            ) : null}
-                        </span>
-                        <DatePicker label="Date" value={when.date} onChange={(date) => { if (date) typed.edit({ date }); }} />
-                    </div>
-
+                <ComposerRows>
+                    <ComposerRow icon={Calendar} label="Date">
+                        <DatePicker label="Date" value={when.date} placeholder="None" className={ROW_PILL} onChange={(date) => { if (date) typed.edit({ date }); }} />
+                        {when.date ? (
+                            <button
+                                type="button"
+                                onClick={() => typed.edit({ date: "", allDay: true })}
+                                aria-label="Clear date"
+                                className="glass-none flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                            >
+                                <X size={16} aria-hidden="true" />
+                            </button>
+                        ) : null}
+                    </ComposerRow>
                     {when.date ? (
-                        <ComposerToggle
-                            icon={Clock}
-                            iconClassName="text-moonlit"
-                            label="All day"
-                            description={when.allDay ? "Any time that day." : "Blocked out on your schedule."}
-                            checked={when.allDay}
-                            onCheckedChange={(allDay) => typed.edit({ allDay })}
-                            ariaLabel="All day"
-                        >
+                        <>
+                            <ComposerRow icon={Clock} label="All-day">
+                                <Switch checked={when.allDay} onCheckedChange={(allDay) => typed.edit({ allDay })} aria-label="All day" />
+                            </ComposerRow>
                             {when.allDay ? null : (
-                                <TimeRangeFields start={when.start} end={when.end} onChange={typed.edit} />
+                                <>
+                                    <ComposerRow label="Starts"><TimePicker label="Start time" value={when.start} onChange={(start) => typed.edit({ start })} className={ROW_PILL} /></ComposerRow>
+                                    <ComposerRow label="Ends"><TimePicker label="End time" value={when.end} onChange={(end) => typed.edit({ end })} className={ROW_PILL} /></ComposerRow>
+                                </>
                             )}
-                        </ComposerToggle>
+                            <ComposerRow icon={Repeat} label="Repeat">
+                                <ValueSelect
+                                    label="Repeat"
+                                    value={nlp.fields.recurrenceRule ?? ""}
+                                    onChange={(rule) => setManualRepeat(rule || null)}
+                                    options={REPEAT_CHOICES}
+                                />
+                            </ComposerRow>
+                        </>
                     ) : null}
+                </ComposerRows>
+
+                <ComposerMore summary={listName}>
+                    {project ? null : (
+                        <ComposerRows>
+                            <ComposerRow icon={FolderOpen} label="List">
+                                <ValueSelect
+                                    label="List"
+                                    value={resolvedProjectId ?? ""}
+                                    onChange={(id) => setManualProject(id || null)}
+                                    options={[{ value: "", label: "None" }, ...projects.map((p) => ({ value: p.id, label: p.emoji ? `${p.emoji} ${p.name}` : p.name }))]}
+                                />
+                            </ComposerRow>
+                        </ComposerRows>
+                    )}
+
+                    <div>
+                        <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
+                            <Tag size={12} aria-hidden="true" />
+                            Tags
+                        </span>
+                        <TagField tagIds={resolvedTagIds} onAdd={toggleTag} onRemove={toggleTag} />
+                    </div>
 
                     <label className="block">
                         <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>

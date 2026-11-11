@@ -59,7 +59,7 @@ const DialogContent = ({ className, children, hideCloseButton, phoneSheet = true
     // A throw closes through Radix (onOpenChange); the CSS slide-out adds to the drag, so it leaves from the finger.
     const { y, backdropOpacity } = useSheetGesture({ element: sheetEl, enabled: sheet, onDismiss: () => close.current?.click() });
     // Like every sheet, it rides the keyboard instead of hiding its fields and buttons under it.
-    const { inset: keyboard } = useKeyboardInset(sheet);
+    const { inset: keyboard, aboveKeyboard } = useKeyboardInset(sheet);
     const content = (
         <>
             {sheet ? (
@@ -91,7 +91,7 @@ const DialogContent = ({ className, children, hideCloseButton, phoneSheet = true
                 {sheet ? (
                     <motion.div
                         ref={setSheetEl}
-                        style={{ y, ...(keyboard ? { bottom: keyboard, maxHeight: `calc(100dvh - ${keyboard}px - max(0.5rem, env(safe-area-inset-top)))`, paddingBottom: "1rem" } : {}) }}
+                        style={{ y, ...(keyboard ? { bottom: keyboard, maxHeight: aboveKeyboard ?? undefined, paddingBottom: "1rem" } : {}) }}
                     >
                         {content}
                     </motion.div>

@@ -2031,6 +2031,21 @@ body:has(.layer-system-dialog, .layer-route-backdrop, .layer-room-sheet-backdrop
 
 /* Capture's hero field: the top of the content ladder, one step above a card on the same panel
    base, with the accent pooled at the icon and a gradient hairline that fully lights when you type. */
+/* Capture's window: a soft sky behind the weather, tinted by the part of the day (`data-period`).
+   No surface or border, so it never reads as a row or a column. */
+@utility capture-sky {
+  --sky: var(--color-moonlit);
+  position: relative;
+  border-radius: 9999px;
+  background: radial-gradient(circle closest-side,
+    color-mix(in srgb, var(--sky) 30%, transparent),
+    color-mix(in srgb, var(--sky) 10%, transparent) 62%, transparent);
+  color: color-mix(in srgb, var(--sky) 70%, var(--color-twilight-text));
+  &[data-period="morning"] { --sky: color-mix(in srgb, var(--accent-primary) 70%, var(--color-moonlit)); }
+  &[data-period="evening"] { --sky: color-mix(in srgb, var(--accent-primary) 60%, var(--color-ember-red)); }
+  &[data-period="night"] { --sky: color-mix(in srgb, var(--color-moonlit) 80%, var(--color-twilight-text)); }
+}
+
 @utility capture-surface {
   position: relative;
   isolation: isolate;

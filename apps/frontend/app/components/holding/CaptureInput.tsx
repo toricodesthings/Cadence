@@ -7,7 +7,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useContext, useTransition
 import { Inbox, MessageSquare, Plus } from "lucide-react";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
 import { useProcessInboxToTask } from "../../hooks/inbox/use-process-inbox-to-task";
-import { ComposerSubmit, COMPOSER_FIELD, type ComposerDraft } from "../shared/Composer";
+import { COMPOSER_FIELD, type ComposerDraft } from "../shared/Composer";
 import { Button } from "../primitives/Button";
 import { Reveal } from "../shared/Reveal";
 import { StartupReadyContext } from "../../hooks/core/use-workspace-startup";
@@ -135,47 +135,53 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         if (!mayBeTask) return null;
         return nlp.ready ? nlp : nlp.finalize();
     };
-    /** Saves one line as a capture, then (as a task) places it. */
-    const saveLine = async (text: string, draft: Awaited<ReturnType<typeof draftFor>>, task: boolean) => {
+    /** Saves one line as a capture, then (as a task) places it. `retry` is a capture that saved before its placing failed. */
+    const saveLine = async (text: string, draft: Awaited<ReturnType<typeof draftFor>>, task: boolean, retry: InboxItem | undefined) => {
         // Offline the create is queued and returns nothing, but the id is ours,
         // so "as task" can still be queued right behind it.
-        const id = savedCapture.current?.id ?? crypto.randomUUID();
-        const item = savedCapture.current ?? (await create.mutateAsync({ id, rawText: text, placing: task }));
-        if (task) {
-            savedCapture.current = item ?? savedCapture.current;
+        const id = retry?.id ?? crypto.randomUUID();
+        const item = retry ?? (await create.mutateAsync({ id, rawText: text, placing: task }));
+        try {
             // What is shown is what is sent, and the server stores it as sent. A task always has its draft.
-            await process.mutateAsync(taskPayload(id, text, draft!, endDate, dateStyle));
+            if (task) await process.mutateAsync(taskPayload(id, text, draft!, endDate, dateStyle));
+        } catch (err) {
+            savedCapture.current = item ?? { id } as InboxItem;
+            throw err;
         }
-        savedCapture.current = undefined;
         return item;
     };
     /** Saves the draft: a task when it has a day (or `forceTask`, ⌘↵), else a thought; `split` saves each line as a thought. */
     const save = (forceTask = false, split = false) => {
         if (!value.trim() || busy) return;
-        startSave(async () => {
+        const original = value;
+        let remaining = split ? lines : [value.trim()];
+        const pending = draftFor(forceTask, split);
+        // Only a loading parser is awaited (the field holds still for it); a ready draft clears at once and
+        // saves behind the scenes, since the row is already on screen. A failure puts the draft back.
+        const run = async (draft: Awaited<ReturnType<typeof draftFor>>) => {
             setError(false);
-            const original = value;
-            let remaining = split ? lines : [value.trim()];
+            const task = draft !== null && (forceTask || isDated(draft.fields));
+            const retry = savedCapture.current;
+            savedCapture.current = undefined;
+            setValue((current) => (current === original ? "" : current));
+            setPick(null);
+            setPasted(false);
+            input.current?.focus();
             try {
-                // Only a loading parser is awaited: a ready draft (or a thought) saves at once.
-                const pending = draftFor(forceTask, split);
-                const draft = pending instanceof Promise ? await pending : pending;
-                const task = draft !== null && (forceTask || isDated(draft.fields));
                 while (remaining.length) {
-                    const item = await saveLine(remaining[0], draft, task);
+                    const item = await saveLine(remaining[0], draft, task, remaining.length === 1 && !split ? retry : undefined);
                     remaining = remaining.slice(1);
                     setCount((c) => c + 1);
                     if (!split || !remaining.length) onSaved?.(item);
                 }
-                setValue((current) => (current === original ? "" : current));
-                setPick(null);
-                setPasted(false);
-                input.current?.focus();
             } catch {
                 setError(true);
-                if (split) setValue(remaining.join("\n"));
+                const left = split ? remaining.join("\n") : original;
+                setValue((current) => (current ? current : left));
             }
-        });
+        };
+        if (pending instanceof Promise) startSave(async () => { void run(await pending); });
+        else void run(pending);
     };
     const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
         if (event.nativeEvent.isComposing) return;
@@ -294,20 +300,8 @@ export function useCaptureComposer({
         isDirty: Boolean(draft.value.trim()),
         discardTitle: "Discard this thought?",
         reset: draft.reset,
-        footer: (
-            <>
-                <div className="mr-auto flex min-w-0 items-center gap-1">
-                    {draft.dayControl}
-                    {draft.taskControl}
-                </div>
-                <ComposerSubmit
-                    onSubmit={() => draft.save()}
-                    submitLabel={draft.submitLabel}
-                    icon={draft.asTask ? Plus : Inbox}
-                    disabled={!draft.value.trim() || draft.busy}
-                />
-            </>
-        ),
+        actions: <>{draft.dayControl}{draft.taskControl}</>,
+        submit: { onSubmit: () => draft.save(), submitLabel: draft.submitLabel, icon: draft.asTask ? Plus : Inbox, disabled: !draft.value.trim() || draft.busy },
         children: (
             <>
                 {draft.field(5)}

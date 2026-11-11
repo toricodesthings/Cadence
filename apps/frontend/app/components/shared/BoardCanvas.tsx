@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { EASE_OUT_EXPO } from "../../lib/constants/motion";
+import { useColumnSwipe } from "../../hooks/ui/use-column-swipe";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useDragScroll } from "../../hooks/ui/use-drag-scroll";
 import { ChipScroller } from "./ChipScroller";
@@ -132,6 +135,22 @@ export function BoardCanvas({
     const [localId, setLocalId] = useState(columns[0]?.id ?? "");
     const activeColumnId = controlledId ?? localId;
     const setActiveColumnId = (id: string) => { setLocalId(id); onActiveColumnChange?.(id); };
+    // Which way the last change went, so the new column slides in from that side.
+    const [enterFrom, setEnterFrom] = useState(0);
+    const chooser = useRef<HTMLDivElement>(null);
+    const chooseColumn = (id: string) => {
+        const from = columns.findIndex((c) => c.id === activeColumnId);
+        setEnterFrom(Math.sign(columns.findIndex((c) => c.id === id) - from));
+        setActiveColumnId(id);
+    };
+    const swipe = useColumnSwipe((delta) => {
+        const index = columns.findIndex((c) => c.id === activeColumnId) + delta;
+        if (index >= 0 && index < columns.length) chooseColumn(columns[index].id);
+    });
+    // Keep the chosen chip in sight when the chooser overflows (a swipe can land on a hidden one).
+    useEffect(() => {
+        chooser.current?.querySelector('[aria-checked="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+    }, [activeColumnId]);
 
     useEffect(() => {
         if (!columns.length) {
@@ -153,13 +172,13 @@ export function BoardCanvas({
 
         return (
             <div className={["flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 pt-3", className].join(" ").trim()}>
-                <div className="flex items-center gap-2">
+                <div ref={chooser} className="flex items-center gap-2">
                 <ChipScroller className={`-ml-4 min-w-0 flex-1 pl-4 ${compactTrailing ? "" : "-mr-4 pr-4"}`}>
                     <SegmentedControl
                         ariaLabel="Columns"
                         className="shrink-0"
                         value={activeColumn.id}
-                        onChange={setActiveColumnId}
+                        onChange={chooseColumn}
                         options={columns.map((column) => ({
                             value: column.id,
                             label: (
@@ -174,8 +193,16 @@ export function BoardCanvas({
                 {compactTrailing ? <div className="shrink-0">{compactTrailing}</div> : null}
                 </div>
 
-                <div className="min-h-0 flex-1">
-                    <BoardColumnShell {...activeColumn} titleHidden />
+                <div className="min-h-0 flex-1 overflow-hidden" {...swipe}>
+                    <motion.div
+                        key={activeColumn.id}
+                        initial={enterFrom ? { x: enterFrom * 32, opacity: 0 } : false}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ duration: 0.2, ease: EASE_OUT_EXPO }}
+                        className="h-full"
+                    >
+                        <BoardColumnShell {...activeColumn} titleHidden />
+                    </motion.div>
                 </div>
             </div>
         );

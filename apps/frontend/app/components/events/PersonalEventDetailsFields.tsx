@@ -1,6 +1,6 @@
-import { Bell, Milestone } from "lucide-react";
-import { ComposerToggle } from "../shared/Composer";
-import { FIELD_LABEL } from "../tasks/task-choice-options";
+import { Bell, Calendar, Milestone } from "lucide-react";
+import { ComposerRow, ComposerRows, ROW_PILL } from "../shared/Composer";
+import { Switch } from "../primitives";
 import { DatePicker } from "../shared/DatePicker";
 
 /** Shared event fields for creation (Events, Schedule) and in-place editing. */
@@ -14,42 +14,31 @@ export function PersonalEventDetailsFields({ eventDate, setEventDate, trackMiles
     notify: boolean;
     setNotify: (enabled: boolean) => void;
 }) {
-    return <div className="space-y-5">
-        <div className="space-y-2">
-            <span className={FIELD_LABEL}>Date</span>
-            <DatePicker label="Event date" yearNav value={eventDate} onChange={(date) => date && setEventDate(date)} />
-        </div>
-
-        <ComposerToggle
+    return <ComposerRows>
+        <ComposerRow icon={Calendar} label="Date">
+            <DatePicker label="Event date" yearNav value={eventDate} className={ROW_PILL} onChange={(date) => date && setEventDate(date)} />
+        </ComposerRow>
+        <ComposerRow
             icon={Milestone}
-            iconClassName="text-accent-nav-schedule"
-            label="Milestone tracking"
-            description="Count the days since it began"
-            checked={trackMilestone}
-            onCheckedChange={(checked) => {
-                setTrackMilestone(checked);
-                if (checked && !startedOn) setStartedOn(eventDate);
-            }}
-            ariaLabel="Enable milestone tracking for this personal event"
-        >
-            {trackMilestone ? (
-                <div className="flex items-center gap-3">
-                    <span className={`shrink-0 ${FIELD_LABEL}`}>Started on</span>
-                    <div className="min-w-0 flex-1">
-                        <DatePicker label="Started on" yearNav value={startedOn} onChange={(date) => date && setStartedOn(date)} />
-                    </div>
+            label="Count days since it began"
+            detail={trackMilestone ? (
+                <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-twilight-text-soft">Started on</span>
+                    <DatePicker label="Started on" yearNav value={startedOn} className={ROW_PILL} onChange={(date) => date && setStartedOn(date)} />
                 </div>
             ) : null}
-        </ComposerToggle>
-
-        <ComposerToggle
-            icon={Bell}
-            iconClassName="text-accent-nav-schedule"
-            label="Notifications"
-            description="Show a reminder dot"
-            checked={notify}
-            onCheckedChange={setNotify}
-            ariaLabel="Enable notifications for this personal event"
-        />
-    </div>;
+        >
+            <Switch
+                checked={trackMilestone}
+                onCheckedChange={(checked) => {
+                    setTrackMilestone(checked);
+                    if (checked && !startedOn) setStartedOn(eventDate);
+                }}
+                aria-label="Count the days since it began"
+            />
+        </ComposerRow>
+        <ComposerRow icon={Bell} label="Reminder dot">
+            <Switch checked={notify} onCheckedChange={setNotify} aria-label="Show a reminder dot for this event" />
+        </ComposerRow>
+    </ComposerRows>;
 }
