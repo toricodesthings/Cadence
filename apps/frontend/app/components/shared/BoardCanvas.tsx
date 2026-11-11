@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
-import { useColumnSwipe } from "../../hooks/ui/use-column-swipe";
+import { PAGE_GAP, useColumnSwipe } from "../../hooks/ui/use-column-swipe";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useDragScroll } from "../../hooks/ui/use-drag-scroll";
 import { ChipScroller } from "./ChipScroller";
@@ -143,10 +143,9 @@ export function BoardCanvas({
         setEnterFrom(Math.sign(columns.findIndex((c) => c.id === id) - from));
         setActiveColumnId(id);
     };
-    const swipe = useColumnSwipe((delta) => {
-        const index = columns.findIndex((c) => c.id === activeColumnId) + delta;
-        if (index >= 0 && index < columns.length) chooseColumn(columns[index].id);
-    });
+    const activeIndex = Math.max(0, columns.findIndex((c) => c.id === activeColumnId));
+    // A swipe has already slid the page into place: no second entrance.
+    const swipe = useColumnSwipe({ index: activeIndex, count: columns.length, onChange: (i) => { setEnterFrom(0); setActiveColumnId(columns[i].id); } });
     // Keep the chosen chip in sight when the chooser overflows (a swipe can land on a hidden one).
     useEffect(() => {
         chooser.current?.querySelector('[aria-checked="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
@@ -168,7 +167,9 @@ export function BoardCanvas({
     }
 
     if (shell.isCompact) {
-        const activeColumn = columns.find((column) => column.id === activeColumnId) ?? columns[0];
+        const activeColumn = columns[activeIndex];
+        const prevColumn = columns[activeIndex - 1];
+        const nextColumn = columns[activeIndex + 1];
 
         return (
             <div className={["flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 pt-3", className].join(" ").trim()}>
@@ -193,15 +194,28 @@ export function BoardCanvas({
                 {compactTrailing ? <div className="shrink-0">{compactTrailing}</div> : null}
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-hidden" {...swipe}>
-                    <motion.div
-                        key={activeColumn.id}
-                        initial={enterFrom ? { x: enterFrom * 32, opacity: 0 } : false}
-                        animate={{ x: 0, opacity: 1 }}
-                        transition={{ duration: 0.2, ease: EASE_OUT_EXPO }}
-                        className="h-full"
-                    >
-                        <BoardColumnShell {...activeColumn} titleHidden />
+                <div ref={swipe.ref} className="min-h-0 flex-1 overflow-hidden">
+                    {/* The pages strip: the finger moves it, with the neighbours beside the current column while it does. */}
+                    <motion.div style={{ x: swipe.x }} className="relative h-full">
+                        {swipe.peek && prevColumn ? (
+                            <div inert aria-hidden="true" className="absolute inset-y-0 right-full w-full" style={{ marginRight: PAGE_GAP }}>
+                                <BoardColumnShell {...prevColumn} titleHidden />
+                            </div>
+                        ) : null}
+                        <motion.div
+                            key={activeColumn.id}
+                            initial={enterFrom ? { x: enterFrom * 32, opacity: 0 } : false}
+                            animate={{ x: 0, opacity: 1 }}
+                            transition={{ duration: 0.2, ease: EASE_OUT_EXPO }}
+                            className="h-full"
+                        >
+                            <BoardColumnShell {...activeColumn} titleHidden />
+                        </motion.div>
+                        {swipe.peek && nextColumn ? (
+                            <div inert aria-hidden="true" className="absolute inset-y-0 left-full w-full" style={{ marginLeft: PAGE_GAP }}>
+                                <BoardColumnShell {...nextColumn} titleHidden />
+                            </div>
+                        ) : null}
                     </motion.div>
                 </div>
             </div>

@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Swiping between board sections on a phone now follows your finger, with the next section sliding in beside it.
+
+### Fixed
+
+- A long section chooser on a phone scrolls sideways again.
+- Opening the Capture sheet on iPhone no longer pushes it and its text box off the top of the screen.
+
 ## [0.45.0] - 2026-11-11
 
 ### Added

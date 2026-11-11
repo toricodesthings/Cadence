@@ -45,14 +45,14 @@ export function SegmentedControl<T extends string>({
     className?: string;
 }) {
     const activeIndex = options.findIndex((option) => option.value === value);
-    const { trackRef, lens, handlers, hoverIndex } = useLensScrub({ activeIndex, onCommit: (i) => onChange(options[i].value) });
+    const { trackRef, lens, handlers, hoverIndex, overflowing } = useLensScrub({ activeIndex, onCommit: (i) => onChange(options[i].value) });
     return (
         <div
             ref={trackRef}
             {...handlers}
             role="radiogroup"
             aria-label={ariaLabel}
-            className={cn("surface-control relative inline-flex touch-none items-center gap-0.5 border border-twilight-border/30", SIZES[size].root, className)}
+            className={cn("surface-control relative inline-flex items-center gap-0.5 border border-twilight-border/30", overflowing ? "touch-pan-x" : "touch-none", SIZES[size].root, className)}
             style={{ "--segment-tone": tone } as CSSProperties}
         >
             <motion.span

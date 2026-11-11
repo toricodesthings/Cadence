@@ -91,7 +91,7 @@ const DialogContent = ({ className, children, hideCloseButton, phoneSheet = true
                 {sheet ? (
                     <motion.div
                         ref={setSheetEl}
-                        style={{ y, ...(keyboard ? { bottom: keyboard, maxHeight: aboveKeyboard ?? undefined, paddingBottom: "1rem" } : {}) }}
+                        style={{ y, ...(aboveKeyboard ? { bottom: keyboard, maxHeight: aboveKeyboard ?? undefined, paddingBottom: "1rem" } : {}) }}
                     >
                         {content}
                     </motion.div>

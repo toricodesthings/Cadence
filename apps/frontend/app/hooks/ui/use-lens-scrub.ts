@@ -83,11 +83,19 @@ export function useLensScrub({ activeIndex, onCommit, rememberAs }: { activeInde
         placed.current = spans.current.items.length > 0;
     }, [activeIndex, glideTo, measure, rememberAs, width, x]);
 
+    // A row wider than its sideways scroller (a long section chooser) gives horizontal drags to the scroll.
+    const [overflowing, setOverflowing] = useState(false);
     useEffect(() => {
         const track = trackRef.current;
         if (!track) return;
-        const observer = new ResizeObserver(() => { measure(); if (!press.current) glideTo(activeIndex, true); });
+        const scroller = track.parentElement;
+        const observer = new ResizeObserver(() => {
+            measure();
+            if (!press.current) glideTo(activeIndex, true);
+            setOverflowing(Boolean(scroller && scroller.scrollWidth > scroller.clientWidth && /auto|scroll/.test(getComputedStyle(scroller).overflowX)));
+        });
         observer.observe(track);
+        if (scroller) observer.observe(scroller);
         return () => observer.disconnect();
     }, [activeIndex, glideTo, measure]);
 
@@ -134,5 +142,5 @@ export function useLensScrub({ activeIndex, onCommit, rememberAs }: { activeInde
         onPointerCancel: (event: ReactPointerEvent) => { if (event.pointerId === press.current?.id) release(false); },
     };
 
-    return { trackRef, lens: { x, width, scale }, handlers, hoverIndex, held };
+    return { trackRef, lens: { x, width, scale }, handlers, hoverIndex, held, overflowing };
 }

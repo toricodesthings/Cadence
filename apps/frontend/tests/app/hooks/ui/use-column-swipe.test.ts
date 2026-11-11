@@ -1,14 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { swipeDirection } from "../../../../app/hooks/ui/use-column-swipe";
+import { rubberBand, settleDirection } from "../../../../app/hooks/ui/use-column-swipe";
 
-describe("swipeDirection", () => {
-    it("left is next, right is previous", () => {
-        expect(swipeDirection(-80, 5, 400)).toBe(1);
-        expect(swipeDirection(80, 5, 400)).toBe(-1);
+describe("settleDirection", () => {
+    it("past a third of the width turns the page: left is next, right is previous", () => {
+        expect(settleDirection(-150, 0, 390)).toBe(1);
+        expect(settleDirection(150, 0, 390)).toBe(-1);
     });
-    it("ignores short drags unless flicked", () => {
-        expect(swipeDirection(-40, 0, 400)).toBe(0);
-        expect(swipeDirection(-40, 0, 50)).toBe(1);
+    it("a short slow drag springs back, a short flick turns", () => {
+        expect(settleDirection(-60, 0.1, 390)).toBe(0);
+        expect(settleDirection(-40, -0.8, 390)).toBe(1);
     });
-    it("leaves a mostly vertical scroll alone", () => expect(swipeDirection(-90, 70, 300)).toBe(0));
+    it("a flick back against the drag springs back", () => expect(settleDirection(-60, 0.8, 390)).toBe(0));
+});
+
+describe("rubberBand", () => {
+    it("resists more the further it's pulled, never past the width", () => {
+        expect(Math.abs(rubberBand(-100, 390))).toBeLessThan(100);
+        expect(rubberBand(5000, 390)).toBeLessThan(390);
+        expect(rubberBand(-50, 390)).toBeLessThan(0);
+    });
 });

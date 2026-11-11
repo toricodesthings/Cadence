@@ -20,8 +20,9 @@ const OPTIONS: Array<{ tab: QuickAddTab; label: string; icon: typeof CheckSquare
 export function ContextualAddOrb({ onOpen, directCapture = false, directLabel = "Add a thought" }: ContextualAddOrbProps) {
     const [open, setOpen] = useState(false);
     // iOS opens the keyboard only for focus inside the tap: hold it on a proxy until the composer's field takes it.
+    // The proxy sits at the top, where the keyboard never reaches, so iOS has no reason to pan the page up to it.
     const focusProxy = useRef<HTMLInputElement>(null);
-    const openTab = (tab: QuickAddTab) => { focusProxy.current?.focus(); onOpen(tab); };
+    const openTab = (tab: QuickAddTab) => { focusProxy.current?.focus({ preventScroll: true }); onOpen(tab); };
 
     return (
         <div className="layer-floating-bar pointer-events-none mobile-floating-action fixed bottom-5 right-4 flex flex-col items-end gap-3 sm:right-5">
@@ -71,7 +72,7 @@ export function ContextualAddOrb({ onOpen, directCapture = false, directLabel = 
                 ) : null}
             </AnimatePresence>
 
-            <input ref={focusProxy} tabIndex={-1} aria-hidden="true" className="pointer-events-none fixed bottom-0 left-0 h-px w-px opacity-0" />
+            <input ref={focusProxy} tabIndex={-1} aria-hidden="true" className="pointer-events-none fixed left-0 top-0 h-px w-px opacity-0" />
             <Tip label={directCapture ? directLabel : "Add"}><button
                 type="button"
                 onClick={() => directCapture ? openTab("capture") : setOpen((value) => !value)}

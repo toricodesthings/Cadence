@@ -11,7 +11,8 @@ const KEYBOARD_MIN = 120;
 export function useKeyboardInset(active: boolean) {
     const [inset, setInset] = useState(0);
     // The visible height above the keyboard. iOS may also pan the page up (`offsetTop`), so this, not
-    // `100dvh - inset`, is how tall a sheet can be without its top leaving the screen.
+    // `100dvh - inset`, is how tall a sheet can be without its top leaving the screen. `inset` is how much
+    // of the layout the keyboard covers (0 when panned clear), i.e. where a fixed bottom edge belongs.
     const [visible, setVisible] = useState(0);
     const last = useRef(0);
 
@@ -23,11 +24,14 @@ export function useKeyboardInset(active: boolean) {
             return;
         }
         const read = () => {
-            const covered = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-            const next = covered >= KEYBOARD_MIN ? covered : 0;
-            if (next) last.current = next;
+            // The keyboard is up when the visible height drops, even if iOS panned the whole page up to
+            // reveal a field (then `offsetTop` is the keyboard and nothing of the layout is covered).
+            const keys = Math.round(window.innerHeight - vv.height);
+            const up = keys >= KEYBOARD_MIN;
+            const next = up ? Math.max(0, keys - Math.round(vv.offsetTop)) : 0;
+            if (up) last.current = keys;
             setInset((prev) => (prev === next ? prev : next));
-            const room = next ? Math.round(vv.height) : 0;
+            const room = up ? Math.round(vv.height) : 0;
             setVisible((prev) => (prev === room ? prev : room));
         };
         read();

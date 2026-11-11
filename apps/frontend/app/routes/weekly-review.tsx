@@ -91,7 +91,7 @@ export default function WeeklyReview() {
     const [titleVisible, setTitleVisible] = useState(true);
     const onTitleVisible = useCallback((visible: boolean) => setTitleVisible(visible), []);
     // With the keyboard up on touch the footer steps aside; the composer rides the keys.
-    const keyboardOpen = useKeyboardInset(shell.isTouch).inset > 0;
+    const keyboardOpen = useKeyboardInset(shell.isTouch).aboveKeyboard !== null;
 
     const handleExit = () => {
         trackUsageEvent("weekly_reset.abandoned", { route: "weekly-review", outcome: `step_${currentStep}` });

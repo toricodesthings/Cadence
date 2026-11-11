@@ -100,7 +100,8 @@ function focusInitial(panel: HTMLElement | null, event: Event) {
     const target = panel?.querySelector<HTMLElement>("[data-initial-focus]") ?? panel?.querySelector<HTMLElement>("[data-sheet-heading]");
     if (!target) return;
     event.preventDefault();
-    target.focus();
+    // The sheet is still sliding up from below the keyboard: a plain focus makes iOS pan the page to it.
+    target.focus({ preventScroll: true });
 }
 
 /** Radix sees Escape before any child; a control that keeps Escape for itself says so. */

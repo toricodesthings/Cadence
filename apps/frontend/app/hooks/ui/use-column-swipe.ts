@@ -1,20 +1,29 @@
-import { useRef, type TouchEvent } from "react";
+import { animate, useMotionValue, useReducedMotionConfig } from "framer-motion";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
-/** Past this many px a release changes column; a quick flick needs only half. */
-const COMMIT_DISTANCE = 64;
-const FLICK_SPEED = 0.5; // px/ms
-/** Horizontal must beat vertical by this much, so scrolling the column never switches it. */
-const DIRECTION_RATIO = 1.6;
+/** Finger travel before the gesture picks an axis. */
+const LOCK_SLOP = 8;
+/** Horizontal must beat vertical by this much, so scrolling the column never moves it. */
+const DIRECTION_RATIO = 1.2;
+/** Past this share of the width a release turns the page; a flick (px/ms) needs only a little travel. */
+const COMMIT_SHARE = 0.35;
+const FLICK_SPEED = 0.4;
+const FLICK_MIN = 24;
+/** Space between neighbouring columns while they slide (the strip's `ml-4` / `mr-4`). */
+export const PAGE_GAP = 16;
+const SETTLE = { type: "spring", visualDuration: 0.38, bounce: 0 } as const;
 
-/** Which way a finished touch moves the column: 1 = next, -1 = previous, 0 = it wasn't a swipe. */
-export function swipeDirection(dx: number, dy: number, ms: number): -1 | 0 | 1 {
-    if (Math.abs(dx) < Math.abs(dy) * DIRECTION_RATIO) return 0;
-    const flick = ms > 0 && Math.abs(dx) / ms >= FLICK_SPEED;
-    if (Math.abs(dx) < (flick ? COMMIT_DISTANCE / 2 : COMMIT_DISTANCE)) return 0;
+/** Where a released drag goes: 1 = next column, -1 = previous, 0 = back to this one. */
+export function settleDirection(dx: number, velocity: number, width: number): -1 | 0 | 1 {
+    const flick = Math.abs(velocity) >= FLICK_SPEED && Math.abs(dx) >= FLICK_MIN && Math.sign(velocity) === Math.sign(dx);
+    if (!flick && Math.abs(dx) < width * COMMIT_SHARE) return 0;
     return dx < 0 ? 1 : -1;
 }
 
-/** A touch here belongs to something else: a field, a row being dragged, the chooser, a sideways scroller. */
+/** Past the first or last column the page resists, the further the harder (iOS rubber band). */
+export const rubberBand = (dx: number, width: number) => Math.sign(dx) * (1 - 1 / ((Math.abs(dx) * 0.55) / width + 1)) * width;
+
+/** A touch here belongs to something else: a field, a row being dragged, a sideways scroller. */
 function ownedElsewhere(target: EventTarget | null, root: HTMLElement): boolean {
     if (document.querySelector('[aria-roledescription][aria-pressed="true"]')) return true; // dnd-kit drag in flight
     for (let el = target instanceof Element ? target : null; el && el !== root; el = el.parentElement) {
@@ -24,27 +33,85 @@ function ownedElsewhere(target: EventTarget | null, root: HTMLElement): boolean 
     return false;
 }
 
+type Gesture = { x: number; y: number; lock: "x" | "y" | null; width: number; lastX: number; lastT: number; velocity: number };
+
 /**
- * Swipe sideways across a compact board's body to move to the next or previous column, the way the
- * chooser above it does. Passive touch listeners only: vertical scroll and dnd-kit's long-press keep the finger.
+ * A compact board's columns as pages: the column follows the finger sideways with its neighbours beside it,
+ * resists past the ends, and springs on release (carrying the flick's speed) to the next page or back.
+ * `x` drives the strip; `peek` says when to mount the neighbours. Vertical scroll and dnd-kit's long-press
+ * keep the finger: the axis is chosen once per touch, and a drag in flight cancels the swipe.
  */
-export function useColumnSwipe(onSwipe: (delta: 1 | -1) => void) {
-    const start = useRef<{ x: number; y: number; t: number } | null>(null);
-    return {
-        onTouchStart: (e: TouchEvent<HTMLElement>) => {
-            const touch = e.touches[0];
-            start.current = e.touches.length === 1 && !ownedElsewhere(e.target, e.currentTarget)
-                ? { x: touch.clientX, y: touch.clientY, t: e.timeStamp }
+export function useColumnSwipe({ index, count, onChange }: { index: number; count: number; onChange: (index: number) => void }) {
+    const x = useMotionValue(0);
+    const reduced = Boolean(useReducedMotionConfig());
+    const [peek, setPeek] = useState(false);
+    const gesture = useRef<Gesture | null>(null);
+    const latest = useRef({ index, count, onChange, reduced });
+    latest.current = { index, count, onChange, reduced };
+
+    // A new page (from a swipe or the chooser) sits at rest the frame it renders.
+    useLayoutEffect(() => { x.jump(0); }, [index, x]);
+
+    const ref = useCallback((root: HTMLElement | null) => {
+        if (!root) return;
+        const start = (e: TouchEvent) => {
+            const t = e.touches[0];
+            gesture.current = e.touches.length === 1 && !x.isAnimating() && !ownedElsewhere(e.target, root)
+                ? { x: t.clientX, y: t.clientY, lock: null, width: root.clientWidth, lastX: t.clientX, lastT: e.timeStamp, velocity: 0 }
                 : null;
-        },
-        onTouchEnd: (e: TouchEvent<HTMLElement>) => {
-            const from = start.current;
-            start.current = null;
-            const touch = e.changedTouches[0];
-            if (!from || !touch || ownedElsewhere(null, e.currentTarget)) return;
-            const delta = swipeDirection(touch.clientX - from.x, touch.clientY - from.y, e.timeStamp - from.t);
-            if (delta) onSwipe(delta);
-        },
-        onTouchCancel: () => { start.current = null; },
-    };
+        };
+        const move = (e: TouchEvent) => {
+            const g = gesture.current;
+            const t = e.touches[0];
+            if (!g || !t || g.lock === "y") return;
+            const dx = t.clientX - g.x;
+            const dy = t.clientY - g.y;
+            if (!g.lock) {
+                if (Math.hypot(dx, dy) < LOCK_SLOP) return;
+                g.lock = Math.abs(dx) >= Math.abs(dy) * DIRECTION_RATIO ? "x" : "y";
+                if (g.lock === "y") return;
+                setPeek(true);
+            }
+            if (ownedElsewhere(null, root)) { cancel(); return; }
+            e.preventDefault(); // ours now: no vertical drift, no browser back-swipe
+            const dt = e.timeStamp - g.lastT;
+            if (dt > 0) g.velocity = (t.clientX - g.lastX) / dt;
+            g.lastX = t.clientX;
+            g.lastT = e.timeStamp;
+            const { index: i, count: n } = latest.current;
+            const edge = (dx > 0 && i === 0) || (dx < 0 && i === n - 1);
+            x.set(edge ? rubberBand(dx, g.width) : dx);
+        };
+        const settle = (to: number, velocity: number, done: () => void) => {
+            const { reduced: still } = latest.current;
+            void animate(x, to, still ? { duration: 0 } : { ...SETTLE, velocity: velocity * 1000 }).then(done);
+        };
+        const cancel = () => {
+            const g = gesture.current;
+            gesture.current = null;
+            if (g?.lock === "x") settle(0, 0, () => setPeek(false));
+        };
+        const end = () => {
+            const g = gesture.current;
+            gesture.current = null;
+            if (g?.lock !== "x") return;
+            const { index: i, count: n, onChange: go } = latest.current;
+            const delta = settleDirection(x.get(), g.velocity, g.width);
+            const next = i + delta;
+            if (!delta || next < 0 || next >= n) { settle(0, g.velocity, () => setPeek(false)); return; }
+            settle(-delta * (g.width + PAGE_GAP), g.velocity, () => { setPeek(false); go(next); });
+        };
+        root.addEventListener("touchstart", start, { passive: true });
+        root.addEventListener("touchmove", move, { passive: false });
+        root.addEventListener("touchend", end);
+        root.addEventListener("touchcancel", cancel);
+        return () => {
+            root.removeEventListener("touchstart", start);
+            root.removeEventListener("touchmove", move);
+            root.removeEventListener("touchend", end);
+            root.removeEventListener("touchcancel", cancel);
+        };
+    }, [x]);
+
+    return { ref, x, peek };
 }

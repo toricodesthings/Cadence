@@ -1,0 +1,5 @@
+# Notes — Agent Instructions
+
+Loaded with the [frontend guide](../../../AGENTS.md); its § numbers are referenced here. Edit here, not there.
+
+- **Notes:** one `NoteSession` per account + canonical owner per tab (`lib/notes/note-session.ts`, held by `note-registry.ts`, read through `useTaskNote`): it owns content generations, the acknowledged revision, one in-flight save (≈600ms idle, ≤2s while typing), the device journal (`note-journal.ts`, per-branch drafts under a Web Lock) and the derived status (`noteStatus`: Saved · Saving… · Saved on this device · Couldn't sync · Review changes · Couldn't save). Other tabs converge through `note-channel.ts` + 10s polling + `mergeNotes` (jsdiff; disjoint edits only; overlap or over 1,000 changed lines → review, both texts kept). The editor is Tiptap over a bounded schema (`note-markdown.ts`; `isFaithful` sends a note it would lose text from to Markdown source) shared by `TaskNoteRoom` and `TaskNoteInline`; every command comes from `components/tasks/note/note-commands.ts`. Stored text stays Markdown; opening a note never writes.
