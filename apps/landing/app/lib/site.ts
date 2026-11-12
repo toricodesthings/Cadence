@@ -81,19 +81,19 @@ export const CHAPTERS = {
     id: "rhythm",
     season: "winter",
     panel: "left",
-    eyebrow: "IV · Routines & Weekly Reset",
+    eyebrow: "IV · Routines",
     title: "A rhythm you can return to.",
-    body: "Skip a day, pause for a fortnight, or check in three times a day. Once a week, a two-minute Reset gathers what's loose and lays out the week ahead.",
-    glints: ["A skipped day is just a skipped day", "Little steps inside each routine", "Loose ends get one-tap next steps"],
+    body: "Build a morning in small steps, or a dose three times a day. Check in, skip, or log a day you forgot. When life gets loud, pause for a fortnight; your history stays.",
+    glints: ["Tick or skip each step on its own", "Every set time checked off by itself", "Streaks show only if they help"],
   },
   /** The long night before spring: no season, only the lantern's light. */
   today: {
     id: "today",
     panel: "right",
-    eyebrow: "V · Today",
+    eyebrow: "V · Today & Weekly Reset",
     title: "Lost\u00a0a\u00a0week? Start from today.",
-    body: "Missed classes and skipped routines just pass. Unfinished tasks wait quietly under Still open, and Cadence can fit today's into the gaps between your plans.",
-    glints: ["Swipe a task to your next free gap", "Slipping tasks offer smaller steps", "Waiting tasks can wait a little longer"],
+    body: "Missed classes and skipped routines just pass, and unfinished tasks wait under Still open. Once a week, a two-minute Reset gives each loose end a next step and lays out the week ahead.",
+    glints: ["Fit today's tasks into its open gaps", "Huddle to rearrange the week in a chat", "Slipping tasks offer smaller steps"],
   },
 } satisfies Record<string, ChapterCopy>;
 
