@@ -119,20 +119,20 @@ export const SEGMENTS = {
     w0: 10,
     wEnd: 9,
     // Her words hold x 205–850, y 130–400 (wider at narrow desktops, where the glints wrap); the stage's
-    // panel starts below them at x 418. The limb parts above the eyebrow: it swings right round the words,
-    // its twin (held on authored points) swings left, and they meet again behind the panel.
+    // panel starts below them at x 418, and her sigil's ring (centre 192, 640; radius ≈ 116) left of it. The
+    // limb parts above the eyebrow: it swings right round the words and falls behind the panel; its twin
+    // (held on authored points) swings left, comes down to the ring and starts to wrap its left side (short of its foot: at narrow desktops the words wrap and the stage sits ~40 lower).
     keys: [
       [500, 0], [500, 40], [560, 76], [700, 104], [838, 146], [915, 236], [930, 336], [890, 428],
       [780, 482], [640, 522], [540, 600], [506, 720], [500, 850], [500, 900],
     ],
     forks: [
       {
-        t: 0.05, side: -1, until: 0.78, wShare: 0.8,
-        path: [[430, 84], [300, 110], [162, 164], [86, 258], [76, 350], [116, 432], [222, 482], [362, 508]],
+        t: 0.05, side: -1, len: 0.7, wShare: 0.8,
+        path: [[430, 84], [300, 110], [162, 164], [86, 258], [70, 350], [62, 450], [56, 550], [62, 640], [80, 706]],
         forks: [
           { t: 0.3, side: 1, angle: 52, len: 0.08, weep: true, forks: [] },
           { t: 0.5, side: 1, angle: 46, len: 0.09, weep: true },
-          { t: 0.7, side: 1, angle: 40, len: 0.06, forks: [] },
         ],
       },
       { t: 0.2, side: -1, angle: 50, len: 0.07, forks: [] },

@@ -29,7 +29,8 @@ export function Emilie() {
           <span className="emilie-core" />
         </Sigil>
         <div className="chapter-panel emilie-panel reveal-panel">
-          <Panel />
+          <span className="emilie-wire" />
+          <Panel clip="assistant" />
         </div>
       </div>
     </section>

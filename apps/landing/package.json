@@ -6,7 +6,7 @@
     "**/*.css"
   ],
   "scripts": {
-    "build": "react-router build && for p in terms privacy 404; do mv build/client/$p/index.html build/client/$p.html && rmdir build/client/$p; done && rm build/client/__spa-fallback.html",
+    "build": "react-router build && for p in terms privacy changelog 404; do mv build/client/$p/index.html build/client/$p.html && rmdir build/client/$p; done && rm build/client/__spa-fallback.html",
     "dev": "react-router dev --port 8791",
     "preview": "pnpm build && npx wrangler dev",
     "deploy": "pnpm build && wrangler deploy",

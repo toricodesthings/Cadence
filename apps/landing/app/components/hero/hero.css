@@ -904,6 +904,8 @@
 @media (max-aspect-ratio: 4/5), (max-width: 767px) and (orientation: portrait) {
   .hero-copy { padding-block: 8rem 3.5rem; }
   .hero-land { height: clamp(110px, 26dvh, 380px); }
+  /* The lower bough hangs where the hamlet stands on a wide screen, so here it sits a little down its slope */
+  .hero-hamlet { transform: translateY(22px); }
   /* The stage's centre strip is all a portrait screen shows: one comet, in the sky right of the upper bough */
   .hero-comet-a { --x: 1185; --y: 185; --run: 190; --len: 120; }
   .hero-comet-b { display: none; }

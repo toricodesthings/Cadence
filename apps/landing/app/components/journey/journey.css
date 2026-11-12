@@ -303,6 +303,18 @@
   box-shadow: 0 0 8px color-mix(in srgb, var(--accent-primary) 60%, transparent);
 }
 
+/* The clip fills the glass; the rim is drawn over it */
+.panel::before { z-index: 1; }
+
+.panel-clip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
 .panel-gem-tl { left: 1.5rem; top: 0; }
 .panel-gem-br { right: 1.5rem; bottom: 0; }
 
@@ -842,6 +854,8 @@
 }
 
 .emilie-stage {
+  /* In the section's own units (≈ 244 of its 1000), so the twin's curl stays on the ring at any width */
+  --sigil: min(19rem, 24.4cqw);
   display: grid;
   grid-template-columns: 2fr 3fr;
   align-items: center;
@@ -851,7 +865,6 @@
 }
 
 .emilie-sigil {
-  --sigil: min(100%, 19rem);
   --reveal-at: 0.4;
   position: relative;
   z-index: 2;
@@ -866,9 +879,65 @@
   grid-column: auto;
 }
 
-/* Her light: a bright core in a soft orb, breathing */
+/*
+ * A glowing cable from the sigil's ring to the panel: straight out, then bending up and down to run along the
+ * panel's left edge. The stage is 2fr | 3rem | 3fr, so from the panel's width (100%) the sigil column is
+ * two thirds of it and its ring (95% of the sigil) ends a third + 3rem − 0.475·sigil away.
+ */
+.emilie-wire {
+  --wire: 3px;
+  position: absolute;
+  z-index: 1;
+  inset: 0 calc(100% - var(--wire) / 2) 0 auto;
+  width: calc(100% / 3 + 3rem - var(--sigil) * 0.475 + var(--wire) / 2);
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px var(--hero-sigil-glow)) drop-shadow(0 0 1px var(--hero-sigil-amber));
+  mask:
+    linear-gradient(transparent, #000 2.5rem, #000 calc(100% - 2.5rem), transparent),
+    linear-gradient(90deg, transparent, #000 1.5rem);
+  mask-composite: intersect;
+}
+
+.emilie-wire::before,
+.emilie-wire::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  border: 0 solid var(--hero-sigil-amber);
+  border-right-width: var(--wire);
+}
+
+.emilie-wire::before {
+  top: 1.5rem;
+  bottom: calc(50% - var(--wire) / 2);
+  border-bottom-width: var(--wire);
+  border-bottom-right-radius: 2.5rem;
+}
+
+.emilie-wire::after {
+  top: calc(50% - var(--wire) / 2);
+  bottom: 1.5rem;
+  border-top-width: var(--wire);
+  border-top-right-radius: 2.5rem;
+}
+
+/* Her light: the app's mark (a star and its small companion, as in her clip) lit over a soft orb, breathing */
 .emilie-core {
-  width: 22%;
+  display: grid;
+  place-items: center;
+  width: 46%;
+  aspect-ratio: 1;
+  animation: var(--hero-still, emilie-breath 4.6s var(--ease-sine) infinite alternate both var(--hero-loop, running));
+}
+
+.emilie-core::before,
+.emilie-core::after {
+  content: "";
+  grid-area: 1 / 1;
+}
+
+.emilie-core::before {
+  width: 48%;
   aspect-ratio: 1;
   border-radius: 50%;
   background: radial-gradient(
@@ -878,11 +947,24 @@
     color-mix(in srgb, var(--accent-primary) 40%, transparent) 56%,
     transparent 72%
   );
-  animation: var(--hero-still, emilie-breath 4.6s var(--ease-sine) infinite alternate both var(--hero-loop, running));
+}
+
+.emilie-core::after {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    circle at 50% 54%,
+    color-mix(in srgb, var(--hero-lamp) 45%, white) 0 12%,
+    var(--hero-lamp) 34%,
+    var(--accent-primary) 70%
+  );
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-50 -50 100 100'%3E%3Cpath d='M0,-40Q6.16,-2.16 44,4Q6.16,10.16 0,48Q-6.16,10.16 -44,4Q-6.16,-2.16 0,-40ZM30,-43Q31.82,-31.82 43,-30Q31.82,-28.18 30,-17Q28.18,-28.18 17,-30Q28.18,-31.82 30,-43Z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 /* ── Finale: the crown, the scene, one invitation ── */
 .finale {
+  /* The valley's height: its band, and what the moon is measured up from */
+  --land-height: clamp(10rem, 18vw, 19rem);
   --front: 30vh;
   --reveal-at: 0.36;
   position: relative;
@@ -913,13 +995,14 @@
     );
 }
 
-/* The last moon: the hero's, hours later and on the other side of the sky. Painted, never moved: a soft disc
-   in a wide halo, with two faint maria. Softer than the hero's, which is the night's key light */
+/* The last moon: the hero's, hours later and on the other side of the sky, standing over the valley beside the
+   invitation (measured up from the land, so it keeps its place whatever the crown's height). Painted, never
+   moved: a soft disc in a wide halo, with two faint maria */
 .finale-moon {
   position: absolute;
-  top: 3%;
-  right: 6%;
-  width: clamp(7rem, 12vw, 13rem);
+  bottom: calc(var(--land-height) + clamp(15rem, 21vw, 22rem));
+  right: 11%;
+  width: clamp(7rem, 11vw, 12rem);
   aspect-ratio: 1;
   border-radius: 50%;
   pointer-events: none;
@@ -942,7 +1025,7 @@
     color-mix(in srgb, var(--hero-moon) 40%, transparent) 90%,
     transparent
   );
-  opacity: 0.42;
+  opacity: 0.6;
   box-shadow: 0 0 3rem color-mix(in srgb, var(--hero-moon) 18%, transparent);
 }
 
@@ -1153,7 +1236,6 @@
 
 /* The second valley: the ground the footer stands on */
 .finale-land {
-  --land-height: clamp(10rem, 18vw, 19rem);
   position: relative;
   height: var(--land-height);
   margin-top: -1rem;
@@ -1387,6 +1469,7 @@
   }
 
   .emilie-sigil { --sigil: 13rem; }
+  .emilie-wire { display: none; }
 
   /* The strand ends 2.25rem from the viewport edge: continue at that exact joint, then sweep right. */
   .finale-crown {
@@ -1404,6 +1487,11 @@
   }
   .finale-stage { margin-top: 0; }
   .finale-land-scene { translate: -58% 0; }
+  /* No room beside the blossom here: the moon stands low over the valley's east side, clear of the words */
+  .finale-moon {
+    bottom: calc(var(--land-height) + 0.5rem);
+    right: 2%;
+  }
 
   /* Skipped sections' stand-in heights here, where content sets them (measured at 360–1024 px wide) */
   .journey > .jsec { contain-intrinsic-size: auto 1050px; }
@@ -1413,6 +1501,14 @@
   /* The last strand has no crossing: it runs straight down into the crown */
   .journey > .constellation { --bough-crossing: 0px; }
   .finale { contain-intrinsic-size: auto 940px; }
+}
+
+/* Phones: the blossom spans the screen, so the moon tucks into the corner under its last petal */
+@media (max-width: 480px) {
+  .finale-moon {
+    bottom: calc(var(--land-height) - 0.75rem);
+    right: -1.75rem;
+  }
 }
 
 /* ── Scroll-bound motion ── */

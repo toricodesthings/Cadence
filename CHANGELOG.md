@@ -9,10 +9,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 ### Added
 
 - Cadence now installs on Linux (AppImage, .deb and .rpm) and updates itself like the Windows app.
+- Each chapter on the Cadence website now plays a short clip of the app at work.
+- The Cadence website has its own What's new page, so you can read every release without opening the app.
 
 ### Changed
 
 - The Cadence website shows more of what makes Cadence different, with a fifth chapter on starting fresh today.
+- The website opens and closes on one valley: moonlit peaks, a river, and a hamlet settled among the trees.
 
 ## [0.45.3] - 2026-11-11
 

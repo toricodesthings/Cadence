@@ -3,6 +3,7 @@ import { Fragment, useEffect, useRef } from "react";
 import { StaticSvg } from "~/components/StaticSvg";
 import { cssVars } from "~/lib/geometry";
 import { CHAPTERS, PRELUDE } from "~/lib/site";
+import { tendClip } from "~/lib/clip";
 import { watchViewport } from "~/lib/viewport";
 
 import { BoughSegment, segmentHeight } from "./BoughSegment";
@@ -75,7 +76,13 @@ export function Journey() {
         if (share >= 0.2) el.classList.add("is-grown");
       }, { steps: [0.2] })
       : undefined;
-    return () => { stopSections(); stopCrown?.(); stopBranches?.(); };
+    // Clips start downloading a screen ahead, so each is ready when its panel arrives, and play only while seen
+    const stopClips = watchViewport(
+      Array.from(root.querySelectorAll<HTMLVideoElement>(".panel-clip")),
+      (el, share, near) => tendClip(el as HTMLVideoElement, near, share > 0),
+      { margin: 1 },
+    );
+    return () => { stopSections(); stopCrown?.(); stopBranches?.(); stopClips(); };
   }, []);
 
   return (
@@ -145,20 +152,20 @@ export function Journey() {
       </div>
 
       <Chapter copy={CHAPTERS.capture} segment="spring" drift="petal">
-        <Panel />
+        <Panel clip="capture" />
       </Chapter>
       <Chapter copy={CHAPTERS.plan} segment="summer" prev="spring" drift="firefly">
-        <Panel />
+        <Panel clip="plan" />
       </Chapter>
       <Chapter copy={CHAPTERS.time} segment="autumn" prev="summer" drift="leaf">
-        <Panel />
+        <Panel clip="schedule" />
       </Chapter>
       <Emilie />
       <Chapter copy={CHAPTERS.rhythm} segment="winter" drift="snow">
-        <Panel />
+        <Panel clip="routines" />
       </Chapter>
       <Chapter copy={CHAPTERS.today} segment="today" prev="winter" drift="lantern">
-        <Panel />
+        <Panel clip="reset" />
       </Chapter>
 
       <Constellation />

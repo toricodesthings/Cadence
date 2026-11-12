@@ -12,8 +12,8 @@ The introduction site on the root domain (`cadenceapp.cloud`). React Router v8 *
 
 ## 2. Runtime Shape
 
-- No Worker. `pnpm build` prerenders `/`, `/terms`, `/privacy` and `/404` into `build/client` (terms, privacy and 404 are flattened to `terms.html` etc., so `/terms` answers without a redirect). `wrangler.jsonc` serves that folder with `not_found_handling: "404-page"`, so unknown paths get `404.html` and a 404 status without running code. Security headers for every response live in `public/_headers` (`/assets/*` is immutable; the root icons, share image, robots and sitemap cache for a week or a day; HTML revalidates by ETag).
-- `vite.config.ts`: Tailwind + React Router only (prerender runs in Node). `react-router.config.ts`: `ssr: false`, `prerender`. `package.json` `sideEffects: ["**/*.css"]` lets the client build drop scene modules it never calls.
+- No Worker. `pnpm build` prerenders `/`, `/terms`, `/privacy`, `/changelog` and `/404` into `build/client` (all but `/` are flattened to `terms.html` etc., so `/terms` answers without a redirect). `wrangler.jsonc` serves that folder with `not_found_handling: "404-page"`, so unknown paths get `404.html` and a 404 status without running code. Security headers for every response live in `public/_headers` (`/assets/*` is immutable; the root icons, share image, robots and sitemap cache for a week or a day; HTML revalidates by ETag).
+- `vite.config.ts`: Tailwind + React Router (prerender runs in Node), and `__CADENCE_CHANGELOG__` from the root CHANGELOG.md through the app's own parser (`apps/frontend/release-info.ts`). `react-router.config.ts`: `ssr: false`, `prerender`. `package.json` `sideEffects: ["**/*.css"]` lets the client build drop scene modules it never calls.
 - `app/root.tsx`: HTML shell, stylesheet + Latin font preloads, error boundary (real errors only), and the one inline head script (`lib/intro.ts`: before first paint it holds the hero intro at its first frame until the page has hydrated and gone idle, lifting itself after 3s if the JS never arrives, and flags a return visit so the hero skips its intro without a hydration snap). Routes in `app/routes.ts`; each route owns its SEO via `meta` (`/` also carries the JSON-LD); the speculation rules (prefetch between the landing's own pages) sit in `root.tsx`, and `public/` holds `sitemap.xml` and `robots.txt`. `routes/not-found.tsx` is the splat route that renders `components/NotFound.tsx` (a 404 is a page, not an error).
 - `wrangler.jsonc` (`cadence-landing`): assets only, `workers_dev: false`; `cadenceapp.cloud` and `www` are attached as custom domains in the Cloudflare dashboard.
 
@@ -23,22 +23,23 @@ The introduction site on the root domain (`cadenceapp.cloud`). React Router v8 *
 app/
 ├── app.css            # Mirrored brand/scene tokens, blue-mauve dusk and coral-gold light shared across the journey, base rules
 ├── root.tsx, routes.ts
-├── routes/            # home.tsx, not-found.tsx (the splat), terms.tsx, privacy.tsx (both render components/legal/LegalPage; the footer and the app's About tab link to them)
+├── routes/            # home.tsx, not-found.tsx (the splat), terms.tsx, privacy.tsx, changelog.tsx (all render components/legal/LegalPage; `lib/changelog.ts` shapes the releases into a LegalDoc, one section per minor line; the app keeps its own /changelog)
 ├── components/        # ButtonLink (lit-glass buttons; every primary wears one copper, `--accent-ember`), icons, SiteHeader, SiteFooter (mark, wordmark, crest, link groups; `.footer-*`
 │                      # in app.css), CursorGlow, StaticSvg (build-time-only SVG islands), NotFound (the 404: the hero's sky and portrait boughs; `.lost` in hero.css, so it beats the unlayered
 │                      # `.hero` tokens), CloudPass + cloud-pass.css (sign-up links marked `data-cloud` roll canvas-painted cloud banks over the screen, preconnect to the app, then navigate)
-│   ├── hero/          # Hero (intro release, settle, offscreen pause, parallax effects), HeroSky (+ moon, which sets on the hero's scroll; comets), HeroLandscape (its ridge helpers are
-│   │                  # shared with FinaleLand), HeroBough, HeroWordmark, hero.css; `*Scene.tsx` / `HeroSkyStage` hold the static drawings the wrappers render at build time (intro + return-visit entrance)
+│   ├── hero/          # Hero (intro release, settle, offscreen pause, parallax effects), HeroSky (+ moon, which sets on the hero's scroll; comets), HeroLandscape (moonlit massifs, river, a hamlet on a terrace that
+│   │                  # portrait screens set lower, under the bough; its `Massifs`, ridge, grove and house helpers are shared with FinaleLand), HeroBough, HeroWordmark, hero.css; `*Scene.tsx` / `HeroSkyStage` hold the static drawings the wrappers render at build time (intro + return-visit entrance)
 │   ├── legal/         # LegalPage (masthead, contents, "In short" panel, one seasonal section per clause; renders a LegalDoc) + legal.css
 │   └── journey/       # Journey (`.journey` is the size container narrow-screen maths reads with `cqw`; the crown is watched only once the finale is near; deepening sticky sky, mist, Prelude with a mobile reading pause before its side-entering branch, offscreen pause), BoughSegment (+ boughSpecs.ts, BoughSegmentScene; per-section bough,
 │                      # joined head to tail, behind all UI; fades into the copper crown; narrow strands alternate sides with curved crossings, the last running straight into the right-sweeping crown), Foliage (what each season's tips carry),
-│                      # Chapter (five; Today wears no season, only the lantern), Emilie (keystone chapter), Constellation (one <ul> over a compact faceted desktop atlas and a tall portrait chart with alternating labels),
-│                      # Finale (crown, soft sky, the blossom seal around the signup link, one reassurance) + FinaleLand (wooded valley, lamplit hamlet, boats; shared canvas for mobile crop),
-│                      # Sigil (rings of light; `blossom` seal that holds the finale's link), Drift (particle sets; finale depth layers), Panel, journey.css (scroll-timeline motion)
-├── assets/            # logo-mark.png (96px crop for the header and footer; hashed by the bundler)
+│                      # Chapter (five; Today wears no season, only the lantern), Emilie (keystone chapter: the bough's left twin ends wrapping her sigil, a lit cable runs from it along the panel's edge), Constellation (one <ul> over a compact faceted desktop atlas and a tall portrait chart with alternating labels),
+│                      # Finale (crown, soft sky, the blossom seal around the signup link, one reassurance) + FinaleLand (the hero's valley from its other end: the same massifs mirrored, the moon now east beside the invitation, lake, lamplit hamlet, boats; shared canvas for mobile crop),
+│                      # Sigil (rings of light; `blossom` seal that holds the finale's link), Drift (particle sets; finale depth layers), Panel (frame + its clip), journey.css (scroll-timeline motion)
+├── assets/            # logo-mark.png (96px crop for the header and footer); clips/ (chapter clips copied from videos/out: AV1 + H.264 MP4 and WebP poster each); all hashed by the bundler
 └── lib/               # site.ts (URLs + copy), legal/ (terms.ts, privacy.ts with its assistant sections in privacy-ai.ts: the documents as data, shape in types.ts; edit the text there, never in LegalPage), intro.ts (head script: intro hold + return-visit flag),
                        # geometry.ts (`@cadence/geometry` + `cssVars`), branch.ts (bough generator), viewport.ts (which sections are on screen:
-                       # cached bounds, one shared scroll/resize listener and ResizeObserver, no IntersectionObserver), away.ts (`data-away` on <html> while the tab is hidden or unfocused)
+                       # cached bounds, one shared scroll/resize listener and ResizeObserver, no IntersectionObserver), away.ts (`data-away` on <html> while the tab is hidden or unfocused), clip.ts (chapter clips: Static Assets answer `Range` with a full 200,
+                       # which Safari won't play, so each is fetched whole a screen ahead into a blob (CSP `media-src blob:`), AV1 only where hardware-decoded, played only while seen; reduced motion/Save-Data keep the poster)
 public/                # favicon, apple-touch-icon.png (180px), sitemap.xml, og-image.png (share image: the hero's still pose,
                        # wordmark only, 1200×630; re-shoot when the hero's look changes), robots.txt, _headers
 ```

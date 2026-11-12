@@ -1,7 +1,7 @@
 import logoMark from "~/assets/logo-mark.png";
 import {
   APP_URL,
-  CHANGELOG_URL,
+  CHANGELOG_PATH,
   FOOTER,
   ISSUES_URL,
   PRIVACY_PATH,
@@ -22,7 +22,7 @@ const GROUPS = [
     links: [
       { label: "Open the app", href: APP_URL },
       { label: "Sign in", href: SIGN_IN_URL },
-      { label: "What's new", href: CHANGELOG_URL },
+      { label: "What's new", href: CHANGELOG_PATH },
     ],
   },
   {

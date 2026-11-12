@@ -87,6 +87,7 @@ export type ForkSpec = {
    * width, grows in step with the parent, and ends hidden under the parent's wood instead of in a tip.
    */
   until?: number;
+  /** With `until`, the rejoining limb's course; without it, a free limb held on these points, ending in a tip after `len` of the parent's growth. */
   path?: readonly Pt[];
   /** Width as a share of the parent's where it leaves (default 0.55; a rejoining twin runs near 0.8). */
   wShare?: number;
@@ -300,6 +301,7 @@ export function generateBough(spec: BoughSpec): Bough {
         knot(j);
         return [[spine[k], ...(fork.path ?? []), spine[j]], widths[k] * share, start + dur * fork.t, fork, dur * (fork.until - fork.t)];
       }
+      if (fork.path) return [[spine[k], ...fork.path], widths[k] * share, start + dur * fork.t, fork, dur * (fork.len ?? 0.5)];
       const tangent = unit(sub(spine[Math.min(spine.length - 1, k + 1)], spine[Math.max(0, k - 1)]));
       return [twigKeys(spine[k], tangent, total, fork), widths[k] * share, start + dur * fork.t, fork, DUR[depth + 1]];
     });

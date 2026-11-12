@@ -1,20 +1,17 @@
-import { Grad, LAND_H as H, LAND_W as W, Mist, grove, ridgeFill, ridgeLine } from "~/components/hero/HeroLandscapeScene";
-import { cssVars, n1, polyline, pt, risingEdges, yAt, type Pt } from "~/lib/geometry";
+import { BEACON, Grad, LAND_H as H, LAND_W as W, Massifs, Mist, bankFill, grove, house, ridgeFill, ridgeLine, scatter } from "~/components/hero/HeroLandscapeScene";
+import { cssVars, n1, pt, risingEdges, yAt, type Pt } from "~/lib/geometry";
 
 /*
- * The finale's valley: the hero's drawing language, another place, and the page's warmest picture. One summit
- * with a shrine light, a still lake in the middle distance holding the lights, the village on the west bank, a
+ * The finale's valley: the hero's valley from its other end, hours later, and the page's warmest picture. The
+ * same massifs stand behind it, mirrored, their lit faces turned east with the moon; the shrine light is the
+ * hero's beacon. A still lake in the middle distance holds the lights, with the village on the west bank, a
  * hamlet of lit houses on the east (the loading screen's cottages: warm windows, a string of lights between the
- * eaves, smoke off two chimneys), and two lantern boats out on the water. A shared 1920×300 canvas keeps
+ * eaves, smoke off two chimneys), two lantern boats out on the water, and tall firs closing both corners. A shared 1920×300 canvas keeps
  * the painting and its lights aligned as the closer mobile crop follows the hamlet. The lamps wake one by one
  * on the valley's view timeline (journey.css), in a sibling <svg>, so the flicker never repaints the hills; the boats drift, the smoke
  * rises and each reflection shimmers in a layer of its own, so nothing that moves shares a box with the hills.
  */
 
-const SPIRES = ridgeLine([
-  [0, 168], [180, 150], [330, 122], [430, 96], [500, 58], [548, 22], [596, 52], [680, 98], [820, 126],
-  [1000, 118], [1160, 132], [1320, 112], [1450, 90], [1540, 104], [1720, 134], [1920, 120],
-]);
 const FAR = ridgeLine([
   [0, 150], [220, 132], [430, 158], [640, 140], [860, 166], [1080, 150], [1300, 168], [1520, 140], [1740, 160], [1920, 138],
 ]);
@@ -27,36 +24,12 @@ const NEAR_W = ridgeLine([[0, 236], [160, 226], [360, 240], [520, 236], [660, 24
 const NEAR_E = ridgeLine([[1240, 302], [1300, 262], [1420, 244], [1600, 234], [1760, 246], [1920, 238]]);
 const KNOLL = ridgeLine([[180, 320], [250, 268], [340, 252], [440, 256], [530, 272], [600, 320]]);
 
-/** A ridge that spans only part of the band, closed straight down past its bottom edge. */
-const bankFill = (line: readonly Pt[]) => `${polyline(line)}L${line[line.length - 1][0]},${H + 2}L${line[0][0]},${H + 2}Z`;
-
-const FAR_TREES = grove(FAR, 680, 12, 180, 11, 83) + grove(FAR, 1230, 16, 240, 12, 89);
+const FAR_TREES = grove(FAR, 680, 12, 180, 11, 83) + grove(FAR, 1230, 16, 240, 12, 89) + scatter(FAR, 180, 480, 7, 8, 109);
 const MID_TREES = grove(MID_W, 210, 18, 220, 17, 61) + grove(MID_W, 610, 10, 135, 15, 97) +
   grove(MID_E, 1220, 9, 100, 15, 101) + grove(MID_E, 1560, 20, 240, 18, 67);
-const NEAR_TREES = grove(NEAR_W, 110, 14, 190, 28, 71) + grove(NEAR_W, 610, 5, 56, 21, 73) +
-  grove(NEAR_E, 1290, 5, 46, 23, 103) + grove(NEAR_E, 1630, 6, 64, 25, 107) + grove(NEAR_E, 1760, 14, 200, 30, 79);
-
-/** A house: walls under a gable with eaves, its windows set in the wall facing us. */
-interface House { body: string; windows: Pt[]; ridge: string; chimney?: Pt }
-
-function house(line: readonly Pt[], x: number, w: number, h: number, sink: number, panes: number): House {
-  const b = yAt(line, x) + 6 + sink;
-  const top = b - h;
-  const roof = top - h * 0.6;
-  const eave = w / 2 + 2.5;
-  const windows: Pt[] = [];
-  for (let i = 0; i < panes; i++) {
-    // Evenly spaced across the wall, a third of the way down it
-    windows.push([n1(x + w * ((i + 0.5) / panes - 0.5)), n1(top + h * 0.38)]);
-  }
-  return {
-    body: `M${pt(x - w / 2, b)}L${pt(x - w / 2, top)}L${pt(x - eave, top)}L${pt(x, roof)}L${pt(x + eave, top)}L${pt(x + w / 2, top)}L${pt(x + w / 2, b)}Z`,
-    // The moon catches one slope of every roof, as it catches the ridges
-    ridge: `M${pt(x - eave, top)}L${pt(x, roof)}`,
-    windows,
-    chimney: h >= 18 ? [n1(x + w * 0.26), n1(roof + h * 0.22)] : undefined,
-  };
-}
+/* Tall firs close both corners, as in the hero: scale is the last depth cue */
+const NEAR_TREES = grove(NEAR_W, 196, 8, 130, 56, 71) + grove(NEAR_W, 610, 5, 56, 21, 73) + scatter(NEAR_W, 500, 580, 3, 18, 113) +
+  grove(NEAR_E, 1290, 5, 46, 23, 103) + grove(NEAR_E, 1630, 6, 64, 28, 107) + grove(NEAR_E, 1730, 8, 130, 58, 79);
 
 /** The far village on the west bank: small, staggered in depth, seen across the water. */
 const VILLAGE = [
@@ -100,7 +73,7 @@ const SHORE: readonly Pt[] = [
   [720, yAt(MID_W, 720) - 4],
   [1262, yAt(MID_E, 1262) - 4],
 ];
-const SHRINE: Pt = [548, 26];
+const SHRINE: Pt = [W - BEACON[0], BEACON[1]];
 
 /** Every fixed light in the valley, in the order it wakes: [x, y, r]. The boats carry their own. */
 const LIGHTS: readonly (readonly [number, number, number])[] = [
@@ -140,14 +113,12 @@ export function FinaleLandScene() {
       <div className="finale-land-scene">
         <svg {...BAND}>
           <defs>
-            <Grad id="fl-distant" top="var(--hero-land-distant)" base="var(--hero-land-haze)" />
             <Grad id="fl-far" top="var(--hero-land-far)" base="var(--hero-land-haze)" />
             <Grad id="fl-mid" top="var(--hero-land-mid)" base="var(--hero-land-far)" />
             <Grad id="fl-near" top="var(--hero-land-near)" base="var(--color-twilight-void)" />
             <Grad id="fl-knoll" top="color-mix(in srgb, var(--hero-land-near) 60%, var(--color-twilight-void))" base="var(--color-twilight-void)" />
             <Grad id="fl-lake" top="color-mix(in srgb, var(--hero-land-haze) 45%, var(--hero-land-far))" base="var(--color-twilight-void)" />
             <Mist id="fl-mist" color="var(--hero-land-haze)" />
-            <Mist id="fl-water-mist" color="var(--hero-land-rim)" />
             <radialGradient id="fl-dawn">
               <stop offset="0" stopColor="var(--hero-lamp)" stopOpacity=".24" />
               <stop offset="1" stopColor="var(--hero-lamp)" stopOpacity="0" />
@@ -157,18 +128,18 @@ export function FinaleLandScene() {
               <stop offset=".45" stopColor="var(--hero-sigil-coral)" stopOpacity=".07" />
               <stop offset="1" stopColor="var(--hero-sigil-coral)" stopOpacity="0" />
             </radialGradient>
-            <filter id="fl-soft" x="-5%" y="-20%" width="110%" height="140%">
-              <feGaussianBlur stdDeviation="1.3" />
-            </filter>
+            <radialGradient id="fl-moonwash">
+              <stop offset="0" stopColor="var(--hero-moon-halo)" stopOpacity=".14" />
+              <stop offset="1" stopColor="var(--hero-moon-halo)" stopOpacity="0" />
+            </radialGradient>
           </defs>
 
-          <g filter="url(#fl-soft)">
-            <path d={ridgeFill(SPIRES)} fill="url(#fl-distant)" />
-            <path d={risingEdges(SPIRES)} fill="none" stroke="var(--hero-land-rim)" strokeWidth="1.4" strokeLinecap="round" opacity=".22" />
-          </g>
+          <Massifs id="fl" flip cloud={0.6} />
+          {/* The moon's wash on the haze under it: east now */}
+          <ellipse cx="1500" cy="130" rx="320" ry="56" fill="url(#fl-moonwash)" />
           <path d={ridgeFill(FAR) + FAR_TREES} fill="url(#fl-far)" />
           <path d={risingEdges(FAR)} fill="none" stroke="var(--hero-land-rim)" strokeWidth="1.2" strokeLinecap="round" opacity=".18" />
-          <rect y="132" width={W} height="70" fill="url(#fl-mist)" />
+          <rect y="132" width={W} height="70" fill="url(#fl-mist)" opacity=".55" />
 
           <path d={bankFill(MID_W) + bankFill(MID_E) + MID_TREES} fill="url(#fl-mid)" />
 
@@ -177,7 +148,8 @@ export function FinaleLandScene() {
           <rect y={WATER} width={W} height={H - WATER + 2} fill="url(#fl-lake)" />
           <ellipse cx="1000" cy={WATER + 6} rx="380" ry="12" fill="url(#fl-dawn)" />
           <ellipse cx="1110" cy="251" rx="175" ry="33" fill="url(#fl-hearth)" />
-          <rect x="650" y="207" width="660" height="22" fill="url(#fl-water-mist)" opacity=".22" />
+          {/* A breath of mist on the water, no more (the blur is the massifs' cloud filter) */}
+          <ellipse cx="980" cy="215" rx="300" ry="7" fill="var(--hero-land-rim)" opacity=".1" filter="url(#fl-cloud)" />
           <path
             d={`M660,${WATER + 14}H880M1040,${WATER + 20}H1300M760,${WATER + 30}H960M1110,${WATER + 42}H1250M880,260H985M1045,272H1160M810,283H925`}
             stroke="var(--hero-land-rim)"
@@ -185,6 +157,9 @@ export function FinaleLandScene() {
             strokeLinecap="round"
             opacity=".2"
           />
+
+          {/* The moon broken on the water under it */}
+          <path d="M1088,213.5H1132M1150,215.5H1206M1112,217.5H1168M1196,212.5H1232" stroke="var(--hero-moon)" strokeWidth="1" strokeLinecap="round" opacity=".4" />
 
           <path d={bankFill(NEAR_W) + bankFill(NEAR_E) + NEAR_TREES + HOUSES.map((c) => c.body).join("")} fill="url(#fl-near)" />
           {/* Local pools of lamplight tie the windows to the ground around their homes. */}

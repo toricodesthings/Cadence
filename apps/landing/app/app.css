@@ -197,6 +197,8 @@
   --hero-land-near: color-mix(in srgb, var(--color-twilight-void) 92%, var(--color-violet));
   --hero-land-haze: color-mix(in srgb, var(--hero-dusk-horizon) 70%, var(--accent-primary) 30%);
   --hero-land-rim: color-mix(in srgb, var(--accent-secondary) 70%, var(--color-twilight-text));
+  /* Water holds the sky: the haze lifted toward the moon's rim light */
+  --hero-land-water: color-mix(in srgb, var(--hero-land-haze) 45%, var(--hero-land-rim));
   --hero-lamp: color-mix(in srgb, var(--hero-light) 85%, white);
 }
 

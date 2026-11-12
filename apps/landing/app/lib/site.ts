@@ -6,12 +6,13 @@ export const SIGN_UP_URL = `${APP_URL}/auth/sign-up`;
 /** The legal pages live on this site; the app and its About tab link here. */
 export const PRIVACY_PATH = "/privacy";
 export const TERMS_PATH = "/terms";
+/** Built from the root CHANGELOG.md; the app keeps its own copy at /changelog too. */
+export const CHANGELOG_PATH = "/changelog";
 
 /** Chromium fetches a landing page's document ahead when its link is hovered or touched. Prefetch only: a prerender would run the hero intro unseen. */
 export const SPECULATION_RULES = JSON.stringify({
-  prefetch: [{ where: { href_matches: ["/", TERMS_PATH, PRIVACY_PATH] }, eagerness: "moderate" }],
+  prefetch: [{ where: { href_matches: ["/", TERMS_PATH, PRIVACY_PATH, CHANGELOG_PATH] }, eagerness: "moderate" }],
 });
-export const CHANGELOG_URL = `${APP_URL}/changelog`;
 export const REPO_URL = "https://github.com/toricodesthings/Cadence";
 export const ISSUES_URL = `${REPO_URL}/issues`;
 

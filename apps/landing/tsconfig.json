@@ -17,6 +17,7 @@
       "vite/client"
     ],
     "jsx": "react-jsx",
+    "allowImportingTsExtensions": true,
     "rootDirs": [
       ".",
       "./.react-router/types"

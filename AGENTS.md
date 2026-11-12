@@ -6,7 +6,7 @@ Cadence carries executive function for people who struggle with it: attention-de
 
 Ease must never come from removing capability. Keep the feature and move its weight off the user: good defaults, progressive disclosure, direct manipulation, and the baseline kept quiet so exceptions stand out. Before calling anything done, ask: *on a bad day, half-asleep, could someone use this without thinking?* If not, it isn't done. This rule outranks convenience in the code.
 
-Before touching an area, read its guide: `apps/frontend/AGENTS.md`, `apps/backend/AGENTS.md`, `apps/desktop/AGENTS.md`, `apps/landing/AGENTS.md`, `packages/AGENTS.md`. `videos/` (Remotion) is a standalone npm project, outside the pnpm workspace, turbo and the lint/dupes gates. Tests live in each app's `tests/` and in `packages/tests/` (mirrors `packages/`), never next to source.
+Before touching an area, read its guide: `apps/frontend/AGENTS.md`, `apps/backend/AGENTS.md`, `apps/desktop/AGENTS.md`, `apps/landing/AGENTS.md`, `packages/AGENTS.md`. `videos/` (Remotion, local-only) is a standalone npm project, outside the pnpm workspace, turbo and the lint/dupes gates; landing clips share one room (`videos/src/stage.tsx`), render at 2× their CSS size, 60fps, through `videos/render.sh <Composition> "<out folder>"` (lossless PNGs → NVENC: 10-bit AV1 MP4 first, H.264 MP4 fallback, WebP poster, faststart, light `hqdn3d` so dark gradients don't block; no WebM, Safari support is patchy). Tests live in each app's `tests/` and in `packages/tests/` (mirrors `packages/`), never next to source.
 
 ## MANIFESTO
 

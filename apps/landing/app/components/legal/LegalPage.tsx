@@ -25,7 +25,7 @@ const MONTHS = [
 ];
 
 /** "2026-09-30" → "30 September 2026", by hand so the server and the browser can never disagree on a timezone. */
-function formatDay(iso: string) {
+export function formatDay(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
   return `${d} ${MONTHS[m - 1]} ${y}`;
 }
@@ -163,9 +163,16 @@ export function LegalPage({
   doc,
   eyebrow,
   other,
+  inShortTitle = "In short",
+  inShortNote = "The full text below is what counts; this is only the gist.",
+  readTime = true,
 }: {
   doc: LegalDoc;
   eyebrow: string;
+  inShortTitle?: string;
+  inShortNote?: string;
+  /** Off for documents nobody reads end to end (the changelog). */
+  readTime?: boolean;
   /** The sibling document, offered at the end. */
   other: { label: string; href: string };
 }) {
@@ -206,7 +213,7 @@ export function LegalPage({
             </p>
             <p className="legal-meta legal-in" style={{ "--i": 4 } as React.CSSProperties}>
               <span>Updated {formatDay(doc.updated)}</span>
-              <span>{minutes} min read</span>
+              {readTime && <span>{minutes} min read</span>}
             </p>
           </div>
         </div>
@@ -227,7 +234,7 @@ export function LegalPage({
             <div className="legal-panel">
               <span className="panel-gem panel-gem-tl" />
               <span className="panel-gem panel-gem-br" />
-              <h2 className="legal-panel-title font-display">In short</h2>
+              <h2 className="legal-panel-title font-display">{inShortTitle}</h2>
               <ul className="grid gap-3">
                 {doc.inShort.map((line) => (
                   <li key={line} className="glint">
@@ -238,9 +245,7 @@ export function LegalPage({
                   </li>
                 ))}
               </ul>
-              <p className="legal-panel-note">
-                The full text below is what counts; this is only the gist.
-              </p>
+              <p className="legal-panel-note">{inShortNote}</p>
             </div>
 
             {doc.sections.map((s, i) => (
