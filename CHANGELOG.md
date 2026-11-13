@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-13
+
 ### Changed
 
 - The loading screen's landscape has real mountains, wooded hills and, in autumn, the last of the sunset.
