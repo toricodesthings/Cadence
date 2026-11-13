@@ -29,6 +29,9 @@
     --loading-sky-zenith: #171638;
     --loading-sky-glow: #5a2a14;
     --loading-sky-plum: #221630;
+    /* Light hanging in the air along the horizon and pooled between the ranges: autumn's last sunset, spring's fog, summer's gold. Clear elsewhere. */
+    --ls-afterglow: #b4562a;
+    --ls-afterglow-core: #e59a52;
     --loading-haze-far: #3a2a3e;
     --loading-mist: #46303a;
     --loading-mist-warm: #5a3422;
@@ -99,6 +102,10 @@
     --ls-stone: color-mix(in srgb, var(--loading-building-back-base) 45%, var(--loading-mountain-near));
     --ls-window-dark: color-mix(in srgb, var(--loading-building-front-top) 70%, var(--loading-sky-mid));
     --ls-persimmon: color-mix(in srgb, var(--loading-foliage-lit) 75%, var(--loading-flame-mid));
+    /* The one sakura that blossoms in every season (the landing's tree), tinted by each season's night */
+    --ls-petal: #f4c2d0;
+    --ls-sakura-lit: color-mix(in srgb, #e0788c 58%, var(--ls-crown-lit));
+    --ls-sakura-shade: color-mix(in srgb, #7a3a4c 35%, var(--loading-foliage-shade));
     --ls-leaf-1: var(--loading-foliage-lit);
     --ls-leaf-2: color-mix(in srgb, var(--loading-foliage-lit) 55%, var(--loading-foliage-shade));
     --ls-leaf-3: color-mix(in srgb, var(--loading-foliage-lit) 45%, #e0a93a);
@@ -119,65 +126,78 @@
     --ls-aura-inner-o: 1;
     --ls-logo-filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0px 8px 16px rgba(0, 0, 0, 0.8)) brightness(1.05) contrast(1.1);
     --ls-text-shadow: 0 0 24px color-mix(in srgb, var(--accent-primary) 80%, transparent), 0 4px 8px rgba(0, 0, 0, 0.6);
-    --ls-dot-glow: 0 0 12px var(--accent-primary, rgba(255, 157, 0, 1));
     --ls-wordmark-halo: color-mix(in srgb, var(--loading-sky-zenith) 15%, transparent);
 }
 
-/* ── Spring twilight — misty rain at dusk ── */
+/* ── Spring twilight — warm rain at dusk: a veiled moon, fog in the valleys, the towns glowing through it ── */
 [data-loading-season="spring"] .loading-screen {
-    --loading-sky-deep: #0c1422;
-    --loading-sky-mid: #162838;
-    --loading-sky-horizon: #2a3e52;
-    --loading-sky-zenith: #0b1220;
-    --loading-sky-glow: #2a3a4c;
+    --ls-afterglow: rgb(128 138 150 / 0.75);
+    --ls-afterglow-core: rgb(176 166 156 / 0.6);
+    --loading-sky-deep: #141b2c;
+    --loading-sky-mid: #1f2c3e;
+    --loading-sky-horizon: #3d4656;
+    --loading-sky-zenith: #121828;
+    --loading-sky-glow: #5e4a44;
     --loading-sky-plum: color-mix(in srgb, var(--loading-sky-zenith) 55%, var(--loading-sky-mid));
-    --loading-haze-far: #26344a;
-    --loading-mist: #3a4a5c;
-    --loading-mist-warm: #4a4038;
+    --loading-haze-far: #34425a;
+    --loading-mist: #55606e;
+    --loading-mist-warm: #62503f;
     --loading-rim: #aebccc;
-    --loading-vignette: rgba(4, 8, 14, 0.5);
-    --loading-text: #c8dce8;
-    --loading-building-front-top: #0e1218;
-    --loading-building-front-base: #3a3028;
-    --loading-building-back-top: #0a0e14;
-    --loading-building-back-base: #2a2420;
-    --loading-mountain-far: #1a2838;
-    --loading-mountain-mid: #0e1a28;
-    --loading-mountain-near: #060e18;
-    --loading-water-top: #162636;
-    --loading-water-mid: #0c1a28;
-    --loading-water-deep: #040a14;
+    --loading-key: #ece6d2;
+    --loading-vignette: rgba(6, 8, 14, 0.4);
+    --loading-text: #e6e6dc;
+    --loading-building-front-top: #14131a;
+    --loading-building-front-base: #4c382a;
+    --loading-building-back-top: #100f16;
+    --loading-building-back-base: #362a24;
+    --loading-mountain-far: #25334a;
+    --loading-mountain-mid: #18263a;
+    --loading-mountain-near: #101a2a;
+    --loading-water-top: #1e2e40;
+    --loading-water-mid: #121e2e;
+    --loading-water-deep: #080e1a;
     --loading-star-color: #b0c4d8;
     --loading-particle-color: #8aaccc;
-    --loading-roof-front-start: #6a7080;
-    --loading-roof-front-end: #3a404a;
-    --loading-roof-side-start: #4a5060;
-    --loading-roof-side-end: #1a2028;
+    --loading-roof-front-start: #7a7480;
+    --loading-roof-front-end: #403c48;
+    --loading-roof-side-start: #55505e;
+    --loading-roof-side-end: #201e28;
+    /* Blossom on the hill, dimmed by the rain */
+    --loading-foliage-lit: #b98492;
+    --loading-foliage-shade: #2a2536;
     --ls-autumn: none;
     --ls-spring: block;
-    --ls-crowns: none;
     --ls-boughs: none;
-    --ls-key: none;
     --ls-lan-opt: none;
     --ls-stars-8: none;
     --ls-stars-18: none;
+    --ls-spring-cloud: 0.5;
+    --ls-moon-o: 0.85;
+    --ls-moon-filter: blur(4px);
+    --ls-window-glow-o: 0.6;
+    --ls-rain: #d6d0c4;
+    --ls-cloud-o: 0.7;
     --ls-star-cool: var(--loading-star-color);
     --ls-star-warm: color-mix(in srgb, var(--loading-star-color) 60%, #ffe9c4);
 }
 
 /* ── Summer twilight — dusky summer evening, the sun low over olive hills (values sit halfway between the night scene and full daylight, so it stays in the app's key) ── */
 [data-loading-season="summer"] .loading-screen {
+    /* The low sun gilds the haze: gold on the horizon, never autumn's ember */
+    --ls-afterglow: rgb(240 172 72 / 0.7);
+    --ls-afterglow-core: rgb(255 222 150 / 0.7);
     --loading-sky-deep: #1a3858;
     --loading-sky-mid: #366088;
-    --loading-sky-horizon: #958554;
+    --loading-sky-horizon: #a88c52;
     --loading-sky-zenith: #1a3556;
-    --loading-sky-glow: #9c8249;
+    --loading-sky-glow: #c08f3e;
     --loading-sky-plum: color-mix(in srgb, var(--loading-sky-zenith) 50%, var(--loading-sky-mid));
     --loading-haze-far: #506c81;
     --loading-mist: #818d98;
     --loading-mist-warm: #9e8961;
     --loading-rim: #e3e0c6;
-    --loading-key: #fae6a1;
+    --loading-key: #ffe29a;
+    --loading-key-edge: color-mix(in srgb, var(--loading-key) 62%, #ff9d2e);
     --loading-vignette: rgba(21, 17, 10, 0.36);
     --loading-building-front-top: #352117;
     --loading-building-front-base: #7d4b2a;
@@ -189,8 +209,8 @@
     --loading-roof-side-end: #3f1908;
     --loading-window-center: #fbf0c4;
     --loading-window-edge: #f3a044;
-    --loading-foliage-lit: #98853e;
-    --loading-foliage-shade: #2c3723;
+    --loading-foliage-lit: #a59a44;
+    --loading-foliage-shade: #2a3d27;
     --loading-frame: #182114;
     --loading-frame-rim: #d1d9ac;
     --loading-text: #fff6dc;
@@ -207,11 +227,15 @@
     --ls-lan-opt: none;
     --ls-lantern-opacity: 0.85;
     --ls-window-glow-o: 0.28;
-    --ls-wordmark-halo: color-mix(in srgb, var(--loading-mountain-near) 45%, transparent);
+    --ls-cloud-top: color-mix(in srgb, var(--loading-key) 62%, var(--loading-mist));
+    --ls-cloud-base: color-mix(in srgb, var(--loading-sky-mid) 55%, var(--loading-mist-warm));
+    --ls-wordmark-halo: color-mix(in srgb, var(--loading-sky-zenith) 36%, transparent);
 }
 
 /* ── Winter twilight — cold moonlit snowscape ── */
 [data-loading-season="winter"] .loading-screen {
+    --ls-afterglow: transparent;
+    --ls-afterglow-core: transparent;
     --loading-sky-deep: #070d20;
     --loading-sky-mid: #0a1428;
     --loading-sky-horizon: #15253e;
@@ -243,12 +267,17 @@
     --loading-roof-side-end: #606878;
     --ls-autumn: none;
     --ls-winter: block;
-    --ls-crowns: none;
+    /* Evergreens, frosted on the moon side */
+    --loading-foliage-lit: #214840;
+    --loading-foliage-shade: #0b1a22;
     --ls-boughs: none;
     --ls-lan-opt: none;
     --ls-cloud-opt: none;
     --ls-stars-26: block;
     --ls-window-glow-o: 0.55;
+    --ls-cloud-o: 0.45;
+    --ls-moon-filter: blur(1.2px);
+    --ls-snow: #dce8fa;
     --ls-fir: color-mix(in srgb, #1e4a3c 70%, var(--loading-mountain-near));
     --ls-fir-lit: color-mix(in srgb, #2f6b52 60%, var(--loading-rim));
     --ls-star-cool: var(--loading-star-color);
@@ -257,6 +286,8 @@
 
 /* ── Daylight (every season) ── */
 [data-loading-mode="daylight"] .loading-screen {
+    --ls-afterglow: transparent;
+    --ls-afterglow-core: transparent;
     --loading-sky-plum: color-mix(in srgb, var(--loading-sky-zenith) 50%, var(--loading-sky-glow));
     --ls-night: none;
     --ls-lan-opt: none;
@@ -270,7 +301,6 @@
     --ls-aura-inner-o: 0.4;
     --ls-logo-filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2)) drop-shadow(0px 8px 16px rgba(0, 0, 0, 0.15)) brightness(1.05) contrast(1.1);
     --ls-text-shadow: 0 0 16px color-mix(in srgb, var(--accent-primary) 40%, transparent), 0 2px 4px rgba(0, 0, 0, 0.15);
-    --ls-dot-glow: 0 0 6px var(--accent-primary, rgba(255, 157, 0, 0.5));
     --ls-wordmark-halo: color-mix(in srgb, var(--loading-sky-glow) 88%, transparent);
 }
 
@@ -298,6 +328,9 @@
     --loading-water-mid: #607888;
     --loading-water-deep: #506878;
     --loading-particle-color: #90b0cc;
+    --loading-foliage-lit: #e6b4c0;
+    --loading-foliage-shade: #9a7f92;
+    --ls-moon-o: 0.7;
     --ls-rain: #4f7fae;
     --loading-roof-front-start: #8a9098;
     --loading-roof-front-end: #6a7078;
@@ -403,6 +436,9 @@
     --loading-water-mid: #7890a4;
     --loading-water-deep: #688094;
     --loading-particle-color: #e0e8f4;
+    --loading-foliage-lit: #5f8a7c;
+    --loading-foliage-shade: #2c4a4c;
+    --ls-snow: #ffffff;
     --loading-roof-front-start: #e0e4ec;
     --loading-roof-front-end: #b8bcc8;
     --loading-roof-side-start: #c8ccd8;

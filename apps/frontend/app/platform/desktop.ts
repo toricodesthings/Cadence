@@ -167,7 +167,7 @@ const OAUTH_CALLBACK_SUCCESS_HTML = `<!doctype html>
     </head>
     <body>
         <main>
-            <img src="${WEB_APP_BASE_URL}/logo.png" alt="Cadence" onerror="this.remove()" />
+            <img src="${WEB_APP_BASE_URL}/logo.svg" alt="Cadence" onerror="this.remove()" />
             <h1>Sign-in complete</h1>
             <p>Cadence received the secure callback. You can return to the desktop app.</p>
         </main>

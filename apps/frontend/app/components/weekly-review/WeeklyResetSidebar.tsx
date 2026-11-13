@@ -26,7 +26,7 @@ export function WeeklyResetSidebar({ currentStep, counts, onStep, compact = fals
     return (
         <nav aria-label="Weekly Reset steps" className={`surface-shell photo-shell-surface layer-shell-base ${compact ? "w-[236px]" : "w-[264px]"} relative flex shrink-0 flex-col border-r border-twilight-border py-6`}>
             <div className="mb-8 flex items-center gap-3 px-5">
-                <img src="/logo.png" alt="" className="size-10 rounded-xl object-cover" />
+                <img src="/logo.svg" alt="" className="size-10 rounded-xl object-cover" />
                 <span className="font-display text-xl font-semibold text-twilight-text whitespace-nowrap">Weekly Reset</span>
             </div>
 

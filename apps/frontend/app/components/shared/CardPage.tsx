@@ -30,7 +30,7 @@ export function CardPage({ title, description, actions, children }: {
                 transition={{ duration: 0.6, ease: EASE }}
                 className="cadence-diagonal-sheen glass-surface relative w-full max-w-lg rounded-[1.75rem] px-5 py-6 shadow-[0_36px_120px_rgba(0,0,0,0.38)] sm:px-7"
             >
-                <img src="/logo.png" alt="Cadence" className="mx-auto mb-4 h-10 w-10 rounded-[0.8rem] object-cover shadow-[0_8px_32px_color-mix(in_srgb,var(--accent-primary)_22%,transparent)]" />
+                <img src="/logo.svg" alt="Cadence" className="mx-auto mb-4 h-10 w-10 rounded-[0.8rem] object-cover shadow-[0_8px_32px_color-mix(in_srgb,var(--accent-primary)_22%,transparent)]" />
                 {title && (
                     <motion.header
                         variants={stagger}

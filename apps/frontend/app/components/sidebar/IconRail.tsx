@@ -130,7 +130,7 @@ export function IconRail({
                 className="size-10 flex items-center justify-center mb-0.5"
                 aria-label="Cadence"
             >
-                <img src="/logo.png" alt="Cadence" className="size-full object-cover" />
+                <img src="/logo.svg" alt="Cadence" className="size-full object-cover" />
             </div>
 
             <div className="w-[60%] h-px bg-twilight-border rounded-full my-0.5" aria-hidden="true" />

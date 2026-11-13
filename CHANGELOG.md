@@ -6,6 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- The loading screen's landscape has real mountains, wooded hills and, in autumn, the last of the sunset.
+- Loading screen seasons: spring's warm rain and fog, summer's golden haze, winter's snow, wreaths and lights.
+- A new logo, with even lines, warmer colour and a little blossom, now on the app, icons and desktop app.
+- The loading screen's logo now grows in, blooms and folds back on a loop; the three dots are gone.
+
+### Fixed
+
+- The loading screen now shows the right season in the Southern Hemisphere.
+
 ## [1.0.0] - 2026-11-12
 
 ### Added

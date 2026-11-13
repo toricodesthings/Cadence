@@ -24,8 +24,8 @@ describe("loading host", () => {
         // Same element: the entrance and the loops never restart.
         expect(document.querySelector(".loading-screen")).toBe(scene);
         expect(screen.getByRole("status").textContent).toBe("Preparing your workspace");
-        // The request's children portal under the dots.
-        expect(scene!.querySelector(".loading-dots + .contents")?.textContent).toBe("Taking longer than usual");
+        // The request's children portal under the wordmark.
+        expect(scene!.querySelector(".ls-wordmark + .contents")?.textContent).toBe("Taking longer than usual");
 
         view.rerender(<Boot step="done" />);
         expect(document.querySelector(".loading-screen")).toBe(scene);

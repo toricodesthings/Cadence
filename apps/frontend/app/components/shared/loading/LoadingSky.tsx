@@ -53,7 +53,8 @@ const DRIFT_CLOUDS = ([[640, 372, 300, 58], [1250, 236, 420, 72], [1730, 336, 26
 );
 
 /** Spring's overcast: wider, flatter clouds that stay put. */
-const SPRING_CLOUDS = ([[300, 220, 420, 50], [800, 175, 520, 60], [1400, 270, 380, 44], [1700, 205, 460, 54], [500, 318, 340, 38]] as const).map(
+const SPRING_CLOUDS = ([[300, 220, 420, 50], [800, 175, 520, 60], [1400, 270, 380, 44], [1700, 205, 460, 54], [500, 318, 340, 38],
+    [1020, 96, 760, 64], [110, 352, 420, 42], [1580, 372, 540, 48]] as const).map(
     ([cx, base, w, h], i) => cloud(cx, base, w, h, 81 + i),
 );
 
@@ -74,12 +75,7 @@ export function LoadingSky() {
             <rect width="1920" height="1080" fill="url(#sky-grad)" />
             <rect width="1920" height="1080" fill="url(#ls-sky-overlay)" />
             <circle cx="960" cy="830" r="600" fill="url(#ls-sky-glow)" />
-
-            <g className="ls-spring ls-spring-clouds">
-                {SPRING_CLOUDS.map((d) => (
-                    <Cloud key={d} d={d} />
-                ))}
-            </g>
+            <rect y="440" width="1920" height="520" fill="url(#ls-afterglow)" />
 
             <g className="ls-night" mask="url(#ls-star-mask)">
                 {STAR_SETS.flatMap(([from, to, cls]) => {
@@ -100,6 +96,16 @@ export function LoadingSky() {
                 <circle cx={MOON[0]} cy={MOON[1]} r="42" fill="url(#ls-key-disk)" />
                 <path className="ls-night" d={MARIA} fill="var(--loading-sky-zenith)" opacity=".05" />
             </g>
+
+            {/* Spring's rain cloud: a soft deck over the whole sky, drawn over the moon so it only glows through */}
+            <g className="ls-spring ls-spring-clouds">
+                <rect width="1920" height="470" fill="url(#ls-overcast)" />
+                <g filter="url(#ls-blur-far)">
+                    {SPRING_CLOUDS.map((d) => (
+                        <Cloud key={d} d={d} />
+                    ))}
+                </g>
+            </g>
         </>
     );
 }
@@ -114,7 +120,7 @@ export function LoadingSkyMotion() {
             <div className="ls-cloud">
                 <div className="ls-band" style={cssVars({ "--dur": "480s", "--delay": "-170s" })}>
                     <svg viewBox="0 120 3840 300" preserveAspectRatio="none">
-                        <g id="ls-cloud-tile" opacity=".62" filter="url(#ls-blur-cloud)">
+                        <g id="ls-cloud-tile" opacity=".54" filter="url(#ls-blur-cloud)">
                             {DRIFT_CLOUDS.map((d, i) => (
                                 // Every other cloud is optional: winter keeps a clearer sky
                                 <g key={d} className={i % 2 ? "ls-cloud-opt" : undefined}>

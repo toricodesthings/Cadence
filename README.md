@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./apps/landing/public/logo.png" alt="Cadence logo" width="96" />
+  <img src="./apps/frontend/public/logo.png" alt="Cadence logo" width="96" />
 </p>
 
 <h1 align="center">Cadence</h1>

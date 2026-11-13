@@ -67,14 +67,14 @@ const LEAVES = (() => {
 
 const DROPS = (() => {
     const rand = rng(31);
-    return Array.from({ length: 52 }, () => {
+    return Array.from({ length: 60 }, () => {
         const depth = rand();
-        const dur = lerp(3.5, 0.7, depth);
+        const dur = lerp(3.6, 1, depth);
         return cssVars({
             "--x": s(rand() * 100, "%"),
-            "--len": s(lerp(25, 88, depth), "px"),
-            "--w": s(lerp(1.3, 3, depth), "px"),
-            "--o": s(lerp(0.2, 0.65, depth)),
+            "--len": s(lerp(22, 70, depth), "px"),
+            "--w": s(lerp(1, 2.2, depth), "px"),
+            "--o": s(lerp(0.14, 0.42, depth)),
             "--dur": s(dur, "s"),
             "--delay": s(-rand() * dur, "s"),
             "--dx": s(lerp(4, 12, depth) * 4, "px"),
@@ -85,19 +85,40 @@ const DROPS = (() => {
 
 const FLAKES = (() => {
     const rand = rng(37);
-    return Array.from({ length: 18 }, () => {
-        const depth = rand();
+    return Array.from({ length: 44 }, () => {
+        // Mostly small, far flakes: a few large near ones keep the depth
+        const depth = rand() ** 1.6;
         const dur = lerp(18, 4, depth);
         return cssVars({
             "--x": s(rand() * 100, "%"),
-            "--size": s(lerp(1.5, 10, depth), "px"),
-            "--core": s(lerp(8, 45, depth), "%"),
-            "--o": s(lerp(0.2, 0.9, depth)),
+            "--size": s(lerp(2.5, 10, depth), "px"),
+            "--core": s(lerp(20, 45, depth), "%"),
+            "--o": s(lerp(0.4, 0.9, depth)),
             "--dur": s(dur, "s"),
             "--delay": s(-rand() * dur, "s"),
             "--dx": s(lerp(8, 30, depth), "px"),
             "--sway": s(lerp(10, 35, depth) * (rand() < 0.5 ? -1 : 1), "px"),
             "--py": s(5 + rand() * 90, "vh"),
+        });
+    });
+})();
+
+/** A few sakura petals on the air in every season. */
+const PETALS = (() => {
+    const rand = rng(47);
+    return Array.from({ length: 7 }, () => {
+        const depth = rand();
+        const dur = lerp(26, 14, depth);
+        return cssVars({
+            "--x": s(4 + rand() * 92, "%"),
+            "--size": s(lerp(6, 12, depth), "px"),
+            "--o": s(lerp(0.4, 0.75, depth)),
+            "--dur": s(dur, "s"),
+            "--delay": s(-rand() * dur, "s"),
+            "--dx": s(lerp(6, 12, depth), "vw"),
+            "--sway": s(lerp(1.5, 3.5, depth), "vw"),
+            "--pr": s(rand() * 360, "deg"),
+            "--py": s(8 + rand() * 80, "vh"),
         });
     });
 })();
@@ -131,6 +152,11 @@ export function LoadingParticles() {
                             </svg>
                         </span>
                     </span>
+                ))}
+            </div>
+            <div className="ls-set">
+                {PETALS.map((style, i) => (
+                    <span key={i} className="ls-petal" style={style} />
                 ))}
             </div>
             <div className="ls-set ls-spring">

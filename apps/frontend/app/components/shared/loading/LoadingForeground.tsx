@@ -1,12 +1,14 @@
 /**
- * Logo, wordmark and dots. Per-mode looks come from tokens; motion from loading-scene.css.
+ * Logo and wordmark. Per-mode looks come from tokens; motion from loading-scene.css.
  *
- * The logo sits in a lantern glow that breathes with it, ringed by two thin moon-halo
+ * The logo is inlined so its parts can move: it grows in, holds while petals fall, and folds back, on a loop.
+ * It sits in a lantern glow that lights as it grows, ringed by two thin moon-halo
  * arcs that turn slowly in opposite directions (crisp vector lines, to match the scene).
  */
 
 /** Circumference of the r=46 ring is ~289; each dash pattern sums to that so the arcs tile once. */
 import { useLayoutEffect, useRef, type Ref, type RefObject } from "react";
+import logoSvg from "../../../../public/logo.svg?raw";
 
 const RING_A = "78 16 5 16 46 128";
 const RING_B = "120 40 4 125";
@@ -63,7 +65,7 @@ function useTitleFill(fillRef: RefObject<HTMLSpanElement | null>, progress: numb
     }, [fillRef, progress]);
 }
 
-/** `slotRef` receives the box the current request's children portal into, under the dots. */
+/** `slotRef` receives the box the current request's children portal into, under the wordmark. */
 export function LoadingForeground({ title, progress, slotRef }: { title?: string; progress?: number; slotRef?: Ref<HTMLDivElement> }) {
     const fillRef = useRef<HTMLSpanElement>(null);
     useTitleFill(fillRef, title ? progress : undefined);
@@ -84,9 +86,9 @@ export function LoadingForeground({ title, progress, slotRef }: { title?: string
     useLayoutEffect(() => {
         const column = columnRef.current;
         if (!column) return;
-        // The column is centred, so a wider title, a settling font or a message under the dots
+        // The column is centred, so a wider title, a settling font or a message under the wordmark
         // snaps every part to a new spot. Glide each part there instead, in step with the title roll.
-        const parts = [...column.querySelectorAll<HTMLElement>(".ls-logo-block, .ls-wordmark, .ls-rule, .loading-dots")];
+        const parts = [...column.querySelectorAll<HTMLElement>(".ls-logo-block, .ls-wordmark, .ls-rule")];
         // Each part's centre against its positioned parent's centre: transform-free, and blind to window size.
         const place = (el: HTMLElement) => {
             const parent = el.offsetParent as HTMLElement | null;
@@ -109,14 +111,16 @@ export function LoadingForeground({ title, progress, slotRef }: { title?: string
     }, []);
 
     return (
-        <div ref={columnRef} className="relative z-10 flex flex-col items-center text-center mt-20">
+        <div ref={columnRef} className="relative z-10 flex flex-col items-center text-center">
             <div className="ls-enter ls-logo-block mb-6 relative flex items-center justify-center">
-                <div className="ls-aura-core absolute top-1/2 left-1/2 w-64 h-64 pointer-events-none" />
-                <HaloRing variant="b" dash={RING_B} sparks={[300]} />
-                <HaloRing variant="a" dash={RING_A} sparks={[0]} />
-                <div className="ls-aura-inner absolute top-1/2 left-1/2 w-28 h-28 pointer-events-none" />
-                <div className="ls-logo-beat relative z-10">
-                    <img src="/logo.png" alt="Cadence Logo" className="ls-logo block w-24 h-24 object-contain" />
+                <div className="ls-grower contents">
+                    <div className="ls-aura-core absolute top-1/2 left-1/2 w-64 h-64 pointer-events-none" />
+                    <HaloRing variant="b" dash={RING_B} sparks={[300]} />
+                    <HaloRing variant="a" dash={RING_A} sparks={[0]} />
+                    <div className="ls-aura-inner absolute top-1/2 left-1/2 w-28 h-28 pointer-events-none" />
+                    <div className="ls-logo-beat relative z-10">
+                        <div className="ls-logo w-30 h-30" dangerouslySetInnerHTML={{ __html: logoSvg }} />
+                    </div>
                 </div>
             </div>
 
@@ -142,11 +146,6 @@ export function LoadingForeground({ title, progress, slotRef }: { title?: string
                 <span className="ls-rule ls-rule-r" aria-hidden="true" />
             </h2>
 
-            <div className="ls-enter loading-dots mt-6 flex items-center justify-center gap-2.5 relative z-10">
-                {[0, 220, 440].map((delay) => (
-                    <span key={delay} className="ls-dot w-1.5 h-1.5 rounded-full" style={{ animationDelay: `${delay}ms` }} />
-                ))}
-            </div>
             <div ref={slotRef} className="contents" />
         </div>
     );

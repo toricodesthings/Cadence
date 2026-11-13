@@ -120,7 +120,7 @@ describe("auth route", () => {
         renderAuthPage("/auth/sign-in");
 
         expect(screen.getByText("Sign in to Cadence")).toBeTruthy();
-        expect(screen.getByRole("img", { name: "Cadence" }).getAttribute("src")).toBe("/logo.png");
+        expect(screen.getByRole("img", { name: "Cadence" }).getAttribute("src")).toBe("/logo.svg");
 
         await waitFor(() => {
             expect(screen.getByRole("button", { name: "Continue with Google" })).toBeTruthy();

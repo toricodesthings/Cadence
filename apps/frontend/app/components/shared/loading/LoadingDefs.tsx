@@ -9,6 +9,18 @@ const LANTERN_BODIES: Record<string, readonly [string, string, string, string]> 
 };
 
 const BULBS: readonly (readonly [number, number, number])[] = [[50, 20, 3], [100, 35, 3], [150, 40, 4], [200, 35, 3], [250, 20, 3]];
+/** Winter: every bulb on the string lights takes a colour. */
+const BULB_COLORS = ["#ff5a4a", "#9be27a", "#ffd166", "#7fd0ff", "#ff5a4a"];
+/** A swag of fir under an eave: [x0, x1, y, loops]; a red bow where each loop is pinned. */
+const garland = (x0: number, x1: number, y: number, loops: number) => {
+    const w = (x1 - x0) / loops;
+    return {
+        d: `M${x0},${y}` + Array.from({ length: loops }, (_, i) => `Q${x0 + w * (i + 0.5)},${y + 9} ${x0 + w * (i + 1)},${y}`).join(""),
+        bows: Array.from({ length: loops + 1 }, (_, i) => `M${x0 + w * i - 3.4},${y - 1}h6.8l-3.4,6Z`).join(""),
+    };
+};
+const GARLAND_C = garland(8, 192, 6, 4);
+const GARLAND_B = garland(14, 136, 92, 3);
 const MULLIONS = "M7,2h2v20h-2zM2,10h12v2h-12z";
 const ROOF_RIM = { stroke: "var(--loading-rim)", strokeWidth: 1, opacity: 0.35, fill: "none", strokeLinecap: "round" as const };
 const CROWN =
@@ -68,6 +80,10 @@ export function LoadingDefs() {
                 <stop offset=".3" stopColor="var(--loading-flame-edge)" stopOpacity=".14" />
                 <stop offset="1" stopColor="var(--loading-flame-edge)" stopOpacity="0" />
             </linearGradient>
+            <linearGradient id="ls-lee" gradientUnits="userSpaceOnUse" x1="1150" y1="0" x2="1400" y2="0">
+                <stop offset="0" stopColor="var(--loading-sky-zenith)" stopOpacity="0" />
+                <stop offset="1" stopColor="var(--loading-sky-zenith)" stopOpacity=".34" />
+            </linearGradient>
             {/* Moon is upper-left: the town's right-hand clusters sit a step into shadow with a night-blue cast; the hero cluster deeper still */}
             <filter id="ls-shade-r" colorInterpolationFilters="sRGB">
                 <feComponentTransfer>
@@ -106,6 +122,46 @@ export function LoadingDefs() {
             </linearGradient>
 
             {/* Landscape — each ridge's base lightens into the mist below it */}
+            {/* A summit's faces (bounding-box units, so one pair serves every peak): moonlit, and in its own shadow */}
+            <linearGradient id="ls-face-lit" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="var(--loading-rim)" stopOpacity=".2" />
+                <stop offset=".85" stopColor="var(--loading-rim)" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="ls-face-shade" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="var(--loading-sky-zenith)" stopOpacity=".42" />
+                <stop offset=".85" stopColor="var(--loading-sky-zenith)" stopOpacity="0" />
+            </linearGradient>
+            {/* Winter: snow lying on a summit's faces, and on the open hills from the crest down */}
+            <linearGradient id="ls-snow-face" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="var(--ls-snow)" stopOpacity=".5" />
+                <stop offset=".8" stopColor="var(--ls-snow)" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="ls-snow-hill" gradientUnits="userSpaceOnUse" x1="0" y1="670" x2="0" y2="860">
+                <stop offset="0" stopColor="var(--ls-snow)" stopOpacity=".2" />
+                <stop offset="1" stopColor="var(--ls-snow)" stopOpacity=".04" />
+            </linearGradient>
+            <linearGradient id="ls-snow-knoll" gradientUnits="userSpaceOnUse" x1="0" y1="780" x2="0" y2="1000">
+                <stop offset="0" stopColor="var(--ls-snow)" stopOpacity=".34" />
+                <stop offset="1" stopColor="var(--ls-snow)" stopOpacity=".06" />
+            </linearGradient>
+            {/* Sunset haze pooled between the ranges (autumn dusk only; the token is transparent elsewhere) */}
+            <linearGradient id="ls-haze-far" gradientUnits="userSpaceOnUse" x1="0" y1="540" x2="0" y2="800">
+                <stop offset="0" stopColor="var(--ls-afterglow)" stopOpacity="0" />
+                <stop offset=".6" stopColor="var(--ls-afterglow)" stopOpacity=".2" />
+                <stop offset="1" stopColor="var(--ls-afterglow)" stopOpacity=".3" />
+            </linearGradient>
+            <linearGradient id="ls-haze-near" gradientUnits="userSpaceOnUse" x1="0" y1="620" x2="0" y2="860">
+                <stop offset="0" stopColor="var(--ls-afterglow)" stopOpacity="0" />
+                <stop offset=".7" stopColor="var(--ls-afterglow)" stopOpacity=".22" />
+                <stop offset="1" stopColor="var(--ls-afterglow)" stopOpacity=".3" />
+            </linearGradient>
+            {/* The afterglow itself: a low ember band on the horizon, hottest behind the saddle */}
+            <radialGradient id="ls-afterglow" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate(1060 700) scale(1000 250)">
+                <stop offset="0" stopColor="var(--ls-afterglow-core)" stopOpacity=".5" />
+                <stop offset=".3" stopColor="var(--ls-afterglow)" stopOpacity=".4" />
+                <stop offset=".65" stopColor="var(--ls-afterglow)" stopOpacity=".14" />
+                <stop offset="1" stopColor="var(--ls-afterglow)" stopOpacity="0" />
+            </radialGradient>
             <linearGradient id="ls-distant" gradientUnits="userSpaceOnUse" x1="0" y1="540" x2="0" y2="720">
                 <stop offset="0" stopColor="var(--loading-haze-far)" />
                 <stop offset="1" stopColor="var(--ls-distant-base)" />
@@ -121,6 +177,10 @@ export function LoadingDefs() {
             <linearGradient id="mountain-mid" gradientUnits="userSpaceOnUse" x1="0" y1="760" x2="0" y2="1060">
                 <stop offset="0" stopColor="var(--loading-mountain-near)" />
                 <stop offset="1" stopColor="var(--ls-near-base)" />
+            </linearGradient>
+            <linearGradient id="ls-sakura-grad" x1="0" y1="1" x2="0" y2="0">
+                <stop offset=".3" stopColor="var(--ls-sakura-lit)" />
+                <stop offset=".95" stopColor="var(--ls-sakura-shade)" />
             </linearGradient>
             <linearGradient id="ls-crown-grad" x1="0" y1="1" x2="0" y2="0">
                 <stop offset=".3" stopColor="var(--ls-crown-lit)" />
@@ -205,6 +265,7 @@ export function LoadingDefs() {
 
             {/* Fire — fixed flame tokens, the accent only tints ≤20% of the lantern outer glow */}
             {radial("ls-bulb-glow", "var(--loading-flame-mid)", [[0, 0.55], [0.4, 0.2], [1, 0]])}
+            {radial("ls-ember", "var(--ls-afterglow)", [[0, 0.42], [0.5, 0.14], [1, 0]])}
             {radial("ls-spill", "var(--loading-flame-edge)", [[0, 0.24], [0.5, 0.08], [1, 0]])}
             {radial("ls-chochin-glow", "#ff6a2a", [[0, 0.38], [0.5, 0.1], [1, 0]])}
             <radialGradient id="ls-chochin-body" cx="50%" cy="45%" r="60%">
@@ -234,6 +295,11 @@ export function LoadingDefs() {
                 <stop offset="1" stopColor="var(--accent-primary, #FFD166)" stopOpacity="0" />
             </linearGradient>
 
+            <linearGradient id="ls-overcast" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="470">
+                <stop offset="0" stopColor="var(--ls-cloud-top)" stopOpacity=".9" />
+                <stop offset=".5" stopColor="var(--ls-cloud-top)" stopOpacity=".5" />
+                <stop offset="1" stopColor="var(--ls-cloud-top)" stopOpacity="0" />
+            </linearGradient>
             {/* Clouds — moonlit tops, underside warmed by the town glow */}
             <linearGradient id="ls-cloud-grad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stopColor="var(--ls-cloud-top)" />
@@ -331,6 +397,20 @@ export function LoadingDefs() {
                 <path d="M 220,0 L 290,-35 L 250,-90 L 180,-60 Z" fill="url(#roof-side)" />
                 <path d="M-20,0 L20,-60 Q100,-45 180,-60 L250,-90" {...ROOF_RIM} />
             </g>
+            {/* Winter decorations: a fir wreath with a red bow and berries, and garlands pinned with bows */}
+            <g id="ls-wreath">
+                <circle r="7" fill="none" stroke="var(--ls-fir)" strokeWidth="4.6" />
+                <circle r="7" fill="none" stroke="var(--ls-fir-lit)" strokeWidth="2.2" strokeDasharray="2.4 2" />
+                <path d="M0,6.4 L-4.6,3.4 L-4.6,9.6 Z M0,6.4 L4.6,3.4 L4.6,9.6 Z M-1,6.6 L-2.8,13 L0,10.8 L2.8,13 L1,6.6 Z" fill="#c8322a" />
+                <path d="M-5.8,-4.2a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0M4,-5.6a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0M-7.6,1.6a1,1 0 1,0 2,0a1,1 0 1,0 -2,0" fill="#ff5a4a" />
+            </g>
+            {([["ls-garland-c", GARLAND_C], ["ls-garland-b", GARLAND_B]] as const).map(([id, g]) => (
+                <g key={id} id={id}>
+                    <path d={g.d} fill="none" stroke="var(--ls-fir)" strokeWidth="4" strokeLinecap="round" />
+                    <path d={g.d} fill="none" stroke="var(--ls-fir-lit)" strokeWidth="1.6" strokeDasharray="2 2.4" strokeLinecap="round" />
+                    <path d={g.bows} fill="#c8322a" />
+                </g>
+            ))}
             <g id="building-a">
                 <use href="#ba-shell" />
                 <use href="#window-3d" x="15" y="40" />
@@ -340,6 +420,7 @@ export function LoadingDefs() {
             </g>
             <g id="building-a-alt">
                 <use href="#ba-shell" />
+                <use className="ls-winter" href="#ls-wreath" x="40" y="22" />
                 <use href="#window-dark" x="15" y="40" />
                 <use href="#window-3d" x="45" y="40" />
                 <use href="#window-side-dark" x="90" y="10" />
@@ -347,6 +428,8 @@ export function LoadingDefs() {
             </g>
             <g id="building-b">
                 <use href="#bb-shell" />
+                <use className="ls-winter" href="#ls-garland-b" />
+                <use className="ls-winter" href="#ls-wreath" x="69" y="12" />
                 <use href="#window-3d" x="20" y="150" />
                 <use href="#window-3d" x="65" y="150" />
                 <use href="#window-3d" x="110" y="150" />
@@ -369,6 +452,7 @@ export function LoadingDefs() {
             </g>
             <g id="building-c">
                 <use href="#bc-shell" />
+                <use className="ls-winter" href="#ls-garland-c" />
                 <use href="#window-3d" x="20" y="20" />
                 <use href="#window-3d" x="60" y="20" />
                 <use href="#window-3d" x="100" y="20" />
@@ -390,6 +474,11 @@ export function LoadingDefs() {
                     d={BULBS.map(([x, y, r]) => `M${x - r},${y}a${r},${r} 0 1,0 ${2 * r},0a${r},${r} 0 1,0 ${-2 * r},0`).join("")}
                     fill="var(--loading-flame-mid)"
                 />
+                <g className="ls-winter">
+                    {BULBS.map(([x, y, r], i) => (
+                        <circle key={x} cx={x} cy={y} r={r} fill={BULB_COLORS[i]} />
+                    ))}
+                </g>
             </g>
 
             {/* Autumn motifs */}
@@ -398,6 +487,11 @@ export function LoadingDefs() {
             <g id="ls-crown-rimmed">
                 <use href="#ls-crown-shape" x="-1.8" y="-1.8" fill="var(--loading-rim)" opacity=".25" />
                 <use href="#ls-crown" />
+            </g>
+            {/* The sakura: the same crown in blossom, lit and shaded like its neighbours */}
+            <g id="ls-sakura">
+                <use href="#ls-crown-shape" x="-1.8" y="-1.8" fill="var(--loading-rim)" opacity=".25" />
+                <use href="#ls-crown-shape" fill="url(#ls-sakura-grad)" />
             </g>
             <g id="ls-chochin">
                 <circle cy="10" r="17" fill="url(#ls-chochin-glow)" />

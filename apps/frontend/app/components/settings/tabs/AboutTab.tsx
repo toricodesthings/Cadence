@@ -127,7 +127,7 @@ export function AboutTab() {
         <div className="flex flex-col gap-10">
             <div className="flex flex-col items-center gap-4 text-center">
                 <img
-                    src="/logo.png"
+                    src="/logo.svg"
                     alt="Cadence"
                     className="h-20 w-20 rounded-[1.6rem] object-cover shadow-[0_0_32px_color-mix(in_srgb,var(--accent-primary)_22%,transparent)]"
                 />

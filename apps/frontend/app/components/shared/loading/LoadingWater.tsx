@@ -55,6 +55,8 @@ export function LoadingWater() {
             <div className="ls-reflect ls-par-town">
                 <svg viewBox="-8 975 1936 105" preserveAspectRatio="none">
                     <g mask="url(#ls-water-mask)">
+                        {/* The sunset's last light lying on the open water between the towns */}
+                        <ellipse cx="1010" cy="990" rx="440" ry="46" fill="url(#ls-ember)" />
                         <path d="M 100,1005 Q 300,995 500,1005 T 900,1005 T 1300,1005 T 1800,1005" fill="none" stroke="var(--ls-ripple)" strokeWidth="2" opacity="0.3" />
                         <path d="M 200,1025 Q 400,1015 600,1025 T 1000,1025 T 1400,1025 T 1900,1025" fill="none" stroke="var(--ls-ripple)" strokeWidth="1" opacity="0.2" />
                         <g mask="url(#ls-reflect-mask)" opacity=".3">
