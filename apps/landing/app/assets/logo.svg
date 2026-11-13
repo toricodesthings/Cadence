@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 850" role="img" aria-label="Cadence">
+<!-- Cadence logo. Parts are the paths in <defs>, drawn bottom to top: lg-horizon-tail, lg-orbit-inner, lg-swash, lg-orbit, lg-check,
+     lg-horizon, lg-dash-1, lg-dash-2, then #lg-petals (leaves, blossoms, falling petals; each turns about its attachment point).
+     Animate the path itself (#lg-check, #lg-orbit, ...): its stroke, its shadow on the ribbons beneath and the glow all follow.
+     Draw one on: stroke-dasharray:1 and stroke-dashoffset 1 -> 0 (pathLength is 1). -->
+<defs>
+<linearGradient id="lg-dusk" gradientUnits="userSpaceOnUse" x1="470" y1="130" x2="250" y2="700"><stop offset="0" stop-color="#ad385d"/><stop offset=".3" stop-color="#c64c59"/><stop offset=".55" stop-color="#ec7260"/><stop offset=".8" stop-color="#fd9d59"/><stop offset="1" stop-color="#ffbd66"/></linearGradient>
+<linearGradient id="lg-lantern" gradientUnits="userSpaceOnUse" x1="330" y1="470" x2="730" y2="200"><stop offset="0" stop-color="#ffc86b"/><stop offset=".35" stop-color="#ffb960"/><stop offset=".7" stop-color="#fe965f"/><stop offset="1" stop-color="#e86a61"/></linearGradient>
+<filter id="lg-glow" filterUnits="userSpaceOnUse" x="0" y="0" width="850" height="850" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="11"/><feColorMatrix values="0 0 0 0 1 0 0 0 0 .92 0 0 0 0 .8 0 0 0 .3 0" result="halo"/><feMerge><feMergeNode in="halo"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="lg-soft" filterUnits="userSpaceOnUse" x="0" y="0" width="850" height="850"><feGaussianBlur stdDeviation="5"/></filter>
+<path id="lg-horizon-tail" class="lg-part" pathLength="1" d="M448.4,744.6C438.1,744 424.1,742.1 419.8,735.2C415.5,728.3 419.5,713.7 422.8,703.2C426,692.8 435.1,680 439.1,672.5C443.1,665 444.3,662.8 446.6,658.4C448.9,653.9 452.1,648 453.2,646"/>
+<path id="lg-orbit-inner" class="lg-part" pathLength="1" d="M238.5,469.9A125.5 125.5 0 0 1 326.2,258.6"/>
+<path id="lg-swash" class="lg-part" pathLength="1" d="M133.9,343.2A147 147 0 0 1 418,383"/>
+<path id="lg-orbit" class="lg-part" pathLength="1" d="M164,521.6A254 254 0 1 1 626.9,463.9C626,469.7 620.6,486.8 615.7,497.5C610.9,508.2 605.2,518.7 598.8,528.6C592.5,538.6 585.4,548.2 577.7,557.3C570,566.3 561.5,575 552.6,583C543.7,591 534.1,598.6 524,605.4C514,612.3 503.3,618.7 492.3,624.2C481.2,629.8 469.2,635.6 457.7,639C446.1,642.4 433,646.4 422.8,644.5C412.6,642.6 399.4,635.8 396.4,627.6C393.4,619.5 399.2,605.4 405,595.5C410.7,585.6 421.8,576.2 430.9,568.2C440,560.2 450,554.5 459.6,547.6C469.2,540.8 479.4,534.8 488.6,527.2C497.8,519.6 509.7,507.3 515,501.9C520.3,496.5 519.7,496 520.6,494.8"/>
+<path id="lg-check" class="lg-part" pathLength="1" d="M302,370L392,463C402.5,449.2 438.7,401.7 455,380C471.3,358.3 477.8,348.3 490,333C502.2,317.7 515.3,302 528,288C540.7,274 553.3,261.3 566,249C578.7,236.7 591,224.2 604,214C617,203.8 630.7,194.3 644,188C657.3,181.7 671.8,176.5 684,176C696.2,175.5 708.8,179 717,185C725.2,191 730.8,201.8 733,212C735.2,222.2 732.5,236.3 730,246C727.5,255.7 720,266 718,270"/>
+<path id="lg-horizon" class="lg-part" pathLength="1" d="M120.3,640.7A312 312 0 0 1 466.9,476.5C472.8,476.1 489.4,480.3 499.8,484.7C510.2,489.1 520.5,494.4 529.6,500.9C538.7,507.4 547.2,515.1 554.4,523.7C561.6,532.3 567.9,542.2 572.8,552.5C577.6,562.7 581.4,574 583.5,585.1C585.7,596.2 586.6,608 585.9,619.3C585.2,630.5 582.9,642 579.4,652.6C575.8,663.2 570.7,673.6 564.5,682.8C558.2,692 550.3,700.4 541.8,707.7C533.3,714.9 523.5,721.2 513.5,726.5C503.4,731.7 492.6,736 481.8,739C470.9,742 458.7,745.2 448.4,744.6C438.1,744 424.1,742.1 419.8,735.2"/>
+<path id="lg-dash-1" class="lg-part" pathLength="1" d="M301,571Q317,558 337,553"/>
+<path id="lg-dash-2" class="lg-part" pathLength="1" d="M257,644Q259,617 276,595"/>
+<mask id="lg-under-swash" maskUnits="userSpaceOnUse" x="0" y="0" width="850" height="850"><g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round"><use href="#lg-orbit-inner" stroke-width="28"/></g></mask>
+<mask id="lg-under-orbit" maskUnits="userSpaceOnUse" x="0" y="0" width="850" height="850"><g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round"><use href="#lg-horizon-tail" stroke-width="28"/><use href="#lg-swash" stroke-width="28"/></g></mask>
+<mask id="lg-under-check" maskUnits="userSpaceOnUse" x="0" y="0" width="850" height="850"><g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round"><use href="#lg-orbit" stroke-width="28"/><use href="#lg-swash" stroke-width="28"/></g></mask>
+<mask id="lg-under-horizon" maskUnits="userSpaceOnUse" x="0" y="0" width="850" height="850"><g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round"><use href="#lg-orbit" stroke-width="28"/><use href="#lg-check" stroke-width="32"/></g></mask>
+<linearGradient id="lg-sakura" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f08ca6"/><stop offset="1" stop-color="#ffd3d8"/></linearGradient>
+</defs>
+<g id="lg-logo" transform="translate(-12 -6)" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#lg-glow)">
+<use href="#lg-horizon-tail" stroke="url(#lg-dusk)" stroke-width="28"/>
+<use href="#lg-orbit-inner" stroke="url(#lg-dusk)" stroke-width="28"/>
+<g mask="url(#lg-under-swash)"><use href="#lg-swash" stroke="#3a1030" stroke-opacity=".55" stroke-width="40" filter="url(#lg-soft)"/></g>
+<use href="#lg-swash" stroke="url(#lg-dusk)" stroke-width="28"/>
+<g mask="url(#lg-under-orbit)"><use href="#lg-orbit" stroke="#3a1030" stroke-opacity=".55" stroke-width="40" filter="url(#lg-soft)"/></g>
+<use href="#lg-orbit" stroke="url(#lg-dusk)" stroke-width="28"/>
+<g mask="url(#lg-under-check)"><use href="#lg-check" stroke="#3a1030" stroke-opacity=".55" stroke-width="44" filter="url(#lg-soft)"/></g>
+<use href="#lg-check" stroke="url(#lg-lantern)" stroke-width="32"/>
+<g mask="url(#lg-under-horizon)"><use href="#lg-horizon" stroke="#3a1030" stroke-opacity=".55" stroke-width="40" filter="url(#lg-soft)"/></g>
+<use href="#lg-horizon" stroke="url(#lg-dusk)" stroke-width="28"/>
+<use href="#lg-dash-1" stroke="url(#lg-dusk)" stroke-width="28"/>
+<use href="#lg-dash-2" stroke="url(#lg-dusk)" stroke-width="28"/>
+<g id="lg-petals" fill="url(#lg-sakura)" stroke="none">
+<g id="lg-petal-1" class="lg-part lg-petal" style="transform-origin:263.6px 158.7px"><path fill="url(#lg-dusk)" d="M263.6,158.7C253.8,138.2 265.5,110.6 287,103.4C296.8,123.9 285.1,151.5 263.6,158.7Z"/></g>
+<g id="lg-petal-2" class="lg-part lg-petal" style="transform-origin:222.3px 208.1px"><path fill="url(#lg-dusk)" d="M222.3,208.1C234,194.3 257,194.7 268.3,208.9C256.5,222.7 233.5,222.3 222.3,208.1Z"/></g>
+<g id="lg-petal-3" class="lg-part lg-petal" style="transform-origin:142.7px 286px"><path fill="url(#lg-dusk)" d="M142.7,286C124.6,278.8 116.9,255 127.3,238.5C145.4,245.7 153.1,269.5 142.7,286Z"/></g>
+<g id="lg-petal-4" class="lg-part lg-petal" style="transform-origin:174.7px 211.9px"><path d="M174.7,211.9C179.4,199.6 192.7,197.2 200.9,204.8L200.9,204.8L198.6,207.7L201.7,209.7C196.6,219.6 183.3,221.9 174.7,211.9Z"/><path d="M174.7,211.9C187.9,212.6 194.2,224.5 189.6,234.6L189.6,234.6L186.1,233.4L185.2,236.9C174.2,235.1 167.9,223.2 174.7,211.9Z"/><path d="M174.7,211.9C178.2,224.7 168.8,234.4 157.7,233.1L157.7,233.1L157.8,229.4L154.1,229.6C152.5,218.6 161.9,208.9 174.7,211.9Z"/><path d="M174.7,211.9C163.7,219.2 151.5,213.2 149.3,202.3L149.3,202.3L152.9,201.3L151.5,197.8C161.5,192.9 173.6,198.8 174.7,211.9Z"/><path d="M174.7,211.9C164.4,203.7 166.3,190.3 176,184.8L176,184.8L178.1,187.9L180.9,185.5C188.7,193.5 186.9,206.8 174.7,211.9Z"/><circle cx="174.7" cy="211.9" r="4.6" fill="#ffc86b"/></g>
+<g id="lg-petal-5" class="lg-part lg-petal" style="transform-origin:734px 206px"><path fill="url(#lg-lantern)" d="M734,206C734.7,189 752,175.4 768.7,178.9C768,195.9 750.7,209.5 734,206Z"/></g>
+<g id="lg-petal-6" class="lg-part lg-petal" style="transform-origin:724px 280px"><path d="M724,280C723.4,292.7 711.9,298.8 702.2,294.3L702.2,294.3L703.3,291L699.9,290.1C701.7,279.5 713.1,273.4 724,280Z"/><path d="M724,280C711.7,283.3 702.4,274.3 703.6,263.7L703.6,263.7L707.2,263.7L707,260.2C717.6,258.6 726.9,267.6 724,280Z"/><path d="M724,280C717,269.4 722.7,257.7 733.2,255.6L733.2,255.6L734.3,259L737.6,257.7C742.4,267.3 736.7,278.9 724,280Z"/><path d="M724,280C732,270.1 744.8,271.9 750.1,281.2L750.1,281.2L747.2,283.3L749.4,286C741.8,293.5 728.9,291.7 724,280Z"/><circle cx="724" cy="280" r="4.4" fill="#ffc86b"/></g>
+<g id="lg-petal-7" class="lg-part lg-petal" style="transform-origin:742px 340px"><path d="M742,340C754.4,341.9 761.4,355.2 758,365.5L758,365.5L754.7,363.8L754.1,367.5C743.7,364.6 736.7,351.3 742,340Z"/></g>
+<g id="lg-petal-8" class="lg-part lg-petal" style="transform-origin:712px 398px"><path d="M712,398C716.2,406.2 711.2,415.4 703.6,417.3L703.6,417.3L703.1,414.7L700.7,415.8C698,408.4 702.9,399.1 712,398Z"/></g>
+</g>
+</g>
+</svg>

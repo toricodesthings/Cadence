@@ -1,4 +1,4 @@
-import logoMark from "~/assets/logo-mark.png";
+import logoMark from "~/assets/logo.svg";
 import { SIGN_IN_URL, SIGN_UP_LABEL, SIGN_UP_URL, SITE_NAME } from "~/lib/site";
 
 import { ButtonLink } from "./ButtonLink";

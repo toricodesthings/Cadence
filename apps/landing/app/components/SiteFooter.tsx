@@ -1,4 +1,4 @@
-import logoMark from "~/assets/logo-mark.png";
+import logoMark from "~/assets/logo.svg";
 import {
   APP_URL,
   CHANGELOG_PATH,
