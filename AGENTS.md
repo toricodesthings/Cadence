@@ -1,67 +1,46 @@
 # Cadence — Repo Rules for Agents
 
-## Build for executive dysfunction
+`developer-docs/MANIFESTO.md` holds the golden rules and must be followed. Read it before any breaking change or user-visible change (UI, copy, behaviour, notifications, assistant). If a request conflicts with it, stop and name the rule.
 
-Cadence carries executive function for people who struggle with it: attention-deficit disorder, autism, burnout, overloaded schedules. Every change must make the user's next step **easier**. That means fewer decisions, less to scan or read, less to remember, nothing said twice, and nothing that needs setup before it helps.
+## Layout
 
-Ease must never come from removing capability. Keep the feature and move its weight off the user: good defaults, progressive disclosure, direct manipulation, and the baseline kept quiet so exceptions stand out. Before calling anything done, ask: *on a bad day, half-asleep, could someone use this without thinking?* If not, it isn't done. This rule outranks convenience in the code.
+- `apps/frontend`, `apps/backend`, `apps/desktop`, `apps/landing`, `packages/*`: read that area's `AGENTS.md` before touching it.
+- Tests live in each app's `tests/` and in `packages/tests/` (mirrors `packages/`), never next to source.
+- `videos/` (Remotion) is a standalone npm project outside the pnpm workspace and every gate. Landing clips share `videos/src/stage.tsx` and render only through `videos/render.sh <Composition> "<out folder>"`.
+- If `graphify-out/graph.json` exists, use `graphify query|explain|path` before grepping across files. It lags uncommitted edits.
 
-Before touching an area, read its guide: `apps/frontend/AGENTS.md`, `apps/backend/AGENTS.md`, `apps/desktop/AGENTS.md`, `apps/landing/AGENTS.md`, `packages/AGENTS.md`. `videos/` (Remotion, local-only) is a standalone npm project, outside the pnpm workspace, turbo and the lint/dupes gates; landing clips share one room (`videos/src/stage.tsx`), render at 2× their CSS size, 60fps, through `videos/render.sh <Composition> "<out folder>"` (lossless PNGs → NVENC: 10-bit AV1 MP4 first, H.264 MP4 fallback, WebP poster, faststart, light `hqdn3d` so dark gradients don't block; no WebM, Safari support is patchy). Tests live in each app's `tests/` and in `packages/tests/` (mirrors `packages/`), never next to source.
+## Gates
 
-## MANIFESTO
+`pnpm lint` also runs the time guard and `jscpd`. On a duplication failure, extract to the nearest shared home (`@cadence/geometry` for scene math shared by app and landing). Lower `.jscpd.json` `threshold` when duplication drops; never raise it.
 
-Cadence has a manifesto, [`docs/MANIFESTO.md`](docs/MANIFESTO.md). It's clear and intentional with almost no exceptions. Read before making changes to understand the guiding principles behind the code but especially the frontend.
+## Time
 
-## Find code with the graph first
+Every date/time is exactly one type; name it in the contract and convert only inside `@cadence/domain/time`:
 
-If `graphify-out/graph.json` exists (a local, git-ignored knowledge graph of `apps/` + `packages/`, refreshed by a post-commit hook), use it before grepping for anything cross-file:
+- **Instant** (`instantSchema`, `timestamptz`): timed starts/ends, reminders, audit times.
+- **LocalDate** (`localDateSchema`, `date`): all-day days, deadlines, multi-day ends, hide-until, routine days. Never stored or compared as an instant.
+- **WallTime** (`HH:MM`): always with its day and zone.
+- **Zone**: the user's is `users.time_zone`, read on the server only via `userZone`.
 
-- Callers and blast radius: `graphify query "what depends on <symbol or file>"` · one symbol: `graphify explain "<node>"`
-- How two pieces connect (UI → hook → contract → route → DB): `graphify path "<A>" "<B>" --undirected`
-- Feature areas and hubs: `graphify-out/GRAPH_REPORT.md`
+Use `todayIn`, `dayOf`, `atLocal`, `expandSeries`, `formatInZone`.
 
-The graph tracks structure, not behaviour, and lags uncommitted edits. Open the files it points to before editing, and grep only for exact strings or when the graph comes up empty.
+## Versions and changelog
 
-## Commands (repo root)
+- The version lives only in root `package.json`; never type it elsewhere. Never bump or tag by hand. Run `pnpm release` only when the user asks (the tag triggers the desktop build).
+- A user-visible change gets one plain-language bullet (≤120 chars) under `## [Unreleased]` in root `CHANGELOG.md`. Internal-only work gets none.
 
-`pnpm dev` (backend + frontend) · `pnpm typecheck` · `pnpm lint` (runs `check:time` and the duplication gate first; rules live in root `.oxlintrc.json`, which Codacy also reads) · `pnpm check:dupes` (lists every clone) · `pnpm test` · `pnpm test:tz` (suites in four zones). Per-app commands are in each guide.
+## AGENTS.md and README.md
 
-## Say it once in code too
+- `AGENTS.md` is for agents only. Humans never read it, so write terse rules for agents.
+- `README.md` (root, `apps/*`, `packages/`) is for humans only. Never read it for context; it is not a source of rules. `developer-docs/README.md` is the exception.
+- Edit a `README.md` only when the user asks, or when your change makes a line in it wrong. The root `README.md` is the GitHub page.
+- Never link an `AGENTS.md` from a README, or a README from an `AGENTS.md`.
+- `AGENTS.md` describes the code as it is now. Fix any line your change makes wrong; edit, don't append. No history or plans.
 
-Duplication is gated like lint: `jscpd` with root `.jscpd.json` (35 tokens, weak mode, the same scope Codacy measures) fails `pnpm lint` and CI above its `threshold`. Before copying a block, look for the helper that already does it; a second copy gets extracted into the nearest shared home (`@cadence/geometry` for scene math shared by app and landing). Lower `threshold` when duplication drops; never raise it to pass. Import blocks, thin Hono handlers (abstracting them breaks RPC inference) and the insert/update contract families are expected repeats.
+## `developer-docs/` (untracked, readable)
 
-## AGENTS.md files are the current truth
-
-- Each AGENTS.md describes the code **as it is now**. If your change makes a line wrong, fix that line in the same change.
-- **Edit, don't append.** Replace outdated lines; if you add one, merge or cut another. Keep them from growing.
-- No history, dated notes, or plans in AGENTS.md. Those belong in `/docs`.
-
-## Time: one model, everywhere
-
-Every date or time value is exactly one of four types. Name the type in the contract, and never convert between types outside `@cadence/domain/time`.
-
-- **Instant:** `timestamptz` / timestamp string with offset (`instantSchema`). Timed starts and ends, reminders, audit times.
-- **LocalDate:** `date` / `YYYY-MM-DD` (`localDateSchema`). All-day days, deadlines (a deadline is a day), multi-day ends, hide-until, routine days. Never stored or compared as an instant.
-- **WallTime:** `HH:MM`, always with the day and zone it belongs to (routine times).
-- **Zone:** a time zone name such as `America/Toronto`. The user's is `users.time_zone`, read on the server only through `userZone`; the client keeps it in sync with the device unless Settings pins one.
-
-Today is `todayIn(zone)`, a day is `dayOf(instant, zone)`, a time on a day is `atLocal(day, time, zone)`, and repeating series expand with `expandSeries` in their zone (same local time across DST). Display goes through `formatInZone`.
-
-Banned (`scripts/check-time.mjs`): slicing a timestamp for a day, `toISOString()` for a day, `new Date("…T00:00")`-style parsing, `getTimezoneOffset`, `Date` local getters in day logic, `AT TIME ZONE 'UTC'`, and date-or-datetime union fields. The `test:tz` matrix runs the suites in four zones.
-
-## Versions and releases
-
-- The version lives **only** in the root `package.json`. The app label, in-app changelog, and desktop/Tauri/Cargo versions are derived at build time. Never type a version anywhere else.
-- `CHANGELOG.md` (root, committed, [Keep a Changelog](https://keepachangelog.com)) is the one changelog; the in-app changelog is built from it.
-- A user-visible change gets one plain-language, one-line bullet (≤120 characters; the build enforces it) under `## [Unreleased]` in `### Added`, `### Changed`, `### Removed`, or `### Fixed`. Internal-only work gets none.
-- Every release needs a one-line summary under its heading (its title in the app).
-- Semver: major = big release or breaking change · minor = a feature added, changed, or removed · patch = fixes, tweaks, dependency bumps.
-- Never bump versions or create tags by hand. `pnpm release` (release-it) does it all: stamps `[Unreleased]`, bumps `package.json`, syncs desktop, commits, tags `vX.Y.Z`, and pushes.
-- The tag triggers the desktop release build, so run `pnpm release` only when the user asks.
-
-## Docs and planning live in `/docs` (local only, git-ignored)
-
-- Start at `docs/README.md`. Never create docs under `apps/*/` or `packages/*/`.
-- A minor or major update gets one planning file: `docs/updates/X.Y.Z.md` (copy `docs/updates/TEMPLATE.md`). Audits, reviews, and follow-ups are sections in that file, never new files. Once it ships, move it to `docs/archive/X.Y.Z/` and edit the affected AGENTS.md lines.
-- `docs/archive/` is frozen history. Don't edit it or treat it as current.
-- Never link to `/docs` from committed files. It doesn't exist on GitHub.
+- Git-ignored but local and always present. Search tools that respect `.gitignore` skip it, so read it by explicit path.
+- `README.md` (start here), `MANIFESTO.md`, `updates/` (plans in flight), `archive/` (shipped plans, frozen).
+- **Every plan goes to `developer-docs/updates/X.Y.Z.md`** (the target version, from `TEMPLATE.md`), automatically, without being asked. One file per update; audits and follow-ups are sections in it.
+- Plans are implementation-ready unless the user says otherwise: decisions made, no open questions, each step names files, symbols, the exact change and its test. Another agent must be able to build it cold.
+- Never create docs under `apps/` or `packages/`. Never link to `developer-docs/` from committed files.

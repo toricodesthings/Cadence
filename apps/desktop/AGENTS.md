@@ -1,97 +1,59 @@
-# Cadence Desktop — Agent Instructions
+# Cadence Desktop — Agent Rules
 
-Native desktop shell built with **Tauri v2**. It does not reimplement Cadence — it embeds the built [`@cadence/frontend`](../frontend) SPA in a webview (`frontendDist: "../../frontend/build/client"`) and gives it OS-level capabilities a browser page can't have (global shortcuts, OS keyring, native menu, deep links, notifications, auto-update). All product logic, UI, and API calls stay in the frontend package — this app is the native container + a thin JS↔Rust bridge, nothing more. The Rust code already guards desktop-only code behind `#[cfg(desktop)]` vs `#[cfg(mobile)]` — Tauri mobile (Android/iOS) is a scaffolded future target sharing this same shell (see `icons/ios`, `icons/android`, `CHANGELOG.md`: the old Expo prototype was removed in favor of this path). Do not assume desktop-only when writing shell code unless it's genuinely desktop-exclusive (single-instance, global shortcuts, native menu are — file system/keyring/notifications generally aren't).
+Tauri v2 shell for Windows and Linux (Ubuntu). It embeds the built frontend SPA and adds OS features: keyring, global shortcuts, native menu, tray, deep links, notifications, auto-update.
 
-## 1. What Lives Where
+- No product UI or logic here. It lives in the frontend under `app/platform/`; see `apps/frontend/AGENTS.md`.
+- Rust lives in `src-tauri/src/lib.rs`. `main.rs` is the entry only; never remove its Windows console-hiding attribute.
+- Never hand-edit `src-tauri/gen/` (generated).
+- oxlint doesn't cover Rust. `typecheck` runs `cargo fmt --check` and `cargo clippy -D warnings`; treat any warning as a failure.
 
-```text
-apps/desktop/
-├── src-tauri/
-│   ├── src/
-│   │   ├── main.rs   # Entry point only — hides the console window on Windows release builds, DO NOT REMOVE that attribute
-│   │   └── lib.rs     # All real logic: plugin registration, app menu, desktop-command event bridge
-│   ├── capabilities/  # Permission manifests (what the webview may call) — see §4
-│   ├── icons/          # Per-platform icons, incl. ios/ and android/ subfolders (future mobile target)
-│   ├── gen/schemas/    # Generated capability JSON schemas — do not hand-edit
-│   ├── tauri.conf.json # Window config, CSP, bundle targets, plugin config (deep-link scheme, updater)
-│   └── Cargo.toml      # Plugin dependency versions
-├── tests/e2e/          # tauri-driver + selenium-webdriver + node:test smoke suite
-├── scripts/
-│   ├── sync-version.mjs      # Copies root package.json version into tauri.conf.json + Cargo.toml/.lock
-│   └── dev-with-bridge.mjs   # Runs the frontend dev server on the bridge port for `tauri dev`
-└── package.json
-```
+## Version
 
-The actual UI/business logic for anything desktop-specific (quick-capture window contents, settings, layout scale, command handling) lives in the **frontend** package under `apps/frontend/app/platform/` and related hooks/routes — see [`apps/frontend/AGENTS.md`](../frontend/AGENTS.md) §11. This app never renders UI itself.
+- The version lives only in the root `package.json`.
+- `scripts/sync-version.mjs` copies it into `tauri.conf.json` and `Cargo.toml`/`.lock` before `build`, `build:debug` and `typecheck`.
+- Never edit the version in those files.
 
-## 2. Versioning — Never Hand-Edit
+## Rust shell
 
-The version lives **only** in the root `package.json` (repo-wide rule, see root `AGENTS.md`). `sync-version.mjs` reads it and writes it into `src-tauri/tauri.conf.json` (`"version"`) and `src-tauri/Cargo.toml`/`Cargo.lock`. It runs automatically before `build`, `build:debug` (and so `e2e:smoke`), and `typecheck` (chained in `package.json` scripts). Never edit the version in `tauri.conf.json` or `Cargo.toml` directly — it will be overwritten and will drift from the source of truth until it is.
+- `tauri_plugin_single_instance` registers first. A second launch focuses the running window.
+- Use `#[cfg(desktop)]` only for truly desktop-only code: single instance, global shortcuts, menu, keyring, OAuth loopback, window state. Keep the other plugins cross-platform; Tauri mobile is a future target.
+- `#[cfg(windows)]` code: Efficiency mode, the tray, the Jump List, autostart.
+- Rust never changes app state. It calls `emit_desktop_command(app, "<command>", value)`, and the frontend handles the command.
+- A new menu item or shortcut needs both the Rust emit and the frontend handler. One without the other is a dead button.
+- Keep app commands (`store_*`, `take_launch_command`, `save_text_as`) narrow: validated names, never a path from the webview.
 
-## 3. Rust Shell (`src-tauri/src/lib.rs`)
+**Windows background delivery (tray)**
+- Opt-in. Read once at startup from `backgroundDelivery` in `cadence_desktop_preferences.dat`.
+- A change takes effect on the next launch, never mid-session.
+- Close hides to tray only if the tray has existed since startup. A tray must never appear late, or the person loses their way back in.
 
-- **Plugin registration order matters.** `tauri_plugin_single_instance` must register first (comment in code enforces this) — a second launch focuses the existing window instead of opening a new one, and forwards `argv`/`cwd` as a `single-instance` event. An allowlisted launch flag (`launch_command`: `--quick-capture`, `--schedule`, from the Windows Jump List) becomes a desktop command instead; on a cold start it waits in `PendingLaunch` until the frontend's listener calls `take_launch_command` once.
-- **Desktop-only plugins** (`#[cfg(desktop)]`, no Android/iOS implementation): `keyring` (secure credential storage — replaces browser storage for auth tokens on desktop), `oauth` (native OAuth loopback for social sign-in), `global-shortcut`, `window-state`, and the app menu itself.
-- **Cross-platform plugins:** `dialog` (used only by the Rust `save_text_as` command, which owns the Save As dialog and the write, so the webview gets no file access), `deep-link` (custom `cadence://` scheme, registered at runtime on Windows/Linux in debug builds), `http` (native fetch transport — pairs with `patch-desktop-fetch.ts` in the frontend), `notification`, `opener`, `store`, `process`, `log` (Info in debug, Warn in release), `updater` (desktop only, initialized last).
-- **Native app menu** (`build_app_menu`): File (Quick Capture, Settings, Sync Now, Check for Updates, Quit), Edit (standard), View (Search, Command Palette, Sync Inspector, layout scale ±/reset), Navigate (Capture, Schedule, Routines, Weekly Review), Window, Help. Every menu item handler calls `focus_main_window` then `emit_desktop_command(app, "<command>", value)`.
-- **The command bridge is one-directional and generic.** Rust never mutates app state directly — `emit_desktop_command` fires a `cadence://desktop-command` event with `{ command, value }` to the `"main"` window; the frontend's `app/platform/desktop-shell.ts` (or equivalent listener) is what interprets `open-quick-capture`, `show-settings`, `sync-now`, `navigate-*`, `layout-scale-*`, `show-command-palette`, etc. **Adding a new menu/shortcut action means adding both**: the Rust emit call *and* the frontend command handler — one without the other is a dead button or an unreachable code path.
-- **Windows Efficiency mode** (`mod efficiency`, `#[cfg(windows)]`): EcoQoS on the host process plus WebView2 `MemoryUsageTargetLevel` Low while **no** Cadence window has focus (Quick Capture counts), Normal otherwise. Not suspended, so reminders and sync keep running.
-- **Windows background delivery** (`mod background`, `#[cfg(windows)]`): opt-in only, read once at startup from `command_preferences.backgroundDelivery` in `cadence_desktop_preferences.dat` (written by the frontend's `use-desktop-command-preferences.ts`). When it was on at launch, a tray icon (Open Cadence / Quick Capture / Quit Cadence) is built, and `CloseRequested` on the main window hides instead of quitting exactly when that tray exists; otherwise close behaves as before. The `autostart` plugin (Windows-only dependency) registers/unregisters the login item from the JS side (`@tauri-apps/plugin-autostart`) with the `--autostart` flag; Settings re-registers it while the setting is on and says so when Windows refuses. The main window is created hidden (`"visible": false`) and setup shows it, except a login launch with the tray ready, which starts quietly in the tray. The updater relaunches with the same args, so the first launch of a new version (`last_launched_version` in that store) always shows. A change takes effect on the next launch, never retroactively — a tray icon must never appear without having been there since startup, or the person loses their only way back in.
-- **Window geometry:** `window-state` restores the main window's size, position, and maximized state only (never visibility; `quick-capture` is denylisted). The main window's minimum is 480×480 so it fits a Snap slot; the frontend picks its compact layout from the width.
-- **Native frame theme:** the frontend calls `setTheme` on every open window (`syncNativeWindowTheme`, driven by `useThemeSync`); `null` hands control back to the OS.
-- **Store recovery:** the store plugin rewrites `.dat` files in place, so `store_restore_if_corrupt` (before a store's first load) restores the last-good `.dat.bak` if the file no longer parses, and `store_snapshot` (after each save, all stores except `cadence_cache`) refreshes that copy atomically. Both are called from the frontend's `getNativeStore` in `platform/desktop.ts`.
-- **Jump List** (`mod jump_list`, `#[cfg(windows)]`): two user tasks, Quick Capture and Open Schedule, that relaunch the exe with a launch flag. Best effort at setup; a failure is logged, never fatal.
-- Global shortcuts are registered via the `global-shortcut` plugin at setup, desktop-only.
+## Capabilities and CSP
 
-## 4. Capabilities & Security — Least Privilege
+- `src-tauri/capabilities/*.json` is the only grant of what the webview may call. Anything unlisted is refused at runtime.
+- A new plugin API needs its exact permission added; nothing broader.
+- Windows-only plugins (autostart) go in the `windows-background` capability (`"platforms": ["windows"]`).
+- The desktop CSP (`tauri.conf.json` › `app.security.csp`) is separate from the web's `apps/frontend/public/_headers`. A new external host goes in both, by hand.
 
-`src-tauri/capabilities/*.json` is the **only** source of what the webview may do — anything not listed is refused at runtime, not just hidden. The current `main-window` capability scopes to windows `["main", "quick-capture"]` and permissions: `core:default`, webview window creation, `core:window:allow-set-{theme,progress-bar}`, `window-state:default`, `deep-link:default`, `global-shortcut:default`, `keyring:allow-{set,get,delete}-secret`, `notification:default`, `oauth:allow-{cancel,start}`, `opener:default`, `process:default`, `store:default`, `updater:default`, and a scoped `http:default` allowlist (localhost dev ports, `api.cadenceapp.cloud`, the two Neon Auth branch hosts). A separate `windows-background` capability (`"platforms": ["windows"]`) grants `autostart:default` only on Windows, since the plugin isn't a dependency on other platforms. **Adding a new native capability requires adding its permission here explicitly** — there is no implicit grant. App commands in `lib.rs` (`store_*`, `take_launch_command`, `save_text_as`) need no entry, so keep each one narrow: validated names, no path from the webview.
+## Release
 
-CSP is defined separately in `tauri.conf.json` (`app.security.csp`) from the web app's `apps/frontend/public/_headers` — the desktop CSP additionally allows `ipc:`/`http://ipc.localhost` (Tauri's IPC transport) and `asset:`/`http://asset.localhost` (local asset loading), and is **not** relaxed to match production web-only origins. Keep both CSPs in sync manually when adding a new external domain the frontend needs to reach.
+- Release only via `pnpm release` at the repo root. Never hand-roll an artifact.
+- The `vX.Y.Z` tag runs `.github/workflows/cadence-desktop-release.yml`. It builds Windows (NSIS) and Linux (AppImage, deb, rpm) and signs the update.
+- Linux builds on ubuntu-22.04 to keep the glibc floor low.
+- The updater installs quietly on Windows (per-user installer, no elevation).
 
-## 5. Updater & Distribution
+## Dev and tests
 
-`tauri.conf.json#bundle`: targets `appimage`/`deb`/`rpm`/`dmg`/`nsis` (each OS builds only its own), `createUpdaterArtifacts: true`. The `updater` plugin checks `https://github.com/toricodesthings/Cadence/releases/latest/download/latest.json`, verified against the embedded `pubkey`. On Windows it installs with `installMode: "quiet"` (no installer window; NSIS relaunches the app), which works without elevation because the installer is per-user. A release is produced by `pnpm release` at the repo root: the `vX.Y.Z` tag triggers `.github/workflows/cadence-desktop-release.yml`, which builds Windows and Linux (macOS not yet; Linux builds on ubuntu-22.04 so the glibc floor stays low), signs the update with the `TAURI_SIGNING_PRIVATE_KEY` secret (required), Authenticode-signs only if `WINDOWS_CERTIFICATE*` secrets exist, and publishes the release non-draft so `latest.json` is live. Never hand-roll a release artifact outside that flow.
+- `pnpm dev:desktop` (repo root) runs `tauri dev` against the frontend dev server on port 8790.
+- `pnpm dev:desktop:full` adds the backend.
+- Clippy checks the host OS only. `#[cfg(windows)]` code is checked on Windows CI, or locally with `--target x86_64-pc-windows-gnu` plus MinGW and `windres`.
+- `e2e:smoke` needs `tauri-driver` (`cargo install tauri-driver --locked`) and `VITE_DESKTOP_E2E=true`; without it the test bridge is missing.
+- `cargo test` covers the launch-flag allowlist.
 
-## 6. Dev Workflow
+## New native behaviour
 
-- `pnpm dev:desktop` (repo root) → `tauri dev`, which runs `beforeDevCommand` (`pnpm run dev:frontend`, i.e. `dev-with-bridge.mjs`) and points the webview at `devUrl` (`http://localhost:8790`). The bridge script runs the frontend's own dev server on a separate port so hot reload works through the Tauri devUrl without port collision with a plain `pnpm dev:frontend` run.
-- `pnpm dev:desktop:full` (repo root) runs backend + desktop together via Turborepo.
-- A production build (`pnpm --filter @cadence/desktop build`) runs `beforeBuildCommand` (`pnpm --filter @cadence/frontend build:desktop`) first, then `tauri build`.
-- `additionalWatchFolders` includes `../../frontend` and `../../../packages` — changes to shared packages are picked up without restarting `tauri dev`.
-
-## 7. Testing
-
-`tests/e2e/` uses the official Tauri WebDriver flow: `tauri-driver` (installed via `cargo install tauri-driver --locked`, not a workspace dependency) + `selenium-webdriver` + `node:test`. `e2e:smoke` runs `build:debug`, then `smoke.test.mjs` launches `src-tauri/target/debug/cadence-desktop[.exe]`. The build needs `VITE_DESKTOP_E2E=true` (CI sets it; export it locally) or the test bridge is missing. `cargo fmt --check` + `cargo clippy --all-targets -D warnings` run as `typecheck` — treat clippy warnings as build failures, matching the `-D warnings` flag. That runs for the host OS only, so `#[cfg(windows)]` code is checked on Windows CI (or locally with `--target x86_64-pc-windows-gnu` plus a MinGW-compatible C compiler and `windres`). `cargo test` covers the launch-flag allowlist.
-
-## 8. Commands
-
-```bash
-pnpm dev:desktop              # from repo root
-pnpm dev:desktop:full         # backend + desktop together
-pnpm --filter @cadence/desktop build            # sync-version + tauri build (installers)
-pnpm --filter @cadence/desktop build:debug      # sync-version + unbundled debug binary
-pnpm --filter @cadence/desktop typecheck        # sync-version + fmt --check + clippy -D warnings
-pnpm --filter @cadence/desktop e2e:smoke        # debug build + smoke suite (needs tauri-driver, VITE_DESKTOP_E2E=true)
-```
-
-## 9. Anti-Patterns
-
-- Editing the version in `tauri.conf.json`/`Cargo.toml` by hand instead of letting `sync-version.mjs` do it.
-- Putting product UI or business logic in `src-tauri/` — it belongs in the frontend.
-- Granting a native capability implicitly by calling a plugin API without adding the matching permission to `capabilities/*.json`.
-- Adding a menu item or global shortcut in `lib.rs` without a corresponding frontend handler for the emitted command (or vice versa).
-- Assuming every plugin here is desktop-only — most (deep-link, http, notification, opener, store, process) are cross-platform and must stay compatible with the eventual mobile target.
-- Widening the desktop CSP or the frontend CSP without checking whether the other needs the same change.
-- Hand-editing files under `src-tauri/gen/` (generated).
-
-## 10. Checklist for New Native Behavior
-
-1. Does the frontend actually need OS-level access, or can it stay pure web code behind `app/platform/web.ts` / `desktop.ts`? Prefer the latter.
-2. Add/confirm the plugin in `Cargo.toml` + register it in `lib.rs` (respect `#[cfg(desktop)]` vs. cross-platform placement).
-3. Add the exact permission(s) needed to `capabilities/*.json` — nothing broader.
-4. If it's a menu item or shortcut: add the Rust handler (`emit_desktop_command`) **and** the frontend listener/command handler.
-5. If it needs a new external host: add it to both `tauri.conf.json` CSP and, if the web app also needs it, `apps/frontend/public/_headers`.
-6. Run `pnpm --filter @cadence/desktop typecheck` and, if behavior-affecting, the `e2e:smoke` suite.
-
-If this document conflicts with a proposed change, this document is the baseline.
+1. Can it stay web code behind `app/platform/`? Prefer that.
+2. Add the plugin to `Cargo.toml` and register it in `lib.rs`, with the right `cfg`.
+3. Add the exact permission to `capabilities/`.
+4. Menu item or shortcut: Rust emit plus frontend handler.
+5. New external host: both CSPs.
+6. Run `typecheck`. If behaviour changed, run `e2e:smoke` too.

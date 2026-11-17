@@ -7,7 +7,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint -c ../oxlint.config.ts src"
+    "lint": "oxlint -c ../oxlint.config.mts src"
   },
   "devDependencies": {
     "typescript": "^7.0.2"

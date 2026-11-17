@@ -1,6 +1,6 @@
 # Habits — Agent Instructions
 
-Part of the backend: `apps/backend/AGENTS.md` §6 (envelope, idempotency) applies.
+Part of the backend: `apps/backend/AGENTS.md` applies.
 
 ## Routes
 

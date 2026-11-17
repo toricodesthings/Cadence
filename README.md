@@ -64,7 +64,7 @@ Recent releases brought offline editing and sync review, connected assistants, r
 
 ## Run it locally
 
-**Requirements:** Node.js 24.21.0 or newer and Corepack/pnpm. Running the full workspace also needs development credentials and bindings for Neon Auth, Neon Postgres, and Cloudflare Workers; see the [backend environment guide](./apps/backend/AGENTS.md#14-environment--bindings) and [frontend guide](./apps/frontend/AGENTS.md).
+**Requirements:** Node.js 24.21.0 or newer and Corepack/pnpm. Running the full workspace also needs development credentials and bindings for Neon Auth, Neon Postgres, and Cloudflare Workers; see the backend's [`wrangler.jsonc`](./apps/backend/wrangler.jsonc).
 
 ```bash
 corepack enable
@@ -115,7 +115,7 @@ The frontend and desktop app share the same UI and product logic. The API uses s
 
 ## Contribute
 
-Issues and pull requests are welcome. Start with the relevant app's `AGENTS.md` and the [repo rules](./AGENTS.md); they describe the current code and conventions. Keep user-facing changes reflected in the [changelog](./CHANGELOG.md). You can [open an issue](https://github.com/toricodesthings/Cadence/issues) to discuss a bug or idea.
+Issues and pull requests are welcome. Start with the README of the workspace you're changing (table above). Keep user-facing changes reflected in the [changelog](./CHANGELOG.md). You can [open an issue](https://github.com/toricodesthings/Cadence/issues) to discuss a bug or idea.
 
 Cadence is licensed under [AGPL-3.0-only](./LICENSE). The code license does not grant rights to the Cadence name or logo. The hosted app has its own [Terms](https://cadenceapp.cloud/terms) and [Privacy Policy](https://cadenceapp.cloud/privacy).
 

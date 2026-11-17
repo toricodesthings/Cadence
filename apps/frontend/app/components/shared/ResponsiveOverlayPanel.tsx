@@ -1,3 +1,4 @@
+// oxlint-disable-next-line eslint/no-restricted-imports -- this panel is the sheet primitive
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { motion, type MotionValue } from "framer-motion";
 import { X } from "lucide-react";

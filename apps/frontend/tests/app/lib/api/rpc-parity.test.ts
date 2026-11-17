@@ -19,7 +19,7 @@ import type { ResponseData } from "../../../../app/lib/api/helpers";
 // (inferred through the RPC client) must equal its contract entity. The backend's
 // Row-parity test covers DB ↔ contract; this covers route ↔ contract. Entities that
 // are deliberately looser than the route (optional fields for optimistic caches,
-// packages/AGENTS.md §1.4) are checked with `toExtend`: the route's output fits.
+// packages/AGENTS.md, Contracts) are checked with `toExtend`: the route's output fits.
 
 type Data<F> = F extends (...args: never[]) => Promise<infer R> ? ResponseData<R> : never;
 type Api = ApiClient["api"];

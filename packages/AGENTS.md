@@ -1,291 +1,82 @@
-# `packages/` — Shared Workspace Packages (AGENTS.md)
+# Cadence Packages — Agent Rules
 
-Guidance for agents working in Cadence's dependency-light shared packages. Read
-this **before** editing anything under `packages/`. These packages are imported
-by every client (`apps/backend`, `apps/frontend`, and downstream
-`desktop`/`mobile`), so a break here breaks every surface at once.
-
----
-
-## 0. The packages and their one-line jobs
+Shared, dependency-light packages used by every app. A break here breaks every surface.
 
 ```
-packages/
-  search/     Conservative token search / ranking.     deps: minisearch, stemmer
-  geometry/   Deterministic SVG scene math (loading screen + landing). deps: none
-  nlp/        NLP parse / resolve / title / effort / duration / rank / focus-views.   deps: chrono-node, fuse.js
-  contracts/  Zod schemas → inferred types (wire shapes). deps: zod, @cadence/nlp
-  domain/     Pure domain logic (no I/O, no framework).   deps: rrule, @cadence/contracts, @cadence/nlp
-  tests/      @cadence/package-tests: every package test, mirroring each package's src/
+domain     pure rules (no I/O, no framework)     → contracts, nlp
+contracts  Zod schemas → inferred wire types      → nlp
+nlp        parse / resolve / rank / focus views
+search     token search and ranking
+geometry   SVG scene math (loading screen + landing)
+tests      @cadence/package-tests, mirroring each package's src/
 ```
 
-**Dependency direction is strictly downhill** and enforced (see §6):
+- `oxlint.config.mts` enforces the rules here: dependencies flow down this list only; no I/O, browser/Node globals, `Date.now`, `Math.random` or `console`.
+- Packages are source-only: `package.json#exports` points at `.ts` files. A new module needs its sub-path export.
+- Import by sub-path (`@cadence/contracts/task`). Contracts and domain have no barrel.
 
-```
-app  →  domain  →  contracts  →  nlp
-app  →  search
-app  →  geometry   (imports no other package)
-```
+## Contracts
 
-No package imports an app. No package imports `drizzle-orm`, `hono`, `react`, or
-`@cloudflare/workers-types`. `domain` additionally must not import any backend
-`platform/**` (no `AppError`, `db`, `withRls`).
+The Zod schema is the source of every type. Infer types with `z.infer`; never hand-write them.
 
-Each package is **source-only**: `package.json#exports` point directly at `.ts`
-files (no build step). Consumers resolve the TypeScript under `moduleResolution:
-"Bundler"`. Internal relative imports are extensionless (`./task`, not
-`./task.js`). `tsconfig.json` extends `../../tsconfig.base.json`
-(`verbatimModuleSyntax: true` → use `import type` / `export type` for types).
+| Family | Name | Is |
+|---|---|---|
+| Row | `xRowSchema` | the DB columns exactly, wire-shaped (ISO timestamps, no joins) |
+| Entity | `xSchema` = `xRowSchema.extend(…)` | what the API returns |
+| Input | `insertXSchema` / `updateXSchema` / query schemas | request bodies and params |
 
----
+Type names: `X`, `XRow`, `InsertX`, `UpdateX`. Use `CreateXInput` / `UpdateXInput` (`z.input`) where clients build the body.
 
-## 1. `@cadence/contracts` — the single source of truth for shapes
+**Row**
+- Must equal Drizzle's `$inferSelect` exactly.
+- Change a column → update its `xRowSchema` in the same change. The backend's `tests/unit/contract-parity.test.ts` fails `tsc` otherwise.
+- A column with `.default()` but no `.notNull()` is `.nullable()`.
 
-> **Direction of truth:** the Zod schema is authored once here; the TypeScript
-> type is `z.infer`red from it — **never hand-write a type that mirrors a
-> contract.** Drizzle `$inferSelect` and Hono `AppType` are demoted to
-> compile-time guardrails, not type sources.
+**Entity**
+- May differ from Row on purpose: literal unions for priority/effort, `.optional()` for fields partial reads omit.
+- The parity test covers Row only. When changing an Entity, check it field by field against its consumers.
+- The frontend's `tests/app/lib/api/rpc-parity.test.ts` pins each read route to its Entity.
 
-### 1.1 The three schema families (per domain module)
+**Input**
+- Server post-parse types use `z.infer`: defaults are filled in.
+- Client-built bodies use `z.input`: defaults are optional.
+- No `.default()` on a create schema whose update schema is `.partial()`. Zod 4 keeps defaults through `.partial()`, so a PATCH would overwrite untouched columns. Use `.optional()` and let the DB default apply.
 
-Every domain module (`task.ts`, `inbox.ts`, `habit.ts`, …) exports up to three
-families plus their inferred types:
+**Shared pieces**
+- Time scalars (`instantSchema`, `localDateSchema`, `wallTimeSchema`, `zoneSchema`) and `ERROR_CODES` come from `common.ts`. Never redeclare them.
+- A field has one type. Never a date-or-datetime union.
+- Where nlp owns a type, the contract ends in `satisfies z.ZodType<…>` so drift fails `tsc`.
 
-| Family | Name | What it is | Source of record |
-|---|---|---|---|
-| **Row** | `xRowSchema` | Exactly the DB columns, wire-shaped (timestamps as ISO strings, no joins). | Drizzle table |
-| **Entity** | `xSchema` = `xRowSchema.extend({…})` | The object the API returns (row + joins/derived enrichment). | the client interface |
-| **Input** | `insertXSchema` / `updateXSchema` / query schemas | Request bodies & params. | the route |
+**Special modules**
+- `settings`: `userSettingsSchema` is the sparse stored/patch shape. `SettingsView` (`DeepRequired` of it) is the full view. Never alias it to `typeof SETTINGS_DEFAULTS`; its `as const` literals break boolean comparisons.
+- `ai`: wire-crossing shapes only. Prompts, tools, memory retrieval and persistence stay in the backend.
+- `constants`: semantic, framework-neutral data only. Tailwind classes, icon names and CSS vars stay in the app.
 
-`export type X = z.infer<typeof xSchema>` etc.
+## Domain
 
-### 1.2 Row schemas are load-bearing — keep them `$inferSelect`-exact
+- Errors are `DomainError(code, message, status)`. Each app maps it at its boundary (backend: `formatErrorResponse`).
+- Human-facing formatting stays in the frontend.
 
-`xRowSchema` must be **structurally identical** to `typeof table.$inferSelect`.
-This is asserted at compile time in
-`apps/backend/tests/unit/contract-parity.test.ts` (one `expectTypeOf(...)
-.toEqualTypeOf(...)` per table). A column rename/add/nullability
-change now fails `tsc` there instead of silently breaking a client. **When you
-touch the schema (`apps/backend/src/db/schema/`), update the matching `xRowSchema` in the
-same change.** Watch DB nullability: a Drizzle column with `.default()` but
-**without** `.notNull()` is `T | null` — model it `.nullable()`, not required.
+Each rule has one home. Reuse it; never re-derive it in an app.
 
-### 1.3 `z.input` vs `z.infer` (output) — pick deliberately
+| Module | Owns |
+|---|---|
+| `time.ts` | every Instant / LocalDate / WallTime / Zone conversion, series expansion |
+| `task-temporal.ts` | a task's read shape and reschedule (new `TaskReadShape` → add to `task-temporal.golden.test.ts`) |
+| `nlp-draft.ts` | `resolveDraft`, `appliesWithoutChoice`: the only place a parse becomes a draft |
+| `reminders.ts` | `deriveReminders`, `dueAlert` |
+| `repeats.ts` | Fixed / Routine / Task rules |
+| `task-length.ts` | `taskMinutes`, a task's one length |
+| `ordering.ts` | fractional order indexes |
 
-Zod defaults make `z.infer` (output) treat a defaulted field as **required**,
-while `z.input` keeps it **optional**. So:
+## Dependencies
 
-- **Backend** post-parse types (`InsertTask`, …) use `z.infer` (output) — after
-  `apiValidator` runs, defaults are present.
-- **Client-facing** input types (`CreateTaskInput`, `InsertHabit`, `UpdateHabit`,
-  RHF form values) use **`z.input`** — clients build request bodies without the
-  server-defaulted fields. Mixing these up produces "missing property" errors at
-  every call site.
-- **No `.default()` on a create schema whose update schema is `.partial()`**
-  (tag, project, habit). Zod 4 keeps defaults through `.partial()`, so a PATCH
-  would write them over untouched columns. Leave the field `.optional()` and let
-  the DB column default apply on insert.
+- `overrides` in `pnpm-workspace.yaml` pin one `zod` and one `hono`.
+- Two instances cause "types not identical" errors. Check with `pnpm why zod` after dependency changes.
 
-### 1.4 Entity may intentionally diverge from Row
+## Gates
 
-The Row is DB-truth; the Entity is the client view and **may override** Row
-fields to match what clients actually consume. Current deliberate overrides:
-
-- `task.priority`/`task.effort` → literal unions (`TaskPriority` = `0|1|2|3|4`,
-  `EffortLevel` = `1|2|3|null`) — Row keeps numeric for `$inferSelect` parity.
-- `task.sectionId/waitingOn/waitingReminder/notBefore`, inbox analysis-lifecycle
-  columns, and `subtask.userId` → made `.optional()` in the Entity so optimistic
-  caches and partial reads (which omit them) typecheck.
-
-When you change an Entity, **diff it field-by-field against the consuming client
-interface** — the parity guard only covers the Row subset.
-
-### 1.5 `settings.ts` and `ai.ts` are special
-
-- **settings**: `userSettingsSchema` is the sparse **storage/patch** shape (all
-  fields optional — used by the DB jsonb column + PATCH). `SETTINGS_DEFAULTS`
-  (`as const`) holds the defaults. `SettingsView` (`DeepRequired` of the stored
-  shape) is the full view the API returns and the frontend's `UserSettings`
-  (not `typeof SETTINGS_DEFAULTS`, whose `as const` literals break
-  `=== true/false` comparisons). Saved focus views (Row + Entity) live here too. `deepPartial`,
-  `deepMerge` (defaults ⊕ stored/patch, used by both apps), and
-  `personalEventSchema` live here; legacy-settings migration is backend-only
-  (`settings.route.ts#normalizeSettings`).
-- **ai**: only the **wire-crossing** shapes belong here (UIMessage, chat request,
-  conversation/message/image Row+Entity, conversation list/detail projections,
-  `streamErrorSchema` + `AI_ERROR_CODES` (status + retryability; each client
-  keeps its own wording), chat image limits + `cadence-image:` URL helpers, message role/status enums, and the
-  `TaskProposalPart`/`DangerConfirmPart` widget payloads); **ai-tools** is `TOOL_CATALOG`, every assistant tool name with its kind (read/write/capture/ask) and `destructive` flag, read by the backend tools, MCP and the chat UI (`isMemoryTool` names the three that exist only while memory is on); **memory** holds the wire shapes of
-  assistant memory (mode, fact, page with `nextCursor`, receipt, duration value/report/view/evidence, routine durations); **planning** the parts of the day, the `findTime` body a Cadence-proposed placement carries, planning evidence and offers, the Suggest steps body (`suggestStepsSchema`, steps ≤ `STEP_MAX_CHARS`), and the Weekly Reset guesses (`resetSuggestionsRequestSchema` ids ≤ `RESET_SUGGESTION_MAX`, buckets per row kind in `RESET_DISPOSITIONS`). Everything that
-  composes prompts, runs tools, retrieves memory, or persists rows stays in
-  `apps/backend/src/domains/ai` (server-only).
-
-### 1.5a The other modules
-
-- **common**: scalars, pagination, `uuidParamSchema`/`taskIdParamSchema`, the
-  `ApiError` envelope + `ERROR_CODES`/`ErrorCode` (every code the API sends;
-  `AppError` and `DomainError` take one), and the time scalars
-  `instantSchema`/`localDateSchema`/`wallTimeSchema`/`zoneSchema` (plus `isZone`).
-- **app-link** the stable ids of the apps a task or routine can open (`linkedAppId`; labels, initials and URLs stay in the frontend catalogue), and `parseWebsite`/`linkedUrlSchema` for a typed website (`linkedUrl`): https only, no credentials, a dotted host, ≤2048 chars, stored in the parser's normal form. `@cadence/nlp/app-suggestions` ranks them from a title (pure phrase rules; abstains on negation or ambiguity).
-- **task** also holds the `GET /tasks` filters (`taskFiltersSchema`,
-  `taskListQuerySchema`) and `placeTasksSchema` (Fit today's placements and their Undo); **events** the usage-event names, batch cap and strict frontend-performance and error samples with bounded endpoint/status/error and build/revision dimensions (legacy defaults to revision 1);
-  **proxy** the weather/geocoding/holiday queries and responses;
-  **notification** reminder state (Row + Entity + upsert).
-
-### 1.5b Shared constants — `constants.ts` (Tier 2)
-
-`@cadence/contracts/constants` holds **semantic, framework-neutral data only** —
-`TASK_PRIORITY_NAMES` (`none…urgent`, index = level), `TASK_PRIORITY_LABELS`, `TAG_PALETTE`. The guiding
-rule (§0 litmus): **share semantics, never presentation.** Tailwind classes,
-Lucide icon names, and CSS-var strings stay in the consuming app and are layered
-on top — e.g. `apps/frontend/.../constants/priority.ts` builds its `PRIORITY_CONFIG`
-from the shared labels + a local presentation table; `constants/colors.ts`
-re-exports `TAG_PALETTE` but keeps its CSS-var `PROJECT_ACCENT_OPTIONS` local.
-Add a constant here only when it is genuinely cross-client and carries no
-framework/presentation coupling.
-
-### 1.6 Adding / changing a contract — checklist
-
-1. Edit/author `packages/contracts/src/{domain}.ts` (Row + Entity + Input).
-2. Add the sub-path to `packages/contracts/package.json#exports`.
-3. If it maps to a DB table, add a parity assertion in
-   `contract-parity.test.ts`; if a read route returns it, a line in the
-   frontend's `tests/app/lib/api/rpc-parity.test.ts`.
-4. Both apps import the sub-path directly (`@cadence/contracts/{domain}`); no
-   app keeps a schema file.
-5. `pnpm --filter @cadence/contracts typecheck && lint`,
-   `pnpm --filter @cadence/package-tests test contracts`, then `pnpm typecheck`.
-
----
-
-## 2. `@cadence/domain` — pure logic, framework-neutral errors
-
-Pure, deterministic logic that was (or would be) duplicated across backend and
-frontend. **The litmus test: no I/O, no clock-as-dependency-injection-less
-randomness, no `AppError`/Hono/React/`db`.** If it throws, it throws
-`DomainError`.
-
-### 2.1 `DomainError`, not `AppError`
-
-`packages/domain/src/errors.ts` exports `DomainError(code, message, status=400)`.
-**Each app maps it at its own boundary** — the backend's
-`platform/errors.ts#formatErrorResponse` converts a thrown `DomainError` into an
-`AppError` (`new AppError(e.status, e.code, e.message)`), preserving codes
-(`INVALID_TASK_SCHEDULE`, `INVALID_RECURRENCE_RULE`) so API bodies are unchanged.
-Never import `AppError` here.
-
-### 2.2 Current modules
-
-- `time.ts` — the only conversions between Instant, LocalDate, WallTime and Zone:
-  `todayIn`, `dayOf`, `atLocal` (DST gap moves forward, overlap takes the earlier),
-  `startOfDay`/`endOfDay`, `wallTimeOf`, `toZonedIso`, LocalDate math (`addDays`,
-  `daysBetween`, `weekRange`, `monthRange`), `expandSeries` (all-day series on dates,
-  timed series in a floating wall-clock frame converted with `atLocal`), `isZone`,
-  `formatInZone`. `parseRecurrenceRule` enforces single day-based rules; expansion caps its anchor-to-window span/output at 36,600 days. The pnpm rrule patch bounds no-match searches and deduplicates selected dates.
-- `task-temporal.ts` — `classifyTaskReadShape` (4 shapes: `unscheduled`, `day`, `days`,
-  `timed`), `normalizeTaskTemporalFields` (validates `dueDate`/`endDate` LocalDates or
-  `scheduledStart`/`scheduledEnd` instants with a `zone`; all-day = no start),
-  `hasTaskTemporalMutation`, and the shared reschedule (an all-day task moves its days,
-  a timed task keeps its local time via `atLocal`).
-- `task-recurrence.ts` — `validateTaskRecurrenceRule` (`UNTIL` is a LocalDate), `expandScheduleScopedTasks` (via `expandSeries`, in the series zone; occurrence ids `<series>::<LocalDate>`)
-  (+ helpers), and `resolveOccurrenceAnchor` (next/closest occurrence around a
-  reference date; unsafe rules raise `INVALID_RECURRENCE_RULE` on writes and reads).
-  Filter inputs are typed via the local `ScheduleScopeFilters`
-  (structurally compatible with the backend's `NormalizedTaskFilters`, so no
-  backend import).
-- `ordering.ts` — fractional `orderIndex` math (`ORDER_INDEX_GAP`,
-  `computeNextOrderIndex`, `computeMidpointIndex`, `computeGappedOrderIndex`).
-- `reminders.ts` — the one reminder rulebook for app and server: `deriveReminders` (task reminders, Waiting check-ins, deadlines with an optional heads-up day and a chosen overdue span, timed blocks with their own lead and a longer one for Fixed blocks (expanded per day for repeats; an explicit reminder wins), routines with lead time, yearly events on each chosen day-before; preferences arrive as `ReminderPrefs`, defaults in `DEFAULT_REMINDER_PREFS`, wording injected via `ReminderFormat`), `reminderKindEnabled`, `isInQuietHours`, `isPaused`, and `dueAlert` (OS-alert policy: alert instant, 15-minute late bound, deadline alerts at the user's morning time until the day ends, dismissal, deferral as a new key; quiet hours and a pause silence all and hold each until they end, sent then only while still relevant: `relevantUntil`, a block's start, else the end of the alert's day; a deferral never goes stale).
-- `repeats.ts` — the Fixed / Routine / Task rules: `routineTimeOn` (a routine's
-  time on a date, honouring per-weekday overrides), `habitOccurrences` (via `expandSeries`)
-  (a routine's due days; rules without INTERVAL/COUNT are anchored by whole
-  periods so days before creation follow the pattern, "every N" rules count from
-  the creation day in the user's zone), `isPausedOn` (a pause covers today through `pausedUntil`, never the past), `routineTimesOn`/`timeMarksOn`/`applyTimeMark`/`timeDayStatus`/`timeProgress`/`nextOpenTime` (the app's Mark done)/`likelyOpenTime` (a done with no time: nearest open within 90 min, else ask) (a routine at set times: a day's `timeMarks` by "HH:MM" → `{status, at}`; every time done = COMPLETED, none open but some skipped = SKIPPED, else PENDING; `deriveReminders` reminds each open time with its own id), `stepDayStatus`/`stepMarksOn`
-  (a routine day's status from its step marks, and back), and
-  `suggestInteractionMode` (the server default that makes class-like timed series Fixed).
-- `nlp-draft.ts` — `resolveDraft`: the one place a parse becomes a draft. Precedence is a hand-set field (a present key wins, even none) → applied language → surface default; `appliesWithoutChoice` is the one rule for client and server (medium or high confidence applies; fuzzy list/tag names and low confidence are suggestions until chosen; the level is fixed, never a setting); dismissals follow the phrase id; `capabilities` say what a surface (task, calendar block, routine, yearly event) can store, the rest stays in the title; the title loses only applied/replaced phrases. `task-instruction.ts` turns a typed instruction for existing work into a bounded patch (and `undoPatch`), including a named section (`findSectionMention`/`resolveSection`: a cue word, unambiguous within the named or current list, and a day-like name only with "section"); a relative reminder ("30 minutes before") applies only once the draft has a timed start; `effort-evidence.ts` decides what may inform an Effort suggestion and when it may show.
-- `duration-ask.ts` / `duration-chips.ts` / `task-length.ts` — "how long did it take?": the ask ladder (daily; every 3 days after 3 misses, weekly after 6, monthly after 10), `relativeReference` (the person's own plan only), the offered chips and `parseAnswer` (a point or finite range up to 24 h via `parseDuration(text, { maxMinutes })`; the title parser keeps 480), and `taskMinutes`: the one length of a task for every surface (block → `durationEstimate` → supported guess, for a block made now → 60, no floor). `@cadence/nlp/duration` is the estimator (`estimateDuration`: weighted median and range over the person's answers on the same kind of task, sharing `meaningOf`/`HALF_LIFE_DAYS` with `@cadence/nlp/effort`; `supported` sizes, `tentative` only shows).
-- `effort-guess.ts` — `effortGuessOf`: a chosen Effort has no guess; else the stored model guess, else a single-level `suggestEffort`; never a range, never the middling fallback; `dismissed` → null. Priority cues (`asap`, `important`/`no rush` trailing only; never as an object ("what's important", "if it can wait"), reported ("boss says it's urgent"), asked ("…urgent?") or after "nothing") live in `nlp/parse/priority-parser.ts`; priority comes only from the person's words, never inferred or learned. Date shortcuts and spoken times ("tmrw", "nxt tues", "five pm", "quarter to four") are spelled out by `nlp/parse/shortcuts.ts` before chrono, with spans mapped back to the typed characters; a shortcut read is never `high` ("tom" stays text: it is also a name). `field-ask.ts` — the assistant's "Which matters most / heaviest?" back-off (`fieldAskOpen`: 7 days after a typed-past question, 30 after two; `settleFieldAsk`).
-- `find-time.ts` / `fit-day.ts` / `slot-preference.ts` / `planning-offers.ts` — Find a time, Fit today and what orders them: `fitDay` (each sized task in the order given takes `findTimes`' first proposal, with the run's placements counted as busy; sized = `fitMinutes`: an estimate or a supported guess, never the 60 fallback; `isFitCandidate`: open, untimed, one-off, one day, not Fixed), `weekRoom` (booked/open minutes per day in Find a time's window, overlaps counted once plus estimates of untimed tasks due that day, and its deadlines), `roomiestDay` (first later day with room plus the buffer, else the most room) and `dispositionDay` (a Weekly Reset bucket as a real day), `findTimes` (the day's 15-minute starts that fit with a 15-minute buffer around open timed blocks, 06:00 or the calendar's first hour to 22:00, preferred part of the day first, then nearest the current start, spaced so no two overlap, ≤ 8), `feasibleBuckets`, `busyBlocks`, `timeOfDay`; `learnedPreference` (a part of the day that wins ≥ 65% against every other that had room, from ≥ 8 choices on ≥ 4 days with half weight for Cadence-proposed ones, 90-day decay, off after 3 of the latest 5 go elsewhere), `statedPreference`, `preferredBuckets`; `eligibleOffers` (Break into steps: no open steps, moved 3 times on 2 days in 28, not Waiting; Leave for later: Waiting, no deadline within 7 days; Not now per task until its fingerprint changes, 3 Not nows on 3 tasks in 30 days, a stated `avoid`) and `leaveUntil`.
-- `ai-title.ts` — conversation-title helpers (`deriveFallbackTitle`,
-  `normalizeTitle`) for the frontend's optimistic title and the backend fallback.
-
-Presentation/formatting (human strings, `date-format`-dependent code) stays in
-the **frontend**; it *consumes* these primitives.
-
-### 2.3 Tests live in `packages/tests/<pkg>/`, mirroring `src/`
-
-`packages/tests/domain/*.test.ts` (vitest), importing the public sub-paths. The golden cross-consistency table in
-`task-temporal.golden.test.ts` asserts the single classifier covers every
-branch — it is the regression net that previously required keeping two copies in
-sync. Add to it when you add a `TaskReadShape` branch.
-
----
-
-## 3. Backend & frontend wiring (how the shims work)
-
-- **Backend**: routes and services import shapes directly from
-  `@cadence/contracts/<domain>` and pure logic from `@cadence/domain/*`; no domain
-  has a schema file. Loose DB columns are narrowed to the entity in one mapper
-  per domain (`toTask`, `toSavedFocusView`, …).
-- **Frontend**: imports `@cadence/contracts/*` sub-paths directly. The only
-  `app/types/*` files are `settings.ts` (re-exports `SettingsView` as
-  `UserSettings`, plus `SETTINGS_DEFAULTS`/`DeepPartial`/`PersonalEvent`) and
-  `api.ts` (the `ApiErrorResponse` runtime class). `@cadence/backend` is still imported by the
-  RPC client (`AppType`) in 3 files — keep that dependency.
-
----
-
-## 4. Versions & instance identity (read before touching deps)
-
-- **One zod.** A root `pnpm.overrides.zod` pin makes apps and contracts
-  resolve a single zod instance — two instances cause "two different types with
-  this name exist" / "types not identical" errors. Verify with
-  `pnpm why zod` after dependency changes.
-- **One hono.** A root `pnpm.overrides.hono` pin does the same for hono (the
-  frontend's RPC client builds against the backend's `AppType`).
-- These packages are `private` and unversioned-in-practice (`workspace:*`).
-
----
-
-## 5. Conventions
-
-- **Naming:** `xRowSchema` / `xSchema` / `insertXSchema` / `updateXSchema`; types
-  `X` / `XRow` / `InsertX` / `UpdateX`, plus `CreateXInput` / `UpdateXInput`
-  (`z.input`) where clients build the body. Constants `SCREAMING_SNAKE`.
-- **Shared scalars:** `instantSchema`, `localDateSchema`, `wallTimeSchema` and `zoneSchema`
-  come from `common.ts` (contracts and backend alike), never redeclared. A field is one type,
-  never a date-or-datetime union.
-- **Imports:** always by sub-path (`@cadence/contracts/task`); contracts and domain
-  have no barrel (nlp and the search entry point expose their public API). Extensionless relative imports inside a package.
-- **No catch-all files.** One module per domain; no `utils.ts`/`helpers.ts`.
-- **Contracts own shape, including refinements.** Never
-  duplicate a shape in an app. Where nlp owns a type (`CanonicalNlpEnvelope`,
-  `FocusViewDefinition`), the contract schema ends in `satisfies z.ZodType<…>` so tsc catches drift.
-
----
-
-## 6. Enforcement
-
-- **Compile-time row parity:** `apps/backend/tests/unit/contract-parity.test.ts`
-  (enforced by `tsc --noEmit`, which includes `tests/`).
-- **Compile-time route parity:** `apps/frontend/tests/app/lib/api/rpc-parity.test.ts`
-  pins what each read route sends (inferred through the RPC client) to its entity.
-- **Dependency boundaries:** `packages/oxlint.config.ts` (`no-restricted-imports` per package,
-  with the packages above it as extra forbidden specifiers), run by each package's
-  `lint` script and the turbo `lint` task. It fails on any forbidden import specifier.
-- **Per-package gates:** `pnpm --filter @cadence/<pkg> typecheck | lint`, and `pnpm --filter @cadence/package-tests test <pkg>` (vitest path filter). Tests live in `packages/tests/<pkg>/<module>.test.ts` (contracts: size limits and update-carries-only-sent-fields are API promises); apps never re-test package rules.
-- **Whole workspace:** `pnpm typecheck` (turbo, all packages + apps).
-
----
-
-## 7. Common pitfalls
-
-- Editing a Drizzle column without updating its `xRowSchema` → parity test fails
-  (good — that's the point; fix the schema).
-- Aliasing `SettingsView` to `typeof SETTINGS_DEFAULTS` → `as const` literals
-  break boolean comparisons. Keep it derived via `DeepRequired`.
-- Adding `drizzle-orm`/`hono`/`react`/an app import to a package → `lint` fails.
-  If you truly need DB/framework behavior, it doesn't belong in `packages/`.
-- Forgetting the `package.json#exports` sub-path → consumers can't resolve the
-  new module.
+- `pnpm --filter @cadence/<pkg> typecheck | lint`
+- `pnpm --filter @cadence/package-tests test <pkg>`
+- Package rules are tested only in `packages/tests/<pkg>/`. Apps never re-test them.
+- Finish with `pnpm typecheck`.

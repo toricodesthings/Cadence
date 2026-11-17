@@ -2,7 +2,7 @@ import type { TaskPriority } from "./task";
 
 // Tier 2 — shared *semantic* constants (framework-neutral data only). Presentation
 // (Tailwind classes, icon names, CSS var names) stays in the consuming app and is
-// layered on top of these. See packages/AGENTS.md §1.
+// layered on top of these. See packages/AGENTS.md (Contracts › constants).
 
 /** Priority names (settings, typed words) in level order: the index is the `TaskPriority`. */
 export const TASK_PRIORITY_NAMES = ["none", "low", "medium", "high", "urgent"] as const;

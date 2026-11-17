@@ -17,15 +17,11 @@ function requirePublicEnv(name: "VITE_API_BASE_URL" | "VITE_NEON_AUTH_URL", devF
         return devFallback;
     }
 
-    throw new Error(
-        `Missing ${name}. Set it in the frontend build environment before creating a production bundle.`,
-    );
+    throw new Error(`Missing ${name}. Set it in the frontend build environment before creating a production bundle.`);
 }
 
 export const RUNTIME_TARGET =
-    (import.meta.env.VITE_RUNTIME_TARGET as string | undefined) === "desktop"
-        ? "desktop"
-        : DEFAULT_RUNTIME_TARGET;
+    (import.meta.env.VITE_RUNTIME_TARGET as string | undefined) === "desktop" ? "desktop" : DEFAULT_RUNTIME_TARGET;
 // Deployed web builds call the API same-origin: worker.ts forwards /api/v1/* to the backend
 // over a service binding, so an Authorization header needs no CORS preflight.
 export const API_BASE_URL =
@@ -40,16 +36,26 @@ export const NEON_AUTH_URL =
         ? `${window.location.origin}/api/auth`
         : requirePublicEnv("VITE_NEON_AUTH_URL", DEV_NEON_AUTH_URL);
 export const WEB_APP_BASE_URL =
-    (import.meta.env.VITE_WEB_APP_BASE_URL as string | undefined)
-    ?? (import.meta.env.DEV ? DEV_WEB_APP_BASE_URL : PROD_WEB_APP_BASE_URL);
+    (import.meta.env.VITE_WEB_APP_BASE_URL as string | undefined) ??
+    (import.meta.env.DEV ? DEV_WEB_APP_BASE_URL : PROD_WEB_APP_BASE_URL);
 
 // Dev-time health check: warn loudly if the API root is unreachable
 if (import.meta.env.DEV && typeof window !== "undefined") {
-    fetch(`${API_BASE_URL}/health`, { method: "GET" }).then((res) => { // nosemgrep
-        if (!res.ok) {
-            log.error("dev", `API health check returned ${res.status}. Is the backend running, and is VITE_API_BASE_URL (${API_BASE_URL}) right?`);
-        }
-    }).catch(() => {
-        log.error("dev", `Cannot reach the API at ${API_BASE_URL}. Start the backend or fix VITE_API_BASE_URL in .env.`);
-    });
+    // oxlint-disable-next-line eslint/no-restricted-globals -- dev-only reachability check
+    fetch(`${API_BASE_URL}/health`, { method: "GET" })
+        .then((res) => {
+            // nosemgrep
+            if (!res.ok) {
+                log.error(
+                    "dev",
+                    `API health check returned ${res.status}. Is the backend running, and is VITE_API_BASE_URL (${API_BASE_URL}) right?`,
+                );
+            }
+        })
+        .catch(() => {
+            log.error(
+                "dev",
+                `Cannot reach the API at ${API_BASE_URL}. Start the backend or fix VITE_API_BASE_URL in .env.`,
+            );
+        });
 }

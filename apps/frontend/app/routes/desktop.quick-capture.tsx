@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
+// oxlint-disable-next-line eslint/no-restricted-imports -- desktop-only window route
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { QuickAddSurface, type QuickAddTab } from "../components/quick-add/QuickAddSurface";
 import { closeCurrentDesktopWindow, completeQuickCapture, focusMainDesktopWindow, QUICK_CAPTURE_TAB_EVENT } from "../platform/desktop-shell";

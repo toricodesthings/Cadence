@@ -1,6 +1,7 @@
-# Local-only docs & planning (rules in AGENTS.md)
-/docs/
+# Local-only developer docs & planning (rules in AGENTS.md)
+/developer-docs/
 /admin/
+/.agents/
 
 # Dependencies
 node_modules
@@ -33,18 +34,15 @@ npm-debug.log*
 .vscode
 
 # Windows alternate-stream metadata accidentally materialized as files on Unix
-*:Zone.Identifier
-*Zone.Identifier
+*Zone.Identifier
 
+# Local tool output
+output/
 /graphify-out/
-
 /.playwright-mcp/
 /.playwright-cli/
-/output/playwright/
-/output/evals/
-
-
-#Ignore vscode AI rules
-.github/instructions/codacy.instructions.md
-
 /videos/
+
+# Agent skills (installed from skills-lock.json) and editor AI rules
+/.claude/skills/
+.github/instructions/codacy.instructions.md

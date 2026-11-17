@@ -5,9 +5,26 @@ import { z } from "zod";
  * catalogue. Retired ids stay here so a saved choice still copies, converts and undoes.
  */
 export const APP_LINK_IDS = [
-    "myfitnesspal", "gmail", "outlook", "google-calendar", "google-maps", "spotify", "notion", "youtube",
-    "apple-mail", "apple-calendar", "apple-maps", "apple-music", "apple-notes", "apple-health", "shortcuts",
-    "whatsapp", "slack", "microsoft-teams", "zoom", "obsidian",
+    "myfitnesspal",
+    "gmail",
+    "outlook",
+    "google-calendar",
+    "google-maps",
+    "spotify",
+    "notion",
+    "youtube",
+    "apple-mail",
+    "apple-calendar",
+    "apple-maps",
+    "apple-music",
+    "apple-notes",
+    "apple-health",
+    "shortcuts",
+    "whatsapp",
+    "slack",
+    "microsoft-teams",
+    "zoom",
+    "obsidian",
 ] as const;
 
 export const linkedAppIdSchema = z.enum(APP_LINK_IDS);
@@ -22,6 +39,7 @@ const MAX_WEBSITE = 2048;
  */
 export function parseWebsite(input: string): string | null {
     const text = input.trim();
+    // oxlint-disable-next-line eslint/no-control-regex -- rejecting control characters is the point
     if (!text || text.length > MAX_WEBSITE || /[\s\u0000-\u001f\u007f]/.test(text)) return null;
     let url: URL;
     try {
@@ -36,4 +54,7 @@ export function parseWebsite(input: string): string | null {
 }
 
 /** A stored website: exactly what `parseWebsite` returns, so the server never keeps a non-https or unnormalised address. */
-export const linkedUrlSchema = z.string().max(MAX_WEBSITE).refine((value) => parseWebsite(value) === value, "Use a full https:// address");
+export const linkedUrlSchema = z
+    .string()
+    .max(MAX_WEBSITE)
+    .refine((value) => parseWebsite(value) === value, "Use a full https:// address");

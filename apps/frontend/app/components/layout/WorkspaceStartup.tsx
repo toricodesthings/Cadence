@@ -15,19 +15,42 @@ type CacheClass = "warm" | "cold" | "provisional" | "unknown";
 
 /** Warm when an active first-screen query holds data saved before this page load. */
 function cacheClassOf(client: QueryClient): "warm" | "cold" {
-    return client.getQueryCache().getAll().some((q) => q.isActive()
-        && ["tasks", "projects", "tags", "inbox", "habits", "subtasks"].includes(String(q.queryKey[0]))
-        && q.state.data !== undefined && q.state.dataUpdatedAt < performance.timeOrigin) ? "warm" : "cold";
+    return client
+        .getQueryCache()
+        .getAll()
+        .some(
+            (q) =>
+                q.isActive() &&
+                ["tasks", "projects", "tags", "inbox", "habits", "subtasks"].includes(String(q.queryKey[0])) &&
+                q.state.data !== undefined &&
+                q.state.dataUpdatedAt < performance.timeOrigin,
+        )
+        ? "warm"
+        : "cold";
 }
 
 /** The bounded categories every startup sample carries. */
 function sampleContext(route: ReturnType<typeof startupRoute>, cache: CacheClass) {
-    return { route, cache, platform: IS_DESKTOP_RUNTIME ? "desktop" : "web", viewport: window.innerWidth < 1120 ? "compact" : "wide" } as const;
+    return {
+        route,
+        cache,
+        platform: IS_DESKTOP_RUNTIME ? "desktop" : "web",
+        // oxlint-disable-next-line eslint/no-restricted-properties -- telemetry category, not layout
+        viewport: window.innerWidth < 1120 ? "compact" : "wide",
+    } as const;
 }
 
 function isOnScreen(img: HTMLImageElement) {
     const r = img.getBoundingClientRect();
-    return r.width > 0 && r.height > 0 && r.top < window.innerHeight && r.bottom > 0 && r.left < window.innerWidth && r.right > 0;
+    return (
+        r.width > 0 &&
+        r.height > 0 &&
+        r.top < window.innerHeight &&
+        r.bottom > 0 &&
+        // oxlint-disable-next-line eslint/no-restricted-properties -- on-screen check, not layout
+        r.left < window.innerWidth &&
+        r.right > 0
+    );
 }
 
 /**
@@ -40,13 +63,25 @@ function measureReveal(done: (result: "timeout" | PromiseSettledResult<unknown>[
     let frame = 0;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
-    const timeout = new Promise<"timeout">((resolve) => { timer = setTimeout(() => resolve("timeout"), 20_000); });
-    const frameReady = Promise.race([new Promise<void>((resolve) => {
-        frame = requestAnimationFrame(() => { frame = requestAnimationFrame(() => { startupMark("reveal_frame.ready"); resolve(); }); });
-    }), timeout]);
+    const timeout = new Promise<"timeout">((resolve) => {
+        timer = setTimeout(() => resolve("timeout"), 20_000);
+    });
+    const frameReady = Promise.race([
+        new Promise<void>((resolve) => {
+            frame = requestAnimationFrame(() => {
+                frame = requestAnimationFrame(() => {
+                    startupMark("reveal_frame.ready");
+                    resolve();
+                });
+            });
+        }),
+        timeout,
+    ]);
     const assets = Promise.allSettled([
         document.fonts?.ready ?? Promise.resolve(),
-        ...Array.from(document.querySelectorAll<HTMLImageElement>("img")).filter(isOnScreen).map((img) => img.decode?.() ?? Promise.resolve()),
+        ...Array.from(document.querySelectorAll<HTMLImageElement>("img"))
+            .filter(isOnScreen)
+            .map((img) => img.decode?.() ?? Promise.resolve()),
     ]);
     const assetResult = Promise.race([assets, timeout]).then((result) => {
         if (active) startupMark("visible_assets.ready");
@@ -56,7 +91,11 @@ function measureReveal(done: (result: "timeout" | PromiseSettledResult<unknown>[
         clearTimeout(timer);
         if (active) done(result);
     });
-    return () => { active = false; cancelAnimationFrame(frame); clearTimeout(timer); };
+    return () => {
+        active = false;
+        cancelAnimationFrame(frame);
+        clearTimeout(timer);
+    };
 }
 
 type StartupState = ReturnType<typeof useWorkspaceStartup>["state"];
@@ -70,10 +109,14 @@ function reportFailureOnce(state: StartupState, reported: Set<string>, context: 
 }
 
 /** The visible-assets sample records a timeout, or an error when an asset failed to load. */
-function markAssetsOutcome(samples: ReturnType<typeof collectStartupSamples>, result: "timeout" | PromiseSettledResult<unknown>[]) {
+function markAssetsOutcome(
+    samples: ReturnType<typeof collectStartupSamples>,
+    result: "timeout" | PromiseSettledResult<unknown>[],
+) {
     const visible = samples.find((s) => s.phase === "visible_assets");
     if (visible && result === "timeout") visible.outcome = "timeout";
-    else if (visible && Array.isArray(result) && result.some((asset) => asset.status === "rejected")) visible.outcome = "error";
+    else if (visible && Array.isArray(result) && result.some((asset) => asset.status === "rejected"))
+        visible.outcome = "error";
 }
 
 function startupMessage(state: StartupState, slow: boolean) {
@@ -90,12 +133,20 @@ function StartupLoading({ state, progress, slow, retry }: StartupLoadingProps) {
     const failed = state === "error" || state === "offline";
     return (
         <Loading title="Preparing your workspace" progress={progress}>
-            {message && <p role="status" className="mt-6 max-w-sm px-4 text-sm text-twilight-text-soft">{message}</p>}
+            {message && (
+                <p role="status" className="mt-6 max-w-sm px-4 text-sm text-twilight-text-soft">
+                    {message}
+                </p>
+            )}
             {failed && (
-                <Button variant="secondary" className="mt-4" onClick={retry}>Try again</Button>
+                <Button variant="secondary" className="mt-4" onClick={retry}>
+                    Try again
+                </Button>
             )}
             {slow && !failed && (
-                <Button variant="secondary" className="mt-4" onClick={() => window.location.reload()}>Reload</Button>
+                <Button variant="secondary" className="mt-4" onClick={() => window.location.reload()}>
+                    Reload
+                </Button>
             )}
         </Loading>
     );
@@ -128,7 +179,12 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
         if (!restoring && cacheClass.current === "unknown") cacheClass.current = cacheClassOf(client);
         if (pending) {
             startupMark("required_data.start");
-            if (settings?.privacy?.usageDiagnostics) reportFailureOnce(state, reportedFailures.current, sampleContext(entryRoute.current, cacheClass.current));
+            if (settings?.privacy?.usageDiagnostics)
+                reportFailureOnce(
+                    state,
+                    reportedFailures.current,
+                    sampleContext(entryRoute.current, cacheClass.current),
+                );
             return;
         }
         // This effect runs after the inert/hidden wrapper has committed.
@@ -144,16 +200,34 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
             trackPerformance(samples);
             delivered = true;
         });
-        return () => { cancel(); if (!delivered) reported.current = false; };
-    }, [authReady, isAuthenticated, pending, state, pathname, client, restoring, settings?.privacy?.usageDiagnostics, Boolean(settings)]);
+        return () => {
+            cancel();
+            if (!delivered) reported.current = false;
+        };
+    }, [
+        authReady,
+        isAuthenticated,
+        pending,
+        state,
+        pathname,
+        client,
+        restoring,
+        settings?.privacy?.usageDiagnostics,
+        Boolean(settings),
+    ]);
     return (
         <StartupRenderContext value={trackRender}>
-          <StartupReadyContext value={!pending && authReady && isAuthenticated}>
-            <div inert={pending} aria-hidden={pending || undefined} data-startup-hidden={pending || undefined} style={pending ? { visibility: "hidden" } : undefined}>
-                {children}
-            </div>
-            {pending && <StartupLoading state={state} progress={progress} slow={slow} retry={retry} />}
-          </StartupReadyContext>
+            <StartupReadyContext value={!pending && authReady && isAuthenticated}>
+                <div
+                    inert={pending}
+                    aria-hidden={pending || undefined}
+                    data-startup-hidden={pending || undefined}
+                    style={pending ? { visibility: "hidden" } : undefined}
+                >
+                    {children}
+                </div>
+                {pending && <StartupLoading state={state} progress={progress} slow={slow} retry={retry} />}
+            </StartupReadyContext>
         </StartupRenderContext>
     );
 }

@@ -8,5 +8,28 @@
     "marketing-skills@marketingskills": true,
     "claude-security@claude-plugins-official": true,
     "codacy@anthropic-plugin-directory": true
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/claude-format.mjs\" track"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/claude-format.mjs\" flush"
+          }
+        ]
+      }
+    ]
   }
 }

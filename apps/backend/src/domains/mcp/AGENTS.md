@@ -1,6 +1,6 @@
 # MCP — Agent Instructions
 
-Outside-assistant boundary of the backend: request dispatch, rate limits and the `Server-Timing`/envelope exceptions are in `apps/backend/AGENTS.md` §4 and §6.
+Outside-assistant boundary of the backend, dispatched in the Worker's `fetch` before the Hono app (`isMcpRequest` in `src/index.ts`): no app JWT, CORS or `{ data }` envelope.
 
 - **Tokens:** `oauth.ts` configures `OAuthProvider` (KV `OAUTH_KV`; resource `${MCP_ORIGIN}/mcp`; scopes `cadence:read`, `cadence:capture`, `cadence:write` from `@cadence/contracts/connections`; DCR + CIMD; 30-day idle refresh; `tokenExchangeCallback` refuses a refresh and revokes the grant once its `mcp_connections` row is revoked or gone). Neon Auth only signs the person in. `/authorize` validates the client, binds the request to the browser (`beginUpstream`) and redirects to the web app's `/connect?request=<state>`; the app's approve route stores a 5-minute approval and returns `/oauth/callback?state=…&approval=…`, which only finishes in the browser holding the binding cookie (`finishUpstream`). The callback writes an `mcp_connections` row, then `completeAuthorization` with props `{ userId, connectionId }`.
 - **Every call** (`server.ts` `serveMcp`) re-checks the active `mcp_connections` row (touching `lastUsedAt`), so Disconnect holds at once; the KV grant is revoked best-effort. Scopes = token ∩ row; `cadence:write` includes capture. "Today" uses `users.time_zone` (`userZone`); approving a connection syncs it from the browser zone.

@@ -1,6 +1,7 @@
 import { LoaderCircle, CircleAlert, CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+// oxlint-disable-next-line eslint/no-restricted-imports -- toaster must join Radix's dismissable layers
 import { DismissableLayerBranch } from "@radix-ui/react-dismissable-layer";
 import { Toaster as SonnerToaster } from "sonner";
 

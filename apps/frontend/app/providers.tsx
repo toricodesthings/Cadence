@@ -34,7 +34,11 @@ import {
     normalizeRedirectTo,
 } from "./platform/runtime";
 import { installDesktopE2EBridge } from "./platform/desktop-e2e";
-import { announceDesktopUpdate, confirmDesktopUpdate, publishAvailableDesktopUpdate } from "./platform/desktop-update-state";
+import {
+    announceDesktopUpdate,
+    confirmDesktopUpdate,
+    publishAvailableDesktopUpdate,
+} from "./platform/desktop-update-state";
 
 /**
  * Reload onto the newest deploy. The service worker opens the app from its saved shell, so a
@@ -45,7 +49,9 @@ async function reloadToLatest() {
     const worker = navigator.serviceWorker?.controller;
     if (worker) {
         const channel = new MessageChannel();
-        const saved = new Promise((resolve) => { channel.port1.onmessage = resolve; });
+        const saved = new Promise((resolve) => {
+            channel.port1.onmessage = resolve;
+        });
         worker.postMessage({ type: "cadence-refresh-shell" }, [channel.port2]);
         await Promise.race([saved, new Promise((resolve) => setTimeout(resolve, 10_000))]);
     }
@@ -58,10 +64,7 @@ const QUERY_CACHE_VERSION = "v4";
 const OFFLINE_CACHE_MAX_AGE = 1000 * 60 * 60 * 24 * 14;
 
 // Adapter for react-router-dom Link (using react-router v7)
-function Link({
-    href,
-    ...props
-}: { href: string } & React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+function Link({ href, ...props }: { href: string } & React.AnchorHTMLAttributes<HTMLAnchorElement>) {
     return <RouterLink to={href} {...props} />;
 }
 
@@ -161,7 +164,6 @@ function AccountProviders({ children }: { children: ReactNode }) {
                             log.warn("query", `${queryKeyStr} failed`, error);
                             return;
                         }
-
                     },
                 }),
                 mutationCache: new MutationCache({ onError: (error) => reportError(error, "mutation") }),
@@ -186,7 +188,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
                         retryDelay,
                     },
                 },
-            })
+            }),
     );
 
     useEffect(() => {
@@ -219,17 +221,19 @@ function AccountProviders({ children }: { children: ReactNode }) {
         confirmDesktopUpdate(() => void navigate("/changelog"));
         let active = true;
 
-        void checkForAppUpdate().then((update) => {
-            if (!active || !update) {
-                publishAvailableDesktopUpdate(null);
-                return;
-            }
+        void checkForAppUpdate()
+            .then((update) => {
+                if (!active || !update) {
+                    publishAvailableDesktopUpdate(null);
+                    return;
+                }
 
-            publishAvailableDesktopUpdate(update);
-            announceDesktopUpdate(update);
-        }).catch(() => {
-            hasCheckedForUpdates.current = false;
-        });
+                publishAvailableDesktopUpdate(update);
+                announceDesktopUpdate(update);
+            })
+            .catch(() => {
+                hasCheckedForUpdates.current = false;
+            });
 
         return () => {
             active = false;
@@ -245,6 +249,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
         const check = async () => {
             if (shown || document.visibilityState !== "visible") return;
             try {
+                // oxlint-disable-next-line eslint/no-restricted-globals -- static build asset, not the API
                 const response = await fetch("/version.json", { cache: "no-store" });
                 const { buildId } = (await response.json()) as { buildId?: string };
                 if (!buildId || buildId === CADENCE_BUILD_ID) return;
@@ -293,7 +298,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
         if (!IS_DESKTOP_RUNTIME && userId) void navigator.storage?.persist?.().catch(() => undefined);
     }, [userId]);
 
-    const accountPersister = useMemo(() => session?.user.id ? createIDBPersister() : null, [session?.user.id]);
+    const accountPersister = useMemo(() => (session?.user.id ? createIDBPersister() : null), [session?.user.id]);
     useEffect(() => () => accountPersister?.dispose(), [accountPersister]);
     const persistOptions = useMemo(
         () => ({
@@ -320,20 +325,20 @@ function AccountProviders({ children }: { children: ReactNode }) {
             providers: ["google", "github"],
             ...(IS_DESKTOP_RUNTIME
                 ? {
-                    signIn: async (params: unknown) => {
-                        const { provider, callbackURL } = params as { provider: string; callbackURL?: string };
-                        if (provider !== "google" && provider !== "github") {
-                            await authClient.signIn.social({
-                                provider,
-                                callbackURL,
-                                fetchOptions: { throw: true },
-                            });
-                            return;
-                        }
+                      signIn: async (params: unknown) => {
+                          const { provider, callbackURL } = params as { provider: string; callbackURL?: string };
+                          if (provider !== "google" && provider !== "github") {
+                              await authClient.signIn.social({
+                                  provider,
+                                  callbackURL,
+                                  fetchOptions: { throw: true },
+                              });
+                              return;
+                          }
 
-                        await beginSocialSignIn(provider, callbackURL);
-                    },
-                }
+                          await beginSocialSignIn(provider, callbackURL);
+                      },
+                  }
                 : {}),
         }),
         [],
@@ -412,5 +417,9 @@ const REDUCED_MOTION = { reduced: "always", full: "never" } as const;
 function AppMotion({ children }: { children: ReactNode }) {
     const motion = useSettings().data?.appearance?.motion;
     const reducedMotion = motion === "reduced" || motion === "full" ? REDUCED_MOTION[motion] : "user";
-    return <MotionConfig reducedMotion={reducedMotion} transition={SPRINGS.GLIDE}>{children}</MotionConfig>;
+    return (
+        <MotionConfig reducedMotion={reducedMotion} transition={SPRINGS.GLIDE}>
+            {children}
+        </MotionConfig>
+    );
 }

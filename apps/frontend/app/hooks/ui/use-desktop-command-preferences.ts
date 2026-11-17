@@ -124,6 +124,7 @@ export async function setBackgroundDelivery(enabled: boolean) {
  */
 export async function syncLoginLaunch(enabled: boolean): Promise<boolean> {
     try {
+        // oxlint-disable-next-line eslint/no-restricted-imports -- desktop-only hook
         const autostart = await import("@tauri-apps/plugin-autostart");
         await (enabled ? autostart.enable() : autostart.disable());
         return (await autostart.isEnabled()) === enabled;

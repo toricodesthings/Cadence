@@ -112,7 +112,7 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
                     const turn = turnTimingRef.current;
                     if (turn) turn.headersMs ??= Math.round(performance.now() - turn.t0);
                     return res;
-                })) as typeof fetch,
+                })) as typeof globalThis.fetch,
         [],
     );
 

@@ -1,2 +1,2 @@
 @AGENTS.md
-@docs/MANIFESTO.md
+@developer-docs/MANIFESTO.md
