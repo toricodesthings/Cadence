@@ -20,7 +20,7 @@ import { nlpClock } from "../lib/utils/date-format";
 import { getUserZone } from "../lib/utils/user-zone";
 
 // Lazy module cache — loaded once, shared across all hook instances
-let parseModuleCache: { parse: typeof import("@cadence/nlp/parse")["parse"] } | null = null;
+let parseModuleCache: { parse: (typeof import("@cadence/nlp/parse"))["parse"] } | null = null;
 let parseModulePromise: Promise<void> | null = null;
 
 function ensureParseModule(): Promise<void> {
@@ -32,7 +32,7 @@ function ensureParseModule(): Promise<void> {
     return parseModulePromise;
 }
 
-export type ParseFn = typeof import("@cadence/nlp/parse")["parse"];
+export type ParseFn = (typeof import("@cadence/nlp/parse"))["parse"];
 
 /** The parser for event handlers (chrono-node never rides on the first screen). */
 export async function loadParse(): Promise<ParseFn> {
@@ -51,16 +51,37 @@ export function useParseModule(needed: boolean): ParseFn | null {
         if (!needed || parse) return;
         let active = true;
         let pending = true;
-        const settle = () => { if (pending) { pending = false; trackRender(-1); } };
+        const settle = () => {
+            if (pending) {
+                pending = false;
+                trackRender(-1);
+            }
+        };
         trackRender(1);
-        void ensureParseModule().then(() => { if (active) setParse(() => parseModuleCache!.parse); }).catch(() => undefined).finally(settle);
-        return () => { active = false; settle(); };
+        void ensureParseModule()
+            .then(() => {
+                if (active) setParse(() => parseModuleCache!.parse);
+            })
+            .catch(() => undefined)
+            .finally(settle);
+        return () => {
+            active = false;
+            settle();
+        };
     }, [needed, parse, trackRender]);
     return parse;
 }
 
 const ALL_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([
-    "dueDate", "scheduledStart", "scheduledEnd", "recurrenceRule", "priority", "projectId", "tagIds", "waitingOn", "durationMinutes",
+    "dueDate",
+    "scheduledStart",
+    "scheduledEnd",
+    "recurrenceRule",
+    "priority",
+    "projectId",
+    "tagIds",
+    "waitingOn",
+    "durationMinutes",
 ]);
 
 /** What a full task can store from typed words (a surface that stores less passes its own set). */
@@ -119,14 +140,24 @@ export interface NlpParseOutput extends QuickAddParseResult {
 /** Maps an entity to a chip-style token (id, label, raw words). */
 function entityToToken(entity: ParsedEntity): QuickAddParsedToken | null {
     const kind = {
-        scheduled_start: "date", due_date: "date", recurrence: "recurrence", priority: "priority", project: "project", tag: "tag",
+        scheduled_start: "date",
+        due_date: "date",
+        recurrence: "recurrence",
+        priority: "priority",
+        project: "project",
+        tag: "tag",
     }[entity.type as string] as QuickAddParsedToken["kind"] | undefined;
     if (!kind) return null;
-    const label = kind === "date" ? (entity.normalizedValue as { humanLabel?: string })?.humanLabel ?? entity.sourceText
-        : kind === "recurrence" ? entity.explanation ?? entity.sourceText
-        : kind === "priority" ? entity.sourceText.toUpperCase()
-        : kind === "project" ? `/${entity.sourceText}`
-        : `#${entity.sourceText}`;
+    const label =
+        kind === "date"
+            ? ((entity.normalizedValue as { humanLabel?: string })?.humanLabel ?? entity.sourceText)
+            : kind === "recurrence"
+              ? (entity.explanation ?? entity.sourceText)
+              : kind === "priority"
+                ? entity.sourceText.toUpperCase()
+                : kind === "project"
+                  ? `/${entity.sourceText}`
+                  : `#${entity.sourceText}`;
     return { id: entity.id, kind, label, raw: entity.sourceText };
 }
 
@@ -142,20 +173,47 @@ const emptyResult = (input: string, sourceSurface: SourceSurface): ParseResult =
 });
 
 /** The draft for `options` right now: parse, then the shared domain policy. No debounce, no stale state. */
-export function computeNlp(parse: ParseFn | null, options: UseNlpParseOptions, zone: Zone = getUserZone()): NlpParseOutput {
+export function computeNlp(
+    parse: ParseFn | null,
+    options: UseNlpParseOptions,
+    zone: Zone = getUserZone(),
+): NlpParseOutput {
     const {
-        input, projects, tags, sourceSurface = "inline_add", dateStyle = "mdy",
-        ignoredTokenIds = [], dismissedEntityIds = [], acceptedEntityIds = [], manual, literal, capabilities = ALL_FIELDS, monthDayOnly, enabled = true,
+        input,
+        projects,
+        tags,
+        sourceSurface = "inline_add",
+        dateStyle = "mdy",
+        ignoredTokenIds = [],
+        dismissedEntityIds = [],
+        acceptedEntityIds = [],
+        manual,
+        literal,
+        capabilities = ALL_FIELDS,
+        monthDayOnly,
+        enabled = true,
     } = options;
     const dismissed = [...ignoredTokenIds, ...dismissedEntityIds];
-    const parsed = enabled && parse && input.trim()
-        ? parse({
-            input, sourceSurface, clock: nlpClock(), dateStyle,
-            context: { projects: projects.map((p) => ({ id: p.id, name: p.name })), tags: tags.map((t) => ({ id: t.id, name: t.name })) },
-            dismissedEntityIds: dismissed,
-        })
-        : emptyResult(input, sourceSurface);
-    const draft = resolveDraft(input, parsed.entities, { dismissed, accepted: acceptedEntityIds, manual, literal }, { zone, capabilities, monthDayOnly });
+    const parsed =
+        enabled && parse && input.trim()
+            ? parse({
+                  input,
+                  sourceSurface,
+                  clock: nlpClock(),
+                  dateStyle,
+                  context: {
+                      projects: projects.map((p) => ({ id: p.id, name: p.name })),
+                      tags: tags.map((t) => ({ id: t.id, name: t.name })),
+                  },
+                  dismissedEntityIds: dismissed,
+              })
+            : emptyResult(input, sourceSurface);
+    const draft = resolveDraft(
+        input,
+        parsed.entities,
+        { dismissed, accepted: acceptedEntityIds, manual, literal },
+        { zone, capabilities, monthDayOnly },
+    );
     const f = draft.fields;
     const applied = parsed.entities.filter((e) => draft.applied.includes(e.id));
     const tokens = applied.map(entityToToken).filter((t): t is QuickAddParsedToken => t !== null);
@@ -193,8 +251,19 @@ export function useNlpParse(options: UseNlpParseOptions): NlpParseOutput & { fin
     const parse = useParseModule(enabled && Boolean(input.trim()));
     const zone = getUserZone();
     const key = JSON.stringify([
-        input, options.projects, options.tags, options.ignoredTokenIds, options.dismissedEntityIds, options.acceptedEntityIds,
-        options.manual, options.literal, options.monthDayOnly, options.sourceSurface, options.dateStyle, enabled, zone,
+        input,
+        options.projects,
+        options.tags,
+        options.ignoredTokenIds,
+        options.dismissedEntityIds,
+        options.acceptedEntityIds,
+        options.manual,
+        options.literal,
+        options.monthDayOnly,
+        options.sourceSurface,
+        options.dateStyle,
+        enabled,
+        zone,
     ]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` covers every option by value
     const output = useMemo(() => computeNlp(parse, options, zone), [parse, key]);

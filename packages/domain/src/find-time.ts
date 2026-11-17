@@ -25,9 +25,13 @@ export function timeOfDay(hour: number): TimeOfDay {
 }
 
 /** The part of the day an instant starts in, for the person's zone. */
-export const bucketOf = (instant: Instant, zone: Zone): TimeOfDay => timeOfDay(Number(wallTimeOf(instant, zone).slice(0, 2)));
+export const bucketOf = (instant: Instant, zone: Zone): TimeOfDay =>
+    timeOfDay(Number(wallTimeOf(instant, zone).slice(0, 2)));
 
-export interface Busy { start: Instant; end: Instant }
+export interface Busy {
+    start: Instant;
+    end: Instant;
+}
 
 export interface FindTimeInput {
     task: { minutes: number; notBefore: LocalDate | null; currentStart: Instant | null };
@@ -41,7 +45,11 @@ export interface FindTimeInput {
     preferred: TimeOfDay[];
 }
 
-export interface Proposal { start: Instant; end: Instant; bucket: TimeOfDay }
+export interface Proposal {
+    start: Instant;
+    end: Instant;
+    bucket: TimeOfDay;
+}
 
 const ms = (instant: Instant) => Date.parse(instant);
 const iso = (value: number) => new Date(value).toISOString();
@@ -50,9 +58,17 @@ const iso = (value: number) => new Date(value).toISOString();
  * The blocks a task can't overlap: the day's timed tasks that are open and have a real block.
  * `excludeId` is the task being placed.
  */
-export function busyBlocks(tasks: readonly { id: string; state: string; scheduledStart: Instant | null; scheduledEnd: Instant | null }[], excludeId: string): Busy[] {
+export function busyBlocks(
+    tasks: readonly { id: string; state: string; scheduledStart: Instant | null; scheduledEnd: Instant | null }[],
+    excludeId: string,
+): Busy[] {
     return tasks.flatMap((t) =>
-        t.id !== excludeId && t.state !== "COMPLETE" && t.state !== "ARCHIVED" && t.scheduledStart && t.scheduledEnd && ms(t.scheduledEnd) > ms(t.scheduledStart)
+        t.id !== excludeId &&
+        t.state !== "COMPLETE" &&
+        t.state !== "ARCHIVED" &&
+        t.scheduledStart &&
+        t.scheduledEnd &&
+        ms(t.scheduledEnd) > ms(t.scheduledStart)
             ? [{ start: t.scheduledStart, end: t.scheduledEnd }]
             : [],
     );
@@ -82,7 +98,8 @@ function fitting(input: FindTimeInput): { start: number; length: number }[] {
     const blocks = busy.map((b) => [ms(b.start), ms(b.end)] as const);
     const out: { start: number; length: number }[] = [];
     for (let start = from; start + length <= windowEnd; start += GRID_MINUTES * MIN) {
-        if (!blocks.some(([bs, be]) => bs < start + length + buffer && be > start - buffer)) out.push({ start, length });
+        if (!blocks.some(([bs, be]) => bs < start + length + buffer && be > start - buffer))
+            out.push({ start, length });
     }
     return out;
 }
@@ -103,7 +120,12 @@ export function findTimes(input: FindTimeInput): Proposal[] {
     const fits = fitting(input)
         .map(({ start, length }) => {
             const rank = preferred.indexOf(bucketOf(iso(start), zone));
-            return { start, length, rank: rank < 0 ? preferred.length : rank, distance: current === null ? 0 : Math.abs(start - current) };
+            return {
+                start,
+                length,
+                rank: rank < 0 ? preferred.length : rank,
+                distance: current === null ? 0 : Math.abs(start - current),
+            };
         })
         .sort((a, b) => a.rank - b.rank || a.distance - b.distance || a.start - b.start);
 

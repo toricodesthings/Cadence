@@ -19,11 +19,7 @@ import { EASE_OUT_EXPO } from "../../../lib/constants/motion";
  *  - danger/complete swap the frame tint and drop the glow.
  */
 
-export type ProposalCardState =
-    | "input-streaming"
-    | "input-available"
-    | "resolving"
-    | "output-available";
+export type ProposalCardState = "input-streaming" | "input-available" | "resolving" | "output-available";
 
 export type CardTone = "accent" | "danger" | "success";
 
@@ -42,10 +38,7 @@ const TONE_EYEBROW: Record<CardTone, string> = {
 /** Streaming-skeleton state (§3.3 A) — keeps layout stable, no interaction yet. */
 function SkeletonCard() {
     return (
-        <div
-            className="mt-2 w-full rounded-2xl border border-twilight-border bg-twilight-deep/50 p-3"
-            aria-busy="true"
-        >
+        <div className="mt-2 w-full rounded-2xl border border-twilight-border bg-twilight-deep/50 p-3" aria-busy="true">
             <Skeleton className="mb-2.5 h-3 w-24" />
             <div className="space-y-2 rounded-lg bg-twilight-deep/40 p-2.5">
                 <Skeleton className="h-3 w-full" />
@@ -114,11 +107,7 @@ export function ProposalCard({
     const disabled = !!resolving;
 
     const phase: "skeleton" | "resolved" | "interactive" =
-        state === "input-streaming"
-            ? "skeleton"
-            : state === "output-available"
-              ? "resolved"
-              : "interactive";
+        state === "input-streaming" ? "skeleton" : state === "output-available" ? "resolved" : "interactive";
 
     const fade = {
         initial: reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 },
@@ -229,7 +218,9 @@ export function IdentityBlock({
     return (
         <div className={`rounded-lg border-l-2 bg-twilight-deep/40 px-2.5 py-1.5 ${rule}`}>
             <p className="flex items-start gap-1.5 text-[13px] font-medium text-twilight-text">
-                {Icon ? <Icon size={13} className={`mt-0.5 shrink-0 ${iconClassName ?? ""}`} aria-hidden="true" /> : null}
+                {Icon ? (
+                    <Icon size={13} className={`mt-0.5 shrink-0 ${iconClassName ?? ""}`} aria-hidden="true" />
+                ) : null}
                 <span>{title}</span>
             </p>
             {subtitle ? <div className="mt-1 text-[11px] text-twilight-text-muted">{subtitle}</div> : null}
@@ -248,13 +239,26 @@ export function MetaPill({ icon: Icon, children }: { icon: LucideIcon; children:
 }
 
 /** One field a card shows, as a pill. */
-export interface Pill { icon: LucideIcon; label: React.ReactNode }
+export interface Pill {
+    icon: LucideIcon;
+    label: React.ReactNode;
+}
 /** A pill, or nothing for a field left alone. */
 export type MaybePill = Pill | null | false | 0 | "" | undefined;
 
 /** Pills in order; a field left alone shows nothing. */
 export function MetaPills({ pills }: { pills: MaybePill[] }) {
-    return <>{pills.map((pill, i) => (pill ? <MetaPill key={i} icon={pill.icon}>{pill.label}</MetaPill> : null))}</>;
+    return (
+        <>
+            {pills.map((pill, i) =>
+                pill ? (
+                    <MetaPill key={i} icon={pill.icon}>
+                        {pill.label}
+                    </MetaPill>
+                ) : null,
+            )}
+        </>
+    );
 }
 
 /** A tag in its own colour; `mark` shows it being added or removed. */

@@ -62,7 +62,11 @@ describe("Assistant image preparation", () => {
 
     it("rejects output still over the byte limit after every quality attempt", async () => {
         vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback) => {
-            callback(new Blob([new Uint8Array(CHAT_IMAGE_LIMITS.maxBytes + 1)], { type: "image/webp" }) as unknown as globalThis.Blob);
+            callback(
+                new Blob([new Uint8Array(CHAT_IMAGE_LIMITS.maxBytes + 1)], {
+                    type: "image/webp",
+                }) as unknown as globalThis.Blob,
+            );
         });
         await expect(compressChatImage(file())).rejects.toThrow("too detailed");
         expect(bitmap.close).toHaveBeenCalledOnce();
@@ -70,8 +74,21 @@ describe("Assistant image preparation", () => {
 
     it("uses the browser's image decoder when ImageBitmap rejects the picked format", async () => {
         vi.mocked(createImageBitmap).mockRejectedValue(new Error("Unsupported bitmap format"));
-        const image = { naturalWidth: 1200, naturalHeight: 2400, src: "", decode: vi.fn().mockResolvedValue(undefined), removeAttribute: vi.fn() };
-        vi.stubGlobal("Image", class { constructor() { return image; } });
+        const image = {
+            naturalWidth: 1200,
+            naturalHeight: 2400,
+            src: "",
+            decode: vi.fn().mockResolvedValue(undefined),
+            removeAttribute: vi.fn(),
+        };
+        vi.stubGlobal(
+            "Image",
+            class {
+                constructor() {
+                    return image;
+                }
+            },
+        );
         await compressChatImage(file());
         expect(context.drawImage).toHaveBeenCalledWith(image, 0, 0, 800, 1600);
         expect(image.decode).toHaveBeenCalledOnce();
@@ -82,25 +99,34 @@ describe("Assistant image preparation", () => {
     it("releases the local URL if neither decoder can read the image", async () => {
         vi.mocked(createImageBitmap).mockRejectedValue(new Error("Unsupported bitmap format"));
         const removeAttribute = vi.fn();
-        vi.stubGlobal("Image", class {
-            src = "";
-            decode = vi.fn().mockRejectedValue(new Error("Unreadable"));
-            removeAttribute = removeAttribute;
-        });
+        vi.stubGlobal(
+            "Image",
+            class {
+                src = "";
+                decode = vi.fn().mockRejectedValue(new Error("Unreadable"));
+                removeAttribute = removeAttribute;
+            },
+        );
         await expect(compressChatImage(file())).rejects.toThrow("Couldn’t read that image.");
         expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:picked-image");
         expect(removeAttribute).toHaveBeenCalledWith("src");
     });
 
     it("rejects oversized originals before decoding or downloading the encoder", async () => {
-        const oversized = new File([new Uint8Array(CHAT_IMAGE_LIMITS.maxOriginalBytes + 1)], "large.png") as unknown as globalThis.File;
+        const oversized = new File(
+            [new Uint8Array(CHAT_IMAGE_LIMITS.maxOriginalBytes + 1)],
+            "large.png",
+        ) as unknown as globalThis.File;
         await expect(compressChatImage(oversized)).rejects.toThrow("25 MB");
         expect(createImageBitmap).not.toHaveBeenCalled();
         expect(encodeWebpPixels).not.toHaveBeenCalled();
     });
 
     it("releases the bitmap and canvas if canvas encoding fails", async () => {
-        vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function (this: HTMLCanvasElement, callback) {
+        vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function (
+            this: HTMLCanvasElement,
+            callback,
+        ) {
             canvases.push(this);
             callback(null);
         });

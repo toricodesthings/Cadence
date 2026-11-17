@@ -1,8 +1,4 @@
-import {
-    deleteSecret,
-    getSecret,
-    setSecret,
-} from "tauri-plugin-keyring-api";
+import { deleteSecret, getSecret, setSecret } from "tauri-plugin-keyring-api";
 import { hasDesktopWindow } from "./runtime";
 
 const CADENCE_KEYRING_SERVICE = "com.cadence.desktop";

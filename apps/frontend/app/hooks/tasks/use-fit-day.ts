@@ -30,7 +30,11 @@ export type FitPlacement = FitDayResult["placed"][number];
 export function useFitDay(day: LocalDate, enabled = true) {
     const todayDay = useToday();
     const isToday = day === todayDay;
-    const own = useTasks(isToday ? { state: "ACTIVE", effectiveOnOrBeforeDate: day, enabled } : { range: { from: day, to: day }, enabled });
+    const own = useTasks(
+        isToday
+            ? { state: "ACTIVE", effectiveOnOrBeforeDate: day, enabled }
+            : { range: { from: day, to: day }, enabled },
+    );
     const onDay = useTasks({ range: { from: day, to: day }, enabled });
     const guessOf = useDurationGuesser();
     const evidence = usePlanningEvidence();
@@ -42,30 +46,52 @@ export function useFitDay(day: LocalDate, enabled = true) {
         const zone = getUserZone();
         const open = (own.data ?? []).filter(isFitCandidate);
         // Still open from earlier days first, as Today shows them.
-        return [...open.filter((t) => (taskDay(t, zone) ?? day) < day), ...open.filter((t) => (taskDay(t, zone) ?? day) >= day)];
+        return [
+            ...open.filter((t) => (taskDay(t, zone) ?? day) < day),
+            ...open.filter((t) => (taskDay(t, zone) ?? day) >= day),
+        ];
     }, [day, own.data]);
     const byId = useMemo(() => new Map(candidates.map((t) => [t.id, t])), [candidates]);
     // A routine is a point in the day, never a block to keep clear of.
-    const busy = useMemo<Busy[]>(() => busyBlocks((onDay.data ?? []).filter((t) => !t.isHabit), ""), [onDay.data]);
+    const busy = useMemo<Busy[]>(
+        () =>
+            busyBlocks(
+                (onDay.data ?? []).filter((t) => !t.isHabit),
+                "",
+            ),
+        [onDay.data],
+    );
     const minutesOf = useCallback((task: Task) => fitMinutes(task, guessOf(task)), [guessOf]);
 
     /** Lays `tasks` (default: the day's own order) into the day's gaps, around `busy` plus `alsoBusy`. */
-    const plan = useCallback((tasks: readonly Task[] = candidates, alsoBusy: readonly Busy[] = []): FitDayResult => {
-        const zone = getUserZone();
-        return fitDay(
-            tasks.filter(isFitCandidate).map((t) => ({ ...t, minutes: minutesOf(t), notBefore: t.notBefore ?? null })),
-            { day, zone, now: new Date().toISOString(), timelineStartHour, busy: [...busy, ...alsoBusy] },
-            (t, feasible) => preferredBuckets(
-                evidence ?? { records: [], stated: [] },
-                { title: t.title, projectId: t.projectId ?? null, listName: projects?.find((p) => p.id === t.projectId)?.name ?? null },
-                feasible,
-                todayDay,
-            ),
-        );
-    }, [busy, candidates, day, evidence, minutesOf, projects, timelineStartHour, todayDay]);
+    const plan = useCallback(
+        (tasks: readonly Task[] = candidates, alsoBusy: readonly Busy[] = []): FitDayResult => {
+            const zone = getUserZone();
+            return fitDay(
+                tasks
+                    .filter(isFitCandidate)
+                    .map((t) => ({ ...t, minutes: minutesOf(t), notBefore: t.notBefore ?? null })),
+                { day, zone, now: new Date().toISOString(), timelineStartHour, busy: [...busy, ...alsoBusy] },
+                (t, feasible) =>
+                    preferredBuckets(
+                        evidence ?? { records: [], stated: [] },
+                        {
+                            title: t.title,
+                            projectId: t.projectId ?? null,
+                            listName: projects?.find((p) => p.id === t.projectId)?.name ?? null,
+                        },
+                        feasible,
+                        todayDay,
+                    ),
+            );
+        },
+        [busy, candidates, day, evidence, minutesOf, projects, timelineStartHour, todayDay],
+    );
 
     const ready = !!own.data && !!onDay.data;
-    const refresh = useCallback(async () => { await Promise.all([own.refetch(), onDay.refetch()]); }, [own, onDay]);
+    const refresh = useCallback(async () => {
+        await Promise.all([own.refetch(), onDay.refetch()]);
+    }, [own, onDay]);
     return { ready, candidates, byId, busy, plan, minutesOf, refresh, timelineStartHour };
 }
 
@@ -91,32 +117,48 @@ export function usePlaceTasks() {
     const client = useApiClient();
     const queryClient = useQueryClient();
 
-    const send = useCallback(async (items: PlaceTaskItem[]) => {
-        const result = await unwrapResponse(await client.api.tasks.place.$post({ json: { items } }));
-        result.tasks.forEach((task) => reconcileTaskInCaches(queryClient, task));
-        void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all, refetchType: "active" });
-        return result;
-    }, [client, queryClient]);
+    const send = useCallback(
+        async (items: PlaceTaskItem[]) => {
+            const result = await unwrapResponse(await client.api.tasks.place.$post({ json: { items } }));
+            result.tasks.forEach((task) => reconcileTaskInCaches(queryClient, task));
+            void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all, refetchType: "active" });
+            return result;
+        },
+        [client, queryClient],
+    );
 
-    return useCallback(async (placements: readonly FitPlacement[], tasks: ReadonlyMap<string, Task>) => {
-        const result = await send(placements.map((p) => ({
-            id: p.taskId, scheduledStart: p.start, scheduledEnd: p.end, dueDate: null, endDate: null, expectedUpdatedAt: tasks.get(p.taskId)!.updatedAt,
-        })));
-        const versions = new Map(result.tasks.map((t) => [t.id, t.updatedAt]));
-        const undo = async (previous = result.previous): Promise<void> => {
-            try {
-                await send(previous.map((p) => ({ ...p, expectedUpdatedAt: versions.get(p.id)! })));
-            } catch (error) {
-                // Put back the rest; what changed since keeps the person's edit.
-                const changed = new Set((error as { issues?: { path: string }[] }).issues?.map((i) => i.path) ?? []);
-                const rest = previous.filter((p) => !changed.has(p.id));
-                if (!changed.size || rest.length === previous.length) return void toastError(error, "Couldn't undo");
-                if (rest.length) await undo(rest);
-                toast.message(`${changed.size} changed since`, { description: "Kept as you changed it" });
-            }
-        };
-        const n = result.tasks.length;
-        toastUndo(`${n} ${n === 1 ? "task" : "tasks"} placed`, () => void undo());
-        return result;
-    }, [send]);
+    return useCallback(
+        async (placements: readonly FitPlacement[], tasks: ReadonlyMap<string, Task>) => {
+            const result = await send(
+                placements.map((p) => ({
+                    id: p.taskId,
+                    scheduledStart: p.start,
+                    scheduledEnd: p.end,
+                    dueDate: null,
+                    endDate: null,
+                    expectedUpdatedAt: tasks.get(p.taskId)!.updatedAt,
+                })),
+            );
+            const versions = new Map(result.tasks.map((t) => [t.id, t.updatedAt]));
+            const undo = async (previous = result.previous): Promise<void> => {
+                try {
+                    await send(previous.map((p) => ({ ...p, expectedUpdatedAt: versions.get(p.id)! })));
+                } catch (error) {
+                    // Put back the rest; what changed since keeps the person's edit.
+                    const changed = new Set(
+                        (error as { issues?: { path: string }[] }).issues?.map((i) => i.path) ?? [],
+                    );
+                    const rest = previous.filter((p) => !changed.has(p.id));
+                    if (!changed.size || rest.length === previous.length)
+                        return void toastError(error, "Couldn't undo");
+                    if (rest.length) await undo(rest);
+                    toast.message(`${changed.size} changed since`, { description: "Kept as you changed it" });
+                }
+            };
+            const n = result.tasks.length;
+            toastUndo(`${n} ${n === 1 ? "task" : "tasks"} placed`, () => void undo());
+            return result;
+        },
+        [send],
+    );
 }

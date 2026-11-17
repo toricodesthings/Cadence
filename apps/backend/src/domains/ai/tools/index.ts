@@ -118,7 +118,9 @@ export async function once<T>(
     write: () => Promise<{ result: T; id: string }>,
 ): Promise<T | { deduped: true }> {
     if (await checkIdempotency(tx, userId, toolCallId)) {
-        return { ...(await storedResult(tx, userId, toolCallId) as object | undefined), deduped: true } as T & { deduped: true };
+        return { ...((await storedResult(tx, userId, toolCallId)) as object | undefined), deduped: true } as T & {
+            deduped: true;
+        };
     }
     const { result, id } = await write();
     await recordMutation(tx, userId, toolCallId, id, result);
@@ -145,7 +147,10 @@ export function clampLimit(limit: number | undefined, fallback = 20): number {
  * The integration in agent.ts spreads the result into `streamText({ tools })`.
  */
 export function buildToolRegistry(env: Env, userId: string, ctx: AgentContext) {
-    return withoutPatterns(ctx.nullableOptionals !== false, { ...coreTools(env, userId, ctx), ...askTools(env, userId, ctx) });
+    return withoutPatterns(ctx.nullableOptionals !== false, {
+        ...coreTools(env, userId, ctx),
+        ...askTools(env, userId, ctx),
+    });
 }
 
 /** Every tool the in-app assistant and MCP share (the assistant adds its ask tool). */
@@ -171,7 +176,9 @@ export function dropPatterns(node: unknown): unknown {
     if (Array.isArray(node)) return node.map(dropPatterns);
     if (!node || typeof node !== "object") return node;
     return Object.fromEntries(
-        Object.entries(node).filter(([key]) => key !== "pattern" && key !== "$schema").map(([key, value]) => [key, dropPatterns(value)]),
+        Object.entries(node)
+            .filter(([key]) => key !== "pattern" && key !== "$schema")
+            .map(([key, value]) => [key, dropPatterns(value)]),
     );
 }
 
@@ -194,9 +201,10 @@ export function slimSchema(node: unknown): unknown {
     for (const [key, value] of Object.entries(node)) {
         if (BOUNDS.has(key) || (key === "additionalProperties" && value === false)) continue;
         // `properties` maps field names to schemas: recurse per field, never filter the names.
-        out[key] = key === "properties" && value && typeof value === "object"
-            ? Object.fromEntries(Object.entries(value).map(([name, schema]) => [name, slimSchema(schema)]))
-            : slimSchema(value);
+        out[key] =
+            key === "properties" && value && typeof value === "object"
+                ? Object.fromEntries(Object.entries(value).map(([name, schema]) => [name, slimSchema(schema)]))
+                : slimSchema(value);
     }
     return foldAnyOf(out);
 }
@@ -205,7 +213,10 @@ export function slimSchema(node: unknown): unknown {
 function foldAnyOf(node: Record<string, any>): Record<string, any> {
     const { anyOf, ...rest } = node;
     if (!Array.isArray(anyOf) || anyOf.length < 2) return node;
-    const literals = anyOf.every((b) => b && "const" in b && typeof b.type === "string" && b.type === anyOf[0].type && Object.keys(b).length === 2);
+    const literals = anyOf.every(
+        (b) =>
+            b && "const" in b && typeof b.type === "string" && b.type === anyOf[0].type && Object.keys(b).length === 2,
+    );
     if (literals) return { ...rest, type: anyOf[0].type, enum: anyOf.map((b) => b.const) };
     const nonNull = anyOf.filter((b) => b?.type !== "null");
     const [only] = nonNull;
@@ -219,10 +230,18 @@ function foldAnyOf(node: Record<string, any>): Record<string, any> {
 function orNull(schema: unknown): unknown {
     if (!isRecord(schema)) return schema;
     if (typeof schema.type === "string") {
-        return { ...schema, type: [schema.type, "null"], ...(Array.isArray(schema.enum) && { enum: [...schema.enum, null] }) };
+        return {
+            ...schema,
+            type: [schema.type, "null"],
+            ...(Array.isArray(schema.enum) && { enum: [...schema.enum, null] }),
+        };
     }
-    if (Array.isArray(schema.type)) return schema.type.includes("null") ? schema : { ...schema, type: [...schema.type, "null"] };
-    if (Array.isArray(schema.anyOf)) return schema.anyOf.some((b) => isRecord(b) && b.type === "null") ? schema : { ...schema, anyOf: [...schema.anyOf, { type: "null" }] };
+    if (Array.isArray(schema.type))
+        return schema.type.includes("null") ? schema : { ...schema, type: [...schema.type, "null"] };
+    if (Array.isArray(schema.anyOf))
+        return schema.anyOf.some((b) => isRecord(b) && b.type === "null")
+            ? schema
+            : { ...schema, anyOf: [...schema.anyOf, { type: "null" }] };
     return schema;
 }
 
@@ -238,20 +257,26 @@ export function nullableOptionals(node: unknown): unknown {
     if (!isRecord(node)) return node;
     const out: Record<string, any> = {};
     for (const [key, value] of Object.entries(node)) {
-        out[key] = key === "properties" && isRecord(value)
-            ? Object.fromEntries(Object.entries(value).map(([name, schema]) => [name, nullableOptionals(schema)]))
-            : nullableOptionals(value);
+        out[key] =
+            key === "properties" && isRecord(value)
+                ? Object.fromEntries(Object.entries(value).map(([name, schema]) => [name, nullableOptionals(schema)]))
+                : nullableOptionals(value);
     }
     if (!isRecord(out.properties)) return out;
     const required = new Set(Array.isArray(out.required) ? out.required : []);
-    for (const [name, schema] of Object.entries(out.properties)) if (!required.has(name)) out.properties[name] = orNull(schema);
+    for (const [name, schema] of Object.entries(out.properties))
+        if (!required.has(name)) out.properties[name] = orNull(schema);
     return out;
 }
 
 /** Never a real row id: models that fill every field send it to mean "none". */
 const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 const isPlaceholder = (v: unknown) =>
-    v === "" || v === 0 || v === false || v === null || (Array.isArray(v) && !v.length) ||
+    v === "" ||
+    v === 0 ||
+    v === false ||
+    v === null ||
+    (Array.isArray(v) && !v.length) ||
     (!!v && typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length);
 const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 
@@ -260,7 +285,8 @@ const IGNORED = Symbol("ignored");
 
 /** A copy without nil uuids (keys and array items), noting each dropped key's path. */
 function withoutNilIds(value: unknown, path: string, ignored: string[]): unknown {
-    if (Array.isArray(value)) return value.filter((item) => item !== NIL_UUID).map((item) => withoutNilIds(item, path, ignored));
+    if (Array.isArray(value))
+        return value.filter((item) => item !== NIL_UUID).map((item) => withoutNilIds(item, path, ignored));
     if (!isRecord(value)) return value;
     const out: Record<string, unknown> = {};
     for (const [key, v] of Object.entries(value)) {
@@ -292,20 +318,36 @@ export async function validateLenient<R extends { success: boolean; value?: unkn
         const err = result.error as { cause?: { issues?: unknown }; issues?: unknown } | undefined;
         const issues = (err?.cause?.issues ?? err?.issues ?? []) as { path?: PropertyKey[] }[];
         // Step through objects and arrays alike: `tasks.0.subtasks` is one draft's field.
-        const at = (path: PropertyKey[]) => path.reduce<any>((node, key) => (node && typeof node === "object" ? node[key as string] : undefined), input);
+        const at = (path: PropertyKey[]) =>
+            path.reduce<any>(
+                (node, key) => (node && typeof node === "object" ? node[key as string] : undefined),
+                input,
+            );
         const paths = issues.map((issue) => issue.path ?? []);
         // A rule across fields (a refine) names the object, not a field: its stand-ins go, but never a null, which can clear.
         for (const path of [...paths]) {
             const target = at(path);
             // Not an empty object either: a rule like "nothing to change" names an empty patch, and dropping it would hide why.
-            if (isRecord(target)) paths.push(...Object.entries(target).filter(([, v]) => v !== null && !isRecord(v) && isPlaceholder(v)).map(([key]) => [...path, key]));
+            if (isRecord(target))
+                paths.push(
+                    ...Object.entries(target)
+                        .filter(([, v]) => v !== null && !isRecord(v) && isPlaceholder(v))
+                        .map(([key]) => [...path, key]),
+                );
         }
         // Up to three passes: a nested placeholder, then a refine that only runs once the fields pass.
-        const fixes = pass < 2 ? paths.filter((path, i) => {
-            if (!path.length || paths.findIndex((p) => p.join(".") === path.join(".")) !== i) return false;
-            const parent = at(path.slice(0, -1));
-            return isRecord(parent) && String(path.at(-1)) in parent && isPlaceholder(parent[String(path.at(-1))]);
-        }) : [];
+        const fixes =
+            pass < 2
+                ? paths.filter((path, i) => {
+                      if (!path.length || paths.findIndex((p) => p.join(".") === path.join(".")) !== i) return false;
+                      const parent = at(path.slice(0, -1));
+                      return (
+                          isRecord(parent) &&
+                          String(path.at(-1)) in parent &&
+                          isPlaceholder(parent[String(path.at(-1))])
+                      );
+                  })
+                : [];
         if (!fixes.length) return result;
         input = structuredClone(input);
         for (const path of fixes) {
@@ -319,7 +361,7 @@ export async function validateLenient<R extends { success: boolean; value?: unkn
 
 /** Tell the model what was dropped from its call, so it stops sending it this conversation. */
 function reportIgnored(output: unknown, input: unknown): unknown {
-    const ignored = isRecord(input) ? (input as Record<symbol, unknown>)[IGNORED] as string[] | undefined : undefined;
+    const ignored = isRecord(input) ? ((input as Record<symbol, unknown>)[IGNORED] as string[] | undefined) : undefined;
     if (!ignored?.length || !isRecord(output)) return output;
     const note = `Dropped placeholder values for ${ignored.join(", ")}. Leave out every field you don't mean.`;
     return { ...output, ignored: Array.isArray(output.ignored) ? [...output.ignored, note] : note };
@@ -327,12 +369,19 @@ function reportIgnored(output: unknown, input: unknown): unknown {
 
 /** True when a (full, zod-made) JSON schema accepts null. */
 const admitsNull = (schema: unknown): boolean =>
-    isRecord(schema) && (schema.type === "null" || (Array.isArray(schema.type) && schema.type.includes("null")) || (Array.isArray(schema.anyOf) && schema.anyOf.some(admitsNull)));
+    isRecord(schema) &&
+    (schema.type === "null" ||
+        (Array.isArray(schema.type) && schema.type.includes("null")) ||
+        (Array.isArray(schema.anyOf) && schema.anyOf.some(admitsNull)));
 
 /** The `patch` fields a null empties (a reminder, a date, a list), read from the full schema. */
 export function clearableFields(schema: unknown): string[] {
     const patch = isRecord(schema) && isRecord(schema.properties) ? schema.properties.patch : undefined;
-    return isRecord(patch) && isRecord(patch.properties) ? Object.entries(patch.properties).filter(([, field]) => admitsNull(field)).map(([name]) => name) : [];
+    return isRecord(patch) && isRecord(patch.properties)
+        ? Object.entries(patch.properties)
+              .filter(([, field]) => admitsNull(field))
+              .map(([name]) => name)
+        : [];
 }
 
 /** A field description's null clause ("…; null clears.", "…, or null for none."): in the model's patch null changes nothing. */
@@ -344,15 +393,22 @@ const NULL_CLAUSE = /[;,]\s*(?:or\s+)?null\b[^.;]*/g;
  * field sends null and `clear: []`, which change nothing, instead of wiping the task.
  */
 function withClear(schema: unknown, clearable: string[]): unknown {
-    if (!clearable.length || !isRecord(schema) || !isRecord(schema.properties) || !isRecord(schema.properties.patch)) return schema;
+    if (!clearable.length || !isRecord(schema) || !isRecord(schema.properties) || !isRecord(schema.properties.patch))
+        return schema;
     const patch = schema.properties.patch as Record<string, any>;
-    const properties: Record<string, unknown> = Object.fromEntries(Object.entries(patch.properties).map(([name, field]) => [
-        name, isRecord(field) && typeof field.description === "string" ? { ...field, description: field.description.replace(NULL_CLAUSE, "") } : field,
-    ]));
+    const properties: Record<string, unknown> = Object.fromEntries(
+        Object.entries(patch.properties).map(([name, field]) => [
+            name,
+            isRecord(field) && typeof field.description === "string"
+                ? { ...field, description: field.description.replace(NULL_CLAUSE, "") }
+                : field,
+        ]),
+    );
     properties.clear = {
         type: ["array", "null"],
         items: { type: "string", enum: clearable },
-        description: "Fields to empty, removing their value. Only what the user asked to remove; null or [] on a field leaves it as it is.",
+        description:
+            "Fields to empty, removing their value. Only what the user asked to remove; null or [] on a field leaves it as it is.",
     };
     return { ...schema, properties: { ...schema.properties, patch: { ...patch, properties } } };
 }
@@ -360,14 +416,18 @@ function withClear(schema: unknown, clearable: string[]): unknown {
 /** The `clear` names the model sent that a null can empty. */
 const clearNames = (value: unknown, clearable: string[]): string[] => {
     const clear = isRecord(value) && isRecord(value.patch) ? value.patch.clear : undefined;
-    return Array.isArray(clear) ? [...new Set(clear.filter((name): name is string => typeof name === "string" && clearable.includes(name)))] : [];
+    return Array.isArray(clear)
+        ? [...new Set(clear.filter((name): name is string => typeof name === "string" && clearable.includes(name)))]
+        : [];
 };
 
 /** Back to the tools' shape: null and [] in a patch are "unchanged", and each `clear` field becomes null. */
 export function applyClear(value: unknown, clearable: string[]): unknown {
     if (!clearable.length || !isRecord(value) || !isRecord(value.patch)) return value;
     const { clear: _clear, ...fields } = value.patch;
-    const patch: Record<string, unknown> = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== null && !(Array.isArray(v) && !v.length)));
+    const patch: Record<string, unknown> = Object.fromEntries(
+        Object.entries(fields).filter(([, v]) => v !== null && !(Array.isArray(v) && !v.length)),
+    );
     for (const name of clearNames(value, clearable)) patch[name] = null;
     return { ...value, patch };
 }
@@ -378,29 +438,37 @@ export function applyClear(value: unknown, clearable: string[]): unknown {
  * most of the tool tokens, and slimmed further by {@link slimSchema}. Calls are
  * still validated against the full zod schema, leniently ({@link validateLenient}).
  */
-function withoutPatterns<T extends Record<string, { inputSchema: unknown; execute?: unknown }>>(nullable: boolean, tools: T): T {
+function withoutPatterns<T extends Record<string, { inputSchema: unknown; execute?: unknown }>>(
+    nullable: boolean,
+    tools: T,
+): T {
     for (const t of Object.values(tools)) {
         const full = asSchema(t.inputSchema as Parameters<typeof asSchema>[0]);
         let clearable: Promise<string[]> | undefined;
         const clearableOnce = () => (clearable ??= Promise.resolve(full.jsonSchema).then(clearableFields));
-        t.inputSchema = jsonSchema(async () => {
-            const slim = slimSchema(dropPatterns(await full.jsonSchema));
-            return withClear(nullable ? nullableOptionals(slim) : slim, await clearableOnce()) as never;
-        }, {
-            validate: async (value) => {
-                const fields = await clearableOnce();
-                const result = await validateLenient(full.validate!, applyClear(value, fields));
-                // `clear` stays on the call so later turns read what was emptied; execute never sees it.
-                const names = clearNames(value, fields);
-                if (result.success && names.length && isRecord(result.value) && isRecord(result.value.patch)) result.value.patch.clear = names;
-                return result;
+        t.inputSchema = jsonSchema(
+            async () => {
+                const slim = slimSchema(dropPatterns(await full.jsonSchema));
+                return withClear(nullable ? nullableOptionals(slim) : slim, await clearableOnce()) as never;
             },
-        });
+            {
+                validate: async (value) => {
+                    const fields = await clearableOnce();
+                    const result = await validateLenient(full.validate!, applyClear(value, fields));
+                    // `clear` stays on the call so later turns read what was emptied; execute never sees it.
+                    const names = clearNames(value, fields);
+                    if (result.success && names.length && isRecord(result.value) && isRecord(result.value.patch))
+                        result.value.patch.clear = names;
+                    return result;
+                },
+            },
+        );
         const run = t.execute as ((input: unknown, options: unknown) => Promise<unknown>) | undefined;
         if (run) {
             t.execute = async (input: unknown, options: unknown) => {
                 const { clear: _clear, ...patch } = isRecord(input) && isRecord(input.patch) ? input.patch : {};
-                const forTool = isRecord(input) && isRecord(input.patch) && "clear" in input.patch ? { ...input, patch } : input;
+                const forTool =
+                    isRecord(input) && isRecord(input.patch) && "clear" in input.patch ? { ...input, patch } : input;
                 return reportIgnored(await run(forTool, options), input);
             };
         }

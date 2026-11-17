@@ -11,7 +11,13 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useKeyboardInset } from "../../hooks/ui/use-keyboard-inset";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
-import { extractNoteOutline, findHeading, currentHeadingId, countWords, type NoteHeading } from "../../lib/notes/note-outline";
+import {
+    extractNoteOutline,
+    findHeading,
+    currentHeadingId,
+    countWords,
+    type NoteHeading,
+} from "../../lib/notes/note-outline";
 import { docText, isFaithful, markdownToDoc } from "../../lib/notes/note-markdown";
 import { NOTE_MAX_CHARS, type NoteStatus as Status } from "../../lib/notes/note-session";
 import { ImmersiveDetailLayout } from "../shared/ImmersiveDetailLayout";
@@ -69,7 +75,12 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
     const shell = useShellMode();
     const phone = shell.isPhone;
     const fade = useReducedMotionSetting() ? 0 : 0.15;
-    const crossfade = { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: fade } };
+    const crossfade = {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: { duration: fade },
+    };
     const scrollToHeading = useNoteRoomStore((s) => s.scrollToHeading);
     const clearScrollTarget = useNoteRoomStore((s) => s.clearScrollTarget);
 
@@ -115,7 +126,13 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
     // ── words (debounced: never per keystroke) ──
     useEffect(() => {
         const id = setTimeout(() => {
-            setWords(countWords(editor && !sourceMode ? editor.state.doc.textBetween(0, editor.state.doc.content.size, " ", " ") : docText(markdownToDoc(body))));
+            setWords(
+                countWords(
+                    editor && !sourceMode
+                        ? editor.state.doc.textBetween(0, editor.state.doc.content.size, " ", " ")
+                        : docText(markdownToDoc(body)),
+                ),
+            );
         }, 250);
         return () => clearTimeout(id);
     }, [editor, body, sourceMode]);
@@ -130,17 +147,24 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
             if (!headings) outlineCache.current.set(e.state.doc, (headings = extractNoteOutline(e.state.doc)));
             return { headings, current: currentHeadingId(headings, e.state.selection.from) };
         },
-        equalityFn: (a, b) => !!b && a.current === b.current && a.headings.length === b.headings.length && a.headings.every((h, i) => h.id === b.headings[i].id && h.pos === b.headings[i].pos),
+        equalityFn: (a, b) =>
+            !!b &&
+            a.current === b.current &&
+            a.headings.length === b.headings.length &&
+            a.headings.every((h, i) => h.id === b.headings[i].id && h.pos === b.headings[i].pos),
     }) ?? { headings: [], current: null };
 
-    const jumpTo = useCallback((heading: NoteHeading, focus = true) => {
-        if (!editor) return;
-        const chain = editor.chain();
-        if (focus) chain.focus();
-        chain.setTextSelection(heading.pos + 1).run();
-        const dom = editor.view.domAtPos(heading.pos + 1).node;
-        (dom instanceof Element ? dom : dom.parentElement)?.scrollIntoView({ block: "start", behavior: "auto" });
-    }, [editor]);
+    const jumpTo = useCallback(
+        (heading: NoteHeading, focus = true) => {
+            if (!editor) return;
+            const chain = editor.chain();
+            if (focus) chain.focus();
+            chain.setTextSelection(heading.pos + 1).run();
+            const dom = editor.view.domAtPos(heading.pos + 1).node;
+            (dom instanceof Element ? dom : dom.parentElement)?.scrollIntoView({ block: "start", behavior: "auto" });
+        },
+        [editor],
+    );
 
     // Search opens a heading: jump to the real one, no keyboard on a phone.
     useEffect(() => {
@@ -194,29 +218,49 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
         setEditing(false);
     }, [editor, saveNow, session]);
 
-    const onStatusAct = useCallback((s: Status) => {
-        if (s === "review") setReviewOpen(true);
-        else if (s === "save-failed") copyNote(body, "Note copied", "Couldn’t copy. Select the text instead.");
-        else void saveNow();
-    }, [body, saveNow]);
+    const onStatusAct = useCallback(
+        (s: Status) => {
+            if (s === "review") setReviewOpen(true);
+            else if (s === "save-failed") copyNote(body, "Note copied", "Couldn’t copy. Select the text instead.");
+            else void saveNow();
+        },
+        [body, saveNow],
+    );
 
     // ── menu actions ──
-    const onAction = useCallback((id: NoteCommandId) => {
-        switch (id) {
-            case "find": setFindOpen(true); break;
-            case "outline": setOutlineSheet(true); break;
-            case "convert-subtasks": setConvertOpen(true); break;
-            case "copy-markdown": copyNote(body, "Markdown copied", "Couldn’t copy. Use Download instead."); break;
-            case "download-markdown": downloadMarkdown(body, title); break;
-            case "edit-markdown":
-                if (sourceMode) {
-                    if (isFaithful(body)) setSourceMode(false);
-                    else toast.message("This note has formatting the visual editor can’t keep, so it stays as Markdown.");
-                } else setSourceMode(true);
-                break;
-            default: if (editor) runNoteCommand(editor, id);
-        }
-    }, [body, editor, sourceMode, title]);
+    const onAction = useCallback(
+        (id: NoteCommandId) => {
+            switch (id) {
+                case "find":
+                    setFindOpen(true);
+                    break;
+                case "outline":
+                    setOutlineSheet(true);
+                    break;
+                case "convert-subtasks":
+                    setConvertOpen(true);
+                    break;
+                case "copy-markdown":
+                    copyNote(body, "Markdown copied", "Couldn’t copy. Use Download instead.");
+                    break;
+                case "download-markdown":
+                    downloadMarkdown(body, title);
+                    break;
+                case "edit-markdown":
+                    if (sourceMode) {
+                        if (isFaithful(body)) setSourceMode(false);
+                        else
+                            toast.message(
+                                "This note has formatting the visual editor can’t keep, so it stays as Markdown.",
+                            );
+                    } else setSourceMode(true);
+                    break;
+                default:
+                    if (editor) runNoteCommand(editor, id);
+            }
+        },
+        [body, editor, sourceMode, title],
+    );
     const onRunCommand = useCallback((id: NoteCommandId) => editor && runNoteCommand(editor, id), [editor]);
 
     const toggleOutline = () => {
@@ -225,75 +269,143 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
         } else setOutlineSheet(true);
     };
 
-    const startEditing = useCallback((pos: number | null) => {
-        if (!editor) return;
-        setEditing(true);
-        editor.chain().focus(pos ?? lastPos.current ?? "end").run();
-    }, [editor]);
+    const startEditing = useCallback(
+        (pos: number | null) => {
+            if (!editor) return;
+            setEditing(true);
+            editor
+                .chain()
+                .focus(pos ?? lastPos.current ?? "end")
+                .run();
+        },
+        [editor],
+    );
 
     const over = body.length > NOTE_MAX_CHARS;
     const near = body.length > NOTE_MAX_CHARS * 0.9;
     const more = (
-        <NoteMoreMenu editor={editor} compactToolbar={phone} wordCount={words} body={body} sourceMode={sourceMode} onAction={onAction} onRunCommand={onRunCommand} />
+        <NoteMoreMenu
+            editor={editor}
+            compactToolbar={phone}
+            wordCount={words}
+            body={body}
+            sourceMode={sourceMode}
+            onAction={onAction}
+            onRunCommand={onRunCommand}
+        />
     );
 
     const attention = (() => {
         if (!state?.loaded) return null;
-        if (status === "review") return { tone: "failed", text: "This note changed somewhere else.", action: "Review", run: () => setReviewOpen(true) };
-        if (over) return { tone: "failed", text: `Over ${NOTE_MAX_CHARS.toLocaleString()} characters. It isn’t saving. Shorten it or copy it.`, action: "Copy note", run: () => onStatusAct("save-failed") };
-        if (status === "save-failed") return { tone: "failed", text: "Couldn’t save this device or Cadence.", action: "Copy note", run: () => onStatusAct("save-failed") };
-        if (state.problem === "deleted") return { tone: "failed", text: "This task was deleted. Your text is kept here.", action: "Download", run: () => downloadMarkdown(body, title) };
-        if (state.problem === "auth") return { tone: "failed", text: "Sign in again to keep saving.", action: undefined, run: undefined };
-        if (state.recovery) return { tone: "info", text: "A version you set aside is kept.", action: "Restore", run: () => session?.restoreRecovery() };
-        if (near) return { tone: "info", text: `${body.length.toLocaleString()} of ${NOTE_MAX_CHARS.toLocaleString()} characters used.`, action: undefined, run: undefined };
-        if (sourceMode && !isFaithful(body)) return { tone: "info", text: "This note has formatting the visual editor can’t keep, so it’s shown as Markdown.", action: undefined, run: undefined };
+        if (status === "review")
+            return {
+                tone: "failed",
+                text: "This note changed somewhere else.",
+                action: "Review",
+                run: () => setReviewOpen(true),
+            };
+        if (over)
+            return {
+                tone: "failed",
+                text: `Over ${NOTE_MAX_CHARS.toLocaleString()} characters. It isn’t saving. Shorten it or copy it.`,
+                action: "Copy note",
+                run: () => onStatusAct("save-failed"),
+            };
+        if (status === "save-failed")
+            return {
+                tone: "failed",
+                text: "Couldn’t save this device or Cadence.",
+                action: "Copy note",
+                run: () => onStatusAct("save-failed"),
+            };
+        if (state.problem === "deleted")
+            return {
+                tone: "failed",
+                text: "This task was deleted. Your text is kept here.",
+                action: "Download",
+                run: () => downloadMarkdown(body, title),
+            };
+        if (state.problem === "auth")
+            return { tone: "failed", text: "Sign in again to keep saving.", action: undefined, run: undefined };
+        if (state.recovery)
+            return {
+                tone: "info",
+                text: "A version you set aside is kept.",
+                action: "Restore",
+                run: () => session?.restoreRecovery(),
+            };
+        if (near)
+            return {
+                tone: "info",
+                text: `${body.length.toLocaleString()} of ${NOTE_MAX_CHARS.toLocaleString()} characters used.`,
+                action: undefined,
+                run: undefined,
+            };
+        if (sourceMode && !isFaithful(body))
+            return {
+                tone: "info",
+                text: "This note has formatting the visual editor can’t keep, so it’s shown as Markdown.",
+                action: undefined,
+                run: undefined,
+            };
         return null;
     })();
     const attentionChip = attention && (
         <div className={cn("note-attention", attention.tone === "failed" && "note-attention--failed")} role="status">
             <span className="min-w-0 truncate">{attention.text}</span>
-            {attention.action && <button type="button" onClick={attention.run} className="note-attention__action shrink-0">{attention.action}</button>}
+            {attention.action && (
+                <button type="button" onClick={attention.run} className="note-attention__action shrink-0">
+                    {attention.action}
+                </button>
+            )}
         </div>
     );
 
-    const editorSurface = isLoading || !session || !state ? (
-        loadFailed ? (
-            <div className="flex flex-col items-start gap-3 py-8">
-                <p className="text-[15px] text-twilight-text-soft">Couldn’t load this note. Nothing was changed.</p>
-                <Button variant="secondary" size="md" onClick={() => session && void session.load()}>Retry</Button>
-            </div>
+    const editorSurface =
+        isLoading || !session || !state ? (
+            loadFailed ? (
+                <div className="flex flex-col items-start gap-3 py-8">
+                    <p className="text-[15px] text-twilight-text-soft">Couldn’t load this note. Nothing was changed.</p>
+                    <Button variant="secondary" size="md" onClick={() => session && void session.load()}>
+                        Retry
+                    </Button>
+                </div>
+            ) : (
+                <div className="space-y-3 py-6" aria-busy="true" aria-label="Loading note">
+                    <div className="h-4 w-2/3 rounded-lg bg-twilight-surface/60" />
+                    <div className="h-4 w-full rounded-lg bg-twilight-surface/60" />
+                    <div className="h-4 w-5/6 rounded-lg bg-twilight-surface/60" />
+                </div>
+            )
+        ) : sourceMode ? (
+            <NoteSourceEditor
+                value={body}
+                onChange={(text) => session.edit(text, "source")}
+                onSave={() => void saveNow()}
+            />
         ) : (
-            <div className="space-y-3 py-6" aria-busy="true" aria-label="Loading note">
-                <div className="h-4 w-2/3 rounded-lg bg-twilight-surface/60" />
-                <div className="h-4 w-full rounded-lg bg-twilight-surface/60" />
-                <div className="h-4 w-5/6 rounded-lg bg-twilight-surface/60" />
-            </div>
-        )
-    ) : sourceMode ? (
-        <NoteSourceEditor value={body} onChange={(text) => session.edit(text, "source")} onSave={() => void saveNow()} />
-    ) : (
-        <NoteEditor
-            key={session.branch}
-            session={session}
-            viewId="room"
-            variant="room"
-            placeholder="Start writing…"
-            commandHint={!phone}
-            autoFocus={!phone && !shell.isTablet && !scrollToHeading}
-            onEditor={setEditor}
-            onSave={() => void saveNow()}
-            onFind={() => setFindOpen(true)}
-            onUnfaithful={() => setSourceMode(true)}
-            onRequestEdit={startEditing}
-            onFocusChange={(focused) => {
-                if (focused && (phone || shell.isTablet)) {
-                    setEditing(true);
-                    setPanel(null);
-                }
-            }}
-            slashBottomInset={phone ? effectiveInset + 72 : 0}
-        />
-    );
+            <NoteEditor
+                key={session.branch}
+                session={session}
+                viewId="room"
+                variant="room"
+                placeholder="Start writing…"
+                commandHint={!phone}
+                autoFocus={!phone && !shell.isTablet && !scrollToHeading}
+                onEditor={setEditor}
+                onSave={() => void saveNow()}
+                onFind={() => setFindOpen(true)}
+                onUnfaithful={() => setSourceMode(true)}
+                onRequestEdit={startEditing}
+                onFocusChange={(focused) => {
+                    if (focused && (phone || shell.isTablet)) {
+                        setEditing(true);
+                        setPanel(null);
+                    }
+                }}
+                slashBottomInset={phone ? effectiveInset + 72 : 0}
+            />
+        );
 
     const reviewSheet = state?.conflict && (
         <NoteConflictSheet
@@ -303,28 +415,77 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
             latest={state.conflict.remote}
             taskTitle={title}
             layer="room"
-            onUseMine={() => { void session?.useMine(); setReviewOpen(false); }}
-            onUseLatest={() => { void session?.useLatest(); setReviewOpen(false); }}
+            onUseMine={() => {
+                void session?.useMine();
+                setReviewOpen(false);
+            }}
+            onUseLatest={() => {
+                void session?.useLatest();
+                setReviewOpen(false);
+            }}
         />
     );
 
     const sheets = (
         <>
             {reviewSheet}
-            <NoteConvertSheet open={convertOpen} onClose={() => setConvertOpen(false)} taskId={taskId} taskTitle={title} body={body} seriesNote={!!scope} layer="room" />
-            <UtilitySheet title="Outline" open={outlineSheet} onClose={() => setOutlineSheet(false)} fit layer="room" flush>
-                <NoteOutline headings={outlineState.headings} currentId={outlineState.current} onJump={(h) => { setOutlineSheet(false); jumpTo(h, !phone); }} />
+            <NoteConvertSheet
+                open={convertOpen}
+                onClose={() => setConvertOpen(false)}
+                taskId={taskId}
+                taskTitle={title}
+                body={body}
+                seriesNote={!!scope}
+                layer="room"
+            />
+            <UtilitySheet
+                title="Outline"
+                open={outlineSheet}
+                onClose={() => setOutlineSheet(false)}
+                fit
+                layer="room"
+                flush
+            >
+                <NoteOutline
+                    headings={outlineState.headings}
+                    currentId={outlineState.current}
+                    onJump={(h) => {
+                        setOutlineSheet(false);
+                        jumpTo(h, !phone);
+                    }}
+                />
             </UtilitySheet>
             <AlertDialog.Root open={recoveryOpen} onOpenChange={setRecoveryOpen}>
                 <AlertDialog.Content>
                     <AlertDialog.Header>
                         <AlertDialog.Title>This note isn’t saved anywhere yet</AlertDialog.Title>
-                        <AlertDialog.Description>Neither this device nor Cadence has your latest text. Retry, or copy it so it isn’t lost.</AlertDialog.Description>
+                        <AlertDialog.Description>
+                            Neither this device nor Cadence has your latest text. Retry, or copy it so it isn’t lost.
+                        </AlertDialog.Description>
                     </AlertDialog.Header>
                     <AlertDialog.Footer>
-                        <Button variant="ghost" size="md" onClick={() => { setRecoveryOpen(false); onClose(); }}>Close anyway</Button>
-                        <Button variant="secondary" size="md" onClick={() => copyNote(body)}>Copy note</Button>
-                        <Button size="md" onClick={() => { setRecoveryOpen(false); void saveNow(); }}>Retry</Button>
+                        <Button
+                            variant="ghost"
+                            size="md"
+                            onClick={() => {
+                                setRecoveryOpen(false);
+                                onClose();
+                            }}
+                        >
+                            Close anyway
+                        </Button>
+                        <Button variant="secondary" size="md" onClick={() => copyNote(body)}>
+                            Copy note
+                        </Button>
+                        <Button
+                            size="md"
+                            onClick={() => {
+                                setRecoveryOpen(false);
+                                void saveNow();
+                            }}
+                        >
+                            Retry
+                        </Button>
                     </AlertDialog.Footer>
                 </AlertDialog.Content>
             </AlertDialog.Root>
@@ -351,13 +512,29 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
                                                 aria-label="Done"
                                                 className="surface-control surface-control-accent inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-twilight-border/40 px-3 text-[15px] font-medium text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 min-[360px]:px-4"
                                             >
-                                                {finishing ? <LoaderCircle size={18} className="motion-safe:animate-spin" aria-hidden="true" /> : <Check size={18} aria-hidden="true" />}
+                                                {finishing ? (
+                                                    <LoaderCircle
+                                                        size={18}
+                                                        className="motion-safe:animate-spin"
+                                                        aria-hidden="true"
+                                                    />
+                                                ) : (
+                                                    <Check size={18} aria-hidden="true" />
+                                                )}
                                                 <span className="max-[359px]:sr-only">Done</span>
                                             </button>
                                         </motion.div>
                                     ) : (
                                         <motion.div key="back" {...crossfade} className="header-glass -ml-1 flex">
-                                            <Tip label="Close note"><button type="button" onClick={() => void requestClose()} aria-label="Close note"><ChevronLeft size={22} aria-hidden="true" /></button></Tip>
+                                            <Tip label="Close note">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void requestClose()}
+                                                    aria-label="Close note"
+                                                >
+                                                    <ChevronLeft size={22} aria-hidden="true" />
+                                                </button>
+                                            </Tip>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
@@ -370,8 +547,34 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
                                     <>
                                         <PhoneUndoRedo editor={editor} />
                                         <div className="header-glass flex items-center gap-1">
-                                            <Tip label="Insert"><button type="button" aria-label="Insert" className="inline-flex size-11 items-center justify-center" onMouseDown={(e) => e.preventDefault()} onClick={() => { editor?.commands.blur(); setPanel("insert"); }}><Plus size={20} aria-hidden="true" /></button></Tip>
-                                            <Tip label="Format"><button type="button" aria-label="Format" className="inline-flex size-11 items-center justify-center" onMouseDown={(e) => e.preventDefault()} onClick={() => { editor?.commands.blur(); setPanel("format"); }}><Type size={20} aria-hidden="true" /></button></Tip>
+                                            <Tip label="Insert">
+                                                <button
+                                                    type="button"
+                                                    aria-label="Insert"
+                                                    className="inline-flex size-11 items-center justify-center"
+                                                    onMouseDown={(e) => e.preventDefault()}
+                                                    onClick={() => {
+                                                        editor?.commands.blur();
+                                                        setPanel("insert");
+                                                    }}
+                                                >
+                                                    <Plus size={20} aria-hidden="true" />
+                                                </button>
+                                            </Tip>
+                                            <Tip label="Format">
+                                                <button
+                                                    type="button"
+                                                    aria-label="Format"
+                                                    className="inline-flex size-11 items-center justify-center"
+                                                    onMouseDown={(e) => e.preventDefault()}
+                                                    onClick={() => {
+                                                        editor?.commands.blur();
+                                                        setPanel("format");
+                                                    }}
+                                                >
+                                                    <Type size={20} aria-hidden="true" />
+                                                </button>
+                                            </Tip>
                                         </div>
                                     </>
                                 )}
@@ -381,15 +584,31 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
                     </header>
                 }
             >
-                <div className="relative flex h-full min-h-0 flex-col" style={{ ["--keyboard-inset" as string]: `${effectiveInset}px` }}>
+                <div
+                    className="relative flex h-full min-h-0 flex-col"
+                    style={{ ["--keyboard-inset" as string]: `${effectiveInset}px` }}
+                >
                     {attentionChip && <div className="px-4 pb-2">{attentionChip}</div>}
-                    {findOpen && editor && !sourceMode && <div className="px-3 pb-2"><NoteFindBar editor={editor} onClose={() => setFindOpen(false)} /></div>}
+                    {findOpen && editor && !sourceMode && (
+                        <div className="px-3 pb-2">
+                            <NoteFindBar editor={editor} onClose={() => setFindOpen(false)} />
+                        </div>
+                    )}
                     <div
                         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2"
-                        style={{ paddingBottom: "calc(var(--keyboard-inset) + 6rem + env(safe-area-inset-bottom))", scrollPaddingBottom: "calc(var(--keyboard-inset) + 5.5rem)" }}
+                        style={{
+                            paddingBottom: "calc(var(--keyboard-inset) + 6rem + env(safe-area-inset-bottom))",
+                            scrollPaddingBottom: "calc(var(--keyboard-inset) + 5.5rem)",
+                        }}
                     >
-                        <h1 className="mb-1 font-display text-[28px] font-semibold leading-tight tracking-tight text-twilight-text">{title}</h1>
-                        {scope && <span className="mb-4 inline-flex rounded-full bg-moonlit/10 px-2.5 py-1 text-[12px] font-medium text-moonlit">{scope}</span>}
+                        <h1 className="mb-1 font-display text-[28px] font-semibold leading-tight tracking-tight text-twilight-text">
+                            {title}
+                        </h1>
+                        {scope && (
+                            <span className="mb-4 inline-flex rounded-full bg-moonlit/10 px-2.5 py-1 text-[12px] font-medium text-moonlit">
+                                {scope}
+                            </span>
+                        )}
                         <div className="note-surface mt-3">{editorSurface}</div>
                     </div>
                     {!editing && !sourceMode && session && state?.loaded && (
@@ -418,9 +637,19 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
                             kind={panel}
                             height={panelHeight}
                             editor={editor}
-                            onKeyboard={() => { setPanel(null); editor?.commands.focus(); }}
-                            onLink={() => { setPanel(null); editor?.commands.focus(); setLinkOpen(true); }}
-                            onSubtasks={() => { setPanel(null); setConvertOpen(true); }}
+                            onKeyboard={() => {
+                                setPanel(null);
+                                editor?.commands.focus();
+                            }}
+                            onLink={() => {
+                                setPanel(null);
+                                editor?.commands.focus();
+                                setLinkOpen(true);
+                            }}
+                            onSubtasks={() => {
+                                setPanel(null);
+                                setConvertOpen(true);
+                            }}
                         />
                     )}
                     {editor && <NoteLinkPopover editor={editor} open={linkOpen} onOpenChange={setLinkOpen} />}
@@ -442,10 +671,29 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
                     meta={scope ?? undefined}
                     actions={
                         <>
-                            {editing && compactTablet && <Button variant="secondary" size="md" onClick={() => void done()} disabled={finishing} aria-label="Done"><Check size={16} aria-hidden="true" />Done</Button>}
+                            {editing && compactTablet && (
+                                <Button
+                                    variant="secondary"
+                                    size="md"
+                                    onClick={() => void done()}
+                                    disabled={finishing}
+                                    aria-label="Done"
+                                >
+                                    <Check size={16} aria-hidden="true" />
+                                    Done
+                                </Button>
+                            )}
                             <NoteStatus status={status} onAct={onStatusAct} />
-                            <ToolButton label={shell.isDesktop ? (outlineRail ? "Hide outline" : "Show outline") : "Outline"} pressed={shell.isDesktop ? outlineRail : undefined} onClick={toggleOutline}><ListTree size={18} aria-hidden="true" /></ToolButton>
-                            <ToolButton label="Close note" onClick={() => void requestClose()}><X size={18} aria-hidden="true" /></ToolButton>
+                            <ToolButton
+                                label={shell.isDesktop ? (outlineRail ? "Hide outline" : "Show outline") : "Outline"}
+                                pressed={shell.isDesktop ? outlineRail : undefined}
+                                onClick={toggleOutline}
+                            >
+                                <ListTree size={18} aria-hidden="true" />
+                            </ToolButton>
+                            <ToolButton label="Close note" onClick={() => void requestClose()}>
+                                <X size={18} aria-hidden="true" />
+                            </ToolButton>
                         </>
                     }
                 />
@@ -454,20 +702,36 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
             <div className="flex h-full min-h-0">
                 <div className="flex min-w-0 flex-1 flex-col">
                     <div className="shrink-0 px-4 py-2 sm:px-8">
-                        {!sourceMode ? <NoteToolbar editor={editor} onLink={() => setLinkOpen(true)} more={more} /> : <div className="flex justify-end">{more}</div>}
+                        {!sourceMode ? (
+                            <NoteToolbar editor={editor} onLink={() => setLinkOpen(true)} more={more} />
+                        ) : (
+                            <div className="flex justify-end">{more}</div>
+                        )}
                     </div>
                     {attentionChip && <div className="shrink-0 px-4 pb-2 sm:px-8">{attentionChip}</div>}
-                    {findOpen && editor && !sourceMode && <div className="shrink-0 px-4 pb-2 sm:px-8"><NoteFindBar editor={editor} onClose={() => setFindOpen(false)} className="max-w-xl" /></div>}
+                    {findOpen && editor && !sourceMode && (
+                        <div className="shrink-0 px-4 pb-2 sm:px-8">
+                            <NoteFindBar editor={editor} onClose={() => setFindOpen(false)} className="max-w-xl" />
+                        </div>
+                    )}
                     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth [scroll-padding-top:1rem] motion-reduce:scroll-auto">
-                        <div className="note-surface mx-auto w-full max-w-[44rem] px-6 py-8 sm:px-10">{editorSurface}</div>
+                        <div className="note-surface mx-auto w-full max-w-[44rem] px-6 py-8 sm:px-10">
+                            {editorSurface}
+                        </div>
                     </div>
                     <footer className="flex shrink-0 items-center gap-4 px-6 py-2 sm:px-10">
-                        <span className="text-[13px] text-twilight-text-muted">{words.toLocaleString()} word{words === 1 ? "" : "s"}</span>
+                        <span className="text-[13px] text-twilight-text-muted">
+                            {words.toLocaleString()} word{words === 1 ? "" : "s"}
+                        </span>
                     </footer>
                 </div>
                 <Reveal open={outlineRail && shell.isDesktop} className="!h-auto border-l border-twilight-border/40">
                     <aside className="h-full w-60 overflow-y-auto" aria-label="Outline">
-                        <NoteOutline headings={outlineState.headings} currentId={outlineState.current} onJump={(h) => jumpTo(h)} />
+                        <NoteOutline
+                            headings={outlineState.headings}
+                            currentId={outlineState.current}
+                            onJump={(h) => jumpTo(h)}
+                        />
                     </aside>
                 </Reveal>
             </div>
@@ -491,8 +755,30 @@ function PhoneUndoRedo({ editor }: { editor: Editor | null }) {
     const Redo = getNoteCommand("redo").icon;
     return (
         <div role="toolbar" aria-label="Undo and redo" className="glass-surface flex items-center rounded-full">
-            <Tip label="Undo"><button type="button" aria-label="Undo" disabled={!s.canUndo} onMouseDown={(e) => e.preventDefault()} onClick={() => editor && runNoteCommand(editor, "undo")} className="inline-flex size-11 items-center justify-center rounded-full text-twilight-text-soft disabled:opacity-40"><Undo size={18} aria-hidden="true" /></button></Tip>
-            <Tip label="Redo"><button type="button" aria-label="Redo" disabled={!s.canRedo} onMouseDown={(e) => e.preventDefault()} onClick={() => editor && runNoteCommand(editor, "redo")} className="inline-flex size-11 items-center justify-center rounded-full text-twilight-text-soft disabled:opacity-40"><Redo size={18} aria-hidden="true" /></button></Tip>
+            <Tip label="Undo">
+                <button
+                    type="button"
+                    aria-label="Undo"
+                    disabled={!s.canUndo}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => editor && runNoteCommand(editor, "undo")}
+                    className="inline-flex size-11 items-center justify-center rounded-full text-twilight-text-soft disabled:opacity-40"
+                >
+                    <Undo size={18} aria-hidden="true" />
+                </button>
+            </Tip>
+            <Tip label="Redo">
+                <button
+                    type="button"
+                    aria-label="Redo"
+                    disabled={!s.canRedo}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => editor && runNoteCommand(editor, "redo")}
+                    className="inline-flex size-11 items-center justify-center rounded-full text-twilight-text-soft disabled:opacity-40"
+                >
+                    <Redo size={18} aria-hidden="true" />
+                </button>
+            </Tip>
         </div>
     );
 }

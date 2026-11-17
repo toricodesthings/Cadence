@@ -56,13 +56,18 @@ export function applyApprovals(
     let matched = false;
     const parts = message.parts.map((part) => {
         const waiting = part as { state?: string; approval?: { id?: string } };
-        const decision = waiting?.state === "approval-requested" && decisions.find((d) => d.id === waiting.approval?.id);
+        const decision =
+            waiting?.state === "approval-requested" && decisions.find((d) => d.id === waiting.approval?.id);
         if (!decision) return part;
         matched = true;
         return {
             ...waiting,
             state: "approval-responded",
-            approval: { ...waiting.approval, approved: decision.approved, ...(decision.reason && { reason: decision.reason }) },
+            approval: {
+                ...waiting.approval,
+                approved: decision.approved,
+                ...(decision.reason && { reason: decision.reason }),
+            },
         };
     });
     return matched ? { ...message, parts } : null;
@@ -84,8 +89,9 @@ export function keepFinishedWrites(rows: StoredMessage[], anchorId: string): UIM
         return typeof p?.type === "string" && p.type.startsWith("tool-") && p.state === "output-available";
     };
     // Each finished call keeps the step-start before it; partial text and failed calls go.
-    const parts = reply.parts.filter((part, i) =>
-        finished(part) || ((part as { type?: string })?.type === "step-start" && finished(reply.parts[i + 1])),
+    const parts = reply.parts.filter(
+        (part, i) =>
+            finished(part) || ((part as { type?: string })?.type === "step-start" && finished(reply.parts[i + 1])),
     );
     // Reads (get_*) change nothing, so a reply that only read starts over.
     const wrote = parts.some((part) => finished(part) && !(part as { type: string }).type.startsWith("tool-get_"));
@@ -108,7 +114,12 @@ export function settleUnanswered<T extends { role: string; parts: unknown[] }>(m
             if (typeof call?.type !== "string" || !call.type.startsWith("tool-")) return [part];
             if (call.state === "input-streaming") return [];
             if (!UNANSWERED.has(call.state ?? "")) return [part];
-            const approval = { ...call.approval, id: call.approval?.id ?? `unanswered-${call.toolCallId}`, approved: false, reason: "Not answered" };
+            const approval = {
+                ...call.approval,
+                id: call.approval?.id ?? `unanswered-${call.toolCallId}`,
+                approved: false,
+                reason: "Not answered",
+            };
             return [{ ...call, state: "output-denied", approval }];
         });
         return { ...message, parts };
@@ -131,7 +142,11 @@ export function rowToUIMessage(row: StoredMessage): UIMessageLike {
 /** The text parts of a user turn, joined; null when it has none (an image alone). */
 function userText(parts: unknown[] | undefined): string | null {
     const text = (parts ?? [])
-        .map((p) => (p && typeof p === "object" && (p as { type?: unknown }).type === "text" ? String((p as { text?: unknown }).text ?? "") : ""))
+        .map((p) =>
+            p && typeof p === "object" && (p as { type?: unknown }).type === "text"
+                ? String((p as { text?: unknown }).text ?? "")
+                : "",
+        )
         .filter(Boolean)
         .join(" ")
         .trim();
@@ -187,7 +202,8 @@ function keepReasoningDetail(detail: unknown): boolean {
 }
 
 function cleanMeta(meta: unknown, keep: (detail: unknown) => boolean): unknown {
-    const details = (meta as { openrouter?: { reasoning_details?: unknown } } | undefined)?.openrouter?.reasoning_details;
+    const details = (meta as { openrouter?: { reasoning_details?: unknown } } | undefined)?.openrouter
+        ?.reasoning_details;
     if (!Array.isArray(details)) return meta;
     const m = meta as { openrouter: Record<string, unknown> };
     return { ...m, openrouter: { ...m.openrouter, reasoning_details: details.filter(keep) } };
@@ -276,7 +292,10 @@ export function recentStart(messages: { role: string }[]): number {
  * shrink to `{count, ids}` before replay: the model keeps the ids it can act on,
  * not every row again on every later turn. Recent turns keep their full rows.
  */
-export function compactOldReads<T extends { role: string; parts: unknown[] }>(messages: T[], from = recentStart(messages)): T[] {
+export function compactOldReads<T extends { role: string; parts: unknown[] }>(
+    messages: T[],
+    from = recentStart(messages),
+): T[] {
     return messages.map((msg, i) =>
         msg.role !== "assistant" || i >= from ? msg : { ...msg, parts: msg.parts.map(compactReadPart) },
     );

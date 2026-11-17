@@ -28,7 +28,12 @@ export function useWeekRoom() {
     const room = useMemo(() => {
         const days = weekRoom(tasks, { from: today, days: 7, zone, timelineStartHour, now: new Date().toISOString() });
         return days.map((d) => {
-            const routines = habits.filter((h) => !h.archived && !isRoutinePaused(h, d.day) && (h.logs ?? []).some((l) => l.targetDate === d.day && l.status === "PENDING"));
+            const routines = habits.filter(
+                (h) =>
+                    !h.archived &&
+                    !isRoutinePaused(h, d.day) &&
+                    (h.logs ?? []).some((l) => l.targetDate === d.day && l.status === "PENDING"),
+            );
             // The day's own view: timed blocks in time order, then what's due with no time.
             const blocks = tasks
                 .filter((t) => t.scheduledStart && dayOf(t.scheduledStart, zone) === d.day)

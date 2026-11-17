@@ -19,11 +19,17 @@ export function useOpeningReleaseGuard(onCloseAutoFocus?: (event: Event) => void
         event.stopPropagation();
     };
     return {
-        onPointerDownCapture: () => { pressedInside.current = true; },
-        onPointerUpCapture: (event: React.PointerEvent) => { if (!pressedInside.current && fromTouch(event)) swallow(event); },
+        onPointerDownCapture: () => {
+            pressedInside.current = true;
+        },
+        onPointerUpCapture: (event: React.PointerEvent) => {
+            if (!pressedInside.current && fromTouch(event)) swallow(event);
+        },
         // A real click on an item always starts with a press inside. Safari's tap click carries no pointerType;
         // Chrome's can carry detail 0.
-        onClickCapture: (event: React.MouseEvent) => { if (!pressedInside.current && (event.detail > 0 || fromTouch(event))) swallow(event); },
+        onClickCapture: (event: React.MouseEvent) => {
+            if (!pressedInside.current && (event.detail > 0 || fromTouch(event))) swallow(event);
+        },
         onCloseAutoFocus: (event: Event) => {
             pressedInside.current = false;
             onCloseAutoFocus?.(event);

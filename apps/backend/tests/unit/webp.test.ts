@@ -15,7 +15,15 @@ function chunk(type: string, payload: number[]): number[] {
 
 function webp(...chunks: number[][]): Uint8Array {
     const body = chunks.flat();
-    return new Uint8Array([..."RIFF"].map((ch) => ch.charCodeAt(0)).concat(u32(body.length + 4), [..."WEBP"].map((ch) => ch.charCodeAt(0)), body));
+    return new Uint8Array(
+        [..."RIFF"]
+            .map((ch) => ch.charCodeAt(0))
+            .concat(
+                u32(body.length + 4),
+                [..."WEBP"].map((ch) => ch.charCodeAt(0)),
+                body,
+            ),
+    );
 }
 
 /** VP8L payload: signature, 14-bit (w-1), 14-bit (h-1), then filler bits. */
@@ -34,7 +42,8 @@ function chunkTypes(bytes: Uint8Array): string[] {
     const types: string[] = [];
     for (let offset = 12; offset + 8 <= bytes.length;) {
         types.push(String.fromCharCode(...bytes.subarray(offset, offset + 4)));
-        const size = bytes[offset + 4] | (bytes[offset + 5] << 8) | (bytes[offset + 6] << 16) | (bytes[offset + 7] << 24);
+        const size =
+            bytes[offset + 4] | (bytes[offset + 5] << 8) | (bytes[offset + 6] << 16) | (bytes[offset + 7] << 24);
         offset += 8 + size + (size % 2);
     }
     return types;
@@ -65,12 +74,26 @@ describe("sanitizeStillWebp", () => {
     });
 
     it("rejects files that are not WebP", () => {
-        const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...Array.from({ length: 20 }, () => 0)]);
+        const png = new Uint8Array([
+            0x89,
+            0x50,
+            0x4e,
+            0x47,
+            0x0d,
+            0x0a,
+            0x1a,
+            0x0a,
+            ...Array.from({ length: 20 }, () => 0),
+        ]);
         expect(() => clean(png)).toThrow(expect.objectContaining({ code: "UNSUPPORTED_IMAGE" }));
     });
 
     it("rejects animated WebP", () => {
-        const input = webp(chunk("VP8X", vp8x(0x02, 100, 100)), chunk("ANIM", [0, 0, 0, 0, 0, 0]), chunk("VP8L", vp8l(100, 100)));
+        const input = webp(
+            chunk("VP8X", vp8x(0x02, 100, 100)),
+            chunk("ANIM", [0, 0, 0, 0, 0, 0]),
+            chunk("VP8L", vp8l(100, 100)),
+        );
         expect(() => clean(input)).toThrow(expect.objectContaining({ code: "UNSUPPORTED_IMAGE" }));
     });
 

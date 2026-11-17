@@ -10,7 +10,11 @@ export function imageIdsOf(message: UIMessage): string[] {
 }
 
 /** The file part a chat turn carries for an uploaded image: a reference, never bytes or a filename. */
-export const imageFilePart = (id: string) => ({ type: "file" as const, mediaType: CHAT_IMAGE_MEDIA_TYPE, url: chatImageUrl(id) });
+export const imageFilePart = (id: string) => ({
+    type: "file" as const,
+    mediaType: CHAT_IMAGE_MEDIA_TYPE,
+    url: chatImageUrl(id),
+});
 
 /** The `status` metadata a persisted assistant turn may carry (§8.3). */
 export function messageStatus(message: UIMessage): string | undefined {
@@ -53,7 +57,9 @@ export function describeThread(messages: readonly UIMessage[], status: ChatStatu
     }
     const receiptState = replyStarted ? "read" : status === "streaming" ? "delivered" : "sent";
     return {
-        lastUserIndex, lastAssistantIndex, receiptState,
+        lastUserIndex,
+        lastAssistantIndex,
+        receiptState,
         awaitingReply: (status === "submitted" || status === "streaming") && !hasText,
     } as const;
 }

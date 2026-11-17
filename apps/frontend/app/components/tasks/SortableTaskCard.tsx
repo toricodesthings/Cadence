@@ -43,15 +43,9 @@ export function SortableTaskCard({
     rationaleLabel,
     reorderable = true,
 }: SortableTaskCardProps) {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        setActivatorNodeRef,
-        transform,
-        transition,
-        isDragging,
-    } = useSortable({ id: task.id });
+    const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+        id: task.id,
+    });
 
     const isComplete = task.state === "COMPLETE";
 

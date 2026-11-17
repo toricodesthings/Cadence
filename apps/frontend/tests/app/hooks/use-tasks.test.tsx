@@ -47,10 +47,9 @@ describe("useTasks", () => {
     it("serializes extended filters for holding and today views", async () => {
         taskGetMock.mockResolvedValue(Response.json({ data: [] }));
 
-        renderHook(
-            () => useTasks({ state: "ACTIVE", hasNoProject: true, effectiveOnOrBeforeDate: "2026-03-09" }),
-            { wrapper: withClient() },
-        );
+        renderHook(() => useTasks({ state: "ACTIVE", hasNoProject: true, effectiveOnOrBeforeDate: "2026-03-09" }), {
+            wrapper: withClient(),
+        });
 
         await waitFor(() => {
             expect(taskGetMock).toHaveBeenCalledWith({

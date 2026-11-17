@@ -73,7 +73,9 @@ export async function runMemoryNightly(env: Env, now: Date = new Date()) {
     // ponytail: queue delays cap at 12 h, so this spreads at most 720 chunks (18k people); past that, grow the chunk.
     if (env.MEMORY_QUEUE) {
         for (let i = 0; i * NIGHTLY_CHUNK < userIds.length; i++) {
-            const chunk = userIds.slice(i * NIGHTLY_CHUNK, (i + 1) * NIGHTLY_CHUNK).map((userId) => ({ kind: "nightly" as const, userId, at: now.toISOString() }));
+            const chunk = userIds
+                .slice(i * NIGHTLY_CHUNK, (i + 1) * NIGHTLY_CHUNK)
+                .map((userId) => ({ kind: "nightly" as const, userId, at: now.toISOString() }));
             await sendMemoryMessages(env, chunk, Math.min(i * 60, 43_200) || undefined);
         }
         return undefined;
@@ -114,17 +116,30 @@ export async function pruneAiImages(env: Env, now: Date = new Date()) {
         const rows = await tx
             .select({ id: aiImages.id })
             .from(aiImages)
-            .where(and(
-                eq(aiImages.userId, userId),
-                or(
-                    and(isNull(aiImages.sentAt), lt(aiImages.createdAt, orphanCutoff)),
-                    lt(aiImages.lastUsedAt, idleCutoff),
+            .where(
+                and(
+                    eq(aiImages.userId, userId),
+                    or(
+                        and(isNull(aiImages.sentAt), lt(aiImages.createdAt, orphanCutoff)),
+                        lt(aiImages.lastUsedAt, idleCutoff),
+                    ),
                 ),
-            ));
+            );
         if (rows.length === 0) return 0;
         const userKey = await hashIdentifier(userId);
-        await deleteImageObjects(bucket, rows.map((row) => aiImageKey(userKey, row.id)));
-        await tx.delete(aiImages).where(and(eq(aiImages.userId, userId), inArray(aiImages.id, rows.map((row) => row.id))));
+        await deleteImageObjects(
+            bucket,
+            rows.map((row) => aiImageKey(userKey, row.id)),
+        );
+        await tx.delete(aiImages).where(
+            and(
+                eq(aiImages.userId, userId),
+                inArray(
+                    aiImages.id,
+                    rows.map((row) => row.id),
+                ),
+            ),
+        );
         return rows.length;
     });
 }
@@ -147,9 +162,14 @@ export async function runHourlyCron(env: Env, now: Date = new Date()) {
         pruneUsageEvents(env, now),
     ]);
     const ok = <T>(result: PromiseSettledResult<T>) => (result.status === "fulfilled" ? result.value : undefined);
-    const failed = Object.entries({ mutations, memories, backstop, images, usage }).filter(([, r]) => r.status === "rejected");
+    const failed = Object.entries({ mutations, memories, backstop, images, usage }).filter(
+        ([, r]) => r.status === "rejected",
+    );
     for (const [job, result] of failed) {
-        logger.error("cron", "cron_job_failed", { job, issues: issuesFromError((result as PromiseRejectedResult).reason) });
+        logger.error("cron", "cron_job_failed", {
+            job,
+            issues: issuesFromError((result as PromiseRejectedResult).reason),
+        });
     }
     logger.info("cron", "cron_summary", {
         prunedMutations: ok(mutations),

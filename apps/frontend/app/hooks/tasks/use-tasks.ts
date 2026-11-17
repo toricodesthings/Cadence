@@ -22,9 +22,12 @@ export function tasksQueryOptions(client: ApiClient, filters: UseTasksFilterInpu
         queryKey: queryKeys.tasks.list(filters),
         staleTime: STALE_TIMES.TASKS,
         // Without a limit the server returns the whole list.
-        queryFn: async () => unwrapResponse(await client.api.tasks.$get({
-            query: buildTasksQuery(filters),
-        })),
+        queryFn: async () =>
+            unwrapResponse(
+                await client.api.tasks.$get({
+                    query: buildTasksQuery(filters),
+                }),
+            ),
     });
 }
 
@@ -32,10 +35,13 @@ export function tasksQueryOptions(client: ApiClient, filters: UseTasksFilterInpu
 export function useTasks(options: UseTasksOptions = {}) {
     const { enabled = true, keepPrevious, ...filterOptions } = options;
 
-    return useAuthedQuery((client) => ({
-        ...tasksQueryOptions(client, filterOptions),
-        placeholderData: keepPrevious ? keepPreviousData : undefined,
-    }), enabled);
+    return useAuthedQuery(
+        (client) => ({
+            ...tasksQueryOptions(client, filterOptions),
+            placeholderData: keepPrevious ? keepPreviousData : undefined,
+        }),
+        enabled,
+    );
 }
 
 const PAGE_SIZE = 100;
@@ -72,7 +78,13 @@ export function useTask(taskId: string | null | undefined) {
     }, [queryClient, taskId]);
     const cached = useSyncExternalStore(
         // Data changes only: observer events fire while other components render a new query, and would update this one mid-render.
-        useCallback((onChange) => queryClient.getQueryCache().subscribe((event) => { if (event.type === "updated" || event.type === "removed") onChange(); }), [queryClient]),
+        useCallback(
+            (onChange) =>
+                queryClient.getQueryCache().subscribe((event) => {
+                    if (event.type === "updated" || event.type === "removed") onChange();
+                }),
+            [queryClient],
+        ),
         findCached,
         findCached,
     );

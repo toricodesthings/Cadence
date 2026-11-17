@@ -6,7 +6,10 @@ import { hardenCsp, inlineScriptHashes } from "../build-csp";
 const headers = readFileSync(new URL("../public/_headers", import.meta.url), "utf8");
 const html = `<script>a()</script><script src="/x.js"></script><script type="module" async="">import "/m.js";</script>`;
 const policy = (out: string) => /Content-Security-Policy: (.*)/.exec(out)![1];
-const directive = (out: string, name: string) => policy(out).split("; ").find((d) => d.startsWith(`${name} `))!;
+const directive = (out: string, name: string) =>
+    policy(out)
+        .split("; ")
+        .find((d) => d.startsWith(`${name} `))!;
 
 describe("deployed CSP", () => {
     it("names each inline script by hash instead of allowing any inline script", () => {

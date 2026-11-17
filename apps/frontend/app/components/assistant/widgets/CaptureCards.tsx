@@ -8,7 +8,12 @@ import { useCaptureLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 
 type CaptureAction = "note" | "discard" | "done" | "new";
-const ACTION_COPY: Record<CaptureAction, string> = { note: "Keep as a note", discard: "Discard", done: "Tick off", new: "Back to New" };
+const ACTION_COPY: Record<CaptureAction, string> = {
+    note: "Keep as a note",
+    discard: "Discard",
+    done: "Tick off",
+    new: "Back to New",
+};
 const ACTION_GLYPH = { note: StickyNote, discard: Archive, done: CheckCircle2, new: RotateCcw, edit: Pencil };
 
 /** Card for `update_captures`: each capture with what happens to it. */
@@ -18,7 +23,12 @@ export function UpdateCapturesCard({ ctx }: { ctx: ToolRenderContext<"update_cap
     const items: { inboxItemId: string; text?: string; action?: CaptureAction }[] = ctx.part?.input?.items ?? [];
     const rows = items.map((item) => {
         const current = lookup(item.inboxItemId)?.rawText ?? "a capture";
-        const what = [item.action ? ACTION_COPY[item.action] : null, item.text !== undefined ? `reword to “${item.text}”` : null].filter(Boolean).join(", ");
+        const what = [
+            item.action ? ACTION_COPY[item.action] : null,
+            item.text !== undefined ? `reword to “${item.text}”` : null,
+        ]
+            .filter(Boolean)
+            .join(", ");
         return `${current}: ${what}`;
     });
     const actions = new Set(items.map((item) => item.action ?? "edit"));
@@ -30,7 +40,9 @@ export function UpdateCapturesCard({ ctx }: { ctx: ToolRenderContext<"update_cap
             eyebrow={rows.length > 1 ? `CAPTURE · ${rows.length}` : "CAPTURE"}
             eyebrowGlyph={only ? ACTION_GLYPH[only] : Inbox}
             ariaLabel={`Capture changes: ${rows.join("; ")}`}
-            primaryLabel={only && only !== "edit" ? `${ACTION_COPY[only]}${rows.length > 1 ? ` ${kept}` : ""}` : "Apply"}
+            primaryLabel={
+                only && only !== "edit" ? `${ACTION_COPY[only]}${rows.length > 1 ? ` ${kept}` : ""}` : "Apply"
+            }
             primaryGlyph={Check}
             removed={removed(rows)}
             doneText={rows.length > 1 ? `Updated ${rows.length} captures.` : "Updated the capture."}
@@ -69,8 +81,11 @@ export function DeleteCapturesCard({ ctx }: { ctx: ToolRenderContext<"delete_cap
                     </TickRow>
                 ))}
             </div>
-            {persona.terse ? null : <p className="text-xs text-twilight-text-soft">These won’t come back. Discard is the one you can undo.</p>}
+            {persona.terse ? null : (
+                <p className="text-xs text-twilight-text-soft">
+                    These won’t come back. Discard is the one you can undo.
+                </p>
+            )}
         </DeleteApprovalCard>
     );
 }
-

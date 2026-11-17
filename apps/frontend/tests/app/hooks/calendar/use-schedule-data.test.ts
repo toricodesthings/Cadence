@@ -8,29 +8,65 @@ import { SETTINGS_DEFAULTS } from "../../../../app/types/settings";
 import type { CalendarViewMode } from "../../../../app/components/calendar/ScheduleHeader";
 
 const mocks = vi.hoisted(() => ({
-    tasks: [] as Task[], holding: [] as Task[], virtual: [] as Task[], settings: undefined as unknown,
-    taskQuery: vi.fn(), habitQuery: vi.fn(), holidays: vi.fn(),
+    tasks: [] as Task[],
+    holding: [] as Task[],
+    virtual: [] as Task[],
+    settings: undefined as unknown,
+    taskQuery: vi.fn(),
+    habitQuery: vi.fn(),
+    holidays: vi.fn(),
 }));
-vi.mock("../../../../app/hooks/tasks/use-tasks", () => ({ useTasks: (options: { hasNoDate?: boolean }) => {
-    mocks.taskQuery(options); return { data: options.hasNoDate ? mocks.holding : mocks.tasks };
-} }));
+vi.mock("../../../../app/hooks/tasks/use-tasks", () => ({
+    useTasks: (options: { hasNoDate?: boolean }) => {
+        mocks.taskQuery(options);
+        return { data: options.hasNoDate ? mocks.holding : mocks.tasks };
+    },
+}));
 vi.mock("../../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: mocks.settings }) }));
-vi.mock("../../../../app/hooks/environment/use-holiday-overlay", () => ({ useHolidayOverlay: (options: unknown) => {
-    mocks.holidays(options); return { enabled: true, holidaysByDate: new Map(), holidayDateSet: new Set() };
-} }));
+vi.mock("../../../../app/hooks/environment/use-holiday-overlay", () => ({
+    useHolidayOverlay: (options: unknown) => {
+        mocks.holidays(options);
+        return { enabled: true, holidaysByDate: new Map(), holidayDateSet: new Set() };
+    },
+}));
 vi.mock("../../../../app/hooks/habits/use-virtual-habit-tasks", () => ({ useVirtualHabitTasks: () => mocks.virtual }));
-vi.mock("../../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: (options: unknown) => {
-    mocks.habitQuery(options); return { data: [] };
-} }));
-vi.mock("../../../../app/hooks/calendar/use-personal-events", () => ({ usePersonalEvents: () => ({
-    enabled: true, eventsByDate: new Map(), eventDateSet: new Set(), getEventsForDate: () => [],
-}) }));
-const task = (patch: Partial<Task>): Task => ({ id: "t", title: "Task", state: "ACTIVE", dueDate: "2026-11-02",
-    scheduledStart: null, scheduledEnd: null, endDate: null, ...patch }) as Task;
-const input = (viewMode: CalendarViewMode, isPhone = false) => ({ viewMode, isPhone, currentDate: "2026-11-02", todayIso: "2026-11-02" });
+vi.mock("../../../../app/hooks/habits/use-habits", () => ({
+    useHabitsRange: (options: unknown) => {
+        mocks.habitQuery(options);
+        return { data: [] };
+    },
+}));
+vi.mock("../../../../app/hooks/calendar/use-personal-events", () => ({
+    usePersonalEvents: () => ({
+        enabled: true,
+        eventsByDate: new Map(),
+        eventDateSet: new Set(),
+        getEventsForDate: () => [],
+    }),
+}));
+const task = (patch: Partial<Task>): Task =>
+    ({
+        id: "t",
+        title: "Task",
+        state: "ACTIVE",
+        dueDate: "2026-11-02",
+        scheduledStart: null,
+        scheduledEnd: null,
+        endDate: null,
+        ...patch,
+    }) as Task;
+const input = (viewMode: CalendarViewMode, isPhone = false) => ({
+    viewMode,
+    isPhone,
+    currentDate: "2026-11-02",
+    todayIso: "2026-11-02",
+});
 beforeEach(() => {
     vi.clearAllMocks();
-    mocks.tasks = []; mocks.holding = []; mocks.virtual = []; mocks.settings = undefined;
+    mocks.tasks = [];
+    mocks.holding = [];
+    mocks.virtual = [];
+    mocks.settings = undefined;
     setUserZone("America/Toronto");
 });
 
@@ -65,7 +101,12 @@ describe("schedule active-range data", () => {
         const range = scheduleRanges("2026-11-02", 0).week;
         expect(mocks.taskQuery).toHaveBeenCalledWith({ state: "ACTIVE", range: { from: range.start, to: range.end } });
         expect(mocks.habitQuery).toHaveBeenCalledWith({ ...range, enabled: true });
-        expect(mocks.taskQuery).toHaveBeenCalledWith({ state: "ACTIVE", hasNoProject: true, hasNoDate: true, enabled: true });
+        expect(mocks.taskQuery).toHaveBeenCalledWith({
+            state: "ACTIVE",
+            hasNoProject: true,
+            hasNoDate: true,
+            enabled: true,
+        });
         expect(result.current.periodRange).toEqual({ start: "2026-11-02", end: "2026-11-02" });
     });
     it("keeps routine markers out of desktop month task chips but includes them in phone lists", () => {
@@ -83,11 +124,18 @@ describe("schedule active-range data", () => {
         expect(result.current.birthdayDate).toBe("2026-02-28");
     });
     it("filters the active range and keeps fixed, recurring, complete and routine items out of relief actions", () => {
-        mocks.tasks = [task({ id: "open" }), task({ id: "done", state: "COMPLETE" }),
-            task({ id: "series", recurrenceRule: "FREQ=WEEKLY" }), task({ id: "fixed", interactionMode: "timetable" })];
+        mocks.tasks = [
+            task({ id: "open" }),
+            task({ id: "done", state: "COMPLETE" }),
+            task({ id: "series", recurrenceRule: "FREQ=WEEKLY" }),
+            task({ id: "fixed", interactionMode: "timetable" }),
+        ];
         mocks.virtual = [task({ id: "routine", isHabit: true })];
         mocks.settings = { calendar: { clutter: { ...SETTINGS_DEFAULTS.calendar.clutter, showFixed: false } } };
-        mocks.holding = [task({ id: "ready", dueDate: null }), task({ id: "fixed-ready", interactionMode: "timetable" })];
+        mocks.holding = [
+            task({ id: "ready", dueDate: null }),
+            task({ id: "fixed-ready", interactionMode: "timetable" }),
+        ];
         const { result } = renderHook(() => useScheduleData(input("day", true)));
         expect(result.current.visibleTasks.map((t) => t.id)).toEqual(["open", "done", "series"]);
         expect(result.current.lightenCandidates.map((t) => t.id)).toEqual(["open"]);

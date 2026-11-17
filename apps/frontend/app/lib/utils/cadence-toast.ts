@@ -38,12 +38,10 @@ function isUndoAction(action: ExternalToast["action"]) {
     return typeof action === "object" && action !== null && "label" in action && action.label === "Undo";
 }
 
-function withCadenceToastOptions(
-    options?: ExternalToast,
-    fallbackDuration = CADENCE_TOAST_DURATION,
-): ExternalToast {
+function withCadenceToastOptions(options?: ExternalToast, fallbackDuration = CADENCE_TOAST_DURATION): ExternalToast {
     const undoable = isUndoAction(options?.action);
-    const duration = options?.duration ?? (undoable ? Math.max(fallbackDuration, CADENCE_UNDO_DURATION) : fallbackDuration);
+    const duration =
+        options?.duration ?? (undoable ? Math.max(fallbackDuration, CADENCE_UNDO_DURATION) : fallbackDuration);
     // The close button and a lone action share the top-right grid cell, so buttoned toasts skip it.
     const shouldShowCloseButton =
         options?.closeButton ?? (Boolean(options?.description) && !options?.action && !options?.cancel);
@@ -59,10 +57,7 @@ function withCadenceToastOptions(
     };
 }
 
-function normalizePromiseResult(
-    result: unknown,
-    fallbackDuration = CADENCE_TOAST_DURATION,
-): unknown {
+function normalizePromiseResult(result: unknown, fallbackDuration = CADENCE_TOAST_DURATION): unknown {
     if (result == null) {
         return result;
     }
@@ -87,10 +82,7 @@ function wrapPromiseState<T>(state: T, fallbackDuration = CADENCE_TOAST_DURATION
     }
 
     return (async (value: unknown) =>
-        normalizePromiseResult(
-            await (state as (input: unknown) => unknown)(value),
-            fallbackDuration,
-        )) as T;
+        normalizePromiseResult(await (state as (input: unknown) => unknown)(value), fallbackDuration)) as T;
 }
 
 function withCadencePromiseData(data?: PromiseOptions): PromiseOptions | undefined {
@@ -131,21 +123,22 @@ export function installCadenceToastTheme() {
         originalMessage(message, withCadenceToastOptions(data))) as typeof sonnerToast.message;
     toast.success = ((message, data) =>
         originalSuccess(message, withCadenceToastOptions(data))) as typeof sonnerToast.success;
-    toast.info = ((message, data) =>
-        originalInfo(message, withCadenceToastOptions(data))) as typeof sonnerToast.info;
+    toast.info = ((message, data) => originalInfo(message, withCadenceToastOptions(data))) as typeof sonnerToast.info;
     toast.warning = ((message, data) =>
         originalWarning(message, withCadenceToastOptions(data))) as typeof sonnerToast.warning;
     toast.error = ((message, data) =>
         originalError(message, withCadenceToastOptions(data))) as typeof sonnerToast.error;
     toast.loading = ((message, data) =>
-        originalLoading(message, withCadenceToastOptions(data, Number.POSITIVE_INFINITY))) as typeof sonnerToast.loading;
+        originalLoading(
+            message,
+            withCadenceToastOptions(data, Number.POSITIVE_INFINITY),
+        )) as typeof sonnerToast.loading;
     toast.promise = ((promise, data) =>
         (originalPromise as typeof sonnerToast.promise)(
             promise,
             withCadencePromiseData(data as PromiseOptions | undefined) as never,
         )) as typeof sonnerToast.promise;
-    toast.custom = ((jsx, data) =>
-        originalCustom(jsx, withCadenceToastOptions(data))) as typeof sonnerToast.custom;
+    toast.custom = ((jsx, data) => originalCustom(jsx, withCadenceToastOptions(data))) as typeof sonnerToast.custom;
 
     toast[CADENCE_TOAST_PATCHED] = true;
 }

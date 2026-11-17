@@ -39,7 +39,10 @@ describe("embedding", () => {
         expect(embedding).toHaveLength(512);
         expect(spend).toMatchObject({ inputTokens: 7, costUsd: 0.00002 });
         // extraBody lands in the /embeddings body; require_parameters keeps OpenRouter off upstreams that ignore it.
-        expect(provider.settings).toMatchObject({ extraBody: { dimensions: 512 }, provider: { require_parameters: true } });
+        expect(provider.settings).toMatchObject({
+            extraBody: { dimensions: 512 },
+            provider: { require_parameters: true },
+        });
     });
 
     it("embeds a batch, and skips the call for an empty one", async () => {

@@ -1,235 +1,235 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "cadence-backend",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-02-23",
-  // global_fetch_strictly_public: SSRF guard the OAuth provider needs to fetch CIMD client documents.
-  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-  // Prompt markdown (src/prompts) bundles as text.
-  "rules": [{ "type": "Text", "globs": ["**/*.md"], "fallthrough": true }],
-  // Run next to Neon (aws-us-east-1): each request makes several sequential queries,
-  // so a nearby Worker turns ~20-100ms per round trip into ~1-3ms.
-  "placement": { "region": "aws:us-east-1" },
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "cadence-backend",
+    "main": "src/index.ts",
+    "compatibility_date": "2026-02-23",
+    // global_fetch_strictly_public: SSRF guard the OAuth provider needs to fetch CIMD client documents.
+    "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+    // Prompt markdown (src/prompts) bundles as text.
+    "rules": [{ "type": "Text", "globs": ["**/*.md"], "fallthrough": true }],
+    // Run next to Neon (aws-us-east-1): each request makes several sequential queries,
+    // so a nearby Worker turns ~20-100ms per round trip into ~1-3ms.
+    "placement": { "region": "aws:us-east-1" },
 
-  "observability": {
-    "enabled": true,
-    "head_sampling_rate": 0.2,
-    "logs": {
-      "enabled": true,
-      "head_sampling_rate": 1,
-      "invocation_logs": true,
-      "persist": true
+    "observability": {
+        "enabled": true,
+        "head_sampling_rate": 0.2,
+        "logs": {
+            "enabled": true,
+            "head_sampling_rate": 1,
+            "invocation_logs": true,
+            "persist": true,
+        },
+        // Per-dependency timing (Hyperdrive, KV, R2, rate limits); 5% is plenty at this traffic.
+        "traces": {
+            "enabled": true,
+            "head_sampling_rate": 0.05,
+            "persist": true,
+        },
     },
-    // Per-dependency timing (Hyperdrive, KV, R2, rate limits); 5% is plenty at this traffic.
-    "traces": {
-      "enabled": true,
-      "head_sampling_rate": 0.05,
-      "persist": true
-    }
-  },
 
-  "hyperdrive": [
-    {
-      "binding": "HYPERDRIVE",
-      "id": "80ebbc92ada0464ca99496f0b3ac65ce"
-    }
-  ],
-
-  // Private bucket for user photo backgrounds. No public access or r2.dev URL:
-  // objects are read only through the authenticated /settings/background route.
-  "r2_buckets": [
-    {
-      "binding": "USER_ASSETS",
-      "bucket_name": "cadence-users"
-    }
-  ],
-
-  // Email Sending: mails people their data export (domains/account). mail.cadenceapp.cloud is the onboarded sending domain
-  "send_email": [{ "name": "EMAIL" }],
-
-  // OAuth provider storage for outside assistants (MCP): clients, grants, token hashes.
-  "kv_namespaces": [
-    {
-      "binding": "OAUTH_KV",
-      "id": "d68a3b096ce74e7cac02963e67cbd10f"
-    }
-  ],
-
-  "ratelimits": [
-    // Per IP, before auth. Offices and mobile carriers put many people behind one IP,
-    // so this only stops floods; the per-user limits below do the real work.
-    {
-      "name": "RATE_LIMITER",
-      "namespace_id": "2026031501",
-      "simple": { "limit": 2000, "period": 60 }
-    },
-    {
-      "name": "RATE_LIMITER_READ",
-      "namespace_id": "2026031502",
-      "simple": { "limit": 300, "period": 60 }
-    },
-    {
-      "name": "RATE_LIMITER_WRITE",
-      "namespace_id": "2026031503",
-      "simple": { "limit": 120, "period": 60 }
-    },
-    {
-      "name": "RATE_LIMITER_ADMIN",
-      "namespace_id": "2026031504",
-      "simple": { "limit": 30, "period": 60 }
-    },
-    {
-      "name": "RATE_LIMITER_AI",
-      "namespace_id": "2026031505",
-      "simple": { "limit": 6, "period": 60 }
-    }
-  ],
-
-  // Memory's per-person work: the nightly pass from the cron, learning and scrubs as delayed messages from events.
-  // max_concurrency caps load on Neon and OpenRouter; failures retry, then land in the dead-letter queue.
-  "queues": {
-    "producers": [{ "binding": "MEMORY_QUEUE", "queue": "cadence-memory" }],
-    "consumers": [
-      {
-        "queue": "cadence-memory",
-        "max_batch_size": 5,
-        "max_concurrency": 5,
-        "max_retries": 3,
-        "retry_delay": 300,
-        "dead_letter_queue": "cadence-memory-dlq"
-      }
-    ]
-  },
-
-  // One ReminderClock per person (domains/push): sends reminders from a plan on alarms, so nothing polls Neon.
-  "durable_objects": {
-    "bindings": [{ "name": "REMINDER_CLOCK", "class_name": "ReminderClock" }]
-  },
-  // Inherited by env.dev.
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReminderClock"] }],
-
-  // Hourly only, and it touches Neon only at 06:00 UTC (cron/overdue-check.ts).
-  // Anything more frequent keeps the database from scaling to zero.
-  "triggers": {
-    "crons": ["0 * * * *"]
-  },
-  "preview_urls": false,
-  "workers_dev": false,
-  "routes": [
-    {
-      "pattern": "api.cadenceapp.cloud",
-      "custom_domain": true
-    },
-    // The MCP server and its OAuth endpoints (domains/mcp).
-    {
-      "pattern": "mcp.cadenceapp.cloud",
-      "custom_domain": true
-    }
-  ],
-
-  // AI_*_MODEL override the chat, title and memory-embedding models (unset or empty = the built-in default in domains/ai).
-  // AI_DECISION_MODEL is a dated OpenRouter *decision* model ID (domains/decisions); unset = pre-sorted captures and "did you mean" stay off.
-  // Set AI_DECISION_MODEL here, not only in the dashboard: deploys overwrite it.
-  "vars": {
-    "DEPLOYMENT_STAGE": "production",
-    // Public key set Neon Auth signs app tokens with (production branch).
-    "NEON_AUTH_JWKS_URL": "https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth/.well-known/jwks.json",
-    // Public half of the Web Push key pair. The private half is the VAPID_PRIVATE_KEY secret.
-    "VAPID_PUBLIC_KEY": "BPQMDLo4FUNgt4CTWVPFeqAxGU7ni1Cn8trfCiq5N3antgRnaL3QI34L4Fykn3buTQ9Nv_YlmOg3nGVCsQ2WJw4",
-    "AI_CHAT_MODEL": "anthropic/claude-haiku-5.5",
-    "AI_CHAT_MODEL_BASIC":"deepseek/deepseek-v4.1-flash",
-    "AI_TITLE_MODEL": "openai/gpt-oss-20b:nitro",
-    "AI_EMBEDDING_MODEL": "qwen/qwen3-embedding-8b",
-    "AI_DECISION_MODEL": "microsoft/microsoft-decision-1-20261009",
-    // Everyone's assistant spend per UTC day (USD); reaching it rests the assistant until midnight UTC.
-    "AI_DAILY_SPEND_CAP_USD": "10",
-  },
-
-  "env": {
-    "dev": {
-      "name": "cadence-backend-dev",
-      // Never inherit production's custom domains: a dev deploy would take them over.
-      "routes": [],
-      "placement": { "region": "aws:us-east-2" },
-      "hyperdrive": [
+    "hyperdrive": [
         {
-          "binding": "HYPERDRIVE",
-          "id": "c25e56a5b7894baa95da5e7f44216d4a"
-        }
-      ],
-      "r2_buckets": [
+            "binding": "HYPERDRIVE",
+            "id": "80ebbc92ada0464ca99496f0b3ac65ce",
+        },
+    ],
+
+    // Private bucket for user photo backgrounds. No public access or r2.dev URL:
+    // objects are read only through the authenticated /settings/background route.
+    "r2_buckets": [
         {
-          "binding": "USER_ASSETS",
-          "bucket_name": "cadence-users-dev"
-        }
-      ],
-      "kv_namespaces": [
+            "binding": "USER_ASSETS",
+            "bucket_name": "cadence-users",
+        },
+    ],
+
+    // Email Sending: mails people their data export (domains/account). mail.cadenceapp.cloud is the onboarded sending domain
+    "send_email": [{ "name": "EMAIL" }],
+
+    // OAuth provider storage for outside assistants (MCP): clients, grants, token hashes.
+    "kv_namespaces": [
         {
-          "binding": "OAUTH_KV",
-          "id": "5726b938ac8843a28102f9b2a7f1007c"
-        }
-      ],
-      "send_email": [{ "name": "EMAIL", "remote": true }],
-      // MCP and its OAuth endpoints share the dev server's origin; consent opens the local web app.
-      "vars": {
-        "DEPLOYMENT_STAGE": "development",
-        "NEON_AUTH_JWKS_URL": "https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech/neondb/auth/.well-known/jwks.json",
+            "binding": "OAUTH_KV",
+            "id": "d68a3b096ce74e7cac02963e67cbd10f",
+        },
+    ],
+
+    "ratelimits": [
+        // Per IP, before auth. Offices and mobile carriers put many people behind one IP,
+        // so this only stops floods; the per-user limits below do the real work.
+        {
+            "name": "RATE_LIMITER",
+            "namespace_id": "2026031501",
+            "simple": { "limit": 2000, "period": 60 },
+        },
+        {
+            "name": "RATE_LIMITER_READ",
+            "namespace_id": "2026031502",
+            "simple": { "limit": 300, "period": 60 },
+        },
+        {
+            "name": "RATE_LIMITER_WRITE",
+            "namespace_id": "2026031503",
+            "simple": { "limit": 120, "period": 60 },
+        },
+        {
+            "name": "RATE_LIMITER_ADMIN",
+            "namespace_id": "2026031504",
+            "simple": { "limit": 30, "period": 60 },
+        },
+        {
+            "name": "RATE_LIMITER_AI",
+            "namespace_id": "2026031505",
+            "simple": { "limit": 6, "period": 60 },
+        },
+    ],
+
+    // Memory's per-person work: the nightly pass from the cron, learning and scrubs as delayed messages from events.
+    // max_concurrency caps load on Neon and OpenRouter; failures retry, then land in the dead-letter queue.
+    "queues": {
+        "producers": [{ "binding": "MEMORY_QUEUE", "queue": "cadence-memory" }],
+        "consumers": [
+            {
+                "queue": "cadence-memory",
+                "max_batch_size": 5,
+                "max_concurrency": 5,
+                "max_retries": 3,
+                "retry_delay": 300,
+                "dead_letter_queue": "cadence-memory-dlq",
+            },
+        ],
+    },
+
+    // One ReminderClock per person (domains/push): sends reminders from a plan on alarms, so nothing polls Neon.
+    "durable_objects": {
+        "bindings": [{ "name": "REMINDER_CLOCK", "class_name": "ReminderClock" }],
+    },
+    // Inherited by env.dev.
+    "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReminderClock"] }],
+
+    // Hourly only, and it touches Neon only at 06:00 UTC (cron/overdue-check.ts).
+    // Anything more frequent keeps the database from scaling to zero.
+    "triggers": {
+        "crons": ["0 * * * *"],
+    },
+    "preview_urls": false,
+    "workers_dev": false,
+    "routes": [
+        {
+            "pattern": "api.cadenceapp.cloud",
+            "custom_domain": true,
+        },
+        // The MCP server and its OAuth endpoints (domains/mcp).
+        {
+            "pattern": "mcp.cadenceapp.cloud",
+            "custom_domain": true,
+        },
+    ],
+
+    // AI_*_MODEL override the chat, title and memory-embedding models (unset or empty = the built-in default in domains/ai).
+    // AI_DECISION_MODEL is a dated OpenRouter *decision* model ID (domains/decisions); unset = pre-sorted captures and "did you mean" stay off.
+    // Set AI_DECISION_MODEL here, not only in the dashboard: deploys overwrite it.
+    "vars": {
+        "DEPLOYMENT_STAGE": "production",
+        // Public key set Neon Auth signs app tokens with (production branch).
+        "NEON_AUTH_JWKS_URL": "https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth/.well-known/jwks.json",
+        // Public half of the Web Push key pair. The private half is the VAPID_PRIVATE_KEY secret.
         "VAPID_PUBLIC_KEY": "BPQMDLo4FUNgt4CTWVPFeqAxGU7ni1Cn8trfCiq5N3antgRnaL3QI34L4Fykn3buTQ9Nv_YlmOg3nGVCsQ2WJw4",
         "AI_CHAT_MODEL": "anthropic/claude-haiku-5.5",
-        "AI_CHAT_MODEL_BASIC":"deepseek/deepseek-v4.1-flash",
+        "AI_CHAT_MODEL_BASIC": "deepseek/deepseek-v4.1-flash",
         "AI_TITLE_MODEL": "openai/gpt-oss-20b:nitro",
         "AI_EMBEDDING_MODEL": "qwen/qwen3-embedding-8b",
         "AI_DECISION_MODEL": "microsoft/microsoft-decision-1-20261009",
+        // Everyone's assistant spend per UTC day (USD); reaching it rests the assistant until midnight UTC.
         "AI_DAILY_SPEND_CAP_USD": "10",
-        "MCP_ORIGIN": "http://localhost:8787",
-        "APP_ORIGIN": "http://localhost:8788"
-      },
-      "ratelimits": [
-        {
-          "name": "RATE_LIMITER",
-          "namespace_id": "2026031511",
-          "simple": { "limit": 2000, "period": 60 }
+    },
+
+    "env": {
+        "dev": {
+            "name": "cadence-backend-dev",
+            // Never inherit production's custom domains: a dev deploy would take them over.
+            "routes": [],
+            "placement": { "region": "aws:us-east-2" },
+            "hyperdrive": [
+                {
+                    "binding": "HYPERDRIVE",
+                    "id": "c25e56a5b7894baa95da5e7f44216d4a",
+                },
+            ],
+            "r2_buckets": [
+                {
+                    "binding": "USER_ASSETS",
+                    "bucket_name": "cadence-users-dev",
+                },
+            ],
+            "kv_namespaces": [
+                {
+                    "binding": "OAUTH_KV",
+                    "id": "5726b938ac8843a28102f9b2a7f1007c",
+                },
+            ],
+            "send_email": [{ "name": "EMAIL", "remote": true }],
+            // MCP and its OAuth endpoints share the dev server's origin; consent opens the local web app.
+            "vars": {
+                "DEPLOYMENT_STAGE": "development",
+                "NEON_AUTH_JWKS_URL": "https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech/neondb/auth/.well-known/jwks.json",
+                "VAPID_PUBLIC_KEY": "BPQMDLo4FUNgt4CTWVPFeqAxGU7ni1Cn8trfCiq5N3antgRnaL3QI34L4Fykn3buTQ9Nv_YlmOg3nGVCsQ2WJw4",
+                "AI_CHAT_MODEL": "anthropic/claude-haiku-5.5",
+                "AI_CHAT_MODEL_BASIC": "deepseek/deepseek-v4.1-flash",
+                "AI_TITLE_MODEL": "openai/gpt-oss-20b:nitro",
+                "AI_EMBEDDING_MODEL": "qwen/qwen3-embedding-8b",
+                "AI_DECISION_MODEL": "microsoft/microsoft-decision-1-20261009",
+                "AI_DAILY_SPEND_CAP_USD": "10",
+                "MCP_ORIGIN": "http://localhost:8787",
+                "APP_ORIGIN": "http://localhost:8788",
+            },
+            "ratelimits": [
+                {
+                    "name": "RATE_LIMITER",
+                    "namespace_id": "2026031511",
+                    "simple": { "limit": 2000, "period": 60 },
+                },
+                {
+                    "name": "RATE_LIMITER_READ",
+                    "namespace_id": "2026031512",
+                    "simple": { "limit": 300, "period": 60 },
+                },
+                {
+                    "name": "RATE_LIMITER_WRITE",
+                    "namespace_id": "2026031513",
+                    "simple": { "limit": 120, "period": 60 },
+                },
+                {
+                    "name": "RATE_LIMITER_ADMIN",
+                    "namespace_id": "2026031514",
+                    "simple": { "limit": 30, "period": 60 },
+                },
+                {
+                    "name": "RATE_LIMITER_AI",
+                    "namespace_id": "2026031515",
+                    "simple": { "limit": 6, "period": 60 },
+                },
+            ],
+            "queues": {
+                "producers": [{ "binding": "MEMORY_QUEUE", "queue": "cadence-memory-dev" }],
+                "consumers": [
+                    {
+                        "queue": "cadence-memory-dev",
+                        "max_batch_size": 5,
+                        "max_concurrency": 5,
+                        "max_retries": 3,
+                        "retry_delay": 300,
+                        "dead_letter_queue": "cadence-memory-dlq-dev",
+                    },
+                ],
+            },
+            "durable_objects": {
+                "bindings": [{ "name": "REMINDER_CLOCK", "class_name": "ReminderClock" }],
+            },
+            "triggers": {
+                "crons": ["0 * * * *"],
+            },
         },
-        {
-          "name": "RATE_LIMITER_READ",
-          "namespace_id": "2026031512",
-          "simple": { "limit": 300, "period": 60 }
-        },
-        {
-          "name": "RATE_LIMITER_WRITE",
-          "namespace_id": "2026031513",
-          "simple": { "limit": 120, "period": 60 }
-        },
-        {
-          "name": "RATE_LIMITER_ADMIN",
-          "namespace_id": "2026031514",
-          "simple": { "limit": 30, "period": 60 }
-        },
-        {
-          "name": "RATE_LIMITER_AI",
-          "namespace_id": "2026031515",
-          "simple": { "limit": 6, "period": 60 }
-        }
-      ],
-      "queues": {
-        "producers": [{ "binding": "MEMORY_QUEUE", "queue": "cadence-memory-dev" }],
-        "consumers": [
-          {
-            "queue": "cadence-memory-dev",
-            "max_batch_size": 5,
-            "max_concurrency": 5,
-            "max_retries": 3,
-            "retry_delay": 300,
-            "dead_letter_queue": "cadence-memory-dlq-dev"
-          }
-        ]
-      },
-      "durable_objects": {
-        "bindings": [{ "name": "REMINDER_CLOCK", "class_name": "ReminderClock" }]
-      },
-      "triggers": {
-        "crons": ["0 * * * *"]
-      }
-    }
-  }
+    },
 }

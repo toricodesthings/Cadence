@@ -1,9 +1,21 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import {
-    Calendar, Bell, Tag, FolderOpen,
-    Pin, Repeat, CalendarRange, Trash2, SlidersHorizontal,
-    CircleDot, EyeOff, Clock, Columns3,
-    ListChecks, StickyNote, type LucideIcon
+    Calendar,
+    Bell,
+    Tag,
+    FolderOpen,
+    Pin,
+    Repeat,
+    CalendarRange,
+    Trash2,
+    SlidersHorizontal,
+    CircleDot,
+    EyeOff,
+    Clock,
+    Columns3,
+    ListChecks,
+    StickyNote,
+    type LucideIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Reveal } from "../shared/Reveal";
@@ -38,7 +50,15 @@ import { Skeleton } from "../primitives/Skeleton";
 import { Switch } from "../primitives/Switch";
 import { formatShortDate, formatShortDateTime } from "../../lib/utils/date-format";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
-import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_ICON, EFFORT_OPTIONS, PRIORITY_ICON, PRIORITY_OPTIONS } from "./task-choice-options";
+import {
+    CHIP_ACTIVE,
+    CHIP_BASE,
+    CHIP_IDLE,
+    EFFORT_ICON,
+    EFFORT_OPTIONS,
+    PRIORITY_ICON,
+    PRIORITY_OPTIONS,
+} from "./task-choice-options";
 import {
     getTaskRecurrenceSummary,
     getTaskScheduleSummary,
@@ -52,7 +72,15 @@ import { DetailTitle } from "../shared/DetailTitle";
 import { AppPane } from "../shared/AppPane";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import {
-    CARD, PANEL_TRIGGER, PanelTrigger, PanelHeader, DetailGroup, FieldBlock, FieldRow, ValueSelect, VALUE_BTN,
+    CARD,
+    PANEL_TRIGGER,
+    PanelTrigger,
+    PanelHeader,
+    DetailGroup,
+    FieldBlock,
+    FieldRow,
+    ValueSelect,
+    VALUE_BTN,
 } from "../shared/DetailPanelSections";
 
 const TaskNoteInline = lazy(() => import("./TaskNoteInline").then((m) => ({ default: m.TaskNoteInline })));
@@ -82,12 +110,17 @@ export function TaskEditor({ taskId, onClose, detailMode, onDetailModeChange }: 
     }, [task, onClose]);
 
     return (
-        <div
-            className="h-full min-w-0 overflow-hidden"
-            role="complementary"
-            aria-label="Task details"
-        >
-            {task ? <TaskEditorBody task={task} onClose={onClose} detailMode={detailMode} onDetailModeChange={onDetailModeChange} /> : <TaskEditorSkeleton />}
+        <div className="h-full min-w-0 overflow-hidden" role="complementary" aria-label="Task details">
+            {task ? (
+                <TaskEditorBody
+                    task={task}
+                    onClose={onClose}
+                    detailMode={detailMode}
+                    onDetailModeChange={onDetailModeChange}
+                />
+            ) : (
+                <TaskEditorSkeleton />
+            )}
         </div>
     );
 }
@@ -111,12 +144,7 @@ function TaskEditorSkeleton() {
 
 type TaskEditorBodyProps = Omit<TaskEditorProps, "taskId"> & { task: Task };
 
-function TaskEditorBody({
-    task,
-    onClose,
-    detailMode = "peek",
-    onDetailModeChange,
-}: TaskEditorBodyProps) {
+function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange }: TaskEditorBodyProps) {
     const taskId = task.id;
     // Below the wide layout this panel is a modal overlay (everything behind it is inert): it steps aside so the room above it is usable.
     const { isWide } = useShellMode();
@@ -160,31 +188,41 @@ function TaskEditorBody({
     const scheduleLabel = recurrenceSummary?.label ?? scheduleSummary?.primaryLabel ?? "No schedule";
 
     const completedSubtasks = subtasks.filter((subtask) => subtask.isComplete).length;
-    const subtaskSummary = subtasks.length
-        ? `${completedSubtasks}/${subtasks.length} complete`
-        : "No subtasks yet";
-    const noteSummary = notes.trim() ? `${notes.trim().split(/\s+/).length.toLocaleString()} words` : "Tap to write notes";
-    const stateLabel = task.state === "WAITING" ? "Waiting" : task.state === "COMPLETE" ? "Complete" : isPassiveTimetable ? "Fixed" : "Active";
+    const subtaskSummary = subtasks.length ? `${completedSubtasks}/${subtasks.length} complete` : "No subtasks yet";
+    const noteSummary = notes.trim()
+        ? `${notes.trim().split(/\s+/).length.toLocaleString()} words`
+        : "Tap to write notes";
+    const stateLabel =
+        task.state === "WAITING"
+            ? "Waiting"
+            : task.state === "COMPLETE"
+              ? "Complete"
+              : isPassiveTimetable
+                ? "Fixed"
+                : "Active";
     const detailsSummary = [
         stateLabel,
         scheduleSummary ? scheduleLabel : null,
         task.priority > 0 ? `${PRIORITY_CONFIG[task.priority].label} priority` : null,
-    ].filter(Boolean).join(" · ");
+    ]
+        .filter(Boolean)
+        .join(" · ");
 
     // A Fixed block has no app to add; one that already has an app keeps the pane to open, change or remove it.
     const hasApp = Boolean(task.linkedAppId || task.linkedUrl);
-    const appPane = !isPassiveTimetable || hasApp ? (
-        <AppPane
-            value={task.linkedAppId}
-            url={task.linkedUrl}
-            title={task.title}
-            kind="task"
-            hint={isRecurringTask(task) ? "Used for every occurrence" : undefined}
-            open={activePanel === "app"}
-            onOpenChange={(open) => setActivePanel(open ? "app" : "notes")}
-            onChange={(patch) => updateTask.mutate({ id: getTaskSeriesId(task), ...patch })}
-        />
-    ) : null;
+    const appPane =
+        !isPassiveTimetable || hasApp ? (
+            <AppPane
+                value={task.linkedAppId}
+                url={task.linkedUrl}
+                title={task.title}
+                kind="task"
+                hint={isRecurringTask(task) ? "Used for every occurrence" : undefined}
+                open={activePanel === "app"}
+                onOpenChange={(open) => setActivePanel(open ? "app" : "notes")}
+                onChange={(patch) => updateTask.mutate({ id: getTaskSeriesId(task), ...patch })}
+            />
+        ) : null;
 
     return (
         <DetailPanelLayout
@@ -195,24 +233,29 @@ function TaskEditorBody({
             title={isPassiveTimetable ? "Fixed" : "Task"}
             leading={<TaskCheckbox task={task} compact />}
         >
-            <DetailTitle value={task.title} label="Task title" textareaRef={titleTextareaRef}
-                onSave={(title) => updateTask.mutate({ id: task.id, title })} />
+            <DetailTitle
+                value={task.title}
+                label="Task title"
+                textareaRef={titleTextareaRef}
+                onSave={(title) => updateTask.mutate({ id: task.id, title })}
+            />
 
             {/* An attached app is one tap from the title; an empty one waits quietly above Details. */}
             {hasApp ? appPane : null}
 
             {/* ── Notes pane ── */}
             {activePanel !== "notes" ? (
-                <PanelTrigger icon={StickyNote} title="Notes" summary={noteSummary} onOpen={() => setActivePanel("notes")} />
+                <PanelTrigger
+                    icon={StickyNote}
+                    title="Notes"
+                    summary={noteSummary}
+                    onOpen={() => setActivePanel("notes")}
+                />
             ) : null}
 
             <AnimatePresence initial={false}>
                 {activePanel === "notes" ? (
-                    <motion.div
-                        key="notes-panel"
-                        {...PANE_IN}
-                        className="flex shrink-0 flex-col gap-3"
-                    >
+                    <motion.div key="notes-panel" {...PANE_IN} className="flex shrink-0 flex-col gap-3">
                         <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
                             <TaskNoteInline taskId={task.id} onOpenRoom={isWide ? undefined : onClose} />
                         </Suspense>
@@ -224,7 +267,12 @@ function TaskEditorBody({
 
             {/* ── Details pane ── */}
             {activePanel !== "details" ? (
-                <PanelTrigger icon={SlidersHorizontal} title="Details" summary={detailsSummary} onOpen={() => setActivePanel("details")} />
+                <PanelTrigger
+                    icon={SlidersHorizontal}
+                    title="Details"
+                    summary={detailsSummary}
+                    onOpen={() => setActivePanel("details")}
+                />
             ) : null}
 
             <Reveal open={activePanel === "details"} className={`${CARD} flex flex-col`}>
@@ -233,7 +281,12 @@ function TaskEditorBody({
 
             {/* ── Subtasks pane ── */}
             {activePanel !== "subtasks" ? (
-                <PanelTrigger icon={ListChecks} title="Subtasks" summary={subtaskSummary} onOpen={() => setActivePanel("subtasks")} />
+                <PanelTrigger
+                    icon={ListChecks}
+                    title="Subtasks"
+                    summary={subtaskSummary}
+                    onOpen={() => setActivePanel("subtasks")}
+                />
             ) : null}
 
             <AnimatePresence initial={false}>
@@ -244,16 +297,26 @@ function TaskEditorBody({
                         className={`${CARD} flex min-h-64 flex-1 flex-col overflow-hidden px-4 py-3`}
                     >
                         <div className="mb-2">
-                            <PanelHeader title="Subtasks" summary={subtaskSummary} onDone={() => setActivePanel("notes")} />
+                            <PanelHeader
+                                title="Subtasks"
+                                summary={subtaskSummary}
+                                onDone={() => setActivePanel("notes")}
+                            />
                         </div>
                         <div className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thin">
-                            <SubtaskList taskId={task.id} focusAdd={stepsAsked} onFocused={() => consumeStepsAsk(task.id)} />
+                            <SubtaskList
+                                taskId={task.id}
+                                focusAdd={stepsAsked}
+                                onFocused={() => consumeStepsAsk(task.id)}
+                            />
                         </div>
                     </motion.div>
                 ) : null}
             </AnimatePresence>
 
-            <Button variant="ghost" size="none"
+            <Button
+                variant="ghost"
+                size="none"
                 type="button"
                 onClick={handleDelete}
                 disabled={archiveTask.isPending}
@@ -267,7 +330,9 @@ function TaskEditorBody({
                         {task.recurrenceRule ? "Move series to Trash" : "Move to Trash"}
                     </span>
                     <span className="block text-xs text-twilight-text-muted">
-                        {task.recurrenceRule ? "Removes every occurrence. Restore from Trash." : "You can restore this task from Trash."}
+                        {task.recurrenceRule
+                            ? "Removes every occurrence. Restore from Trash."
+                            : "You can restore this task from Trash."}
                     </span>
                 </span>
             </Button>
@@ -286,22 +351,31 @@ type TaskDetailsFieldsProps = { task: Task; onDone: () => void; onClose: () => v
 function TaskDetailsFields({ task, onDone, onClose }: TaskDetailsFieldsProps) {
     return (
         <>
-        <div className="px-4 pb-1 pt-3">
-            <PanelHeader title="Details" onDone={onDone} />
-        </div>
+            <div className="px-4 pb-1 pt-3">
+                <PanelHeader title="Details" onDone={onDone} />
+            </div>
 
-        <StatusGroup task={task} onClose={onClose} />
-        <WhenGroup task={task} />
-        <WeightGroup task={task} />
-        <OrganizeGroup task={task} />
+            <StatusGroup task={task} onClose={onClose} />
+            <WhenGroup task={task} />
+            <WeightGroup task={task} />
+            <OrganizeGroup task={task} />
         </>
     );
 }
 
 /** Notes and Subtasks panes rise in as they open. */
-const PANE_IN = { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -4 }, transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] } } as const;
+const PANE_IN = {
+    initial: { opacity: 0, y: 6 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -4 },
+    transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] },
+} as const;
 
-type WaitingFieldsProps = { task: Task; waitingOn: string; onWaitingOnChange: (e: React.ChangeEvent<HTMLInputElement>) => void };
+type WaitingFieldsProps = {
+    task: Task;
+    waitingOn: string;
+    onWaitingOnChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+};
 
 /** Who or what it waits on, and when to check again. */
 function WaitingFields({ task, waitingOn, onWaitingOnChange: handleWaitingOnChange }: WaitingFieldsProps) {
@@ -327,10 +401,14 @@ function WaitingFields({ task, waitingOn, onWaitingOnChange: handleWaitingOnChan
                         scheduledStart={task.waitingReminder ?? null}
                         recurrenceRule={null}
                         variant="moment"
-                        onChange={(updates) => updateTask.mutate({ id: task.id, waitingReminder: updates.scheduledStart })}
+                        onChange={(updates) =>
+                            updateTask.mutate({ id: task.id, waitingReminder: updates.scheduledStart })
+                        }
                     >
                         <button type="button" className={`${VALUE_BTN} -ml-2.5`}>
-                            {task.waitingReminder ? `Check again ${formatDateTime(task.waitingReminder)}` : "Set a check-in reminder"}
+                            {task.waitingReminder
+                                ? `Check again ${formatDateTime(task.waitingReminder)}`
+                                : "Set a check-in reminder"}
                         </button>
                     </DeadlinePickerPopover>
                 </div>
@@ -398,14 +476,18 @@ function StatusGroup({ task, onClose }: StatusGroupProps) {
                             Complete
                         </button>
                     ) : (
-                        <span className={`${CHIP_BASE} cursor-default border-moonlit/20 text-moonlit`}>
-                            Anchor
-                        </span>
+                        <span className={`${CHIP_BASE} cursor-default border-moonlit/20 text-moonlit`}>Anchor</span>
                     )}
                 </div>
             </FieldBlock>
 
-            {task.state === "COMPLETE" ? <TookRow taskId={task.id} completedAt={task.completedAt} enabled={settings?.assistant?.memoryMode === "full"} /> : null}
+            {task.state === "COMPLETE" ? (
+                <TookRow
+                    taskId={task.id}
+                    completedAt={task.completedAt}
+                    enabled={settings?.assistant?.memoryMode === "full"}
+                />
+            ) : null}
 
             <Reveal open={task.state === "WAITING"}>
                 <WaitingFields task={task} waitingOn={waitingOn} onWaitingOnChange={handleWaitingOnChange} />
@@ -416,7 +498,9 @@ function StatusGroup({ task, onClose }: StatusGroupProps) {
                     <RepeatKindPicker
                         value={getTaskRepeatKind(task)}
                         disabled={convertRepeat.isPending}
-                        fixedUnavailableReason={canToggleInteractionMode ? null : "Give it a start and end time to make it fixed."}
+                        fixedUnavailableReason={
+                            canToggleInteractionMode ? null : "Give it a start and end time to make it fixed."
+                        }
                         onChange={(kind) => {
                             if (kind === "routine") {
                                 void convertRepeat.taskToRoutine(task).then(onClose);
@@ -436,7 +520,11 @@ function StatusGroup({ task, onClose }: StatusGroupProps) {
 }
 
 /** "Series", "Duration", "Fixed time", "Time block" or "Deadline": what the When row edits. */
-function scheduleFieldLabelOf(task: Task, scheduleSummary: ReturnType<typeof getTaskScheduleSummary>, isPassiveTimetable: boolean) {
+function scheduleFieldLabelOf(
+    task: Task,
+    scheduleSummary: ReturnType<typeof getTaskScheduleSummary>,
+    isPassiveTimetable: boolean,
+) {
     if (isRecurringTask(task)) return "Series";
     if (scheduleSummary?.isDuration) return "Duration";
     if (scheduleSummary?.isTimed) return isPassiveTimetable ? "Fixed time" : "Time block";
@@ -477,9 +565,7 @@ function WhenGroup({ task }: { task: Task }) {
         <DetailGroup title="When">
             {isTimetableBlock ? (
                 <FieldRow icon={Calendar} label="Series">
-                    <span className="truncate px-2.5 text-right text-[13px] text-moonlit">
-                        {scheduleLabel}
-                    </span>
+                    <span className="truncate px-2.5 text-right text-[13px] text-moonlit">{scheduleLabel}</span>
                 </FieldRow>
             ) : (
                 <FieldRow icon={scheduleSummary?.isDuration ? CalendarRange : Calendar} label={scheduleFieldLabel}>
@@ -518,12 +604,15 @@ function WhenGroup({ task }: { task: Task }) {
                     <DatePicker
                         value={task.notBefore ?? null}
                         onChange={(date) => {
-                                                                            updateTask.mutate({ id: task.id, notBefore: date });
+                            updateTask.mutate({ id: task.id, notBefore: date });
                         }}
                         label="Hide until date"
                         clearLabel="Always show"
                     >
-                        <button type="button" className={`${VALUE_BTN} ${task.notBefore ? "" : "text-twilight-text-muted"}`}>
+                        <button
+                            type="button"
+                            className={`${VALUE_BTN} ${task.notBefore ? "" : "text-twilight-text-muted"}`}
+                        >
                             {task.notBefore ? formatShortDate(task.notBefore) : "Always shown"}
                         </button>
                     </DatePicker>
@@ -541,7 +630,10 @@ function WhenGroup({ task }: { task: Task }) {
                         recurrenceRule={null}
                         onChange={(updates) => setReminder(updates.scheduledStart)}
                     >
-                        <button type="button" className={`${VALUE_BTN} ${task.reminderAt ? "" : "text-twilight-text-muted"}`}>
+                        <button
+                            type="button"
+                            className={`${VALUE_BTN} ${task.reminderAt ? "" : "text-twilight-text-muted"}`}
+                        >
                             {task.reminderAt ? formatShortDateTime(task.reminderAt) : "None"}
                         </button>
                     </DeadlinePickerPopover>
@@ -557,7 +649,19 @@ function WhenGroup({ task }: { task: Task }) {
 }
 
 /** One option in a chip grid; `stacked` puts a small label under the icon. */
-function ChoiceChip({ item, kind, active, onClick, stacked = false }: { item: { label: string; icon: LucideIcon }; kind: string; active: boolean; onClick: () => void; stacked?: boolean }) {
+function ChoiceChip({
+    item,
+    kind,
+    active,
+    onClick,
+    stacked = false,
+}: {
+    item: { label: string; icon: LucideIcon };
+    kind: string;
+    active: boolean;
+    onClick: () => void;
+    stacked?: boolean;
+}) {
     const Icon = item.icon;
     return (
         <button
@@ -592,7 +696,14 @@ function WeightGroup({ task }: { task: Task }) {
             <FieldBlock icon={PRIORITY_ICON} label="Priority">
                 <div className="grid grid-cols-5 gap-1.5">
                     {PRIORITY_OPTIONS.map((item) => (
-                        <ChoiceChip key={item.value} item={item} kind="Priority" active={task.priority === item.value} onClick={() => handlePriorityChange(item.value)} stacked />
+                        <ChoiceChip
+                            key={item.value}
+                            item={item}
+                            kind="Priority"
+                            active={task.priority === item.value}
+                            onClick={() => handlePriorityChange(item.value)}
+                            stacked
+                        />
                     ))}
                 </div>
             </FieldBlock>
@@ -600,13 +711,24 @@ function WeightGroup({ task }: { task: Task }) {
             <FieldBlock icon={EFFORT_ICON} label="Effort">
                 <div className="grid grid-cols-3 gap-1.5">
                     {EFFORT_OPTIONS.map((item) => (
-                        <ChoiceChip key={item.value} item={item} kind="Effort" active={task.effort === item.value} onClick={() => handleEffortChange(item.value)} />
+                        <ChoiceChip
+                            key={item.value}
+                            item={item}
+                            kind="Effort"
+                            active={task.effort === item.value}
+                            onClick={() => handleEffortChange(item.value)}
+                        />
                     ))}
                 </div>
                 {guess && (
                     <EffortSuggestionRow
                         suggestion={{ kind: "level", level: guess.level, support: guess.support }}
-                        guess={{ why: guess.source === "model" ? "From the Effort you chose on tasks like this one." : undefined }}
+                        guess={{
+                            why:
+                                guess.source === "model"
+                                    ? "From the Effort you chose on tasks like this one."
+                                    : undefined,
+                        }}
                         onUse={(level) => updateTask.mutate({ id: task.id, effort: level, effortOrigin: "accepted" })}
                         onDismiss={() => updateTask.mutate({ id: task.id, effortGuessSource: "dismissed" })}
                     />
@@ -635,7 +757,10 @@ function OrganizeGroup({ task }: { task: Task }) {
                     label="List"
                     value={task.projectId ?? ""}
                     onChange={(id) => updateTask.mutate({ id: task.id, projectId: id || null, sectionId: null })}
-                    options={[{ value: "", label: "None" }, ...(projects ?? []).map((p) => ({ value: p.id, label: p.name }))]}
+                    options={[
+                        { value: "", label: "None" },
+                        ...(projects ?? []).map((p) => ({ value: p.id, label: p.name })),
+                    ]}
                 />
             </FieldRow>
 
@@ -645,7 +770,10 @@ function OrganizeGroup({ task }: { task: Task }) {
                         label="Section"
                         value={task.sectionId ?? ""}
                         onChange={(id) => updateTask.mutate({ id: task.id, sectionId: id || null })}
-                        options={[{ value: "", label: "Unsectioned" }, ...sections.map((x) => ({ value: x.id, label: x.name }))]}
+                        options={[
+                            { value: "", label: "Unsectioned" },
+                            ...sections.map((x) => ({ value: x.id, label: x.name })),
+                        ]}
                     />
                 </FieldRow>
             ) : null}

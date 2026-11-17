@@ -8,7 +8,10 @@ import { formatShortDate, formatTime } from "../utils/date-format";
 import { getUserZone } from "../utils/user-zone";
 
 /** A reminder switched on with no time of its own follows the deadline: a block's start, or the due day at "my morning". */
-export function deadlineReminderAt(task: Pick<Task, "scheduledStart" | "dueDate">, morningTime = "09:00"): string | null {
+export function deadlineReminderAt(
+    task: Pick<Task, "scheduledStart" | "dueDate">,
+    morningTime = "09:00",
+): string | null {
     return task.scheduledStart ?? (task.dueDate ? atLocal(task.dueDate, morningTime, getUserZone()) : null);
 }
 
@@ -18,12 +21,16 @@ export type DeferChoice = "10_minutes" | "this_evening" | "tomorrow";
 
 export const DEFER_LABELS: Record<DeferChoice, string> = {
     "10_minutes": "10 minutes",
-    "this_evening": "This evening",
-    "tomorrow": "Tomorrow",
+    this_evening: "This evening",
+    tomorrow: "Tomorrow",
 };
 
 /** The instant (ISO) a notification should resurface after deferral; "evening" and "tomorrow" are wall times in the user's zone. */
-export function computeDeferUntil(choice: DeferChoice, now: Date, times: { morningTime?: string; eveningTime?: string } = {}): string {
+export function computeDeferUntil(
+    choice: DeferChoice,
+    now: Date,
+    times: { morningTime?: string; eveningTime?: string } = {},
+): string {
     const { morningTime = "09:00", eveningTime = "19:00" } = times;
     const zone = getUserZone();
     const today = todayIn(zone, now);

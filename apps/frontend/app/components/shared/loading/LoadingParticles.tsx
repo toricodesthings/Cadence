@@ -12,9 +12,23 @@ type Tier = "far" | "mid" | "near";
 
 /** Reduced-motion stills: [viewport x %, viewport y %, rotation]. Near/mid stay outside the wordmark column. */
 const LEAF_POSES: Record<Tier, readonly (readonly [number, number, number])[]> = {
-    far: [[10, 40, 20], [26, 55, -30], [45, 18, 60], [58, 26, -15], [70, 48, 35], [92, 14, -50]],
-    mid: [[18, 22, 40], [88, 58, -20], [30, 78, 60]],
-    near: [[6, 64, 25], [78, 30, -35]],
+    far: [
+        [10, 40, 20],
+        [26, 55, -30],
+        [45, 18, 60],
+        [58, 26, -15],
+        [70, 48, 35],
+        [92, 14, -50],
+    ],
+    mid: [
+        [18, 22, 40],
+        [88, 58, -20],
+        [30, 78, 60],
+    ],
+    near: [
+        [6, 64, 25],
+        [78, 30, -35],
+    ],
 };
 
 const LEAVES = (() => {
@@ -24,11 +38,13 @@ const LEAVES = (() => {
         const tier: Tier = i < 10 ? "far" : i < 20 ? "mid" : "near";
         const idx = counters[tier]++;
         const pose = LEAF_POSES[tier][idx];
-        const dur = tier === "far" ? lerp(20, 28, rand()) : tier === "mid" ? lerp(13, 17, rand()) : lerp(7.5, 9, rand());
+        const dur =
+            tier === "far" ? lerp(20, 28, rand()) : tier === "mid" ? lerp(13, 17, rand()) : lerp(7.5, 9, rand());
         // Near leaves spawn only in viewport x 0–35% / 65–100% and drift right, clear of the wordmark column.
         const x = tier === "near" ? (idx === 0 ? 5 : 71) : 2 + rand() * 96;
         const phase = tier === "near" ? (idx === 0 ? 0.35 : 0.7) : rand();
-        const size = tier === "far" ? lerp(11, 16, rand()) : tier === "mid" ? lerp(16, 24, rand()) : idx === 0 ? 46 : 60;
+        const size =
+            tier === "far" ? lerp(11, 16, rand()) : tier === "mid" ? lerp(16, 24, rand()) : idx === 0 ? 46 : 60;
         const maple = rand() < 0.7;
         const tone = 1 + Math.floor(rand() * 3);
         const spin = lerp(180, 540, rand()) * (rand() < 0.5 ? -1 : 1);

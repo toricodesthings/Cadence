@@ -34,7 +34,8 @@ const LINK_CLASS =
 function textOf(node: ReactNode): string {
     if (typeof node === "string" || typeof node === "number") return String(node);
     if (Array.isArray(node)) return node.map(textOf).join("");
-    if (node && typeof node === "object" && "props" in node) return textOf((node.props as { children?: ReactNode }).children);
+    if (node && typeof node === "object" && "props" in node)
+        return textOf((node.props as { children?: ReactNode }).children);
     return "";
 }
 
@@ -125,16 +126,36 @@ const components: Components = {
         </blockquote>
     ),
 
-    ul: ({ children }) => <ul className="my-1 ml-1 list-disc space-y-0.5 pl-4 marker:text-twilight-text-muted">{children}</ul>,
-    ol: ({ children }) => <ol className="my-1 ml-1 list-decimal space-y-0.5 pl-4 marker:text-twilight-text-muted">{children}</ol>,
+    ul: ({ children }) => (
+        <ul className="my-1 ml-1 list-disc space-y-0.5 pl-4 marker:text-twilight-text-muted">{children}</ul>
+    ),
+    ol: ({ children }) => (
+        <ol className="my-1 ml-1 list-decimal space-y-0.5 pl-4 marker:text-twilight-text-muted">{children}</ol>
+    ),
     li: ({ children }) => <li className="pl-0.5">{children}</li>,
 
     // Headings — sized down sensibly so they read as emphasis inside a chat
     // bubble rather than page headings.
-    h1: ({ children }) => <h1 className="mt-1.5 mb-0.5 font-display text-[15px] font-semibold text-twilight-text first:mt-0">{children}</h1>,
-    h2: ({ children }) => <h2 className="mt-1.5 mb-0.5 font-display text-[14.5px] font-semibold text-twilight-text first:mt-0">{children}</h2>,
-    h3: ({ children }) => <h3 className="mt-1.5 mb-0.5 font-display text-[14px] font-semibold text-twilight-text first:mt-0">{children}</h3>,
-    h4: ({ children }) => <h4 className="mt-1 mb-0.5 font-display text-[13.5px] font-semibold text-twilight-text-soft first:mt-0">{children}</h4>,
+    h1: ({ children }) => (
+        <h1 className="mt-1.5 mb-0.5 font-display text-[15px] font-semibold text-twilight-text first:mt-0">
+            {children}
+        </h1>
+    ),
+    h2: ({ children }) => (
+        <h2 className="mt-1.5 mb-0.5 font-display text-[14.5px] font-semibold text-twilight-text first:mt-0">
+            {children}
+        </h2>
+    ),
+    h3: ({ children }) => (
+        <h3 className="mt-1.5 mb-0.5 font-display text-[14px] font-semibold text-twilight-text first:mt-0">
+            {children}
+        </h3>
+    ),
+    h4: ({ children }) => (
+        <h4 className="mt-1 mb-0.5 font-display text-[13.5px] font-semibold text-twilight-text-soft first:mt-0">
+            {children}
+        </h4>
+    ),
 
     hr: () => <hr className="my-2 border-twilight-border" />,
 
@@ -148,7 +169,9 @@ const components: Components = {
             {children}
         </th>
     ),
-    td: ({ children }) => <td className="border-b border-twilight-border/60 px-2.5 py-1.5 text-twilight-text-soft">{children}</td>,
+    td: ({ children }) => (
+        <td className="border-b border-twilight-border/60 px-2.5 py-1.5 text-twilight-text-soft">{children}</td>
+    ),
 };
 
 function MarkdownImpl({ children }: { children: string }) {

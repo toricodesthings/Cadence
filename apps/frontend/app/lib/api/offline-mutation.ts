@@ -11,25 +11,32 @@ function afterPreviousWrites<T>(ids: string[], write: () => Promise<T>): Promise
     const previous = Promise.all(ids.map((id) => lastWriteById.get(id)?.catch(() => undefined)));
     const next = previous.then(write);
     for (const id of ids) lastWriteById.set(id, next);
-    void next.catch(() => undefined).finally(() => {
-        for (const id of ids) if (lastWriteById.get(id) === next) lastWriteById.delete(id);
-    });
+    void next
+        .catch(() => undefined)
+        .finally(() => {
+            for (const id of ids) if (lastWriteById.get(id) === next) lastWriteById.delete(id);
+        });
     return next;
 }
 
 /** Queued changes must land first, or this one could reach the server out of order. */
 function mustQueue(op: MutationOp): boolean {
     const ids = new Set(walTargetIds(op));
-    return getWalSnapshot().some((e) =>
-        e.status !== "failed" || walTargetIds(e.op).some((id) => ids.has(id)));
+    return getWalSnapshot().some((e) => e.status !== "failed" || walTargetIds(e.op).some((id) => ids.has(id)));
 }
 
 /** Chromium only (Android): lets the service worker replay after the app is closed. */
 function registerBackgroundSync() {
-    void navigator.serviceWorker?.getRegistration().then((registration) =>
-        (registration as (ServiceWorkerRegistration & { sync?: { register(tag: string): Promise<void> } }) | undefined)
-            ?.sync?.register("cadence-wal"),
-    ).catch(() => {});
+    void navigator.serviceWorker
+        ?.getRegistration()
+        .then((registration) =>
+            (
+                registration as
+                    | (ServiceWorkerRegistration & { sync?: { register(tag: string): Promise<void> } })
+                    | undefined
+            )?.sync?.register("cadence-wal"),
+        )
+        .catch(() => {});
 }
 
 async function enqueue(op: MutationOp) {

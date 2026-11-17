@@ -7,7 +7,13 @@ vi.mock("sonner", () => ({ toast: toastMock }));
 
 import { DurationChips } from "../../../app/components/assistant/DurationChips";
 
-const view = (low: number, high = low): DurationReportView => ({ taskId: "t1", completedAt: "2026-10-12T20:00:00.000Z", lowMinutes: low, highMinutes: high, anchored: false });
+const view = (low: number, high = low): DurationReportView => ({
+    taskId: "t1",
+    completedAt: "2026-10-12T20:00:00.000Z",
+    lowMinutes: low,
+    highMinutes: high,
+    anchored: false,
+});
 const deferred = <T,>() => {
     let resolve!: (v: T) => void;
     let reject!: (e: unknown) => void;

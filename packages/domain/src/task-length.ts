@@ -13,7 +13,9 @@ export function taskMinutes(
     guess?: Pick<DurationGuess, "state" | "minutes"> | null,
 ): number {
     if (task.scheduledStart && task.scheduledEnd) {
-        const block = Math.round((new Date(task.scheduledEnd).getTime() - new Date(task.scheduledStart).getTime()) / 60_000);
+        const block = Math.round(
+            (new Date(task.scheduledEnd).getTime() - new Date(task.scheduledStart).getTime()) / 60_000,
+        );
         if (block > 0) return block;
     }
     if (task.durationEstimate) return task.durationEstimate;

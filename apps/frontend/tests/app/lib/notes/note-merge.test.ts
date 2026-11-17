@@ -13,7 +13,10 @@ describe("mergeNotes", () => {
     it("combines edits to separate paragraphs once, leaving the rest alone", () => {
         const local = base.replace("first", "first, edited here");
         const remote = base.replace("third", "third, edited there");
-        expect(mergeNotes(base, local, remote)).toEqual({ ok: true, body: "# Plan\n\nfirst, edited here\n\nsecond\n\nthird, edited there" });
+        expect(mergeNotes(base, local, remote)).toEqual({
+            ok: true,
+            body: "# Plan\n\nfirst, edited here\n\nsecond\n\nthird, edited there",
+        });
     });
 
     it("keeps a repeated paragraph a person typed on purpose", () => {
@@ -25,17 +28,24 @@ describe("mergeNotes", () => {
     it("refuses overlapping edits, delete-versus-edit, and competing insertions", () => {
         expect(mergeNotes(base, base.replace("second", "A"), base.replace("second", "B")).ok).toBe(false);
         expect(mergeNotes(base, base.replace("\n\nsecond", ""), base.replace("second", "B")).ok).toBe(false);
-        expect(mergeNotes(base, base.replace("first\n", "first\nA\n"), base.replace("first\n", "first\nB\n")).ok).toBe(false);
+        expect(mergeNotes(base, base.replace("first\n", "first\nA\n"), base.replace("first\n", "first\nB\n")).ok).toBe(
+            false,
+        );
     });
 
     it("accepts the identical change made on both sides", () => {
         const both = base.replace("second", "same");
-        expect(mergeNotes(base, both.replace("third", "T"), both)).toEqual({ ok: true, body: both.replace("third", "T") });
+        expect(mergeNotes(base, both.replace("third", "T"), both)).toEqual({
+            ok: true,
+            body: both.replace("third", "T"),
+        });
     });
 
     it("won't produce an unbalanced code fence", () => {
         const withCode = "intro\n\n```\ncode\n```\n\nend";
-        expect(mergeNotes(withCode, withCode.replace("intro", "```\nintro"), withCode.replace("end", "fin")).ok).toBe(false);
+        expect(mergeNotes(withCode, withCode.replace("intro", "```\nintro"), withCode.replace("end", "fin")).ok).toBe(
+            false,
+        );
     });
 
     it("treats a huge rewrite against an edit as a conflict to review", () => {

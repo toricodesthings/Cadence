@@ -85,19 +85,20 @@ export function SectionedTaskList({
     const ungroupedKey = `ungrouped:${projectId ?? "none"}`;
     const ungroupedFolded = collapsedSections.has(ungroupedKey);
 
-    const toggleCollapse = useCallback((sectionId: string) => {
-        const next = new Set(collapsedSections);
-        if (next.has(sectionId)) next.delete(sectionId);
-        else next.add(sectionId);
-        setFoldedRaw(next.size ? JSON.stringify([...next]) : null);
-    }, [collapsedSections, setFoldedRaw]);
+    const toggleCollapse = useCallback(
+        (sectionId: string) => {
+            const next = new Set(collapsedSections);
+            if (next.has(sectionId)) next.delete(sectionId);
+            else next.add(sectionId);
+            setFoldedRaw(next.size ? JSON.stringify([...next]) : null);
+        },
+        [collapsedSections, setFoldedRaw],
+    );
 
     const { ungroupedTasks, sectionTaskMap } = useMemo(() => groupTasksBySection(tasks), [tasks]);
 
     const handleCreateSection = (name: string) => {
-        const nextOrder = sections.length > 0
-            ? Math.max(...sections.map((s) => s.orderIndex)) + 1
-            : 1;
+        const nextOrder = sections.length > 0 ? Math.max(...sections.map((s) => s.orderIndex)) + 1 : 1;
         createSection.mutate({ name, orderIndex: nextOrder });
     };
 
@@ -113,7 +114,10 @@ export function SectionedTaskList({
     const draggable = !manageInSheet;
     const onSectionDragEnd = ({ active, over }: DragEndEvent) => {
         if (!over || active.id === over.id) return;
-        reorder.moveTo(String(active.data.current?.sectionId), sections.findIndex((s) => `section:${s.id}` === over.id));
+        reorder.moveTo(
+            String(active.data.current?.sectionId),
+            sections.findIndex((s) => `section:${s.id}` === over.id),
+        );
     };
 
     if (!hasCustomSections) {
@@ -142,141 +146,170 @@ export function SectionedTaskList({
     const lineClass = shell.isCompact
         ? "h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent"
         : "flex-1 h-px bg-gradient-to-r from-twilight-border/20 to-transparent";
-    const sectionIcon = shell.isCompact ? <Columns3 size={14} aria-hidden="true" className="shrink-0 text-twilight-text-soft" /> : null;
+    const sectionIcon = shell.isCompact ? (
+        <Columns3 size={14} aria-hidden="true" className="shrink-0 text-twilight-text-soft" />
+    ) : null;
     const inlineAddClass = shell.isCompact ? "mt-3" : "mt-2";
     const Block = draggable ? SortableSection : PlainSection;
-    const wrapSections = (blocks: React.ReactNode) => draggable ? (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionDragEnd}>
-            <SortableContext items={sections.map((s) => `section:${s.id}`)} strategy={verticalListSortingStrategy}>{blocks}</SortableContext>
-        </DndContext>
-    ) : blocks;
+    const wrapSections = (blocks: React.ReactNode) =>
+        draggable ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionDragEnd}>
+                <SortableContext items={sections.map((s) => `section:${s.id}`)} strategy={verticalListSortingStrategy}>
+                    {blocks}
+                </SortableContext>
+            </DndContext>
+        ) : (
+            blocks
+        );
 
     return (
         <div className={`flex flex-col gap-3 ${shell.isCompact ? "pb-2" : "gap-1"}`}>
             {/* Unsectioned tasks (no section) */}
             {(ungroupedTasks.length > 0 || hasCustomSections) && (
                 <Reveal open={!(hideEmptySections && ungroupedTasks.length === 0)}>
-                <div className={shell.isCompact ? sectionSurfaceClass : "mt-4"}>
-                    <div className="flex items-center gap-2 group">
-                        <Tip label={ungroupedFolded ? "Expand" : "Collapse"}><button
-                            type="button"
-                            onClick={() => toggleCollapse(ungroupedKey)}
-                            className="flex min-w-0 items-center gap-2 py-1.5 text-left cursor-pointer"
-                            aria-expanded={!ungroupedFolded}
-                        >
-                            <ChevronRight size={14} aria-hidden="true" className={`shrink-0 text-twilight-text-soft transition-transform duration-200 motion-reduce:transition-none ${ungroupedFolded ? "" : "rotate-90"}`} />
-                            {sectionIcon}
-                            <span className={titleClass}>
-                                Unsectioned
-                            </span>
-                            <span className="text-[12px] text-twilight-text-soft/90 tabular-nums">
-                                {ungroupedTasks.length}
-                            </span>
-                        </button></Tip>
+                    <div className={shell.isCompact ? sectionSurfaceClass : "mt-4"}>
+                        <div className="flex items-center gap-2 group">
+                            <Tip label={ungroupedFolded ? "Expand" : "Collapse"}>
+                                <button
+                                    type="button"
+                                    onClick={() => toggleCollapse(ungroupedKey)}
+                                    className="flex min-w-0 items-center gap-2 py-1.5 text-left cursor-pointer"
+                                    aria-expanded={!ungroupedFolded}
+                                >
+                                    <ChevronRight
+                                        size={14}
+                                        aria-hidden="true"
+                                        className={`shrink-0 text-twilight-text-soft transition-transform duration-200 motion-reduce:transition-none ${ungroupedFolded ? "" : "rotate-90"}`}
+                                    />
+                                    {sectionIcon}
+                                    <span className={titleClass}>Unsectioned</span>
+                                    <span className="text-[12px] text-twilight-text-soft/90 tabular-nums">
+                                        {ungroupedTasks.length}
+                                    </span>
+                                </button>
+                            </Tip>
 
-                        <div className={lineClass} />
-                    </div>
-                    <Reveal open={!ungroupedFolded}>
-                    <TaskList
-                        className="mt-4"
-                        tasks={ungroupedTasks}
-                        selectedTaskId={selectedTaskId}
-                        onSelectTask={onSelectTask}
-                        rationaleByTaskId={rationaleByTaskId}
-                    />
-                    {showUngroupedAddTask && inlineAdd ? (
-                        <div className={inlineAddClass}>
-                            <AddTaskInput
-                                projectId={projectId ?? undefined}
-                                tasks={ungroupedTasks}
-                                compact
-                                placeholder="Add unsectioned task..."
-                            />
+                            <div className={lineClass} />
                         </div>
-                    ) : null}
-                    </Reveal>
-                </div>
+                        <Reveal open={!ungroupedFolded}>
+                            <TaskList
+                                className="mt-4"
+                                tasks={ungroupedTasks}
+                                selectedTaskId={selectedTaskId}
+                                onSelectTask={onSelectTask}
+                                rationaleByTaskId={rationaleByTaskId}
+                            />
+                            {showUngroupedAddTask && inlineAdd ? (
+                                <div className={inlineAddClass}>
+                                    <AddTaskInput
+                                        projectId={projectId ?? undefined}
+                                        tasks={ungroupedTasks}
+                                        compact
+                                        placeholder="Add unsectioned task..."
+                                    />
+                                </div>
+                            ) : null}
+                        </Reveal>
+                    </div>
                 </Reveal>
             )}
 
             {/* User-defined sections */}
-            {wrapSections(sections.map((section, index) => {
-                const sectionTasks = sectionTaskMap.get(section.id) ?? [];
-                const isCollapsed = collapsedSections.has(section.id);
-                const isEditing = editingSection === section.id;
+            {wrapSections(
+                sections.map((section, index) => {
+                    const sectionTasks = sectionTaskMap.get(section.id) ?? [];
+                    const isCollapsed = collapsedSections.has(section.id);
+                    const isEditing = editingSection === section.id;
 
-                return (
-                    <Reveal key={section.id} open={!(hideEmptySections && sectionTasks.length === 0)}>
-                    <Block id={section.id} name={section.name} className={shell.isCompact ? sectionSurfaceClass : "mt-4"}>
-                      {(grip) => (<>
-                        {/* Section header */}
-                        <div className="flex items-center gap-2 group">
-                            {grip ? <span className="-ml-2 -mr-0.5 flex">{grip}</span> : null}
-                            <Tip label={isCollapsed ? "Expand" : "Collapse"}><button
-                                type="button"
-                                onClick={() => toggleCollapse(section.id)}
-                                className="flex min-w-0 items-center gap-2 py-1.5 text-left cursor-pointer"
-                                aria-expanded={!isCollapsed}
+                    return (
+                        <Reveal key={section.id} open={!(hideEmptySections && sectionTasks.length === 0)}>
+                            <Block
+                                id={section.id}
+                                name={section.name}
+                                className={shell.isCompact ? sectionSurfaceClass : "mt-4"}
                             >
-                                <ChevronRight size={14} aria-hidden="true" className={`shrink-0 text-twilight-text-soft transition-transform duration-200 motion-reduce:transition-none ${isCollapsed ? "" : "rotate-90"}`} />
-                                {sectionIcon}
-                                {isEditing ? (
-                                    <input
-                                        autoFocus
-                                        defaultValue={section.name}
-                                        className="bg-transparent text-[12px] font-display font-medium uppercase tracking-wider text-twilight-text outline-none border-b border-accent-primary/30 px-1 -mx-1"
-                                        onBlur={(e) => handleRenameSection(section, e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") handleRenameSection(section, (e.target as HTMLInputElement).value);
-                                            if (e.key === "Escape") setEditingSection(null);
-                                        }}
-                                        onClick={(e) => e.stopPropagation()}
-                                    />
-                                ) : (
-                                    <span className={titleClass}>
-                                        {section.name}
-                                    </span>
+                                {(grip) => (
+                                    <>
+                                        {/* Section header */}
+                                        <div className="flex items-center gap-2 group">
+                                            {grip ? <span className="-ml-2 -mr-0.5 flex">{grip}</span> : null}
+                                            <Tip label={isCollapsed ? "Expand" : "Collapse"}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleCollapse(section.id)}
+                                                    className="flex min-w-0 items-center gap-2 py-1.5 text-left cursor-pointer"
+                                                    aria-expanded={!isCollapsed}
+                                                >
+                                                    <ChevronRight
+                                                        size={14}
+                                                        aria-hidden="true"
+                                                        className={`shrink-0 text-twilight-text-soft transition-transform duration-200 motion-reduce:transition-none ${isCollapsed ? "" : "rotate-90"}`}
+                                                    />
+                                                    {sectionIcon}
+                                                    {isEditing ? (
+                                                        <input
+                                                            autoFocus
+                                                            defaultValue={section.name}
+                                                            className="bg-transparent text-[12px] font-display font-medium uppercase tracking-wider text-twilight-text outline-none border-b border-accent-primary/30 px-1 -mx-1"
+                                                            onBlur={(e) => handleRenameSection(section, e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === "Enter")
+                                                                    handleRenameSection(
+                                                                        section,
+                                                                        (e.target as HTMLInputElement).value,
+                                                                    );
+                                                                if (e.key === "Escape") setEditingSection(null);
+                                                            }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    ) : (
+                                                        <span className={titleClass}>{section.name}</span>
+                                                    )}
+                                                    <span className="text-[12px] text-twilight-text-soft/90 tabular-nums">
+                                                        {sectionTasks.length}
+                                                    </span>
+                                                </button>
+                                            </Tip>
+
+                                            <div className={lineClass} />
+
+                                            {/* Section context menu */}
+                                            <SectionMenu
+                                                section={section}
+                                                compact={shell.isCompact}
+                                                onManage={manageInSheet || undefined}
+                                                onRename={() => setEditingSection(section.id)}
+                                                onDelete={() =>
+                                                    deleteSection.mutate({ id: section.id, name: section.name })
+                                                }
+                                                onMove={(by) => reorder.move(section.id, by)}
+                                                first={index === 0}
+                                                last={index === sections.length - 1}
+                                            />
+                                        </div>
+
+                                        {/* Section tasks */}
+                                        <AnimatePresence initial={false}>
+                                            {!isCollapsed && (
+                                                <SectionTasks
+                                                    section={section}
+                                                    tasks={sectionTasks}
+                                                    projectId={projectId}
+                                                    inlineAdd={inlineAdd}
+                                                    inlineAddClass={inlineAddClass}
+                                                    selectedTaskId={selectedTaskId}
+                                                    onSelectTask={onSelectTask}
+                                                    rationaleByTaskId={rationaleByTaskId}
+                                                />
+                                            )}
+                                        </AnimatePresence>
+                                    </>
                                 )}
-                                <span className="text-[12px] text-twilight-text-soft/90 tabular-nums">
-                                    {sectionTasks.length}
-                                </span>
-                            </button></Tip>
-
-                            <div className={lineClass} />
-
-                            {/* Section context menu */}
-                            <SectionMenu
-                                section={section}
-                                compact={shell.isCompact}
-                                onManage={manageInSheet || undefined}
-                                onRename={() => setEditingSection(section.id)}
-                                onDelete={() => deleteSection.mutate({ id: section.id, name: section.name })}
-                                onMove={(by) => reorder.move(section.id, by)}
-                                first={index === 0}
-                                last={index === sections.length - 1}
-                            />
-                        </div>
-
-                        {/* Section tasks */}
-                        <AnimatePresence initial={false}>
-                            {!isCollapsed && (
-                                <SectionTasks
-                                    section={section}
-                                    tasks={sectionTasks}
-                                    projectId={projectId}
-                                    inlineAdd={inlineAdd}
-                                    inlineAddClass={inlineAddClass}
-                                    selectedTaskId={selectedTaskId}
-                                    onSelectTask={onSelectTask}
-                                    rationaleByTaskId={rationaleByTaskId}
-                                />
-                            )}
-                        </AnimatePresence>
-                      </>)}
-                    </Block>
-                    </Reveal>
-                );
-            }))}
+                            </Block>
+                        </Reveal>
+                    );
+                }),
+            )}
 
             {/* Add section button */}
             {inlineAdd && <AddSectionControl onCreate={handleCreateSection} />}
@@ -288,7 +321,15 @@ export function SectionedTaskList({
 }
 
 /** A section's block where it can't be dragged (compact): the same shape, no grip. */
-function PlainSection({ className, children }: { id: string; name: string; className?: string; children: (grip: React.ReactNode) => React.ReactNode }) {
+function PlainSection({
+    className,
+    children,
+}: {
+    id: string;
+    name: string;
+    className?: string;
+    children: (grip: React.ReactNode) => React.ReactNode;
+}) {
     return <div className={className}>{children(null)}</div>;
 }
 
@@ -320,7 +361,9 @@ function SectionMenu({ section, compact, onManage, onRename, onDelete, onMove, f
         );
     }
     return (
-        <div className={`ml-auto shrink-0 ${compact ? "opacity-100" : "opacity-0 transition-opacity group-hover:opacity-100"}`}>
+        <div
+            className={`ml-auto shrink-0 ${compact ? "opacity-100" : "opacity-0 transition-opacity group-hover:opacity-100"}`}
+        >
             <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                     <Button
@@ -346,10 +389,7 @@ function SectionMenu({ section, compact, onManage, onRename, onDelete, onMove, f
                         Move down
                     </DropdownMenu.Item>
                     <DropdownMenu.Separator />
-                    <DropdownMenu.Item
-                        onClick={onDelete}
-                        className="text-red-400 focus:text-red-400"
-                    >
+                    <DropdownMenu.Item onClick={onDelete} className="text-red-400 focus:text-red-400">
                         <Trash2 size={14} />
                         Delete section
                     </DropdownMenu.Item>
@@ -368,7 +408,16 @@ type SectionTasksProps = Pick<SectionedTaskListProps, "selectedTaskId" | "onSele
 };
 
 /** An open section's tasks (or its empty line) and, on wide screens, its add field. */
-function SectionTasks({ section, tasks, projectId, inlineAdd, inlineAddClass, selectedTaskId, onSelectTask, rationaleByTaskId }: SectionTasksProps) {
+function SectionTasks({
+    section,
+    tasks,
+    projectId,
+    inlineAdd,
+    inlineAddClass,
+    selectedTaskId,
+    onSelectTask,
+    rationaleByTaskId,
+}: SectionTasksProps) {
     return (
         <motion.div
             initial={{ height: 0, opacity: 0 }}
@@ -388,15 +437,17 @@ function SectionTasks({ section, tasks, projectId, inlineAdd, inlineAddClass, se
             ) : (
                 <EmptyState title="Nothing in this section yet." description={null} compact />
             )}
-            {inlineAdd && <div className={inlineAddClass}>
-                <AddTaskInput
-                    projectId={projectId ?? undefined}
-                    sectionId={section.id}
-                    tasks={tasks}
-                    compact
-                    placeholder={`Add task to ${section.name}...`}
-                />
-            </div>}
+            {inlineAdd && (
+                <div className={inlineAddClass}>
+                    <AddTaskInput
+                        projectId={projectId ?? undefined}
+                        sectionId={section.id}
+                        tasks={tasks}
+                        compact
+                        placeholder={`Add task to ${section.name}...`}
+                    />
+                </div>
+            )}
         </motion.div>
     );
 }

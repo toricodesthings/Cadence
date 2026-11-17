@@ -87,15 +87,17 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
             const opts = optionsRef.current;
             const target = e.target as HTMLElement;
             const inInput =
-                target instanceof HTMLInputElement ||
-                target instanceof HTMLTextAreaElement ||
-                target.isContentEditable;
+                target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable;
 
             // Mid-composition keys belong to the input method.
             if (e.isComposing) return;
 
             // Command palette — always active even in inputs, except the note editor, which owns ⌘/Ctrl+K for links.
-            if (shortcutsEnabled && matchesBinding(e, bindings.commandPalette) && !target.closest?.("[data-note-editor]")) {
+            if (
+                shortcutsEnabled &&
+                matchesBinding(e, bindings.commandPalette) &&
+                !target.closest?.("[data-note-editor]")
+            ) {
                 e.preventDefault();
                 trackUsageEvent("shortcut.used", { input_method: "keyboard", outcome: "command_palette" });
                 opts.onCommandPalette?.();
@@ -169,7 +171,9 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
             if (e.key.toLowerCase() === "g" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
                 e.preventDefault();
                 goPending.current = true;
-                goTimeout.current = setTimeout(() => { goPending.current = false; }, 800);
+                goTimeout.current = setTimeout(() => {
+                    goPending.current = false;
+                }, 800);
                 return;
             }
 

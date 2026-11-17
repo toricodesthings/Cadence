@@ -121,9 +121,20 @@ export class NoteSession {
     constructor(private deps: SessionDeps) {
         this.branch = (deps.newId ?? (() => crypto.randomUUID()))();
         this.state = {
-            loaded: false, loadFailed: false, body: "", baseBody: "", baseVersion: 0,
-            gen: 0, ackedGen: 0, durableGen: 0, journalFailed: false,
-            sending: false, queued: false, problem: null, conflict: null, recovery: null,
+            loaded: false,
+            loadFailed: false,
+            body: "",
+            baseBody: "",
+            baseVersion: 0,
+            gen: 0,
+            ackedGen: 0,
+            durableGen: 0,
+            journalFailed: false,
+            sending: false,
+            queued: false,
+            problem: null,
+            conflict: null,
+            recovery: null,
             online: deps.isOnline(),
         };
     }
@@ -199,7 +210,14 @@ export class NoteSession {
         }
 
         const body = note?.body ?? this.deps.legacySeed?.() ?? "";
-        this.state = { ...this.state, loaded: true, loadFailed: false, body, baseBody: note?.body ?? "", baseVersion: note?.version ?? 0 };
+        this.state = {
+            ...this.state,
+            loaded: true,
+            loadFailed: false,
+            body,
+            baseBody: note?.body ?? "",
+            baseVersion: note?.version ?? 0,
+        };
         await this.recoverEarlierDrafts();
         this.unsubscribeWal = this.deps.subscribeWal(() => void this.onWalChange());
         this.set({});
@@ -223,7 +241,17 @@ export class NoteSession {
             }
             if (await this.deps.branchAlive(record.branch)) continue;
             // A draft already in the offline queue is the queue's to deliver.
-            if (this.deps.walEntries().some((e) => e.op.type === "upsert_note" && e.op.taskId === this.deps.ownerId && e.op.payload.branch === record.branch)) continue;
+            if (
+                this.deps
+                    .walEntries()
+                    .some(
+                        (e) =>
+                            e.op.type === "upsert_note" &&
+                            e.op.taskId === this.deps.ownerId &&
+                            e.op.payload.branch === record.branch,
+                    )
+            )
+                continue;
             if (record.body !== this.state.body || record.baseVersion !== this.state.baseVersion) {
                 this.adoptDraft(record);
                 // On the device under this branch first: the closed tab's copy is about to go.
@@ -237,16 +265,22 @@ export class NoteSession {
     private adoptDraft(record: DraftRecord) {
         const s = this.state;
         if (record.body === s.body) return;
-        const outcome = s.gen === s.ackedGen
-            ? reconcileNote(record.baseBody, record.body, s.body)
-            : reconcileNote(s.baseBody, s.body, record.body);
+        const outcome =
+            s.gen === s.ackedGen
+                ? reconcileNote(record.baseBody, record.body, s.body)
+                : reconcileNote(s.baseBody, s.body, record.body);
         if (record.baseVersion === s.baseVersion && s.gen === s.ackedGen) {
             // Nothing newer on the server: the draft simply continues.
             this.state = { ...this.state, body: record.body, gen: s.gen + 1 };
         } else if (outcome.kind === "merged") {
             this.state = { ...this.state, body: outcome.body, gen: s.gen + 1 };
         } else if (outcome.kind === "conflict") {
-            this.state = { ...this.state, conflict: { remote: s.body, remoteVersion: s.baseVersion }, body: record.body, gen: s.gen + 1 };
+            this.state = {
+                ...this.state,
+                conflict: { remote: s.body, remoteVersion: s.baseVersion },
+                body: record.body,
+                gen: s.gen + 1,
+            };
         }
     }
 
@@ -256,7 +290,11 @@ export class NoteSession {
     edit(body: string, view?: string) {
         if (!this.state.loaded || body === this.state.body) return;
         if (!this.firstDirtyAt) this.firstDirtyAt = Date.now();
-        this.set({ body, gen: this.state.gen + 1, problem: this.state.problem === "network" ? null : this.state.problem });
+        this.set({
+            body,
+            gen: this.state.gen + 1,
+            problem: this.state.problem === "network" ? null : this.state.problem,
+        });
         this.tellViews(body, view);
         this.scheduleJournal();
         this.scheduleSave();
@@ -279,7 +317,15 @@ export class NoteSession {
                     if (gen === this.state.ackedGen) {
                         await this.deps.journal.remove(this.deps.userId, this.deps.ownerId, this.branch);
                     } else {
-                        await this.deps.journal.put(this.deps.userId, this.deps.ownerId, { branch: this.branch, baseBody, baseVersion, body, gen, updatedAt: Date.now(), kind: "draft" });
+                        await this.deps.journal.put(this.deps.userId, this.deps.ownerId, {
+                            branch: this.branch,
+                            baseBody,
+                            baseVersion,
+                            body,
+                            gen,
+                            updatedAt: Date.now(),
+                            kind: "draft",
+                        });
                     }
                     this.set({ durableGen: gen, journalFailed: false });
                     if (this.state.gen === gen) break;
@@ -373,7 +419,14 @@ export class NoteSession {
     private acknowledge(note: TaskNote, gen: number) {
         this.retries = 0;
         this.deps.publish((old) => ({ ...(old ?? note), ...note }));
-        this.set({ sending: false, queued: false, problem: null, baseBody: note.body, baseVersion: note.version, ackedGen: Math.max(this.state.ackedGen, gen) });
+        this.set({
+            sending: false,
+            queued: false,
+            problem: null,
+            baseBody: note.body,
+            baseVersion: note.version,
+            ackedGen: Math.max(this.state.ackedGen, gen),
+        });
         if (this.state.gen === this.state.ackedGen) {
             this.firstDirtyAt = 0;
             this.scheduleJournal();
@@ -387,7 +440,10 @@ export class NoteSession {
             if (error.isAuthError) return this.fail("auth");
             if (error.status === 404) return this.fail("deleted");
             if (error.status === 400 || error.status === 422) return this.fail("invalid");
-            return this.retryLater(error.retryAfterSeconds, error.isRetryable || error.status >= 500 || error.isRateLimited ? "server" : "invalid");
+            return this.retryLater(
+                error.retryAfterSeconds,
+                error.isRetryable || error.status >= 500 || error.isRateLimited ? "server" : "invalid",
+            );
         }
         return this.retryLater(undefined, isNetworkFailure(error) ? "network" : "server");
     }
@@ -400,7 +456,10 @@ export class NoteSession {
     private retryLater(retryAfterSeconds: number | undefined, problem: NoteProblem) {
         if (problem === "invalid") return this.fail(problem);
         this.set({ problem });
-        const delay = Math.max((retryAfterSeconds ?? 0) * 1000, RETRY_MS[Math.min(this.retries++, RETRY_MS.length - 1)]);
+        const delay = Math.max(
+            (retryAfterSeconds ?? 0) * 1000,
+            RETRY_MS[Math.min(this.retries++, RETRY_MS.length - 1)],
+        );
         clearTimeout(this.retryTimer);
         this.retryTimer = setTimeout(() => void this.drive(), delay);
         return false;
@@ -427,7 +486,13 @@ export class NoteSession {
             return false;
         }
         if (outcome.kind === "merged" && outcome.body.length <= NOTE_MAX_CHARS) {
-            this.set({ body: outcome.body, gen: s.gen + 1, baseBody: remoteBody, baseVersion: remoteVersion, problem: null });
+            this.set({
+                body: outcome.body,
+                gen: s.gen + 1,
+                baseBody: remoteBody,
+                baseVersion: remoteVersion,
+                problem: null,
+            });
             this.tellViews(outcome.body);
             this.scheduleJournal();
             return true;
@@ -439,15 +504,23 @@ export class NoteSession {
 
     /** While the queue holds an earlier request for this branch that may already have reached the server, wait for it. */
     private waitsForQueue(): boolean {
-        return this.deps.walEntries().some((e) =>
-            e.op.type === "upsert_note" && e.op.taskId === this.deps.ownerId && e.op.payload.branch === this.branch
-            && (e.attempted || e.status === "replaying" || e.conflict));
+        return this.deps
+            .walEntries()
+            .some(
+                (e) =>
+                    e.op.type === "upsert_note" &&
+                    e.op.taskId === this.deps.ownerId &&
+                    e.op.payload.branch === this.branch &&
+                    (e.attempted || e.status === "replaying" || e.conflict),
+            );
     }
 
     // ── the offline queue ──
 
     private async onWalChange() {
-        const mine = this.deps.walEntries().filter((e) => e.op.type === "upsert_note" && e.op.taskId === this.deps.ownerId);
+        const mine = this.deps
+            .walEntries()
+            .filter((e) => e.op.type === "upsert_note" && e.op.taskId === this.deps.ownerId);
         const ours = mine.find((e) => e.op.type === "upsert_note" && e.op.payload.branch === this.branch);
         const s = this.state;
         if (ours?.conflict && !s.conflict) {
@@ -494,7 +567,14 @@ export class NoteSession {
         if (!s.loaded || !note || note.version <= s.baseVersion) return;
         if (s.sending) return; // the response (or its 409) settles it
         if (s.gen === s.ackedGen) {
-            this.set({ body: note.body, baseBody: note.body, baseVersion: note.version, gen: s.gen + 1, ackedGen: s.gen + 1, durableGen: s.gen + 1 });
+            this.set({
+                body: note.body,
+                baseBody: note.body,
+                baseVersion: note.version,
+                gen: s.gen + 1,
+                ackedGen: s.gen + 1,
+                durableGen: s.gen + 1,
+            });
             if (note.body !== s.body) this.tellViews(note.body);
             return;
         }
@@ -519,7 +599,13 @@ export class NoteSession {
         if (!c) return;
         await this.keepRecovery(c.remote);
         this.deps.discardQueued(this.branch); // the queued copy would repeat the old base
-        this.set({ conflict: null, baseBody: c.remote, baseVersion: c.remoteVersion, gen: this.state.gen + 1, queued: false });
+        this.set({
+            conflict: null,
+            baseBody: c.remote,
+            baseVersion: c.remoteVersion,
+            gen: this.state.gen + 1,
+            queued: false,
+        });
         void this.flush();
     }
 
@@ -530,20 +616,35 @@ export class NoteSession {
         await this.keepRecovery(this.state.body);
         this.deps.discardQueued(this.branch);
         const gen = this.state.gen + 1;
-        this.set({ conflict: null, body: c.remote, baseBody: c.remote, baseVersion: c.remoteVersion, gen, ackedGen: gen, durableGen: gen, queued: false });
+        this.set({
+            conflict: null,
+            body: c.remote,
+            baseBody: c.remote,
+            baseVersion: c.remoteVersion,
+            gen,
+            ackedGen: gen,
+            durableGen: gen,
+            queued: false,
+        });
         this.tellViews(c.remote);
         void this.writeJournal();
     }
 
     private async keepRecovery(body: string) {
         this.set({ recovery: { body, at: Date.now() } });
-        await keepRecoveryCopy(this.deps.journal, this.deps.userId, this.deps.ownerId, this.branch, body).catch(() => {});
+        await keepRecoveryCopy(this.deps.journal, this.deps.userId, this.deps.ownerId, this.branch, body).catch(
+            () => {},
+        );
     }
 
     async discardRecovery() {
         this.set({ recovery: null });
-        const records = await this.deps.journal.list(this.deps.userId, this.deps.ownerId).catch(() => [] as DraftRecord[]);
-        for (const r of records) if (r.kind === "recovery") await this.deps.journal.remove(this.deps.userId, this.deps.ownerId, r.branch).catch(() => {});
+        const records = await this.deps.journal
+            .list(this.deps.userId, this.deps.ownerId)
+            .catch(() => [] as DraftRecord[]);
+        for (const r of records)
+            if (r.kind === "recovery")
+                await this.deps.journal.remove(this.deps.userId, this.deps.ownerId, r.branch).catch(() => {});
     }
 
     /** Put the recovery copy back as an edit. */

@@ -36,26 +36,44 @@ interface CalendarDayCellProps {
     onContextAdd?: (info: CalendarEventInfo) => void;
 }
 
-type CompactDayCellProps = Pick<CalendarDayCellProps, "isToday" | "isSelected" | "hasTask" | "hasHoliday" | "hasBirthday" | "hasPersonalEvent" | "personalEventCount"> & {
+type CompactDayCellProps = Pick<
+    CalendarDayCellProps,
+    "isToday" | "isSelected" | "hasTask" | "hasHoliday" | "hasBirthday" | "hasPersonalEvent" | "personalEventCount"
+> & {
     day: LocalDate;
     onSelect: (day: LocalDate) => void;
 };
 
 /** The compact variant (sidebar, deadline picker): the date with small markers under it. */
-function CompactDayCell({ day, isToday, isSelected, hasTask, hasHoliday, hasBirthday, hasPersonalEvent, personalEventCount = 0, onSelect }: CompactDayCellProps) {
+function CompactDayCell({
+    day,
+    isToday,
+    isSelected,
+    hasTask,
+    hasHoliday,
+    hasBirthday,
+    hasPersonalEvent,
+    personalEventCount = 0,
+    onSelect,
+}: CompactDayCellProps) {
     const marked = (hasTask || hasHoliday || hasBirthday || hasPersonalEvent) && !isToday;
-    const tone = isSelected && !isToday
-        ? "bg-white/[0.08] text-twilight-text ring-1 ring-white/10"
-        : !isToday ? "text-twilight-text-muted" : "";
+    const tone =
+        isSelected && !isToday
+            ? "bg-white/[0.08] text-twilight-text ring-1 ring-white/10"
+            : !isToday
+              ? "text-twilight-text-muted"
+              : "";
     return (
         <button
             onClick={() => onSelect(day)}
             className={`
                 relative aspect-square w-full max-w-8 rounded-lg flex items-center justify-center text-[13px]
                 transition-colors duration-200 cursor-pointer
-                ${isToday
-                    ? "bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary font-bold"
-                    : "hover:bg-white/[0.06]"}
+                ${
+                    isToday
+                        ? "bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary font-bold"
+                        : "hover:bg-white/[0.06]"
+                }
                 ${tone}
             `}
         >
@@ -63,8 +81,12 @@ function CompactDayCell({ day, isToday, isSelected, hasTask, hasHoliday, hasBirt
             {marked && (
                 <span className="absolute bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-1">
                     {hasTask && <span className="h-1 w-1 rounded-full bg-accent-primary/60" />}
-                    {hasHoliday && <span className="h-1.5 w-1.5 rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.45)]" />}
-                    {hasBirthday && <span className="h-1.5 w-1.5 rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.45)]" />}
+                    {hasHoliday && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.45)]" />
+                    )}
+                    {hasBirthday && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.45)]" />
+                    )}
                     {hasPersonalEvent ? <CompactEventMark count={personalEventCount} /> : null}
                 </span>
             )}
@@ -80,11 +102,18 @@ function CompactEventMark({ count }: { count: number }) {
             </span>
         );
     }
-    return <span className="h-1.5 w-1.5 rounded-full bg-accent-nav-schedule shadow-[0_0_6px_color-mix(in_srgb,var(--accent-nav-schedule)_45%,transparent)]" />;
+    return (
+        <span className="h-1.5 w-1.5 rounded-full bg-accent-nav-schedule shadow-[0_0_6px_color-mix(in_srgb,var(--accent-nav-schedule)_45%,transparent)]" />
+    );
 }
 
 /** Holiday, birthday and personal-event markers beside a full cell's date. */
-function DayMarkers({ hasHoliday, hasBirthday, hasPersonalEvent, personalEventCount = 0 }: Pick<CalendarDayCellProps, "hasHoliday" | "hasBirthday" | "hasPersonalEvent" | "personalEventCount">) {
+function DayMarkers({
+    hasHoliday,
+    hasBirthday,
+    hasPersonalEvent,
+    personalEventCount = 0,
+}: Pick<CalendarDayCellProps, "hasHoliday" | "hasBirthday" | "hasPersonalEvent" | "personalEventCount">) {
     return (
         <span className="flex items-center gap-1.5">
             {hasHoliday && (
@@ -133,7 +162,10 @@ function FixedSummary({ fixed, onOpen }: { fixed: FixedLine; onOpen: () => void 
         <div className="w-full px-1 pb-0.5 @container">
             <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); onOpen(); }}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onOpen();
+                }}
                 aria-label={`${fixed.count} fixed${start && end ? `, ${start} to ${end}` : ""}. Open day`}
                 className="flex w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-[11px] tabular-nums text-twilight-text-soft transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
             >
@@ -146,7 +178,10 @@ function FixedSummary({ fixed, onOpen }: { fixed: FixedLine; onOpen: () => void 
                         </>
                     ) : null}
                 </span>
-                <span className="shrink-0">· {fixed.count}<span className="hidden @[11rem]:inline"> fixed</span></span>
+                <span className="shrink-0">
+                    · {fixed.count}
+                    <span className="hidden @[11rem]:inline"> fixed</span>
+                </span>
             </button>
         </div>
     );
@@ -185,7 +220,7 @@ function DayChips({ items, sourceId, onSelectTask }: DayChipsProps) {
     );
 }
 
-const noop = () => { };
+const noop = () => {};
 
 /** Single calendar day cell — adapts to compact (sidebar) or full (schedule) layout */
 export function CalendarDayCell(props: CalendarDayCellProps) {
@@ -248,7 +283,11 @@ function FullDayCell({
     });
 
     const { items, fixed } = splitMonthDay(tasks);
-    const dateTone = isToday ? "text-accent-primary font-semibold" : isSelected ? "text-twilight-text" : "text-twilight-text-soft";
+    const dateTone = isToday
+        ? "text-accent-primary font-semibold"
+        : isSelected
+          ? "text-twilight-text"
+          : "text-twilight-text-soft";
 
     return (
         <div
@@ -277,20 +316,29 @@ function FullDayCell({
                     ${dateTone}
                 `}
             >
-                <span className={`
+                <span
+                    className={`
                     font-display text-[13px] font-medium tracking-tight leading-none
                     w-6 h-6 inline-flex items-center justify-center shrink-0
                     ${isToday ? "rounded-full bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_15%,transparent)]" : ""}
-                `}>
+                `}
+                >
                     {dayOfMonth(day)}
                 </span>
-                <DayMarkers hasHoliday={hasHoliday} hasBirthday={hasBirthday} hasPersonalEvent={hasPersonalEvent} personalEventCount={personalEventCount} />
+                <DayMarkers
+                    hasHoliday={hasHoliday}
+                    hasBirthday={hasBirthday}
+                    hasPersonalEvent={hasPersonalEvent}
+                    personalEventCount={personalEventCount}
+                />
             </button>
 
             {fixed ? <FixedSummary fixed={fixed} onOpen={() => onSelect(day)} /> : null}
 
             {/* Task chips */}
-            {items.length > 0 && <DayChips items={items} sourceId={`day-${dateStr}`} onSelectTask={onSelectTask ?? noop} />}
+            {items.length > 0 && (
+                <DayChips items={items} sourceId={`day-${dateStr}`} onSelectTask={onSelectTask ?? noop} />
+            )}
         </div>
     );
 }

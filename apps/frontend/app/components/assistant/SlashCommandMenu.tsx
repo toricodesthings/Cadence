@@ -3,7 +3,13 @@ import { motion } from "framer-motion";
 import type { SlashCommand, SlashCommandId } from "../../lib/ai/slash-commands";
 import { cn } from "../../lib/utils";
 
-const ICONS: Record<SlashCommandId, LucideIcon> = { usage: Gauge, clear: Eraser, history: History, memory: Brain, settings: Settings };
+const ICONS: Record<SlashCommandId, LucideIcon> = {
+    usage: Gauge,
+    clear: Eraser,
+    history: History,
+    memory: Brain,
+    settings: Settings,
+};
 
 export const slashOptionId = (id: SlashCommandId) => `assistant-slash-${id}`;
 export const SLASH_MENU_ID = "assistant-slash-menu";

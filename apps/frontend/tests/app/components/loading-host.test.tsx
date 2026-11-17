@@ -7,7 +7,11 @@ function Boot({ step }: { step: "fallback" | "session" | "workspace" | "done" })
         <>
             {step === "fallback" && <Loading key="fallback" />}
             {step === "session" && <Loading key="session" />}
-            {step === "workspace" && <Loading title="Preparing your workspace"><p>Taking longer than usual</p></Loading>}
+            {step === "workspace" && (
+                <Loading title="Preparing your workspace">
+                    <p>Taking longer than usual</p>
+                </Loading>
+            )}
             <LoadingHost />
         </>
     );
@@ -35,15 +39,25 @@ describe("loading host", () => {
 
     it("turns a title with progress into a bar that fills before the scene leaves", async () => {
         // jsdom has no Web Animations; the fill only needs a handle it can cancel.
-        const animate = vi.fn(() => ({ cancel: () => undefined, finished: new Promise(() => undefined), effect: null }));
+        const animate = vi.fn(() => ({
+            cancel: () => undefined,
+            finished: new Promise(() => undefined),
+            effect: null,
+        }));
         Element.prototype.animate = animate as unknown as Element["animate"];
         const now = vi.spyOn(performance, "now");
         now.mockReturnValue(0);
-        const Startup = ({ pending }: { pending: boolean }) => <>{pending && <Loading title="Preparing your workspace" progress={0.5} />}<LoadingHost /></>;
+        const Startup = ({ pending }: { pending: boolean }) => (
+            <>
+                {pending && <Loading title="Preparing your workspace" progress={0.5} />}
+                <LoadingHost />
+            </>
+        );
         const view = render(<Startup pending />);
         expect(document.querySelector(".ls-title-muted")?.textContent).toBe("Preparing your workspace");
         // 50% of the known work is 50% along the 10–90% band (the text, which moves against its clip box).
-        const lastTarget = () => String((animate.mock.lastCall as unknown as [{ translate: string[] }])[0].translate[1]);
+        const lastTarget = () =>
+            String((animate.mock.lastCall as unknown as [{ translate: string[] }])[0].translate[1]);
         expect(lastTarget()).toMatch(/^calc\(0.5 \*/);
 
         // On screen long enough to read: it fills to the end, then leaves.

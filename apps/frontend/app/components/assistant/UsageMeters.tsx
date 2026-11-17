@@ -14,7 +14,15 @@ const ICONS: Record<UsageMeter["id"], LucideIcon> = { "5h": Hourglass, "7d": Cal
  * The assistant's limits as filling bars (5-hour, weekly, photos). No shell of
  * its own: the panel's usage overlay and Settings › Assistant both host it.
  */
-export function UsageMeters({ usage, isLoading, className }: { usage: AiUsage | undefined; isLoading?: boolean; className?: string }) {
+export function UsageMeters({
+    usage,
+    isLoading,
+    className,
+}: {
+    usage: AiUsage | undefined;
+    isLoading?: boolean;
+    className?: string;
+}) {
     const reduceMotion = useReducedMotionSetting();
     // Re-render on a slow tick so "Resets in 2 hours 14 minutes" keeps counting down.
     const [now, setNow] = useState(() => Date.now());
@@ -36,7 +44,12 @@ export function UsageMeters({ usage, isLoading, className }: { usage: AiUsage | 
 
     if (!meters) {
         return (
-            <p className={cn("rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-4 text-sm leading-relaxed text-twilight-text-soft", className)}>
+            <p
+                className={cn(
+                    "rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-4 text-sm leading-relaxed text-twilight-text-soft",
+                    className,
+                )}
+            >
                 Usage isn&rsquo;t available right now. You can keep chatting.
             </p>
         );
@@ -48,13 +61,21 @@ export function UsageMeters({ usage, isLoading, className }: { usage: AiUsage | 
                 const Icon = ICONS[meter.id];
                 const percent = Math.round(meter.fraction * 100);
                 return (
-                    <li key={meter.id} className="flex flex-col gap-3 rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-4">
+                    <li
+                        key={meter.id}
+                        className="flex flex-col gap-3 rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-4"
+                    >
                         <div className="flex items-center gap-3">
                             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-primary/10 text-accent-primary">
                                 <Icon size={17} aria-hidden />
                             </span>
                             <span className="flex-1 text-sm font-medium text-twilight-text">{meter.label}</span>
-                            <span className={cn("text-sm font-semibold tabular-nums", meter.full ? "text-feedback-error" : "text-twilight-text")}>
+                            <span
+                                className={cn(
+                                    "text-sm font-semibold tabular-nums",
+                                    meter.full ? "text-feedback-error" : "text-twilight-text",
+                                )}
+                            >
                                 {meter.headline}
                             </span>
                         </div>
@@ -71,7 +92,10 @@ export function UsageMeters({ usage, isLoading, className }: { usage: AiUsage | 
                                 initial={reduceMotion ? false : { width: 0 }}
                                 animate={{ width: `${percent}%` }}
                                 transition={{ duration: reduceMotion ? 0 : 0.7, ease: EASE_OUT_EXPO }}
-                                className={cn("h-full rounded-full", meter.full ? "bg-feedback-error" : "bg-accent-primary")}
+                                className={cn(
+                                    "h-full rounded-full",
+                                    meter.full ? "bg-feedback-error" : "bg-accent-primary",
+                                )}
                             />
                         </div>
                         <div className="flex flex-col gap-1 text-xs">

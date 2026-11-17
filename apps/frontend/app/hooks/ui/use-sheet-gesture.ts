@@ -3,13 +3,24 @@ import { useEffect, useRef } from "react";
 import { SPRINGS } from "../../lib/constants/motion";
 
 /** Inside these a touch belongs to the control, never the sheet (dnd-kit drag sources included). */
-const BLOCKED = 'input, textarea, select, [contenteditable="true"], [role="slider"], [data-sheet-no-drag], [data-dnd-draggable], [aria-roledescription="sortable"], [aria-roledescription="draggable"]';
+const BLOCKED =
+    'input, textarea, select, [contenteditable="true"], [role="slider"], [data-sheet-no-drag], [data-dnd-draggable], [aria-roledescription="sortable"], [aria-roledescription="draggable"]';
 const SLOP = 8;
 
 export type SheetDecision = "sheet" | "native";
 
 /** Who owns this touch, decided once, after SLOP px of movement. */
-export function decide({ dx, dy, blocked, scroller }: { dx: number; dy: number; blocked: boolean; scroller: { scrollTop: number } | null }): SheetDecision {
+export function decide({
+    dx,
+    dy,
+    blocked,
+    scroller,
+}: {
+    dx: number;
+    dy: number;
+    blocked: boolean;
+    scroller: { scrollTop: number } | null;
+}): SheetDecision {
     if (blocked || Math.abs(dx) > Math.abs(dy)) return "native";
     if (dy > 0 && (!scroller || scroller.scrollTop <= 0)) return "sheet";
     if (dy < 0 && !scroller) return "sheet";
@@ -41,14 +52,24 @@ function scrollerOf(target: Element, sheet: Element): Element | null {
  * sheet drag when a native scroll reaches scrollTop 0 mid-touch, which needs touchmove
  * preventDefault honoured after scrolling has started (unreliable in WebKit today).
  */
-export function useSheetGesture({ element, enabled, onDismiss }: { element: HTMLElement | null; enabled: boolean; onDismiss: (velocity: number) => void }) {
+export function useSheetGesture({
+    element,
+    enabled,
+    onDismiss,
+}: {
+    element: HTMLElement | null;
+    enabled: boolean;
+    onDismiss: (velocity: number) => void;
+}) {
     const y = useMotionValue(0);
     const height = useRef(800);
     const backdropOpacity = useTransform(y, (v) => 1 - 0.65 * Math.min(1, Math.max(0, v / height.current)));
     // The app-wide MotionConfig (the Motion setting, else the OS); imperative animate() ignores it otherwise.
     const reduced = Boolean(useReducedMotionConfig());
     const latest = useRef({ onDismiss, reduced });
-    useEffect(() => { latest.current = { onDismiss, reduced }; });
+    useEffect(() => {
+        latest.current = { onDismiss, reduced };
+    });
 
     useEffect(() => {
         if (!enabled || !element) return;
@@ -63,7 +84,10 @@ export function useSheetGesture({ element, enabled, onDismiss }: { element: HTML
 
         const onStart = (event: TouchEvent) => {
             const touch = event.touches[0];
-            if (event.touches.length !== 1 || !touch) { start = null; return; }
+            if (event.touches.length !== 1 || !touch) {
+                start = null;
+                return;
+            }
             const target = event.target as Element;
             start = { x: touch.clientX, y: touch.clientY };
             mode = null;
@@ -92,7 +116,8 @@ export function useSheetGesture({ element, enabled, onDismiss }: { element: HTML
             if (mode === "sheet") {
                 const first = samples[0];
                 const last = samples[samples.length - 1];
-                const velocity = first && last && last.t > first.t ? ((last.y - first.y) / (last.t - first.t)) * 1000 : 0;
+                const velocity =
+                    first && last && last.t > first.t ? ((last.y - first.y) / (last.t - first.t)) * 1000 : 0;
                 if (shouldDismiss(y.get(), velocity, height.current)) latest.current.onDismiss(velocity);
                 else settle();
             }

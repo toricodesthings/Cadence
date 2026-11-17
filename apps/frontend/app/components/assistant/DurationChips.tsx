@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { DurationReportView, DurationValue } from "@cadence/contracts/memory";
-import { ABSOLUTE_CHIPS, ANSWER_HINT, MORE_CHIPS, formatMinutes, formatValue, parseAnswer, relativeChips, type DurationChip } from "@cadence/domain/duration-chips";
+import {
+    ABSOLUTE_CHIPS,
+    ANSWER_HINT,
+    MORE_CHIPS,
+    formatMinutes,
+    formatValue,
+    parseAnswer,
+    relativeChips,
+    type DurationChip,
+} from "@cadence/domain/duration-chips";
 import { toastName } from "../../lib/utils/undo-toast";
 import { useToastLinger } from "../../hooks/ui/use-toast-linger";
 
@@ -19,7 +28,15 @@ const point = (minutes: number): DurationValue => ({ kind: "point", minutes });
  * compares to it, since "shorter or longer" is easier than recalling a number; without one it is steps that double.
  * `onPick` says whether the answer came from the relative stage (anchored by the number shown).
  */
-export function DurationChoices({ reference, onPick, onSkip, skipLabel = "Skip", disabled = false, suggested, pointsOnly = false }: {
+export function DurationChoices({
+    reference,
+    onPick,
+    onSkip,
+    skipLabel = "Skip",
+    disabled = false,
+    suggested,
+    pointsOnly = false,
+}: {
     reference: number | null;
     onPick: (value: DurationValue, anchored: boolean) => void;
     onSkip: () => void;
@@ -36,7 +53,13 @@ export function DurationChoices({ reference, onPick, onSkip, skipLabel = "Skip",
     const parsed = pointsOnly && answer?.kind === "range" ? null : answer;
     const chips = (list: readonly DurationChip[], anchored: boolean) =>
         list.map((c) => (
-            <button key={c.minutes} type="button" disabled={disabled} onClick={() => onPick(point(c.minutes), anchored)} className={CHIP}>
+            <button
+                key={c.minutes}
+                type="button"
+                disabled={disabled}
+                onClick={() => onPick(point(c.minutes), anchored)}
+                className={CHIP}
+            >
                 {c.label}
             </button>
         ));
@@ -50,7 +73,12 @@ export function DurationChoices({ reference, onPick, onSkip, skipLabel = "Skip",
         <div className="flex flex-wrap items-center gap-1.5">
             {stage === "relative" && reference ? (
                 <>
-                    <button type="button" disabled={disabled} onClick={() => onPick(point(reference), true)} className={CHIP}>
+                    <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => onPick(point(reference), true)}
+                        className={CHIP}
+                    >
                         About right
                     </button>
                     {step("Shorter", "shorter")}
@@ -62,11 +90,20 @@ export function DurationChoices({ reference, onPick, onSkip, skipLabel = "Skip",
             {stage === "absolute" ? (
                 <>
                     {suggested ? (
-                        <button type="button" disabled={disabled} aria-pressed="true" onClick={() => onPick(point(suggested), false)} className={`${CHIP} ring-2 ring-accent-primary/50`}>
+                        <button
+                            type="button"
+                            disabled={disabled}
+                            aria-pressed="true"
+                            onClick={() => onPick(point(suggested), false)}
+                            className={`${CHIP} ring-2 ring-accent-primary/50`}
+                        >
                             {formatMinutes(suggested)}
                         </button>
                     ) : null}
-                    {chips(ABSOLUTE_CHIPS.filter((c) => c.minutes !== suggested), false)}
+                    {chips(
+                        ABSOLUTE_CHIPS.filter((c) => c.minutes !== suggested),
+                        false,
+                    )}
                     {step("More…", "more")}
                 </>
             ) : null}
@@ -95,11 +132,19 @@ export function DurationChoices({ reference, onPick, onSkip, skipLabel = "Skip",
                         placeholder="1h20, 90, 30–60…"
                         className="min-h-9 pointer-coarse:min-h-11 w-32 rounded-full border border-accent-primary/30 bg-transparent px-3 text-[13px] text-twilight-text outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                     />
-                    <button type="submit" disabled={!parsed || disabled} className={`${CHIP} disabled:cursor-default disabled:opacity-50`}>
+                    <button
+                        type="submit"
+                        disabled={!parsed || disabled}
+                        className={`${CHIP} disabled:cursor-default disabled:opacity-50`}
+                    >
                         {parsed ? formatValue(parsed) : "Save"}
                     </button>
                     <span id="duration-hint" className="w-full text-xs text-twilight-text-muted" aria-live="polite">
-                        {text.trim() && !parsed ? (pointsOnly && answer ? "One length, for example 90 or 1h30" : ANSWER_HINT) : ""}
+                        {text.trim() && !parsed
+                            ? pointsOnly && answer
+                                ? "One length, for example 90 or 1h30"
+                                : ANSWER_HINT
+                            : ""}
                     </span>
                 </form>
             ) : null}
@@ -181,12 +226,20 @@ export function DurationChips({
                         <span>
                             Saved · <span className="font-medium">{formatValue(phase.view)}</span>
                         </span>
-                        <button type="button" onClick={() => setPhase({ kind: "change", view: phase.view })} className={QUIET}>
+                        <button
+                            type="button"
+                            onClick={() => setPhase({ kind: "change", view: phase.view })}
+                            className={QUIET}
+                        >
                             Change
                         </button>
                     </p>
                 ) : null}
-                {phase.kind === "saving" ? <p className="leading-snug">Saving… · <span className="font-medium">{label(phase.value)}</span></p> : null}
+                {phase.kind === "saving" ? (
+                    <p className="leading-snug">
+                        Saving… · <span className="font-medium">{label(phase.value)}</span>
+                    </p>
+                ) : null}
                 {phase.kind === "error" ? (
                     <p className="flex flex-wrap items-center gap-x-2 leading-snug">
                         <span>
@@ -215,7 +268,9 @@ export function DurationChips({
                     <DurationChoices
                         reference={reference}
                         skipLabel={phase.kind === "ask" ? "Skip" : "Cancel"}
-                        onSkip={() => (phase.kind === "ask" ? toast.dismiss(id) : setPhase({ kind: "saved", view: phase.view }))}
+                        onSkip={() =>
+                            phase.kind === "ask" ? toast.dismiss(id) : setPhase({ kind: "saved", view: phase.view })
+                        }
                         onPick={(value, anchored) => void save(value, anchored)}
                     />
                 </>

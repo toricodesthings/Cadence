@@ -2,12 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestApp, TEST_USER_ID } from "../helpers/app";
 import { hashIdentifier } from "../../src/platform/log";
 import { FakeRedis } from "../helpers/fake-redis";
-import {
-    openStream,
-    flushChunks,
-    closeStream,
-    isAbortRequested,
-} from "../../src/domains/ai/streaming/resume-store";
+import { openStream, flushChunks, closeStream, isAbortRequested } from "../../src/domains/ai/streaming/resume-store";
 
 const { getDbClientMock, withRlsMock, getRedisMock } = vi.hoisted(() => ({
     getDbClientMock: vi.fn(() => ({})),
@@ -187,7 +182,11 @@ describe("POST /ai/chat/:id/stop", () => {
             model: "test-model",
         });
 
-        const assistantMessage = { id: "msg-1", role: "assistant" as const, parts: [{ type: "text", text: "partial" }] };
+        const assistantMessage = {
+            id: "msg-1",
+            role: "assistant" as const,
+            parts: [{ type: "text", text: "partial" }],
+        };
         await post({ activeStreamId: SID, assistantMessage });
         expect(saveAssistantMessageMock).toHaveBeenCalledWith(
             expect.anything(),
@@ -203,7 +202,12 @@ describe("POST /ai/chat/:id/stop", () => {
         const userKey = await hashIdentifier(TEST_USER_ID);
         getRedisMock.mockReturnValue(redis);
         getConversationMock.mockResolvedValue({ id: CONV_ID, activeStreamId: SID });
-        await openStream(redis as any, userKey, SID, { conversationId: CONV_ID, userId: TEST_USER_ID, messageId: "msg-1", model: "test-model" });
+        await openStream(redis as any, userKey, SID, {
+            conversationId: CONV_ID,
+            userId: TEST_USER_ID,
+            messageId: "msg-1",
+            model: "test-model",
+        });
 
         const assistantMessage = {
             id: "msg-1",
@@ -211,7 +215,13 @@ describe("POST /ai/chat/:id/stop", () => {
             parts: [
                 { type: "step-start" },
                 { type: "text", text: "partial" },
-                { type: "tool-delete_tasks", toolCallId: "c1", state: "approval-requested", input: {}, approval: { id: "a1" } },
+                {
+                    type: "tool-delete_tasks",
+                    toolCallId: "c1",
+                    state: "approval-requested",
+                    input: {},
+                    approval: { id: "a1" },
+                },
             ],
         };
         await post({ activeStreamId: SID, assistantMessage });
@@ -219,7 +229,10 @@ describe("POST /ai/chat/:id/stop", () => {
         expect(saved.parts.map((part) => part.type)).toEqual(["step-start", "text"]);
 
         saveAssistantMessageMock.mockClear();
-        await post({ activeStreamId: SID, assistantMessage: { ...assistantMessage, parts: [assistantMessage.parts[2]] } });
+        await post({
+            activeStreamId: SID,
+            assistantMessage: { ...assistantMessage, parts: [assistantMessage.parts[2]] },
+        });
         expect(saveAssistantMessageMock).not.toHaveBeenCalled(); // nothing left to store
     });
 
@@ -237,7 +250,11 @@ describe("POST /ai/chat/:id/stop", () => {
 
         // Crafted snapshot targeting some OTHER persisted row → silently skipped,
         // but the stop itself still succeeds.
-        const assistantMessage = { id: "older-row-id", role: "assistant" as const, parts: [{ type: "text", text: "forged" }] };
+        const assistantMessage = {
+            id: "older-row-id",
+            role: "assistant" as const,
+            parts: [{ type: "text", text: "forged" }],
+        };
         const res = await post({ activeStreamId: SID, assistantMessage });
         expect(((await res.json()) as any).data).toEqual({ success: true });
         expect(saveAssistantMessageMock).not.toHaveBeenCalled();
@@ -248,7 +265,11 @@ describe("POST /ai/chat/:id/stop", () => {
         getRedisMock.mockReturnValue(redis);
         getConversationMock.mockResolvedValue({ id: CONV_ID, activeStreamId: SID });
 
-        const assistantMessage = { id: "msg-1", role: "assistant" as const, parts: [{ type: "text", text: "partial" }] };
+        const assistantMessage = {
+            id: "msg-1",
+            role: "assistant" as const,
+            parts: [{ type: "text", text: "partial" }],
+        };
         const res = await post({ activeStreamId: SID, assistantMessage });
         expect(((await res.json()) as any).data).toEqual({ success: true });
         expect(saveAssistantMessageMock).not.toHaveBeenCalled();

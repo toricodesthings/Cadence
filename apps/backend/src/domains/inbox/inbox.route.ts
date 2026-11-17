@@ -4,7 +4,14 @@ import { getIdempotencyKey, createOnce } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { withCallerRls } from "../../platform/caller-rls";
 import { inboxItems, inboxSections } from "../../db/schema";
-import { inboxQuerySchema, insertInboxItemSchema, updateInboxItemSchema, insertInboxSectionSchema, updateInboxSectionSchema, processInboxItemSchema } from "@cadence/contracts/inbox";
+import {
+    inboxQuerySchema,
+    insertInboxItemSchema,
+    updateInboxItemSchema,
+    insertInboxSectionSchema,
+    updateInboxSectionSchema,
+    processInboxItemSchema,
+} from "@cadence/contracts/inbox";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
@@ -16,15 +23,22 @@ import { assertRowRoom, assertStorageRoom } from "../../platform/storage-ceiling
 
 export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // ── Atomic Inbox→Task Processing (Section 11.2C) ──
-    .post("/:id/process", apiValidator("param", uuidParamSchema), apiValidator("json", processInboxItemSchema), async (c) => {
-        const { id } = c.req.valid("param");
-        const body = c.req.valid("json");
-        const idempotencyKey = getIdempotencyKey(c);
+    .post(
+        "/:id/process",
+        apiValidator("param", uuidParamSchema),
+        apiValidator("json", processInboxItemSchema),
+        async (c) => {
+            const { id } = c.req.valid("param");
+            const body = c.req.valid("json");
+            const idempotencyKey = getIdempotencyKey(c);
 
-        const result = await withCallerRls(c, (tx, userId) => processCapture(tx, userId, id, body, { idempotencyKey }));
+            const result = await withCallerRls(c, (tx, userId) =>
+                processCapture(tx, userId, id, body, { idempotencyKey }),
+            );
 
-        return c.json({ data: result.task }, result.alreadyProcessed ? 200 : 201);
-    })
+            return c.json({ data: result.task }, result.alreadyProcessed ? 200 : 201);
+        },
+    )
     .post("/:id/unprocess", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
         const item = await withCallerRls(c, (tx, userId) => unprocessCapture(tx, userId, id));
@@ -40,14 +54,22 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 tx,
                 userId,
                 idempotencyKey,
-                (id) => tx.select().from(inboxItems).where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId))),
+                (id) =>
+                    tx
+                        .select()
+                        .from(inboxItems)
+                        .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId))),
                 async () => {
                     await assertOwnership(tx, userId, { inboxSectionId: body.sectionId });
                     await assertRowRoom(tx, userId, "captures");
                     await assertStorageRoom(tx, userId, [body.rawText]);
-                    return tx.insert(inboxItems).values({ ...body, userId }).returning();
+                    return tx
+                        .insert(inboxItems)
+                        .values({ ...body, userId })
+                        .returning();
                 },
-            ));
+            ),
+        );
 
         // Pick a list and section in the background; Save never waits. A replayed save already has its analysis.
         if (!item.analysis) c.executionCtx.waitUntil(suggestPlacement(c.env, userId, item.id));
@@ -63,8 +85,16 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 tx,
                 userId,
                 idempotencyKey,
-                (id) => tx.select().from(inboxSections).where(and(eq(inboxSections.id, id), eq(inboxSections.userId, userId))),
-                () => tx.insert(inboxSections).values({ ...body, userId }).returning(),
+                (id) =>
+                    tx
+                        .select()
+                        .from(inboxSections)
+                        .where(and(eq(inboxSections.id, id), eq(inboxSections.userId, userId))),
+                () =>
+                    tx
+                        .insert(inboxSections)
+                        .values({ ...body, userId })
+                        .returning(),
             );
         });
 
@@ -80,10 +110,19 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             const [row] = await tx
                 .update(inboxItems)
                 .set(body)
-                .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId), body.captureStatus ? isNull(inboxItems.placedTaskId) : undefined))
+                .where(
+                    and(
+                        eq(inboxItems.id, id),
+                        eq(inboxItems.userId, userId),
+                        body.captureStatus ? isNull(inboxItems.placedTaskId) : undefined,
+                    ),
+                )
                 .returning();
             if (!row && body.captureStatus) {
-                const [exists] = await tx.select({ id: inboxItems.id }).from(inboxItems).where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)));
+                const [exists] = await tx
+                    .select({ id: inboxItems.id })
+                    .from(inboxItems)
+                    .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)));
                 if (exists) throw new AppError(409, "CONFLICT", "This capture was already placed");
             }
             return row;
@@ -93,24 +132,28 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         return c.json({ data: updated });
     })
-    .patch("/sections/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateInboxSectionSchema), async (c) => {
-        const { id } = c.req.valid("param");
-        const body = c.req.valid("json");
+    .patch(
+        "/sections/:id",
+        apiValidator("param", uuidParamSchema),
+        apiValidator("json", updateInboxSectionSchema),
+        async (c) => {
+            const { id } = c.req.valid("param");
+            const body = c.req.valid("json");
 
-        const [updated] = await withCallerRls(c, (tx, userId) =>
-            tx
-                .update(inboxSections)
-                .set(body)
-                .where(and(eq(inboxSections.id, id), eq(inboxSections.userId, userId)))
-                .returning(),
-        );
+            const [updated] = await withCallerRls(c, (tx, userId) =>
+                tx
+                    .update(inboxSections)
+                    .set(body)
+                    .where(and(eq(inboxSections.id, id), eq(inboxSections.userId, userId)))
+                    .returning(),
+            );
 
-        throwIfNotFound(updated, "Inbox section");
+            throwIfNotFound(updated, "Inbox section");
 
-        return c.json({ data: updated });
-    })
+            return c.json({ data: updated });
+        },
+    )
     .get("/", apiValidator("query", inboxQuerySchema), async (c) => {
-
         const items = await withCallerRls(c, (tx, userId) =>
             tx
                 .select()
@@ -122,13 +165,8 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         return c.json({ data: items });
     })
     .get("/sections", async (c) => {
-
         const sections = await withCallerRls(c, (tx, userId) =>
-            tx
-                .select()
-                .from(inboxSections)
-                .where(eq(inboxSections.userId, userId))
-                .orderBy(inboxSections.orderIndex),
+            tx.select().from(inboxSections).where(eq(inboxSections.userId, userId)).orderBy(inboxSections.orderIndex),
         );
 
         return c.json({ data: sections });

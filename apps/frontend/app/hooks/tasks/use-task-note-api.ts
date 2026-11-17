@@ -16,10 +16,12 @@ export type TaskNoteData = Awaited<ReturnType<typeof fetchTaskNote>>;
 
 /** One save, guarded by the revision it builds on and retry-safe through its operation id. */
 export function saveTaskNote(ownerId: string, { body, expectedVersion, expectedUpdatedAt, opId }: NoteSavePayload) {
-    return apiClient.api.tasks[":taskId"].note.$patch(
-        { param: { taskId: ownerId }, json: { body, expectedVersion, expectedUpdatedAt } },
-        opId ? { headers: { "Idempotency-Key": opId } } : undefined,
-    ).then(unwrapResponse);
+    return apiClient.api.tasks[":taskId"].note
+        .$patch(
+            { param: { taskId: ownerId }, json: { body, expectedVersion, expectedUpdatedAt } },
+            opId ? { headers: { "Idempotency-Key": opId } } : undefined,
+        )
+        .then(unwrapResponse);
 }
 
 /** Offline, the text is queued and returns `undefined`; online it is the saved note. */

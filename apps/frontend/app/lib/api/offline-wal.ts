@@ -7,7 +7,11 @@ import type { Instant, LocalDate } from "@cadence/domain/time";
 import { IS_DESKTOP_RUNTIME, getNativeStore } from "../../platform/runtime";
 
 /** Capture → task, as queued: the endpoint's body, plus the capture it places (its words stand in for a blank title). */
-export type ProcessInboxPayload = Omit<ProcessInboxItem, "title"> & { inboxItemId: string; rawText: string; title?: string };
+export type ProcessInboxPayload = Omit<ProcessInboxItem, "title"> & {
+    inboxItemId: string;
+    rawText: string;
+    title?: string;
+};
 
 // ── Operation Descriptors ──
 // Every mutation the app can queue, as a serializable object. Creates carry the
@@ -34,7 +38,10 @@ export type MutationOp =
     | { type: "reorder_task"; id: string; payload: { orderIndex: number; orderedTaskIds?: string[] } }
     | { type: "duplicate_task"; id: string }
     | { type: "batch_state"; payload: { taskIds: string[]; state: string } }
-    | { type: "batch_reschedule"; payload: { taskIds: string[]; date: LocalDate } | { taskIds: string[]; scheduledStart: Instant } }
+    | {
+          type: "batch_reschedule";
+          payload: { taskIds: string[]; date: LocalDate } | { taskIds: string[]; scheduledStart: Instant };
+      }
     | { type: "batch_delete"; payload: { taskIds: string[] } }
     | { type: "create_inbox"; payload: { id: string; rawText: string; sectionId?: string; orderIndex?: number } }
     | { type: "update_inbox"; id: string; payload: Record<string, unknown> }
@@ -46,7 +53,17 @@ export type MutationOp =
     | { type: "create_habit"; payload: Record<string, unknown> & { id: string } }
     | { type: "update_habit"; id: string; payload: Record<string, unknown> }
     | { type: "delete_habit"; id: string }
-    | { type: "resolve_habit"; id: string; payload: { targetDate: LocalDate; status: string; stepStatus?: Record<string, "COMPLETED" | "SKIPPED">; time?: string; at?: string } }
+    | {
+          type: "resolve_habit";
+          id: string;
+          payload: {
+              targetDate: LocalDate;
+              status: string;
+              stepStatus?: Record<string, "COMPLETED" | "SKIPPED">;
+              time?: string;
+              at?: string;
+          };
+      }
     | { type: "unprocess_inbox"; id: string }
     | { type: "upsert_note"; taskId: string; payload: NoteSavePayload }
     | { type: "add_task_tag"; id: string; tagId: string }
@@ -219,12 +236,15 @@ export async function initWal(nextUserId: string | null): Promise<void> {
     if (typeof BroadcastChannel !== "undefined") {
         channel = new BroadcastChannel("cadence-wal");
         channel.onmessage = (event) => {
-            if (event.data === userId) void readKey(walKey(nextUserId)).then((entries) => userId === nextUserId && setCache(entries));
+            if (event.data === userId)
+                void readKey(walKey(nextUserId)).then((entries) => userId === nextUserId && setCache(entries));
         };
     }
 
     // An entry left "replaying" by a closed tab never finished: try it again.
-    await mutate((entries) => entries.map((e) => (e.status === "replaying" ? { ...e, status: "pending" as const } : e)));
+    await mutate((entries) =>
+        entries.map((e) => (e.status === "replaying" ? { ...e, status: "pending" as const } : e)),
+    );
     // A queue from before queues were per account: adopt it once.
     const legacy = await readKey(LEGACY_KEY);
     if (legacy.length) {
@@ -248,10 +268,16 @@ export async function enqueueWalEntry(op: MutationOp, requests?: WalRequest[]): 
         // line on one acknowledged base fold into the newest. Another tab's branch, or an
         // entry a request already went out for, is never replaced.
         if (op.type !== "upsert_note" || !op.payload.branch) return [...entries, entry];
-        const earlier = entries.findIndex((e) =>
-            e.status === "pending" && !e.attempted && !e.conflict && e.op.type === "upsert_note"
-            && e.op.taskId === op.taskId && e.op.payload.branch === op.payload.branch
-            && e.op.payload.expectedVersion === op.payload.expectedVersion);
+        const earlier = entries.findIndex(
+            (e) =>
+                e.status === "pending" &&
+                !e.attempted &&
+                !e.conflict &&
+                e.op.type === "upsert_note" &&
+                e.op.taskId === op.taskId &&
+                e.op.payload.branch === op.payload.branch &&
+                e.op.payload.expectedVersion === op.payload.expectedVersion,
+        );
         if (earlier < 0) return [...entries, entry];
         return entries.map((e, i) => (i === earlier ? { ...e, op, requests } : e));
     });
@@ -267,9 +293,21 @@ export async function updateWalEntry(
 
 /** Swap an entry's payload (the user chose which note version to keep); it becomes a fresh, unattempted save. */
 export async function replaceWalEntryOp(id: string, op: MutationOp, requests: WalRequest[]): Promise<void> {
-    await mutate((entries) => entries.map((e) => (e.id === id
-        ? { ...e, op, requests, status: "pending" as const, error: undefined, attempted: false, conflict: false }
-        : e)));
+    await mutate((entries) =>
+        entries.map((e) =>
+            e.id === id
+                ? {
+                      ...e,
+                      op,
+                      requests,
+                      status: "pending" as const,
+                      error: undefined,
+                      attempted: false,
+                      conflict: false,
+                  }
+                : e,
+        ),
+    );
 }
 
 export async function removeWalEntry(id: string): Promise<void> {
@@ -282,9 +320,9 @@ export async function clearWal(): Promise<void> {
 }
 
 export async function retryFailedEntries(): Promise<void> {
-    await mutate((entries) => entries.map((e) =>
-        e.status === "failed" ? { ...e, status: "pending" as const, error: undefined } : e,
-    ));
+    await mutate((entries) =>
+        entries.map((e) => (e.status === "failed" ? { ...e, status: "pending" as const, error: undefined } : e)),
+    );
 }
 
 /** Run replay in one tab (or the service worker) at a time; others skip. */
@@ -292,5 +330,7 @@ export function withReplayLock(fn: () => Promise<void>): Promise<void> {
     const owner = userId;
     if (!owner) return Promise.resolve();
     if (typeof navigator === "undefined" || !navigator.locks) return fn();
-    return navigator.locks.request(`cadence-wal-replay:${owner}`, { ifAvailable: true }, (lock) => (lock ? fn() : undefined));
+    return navigator.locks.request(`cadence-wal-replay:${owner}`, { ifAvailable: true }, (lock) =>
+        lock ? fn() : undefined,
+    );
 }

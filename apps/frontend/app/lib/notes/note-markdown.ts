@@ -36,7 +36,10 @@ function conv(): Editor {
 
 const EMPTY_TASK = /^\[( |x)\]$/i;
 const isEmptyTaskItem = (item: JSONContent) => {
-    const text = item.content?.length === 1 && item.content[0].type === "paragraph" ? item.content[0].content?.map((n) => n.text ?? "").join("") : undefined;
+    const text =
+        item.content?.length === 1 && item.content[0].type === "paragraph"
+            ? item.content[0].content?.map((n) => n.text ?? "").join("")
+            : undefined;
     return text !== undefined && EMPTY_TASK.test(text);
 };
 
@@ -63,7 +66,9 @@ export function markdownToDoc(markdown: string): JSONContent {
 }
 
 export function docToMarkdown(doc: JSONContent): string {
-    return conv().markdown!.serialize(doc).replace(/^\n+|\n+$/g, "");
+    return conv()
+        .markdown!.serialize(doc)
+        .replace(/^\n+|\n+$/g, "");
 }
 
 /** Text content only (no syntax, no link destinations), for word counts. */
@@ -73,7 +78,11 @@ export function docText(doc: JSONContent): string {
         if (n.text) parts.push(n.text);
         n.content?.forEach(walk);
         if (n.type && n.type !== "text" && n.content === undefined) parts.push(" ");
-        if (n.type && ["paragraph", "heading", "listItem", "taskItem", "codeBlock", "tableCell", "tableHeader"].includes(n.type)) parts.push("\n");
+        if (
+            n.type &&
+            ["paragraph", "heading", "listItem", "taskItem", "codeBlock", "tableCell", "tableHeader"].includes(n.type)
+        )
+            parts.push("\n");
     };
     walk(doc);
     return parts.join("");

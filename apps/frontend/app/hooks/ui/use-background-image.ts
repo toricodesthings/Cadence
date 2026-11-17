@@ -49,7 +49,10 @@ export function useBackgroundImageUrl(imageId: string | null | undefined): strin
             if (!isBackgroundCacheCurrent(generation)) throw new DOMException("Session changed", "AbortError");
             if (cached) return cached;
 
-            const response = await client.api.settings.background[":id"].$get({ param: { id: imageId! } }, { init: { signal } });
+            const response = await client.api.settings.background[":id"].$get(
+                { param: { id: imageId! } },
+                { init: { signal } },
+            );
             const blob = await unwrapImageResponse(response as never);
             signal.throwIfAborted();
             await cacheBackgroundImage(userId!, imageId!, blob, generation);
@@ -74,7 +77,8 @@ export function useUploadBackgroundImage() {
             const generation = backgroundCacheGeneration();
             const compressed = await compressBackgroundImage(file);
             const { dominant, swatches } = extractPhotoPalette(await readImagePixels(compressed));
-            if (!isBackgroundCacheCurrent(generation)) throw new Error("Session changed. Please choose your photo again.");
+            if (!isBackgroundCacheCurrent(generation))
+                throw new Error("Session changed. Please choose your photo again.");
             const response = await client.api.settings.background.$post({
                 form: { file: compressed, dominant, swatches: swatches.join(",") },
             });
@@ -114,16 +118,18 @@ export function useDeleteBackgroundImage() {
                     appearance: {
                         ...previous.appearance,
                         backgroundImage: null,
-                        backgroundMode: previous.appearance.backgroundMode === "image"
-                            ? "theme"
-                            : previous.appearance.backgroundMode,
+                        backgroundMode:
+                            previous.appearance.backgroundMode === "image"
+                                ? "theme"
+                                : previous.appearance.backgroundMode,
                     },
                 });
             }
             return { previous, generation: backgroundCacheGeneration() };
         },
         onError: (_error, _variables, context) => {
-            if (context?.previous && isBackgroundCacheCurrent(context.generation)) settingsCache.write(context.previous);
+            if (context?.previous && isBackgroundCacheCurrent(context.generation))
+                settingsCache.write(context.previous);
         },
         onSuccess: ({ settings: updated, generation }) => {
             if (!isBackgroundCacheCurrent(generation)) return;

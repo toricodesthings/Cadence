@@ -44,9 +44,7 @@ export type IssueSummary = {
 const MESSAGE_MAX_LENGTH = 120;
 
 export function shorten(value: string): string {
-    return value.length > MESSAGE_MAX_LENGTH
-        ? `${value.slice(0, MESSAGE_MAX_LENGTH - 3)}...`
-        : value;
+    return value.length > MESSAGE_MAX_LENGTH ? `${value.slice(0, MESSAGE_MAX_LENGTH - 3)}...` : value;
 }
 
 /**
@@ -67,9 +65,7 @@ export async function hashIdentifier(value: string): Promise<string> {
  */
 export function issuesFromError(error: unknown): IssueSummary[] | undefined {
     if (!(error instanceof Error)) return undefined;
-    const issues: IssueSummary[] = [
-        { code: error.name || "Error", message: shorten(error.message), path: "" },
-    ];
+    const issues: IssueSummary[] = [{ code: error.name || "Error", message: shorten(error.message), path: "" }];
     if (error.cause instanceof Error) {
         issues.push({
             code: error.cause.name || "Cause",

@@ -17,7 +17,8 @@ export function useUpdateTag() {
             async ({ id, ...json }) => unwrapResponse(await client.api.tags[":id"].$patch({ param: { id }, json })),
         ),
 
-        onMutate: ({ id, ...patch }) => tagCache.edit(queryClient, (items) => items.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag))),
+        onMutate: ({ id, ...patch }) =>
+            tagCache.edit(queryClient, (items) => items.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag))),
 
         onError: (err, _input, context) => {
             if (context) tagCache.rollback(queryClient, context.snapshot);

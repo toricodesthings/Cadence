@@ -87,7 +87,10 @@ export function createIDBPersister(): ManagedPersister {
         const client = latest;
         const waiting = pending;
         latest = pending = undefined;
-        if (!client) { await storageWork.catch(() => {}); return; }
+        if (!client) {
+            await storageWork.catch(() => {});
+            return;
+        }
         try {
             await serialize(() => write(client));
             waiting?.resolve();
@@ -109,7 +112,9 @@ export function createIDBPersister(): ManagedPersister {
             // TanStack's subscription does not await saves. Retain rejection for
             // callers that await it while preventing an unhandled background failure.
             void pending.promise.catch(() => {});
-            timer ??= setTimeout(() => { void flush(); }, 250);
+            timer ??= setTimeout(() => {
+                void flush();
+            }, 250);
             return pending.promise;
         },
         flush,

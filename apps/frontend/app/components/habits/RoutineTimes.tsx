@@ -24,7 +24,12 @@ export function nextTime(times: readonly string[]): string {
         const candidate = `${String(hour).padStart(2, "0")}:${last?.slice(3) ?? "00"}`;
         if (!times.includes(candidate)) return candidate;
     }
-    return Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`).find((t) => !times.includes(t)) ?? "12:00";
+    return (
+        Array.from(
+            { length: 48 },
+            (_, i) => `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`,
+        ).find((t) => !times.includes(t)) ?? "12:00"
+    );
 }
 
 /**
@@ -32,7 +37,11 @@ export function nextTime(times: readonly string[]): string {
  * a time already in the list is ignored. Emits at least one time (the composer and
  * editor decide what fewer means).
  */
-export function RoutineTimes({ times, onChange, cadence = "Every day" }: {
+export function RoutineTimes({
+    times,
+    onChange,
+    cadence = "Every day",
+}: {
     times: readonly string[];
     onChange: (times: string[]) => void;
     /** Leads the live summary, e.g. "Every day". */
@@ -43,7 +52,12 @@ export function RoutineTimes({ times, onChange, cadence = "Every day" }: {
         <div className="space-y-2" role="group" aria-label="Times">
             {times.map((time, index) => (
                 <div key={index} className="flex items-center gap-2">
-                    <TimePicker label={`Time ${index + 1}`} value={time} onChange={(next) => next && set(times.map((t) => (t === time ? next : t)))} className="min-w-0 flex-1" />
+                    <TimePicker
+                        label={`Time ${index + 1}`}
+                        value={time}
+                        onChange={(next) => next && set(times.map((t) => (t === time ? next : t)))}
+                        className="min-w-0 flex-1"
+                    />
                     {times.length > 1 ? (
                         <button
                             type="button"
@@ -67,7 +81,9 @@ export function RoutineTimes({ times, onChange, cadence = "Every day" }: {
                 </button>
             ) : null}
             {times.length > 1 ? (
-                <p className="text-xs text-twilight-text-muted">{cadence} at {listTimes(times)}. Check off each time separately.</p>
+                <p className="text-xs text-twilight-text-muted">
+                    {cadence} at {listTimes(times)}. Check off each time separately.
+                </p>
             ) : null}
         </div>
     );
@@ -86,7 +102,11 @@ function markedText(clearing: boolean, next: "COMPLETED" | "SKIPPED", at: string
  * ("Done at 2:07 PM"), Skip and Undo touch just that time, and a later time is
  * never completed by an earlier tap. Mirrors the step checklist.
  */
-export function RoutineTimeChecklist({ habit, date, log }: {
+export function RoutineTimeChecklist({
+    habit,
+    date,
+    log,
+}: {
     habit: Pick<Habit, "id" | "title" | "times">;
     date: string;
     log?: HabitLog;
@@ -102,7 +122,11 @@ export function RoutineTimeChecklist({ habit, date, log }: {
         resolve({ targetDate: date, ...action });
         // The mark shows in place; only touch, where a stray tap is likely, gets an Undo toast (as the day cells do).
         if (!isTouch) return;
-        const undo = () => resolve({ targetDate: date, ...timeAction(time, previous?.status ?? "PENDING", previous?.at ?? undefined) });
+        const undo = () =>
+            resolve({
+                targetDate: date,
+                ...timeAction(time, previous?.status ?? "PENDING", previous?.at ?? undefined),
+            });
         toast.message(markedText(clearing, next, action.at), {
             description: `${habit.title} · ${formatWallTime(time)}`,
             action: { label: "Undo", onClick: undo },
@@ -114,8 +138,15 @@ export function RoutineTimeChecklist({ habit, date, log }: {
             label="Times"
             items={times.map((time) => {
                 const state = marks[time];
-                const note = state?.status !== "COMPLETED" ? undefined : state.at ? `Done at ${formatTime(state.at)}` : "Done";
-                return { id: time, name: formatWallTime(time), title: <span className="tabular-nums">{formatWallTime(time)}</span>, note, state: state?.status };
+                const note =
+                    state?.status !== "COMPLETED" ? undefined : state.at ? `Done at ${formatTime(state.at)}` : "Done";
+                return {
+                    id: time,
+                    name: formatWallTime(time),
+                    title: <span className="tabular-nums">{formatWallTime(time)}</span>,
+                    note,
+                    state: state?.status,
+                };
             })}
             onMark={mark}
         />

@@ -14,7 +14,10 @@ const FIRED_LIMIT = 300;
 /** Occurrences this device already alerted, per account, so a reload never repeats one. */
 function loadFired(userId: string): Set<string> {
     try {
-        const saved = JSON.parse(window.localStorage.getItem(FIRED_KEY) ?? "null") as { userId?: string; keys?: string[] } | null;
+        const saved = JSON.parse(window.localStorage.getItem(FIRED_KEY) ?? "null") as {
+            userId?: string;
+            keys?: string[];
+        } | null;
         return new Set(saved?.userId === userId && Array.isArray(saved.keys) ? saved.keys : []);
     } catch {
         return new Set();
@@ -57,7 +60,8 @@ export function useBrowserNotifications(notifications: AppNotification[]) {
 
         for (const n of notifications) {
             const due = dueAlert(n, {
-                now, zone,
+                now,
+                zone,
                 quietHours: { enabled: quietHoursEnabled, start: quietHoursStart, end: quietHoursEnd },
                 pausedUntil,
                 dismissed: dismissal.dismissedIds.has(n.id),
@@ -69,7 +73,13 @@ export function useBrowserNotifications(notifications: AppNotification[]) {
             fired.add(due.key);
             saveFired(userId, fired);
             // The occurrence key is the tag the server pushes with, so a local alert and a pushed one collapse into one.
-            sendPlatformNotification({ title: n.title, body: n.body, icon: "/logo.png", route: n.route ?? undefined, tag: due.key }).catch(() => {
+            sendPlatformNotification({
+                title: n.title,
+                body: n.body,
+                icon: "/logo.png",
+                route: n.route ?? undefined,
+                tag: due.key,
+            }).catch(() => {
                 fired.delete(due.key);
                 saveFired(userId, fired);
             });

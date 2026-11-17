@@ -22,16 +22,26 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         async (c) => {
             const { taskId } = c.req.valid("param");
             const { body, expectedVersion, expectedUpdatedAt } = c.req.valid("json");
-                const key = getIdempotencyKey(c);
-            const fingerprint = key ? JSON.stringify([taskId, body, expectedVersion ?? null, expectedUpdatedAt ?? null]) : "";
+            const key = getIdempotencyKey(c);
+            const fingerprint = key
+                ? JSON.stringify([taskId, body, expectedVersion ?? null, expectedUpdatedAt ?? null])
+                : "";
 
             // A retry under the same key replays the first answer (not whatever is latest now);
             // the same key with a different edit is a client bug.
             let learnsNotes = false;
             const result = await withCallerRls(c, async (tx, userId) => {
                 if (key && (await checkIdempotency(tx, userId, key))) {
-                    const first = (await storedResult(tx, userId, key)) as { fingerprint: string; row: Awaited<ReturnType<typeof writeNote>> };
-                    if (first.fingerprint !== fingerprint) throw new AppError(422, "VALIDATION_ERROR", "That operation id was already used for a different edit");
+                    const first = (await storedResult(tx, userId, key)) as {
+                        fingerprint: string;
+                        row: Awaited<ReturnType<typeof writeNote>>;
+                    };
+                    if (first.fingerprint !== fingerprint)
+                        throw new AppError(
+                            422,
+                            "VALIDATION_ERROR",
+                            "That operation id was already used for a different edit",
+                        );
                     return first.row;
                 }
                 const row = await writeNote(tx, userId, taskId, body, { expectedVersion, expectedUpdatedAt });

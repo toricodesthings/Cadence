@@ -23,7 +23,14 @@ describe("TagBubble colour menu", () => {
 });
 
 describe("TagBubble reordering", () => {
-    const reorder = (over: object = {}) => ({ first: false, last: false, onMove: vi.fn(), onDragStart: vi.fn(), dragging: false, ...over });
+    const reorder = (over: object = {}) => ({
+        first: false,
+        last: false,
+        onMove: vi.fn(),
+        onDragStart: vi.fn(),
+        dragging: false,
+        ...over,
+    });
 
     it("picking it up starts the reorder and still carries the tag for capture rows", () => {
         const props = reorder();

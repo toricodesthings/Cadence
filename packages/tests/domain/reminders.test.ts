@@ -1,13 +1,28 @@
 import { describe, expect, it } from "vitest";
 import { SETTINGS_DEFAULTS } from "@cadence/contracts/settings";
-import { DEFAULT_REMINDER_PREFS, deriveReminders, dueAlert, type Reminder, type ReminderHabit, type ReminderTask } from "@cadence/domain/reminders";
+import {
+    DEFAULT_REMINDER_PREFS,
+    deriveReminders,
+    dueAlert,
+    type Reminder,
+    type ReminderHabit,
+    type ReminderTask,
+} from "@cadence/domain/reminders";
 
 const zone = "America/Toronto";
 const fmt = { time: (i: string) => i.slice(11, 16), date: (d: string) => d };
 const quiet = { enabled: false, start: null, end: null };
 const task = (over: Partial<ReminderTask>): ReminderTask => ({
-    id: "t1", title: "Pay rent", state: "ACTIVE", projectId: null, dueDate: null,
-    reminderAt: null, reminderSilenced: false, waitingOn: null, waitingReminder: null, ...over,
+    id: "t1",
+    title: "Pay rent",
+    state: "ACTIVE",
+    projectId: null,
+    dueDate: null,
+    reminderAt: null,
+    reminderSilenced: false,
+    waitingOn: null,
+    waitingReminder: null,
+    ...over,
 });
 const derive = (tasks: ReminderTask[], now: string, habits: ReminderHabit[] = [], prefs = {}) =>
     deriveReminders({ tasks, habits }, new Date(now), zone, fmt, prefs);
@@ -21,7 +36,10 @@ describe("deriveReminders", () => {
     });
 
     it("never alerts a deadline for a task made after the alert time", () => {
-        const [due] = derive([task({ dueDate: "2026-10-07", createdAt: "2026-10-07T10:00:00-04:00" })], "2026-10-07T12:00:00-04:00");
+        const [due] = derive(
+            [task({ dueDate: "2026-10-07", createdAt: "2026-10-07T10:00:00-04:00" })],
+            "2026-10-07T12:00:00-04:00",
+        );
         expect(due.alertAt).toBeNull();
     });
 
@@ -36,18 +54,32 @@ describe("deriveReminders", () => {
     });
 
     it("alerts a routine one lead time before its target", () => {
-        const habit = { id: "h1", title: "Gym", archived: false, reminderEnabled: true, targetTime: "18:00", targetTimes: null,
-            logs: [{ targetDate: "2026-10-07", status: "PENDING" }] } as ReminderHabit;
+        const habit = {
+            id: "h1",
+            title: "Gym",
+            archived: false,
+            reminderEnabled: true,
+            targetTime: "18:00",
+            targetTimes: null,
+            logs: [{ targetDate: "2026-10-07", status: "PENDING" }],
+        } as ReminderHabit;
         const [r] = derive([], "2026-10-07T17:00:00-04:00", [habit], { habitReminderLeadMinutes: 30 });
         expect(Date.parse(r.triggerAt)).toBe(Date.parse("2026-10-07T18:00:00-04:00"));
         expect(Date.parse(r.alertAt!)).toBe(Date.parse("2026-10-07T17:30:00-04:00"));
     });
 
     describe("routine at set times", () => {
-        const meds = (timeMarks: Record<string, { status: "COMPLETED" | "SKIPPED"; at: string }> | null) => ({
-            id: "h2", title: "Medication", archived: false, reminderEnabled: true, targetTime: null, targetTimes: null, times: ["08:00", "14:00", "20:00"],
-            logs: [{ targetDate: "2026-10-07", status: "PENDING", timeMarks }],
-        }) as ReminderHabit;
+        const meds = (timeMarks: Record<string, { status: "COMPLETED" | "SKIPPED"; at: string }> | null) =>
+            ({
+                id: "h2",
+                title: "Medication",
+                archived: false,
+                reminderEnabled: true,
+                targetTime: null,
+                targetTimes: null,
+                times: ["08:00", "14:00", "20:00"],
+                logs: [{ targetDate: "2026-10-07", status: "PENDING", timeMarks }],
+            }) as ReminderHabit;
 
         it("reminds each open time on its own, with its own id", () => {
             const rs = derive([], "2026-10-07T13:00:00-04:00", [meds(null)]);
@@ -61,7 +93,9 @@ describe("deriveReminders", () => {
         });
 
         it("reminds on an untouched day's virtual log, with no marks yet", () => {
-            expect(derive([], "2026-10-07T07:30:00-04:00", [meds(null)]).map((r) => r.id)).toContain("habit-reminder::h2::2026-10-07::08:00");
+            expect(derive([], "2026-10-07T07:30:00-04:00", [meds(null)]).map((r) => r.id)).toContain(
+                "habit-reminder::h2::2026-10-07::08:00",
+            );
         });
     });
 });
@@ -74,7 +108,9 @@ describe("reminder prefs", () => {
     });
 
     it("alerts a deadline at the user's morning time", () => {
-        const [due] = derive([task({ dueDate: "2026-10-07" })], "2026-10-07T12:00:00-04:00", [], { morningTime: "07:30" });
+        const [due] = derive([task({ dueDate: "2026-10-07" })], "2026-10-07T12:00:00-04:00", [], {
+            morningTime: "07:30",
+        });
         expect(due.alertAt).toBe("2026-10-07T11:30:00.000Z");
     });
 
@@ -95,7 +131,8 @@ describe("reminder prefs", () => {
 });
 
 describe("timed blocks", () => {
-    const block = (over: Partial<ReminderTask> = {}) => task({ scheduledStart: "2026-10-07T14:00:00-04:00", scheduledEnd: "2026-10-07T15:00:00-04:00", ...over });
+    const block = (over: Partial<ReminderTask> = {}) =>
+        task({ scheduledStart: "2026-10-07T14:00:00-04:00", scheduledEnd: "2026-10-07T15:00:00-04:00", ...over });
 
     it("alerts 10 minutes before a block, 30 before a Fixed one", () => {
         const [plain] = derive([block()], "2026-10-07T13:00:00-04:00");
@@ -114,11 +151,20 @@ describe("timed blocks", () => {
     it("skips far-off, finished and explicitly reminded blocks", () => {
         expect(derive([block()], "2026-10-07T08:00:00-04:00")).toHaveLength(0);
         expect(derive([block()], "2026-10-07T14:45:00-04:00")).toHaveLength(0);
-        expect(derive([block({ reminderAt: "2026-10-07T13:00:00-04:00" })], "2026-10-07T13:00:00-04:00").map((r) => r.kind)).toEqual(["task-reminder"]);
+        expect(
+            derive([block({ reminderAt: "2026-10-07T13:00:00-04:00" })], "2026-10-07T13:00:00-04:00").map(
+                (r) => r.kind,
+            ),
+        ).toEqual(["task-reminder"]);
     });
 
     it("expands a repeating block into today's occurrence at the same local time", () => {
-        const weekly = block({ scheduledStart: "2026-09-02T14:00:00-04:00", scheduledEnd: "2026-09-02T15:00:00-04:00", recurrenceRule: "FREQ=WEEKLY;BYDAY=WE", interactionMode: "timetable" });
+        const weekly = block({
+            scheduledStart: "2026-09-02T14:00:00-04:00",
+            scheduledEnd: "2026-09-02T15:00:00-04:00",
+            recurrenceRule: "FREQ=WEEKLY;BYDAY=WE",
+            interactionMode: "timetable",
+        });
         const [r] = derive([weekly], "2026-10-07T13:00:00-04:00");
         expect(r.id).toBe(`block-start::t1::${new Date("2026-10-07T14:00:00-04:00").toISOString()}`);
         expect(derive([weekly], "2026-10-08T13:00:00-04:00")).toHaveLength(0);
@@ -127,28 +173,52 @@ describe("timed blocks", () => {
 
 describe("yearly events", () => {
     const events = (now: string, eventDaysBefore: number[]) =>
-        deriveReminders({ tasks: [], habits: [], personalEvents: [event] }, new Date(now), zone, fmt, { eventDaysBefore });
+        deriveReminders({ tasks: [], habits: [], personalEvents: [event] }, new Date(now), zone, fmt, {
+            eventDaysBefore,
+        });
 
     it("nudges on each chosen day, each its own occurrence", () => {
         expect(events("2026-10-20T08:00:00-04:00", [0, 1, 7]).map((r) => r.body)).toEqual(["Today"]);
-        expect(events("2026-10-19T08:00:00-04:00", [0, 1, 7]).map((r) => [r.id, r.body])).toEqual([["personal-event::e1::2026-10-20::1d", "Tomorrow"]]);
+        expect(events("2026-10-19T08:00:00-04:00", [0, 1, 7]).map((r) => [r.id, r.body])).toEqual([
+            ["personal-event::e1::2026-10-20::1d", "Tomorrow"],
+        ]);
         expect(events("2026-10-13T08:00:00-04:00", [0, 1, 7]).map((r) => r.body)).toEqual(["In 7 days"]);
         expect(events("2026-10-13T08:00:00-04:00", [0])).toHaveLength(0);
     });
 
     it("looks ahead across New Year", () => {
         const jan = { ...event, monthDay: "01-03" };
-        const [r] = deriveReminders({ tasks: [], habits: [], personalEvents: [jan] }, new Date("2026-12-27T08:00:00-05:00"), zone, fmt, { eventDaysBefore: [7] });
+        const [r] = deriveReminders(
+            { tasks: [], habits: [], personalEvents: [jan] },
+            new Date("2026-12-27T08:00:00-05:00"),
+            zone,
+            fmt,
+            { eventDaysBefore: [7] },
+        );
         expect(r.id).toBe("personal-event::e1::2027-01-03::7d");
     });
 });
 
 describe("dueAlert", () => {
     const reminder = (over: Partial<Reminder> = {}): Reminder => ({
-        id: "task-reminder::t1::x", kind: "task-reminder", title: "t", body: "b", triggerAt: "2026-10-07T10:00:00-04:00",
-        alertAt: "2026-10-07T10:00:00-04:00", entityId: "t1", route: "/", priority: "high", ...over,
+        id: "task-reminder::t1::x",
+        kind: "task-reminder",
+        title: "t",
+        body: "b",
+        triggerAt: "2026-10-07T10:00:00-04:00",
+        alertAt: "2026-10-07T10:00:00-04:00",
+        entityId: "t1",
+        route: "/",
+        priority: "high",
+        ...over,
     });
-    const gate = (now: string, over = {}) => ({ now: new Date(now), zone, quietHours: quiet, dismissed: false, ...over });
+    const gate = (now: string, over = {}) => ({
+        now: new Date(now),
+        zone,
+        quietHours: quiet,
+        dismissed: false,
+        ...over,
+    });
 
     it("sends from the alert instant until the late bound", () => {
         expect(dueAlert(reminder(), gate("2026-10-07T09:59:00-04:00"))).toBeNull();
@@ -165,7 +235,9 @@ describe("dueAlert", () => {
     it("is silent while paused, then resumes", () => {
         const pausedUntil = "2026-10-07T11:00:00-04:00";
         expect(dueAlert(reminder(), gate("2026-10-07T10:01:00-04:00", { pausedUntil }))).toBeNull();
-        expect(dueAlert(reminder(), gate("2026-10-07T10:01:00-04:00", { pausedUntil: "2026-10-07T10:00:30-04:00" }))).not.toBeNull();
+        expect(
+            dueAlert(reminder(), gate("2026-10-07T10:01:00-04:00", { pausedUntil: "2026-10-07T10:00:30-04:00" })),
+        ).not.toBeNull();
     });
 
     it("silences every alert in quiet hours, high priority included", () => {
@@ -176,26 +248,44 @@ describe("dueAlert", () => {
     describe("holds what quiet hours silenced until they end, while it is still relevant", () => {
         const night = { enabled: true, start: "22:00", end: "08:00" };
         // An 8:35 Fixed class with a 60-minute lead alerts at 7:35, inside quiet hours.
-        const classAlert = reminder({ kind: "block-start", alertAt: "2026-10-09T07:35:00-04:00", relevantUntil: "2026-10-09T08:35:00-04:00" });
+        const classAlert = reminder({
+            kind: "block-start",
+            alertAt: "2026-10-09T07:35:00-04:00",
+            relevantUntil: "2026-10-09T08:35:00-04:00",
+        });
 
         it("sends it when quiet hours end, within the late bound from then", () => {
             expect(dueAlert(classAlert, gate("2026-10-09T07:40:00-04:00", { quietHours: night }))).toBeNull();
-            expect(dueAlert(classAlert, gate("2026-10-09T08:00:00-04:00", { quietHours: night }))?.key).toBe("task-reminder::t1::x");
+            expect(dueAlert(classAlert, gate("2026-10-09T08:00:00-04:00", { quietHours: night }))?.key).toBe(
+                "task-reminder::t1::x",
+            );
             expect(dueAlert(classAlert, gate("2026-10-09T08:16:00-04:00", { quietHours: night }))).toBeNull();
         });
 
         it("still sends an unheld alert at a block's start (a lead of 0)", () => {
-            const atStart = reminder({ kind: "block-start", alertAt: "2026-10-09T14:00:00-04:00", relevantUntil: "2026-10-09T14:00:00-04:00" });
+            const atStart = reminder({
+                kind: "block-start",
+                alertAt: "2026-10-09T14:00:00-04:00",
+                relevantUntil: "2026-10-09T14:00:00-04:00",
+            });
             expect(dueAlert(atStart, gate("2026-10-09T14:00:09-04:00", { quietHours: night }))).not.toBeNull();
         });
 
         it("drops a block that started before quiet hours ended", () => {
-            const early = reminder({ kind: "block-start", alertAt: "2026-10-09T07:00:00-04:00", relevantUntil: "2026-10-09T07:50:00-04:00" });
+            const early = reminder({
+                kind: "block-start",
+                alertAt: "2026-10-09T07:00:00-04:00",
+                relevantUntil: "2026-10-09T07:50:00-04:00",
+            });
             expect(dueAlert(early, gate("2026-10-09T08:00:00-04:00", { quietHours: night }))).toBeNull();
         });
 
         it("drops a late-night routine time once its day is over", () => {
-            const dose = reminder({ kind: "habit-reminder", alertAt: "2026-10-09T23:30:00-04:00", relevantUntil: "2026-10-10T00:00:00-04:00" });
+            const dose = reminder({
+                kind: "habit-reminder",
+                alertAt: "2026-10-09T23:30:00-04:00",
+                relevantUntil: "2026-10-10T00:00:00-04:00",
+            });
             expect(dueAlert(dose, gate("2026-10-10T08:00:00-04:00", { quietHours: night }))).toBeNull();
         });
 
@@ -209,7 +299,9 @@ describe("dueAlert", () => {
         it("still sends a deferral past its original day", () => {
             const stale = reminder({ relevantUntil: "2026-10-08T00:00:00-04:00" });
             const deferredUntil = "2026-10-08T09:00:00-04:00";
-            expect(dueAlert(stale, gate("2026-10-08T09:01:00-04:00", { deferredUntil }))?.key).toBe(`task-reminder::t1::x@${deferredUntil}`);
+            expect(dueAlert(stale, gate("2026-10-08T09:01:00-04:00", { deferredUntil }))?.key).toBe(
+                `task-reminder::t1::x@${deferredUntil}`,
+            );
         });
     });
 
@@ -217,6 +309,8 @@ describe("dueAlert", () => {
         expect(dueAlert(reminder(), gate("2026-10-07T10:01:00-04:00", { dismissed: true }))).toBeNull();
         const deferred = "2026-10-07T12:00:00-04:00";
         expect(dueAlert(reminder(), gate("2026-10-07T11:00:00-04:00", { deferredUntil: deferred }))).toBeNull();
-        expect(dueAlert(reminder(), gate("2026-10-07T12:02:00-04:00", { deferredUntil: deferred }))?.key).toBe(`task-reminder::t1::x@${deferred}`);
+        expect(dueAlert(reminder(), gate("2026-10-07T12:02:00-04:00", { deferredUntil: deferred }))?.key).toBe(
+            `task-reminder::t1::x@${deferred}`,
+        );
     });
 });

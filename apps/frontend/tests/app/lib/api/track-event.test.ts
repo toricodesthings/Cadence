@@ -4,19 +4,43 @@
  */
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "../../../../app/lib/api/client";
-import { setDiagnosticsEnabled, trackUsageEvent, trackClientError, trackPerformance, setCrashReportsEnabled } from "../../../../app/lib/api/track-event";
+import {
+    setDiagnosticsEnabled,
+    trackUsageEvent,
+    trackClientError,
+    trackPerformance,
+    setCrashReportsEnabled,
+} from "../../../../app/lib/api/track-event";
 
 vi.mock("../../../../app/lib/api/client", () => ({
-    apiClient: { api: { events: { batch: { $post: vi.fn().mockResolvedValue(new Response()) }, performance: { $post: vi.fn().mockResolvedValue(new Response()) }, errors: { $post: vi.fn().mockResolvedValue(new Response()) } } } },
+    apiClient: {
+        api: {
+            events: {
+                batch: { $post: vi.fn().mockResolvedValue(new Response()) },
+                performance: { $post: vi.fn().mockResolvedValue(new Response()) },
+                errors: { $post: vi.fn().mockResolvedValue(new Response()) },
+            },
+        },
+    },
 }));
 
 vi.mock("../../../../app/lib/env", () => ({
-    API_BASE_URL: "http://localhost:8787", RUNTIME_TARGET: "web",
+    API_BASE_URL: "http://localhost:8787",
+    RUNTIME_TARGET: "web",
 }));
 
 describe("trackUsageEvent diagnostics gate", () => {
-    beforeEach(() => { vi.useFakeTimers(); setDiagnosticsEnabled(false); setCrashReportsEnabled(false); vi.clearAllMocks(); });
-    afterEach(() => { setDiagnosticsEnabled(false); setCrashReportsEnabled(false); vi.useRealTimers(); });
+    beforeEach(() => {
+        vi.useFakeTimers();
+        setDiagnosticsEnabled(false);
+        setCrashReportsEnabled(false);
+        vi.clearAllMocks();
+    });
+    afterEach(() => {
+        setDiagnosticsEnabled(false);
+        setCrashReportsEnabled(false);
+        vi.useRealTimers();
+    });
     it("no-ops when diagnostics are disabled", () => {
         vi.useFakeTimers();
         setDiagnosticsEnabled(false);
@@ -44,7 +68,9 @@ describe("trackUsageEvent diagnostics gate", () => {
         vi.mocked(apiClient.api.events.batch.$post).mockImplementationOnce(() => new Promise(() => {}));
         await vi.advanceTimersByTimeAsync(5000);
         expect(apiClient.api.events.batch.$post).toHaveBeenCalledTimes(1);
-        expect(vi.mocked(apiClient.api.events.batch.$post).mock.calls[0][0]).toEqual({ json: { events: [{ event: "task.create" }, { event: "task.complete" }] } });
+        expect(vi.mocked(apiClient.api.events.batch.$post).mock.calls[0][0]).toEqual({
+            json: { events: [{ event: "task.create" }, { event: "task.complete" }] },
+        });
         const signal = vi.mocked(apiClient.api.events.batch.$post).mock.calls[0][1]?.init?.signal;
         setDiagnosticsEnabled(false);
         expect(signal?.aborted).toBe(true);
@@ -65,7 +91,23 @@ describe("trackUsageEvent diagnostics gate", () => {
         setDiagnosticsEnabled(true);
         setCrashReportsEnabled(true);
         trackClientError(new Error("private"), "query");
-        trackPerformance([{ measurement_revision: 1, phase: "reveal", route: "capture", duration_ms: 10, elapsed_ms: 10, cache: "warm", outcome: "ready", platform: "web", viewport: "wide", category: "workspace", count: 0, encoded_bytes: 0, decoded_bytes: 0 }]);
+        trackPerformance([
+            {
+                measurement_revision: 1,
+                phase: "reveal",
+                route: "capture",
+                duration_ms: 10,
+                elapsed_ms: 10,
+                cache: "warm",
+                outcome: "ready",
+                platform: "web",
+                viewport: "wide",
+                category: "workspace",
+                count: 0,
+                encoded_bytes: 0,
+                decoded_bytes: 0,
+            },
+        ]);
         setDiagnosticsEnabled(false);
         setCrashReportsEnabled(false);
         setDiagnosticsEnabled(true);
@@ -83,5 +125,4 @@ describe("trackUsageEvent diagnostics gate", () => {
         expect(apiClient.api.events.errors.$post).toHaveBeenCalledTimes(1);
         expect(apiClient.api.events.batch.$post).not.toHaveBeenCalled();
     });
-
 });

@@ -28,7 +28,11 @@ export interface DayViewProps extends TimelineProps {
 }
 
 /** Chips size to their words and wrap; two rows show, the rest sit behind "+N more". */
-function AllDayChips({ tasks, sourceId, onSelectTask }: {
+function AllDayChips({
+    tasks,
+    sourceId,
+    onSelectTask,
+}: {
     tasks: Task[];
     sourceId: string;
     onSelectTask: (taskId: string) => void;
@@ -42,7 +46,12 @@ function AllDayChips({ tasks, sourceId, onSelectTask }: {
         const measure = () => {
             let hiddenAt = tasks.length;
             Array.from(el.querySelectorAll<HTMLElement>("[data-lane-chip]")).forEach((chip, index) => {
-                if (el.clientHeight > 0 && chip.offsetTop + chip.offsetHeight > el.clientHeight && hiddenAt === tasks.length) hiddenAt = index;
+                if (
+                    el.clientHeight > 0 &&
+                    chip.offsetTop + chip.offsetHeight > el.clientHeight &&
+                    hiddenAt === tasks.length
+                )
+                    hiddenAt = index;
             });
             setFirstHidden(hiddenAt);
         };
@@ -54,19 +63,15 @@ function AllDayChips({ tasks, sourceId, onSelectTask }: {
 
     const hidden = tasks.slice(firstHidden);
     const chip = (t: Task) => (
-        <CalendarTaskChip
-            key={t.id}
-            task={t}
-            variant="pill"
-            fit
-            sourceId={sourceId}
-            onSelect={onSelectTask}
-        />
+        <CalendarTaskChip key={t.id} task={t} variant="pill" fit sourceId={sourceId} onSelect={onSelectTask} />
     );
 
     return (
         <div className="flex flex-col gap-1">
-            <div ref={ref} className="relative flex max-h-[5.125rem] flex-wrap gap-1.5 overflow-hidden [@media(max-height:760px)]:max-h-[2.375rem]">
+            <div
+                ref={ref}
+                className="relative flex max-h-[5.125rem] flex-wrap gap-1.5 overflow-hidden [@media(max-height:760px)]:max-h-[2.375rem]"
+            >
                 {tasks.map((t, index) => (
                     <div key={t.id} data-lane-chip className="flex max-w-full" inert={index >= firstHidden}>
                         {chip(t)}
@@ -131,69 +136,72 @@ export function DayView({
 
     return (
         <CalendarHoverContext.Provider value={hover}>
-        <div className="surface-card m-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] sm:m-3">
-            {/* All-day area — date header suppressed; ScheduleHeader is the single source of truth */}
-            <div className="shrink-0 border-b border-twilight-border/30 flex gap-0">
-                {/* Gutter with "All day" label */}
-                <div className="w-14 shrink-0 flex flex-col justify-end pb-2 pr-2.5">
-                    <span className="text-[10px] text-twilight-text-muted/90 uppercase tracking-widest text-right select-none">
-                        All day
-                    </span>
-                </div>
-                <AllDayDropLane
-                    dateStr={currentDate}
-                    className="flex-1 px-4 py-2"
-                    isActive={activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === currentDate}
-                >
-                    <div className={`flex flex-col gap-1 ${allDay.length === 0 ? "min-h-11" : ""}`}>
-                        {holidays.length > 0 && (
-                            <div className="mb-1 inline-flex max-w-fit items-center gap-2 rounded-full border border-solstice/20 bg-solstice/12 px-3 py-1 text-xs font-medium text-solstice">
-                                <Flag size={12} strokeWidth={2.2} aria-hidden="true" />
-                                {holidays.map((holiday) => holiday.name).join(", ")}
-                            </div>
-                        )}
-                        {isBirthday && (
-                            <div className="mb-1 inline-flex max-w-fit items-center gap-2 rounded-full border border-violet/20 bg-violet/12 px-3 py-1 text-xs font-medium text-violet">
-                                🎂 Your Birthday
-                            </div>
-                        )}
-                        {personalEvents.map((evt) => (
-                            <div key={evt.id} className="mb-1 inline-flex max-w-fit items-center gap-2 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 py-1 text-xs font-medium text-accent-nav-schedule">
-                                {evt.emoji ?? "🎉"} {evt.label}
-                            </div>
-                        ))}
-                        {activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === currentDate ? (
-                            <AllDayDropPreview preview={activeDropPreview} />
-                        ) : null}
-                        <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-                            <AllDayChips
-                                tasks={allDay}
-                                sourceId={`allday-${currentDate}`}
-                                onSelectTask={onSelectTask}
-                            />
-                            <RoutineStrip tasks={anytime} onSelect={onSelectTask} />
-                        </div>
+            <div className="surface-card m-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] sm:m-3">
+                {/* All-day area — date header suppressed; ScheduleHeader is the single source of truth */}
+                <div className="shrink-0 border-b border-twilight-border/30 flex gap-0">
+                    {/* Gutter with "All day" label */}
+                    <div className="w-14 shrink-0 flex flex-col justify-end pb-2 pr-2.5">
+                        <span className="text-[10px] text-twilight-text-muted/90 uppercase tracking-widest text-right select-none">
+                            All day
+                        </span>
                     </div>
-                </AllDayDropLane>
-            </div>
-
-            {/* Scrollable time grid */}
-            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-20">
-                <div className="flex" style={{ height: DAY_GRID_HEIGHT }}>
-                    <TimeGutter hourHeight={HOUR_HEIGHT} />
-                    <TimedCalendarColumn
+                    <AllDayDropLane
                         dateStr={currentDate}
-                        tasks={timed}
-                        activeDropPreview={activeDropPreview}
-                        draftPlacement={draftPlacement}
-                        onSelectTask={onSelectTask}
-                        onResizeTask={onResizeTask}
-                        isToday={isToday}
-                        onGridClick={onGridClick}
-                    />
+                        className="flex-1 px-4 py-2"
+                        isActive={activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === currentDate}
+                    >
+                        <div className={`flex flex-col gap-1 ${allDay.length === 0 ? "min-h-11" : ""}`}>
+                            {holidays.length > 0 && (
+                                <div className="mb-1 inline-flex max-w-fit items-center gap-2 rounded-full border border-solstice/20 bg-solstice/12 px-3 py-1 text-xs font-medium text-solstice">
+                                    <Flag size={12} strokeWidth={2.2} aria-hidden="true" />
+                                    {holidays.map((holiday) => holiday.name).join(", ")}
+                                </div>
+                            )}
+                            {isBirthday && (
+                                <div className="mb-1 inline-flex max-w-fit items-center gap-2 rounded-full border border-violet/20 bg-violet/12 px-3 py-1 text-xs font-medium text-violet">
+                                    🎂 Your Birthday
+                                </div>
+                            )}
+                            {personalEvents.map((evt) => (
+                                <div
+                                    key={evt.id}
+                                    className="mb-1 inline-flex max-w-fit items-center gap-2 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 py-1 text-xs font-medium text-accent-nav-schedule"
+                                >
+                                    {evt.emoji ?? "🎉"} {evt.label}
+                                </div>
+                            ))}
+                            {activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === currentDate ? (
+                                <AllDayDropPreview preview={activeDropPreview} />
+                            ) : null}
+                            <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                                <AllDayChips
+                                    tasks={allDay}
+                                    sourceId={`allday-${currentDate}`}
+                                    onSelectTask={onSelectTask}
+                                />
+                                <RoutineStrip tasks={anytime} onSelect={onSelectTask} />
+                            </div>
+                        </div>
+                    </AllDayDropLane>
+                </div>
+
+                {/* Scrollable time grid */}
+                <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-20">
+                    <div className="flex" style={{ height: DAY_GRID_HEIGHT }}>
+                        <TimeGutter hourHeight={HOUR_HEIGHT} />
+                        <TimedCalendarColumn
+                            dateStr={currentDate}
+                            tasks={timed}
+                            activeDropPreview={activeDropPreview}
+                            draftPlacement={draftPlacement}
+                            onSelectTask={onSelectTask}
+                            onResizeTask={onResizeTask}
+                            isToday={isToday}
+                            onGridClick={onGridClick}
+                        />
+                    </div>
                 </div>
             </div>
-        </div>
         </CalendarHoverContext.Provider>
     );
 }

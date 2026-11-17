@@ -3,7 +3,12 @@ import { useSearchParams } from "react-router";
 // oxlint-disable-next-line eslint/no-restricted-imports -- desktop-only window route
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { QuickAddSurface, type QuickAddTab } from "../components/quick-add/QuickAddSurface";
-import { closeCurrentDesktopWindow, completeQuickCapture, focusMainDesktopWindow, QUICK_CAPTURE_TAB_EVENT } from "../platform/desktop-shell";
+import {
+    closeCurrentDesktopWindow,
+    completeQuickCapture,
+    focusMainDesktopWindow,
+    QUICK_CAPTURE_TAB_EVENT,
+} from "../platform/desktop-shell";
 import { useAuthState } from "../hooks/auth/use-auth-state";
 import { Loading } from "../components/shared/Loading";
 import { IS_DESKTOP_RUNTIME } from "../platform/runtime";
@@ -28,11 +33,13 @@ export default function DesktopQuickCaptureRoute() {
 
         let unlisten: (() => void) | undefined;
 
-        void getCurrentWindow().listen<{ tab?: string }>(QUICK_CAPTURE_TAB_EVENT, (event) => {
-            setInitialTab(normalizeQuickAddTab(event.payload?.tab ?? null));
-        }).then((dispose) => {
-            unlisten = dispose;
-        });
+        void getCurrentWindow()
+            .listen<{ tab?: string }>(QUICK_CAPTURE_TAB_EVENT, (event) => {
+                setInitialTab(normalizeQuickAddTab(event.payload?.tab ?? null));
+            })
+            .then((dispose) => {
+                unlisten = dispose;
+            });
 
         return () => {
             unlisten?.();
@@ -55,10 +62,13 @@ export default function DesktopQuickCaptureRoute() {
         return (
             <main className="flex min-h-screen items-center justify-center bg-twilight px-6 py-10 text-twilight-text">
                 <div className="w-full max-w-md rounded-[2rem] border border-twilight-border bg-twilight-surface/80 p-8 shadow-[0_24px_72px_rgba(0,0,0,0.4)] backdrop-blur-xl">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-twilight-text-muted">{shellTitle}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-twilight-text-muted">
+                        {shellTitle}
+                    </p>
                     <h1 className="mt-4 font-display text-3xl text-twilight-text">Cadence needs your main session</h1>
                     <p className="mt-3 text-sm leading-6 text-twilight-text-soft">
-                        Quick capture uses the same authenticated workspace as the main Cadence window. Sign in there first, then reopen quick capture.
+                        Quick capture uses the same authenticated workspace as the main Cadence window. Sign in there
+                        first, then reopen quick capture.
                     </p>
                     <div className="mt-6 flex gap-3">
                         <button

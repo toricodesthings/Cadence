@@ -24,7 +24,9 @@ export function Toaster() {
         element.style.pointerEvents = "auto";
         document.body.appendChild(element);
         setHost(element);
-        return () => { element.remove(); };
+        return () => {
+            element.remove();
+        };
     }, []);
     if (!host) return null;
 

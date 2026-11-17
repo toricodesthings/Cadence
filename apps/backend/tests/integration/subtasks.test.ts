@@ -38,7 +38,10 @@ describe("subtasks under a task", () => {
         const { status, body } = await api("GET", `/tasks/${taskId}/subtasks`);
 
         expect(status).toBe(200);
-        expect(body.data.map((s: any) => [s.title, s.isComplete])).toEqual([["first", false], ["second", false]]);
+        expect(body.data.map((s: any) => [s.title, s.isComplete])).toEqual([
+            ["first", false],
+            ["second", false],
+        ]);
     });
 
     it.each([
@@ -108,7 +111,9 @@ describe("changing a subtask", () => {
         const taskId = await newTask();
         const { body: sub } = await api("POST", `/tasks/${taskId}/subtasks`, { title: "x", orderIndex: 0 });
 
-        expect((await api("PATCH", `/subtasks/${sub.data.id}/reorder`, { orderIndex: 7 })).body.data.orderIndex).toBe(7);
+        expect((await api("PATCH", `/subtasks/${sub.data.id}/reorder`, { orderIndex: 7 })).body.data.orderIndex).toBe(
+            7,
+        );
         expect((await api("PATCH", `/subtasks/${sub.data.id}/reorder`, {})).status).toBe(400);
     });
 
@@ -128,6 +133,8 @@ describe("changing a subtask", () => {
         expect((await api("PATCH", `/subtasks/${id}`, { title: "hijacked" })).status).toBe(404);
         expect((await api("PATCH", `/subtasks/${id}/reorder`, { orderIndex: 9 })).status).toBe(404);
         expect((await api("DELETE", `/subtasks/${id}`)).status).toBe(404);
-        expect((await otherApi("GET", `/tasks/${theirs}/subtasks`)).body.data.map((s: any) => s.title)).toEqual(["theirs"]);
+        expect((await otherApi("GET", `/tasks/${theirs}/subtasks`)).body.data.map((s: any) => s.title)).toEqual([
+            "theirs",
+        ]);
     });
 });

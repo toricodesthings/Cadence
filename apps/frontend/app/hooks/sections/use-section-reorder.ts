@@ -9,7 +9,11 @@ import { useUpdateSection } from "./use-sections";
 export function useSectionReorder(projectId: string | null | undefined, sections: TaskSection[]) {
     const update = useUpdateSection(projectId);
     const moveTo = (id: string, to: number) => {
-        for (const write of reorderWrites(sections.map((s) => ({ id: s.id, order: s.orderIndex })), id, to)) {
+        for (const write of reorderWrites(
+            sections.map((s) => ({ id: s.id, order: s.orderIndex })),
+            id,
+            to,
+        )) {
             update.mutate({ id: write.id, orderIndex: write.order });
         }
     };

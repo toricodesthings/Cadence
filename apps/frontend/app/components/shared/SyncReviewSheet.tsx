@@ -24,13 +24,16 @@ function QueuedNoteConflict({ entry, title, onClose }: { entry: WalEntry; title?
     const op = entry.op as Extract<WalEntry["op"], { type: "upsert_note" }>;
     const [latest, setLatest] = useState<{ body: string; version: number } | null>(null);
     useEffect(() => {
-        void fetchTaskNote(op.taskId).then((n) => setLatest({ body: n?.body ?? "", version: n?.version ?? 0 })).catch(() => {
-            toast.error("Couldn’t load the latest version");
-            onClose();
-        });
+        void fetchTaskNote(op.taskId)
+            .then((n) => setLatest({ body: n?.body ?? "", version: n?.version ?? 0 }))
+            .catch(() => {
+                toast.error("Couldn’t load the latest version");
+                onClose();
+            });
     }, [op.taskId, onClose]);
     // The version not picked stays on this device until discarded in the note.
-    const setAside = (body: string) => (userId ? keepRecoveryCopy(noteJournal, userId, op.taskId, entry.id, body).catch(() => undefined) : undefined);
+    const setAside = (body: string) =>
+        userId ? keepRecoveryCopy(noteJournal, userId, op.taskId, entry.id, body).catch(() => undefined) : undefined;
     if (!latest) return null;
     return (
         <NoteConflictSheet
@@ -41,7 +44,15 @@ function QueuedNoteConflict({ entry, title, onClose }: { entry: WalEntry; title?
             taskTitle={title}
             onUseMine={async () => {
                 await setAside(latest.body);
-                const next = { ...op, payload: { ...op.payload, expectedVersion: latest.version, baseBody: latest.body, opId: crypto.randomUUID() } };
+                const next = {
+                    ...op,
+                    payload: {
+                        ...op.payload,
+                        expectedVersion: latest.version,
+                        baseBody: latest.body,
+                        opId: crypto.randomUUID(),
+                    },
+                };
                 await replaceWalEntryOp(entry.id, next, toRequests(next));
                 onClose();
                 void replayWal(queryClient);
@@ -51,7 +62,9 @@ function QueuedNoteConflict({ entry, title, onClose }: { entry: WalEntry; title?
                 await removeWalEntry(entry.id);
                 await queryClient.invalidateQueries({ queryKey: queryKeys.notes.detail(op.taskId) });
                 onClose();
-                toast.message("Kept the latest version. Yours is set aside in the note.", { action: { label: "Copy mine", onClick: () => void copyText(op.payload.body) } });
+                toast.message("Kept the latest version. Yours is set aside in the note.", {
+                    action: { label: "Copy mine", onClick: () => void copyText(op.payload.body) },
+                });
             }}
         />
     );
@@ -92,21 +105,34 @@ export function SyncReviewSheet({ open, onClose }: { open: boolean; onClose: () 
             fit
             footer={
                 <div className="flex justify-end px-4 py-3">
-                    <Button size="md" onClick={outbox.retryFailed}>Retry all</Button>
+                    <Button size="md" onClick={outbox.retryFailed}>
+                        Retry all
+                    </Button>
                 </div>
             }
         >
             <ul className="flex flex-col gap-2 py-2">
                 {failed.map((entry) => (
-                    <li key={entry.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-twilight-surface/60 px-4 py-3">
+                    <li
+                        key={entry.id}
+                        className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-twilight-surface/60 px-4 py-3"
+                    >
                         <div className="min-w-0 flex-1">
-                            <p className="truncate text-[15px] text-twilight-text">{describeChange(entry.op, titleOf)}</p>
+                            <p className="truncate text-[15px] text-twilight-text">
+                                {describeChange(entry.op, titleOf)}
+                            </p>
                             {entry.error && <p className="mt-0.5 text-[13px] text-twilight-text-soft">{entry.error}</p>}
                         </div>
                         <div className="flex shrink-0 gap-2">
-                            {entry.conflict
-                                ? <Button size="sm" onClick={() => setReviewing(entry)}>Review</Button>
-                                : <Button variant="ghost" size="sm" onClick={() => void outbox.retry(entry)}>Retry</Button>}
+                            {entry.conflict ? (
+                                <Button size="sm" onClick={() => setReviewing(entry)}>
+                                    Review
+                                </Button>
+                            ) : (
+                                <Button variant="ghost" size="sm" onClick={() => void outbox.retry(entry)}>
+                                    Retry
+                                </Button>
+                            )}
                             <Button
                                 variant="danger"
                                 size="sm"
@@ -122,7 +148,13 @@ export function SyncReviewSheet({ open, onClose }: { open: boolean; onClose: () 
                     </li>
                 ))}
             </ul>
-            {reviewing && <QueuedNoteConflict entry={reviewing} title={titleOf((reviewing.op as { taskId: string }).taskId)} onClose={stopReviewing} />}
+            {reviewing && (
+                <QueuedNoteConflict
+                    entry={reviewing}
+                    title={titleOf((reviewing.op as { taskId: string }).taskId)}
+                    onClose={stopReviewing}
+                />
+            )}
         </UtilitySheet>
     );
 }

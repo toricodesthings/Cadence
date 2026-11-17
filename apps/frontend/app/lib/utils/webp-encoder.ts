@@ -8,10 +8,12 @@ let ready: Promise<unknown> | undefined;
 
 /** Loaded only when the browser cannot encode WebP through canvas. */
 export async function encodeWebpPixels(pixels: ImageData, quality: number): Promise<Blob> {
-    ready ??= init({ locateFile: (file: string) => file.endsWith("_simd.wasm") ? simdWasmUrl : wasmUrl }).catch((error) => {
-        ready = undefined;
-        throw error;
-    });
+    ready ??= init({ locateFile: (file: string) => (file.endsWith("_simd.wasm") ? simdWasmUrl : wasmUrl) }).catch(
+        (error) => {
+            ready = undefined;
+            throw error;
+        },
+    );
     await ready;
     return new Blob([await encode(pixels, { quality: quality * 100 })], { type: "image/webp" });
 }

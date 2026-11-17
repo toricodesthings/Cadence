@@ -11,11 +11,20 @@ type StartupRoute = ReturnType<typeof startupRoute>;
 
 // Never part of the first screen: decoration, the assistant, the developer tools probe.
 // They fill in after reveal with their own skeleton or fade.
-const NEVER_GATES = new Set(["weather", "location", "holidays", "holiday-subdivisions", "holiday-country-options", "ai", "admin-capabilities"]);
+const NEVER_GATES = new Set([
+    "weather",
+    "location",
+    "holidays",
+    "holiday-subdivisions",
+    "holiday-country-options",
+    "ai",
+    "admin-capabilities",
+]);
 // The photo background: waits, but falls back after SLOW_START_MS or an error.
 const OPTIONAL_DOMAINS = new Set(["appearance"]);
 
-const filtersOf = (key: QueryKey) => (typeof key[1] === "object" && key[1] !== null ? key[1] as Record<string, unknown> : {});
+const filtersOf = (key: QueryKey) =>
+    typeof key[1] === "object" && key[1] !== null ? (key[1] as Record<string, unknown>) : {};
 // ["settings", userId] is the settings row; longer keys (notification state, focus views) are not.
 const isSettingsRow = (key: QueryKey) => key[0] === "settings" && key.length === 2;
 const isDomain = (key: QueryKey, ...domains: string[]) => domains.includes(String(key[0]));
@@ -24,12 +33,16 @@ const isDomain = (key: QueryKey, ...domains: string[]) => domains.includes(Strin
  * except the never-gating ones. Sidebar counts, the planner rail and badges fill in after reveal. */
 const FIRST_SCREEN: Partial<Record<StartupRoute, (key: QueryKey) => boolean>> = {
     // The feed (thoughts, No day yet tasks, kept notes) and the chips its rows show.
-    capture: (key) => isSettingsRow(key) || isDomain(key, "inbox", "projects", "tags", "subtasks")
-        || (key[0] === "tasks" && filtersOf(key).hasNoDate === true && filtersOf(key).hasNoProject === true),
+    capture: (key) =>
+        isSettingsRow(key) ||
+        isDomain(key, "inbox", "projects", "tags", "subtasks") ||
+        (key[0] === "tasks" && filtersOf(key).hasNoDate === true && filtersOf(key).hasNoProject === true),
     // That list's tasks, sections and routines.
-    list: (key) => isSettingsRow(key) || isDomain(key, "projects", "tags", "sections", "subtasks")
-        || (key[0] === "tasks" && typeof filtersOf(key).projectId === "string")
-        || (key[0] === "habits" && key[1] === "weekly"),
+    list: (key) =>
+        isSettingsRow(key) ||
+        isDomain(key, "projects", "tags", "sections", "subtasks") ||
+        (key[0] === "tasks" && typeof filtersOf(key).projectId === "string") ||
+        (key[0] === "habits" && key[1] === "weekly"),
 };
 
 function gatesStartup(route: StartupRoute, key: QueryKey) {
@@ -58,20 +71,27 @@ export function useWorkspaceStartup(enabled: boolean, pathname: string) {
     const blockers = useCallback(() => {
         const queries = cache.getAll();
         // Offline with a saved workspace: open it; a view without saved data says so itself.
-        const hasSavedWorkspace = queries.some((query) => query.state.data !== undefined
-            && gatesStartup(route, query.queryKey) && !OPTIONAL_DOMAINS.has(String(query.queryKey[0])));
-        return queries.filter((query) =>
-            needsInitialData(query)
-            && gatesStartup(route, query.queryKey)
-            && !(hasSavedWorkspace && query.state.fetchStatus === "paused")
-            && !(OPTIONAL_DOMAINS.has(String(query.queryKey[0])) && (slow || query.state.status === "error")));
+        const hasSavedWorkspace = queries.some(
+            (query) =>
+                query.state.data !== undefined &&
+                gatesStartup(route, query.queryKey) &&
+                !OPTIONAL_DOMAINS.has(String(query.queryKey[0])),
+        );
+        return queries.filter(
+            (query) =>
+                needsInitialData(query) &&
+                gatesStartup(route, query.queryKey) &&
+                !(hasSavedWorkspace && query.state.fetchStatus === "paused") &&
+                !(OPTIONAL_DOMAINS.has(String(query.queryKey[0])) && (slow || query.state.status === "error")),
+        );
     }, [cache, route, slow]);
     const subscribe = useCallback((onChange: () => void) => cache.subscribe(onChange), [cache]);
     const snapshot = useCallback(() => {
         if (!enabled || complete) return "ready";
         const queries = blockers();
         if (queries.some((query) => query.state.fetchStatus === "paused")) return "offline";
-        if (queries.some((query) => query.state.status === "error" && query.state.fetchStatus === "idle")) return "error";
+        if (queries.some((query) => query.state.status === "error" && query.state.fetchStatus === "idle"))
+            return "error";
         return queries.length ? "pending" : "ready";
     }, [blockers, complete, enabled]);
     const state = useSyncExternalStore(subscribe, snapshot, () => "pending");
@@ -79,7 +99,8 @@ export function useWorkspaceStartup(enabled: boolean, pathname: string) {
     // Later queries grow the total, so this can dip; the bar never moves back.
     const progressOf = useCallback(() => {
         const unknown = pendingChunks + (restoring ? 1 : 0);
-        const total = cache.getAll().filter((query) => query.isActive() && gatesStartup(route, query.queryKey)).length + unknown;
+        const total =
+            cache.getAll().filter((query) => query.isActive() && gatesStartup(route, query.queryKey)).length + unknown;
         return total ? 1 - (blockers().length + unknown) / total : 0;
     }, [blockers, cache, pendingChunks, restoring, route]);
     const progress = useSyncExternalStore(subscribe, progressOf, () => 0);

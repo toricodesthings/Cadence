@@ -27,7 +27,9 @@ export function PageContent({
     children: ReactNode;
 }) {
     return (
-        <div className={`mx-auto w-full ${PAGE_WIDTH_CLASS[width]} px-4 sm:px-6 lg:px-8 ${PAGE_VERTICAL_PADDING_CLASS[verticalPadding]} ${className}`.trim()}>
+        <div
+            className={`mx-auto w-full ${PAGE_WIDTH_CLASS[width]} px-4 sm:px-6 lg:px-8 ${PAGE_VERTICAL_PADDING_CLASS[verticalPadding]} ${className}`.trim()}
+        >
             {children}
         </div>
     );

@@ -28,11 +28,15 @@ function useGreeting() {
 export function CaptureGreeting({ className = "" }: { className?: string }) {
     const { text, weather } = useGreeting();
     return (
-        <p className={`flex min-w-0 items-center gap-2 text-[13px] leading-5 text-twilight-text-muted ${className}`.trim()}>
+        <p
+            className={`flex min-w-0 items-center gap-2 text-[13px] leading-5 text-twilight-text-muted ${className}`.trim()}
+        >
             <span className="truncate">{text}</span>
             {weather && (
                 <span className="inline-flex shrink-0 items-center gap-1.5 animate-in fade-in duration-500">
-                    <span aria-hidden="true" className="text-twilight-text-muted/60">·</span>
+                    <span aria-hidden="true" className="text-twilight-text-muted/60">
+                        ·
+                    </span>
                     <weather.icon size={13} strokeWidth={1.75} aria-hidden="true" />
                     <span className="tabular-nums">{weather.temp}°</span>
                     <span className="sr-only sm:not-sr-only">{weather.condition}</span>
@@ -60,7 +64,9 @@ export function CaptureWindow({ variant }: { variant: "band" | "empty" }) {
             {weather ? (
                 <span className="flex flex-col items-center animate-in fade-in duration-500">
                     <weather.icon size={empty ? 26 : 20} strokeWidth={1.6} aria-hidden="true" />
-                    <span className="mt-0.5 text-[13px] font-medium tabular-nums text-twilight-text">{weather.temp}°</span>
+                    <span className="mt-0.5 text-[13px] font-medium tabular-nums text-twilight-text">
+                        {weather.temp}°
+                    </span>
                     <span className="sr-only">{weather.condition}</span>
                 </span>
             ) : null}
@@ -70,14 +76,18 @@ export function CaptureWindow({ variant }: { variant: "band" | "empty" }) {
         return (
             <div className="flex flex-col items-center gap-3 px-6 py-8 text-center">
                 {sky}
-                <p className="font-display text-[22px] font-semibold leading-tight tracking-tight text-twilight-text">{text}</p>
+                <p className="font-display text-[22px] font-semibold leading-tight tracking-tight text-twilight-text">
+                    {text}
+                </p>
                 <p className="text-sm text-twilight-text-soft">Nothing new. Add a thought whenever you need.</p>
             </div>
         );
     }
     return (
         <div className="flex items-center gap-3 pb-1 pl-1">
-            <p className="line-clamp-2 min-w-0 flex-1 font-display text-[22px] font-semibold leading-tight tracking-tight text-twilight-text">{text}</p>
+            <p className="line-clamp-2 min-w-0 flex-1 font-display text-[22px] font-semibold leading-tight tracking-tight text-twilight-text">
+                {text}
+            </p>
             {sky}
         </div>
     );

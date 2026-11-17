@@ -74,7 +74,9 @@ function chipLook(kind: ScheduleKind, priority: TaskPriority, tone: string, isDo
     const kindClasses = routine
         ? "border-transparent"
         : `surface-chip border-twilight-border/30 ${kind === "fixed" ? FIXED_WASH : PRIORITY_WASH[priority]}`;
-    const kindStyle: CSSProperties | undefined = routine ? { borderColor: `color-mix(in srgb, ${tone} 30%, transparent)` } : undefined;
+    const kindStyle: CSSProperties | undefined = routine
+        ? { borderColor: `color-mix(in srgb, ${tone} 30%, transparent)` }
+        : undefined;
     const barClass = kind === "fixed" ? "bg-moonlit/80" : kind === "task" ? PRIORITY_BAR[priority] : "";
     const titleClass = `${kind === "task" ? "text-twilight-text" : "text-twilight-text-soft"} ${isDone ? "line-through decoration-1" : ""}`;
     const timeClass = kind === "fixed" ? "text-moonlit" : "text-twilight-text-muted";
@@ -110,10 +112,7 @@ function useChipResize(task: Task, onResize: CalendarTaskChipProps["onResize"]) 
                 const startMs = new Date(task.scheduledStart).getTime();
                 const endMs = new Date(task.scheduledEnd).getTime();
                 const currentDuration = Math.round((endMs - startMs) / 60_000);
-                onResize(
-                    task.id,
-                    Math.max(CALENDAR_SLOT_MINUTES, currentDuration + slots * CALENDAR_SLOT_MINUTES),
-                );
+                onResize(task.id, Math.max(CALENDAR_SLOT_MINUTES, currentDuration + slots * CALENDAR_SLOT_MINUTES));
             }
         },
         [onResize, task.id, task.scheduledStart, task.scheduledEnd],
@@ -150,7 +149,17 @@ type ChipParts = {
 };
 
 /** The draggable, clickable surface both chip shapes sit on; `className` adds the shape. */
-function ChipShell({ chip, style, className, children }: { chip: ChipParts; style: CSSProperties; className: string; children: ReactNode }) {
+function ChipShell({
+    chip,
+    style,
+    className,
+    children,
+}: {
+    chip: ChipParts;
+    style: CSSProperties;
+    className: string;
+    children: ReactNode;
+}) {
     return (
         <CalendarItem task={chip.task} onSelect={chip.onSelect} tipSide={chip.tipSide} dragging={chip.isDragging}>
             <motion.div
@@ -186,9 +195,7 @@ function PillChip({ chip, fit, month }: { chip: ChipParts; fit: boolean; month: 
                     className={`flex min-w-0 ${fit ? "" : "flex-1"} cursor-pointer items-center gap-1 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60 ${look.titleClass}`}
                 >
                     {showTime ? (
-                        <span className={`shrink-0 tabular-nums ${look.timeClass}`}>
-                            {formatChipTime(showTime)}
-                        </span>
+                        <span className={`shrink-0 tabular-nums ${look.timeClass}`}>{formatChipTime(showTime)}</span>
                     ) : null}
                     <span className="truncate">{task.title}</span>
                 </button>
@@ -250,7 +257,9 @@ function BlockChip({ chip, style, badge, isNowLive, resizeDeltaPx, resizeHandler
                         </span>
                     ) : null}
                     {rangeLabel ? (
-                        <span className={`cal-chip-time text-[11px] leading-tight ${look.timeClass}`}>{rangeLabel}</span>
+                        <span className={`cal-chip-time text-[11px] leading-tight ${look.timeClass}`}>
+                            {rangeLabel}
+                        </span>
                     ) : null}
                 </button>
             </div>

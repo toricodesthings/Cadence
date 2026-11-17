@@ -18,14 +18,16 @@ export const MENU_ITEM = `flex items-center gap-2 ${MENU_ROW}`;
 export const MENU_ITEM_DANGER = "text-red-400 hover:bg-red-500/10 focus:bg-red-500/10";
 export const MENU_SURFACE = `${FLOATING_SURFACE} glass-edge relative min-w-[200px] rounded-xl p-1`;
 /** Submenus slide in sideways instead of morphing. */
-export const MENU_SUB_SLIDE = "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out data-[state=open]:slide-in-from-left-2 data-[state=closed]:slide-out-to-left-2 duration-200";
+export const MENU_SUB_SLIDE =
+    "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out data-[state=open]:slide-in-from-left-2 data-[state=closed]:slide-out-to-left-2 duration-200";
 export const MENU_SEPARATOR = "h-px bg-twilight-border my-1";
 /**
  * The one ⋮ menu language: every group gets a `MENU_LABEL` (smaller, lighter, muted caps with no icon, so it never
  * reads as a choice); a view picks with a full-width `SegmentedControl` in `MENU_SEGMENT`; a long single choice (sort)
  * is rows with a trailing check; on/off is a row with a trailing `Switch` (`MENU_SWITCH`), never a panel.
  */
-export const MENU_LABEL = "select-none px-3 pb-1 pt-2.5 text-[11px] font-medium uppercase tracking-[0.12em] text-twilight-text-muted";
+export const MENU_LABEL =
+    "select-none px-3 pb-1 pt-2.5 text-[11px] font-medium uppercase tracking-[0.12em] text-twilight-text-muted";
 /** Inset 12px from the menu edge (4 + 8), at least its 12px radius, so the control needs no concentric radius of its own. */
 export const MENU_SEGMENT = "px-2 pb-1.5";
 /** A row's switch: the whole row toggles it, so it drops its own 44px target and keeps the row at menu height. */

@@ -5,9 +5,16 @@ import { join } from "node:path";
 export function evaluationVars(): Record<string, string | undefined> {
     let local: Record<string, string> = {};
     try {
-        local = Object.fromEntries(readFileSync(join(__dirname, "../../.dev.vars"), "utf8").split("\n")
-            .map((line) => line.match(/^\s*([A-Z0-9_]+)\s*=\s*"?(.*?)"?\s*$/)).filter(Boolean).map((m) => [m![1], m![2]]));
-    } catch { /* Exported credentials also work without .dev.vars. */ }
+        local = Object.fromEntries(
+            readFileSync(join(__dirname, "../../.dev.vars"), "utf8")
+                .split("\n")
+                .map((line) => line.match(/^\s*([A-Z0-9_]+)\s*=\s*"?(.*?)"?\s*$/))
+                .filter(Boolean)
+                .map((m) => [m![1], m![2]]),
+        );
+    } catch {
+        /* Exported credentials also work without .dev.vars. */
+    }
     return { ...local, ...process.env };
 }
 

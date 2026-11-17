@@ -35,55 +35,65 @@ const SORT_OPTIONS: { value: SortMode; label: string; icon: typeof Sparkles }[] 
 export function SortMenu({ mode, onModeChange, view, onViewChange, actions = [] }: SortMenuProps) {
     return (
         <>
-        <ClaimHeaderMenu />
-        <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-                <button
-                    aria-label={onModeChange ? "Sort & display options" : "Display options"}
-                    className={HEADER_ICON_BUTTON}
-                >
-                    <EllipsisVertical size={18} aria-hidden="true" />
-                </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="end">
-                {view !== undefined && onViewChange && (
-                    <>
-                        <DropdownMenu.Label>View</DropdownMenu.Label>
-                        <div className={MENU_SEGMENT}><ViewToggle view={view} onViewChange={onViewChange} /></div>
-                        {onModeChange && <DropdownMenu.Separator />}
-                    </>
-                )}
-                {onModeChange && (
-                    <>
-                        <DropdownMenu.Label>Sort by</DropdownMenu.Label>
-                        {SORT_OPTIONS.map(({ value, label, icon }) => (
-                            <DropdownMenu.CheckItem key={value} icon={icon} label={label} checked={mode === value} onSelect={() => onModeChange(value)} />
-                        ))}
-                    </>
-                )}
-                {actions.length > 0 && (
-                    <>
-                        <DropdownMenu.Separator />
-                        <DropdownMenu.Label>Actions</DropdownMenu.Label>
-                        {actions.map(({ label, onSelect, icon: Icon, danger, disabledReason }) => (
-                            <DropdownMenu.Item
-                                key={label}
-                                onSelect={onSelect}
-                                disabled={!!disabledReason}
-                                className={`flex items-center gap-2 ${danger ? "text-red-400 focus:text-red-400 focus:bg-red-500/10" : ""}`}
-                            >
-                                {Icon ? <Icon size={14} aria-hidden="true" className="shrink-0" /> : null}
-                                <span className="flex flex-col">
-                                    <span>{label}</span>
-                                    {disabledReason ? <span className="text-xs text-twilight-text-muted">{disabledReason}</span> : null}
-                                </span>
-                            </DropdownMenu.Item>
-                        ))}
-                    </>
-                )}
-                <LayoutScaleMenuRow />
-            </DropdownMenu.Content>
-        </DropdownMenu.Root>
+            <ClaimHeaderMenu />
+            <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                    <button
+                        aria-label={onModeChange ? "Sort & display options" : "Display options"}
+                        className={HEADER_ICON_BUTTON}
+                    >
+                        <EllipsisVertical size={18} aria-hidden="true" />
+                    </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content align="end">
+                    {view !== undefined && onViewChange && (
+                        <>
+                            <DropdownMenu.Label>View</DropdownMenu.Label>
+                            <div className={MENU_SEGMENT}>
+                                <ViewToggle view={view} onViewChange={onViewChange} />
+                            </div>
+                            {onModeChange && <DropdownMenu.Separator />}
+                        </>
+                    )}
+                    {onModeChange && (
+                        <>
+                            <DropdownMenu.Label>Sort by</DropdownMenu.Label>
+                            {SORT_OPTIONS.map(({ value, label, icon }) => (
+                                <DropdownMenu.CheckItem
+                                    key={value}
+                                    icon={icon}
+                                    label={label}
+                                    checked={mode === value}
+                                    onSelect={() => onModeChange(value)}
+                                />
+                            ))}
+                        </>
+                    )}
+                    {actions.length > 0 && (
+                        <>
+                            <DropdownMenu.Separator />
+                            <DropdownMenu.Label>Actions</DropdownMenu.Label>
+                            {actions.map(({ label, onSelect, icon: Icon, danger, disabledReason }) => (
+                                <DropdownMenu.Item
+                                    key={label}
+                                    onSelect={onSelect}
+                                    disabled={!!disabledReason}
+                                    className={`flex items-center gap-2 ${danger ? "text-red-400 focus:text-red-400 focus:bg-red-500/10" : ""}`}
+                                >
+                                    {Icon ? <Icon size={14} aria-hidden="true" className="shrink-0" /> : null}
+                                    <span className="flex flex-col">
+                                        <span>{label}</span>
+                                        {disabledReason ? (
+                                            <span className="text-xs text-twilight-text-muted">{disabledReason}</span>
+                                        ) : null}
+                                    </span>
+                                </DropdownMenu.Item>
+                            ))}
+                        </>
+                    )}
+                    <LayoutScaleMenuRow />
+                </DropdownMenu.Content>
+            </DropdownMenu.Root>
         </>
     );
 }

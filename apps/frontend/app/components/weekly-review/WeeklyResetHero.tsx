@@ -15,12 +15,7 @@
 export function WeeklyResetHero({ className = "" }: { className?: string }) {
     return (
         <div className={`pointer-events-none select-none ${className}`} aria-hidden="true">
-            <svg
-                viewBox="0 0 300 170"
-                className="h-full w-full"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-            >
+            <svg viewBox="0 0 300 170" className="h-full w-full" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <HeroDefs />
                 <HeroAmbience />
                 <HeroFlower />
@@ -40,13 +35,7 @@ function HeroDefs() {
             </radialGradient>
 
             {/* Ultra-smooth premium bloom aura */}
-            <radialGradient
-                id="wr-bloom-glow"
-                cx="150"
-                cy="75"
-                r="70"
-                gradientUnits="userSpaceOnUse"
-            >
+            <radialGradient id="wr-bloom-glow" cx="150" cy="75" r="70" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.12" />
                 <stop offset="45%" stopColor="var(--accent-primary)" stopOpacity="0.04" />
                 <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity="0" />
@@ -65,24 +54,13 @@ function HeroDefs() {
                     offset="0%"
                     stopColor="color-mix(in srgb, var(--accent-primary) 65%, var(--color-twilight-text))"
                 />
-                <stop
-                    offset="100%"
-                    stopColor="var(--accent-primary)"
-                />
+                <stop offset="100%" stopColor="var(--accent-primary)" />
             </linearGradient>
 
             {/* Luminous inner core petal gradient */}
             <linearGradient id="wr-petal-inner" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                    offset="0%"
-                    stopColor="var(--color-twilight-text)"
-                    stopOpacity="0.75"
-                />
-                <stop
-                    offset="100%"
-                    stopColor="var(--accent-primary)"
-                    stopOpacity="0.15"
-                />
+                <stop offset="0%" stopColor="var(--color-twilight-text)" stopOpacity="0.75" />
+                <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity="0.15" />
             </linearGradient>
 
             {/* Sleek, muted ice-blue leaf gradient */}
@@ -105,31 +83,11 @@ function HeroAmbience() {
             <ellipse cx="150" cy="135" rx="110" ry="25" fill="url(#wr-horizon)" />
 
             {/* Premium soft bloom aura */}
-            <ellipse
-                cx="150"
-                cy="75"
-                rx="65"
-                ry="42"
-                fill="url(#wr-bloom-glow)"
-            />
+            <ellipse cx="150" cy="75" rx="65" ry="42" fill="url(#wr-bloom-glow)" />
 
             {/* Ground mist base rings */}
-            <ellipse
-                cx="150"
-                cy="138"
-                rx="45"
-                ry="7"
-                fill="var(--accent-primary)"
-                opacity="0.04"
-            />
-            <ellipse
-                cx="150"
-                cy="137"
-                rx="24"
-                ry="3.5"
-                fill="var(--accent-secondary)"
-                opacity="0.05"
-            />
+            <ellipse cx="150" cy="138" rx="45" ry="7" fill="var(--accent-primary)" opacity="0.04" />
+            <ellipse cx="150" cy="137" rx="24" ry="3.5" fill="var(--accent-secondary)" opacity="0.05" />
 
             {/* Floating ambient particles */}
             <g opacity="0.75">
@@ -175,7 +133,7 @@ function HeroFlower() {
         <g
             className="weekly-reset-sway"
             style={{
-                transformOrigin: "150px 136px"
+                transformOrigin: "150px 136px",
             }}
         >
             {/* Stem - Elegant, organic line weight and sweep */}
@@ -267,12 +225,7 @@ function FlowerPetals() {
             />
 
             {/* Receptacle core node */}
-            <circle
-                cx="150"
-                cy="87"
-                r="2.2"
-                fill="color-mix(in srgb, var(--accent-primary) 40%, white)"
-            />
+            <circle cx="150" cy="87" r="2.2" fill="color-mix(in srgb, var(--accent-primary) 40%, white)" />
 
             {/* Minimalist central sleek highlight line */}
             <path

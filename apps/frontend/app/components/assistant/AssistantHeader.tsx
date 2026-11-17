@@ -12,7 +12,7 @@ export function AssistantHeader({
     onNewChat,
     onHistory,
     onMemory,
-    onClose
+    onClose,
 }: {
     assistantName: string;
     threadTitle: string | null;
@@ -48,23 +48,37 @@ export function AssistantHeader({
                             {threadTitle}
                         </motion.span>
                     ) : (
-                        <span className="text-[11px] font-medium text-feedback-success">
-                            Active now
-                        </span>
+                        <span className="text-[11px] font-medium text-feedback-success">Active now</span>
                     )}
                 </div>
             </div>
             <div className="flex items-center gap-1">
                 <HeaderAction label="New chat" onClick={onNewChat} icon={<SquarePen size={17} aria-hidden />} />
-                <HeaderAction label="Conversation history" tip="Conversations" onClick={onHistory} icon={<History size={17} aria-hidden />} />
-                {hasMemory ? <HeaderAction label="What Cadence knows" onClick={onMemory} icon={<Brain size={17} aria-hidden />} /> : null}
+                <HeaderAction
+                    label="Conversation history"
+                    tip="Conversations"
+                    onClick={onHistory}
+                    icon={<History size={17} aria-hidden />}
+                />
+                {hasMemory ? (
+                    <HeaderAction
+                        label="What Cadence knows"
+                        onClick={onMemory}
+                        icon={<Brain size={17} aria-hidden />}
+                    />
+                ) : null}
                 <HeaderAction label="Close assistant" onClick={onClose} icon={<X size={18} aria-hidden />} />
             </div>
         </header>
     );
 }
 
-function HeaderAction({ label, tip = label, onClick, icon }: {
+function HeaderAction({
+    label,
+    tip = label,
+    onClick,
+    icon,
+}: {
     label: string;
     tip?: string;
     onClick: () => void;
@@ -72,8 +86,11 @@ function HeaderAction({ label, tip = label, onClick, icon }: {
 }) {
     return (
         <Tip label={tip} side="bottom">
-            <button onClick={onClick} aria-label={label}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text cursor-pointer">
+            <button
+                onClick={onClick}
+                aria-label={label}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text cursor-pointer"
+            >
                 {icon}
             </button>
         </Tip>

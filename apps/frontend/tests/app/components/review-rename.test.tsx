@@ -5,8 +5,17 @@ import { ReviewListItem } from "../../../app/components/weekly-review/steps/shar
 
 function row(onRename = vi.fn(async () => {})) {
     render(
-        <TooltipProvider><ReviewListItem title="Book a haircut" actions={[]} pendingActionKey={null} actionKeyPrefix="t:1" actionError={null}
-            onRunAction={(_key, fn) => void fn()} onRename={onRename} /></TooltipProvider>,
+        <TooltipProvider>
+            <ReviewListItem
+                title="Book a haircut"
+                actions={[]}
+                pendingActionKey={null}
+                actionKeyPrefix="t:1"
+                actionError={null}
+                onRunAction={(_key, fn) => void fn()}
+                onRename={onRename}
+            />
+        </TooltipProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Rename Book a haircut" }));
     return { onRename, field: screen.getByRole("textbox", { name: "New name" }) as HTMLInputElement };

@@ -15,8 +15,15 @@ let userId: string;
 let ai: ReturnType<typeof apiAs>;
 let tasks: ReturnType<typeof apiAs>;
 
-const sql = async <T = any>(text: string, params: unknown[] = []): Promise<T[]> => asOwner(async (pg) => (await pg.query<T>(text, params)).rows);
-const reply = (steps: string[]) => vi.mocked(generateText).mockResolvedValue({ output: { steps }, usage: { inputTokens: 10, outputTokens: 5 }, providerMetadata: {}, response: {} } as never);
+const sql = async <T = any>(text: string, params: unknown[] = []): Promise<T[]> =>
+    asOwner(async (pg) => (await pg.query<T>(text, params)).rows);
+const reply = (steps: string[]) =>
+    vi.mocked(generateText).mockResolvedValue({
+        output: { steps },
+        usage: { inputTokens: 10, outputTokens: 5 },
+        providerMetadata: {},
+        response: {},
+    } as never);
 
 beforeAll(startTestDb);
 beforeEach(async () => {
@@ -29,7 +36,12 @@ beforeEach(async () => {
 describe("POST /ai/steps", () => {
     it("returns 3–7 steps of at most 80 characters and stores nothing", async () => {
         const task = (await tasks("POST", "", { title: "Sort the garage", orderIndex: 1 })).body.data;
-        reply(["Open the garage door", "Pick one shelf", `Put ${"very ".repeat(30)}old paint by the door`, "Bag the obvious rubbish"]);
+        reply([
+            "Open the garage door",
+            "Pick one shelf",
+            `Put ${"very ".repeat(30)}old paint by the door`,
+            "Bag the obvious rubbish",
+        ]);
         const res = await ai("POST", "/steps", { taskId: task.id });
         expect(res.status).toBe(200);
         expect(res.body.data.steps).toHaveLength(4);
@@ -38,11 +50,25 @@ describe("POST /ai/steps", () => {
     });
 
     it("sends only the title, the first 1,000 characters of the note, the list and existing steps", async () => {
-        const list = (await apiAs(userId, "/projects", (await import("../../src/domains/projects/projects.route")).projectRoutes)("POST", "", { name: "Home", orderIndex: 1 })).body.data;
-        const task = (await tasks("POST", "", { title: "Paint the hall", orderIndex: 1, projectId: list.id })).body.data;
+        const list = (
+            await apiAs(userId, "/projects", (await import("../../src/domains/projects/projects.route")).projectRoutes)(
+                "POST",
+                "",
+                { name: "Home", orderIndex: 1 },
+            )
+        ).body.data;
+        const task = (await tasks("POST", "", { title: "Paint the hall", orderIndex: 1, projectId: list.id })).body
+            .data;
         await tasks("POST", "", { title: "Secret other task", orderIndex: 2 });
-        await sql("INSERT INTO task_notes (task_id, user_id, body) VALUES ($1, $2, $3)", [task.id, userId, `${"a".repeat(1000)}TAIL`]);
-        await sql("INSERT INTO subtasks (task_id, user_id, title, order_index) VALUES ($1, $2, 'Buy paint', 0)", [task.id, userId]);
+        await sql("INSERT INTO task_notes (task_id, user_id, body) VALUES ($1, $2, $3)", [
+            task.id,
+            userId,
+            `${"a".repeat(1000)}TAIL`,
+        ]);
+        await sql("INSERT INTO subtasks (task_id, user_id, title, order_index) VALUES ($1, $2, 'Buy paint', 0)", [
+            task.id,
+            userId,
+        ]);
         reply(["Clear the hall", "Lay down sheets", "Tape the edges"]);
         await ai("POST", "/steps", { taskId: task.id });
         const { prompt } = vi.mocked(generateText).mock.calls[0][0] as { prompt: string };

@@ -10,11 +10,16 @@ export const APP_BADGE_KEY = "cadence-app-badge";
  */
 export function isInstalledApp(): boolean {
     if (typeof window === "undefined" || IS_DESKTOP_RUNTIME) return false;
-    return (navigator as Navigator & { standalone?: boolean }).standalone === true
-        || !!window.matchMedia?.("(display-mode: standalone), (display-mode: fullscreen)").matches;
+    return (
+        (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+        !!window.matchMedia?.("(display-mode: standalone), (display-mode: fullscreen)").matches
+    );
 }
 
-type BadgingNavigator = Navigator & { setAppBadge?: (count?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+type BadgingNavigator = Navigator & {
+    setAppBadge?: (count?: number) => Promise<void>;
+    clearAppBadge?: () => Promise<void>;
+};
 
 /**
  * The app icon shows the bell's unread count. The count is saved too, so sw.js can add one for each
@@ -24,8 +29,16 @@ export async function syncAppBadge(count: number): Promise<void> {
     if (IS_DESKTOP_RUNTIME || typeof navigator === "undefined") return;
     const badging = navigator as BadgingNavigator;
     if (!badging.setAppBadge || !badging.clearAppBadge) return;
-    try { await set(APP_BADGE_KEY, count); } catch { /* no IndexedDB: pushes start from zero */ }
-    try { await (count > 0 ? badging.setAppBadge(count) : badging.clearAppBadge()); } catch { /* no notification permission */ }
+    try {
+        await set(APP_BADGE_KEY, count);
+    } catch {
+        /* no IndexedDB: pushes start from zero */
+    }
+    try {
+        await (count > 0 ? badging.setAppBadge(count) : badging.clearAppBadge());
+    } catch {
+        /* no notification permission */
+    }
 }
 
 /**
@@ -36,5 +49,7 @@ export async function keepAppStorage(): Promise<void> {
     if (!isInstalledApp() || !navigator.storage?.persist) return;
     try {
         if (!(await navigator.storage.persisted())) await navigator.storage.persist();
-    } catch { /* the server stays the source of truth */ }
+    } catch {
+        /* the server stays the source of truth */
+    }
 }

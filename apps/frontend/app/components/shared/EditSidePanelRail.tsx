@@ -4,7 +4,15 @@ import { ResizableSidePanel } from "./ResizableSidePanel";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 
 /** Keep the rail mounted through its exit, and let its actual width drive layout. */
-export function EditSidePanelRail({ children, ariaLabel, width: controlledWidth, onWidthChange, defaultWidth = 320, minWidth = 260, maxWidth = 480 }: {
+export function EditSidePanelRail({
+    children,
+    ariaLabel,
+    width: controlledWidth,
+    onWidthChange,
+    defaultWidth = 320,
+    minWidth = 260,
+    maxWidth = 480,
+}: {
     children: ReactNode;
     ariaLabel: string;
     width?: number;
@@ -30,10 +38,22 @@ export function EditSidePanelRail({ children, ariaLabel, width: controlledWidth,
                     transition={transition}
                     className="flex h-full shrink-0 self-stretch items-stretch overflow-hidden"
                 >
-                    <motion.div initial={{ x: reducedMotion ? 0 : 24 }} animate={{ x: 0 }} exit={{ x: reducedMotion ? 0 : 24 }} transition={transition} className="flex h-full shrink-0 items-stretch">
-                    <ResizableSidePanel width={width} onWidthChange={setWidth} minWidth={minWidth} maxWidth={maxWidth} ariaLabel={ariaLabel}>
-                        {children}
-                    </ResizableSidePanel>
+                    <motion.div
+                        initial={{ x: reducedMotion ? 0 : 24 }}
+                        animate={{ x: 0 }}
+                        exit={{ x: reducedMotion ? 0 : 24 }}
+                        transition={transition}
+                        className="flex h-full shrink-0 items-stretch"
+                    >
+                        <ResizableSidePanel
+                            width={width}
+                            onWidthChange={setWidth}
+                            minWidth={minWidth}
+                            maxWidth={maxWidth}
+                            ariaLabel={ariaLabel}
+                        >
+                            {children}
+                        </ResizableSidePanel>
                     </motion.div>
                 </motion.div>
             ) : null}

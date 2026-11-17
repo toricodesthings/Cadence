@@ -61,14 +61,15 @@ export function parseStreamErrorText(text: string | undefined | null): StreamErr
                 const isRetryable =
                     typeof parsed.isRetryable === "boolean"
                         ? parsed.isRetryable
-                        : isAiCode(code) ? AI_ERROR_CODES[code].isRetryable : true;
+                        : isAiCode(code)
+                          ? AI_ERROR_CODES[code].isRetryable
+                          : true;
                 return {
                     code: code ?? "INTERNAL_ERROR",
                     // Our calm copy, never the raw backend message.
                     message: errorCodeToLine(code),
                     isRetryable,
-                    requestId:
-                        typeof parsed.requestId === "string" ? parsed.requestId : undefined,
+                    requestId: typeof parsed.requestId === "string" ? parsed.requestId : undefined,
                 };
             }
         } catch {
@@ -88,7 +89,9 @@ export function streamErrorFromError(error: unknown): StreamError {
         const isRetryable =
             typeof error.isRetryable === "boolean"
                 ? error.isRetryable
-                : isAiCode(code) ? AI_ERROR_CODES[code].isRetryable : true;
+                : isAiCode(code)
+                  ? AI_ERROR_CODES[code].isRetryable
+                  : true;
         return {
             code: code ?? "INTERNAL_ERROR",
             message: errorCodeToLine(code),

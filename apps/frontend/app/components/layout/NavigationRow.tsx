@@ -8,7 +8,8 @@ export const NAV_GROUP = "overflow-hidden rounded-2xl border border-twilight-bor
 export const NAV_GROUP_LABEL = "px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-soft/90";
 
 /** Concentric with NAV_GROUP: 16px − 1px border − 4px padding. */
-const ROW = "flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[11px] px-3 text-left text-[15px] text-twilight-text transition-colors hover:bg-white/[0.04] active:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
+const ROW =
+    "flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[11px] px-3 text-left text-[15px] text-twilight-text transition-colors hover:bg-white/[0.04] active:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
 /** Marks the coming view transition as a push (`data-nav-push` in app.css) until its slide ends. */
 function markPush() {
@@ -29,19 +30,50 @@ function markPush() {
  * replaces the icon (a list's emoji or colour dot); `tone` colours the icon. A link pushes its page in
  * from the right on touch (`::view-transition` in app.css), the mirror of iOS's swipe back.
  */
-export function NavigationRow({ to, icon: Icon, leading, tone, children, detail, onClick }: {
-    to?: string; icon?: LucideIcon; leading?: ReactNode; tone?: string; children: ReactNode; detail?: ReactNode; onClick?: () => void;
+export function NavigationRow({
+    to,
+    icon: Icon,
+    leading,
+    tone,
+    children,
+    detail,
+    onClick,
+}: {
+    to?: string;
+    icon?: LucideIcon;
+    leading?: ReactNode;
+    tone?: string;
+    children: ReactNode;
+    detail?: ReactNode;
+    onClick?: () => void;
 }) {
-    const body = <>
-        <span className="flex w-5 shrink-0 items-center justify-center" aria-hidden="true">
-            {leading ?? (Icon ? <Icon size={18} className="text-[var(--row-tone)]" /> : null)}
-        </span>
-        <span className="min-w-0 flex-1 truncate">{children}</span>
-        {detail}
-        <ChevronRight size={16} className="shrink-0 text-twilight-text-soft/90" aria-hidden="true" />
-    </>;
+    const body = (
+        <>
+            <span className="flex w-5 shrink-0 items-center justify-center" aria-hidden="true">
+                {leading ?? (Icon ? <Icon size={18} className="text-[var(--row-tone)]" /> : null)}
+            </span>
+            <span className="min-w-0 flex-1 truncate">{children}</span>
+            {detail}
+            <ChevronRight size={16} className="shrink-0 text-twilight-text-soft/90" aria-hidden="true" />
+        </>
+    );
     const style = { "--row-tone": tone ?? "var(--accent-primary)" } as CSSProperties;
-    return to
-        ? <Link to={to} onClick={() => { markPush(); onClick?.(); }} viewTransition className={ROW} style={style}>{body}</Link>
-        : <button type="button" onClick={onClick} className={ROW} style={style}>{body}</button>;
+    return to ? (
+        <Link
+            to={to}
+            onClick={() => {
+                markPush();
+                onClick?.();
+            }}
+            viewTransition
+            className={ROW}
+            style={style}
+        >
+            {body}
+        </Link>
+    ) : (
+        <button type="button" onClick={onClick} className={ROW} style={style}>
+            {body}
+        </button>
+    );
 }

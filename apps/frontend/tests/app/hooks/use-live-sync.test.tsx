@@ -7,13 +7,33 @@ const wal: { status: string }[] = [];
 const walListeners = new Set<() => void>();
 let signedIn = true;
 let jwt: string | Error = "jwt-1";
-const dropAuthJwt = vi.fn((token: string) => { if (jwt === token) jwt = "jwt-2"; });
-const getAuthJwt = async () => { if (jwt instanceof Error) throw jwt; return jwt; };
-vi.mock("../../../app/lib/api/offline-wal", () => ({ getWalSnapshot: () => wal, subscribeWal: (cb: () => void) => { walListeners.add(cb); return () => walListeners.delete(cb); } }));
-vi.mock("../../../app/lib/api/client", () => ({ getAuthJwt: () => getAuthJwt(), dropAuthJwt: (t: string) => dropAuthJwt(t), isSessionHeld: () => false, PAGE_ORIGIN: "tab-1" }));
+const dropAuthJwt = vi.fn((token: string) => {
+    if (jwt === token) jwt = "jwt-2";
+});
+const getAuthJwt = async () => {
+    if (jwt instanceof Error) throw jwt;
+    return jwt;
+};
+vi.mock("../../../app/lib/api/offline-wal", () => ({
+    getWalSnapshot: () => wal,
+    subscribeWal: (cb: () => void) => {
+        walListeners.add(cb);
+        return () => walListeners.delete(cb);
+    },
+}));
+vi.mock("../../../app/lib/api/client", () => ({
+    getAuthJwt: () => getAuthJwt(),
+    dropAuthJwt: (t: string) => dropAuthJwt(t),
+    isSessionHeld: () => false,
+    PAGE_ORIGIN: "tab-1",
+}));
 vi.mock("../../../app/lib/env", () => ({ API_BASE_URL: "https://app.test" }));
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
-    useAuthState: () => ({ authReady: true, isAuthenticated: signedIn, session: signedIn ? { user: { id: "u1" } } : null }),
+    useAuthState: () => ({
+        authReady: true,
+        isAuthenticated: signedIn,
+        session: signedIn ? { user: { id: "u1" } } : null,
+    }),
 }));
 
 import { useLiveSync } from "../../../app/hooks/core/use-live-sync";
@@ -27,20 +47,45 @@ class FakeSocket {
     onopen: (() => void) | null = null;
     onmessage: ((e: { data: string }) => void) | null = null;
     onclose: ((e: { code: number }) => void) | null = null;
-    close = vi.fn((code = 1000) => { this.readyState = 3; this.onclose?.({ code }); });
-    constructor(public url: string, public protocols: string[]) { FakeSocket.all.push(this); }
-    send(data: string) { this.sent.push(data); }
-    open() { this.onopen?.(); }
-    message(data: unknown) { this.onmessage?.({ data: typeof data === "string" ? data : JSON.stringify(data) }); }
-    drop(code = 1006) { this.readyState = 3; this.onclose?.({ code }); }
+    close = vi.fn((code = 1000) => {
+        this.readyState = 3;
+        this.onclose?.({ code });
+    });
+    constructor(
+        public url: string,
+        public protocols: string[],
+    ) {
+        FakeSocket.all.push(this);
+    }
+    send(data: string) {
+        this.sent.push(data);
+    }
+    open() {
+        this.onopen?.();
+    }
+    message(data: unknown) {
+        this.onmessage?.({ data: typeof data === "string" ? data : JSON.stringify(data) });
+    }
+    drop(code = 1006) {
+        this.readyState = 3;
+        this.onclose?.({ code });
+    }
 }
 
 let client: QueryClient;
 let invalidate: ReturnType<typeof vi.spyOn>;
-const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+);
 const last = () => FakeSocket.all[FakeSocket.all.length - 1];
-const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(0); });
-const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+const settle = () =>
+    act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+    });
+const advance = (ms: number) =>
+    act(async () => {
+        await vi.advanceTimersByTimeAsync(ms);
+    });
 
 async function mount() {
     const view = renderHook(() => useLiveSync(), { wrapper });
@@ -61,7 +106,11 @@ beforeEach(() => {
     client = new QueryClient();
     invalidate = vi.spyOn(client, "invalidateQueries").mockResolvedValue();
 });
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+});
 
 describe("useLiveSync", () => {
     it("connects with the subprotocol, jwt and page origin, and the first version only records", async () => {
@@ -85,7 +134,10 @@ describe("useLiveSync", () => {
         for (let v = 2; v <= 11; v++) last().message({ v });
         await advance(1_000);
         expect(invalidate).toHaveBeenCalledOnce();
-        const filters = invalidate.mock.calls[0][0] as { refetchType: string; predicate: (q: { queryKey: unknown[] }) => boolean };
+        const filters = invalidate.mock.calls[0][0] as {
+            refetchType: string;
+            predicate: (q: { queryKey: unknown[] }) => boolean;
+        };
         expect(filters.refetchType).toBe("active");
         expect(invalidate.mock.calls[0][1]).toEqual({ cancelRefetch: false });
         expect(filters.predicate({ queryKey: ["tasks", {}] })).toBe(true);
@@ -130,7 +182,10 @@ describe("useLiveSync", () => {
             const before = FakeSocket.all.length;
             last().drop(1006);
             let waited = 0;
-            while (FakeSocket.all.length === before) { await advance(1_000); waited += 1_000; }
+            while (FakeSocket.all.length === before) {
+                await advance(1_000);
+                waited += 1_000;
+            }
             delays.push(waited);
         }
         expect(delays.slice(0, 4)).toEqual([1_000, 2_000, 4_000, 8_000]);
@@ -161,7 +216,9 @@ describe("useLiveSync", () => {
         last().drop(4401);
         await advance(60 * 60_000);
         expect(FakeSocket.all).toHaveLength(2);
-        act(() => { window.dispatchEvent(new Event(WAKE_EVENT)); });
+        act(() => {
+            window.dispatchEvent(new Event(WAKE_EVENT));
+        });
         await settle();
         expect(FakeSocket.all).toHaveLength(3);
     });
@@ -183,13 +240,18 @@ describe("useLiveSync", () => {
         await mount();
         expect(FakeSocket.all).toHaveLength(0);
         vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
-        act(() => { window.dispatchEvent(new Event("online")); });
+        act(() => {
+            window.dispatchEvent(new Event("online"));
+        });
         await settle();
         expect(FakeSocket.all).toHaveLength(1);
     });
 
     it("a socket's first version refreshes when a live read failed while it was away", async () => {
-        client.getQueryCache().build(client, { queryKey: ["tasks"] }).setState({ status: "error" });
+        client
+            .getQueryCache()
+            .build(client, { queryKey: ["tasks"] })
+            .setState({ status: "error" });
         vi.spyOn(client.getQueryCache(), "findAll").mockImplementation(() => client.getQueryCache().getAll());
         await mount();
         last().message({ v: 3 });
@@ -217,7 +279,9 @@ describe("useLiveSync", () => {
     it("a wake doesn't cut short a 4429's minute", async () => {
         await mount();
         last().drop(4429);
-        act(() => { window.dispatchEvent(new Event(WAKE_EVENT)); });
+        act(() => {
+            window.dispatchEvent(new Event(WAKE_EVENT));
+        });
         await settle();
         expect(FakeSocket.all).toHaveLength(1);
         await advance(60_000);

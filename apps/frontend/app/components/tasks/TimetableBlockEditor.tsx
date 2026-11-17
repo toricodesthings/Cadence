@@ -52,9 +52,11 @@ function formatDuration(startIso: string, endIso: string): string {
 const DAY_CHIP_BASE =
     "flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-lg border text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 const DAY_CHIP_ACTIVE = "border-moonlit/30 bg-moonlit/15 text-moonlit";
-const DAY_CHIP_IDLE = "border-twilight-border/30 text-twilight-text-muted hover:bg-white/[0.05] hover:text-twilight-text";
+const DAY_CHIP_IDLE =
+    "border-twilight-border/30 text-twilight-text-muted hover:bg-white/[0.05] hover:text-twilight-text";
 
-const ROW_LABEL = "flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-twilight-text-muted/90";
+const ROW_LABEL =
+    "flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-twilight-text-muted/90";
 
 const ROW_ICON = "shrink-0 opacity-80";
 const ROW_ICON_SIZE = 11;
@@ -91,13 +93,20 @@ function RepeatDays({ activeDays, onToggle }: { activeDays: Set<string>; onToggl
     );
 }
 
-function EndControl({ end, onChange, onClear, onAdd }: { end: Instant | null | undefined; onChange: (time: WallTime) => void; onClear: () => void; onAdd: () => void }) {
+function EndControl({
+    end,
+    onChange,
+    onClear,
+    onAdd,
+}: {
+    end: Instant | null | undefined;
+    onChange: (time: WallTime) => void;
+    onClear: () => void;
+    onAdd: () => void;
+}) {
     return end ? (
         <div className="relative">
-            <TimePicker
-                value={toTimeValue(end)}
-                onChange={onChange}
-            />
+            <TimePicker value={toTimeValue(end)} onChange={onChange} />
             <Tip label="Remove end time" side="left">
                 <button
                     type="button"
@@ -125,11 +134,13 @@ type RuleParts = ReturnType<typeof parseRuleParts>;
 /** How often it repeats, and its days: a weekly rule without BYDAY repeats on the anchor's weekday. */
 function repeatDaysOf(ruleParts: RuleParts | null, scheduledStart: Instant | null | undefined) {
     const freq = ruleParts?.find(([key]) => key === "FREQ")?.[1] ?? null;
-    const explicitDays = ruleParts?.find(([key]) => key === "BYDAY")?.[1]?.split(",").filter(Boolean) ?? null;
+    const explicitDays =
+        ruleParts
+            ?.find(([key]) => key === "BYDAY")?.[1]
+            ?.split(",")
+            .filter(Boolean) ?? null;
     // A weekly rule without BYDAY repeats on the anchor's weekday — show it as the active chip.
-    const anchorDay = scheduledStart
-        ? DAY_ORDER[(weekdayOf(dayOfInstant(scheduledStart)) + 6) % 7]
-        : "MO";
+    const anchorDay = scheduledStart ? DAY_ORDER[(weekdayOf(dayOfInstant(scheduledStart)) + 6) % 7] : "MO";
     return { freq, activeDays: new Set(explicitDays ?? [anchorDay]) };
 }
 
@@ -218,7 +229,13 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
         const current = latestTimesRef.current.start;
         if (!day || !current || day === dayOfInstant(current)) return;
         const next = rescheduleToDay(
-            { dueDate: null, endDate: null, scheduledStart: current, scheduledEnd: latestTimesRef.current.end, zone: getUserZone() },
+            {
+                dueDate: null,
+                endDate: null,
+                scheduledStart: current,
+                scheduledEnd: latestTimesRef.current.end,
+                zone: getUserZone(),
+            },
             day,
             getUserZone(),
         );
@@ -259,28 +276,31 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
                         <Play size={ROW_ICON_SIZE} className={ROW_ICON} aria-hidden="true" />
                         Starts
                     </span>
-                    <TimePicker
-                        value={toTimeValue(task.scheduledStart)}
-                        onChange={handleStartChange}
-                    />
+                    <TimePicker value={toTimeValue(task.scheduledStart)} onChange={handleStartChange} />
                 </div>
                 <div className="flex items-center justify-between gap-3">
                     <span className={ROW_LABEL}>
                         <Clock size={ROW_ICON_SIZE} className={ROW_ICON} aria-hidden="true" />
                         Ends
                     </span>
-                    <EndControl end={task.scheduledEnd} onChange={handleEndChange} onClear={handleClearEnd} onAdd={handleAddEnd} />
+                    <EndControl
+                        end={task.scheduledEnd}
+                        onChange={handleEndChange}
+                        onClear={handleClearEnd}
+                        onAdd={handleAddEnd}
+                    />
                 </div>
                 {durationLabel ? (
-                    <p className="px-0.5 text-right text-[11px] tabular-nums text-twilight-text-muted/90" aria-live="polite">
+                    <p
+                        className="px-0.5 text-right text-[11px] tabular-nums text-twilight-text-muted/90"
+                        aria-live="polite"
+                    >
                         {durationLabel}
                     </p>
                 ) : null}
             </div>
 
-            {freq === "WEEKLY" ? (
-                <RepeatDays activeDays={activeDays} onToggle={toggleDay} />
-            ) : null}
+            {freq === "WEEKLY" ? <RepeatDays activeDays={activeDays} onToggle={toggleDay} /> : null}
 
             <div className="flex flex-col gap-0.5">
                 <div className="flex min-h-10 items-center justify-between gap-3">
@@ -309,7 +329,10 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
                         label="Series end date"
                         clearLabel="Never ends"
                     >
-                        <button type="button" className={`${DATE_VALUE_BTN}${endDate ? "" : " text-twilight-text-muted"}`}>
+                        <button
+                            type="button"
+                            className={`${DATE_VALUE_BTN}${endDate ? "" : " text-twilight-text-muted"}`}
+                        >
                             {endDate ? formatShortDate(endDate) : "Never"}
                         </button>
                     </DatePicker>

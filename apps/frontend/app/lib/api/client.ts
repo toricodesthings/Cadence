@@ -7,7 +7,13 @@ import { API_BASE_URL, NEON_AUTH_URL } from "../env";
 import { platformFetch } from "../../platform/runtime";
 import { log } from "../log";
 import { REQUEST_TIMEOUT_MS } from "./request-deadline";
-import { startupMark, recordStartupRead, startupEndpoint, startupCollecting, type ReadDetails } from "../startup-timing";
+import {
+    startupMark,
+    recordStartupRead,
+    startupEndpoint,
+    startupCollecting,
+    type ReadDetails,
+} from "../startup-timing";
 import { errorCodeSchema } from "@cadence/contracts/common";
 import { PERFORMANCE_CATEGORIES, type PerformanceSample } from "@cadence/contracts/events";
 
@@ -62,9 +68,7 @@ async function _fetchAuthJwtOnce(): Promise<string | null> {
         return null;
     }
 
-    const payload = await response.json().catch(() => null) as
-        | { token?: unknown; data?: { token?: unknown } }
-        | null;
+    const payload = (await response.json().catch(() => null)) as { token?: unknown; data?: { token?: unknown } } | null;
 
     const token = payload?.token ?? payload?.data?.token;
     return typeof token === "string" && jwtExpiry(token) > Date.now() ? token : null;
@@ -98,25 +102,30 @@ async function fetchAuthJwt(): Promise<string | null> {
         if (!token && generation === _authGeneration) {
             // get-session renews the cookie-backed session; /token alone does not.
             let result;
-            try { result = await readFreshSession(); }
-            catch (error) {
+            try {
+                result = await readFreshSession();
+            } catch (error) {
                 if ((error as { status?: number })?.status !== 401) throw networkError();
             }
             const stored = await readDesktopAuthSession();
-            token = [result?.data?.session?.token, stored?.jwt]
-                .find((value): value is string => typeof value === "string" && jwtExpiry(value) > Date.now()) ?? null;
+            token =
+                [result?.data?.session?.token, stored?.jwt].find(
+                    (value): value is string => typeof value === "string" && jwtExpiry(value) > Date.now(),
+                ) ?? null;
         }
         return token;
-    })().then((token) => {
-        if (generation !== _authGeneration) return null;
-        if (_cachedJwt && Date.now() < _cachedJwtExpiry) return _cachedJwt;
-        _cachedJwt = token;
-        _cachedJwtExpiry = token ? Math.min(jwtExpiry(token), Date.now() + JWT_CACHE_TTL_MS) : 0;
-        if (token) startupMark("jwt.ready");
-        return token;
-    }).finally(() => {
-        if (_inflight === request) _inflight = null;
-    });
+    })()
+        .then((token) => {
+            if (generation !== _authGeneration) return null;
+            if (_cachedJwt && Date.now() < _cachedJwtExpiry) return _cachedJwt;
+            _cachedJwt = token;
+            _cachedJwtExpiry = token ? Math.min(jwtExpiry(token), Date.now() + JWT_CACHE_TTL_MS) : 0;
+            if (token) startupMark("jwt.ready");
+            return token;
+        })
+        .finally(() => {
+            if (_inflight === request) _inflight = null;
+        });
     _inflight = request;
     return request;
 }
@@ -171,7 +180,10 @@ interface Attempt {
 // Any rejection means no answer (the desktop transport rejects with its own errors),
 // except a caller's own abort, like stopping an assistant reply.
 function send(a: Attempt): Promise<Response> {
-    return platformFetch(a.input instanceof Request ? a.input.clone() as typeof a.input : a.input, { ...a.init, headers: a.headers }).catch((error: unknown) => {
+    return platformFetch(a.input instanceof Request ? (a.input.clone() as typeof a.input) : a.input, {
+        ...a.init,
+        headers: a.headers,
+    }).catch((error: unknown) => {
         if (a.callerSignal?.aborted) throw a.callerSignal.reason;
         throw error instanceof DOMException && error.name === "AbortError" && !a.bounded ? error : networkError();
     });
@@ -181,8 +193,9 @@ function send(a: Attempt): Promise<Response> {
 async function acquireToken(a: Attempt): Promise<string | null> {
     if (a.callerSignal?.aborted) throw a.callerSignal.reason;
     let token: string | null;
-    try { token = await withSignal(fetchAuthJwt(), a.init.signal); }
-    catch (error) {
+    try {
+        token = await withSignal(fetchAuthJwt(), a.init.signal);
+    } catch (error) {
         if (a.callerSignal?.aborted) throw a.callerSignal.reason;
         throw a.init.signal?.aborted ? networkError() : error;
     }
@@ -220,9 +233,10 @@ async function authorize(a: Attempt, method: string): Promise<void> {
         if (a.generation !== _authGeneration) throw new DOMException("Account changed", "AbortError");
     }
     // Streams and uploads own their deadlines. Ordinary reads always retain a deadline.
-    if (a.bounded) a.init.signal = a.callerSignal
-        ? AbortSignal.any([a.callerSignal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
-        : AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+    if (a.bounded)
+        a.init.signal = a.callerSignal
+            ? AbortSignal.any([a.callerSignal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
+            : AbortSignal.timeout(REQUEST_TIMEOUT_MS);
 
     // The shared JWT cache is the common path. Session/keyring reads are
     // fallbacks, not a prerequisite repeated before every API request.
@@ -241,7 +255,12 @@ async function authorize(a: Attempt, method: string): Promise<void> {
 }
 
 /** One try at a request: its own headers and signal (the request's unless the caller set them). */
-function attemptFor(input: RequestInfo | URL, request: Request | undefined, requestInit: RequestInit, authenticated: boolean): Attempt {
+function attemptFor(
+    input: RequestInfo | URL,
+    request: Request | undefined,
+    requestInit: RequestInit,
+    authenticated: boolean,
+): Attempt {
     return {
         input,
         init: requestInit,
@@ -263,7 +282,8 @@ export async function authenticatedFetch(
 
     await authorize(attempt, requestInit.method ?? request?.method ?? "GET");
     let response = await send(attempt);
-    if (response.status === 401 && attempt.generation === _authGeneration) response = await retryUnauthorized(attempt, response);
+    if (response.status === 401 && attempt.generation === _authGeneration)
+        response = await retryUnauthorized(attempt, response);
     // A captive portal answers API calls with its own HTML page.
     if (response.headers.get("content-type")?.includes("text/html")) throw networkError();
     return response;
@@ -282,16 +302,27 @@ export const apiClient = {
             const url = new URL(input instanceof Request ? input.url : String(input), API_BASE_URL);
             const endpoint = startupEndpoint(url);
             const domain = url.pathname.split("/")[3];
-            const category: PerformanceSample["category"] = (PERFORMANCE_CATEGORIES as readonly string[]).includes(domain)
-                ? domain as PerformanceSample["category"] : "other";
+            const category: PerformanceSample["category"] = (PERFORMANCE_CATEGORIES as readonly string[]).includes(
+                domain,
+            )
+                ? (domain as PerformanceSample["category"])
+                : "other";
             const measured = (requestInit?.method ?? "GET") === "GET";
-            const record = (from: number, outcome: PerformanceSample["outcome"], details: ReadDetails, phase?: "api_body") => {
-                if (measured && generation === _authGeneration) recordStartupRead(category, from, outcome, { endpoint, ...details }, phase);
+            const record = (
+                from: number,
+                outcome: PerformanceSample["outcome"],
+                details: ReadDetails,
+                phase?: "api_body",
+            ) => {
+                if (measured && generation === _authGeneration)
+                    recordStartupRead(category, from, outcome, { endpoint, ...details }, phase);
             };
             try {
                 const response = await authenticatedFetch(input, { ...requestInit, authenticated: true });
                 // A capability probe's 403/404 is an expected "no", not a failed read.
-                const expected = response.ok || (endpoint === "debug_capabilities" && (response.status === 403 || response.status === 404));
+                const expected =
+                    response.ok ||
+                    (endpoint === "debug_capabilities" && (response.status === 403 || response.status === 404));
                 record(start, expected ? "ready" : "error", { status: response.status });
                 // Measure only the body's normal consumption; never clone/drain it or delay headers.
                 if (measured && startupCollecting()) {
@@ -300,8 +331,17 @@ export const apiClient = {
                         const bodyStart = performance.now();
                         try {
                             const body = await json();
-                            const code = response.ok ? undefined : errorCodeSchema.safeParse((body as { error?: { code?: unknown } } | null)?.error?.code);
-                            record(bodyStart, response.ok ? "ready" : "error", { status: response.status, ...(code?.success ? { error_code: code.data } : {}) }, "api_body");
+                            const code = response.ok
+                                ? undefined
+                                : errorCodeSchema.safeParse(
+                                      (body as { error?: { code?: unknown } } | null)?.error?.code,
+                                  );
+                            record(
+                                bodyStart,
+                                response.ok ? "ready" : "error",
+                                { status: response.status, ...(code?.success ? { error_code: code.data } : {}) },
+                                "api_body",
+                            );
                             return body;
                         } catch (error) {
                             record(bodyStart, "error", { status: response.status }, "api_body");
@@ -312,7 +352,11 @@ export const apiClient = {
                 return response;
             } catch (error) {
                 const code = error instanceof ApiErrorResponse ? error.code : undefined;
-                record(start, code === "NETWORK_UNAVAILABLE" ? "network_unavailable" : "error", code ? { error_code: code } : {});
+                record(
+                    start,
+                    code === "NETWORK_UNAVAILABLE" ? "network_unavailable" : "error",
+                    code ? { error_code: code } : {},
+                );
                 throw error;
             }
         },

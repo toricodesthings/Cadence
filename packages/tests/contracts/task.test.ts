@@ -41,7 +41,10 @@ describe("insertTaskSchema", () => {
             nlp: { rawInput: "Plan 13 tomorrow", sourceSurface: "inline_add", dateStyle: "mdy" },
         };
 
-        expect(insertTaskSchema.parse(input)).toMatchObject({ ...input, nlp: { ...input.nlp, dismissedEntityIds: [], userOverrides: {} } });
+        expect(insertTaskSchema.parse(input)).toMatchObject({
+            ...input,
+            nlp: { ...input.nlp, dismissedEntityIds: [], userOverrides: {} },
+        });
     });
 
     it.each([
@@ -57,26 +60,44 @@ describe("insertTaskSchema", () => {
 });
 
 describe("priority and effort", () => {
-    it.each([[0, true], [4, true], [5, false], [-1, false], [2.5, false]])("priority %d → %s", (value, ok) => {
+    it.each([
+        [0, true],
+        [4, true],
+        [5, false],
+        [-1, false],
+        [2.5, false],
+    ])("priority %d → %s", (value, ok) => {
         expect(taskPrioritySchema.safeParse(value).success).toBe(ok);
     });
 
-    it.each([[1, true], [3, true], [0, false], [4, false]])("effort %d → %s", (value, ok) => {
+    it.each([
+        [1, true],
+        [3, true],
+        [0, false],
+        [4, false],
+    ])("effort %d → %s", (value, ok) => {
         expect(effortLevelSchema.safeParse(value).success).toBe(ok);
     });
 });
 
 describe("canonicalNlpEnvelopeSchema", () => {
     it("defaults dismissed entities and overrides to empty", () => {
-        expect(canonicalNlpEnvelopeSchema.parse({ rawInput: "x", sourceSurface: "quick_add", dateStyle: "dmy" })).toMatchObject({
+        expect(
+            canonicalNlpEnvelopeSchema.parse({ rawInput: "x", sourceSurface: "quick_add", dateStyle: "dmy" }),
+        ).toMatchObject({
             dismissedEntityIds: [],
             userOverrides: {},
         });
     });
 
     it("rejects an unknown source surface or date style", () => {
-        expect(canonicalNlpEnvelopeSchema.safeParse({ rawInput: "x", sourceSurface: "fax", dateStyle: "mdy" }).success).toBe(false);
-        expect(canonicalNlpEnvelopeSchema.safeParse({ rawInput: "x", sourceSurface: "quick_add", dateStyle: "iso" }).success).toBe(false);
+        expect(
+            canonicalNlpEnvelopeSchema.safeParse({ rawInput: "x", sourceSurface: "fax", dateStyle: "mdy" }).success,
+        ).toBe(false);
+        expect(
+            canonicalNlpEnvelopeSchema.safeParse({ rawInput: "x", sourceSurface: "quick_add", dateStyle: "iso" })
+                .success,
+        ).toBe(false);
     });
 });
 
@@ -93,8 +114,16 @@ describe("batch and reorder limits", () => {
 
     it("reschedules to a day or a start, never both", () => {
         expect(batchRescheduleSchema.safeParse({ taskIds: ids(1), date: "2026-03-09" }).success).toBe(true);
-        expect(batchRescheduleSchema.safeParse({ taskIds: ids(1), scheduledStart: "2026-03-09T10:00:00-04:00" }).success).toBe(true);
-        expect(batchRescheduleSchema.safeParse({ taskIds: ids(1), scheduledStart: "2026-03-09T10:00:00-04:00", date: "2026-03-09" }).success).toBe(false);
+        expect(
+            batchRescheduleSchema.safeParse({ taskIds: ids(1), scheduledStart: "2026-03-09T10:00:00-04:00" }).success,
+        ).toBe(true);
+        expect(
+            batchRescheduleSchema.safeParse({
+                taskIds: ids(1),
+                scheduledStart: "2026-03-09T10:00:00-04:00",
+                date: "2026-03-09",
+            }).success,
+        ).toBe(false);
         expect(batchRescheduleSchema.safeParse({ taskIds: ids(1), scheduledStart: "2026-03-09" }).success).toBe(false);
         expect(batchRescheduleSchema.safeParse({ taskIds: ids(1) }).success).toBe(false);
     });
@@ -113,15 +142,21 @@ describe("offline task batch bounds", () => {
         );
     });
 
-    it.each([
-        [], Array.from({ length: 11 }, () => ({ state: "ACTIVE" })),
-        [{}], [{ state: "COMPLETE" }], [{ state: "ARCHIVED" }],
-        [{ state: "ACTIVE", limit: 1000 }], [{ state: "ACTIVE", offset: 10 }],
-        [{ state: "ACTIVE", userId: UUID }],
-        [{ state: "ACTIVE", from: "2026-03-01" }],
-        [{ state: "ACTIVE", from: "2026-03-09", to: "2026-03-01" }],
-        [{ state: "ACTIVE", from: "2026-03-01", to: "2026-05-01" }],
-    ].map((queries) => ({ queries })))("rejects unsupported or unbounded filters $queries", ({ queries }) => {
+    it.each(
+        [
+            [],
+            Array.from({ length: 11 }, () => ({ state: "ACTIVE" })),
+            [{}],
+            [{ state: "COMPLETE" }],
+            [{ state: "ARCHIVED" }],
+            [{ state: "ACTIVE", limit: 1000 }],
+            [{ state: "ACTIVE", offset: 10 }],
+            [{ state: "ACTIVE", userId: UUID }],
+            [{ state: "ACTIVE", from: "2026-03-01" }],
+            [{ state: "ACTIVE", from: "2026-03-09", to: "2026-03-01" }],
+            [{ state: "ACTIVE", from: "2026-03-01", to: "2026-05-01" }],
+        ].map((queries) => ({ queries })),
+    )("rejects unsupported or unbounded filters $queries", ({ queries }) => {
         expect(taskBatchQuerySchema.safeParse({ queries: JSON.stringify(queries) }).success).toBe(false);
     });
 
@@ -134,7 +169,12 @@ describe("offline task batch bounds", () => {
 describe("taskFiltersSchema", () => {
     it("coerces query strings and keeps day windows as sent", () => {
         expect(
-            taskFiltersSchema.parse({ from: "2026-03-01", to: "2026-03-31", hasNoProject: "true", effectiveOnOrBeforeDate: "2026-03-09" }),
+            taskFiltersSchema.parse({
+                from: "2026-03-01",
+                to: "2026-03-31",
+                hasNoProject: "true",
+                effectiveOnOrBeforeDate: "2026-03-09",
+            }),
         ).toEqual({ from: "2026-03-01", to: "2026-03-31", hasNoProject: true, effectiveOnOrBeforeDate: "2026-03-09" });
     });
 
@@ -147,7 +187,9 @@ describe("taskFiltersSchema", () => {
     });
 
     it("rejects instants where a LocalDate belongs", () => {
-        expect(taskFiltersSchema.safeParse({ from: "2026-03-09T00:00:00Z", to: "2026-03-09T00:00:00Z" }).success).toBe(false);
+        expect(taskFiltersSchema.safeParse({ from: "2026-03-09T00:00:00Z", to: "2026-03-09T00:00:00Z" }).success).toBe(
+            false,
+        );
     });
 
     it("accepts a single-day window", () => {

@@ -53,12 +53,7 @@ describe("TaskCard overdue presentation", () => {
     });
 
     it("appends Past Due to the date row and hides the verbose overdue rationale chip", () => {
-        render(
-            <TaskCard
-                task={baseTask}
-                rationaleLabel="This task is past its due date"
-            />,
-        );
+        render(<TaskCard task={baseTask} rationaleLabel="This task is past its due date" />);
 
         expect(screen.getByText("Mar 25")).toBeTruthy();
         expect(screen.getByText("(Past Due)")).toBeTruthy();
@@ -67,7 +62,11 @@ describe("TaskCard overdue presentation", () => {
 });
 
 it("labels a completed thought without corrupting the task action name", () => {
-    render(<Provider><TaskCard task={{ ...baseTask, origin: "thought", state: "COMPLETE" }} /></Provider>);
+    render(
+        <Provider>
+            <TaskCard task={{ ...baseTask, origin: "thought", state: "COMPLETE" }} />
+        </Provider>,
+    );
     expect(screen.getByRole("img", { name: "Thought" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Open Call landlord about hallway leak" })).toBeTruthy();
 });

@@ -39,7 +39,6 @@ import { EditListDialog } from "../components/shared/EditListDialog";
 import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { ProjectSectionsSheet, ProjectTaskSheet, UNSECTIONED_ID } from "../components/tasks/ProjectSheets";
 
-
 /* ── Actionable linked-habit row ── */
 function LinkedHabitRow({
     habit,
@@ -78,9 +77,7 @@ function LinkedHabitRow({
             >
                 {habit.title}
             </button>
-            {habit.targetTime && (
-                <span className="text-[12px] text-twilight-text-muted">{habit.targetTime}</span>
-            )}
+            {habit.targetTime && <span className="text-[12px] text-twilight-text-muted">{habit.targetTime}</span>}
         </div>
     );
 }
@@ -96,14 +93,13 @@ export default function ProjectView() {
     const selection = useTaskDetailSelection();
     const { selectedTaskId, setSelectedTaskId, handleSelectTask } = selection;
 
-
     const [renameOpen, setRenameOpen] = useState(false);
     const [addOpen, setAddOpen] = useState(false);
     const [sectionsFocus, setSectionsFocus] = useState<string | null>(null);
     const { data: sections = [] } = useSections(projectId);
     const [activeSectionId, setActiveSectionId] = useState(UNSECTIONED_ID);
 
-    const project = projects?.find(p => p.id === projectId);
+    const project = projects?.find((p) => p.id === projectId);
     const projectAccent = project ? resolveAccentColor(project.colorAccent) : "var(--accent-primary)";
 
     const { data: rawTasks, isLoading } = useTasks({ projectId, state: "ACTIVE" });
@@ -125,22 +121,28 @@ export default function ProjectView() {
         [allHabits, projectId],
     );
     const dueLinkedHabits = useMemo(
-        () => linkedHabits.filter((h) =>
-            h.logs?.some((l) => l.status === "PENDING" && l.targetDate <= todayISO),
-        ),
+        () => linkedHabits.filter((h) => h.logs?.some((l) => l.status === "PENDING" && l.targetDate <= todayISO)),
         [linkedHabits, todayISO],
     );
 
     const { tasks, rationaleByTaskId } = useMemo(() => {
-        let filtered = activeTagId
-            ? (rawTasks ?? []).filter(t => t.tagIds.includes(activeTagId))
-            : (rawTasks ?? []);
+        let filtered = activeTagId ? (rawTasks ?? []).filter((t) => t.tagIds.includes(activeTagId)) : (rawTasks ?? []);
         if (activeDefinition && intelligenceEnabled && focusViewsEnabled) {
             filtered = applyFocusView(filtered, activeDefinition, { clock: nlpClock(), dayOf: dayOfInstant });
         }
         if (intelligenceEnabled && sortMode === "smart") return rankTasksForRoute(filtered, "project", guessOf);
         return { tasks: sortTasks(filtered, sortMode), rationaleByTaskId: {} as Record<string, string | null> };
-    }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, projectId, todayISO, guessOf]);
+    }, [
+        rawTasks,
+        activeTagId,
+        sortMode,
+        activeDefinition,
+        intelligenceEnabled,
+        focusViewsEnabled,
+        projectId,
+        todayISO,
+        guessOf,
+    ]);
 
     const handleRenameOpen = () => setRenameOpen(true);
 
@@ -151,7 +153,7 @@ export default function ProjectView() {
     };
 
     const focusAddTask = useCallback(() => {
-        const input = document.querySelector<HTMLInputElement>('[data-add-task-input]');
+        const input = document.querySelector<HTMLInputElement>("[data-add-task-input]");
         if (input) {
             input.scrollIntoView({ behavior: "smooth", block: "center" });
             requestAnimationFrame(() => input.focus());
@@ -159,7 +161,7 @@ export default function ProjectView() {
     }, []);
 
     const triggerAddSection = useCallback(() => {
-        const btn = document.querySelector<HTMLButtonElement>('[data-add-section-trigger]');
+        const btn = document.querySelector<HTMLButtonElement>("[data-add-section-trigger]");
         if (btn) {
             btn.scrollIntoView({ behavior: "smooth", block: "center" });
             requestAnimationFrame(() => btn.click());
@@ -198,7 +200,18 @@ export default function ProjectView() {
 
     return (
         <>
-            {project && <EditListDialog open={renameOpen} onOpenChange={setRenameOpen} list={{ id: project.id, name: project.name, colorAccent: project.colorAccent ?? "luminous-amber", emoji: project.emoji }} />}
+            {project && (
+                <EditListDialog
+                    open={renameOpen}
+                    onOpenChange={setRenameOpen}
+                    list={{
+                        id: project.id,
+                        name: project.name,
+                        colorAccent: project.colorAccent ?? "luminous-amber",
+                        emoji: project.emoji,
+                    }}
+                />
+            )}
 
             <MainLayout
                 requireAuth
@@ -208,23 +221,40 @@ export default function ProjectView() {
                 onCloseSidePanel={() => setSelectedTaskId(null)}
                 sidePanelLabel="Task"
                 compactHeaderRightInline
-                headerRight={project ? (
-                    <TaskRouteControls
-                        routeKey={`project:${projectId ?? "unknown"}`}
-                        title={project.name}
-                        view={view}
-                        onViewChange={setView}
-                        sortMode={sortMode}
-                        onSortModeChange={setSortMode}
-                        actionsLabel="List"
-                        actions={[
-                            { label: "New task", icon: Plus, onSelect: focusAddTask, compact: { onSelect: () => setAddOpen(true) } },
-                            { label: "Add section", icon: Columns3, onSelect: triggerAddSection, compact: { label: "Sections", onSelect: () => setSectionsFocus("") } },
-                            { label: "Rename / Edit list", icon: Pencil, onSelect: handleRenameOpen, compact: { label: "Rename / edit list" } },
-                            { label: "Delete list", icon: Trash2, onSelect: handleDelete, danger: true },
-                        ]}
-                    />
-                ) : undefined}
+                headerRight={
+                    project ? (
+                        <TaskRouteControls
+                            routeKey={`project:${projectId ?? "unknown"}`}
+                            title={project.name}
+                            view={view}
+                            onViewChange={setView}
+                            sortMode={sortMode}
+                            onSortModeChange={setSortMode}
+                            actionsLabel="List"
+                            actions={[
+                                {
+                                    label: "New task",
+                                    icon: Plus,
+                                    onSelect: focusAddTask,
+                                    compact: { onSelect: () => setAddOpen(true) },
+                                },
+                                {
+                                    label: "Add section",
+                                    icon: Columns3,
+                                    onSelect: triggerAddSection,
+                                    compact: { label: "Sections", onSelect: () => setSectionsFocus("") },
+                                },
+                                {
+                                    label: "Rename / Edit list",
+                                    icon: Pencil,
+                                    onSelect: handleRenameOpen,
+                                    compact: { label: "Rename / edit list" },
+                                },
+                                { label: "Delete list", icon: Trash2, onSelect: handleDelete, danger: true },
+                            ]}
+                        />
+                    ) : undefined
+                }
                 pageTitle={project?.name ?? "List"}
                 shellHeader={{
                     title: project?.name ?? "List",
@@ -242,7 +272,9 @@ export default function ProjectView() {
                 {view === "kanban" ? (
                     <div className="flex-1 min-h-0 min-w-0 flex flex-col">
                         {isLoading ? (
-                            <PageContent width="default"><TaskListSkeleton /></PageContent>
+                            <PageContent width="default">
+                                <TaskListSkeleton />
+                            </PageContent>
                         ) : (
                             <KanbanBoard
                                 tasks={tasks ?? []}
@@ -267,7 +299,7 @@ export default function ProjectView() {
 
                             {isLoading ? (
                                 <TaskListSkeleton />
-                            ) : (tasks?.length || sections.length) ? (
+                            ) : tasks?.length || sections.length ? (
                                 <SectionedTaskList
                                     tasks={tasks ?? []}
                                     projectId={projectId}
@@ -282,7 +314,9 @@ export default function ProjectView() {
                                     <div className="w-16 h-16 rounded-full bg-twilight-surface ring-1 ring-twilight-border flex items-center justify-center mb-6">
                                         <FolderOpen size={24} className="text-twilight-text-muted" />
                                     </div>
-                                    <h3 className="text-lg font-medium text-twilight-text mb-2">No tasks in this list</h3>
+                                    <h3 className="text-lg font-medium text-twilight-text mb-2">
+                                        No tasks in this list
+                                    </h3>
                                     <p className="text-twilight-text-muted text-sm max-w-sm">
                                         Add some tasks to get started with {project?.name || "this list"}.
                                     </p>
@@ -316,25 +350,27 @@ export default function ProjectView() {
                     </ScrollAreaWrapper>
                 )}
 
-                {shell.isCompact && projectId && project && <>
-                    <ContextualAddOrb directCapture directLabel="Add task" onOpen={() => setAddOpen(true)} />
-                    <ProjectTaskSheet
-                        open={addOpen}
-                        onClose={() => setAddOpen(false)}
-                        projectId={projectId}
-                        projectName={project.name}
-                        tasks={rawTasks ?? []}
-                        sectionId={activeSectionId}
-                        onSectionChange={setActiveSectionId}
-                    />
-                    <ProjectSectionsSheet
-                        open={sectionsFocus !== null}
-                        onClose={() => setSectionsFocus(null)}
-                        focus={sectionsFocus}
-                        projectId={projectId}
-                        tasks={rawTasks ?? []}
-                    />
-                </>}
+                {shell.isCompact && projectId && project && (
+                    <>
+                        <ContextualAddOrb directCapture directLabel="Add task" onOpen={() => setAddOpen(true)} />
+                        <ProjectTaskSheet
+                            open={addOpen}
+                            onClose={() => setAddOpen(false)}
+                            projectId={projectId}
+                            projectName={project.name}
+                            tasks={rawTasks ?? []}
+                            sectionId={activeSectionId}
+                            onSectionChange={setActiveSectionId}
+                        />
+                        <ProjectSectionsSheet
+                            open={sectionsFocus !== null}
+                            onClose={() => setSectionsFocus(null)}
+                            focus={sectionsFocus}
+                            projectId={projectId}
+                            tasks={rawTasks ?? []}
+                        />
+                    </>
+                )}
             </MainLayout>
 
             <PhoneTaskDetails selection={selection} ariaLabel="List task details" />

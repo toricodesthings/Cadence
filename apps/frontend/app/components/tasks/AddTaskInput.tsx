@@ -39,7 +39,11 @@ function wordsSettings(userSettings: ReturnType<typeof useSettings>["data"]) {
 }
 
 /** What the user set by hand beats the words: a key that is present wins, even when it is "none". */
-function manualFields(project: string | null | undefined, tags: string[] | undefined, deadline: ScheduleUpdates | null): Partial<DraftFields> {
+function manualFields(
+    project: string | null | undefined,
+    tags: string[] | undefined,
+    deadline: ScheduleUpdates | null,
+): Partial<DraftFields> {
     return {
         ...(project !== undefined && { projectId: project }),
         ...(tags && { tagIds: tags }),
@@ -53,13 +57,7 @@ function manualFields(project: string | null | undefined, tags: string[] | undef
 }
 
 /** Input field for quick task creation — submits on Enter, optimistic insert */
-export function AddTaskInput({
-    projectId,
-    sectionId,
-    tasks,
-    compact = false,
-    placeholder,
-}: AddTaskInputProps) {
+export function AddTaskInput({ projectId, sectionId, tasks, compact = false, placeholder }: AddTaskInputProps) {
     const [value, setValue] = useState("");
     const [isFocused, setIsFocused] = useState(false);
     const [isTrayOpen, setIsTrayOpen] = useState(false);
@@ -119,22 +117,29 @@ export function AddTaskInput({
         const orderIndex = placement === "top" ? 0 : computeNextOrderIndex(tasks);
 
         trackUsageEvent("task.create", { surface: "inline_add", object_type: "task" });
-        createTask.mutate(buildTypedTaskInput({
-            rawInput: value,
-            title: draft.cleanedTitle || rawTitle,
-            schedule: schedule(draft),
-            priority: (draft.fields.priority || mapPriorityNameToNumber(taskDefaults?.defaultPriority)) as TaskPriority,
-            projectId: projectId ?? draft.fields.projectId,
-            tagIds: draft.fields.tagIds,
-            waitingOn: draft.fields.waitingOn,
-            durationMinutes: draft.fields.durationMinutes,
-            notBefore: draft.fields.notBefore,
-            reminderAt: draft.fields.reminderAt,
-            surface: "inline_add",
-            dateStyle,
-            dismissedEntityIds: dismissed,
-            extra: { orderIndex, ...(sectionId && { sectionId }), ...(effort && { effort, effortOrigin: "accepted" as const }) },
-        }));
+        createTask.mutate(
+            buildTypedTaskInput({
+                rawInput: value,
+                title: draft.cleanedTitle || rawTitle,
+                schedule: schedule(draft),
+                priority: (draft.fields.priority ||
+                    mapPriorityNameToNumber(taskDefaults?.defaultPriority)) as TaskPriority,
+                projectId: projectId ?? draft.fields.projectId,
+                tagIds: draft.fields.tagIds,
+                waitingOn: draft.fields.waitingOn,
+                durationMinutes: draft.fields.durationMinutes,
+                notBefore: draft.fields.notBefore,
+                reminderAt: draft.fields.reminderAt,
+                surface: "inline_add",
+                dateStyle,
+                dismissedEntityIds: dismissed,
+                extra: {
+                    orderIndex,
+                    ...(sectionId && { sectionId }),
+                    ...(effort && { effort, effortOrigin: "accepted" as const }),
+                },
+            }),
+        );
 
         setValue("");
         setIsTrayOpen(false);
@@ -233,7 +238,12 @@ export function AddTaskInput({
             {showScheduleTrigger ? (
                 <DeadlineTrigger schedule={previewDeadline} onChange={setDeadline} compact={compact} />
             ) : null}
-            {(isTrayOpen || parsedInput.applied.length > 0 || parsedInput.suggestions.length > 0 || literal || effortSuggestion || effort) ? (
+            {isTrayOpen ||
+            parsedInput.applied.length > 0 ||
+            parsedInput.suggestions.length > 0 ||
+            literal ||
+            effortSuggestion ||
+            effort ? (
                 <div className={`flex w-full flex-col gap-2 empty:hidden ${compact ? "pl-6" : "pl-8"}`}>
                     <QuickAddActionTray
                         quickAddSettings={taskDefaults?.quickAdd}
@@ -253,7 +263,9 @@ export function AddTaskInput({
                         onToggleTag={(tagId) =>
                             setManualTags((current) => {
                                 const shown = current ?? parsedInput.fields.tagIds;
-                                return shown.includes(tagId) ? shown.filter((item) => item !== tagId) : [...shown, tagId];
+                                return shown.includes(tagId)
+                                    ? shown.filter((item) => item !== tagId)
+                                    : [...shown, tagId];
                             })
                         }
                     />
@@ -266,7 +278,11 @@ export function AddTaskInput({
                     {effort ? (
                         <AcceptedEffort level={effort} onUndo={() => setEffort(null)} />
                     ) : effortSuggestion ? (
-                        <EffortSuggestionRow suggestion={effortSuggestion} onUse={setEffort} onDismiss={() => setEffortDismissed(true)} />
+                        <EffortSuggestionRow
+                            suggestion={effortSuggestion}
+                            onUse={setEffort}
+                            onDismiss={() => setEffortDismissed(true)}
+                        />
                     ) : null}
                 </div>
             ) : null}

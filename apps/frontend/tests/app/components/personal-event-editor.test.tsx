@@ -10,12 +10,23 @@ vi.mock("../../../app/components/shared/EmojiPickerPopover", () => ({
     EmojiPickerPopover: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-const event: PersonalEvent = { id: "event-1", label: "Birthday", emoji: null, monthDay: "10-12", notify: true, startedOn: null };
+const event: PersonalEvent = {
+    id: "event-1",
+    label: "Birthday",
+    emoji: null,
+    monthDay: "10-12",
+    notify: true,
+    startedOn: null,
+};
 const onChange = vi.fn();
 const onClose = vi.fn();
 const onDelete = vi.fn();
 function editor(value = event) {
-    return <Provider><PersonalEventEditor event={value} onChange={onChange} onClose={onClose} onDelete={onDelete} /></Provider>;
+    return (
+        <Provider>
+            <PersonalEventEditor event={value} onChange={onChange} onClose={onClose} onDelete={onDelete} />
+        </Provider>
+    );
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -50,7 +61,9 @@ describe("PersonalEventEditor", () => {
     it("reflects updated data and keeps delete separate from close", () => {
         const view = render(editor());
         view.rerender(editor({ ...event, label: "Updated elsewhere" }));
-        expect((screen.getByRole("textbox", { name: "Event title" }) as HTMLTextAreaElement).value).toBe("Updated elsewhere");
+        expect((screen.getByRole("textbox", { name: "Event title" }) as HTMLTextAreaElement).value).toBe(
+            "Updated elsewhere",
+        );
         fireEvent.click(screen.getByRole("button", { name: /Delete event/ }));
         expect(onDelete).toHaveBeenCalledOnce();
         expect(onClose).not.toHaveBeenCalled();

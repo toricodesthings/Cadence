@@ -12,17 +12,26 @@ import type { Env } from "../../types/env";
 import type { AgentContext, buildToolRegistry } from "./tools/index";
 import type { projectEvents } from "./tools/events";
 
-type SnapshotTools = Pick<ReturnType<typeof buildToolRegistry>,
-    "get_schedule_window" | "get_tasks" | "get_habit_status_today" | "get_inbox_items" | "get_events">;
+type SnapshotTools = Pick<
+    ReturnType<typeof buildToolRegistry>,
+    "get_schedule_window" | "get_tasks" | "get_habit_status_today" | "get_inbox_items" | "get_events"
+>;
 
 /**
  * Today at a glance: the reads most turns open with, run before the model starts
  * so "plan my afternoon" needs no read step. Same tools and shapes the model
  * already knows; a failed read is left out. Small caps keep it ~1k tokens.
  */
-export async function loadSnapshot(tools: SnapshotTools, today: string, eventsSnapshot?: ReturnType<typeof projectEvents>): Promise<string> {
+export async function loadSnapshot(
+    tools: SnapshotTools,
+    today: string,
+    eventsSnapshot?: ReturnType<typeof projectEvents>,
+): Promise<string> {
     const read = async (t: { execute?: unknown }, input: object): Promise<any> => {
-        const result = await (t.execute as (input: object, options: object) => Promise<unknown>)(input, { toolCallId: "snapshot", messages: [] });
+        const result = await (t.execute as (input: object, options: object) => Promise<unknown>)(input, {
+            toolCallId: "snapshot",
+            messages: [],
+        });
         return (result as { ok?: boolean })?.ok === false ? undefined : result;
     };
     const [schedule, overdue, routines, capture, events] = await Promise.all([
@@ -51,7 +60,11 @@ const WEEK_TITLE_CHARS = 60;
  * the reset's week strip), deadlines (capped), Fixed block count and routines due. Read before the model starts,
  * so "spread my week" and "what's due?" need no read step. ≈1.5k chars; replaces the snapshot on that surface.
  */
-export async function loadWeekAhead(env: Env, userId: string, ctx: Pick<AgentContext, "timezone" | "today" | "currentDate">): Promise<string> {
+export async function loadWeekAhead(
+    env: Env,
+    userId: string,
+    ctx: Pick<AgentContext, "timezone" | "today" | "currentDate">,
+): Promise<string> {
     const zone = ctx.timezone as Zone;
     const last = addDays(ctx.today, 6);
     return withRls(getDbClient(env), userId, async (tx) => {
@@ -61,32 +74,55 @@ export async function loadWeekAhead(env: Env, userId: string, ctx: Pick<AgentCon
             timelineStartHour(tx, userId),
         ]);
         const due = routinesDue(routines, ctx.today, last, ctx.today, zone);
-        const room = weekRoom(tasks, { from: ctx.today, days: 7, zone, timelineStartHour: startHour, now: ctx.currentDate });
-        return JSON.stringify(room.map((d) => ({
-            day: `${d.day} ${formatInZone(d.day, "UTC", { weekday: "short" }, "en-US")}`,
-            bookedMinutes: d.bookedMinutes,
-            openMinutes: d.openMinutes,
-            deadlines: d.deadlines.slice(0, WEEK_DEADLINES).map((t) => ({ id: t.id, title: t.title.slice(0, WEEK_TITLE_CHARS) })),
-            ...(d.deadlines.length > WEEK_DEADLINES && { more: true }),
-            fixedBlocks: tasks.filter((t) => t.interactionMode === "timetable" && taskDay(t, zone) === d.day).length,
-            routinesDue: due.filter((r) => r.days.includes(d.day)).length,
-        })));
+        const room = weekRoom(tasks, {
+            from: ctx.today,
+            days: 7,
+            zone,
+            timelineStartHour: startHour,
+            now: ctx.currentDate,
+        });
+        return JSON.stringify(
+            room.map((d) => ({
+                day: `${d.day} ${formatInZone(d.day, "UTC", { weekday: "short" }, "en-US")}`,
+                bookedMinutes: d.bookedMinutes,
+                openMinutes: d.openMinutes,
+                deadlines: d.deadlines
+                    .slice(0, WEEK_DEADLINES)
+                    .map((t) => ({ id: t.id, title: t.title.slice(0, WEEK_TITLE_CHARS) })),
+                ...(d.deadlines.length > WEEK_DEADLINES && { more: true }),
+                fixedBlocks: tasks.filter((t) => t.interactionMode === "timetable" && taskDay(t, zone) === d.day)
+                    .length,
+                routinesDue: due.filter((r) => r.days.includes(d.day)).length,
+            })),
+        );
     });
 }
 
 /** Share only this prefetch's routine read; later model tool calls always read fresh rows.
  * Keep section transactions isolated: a failed schedule query cannot abort status or inbox reads.
  */
-export function loadAgentSnapshot(env: Env, userId: string, ctx: AgentContext, tools: SnapshotTools, events: ReturnType<typeof projectEvents>) {
+export function loadAgentSnapshot(
+    env: Env,
+    userId: string,
+    ctx: AgentContext,
+    tools: SnapshotTools,
+    events: ReturnType<typeof projectEvents>,
+) {
     let pending: ReturnType<SnapshotRoutineReader> | undefined;
-    const readRoutines: SnapshotRoutineReader = (tx) => pending ??= Promise.resolve(readSnapshotRoutines(tx, userId)).catch((error) => {
-        pending = undefined; // safeExecute may retry a transient failure with a fresh transaction
-        throw error;
-    });
-    return loadSnapshot({ ...tools,
-        get_schedule_window: calendarTools(env, userId, ctx, readRoutines).get_schedule_window,
-        get_habit_status_today: habitTools(env, userId, ctx, readRoutines).get_habit_status_today,
-    }, ctx.today, events);
+    const readRoutines: SnapshotRoutineReader = (tx) =>
+        (pending ??= Promise.resolve(readSnapshotRoutines(tx, userId)).catch((error) => {
+            pending = undefined; // safeExecute may retry a transient failure with a fresh transaction
+            throw error;
+        }));
+    return loadSnapshot(
+        {
+            ...tools,
+            get_schedule_window: calendarTools(env, userId, ctx, readRoutines).get_schedule_window,
+            get_habit_status_today: habitTools(env, userId, ctx, readRoutines).get_habit_status_today,
+        },
+        ctx.today,
+        events,
+    );
 }
 
 /**

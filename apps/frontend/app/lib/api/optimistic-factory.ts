@@ -17,52 +17,48 @@ type CacheSnapshot = Array<[QueryKey, unknown]>;
  *   ]);
  */
 export function createOptimisticHelpers<TItem = unknown>(cacheKeys: readonly QueryKey[]) {
-  return {
-    snapshot(qc: QueryClient): CacheSnapshot[] {
-      return cacheKeys.map((key) => qc.getQueriesData({ queryKey: key }));
-    },
+    return {
+        snapshot(qc: QueryClient): CacheSnapshot[] {
+            return cacheKeys.map((key) => qc.getQueriesData({ queryKey: key }));
+        },
 
-    rollback(qc: QueryClient, snapshots: CacheSnapshot[]) {
-      for (const group of snapshots) {
-        for (const [key, data] of group) {
-          if (data !== undefined) qc.setQueryData(key, data);
-        }
-      }
-    },
+        rollback(qc: QueryClient, snapshots: CacheSnapshot[]) {
+            for (const group of snapshots) {
+                for (const [key, data] of group) {
+                    if (data !== undefined) qc.setQueryData(key, data);
+                }
+            }
+        },
 
-    invalidate(qc: QueryClient) {
-      return Promise.all(
-        cacheKeys.map((key) => qc.invalidateQueries({ queryKey: key })),
-      );
-    },
+        invalidate(qc: QueryClient) {
+            return Promise.all(cacheKeys.map((key) => qc.invalidateQueries({ queryKey: key })));
+        },
 
-    cancel(qc: QueryClient) {
-      return Promise.all(
-        cacheKeys.map((key) => qc.cancelQueries({ queryKey: key })),
-      );
-    },
+        cancel(qc: QueryClient) {
+            return Promise.all(cacheKeys.map((key) => qc.cancelQueries({ queryKey: key })));
+        },
 
-    /** `onMutate`: stop in-flight reads, remember the caches, and show `edit` in every cached list. The result is the context `fail` rolls back. */
-    async edit(qc: QueryClient, edit: (items: TItem[]) => TItem[]) {
-      await this.cancel(qc);
-      const snapshot = this.snapshot(qc);
-      for (const key of cacheKeys) {
-        qc.setQueriesData<TItem[]>({ queryKey: key }, (old) => transformListCache(old, edit));
-      }
-      return { snapshot };
-    },
+        /** `onMutate`: stop in-flight reads, remember the caches, and show `edit` in every cached list. The result is the context `fail` rolls back. */
+        async edit(qc: QueryClient, edit: (items: TItem[]) => TItem[]) {
+            await this.cancel(qc);
+            const snapshot = this.snapshot(qc);
+            for (const key of cacheKeys) {
+                qc.setQueriesData<TItem[]>({ queryKey: key }, (old) => transformListCache(old, edit));
+            }
+            return { snapshot };
+        },
 
-    /** `onError` for `edit`: put the lists back, say what failed, and refetch. */
-    fail(qc: QueryClient, err: unknown, context: { snapshot: CacheSnapshot[] } | undefined, message: string) {
-      if (context?.snapshot) this.rollback(qc, context.snapshot);
-      toastError(err, message);
-      this.invalidate(qc);
-    },
+        /** `onError` for `edit`: put the lists back, say what failed, and refetch. */
+        fail(qc: QueryClient, err: unknown, context: { snapshot: CacheSnapshot[] } | undefined, message: string) {
+            if (context?.snapshot) this.rollback(qc, context.snapshot);
+            toastError(err, message);
+            this.invalidate(qc);
+        },
 
-    /** `onError` for a delete behind an Undo window: put the lists back; pressing Undo is not a failure to report. */
-    undo(qc: QueryClient, err: unknown, context: { snapshot: CacheSnapshot[] } | undefined, message: string) {
-      if (context) this.rollback(qc, context.snapshot);
-      if (!isUndone(err)) toastError(err, message);
-    },
-  };
+        /** `onError` for a delete behind an Undo window: put the lists back; pressing Undo is not a failure to report. */
+        undo(qc: QueryClient, err: unknown, context: { snapshot: CacheSnapshot[] } | undefined, message: string) {
+            if (context) this.rollback(qc, context.snapshot);
+            if (!isUndone(err)) toastError(err, message);
+        },
+    };
 }

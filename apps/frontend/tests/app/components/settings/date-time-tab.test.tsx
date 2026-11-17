@@ -4,19 +4,40 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DateTimeTab } from "../../../../app/components/settings/tabs/DateTimeTab";
 import { setUserZone } from "../../../../app/lib/utils/user-zone";
 
-const { mutate, settings, setHolidays } = vi.hoisted(() => ({ mutate: vi.fn(), setHolidays: vi.fn(), settings: { current: { dateTime: { timezone: "device" } } as any } }));
-vi.mock("../../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: settings.current }), useUpdateSettings: () => ({ mutate }) }));
+const { mutate, settings, setHolidays } = vi.hoisted(() => ({
+    mutate: vi.fn(),
+    setHolidays: vi.fn(),
+    settings: { current: { dateTime: { timezone: "device" } } as any },
+}));
+vi.mock("../../../../app/hooks/core/use-settings", () => ({
+    useSettings: () => ({ data: settings.current }),
+    useUpdateSettings: () => ({ mutate }),
+}));
 vi.mock("../../../../app/hooks/environment/use-holiday-overlay", () => ({
     HOLIDAY_SOURCE_LABELS: { manual: "chosen by you" },
-    useHolidayOverlay: () => ({ enabled: true, setEnabled: setHolidays, regionLabel: "CA-ON, Canada", source: "manual" }),
+    useHolidayOverlay: () => ({
+        enabled: true,
+        setEnabled: setHolidays,
+        regionLabel: "CA-ON, Canada",
+        source: "manual",
+    }),
 }));
-vi.mock("../../../../app/hooks/calendar/use-personal-events", () => ({ usePersonalEvents: () => ({ items: [], enabled: true, setEnabled: vi.fn() }) }));
+vi.mock("../../../../app/hooks/calendar/use-personal-events", () => ({
+    usePersonalEvents: () => ({ items: [], enabled: true, setEnabled: vi.fn() }),
+}));
 
-const setup = () => render(<MemoryRouter><DateTimeTab /></MemoryRouter>);
+const setup = () =>
+    render(
+        <MemoryRouter>
+            <DateTimeTab />
+        </MemoryRouter>,
+    );
 
 describe("DateTimeTab time zone", () => {
     beforeEach(() => {
-        mutate.mockClear(); settings.current = { dateTime: { timezone: "device" } }; setUserZone("America/Toronto");
+        mutate.mockClear();
+        settings.current = { dateTime: { timezone: "device" } };
+        setUserZone("America/Toronto");
         // jsdom has none of these; Radix Select reads them while opening.
         Element.prototype.scrollIntoView = vi.fn();
         Element.prototype.hasPointerCapture = vi.fn(() => false);
@@ -25,20 +46,23 @@ describe("DateTimeTab time zone", () => {
     const open = () => fireEvent.keyDown(screen.getByRole("combobox", { name: "Time zone" }), { key: "Enter" });
 
     it("saves an IANA zone when one is picked", () => {
-        setup(); open();
+        setup();
+        open();
         fireEvent.click(screen.getByRole("option", { name: /^Asia\/Tokyo/ }));
         expect(mutate).toHaveBeenCalledWith({ dateTime: { timezone: "Asia/Tokyo" } });
     });
 
-    it("saves \"device\" when the device option is picked again", () => {
+    it('saves "device" when the device option is picked again', () => {
         settings.current = { dateTime: { timezone: "Asia/Tokyo" } };
-        setup(); open();
+        setup();
+        open();
         fireEvent.click(screen.getByRole("option", { name: /^Device/ }));
         expect(mutate).toHaveBeenCalledWith({ dateTime: { timezone: "device" } });
     });
 
     it("narrows the list by search and offers UTC", () => {
-        setup(); open();
+        setup();
+        open();
         expect(screen.getByRole("option", { name: /^UTC/ })).toBeTruthy();
         fireEvent.change(screen.getByLabelText("Search time zones"), { target: { value: "tokyo" } });
         expect(screen.getByRole("option", { name: /^Asia\/Tokyo/ })).toBeTruthy();
@@ -47,7 +71,12 @@ describe("DateTimeTab time zone", () => {
 });
 
 describe("DateTimeTab calendar", () => {
-    beforeEach(() => { mutate.mockClear(); setHolidays.mockClear(); settings.current = { dateTime: { timezone: "device" } }; setUserZone("America/Toronto"); });
+    beforeEach(() => {
+        mutate.mockClear();
+        setHolidays.mockClear();
+        settings.current = { dateTime: { timezone: "device" } };
+        setUserZone("America/Toronto");
+    });
 
     it("saves the week start and time format from one tap each", () => {
         setup();

@@ -21,9 +21,7 @@ function patchList(
     update: (rows: ConversationListItem[]) => ConversationListItem[],
 ): ListSnapshot {
     const snapshot = queryClient.getQueryData<ConversationListItem[]>(queryKeys.ai.conversations);
-    queryClient.setQueryData<ConversationListItem[]>(queryKeys.ai.conversations, (old) =>
-        old ? update(old) : old,
-    );
+    queryClient.setQueryData<ConversationListItem[]>(queryKeys.ai.conversations, (old) => (old ? update(old) : old));
     return snapshot;
 }
 
@@ -35,10 +33,13 @@ function useConversationPatch(failure: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ id, ...json }: ConversationPatch) => unwrapResponse(await client.api.ai.conversations[":id"].$patch({ param: { id }, json })),
+        mutationFn: async ({ id, ...json }: ConversationPatch) =>
+            unwrapResponse(await client.api.ai.conversations[":id"].$patch({ param: { id }, json })),
         onMutate: async ({ id, ...patch }) => {
             await queryClient.cancelQueries({ queryKey: queryKeys.ai.conversations });
-            return { snapshot: patchList(queryClient, (rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r))) };
+            return {
+                snapshot: patchList(queryClient, (rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r))),
+            };
         },
         onError: (err, _vars, context) => {
             if (context?.snapshot) queryClient.setQueryData(queryKeys.ai.conversations, context.snapshot);

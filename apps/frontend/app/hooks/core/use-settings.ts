@@ -123,13 +123,16 @@ export function useUpdateSettings() {
     });
 
     /** Show `patch` at once (query cache + this device's copy); returns what was there before. */
-    const applyLocal = useCallback((patch: DeepPartial<UserSettings>) => {
-        const previous = queryClient.getQueryData<UserSettings>(queryKey);
-        const next = deepMerge(previous || {}, patch);
-        queryClient.setQueryData(queryKey, next);
-        writeLocalCache(storageKey, next);
-        return previous;
-    }, [queryClient, queryKey, storageKey]);
+    const applyLocal = useCallback(
+        (patch: DeepPartial<UserSettings>) => {
+            const previous = queryClient.getQueryData<UserSettings>(queryKey);
+            const next = deepMerge(previous || {}, patch);
+            queryClient.setQueryData(queryKey, next);
+            writeLocalCache(storageKey, next);
+            return previous;
+        },
+        [queryClient, queryKey, storageKey],
+    );
 
     /** Everything waiting to be sent, with its debounce timer stopped. */
     const takePending = useCallback(() => {

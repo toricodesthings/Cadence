@@ -53,8 +53,7 @@ function EmptyThread({ assistantName, submitText }: { assistantName: string; sub
                 Say hey to {assistantName}
             </p>
             <p className="mt-2 max-w-[260px] text-[13px] leading-relaxed text-twilight-text-muted">
-                Drop a messy thought, ask to clear overdue items, or plan your
-                morning into tiny frictionless steps.
+                Drop a messy thought, ask to clear overdue items, or plan your morning into tiny frictionless steps.
             </p>
             {/* Starter prompts — the empty screen invites the first act
                 (manifesto §0.2 law 1). Each maps to a real capability. */}
@@ -105,7 +104,12 @@ function RestoringThread({ reduceMotion }: { reduceMotion: boolean | null }) {
 
 type Segment = ReturnType<typeof buildSegments>[number];
 
-function MessageSegment({ seg, stale, reply, answerApproval }: {
+function MessageSegment({
+    seg,
+    stale,
+    reply,
+    answerApproval,
+}: {
     seg: Segment;
     stale: boolean;
     reply: AssistantConversation["replyToQuestion"] | undefined;
@@ -121,13 +125,26 @@ function MessageSegment({ seg, stale, reply, answerApproval }: {
                 part={seg.part}
                 stale={stale}
                 reply={reply}
-                answer={answerApproval && approvalId ? (approved, reason) => answerApproval(approvalId, approved, reason) : undefined}
+                answer={
+                    answerApproval && approvalId
+                        ? (approved, reason) => answerApproval(approvalId, approved, reason)
+                        : undefined
+                }
             />
         </div>
     );
 }
 
-function ThreadMessage({ message, index, conversation, lastUserIndex, lastAssistantIndex, receiptState, userImage, userInitial }: {
+function ThreadMessage({
+    message,
+    index,
+    conversation,
+    lastUserIndex,
+    lastAssistantIndex,
+    receiptState,
+    userImage,
+    userInitial,
+}: {
     message: AssistantConversation["messages"][number];
     index: number;
     conversation: AssistantConversation;
@@ -137,7 +154,8 @@ function ThreadMessage({ message, index, conversation, lastUserIndex, lastAssist
     userImage?: string | null;
     userInitial: string;
 }) {
-    const { messages, isStreaming, handleRetry, handleEdit, regenerateLocal, answerApproval, replyToQuestion } = conversation;
+    const { messages, isStreaming, handleRetry, handleEdit, regenerateLocal, answerApproval, replyToQuestion } =
+        conversation;
     const isUser = message.role === "user";
     const segments = buildSegments(message.parts ?? []);
     if (!isUser && segments.length === 0) return null;
@@ -204,7 +222,7 @@ export function AssistantThread({
     showJump,
     scrollToBottom,
     submitText,
-    empty
+    empty,
 }: {
     conversation: AssistantConversation;
     assistantName: string;
@@ -223,85 +241,86 @@ export function AssistantThread({
     const reduceMotion = useReducedMotion();
     const imageFix = imageErrorFix(imageError);
     const { lastUserIndex, lastAssistantIndex, awaitingReply, receiptState } = useMemo(
-        () => describeThread(messages, status), [messages, status],
+        () => describeThread(messages, status),
+        [messages, status],
     );
     return (
         <div className="relative flex min-h-0 flex-1 flex-col">
-        <ScrollArea.Root className="flex-1 min-h-0">
-            <ScrollArea.Viewport ref={scrollRef} className={isTouch ? "px-3 py-5" : "px-4 py-6"}>
-                <div ref={contentRef} className="flex flex-col gap-5">
-                    {conversation.restoring ? (
-                        <RestoringThread reduceMotion={reduceMotion} />
-                    ) : messages.length === 0 ? (
-                        (empty ?? <EmptyThread assistantName={assistantName} submitText={submitText} />)
-                    ) : null}
-
-                    <AnimatePresence initial={false}>
-                        {messages.map((message, index) => (
-                            <ThreadMessage
-                                key={message.id}
-                                message={message}
-                                index={index}
-                                conversation={conversation}
-                                lastUserIndex={lastUserIndex}
-                                lastAssistantIndex={lastAssistantIndex}
-                                receiptState={receiptState}
-                                userImage={userImage}
-                                userInitial={userInitial}
-                            />
-                        ))}
-                    </AnimatePresence>
-
-                    {/* Typed error bubble (mid-stream or pre-stream), persists in the thread */}
-                    {streamError ? (
-                        <ChatErrorBubble
-                            error={streamError}
-                            onRetry={streamError.isRetryable ? handleRetry : undefined}
-                            onSendWithoutImages={imageFix === "drop" ? sendWithoutImages : undefined}
-                            onShareImages={imageFix === "share" ? shareImages : undefined}
-                        />
-                    ) : null}
-
-                    {/* Typing indicator while Cadence composes its reply */}
-                    <AnimatePresence>
-                        {awaitingReply ? (
-                            <motion.div
-                                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
-                                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.22, ease: EASE_OUT_EXPO }}
-                                className="flex items-start gap-2.5"
-                            >
-                                <ChatAvatar />
-                                <div className="rounded-[20px] rounded-tl-md border border-white/[0.06] bg-panel-raised/70 px-4 py-3.5">
-                                    <TypingDots name={assistantName} />
-                                </div>
-                            </motion.div>
+            <ScrollArea.Root className="flex-1 min-h-0">
+                <ScrollArea.Viewport ref={scrollRef} className={isTouch ? "px-3 py-5" : "px-4 py-6"}>
+                    <div ref={contentRef} className="flex flex-col gap-5">
+                        {conversation.restoring ? (
+                            <RestoringThread reduceMotion={reduceMotion} />
+                        ) : messages.length === 0 ? (
+                            (empty ?? <EmptyThread assistantName={assistantName} submitText={submitText} />)
                         ) : null}
-                    </AnimatePresence>
-                </div>
-            </ScrollArea.Viewport>
-            <ScrollArea.Scrollbar>
-                <ScrollArea.Thumb />
-            </ScrollArea.Scrollbar>
-        </ScrollArea.Root>
 
-        <AnimatePresence>
-            {showJump ? (
-                <motion.button
-                    type="button"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 6 }}
-                    transition={{ duration: 0.18, ease: EASE_OUT_EXPO }}
-                    onClick={() => scrollToBottom()}
-                    aria-label="Jump to latest"
-                    className="glass-surface absolute bottom-3 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full text-twilight-text-soft shadow-lg transition-colors hover:text-twilight-text cursor-pointer"
-                >
-                    <ArrowDown size={16} aria-hidden />
-                </motion.button>
-            ) : null}
-        </AnimatePresence>
+                        <AnimatePresence initial={false}>
+                            {messages.map((message, index) => (
+                                <ThreadMessage
+                                    key={message.id}
+                                    message={message}
+                                    index={index}
+                                    conversation={conversation}
+                                    lastUserIndex={lastUserIndex}
+                                    lastAssistantIndex={lastAssistantIndex}
+                                    receiptState={receiptState}
+                                    userImage={userImage}
+                                    userInitial={userInitial}
+                                />
+                            ))}
+                        </AnimatePresence>
+
+                        {/* Typed error bubble (mid-stream or pre-stream), persists in the thread */}
+                        {streamError ? (
+                            <ChatErrorBubble
+                                error={streamError}
+                                onRetry={streamError.isRetryable ? handleRetry : undefined}
+                                onSendWithoutImages={imageFix === "drop" ? sendWithoutImages : undefined}
+                                onShareImages={imageFix === "share" ? shareImages : undefined}
+                            />
+                        ) : null}
+
+                        {/* Typing indicator while Cadence composes its reply */}
+                        <AnimatePresence>
+                            {awaitingReply ? (
+                                <motion.div
+                                    initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+                                    animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.22, ease: EASE_OUT_EXPO }}
+                                    className="flex items-start gap-2.5"
+                                >
+                                    <ChatAvatar />
+                                    <div className="rounded-[20px] rounded-tl-md border border-white/[0.06] bg-panel-raised/70 px-4 py-3.5">
+                                        <TypingDots name={assistantName} />
+                                    </div>
+                                </motion.div>
+                            ) : null}
+                        </AnimatePresence>
+                    </div>
+                </ScrollArea.Viewport>
+                <ScrollArea.Scrollbar>
+                    <ScrollArea.Thumb />
+                </ScrollArea.Scrollbar>
+            </ScrollArea.Root>
+
+            <AnimatePresence>
+                {showJump ? (
+                    <motion.button
+                        type="button"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        transition={{ duration: 0.18, ease: EASE_OUT_EXPO }}
+                        onClick={() => scrollToBottom()}
+                        aria-label="Jump to latest"
+                        className="glass-surface absolute bottom-3 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full text-twilight-text-soft shadow-lg transition-colors hover:text-twilight-text cursor-pointer"
+                    >
+                        <ArrowDown size={16} aria-hidden />
+                    </motion.button>
+                ) : null}
+            </AnimatePresence>
         </div>
     );
 }

@@ -77,10 +77,13 @@ export function RoutineDayCell({
     const longPressed = useRef(false);
     const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const openedByHover = useRef(false);
-    useEffect(() => () => {
-        if (pressTimer.current) clearTimeout(pressTimer.current);
-        if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    }, []);
+    useEffect(
+        () => () => {
+            if (pressTimer.current) clearTimeout(pressTimer.current);
+            if (hoverTimer.current) clearTimeout(hoverTimer.current);
+        },
+        [],
+    );
 
     const status = log?.status;
     const dayLabel = formatShortDateLabel(date);
@@ -96,7 +99,12 @@ export function RoutineDayCell({
                 style={style}
                 className={`${shape} ${log ? "border border-twilight-border/20" : ""} ${label == null ? "text-twilight-text-muted/80" : quiet ? "text-twilight-text-muted/45" : "text-twilight-text-soft"} ${size === "fit" ? "text-xs" : "text-[11px]"} tabular-nums`}
             >
-                {label ?? (paused ? <Pause size={11} /> : log ? null : <span className="h-1 w-1 rounded-full bg-twilight-border" />)}
+                {label ??
+                    (paused ? (
+                        <Pause size={11} />
+                    ) : log ? null : (
+                        <span className="h-1 w-1 rounded-full bg-twilight-border" />
+                    ))}
             </span>
         );
     }
@@ -112,26 +120,35 @@ export function RoutineDayCell({
         if (!undoable) return;
         toast.message(next === "COMPLETED" ? "Checked off" : next === "SKIPPED" ? "Skipped" : "Cleared", {
             description: `${habit.title} · ${dayLabel}`,
-            action: { label: "Undo", onClick: () => resolve({ targetDate: date, status: previous, stepStatus: previousSteps }) },
+            action: {
+                label: "Undo",
+                onClick: () => resolve({ targetDate: date, status: previous, stepStatus: previousSteps }),
+            },
         });
     };
     const toggle = () => set(status === "COMPLETED" ? "PENDING" : "COMPLETED");
 
     // Hover opens without taking focus and closes on leave; a click or key open stays until dismissed.
-    const hoverProps = timed && !isTouch ? {
-        onPointerEnter: (e: React.PointerEvent) => {
-            if (e.pointerType !== "mouse") return;
-            if (hoverTimer.current) clearTimeout(hoverTimer.current);
-            if (menuOpen) return;
-            hoverTimer.current = setTimeout(() => { openedByHover.current = true; setMenuOpen(true); }, HOVER_OPEN_MS);
-        },
-        onPointerLeave: (e: React.PointerEvent) => {
-            if (e.pointerType !== "mouse") return;
-            if (hoverTimer.current) clearTimeout(hoverTimer.current);
-            if (menuOpen && !openedByHover.current) return;
-            hoverTimer.current = setTimeout(() => setMenuOpen(false), HOVER_CLOSE_MS);
-        },
-    } : {};
+    const hoverProps =
+        timed && !isTouch
+            ? {
+                  onPointerEnter: (e: React.PointerEvent) => {
+                      if (e.pointerType !== "mouse") return;
+                      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+                      if (menuOpen) return;
+                      hoverTimer.current = setTimeout(() => {
+                          openedByHover.current = true;
+                          setMenuOpen(true);
+                      }, HOVER_OPEN_MS);
+                  },
+                  onPointerLeave: (e: React.PointerEvent) => {
+                      if (e.pointerType !== "mouse") return;
+                      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+                      if (menuOpen && !openedByHover.current) return;
+                      hoverTimer.current = setTimeout(() => setMenuOpen(false), HOVER_CLOSE_MS);
+                  },
+              }
+            : {};
     const onMenuOpenChange = (open: boolean) => {
         if (hoverTimer.current) clearTimeout(hoverTimer.current);
         if (!open) openedByHover.current = false;
@@ -145,19 +162,36 @@ export function RoutineDayCell({
 
     const isToday = date === today;
     const counts = timed ? timeProgress(habit.times!, timeMarksOn(habit.times!, log)) : null;
-    const progress = status !== "PENDING" ? null : counts ? (counts.total - counts.open > 0 ? `${counts.total - counts.open}/${counts.total}` : null) : stepProgress(habit, log);
-    const state = status === "COMPLETED" ? "done" : status === "SKIPPED" ? "skipped" : progress ? `${progress.replace("/", " of ")} ${timed ? "times" : "steps"}` : isToday ? "open today" : "not logged";
-    const look = status === "COMPLETED"
-        ? "border border-transparent bg-[color-mix(in_srgb,var(--routine-tone)_80%,transparent)] text-[var(--primary-foreground)]"
-        : status === "SKIPPED"
-            ? "border border-twilight-border/45 text-twilight-text-muted hover:border-twilight-border"
-            : isToday
+    const progress =
+        status !== "PENDING"
+            ? null
+            : counts
+              ? counts.total - counts.open > 0
+                  ? `${counts.total - counts.open}/${counts.total}`
+                  : null
+              : stepProgress(habit, log);
+    const state =
+        status === "COMPLETED"
+            ? "done"
+            : status === "SKIPPED"
+              ? "skipped"
+              : progress
+                ? `${progress.replace("/", " of ")} ${timed ? "times" : "steps"}`
+                : isToday
+                  ? "open today"
+                  : "not logged";
+    const look =
+        status === "COMPLETED"
+            ? "border border-transparent bg-[color-mix(in_srgb,var(--routine-tone)_80%,transparent)] text-[var(--primary-foreground)]"
+            : status === "SKIPPED"
+              ? "border border-twilight-border/45 text-twilight-text-muted hover:border-twilight-border"
+              : isToday
                 ? "border-[1.5px] border-[color-mix(in_srgb,var(--routine-tone)_60%,transparent)] text-[var(--routine-tone)] hover:bg-[color-mix(in_srgb,var(--routine-tone)_10%,transparent)]"
                 : progress
-                    ? "border border-[color-mix(in_srgb,var(--routine-tone)_35%,transparent)] text-twilight-text-soft hover:border-[color-mix(in_srgb,var(--routine-tone)_60%,transparent)]"
-                    : openRing
-                        ? "border-[1.5px] border-[color-mix(in_srgb,var(--routine-tone)_28%,transparent)] text-twilight-text-soft hover:border-[color-mix(in_srgb,var(--routine-tone)_60%,transparent)] hover:bg-[color-mix(in_srgb,var(--routine-tone)_8%,transparent)]"
-                        : "border border-dashed border-transparent text-twilight-text-soft hover:border-twilight-text-muted focus-visible:border-twilight-text-muted";
+                  ? "border border-[color-mix(in_srgb,var(--routine-tone)_35%,transparent)] text-twilight-text-soft hover:border-[color-mix(in_srgb,var(--routine-tone)_60%,transparent)]"
+                  : openRing
+                    ? "border-[1.5px] border-[color-mix(in_srgb,var(--routine-tone)_28%,transparent)] text-twilight-text-soft hover:border-[color-mix(in_srgb,var(--routine-tone)_60%,transparent)] hover:bg-[color-mix(in_srgb,var(--routine-tone)_8%,transparent)]"
+                    : "border border-dashed border-transparent text-twilight-text-soft hover:border-twilight-text-muted focus-visible:border-twilight-text-muted";
 
     return (
         <Popover.Root open={menuOpen} onOpenChange={onMenuOpenChange}>
@@ -197,7 +231,10 @@ export function RoutineDayCell({
                     }}
                     onPointerUp={clearPress}
                     onPointerEnter={hoverProps.onPointerEnter}
-                    onPointerLeave={(e) => { clearPress(); hoverProps.onPointerLeave?.(e); }}
+                    onPointerLeave={(e) => {
+                        clearPress();
+                        hoverProps.onPointerLeave?.(e);
+                    }}
                     onPointerCancel={clearPress}
                     onKeyDown={(e) => {
                         if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -215,13 +252,30 @@ export function RoutineDayCell({
                         // Month grids keep the date; a small corner mark says done or skipped.
                         <>
                             <span className={status === "COMPLETED" ? "font-semibold" : ""}>{label}</span>
-                            <span aria-hidden="true" className={`absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full ring-2 ring-twilight-void ${status === "COMPLETED" ? "bg-twilight-text text-twilight-void" : "bg-twilight-border text-twilight-text-soft"}`}>
-                                {status === "COMPLETED" ? <Check size={9} strokeWidth={3.5} /> : <X size={9} strokeWidth={3} />}
+                            <span
+                                aria-hidden="true"
+                                className={`absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full ring-2 ring-twilight-void ${status === "COMPLETED" ? "bg-twilight-text text-twilight-void" : "bg-twilight-border text-twilight-text-soft"}`}
+                            >
+                                {status === "COMPLETED" ? (
+                                    <Check size={9} strokeWidth={3.5} />
+                                ) : (
+                                    <X size={9} strokeWidth={3} />
+                                )}
                             </span>
                         </>
-                    ) : status === "COMPLETED" ? <Check size={size === "md" ? 18 : 13} strokeWidth={3} aria-hidden="true" />
-                        : status === "SKIPPED" ? <X size={size === "md" ? 14 : 11} aria-hidden="true" />
-                            : label ?? progress ?? (isToday ? <RoutineMark emoji={habit.emoji} size={13} /> : openRing ? null : <span aria-hidden="true" className="h-1 w-1 rounded-full bg-twilight-text-muted/70" />)}
+                    ) : status === "COMPLETED" ? (
+                        <Check size={size === "md" ? 18 : 13} strokeWidth={3} aria-hidden="true" />
+                    ) : status === "SKIPPED" ? (
+                        <X size={size === "md" ? 14 : 11} aria-hidden="true" />
+                    ) : (
+                        (label ??
+                        progress ??
+                        (isToday ? (
+                            <RoutineMark emoji={habit.emoji} size={13} />
+                        ) : openRing ? null : (
+                            <span aria-hidden="true" className="h-1 w-1 rounded-full bg-twilight-text-muted/70" />
+                        )))
+                    )}
                 </button>
             </Popover.Anchor>
             <Popover.Content
@@ -231,36 +285,73 @@ export function RoutineDayCell({
                 className="w-auto rounded-3xl p-2"
                 aria-label={`${habit.title}, ${dayLabel}`}
                 {...hoverProps}
-                onOpenAutoFocus={(e) => { if (openedByHover.current) e.preventDefault(); }}
-                onCloseAutoFocus={(e) => { if (openedByHover.current) e.preventDefault(); }}
+                onOpenAutoFocus={(e) => {
+                    if (openedByHover.current) e.preventDefault();
+                }}
+                onCloseAutoFocus={(e) => {
+                    if (openedByHover.current) e.preventDefault();
+                }}
             >
                 <p className="flex items-center gap-1.5 px-2.5 pb-1.5 pt-1 text-xs font-medium text-twilight-text-soft">
-                    <span className="text-[var(--routine-tone)]"><RoutineMark emoji={habit.emoji} size={12} /></span>
+                    <span className="text-[var(--routine-tone)]">
+                        <RoutineMark emoji={habit.emoji} size={12} />
+                    </span>
                     {dayLabel}
                 </p>
-                {timed ? <div className="w-64"><RoutineTimeChecklist habit={habit} date={date} log={log} /></div> : <div className="flex gap-1 px-1 pb-1">
-                    {([
-                        ["COMPLETED", "Done", Check, "bg-[color-mix(in_srgb,var(--routine-tone)_80%,transparent)] text-[var(--primary-foreground)]", "border-[1.5px] border-[color-mix(in_srgb,var(--routine-tone)_55%,transparent)] text-[var(--routine-tone)]"],
-                        ["SKIPPED", "Skip", X, "bg-twilight-border/50 text-twilight-text", "border border-twilight-border/60 text-twilight-text-soft"],
-                        ["PENDING", "Clear", RotateCcw, "bg-white/[0.08] text-twilight-text", "border border-dashed border-twilight-border/60 text-twilight-text-soft"],
-                    ] as const).map(([next, text, Icon, on, off]) => {
-                        const pressed = (status ?? "PENDING") === next;
-                        return (
-                            <button
-                                key={next}
-                                type="button"
-                                aria-pressed={pressed}
-                                onClick={() => { set(next, false); setMenuOpen(false); }}
-                                className="group flex min-w-16 cursor-pointer flex-col items-center gap-1.5 rounded-2xl px-2 py-1.5 text-xs font-medium text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--routine-tone)]"
-                            >
-                                <span className={`flex h-10 w-10 items-center justify-center rounded-full transition-[background-color,border-color,transform] duration-200 group-hover:scale-105 motion-reduce:group-hover:scale-100 ${pressed ? on : off}`}>
-                                    <Icon size={16} strokeWidth={next === "COMPLETED" ? 3 : 2} aria-hidden="true" />
-                                </span>
-                                {text}
-                            </button>
-                        );
-                    })}
-                </div>}
+                {timed ? (
+                    <div className="w-64">
+                        <RoutineTimeChecklist habit={habit} date={date} log={log} />
+                    </div>
+                ) : (
+                    <div className="flex gap-1 px-1 pb-1">
+                        {(
+                            [
+                                [
+                                    "COMPLETED",
+                                    "Done",
+                                    Check,
+                                    "bg-[color-mix(in_srgb,var(--routine-tone)_80%,transparent)] text-[var(--primary-foreground)]",
+                                    "border-[1.5px] border-[color-mix(in_srgb,var(--routine-tone)_55%,transparent)] text-[var(--routine-tone)]",
+                                ],
+                                [
+                                    "SKIPPED",
+                                    "Skip",
+                                    X,
+                                    "bg-twilight-border/50 text-twilight-text",
+                                    "border border-twilight-border/60 text-twilight-text-soft",
+                                ],
+                                [
+                                    "PENDING",
+                                    "Clear",
+                                    RotateCcw,
+                                    "bg-white/[0.08] text-twilight-text",
+                                    "border border-dashed border-twilight-border/60 text-twilight-text-soft",
+                                ],
+                            ] as const
+                        ).map(([next, text, Icon, on, off]) => {
+                            const pressed = (status ?? "PENDING") === next;
+                            return (
+                                <button
+                                    key={next}
+                                    type="button"
+                                    aria-pressed={pressed}
+                                    onClick={() => {
+                                        set(next, false);
+                                        setMenuOpen(false);
+                                    }}
+                                    className="group flex min-w-16 cursor-pointer flex-col items-center gap-1.5 rounded-2xl px-2 py-1.5 text-xs font-medium text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--routine-tone)]"
+                                >
+                                    <span
+                                        className={`flex h-10 w-10 items-center justify-center rounded-full transition-[background-color,border-color,transform] duration-200 group-hover:scale-105 motion-reduce:group-hover:scale-100 ${pressed ? on : off}`}
+                                    >
+                                        <Icon size={16} strokeWidth={next === "COMPLETED" ? 3 : 2} aria-hidden="true" />
+                                    </span>
+                                    {text}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
                 {habit.steps?.length ? (
                     <div className="mt-1 w-64 border-t border-twilight-border/30 pt-1">
                         <RoutineStepChecklist habit={habit} date={date} log={log} />

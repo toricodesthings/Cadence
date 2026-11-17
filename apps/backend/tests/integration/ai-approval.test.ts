@@ -15,11 +15,19 @@ function scriptedModel(toolName: string, input: unknown) {
         doStream: async ({ prompt }) =>
             prompt.some((message) => message.role === "tool")
                 ? streamOf(...textChunks("Done."), finish())
-                : streamOf({ type: "tool-call", toolCallId: "call-1", toolName, input: JSON.stringify(input) }, finish("tool-calls")),
+                : streamOf(
+                      { type: "tool-call", toolCallId: "call-1", toolName, input: JSON.stringify(input) },
+                      finish("tool-calls"),
+                  ),
     });
 }
 
-async function runTurn(mode: ApprovalMode, messages: UIMessage[], call: { name: string; input: unknown }, hasImages = false) {
+async function runTurn(
+    mode: ApprovalMode,
+    messages: UIMessage[],
+    call: { name: string; input: unknown },
+    hasImages = false,
+) {
     const execute = vi.fn(async () => ({ ok: true }));
     const agent = new ToolLoopAgent({
         model: scriptedModel(call.name, call.input),
@@ -28,7 +36,12 @@ async function runTurn(mode: ApprovalMode, messages: UIMessage[], call: { name: 
         experimental_toolApprovalSecret: SECRET,
     });
     const last = messages.at(-1)!;
-    const stream = await createAgentUIStream({ agent, uiMessages: messages, originalMessages: messages as never, onError: (e) => String(e) });
+    const stream = await createAgentUIStream({
+        agent,
+        uiMessages: messages,
+        originalMessages: messages as never,
+        onError: (e) => String(e),
+    });
     let message: UIMessage | undefined;
     let error: string | undefined;
     for await (const snapshot of readUIMessageStream({
@@ -48,11 +61,19 @@ describe("approval on the server", () => {
     it("Ask stops at a signed approval request, and an approval runs the tool once and continues", async () => {
         const first = await runTurn("ask", [user], { name: "create_tag", input: { name: "Errands" } });
         expect(first.execute).not.toHaveBeenCalled();
-        expect(toolPart(first.message)).toMatchObject({ state: "approval-requested", approval: { id: expect.any(String) } });
+        expect(toolPart(first.message)).toMatchObject({
+            state: "approval-requested",
+            approval: { id: expect.any(String) },
+        });
         expect(toolPart(first.message).approval.signature).toEqual(expect.any(String));
 
-        const answered = applyApprovals(first.message as never, [{ id: toolPart(first.message).approval.id, approved: true }])!;
-        const second = await runTurn("ask", [user, answered as UIMessage], { name: "create_tag", input: { name: "Errands" } });
+        const answered = applyApprovals(first.message as never, [
+            { id: toolPart(first.message).approval.id, approved: true },
+        ])!;
+        const second = await runTurn("ask", [user, answered as UIMessage], {
+            name: "create_tag",
+            input: { name: "Errands" },
+        });
 
         expect(second.execute).toHaveBeenCalledTimes(1);
         expect(toolPart(second.message)).toMatchObject({ state: "output-available", output: { ok: true } });
@@ -65,7 +86,10 @@ describe("approval on the server", () => {
         const forged = { ...first.message, parts: [{ ...part, input: { name: "Everything" } }] } as UIMessage;
         const answered = applyApprovals(forged as never, [{ id: part.approval.id, approved: true }])!;
 
-        const second = await runTurn("ask", [user, answered as UIMessage], { name: "create_tag", input: { name: "Errands" } });
+        const second = await runTurn("ask", [user, answered as UIMessage], {
+            name: "create_tag",
+            input: { name: "Errands" },
+        });
 
         expect(second.execute).not.toHaveBeenCalled();
         expect(second.error).toMatch(/signature/i);
@@ -73,9 +97,14 @@ describe("approval on the server", () => {
 
     it("a decline reaches the model as denied and runs nothing", async () => {
         const first = await runTurn("ask", [user], { name: "create_tag", input: { name: "Errands" } });
-        const answered = applyApprovals(first.message as never, [{ id: toolPart(first.message).approval.id, approved: false, reason: "user removed it" }])!;
+        const answered = applyApprovals(first.message as never, [
+            { id: toolPart(first.message).approval.id, approved: false, reason: "user removed it" },
+        ])!;
 
-        const second = await runTurn("ask", [user, answered as UIMessage], { name: "create_tag", input: { name: "Errands" } });
+        const second = await runTurn("ask", [user, answered as UIMessage], {
+            name: "create_tag",
+            input: { name: "Errands" },
+        });
 
         expect(second.execute).not.toHaveBeenCalled();
         expect(toolPart(second.message).state).toBe("output-denied");
@@ -106,7 +135,10 @@ describe("approval on the server", () => {
         const first = await runTurn("ask", [user], { name: "create_tag", input: { name: "Errands" } });
         const next: UIMessage = { id: "u2", role: "user", parts: [{ type: "text", text: "Never mind" }] };
 
-        const second = await runTurn("ask", [user, ...settleUnanswered([first.message]), next], { name: "create_tag", input: { name: "Errands" } });
+        const second = await runTurn("ask", [user, ...settleUnanswered([first.message]), next], {
+            name: "create_tag",
+            input: { name: "Errands" },
+        });
 
         expect(second.execute).not.toHaveBeenCalled();
         expect(second.message.parts.at(-1)).toMatchObject({ type: "text", text: "Done." });

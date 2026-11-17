@@ -1,232 +1,204 @@
 {
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "eslint",
-    "typescript",
-    "unicorn",
-    "oxc",
-    "react"
-  ],
-  "categories": {
-    "correctness": "warn"
-  },
-  "rules": {
-    "react-hooks/rules-of-hooks": "warn",
-    "react-hooks/exhaustive-deps": "warn",
-    "react/refs": "off",
-    "react/set-state-in-effect": "off",
-    "react/immutability": "off",
-    "react/static-components": "off",
-    "react/purity": "off",
-    "react/preserve-manual-memoization": "off",
-    "react/use-memo": "off",
-    "react/globals": "off"
-  },
-  "overrides": [
-    {
-      "files": [
-        "apps/backend/src/**",
-        "apps/frontend/app/**",
-        "apps/landing/app/**"
-      ],
-      "rules": {
-        "eslint/no-console": "error"
-      }
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "plugins": ["eslint", "typescript", "unicorn", "oxc", "react"],
+    "categories": {
+        "correctness": "warn"
     },
-    {
-      "files": [
-        "apps/backend/src/platform/log.ts",
-        "apps/frontend/app/lib/log.ts",
-        "apps/frontend/app/lib/dev-service-worker-cleanup.ts"
-      ],
-      "rules": {
-        "eslint/no-console": "off"
-      }
+    "rules": {
+        "react-hooks/rules-of-hooks": "warn",
+        "react-hooks/exhaustive-deps": "warn",
+        "react/refs": "off",
+        "react/set-state-in-effect": "off",
+        "react/immutability": "off",
+        "react/static-components": "off",
+        "react/purity": "off",
+        "react/preserve-manual-memoization": "off",
+        "react/use-memo": "off",
+        "react/globals": "off"
     },
-    {
-      "files": [
-        "apps/backend/src/**"
-      ],
-      "rules": {
-        "eslint/no-restricted-imports": [
-          "error",
-          {
-            "paths": [
-              {
-                "name": "drizzle-orm/pg-core",
-                "importNames": [
-                  "timestamp"
+    "overrides": [
+        {
+            "files": ["apps/backend/src/**", "apps/frontend/app/**", "apps/landing/app/**"],
+            "rules": {
+                "eslint/no-console": "error"
+            }
+        },
+        {
+            "files": [
+                "apps/backend/src/platform/log.ts",
+                "apps/frontend/app/lib/log.ts",
+                "apps/frontend/app/lib/dev-service-worker-cleanup.ts"
+            ],
+            "rules": {
+                "eslint/no-console": "off"
+            }
+        },
+        {
+            "files": ["apps/backend/src/**"],
+            "rules": {
+                "eslint/no-restricted-imports": [
+                    "error",
+                    {
+                        "paths": [
+                            {
+                                "name": "drizzle-orm/pg-core",
+                                "importNames": ["timestamp"],
+                                "message": "Use timestamptz() from db/schema/columns.ts."
+                            }
+                        ],
+                        "patterns": [
+                            {
+                                "regex": "(^|/)(helpers|utils|misc)$",
+                                "message": "No catch-all modules; name it by what it does."
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "files": ["apps/frontend/app/**"],
+            "rules": {
+                "eslint/no-restricted-imports": [
+                    "error",
+                    {
+                        "paths": [
+                            {
+                                "name": "@cadence/backend",
+                                "allowTypeImports": true,
+                                "message": "Only the AppType; call the API through the RPC client."
+                            }
+                        ],
+                        "patterns": [
+                            {
+                                "regex": "^(@radix-ui/|radix-ui$)",
+                                "message": "Use app/components/primitives."
+                            },
+                            {
+                                "regex": "^@tauri-apps/",
+                                "message": "Platform code lives behind app/platform/."
+                            }
+                        ]
+                    }
                 ],
-                "message": "Use timestamptz() from db/schema/columns.ts."
-              }
-            ],
-            "patterns": [
-              {
-                "regex": "(^|/)(helpers|utils|misc)$",
-                "message": "No catch-all modules; name it by what it does."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": [
-        "apps/frontend/app/**"
-      ],
-      "rules": {
-        "eslint/no-restricted-imports": [
-          "error",
-          {
-            "paths": [
-              {
-                "name": "@cadence/backend",
-                "allowTypeImports": true,
-                "message": "Only the AppType; call the API through the RPC client."
-              }
-            ],
-            "patterns": [
-              {
-                "regex": "^(@radix-ui/|radix-ui$)",
-                "message": "Use app/components/primitives."
-              },
-              {
-                "regex": "^@tauri-apps/",
-                "message": "Platform code lives behind app/platform/."
-              }
-            ]
-          }
-        ],
-        "eslint/no-restricted-globals": [
-          "error",
-          {
-            "name": "fetch",
-            "message": "Use the RPC client (useApiClient); only transports call fetch."
-          }
-        ]
-      }
-    },
-    {
-      "files": [
-        "apps/frontend/app/components/**",
-        "apps/frontend/app/routes/**"
-      ],
-      "rules": {
-        "eslint/no-restricted-globals": [
-          "error",
-          {
-            "name": "fetch",
-            "message": "Use the RPC client (useApiClient); only transports call fetch."
-          },
-          {
-            "name": "matchMedia",
-            "message": "Use useShellMode()."
-          },
-          {
-            "name": "innerWidth",
-            "message": "Use useShellMode()."
-          }
-        ],
-        "eslint/no-restricted-properties": [
-          "error",
-          {
-            "object": "window",
-            "property": "matchMedia",
-            "message": "Use useShellMode()."
-          },
-          {
-            "object": "window",
-            "property": "innerWidth",
-            "message": "Use useShellMode()."
-          }
-        ]
-      }
-    },
-    {
-      "files": [
-        "apps/frontend/app/components/primitives/**"
-      ],
-      "rules": {
-        "eslint/no-restricted-imports": [
-          "error",
-          {
-            "paths": [
-              {
-                "name": "@cadence/backend",
-                "allowTypeImports": true,
-                "message": "Only the AppType; call the API through the RPC client."
-              }
-            ],
-            "patterns": [
-              {
-                "regex": "^@tauri-apps/",
-                "message": "Platform code lives behind app/platform/."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": [
-        "apps/frontend/app/platform/**"
-      ],
-      "rules": {
-        "eslint/no-restricted-imports": [
-          "error",
-          {
-            "paths": [
-              {
-                "name": "@cadence/backend",
-                "allowTypeImports": true,
-                "message": "Only the AppType; call the API through the RPC client."
-              }
-            ],
-            "patterns": [
-              {
-                "regex": "^(@radix-ui/|radix-ui$)",
-                "message": "Use app/components/primitives."
-              }
-            ]
-          }
-        ],
-        "eslint/no-restricted-globals": "off"
-      }
-    },
-    {
-      "files": [
-        "apps/frontend/app/lib/api/**",
-        "apps/frontend/app/lib/auth/**",
-        "apps/frontend/app/lib/ai/chat-transport.ts"
-      ],
-      "rules": {
-        "eslint/no-restricted-globals": "off"
-      }
-    },
-    {
-      "files": [
-        "apps/landing/app/**"
-      ],
-      "rules": {
-        "eslint/no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": [
-                  "@cadence/**",
-                  "!@cadence/geometry"
+                "eslint/no-restricted-globals": [
+                    "error",
+                    {
+                        "name": "fetch",
+                        "message": "Use the RPC client (useApiClient); only transports call fetch."
+                    }
+                ]
+            }
+        },
+        {
+            "files": ["apps/frontend/app/components/**", "apps/frontend/app/routes/**"],
+            "rules": {
+                "eslint/no-restricted-globals": [
+                    "error",
+                    {
+                        "name": "fetch",
+                        "message": "Use the RPC client (useApiClient); only transports call fetch."
+                    },
+                    {
+                        "name": "matchMedia",
+                        "message": "Use useShellMode()."
+                    },
+                    {
+                        "name": "innerWidth",
+                        "message": "Use useShellMode()."
+                    }
                 ],
-                "message": "Landing imports only @cadence/geometry."
-              },
-              {
-                "regex": "^(hono|@tanstack/react-query|@neondatabase/)",
-                "message": "Keep the landing bundle small."
-              }
-            ]
-          }
-        ]
-      }
-    }
-  ]
+                "eslint/no-restricted-properties": [
+                    "error",
+                    {
+                        "object": "window",
+                        "property": "matchMedia",
+                        "message": "Use useShellMode()."
+                    },
+                    {
+                        "object": "window",
+                        "property": "innerWidth",
+                        "message": "Use useShellMode()."
+                    }
+                ]
+            }
+        },
+        {
+            "files": ["apps/frontend/app/components/primitives/**"],
+            "rules": {
+                "eslint/no-restricted-imports": [
+                    "error",
+                    {
+                        "paths": [
+                            {
+                                "name": "@cadence/backend",
+                                "allowTypeImports": true,
+                                "message": "Only the AppType; call the API through the RPC client."
+                            }
+                        ],
+                        "patterns": [
+                            {
+                                "regex": "^@tauri-apps/",
+                                "message": "Platform code lives behind app/platform/."
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "files": ["apps/frontend/app/platform/**"],
+            "rules": {
+                "eslint/no-restricted-imports": [
+                    "error",
+                    {
+                        "paths": [
+                            {
+                                "name": "@cadence/backend",
+                                "allowTypeImports": true,
+                                "message": "Only the AppType; call the API through the RPC client."
+                            }
+                        ],
+                        "patterns": [
+                            {
+                                "regex": "^(@radix-ui/|radix-ui$)",
+                                "message": "Use app/components/primitives."
+                            }
+                        ]
+                    }
+                ],
+                "eslint/no-restricted-globals": "off"
+            }
+        },
+        {
+            "files": [
+                "apps/frontend/app/lib/api/**",
+                "apps/frontend/app/lib/auth/**",
+                "apps/frontend/app/lib/ai/chat-transport.ts"
+            ],
+            "rules": {
+                "eslint/no-restricted-globals": "off"
+            }
+        },
+        {
+            "files": ["apps/landing/app/**"],
+            "rules": {
+                "eslint/no-restricted-imports": [
+                    "error",
+                    {
+                        "patterns": [
+                            {
+                                "group": ["@cadence/**", "!@cadence/geometry"],
+                                "message": "Landing imports only @cadence/geometry."
+                            },
+                            {
+                                "regex": "^(hono|@tanstack/react-query|@neondatabase/)",
+                                "message": "Keep the landing bundle small."
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
 }

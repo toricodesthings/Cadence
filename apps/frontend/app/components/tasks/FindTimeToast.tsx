@@ -73,13 +73,18 @@ export function FindTimeToast({
             className="flex w-full max-w-sm flex-col gap-2 text-sm text-twilight-text"
         >
             <div role="status" aria-live="polite" className="contents">
-                <span className="sr-only">{prefix ? `${prefix}. ` : ""}{spoken}</span>
+                <span className="sr-only">
+                    {prefix ? `${prefix}. ` : ""}
+                    {spoken}
+                </span>
                 <p className="leading-snug" aria-hidden="true">
                     {prefix ? <span className="text-twilight-text-muted">{prefix} · </span> : null}
                     <span className="font-medium">{toastName(title, 40)}</span> · {proposalLabel(proposal, zone)}
                 </p>
                 {last && proposals.length > 1 ? (
-                    <p className="text-xs text-twilight-text-muted">That’s every gap on {formatInZone(proposal.start, zone, { weekday: "short" })}</p>
+                    <p className="text-xs text-twilight-text-muted">
+                        That’s every gap on {formatInZone(proposal.start, zone, { weekday: "short" })}
+                    </p>
                 ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -88,10 +93,26 @@ export function FindTimeToast({
                         Another time
                     </button>
                 )}
-                <button type="button" disabled={busy} onClick={() => { toast.dismiss(id); onOtherDay(); }} className={BUTTON}>
+                <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                        toast.dismiss(id);
+                        onOtherDay();
+                    }}
+                    className={BUTTON}
+                >
                     Other day
                 </button>
-                <button type="button" disabled={busy} onClick={() => { toast.dismiss(id); onUndo(); }} className={QUIET}>
+                <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                        toast.dismiss(id);
+                        onUndo();
+                    }}
+                    className={QUIET}
+                >
                     Undo
                 </button>
             </div>
@@ -103,7 +124,14 @@ export function FindTimeToast({
  * "Lab report · Moved to Tue" with Undo, and "2:00 PM?" when that day has a gap: one tap puts the task in it. The offer
  * is a quiet question, never an obligation: leaving it keeps the day-only placement.
  */
-export function PlaceReceiptToast({ id, title, description, offer, onOffer, onUndo }: {
+export function PlaceReceiptToast({
+    id,
+    title,
+    description,
+    offer,
+    onOffer,
+    onUndo,
+}: {
     id: string | number;
     title: string;
     description: string;
@@ -113,18 +141,39 @@ export function PlaceReceiptToast({ id, title, description, offer, onOffer, onUn
     onUndo: () => void;
 }) {
     return (
-        <div role="group" aria-label="Placed" className="flex w-full max-w-sm flex-col gap-1.5 text-sm text-twilight-text">
+        <div
+            role="group"
+            aria-label="Placed"
+            className="flex w-full max-w-sm flex-col gap-1.5 text-sm text-twilight-text"
+        >
             <div role="status" aria-live="polite" className="contents">
-                <p className="leading-snug"><span className="font-medium">{title}</span></p>
+                <p className="leading-snug">
+                    <span className="font-medium">{title}</span>
+                </p>
                 <p className="text-xs text-twilight-text-muted">{description}</p>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
                 {offer ? (
-                    <button type="button" aria-label={`Put it at ${offer}`} onClick={() => { toast.dismiss(id); onOffer(); }} className={BUTTON}>
+                    <button
+                        type="button"
+                        aria-label={`Put it at ${offer}`}
+                        onClick={() => {
+                            toast.dismiss(id);
+                            onOffer();
+                        }}
+                        className={BUTTON}
+                    >
                         {offer}?
                     </button>
                 ) : null}
-                <button type="button" onClick={() => { toast.dismiss(id); onUndo(); }} className={QUIET}>
+                <button
+                    type="button"
+                    onClick={() => {
+                        toast.dismiss(id);
+                        onUndo();
+                    }}
+                    className={QUIET}
+                >
                     Undo
                 </button>
             </div>

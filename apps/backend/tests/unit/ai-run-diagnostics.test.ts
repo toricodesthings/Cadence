@@ -17,7 +17,12 @@ describe("run diagnostics", () => {
         end();
         ms = 12;
         endEmbedding();
-        await expect(run.measure("recall", async () => { ms = 15; throw new Error("private"); })).rejects.toThrow("private");
+        await expect(
+            run.measure("recall", async () => {
+                ms = 15;
+                throw new Error("private");
+            }),
+        ).rejects.toThrow("private");
         expect(run.snapshot().phases).toEqual([
             { name: "profile", startMs: 1, endMs: 9 },
             { name: "embedding", startMs: 4, endMs: 12 },
@@ -34,28 +39,68 @@ describe("run diagnostics", () => {
                 const answered = prompt.some((message) => message.role === "tool");
                 return streamOf(
                     { type: "response-metadata", id: answered ? "gen-2" : "gen-1", modelId: "served/model" },
-                    ...(answered ? textChunks("private answer") : [{ type: "tool-call", toolCallId: "call-1", toolName: "read", input: '{"text":"private input"}' }]),
+                    ...(answered
+                        ? textChunks("private answer")
+                        : [
+                              {
+                                  type: "tool-call",
+                                  toolCallId: "call-1",
+                                  toolName: "read",
+                                  input: '{"text":"private input"}',
+                              },
+                          ]),
                     {
                         ...finish(answered ? "stop" : "tool-calls"),
-                        usage: { inputTokens: { total: 120, noCache: 10, cacheRead: 100, cacheWrite: 10 }, outputTokens: { total: 12, text: 5, reasoning: 7 } },
-                        providerMetadata: { openrouter: { usage: { cost: 0.01 }, reasoning: "private reasoning", files: ["private file"] } },
+                        usage: {
+                            inputTokens: { total: 120, noCache: 10, cacheRead: 100, cacheWrite: 10 },
+                            outputTokens: { total: 12, text: 5, reasoning: 7 },
+                        },
+                        providerMetadata: {
+                            openrouter: {
+                                usage: { cost: 0.01 },
+                                reasoning: "private reasoning",
+                                files: ["private file"],
+                            },
+                        },
                     },
                 );
             },
         });
         const agent = new ToolLoopAgent({
-            model, ...run.hooks, stopWhen: isStepCount(3),
-            tools: { read: tool({ inputSchema: z.object({ text: z.string() }), execute: async () => ({ text: "private output" }) }) },
+            model,
+            ...run.hooks,
+            stopWhen: isStepCount(3),
+            tools: {
+                read: tool({
+                    inputSchema: z.object({ text: z.string() }),
+                    execute: async () => ({ text: "private output" }),
+                }),
+            },
         });
         const result = await agent.stream({ prompt: "private question" });
         await result.consumeStream();
         const record = run.snapshot();
         expect(record.modelCalls).toHaveLength(2);
         expect(record.exactCostUsd).toBe(0.02);
-        expect(record.modelCalls[0]).toMatchObject({ ordinal: 0, step: 0, generationId: "gen-1", servedModel: "served/model", costUsd: 0.01,
-            usage: { inputTokens: 120, ordinaryInputTokens: 10, cacheReadTokens: 100, cacheWriteTokens: 10, outputTokens: 12, reasoningTokens: 7 } });
+        expect(record.modelCalls[0]).toMatchObject({
+            ordinal: 0,
+            step: 0,
+            generationId: "gen-1",
+            servedModel: "served/model",
+            costUsd: 0.01,
+            usage: {
+                inputTokens: 120,
+                ordinaryInputTokens: 10,
+                cacheReadTokens: 100,
+                cacheWriteTokens: 10,
+                outputTokens: 12,
+                reasoningTokens: 7,
+            },
+        });
         expect(record.steps.map((step) => step.toolCalls)).toEqual([1, 0]);
-        expect(record.tools).toEqual([expect.objectContaining({ step: 0, name: "read", outcome: "complete", endMs: expect.any(Number) })]);
+        expect(record.tools).toEqual([
+            expect.objectContaining({ step: 0, name: "read", outcome: "complete", endMs: expect.any(Number) }),
+        ]);
         expect(record.generationEndMs).toEqual(expect.any(Number));
         expect(record.steps[0]!.endMs).toBeGreaterThan(record.modelCalls[0]!.endMs!);
         expect(JSON.stringify(record)).not.toContain("private");
@@ -67,8 +112,18 @@ describe("run diagnostics", () => {
         const run = createRunDiagnostics(() => 1);
         const model = new MockLanguageModelV4({
             doStream: async () => {
-                if (++attempts === 1) throw new APICallError({ message: "private", url: "https://example.com", requestBodyValues: {}, statusCode: 503, isRetryable: true });
-                return streamOf(...textChunks("ok"), { ...finish(), providerMetadata: { openrouter: { usage: { cost: 0.01 } } } });
+                if (++attempts === 1)
+                    throw new APICallError({
+                        message: "private",
+                        url: "https://example.com",
+                        requestBodyValues: {},
+                        statusCode: 503,
+                        isRetryable: true,
+                    });
+                return streamOf(...textChunks("ok"), {
+                    ...finish(),
+                    providerMetadata: { openrouter: { usage: { cost: 0.01 } } },
+                });
             },
         });
         const result = await new ToolLoopAgent({ model, ...run.hooks }).stream({ prompt: "private" });
@@ -86,9 +141,13 @@ describe("run diagnostics", () => {
     it("does not report an absent or invalid charge as zero", async () => {
         for (const cost of [undefined, -1, NaN, Infinity, "0.01", 0]) {
             const run = createRunDiagnostics(() => 1);
-            const model = new MockLanguageModelV4({ doStream: async () => streamOf(...textChunks("ok"), {
-                ...finish(), providerMetadata: { openrouter: { usage: { cost } } },
-            }) });
+            const model = new MockLanguageModelV4({
+                doStream: async () =>
+                    streamOf(...textChunks("ok"), {
+                        ...finish(),
+                        providerMetadata: { openrouter: { usage: { cost } } },
+                    }),
+            });
             const result = await new ToolLoopAgent({ model, ...run.hooks }).stream({ prompt: "hi" });
             await result.consumeStream();
             expect(run.snapshot().exactCostUsd).toBe(cost === 0 ? 0 : null);

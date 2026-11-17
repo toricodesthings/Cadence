@@ -14,7 +14,14 @@ import { withRls } from "../../platform/rls";
 import { pingLive } from "../push/reminder-clock";
 import type { Env } from "../../types/env";
 import { parsePriority } from "@cadence/nlp/parse";
-import { decide, decisionModel, intelligenceOf, type DecisionCandidate, type DecisionKind, type DecisionQuestion } from "./decision";
+import {
+    decide,
+    decisionModel,
+    intelligenceOf,
+    type DecisionCandidate,
+    type DecisionKind,
+    type DecisionQuestion,
+} from "./decision";
 import { effortQuestion, levelOf } from "./effort-guess";
 import instructions from "../../prompts/decisions/placement.md";
 import prioritySaid from "../../prompts/decisions/priority-said.md";
@@ -46,11 +53,17 @@ function shortlist(pairs: DecisionCandidate[], text: string): DecisionCandidate[
 }
 
 /** S1's list question over `list` and `list › section` pairs. */
-export const placementQuestion = (pairs: DecisionCandidate[], text: string): DecisionQuestion => ({ type: "choice", instructions: INSTRUCTIONS, candidates: shortlist(pairs, text) });
+export const placementQuestion = (pairs: DecisionCandidate[], text: string): DecisionQuestion => ({
+    type: "choice",
+    instructions: INSTRUCTIONS,
+    candidates: shortlist(pairs, text),
+});
 
 /** The `priority_said` question, only when the words hold no cue the parser reads: it translates what they said, it never infers. */
 export const priorityQuestion = (text: string): DecisionQuestion | null =>
-    parsePriority(text).entities.length === 0 ? { type: "choice", instructions: PRIORITY_INSTRUCTIONS, candidates: PRIORITY_LEVELS } : null;
+    parsePriority(text).entities.length === 0
+        ? { type: "choice", instructions: PRIORITY_INSTRUCTIONS, candidates: PRIORITY_LEVELS }
+        : null;
 
 export async function suggestPlacement(env: Env, userId: string, captureId: string): Promise<void> {
     try {
@@ -63,14 +76,29 @@ export async function suggestPlacement(env: Env, userId: string, captureId: stri
             const [capture] = await tx
                 .select({ rawText: inboxItems.rawText })
                 .from(inboxItems)
-                .where(and(eq(inboxItems.id, captureId), eq(inboxItems.userId, userId), eq(inboxItems.captureStatus, "clarifying"), eq(inboxItems.processed, false)));
+                .where(
+                    and(
+                        eq(inboxItems.id, captureId),
+                        eq(inboxItems.userId, userId),
+                        eq(inboxItems.captureStatus, "clarifying"),
+                        eq(inboxItems.processed, false),
+                    ),
+                );
             if (!capture) return null;
             const [lists, sections] = await Promise.all([
                 tx.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.userId, userId)),
-                tx.select({ id: taskSections.id, name: taskSections.name, projectId: taskSections.projectId }).from(taskSections).where(eq(taskSections.userId, userId)),
+                tx
+                    .select({ id: taskSections.id, name: taskSections.name, projectId: taskSections.projectId })
+                    .from(taskSections)
+                    .where(eq(taskSections.userId, userId)),
             ]);
             // E3 batched: the capture's text is the title its task will most likely have.
-            const effort = await effortQuestion(tx, userId, { title: capture.rawText.slice(0, MAX_TEXT), projectId: null }, intelligence);
+            const effort = await effortQuestion(
+                tx,
+                userId,
+                { title: capture.rawText.slice(0, MAX_TEXT), projectId: null },
+                intelligence,
+            );
             return { text: capture.rawText, lists, sections, effort, readWords: intelligence?.nlpEnabled !== false };
         });
         if (!loaded) return;
@@ -106,12 +134,20 @@ export async function suggestPlacement(env: Env, userId: string, captureId: stri
         const stored: Record<string, unknown> = {};
         const said = answers.priority;
         if (said?.id) {
-            const priority: SuggestedPriorityFromWords = { priority: Number(said.id), model: said.model, probability: said.probability };
+            const priority: SuggestedPriorityFromWords = {
+                priority: Number(said.id),
+                model: said.model,
+                probability: said.probability,
+            };
             stored.suggestedPriority = priority;
         }
         const level = levelOf(answers.effort);
         if (level) {
-            const effort: SuggestedEffort = { effort: level, model: answers.effort!.model, probability: answers.effort!.probability };
+            const effort: SuggestedEffort = {
+                effort: level,
+                model: answers.effort!.model,
+                probability: answers.effort!.probability,
+            };
             stored.suggestedEffort = effort;
         }
 
@@ -128,25 +164,48 @@ export async function suggestPlacement(env: Env, userId: string, captureId: stri
                     ...(decision.costUsd !== undefined && { costUsd: decision.costUsd }),
                     ms: decision.ms,
                 };
-                const [list] = await tx.select({ id: projects.id }).from(projects).where(and(eq(projects.id, projectId), eq(projects.userId, userId)));
-                const [section] = !list || !suggestion.sectionId ? [{ id: "" }] : await tx
-                    .select({ id: taskSections.id })
-                    .from(taskSections)
-                    .where(and(eq(taskSections.id, suggestion.sectionId), eq(taskSections.userId, userId), eq(taskSections.projectId, projectId)));
+                const [list] = await tx
+                    .select({ id: projects.id })
+                    .from(projects)
+                    .where(and(eq(projects.id, projectId), eq(projects.userId, userId)));
+                const [section] =
+                    !list || !suggestion.sectionId
+                        ? [{ id: "" }]
+                        : await tx
+                              .select({ id: taskSections.id })
+                              .from(taskSections)
+                              .where(
+                                  and(
+                                      eq(taskSections.id, suggestion.sectionId),
+                                      eq(taskSections.userId, userId),
+                                      eq(taskSections.projectId, projectId),
+                                  ),
+                              );
                 if (list && section) stored.suggestedPlacement = suggestion;
             }
             if (!Object.keys(stored).length) return false;
             // Merged in SQL so a concurrent edit of `analysis` (userOverrides) is never overwritten.
             const updated = await tx
                 .update(inboxItems)
-                .set({ analysis: sql`coalesce(${inboxItems.analysis}, '{}'::jsonb) || ${JSON.stringify(stored)}::jsonb` })
-                .where(and(eq(inboxItems.id, captureId), eq(inboxItems.userId, userId), eq(inboxItems.captureStatus, "clarifying"), eq(inboxItems.processed, false)))
+                .set({
+                    analysis: sql`coalesce(${inboxItems.analysis}, '{}'::jsonb) || ${JSON.stringify(stored)}::jsonb`,
+                })
+                .where(
+                    and(
+                        eq(inboxItems.id, captureId),
+                        eq(inboxItems.userId, userId),
+                        eq(inboxItems.captureStatus, "clarifying"),
+                        eq(inboxItems.processed, false),
+                    ),
+                )
                 .returning({ id: inboxItems.id });
             return updated.length > 0;
         });
         // Written after the response (and its ping): tell the person's devices, the one that captured too.
         if (wrote) await pingLive(env, userId);
     } catch (error) {
-        logger.warn("ai", "placement_suggestion_failed", { reason: error instanceof Error ? error.message.slice(0, 117) : "unknown_error" });
+        logger.warn("ai", "placement_suggestion_failed", {
+            reason: error instanceof Error ? error.message.slice(0, 117) : "unknown_error",
+        });
     }
 }

@@ -17,9 +17,7 @@ const WORKSPACE_QUERY_PREFIXES: readonly QueryKey[] = [
 export async function hardRefreshWorkspaceCaches(queryClient: QueryClient) {
     // Drop inactive route caches first so hidden pages cannot surface stale lists on next navigation.
     await Promise.all(
-        WORKSPACE_QUERY_PREFIXES.map((queryKey) =>
-            queryClient.removeQueries({ queryKey, type: "inactive" }),
-        ),
+        WORKSPACE_QUERY_PREFIXES.map((queryKey) => queryClient.removeQueries({ queryKey, type: "inactive" })),
     );
     await invalidateWorkspaceCaches(queryClient);
 }
@@ -27,9 +25,7 @@ export async function hardRefreshWorkspaceCaches(queryClient: QueryClient) {
 /** Refetch what's on screen and mark the rest stale, keeping it for offline use. */
 export async function invalidateWorkspaceCaches(queryClient: QueryClient) {
     await Promise.all(
-        WORKSPACE_QUERY_PREFIXES.map((queryKey) =>
-            queryClient.invalidateQueries({ queryKey, refetchType: "active" }),
-        ),
+        WORKSPACE_QUERY_PREFIXES.map((queryKey) => queryClient.invalidateQueries({ queryKey, refetchType: "active" })),
     );
 }
 

@@ -27,13 +27,32 @@ interface MiniMonthProps {
     onSelectDay: (day: LocalDate) => void;
 }
 
-type MiniDayProps = Pick<MiniMonthProps, "taskDateCounts" | "holidayDateSet" | "birthdayDate" | "personalEventDateSet" | "personalEventDateCounts" | "today" | "onSelectDay"> & {
+type MiniDayProps = Pick<
+    MiniMonthProps,
+    | "taskDateCounts"
+    | "holidayDateSet"
+    | "birthdayDate"
+    | "personalEventDateSet"
+    | "personalEventDateCounts"
+    | "today"
+    | "onSelectDay"
+> & {
     day: number;
     dayStr: LocalDate;
 };
 
 /** One day: tinted by how many tasks it holds, with holiday, birthday and event marks. */
-function MiniDay({ day, dayStr, today, taskDateCounts, holidayDateSet, birthdayDate, personalEventDateSet, personalEventDateCounts, onSelectDay }: MiniDayProps) {
+function MiniDay({
+    day,
+    dayStr,
+    today,
+    taskDateCounts,
+    holidayDateSet,
+    birthdayDate,
+    personalEventDateSet,
+    personalEventDateCounts,
+    onSelectDay,
+}: MiniDayProps) {
     const isToday = dayStr === today;
     const taskCount = taskDateCounts.get(dayStr) ?? 0;
     const hasHoliday = Boolean(holidayDateSet?.has(dayStr));
@@ -51,11 +70,19 @@ function MiniDay({ day, dayStr, today, taskDateCounts, holidayDateSet, birthdayD
             className={`
                 relative w-full aspect-square flex items-center justify-center
                 text-[11px] rounded-xl transition-colors duration-150 cursor-pointer
-                ${isToday
-                    ? "bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary font-bold"
-                    : "text-twilight-text-muted/90 hover:bg-white/[0.05] hover:text-twilight-text-soft"}
+                ${
+                    isToday
+                        ? "bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary font-bold"
+                        : "text-twilight-text-muted/90 hover:bg-white/[0.05] hover:text-twilight-text-soft"
+                }
             `}
-            style={taskCount > 0 && !isToday ? { backgroundColor: `color-mix(in srgb, var(--accent-primary) ${Math.round(heatOpacity * 100)}%, transparent)` } : undefined}
+            style={
+                taskCount > 0 && !isToday
+                    ? {
+                          backgroundColor: `color-mix(in srgb, var(--accent-primary) ${Math.round(heatOpacity * 100)}%, transparent)`,
+                      }
+                    : undefined
+            }
         >
             {day}
             {hasHoliday && (
@@ -77,7 +104,9 @@ function MiniEventMark({ count }: { count: number }) {
             </span>
         );
     }
-    return <span className="absolute left-1/2 -translate-x-1/2 top-[3px] h-[4px] w-[4px] rounded-full bg-accent-nav-schedule shadow-[0_0_6px_color-mix(in_srgb,var(--accent-nav-schedule)_40%,transparent)]" />;
+    return (
+        <span className="absolute left-1/2 -translate-x-1/2 top-[3px] h-[4px] w-[4px] rounded-full bg-accent-nav-schedule shadow-[0_0_6px_color-mix(in_srgb,var(--accent-nav-schedule)_40%,transparent)]" />
+    );
 }
 
 function MiniMonth({
@@ -117,7 +146,10 @@ function MiniMonth({
             {/* Day-of-week headers */}
             <div className="grid grid-cols-7">
                 {DAYS_SHORT.map((d, i) => (
-                    <div key={i} className="text-center text-[10px] text-twilight-text-muted/90 uppercase font-semibold py-0.5">
+                    <div
+                        key={i}
+                        className="text-center text-[10px] text-twilight-text-muted/90 uppercase font-semibold py-0.5"
+                    >
                         {d}
                     </div>
                 ))}
@@ -125,20 +157,24 @@ function MiniMonth({
 
             {/* Day cells */}
             <div className="grid grid-cols-7 gap-y-0.5">
-                {cells.map((day, i) => (day ? (
-                    <MiniDay
-                        key={i}
-                        day={day}
-                        dayStr={isoDay(year, month, day)}
-                        today={todayStr}
-                        taskDateCounts={taskDateCounts}
-                        holidayDateSet={holidayDateSet}
-                        birthdayDate={birthdayDate}
-                        personalEventDateSet={personalEventDateSet}
-                        personalEventDateCounts={personalEventDateCounts}
-                        onSelectDay={onSelectDay}
-                    />
-                ) : <div key={i} />))}
+                {cells.map((day, i) =>
+                    day ? (
+                        <MiniDay
+                            key={i}
+                            day={day}
+                            dayStr={isoDay(year, month, day)}
+                            today={todayStr}
+                            taskDateCounts={taskDateCounts}
+                            holidayDateSet={holidayDateSet}
+                            birthdayDate={birthdayDate}
+                            personalEventDateSet={personalEventDateSet}
+                            personalEventDateCounts={personalEventDateCounts}
+                            onSelectDay={onSelectDay}
+                        />
+                    ) : (
+                        <div key={i} />
+                    ),
+                )}
             </div>
         </div>
     );
@@ -161,7 +197,17 @@ export interface YearViewProps {
     compact?: boolean;
 }
 
-export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEventDateSet, personalEventDateCounts, onSelectMonth, onSelectDay, compact = false }: YearViewProps) {
+export function YearView({
+    year,
+    tasks,
+    holidayDateSet,
+    birthdayDate,
+    personalEventDateSet,
+    personalEventDateCounts,
+    onSelectMonth,
+    onSelectDay,
+    compact = false,
+}: YearViewProps) {
     const today = useToday();
 
     // LocalDate → task count, for the heatmap density
@@ -205,7 +251,12 @@ export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEv
  * each one a single tap target that opens the month. Days are a glance, not
  * buttons; they'd be far too small to hit.
  */
-function PhoneYear({ year, taskDateCounts, today, onSelectMonth }: {
+function PhoneYear({
+    year,
+    taskDateCounts,
+    today,
+    onSelectMonth,
+}: {
     year: number;
     taskDateCounts: Map<LocalDate, number>;
     today: LocalDate;
@@ -238,7 +289,9 @@ function PhoneYear({ year, taskDateCounts, today, onSelectMonth }: {
                             data-lift
                             className="surface-card cursor-pointer rounded-2xl p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                         >
-                            <span className={`mb-1.5 block font-display text-[15px] font-semibold ${isCurrent ? "text-accent-primary" : "text-twilight-text"}`}>
+                            <span
+                                className={`mb-1.5 block font-display text-[15px] font-semibold ${isCurrent ? "text-accent-primary" : "text-twilight-text"}`}
+                            >
                                 {MONTHS[month]}
                             </span>
                             <span className="grid grid-cols-7 gap-y-0.5" aria-hidden="true">
@@ -251,9 +304,17 @@ function PhoneYear({ year, taskDateCounts, today, onSelectMonth }: {
                                         <span
                                             key={i}
                                             className={`flex aspect-square items-center justify-center rounded-full text-[10.5px] tabular-nums ${
-                                                isToday ? "bg-accent-primary font-bold text-twilight-void" : "text-twilight-text-soft"
+                                                isToday
+                                                    ? "bg-accent-primary font-bold text-twilight-void"
+                                                    : "text-twilight-text-soft"
                                             }`}
-                                            style={count > 0 && !isToday ? { backgroundColor: `color-mix(in srgb, var(--accent-primary) ${Math.min(45, 12 + count * 8)}%, transparent)` } : undefined}
+                                            style={
+                                                count > 0 && !isToday
+                                                    ? {
+                                                          backgroundColor: `color-mix(in srgb, var(--accent-primary) ${Math.min(45, 12 + count * 8)}%, transparent)`,
+                                                      }
+                                                    : undefined
+                                            }
                                         >
                                             {day}
                                         </span>

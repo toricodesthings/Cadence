@@ -1,4 +1,9 @@
-import { CACHE_VARIANTS, DEFAULT_CACHE_VARIANT, type AgentBuildOptions, type CacheVariant } from "../../src/domains/ai/agent";
+import {
+    CACHE_VARIANTS,
+    DEFAULT_CACHE_VARIANT,
+    type AgentBuildOptions,
+    type CacheVariant,
+} from "../../src/domains/ai/agent";
 
 /** Fixed for the entire evaluation process: every turn of a conversation uses one variant. */
 export function optimizationOptions(vars: Record<string, string | undefined>): Pick<AgentBuildOptions, "cacheVariant"> {

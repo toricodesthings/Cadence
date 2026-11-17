@@ -16,16 +16,23 @@ const color = z.enum(TAG_COLOR_NAMES);
 
 /** The model names a palette colour; the row stores its hex (`TAG_PALETTE`). */
 const toHex = <T extends { color?: string }>(input: T): T =>
-    input.color === undefined ? input : { ...input, color: TAG_PALETTE[TAG_COLOR_NAMES.indexOf(input.color as never)] ?? input.color };
+    input.color === undefined
+        ? input
+        : { ...input, color: TAG_PALETTE[TAG_COLOR_NAMES.indexOf(input.color as never)] ?? input.color };
 
 export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_tags: tool({
-        description:
-            "The user's tags, by name. Search with query; more:true and nextOffset when there's more.",
+        description: "The user's tags, by name. Search with query; more:true and nextOffset when there's more.",
         inputSchema: z.object({
             query: z.string().trim().min(1).max(100).optional().describe("Words in the tag name, case-insensitive."),
-            offset: z.number().int().min(0).max(100_000).optional().describe("From nextOffset; omit for the first page."),
+            offset: z
+                .number()
+                .int()
+                .min(0)
+                .max(100_000)
+                .optional()
+                .describe("From nextOffset; omit for the first page."),
         }),
         execute: async ({ query, offset = 0 }) =>
             safeExecute("get_tags", userId, async () => {
@@ -34,26 +41,39 @@ export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
                     tx
                         .select({ id: tags.id, name: tags.name, color: tags.color })
                         .from(tags)
-                        .where(and(eq(tags.userId, userId), query ? ilike(tags.name, `%${query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`) : undefined))
+                        .where(
+                            and(
+                                eq(tags.userId, userId),
+                                query
+                                    ? ilike(tags.name, `%${query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`)
+                                    : undefined,
+                            ),
+                        )
                         .orderBy(asc(tags.name), asc(tags.id))
                         .limit(MAX_LIST_LIMIT + 1)
                         .offset(offset),
                 );
                 const more = rows.length > MAX_LIST_LIMIT;
-                return { tags: rows.slice(0, MAX_LIST_LIMIT).map(toMinimalTag), ...(more && { more, nextOffset: offset + MAX_LIST_LIMIT }) };
+                return {
+                    tags: rows.slice(0, MAX_LIST_LIMIT).map(toMinimalTag),
+                    ...(more && { more, nextOffset: offset + MAX_LIST_LIMIT }),
+                };
             }),
     }),
 
     // ── W ──────────────────────────────────────────────────────────────────
     create_tag: tool({
-        description: "Creates a tag. Leave colour out unless they named one; Cadence picks one. Returns its tagId. (Task writes can also tag by name, making the tag on the way.)",
+        description:
+            "Creates a tag. Leave colour out unless they named one; Cadence picks one. Returns its tagId. (Task writes can also tag by name, making the tag on the way.)",
         inputSchema: z.object({
             name: insertTagSchema.shape.name,
             color: color.optional(),
         }),
         execute: async (input, { toolCallId }) =>
             safeExecute("create_tag", userId, async () => {
-                const row = await withRls(getDbClient(env), userId, (tx) => createTag(tx, userId, toHex(input), toolCallId));
+                const row = await withRls(getDbClient(env), userId, (tx) =>
+                    createTag(tx, userId, toHex(input), toolCallId),
+                );
                 return { tagId: row.id, name: row.name };
             }),
     }),
@@ -63,7 +83,8 @@ export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
         description: "Renames or recolours a tag; every task and routine keeps it. Send only what changes.",
         inputSchema: z.object({
             tagId: z.uuid(),
-            patch: z.object({ name: insertTagSchema.shape.name.optional(), color: color.optional() })
+            patch: z
+                .object({ name: insertTagSchema.shape.name.optional(), color: color.optional() })
                 .refine((v) => v.name !== undefined || v.color !== undefined, "Nothing to change"),
         }),
         execute: async ({ tagId, patch }, { toolCallId }) =>

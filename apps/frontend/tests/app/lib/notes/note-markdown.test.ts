@@ -5,7 +5,8 @@ import { NOTE_TEMPLATES } from "../../../../app/lib/notes/note-templates";
 const roundTrip = (md: string) => docToMarkdown(markdownToDoc(md));
 
 const faithful: Record<string, string> = {
-    "marks and links": "# Title\n\nSecond **bold** *it* ~~strike~~ `code` [link](https://x.com \"t\")\n\nwith hard  \nbreak",
+    "marks and links":
+        '# Title\n\nSecond **bold** *it* ~~strike~~ `code` [link](https://x.com "t")\n\nwith hard  \nbreak',
     "nested lists": "- a\n  - b\n    - c\n- d\n\n1. one\n2. two\n   1. nested\n3. three",
     checkboxes: "- [ ] todo\n- [x] done\n  - [ ] sub",
     "quote, rule, fenced code": "> quote\n> more\n\n---\n\n```ts\nconst a = 1;\n\n  indent\n```",

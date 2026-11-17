@@ -2,7 +2,18 @@
 // an action next to an object ("check email", "log calories"), or an app's own name. It only ever orders a
 // picker; nothing here selects an app.
 
-export type AppCategory = "email" | "food" | "calendar" | "maps" | "music" | "notes" | "video" | "chat" | "meetings" | "health" | "automation";
+export type AppCategory =
+    | "email"
+    | "food"
+    | "calendar"
+    | "maps"
+    | "music"
+    | "notes"
+    | "video"
+    | "chat"
+    | "meetings"
+    | "health"
+    | "automation";
 
 /** An app as the caller offers it: `names` holds its name and aliases. */
 export interface AppDescriptor {
@@ -20,8 +31,14 @@ export interface AppSuggestion {
 }
 
 const RULES: Record<AppCategory, { actions: string; objects: string }> = {
-    email: { actions: "check|read|answer|reply to|clear|triage|go through|open|catch up on|sort", objects: "e-?mails?|inbox|inboxes" },
-    food: { actions: "log|track|record|count|enter|add", objects: "calories|calorie|meals?|food|macros|breakfast|lunch|dinner|snacks?" },
+    email: {
+        actions: "check|read|answer|reply to|clear|triage|go through|open|catch up on|sort",
+        objects: "e-?mails?|inbox|inboxes",
+    },
+    food: {
+        actions: "log|track|record|count|enter|add",
+        objects: "calories|calorie|meals?|food|macros|breakfast|lunch|dinner|snacks?",
+    },
     calendar: { actions: "check|review|look at|update|plan|open|go through|look over", objects: "calendar|calendars" },
     maps: { actions: "check|find|look up|open|plan|get", objects: "maps?|directions|route" },
     music: { actions: "listen to|play|put on|queue", objects: "music|playlists?|songs?|albums?" },
@@ -34,7 +51,8 @@ const RULES: Record<AppCategory, { actions: string; objects: string }> = {
 };
 
 // "Don't check email", "never", "stop": the person is steering away from it. Research wording names the topic, not the act.
-const ABSTAIN = /\b(don'?t|do not|never|stop|avoid|without|instead of|no more|skip|research|compare|comparison|alternatives?|versus|vs)\b/i;
+const ABSTAIN =
+    /\b(don'?t|do not|never|stop|avoid|without|instead of|no more|skip|research|compare|comparison|alternatives?|versus|vs)\b/i;
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Patterns come from the constant RULES table above, never from input.
@@ -52,7 +70,8 @@ export function suggestApps(title: string, apps: readonly AppDescriptor[]): AppS
 
     const named = apps.filter((app) => app.names.some((name) => name.trim() && word(escape(name.trim())).test(text)));
     const namedCategories = new Set(named.map((app) => app.category));
-    if (named.length && namedCategories.size === 1) return { ids: named.map((app) => app.id), basis: "named", category: named[0].category };
+    if (named.length && namedCategories.size === 1)
+        return { ids: named.map((app) => app.id), basis: "named", category: named[0].category };
     if (namedCategories.size > 1) return null;
 
     const categories = CATEGORY_PATTERNS.filter(({ pattern }) => pattern.test(text)).map(({ category }) => category);

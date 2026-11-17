@@ -19,8 +19,7 @@ export const useNoteRoomStore = create<NoteRoomState>()((set) => ({
     taskId: null,
     taskTitle: "",
     scrollToHeading: null,
-    open: (taskId, taskTitle, scrollToHeading) =>
-        set({ taskId, taskTitle, scrollToHeading: scrollToHeading ?? null }),
+    open: (taskId, taskTitle, scrollToHeading) => set({ taskId, taskTitle, scrollToHeading: scrollToHeading ?? null }),
     close: () => set({ taskId: null, taskTitle: "", scrollToHeading: null }),
     clearScrollTarget: () => set({ scrollToHeading: null }),
 }));

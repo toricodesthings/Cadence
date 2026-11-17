@@ -12,8 +12,10 @@ import { ViewToggle } from "./ViewToggle";
 
 const LazyFocusViewBar = lazy(() => import("../focus-views/FocusViewBar").then((m) => ({ default: m.FocusViewBar })));
 
-const COMPACT_ACTION = "touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft";
-const COMPACT_DANGER = "touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 text-sm font-medium text-red-400";
+const COMPACT_ACTION =
+    "touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft";
+const COMPACT_DANGER =
+    "touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 text-sm font-medium text-red-400";
 
 export interface RouteAction {
     label: string;
@@ -41,9 +43,23 @@ interface TaskRouteControlsProps {
 }
 
 /** The header controls every task list route shares: focus views, view + sort, and the route's own actions, on phone or desktop. */
-export function TaskRouteControls({ routeKey, title, view, onViewChange, sortMode, onSortModeChange, onOpenDetails, actions = [], actionsLabel = "Actions" }: TaskRouteControlsProps) {
+export function TaskRouteControls({
+    routeKey,
+    title,
+    view,
+    onViewChange,
+    sortMode,
+    onSortModeChange,
+    onOpenDetails,
+    actions = [],
+    actionsLabel = "Actions",
+}: TaskRouteControlsProps) {
     const shell = useShellMode();
-    const focusViews = <Suspense fallback={null}><LazyFocusViewBar /></Suspense>;
+    const focusViews = (
+        <Suspense fallback={null}>
+            <LazyFocusViewBar />
+        </Suspense>
+    );
 
     if (!shell.isCompact) {
         return (
@@ -55,7 +71,13 @@ export function TaskRouteControls({ routeKey, title, view, onViewChange, sortMod
                     onModeChange={onSortModeChange}
                     view={view}
                     onViewChange={onViewChange}
-                    actions={actions.map(({ label, icon, onSelect, danger, disabledReason }) => ({ label, icon, onSelect, danger, disabledReason }))}
+                    actions={actions.map(({ label, icon, onSelect, danger, disabledReason }) => ({
+                        label,
+                        icon,
+                        onSelect,
+                        danger,
+                        disabledReason,
+                    }))}
                 />
                 {!shell.isWide && onOpenDetails ? (
                     <button
@@ -90,11 +112,24 @@ export function TaskRouteControls({ routeKey, title, view, onViewChange, sortMod
                 <div className="space-y-2">
                     {actions.map(({ label, icon: Icon, onSelect, danger, compact, disabledReason }, i) => (
                         <div key={label}>
-                            <button type="button" onClick={compact?.onSelect ?? onSelect} disabled={!!disabledReason} aria-describedby={disabledReason ? `${routeKey}-action-${i}-reason` : undefined} className={`${danger ? COMPACT_DANGER : COMPACT_ACTION} disabled:cursor-default disabled:opacity-50`}>
+                            <button
+                                type="button"
+                                onClick={compact?.onSelect ?? onSelect}
+                                disabled={!!disabledReason}
+                                aria-describedby={disabledReason ? `${routeKey}-action-${i}-reason` : undefined}
+                                className={`${danger ? COMPACT_DANGER : COMPACT_ACTION} disabled:cursor-default disabled:opacity-50`}
+                            >
                                 <Icon size={15} aria-hidden="true" />
                                 {compact?.label ?? label}
                             </button>
-                            {disabledReason ? <p id={`${routeKey}-action-${i}-reason`} className="px-4 pt-1 text-center text-xs text-twilight-text-muted">{disabledReason}</p> : null}
+                            {disabledReason ? (
+                                <p
+                                    id={`${routeKey}-action-${i}-reason`}
+                                    className="px-4 pt-1 text-center text-xs text-twilight-text-muted"
+                                >
+                                    {disabledReason}
+                                </p>
+                            ) : null}
                         </div>
                     ))}
                 </div>

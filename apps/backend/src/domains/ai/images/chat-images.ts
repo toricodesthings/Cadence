@@ -88,7 +88,9 @@ export async function resolveTurnImages(
     const rows = await tx
         .select({ id: aiImages.id, sentAt: aiImages.sentAt })
         .from(aiImages)
-        .where(and(eq(aiImages.userId, userId), eq(aiImages.conversationId, conversationId), inArray(aiImages.id, ids)));
+        .where(
+            and(eq(aiImages.userId, userId), eq(aiImages.conversationId, conversationId), inArray(aiImages.id, ids)),
+        );
     if (rows.length !== ids.length) throw imageExpired();
     return { newCount: rows.filter((row) => row.sentAt === null).length };
 }
@@ -139,7 +141,11 @@ export async function hydrateImages<T extends Message>(
         await Promise.all(
             [...wanted].map(async (id) => {
                 const object = await bucket.get(aiImageKey(userKey, id)).catch(() => null);
-                if (object) loaded.set(id, `data:${CHAT_IMAGE_MEDIA_TYPE};base64,${toBase64(new Uint8Array(await object.arrayBuffer()))}`);
+                if (object)
+                    loaded.set(
+                        id,
+                        `data:${CHAT_IMAGE_MEDIA_TYPE};base64,${toBase64(new Uint8Array(await object.arrayBuffer()))}`,
+                    );
             }),
         );
     }

@@ -6,7 +6,10 @@ import { setUserZone } from "../../../../app/lib/utils/user-zone";
 
 const track = vi.hoisted(() => vi.fn());
 vi.mock("../../../../app/lib/api/track-event", () => ({ trackUsageEvent: track }));
-beforeEach(() => { vi.clearAllMocks(); setUserZone("America/Toronto"); });
+beforeEach(() => {
+    vi.clearAllMocks();
+    setUserZone("America/Toronto");
+});
 
 describe("schedule creation", () => {
     it("opens an event context action on Event without a task draft, then restores Task for a grid click", () => {
@@ -19,16 +22,30 @@ describe("schedule creation", () => {
     });
     it("opens and closes a grid draft and its highlight together", () => {
         const { result } = renderHook(() => useScheduleCreation("2026-11-02"));
-        act(() => result.current.handleGridClick({ date: "2026-11-02", startHour: 9, startMinute: 30, anchorX: 100, anchorY: 140 }));
-        expect(result.current.popover).toMatchObject({ tab: "task", draftPlacement: { dateStr: "2026-11-02", startMinute: 570, endMinute: 600 } });
+        act(() =>
+            result.current.handleGridClick({
+                date: "2026-11-02",
+                startHour: 9,
+                startMinute: 30,
+                anchorX: 100,
+                anchorY: 140,
+            }),
+        );
+        expect(result.current.popover).toMatchObject({
+            tab: "task",
+            draftPlacement: { dateStr: "2026-11-02", startMinute: 570, endMinute: 600 },
+        });
         act(() => result.current.close());
         expect(result.current.popover).toBeNull();
     });
     it("opens a suggested free gap at its local time and clears any old highlight", () => {
         const { result } = renderHook(() => useScheduleCreation("2026-11-02"));
         act(() => result.current.handleAddAt("2026-11-02T14:30:00.000Z", 45));
-        expect(result.current.popover).toMatchObject({ tab: "task", draftPlacement: null,
-            info: { date: "2026-11-02", startHour: 9, startMinute: 30, durationMinutes: 45 } });
+        expect(result.current.popover).toMatchObject({
+            tab: "task",
+            draftPlacement: null,
+            info: { date: "2026-11-02", startHour: 9, startMinute: 30, durationMinutes: 45 },
+        });
     });
     it("tracks toolbar creation without introducing analytics for the keyboard shortcut", () => {
         const { result } = renderHook(() => useScheduleCreation("2026-11-02"));
@@ -41,11 +58,16 @@ describe("schedule creation", () => {
 
 describe("schedule shortcuts", () => {
     it("shares creation/navigation actions and ignores editing fields and modifier chords", () => {
-        const view = vi.fn(), navigate = vi.fn(), closeDetails = vi.fn();
+        const view = vi.fn(),
+            navigate = vi.fn(),
+            closeDetails = vi.fn();
         const { result } = renderHook(() => {
             const creation = useScheduleCreation("2026-11-02");
-            useScheduleShortcuts({ selectViewShortcut: view, handleToday: vi.fn(), handleNavigate: navigate },
-                creation, { hasSelection: true, clearSelection: closeDetails });
+            useScheduleShortcuts(
+                { selectViewShortcut: view, handleToday: vi.fn(), handleNavigate: navigate },
+                creation,
+                { hasSelection: true, clearSelection: closeDetails },
+            );
             return creation;
         });
         act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "c" })));

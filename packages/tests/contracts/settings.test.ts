@@ -16,21 +16,47 @@ describe("SETTINGS_DEFAULTS", () => {
 });
 
 describe("settingsPatchSchema: server-owned memory fields", () => {
-    it.each(["memoryMode", "memoryChoiceAt", "memoryEpoch", "memoryLearningNotBefore", "memoryBackfill", "durationAsk", "fieldAsk"])("refuses a patch that carries %s", (field) => {
-        expect(settingsPatchSchema.safeParse({ assistant: { [field]: field === "memoryEpoch" ? 3 : field === "durationAsk" || field === "fieldAsk" ? { lastOn: null, misses: 0 } : "full" } }).success).toBe(false);
+    it.each([
+        "memoryMode",
+        "memoryChoiceAt",
+        "memoryEpoch",
+        "memoryLearningNotBefore",
+        "memoryBackfill",
+        "durationAsk",
+        "fieldAsk",
+    ])("refuses a patch that carries %s", (field) => {
+        expect(
+            settingsPatchSchema.safeParse({
+                assistant: {
+                    [field]:
+                        field === "memoryEpoch"
+                            ? 3
+                            : field === "durationAsk" || field === "fieldAsk"
+                              ? { lastOn: null, misses: 0 }
+                              : "full",
+                },
+            }).success,
+        ).toBe(false);
     });
 
     it("still takes the other assistant fields", () => {
-        expect(settingsPatchSchema.parse({ assistant: { emoji: false, assistantName: "Em" } })).toEqual({ assistant: { emoji: false, assistantName: "Em" } });
+        expect(settingsPatchSchema.parse({ assistant: { emoji: false, assistantName: "Em" } })).toEqual({
+            assistant: { emoji: false, assistantName: "Em" },
+        });
     });
 
     it("accepts and drops the old memoryEnabled switch that older desktop builds still send", () => {
-        const parsed = settingsPatchSchema.parse({ assistant: { memoryEnabled: true, emoji: false } }) as { assistant: Record<string, unknown> };
+        const parsed = settingsPatchSchema.parse({ assistant: { memoryEnabled: true, emoji: false } }) as {
+            assistant: Record<string, unknown>;
+        };
         expect(JSON.parse(JSON.stringify(parsed))).toEqual({ assistant: { emoji: false } });
     });
 
     it("lets the stored shape carry them, so a settings read returns the choice", () => {
-        const stored = { ...SETTINGS_DEFAULTS, assistant: { ...SETTINGS_DEFAULTS.assistant, memoryMode: "basic" as const, memoryEpoch: 2 } };
+        const stored = {
+            ...SETTINGS_DEFAULTS,
+            assistant: { ...SETTINGS_DEFAULTS.assistant, memoryMode: "basic" as const, memoryEpoch: 2 },
+        };
         expect(userSettingsSchema.parse(stored).assistant?.memoryMode).toBe("basic");
     });
 });
@@ -38,7 +64,10 @@ describe("settingsPatchSchema: server-owned memory fields", () => {
 describe("settingsPatchSchema", () => {
     it("accepts nested partial updates at any depth", () => {
         const patch = {
-            tasks: { hideCompleted: true, intelligence: { lowStimulationMode: true, dismissedEntityIds: ["project:1"] } },
+            tasks: {
+                hideCompleted: true,
+                intelligence: { lowStimulationMode: true, dismissedEntityIds: ["project:1"] },
+            },
             dateTime: { timezone: "America/Toronto" },
             calendar: { holidays: { enabled: false } },
             location: { countryCode: "CA", promptDismissedAt: "2026-03-11T15:00:00.000Z" },
@@ -51,7 +80,12 @@ describe("settingsPatchSchema", () => {
     });
 
     it("strips the removed intelligence keys an older client still sends, without refusing the patch", () => {
-        const old = { autoParseOnCapture: false, confidenceThreshold: "low", smartSortEnabled: false, nlpEnabled: false };
+        const old = {
+            autoParseOnCapture: false,
+            confidenceThreshold: "low",
+            smartSortEnabled: false,
+            nlpEnabled: false,
+        };
         expect(settingsPatchSchema.parse({ tasks: { defaultPriority: "high", intelligence: old } })).toEqual({
             tasks: { defaultPriority: "high", intelligence: { nlpEnabled: false } },
         });
@@ -59,7 +93,9 @@ describe("settingsPatchSchema", () => {
 
     it("strips the retired holiday location fields", () => {
         expect(
-            settingsPatchSchema.parse({ calendar: { holidays: { enabled: true, usePreciseLocation: true, locationMode: "manual" } } }),
+            settingsPatchSchema.parse({
+                calendar: { holidays: { enabled: true, usePreciseLocation: true, locationMode: "manual" } },
+            }),
         ).toEqual({ calendar: { holidays: { enabled: true } } });
     });
 
@@ -76,7 +112,9 @@ describe("settingsPatchSchema", () => {
 describe("dateTime.timezone", () => {
     it('takes "device" or an IANA zone, never an offset or "local"', () => {
         expect(settingsPatchSchema.safeParse({ dateTime: { timezone: "local" } }).success).toBe(false);
-        expect(settingsPatchSchema.parse({ dateTime: { timezone: "device" } })).toEqual({ dateTime: { timezone: "device" } });
+        expect(settingsPatchSchema.parse({ dateTime: { timezone: "device" } })).toEqual({
+            dateTime: { timezone: "device" },
+        });
         expect(settingsPatchSchema.safeParse({ dateTime: { timezone: "-04:00" } }).success).toBe(false);
         expect(SETTINGS_DEFAULTS.dateTime.timezone).toBe("device");
     });
@@ -130,7 +168,9 @@ describe("saved focus views", () => {
     });
 
     it("accepts a named, pinned view", () => {
-        expect(savedFocusViewInputSchema.parse({ name: "Quick Wins", definition, isPinned: true, source: "manual" })).toMatchObject({
+        expect(
+            savedFocusViewInputSchema.parse({ name: "Quick Wins", definition, isPinned: true, source: "manual" }),
+        ).toMatchObject({
             name: "Quick Wins",
             isPinned: true,
             source: "manual",

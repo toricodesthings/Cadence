@@ -1,31 +1,31 @@
 {
-  "name": "@cadence/nlp",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./core": "./src/core/index.ts",
-    "./parse": "./src/parse/index.ts",
-    "./title": "./src/title/index.ts",
-    "./resolve": "./src/resolve/index.ts",
-    "./ranking": "./src/ranking/index.ts",
-    "./focus-views": "./src/focus-views/index.ts",
-    "./focus-views/apply": "./src/focus-views/apply.ts",
-    "./focus-views/url": "./src/focus-views/url.ts",
-    "./effort": "./src/effort/index.ts",
-    "./duration": "./src/duration/index.ts",
-    "./app-suggestions": "./src/app-suggestions/index.ts"
-  },
-  "scripts": {
-    "typecheck": "tsc --noEmit",
-    "lint": "oxlint -c ../oxlint.config.mts src"
-  },
-  "dependencies": {
-    "chrono-node": "^2.10.1",
-    "fuse.js": "^7.5.0"
-  },
-  "devDependencies": {
-    "typescript": "^7.0.2"
-  }
+    "name": "@cadence/nlp",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "exports": {
+        ".": "./src/index.ts",
+        "./core": "./src/core/index.ts",
+        "./parse": "./src/parse/index.ts",
+        "./title": "./src/title/index.ts",
+        "./resolve": "./src/resolve/index.ts",
+        "./ranking": "./src/ranking/index.ts",
+        "./focus-views": "./src/focus-views/index.ts",
+        "./focus-views/apply": "./src/focus-views/apply.ts",
+        "./focus-views/url": "./src/focus-views/url.ts",
+        "./effort": "./src/effort/index.ts",
+        "./duration": "./src/duration/index.ts",
+        "./app-suggestions": "./src/app-suggestions/index.ts"
+    },
+    "scripts": {
+        "typecheck": "tsc --noEmit",
+        "lint": "oxlint -c ../oxlint.config.mts src"
+    },
+    "dependencies": {
+        "chrono-node": "^2.10.1",
+        "fuse.js": "^7.5.0"
+    },
+    "devDependencies": {
+        "typescript": "^7.0.2"
+    }
 }

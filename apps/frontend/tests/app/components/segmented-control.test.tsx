@@ -2,10 +2,19 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SegmentedControl } from "../../../app/components/primitives/SegmentedControl";
 
-vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { appearance: { motion: "reduced" } } }) }));
+vi.mock("../../../app/hooks/core/use-settings", () => ({
+    useSettings: () => ({ data: { appearance: { motion: "reduced" } } }),
+}));
 
-const OPTIONS = [{ value: "1", label: "One" }, { value: "2", label: "Two" }, { value: "3", label: "Three" }] as const;
-const at = (el: Element, left: number, width: number) => Object.assign(el, { getBoundingClientRect: () => ({ left, width, right: left + width, top: 0, bottom: 36, height: 36 }) });
+const OPTIONS = [
+    { value: "1", label: "One" },
+    { value: "2", label: "Two" },
+    { value: "3", label: "Three" },
+] as const;
+const at = (el: Element, left: number, width: number) =>
+    Object.assign(el, {
+        getBoundingClientRect: () => ({ left, width, right: left + width, top: 0, bottom: 36, height: 36 }),
+    });
 
 describe("SegmentedControl", () => {
     it("keeps radio semantics and taps choose", () => {
@@ -22,7 +31,8 @@ describe("SegmentedControl", () => {
         at(screen.getByRole("radiogroup"), 0, 300);
         screen.getAllByRole("radio").forEach((radio, i) => at(radio, i * 100, 100));
         const first = screen.getByRole("radio", { name: "One" });
-        const touch = (type: "pointerDown" | "pointerMove" | "pointerUp", clientX: number) => fireEvent[type](first, { pointerType: "touch", pointerId: 1, isPrimary: true, clientX });
+        const touch = (type: "pointerDown" | "pointerMove" | "pointerUp", clientX: number) =>
+            fireEvent[type](first, { pointerType: "touch", pointerId: 1, isPrimary: true, clientX });
         touch("pointerDown", 50);
         touch("pointerMove", 150);
         touch("pointerMove", 250);

@@ -1,7 +1,15 @@
 import { addDays } from "@cadence/domain/time";
 import { useMemo, type CSSProperties } from "react";
 import type { Habit } from "@cadence/contracts/habit";
-import { dayOfInstant, formatMonthYear, getDaysInMonth, getFirstDayOfWeek, isoDay, isoMonthStart, weekdayLabels } from "../../lib/utils/date-format";
+import {
+    dayOfInstant,
+    formatMonthYear,
+    getDaysInMonth,
+    getFirstDayOfWeek,
+    isoDay,
+    isoMonthStart,
+    weekdayLabels,
+} from "../../lib/utils/date-format";
 import { routineTone } from "../../lib/utils/habits";
 import { useRovingGrid } from "../../hooks/ui/use-roving-grid";
 import { RoutineDayCell } from "./RoutineDayCell";
@@ -71,39 +79,52 @@ export function RoutineMonthGrid({
         return null;
     }, [weeks, logs, today]);
     const { gridProps, tabIndexFor } = useRovingGrid(firstCell);
-    if (!weeks.length) return <p className="py-6 text-center text-xs text-twilight-text-muted">Started after this month.</p>;
+    if (!weeks.length)
+        return <p className="py-6 text-center text-xs text-twilight-text-muted">Started after this month.</p>;
 
     return (
-        <div role="grid" aria-label={`${habit.title}, ${formatMonthYear(isoMonthStart(year, month))}`} {...gridProps} style={{ "--routine-tone": routineTone(habit.colorAccent) } as CSSProperties} className="space-y-2">
+        <div
+            role="grid"
+            aria-label={`${habit.title}, ${formatMonthYear(isoMonthStart(year, month))}`}
+            {...gridProps}
+            style={{ "--routine-tone": routineTone(habit.colorAccent) } as CSSProperties}
+            className="space-y-2"
+        >
             <div role="row" className="grid grid-cols-7 gap-1">
                 {weekdayLabels(2, weekStartsOn).map((label) => (
-                    <span key={label} role="columnheader" className="text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-twilight-text-muted">{label}</span>
+                    <span
+                        key={label}
+                        role="columnheader"
+                        className="text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-twilight-text-muted"
+                    >
+                        {label}
+                    </span>
                 ))}
             </div>
             {weeks.map((week, row) => {
                 const quiet = !week.some((iso) => iso && logs.has(iso)); // nothing due that week
                 return (
-                <div key={row} role="row" className="grid grid-cols-7 gap-1.5">
-                    {week.map((iso, col) => (
-                        <div key={col} role="gridcell" className="flex justify-center">
-                            {iso ? (
-                                <RoutineDayCell
-                                    habit={habit}
-                                    date={iso}
-                                    log={logs.get(iso)}
-                                    today={today}
-                                    size="fit"
-                                    bloom={bloom}
-                                    label={Number(iso.slice(8))}
-                                    quiet={quiet}
-                                    gridPosition={{ row, col }}
-                                    tabIndex={tabIndexFor(row, col)}
-                                    onEdit={onEdit}
-                                />
-                            ) : null}
-                        </div>
-                    ))}
-                </div>
+                    <div key={row} role="row" className="grid grid-cols-7 gap-1.5">
+                        {week.map((iso, col) => (
+                            <div key={col} role="gridcell" className="flex justify-center">
+                                {iso ? (
+                                    <RoutineDayCell
+                                        habit={habit}
+                                        date={iso}
+                                        log={logs.get(iso)}
+                                        today={today}
+                                        size="fit"
+                                        bloom={bloom}
+                                        label={Number(iso.slice(8))}
+                                        quiet={quiet}
+                                        gridPosition={{ row, col }}
+                                        tabIndex={tabIndexFor(row, col)}
+                                        onEdit={onEdit}
+                                    />
+                                ) : null}
+                            </div>
+                        ))}
+                    </div>
                 );
             })}
         </div>

@@ -68,7 +68,11 @@ describe("resolveLimits", () => {
 
     it("reads the three image caps, with defaults", () => {
         expect(resolveLimits({} as Env)).toMatchObject({ images24h: 20, imagesPerMessage: 4, imagesMaxPending: 8 });
-        const l = resolveLimits({ AI_RL_IMAGES_24H: "5", AI_IMAGES_PER_MESSAGE: "2", AI_IMAGES_MAX_PENDING: "3" } as Env);
+        const l = resolveLimits({
+            AI_RL_IMAGES_24H: "5",
+            AI_IMAGES_PER_MESSAGE: "2",
+            AI_IMAGES_MAX_PENDING: "3",
+        } as Env);
         expect(l).toMatchObject({ images24h: 5, imagesPerMessage: 2, imagesMaxPending: 3 });
     });
 
@@ -118,7 +122,11 @@ describe("readMeteredTokens", () => {
     });
 
     it("never counts a cached token twice when the details overshoot the input", () => {
-        const totalUsage = { inputTokens: 100, outputTokens: 0, inputTokenDetails: { cacheReadTokens: 500, cacheWriteTokens: 50 } };
+        const totalUsage = {
+            inputTokens: 100,
+            outputTokens: 0,
+            inputTokenDetails: { cacheReadTokens: 500, cacheWriteTokens: 50 },
+        };
         expect(readMeteredTokens({ metadata: { totalUsage } })).toBe(10);
     });
 
@@ -130,7 +138,11 @@ describe("readMeteredTokens", () => {
 
 describe("meterUsage", () => {
     it("meters one step's usage the way a finished turn is metered", () => {
-        const usage = { inputTokens: 1_000, outputTokens: 50, inputTokenDetails: { cacheReadTokens: 800, cacheWriteTokens: 0 } };
+        const usage = {
+            inputTokens: 1_000,
+            outputTokens: 50,
+            inputTokenDetails: { cacheReadTokens: 800, cacheWriteTokens: 0 },
+        };
         expect(meterUsage(usage)).toBe(readMeteredTokens({ metadata: { totalUsage: usage } }));
         expect(meterUsage(usage)).toBe(330);
         expect(meterUsage(undefined)).toBe(0);
@@ -144,7 +156,10 @@ describe("addStepSpend", () => {
     });
 
     it("sums OpenRouter's cost across steps and keeps the last served model", () => {
-        const spend = addStepSpend(addStepSpend({}, step(0.002, "google/gemini-3.8-flash")), step(0.0005, "google/gemini-3.7-flash"));
+        const spend = addStepSpend(
+            addStepSpend({}, step(0.002, "google/gemini-3.8-flash")),
+            step(0.0005, "google/gemini-3.7-flash"),
+        );
         expect(spend.costUsd).toBeCloseTo(0.0025);
         expect(spend.servedModel).toBe("google/gemini-3.7-flash");
     });
@@ -299,7 +314,12 @@ describe("readUsage / emptyUsage", () => {
         expect(usage.windows["5h"].requests).toEqual({ used: 1, limit: limits.requests5h });
         expect(usage.windows["5h"].tokens).toEqual({ used: 1_500, limit: limits.tokens5h });
         expect(usage.windows["5h"].resetEpoch).toBeGreaterThan(Math.floor(Date.now() / 1000));
-        expect(usage.images).toEqual({ used: 0, limit: limits.images24h, perMessage: limits.imagesPerMessage, resetEpoch: null });
+        expect(usage.images).toEqual({
+            used: 0,
+            limit: limits.images24h,
+            perMessage: limits.imagesPerMessage,
+            resetEpoch: null,
+        });
     });
 
     it("emptyUsage is a disabled, zero-used placeholder carrying the limits", () => {

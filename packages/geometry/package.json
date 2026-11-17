@@ -1,15 +1,15 @@
 {
-  "name": "@cadence/geometry",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/geometry.ts"
-  },
-  "scripts": {
-    "typecheck": "tsc --noEmit",
-    "lint": "oxlint -c ../oxlint.config.mts src"
-  },
-  "devDependencies": {
-    "typescript": "^7.0.2"
-  }
+    "name": "@cadence/geometry",
+    "private": true,
+    "type": "module",
+    "exports": {
+        ".": "./src/geometry.ts"
+    },
+    "scripts": {
+        "typecheck": "tsc --noEmit",
+        "lint": "oxlint -c ../oxlint.config.mts src"
+    },
+    "devDependencies": {
+        "typescript": "^7.0.2"
+    }
 }

@@ -42,7 +42,11 @@ const COMPLEX_CUE =
  * and a switch drops the reasoning replayed from earlier turns. A miss costs money,
  * never correctness, so the fallthrough is always the standard model.
  */
-export function pickChatModel(env: Env, turn: { text: string; imageCount: number }, previousModel?: string | null): string {
+export function pickChatModel(
+    env: Env,
+    turn: { text: string; imageCount: number },
+    previousModel?: string | null,
+): string {
     const basic = env.AI_CHAT_MODEL_BASIC?.trim();
     const standard = getModelId(env);
     const text = turn.text.trim();

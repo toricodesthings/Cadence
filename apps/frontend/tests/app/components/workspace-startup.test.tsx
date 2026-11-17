@@ -20,17 +20,28 @@ function Data({ name, load, enabled = true }: { name: string; load: () => Promis
     return <span>{data ?? `${name} pending`}</span>;
 }
 function mount(children: ReactNode, client = testQueryClient(), path = "/today") {
-    const view = <MemoryRouter initialEntries={[path]}><WorkspaceStartup>{children}</WorkspaceStartup></MemoryRouter>;
+    const view = (
+        <MemoryRouter initialEntries={[path]}>
+            <WorkspaceStartup>{children}</WorkspaceStartup>
+        </MemoryRouter>
+    );
     return { ...render(view, { wrapper: withClient(client) }), client };
 }
-afterEach(() => { onlineManager.setOnline(true); vi.useRealTimers(); });
+afterEach(() => {
+    onlineManager.setOnline(true);
+    vi.useRealTimers();
+});
 
 describe("workspace startup", () => {
     it("waits for a lazy first-screen component and the requests it starts", async () => {
         const module = Promise.withResolvers<{ default: () => ReactNode }>();
         const tasks = Promise.withResolvers<string>();
         const LazyPage = lazy(() => module.promise);
-        mount(<StartupSuspense fallback={null}><LazyPage /></StartupSuspense>);
+        mount(
+            <StartupSuspense fallback={null}>
+                <LazyPage />
+            </StartupSuspense>,
+        );
         await new Promise((resolve) => setTimeout(resolve, 80));
         expect(screen.queryByTestId("startup")).not.toBeNull();
         await act(async () => module.resolve({ default: () => <Data name="tasks" load={() => tasks.promise} /> }));
@@ -45,7 +56,12 @@ describe("workspace startup", () => {
         const projects = Promise.withResolvers<string>();
         const loadTasks = vi.fn(() => tasks.promise);
         const loadProjects = vi.fn(() => projects.promise);
-        const { container } = mount(<><Data name="tasks" load={loadTasks} /><Data name="projects" load={loadProjects} /></>);
+        const { container } = mount(
+            <>
+                <Data name="tasks" load={loadTasks} />
+                <Data name="projects" load={loadProjects} />
+            </>,
+        );
         expect(loadTasks).toHaveBeenCalledTimes(1);
         expect(loadProjects).toHaveBeenCalledTimes(1);
         expect(container.querySelector("[inert]")).not.toBeNull();
@@ -75,7 +91,13 @@ describe("workspace startup", () => {
     it("reuses cached data without waiting for background refresh and ignores disabled queries", async () => {
         const client = new QueryClient();
         client.setQueryData(["tasks"], "Cached tasks");
-        mount(<><Data name="tasks" load={() => new Promise(() => {})} /><Data name="disabled" enabled={false} load={vi.fn()} /></>, client);
+        mount(
+            <>
+                <Data name="tasks" load={() => new Promise(() => {})} />
+                <Data name="disabled" enabled={false} load={vi.fn()} />
+            </>,
+            client,
+        );
         await waitFor(() => expect(screen.queryByTestId("startup")).toBeNull());
         expect(screen.queryByText("Cached tasks")).not.toBeNull();
     });
@@ -124,14 +146,24 @@ describe("workspace startup", () => {
     });
 
     it("waits for persisted cache restoration", async () => {
-        mount(<IsRestoringProvider value={true}><WorkspaceStartup>Restoring</WorkspaceStartup></IsRestoringProvider>);
+        mount(
+            <IsRestoringProvider value={true}>
+                <WorkspaceStartup>Restoring</WorkspaceStartup>
+            </IsRestoringProvider>,
+        );
         await new Promise((resolve) => setTimeout(resolve, 80));
         expect(screen.queryAllByTestId("startup").length).toBeGreaterThan(0);
     });
 
     it("never waits for decoration, the assistant or the developer tools probe", async () => {
         const never = () => new Promise<string>(() => {});
-        mount(<><Data name="weather" load={never} /><Data name="ai" load={never} /><Data name="admin-capabilities" load={never} /></>);
+        mount(
+            <>
+                <Data name="weather" load={never} />
+                <Data name="ai" load={never} />
+                <Data name="admin-capabilities" load={never} />
+            </>,
+        );
         await waitFor(() => expect(screen.queryByTestId("startup")).toBeNull());
     });
 
@@ -139,9 +171,18 @@ describe("workspace startup", () => {
         const never = () => new Promise<string>(() => {});
         const feed = Promise.withResolvers<{ id: string }[]>();
         function Capture() {
-            useQuery({ queryKey: ["tasks", { state: "ACTIVE", hasNoProject: true, hasNoDate: true }], queryFn: () => feed.promise });
-            useQuery({ queryKey: ["tasks", { state: "ACTIVE", range: { from: "2026-10-06", to: "2026-10-19" } }], queryFn: never });
-            useQuery({ queryKey: ["habits", "weekly", { start: "2026-10-06", end: "2026-10-19" }, false], queryFn: never });
+            useQuery({
+                queryKey: ["tasks", { state: "ACTIVE", hasNoProject: true, hasNoDate: true }],
+                queryFn: () => feed.promise,
+            });
+            useQuery({
+                queryKey: ["tasks", { state: "ACTIVE", range: { from: "2026-10-06", to: "2026-10-19" } }],
+                queryFn: never,
+            });
+            useQuery({
+                queryKey: ["habits", "weekly", { start: "2026-10-06", end: "2026-10-19" }, false],
+                queryFn: never,
+            });
             useQuery({ queryKey: ["settings", "user", "focusViews"], queryFn: never });
             return null;
         }
@@ -155,11 +196,21 @@ describe("workspace startup", () => {
     it("lets the photo background fall back after four seconds without releasing pending tasks", async () => {
         vi.useFakeTimers();
         const tasks = Promise.withResolvers<string>();
-        mount(<><Data name="tasks" load={() => tasks.promise} /><Data name="appearance" load={() => new Promise(() => {})} /></>);
-        await act(async () => { await vi.advanceTimersByTimeAsync(4_100); });
+        mount(
+            <>
+                <Data name="tasks" load={() => tasks.promise} />
+                <Data name="appearance" load={() => new Promise(() => {})} />
+            </>,
+        );
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(4_100);
+        });
         expect(screen.queryByText("Your workspace is taking longer than usual to load.")).not.toBeNull();
         expect(screen.queryByTestId("startup")).not.toBeNull();
-        await act(async () => { tasks.resolve("Ready"); await vi.advanceTimersByTimeAsync(100); });
+        await act(async () => {
+            tasks.resolve("Ready");
+            await vi.advanceTimersByTimeAsync(100);
+        });
         expect(screen.queryByTestId("startup")).toBeNull();
     });
 });

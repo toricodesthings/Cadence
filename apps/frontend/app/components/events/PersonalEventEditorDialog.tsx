@@ -26,9 +26,19 @@ interface PersonalEventEditorDialogProps {
 }
 
 /** A new personal event, alone in the composer. */
-export function PersonalEventEditorDialog({ open, title, description, submitLabel, onClose, onSubmit }: PersonalEventEditorDialogProps) {
+export function PersonalEventEditorDialog({
+    open,
+    title,
+    description,
+    submitLabel,
+    onClose,
+    onSubmit,
+}: PersonalEventEditorDialogProps) {
     const draft = usePersonalEventComposer({ open, submitLabel, onSubmit });
-    const close = () => { draft.reset(); onClose(); };
+    const close = () => {
+        draft.reset();
+        onClose();
+    };
     return (
         <Composer
             open={open}
@@ -81,8 +91,14 @@ type UnfitNoticeProps = { words: string; onKeep: () => void };
 /** Words a yearly event can't hold (a time, a year): say so, and offer to keep them as a thought. */
 function UnfitNotice({ words, onKeep }: UnfitNoticeProps) {
     return (
-        <div role="status" className="space-y-2 rounded-xl border border-twilight-border/45 px-3 py-2 text-sm text-twilight-text-soft">
-            <p>Yearly events repeat on a day, so "{words}" can't be saved here. Pick the day below, or keep your words as a thought.</p>
+        <div
+            role="status"
+            className="space-y-2 rounded-xl border border-twilight-border/45 px-3 py-2 text-sm text-twilight-text-soft"
+        >
+            <p>
+                Yearly events repeat on a day, so "{words}" can't be saved here. Pick the day below, or keep your words
+                as a thought.
+            </p>
             <button
                 type="button"
                 className="min-h-9 cursor-pointer rounded-lg px-2 font-medium text-accent-primary"
@@ -112,17 +128,29 @@ function EventTitleRow({ titleRef, label, setLabel, onEnter, emoji, setEmoji, co
             inputRef={titleRef}
             value={label}
             onChange={(event) => setLabel(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) onEnter(); }}
+            onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.nativeEvent.isComposing) onEnter();
+            }}
             placeholder="Mom's birthday, retreat, launch day…"
             maxLength={80}
             aria-label="Event name"
             enterKeyHint="done"
-            leading={(
+            leading={
                 <span className="flex items-center" style={eventToneStyle(color)}>
-                    <EmojiMarkButton emoji={emoji || null} onChange={(next) => setEmoji(next ?? "")} fallback={<CalendarHeart size={18} className="text-[var(--event-ink)] transition-colors duration-300" aria-hidden="true" />} />
+                    <EmojiMarkButton
+                        emoji={emoji || null}
+                        onChange={(next) => setEmoji(next ?? "")}
+                        fallback={
+                            <CalendarHeart
+                                size={18}
+                                className="text-[var(--event-ink)] transition-colors duration-300"
+                                aria-hidden="true"
+                            />
+                        }
+                    />
                     <ColourDot options={EVENT_SWATCHES} value={color} onChange={setColor} label="Event colour" />
                 </span>
-            )}
+            }
         />
     );
 }
@@ -205,9 +233,17 @@ export function usePersonalEventComposer({
         icon: CalendarHeart,
         tone: "schedule",
         subtitle: "Yearly personal event",
-        isDirty: Boolean(label.trim() || emoji.trim() || color || dateTouched) || isMovedFrom(startDate, { eventDate, trackMilestone, startedOn, notify }),
+        isDirty:
+            Boolean(label.trim() || emoji.trim() || color || dateTouched) ||
+            isMovedFrom(startDate, { eventDate, trackMilestone, startedOn, notify }),
         discardTitle: "Discard this event?",
-        submit: { onSubmit: () => void handleSubmit(), submitLabel, icon: CalendarHeart, tone: "schedule", disabled: !label.trim() || Boolean(unfit) },
+        submit: {
+            onSubmit: () => void handleSubmit(),
+            submitLabel,
+            icon: CalendarHeart,
+            tone: "schedule",
+            disabled: !label.trim() || Boolean(unfit),
+        },
         reset,
         titleRef,
         children: (
@@ -223,7 +259,15 @@ export function usePersonalEventComposer({
                     setColor={setColor}
                 />
 
-                {unfit ? <UnfitNotice words={unfit.sourceText} onKeep={() => { saveThought.mutate({ id: crypto.randomUUID(), rawText: label.trim() }); reset(); }} /> : null}
+                {unfit ? (
+                    <UnfitNotice
+                        words={unfit.sourceText}
+                        onKeep={() => {
+                            saveThought.mutate({ id: crypto.randomUUID(), rawText: label.trim() });
+                            reset();
+                        }}
+                    />
+                ) : null}
                 <DraftRow
                     applied={nlp.applied}
                     suggestions={nlp.suggestions}
@@ -232,10 +276,17 @@ export function usePersonalEventComposer({
                 />
 
                 <PersonalEventDetailsFields
-                    eventDate={shownDate} setEventDate={(day) => { setEventDate(day); setDateTouched(true); }}
-                    trackMilestone={trackMilestone} setTrackMilestone={setTrackMilestone}
-                    startedOn={startedOn} setStartedOn={setStartedOn}
-                    notify={notify} setNotify={setNotify}
+                    eventDate={shownDate}
+                    setEventDate={(day) => {
+                        setEventDate(day);
+                        setDateTouched(true);
+                    }}
+                    trackMilestone={trackMilestone}
+                    setTrackMilestone={setTrackMilestone}
+                    startedOn={startedOn}
+                    setStartedOn={setStartedOn}
+                    notify={notify}
+                    setNotify={setNotify}
                 />
             </>
         ),

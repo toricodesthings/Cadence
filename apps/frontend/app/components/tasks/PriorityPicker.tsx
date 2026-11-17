@@ -10,11 +10,7 @@ interface PriorityPickerProps {
     compact?: boolean;
 }
 
-export const PriorityPicker: React.FC<PriorityPickerProps> = ({
-    currentPriority,
-    onSelect,
-    compact = false,
-}) => {
+export const PriorityPicker: React.FC<PriorityPickerProps> = ({ currentPriority, onSelect, compact = false }) => {
     const priorities = [0, 1, 2, 3, 4] as const;
 
     return (
@@ -39,17 +35,21 @@ export const PriorityPicker: React.FC<PriorityPickerProps> = ({
                                 }}
                                 className={`
 									group flex h-9 w-full cursor-pointer items-center justify-center rounded-lg border transition-[background-color,border-color] duration-200
-									${isActive
-                                        ? "border-accent-primary bg-accent-primary/10 "
-                                        : "border-twilight-border bg-white/[0.04] hover:border-twilight-text-muted/30"
+									${
+                                        isActive
+                                            ? "border-accent-primary bg-accent-primary/10 "
+                                            : "border-twilight-border bg-white/[0.04] hover:border-twilight-text-muted/30"
                                     }
 									`}
                                 aria-label={config.label}
                             >
                                 <Icon
                                     size={16}
-                                    className={`transition-colors ${isActive ? config.color : "text-twilight-text-muted group-hover:text-twilight-text"
-                                        }`}
+                                    className={`transition-colors ${
+                                        isActive
+                                            ? config.color
+                                            : "text-twilight-text-muted group-hover:text-twilight-text"
+                                    }`}
                                 />
                             </button>
                         </Tip>

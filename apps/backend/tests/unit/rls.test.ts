@@ -10,7 +10,11 @@ function recordSpanEnds() {
     type Span = Parameters<Parameters<typeof tracing.enterSpan>[1]>[0];
     vi.spyOn(tracing, "enterSpan").mockImplementation((name, callback) => {
         const result = callback({ setAttribute: vi.fn() } as unknown as Span);
-        if (result instanceof Promise) void result.then(() => ended.push(name), () => ended.push(name));
+        if (result instanceof Promise)
+            void result.then(
+                () => ended.push(name),
+                () => ended.push(name),
+            );
         else ended.push(name);
         return result;
     });
@@ -44,7 +48,9 @@ describe("RLS trace lifetimes", () => {
     it("ends spans and propagates a lazy query rejection", async () => {
         const ended = recordSpanEnds();
         const error = new Error("query unavailable");
-        await expect(withRls(database(Promise.resolve()), "account", () => thenable(Promise.reject(error)))).rejects.toBe(error);
+        await expect(
+            withRls(database(Promise.resolve()), "account", () => thenable(Promise.reject(error))),
+        ).rejects.toBe(error);
         expect(ended).toEqual(["db.rls.context", "db.rls.work", "db.rls.transaction"]);
     });
 });

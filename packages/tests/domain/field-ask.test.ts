@@ -12,10 +12,17 @@ describe("field-question back-off", () => {
     });
 
     it("a tapped option answers the waiting question, anything else is a miss, and nothing waiting changes nothing", () => {
-        const waiting = { priority: { lastOn: "2026-10-23", misses: 1, labels: ["Essay draft", "None in particular"] } };
-        expect(settleFieldAsk(waiting, "  essay   DRAFT ")).toEqual({ state: { priority: { lastOn: "2026-10-23", misses: 0 } }, answered: "priority" });
+        const waiting = {
+            priority: { lastOn: "2026-10-23", misses: 1, labels: ["Essay draft", "None in particular"] },
+        };
+        expect(settleFieldAsk(waiting, "  essay   DRAFT ")).toEqual({
+            state: { priority: { lastOn: "2026-10-23", misses: 0 } },
+            answered: "priority",
+        });
         expect(settleFieldAsk(waiting, "the essay draft I think")?.answered).toBe("priority");
-        expect(settleFieldAsk(waiting, "actually, move my dentist")).toEqual({ state: { priority: { lastOn: "2026-10-23", misses: 2 } } });
+        expect(settleFieldAsk(waiting, "actually, move my dentist")).toEqual({
+            state: { priority: { lastOn: "2026-10-23", misses: 2 } },
+        });
         expect(settleFieldAsk({ priority: { lastOn: "2026-10-23", misses: 0 } }, "hi")).toBeNull();
         expect(settleFieldAsk(waiting, "")).toBeNull();
         expect(settleFieldAsk(null, "hi")).toBeNull();

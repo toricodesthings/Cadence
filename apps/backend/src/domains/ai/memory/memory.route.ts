@@ -6,7 +6,19 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { clearMemoryQuerySchema, routineDurationKeySchema, routineDurationQuerySchema, routineDurationSchema, durationAskSchema, durationReportSchema, durationShownSchema, durationTaskSchema, memoryPageQuerySchema, setMemoryModeSchema, type MemoryPage } from "@cadence/contracts/memory";
+import {
+    clearMemoryQuerySchema,
+    routineDurationKeySchema,
+    routineDurationQuerySchema,
+    routineDurationSchema,
+    durationAskSchema,
+    durationReportSchema,
+    durationShownSchema,
+    durationTaskSchema,
+    memoryPageQuerySchema,
+    setMemoryModeSchema,
+    type MemoryPage,
+} from "@cadence/contracts/memory";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import { planningOfferOutcomeSchema } from "@cadence/contracts/planning";
 import { aiMemorySignals, users } from "../../../db/schema";
@@ -21,15 +33,39 @@ import type { Tx } from "../../../types/db";
 import type { Env } from "../../../types/env";
 import { isLearning, memoryStateOf, type MemoryState } from "./memory-mode";
 import { catchUpOf, newBackfill, type Backfill } from "./backfill";
-import { askDuration, clearReports, deleteReport, deleteRoutineReport, durationEvidence, getReport, getRoutineReport, reportDuration, reportRoutine, spendDuration } from "./duration";
+import {
+    askDuration,
+    clearReports,
+    deleteReport,
+    deleteRoutineReport,
+    durationEvidence,
+    getReport,
+    getRoutineReport,
+    reportDuration,
+    reportRoutine,
+    spendDuration,
+} from "./duration";
 import { clearPlanning, planningEvidence, planningOffers, recordOfferOutcome } from "./planning.service";
-import { UNDO_WINDOW_MINUTES, clearFacts, deleteFact, forgetFact, listFacts, listForgotten, restoreFact } from "./memory-store";
+import {
+    UNDO_WINDOW_MINUTES,
+    clearFacts,
+    deleteFact,
+    forgetFact,
+    listFacts,
+    listForgotten,
+    restoreFact,
+} from "./memory-store";
 import { scheduleScrub } from "./queue";
 
 /** Answers one person can store a day: far beyond real use, a bound against a script. */
 const MAX_REPORTS_PER_DAY = 200;
 
-const undoQuerySchema = z.object({ undo: z.enum(["true", "false"]).optional().transform((v) => v === "true") });
+const undoQuerySchema = z.object({
+    undo: z
+        .enum(["true", "false"])
+        .optional()
+        .transform((v) => v === "true"),
+});
 
 async function readPage(tx: Tx, userId: string, cursor?: string): Promise<MemoryPage> {
     const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
@@ -41,7 +77,10 @@ async function readPage(tx: Tx, userId: string, cursor?: string): Promise<Memory
         mode: state.stored,
         choiceAt,
         inactive: !isLearning(state.mode),
-        catchUp: state.mode === "full" ? catchUpOf(row?.settings?.assistant?.memoryBackfill as Backfill | null | undefined, new Date()) : null,
+        catchUp:
+            state.mode === "full"
+                ? catchUpOf(row?.settings?.assistant?.memoryBackfill as Backfill | null | undefined, new Date())
+                : null,
         facts,
         nextCursor,
         forgotten: cursor ? [] : await listForgotten(tx, userId),
@@ -52,15 +91,31 @@ async function readPage(tx: Tx, userId: string, cursor?: string): Promise<Memory
  * Writes the mode and its stamps under a row lock, so two changes can't interleave and a background write
  * holding the row (`fenceMemoryState`) finishes first. Returns the state before.
  */
-async function writeMode(tx: Tx, userId: string, mode: "off" | "basic" | "full" | null, chosen: boolean, extra: Record<string, unknown> = {}): Promise<MemoryState> {
+async function writeMode(
+    tx: Tx,
+    userId: string,
+    mode: "off" | "basic" | "full" | null,
+    chosen: boolean,
+    extra: Record<string, unknown> = {},
+): Promise<MemoryState> {
     const now = new Date();
-    const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1).for("update");
+    const [row] = await tx
+        .select({ settings: users.settings })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1)
+        .for("update");
     const settings = (row?.settings ?? {}) as Record<string, any>;
     const assistant = (settings.assistant ?? {}) as Record<string, unknown>;
     const before = memoryStateOf(settings);
     const epoch = before.epoch + 1;
     // Becoming Full starts the 90-day catch-up; leaving it ends it.
-    const backfill = (mode ?? before.mode) === "full" ? (before.mode === "full" ? (assistant.memoryBackfill as Backfill | null | undefined) ?? null : newBackfill(now)) : null;
+    const backfill =
+        (mode ?? before.mode) === "full"
+            ? before.mode === "full"
+                ? ((assistant.memoryBackfill as Backfill | null | undefined) ?? null)
+                : newBackfill(now)
+            : null;
     await tx
         .update(users)
         .set({
@@ -83,7 +138,16 @@ async function writeMode(tx: Tx, userId: string, mode: "off" | "basic" | "full" 
 
 /** "How long did it take?" answers share one daily cap per person (it fails open if the budget store is down). */
 async function withinReportBudget(env: Env, userId: string) {
-    if (!(await withinDailyBudget(env, "duration-report", await hashIdentifier(userId), MAX_REPORTS_PER_DAY, new Date(), { failOpen: true }))) {
+    if (
+        !(await withinDailyBudget(
+            env,
+            "duration-report",
+            await hashIdentifier(userId),
+            MAX_REPORTS_PER_DAY,
+            new Date(),
+            { failOpen: true },
+        ))
+    ) {
         throw new AppError(429, "TOO_MANY_REQUESTS", "Too many answers today");
     }
 }
@@ -157,7 +221,9 @@ export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
     .get("/duration/routine", apiValidator("query", routineDurationQuerySchema), async (c) => {
         const userId = c.get("userId");
         const { habitId, day, time } = c.req.valid("query");
-        const report = await withRls(getDbClient(c.env), userId, (tx) => getRoutineReport(tx, userId, { habitId, day, time }));
+        const report = await withRls(getDbClient(c.env), userId, (tx) =>
+            getRoutineReport(tx, userId, { habitId, day, time }),
+        );
         return c.json({ data: report });
     })
 
@@ -211,7 +277,9 @@ export const memoryRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
         const page = await withRls(getDbClient(c.env), userId, async (tx) => {
             // The mode first: its row lock waits out any background write, which locks that row before the facts.
             // Saying something again teaches it again; nothing said before now is read back (backfill, notes, chats).
-            await writeMode(tx, userId, turnOff ? "off" : null, false, { memoryLearningNotBefore: new Date().toISOString() });
+            await writeMode(tx, userId, turnOff ? "off" : null, false, {
+                memoryLearningNotBefore: new Date().toISOString(),
+            });
             await clearFacts(tx, userId);
             // The signals go too, or tonight's pass would count the same patterns back.
             await tx.delete(aiMemorySignals).where(eq(aiMemorySignals.userId, userId));

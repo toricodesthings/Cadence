@@ -18,7 +18,11 @@ import { CSS } from "@dnd-kit/utilities";
 import type { ReactNode } from "react";
 
 /** Anything ordered by `orderIndex`: subtasks, or a routine's steps (their array position). */
-interface Sortable { id: string; orderIndex: number; __optimisticKey?: string }
+interface Sortable {
+    id: string;
+    orderIndex: number;
+    __optimisticKey?: string;
+}
 
 function getRenderableSubtaskKey(subtask: Sortable) {
     return subtask.__optimisticKey ?? subtask.id;
@@ -73,15 +77,9 @@ function SortableSubtaskItem<T extends Sortable>({
     subtask: T;
     renderItem: (props: SortableSubtaskRenderProps<T>) => ReactNode;
 }) {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        setActivatorNodeRef,
-        transform,
-        transition,
-        isDragging,
-    } = useSortable({ id: subtask.id });
+    const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+        id: subtask.id,
+    });
 
     return (
         <div

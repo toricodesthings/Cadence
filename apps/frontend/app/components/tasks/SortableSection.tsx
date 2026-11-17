@@ -22,7 +22,12 @@ export function FoldColumn({ hidden, children }: { hidden: boolean; children: Re
 }
 
 /** One section's place in a sortable list or board: `children` gets its grip to put in the header. */
-export function SortableSection({ id, name, className, children }: {
+export function SortableSection({
+    id,
+    name,
+    className,
+    children,
+}: {
     /** The section's id as the list knows it. */
     id: string;
     name: string;
@@ -33,7 +38,12 @@ export function SortableSection({ id, name, className, children }: {
         id: `section:${id}`,
         data: { type: SECTION_SORT, sectionId: id },
     });
-    const style: CSSProperties = { transform: CSS.Translate.toString(transform), transition, position: "relative", zIndex: isDragging ? 10 : undefined };
+    const style: CSSProperties = {
+        transform: CSS.Translate.toString(transform),
+        transition,
+        position: "relative",
+        zIndex: isDragging ? 10 : undefined,
+    };
     const grip = (
         <button
             type="button"

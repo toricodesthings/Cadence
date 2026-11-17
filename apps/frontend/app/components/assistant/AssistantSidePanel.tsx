@@ -26,13 +26,24 @@ import { SETTINGS_DEFAULTS } from "../../types/settings";
 import { describeImageAllowance, describeUsage } from "../../lib/ai/usage";
 import type { SlashCommand } from "../../lib/ai/slash-commands";
 
-export function AssistantSidePanel({ width, onWidthChange, isMobile = false }: {
+export function AssistantSidePanel({
+    width,
+    onWidthChange,
+    isMobile = false,
+}: {
     width: number;
     onWidthChange?: (width: number) => void;
     isMobile?: boolean;
 }) {
-    const { toggleAssistantPanel, assistantPanelOpen, activeConversationId,
-        historyOpen, setHistoryOpen, memoryOpen, setMemoryOpen } = useAssistantStore();
+    const {
+        toggleAssistantPanel,
+        assistantPanelOpen,
+        activeConversationId,
+        historyOpen,
+        setHistoryOpen,
+        memoryOpen,
+        setMemoryOpen,
+    } = useAssistantStore();
     const { isTouch } = useShellMode();
     const { session } = useAuthState();
     const userImage = session?.user?.image;
@@ -51,10 +62,22 @@ export function AssistantSidePanel({ width, onWidthChange, isMobile = false }: {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const reducedMotion = useReducedMotionSetting();
     const stick = useStickToBottom({ initial: "instant", resize: reducedMotion ? "instant" : "smooth" });
-    const scrollToBottom = useCallback(() => void stick.scrollToBottom(reducedMotion ? "instant" : "smooth"), [stick.scrollToBottom, reducedMotion]);
-    const images = useChatAttachments({ conversationId: activeConversationId, imageAllowance, perMessage, onNotice: setInputNotice });
-    const conversation = useAssistantConversation({ online, onNotice: setInputNotice,
-        clearAttachments: images.clearAttachments, onTurnSubmitted: scrollToBottom });
+    const scrollToBottom = useCallback(
+        () => void stick.scrollToBottom(reducedMotion ? "instant" : "smooth"),
+        [stick.scrollToBottom, reducedMotion],
+    );
+    const images = useChatAttachments({
+        conversationId: activeConversationId,
+        imageAllowance,
+        perMessage,
+        onNotice: setInputNotice,
+    });
+    const conversation = useAssistantConversation({
+        online,
+        onNotice: setInputNotice,
+        clearAttachments: images.clearAttachments,
+        onTurnSubmitted: scrollToBottom,
+    });
     const { isStreaming, threadTitle, handleNewChat, handleSelectConversation } = conversation;
     const submitText = (text: string) => {
         const sent = conversation.submitText(text, images.readyImages, images.uploading);
@@ -131,29 +154,73 @@ export function AssistantSidePanel({ width, onWidthChange, isMobile = false }: {
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [isMobile, assistantPanelOpen, toggleAssistantPanel, historyOpen, setHistoryOpen, usageOpen, memoryOpen, setMemoryOpen]);
+    }, [
+        isMobile,
+        assistantPanelOpen,
+        toggleAssistantPanel,
+        historyOpen,
+        setHistoryOpen,
+        usageOpen,
+        memoryOpen,
+        setMemoryOpen,
+    ]);
 
     const panelContent = (
-        <div className={`surface-shell flex h-full flex-col ${isMobile ? "" : "photo-shell-surface"}`}
-            role="dialog" aria-label={`${assistantName} assistant conversation`}>
-            <AssistantHeader assistantName={assistantName} threadTitle={threadTitle}
+        <div
+            className={`surface-shell flex h-full flex-col ${isMobile ? "" : "photo-shell-surface"}`}
+            role="dialog"
+            aria-label={`${assistantName} assistant conversation`}
+        >
+            <AssistantHeader
+                assistantName={assistantName}
+                threadTitle={threadTitle}
                 hasMemory={!!memoryPage}
-                onNewChat={handleNewChat} onClose={toggleAssistantPanel}
-                onHistory={() => { setUsageOpen(false); setHistoryOpen(true); }}
-                onMemory={() => { setUsageOpen(false); setMemoryOpen(true); }} />
+                onNewChat={handleNewChat}
+                onClose={toggleAssistantPanel}
+                onHistory={() => {
+                    setUsageOpen(false);
+                    setHistoryOpen(true);
+                }}
+                onMemory={() => {
+                    setUsageOpen(false);
+                    setMemoryOpen(true);
+                }}
+            />
             <div className="sr-only" role="status" aria-live="polite">
                 {isStreaming ? `${assistantName} is responding` : ""}
             </div>
             <MemoryCard />
-            <AssistantThread conversation={conversation} assistantName={assistantName}
-                userImage={userImage} userInitial={userInitial} isTouch={isTouch}
-                scrollRef={stick.scrollRef} contentRef={stick.contentRef}
-                showJump={!stick.isAtBottom} scrollToBottom={scrollToBottom} submitText={submitText} />
-            <AssistantComposer assistantName={assistantName} isTouch={isTouch} isMobile={isMobile}
-                isStreaming={isStreaming} online={online}
-                input={input} onInputChange={setInput} inputNotice={inputNotice} setInputNotice={setInputNotice} imageAllowance={imageAllowance}
-                perMessage={perMessage} usageNotice={usageNotice} images={images} textareaRef={textareaRef}
-                onSend={submitText} onStop={conversation.handleStop} onCommand={runSlashCommand} />
+            <AssistantThread
+                conversation={conversation}
+                assistantName={assistantName}
+                userImage={userImage}
+                userInitial={userInitial}
+                isTouch={isTouch}
+                scrollRef={stick.scrollRef}
+                contentRef={stick.contentRef}
+                showJump={!stick.isAtBottom}
+                scrollToBottom={scrollToBottom}
+                submitText={submitText}
+            />
+            <AssistantComposer
+                assistantName={assistantName}
+                isTouch={isTouch}
+                isMobile={isMobile}
+                isStreaming={isStreaming}
+                online={online}
+                input={input}
+                onInputChange={setInput}
+                inputNotice={inputNotice}
+                setInputNotice={setInputNotice}
+                imageAllowance={imageAllowance}
+                perMessage={perMessage}
+                usageNotice={usageNotice}
+                images={images}
+                textareaRef={textareaRef}
+                onSend={submitText}
+                onStop={conversation.handleStop}
+                onCommand={runSlashCommand}
+            />
             {/* History drawer overlays the thread within the same panel envelope (§7) */}
             <AnimatePresence>
                 {historyOpen ? (

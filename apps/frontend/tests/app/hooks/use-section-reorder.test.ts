@@ -5,7 +5,8 @@ import { useSectionReorder } from "../../../app/hooks/sections/use-section-reord
 const mutate = vi.fn();
 vi.mock("../../../app/hooks/sections/use-sections", () => ({ useUpdateSection: () => ({ mutate }) }));
 
-const sections = (...orders: number[]) => orders.map((orderIndex, i) => ({ id: `s${i}`, name: `S${i}`, orderIndex })) as never;
+const sections = (...orders: number[]) =>
+    orders.map((orderIndex, i) => ({ id: `s${i}`, name: `S${i}`, orderIndex })) as never;
 beforeEach(() => vi.clearAllMocks());
 
 describe("useSectionReorder", () => {

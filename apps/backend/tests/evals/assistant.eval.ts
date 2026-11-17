@@ -41,13 +41,33 @@ const optimization = optimizationOptions(vars);
 const reportName = vars.AI_EVAL_REPORT_NAME ?? `assistant-${evaluation.profile}`;
 if (!/^[a-z0-9-]+$/i.test(reportName)) throw new Error("Invalid AI_EVAL_REPORT_NAME");
 const variants = [optimization];
-const env = { DEPLOYMENT_STAGE: "development", OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY, AI_CHAT_MODEL: vars.AI_CHAT_MODEL, AI_CHAT_MODEL_BASIC: vars.AI_CHAT_MODEL_BASIC ?? "deepseek/deepseek-v4.1-flash" } as unknown as Env;
+const env = {
+    DEPLOYMENT_STAGE: "development",
+    OPENROUTER_API_KEY: vars.OPENROUTER_API_KEY,
+    AI_CHAT_MODEL: vars.AI_CHAT_MODEL,
+    AI_CHAT_MODEL_BASIC: vars.AI_CHAT_MODEL_BASIC ?? "deepseek/deepseek-v4.1-flash",
+} as unknown as Env;
 /** Iteration defaults to one pass; full restores each scenario's repeat count. */
 const maxRuns = evaluation.assistantRuns;
 
 type Call = { step: number; name: string; input: any; output: any };
 type Tools = ReturnType<typeof toolsFor> & { userId?: string };
-interface Run { calls: Call[]; text: string; models: string[]; servedModels: string[]; steps: number; tokens: number; inputTokens: number; outputTokens: number; cached: number; written: number; cost: number; unknownCostSteps: number; failedRuns: number; ms: number }
+interface Run {
+    calls: Call[];
+    text: string;
+    models: string[];
+    servedModels: string[];
+    steps: number;
+    tokens: number;
+    inputTokens: number;
+    outputTokens: number;
+    cached: number;
+    written: number;
+    cost: number;
+    unknownCostSteps: number;
+    failedRuns: number;
+    ms: number;
+}
 interface Scenario {
     name: string;
     level: "simple" | "medium" | "complex";
@@ -70,10 +90,17 @@ interface Scenario {
 
 /** Routines made by a seed exist from the start of the month, so past days count as due. */
 const backdateRoutines = (userId: string) =>
-    withRls(getTestDb(), userId, (tx: any) => tx.update(habits).set({ createdAt: "2026-09-01T12:00:00.000Z" }).where(eq(habits.userId, userId)));
+    withRls(getTestDb(), userId, (tx: any) =>
+        tx.update(habits).set({ createdAt: "2026-09-01T12:00:00.000Z" }).where(eq(habits.userId, userId)),
+    );
 
 function toolsFor(userId: string, now = NOW) {
-    const tools = buildToolRegistry(env, userId, { timezone: TZ, currentDate: now, today: todayIn(TZ, new Date(now)), weekStart: "Monday" }) as any;
+    const tools = buildToolRegistry(env, userId, {
+        timezone: TZ,
+        currentDate: now,
+        today: todayIn(TZ, new Date(now)),
+        weekStart: "Monday",
+    }) as any;
     let seq = 0;
     return async (name: string, input: object = {}) => {
         const result = await tools[name].execute(input, { toolCallId: `seed_${++seq}`, messages: [] });
@@ -82,14 +109,27 @@ function toolsFor(userId: string, now = NOW) {
     };
 }
 
-async function converse(userId: string, turns: Scenario["turns"], now = NOW, routed = false, variant = optimization, surface?: Scenario["surface"]): Promise<Run> {
+async function converse(
+    userId: string,
+    turns: Scenario["turns"],
+    now = NOW,
+    routed = false,
+    variant = optimization,
+    surface?: Scenario["surface"],
+): Promise<Run> {
     const calls: Call[] = [];
     const messages: any[] = [];
     let text = "";
     const models: string[] = [];
     const servedModels: string[] = [];
     let steps = 0;
-    let tokens = 0, inputTokens = 0, outputTokens = 0, cached = 0, written = 0, cost = 0, unknownCostSteps = 0;
+    let tokens = 0,
+        inputTokens = 0,
+        outputTokens = 0,
+        cached = 0,
+        written = 0,
+        cost = 0,
+        unknownCostSteps = 0;
     const started = Date.now();
     const said: string[] = [];
     for (const turn of turns) {
@@ -102,17 +142,39 @@ async function converse(userId: string, turns: Scenario["turns"], now = NOW, rou
         });
         said.push(request);
         // Like the chat route: the thread's model so far decides whether it may still go basic.
-        const modelId = routed ? pickChatModel(env, { text: request, imageCount: image ? 1 : 0 }, models.at(-1)) : getModelId(env);
+        const modelId = routed
+            ? pickChatModel(env, { text: request, imageCount: image ? 1 : 0 }, models.at(-1))
+            : getModelId(env);
         // Like dropForeignReasoning: a model never replays another model's reasoning.
         if (models.length && models.at(-1) !== modelId) {
-            for (const m of messages) if (m.role === "assistant" && Array.isArray(m.content)) m.content = m.content.filter((p: any) => p.type !== "reasoning");
+            for (const m of messages)
+                if (m.role === "assistant" && Array.isArray(m.content))
+                    m.content = m.content.filter((p: any) => p.type !== "reasoning");
         }
         models.push(modelId);
-        const { agent, turnContext } = await getAgentInstance(env, userId, { ...variant, timezone: TZ, currentDate: now, approvalMode: "full", surface, nonce: "evalnonce", modelId, userTexts: [...new Set(said.slice(-4))], answeredField });
+        const { agent, turnContext } = await getAgentInstance(env, userId, {
+            ...variant,
+            timezone: TZ,
+            currentDate: now,
+            approvalMode: "full",
+            surface,
+            nonce: "evalnonce",
+            modelId,
+            userTexts: [...new Set(said.slice(-4))],
+            answeredField,
+        });
         // Like production: each user message keeps the context it was sent with, so later turns replay
         // it unchanged and read the earlier ones from the prompt cache.
         const textContent = `${request}\n\n${turnContext}`;
-        messages.push({ role: "user", content: image ? [{ type: "file", data: image, mediaType: "image/png" }, { type: "text", text: textContent }] : textContent });
+        messages.push({
+            role: "user",
+            content: image
+                ? [
+                      { type: "file", data: image, mediaType: "image/png" },
+                      { type: "text", text: textContent },
+                  ]
+                : textContent,
+        });
         const result = await agent.generate({ messages });
         for (const [i, step] of result.steps.entries()) {
             for (const call of step.toolCalls) {
@@ -134,39 +196,64 @@ async function converse(userId: string, turns: Scenario["turns"], now = NOW, rou
             else unknownCostSteps++;
         }
         // A question asked with `ask_user` reads like one the reply typed: its question and options.
-        const asked = calls.filter((c) => c.name === "ask_user" && c.step >= steps - result.steps.length)
+        const asked = calls
+            .filter((c) => c.name === "ask_user" && c.step >= steps - result.steps.length)
             .map((c) => `${c.input?.question ?? ""} ${(c.input?.options ?? []).map((o: any) => o.label).join(" / ")}`);
         text = [result.text, ...asked].filter(Boolean).join("\n");
         // Every step's calls and results, as production replays them from the stored parts: in ai v7
         // `result.response.messages` is the last step only, which left later turns without the ids.
         messages.push(...result.steps.flatMap((step) => step.response.messages));
     }
-    return { calls, text, models, servedModels, steps, tokens, inputTokens, outputTokens, cached, written, cost, unknownCostSteps, failedRuns: 0, ms: Date.now() - started };
+    return {
+        calls,
+        text,
+        models,
+        servedModels,
+        steps,
+        tokens,
+        inputTokens,
+        outputTokens,
+        cached,
+        written,
+        cost,
+        unknownCostSteps,
+        failedRuns: 0,
+        ms: Date.now() - started,
+    };
 }
 
 // ── Checks ──────────────────────────────────────────────────────────────────
 const called = (run: Run, name: string) => run.calls.filter((c) => c.name === name);
-const failedCalls = (run: Run) => run.calls.filter((c) => c.output?.ok === false).map((c) => `${c.name} failed: ${c.output.error}`);
+const failedCalls = (run: Run) =>
+    run.calls.filter((c) => c.output?.ok === false).map((c) => `${c.name} failed: ${c.output.error}`);
 const need = (ok: boolean, problem: string) => (ok ? [] : [problem]);
 /** Reads that could have gone together but came one step after another. */
 function serialReads(run: Run) {
     const readSteps = [...new Set(run.calls.filter((c) => c.name.startsWith("get_")).map((c) => c.step))];
     return readSteps.length;
 }
-const openTasks = async (t: Tools, input: object = {}) => (await t("get_tasks", { limit: 50, ...input })).tasks as any[];
-const titled = (rows: any[], title: string) => rows.find((row) => row.title.toLowerCase().includes(title.toLowerCase()));
+const openTasks = async (t: Tools, input: object = {}) =>
+    (await t("get_tasks", { limit: 50, ...input })).tasks as any[];
+const titled = (rows: any[], title: string) =>
+    rows.find((row) => row.title.toLowerCase().includes(title.toLowerCase()));
 
 async function seedVersionTasks(t: Tools) {
     const { projectId, sections } = await t("create_project", { name: "CS App Projects", sections: ["Cadence"] });
-    const { created } = await t("create_tasks", { tasks: [
-        { title: "Implement 0.31.0" },
-        { title: "Implement 0.32.0" },
-        { title: "Implement 0.31.01" },
-        { title: "Implement 0.32.0-rc1" },
-        { title: "Release retrospective", note: "Look back at 0.31.0" },
-        { title: "Buy groceries" },
-    ].map((task) => ({ ...task, projectId, sectionId: sections[0].sectionId })) });
-    return { targets: created.slice(0, 2).map((task: any) => task.taskId), projectId, sectionId: sections[0].sectionId };
+    const { created } = await t("create_tasks", {
+        tasks: [
+            { title: "Implement 0.31.0" },
+            { title: "Implement 0.32.0" },
+            { title: "Implement 0.31.01" },
+            { title: "Implement 0.32.0-rc1" },
+            { title: "Release retrospective", note: "Look back at 0.31.0" },
+            { title: "Buy groceries" },
+        ].map((task) => ({ ...task, projectId, sectionId: sections[0].sectionId })),
+    });
+    return {
+        targets: created.slice(0, 2).map((task: any) => task.taskId),
+        projectId,
+        sectionId: sections[0].sectionId,
+    };
 }
 
 const SCENARIOS: Scenario[] = [
@@ -180,22 +267,44 @@ const SCENARIOS: Scenario[] = [
             await t("create_habit", { title: "Log calories", recurrenceRule: "FREQ=DAILY", times: ["22:00"] });
             await backdateRoutines(t.userId!);
             await withRls(getTestDb(), t.userId!, async (tx) => {
-                for (const content of ["Prefers concise replies", "Studies computer science", "Keeps study notes in course lists", "Exam is on Friday morning"]) {
-                    await insertFact(tx, t.userId!, { kind: "life", content, saidOn: "2026-09-01", source: "chat", confidence: "stated" });
+                for (const content of [
+                    "Prefers concise replies",
+                    "Studies computer science",
+                    "Keeps study notes in course lists",
+                    "Exam is on Friday morning",
+                ]) {
+                    await insertFact(tx, t.userId!, {
+                        kind: "life",
+                        content,
+                        saidOn: "2026-09-01",
+                        source: "chat",
+                        confidence: "stated",
+                    });
                 }
             });
             return {};
         },
-        turns: ["I finished Workout.", "What else do I have today?", "Yoga is finished too.", "I need to turn in my watch for trade-in on Friday after my exam."],
+        turns: [
+            "I finished Workout.",
+            "What else do I have today?",
+            "Yoga is finished too.",
+            "I need to turn in my watch for trade-in on Friday after my exam.",
+        ],
         check: async (run, t) => {
             const statuses = (await t("get_habit_status_today")).statuses as any[];
             const completed = statuses.filter((s) => /Workout|Yoga/.test(s.title));
             const tasks = await openTasks(t);
             const watch = tasks.find((task) => /watch|trade/i.test(task.title));
             return [
-                ...need(completed.length === 2 && completed.every((s) => s.status === "COMPLETED"), "both requested routines logged"),
+                ...need(
+                    completed.length === 2 && completed.every((s) => s.status === "COMPLETED"),
+                    "both requested routines logged",
+                ),
                 ...need(tasks.length === 1 && watch?.dueDate === "2026-09-25", "one trade-in task on Friday"),
-                ...need(called(run, "create_tasks").length === 1 && called(run, "log_habit").length === 2, "writes executed once without duplicates"),
+                ...need(
+                    called(run, "create_tasks").length === 1 && called(run, "log_habit").length === 2,
+                    "writes executed once without duplicates",
+                ),
                 ...need(!called(run, "remember").length, "passing request is not an explicit memory save"),
             ];
         },
@@ -203,7 +312,10 @@ const SCENARIOS: Scenario[] = [
     {
         name: "note: read version and preserve unrequested lines",
         level: "medium",
-        seed: async (t) => t("create_tasks", { tasks: [{ title: "Trip checklist", note: "Passport: ready\nFlight: pending\nHotel: booked" }] }),
+        seed: async (t) =>
+            t("create_tasks", {
+                tasks: [{ title: "Trip checklist", note: "Passport: ready\nFlight: pending\nHotel: booked" }],
+            }),
         turns: ["In my Trip checklist note, change only 'Flight: pending' to 'Flight: booked'."],
         check: async (run, t) => {
             const [task] = await openTasks(t);
@@ -212,8 +324,14 @@ const SCENARIOS: Scenario[] = [
             const write = called(run, "update_tasks")[0];
             return [
                 ...need(!!read && !!write && read.step < write.step, "note read before its update"),
-                ...need(write?.input.patch.noteVersion === read?.output.note.version, "read note version accompanies write"),
-                ...need(detail.note.text.includes("Passport: ready\nFlight: booked\nHotel: booked"), "unrequested lines preserved"),
+                ...need(
+                    write?.input.patch.noteVersion === read?.output.note.version,
+                    "read note version accompanies write",
+                ),
+                ...need(
+                    detail.note.text.includes("Passport: ready\nFlight: booked\nHotel: booked"),
+                    "unrequested lines preserved",
+                ),
             ];
         },
     },
@@ -222,7 +340,13 @@ const SCENARIOS: Scenario[] = [
         level: "complex",
         runs: 3,
         seed: async (t) => t("create_project", { name: "University", sections: ["COMP2000", "COMP3005"] }),
-        turns: [{ text: "Add this university assignment where it belongs, using the details shown.", image: "p2-assignment.png" }, "What deadline time did that image give?"],
+        turns: [
+            {
+                text: "Add this university assignment where it belongs, using the details shown.",
+                image: "p2-assignment.png",
+            },
+            "What deadline time did that image give?",
+        ],
         check: async (run, t, seeded) => {
             const rows = await openTasks(t);
             const task = rows[0];
@@ -230,12 +354,27 @@ const SCENARIOS: Scenario[] = [
             const create = called(run, "create_tasks");
             return [
                 ...need(rows.length === 1, "one assignment, not separate tasks for its steps"),
-                ...need(task?.projectId === seeded.projectId && task?.sectionId === seeded.sections[0].sectionId, "placed in the named empty section"),
-                ...need(task?.dueDate === "2026-10-20" && !task?.scheduledStart, "deadline is a day, not a scheduled block"),
-                ...need(task?.priority === 3, `visible High priority saved (${JSON.stringify(run.calls.filter((c) => /create_tasks|update_tasks/.test(c.name)).map((c) => [c.input, c.output?.ignored]))})`),
+                ...need(
+                    task?.projectId === seeded.projectId && task?.sectionId === seeded.sections[0].sectionId,
+                    "placed in the named empty section",
+                ),
+                ...need(
+                    task?.dueDate === "2026-10-20" && !task?.scheduledStart,
+                    "deadline is a day, not a scheduled block",
+                ),
+                ...need(
+                    task?.priority === 3,
+                    `visible High priority saved (${JSON.stringify(run.calls.filter((c) => /create_tasks|update_tasks/.test(c.name)).map((c) => [c.input, c.output?.ignored]))})`,
+                ),
                 ...need(/11:59|23:59/.test(detail?.note?.text ?? ""), "visible deadline time preserved in note"),
-                ...need(detail?.subtasks.length === 2 && detail.subtasks.every((s: any) => !/read brief/i.test(s.title)), "only the two unchecked steps saved"),
-                ...need(create.length === 1 && JSON.stringify(create[0]?.input).includes("fromImage"), "image evidence accompanies the write, with no duplicate task"),
+                ...need(
+                    detail?.subtasks.length === 2 && detail.subtasks.every((s: any) => !/read brief/i.test(s.title)),
+                    "only the two unchecked steps saved",
+                ),
+                ...need(
+                    create.length === 1 && JSON.stringify(create[0]?.input).includes("fromImage"),
+                    "image evidence accompanies the write, with no duplicate task",
+                ),
                 ...need(/11:59|23:59/.test(run.text), "later question can still inspect the original image"),
             ];
         },
@@ -244,16 +383,19 @@ const SCENARIOS: Scenario[] = [
         name: "task search: complete two loosely named tasks without identifiers",
         level: "medium",
         seed: async (t) => {
-            const { created } = await t("create_tasks", { tasks: [
-                { title: "Renew passport" }, { title: "Book dentist" }, { title: "Book flight" },
-            ] });
+            const { created } = await t("create_tasks", {
+                tasks: [{ title: "Renew passport" }, { title: "Book dentist" }, { title: "Book flight" }],
+            });
             return { targets: created.slice(0, 2).map((task: any) => task.taskId) };
         },
         turns: ["finished the passport renewal and dentist booking"],
         check: async (run, t, { targets }) => {
             const done = (await t("get_tasks", { state: "COMPLETE" })).tasks.map((task: any) => task.id).sort();
             return [
-                ...need(JSON.stringify(done) === JSON.stringify([...targets].sort()), "only passport and dentist marked done"),
+                ...need(
+                    JSON.stringify(done) === JSON.stringify([...targets].sort()),
+                    "only passport and dentist marked done",
+                ),
                 ...need(called(run, "ask_user").length === 0, "no clarification for clear word-form matches"),
                 ...need(called(run, "create_tasks").length === 0, "no replacements created"),
             ];
@@ -266,9 +408,14 @@ const SCENARIOS: Scenario[] = [
         seed: seedVersionTasks,
         turns: ["What's overdue?", "finished implementation of 0.31.0 and 0.32.0"],
         check: async (run, t, { targets }) => {
-            const done = (await t("get_tasks", { state: "COMPLETE", limit: 50 })).tasks.map((task: any) => task.id).sort();
+            const done = (await t("get_tasks", { state: "COMPLETE", limit: 50 })).tasks
+                .map((task: any) => task.id)
+                .sort();
             return [
-                ...need(JSON.stringify(done) === JSON.stringify([...targets].sort()), "only the two exact releases marked done"),
+                ...need(
+                    JSON.stringify(done) === JSON.stringify([...targets].sort()),
+                    "only the two exact releases marked done",
+                ),
                 ...need(called(run, "ask_user").length === 0, "no clarification for unique title matches"),
                 ...need(called(run, "create_tasks").length === 0, "no invented replacement tasks"),
             ];
@@ -283,7 +430,10 @@ const SCENARIOS: Scenario[] = [
         check: async (run, t) => [
             ...need(!(await t("get_tasks", { state: "COMPLETE" })).tasks.length, "no other version marked done"),
             ...need(called(run, "create_tasks").length === 0, "no invented replacement tasks"),
-            ...need(called(run, "get_tasks").some((call) => call.input.query?.includes("0.33.0")), "searched the actual identifier"),
+            ...need(
+                called(run, "get_tasks").some((call) => call.input.query?.includes("0.33.0")),
+                "searched the actual identifier",
+            ),
         ],
     },
     {
@@ -299,7 +449,10 @@ const SCENARIOS: Scenario[] = [
         },
         turns: ["finished implementation of 0.31.0"],
         check: async (run, t) => [
-            ...need(!(await t("get_tasks", { state: "COMPLETE" })).tasks.length, "no duplicate picked without evidence"),
+            ...need(
+                !(await t("get_tasks", { state: "COMPLETE" })).tasks.length,
+                "no duplicate picked without evidence",
+            ),
             ...need(called(run, "ask_user").length === 1, "asks which app"),
         ],
     },
@@ -313,7 +466,10 @@ const SCENARIOS: Scenario[] = [
             return [
                 ...need(called(run, "create_tasks").length === 1, "one create_tasks"),
                 ...need(!run.calls.some((c) => c.name.startsWith("get_")), "no read needed for a plain add"),
-                ...need(task?.scheduledStart === "2026-09-24T18:00:00-04:00", `timed tomorrow 6 PM (got ${task?.scheduledStart})`),
+                ...need(
+                    task?.scheduledStart === "2026-09-24T18:00:00-04:00",
+                    `timed tomorrow 6 PM (got ${task?.scheduledStart})`,
+                ),
             ];
         },
     },
@@ -337,7 +493,10 @@ const SCENARIOS: Scenario[] = [
         turns: ["remind me to take the bins out at 7pm tonight"],
         check: async (_run, t) => {
             const task = titled(await openTasks(t), "bin");
-            return need(task?.reminderAt === "2026-09-23T19:00:00-04:00", `reminder at 7 PM today (got ${task?.reminderAt})`);
+            return need(
+                task?.reminderAt === "2026-09-23T19:00:00-04:00",
+                `reminder at 7 PM today (got ${task?.reminderAt})`,
+            );
         },
     },
     {
@@ -349,8 +508,14 @@ const SCENARIOS: Scenario[] = [
             const task = titled(await openTasks(t), "lab");
             const detail = task && (await t("get_task_detail", { taskId: task.id }));
             return [
-                ...need(task?.dueDate === "2026-10-20" && !task?.scheduledStart, `due Oct 20, not timed (got ${task?.dueDate} / ${task?.scheduledStart})`),
-                ...need(/23:59|11:59/.test(detail?.note?.text ?? ""), `time kept in the note (got "${detail?.note?.text}")`),
+                ...need(
+                    task?.dueDate === "2026-10-20" && !task?.scheduledStart,
+                    `due Oct 20, not timed (got ${task?.dueDate} / ${task?.scheduledStart})`,
+                ),
+                ...need(
+                    /23:59|11:59/.test(detail?.note?.text ?? ""),
+                    `time kept in the note (got "${detail?.note?.text}")`,
+                ),
                 ...need(!/lab.*(23|11):59/i.test(task?.title ?? ""), "time stays out of the title"),
             ];
         },
@@ -361,29 +526,48 @@ const SCENARIOS: Scenario[] = [
         seed: async (t) => {
             await t("create_tasks", { tasks: Array.from({ length: 20 }, (_, i) => ({ title: `Filler ${i}` })) });
             await t("create_tasks", { tasks: Array.from({ length: 20 }, (_, i) => ({ title: `Filler B${i}` })) });
-            await t("create_tasks", { tasks: [
-                { title: "Draft thesis intro", tagNames: ["Deep Work"] },
-                { title: "Refactor billing", tagNames: ["Deep Work"] },
-                { title: "Write grant", tagNames: ["Deep Work"] },
-            ] });
+            await t("create_tasks", {
+                tasks: [
+                    { title: "Draft thesis intro", tagNames: ["Deep Work"] },
+                    { title: "Refactor billing", tagNames: ["Deep Work"] },
+                    { title: "Write grant", tagNames: ["Deep Work"] },
+                ],
+            });
             return {};
         },
         turns: ["what's tagged deep work?"],
         check: async (run) => [
-            ...need(called(run, "get_tasks").some((c) => c.input.tagId), "get_tasks filtered by tagId"),
-            ...need(["thesis", "billing", "grant"].every((w) => run.text.toLowerCase().includes(w)), "answer names all three"),
+            ...need(
+                called(run, "get_tasks").some((c) => c.input.tagId),
+                "get_tasks filtered by tagId",
+            ),
+            ...need(
+                ["thesis", "billing", "grant"].every((w) => run.text.toLowerCase().includes(w)),
+                "answer names all three",
+            ),
         ],
     },
     {
         name: "clear a day, leaving Fixed and deadlines",
         level: "medium",
         seed: async (t) => {
-            const { created } = await t("create_tasks", { tasks: [
-                { title: "Laundry", dueDate: "2026-09-25", priority: 0 },
-                { title: "Call plumber", dueDate: "2026-09-25", priority: 1 },
-                { title: "Read chapter 4", scheduledStart: "2026-09-25T15:00:00-04:00", scheduledEnd: "2026-09-25T16:00:00-04:00" },
-                { title: "Chem lab", scheduledStart: "2026-09-25T09:00:00-04:00", scheduledEnd: "2026-09-25T11:00:00-04:00", fixed: true },
-            ] });
+            const { created } = await t("create_tasks", {
+                tasks: [
+                    { title: "Laundry", dueDate: "2026-09-25", priority: 0 },
+                    { title: "Call plumber", dueDate: "2026-09-25", priority: 1 },
+                    {
+                        title: "Read chapter 4",
+                        scheduledStart: "2026-09-25T15:00:00-04:00",
+                        scheduledEnd: "2026-09-25T16:00:00-04:00",
+                    },
+                    {
+                        title: "Chem lab",
+                        scheduledStart: "2026-09-25T09:00:00-04:00",
+                        scheduledEnd: "2026-09-25T11:00:00-04:00",
+                        fixed: true,
+                    },
+                ],
+            });
             return { ids: created.map((c: any) => c.taskId) };
         },
         turns: ["clear my friday please"],
@@ -391,8 +575,14 @@ const SCENARIOS: Scenario[] = [
             const friday = (await t("get_schedule_window", { start: "2026-09-25", end: "2026-09-25" })).tasks as any[];
             return [
                 ...need(called(run, "reschedule_tasks").length >= 1, "rescheduled"),
-                ...need(friday.some((task) => task.id === ids[3]), "Fixed class stays"),
-                ...need(!friday.some((task) => [ids[0], ids[1], ids[2]].includes(task.id)), `movable tasks left Friday (left: ${friday.map((f) => f.title)})`),
+                ...need(
+                    friday.some((task) => task.id === ids[3]),
+                    "Fixed class stays",
+                ),
+                ...need(
+                    !friday.some((task) => [ids[0], ids[1], ids[2]].includes(task.id)),
+                    `movable tasks left Friday (left: ${friday.map((f) => f.title)})`,
+                ),
                 ...need(run.steps <= 4, `≤4 steps (took ${run.steps})`),
             ];
         },
@@ -401,19 +591,35 @@ const SCENARIOS: Scenario[] = [
         name: "overdue triage in one pass",
         level: "medium",
         seed: async (t) => {
-            await t("create_tasks", { tasks: ["Submit expenses", "Email Jo", "Old idea", "Book dentist", "Pay fine"].map((title, i) => ({ title, dueDate: `2026-09-${String(15 + i).padStart(2, "0")}` })) });
+            await t("create_tasks", {
+                tasks: ["Submit expenses", "Email Jo", "Old idea", "Book dentist", "Pay fine"].map((title, i) => ({
+                    title,
+                    dueDate: `2026-09-${String(15 + i).padStart(2, "0")}`,
+                })),
+            });
             return {};
         },
-        turns: ["my overdue stuff: expenses and the email to Jo are done, drop the old idea, move the rest to next monday"],
+        turns: [
+            "my overdue stuff: expenses and the email to Jo are done, drop the old idea, move the rest to next monday",
+        ],
         check: async (run, t) => {
             const rows = await t("get_tasks", { state: "COMPLETE", limit: 50 });
             const trash = await t("get_tasks", { state: "ARCHIVED", limit: 50 });
             const open = await openTasks(t);
             return [
-                ...need(["expenses", "jo"].every((w) => titled(rows.tasks, w)), "two done"),
+                ...need(
+                    ["expenses", "jo"].every((w) => titled(rows.tasks, w)),
+                    "two done",
+                ),
                 ...need(!!titled(trash.tasks, "old idea"), "old idea in Trash"),
-                ...need(["dentist", "fine"].every((w) => titled(open, w)?.dueDate === "2026-09-28"), "rest on Monday 28th"),
-                ...need(called(run, "set_task_state").length <= 2 && called(run, "reschedule_tasks").length === 1, "batched: ≤2 state calls, 1 reschedule"),
+                ...need(
+                    ["dentist", "fine"].every((w) => titled(open, w)?.dueDate === "2026-09-28"),
+                    "rest on Monday 28th",
+                ),
+                ...need(
+                    called(run, "set_task_state").length <= 2 && called(run, "reschedule_tasks").length === 1,
+                    "batched: ≤2 state calls, 1 reschedule",
+                ),
             ];
         },
     },
@@ -421,7 +627,13 @@ const SCENARIOS: Scenario[] = [
         name: "sort Capture in batches",
         level: "medium",
         seed: async (t) => {
-            for (const rawText of ["buy printer ink", "call the bank about the card", "idea: a newsletter about tide pools", "book flights for december", "renew car insurance"]) {
+            for (const rawText of [
+                "buy printer ink",
+                "call the bank about the card",
+                "idea: a newsletter about tide pools",
+                "book flights for december",
+                "renew car insurance",
+            ]) {
                 await t("capture_to_inbox", { rawText });
             }
             return {};
@@ -431,7 +643,10 @@ const SCENARIOS: Scenario[] = [
             const items = (await t("get_inbox_items", {})).items as any[];
             const structured = called(run, "create_tasks");
             return [
-                ...need(structured.length === 1 && structured[0].input.tasks.filter((d: any) => d.inboxItemId).length === 4, `one create_tasks with 4 captures (got ${structured.map((c) => c.input.tasks.length)})`),
+                ...need(
+                    structured.length === 1 && structured[0].input.tasks.filter((d: any) => d.inboxItemId).length === 4,
+                    `one create_tasks with 4 captures (got ${structured.map((c) => c.input.tasks.length)})`,
+                ),
                 ...need(items.length === 1 && items[0].isNote, "only the note is left, kept as a note"),
             ];
         },
@@ -439,7 +654,9 @@ const SCENARIOS: Scenario[] = [
     {
         name: "new list with sections, then its tasks",
         level: "complex",
-        turns: ["plan my move: make a list called Move with sections Packing and Admin. add book movers and change address under admin, buy boxes under packing"],
+        turns: [
+            "plan my move: make a list called Move with sections Packing and Admin. add book movers and change address under admin, buy boxes under packing",
+        ],
         check: async (run, t) => {
             const [list] = (await t("get_projects", { query: "move" })).projects;
             const tasks = list ? await openTasks(t, { projectId: list.id }) : [];
@@ -448,7 +665,11 @@ const SCENARIOS: Scenario[] = [
                 ...need(!!list && list.sections.length === 2, "list with 2 sections"),
                 ...need(called(run, "create_sections").length === 0, "sections made with the list"),
                 ...need(called(run, "create_tasks").length === 1, "one create_tasks"),
-                ...need(titled(tasks, "movers")?.sectionId === section("Admin") && titled(tasks, "boxes")?.sectionId === section("Packing"), "tasks in their sections"),
+                ...need(
+                    titled(tasks, "movers")?.sectionId === section("Admin") &&
+                        titled(tasks, "boxes")?.sectionId === section("Packing"),
+                    "tasks in their sections",
+                ),
             ];
         },
     },
@@ -461,13 +682,23 @@ const SCENARIOS: Scenario[] = [
             return {};
         },
         turns: ["delete my old stuff list"],
-        check: async (run) => need(called(run, "delete_project").length === 0 && called(run, "ask_user").length === 1, "asks first with ask_user (keep or trash its tasks)"),
+        check: async (run) =>
+            need(
+                called(run, "delete_project").length === 0 && called(run, "ask_user").length === 1,
+                "asks first with ask_user (keep or trash its tasks)",
+            ),
     },
     {
         name: "merge two tags",
         level: "complex",
         seed: async (t) => {
-            await t("create_tasks", { tasks: [{ title: "Quarterly report", tagNames: ["work"] }, { title: "Team sync", tagNames: ["work"] }, { title: "Onboard Sam", tagNames: ["job"] }] });
+            await t("create_tasks", {
+                tasks: [
+                    { title: "Quarterly report", tagNames: ["work"] },
+                    { title: "Team sync", tagNames: ["work"] },
+                    { title: "Onboard Sam", tagNames: ["job"] },
+                ],
+            });
             return {};
         },
         turns: ["merge my work tag into job"],
@@ -486,13 +717,21 @@ const SCENARIOS: Scenario[] = [
         name: "show a saved focus view",
         level: "medium",
         seed: async (t) => {
-            await t("create_tasks", { tasks: [{ title: "Quick email", effort: 1 }, { title: "Big migration", effort: 3 }] });
+            await t("create_tasks", {
+                tasks: [
+                    { title: "Quick email", effort: 1 },
+                    { title: "Big migration", effort: 3 },
+                ],
+            });
             await t("save_focus_view", { name: "Quick wins", filters: { effortMax: 1 } });
             return {};
         },
         turns: ["what's in my quick wins view?"],
         check: async (run) => [
-            ...need(called(run, "get_tasks").some((c) => c.input.focusViewId), "get_tasks with focusViewId"),
+            ...need(
+                called(run, "get_tasks").some((c) => c.input.focusViewId),
+                "get_tasks with focusViewId",
+            ),
             ...need(/quick email/i.test(run.text) && !/big migration/i.test(run.text), "lists only the matching task"),
         ],
     },
@@ -501,7 +740,12 @@ const SCENARIOS: Scenario[] = [
         smoke: true,
         level: "complex",
         seed: async (t) => {
-            await t("create_tasks", { tasks: [{ title: "Water plants", dueDate: TODAY }, { title: "Stretch", dueDate: TODAY }] });
+            await t("create_tasks", {
+                tasks: [
+                    { title: "Water plants", dueDate: TODAY },
+                    { title: "Stretch", dueDate: TODAY },
+                ],
+            });
             return {};
         },
         turns: ["move everything from today to tomorrow", "actually undo that"],
@@ -509,7 +753,10 @@ const SCENARIOS: Scenario[] = [
             const today = await openTasks(t, { dueWindow: "today" });
             return [
                 ...need(called(run, "reschedule_tasks").length >= 2, "moved, then moved back"),
-                ...need(["water", "stretch"].every((w) => titled(today, w)), "both back on today"),
+                ...need(
+                    ["water", "stretch"].every((w) => titled(today, w)),
+                    "both back on today",
+                ),
             ];
         },
     },
@@ -517,7 +764,8 @@ const SCENARIOS: Scenario[] = [
         name: "routine order and permanent delete",
         level: "medium",
         seed: async (t) => {
-            for (const title of ["Meditate", "Journal", "Read"]) await t("create_habit", { title, recurrenceRule: "FREQ=DAILY" });
+            for (const title of ["Meditate", "Journal", "Read"])
+                await t("create_habit", { title, recurrenceRule: "FREQ=DAILY" });
             return {};
         },
         turns: ["delete my meditate routine for good, and move read to the top of my routines"],
@@ -525,7 +773,10 @@ const SCENARIOS: Scenario[] = [
             const titles = ((await t("get_habits", { includeArchived: true })).habits as any[]).map((h) => h.title);
             return [
                 ...need(called(run, "delete_habit").length === 1, "delete_habit"),
-                ...need(JSON.stringify(titles) === JSON.stringify(["Read", "Journal"]), `Read first, Meditate gone (got ${titles})`),
+                ...need(
+                    JSON.stringify(titles) === JSON.stringify(["Read", "Journal"]),
+                    `Read first, Meditate gone (got ${titles})`,
+                ),
             ];
         },
     },
@@ -538,7 +789,10 @@ const SCENARIOS: Scenario[] = [
             const routines = (await t("get_habits", {})).habits as any[];
             return [
                 ...need(routines.length === 1, `one routine (got ${routines.map((h) => h.title)})`),
-                ...need(JSON.stringify(routines[0]?.times) === JSON.stringify(["09:00", "15:00", "21:00"]), `times 09:00, 15:00, 21:00 (got ${JSON.stringify(routines[0]?.times)})`),
+                ...need(
+                    JSON.stringify(routines[0]?.times) === JSON.stringify(["09:00", "15:00", "21:00"]),
+                    `times 09:00, 15:00, 21:00 (got ${JSON.stringify(routines[0]?.times)})`,
+                ),
                 ...need(called(run, "create_tasks").length === 0, "no tasks"),
             ];
         },
@@ -548,13 +802,17 @@ const SCENARIOS: Scenario[] = [
         smoke: true,
         level: "simple",
         runs: 3,
-        seed: async (t) => t("create_habit", { title: "Pills", recurrenceRule: "FREQ=DAILY", times: ["07:30", "12:30", "19:30"] }),
+        seed: async (t) =>
+            t("create_habit", { title: "Pills", recurrenceRule: "FREQ=DAILY", times: ["07:30", "12:30", "19:30"] }),
         turns: ["took my 7:30 pills"],
         check: async (run, t) => {
             const pills = ((await t("get_habit_status_today", {})).statuses as any[])[0];
             const done = (pills?.times ?? []).filter((x: any) => x.status === "COMPLETED").map((x: any) => x.time);
             return [
-                ...need(JSON.stringify(done) === JSON.stringify(["07:30"]), `only 07:30 done (got ${JSON.stringify(done)})`),
+                ...need(
+                    JSON.stringify(done) === JSON.stringify(["07:30"]),
+                    `only 07:30 done (got ${JSON.stringify(done)})`,
+                ),
                 ...need(/7:30/.test(run.text), "says which time it marked"),
             ];
         },
@@ -564,12 +822,16 @@ const SCENARIOS: Scenario[] = [
         level: "simple",
         runs: 3,
         // 10:00 in Toronto: 9:30 is clearly the one.
-        seed: async (t) => t("create_habit", { title: "Pills", recurrenceRule: "FREQ=DAILY", times: ["09:30", "15:00", "21:00"] }),
+        seed: async (t) =>
+            t("create_habit", { title: "Pills", recurrenceRule: "FREQ=DAILY", times: ["09:30", "15:00", "21:00"] }),
         turns: ["took my pills"],
         check: async (run, t) => {
             const pills = ((await t("get_habit_status_today", {})).statuses as any[])[0];
             const done = (pills?.times ?? []).filter((x: any) => x.status === "COMPLETED").map((x: any) => x.time);
-            return need(JSON.stringify(done) === JSON.stringify(["09:30"]), `only 09:30 done (got ${JSON.stringify(done)})`);
+            return need(
+                JSON.stringify(done) === JSON.stringify(["09:30"]),
+                `only 09:30 done (got ${JSON.stringify(done)})`,
+            );
         },
     },
     {
@@ -577,7 +839,8 @@ const SCENARIOS: Scenario[] = [
         level: "simple",
         runs: 3,
         // 10:00 in Toronto: three hours from 7:00 and from 13:00.
-        seed: async (t) => t("create_habit", { title: "Pills", recurrenceRule: "FREQ=DAILY", times: ["07:00", "13:00", "19:00"] }),
+        seed: async (t) =>
+            t("create_habit", { title: "Pills", recurrenceRule: "FREQ=DAILY", times: ["07:00", "13:00", "19:00"] }),
         turns: ["took my pills"],
         check: async (run, t) => {
             const pills = ((await t("get_habit_status_today", {})).statuses as any[])[0];
@@ -585,7 +848,10 @@ const SCENARIOS: Scenario[] = [
             return [
                 ...need(done.length === 0, `marks nothing yet (got ${JSON.stringify(done)})`),
                 ...need(called(run, "ask_user").length === 1, "asks with ask_user"),
-                ...need(/\?/.test(run.text) && /7(:00)?\s*(am|AM)|13:00|1(:00)?\s*(pm|PM)/.test(run.text), "asks which, naming the times"),
+                ...need(
+                    /\?/.test(run.text) && /7(:00)?\s*(am|AM)|13:00|1(:00)?\s*(pm|PM)/.test(run.text),
+                    "asks which, naming the times",
+                ),
             ];
         },
     },
@@ -605,16 +871,28 @@ const SCENARIOS: Scenario[] = [
                 await t("log_habit", { habitId: anki.habitId, status: "COMPLETED", targetDate: day });
             }
             await t("log_habit", { habitId: calories.habitId, status: "COMPLETED", targetDate: "2026-09-21" });
-            for (const day of ["2026-09-21", "2026-09-22"]) await t("log_habit", { habitId: workout.habitId, status: "COMPLETED", targetDate: day });
+            for (const day of ["2026-09-21", "2026-09-22"])
+                await t("log_habit", { habitId: workout.habitId, status: "COMPLETED", targetDate: day });
             return {};
         },
         turns: ["Habits that I missed yesterday and day before?"],
         check: async (run) => {
             const text = run.text.toLowerCase();
             return [
-                ...need(called(run, "get_habit_history").some((c) => c.input.start <= "2026-09-21" && c.input.end >= "2026-09-22"), "read history for Mon–Tue"),
-                ...need(text.includes("anki") && text.includes("calories"), "names French ANKI (both days) and Log calories (yesterday)"),
-                ...need(!/didn.t miss any|no missed|none missed|nothing missed/.test(text), "doesn't claim nothing was missed"),
+                ...need(
+                    called(run, "get_habit_history").some(
+                        (c) => c.input.start <= "2026-09-21" && c.input.end >= "2026-09-22",
+                    ),
+                    "read history for Mon–Tue",
+                ),
+                ...need(
+                    text.includes("anki") && text.includes("calories"),
+                    "names French ANKI (both days) and Log calories (yesterday)",
+                ),
+                ...need(
+                    !/didn.t miss any|no missed|none missed|nothing missed/.test(text),
+                    "doesn't claim nothing was missed",
+                ),
             ];
         },
     },
@@ -623,25 +901,41 @@ const SCENARIOS: Scenario[] = [
         level: "simple",
         seed: async (t) => {
             const { projectId } = await t("create_project", { name: "Home" });
-            await t("create_tasks", { tasks: ["Fix shelf", "Clean oven", "Pay rent"].map((title) => ({ title, projectId })) });
+            await t("create_tasks", {
+                tasks: ["Fix shelf", "Clean oven", "Pay rent"].map((title) => ({ title, projectId })),
+            });
             return { projectId };
         },
         turns: ["put pay rent at the top of my home list"],
         check: async (run, t, { projectId }) => {
             const [first] = await openTasks(t, { projectId, sort: "list" });
-            return [...need(called(run, "reorder_tasks").length === 1, "reorder_tasks"), ...need(/rent/i.test(first?.title), `Pay rent first (got ${first?.title})`)];
+            return [
+                ...need(called(run, "reorder_tasks").length === 1, "reorder_tasks"),
+                ...need(/rent/i.test(first?.title), `Pay rent first (got ${first?.title})`),
+            ];
         },
     },
     {
         name: "check off a half-remembered task by its section",
         level: "medium",
         seed: async (t) => {
-            const { projectId, sections } = await t("create_project", { name: "University", sections: ["COMP3005", "COMP2000"] });
-            const { created } = await t("create_tasks", { tasks: [
-                { title: "Assignment 1", dueDate: TODAY, projectId, sectionId: sections[0].sectionId, subtasks: ["Question 1", "Question 2"] },
-                { title: "Assignment 1", dueDate: "2026-09-30", projectId, sectionId: sections[1].sectionId },
-                { title: "Read chapter 3", dueDate: TODAY },
-            ] });
+            const { projectId, sections } = await t("create_project", {
+                name: "University",
+                sections: ["COMP3005", "COMP2000"],
+            });
+            const { created } = await t("create_tasks", {
+                tasks: [
+                    {
+                        title: "Assignment 1",
+                        dueDate: TODAY,
+                        projectId,
+                        sectionId: sections[0].sectionId,
+                        subtasks: ["Question 1", "Question 2"],
+                    },
+                    { title: "Assignment 1", dueDate: "2026-09-30", projectId, sectionId: sections[1].sectionId },
+                    { title: "Read chapter 3", dueDate: TODAY },
+                ],
+            });
             return { target: created[0].taskId, decoy: created[1].taskId };
         },
         // No title holds "comp"; the section does. "yesterday" is wrong: it's due today.
@@ -649,7 +943,10 @@ const SCENARIOS: Scenario[] = [
         check: async (run, t, { target, decoy }) => {
             const done = (await t("get_tasks", { state: "COMPLETE" })).tasks as any[];
             return [
-                ...need(done.some((task) => task.id === target), "COMP3005 Assignment 1 marked done"),
+                ...need(
+                    done.some((task) => task.id === target),
+                    "COMP3005 Assignment 1 marked done",
+                ),
                 ...need(!done.some((task) => task.id === decoy), "COMP2000 Assignment 1 left open"),
                 // A wrong day ("yesterday") earns one search before the pick.
                 ...need(run.steps <= 4, `≤4 steps (took ${run.steps})`),
@@ -661,15 +958,28 @@ const SCENARIOS: Scenario[] = [
         name: "two candidates: ask, don't guess",
         level: "medium",
         seed: async (t) => {
-            const { projectId, sections } = await t("create_project", { name: "University", sections: ["COMP3005", "COMP2000"] });
-            await t("create_tasks", { tasks: sections.map((s: { sectionId: string }) => ({ title: "Assignment 1", dueDate: TODAY, projectId, sectionId: s.sectionId })) });
+            const { projectId, sections } = await t("create_project", {
+                name: "University",
+                sections: ["COMP3005", "COMP2000"],
+            });
+            await t("create_tasks", {
+                tasks: sections.map((s: { sectionId: string }) => ({
+                    title: "Assignment 1",
+                    dueDate: TODAY,
+                    projectId,
+                    sectionId: s.sectionId,
+                })),
+            });
             return {};
         },
         turns: ["done with the comp assignment due today"],
         check: async (run, t) => [
             // A held set_task_state changes nothing, so check the data, not the calls.
             ...need(!(await t("get_tasks", { state: "COMPLETE" })).tasks.length, "nothing marked done on a guess"),
-            ...need(called(run, "ask_user").length === 1 && /3005/.test(run.text) && /2000/.test(run.text), "asks which with ask_user, naming both sections"),
+            ...need(
+                called(run, "ask_user").length === 1 && /3005/.test(run.text) && /2000/.test(run.text),
+                "asks which with ask_user, naming both sections",
+            ),
         ],
     },
     {
@@ -677,8 +987,18 @@ const SCENARIOS: Scenario[] = [
         level: "medium",
         runs: 3,
         seed: async (t) => {
-            const { projectId, sections } = await t("create_project", { name: "University", sections: ["COMP3005", "COMP2000"] });
-            await t("create_tasks", { tasks: sections.map((s: { sectionId: string }) => ({ title: "Assignment 1", dueDate: TODAY, projectId, sectionId: s.sectionId })) });
+            const { projectId, sections } = await t("create_project", {
+                name: "University",
+                sections: ["COMP3005", "COMP2000"],
+            });
+            await t("create_tasks", {
+                tasks: sections.map((s: { sectionId: string }) => ({
+                    title: "Assignment 1",
+                    dueDate: TODAY,
+                    projectId,
+                    sectionId: s.sectionId,
+                })),
+            });
             return {};
         },
         turns: ["done with the comp assignment due today", "COMP2000"],
@@ -686,7 +1006,10 @@ const SCENARIOS: Scenario[] = [
             const done = (await t("get_tasks", { state: "COMPLETE" })).tasks as any[];
             return [
                 ...need(called(run, "ask_user").length === 1, "asked once with ask_user"),
-                ...need(done.length === 1 && /2000/.test(done[0].section ?? ""), `marks only the COMP2000 one (got ${done.map((d) => d.section)})`),
+                ...need(
+                    done.length === 1 && /2000/.test(done[0].section ?? ""),
+                    `marks only the COMP2000 one (got ${done.map((d) => d.section)})`,
+                ),
             ];
         },
     },
@@ -694,17 +1017,27 @@ const SCENARIOS: Scenario[] = [
         name: "rebalance an overloaded week",
         level: "complex",
         seed: async (t) => {
-            await t("create_tasks", { tasks: Array.from({ length: 9 }, (_, i) => ({ title: `Thursday thing ${i + 1}`, dueDate: "2026-09-24", priority: i % 3 })) });
+            await t("create_tasks", {
+                tasks: Array.from({ length: 9 }, (_, i) => ({
+                    title: `Thursday thing ${i + 1}`,
+                    dueDate: "2026-09-24",
+                    priority: i % 3,
+                })),
+            });
             await t("create_tasks", { tasks: [{ title: "Report due", dueDate: "2026-09-24", priority: 4 }] });
             return {};
         },
         turns: ["this week is way too much, especially thursday. spread things out for me"],
         check: async (run, t) => {
-            const thursday = (await t("get_schedule_window", { start: "2026-09-24", end: "2026-09-24" })).tasks as any[];
+            const thursday = (await t("get_schedule_window", { start: "2026-09-24", end: "2026-09-24" }))
+                .tasks as any[];
             return [
                 ...need(called(run, "get_schedule_window").length >= 1, "read the week"),
                 ...need(thursday.length <= 6, `Thursday lighter (has ${thursday.length})`),
-                ...need(thursday.some((task) => /report/i.test(task.title)), "the urgent deadline stays"),
+                ...need(
+                    thursday.some((task) => /report/i.test(task.title)),
+                    "the urgent deadline stays",
+                ),
                 ...need(serialReads(run) <= 2, `reads grouped (${serialReads(run)} read steps)`),
             ];
         },
@@ -721,8 +1054,14 @@ const SCENARIOS: Scenario[] = [
             return [
                 ...need(essay?.dueDate === "2026-09-25", `dueDate is Friday's day, no time (got ${essay?.dueDate})`),
                 ...need(!essay?.scheduledStart, `no timed block for a deadline (got ${essay?.scheduledStart})`),
-                ...need(!essay?.reminderAt || essay.reminderAt.startsWith("2026-09-25"), `a reminder, if any, is Friday (got ${essay?.reminderAt})`),
-                ...need(rejected.length === 0, "dueDate sent as a day the first time, not a time that the schema refused"),
+                ...need(
+                    !essay?.reminderAt || essay.reminderAt.startsWith("2026-09-25"),
+                    `a reminder, if any, is Friday (got ${essay?.reminderAt})`,
+                ),
+                ...need(
+                    rejected.length === 0,
+                    "dueDate sent as a day the first time, not a time that the schema refused",
+                ),
             ];
         },
     },
@@ -732,7 +1071,12 @@ const SCENARIOS: Scenario[] = [
         runs: 3,
         now: "2026-09-24T03:30:00.000Z", // 11:30 PM Wednesday 2026-09-23 in Toronto, already Thursday in UTC
         seed: async (t) => {
-            await t("create_tasks", { tasks: [{ title: "COMP3000 assignment", dueDate: "2026-09-23" }, { title: "Tomorrow thing", dueDate: "2026-09-24" }] });
+            await t("create_tasks", {
+                tasks: [
+                    { title: "COMP3000 assignment", dueDate: "2026-09-23" },
+                    { title: "Tomorrow thing", dueDate: "2026-09-24" },
+                ],
+            });
             return {};
         },
         turns: ["What's due today?"],
@@ -740,7 +1084,10 @@ const SCENARIOS: Scenario[] = [
             ...need(/COMP3000/i.test(run.text), "names the all-day task due today"),
             ...need(!/Tomorrow thing/i.test(run.text), "leaves tomorrow's task out"),
             ...need(!/COMP3000[^.]*overdue|overdue[^.]*COMP3000/i.test(run.text), "doesn't call today's task overdue"),
-            ...need(run.calls.every((c) => c.name.startsWith("get_")), "reads only"),
+            ...need(
+                run.calls.every((c) => c.name.startsWith("get_")),
+                "reads only",
+            ),
             ...need((await openTasks(t)).length === 2, "nothing changed"),
         ],
     },
@@ -750,16 +1097,33 @@ const SCENARIOS: Scenario[] = [
         runs: 3,
         now: "2026-10-30T14:00:00.000Z", // Friday 10:00 AM EDT; clocks go back on Sunday 2026-11-01
         seed: async (t) => {
-            await t("create_tasks", { tasks: [{ title: "COMP3005 class", scheduledStart: "2026-10-30T14:35:00-04:00", scheduledEnd: "2026-10-30T15:55:00-04:00" }] });
+            await t("create_tasks", {
+                tasks: [
+                    {
+                        title: "COMP3005 class",
+                        scheduledStart: "2026-10-30T14:35:00-04:00",
+                        scheduledEnd: "2026-10-30T15:55:00-04:00",
+                    },
+                ],
+            });
             return {};
         },
         turns: ["Move my COMP3005 class to Monday"],
         check: async (run, t) => {
             const klass = titled(await openTasks(t), "COMP3005");
             return [
-                ...need(klass?.scheduledStart === "2026-11-02T14:35:00-05:00", `Monday, same local time 2:35 PM (got ${klass?.scheduledStart})`),
-                ...need(klass?.scheduledEnd === "2026-11-02T15:55:00-05:00", `ends 3:55 PM (got ${klass?.scheduledEnd})`),
-                ...need(called(run, "reschedule_tasks").length + called(run, "update_tasks").length >= 1, "moved with a write"),
+                ...need(
+                    klass?.scheduledStart === "2026-11-02T14:35:00-05:00",
+                    `Monday, same local time 2:35 PM (got ${klass?.scheduledStart})`,
+                ),
+                ...need(
+                    klass?.scheduledEnd === "2026-11-02T15:55:00-05:00",
+                    `ends 3:55 PM (got ${klass?.scheduledEnd})`,
+                ),
+                ...need(
+                    called(run, "reschedule_tasks").length + called(run, "update_tasks").length >= 1,
+                    "moved with a write",
+                ),
             ];
         },
     },
@@ -769,10 +1133,17 @@ const SCENARIOS: Scenario[] = [
         runs: 3,
         now: "2026-10-26T14:00:00.000Z",
         seed: async (t) => {
-            await t("create_tasks", { tasks: [{
-                title: "COMP3005 lecture", scheduledStart: "2026-10-29T14:35:00-04:00", scheduledEnd: "2026-10-29T15:55:00-04:00",
-                recurrenceRule: "FREQ=WEEKLY;BYDAY=TH", fixed: true,
-            }] });
+            await t("create_tasks", {
+                tasks: [
+                    {
+                        title: "COMP3005 lecture",
+                        scheduledStart: "2026-10-29T14:35:00-04:00",
+                        scheduledEnd: "2026-10-29T15:55:00-04:00",
+                        recurrenceRule: "FREQ=WEEKLY;BYDAY=TH",
+                        fixed: true,
+                    },
+                ],
+            });
             return {};
         },
         turns: ["What time is my COMP3005 lecture on Thursday Oct 29 and on Thursday Nov 5?"],
@@ -780,7 +1151,10 @@ const SCENARIOS: Scenario[] = [
             ...need(called(run, "get_schedule_window").length >= 1, "read the schedule window"),
             ...need(/2:35|14:35/.test(run.text), "says 2:35 PM"),
             ...need(!/1:35|3:35/.test(run.text), "never shifts the time an hour"),
-            ...need(run.calls.every((c) => c.name.startsWith("get_")), "reads only"),
+            ...need(
+                run.calls.every((c) => c.name.startsWith("get_")),
+                "reads only",
+            ),
         ],
     },
     {
@@ -789,7 +1163,17 @@ const SCENARIOS: Scenario[] = [
         level: "medium",
         runs: 3,
         seed: async (t) => {
-            await t("create_tasks", { tasks: [{ title: "Lab report", durationEstimate: 45 }, { title: "Class", scheduledStart: "2026-09-24T09:00:00-04:00", scheduledEnd: "2026-09-24T10:30:00-04:00", fixed: true }] });
+            await t("create_tasks", {
+                tasks: [
+                    { title: "Lab report", durationEstimate: 45 },
+                    {
+                        title: "Class",
+                        scheduledStart: "2026-09-24T09:00:00-04:00",
+                        scheduledEnd: "2026-09-24T10:30:00-04:00",
+                        fixed: true,
+                    },
+                ],
+            });
             return {};
         },
         turns: ["Find me a time for the lab report tomorrow."],
@@ -800,8 +1184,17 @@ const SCENARIOS: Scenario[] = [
             return [
                 ...need(!!found, "looked with find_time"),
                 ...need(found?.output?.proposals?.length > 0, "found a gap to offer"),
-                ...need(!!lab && !lab.scheduledStart && !called(run, "update_tasks").length && !called(run, "reschedule_tasks").length, "placed nothing: a proposal is not a decision"),
-                ...need(/gap|free|open|fits|available/i.test(run.text), "calls them gaps in the calendar, not known free time"),
+                ...need(
+                    !!lab &&
+                        !lab.scheduledStart &&
+                        !called(run, "update_tasks").length &&
+                        !called(run, "reschedule_tasks").length,
+                    "placed nothing: a proposal is not a decision",
+                ),
+                ...need(
+                    /gap|free|open|fits|available/i.test(run.text),
+                    "calls them gaps in the calendar, not known free time",
+                ),
                 ...need(!/you usually|energy|best time for you/i.test(run.text), "no claims about the person"),
             ];
         },
@@ -812,11 +1205,17 @@ const SCENARIOS: Scenario[] = [
         level: "medium",
         runs: 3,
         seed: async (t) => {
-            await t("create_tasks", { tasks: [
-                { title: "Essay draft", dueDate: TODAY, durationEstimate: 60 },
-                { title: "Email Sam", dueDate: TODAY, durationEstimate: 15 },
-                { title: "Team sync", scheduledStart: "2026-09-23T13:00:00-04:00", scheduledEnd: "2026-09-23T14:00:00-04:00" },
-            ] });
+            await t("create_tasks", {
+                tasks: [
+                    { title: "Essay draft", dueDate: TODAY, durationEstimate: 60 },
+                    { title: "Email Sam", dueDate: TODAY, durationEstimate: 15 },
+                    {
+                        title: "Team sync",
+                        scheduledStart: "2026-09-23T13:00:00-04:00",
+                        scheduledEnd: "2026-09-23T14:00:00-04:00",
+                    },
+                ],
+            });
             return {};
         },
         turns: ["Plan my day."],
@@ -826,10 +1225,22 @@ const SCENARIOS: Scenario[] = [
             return [
                 ...need(!!fit, "laid the day out with fit_day"),
                 ...need(fit?.output?.placed?.length > 0, "placed something in the preview"),
-                ...need(!called(run, "update_tasks").length && !called(run, "reschedule_tasks").length, "wrote nothing: the card's Place is the person's tap"),
-                ...need(titled(tasks, "team sync")?.scheduledStart?.startsWith("2026-09-23T13:00"), "left the timed task where it was"),
-                ...need(!titled(tasks, "essay")?.scheduledStart && !titled(tasks, "email sam")?.scheduledStart, "left the untimed tasks unplaced"),
-                ...need(/gap/i.test(run.text) && !/free time/i.test(run.text), `says gap, not free time: "${run.text.slice(0, 160)}"`),
+                ...need(
+                    !called(run, "update_tasks").length && !called(run, "reschedule_tasks").length,
+                    "wrote nothing: the card's Place is the person's tap",
+                ),
+                ...need(
+                    titled(tasks, "team sync")?.scheduledStart?.startsWith("2026-09-23T13:00"),
+                    "left the timed task where it was",
+                ),
+                ...need(
+                    !titled(tasks, "essay")?.scheduledStart && !titled(tasks, "email sam")?.scheduledStart,
+                    "left the untimed tasks unplaced",
+                ),
+                ...need(
+                    /gap/i.test(run.text) && !/free time/i.test(run.text),
+                    `says gap, not free time: "${run.text.slice(0, 160)}"`,
+                ),
             ];
         },
     },
@@ -837,17 +1248,22 @@ const SCENARIOS: Scenario[] = [
     ...((): Scenario[] => {
         const sentences = (text: string) => text.split(/[.!?](\s|$)/).filter((p) => p.trim().length > 1).length;
         const week = async (t: Tools) => {
-            await t("create_tasks", { tasks: [
-                { title: "Essay draft", dueDate: "2026-09-25", durationEstimate: 90 },
-                { title: "Email Sam", dueDate: TODAY, durationEstimate: 15 },
-                { title: "Call bank", durationEstimate: 30 },
-                { title: "Read chapter 4", durationEstimate: 60 },
-            ] });
+            await t("create_tasks", {
+                tasks: [
+                    { title: "Essay draft", dueDate: "2026-09-25", durationEstimate: 90 },
+                    { title: "Email Sam", dueDate: TODAY, durationEstimate: 15 },
+                    { title: "Call bank", durationEstimate: 30 },
+                    { title: "Read chapter 4", durationEstimate: 60 },
+                ],
+            });
             await t("create_habit", { title: "Gym", recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH" });
             return {};
         };
         // The reply alone: a question asked with ask_user (and its options) is appended to run.text by converse.
-        const reply = (run: Run) => called(run, "ask_user").reduce((text, c) => text.replace(String(c.input?.question ?? ""), ""), run.text).split("\n")[0]!;
+        const reply = (run: Run) =>
+            called(run, "ask_user")
+                .reduce((text, c) => text.replace(String(c.input?.question ?? ""), ""), run.text)
+                .split("\n")[0]!;
         const quiet = (run: Run) => [
             ...need(sentences(reply(run)) <= 3, `kept it short: "${run.text.slice(0, 200)}"`),
             ...need(!/great job|awesome|you've got this|!\s*$/i.test(run.text), "no praise or pep talk"),
@@ -855,21 +1271,33 @@ const SCENARIOS: Scenario[] = [
         return [
             {
                 name: "reset chat: spread my week is one fit_day through the week, placing nothing",
-                level: "medium", runs: 3, surface: "weekly_reset", seed: week,
+                level: "medium",
+                runs: 3,
+                surface: "weekly_reset",
+                seed: week,
                 turns: ["Spread this week's tasks into my free time"],
                 check: async (run) => {
                     const fits = called(run, "fit_day");
                     return [
                         ...need(fits.length === 1, `one fit_day call, got ${fits.length}`),
-                        ...need(!!fits[0]?.input?.through && fits[0].input.through > TODAY, "spread through later days"),
-                        ...need(!called(run, "update_tasks").length && !called(run, "reschedule_tasks").length, "wrote nothing: Place is the person's tap"),
+                        ...need(
+                            !!fits[0]?.input?.through && fits[0].input.through > TODAY,
+                            "spread through later days",
+                        ),
+                        ...need(
+                            !called(run, "update_tasks").length && !called(run, "reschedule_tasks").length,
+                            "wrote nothing: Place is the person's tap",
+                        ),
                         ...quiet(run),
                     ];
                 },
             },
             {
                 name: "reset chat: what's due answers from the week ahead without a read",
-                level: "simple", runs: 3, surface: "weekly_reset", seed: week,
+                level: "simple",
+                runs: 3,
+                surface: "weekly_reset",
+                seed: week,
                 turns: ["What's due this week?"],
                 check: async (run) => [
                     ...need(/essay/i.test(run.text), "names the essay deadline"),
@@ -879,17 +1307,26 @@ const SCENARIOS: Scenario[] = [
             },
             {
                 name: "reset chat: cancel gym Thursday skips that routine day, nothing else",
-                level: "medium", runs: 3, surface: "weekly_reset", seed: week,
+                level: "medium",
+                runs: 3,
+                surface: "weekly_reset",
+                seed: week,
                 turns: ["cancel gym Thursday"],
                 check: async (run) => [
                     ...need(!called(run, "delete_habit").length, "never deleted the routine"),
-                    ...need(called(run, "log_habit").length > 0 || called(run, "ask_user").length > 0, "skipped Thursday (or asked which)"),
+                    ...need(
+                        called(run, "log_habit").length > 0 || called(run, "ask_user").length > 0,
+                        "skipped Thursday (or asked which)",
+                    ),
                     ...need(!called(run, "create_tasks").length, "added nothing"),
                 ],
             },
             {
                 name: "reset chat: nothing, thanks ends in one line and does nothing",
-                level: "simple", runs: 3, surface: "weekly_reset", seed: week,
+                level: "simple",
+                runs: 3,
+                surface: "weekly_reset",
+                seed: week,
                 turns: ["nothing, thanks"],
                 check: async (run) => [
                     ...need(run.calls.length === 0, `no tools, got ${run.calls.map((c) => c.name).join(", ")}`),
@@ -898,22 +1335,38 @@ const SCENARIOS: Scenario[] = [
             },
             {
                 name: "reset chat: an overloaded week offers what can move, writing nothing unasked",
-                level: "complex", runs: 3, surface: "weekly_reset",
+                level: "complex",
+                runs: 3,
+                surface: "weekly_reset",
                 seed: async (t) => {
                     const days = ["2026-09-23", "2026-09-24", "2026-09-25"];
-                    await t("create_tasks", { tasks: days.flatMap((d, i) => [
-                        { title: `Shift ${i + 1}`, scheduledStart: `${d}T09:00:00-04:00`, scheduledEnd: `${d}T19:00:00-04:00` },
-                        { title: `Report ${i + 1}`, dueDate: d, durationEstimate: 120 },
-                        { title: `Errand ${i + 1}`, dueDate: d, durationEstimate: 45 },
-                    ]) });
+                    await t("create_tasks", {
+                        tasks: days.flatMap((d, i) => [
+                            {
+                                title: `Shift ${i + 1}`,
+                                scheduledStart: `${d}T09:00:00-04:00`,
+                                scheduledEnd: `${d}T19:00:00-04:00`,
+                            },
+                            { title: `Report ${i + 1}`, dueDate: d, durationEstimate: 120 },
+                            { title: `Errand ${i + 1}`, dueDate: d, durationEstimate: 45 },
+                        ]),
+                    });
                     return {};
                 },
                 turns: ["My busiest day is too full, what can move?"],
                 check: async (run, t) => {
                     const shifts = (await openTasks(t)).filter((task) => /^Shift/.test(task.title));
                     return [
-                        ...need(/errand|report/i.test(run.text) || called(run, "reschedule_tasks").length > 0 || called(run, "ask_user").length > 0, "names or moves what can go (or asks which day)"),
-                        ...need(shifts.every((task) => task.scheduledStart?.includes("T09:00")), "left the shifts where they were"),
+                        ...need(
+                            /errand|report/i.test(run.text) ||
+                                called(run, "reschedule_tasks").length > 0 ||
+                                called(run, "ask_user").length > 0,
+                            "names or moves what can go (or asks which day)",
+                        ),
+                        ...need(
+                            shifts.every((task) => task.scheduledStart?.includes("T09:00")),
+                            "left the shifts where they were",
+                        ),
                         ...need(!called(run, "create_tasks").length, "added nothing"),
                         ...need(!/urgent/i.test(run.text), "assigns no urgency"),
                         ...quiet(run),
@@ -922,11 +1375,16 @@ const SCENARIOS: Scenario[] = [
             },
             {
                 name: "reset chat: an empty week says so plainly",
-                level: "simple", runs: 3, surface: "weekly_reset",
+                level: "simple",
+                runs: 3,
+                surface: "weekly_reset",
                 turns: ["What's due this week?"],
                 check: async (run) => [
                     ...need(!called(run, "create_tasks").length, "added nothing"),
-                    ...need(/nothing|no deadlines|clear|none/i.test(run.text), `says nothing is due: "${run.text.slice(0, 160)}"`),
+                    ...need(
+                        /nothing|no deadlines|clear|none/i.test(run.text),
+                        `says nothing is due: "${run.text.slice(0, 160)}"`,
+                    ),
                     ...quiet(run),
                 ],
             },
@@ -938,7 +1396,12 @@ const SCENARIOS: Scenario[] = [
         level: "simple",
         runs: 3,
         seed: async (t) => {
-            await t("create_tasks", { tasks: [{ title: "Essay", dueDate: TODAY, durationEstimate: 60 }, { title: "Email Sam", dueDate: TODAY, durationEstimate: 15 }] });
+            await t("create_tasks", {
+                tasks: [
+                    { title: "Essay", dueDate: TODAY, durationEstimate: 60 },
+                    { title: "Email Sam", dueDate: TODAY, durationEstimate: 15 },
+                ],
+            });
             return {};
         },
         turns: ["Put the essay in tonight."],
@@ -954,7 +1417,14 @@ const SCENARIOS: Scenario[] = [
         memoryMode: "full",
         seed: async (t) => {
             await withRls(getTestDb(), t.userId!, async (tx) => {
-                await insertFact(tx, t.userId!, { kind: "pattern", key: "pattern|slot|all|evening", content: "Often plans study in the evening (12 choices since August)", saidOn: "2026-09-20", source: "activity", confidence: "observed" });
+                await insertFact(tx, t.userId!, {
+                    kind: "pattern",
+                    key: "pattern|slot|all|evening",
+                    content: "Often plans study in the evening (12 choices since August)",
+                    saidOn: "2026-09-20",
+                    source: "activity",
+                    confidence: "observed",
+                });
             });
             return {};
         },
@@ -988,8 +1458,11 @@ const SCENARIOS: Scenario[] = [
         turns: ["add call the bank asap, and the dentist on friday"],
         check: async (run, t) => {
             const rows = await openTasks(t);
-            const bank = titled(rows, "bank"), dentist = titled(rows, "dentist");
-            const draft = called(run, "create_tasks").flatMap((c) => c.input.tasks ?? []).find((d: any) => /bank/i.test(d.title));
+            const bank = titled(rows, "bank"),
+                dentist = titled(rows, "dentist");
+            const draft = called(run, "create_tasks")
+                .flatMap((c) => c.input.tasks ?? [])
+                .find((d: any) => /bank/i.test(d.title));
             return [
                 ...need(bank?.priority === 4, `bank is Urgent (got ${bank?.priority})`),
                 ...need(/asap/i.test(draft?.said?.priority ?? ""), "the quote names asap"),
@@ -1006,7 +1479,10 @@ const SCENARIOS: Scenario[] = [
             const rows = await openTasks(t);
             return [
                 ...need(rows.length === 2, `two tasks (got ${rows.length})`),
-                ...need(rows.every((r) => !r.priority), `no priority (got ${rows.map((r) => r.priority).join(", ")})`),
+                ...need(
+                    rows.every((r) => !r.priority),
+                    `no priority (got ${rows.map((r) => r.priority).join(", ")})`,
+                ),
             ];
         },
     },
@@ -1017,7 +1493,10 @@ const SCENARIOS: Scenario[] = [
         turns: ["no rush, but add repaint the fence"],
         check: async (_run, t) => {
             const fence = titled(await openTasks(t), "fence");
-            return need(fence?.priority === 1, `fence is Low (got ${fence?.priority}; ${JSON.stringify(called(_run, "create_tasks").map((c) => [c.input.tasks, c.output?.ignored]))})`);
+            return need(
+                fence?.priority === 1,
+                `fence is Low (got ${fence?.priority}; ${JSON.stringify(called(_run, "create_tasks").map((c) => [c.input.tasks, c.output?.ignored]))})`,
+            );
         },
     },
     {
@@ -1027,11 +1506,15 @@ const SCENARIOS: Scenario[] = [
         turns: ["add the big history essay and a quick email to Jo"],
         check: async (_run, t) => {
             const rows = await openTasks(t);
-            const essay = titled(rows, "essay"), email = titled(rows, "jo");
+            const essay = titled(rows, "essay"),
+                email = titled(rows, "jo");
             return [
                 ...need(essay?.effort === 3, `essay High (got ${essay?.effort})`),
                 ...need(email?.effort === 1, `email Low (got ${email?.effort})`),
-                ...need(rows.every((r) => !r.priority), "no priority"),
+                ...need(
+                    rows.every((r) => !r.priority),
+                    "no priority",
+                ),
             ];
         },
     },
@@ -1045,20 +1528,39 @@ const SCENARIOS: Scenario[] = [
             return [
                 ...need(rows.length === 2, `two tasks (got ${rows.length})`),
                 ...need(!called(run, "ask_user").length, "no question"),
-                ...need(rows.every((r) => !r.priority && !r.effort), "no priority or effort"),
+                ...need(
+                    rows.every((r) => !r.priority && !r.effort),
+                    "no priority or effort",
+                ),
             ];
         },
     },
-    ...([
-        ["plan my day: asks which matters most", undefined],
-        ["plan my day: a question skipped yesterday is held back", { priority: { lastOn: "2026-09-22", misses: 1 } }],
-    ] as const).map(([name, fieldAsk]): Scenario => ({
+    ...(
+        [
+            ["plan my day: asks which matters most", undefined],
+            [
+                "plan my day: a question skipped yesterday is held back",
+                { priority: { lastOn: "2026-09-22", misses: 1 } },
+            ],
+        ] as const
+    ).map(([name, fieldAsk]): Scenario => ({
         name,
         level: "medium",
         runs: 3,
         seed: async (t) => {
-            await t("create_tasks", { tasks: ["Essay draft", "Laundry", "Email the landlord", "Groceries"].map((title) => ({ title, dueDate: TODAY })) });
-            if (fieldAsk) await withRls(getTestDb(), t.userId!, (tx: any) => tx.update(users).set({ settings: { assistant: { fieldAsk } } }).where(eq(users.id, t.userId!)));
+            await t("create_tasks", {
+                tasks: ["Essay draft", "Laundry", "Email the landlord", "Groceries"].map((title) => ({
+                    title,
+                    dueDate: TODAY,
+                })),
+            });
+            if (fieldAsk)
+                await withRls(getTestDb(), t.userId!, (tx: any) =>
+                    tx
+                        .update(users)
+                        .set({ settings: { assistant: { fieldAsk } } })
+                        .where(eq(users.id, t.userId!)),
+                );
             return {};
         },
         turns: ["plan my day"],
@@ -1066,14 +1568,27 @@ const SCENARIOS: Scenario[] = [
             const asks = called(run, "ask_user");
             const shown = asks.filter((c) => c.output?.asked === true);
             const rows = await openTasks(t);
-            if (fieldAsk) return [
-                ...need(!shown.length, `no question card (got ${JSON.stringify(asks.map((c) => [c.input, c.output]))})`),
-                ...need(run.text.trim().length > 0, "carried on with a plan"),
-                ...need(rows.every((r) => !r.priority), "no priority set"),
-            ];
+            if (fieldAsk)
+                return [
+                    ...need(
+                        !shown.length,
+                        `no question card (got ${JSON.stringify(asks.map((c) => [c.input, c.output]))})`,
+                    ),
+                    ...need(run.text.trim().length > 0, "carried on with a plan"),
+                    ...need(
+                        rows.every((r) => !r.priority),
+                        "no priority set",
+                    ),
+                ];
             return [
-                ...need(shown.length === 1 && shown[0].input.field === "priority", `one priority question (got ${asks.map((c) => c.input.field).join(", ") || "none"})`),
-                ...need(rows.every((r) => !r.priority), "nothing set before they answer"),
+                ...need(
+                    shown.length === 1 && shown[0].input.field === "priority",
+                    `one priority question (got ${asks.map((c) => c.input.field).join(", ") || "none"})`,
+                ),
+                ...need(
+                    rows.every((r) => !r.priority),
+                    "nothing set before they answer",
+                ),
             ];
         },
     })),
@@ -1081,15 +1596,34 @@ const SCENARIOS: Scenario[] = [
         name: "plan my day: the tapped title becomes High",
         level: "complex",
         runs: 3,
-        seed: async (t) => t("create_tasks", { tasks: ["Essay draft", "Laundry", "Email the landlord", "Groceries"].map((title) => ({ title, dueDate: TODAY })) }),
-        turns: ["plan my day", (calls) => calls.filter((c) => c.name === "ask_user").at(-1)?.input.options.find((o: any) => !/none|same/i.test(o.label))?.label ?? "Laundry"],
+        seed: async (t) =>
+            t("create_tasks", {
+                tasks: ["Essay draft", "Laundry", "Email the landlord", "Groceries"].map((title) => ({
+                    title,
+                    dueDate: TODAY,
+                })),
+            }),
+        turns: [
+            "plan my day",
+            (calls) =>
+                calls
+                    .filter((c) => c.name === "ask_user")
+                    .at(-1)
+                    ?.input.options.find((o: any) => !/none|same/i.test(o.label))?.label ?? "Laundry",
+        ],
         check: async (run, t) => {
-            const label = called(run, "ask_user").at(-1)?.input.options.find((o: any) => !/none|same/i.test(o.label))?.label ?? "";
+            const label =
+                called(run, "ask_user")
+                    .at(-1)
+                    ?.input.options.find((o: any) => !/none|same/i.test(o.label))?.label ?? "";
             const rows = await openTasks(t);
             const chosen = rows.find((r) => label && label.toLowerCase().includes(r.title.toLowerCase()));
             return [
                 ...need(called(run, "ask_user").filter((c) => c.output?.asked === true).length === 1, "asked once"),
-                ...need(called(run, "ask_user").at(-1)?.input.field === "priority", `the priority question (got ${JSON.stringify(called(run, "ask_user").map((c) => c.input))})`),
+                ...need(
+                    called(run, "ask_user").at(-1)?.input.field === "priority",
+                    `the priority question (got ${JSON.stringify(called(run, "ask_user").map((c) => c.input))})`,
+                ),
                 ...need(chosen?.priority === 3, `"${label}" is High (got ${chosen?.priority})`),
                 ...need(rows.filter((r) => r.priority).length === 1, "only that one"),
             ];
@@ -1099,16 +1633,22 @@ const SCENARIOS: Scenario[] = [
         name: "I'm wiped: offers the light task, changes nothing",
         level: "medium",
         runs: 3,
-        seed: async (t) => t("create_tasks", { tasks: [
-            { title: "Write the grant proposal", dueDate: TODAY, effort: 3 },
-            { title: "Water the plants", dueDate: TODAY, effort: 1 },
-            { title: "Deep clean the oven", dueDate: TODAY, effort: 3 },
-        ] }),
+        seed: async (t) =>
+            t("create_tasks", {
+                tasks: [
+                    { title: "Write the grant proposal", dueDate: TODAY, effort: 3 },
+                    { title: "Water the plants", dueDate: TODAY, effort: 1 },
+                    { title: "Deep clean the oven", dueDate: TODAY, effort: 3 },
+                ],
+            }),
         turns: ["I'm wiped. Anything small I can do today?"],
         check: async (run) => [
             ...need(/plant/i.test(run.text), "names the light task"),
             ...need(!run.calls.some((c) => !c.name.startsWith("get_") && c.name !== "ask_user"), "changed nothing"),
-            ...need(!/you (should|need to|must)|you've got this|great job/i.test(run.text), "no advice or cheerleading"),
+            ...need(
+                !/you (should|need to|must)|you've got this|great job/i.test(run.text),
+                "no advice or cheerleading",
+            ),
         ],
     },
     {
@@ -1117,7 +1657,10 @@ const SCENARIOS: Scenario[] = [
         routed: true,
         turns: ["hi", "how do I add a routine?"],
         check: async (run) => [
-            ...need(run.models.every((m) => m === env.AI_CHAT_MODEL_BASIC), `basic model throughout (got ${run.models.join(", ")})`),
+            ...need(
+                run.models.every((m) => m === env.AI_CHAT_MODEL_BASIC),
+                `basic model throughout (got ${run.models.join(", ")})`,
+            ),
             ...need(!run.calls.some((c) => !c.name.startsWith("get_")), "changed nothing"),
             ...need(/routine/i.test(run.text), "answered the how-to"),
         ],
@@ -1130,16 +1673,40 @@ const SCENARIOS: Scenario[] = [
         turns: ["hey", "add buy milk tomorrow", "thanks!"],
         check: async (run, t) => [
             ...need(run.models[0] === env.AI_CHAT_MODEL_BASIC, `opened basic (got ${run.models[0]})`),
-            ...need(run.models.slice(1).every((m) => m === getModelId(env)), `standard from the add on, never back (got ${run.models.join(", ")})`),
+            ...need(
+                run.models.slice(1).every((m) => m === getModelId(env)),
+                `standard from the add on, never back (got ${run.models.join(", ")})`,
+            ),
             ...need(!!titled(await openTasks(t), "milk"), "milk task added"),
         ],
     },
 ];
 
 // ── Runner ──────────────────────────────────────────────────────────────────
-type Totals = Pick<Run, "steps" | "tokens" | "inputTokens" | "outputTokens" | "cached" | "written" | "cost" | "unknownCostSteps" | "failedRuns" | "ms">;
+type Totals = Pick<
+    Run,
+    | "steps"
+    | "tokens"
+    | "inputTokens"
+    | "outputTokens"
+    | "cached"
+    | "written"
+    | "cost"
+    | "unknownCostSteps"
+    | "failedRuns"
+    | "ms"
+>;
 const selected = SCENARIOS.filter((scenario) => evaluation.profile !== "smoke" || scenario.smoke);
-const report: ({ name: string; runs: number; level: string; passed: boolean; problems: string[]; calls: string[]; models: string[]; servedModels: string[] } & Totals)[] = [];
+const report: ({
+    name: string;
+    runs: number;
+    level: string;
+    passed: boolean;
+    problems: string[];
+    calls: string[];
+    models: string[];
+    servedModels: string[];
+} & Totals)[] = [];
 const warmups: Run[] = [];
 let failedWarmups = 0;
 /** The share of input read from the prompt cache (input includes cached tokens). */
@@ -1151,60 +1718,162 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
         // One turn first writes the static prefix (tools + system prompt, the same for every
         // scenario) to the prompt cache; otherwise the concurrent first turns all miss and each pays to write it.
         for (const variant of variants) {
-            try { warmups.push(await converse(await createUser({ zone: TZ }), ["hi"], NOW, false, variant)); }
-            catch (error) { failedWarmups++; throw error; }
+            try {
+                warmups.push(await converse(await createUser({ zone: TZ }), ["hi"], NOW, false, variant));
+            } catch (error) {
+                failedWarmups++;
+                throw error;
+            }
         }
     });
     afterAll(() => {
         const passed = report.filter((r) => r.passed).length;
-        const sum = [...warmups, ...report].reduce((a, r) => ({ cost: a.cost + r.cost, tokens: a.tokens + r.tokens, cached: a.cached + r.cached }), { cost: 0, tokens: 0, cached: 0 });
-        const rows = report.map((r) => `${r.passed ? "PASS" : "FAIL"}  ${r.level.padEnd(7)} ${r.name.padEnd(46)} ${String(r.steps).padStart(2)} steps ${String(r.tokens).padStart(6)} tok ${cachedShare(r)} cached ${r.unknownCostSteps || r.failedRuns ? "unknown cost" : `$${r.cost.toFixed(4)}`} ${(r.ms / 1000).toFixed(1).padStart(5)}s  ${r.calls.join(" → ")}${r.problems.length ? `\n      ✗ ${r.problems.join("\n      ✗ ")}` : ""}`);
-        process.stdout.write(`\nAssistant evals [${evaluation.profile}] (${env.AI_CHAT_MODEL ?? "default model"}): ${passed}/${report.length} passed · ${sum.tokens} tok, ${cachedShare(sum as Totals)} cached · known cost $${sum.cost.toFixed(4)}\n${rows.join("\n")}\n\n`);
+        const sum = [...warmups, ...report].reduce(
+            (a, r) => ({ cost: a.cost + r.cost, tokens: a.tokens + r.tokens, cached: a.cached + r.cached }),
+            { cost: 0, tokens: 0, cached: 0 },
+        );
+        const rows = report.map(
+            (r) =>
+                `${r.passed ? "PASS" : "FAIL"}  ${r.level.padEnd(7)} ${r.name.padEnd(46)} ${String(r.steps).padStart(2)} steps ${String(r.tokens).padStart(6)} tok ${cachedShare(r)} cached ${r.unknownCostSteps || r.failedRuns ? "unknown cost" : `$${r.cost.toFixed(4)}`} ${(r.ms / 1000).toFixed(1).padStart(5)}s  ${r.calls.join(" → ")}${r.problems.length ? `\n      ✗ ${r.problems.join("\n      ✗ ")}` : ""}`,
+        );
+        process.stdout.write(
+            `\nAssistant evals [${evaluation.profile}] (${env.AI_CHAT_MODEL ?? "default model"}): ${passed}/${report.length} passed · ${sum.tokens} tok, ${cachedShare(sum as Totals)} cached · known cost $${sum.cost.toFixed(4)}\n${rows.join("\n")}\n\n`,
+        );
         const dir = join(__dirname, "../../../../output/evals");
         mkdirSync(dir, { recursive: true });
         const unknown = [...warmups, ...report].reduce((n, r) => n + r.unknownCostSteps, 0);
         const failedRuns = report.reduce((n, r) => n + r.failedRuns, failedWarmups);
-        writeFileSync(join(dir, `${reportName}.json`), JSON.stringify({ profile: evaluation.profile, repetitionLimit: maxRuns, availableScenarios: SCENARIOS.length, warmupKnownCost: warmups.reduce((n, r) => n + r.cost, 0), selectedScenarios: selected.length, variants, at: new Date().toISOString(), model: env.AI_CHAT_MODEL ?? "default", passed, total: report.length, cost: unknown || failedRuns ? null : sum.cost, knownCost: sum.cost, unknownCostSteps: unknown, failedRuns,
-            report: report.map((r) => ({ ...r, cost: r.unknownCostSteps || r.failedRuns ? null : r.cost, knownCost: r.cost })) }, null, 2));
+        writeFileSync(
+            join(dir, `${reportName}.json`),
+            JSON.stringify(
+                {
+                    profile: evaluation.profile,
+                    repetitionLimit: maxRuns,
+                    availableScenarios: SCENARIOS.length,
+                    warmupKnownCost: warmups.reduce((n, r) => n + r.cost, 0),
+                    selectedScenarios: selected.length,
+                    variants,
+                    at: new Date().toISOString(),
+                    model: env.AI_CHAT_MODEL ?? "default",
+                    passed,
+                    total: report.length,
+                    cost: unknown || failedRuns ? null : sum.cost,
+                    knownCost: sum.cost,
+                    unknownCostSteps: unknown,
+                    failedRuns,
+                    report: report.map((r) => ({
+                        ...r,
+                        cost: r.unknownCostSteps || r.failedRuns ? null : r.cost,
+                        knownCost: r.cost,
+                    })),
+                },
+                null,
+                2,
+            ),
+        );
     });
 
-    for (const [index, scenario] of selected.entries()) for (const variant of (index % 2 ? [...variants].reverse() : variants)) {
-        it.concurrent(`${scenario.name}`, async () => {
-            const total: Totals = { steps: 0, tokens: 0, inputTokens: 0, outputTokens: 0, cached: 0, written: 0, cost: 0, unknownCostSteps: 0, failedRuns: 0, ms: 0 };
-            const problems: string[] = [];
-            let calls: string[] = [];
-            const models = new Set<string>(), servedModels = new Set<string>();
-            const runs = Math.min(scenario.runs ?? 1, maxRuns);
-            for (let attempt = 1; attempt <= runs; attempt++) {
-                const userId = await createUser({ zone: TZ, ...(scenario.memoryMode && { settings: { assistant: { memoryMode: scenario.memoryMode, memoryEpoch: 1 } } }) });
-                const t = Object.assign(toolsFor(userId, scenario.now), { userId });
-                const seeded = (await scenario.seed?.(t)) ?? {};
-                let run: Run;
-                try { run = await converse(userId, scenario.turns, scenario.now, scenario.routed, variant, scenario.surface); }
-                catch (error) {
-                    total.failedRuns++;
-                    problems.push(`run ${attempt}: generation failed (${error instanceof Error ? error.name : "unknown error"}); usage/cost unknown`);
-                    continue;
+    for (const [index, scenario] of selected.entries())
+        for (const variant of index % 2 ? [...variants].reverse() : variants) {
+            it.concurrent(`${scenario.name}`, async () => {
+                const total: Totals = {
+                    steps: 0,
+                    tokens: 0,
+                    inputTokens: 0,
+                    outputTokens: 0,
+                    cached: 0,
+                    written: 0,
+                    cost: 0,
+                    unknownCostSteps: 0,
+                    failedRuns: 0,
+                    ms: 0,
+                };
+                const problems: string[] = [];
+                let calls: string[] = [];
+                const models = new Set<string>(),
+                    servedModels = new Set<string>();
+                const runs = Math.min(scenario.runs ?? 1, maxRuns);
+                for (let attempt = 1; attempt <= runs; attempt++) {
+                    const userId = await createUser({
+                        zone: TZ,
+                        ...(scenario.memoryMode && {
+                            settings: { assistant: { memoryMode: scenario.memoryMode, memoryEpoch: 1 } },
+                        }),
+                    });
+                    const t = Object.assign(toolsFor(userId, scenario.now), { userId });
+                    const seeded = (await scenario.seed?.(t)) ?? {};
+                    let run: Run;
+                    try {
+                        run = await converse(
+                            userId,
+                            scenario.turns,
+                            scenario.now,
+                            scenario.routed,
+                            variant,
+                            scenario.surface,
+                        );
+                    } catch (error) {
+                        total.failedRuns++;
+                        problems.push(
+                            `run ${attempt}: generation failed (${error instanceof Error ? error.name : "unknown error"}); usage/cost unknown`,
+                        );
+                        continue;
+                    }
+                    run.models.forEach((id) => models.add(id));
+                    run.servedModels.forEach((id) => servedModels.add(id));
+                    const found = [
+                        ...(await scenario.check(run, t, seeded)),
+                        ...failedCalls(run).filter((p) => !p.startsWith("get_")),
+                    ];
+                    problems.push(...found.map((p) => (runs > 1 ? `run ${attempt}: ${p}` : p)));
+                    for (const key of Object.keys(total) as (keyof Totals)[]) total[key] += run[key];
+                    calls = [...new Set(run.calls.map((c) => c.step))].map((step) =>
+                        run.calls
+                            .filter((c) => c.step === step)
+                            .map((c) => c.name)
+                            .join("+"),
+                    );
                 }
-                run.models.forEach((id) => models.add(id));
-                run.servedModels.forEach((id) => servedModels.add(id));
-                const found = [...(await scenario.check(run, t, seeded)), ...failedCalls(run).filter((p) => !p.startsWith("get_"))];
-                problems.push(...found.map((p) => (runs > 1 ? `run ${attempt}: ${p}` : p)));
-                for (const key of Object.keys(total) as (keyof Totals)[]) total[key] += run[key];
-                calls = [...new Set(run.calls.map((c) => c.step))].map((step) => run.calls.filter((c) => c.step === step).map((c) => c.name).join("+"));
-            }
-            report.push({ name: scenario.name, runs, level: scenario.level, passed: problems.length === 0, problems, ...total, calls, models: [...models], servedModels: [...servedModels] });
-            expect(problems).toEqual([]);
-        });
-    }
+                report.push({
+                    name: scenario.name,
+                    runs,
+                    level: scenario.level,
+                    passed: problems.length === 0,
+                    problems,
+                    ...total,
+                    calls,
+                    models: [...models],
+                    servedModels: [...servedModels],
+                });
+                expect(problems).toEqual([]);
+            });
+        }
 });
 
 /** 0.38.0 F3: Suggest steps against the configured chat model, each case three times. */
 const STEP_CASES = [
-    { name: "a concrete task", input: { title: "Write lab report for CHEM 201", notes: "", listName: "School", existing: [] } },
-    { name: "keeps the title's language", input: { title: "Preparar la presentación del viernes", notes: "", listName: null, existing: [] }, spanish: true },
-    { name: "a vague title still gets small concrete steps", input: { title: "sort life out", notes: "", listName: null, existing: [] } },
-    { name: "never repeats existing steps", input: { title: "Paint the hallway", notes: "", listName: "Home", existing: ["Buy paint", "Move the shoe rack"] } },
+    {
+        name: "a concrete task",
+        input: { title: "Write lab report for CHEM 201", notes: "", listName: "School", existing: [] },
+    },
+    {
+        name: "keeps the title's language",
+        input: { title: "Preparar la presentación del viernes", notes: "", listName: null, existing: [] },
+        spanish: true,
+    },
+    {
+        name: "a vague title still gets small concrete steps",
+        input: { title: "sort life out", notes: "", listName: null, existing: [] },
+    },
+    {
+        name: "never repeats existing steps",
+        input: {
+            title: "Paint the hallway",
+            notes: "",
+            listName: "Home",
+            existing: ["Buy paint", "Move the shoe rack"],
+        },
+    },
 ];
 
 describe.skipIf(!env.OPENROUTER_API_KEY)("suggest steps evals", () => {
@@ -1213,12 +1882,32 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("suggest steps evals", () => {
             const problems: string[] = [];
             for (let attempt = 1; attempt <= 3; attempt++) {
                 const { steps } = await suggestSteps(env, "eval", c.input);
-                const p = (ok: boolean, problem: string) => { if (!ok) problems.push(`run ${attempt}: ${problem} (${JSON.stringify(steps)})`); };
+                const p = (ok: boolean, problem: string) => {
+                    if (!ok) problems.push(`run ${attempt}: ${problem} (${JSON.stringify(steps)})`);
+                };
                 p(steps.length >= 3 && steps.length <= 7, "3–7 steps");
-                p(steps.every((s) => s.length <= 80), "each ≤ 80 characters");
-                p(!steps.some((s) => /\b(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}(:\d\d)?\s?(am|pm)|minutes?|hours?|mins?)\b/i.test(s)), "no dates, times or lengths");
-                p(!steps.some((s) => c.input.existing.some((e) => s.toLowerCase().includes(e.toLowerCase()))), "no repeats of existing steps");
-                if (c.spanish) p(steps.filter((s) => /[áéíóúñ]|\b(el|la|los|las|de|del|para|con|una?)\b/i.test(s)).length >= Math.ceil(steps.length / 2), "kept the title's language");
+                p(
+                    steps.every((s) => s.length <= 80),
+                    "each ≤ 80 characters",
+                );
+                p(
+                    !steps.some((s) =>
+                        /\b(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}(:\d\d)?\s?(am|pm)|minutes?|hours?|mins?)\b/i.test(
+                            s,
+                        ),
+                    ),
+                    "no dates, times or lengths",
+                );
+                p(
+                    !steps.some((s) => c.input.existing.some((e) => s.toLowerCase().includes(e.toLowerCase()))),
+                    "no repeats of existing steps",
+                );
+                if (c.spanish)
+                    p(
+                        steps.filter((s) => /[áéíóúñ]|\b(el|la|los|las|de|del|para|con|una?)\b/i.test(s)).length >=
+                            Math.ceil(steps.length / 2),
+                        "kept the title's language",
+                    );
             }
             expect(problems).toEqual([]);
         });

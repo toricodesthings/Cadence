@@ -15,12 +15,20 @@ type Weighed = Pick<Task, "dueDate" | "scheduledStart" | "scheduledEnd" | "effor
  */
 function weight(task: Weighed, guess: Level | null) {
     if (task.isHabit) return 1;
-    const hours = task.scheduledStart && task.scheduledEnd ? Math.ceil((Date.parse(task.scheduledEnd) - Date.parse(task.scheduledStart)) / 3_600_000) : 0;
+    const hours =
+        task.scheduledStart && task.scheduledEnd
+            ? Math.ceil((Date.parse(task.scheduledEnd) - Date.parse(task.scheduledStart)) / 3_600_000)
+            : 0;
     return Math.max(task.effort ?? guess ?? UNKNOWN_EFFORT, Math.min(3, hours));
 }
 
 /** Effort-weighted load per day; unset effort counts as its guess, else middling; a timed block by its length, a routine day as 1. */
-export function dayLoads<T extends Weighed>(tasks: T[], start: LocalDate, days = 7, guessOf?: (task: T) => Level | null | undefined) {
+export function dayLoads<T extends Weighed>(
+    tasks: T[],
+    start: LocalDate,
+    days = 7,
+    guessOf?: (task: T) => Level | null | undefined,
+) {
     const loads = new Map<LocalDate, number>();
     for (let i = 0; i < days; i++) loads.set(addDays(start, i), 0);
     for (const task of tasks) {
@@ -48,7 +56,10 @@ type Sized = Pick<Task, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd
  * counted as not sized (never as 60: that would be Cadence inventing a verdict). A routine counts by its typical length when its own answers support one, else not at all; all-day multi-day
  * tasks aren't counted. This is a note on the day, not a capacity: nothing here says a day is too full.
  */
-export function dayMinutes<T extends Sized>(tasks: readonly T[], guessOf: (task: T) => { state: "tentative" | "supported"; minutes: number } | null) {
+export function dayMinutes<T extends Sized>(
+    tasks: readonly T[],
+    guessOf: (task: T) => { state: "tentative" | "supported"; minutes: number } | null,
+) {
     let minutes = 0;
     let unsized = 0;
     for (const task of tasks) {
@@ -59,7 +70,8 @@ export function dayMinutes<T extends Sized>(tasks: readonly T[], guessOf: (task:
             if (guess?.state === "supported") minutes += guess.minutes;
             continue;
         }
-        const known = (task.scheduledStart && task.scheduledEnd) || task.durationEstimate || guess?.state === "supported";
+        const known =
+            (task.scheduledStart && task.scheduledEnd) || task.durationEstimate || guess?.state === "supported";
         if (known) minutes += taskMinutes(task, guess);
         else unsized++;
     }

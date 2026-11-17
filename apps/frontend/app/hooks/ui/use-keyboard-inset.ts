@@ -47,4 +47,5 @@ export function useKeyboardInset(active: boolean) {
 }
 
 /** The tallest a sheet may be while the keyboard is up (a safe-area gap at the top); null without a keyboard. */
-export const aboveKeyboardHeight = (visible: number) => (visible ? `calc(${visible}px - max(0.5rem, env(safe-area-inset-top)))` : null);
+export const aboveKeyboardHeight = (visible: number) =>
+    visible ? `calc(${visible}px - max(0.5rem, env(safe-area-inset-top)))` : null;

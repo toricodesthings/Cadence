@@ -7,7 +7,14 @@ import {
     ensureAccentContrast,
     extractPhotoPalette,
 } from "../../../app/lib/themes/image-palette";
-import { chromaOf, hexOf, hueOf, lightnessOf, relativeLuminance, withLightness } from "../../../app/lib/themes/background-tokens";
+import {
+    chromaOf,
+    hexOf,
+    hueOf,
+    lightnessOf,
+    relativeLuminance,
+    withLightness,
+} from "../../../app/lib/themes/background-tokens";
 
 /** Build RGBA pixels from a list of [r, g, b, count] runs. */
 function pixels(...runs: Array<[number, number, number, number]>): Uint8ClampedArray {
@@ -104,7 +111,11 @@ describe("accents", () => {
 
     it("builds the full accent token set with readable on-primary text", () => {
         const tone = derivePhotoTone("#101828", 100);
-        const tokens = derivePhotoAccentTokens(autoAccent(["#e8a44a", "#7eb8d4"], tone.base), ["#e8a44a", "#7eb8d4"], tone);
+        const tokens = derivePhotoAccentTokens(
+            autoAccent(["#e8a44a", "#7eb8d4"], tone.base),
+            ["#e8a44a", "#7eb8d4"],
+            tone,
+        );
         for (const name of ["--accent-primary", "--accent-secondary", "--accent-glow", "--accent-on-primary"]) {
             expect(tokens[name]).toBeTruthy();
         }
@@ -133,7 +144,8 @@ describe("oklch helpers", () => {
     it("gives every hue the same surface depth", () => {
         for (const bright of [10, 100]) {
             const lights = Array.from({ length: 12 }, (_, i) =>
-                lightnessOf(derivePhotoTone(hexOf(bright === 10 ? 0.2 : 0.97, 0.05, i * 30), bright).base));
+                lightnessOf(derivePhotoTone(hexOf(bright === 10 ? 0.2 : 0.97, 0.05, i * 30), bright).base),
+            );
             expect(Math.max(...lights) - Math.min(...lights)).toBeLessThan(0.02);
         }
     });

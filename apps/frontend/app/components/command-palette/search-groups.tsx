@@ -1,4 +1,13 @@
-import { CheckSquare, Flame, FolderOpen, Navigation, type LucideIcon, MessageSquare, StickyNote, Zap } from "lucide-react";
+import {
+    CheckSquare,
+    Flame,
+    FolderOpen,
+    Navigation,
+    type LucideIcon,
+    MessageSquare,
+    StickyNote,
+    Zap,
+} from "lucide-react";
 import type { SearchResult, SearchResultKind } from "../../hooks/search/use-universal-search";
 
 const KIND_ICON: Record<SearchResultKind, LucideIcon> = {

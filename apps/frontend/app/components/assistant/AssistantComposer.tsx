@@ -1,6 +1,17 @@
 import React, { useEffect, useRef, useState, type RefObject } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, ArrowUp, ImagePlus, Slash, Zap, ShieldCheck, ShieldOff, ChevronDown, LoaderCircle, CircleAlert } from "lucide-react";
+import {
+    X,
+    ArrowUp,
+    ImagePlus,
+    Slash,
+    Zap,
+    ShieldCheck,
+    ShieldOff,
+    ChevronDown,
+    LoaderCircle,
+    CircleAlert,
+} from "lucide-react";
 import type { ApprovalMode } from "@cadence/contracts/ai";
 import { Tip, DropdownMenu } from "../primitives";
 import { ImageViewer } from "../shared/ImageViewer";
@@ -11,9 +22,21 @@ import type { ImageAllowance } from "../../lib/ai/usage";
 import type { ChatAttachments } from "../../hooks/ai/use-chat-attachments";
 
 const APPROVAL_MODES: Record<ApprovalMode, { label: string; icon: React.ReactNode; hint: (name: string) => string }> = {
-    ask: { label: "Ask first", icon: <ShieldCheck size={13} aria-hidden />, hint: () => "Confirm every create, change or delete" },
-    auto: { label: "Auto", icon: <Zap size={13} aria-hidden />, hint: (name) => `${name} applies changes, but asks before deleting for good` },
-    full: { label: "Full", icon: <ShieldOff size={13} aria-hidden />, hint: (name) => `${name} applies every change, deletes included` },
+    ask: {
+        label: "Ask first",
+        icon: <ShieldCheck size={13} aria-hidden />,
+        hint: () => "Confirm every create, change or delete",
+    },
+    auto: {
+        label: "Auto",
+        icon: <Zap size={13} aria-hidden />,
+        hint: (name) => `${name} applies changes, but asks before deleting for good`,
+    },
+    full: {
+        label: "Full",
+        icon: <ShieldOff size={13} aria-hidden />,
+        hint: (name) => `${name} applies every change, deletes included`,
+    },
 };
 export function AssistantComposer({
     assistantName,
@@ -32,7 +55,7 @@ export function AssistantComposer({
     textareaRef,
     onSend,
     onStop,
-    onCommand
+    onCommand,
 }: {
     assistantName: string;
     isTouch: boolean;
@@ -54,15 +77,21 @@ export function AssistantComposer({
 }) {
     const { attachments, uploading, readyImages, addImages } = images;
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const pendingMessage = useAssistantStore(s => s.pendingMessage);
-    const clearPendingMessage = useAssistantStore(s => s.clearPendingMessage);
-    useEffect(() => { if (pendingMessage) { onInputChange(pendingMessage); clearPendingMessage(); } }, [pendingMessage, clearPendingMessage, onInputChange]);
+    const pendingMessage = useAssistantStore((s) => s.pendingMessage);
+    const clearPendingMessage = useAssistantStore((s) => s.clearPendingMessage);
+    useEffect(() => {
+        if (pendingMessage) {
+            onInputChange(pendingMessage);
+            clearPendingMessage();
+        }
+    }, [pendingMessage, clearPendingMessage, onInputChange]);
     // Slash commands run in the app (no chat turn). Typing `/` opens the menu and
     // narrows it; the `/` button opens all of it over a draft without touching the
     // text. Escape hides the menu until the text changes.
     const [slashIndex, setSlashIndex] = useState(0);
     const [slashMode, setSlashMode] = useState<"auto" | "dismissed" | "forced">("auto");
-    const slashCommands: readonly SlashCommand[] = slashMode === "forced" ? SLASH_COMMANDS : slashMode === "dismissed" ? [] : filterSlashCommands(input);
+    const slashCommands: readonly SlashCommand[] =
+        slashMode === "forced" ? SLASH_COMMANDS : slashMode === "dismissed" ? [] : filterSlashCommands(input);
     const activeSlash = slashCommands[Math.min(slashIndex, slashCommands.length - 1)];
     const runSlashCommand = (command: SlashCommand) => {
         // Clear only a typed `/word`; a draft under the button's menu stays.
@@ -144,7 +173,11 @@ export function AssistantComposer({
 
             <AnimatePresence>
                 {slashCommands.length > 0 ? (
-                    <SlashCommandMenu commands={slashCommands} activeIndex={Math.min(slashIndex, slashCommands.length - 1)} onPick={runSlashCommand} />
+                    <SlashCommandMenu
+                        commands={slashCommands}
+                        activeIndex={Math.min(slashIndex, slashCommands.length - 1)}
+                        onPick={runSlashCommand}
+                    />
                 ) : null}
             </AnimatePresence>
 
@@ -184,7 +217,8 @@ export function AssistantComposer({
                     onPaste={(e) => {
                         // Office apps put the text and a picture of it on the clipboard: keep the text.
                         const data = e.clipboardData;
-                        if (data.getData("text/plain") || ![...data.files].some((f) => f.type.startsWith("image/"))) return;
+                        if (data.getData("text/plain") || ![...data.files].some((f) => f.type.startsWith("image/")))
+                            return;
                         e.preventDefault();
                         addImages(e.clipboardData.files);
                     }}
@@ -211,7 +245,10 @@ export function AssistantComposer({
                         <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            disabled={imageAllowance.blocked || attachments.length >= Math.min(perMessage, imageAllowance.left)}
+                            disabled={
+                                imageAllowance.blocked ||
+                                attachments.length >= Math.min(perMessage, imageAllowance.left)
+                            }
                             aria-label={imageAllowance.label}
                             className="flex h-9 w-9 items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text disabled:opacity-40 cursor-pointer"
                         >
@@ -241,7 +278,12 @@ export function AssistantComposer({
 
                     <div className="flex-1" />
 
-                    <SendButton isStreaming={isStreaming} onStop={onStop} disabled={(!input.trim() && readyImages.length === 0) || !online || uploading} uploading={uploading} />
+                    <SendButton
+                        isStreaming={isStreaming}
+                        onStop={onStop}
+                        disabled={(!input.trim() && readyImages.length === 0) || !online || uploading}
+                        uploading={uploading}
+                    />
                 </div>
             </div>
             {/* Footer: the low-budget hint takes the line over the AI disclaimer
@@ -347,7 +389,12 @@ function ApprovalModeMenu({ assistantName }: { assistantName: string }) {
     );
 }
 
-function SendButton({ isStreaming, onStop, disabled, uploading }: {
+function SendButton({
+    isStreaming,
+    onStop,
+    disabled,
+    uploading,
+}: {
     isStreaming: boolean;
     onStop: () => Promise<void>;
     disabled: boolean;

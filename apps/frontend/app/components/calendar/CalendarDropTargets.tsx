@@ -25,18 +25,14 @@ function TimeSlotDropZone({
     const isHighlighted = isOver || isActive;
 
     return (
-        <div
-            ref={setNodeRef}
-            className="absolute inset-x-0 z-30"
-            style={{ top, height }}
-            aria-hidden="true"
-        >
+        <div ref={setNodeRef} className="absolute inset-x-0 z-30" style={{ top, height }} aria-hidden="true">
             <div
                 className={`
                     absolute inset-x-1.5 top-1/2 -translate-y-1/2 rounded-full border transition-[opacity,transform,box-shadow,background-color] duration-150
-                    ${isHighlighted
-                        ? "opacity-100 scale-100 border-moonlit/50 bg-moonlit/10 shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-moonlit)_12%,transparent),0_0_18px_color-mix(in_srgb,var(--color-moonlit)_16%,transparent)]"
-                        : "opacity-0 scale-95 border-transparent bg-transparent"
+                    ${
+                        isHighlighted
+                            ? "opacity-100 scale-100 border-moonlit/50 bg-moonlit/10 shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-moonlit)_12%,transparent),0_0_18px_color-mix(in_srgb,var(--color-moonlit)_16%,transparent)]"
+                            : "opacity-0 scale-95 border-transparent bg-transparent"
                     }
                 `}
                 style={{ height: Math.max(12, height - 8) }}
@@ -71,7 +67,11 @@ export function TimeSlotDropLayer({
     );
 
     return (
-        <div className="absolute inset-0 z-30 pointer-events-none" style={{ height: DAY_GRID_HEIGHT }} aria-hidden="true">
+        <div
+            className="absolute inset-0 z-30 pointer-events-none"
+            style={{ height: DAY_GRID_HEIGHT }}
+            aria-hidden="true"
+        >
             {slots.map((slot) => (
                 <TimeSlotDropZone
                     key={slot.key}
@@ -106,9 +106,10 @@ export function AllDayDropLane({
             style={style}
             className={`
                 relative rounded-2xl transition-[background-color,border-color,box-shadow] duration-150
-                ${isHighlighted
-                    ? "bg-moonlit/10 ring-1 ring-moonlit/35 shadow-[0_0_18px_color-mix(in_srgb,var(--color-moonlit)_12%,transparent)]"
-                    : ""
+                ${
+                    isHighlighted
+                        ? "bg-moonlit/10 ring-1 ring-moonlit/35 shadow-[0_0_18px_color-mix(in_srgb,var(--color-moonlit)_12%,transparent)]"
+                        : ""
                 }
                 ${className}
             `}
@@ -123,11 +124,7 @@ export function AllDayDropLane({
     );
 }
 
-export function TimedDropPreview({
-    preview,
-}: {
-    preview: CalendarDropPreview;
-}) {
+export function TimedDropPreview({ preview }: { preview: CalendarDropPreview }) {
     if (preview.kind !== "timed" || preview.startMinutes == null || preview.endMinutes == null) {
         return null;
     }
@@ -154,11 +151,7 @@ export function TimedDropPreview({
     );
 }
 
-export function AllDayDropPreview({
-    preview,
-}: {
-    preview: CalendarDropPreview;
-}) {
+export function AllDayDropPreview({ preview }: { preview: CalendarDropPreview }) {
     if (preview.kind !== "allday") {
         return null;
     }

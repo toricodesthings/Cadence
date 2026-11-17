@@ -11,14 +11,27 @@ import { IS_DESKTOP_RUNTIME, openExternalUrl } from "../../platform/runtime";
  * before a custom scheme. Only the desktop shell hands an HTTPS address to the system; everywhere else
  * a website opens in a new tab.
  */
-export function AppAnchor({ href, opens, children, ...props }: Omit<ComponentProps<"a">, "href"> & { href: string; opens: AppLaunch["opens"]; children: ReactNode }) {
+export function AppAnchor({
+    href,
+    opens,
+    children,
+    ...props
+}: Omit<ComponentProps<"a">, "href"> & { href: string; opens: AppLaunch["opens"]; children: ReactNode }) {
     const website = opens === "website";
     return (
         <a
             {...props}
             href={href}
             {...(website ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-            onClick={IS_DESKTOP_RUNTIME && website ? (event) => { event.preventDefault(); const safe = parseWebsite(href); if (safe) void openExternalUrl(safe); } : undefined}
+            onClick={
+                IS_DESKTOP_RUNTIME && website
+                    ? (event) => {
+                          event.preventDefault();
+                          const safe = parseWebsite(href);
+                          if (safe) void openExternalUrl(safe);
+                      }
+                    : undefined
+            }
         >
             {children}
         </a>
@@ -28,7 +41,17 @@ export function AppAnchor({ href, opens, children, ...props }: Omit<ComponentPro
 export const OPEN_PILL = "shrink-0 gap-1.5 rounded-full px-4 text-[13px]";
 
 /** The "Open" pill for a link already resolved for this device. */
-export function OpenPill({ href, opens, label, onClick }: { href: string; opens: AppLaunch["opens"]; label: string; onClick?: () => void }) {
+export function OpenPill({
+    href,
+    opens,
+    label,
+    onClick,
+}: {
+    href: string;
+    opens: AppLaunch["opens"];
+    label: string;
+    onClick?: () => void;
+}) {
     return (
         <Button asChild variant="cardPrimary" size="sm" className={OPEN_PILL}>
             <AppAnchor href={href} opens={opens} aria-label={label} onClickCapture={onClick}>
@@ -44,5 +67,11 @@ export function AppLaunchLink({ appId }: { appId: string | null | undefined }) {
     const entry = appEntry(appId);
     const launch = entry ? resolveAppLaunch(entry) : null;
     if (!entry || !launch) return null;
-    return <OpenPill href={launch.href} opens={launch.opens} label={launch.opens === "website" ? `Open ${entry.label} website` : `Open ${entry.label}`} />;
+    return (
+        <OpenPill
+            href={launch.href}
+            opens={launch.opens}
+            label={launch.opens === "website" ? `Open ${entry.label} website` : `Open ${entry.label}`}
+        />
+    );
 }

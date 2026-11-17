@@ -30,18 +30,29 @@ const WIN_SHARE = 0.65;
 const DRIFT_WINDOW = 5;
 const DRIFT_CONTRADICTIONS = 3;
 
-const weightOf = (r: SlotRecord, today: LocalDate) => (r.suggested ? 0.5 : 1) * 2 ** (-Math.max(0, daysBetween(r.saidOn, today)) / HALF_LIFE_DAYS);
+const weightOf = (r: SlotRecord, today: LocalDate) =>
+    (r.suggested ? 0.5 : 1) * 2 ** (-Math.max(0, daysBetween(r.saidOn, today)) / HALF_LIFE_DAYS);
 
 function qualified(records: readonly SlotRecord[], today: LocalDate): boolean {
-    return records.length >= MIN_RECORDS && new Set(records.map((r) => r.saidOn)).size >= MIN_DAYS && records.reduce((sum, r) => sum + weightOf(r, today), 0) >= MIN_WEIGHT;
+    return (
+        records.length >= MIN_RECORDS &&
+        new Set(records.map((r) => r.saidOn)).size >= MIN_DAYS &&
+        records.reduce((sum, r) => sum + weightOf(r, today), 0) >= MIN_WEIGHT
+    );
 }
 
 /** Winner's decayed win share against `other`, or null with no comparison between them. */
-function shareAgainst(records: readonly SlotRecord[], winner: TimeOfDay, other: TimeOfDay, today: LocalDate): number | null {
+function shareAgainst(
+    records: readonly SlotRecord[],
+    winner: TimeOfDay,
+    other: TimeOfDay,
+    today: LocalDate,
+): number | null {
     let won = 0;
     let lost = 0;
     for (const r of records) {
-        if (!r.feasible.includes(winner) || !r.feasible.includes(other) || (r.chosen !== winner && r.chosen !== other)) continue;
+        if (!r.feasible.includes(winner) || !r.feasible.includes(other) || (r.chosen !== winner && r.chosen !== other))
+            continue;
         // One choice weighs at most 1 in total: its weight is split across the buckets it beat.
         const share = weightOf(r, today) / Math.max(1, new Set(r.feasible).size - 1);
         if (r.chosen === winner) won += share;
@@ -71,7 +82,10 @@ function drifted(records: readonly SlotRecord[], winner: TimeOfDay): boolean {
  * choices), else all of them. The winner must win ≥ 65% of its comparisons against every other bucket that has room
  * today, each compared at least once. No winner, a cycle, drift or too few choices → nothing is claimed.
  */
-export function learnedPreference(records: readonly SlotRecord[], opts: { projectId: string | null; feasibleToday: readonly TimeOfDay[]; today: LocalDate }): TimeOfDay[] {
+export function learnedPreference(
+    records: readonly SlotRecord[],
+    opts: { projectId: string | null; feasibleToday: readonly TimeOfDay[]; today: LocalDate },
+): TimeOfDay[] {
     const { feasibleToday, today } = opts;
     if (new Set(feasibleToday).size < 2) return [];
     const inList = opts.projectId ? records.filter((r) => r.projectId === opts.projectId) : [];
@@ -88,10 +102,15 @@ export function learnedPreference(records: readonly SlotRecord[], opts: { projec
 }
 
 /** A stated preference that applies to this task: it says nothing about a topic, or the topic shares a meaningful word with the title or is the list's name. The newest applying one wins. */
-export function statedPreference(stated: readonly StatedWhen[], task: { title: string; listName: string | null }): TimeOfDay[] {
+export function statedPreference(
+    stated: readonly StatedWhen[],
+    task: { title: string; listName: string | null },
+): TimeOfDay[] {
     const title = meaningOf(task.title);
     const list = task.listName?.trim().toLowerCase();
-    const applies = (s: StatedWhen) => s.buckets.length > 0 && (!s.about || similarity(meaningOf(s.about), title) > 0 || (!!list && s.about.trim().toLowerCase() === list));
+    const applies = (s: StatedWhen) =>
+        s.buckets.length > 0 &&
+        (!s.about || similarity(meaningOf(s.about), title) > 0 || (!!list && s.about.trim().toLowerCase() === list));
     return stated.find(applies)?.buckets ?? [];
 }
 
@@ -103,5 +122,7 @@ export function preferredBuckets(
     today: LocalDate,
 ): TimeOfDay[] {
     const stated = statedPreference(evidence.stated, task);
-    return stated.length ? stated : learnedPreference(evidence.records, { projectId: task.projectId, feasibleToday, today });
+    return stated.length
+        ? stated
+        : learnedPreference(evidence.records, { projectId: task.projectId, feasibleToday, today });
 }

@@ -2,8 +2,22 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-    Database, ChevronDown, ChevronRight, Sparkles, Trash2, BellRing, CheckCircle2, Info, TriangleAlert, CircleAlert,
-    LoaderCircle, CalendarClock, Flower2, Sun, Leaf, Snowflake,
+    Database,
+    ChevronDown,
+    ChevronRight,
+    Sparkles,
+    Trash2,
+    BellRing,
+    CheckCircle2,
+    Info,
+    TriangleAlert,
+    CircleAlert,
+    LoaderCircle,
+    CalendarClock,
+    Flower2,
+    Sun,
+    Leaf,
+    Snowflake,
 } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as AlertDialog from "../primitives/AlertDialog";
@@ -25,33 +39,39 @@ const LOADING_PREVIEWS: readonly { season?: Season; label: string; icon: typeof 
 type ToastKind = "default" | "success" | "info" | "warning" | "error" | "loading";
 
 const TOAST_PREVIEWS: Record<ToastKind, () => void> = {
-    default: () => toast.message("Default toast", {
-        description: "Neutral Cadence surface with the animated progress border.",
-    }),
-    success: () => toast.success("Success toast", {
-        description: "Use this for saved changes, completed actions, and confirmations.",
-    }),
-    info: () => toast.info("Info toast", {
-        description: "Good for ambient updates that do not need immediate action.",
-    }),
-    warning: () => toast.warning("Warning toast", {
-        description: "Previewing action and cancel pills on the warning variant.",
-        action: {
-            label: "Review",
-            onClick: () => undefined,
-        },
-        cancel: {
-            label: "Later",
-            onClick: () => undefined,
-        },
-        duration: 6500,
-    }),
-    error: () => toast.error("Error toast", {
-        description: "Use for failed mutations, sync issues, and blocked flows.",
-    }),
-    loading: () => toast.loading("Loading toast", {
-        description: "Loading toasts keep the progress border hidden while work is in flight.",
-    }),
+    default: () =>
+        toast.message("Default toast", {
+            description: "Neutral Cadence surface with the animated progress border.",
+        }),
+    success: () =>
+        toast.success("Success toast", {
+            description: "Use this for saved changes, completed actions, and confirmations.",
+        }),
+    info: () =>
+        toast.info("Info toast", {
+            description: "Good for ambient updates that do not need immediate action.",
+        }),
+    warning: () =>
+        toast.warning("Warning toast", {
+            description: "Previewing action and cancel pills on the warning variant.",
+            action: {
+                label: "Review",
+                onClick: () => undefined,
+            },
+            cancel: {
+                label: "Later",
+                onClick: () => undefined,
+            },
+            duration: 6500,
+        }),
+    error: () =>
+        toast.error("Error toast", {
+            description: "Use for failed mutations, sync issues, and blocked flows.",
+        }),
+    loading: () =>
+        toast.loading("Loading toast", {
+            description: "Loading toasts keep the progress border hidden while work is in flight.",
+        }),
 };
 
 const DEV_TOOL_TILES = [
@@ -61,7 +81,8 @@ const DEV_TOOL_TILES = [
         meta: "Data",
         icon: Sparkles,
         iconClassName: "text-accent-primary",
-        surfaceClassName: "border-accent-primary/18 bg-accent-primary/[0.08] shadow-[0_0_24px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]",
+        surfaceClassName:
+            "border-accent-primary/18 bg-accent-primary/[0.08] shadow-[0_0_24px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]",
     },
     {
         key: "default",
@@ -153,7 +174,7 @@ export function DeveloperTools() {
                     loading: "Injecting test data...",
                     success: "Test data injected successfully!",
                     error: "Failed to inject data.",
-                }
+                },
             );
         } finally {
             setIsLoading(false);
@@ -173,7 +194,7 @@ export function DeveloperTools() {
                     loading: "Wiping database...",
                     success: "Workspace wiped. Account kept intact.",
                     error: "Failed to wipe data.",
-                }
+                },
             );
         } finally {
             setWipeConfirmOpen(false);
@@ -214,12 +235,7 @@ export function DeveloperTools() {
                         </DropdownMenu.Trigger>
                     </Tip>
 
-                    <DropdownMenu.Content
-                        side="right"
-                        align="center"
-                        sideOffset={14}
-                        className="w-[340px] p-2.5"
-                    >
+                    <DropdownMenu.Content side="right" align="center" sideOffset={14} className="w-[340px] p-2.5">
                         <div className="px-1.5 pb-3 pt-1">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-twilight-text-soft">
                                 Developer Tools
@@ -237,9 +253,11 @@ export function DeveloperTools() {
                     </DropdownMenu.Content>
                 </DropdownMenu.Root>
 
-                <WipeConfirm onConfirm={() => {
-                    void handleClearData();
-                }} />
+                <WipeConfirm
+                    onConfirm={() => {
+                        void handleClearData();
+                    }}
+                />
             </AlertDialog.Root>
         </>
     );
@@ -270,19 +288,11 @@ function DevToolTileItem({ tile, disabled, onRun }: DevToolTileItemProps) {
                     ${iconClassName}
                 `}
             >
-                <Icon
-                    size={16}
-                    aria-hidden="true"
-                    className={key === "loading" ? "animate-spin" : undefined}
-                />
+                <Icon size={16} aria-hidden="true" className={key === "loading" ? "animate-spin" : undefined} />
             </div>
             <div className="space-y-0.5">
-                <p className="text-[11px] font-medium leading-none text-twilight-text">
-                    {label}
-                </p>
-                <p className="text-[9px] uppercase tracking-[0.18em] text-twilight-text-muted">
-                    {meta}
-                </p>
+                <p className="text-[11px] font-medium leading-none text-twilight-text">{label}</p>
+                <p className="text-[9px] uppercase tracking-[0.18em] text-twilight-text-muted">{meta}</p>
             </div>
         </div>
     );
@@ -296,25 +306,35 @@ function DevToolTileItem({ tile, disabled, onRun }: DevToolTileItemProps) {
                     className={`${tileClassName} data-[state=open]:border-white/16 data-[state=open]:bg-white/[0.05]`}
                 >
                     {body}
-                    <ChevronRight size={11} aria-hidden="true" className="absolute right-2 top-2 text-twilight-text-muted" />
+                    <ChevronRight
+                        size={11}
+                        aria-hidden="true"
+                        className="absolute right-2 top-2 text-twilight-text-muted"
+                    />
                 </DropdownMenu.SubTrigger>
                 <DropdownMenu.Portal>
                     <DropdownMenu.SubContent sideOffset={10} className="w-[168px] p-1.5">
                         <p className="px-2 pb-1.5 pt-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-twilight-text-muted">
                             Preview season
                         </p>
-                        {LOADING_PREVIEWS.map(({ season, label: seasonLabel, icon: SeasonIcon, iconClassName: seasonIconClass }) => (
-                            <DropdownMenu.Item
-                                key={seasonLabel}
-                                onSelect={() => {
-                                    window.dispatchEvent(new CustomEvent("debug:loading", { detail: season ? { season } : undefined }));
-                                }}
-                                className="flex items-center gap-2.5 px-2 py-2 text-[13px]"
-                            >
-                                <SeasonIcon size={14} aria-hidden="true" className={seasonIconClass} />
-                                {seasonLabel}
-                            </DropdownMenu.Item>
-                        ))}
+                        {LOADING_PREVIEWS.map(
+                            ({ season, label: seasonLabel, icon: SeasonIcon, iconClassName: seasonIconClass }) => (
+                                <DropdownMenu.Item
+                                    key={seasonLabel}
+                                    onSelect={() => {
+                                        window.dispatchEvent(
+                                            new CustomEvent("debug:loading", {
+                                                detail: season ? { season } : undefined,
+                                            }),
+                                        );
+                                    }}
+                                    className="flex items-center gap-2.5 px-2 py-2 text-[13px]"
+                                >
+                                    <SeasonIcon size={14} aria-hidden="true" className={seasonIconClass} />
+                                    {seasonLabel}
+                                </DropdownMenu.Item>
+                            ),
+                        )}
                         <p className="px-2 pb-1 pt-1.5 text-[10px] text-twilight-text-muted">Esc to close</p>
                     </DropdownMenu.SubContent>
                 </DropdownMenu.Portal>
@@ -345,8 +365,8 @@ function WipeConfirm({ onConfirm }: { onConfirm: () => void }) {
             <AlertDialog.Header>
                 <AlertDialog.Title>Wipe all test workspace data?</AlertDialog.Title>
                 <AlertDialog.Description>
-                    This deletes every user-scoped record except the `users` table entry and its saved settings.
-                    Lists, tasks, habits, inbox items, sections, tags, metrics, and AI memory will all be removed.
+                    This deletes every user-scoped record except the `users` table entry and its saved settings. Lists,
+                    tasks, habits, inbox items, sections, tags, metrics, and AI memory will all be removed.
                 </AlertDialog.Description>
             </AlertDialog.Header>
             <AlertDialog.Footer>
@@ -356,11 +376,7 @@ function WipeConfirm({ onConfirm }: { onConfirm: () => void }) {
                     </Button>
                 </AlertDialog.Cancel>
                 <AlertDialog.Action asChild>
-                    <Button
-                        variant="danger"
-                        size="md"
-                        onClick={onConfirm}
-                    >
+                    <Button variant="danger" size="md" onClick={onConfirm}>
                         Wipe workspace
                     </Button>
                 </AlertDialog.Action>

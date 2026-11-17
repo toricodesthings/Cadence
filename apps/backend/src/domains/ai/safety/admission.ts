@@ -64,7 +64,11 @@ export async function admitChatTurn(
     c: AiContext,
     rlRedis: Redis | null,
     turn: { userKey: string; userHash: string; reserved: number; limits: AiLimits; newImages: number },
-): Promise<{ rejected?: ReturnType<typeof aiRateLimitResponse> | ReturnType<typeof aiUnavailableResponse>; admitted: boolean; headers?: Record<string, string> }> {
+): Promise<{
+    rejected?: ReturnType<typeof aiRateLimitResponse> | ReturnType<typeof aiUnavailableResponse>;
+    admitted: boolean;
+    headers?: Record<string, string>;
+}> {
     const { userKey, userHash, reserved, limits, newImages } = turn;
     const requestId = getRequestId(c);
     // No budget store: fine for local dev, never in production (it would run unmetered).
@@ -100,7 +104,8 @@ export async function admitChatTurn(
     } catch {
         // Redis unreachable → fail-closed (production default) or fail-open per policy.
         logger.warn("ai", "ai_ratelimit_unavailable", { requestId, userHash, op: "admit" });
-        if (limits.failClosed) return { admitted: false, rejected: aiRateLimitResponse(c, { retryAfterS: 30, limits }) };
+        if (limits.failClosed)
+            return { admitted: false, rejected: aiRateLimitResponse(c, { retryAfterS: 30, limits }) };
         // Fail-open must not mean unmetered: a tight per-person limiter stands in while the budget is blind.
         if (c.env.RATE_LIMITER_AI && !(await c.env.RATE_LIMITER_AI.limit({ key: c.get("userId") })).success) {
             return { admitted: false, rejected: aiRateLimitResponse(c, { retryAfterS: 30, limits }) };

@@ -23,20 +23,14 @@ const base = [
 ].join(" ");
 
 const variants = {
-    primary:
-        "accent-fill",
+    primary: "accent-fill",
     secondary:
         "bg-twilight-surface/80 border border-twilight-border text-twilight-text hover:bg-twilight-surface-hover hover:border-twilight-border-interactive",
-    ghost:
-        "text-twilight-text-muted hover:text-twilight-text hover:bg-white/5",
-    text:
-        "text-twilight-text hover:text-accent-primary",
-    subtle:
-        "text-twilight-text-muted hover:text-accent-primary hover:bg-accent-primary/10",
-    danger:
-        "border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20",
-    card:
-        "border border-twilight-border-light bg-twilight-deep text-twilight-text hover:bg-white/[0.04] hover:border-twilight-border",
+    ghost: "text-twilight-text-muted hover:text-twilight-text hover:bg-white/5",
+    text: "text-twilight-text hover:text-accent-primary",
+    subtle: "text-twilight-text-muted hover:text-accent-primary hover:bg-accent-primary/10",
+    danger: "border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20",
+    card: "border border-twilight-border-light bg-twilight-deep text-twilight-text hover:bg-white/[0.04] hover:border-twilight-border",
     cardPrimary:
         "border border-accent-primary/30 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 shadow-[inset_0_1px_rgba(255,255,255,0.1)] glow-lantern",
 } as const;
@@ -64,12 +58,13 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 /* ── Component ──────────────────────────────────────────────────── */
 
-export const Button = ({ variant = "primary", size = "md", asChild = false, className = "", ...props }: ButtonProps & { ref?: React.Ref<HTMLButtonElement> }) => {
+export const Button = ({
+    variant = "primary",
+    size = "md",
+    asChild = false,
+    className = "",
+    ...props
+}: ButtonProps & { ref?: React.Ref<HTMLButtonElement> }) => {
     const Comp = asChild ? Slot : "button";
-    return (
-        <Comp
-            className={cn(base, variants[variant], sizes[size], className)}
-            {...props}
-        />
-    );
+    return <Comp className={cn(base, variants[variant], sizes[size], className)} {...props} />;
 };

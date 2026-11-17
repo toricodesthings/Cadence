@@ -36,7 +36,10 @@ describe("chatRequestSchema", () => {
         const answer = { conversationId, approvals, currentDate: "2026-09-23T12:00:00.000Z" };
         expect(chatRequestSchema.safeParse(answer).success).toBe(true);
         expect(chatRequestSchema.safeParse({ ...answer, conversationId: undefined }).success).toBe(false);
-        expect(chatRequestSchema.safeParse({ ...answer, message: { id: "m1", role: "user", parts: [text("hi")] } }).success).toBe(false);
+        expect(
+            chatRequestSchema.safeParse({ ...answer, message: { id: "m1", role: "user", parts: [text("hi")] } })
+                .success,
+        ).toBe(false);
         expect(chatRequestSchema.safeParse({ conversationId, currentDate: answer.currentDate }).success).toBe(false);
     });
 });
@@ -44,15 +47,19 @@ describe("chatRequestSchema", () => {
 describe("uiMessageSchema", () => {
     it("defaults parts to [] and passes unknown part fields through", () => {
         expect(uiMessageSchema.parse({ id: "m1", role: "assistant" }).parts).toEqual([]);
-        expect(uiMessageSchema.parse({ id: "m1", role: "assistant", parts: [{ type: "tool-x", input: { a: 1 } }] }).parts).toEqual([
-            { type: "tool-x", input: { a: 1 } },
-        ]);
+        expect(
+            uiMessageSchema.parse({ id: "m1", role: "assistant", parts: [{ type: "tool-x", input: { a: 1 } }] }).parts,
+        ).toEqual([{ type: "tool-x", input: { a: 1 } }]);
     });
 
     it(`caps a message at ${MAX_PARTS_PER_MESSAGE} parts`, () => {
         const parts = (n: number) => Array.from({ length: n }, () => text("x"));
-        expect(uiMessageSchema.safeParse({ id: "m1", role: "user", parts: parts(MAX_PARTS_PER_MESSAGE) }).success).toBe(true);
-        expect(uiMessageSchema.safeParse({ id: "m1", role: "user", parts: parts(MAX_PARTS_PER_MESSAGE + 1) }).success).toBe(false);
+        expect(uiMessageSchema.safeParse({ id: "m1", role: "user", parts: parts(MAX_PARTS_PER_MESSAGE) }).success).toBe(
+            true,
+        );
+        expect(
+            uiMessageSchema.safeParse({ id: "m1", role: "user", parts: parts(MAX_PARTS_PER_MESSAGE + 1) }).success,
+        ).toBe(false);
     });
 
     it("rejects a part with no type", () => {
@@ -62,8 +69,12 @@ describe("uiMessageSchema", () => {
 
 describe("stopStreamSchema", () => {
     it("only accepts an assistant snapshot", () => {
-        expect(stopStreamSchema.safeParse({ assistantMessage: { id: "a1", role: "assistant", parts: [] } }).success).toBe(true);
-        expect(stopStreamSchema.safeParse({ assistantMessage: { id: "a1", role: "user", parts: [] } }).success).toBe(false);
+        expect(
+            stopStreamSchema.safeParse({ assistantMessage: { id: "a1", role: "assistant", parts: [] } }).success,
+        ).toBe(true);
+        expect(stopStreamSchema.safeParse({ assistantMessage: { id: "a1", role: "user", parts: [] } }).success).toBe(
+            false,
+        );
     });
 });
 
@@ -77,7 +88,6 @@ describe("conversationPatchSchema", () => {
         expect(conversationPatchSchema.safeParse(patch).success).toBe(ok);
     });
 });
-
 
 describe("chat image urls", () => {
     const id = "0b9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2b";

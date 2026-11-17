@@ -1,19 +1,19 @@
 {
-  "name": "@cadence/desktop",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "tauri dev",
-    "dev:frontend": "node ./scripts/dev-with-bridge.mjs",
-    "sync-version": "node ./scripts/sync-version.mjs",
-    "build": "pnpm run sync-version && tauri build",
-    "build:debug": "pnpm run sync-version && tauri build --debug --no-bundle",
-    "typecheck": "pnpm run sync-version && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
-    "lint": "oxlint .",
-    "e2e:smoke": "pnpm run build:debug && node --test tests/e2e/smoke.test.mjs"
-  },
-  "devDependencies": {
-    "@tauri-apps/cli": "2.11.5",
-    "selenium-webdriver": "^4.49.0"
-  }
+    "name": "@cadence/desktop",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "tauri dev",
+        "dev:frontend": "node ./scripts/dev-with-bridge.mjs",
+        "sync-version": "node ./scripts/sync-version.mjs",
+        "build": "pnpm run sync-version && tauri build",
+        "build:debug": "pnpm run sync-version && tauri build --debug --no-bundle",
+        "typecheck": "pnpm run sync-version && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
+        "lint": "oxlint .",
+        "e2e:smoke": "pnpm run build:debug && node --test tests/e2e/smoke.test.mjs"
+    },
+    "devDependencies": {
+        "@tauri-apps/cli": "2.11.5",
+        "selenium-webdriver": "^4.49.0"
+    }
 }

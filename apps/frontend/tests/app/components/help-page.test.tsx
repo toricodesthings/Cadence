@@ -9,7 +9,12 @@ function HistoryBack() {
 }
 
 function renderHelp(path = "/help-feedback") {
-    return render(<MemoryRouter initialEntries={[path]}><HelpPage /><HistoryBack /></MemoryRouter>);
+    return render(
+        <MemoryRouter initialEntries={[path]}>
+            <HelpPage />
+            <HistoryBack />
+        </MemoryRouter>,
+    );
 }
 
 beforeEach(() => {
@@ -44,14 +49,18 @@ describe("Help navigation", () => {
 
     it("finds the Intelligence layer and opens its Memory guide", async () => {
         renderHelp();
-        fireEvent.change(screen.getByRole("searchbox", { name: "Find a feature" }), { target: { value: "Cadence Intelligence" } });
+        fireEvent.change(screen.getByRole("searchbox", { name: "Find a feature" }), {
+            target: { value: "Cadence Intelligence" },
+        });
         expect(screen.getByRole("link", { name: "Natural language (NLP)" })).toBeTruthy();
         expect(screen.getByRole("link", { name: "Decisioning" })).toBeTruthy();
         expect(screen.getAllByRole("link", { name: "Assistant" })).toHaveLength(1);
         fireEvent.click(screen.getByRole("link", { name: "Memory" }));
         const guide = await screen.findByRole("article", { name: "Memory" });
         expect(within(guide).getByText("Cadence Intelligence")).toBeTruthy();
-        await waitFor(() => expect(document.activeElement).toBe(within(guide).getByRole("heading", { name: "Memory" })));
+        await waitFor(() =>
+            expect(document.activeElement).toBe(within(guide).getByRole("heading", { name: "Memory" })),
+        );
     });
 
     it("drills into a guide on compact screens and keeps feedback inactive", async () => {

@@ -25,7 +25,8 @@ export { timeOfDay, type TimeOfDay };
 /** Monday-based week number; 1970-01-05 was a Monday. */
 const weekOf = (day: LocalDate) => Math.floor(daysBetween("1970-01-05", day) / 7);
 const weekdayOf = (day: LocalDate) => formatInZone(day, "UTC", { weekday: "long" }, "en-US").toLowerCase();
-const hourIn = (instant: string, zone: Zone) => Number(formatInZone(instant, zone, { hour: "numeric", hourCycle: "h23" }, "en-US"));
+const hourIn = (instant: string, zone: Zone) =>
+    Number(formatInZone(instant, zone, { hour: "numeric", hourCycle: "h23" }, "en-US"));
 
 /** "tuesday|early": the slot something was planned in (an all-day task has no time: "tuesday|day"). */
 export function slotBucket(slot: { scheduledStart: string | null; dueDate: string | null }, zone: Zone): string | null {
@@ -115,7 +116,11 @@ export function deriveDurations(rows: readonly ReportRow[], today: LocalDate): D
     const out: DerivedFact[] = [];
     for (const [group, answers] of byGroup) {
         const newest = [...answers].sort((a, b) => b.day.localeCompare(a.day))[0];
-        const guess = estimateDuration({ taskId: newest.series ? newest.taskId : null, title: newest.title, projectId: null }, answers, today);
+        const guess = estimateDuration(
+            { taskId: newest.series ? newest.taskId : null, title: newest.title, projectId: null },
+            answers,
+            today,
+        );
         if (guess?.state !== "supported") continue;
         out.push({
             kind: "duration",
@@ -136,7 +141,12 @@ const CONTEXT_CUT = /\bre:|\s-\s|:|\(/;
  * ("STAT 3503" is not "STAT 2509").
  */
 export function durationGroup(title: string): string {
-    const words = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
+    const words = (text: string) =>
+        text
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}\s]/gu, " ")
+            .split(/\s+/)
+            .filter(Boolean);
     const meaningful = words(title.split(CONTEXT_CUT)[0]).filter((w) => !STOP.has(w) && !/^\d{1,2}$/.test(w));
     // A title that is all context or filler ("Re: invoice", "The 3") still gets a group: its plain words.
     return meaningful.length ? meaningful.slice(0, 3).join(" ") : words(title).slice(0, 4).join(" ");

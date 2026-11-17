@@ -57,26 +57,39 @@ export function QuickAddSurface({
     const task = useTaskComposer({
         open: open && tab === "task",
         tasks,
-        onSaved: (created) => finish(
-            created ? "Task added to Capture" : "Task queued for sync",
-            focusRoute("/", { focusKind: "task", focusId: created?.id ?? "", focusScope: "holding-unmanaged", focusSource: "quick-add" }),
-        ),
+        onSaved: (created) =>
+            finish(
+                created ? "Task added to Capture" : "Task queued for sync",
+                focusRoute("/", {
+                    focusKind: "task",
+                    focusId: created?.id ?? "",
+                    focusScope: "holding-unmanaged",
+                    focusSource: "quick-add",
+                }),
+            ),
     });
     const capture = useCaptureComposer({
         onSaved: (created) => {
             trackUsageEvent("capture.submitted", { surface: "quick_add", object_type: "capture" });
             if (mode !== "standalone") toast.success(created ? "Thought saved to Capture" : "Thought queued for sync");
-            if (mode === "standalone") finish(
-                created ? "Thought saved to Capture" : "Thought queued for sync",
-                focusRoute("/", { focusKind: "inbox", focusId: created?.id ?? "", focusScope: "holding-captures", focusSource: "quick-add" }),
-            );
+            if (mode === "standalone")
+                finish(
+                    created ? "Thought saved to Capture" : "Thought queued for sync",
+                    focusRoute("/", {
+                        focusKind: "inbox",
+                        focusId: created?.id ?? "",
+                        focusScope: "holding-captures",
+                        focusSource: "quick-add",
+                    }),
+                );
         },
     });
     const routine = useRoutineComposer({
-        onSaved: (created) => finish(
-            created ? "Routine created" : "Routine queued for sync",
-            focusRoute("/routines", { focusKind: "habit", focusId: created?.id ?? "", focusSource: "quick-add" }),
-        ),
+        onSaved: (created) =>
+            finish(
+                created ? "Routine created" : "Routine queued for sync",
+                focusRoute("/routines", { focusKind: "habit", focusId: created?.id ?? "", focusSource: "quick-add" }),
+            ),
     });
 
     const drafts = { task, capture, habit: routine };
@@ -89,7 +102,9 @@ export function QuickAddSurface({
             {...active}
             // Thoughts save on each return and the tab stays open, so leaving is "Done".
             closeLabel={tab === "capture" && mode !== "standalone" ? "Done" : undefined}
-            switcher={<ComposerTabs role="tablist" ariaLabel="What to add" value={tab} onChange={setTab} options={TABS} />}
+            switcher={
+                <ComposerTabs role="tablist" ariaLabel="What to add" value={tab} onChange={setTab} options={TABS} />
+            }
             isDirty={task.isDirty || capture.isDirty || routine.isDirty}
             discardDescription="This closes Quick Add and loses what you've typed in any tab."
             onClose={() => {

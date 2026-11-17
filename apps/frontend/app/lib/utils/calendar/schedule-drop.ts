@@ -29,7 +29,9 @@ export function resolveScheduleDrop(task: Task, dropId: string, guess?: Duration
     const zone = getUserZone();
     const durationMs = taskMinutes(task, guess) * 60_000;
     const timedPreview = (dateStr: LocalDate, startMinutes: number, start: Instant): CalendarDropPreview => ({
-        kind: "timed", dateStr, startMinutes,
+        kind: "timed",
+        dateStr,
+        startMinutes,
         endMinutes: Math.min(24 * 60, startMinutes + Math.round(durationMs / 60_000)),
         label: `${formatTime(start)} - ${formatTime(new Date(new Date(start).getTime() + durationMs).toISOString())}`,
     });
@@ -50,7 +52,11 @@ export function resolveScheduleDrop(task: Task, dropId: string, guess?: Duration
             outcome: "day",
             patch: rescheduleToDay(previous, dateStr, zone),
             preview: task.scheduledStart
-                ? timedPreview(dateStr, minutesFromMidnight(task.scheduledStart), atLocal(dateStr, wallTimeOf(task.scheduledStart, zone), zone))
+                ? timedPreview(
+                      dateStr,
+                      minutesFromMidnight(task.scheduledStart),
+                      atLocal(dateStr, wallTimeOf(task.scheduledStart, zone), zone),
+                  )
                 : { kind: "allday", dateStr },
         };
     }

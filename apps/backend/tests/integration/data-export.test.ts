@@ -14,14 +14,28 @@ beforeAll(startTestDb);
 /** The account routes acting as `userId` with sign-in email `email`, plus the mailbox the export lands in. */
 function accountAs(userId: string, email: string | undefined, sendImpl?: () => Promise<unknown>) {
     const sent: any[] = [];
-    const EMAIL = { send: async (message: any) => { sent.push(message); await sendImpl?.(); return { messageId: "m" }; } };
+    const EMAIL = {
+        send: async (message: any) => {
+            sent.push(message);
+            await sendImpl?.();
+            return { messageId: "m" };
+        },
+    };
     const app = new Hono();
-    app.use("*", async (c, next) => { if (email) c.set("userEmail" as never, email as never); await next(); });
+    app.use("*", async (c, next) => {
+        if (email) c.set("userEmail" as never, email as never);
+        await next();
+    });
     app.route("/", createTestApp("/account", accountRoutes, userId));
     const call = async (method: string, env: Record<string, unknown> = { EMAIL }) => {
         const pending: Promise<unknown>[] = [];
         const ctx = { waitUntil: (p: Promise<unknown>) => pending.push(p), passThroughOnException() {}, props: {} };
-        const res = await app.request("http://localhost/account/export", { method }, env, ctx as unknown as ExecutionContext);
+        const res = await app.request(
+            "http://localhost/account/export",
+            { method },
+            env,
+            ctx as unknown as ExecutionContext,
+        );
         await Promise.all(pending);
         return { status: res.status, body: (await res.json()) as any };
     };
@@ -36,10 +50,21 @@ describe("data export", () => {
             const [task] = await tx.insert(tasks).values({ userId, title: "Mine", orderIndex: 0 }).returning();
             const [tag] = await tx.insert(tags).values({ userId, name: "work" }).returning();
             await tx.insert(taskTags).values({ taskId: task.id, tagId: tag.id });
-            await tx.insert(aiMemories).values({ userId, kind: "preference", content: "likes mornings", embedding: Array(512).fill(0), saidOn: "2026-10-01", lastSeenOn: "2026-10-01", source: "chat", confidence: "stated" });
+            await tx.insert(aiMemories).values({
+                userId,
+                kind: "preference",
+                content: "likes mornings",
+                embedding: Array(512).fill(0),
+                saidOn: "2026-10-01",
+                lastSeenOn: "2026-10-01",
+                source: "chat",
+                confidence: "stated",
+            });
             await tx.insert(mutationDedup).values({ userId, clientMutationId: "k" });
         });
-        await withRls(getTestDb(), otherId, (tx) => tx.insert(tasks).values({ userId: otherId, title: "Theirs", orderIndex: 0 }));
+        await withRls(getTestDb(), otherId, (tx) =>
+            tx.insert(tasks).values({ userId: otherId, title: "Theirs", orderIndex: 0 }),
+        );
 
         const { sent, call } = accountAs(userId, "me@example.com");
         const post = await call("POST");
@@ -74,7 +99,9 @@ describe("data export", () => {
 
     it("marks a failed send and lets the person try again at once", async () => {
         const userId = await createUser();
-        const failing = accountAs(userId, "a@example.com", async () => { throw new Error("mail down"); });
+        const failing = accountAs(userId, "a@example.com", async () => {
+            throw new Error("mail down");
+        });
         expect((await failing.call("POST")).status).toBe(202);
         expect((await failing.call("GET")).body.data.status).toBe("failed");
         const retry = accountAs(userId, "a@example.com");
@@ -86,13 +113,20 @@ describe("data export", () => {
         const userId = await createUser();
         expect((await accountAs(userId, "a@example.com").call("POST", {})).status).toBe(503);
         expect((await accountAs(userId, undefined).call("POST")).status).toBe(400);
-        const count = await asOwner((pg) => pg.query("SELECT count(*)::int AS n FROM data_exports WHERE user_id = $1", [userId]));
+        const count = await asOwner((pg) =>
+            pg.query("SELECT count(*)::int AS n FROM data_exports WHERE user_id = $1", [userId]),
+        );
         expect((count.rows[0] as any).n).toBe(0);
     });
 
     it("reads a request stuck pending for over 15 minutes as failed", async () => {
         const userId = await createUser();
-        await asOwner((pg) => pg.query("INSERT INTO data_exports (user_id, email, status, requested_at) VALUES ($1, 'a@example.com', 'pending', now() - interval '1 hour')", [userId]));
+        await asOwner((pg) =>
+            pg.query(
+                "INSERT INTO data_exports (user_id, email, status, requested_at) VALUES ($1, 'a@example.com', 'pending', now() - interval '1 hour')",
+                [userId],
+            ),
+        );
         expect((await accountAs(userId, "a@example.com").call("GET")).body.data.status).toBe("failed");
     });
 

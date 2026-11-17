@@ -14,7 +14,19 @@ const onOpenInSchedule = vi.fn();
 const onRename = vi.fn();
 beforeEach(() => vi.clearAllMocks());
 function setup() {
-    return render(<TooltipProvider><EventCard item={toPersonalEventViewModel(event)} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onToggleReminder={onToggleReminder} onOpenInSchedule={onOpenInSchedule} onRename={onRename} /></TooltipProvider>);
+    return render(
+        <TooltipProvider>
+            <EventCard
+                item={toPersonalEventViewModel(event)}
+                onOpen={onOpen}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onToggleReminder={onToggleReminder}
+                onOpenInSchedule={onOpenInSchedule}
+                onRename={onRename}
+            />
+        </TooltipProvider>,
+    );
 }
 describe("EventCard selection", () => {
     it("opens from the card background and informational surfaces", () => {

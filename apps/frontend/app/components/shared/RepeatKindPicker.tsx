@@ -37,7 +37,9 @@ export function RepeatKindPicker({
                             role="radio"
                             aria-checked={active}
                             disabled={disabled || unavailable}
-                            onClick={() => { if (!active) onChange(option.kind); }}
+                            onClick={() => {
+                                if (!active) onChange(option.kind);
+                            }}
                             className={`${CHIP_BASE} min-h-12 flex-col gap-0 disabled:cursor-not-allowed disabled:opacity-50 ${active ? CHIP_ACTIVE : CHIP_IDLE}`}
                         >
                             <span>{option.label}</span>

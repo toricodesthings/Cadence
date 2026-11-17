@@ -9,7 +9,9 @@ import { StartupSuspense } from "./StartupSuspense";
 const ClarifySheet = lazy(() => import("../holding/ClarifySheet").then((m) => ({ default: m.ClarifySheet })));
 const TaskEditor = lazy(() => import("../tasks/TaskEditor").then((m) => ({ default: m.TaskEditor })));
 const HabitEditor = lazy(() => import("../habits/HabitEditor").then((m) => ({ default: m.HabitEditor })));
-const PersonalEventEditor = lazy(() => import("../events/PersonalEventEditor").then((m) => ({ default: m.PersonalEventEditor })));
+const PersonalEventEditor = lazy(() =>
+    import("../events/PersonalEventEditor").then((m) => ({ default: m.PersonalEventEditor })),
+);
 
 type EditorProps = {
     onClose: () => void;
@@ -18,20 +20,38 @@ type EditorProps = {
 } & (
     | { kind: "capture"; item: InboxItem; onOpenFullEditor?: (taskId: string) => void }
     | { kind: "task"; taskId: string }
-    | { kind: "habit"; habit: Habit; /** The day a Schedule click was on; the check-in shows that day. */ day?: LocalDate; onOpenInRoutines?: () => void }
-    | { kind: "event"; event: PersonalEvent; onChange: (patch: Partial<Omit<PersonalEvent, "id">>) => void; onDelete: () => void }
+    | {
+          kind: "habit";
+          habit: Habit;
+          /** The day a Schedule click was on; the check-in shows that day. */ day?: LocalDate;
+          onOpenInRoutines?: () => void;
+      }
+    | {
+          kind: "event";
+          event: PersonalEvent;
+          onChange: (patch: Partial<Omit<PersonalEvent, "id">>) => void;
+          onDelete: () => void;
+      }
 );
 
 /** The shared entry point for inspecting and editing app entities. */
 export function EditSidePanel(props: EditorProps) {
-    return <StartupSuspense fallback={null}><Editor {...props} /></StartupSuspense>;
+    return (
+        <StartupSuspense fallback={null}>
+            <Editor {...props} />
+        </StartupSuspense>
+    );
 }
 
 function Editor(props: EditorProps) {
     switch (props.kind) {
-        case "capture": return <ClarifySheet key={props.item.id} {...props} />;
-        case "task": return <TaskEditor key={props.taskId} {...props} />;
-        case "habit": return <HabitEditor key={props.habit.id} {...props} />;
-        case "event": return <PersonalEventEditor key={props.event.id} {...props} />;
+        case "capture":
+            return <ClarifySheet key={props.item.id} {...props} />;
+        case "task":
+            return <TaskEditor key={props.taskId} {...props} />;
+        case "habit":
+            return <HabitEditor key={props.habit.id} {...props} />;
+        case "event":
+            return <PersonalEventEditor key={props.event.id} {...props} />;
     }
 }

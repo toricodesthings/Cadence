@@ -40,7 +40,10 @@ export function EmojiPickerPopover({ emoji, onSelect, children, onClear, tip }: 
             {emoji && onClear ? (
                 <button
                     type="button"
-                    onClick={() => { onClear(); setOpen(false); }}
+                    onClick={() => {
+                        onClear();
+                        setOpen(false);
+                    }}
                     className="flex min-h-11 w-full cursor-pointer items-center justify-center border-b border-white/[0.06] text-sm text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/50"
                 >
                     Remove emoji
@@ -55,7 +58,10 @@ export function EmojiPickerPopover({ emoji, onSelect, children, onClear, tip }: 
                     }
                 >
                     <Picker
-                        onEmojiSelect={(e: { native: string }) => { onSelect(e.native); setOpen(false); }}
+                        onEmojiSelect={(e: { native: string }) => {
+                            onSelect(e.native);
+                            setOpen(false);
+                        }}
                         autoFocus={!isTouch}
                     />
                 </Suspense>

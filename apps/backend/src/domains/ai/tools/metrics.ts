@@ -20,7 +20,13 @@ export const metricTools = (env: Env, userId: string, _ctx?: AgentContext) => ({
         execute: async () =>
             safeExecute("get_user_metrics", userId, async () => {
                 const db = getDbClient(env);
-                const [stored] = await withRls(db, userId, (tx) => tx.select({ at: userMetrics.lastCalculatedAt }).from(userMetrics).where(eq(userMetrics.userId, userId)).limit(1));
+                const [stored] = await withRls(db, userId, (tx) =>
+                    tx
+                        .select({ at: userMetrics.lastCalculatedAt })
+                        .from(userMetrics)
+                        .where(eq(userMetrics.userId, userId))
+                        .limit(1),
+                );
                 // A failed recompute answers with what is stored rather than failing the tool.
                 if (signalsStale(stored?.at)) await computeWorkloadSignals(db, userId).catch(() => undefined);
                 const result = await withRls(db, userId, async (tx) => {

@@ -39,7 +39,11 @@ export async function parseApiError(response: UnwrappableResponse): Promise<ApiE
 }
 
 /** The `data` of a route's success body, inferred from the RPC response type. */
-export type ResponseData<R> = R extends { json(): Promise<infer B> } ? (B extends { data: infer D } ? D : never) : never;
+export type ResponseData<R> = R extends { json(): Promise<infer B> }
+    ? B extends { data: infer D }
+        ? D
+        : never
+    : never;
 
 /** Unwrap a successful API response, throwing on non-ok status. The type comes from the route. */
 export async function unwrapResponse<R extends UnwrappableResponse>(response: R): Promise<ResponseData<R>> {

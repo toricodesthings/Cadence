@@ -4,7 +4,14 @@ import { SettingsRow } from "./SettingsLayout";
 
 export type SettingOption = { value: string; label: string };
 
-export function SelectSetting({ title, description, value, options, onChange, widthClass = "sm:max-w-[18rem]" }: {
+export function SelectSetting({
+    title,
+    description,
+    value,
+    options,
+    onChange,
+    widthClass = "sm:max-w-[18rem]",
+}: {
     title: string;
     description: string;
     value: string;
@@ -21,7 +28,9 @@ export function SelectSetting({ title, description, value, options, onChange, wi
                     </SelectTrigger>
                     <SelectContent>
                         {options.map((o) => (
-                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                            <SelectItem key={o.value} value={o.value}>
+                                {o.label}
+                            </SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -30,7 +39,13 @@ export function SelectSetting({ title, description, value, options, onChange, wi
     );
 }
 
-export function SwitchSetting({ title, description, checked, onChange, label = title }: {
+export function SwitchSetting({
+    title,
+    description,
+    checked,
+    onChange,
+    label = title,
+}: {
     title: string;
     description?: string;
     /** Spoken name when the visible title alone is ambiguous. */

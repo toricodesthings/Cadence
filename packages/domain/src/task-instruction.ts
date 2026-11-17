@@ -42,11 +42,16 @@ const VERBS = {
 } as const;
 
 /** Connective words that carry no change on their own. */
-const FILLER = /\b(?:move|put|set|send|schedule|these|this|them|it|to|in|into|on|at|the|a|and|then|please|tasks?)\b|[/,;.]/gi;
+const FILLER =
+    /\b(?:move|put|set|send|schedule|these|this|them|it|to|in|into|on|at|the|a|and|then|please|tasks?)\b|[/,;.]/gi;
 
 const FOLLOW_UP_HOUR = "09:00";
 
-export interface NamedSection { id: string; name: string; projectId: string | null }
+export interface NamedSection {
+    id: string;
+    name: string;
+    projectId: string | null;
+}
 
 export interface SectionMention {
     start: number;
@@ -61,12 +66,24 @@ const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  * "put in Later This Week", "move to the Errands section": a section named after a placement cue. Longest name wins.
  * A name that is also a day ("Today") needs the word "section", so "move these to today" stays a date.
  */
-export function findSectionMention(text: string, sections: readonly NamedSection[], namesADay: (name: string) => boolean = () => false): SectionMention | null {
+export function findSectionMention(
+    text: string,
+    sections: readonly NamedSection[],
+    namesADay: (name: string) => boolean = () => false,
+): SectionMention | null {
     const names = [...new Set(sections.map((s) => s.name.trim()).filter(Boolean))].sort((a, b) => b.length - a.length);
     for (const name of names) {
         const suffix = namesADay(name) ? "\\s+section" : "(?:\\s+section)?";
-        const m = new RegExp(`\\b(?:in|into|to|under)\\s+(?:the\\s+)?${escape(name)}${suffix}(?![\\p{L}\\p{N}])`, "iu").exec(text); // nosemgrep
-        if (m) return { start: m.index, end: m.index + m[0].length, candidates: sections.filter((s) => s.name.trim().toLowerCase() === name.toLowerCase()) };
+        const m = new RegExp(
+            `\\b(?:in|into|to|under)\\s+(?:the\\s+)?${escape(name)}${suffix}(?![\\p{L}\\p{N}])`,
+            "iu",
+        ).exec(text); // nosemgrep
+        if (m)
+            return {
+                start: m.index,
+                end: m.index + m[0].length,
+                candidates: sections.filter((s) => s.name.trim().toLowerCase() === name.toLowerCase()),
+            };
     }
     return null;
 }
@@ -102,7 +119,12 @@ function datePatch(
  * What `text` means for existing work, given the draft read from it (dates, list, tags, priority, waiting, estimate)
  * and the section it named, already resolved (`resolveSection`).
  */
-export function instructionPatch(text: string, draft: Draft, zone: Zone, section: NamedSection | null = null): Instruction {
+export function instructionPatch(
+    text: string,
+    draft: Draft,
+    zone: Zone,
+    section: NamedSection | null = null,
+): Instruction {
     const patch: InstructionPatch = {};
     const f = draft.fields;
     let rest = draft.title;
@@ -113,7 +135,8 @@ export function instructionPatch(text: string, draft: Draft, zone: Zone, section
     const followUp = VERBS.followUp.test(text);
     const until = VERBS.until.test(text);
 
-    for (const verb of [VERBS.keepUnscheduled, VERBS.keepWaiting, VERBS.activate, VERBS.followUp, VERBS.until]) rest = rest.replace(verb, " ");
+    for (const verb of [VERBS.keepUnscheduled, VERBS.keepWaiting, VERBS.activate, VERBS.followUp, VERBS.until])
+        rest = rest.replace(verb, " ");
 
     Object.assign(patch, datePatch(f, { keepUnscheduled, keepWaiting, followUp, until }, zone));
 

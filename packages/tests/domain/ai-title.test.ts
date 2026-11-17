@@ -23,9 +23,7 @@ describe("deriveFallbackTitle", () => {
     });
 
     it("clamps to the word budget with an ellipsis", () => {
-        expect(deriveFallbackTitle("one two three four five six seven eight")).toBe(
-            "One two three four five six…",
-        );
+        expect(deriveFallbackTitle("one two three four five six seven eight")).toBe("One two three four five six…");
     });
 
     it("clamps overly long single-line input to the char budget", () => {

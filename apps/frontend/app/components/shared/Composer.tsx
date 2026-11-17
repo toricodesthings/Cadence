@@ -64,7 +64,22 @@ export interface ComposerProps {
  * One creator's contents for `Composer`, from its `use…Composer` hook, so a host
  * can hold several drafts in one shell (Quick Add's tabs) or wrap one alone.
  */
-export type ComposerDraft = Pick<ComposerProps, "title" | "icon" | "tone" | "subtitle" | "band" | "switcher" | "submit" | "actions" | "closeLabel" | "isDirty" | "discardTitle" | "discardDescription" | "children"> & {
+export type ComposerDraft = Pick<
+    ComposerProps,
+    | "title"
+    | "icon"
+    | "tone"
+    | "subtitle"
+    | "band"
+    | "switcher"
+    | "submit"
+    | "actions"
+    | "closeLabel"
+    | "isDirty"
+    | "discardTitle"
+    | "discardDescription"
+    | "children"
+> & {
     /** Empties the draft; hosts call it on close. */
     reset: () => void;
 };
@@ -91,8 +106,16 @@ export function Composer({
     const [discardOpen, setDiscardOpen] = useState(false);
     const requestClose = () => (isDirty ? setDiscardOpen(true) : onClose());
 
-    const bandOf = (content: ReactNode) => (content ? <div className={`${BAND} border-b border-white/[0.06] px-5 py-4 sm:px-6`}>{content}</div> : null);
-    const bandNode = bandOf((switcher || band) && <>{switcher}{band ? <div className={switcher ? "mt-3" : ""}>{band}</div> : null}</>);
+    const bandOf = (content: ReactNode) =>
+        content ? <div className={`${BAND} border-b border-white/[0.06] px-5 py-4 sm:px-6`}>{content}</div> : null;
+    const bandNode = bandOf(
+        (switcher || band) && (
+            <>
+                {switcher}
+                {band ? <div className={switcher ? "mt-3" : ""}>{band}</div> : null}
+            </>
+        ),
+    );
     const sheetBand = bandOf(band);
     const body = (
         <div className="min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:stable] px-5 py-4 sm:px-6 sm:py-5">
@@ -103,19 +126,25 @@ export function Composer({
     const footerNode = (
         <div className={`${BAND} flex items-center justify-end gap-2 border-t border-white/[0.06] px-5 py-4 sm:px-6`}>
             {actionsNode}
-            <Button variant="ghost" size="md" onClick={requestClose}>{closeLabel}</Button>
+            <Button variant="ghost" size="md" onClick={requestClose}>
+                {closeLabel}
+            </Button>
             <ComposerSubmit {...submit} />
         </div>
     );
     // A compact sheet: X and ✓ in the header, so only extra controls stay at the bottom.
-    const sheetFooter = actionsNode ? <div className={`${BAND} flex items-center border-t border-white/[0.06] px-5 py-3`}>{actionsNode}</div> : undefined;
+    const sheetFooter = actionsNode ? (
+        <div className={`${BAND} flex items-center border-t border-white/[0.06] px-5 py-3`}>{actionsNode}</div>
+    ) : undefined;
 
     const toneStyle = { "--glow-tone": TONE_VAR[tone] } as React.CSSProperties;
     const Title = inline ? "h2" : DialogTitle;
     const Description = inline ? "p" : DialogDescription;
     const frame = (
         <>
-            <div className={`${BAND} flex items-start justify-between gap-4 border-b border-white/[0.06] px-5 pb-4 pt-5 text-left sm:px-6 sm:pb-5 sm:pt-6`}>
+            <div
+                className={`${BAND} flex items-start justify-between gap-4 border-b border-white/[0.06] px-5 pb-4 pt-5 text-left sm:px-6 sm:pb-5 sm:pt-6`}
+            >
                 <div className="min-w-0 space-y-1.5">
                     <Title className="flex items-center gap-2.5 font-display text-xl tracking-tight text-twilight-text">
                         {Icon ? <Icon size={20} className="dialog-glow-icon shrink-0" aria-hidden /> : null}
@@ -134,13 +163,35 @@ export function Composer({
     return (
         <>
             {inline ? (
-                <section aria-label={title} style={toneStyle} className="surface-dialog dialog-glow relative flex max-h-[90dvh] flex-col overflow-hidden rounded-[30px]">{frame}</section>
+                <section
+                    aria-label={title}
+                    style={toneStyle}
+                    className="surface-dialog dialog-glow relative flex max-h-[90dvh] flex-col overflow-hidden rounded-[30px]"
+                >
+                    {frame}
+                </section>
             ) : shell.isCompact ? (
-                <UtilitySheet title={title} subtitle={subtitle} open={open} onClose={requestClose} center={switcher ? <div className="[&_svg]:hidden">{switcher}</div> : undefined} band={sheetBand} footer={sheetFooter} confirm={{ label: submit.submitLabel, onConfirm: submit.onSubmit, disabled: submit.disabled }} scrollable={false} flush>
+                <UtilitySheet
+                    title={title}
+                    subtitle={subtitle}
+                    open={open}
+                    onClose={requestClose}
+                    center={switcher ? <div className="[&_svg]:hidden">{switcher}</div> : undefined}
+                    band={sheetBand}
+                    footer={sheetFooter}
+                    confirm={{ label: submit.submitLabel, onConfirm: submit.onSubmit, disabled: submit.disabled }}
+                    scrollable={false}
+                    flush
+                >
                     {body}
                 </UtilitySheet>
             ) : (
-                <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
+                <Dialog
+                    open={open}
+                    onOpenChange={(next) => {
+                        if (!next) requestClose();
+                    }}
+                >
                     <DialogContent
                         style={toneStyle}
                         className="dialog-glow flex w-[min(calc(100vw-1.5rem),40rem)] flex-col gap-0 overflow-hidden rounded-[30px] p-0 sm:max-h-[90dvh] sm:max-w-2xl"
@@ -159,10 +210,20 @@ export function Composer({
                     </AlertDialog.Header>
                     <AlertDialog.Footer>
                         <AlertDialog.Cancel asChild>
-                            <Button variant="secondary" className="border-white/10 bg-white/5">Keep editing</Button>
+                            <Button variant="secondary" className="border-white/10 bg-white/5">
+                                Keep editing
+                            </Button>
                         </AlertDialog.Cancel>
                         <AlertDialog.Action asChild>
-                            <Button variant="danger" onClick={() => { setDiscardOpen(false); onClose(); }}>Discard draft</Button>
+                            <Button
+                                variant="danger"
+                                onClick={() => {
+                                    setDiscardOpen(false);
+                                    onClose();
+                                }}
+                            >
+                                Discard draft
+                            </Button>
                         </AlertDialog.Action>
                     </AlertDialog.Footer>
                 </AlertDialog.Content>
@@ -202,7 +263,10 @@ export function ComposerTitle({
     ...input
 }: React.InputHTMLAttributes<HTMLInputElement> & { leading?: ReactNode; inputRef?: React.Ref<HTMLInputElement> }) {
     return (
-        <div data-focus-container className="flex items-end gap-3 border-b border-white/[0.06] transition-colors focus-within:border-accent-primary/50">
+        <div
+            data-focus-container
+            className="flex items-end gap-3 border-b border-white/[0.06] transition-colors focus-within:border-accent-primary/50"
+        >
             {leading ? <div className="mb-2 shrink-0">{leading}</div> : null}
             <input
                 ref={inputRef}
@@ -261,7 +325,7 @@ export function ComposerTabs<T extends string>({
                             // Four or more choices share a phone-width row: tighter, so labels don't truncate.
                             options.length >= 4 ? "px-1.5 text-[13px]" : "px-2 text-sm",
                             active
-                                ? option.activeClassName ?? "bg-accent-primary/15 text-accent-primary"
+                                ? (option.activeClassName ?? "bg-accent-primary/15 text-accent-primary")
                                 : "text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text",
                         )}
                     >
@@ -360,7 +424,12 @@ export function ComposerRows({ children }: { children: ReactNode }) {
 }
 
 /** A label (with its icon) on the left, its controls on the right; `detail` drops a full-width line underneath. */
-export function ComposerRow({ icon: Icon, label, children, detail }: {
+export function ComposerRow({
+    icon: Icon,
+    label,
+    children,
+    detail,
+}: {
     icon?: ComposerIcon;
     label: string;
     children: ReactNode;
@@ -382,7 +451,8 @@ export function ComposerRow({ icon: Icon, label, children, detail }: {
 
 /** Field classes that turn `DatePicker`/`TimePicker` into the compact pills a `ComposerRow` holds. */
 /** The row already shows the field's icon, so the pill drops its own. */
-export const ROW_PILL = "w-auto! shrink-0 whitespace-nowrap min-h-10 rounded-full! px-3.5 [&>svg]:hidden [&>span>svg]:hidden";
+export const ROW_PILL =
+    "w-auto! shrink-0 whitespace-nowrap min-h-10 rounded-full! px-3.5 [&>svg]:hidden [&>span>svg]:hidden";
 
 /** Everything optional folds in here, closed by default; `summary` echoes what's set inside. */
 export function ComposerMore({ summary, children }: { summary?: string | null; children: ReactNode }) {
@@ -400,7 +470,11 @@ export function ComposerMore({ summary, children }: { summary?: string | null; c
                 <SlidersHorizontal size={15} className="shrink-0 text-accent-primary" aria-hidden="true" />
                 <span className="flex-1">More options</span>
                 {summary && !open ? <span className="truncate text-xs text-twilight-text-muted">{summary}</span> : null}
-                <ChevronDown size={15} className={`shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+                <ChevronDown
+                    size={15}
+                    className={`shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+                    aria-hidden="true"
+                />
             </button>
             <Reveal open={open} id={id}>
                 <div className="space-y-4 border-t border-white/[0.05] px-4 pb-4 pt-4">{children}</div>
@@ -410,4 +484,5 @@ export function ComposerMore({ summary, children }: { summary?: string | null; c
 }
 
 /** Class for plain fields (date, select, textarea) inside a composer. */
-export const COMPOSER_FIELD = "w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-twilight-text outline-none placeholder:text-twilight-text-muted/60 focus-visible:ring-2 focus-visible:ring-accent-primary/50";
+export const COMPOSER_FIELD =
+    "w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-twilight-text outline-none placeholder:text-twilight-text-muted/60 focus-visible:ring-2 focus-visible:ring-accent-primary/50";

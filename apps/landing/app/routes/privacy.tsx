@@ -6,5 +6,7 @@ import { PRIVACY_PATH, TERMS_PATH } from "~/lib/site";
 export const meta: Route.MetaFunction = () => legalMeta(PRIVACY, PRIVACY_PATH);
 
 export default function Privacy() {
-  return <LegalPage doc={PRIVACY} eyebrow="Your data" other={{ label: "Read the Terms of Service", href: TERMS_PATH }} />;
+    return (
+        <LegalPage doc={PRIVACY} eyebrow="Your data" other={{ label: "Read the Terms of Service", href: TERMS_PATH }} />
+    );
 }

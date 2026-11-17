@@ -12,8 +12,10 @@ vi.mock("../../../../../app/hooks/auth/use-auth-state", () => ({
     useAuthState: () => ({ authReady: true, isAuthenticated: true }),
 }));
 
-const note = (body: string, version: number) => Response.json({ data: { body, version, updatedAt: "2026-09-23T12:00:00.000Z" } });
-const render = (proposal: NoteProposal) => renderHook(() => useNoteProposal("task-1", proposal), { wrapper: withClient() });
+const note = (body: string, version: number) =>
+    Response.json({ data: { body, version, updatedAt: "2026-09-23T12:00:00.000Z" } });
+const render = (proposal: NoteProposal) =>
+    renderHook(() => useNoteProposal("task-1", proposal), { wrapper: withClient() });
 
 describe("assistant note changes", () => {
     beforeEach(() => getNote.mockReset());

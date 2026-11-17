@@ -11,7 +11,14 @@ import { logger } from "./log";
  * are never worth unbounded spend, and refusing one costs the person only a missing suggestion. No Redis configured (dev, tests) means no cap.
  * `userHash` is `hashIdentifier(userId)`, so no raw id reaches Upstash.
  */
-export async function withinDailyBudget(env: Env, bucket: string, userHash: string, limit: number, now: Date = new Date(), { failOpen = false }: { failOpen?: boolean } = {}): Promise<boolean> {
+export async function withinDailyBudget(
+    env: Env,
+    bucket: string,
+    userHash: string,
+    limit: number,
+    now: Date = new Date(),
+    { failOpen = false }: { failOpen?: boolean } = {},
+): Promise<boolean> {
     const redis = getRateLimitRedis(env);
     if (!redis) return true;
     try {

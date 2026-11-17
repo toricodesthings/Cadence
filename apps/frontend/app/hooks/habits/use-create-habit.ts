@@ -14,9 +14,18 @@ import { clientIdFor } from "../../lib/api/optimistic-id";
 /** The new routine as the caches show it until the server answers. */
 function optimisticHabitFrom(input: InsertHabit): Habit {
     const {
-        description = null, steps = null, targetTime = null, reminderEnabled = false, colorAccent = "lantern",
-        targetTimes = null, times = null, emoji = null, projectId = null, sortOrder = Number.MAX_SAFE_INTEGER,
-        pausedUntil = null, tagIds = [],
+        description = null,
+        steps = null,
+        targetTime = null,
+        reminderEnabled = false,
+        colorAccent = "lantern",
+        targetTimes = null,
+        times = null,
+        emoji = null,
+        projectId = null,
+        sortOrder = Number.MAX_SAFE_INTEGER,
+        pausedUntil = null,
+        tagIds = [],
     } = input;
     return {
         id: clientIdFor(input),
@@ -50,19 +59,17 @@ function optimisticHabitFrom(input: InsertHabit): Habit {
 
 /** Adds the routine to every cached active-routines week that holds today. */
 function addToWeeks(queryClient: QueryClient, habit: Habit, today: string) {
-    queryClient
-        .getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll })
-        .forEach(([key, old]) => {
-            const filters = key[2] as { start?: string; end?: string } | undefined;
-            const archivedFlag = key.at(-1);
-            if (!filters?.start || !filters?.end || archivedFlag !== false) return;
-            if (today < filters.start || today > filters.end) return;
+    queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll }).forEach(([key, old]) => {
+        const filters = key[2] as { start?: string; end?: string } | undefined;
+        const archivedFlag = key.at(-1);
+        if (!filters?.start || !filters?.end || archivedFlag !== false) return;
+        if (today < filters.start || today > filters.end) return;
 
-            queryClient.setQueryData(
-                key,
-                transformListCache(old, (items) => [...items, habit], { initialize: true }),
-            );
-        });
+        queryClient.setQueryData(
+            key,
+            transformListCache(old, (items) => [...items, habit], { initialize: true }),
+        );
+    });
 }
 
 export function useCreateHabit() {
@@ -77,7 +84,10 @@ export function useCreateHabit() {
             }),
             async (input) => {
                 const id = clientIdFor(input);
-                const res = await client.api.habits.$post({ json: { ...input, id } }, { headers: { "Idempotency-Key": id } });
+                const res = await client.api.habits.$post(
+                    { json: { ...input, id } },
+                    { headers: { "Idempotency-Key": id } },
+                );
                 return unwrapResponse(res);
             },
         ),
@@ -88,15 +98,22 @@ export function useCreateHabit() {
 
             const optimisticHabit = optimisticHabitFrom(input);
 
-            queryClient.setQueriesData<Habit[]>(
-                { queryKey: queryKeys.habits.all, exact: true },
-                (old) => transformListCache(old, (items) => [...items, optimisticHabit], { initialize: true }),
+            queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.all, exact: true }, (old) =>
+                transformListCache(old, (items) => [...items, optimisticHabit], { initialize: true }),
             );
 
             const today = getToday();
             const optimisticWithLog: Habit = {
                 ...optimisticHabit,
-                logs: [{ id: `virtual-${optimisticHabit.id}-${today}`, habitId: optimisticHabit.id, status: "PENDING", targetDate: today, completedAt: null }],
+                logs: [
+                    {
+                        id: `virtual-${optimisticHabit.id}-${today}`,
+                        habitId: optimisticHabit.id,
+                        status: "PENDING",
+                        targetDate: today,
+                        completedAt: null,
+                    },
+                ],
             };
 
             addToWeeks(queryClient, optimisticWithLog, today);

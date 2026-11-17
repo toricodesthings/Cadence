@@ -8,25 +8,38 @@ import { getUserZone, setUserZone } from "../../../../app/lib/utils/user-zone";
 
 beforeAll(() => setUserZone("America/Toronto"));
 
-const timed = (id: string, scheduledStart: string, scheduledEnd: string) => ({ id, scheduledStart, scheduledEnd, dueDate: null, endDate: null, zone: "America/Toronto" }) as unknown as Task;
+const timed = (id: string, scheduledStart: string, scheduledEnd: string) =>
+    ({ id, scheduledStart, scheduledEnd, dueDate: null, endDate: null, zone: "America/Toronto" }) as unknown as Task;
 
 describe("calendar drops across the 2026-11-01 DST change (America/Toronto)", () => {
     it("an hour-slot drop lands at the slot's wall time on that day", () => {
         // 09:30 on Nov 2 is EST (UTC-5); on Oct 30 it is EDT (UTC-4).
-        expect(getDateFromTimedDropId(buildCalendarTimedDropId("2026-11-02", 9 * 60 + 30)).iso).toBe("2026-11-02T14:30:00.000Z");
-        expect(getDateFromTimedDropId(buildCalendarTimedDropId("2026-10-30", 9 * 60 + 30)).iso).toBe("2026-10-30T13:30:00.000Z");
+        expect(getDateFromTimedDropId(buildCalendarTimedDropId("2026-11-02", 9 * 60 + 30)).iso).toBe(
+            "2026-11-02T14:30:00.000Z",
+        );
+        expect(getDateFromTimedDropId(buildCalendarTimedDropId("2026-10-30", 9 * 60 + 30)).iso).toBe(
+            "2026-10-30T13:30:00.000Z",
+        );
     });
 
     it("a timed block dropped on another day keeps its local time and length", () => {
         const start = "2026-10-30T18:35:00.000Z"; // 14:35 EDT
         const end = "2026-10-30T19:35:00.000Z";
-        const moved = rescheduleToDay({ dueDate: null, endDate: null, scheduledStart: start, scheduledEnd: end, zone: getUserZone() }, "2026-11-02", getUserZone());
+        const moved = rescheduleToDay(
+            { dueDate: null, endDate: null, scheduledStart: start, scheduledEnd: end, zone: getUserZone() },
+            "2026-11-02",
+            getUserZone(),
+        );
         expect(moved.scheduledStart).toBe("2026-11-02T19:35:00.000Z"); // still 14:35, now EST
         expect(moved.scheduledEnd).toBe("2026-11-02T20:35:00.000Z");
     });
 
     it("an all-day task dropped on a day sets its day and keeps its span", () => {
-        const moved = rescheduleToDay({ dueDate: "2026-10-30", endDate: "2026-11-01", scheduledStart: null, scheduledEnd: null, zone: null }, "2026-11-03", getUserZone());
+        const moved = rescheduleToDay(
+            { dueDate: "2026-10-30", endDate: "2026-11-01", scheduledStart: null, scheduledEnd: null, zone: null },
+            "2026-11-03",
+            getUserZone(),
+        );
         expect(moved).toMatchObject({ dueDate: "2026-11-03", endDate: "2026-11-05", scheduledStart: null });
     });
 

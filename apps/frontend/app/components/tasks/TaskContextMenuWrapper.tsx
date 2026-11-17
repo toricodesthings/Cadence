@@ -16,19 +16,26 @@ export interface TaskContextMenuWrapperProps {
 
 /** Right-click context menu for task cards — uses the same TaskMenuItems
  *  as the three-dot dropdown, so both menus expose identical actions. */
-export function TaskContextMenuWrapper({ task, children, onAddSubtask, onRename, holdingContext }: TaskContextMenuWrapperProps) {
+export function TaskContextMenuWrapper({
+    task,
+    children,
+    onAddSubtask,
+    onRename,
+    holdingContext,
+}: TaskContextMenuWrapperProps) {
     const shell = useShellMode();
     // Touch long-press would open the desktop menu and fight drag-to-reorder;
     // compact shells reach the same actions through the card's action sheet.
     if (shell.isCompact) return <>{children}</>;
 
     return (
-        <ContextMenu.Root onOpenChange={(isOpen) => {
-            if (isOpen) trackUsageEvent("task.context_menu_opened", { object_type: "task", input_method: "context_menu" });
-        }}>
-            <ContextMenu.Trigger className="block w-full">
-                {children}
-            </ContextMenu.Trigger>
+        <ContextMenu.Root
+            onOpenChange={(isOpen) => {
+                if (isOpen)
+                    trackUsageEvent("task.context_menu_opened", { object_type: "task", input_method: "context_menu" });
+            }}
+        >
+            <ContextMenu.Trigger className="block w-full">{children}</ContextMenu.Trigger>
             <ContextMenu.Content className="w-[22rem]">
                 <TaskMenuItems
                     task={task}

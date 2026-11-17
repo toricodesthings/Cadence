@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { aiImageKey, hydrateImages, IMAGE_STUB_TEXT, imageIdsIn } from "../../src/domains/ai/images/chat-images";
 
-const ids = ["0b9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2b", "1c9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2b", "2d9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2b"];
+const ids = [
+    "0b9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2b",
+    "1c9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2b",
+    "2d9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2b",
+];
 const file = (id: string) => ({ type: "file", mediaType: "image/webp", url: `cadence-image:${id}` });
 const text = (t: string) => ({ type: "text", text: t });
 const user = (...parts: unknown[]) => ({ role: "user", parts });
@@ -48,7 +52,6 @@ describe("hydrateImages", () => {
         const { messages: out } = await hydrateImages(messages, bucket(ids), "u");
         expect(out[0].parts[0]).toMatchObject({ type: "file" });
     });
-
 
     it("stubs an image storage no longer has (expired)", async () => {
         const { messages: out } = await hydrateImages([user(file(ids[2]))], bucket([]), "u");

@@ -32,9 +32,7 @@ export function Sidebar({
     const panel = useNavPanel();
     const [isResizing, setIsResizing] = useState(false);
     const showPersistentPanel = !isSchedule && !isHabits && !isEvents;
-    const sidebarMotionTransition = isResizing
-        ? { duration: 0 }
-        : { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
+    const sidebarMotionTransition = isResizing ? { duration: 0 } : { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
 
     // Keyboard shortcut: Cmd/Ctrl + [ toggles sidebar; Escape closes the laptop drawer.
     const { toggle, close } = panel;
@@ -52,7 +50,9 @@ export function Sidebar({
         return () => window.removeEventListener("keydown", handler);
     }, [toggle, close, drawerOpen]);
     // A drawer has done its job once you go somewhere.
-    useEffect(() => { setDrawerOpen(false); }, [location.pathname, location.search, setDrawerOpen]);
+    useEffect(() => {
+        setDrawerOpen(false);
+    }, [location.pathname, location.search, setDrawerOpen]);
 
     const startResizing = useCallback((e: React.MouseEvent) => {
         setIsResizing(true);
@@ -63,15 +63,18 @@ export function Sidebar({
         setIsResizing(false);
     }, []);
 
-    const resize = useCallback((e: MouseEvent) => {
-        if (isResizing) {
-            // The rail (56px) always sits left of the panel.
-            const newWidth = e.clientX - 56;
-            if (newWidth >= SIDEBAR_MIN_WIDTH && newWidth <= SIDEBAR_MAX_WIDTH) {
-                setWidth(newWidth);
+    const resize = useCallback(
+        (e: MouseEvent) => {
+            if (isResizing) {
+                // The rail (56px) always sits left of the panel.
+                const newWidth = e.clientX - 56;
+                if (newWidth >= SIDEBAR_MIN_WIDTH && newWidth <= SIDEBAR_MAX_WIDTH) {
+                    setWidth(newWidth);
+                }
             }
-        }
-    }, [isResizing, setWidth]);
+        },
+        [isResizing, setWidth],
+    );
 
     useEffect(() => {
         if (isResizing) {
@@ -100,7 +103,10 @@ export function Sidebar({
 
     // The rail always carries the destinations; the panel holds only what it alone has (lists, tags), never a copy.
     return (
-        <aside className={`${drawerOpen ? "layer-floating-bar" : "layer-shell-base"} relative flex h-full shrink-0`} aria-label="Application navigation">
+        <aside
+            className={`${drawerOpen ? "layer-floating-bar" : "layer-shell-base"} relative flex h-full shrink-0`}
+            aria-label="Application navigation"
+        >
             <IconRail onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
             {/* Outside the drawer (the rail stays live): a click closes it. */}
             {drawerOpen ? <div className="fixed inset-y-0 left-14 right-0" onClick={close} aria-hidden="true" /> : null}
@@ -114,9 +120,11 @@ export function Sidebar({
                         exit={{ width: 0 }}
                         transition={sidebarMotionTransition}
                         style={{ overflow: "hidden", willChange: "width" }}
-                        className={panel.overlay
-                            ? "glass-surface absolute left-full top-0 h-full border-r border-twilight-border shadow-2xl shadow-black/40"
-                            : "relative shrink-0 group/sidebar"}
+                        className={
+                            panel.overlay
+                                ? "glass-surface absolute left-full top-0 h-full border-r border-twilight-border shadow-2xl shadow-black/40"
+                                : "relative shrink-0 group/sidebar"
+                        }
                     >
                         <motion.div
                             initial={{ x: -32, opacity: 0 }}

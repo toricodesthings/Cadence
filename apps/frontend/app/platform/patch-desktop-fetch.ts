@@ -18,7 +18,11 @@ import { NEON_AUTH_URL, RUNTIME_TARGET, WEB_APP_BASE_URL } from "../lib/env";
 import { log } from "../lib/log";
 
 // `isTauri` as in @tauri-apps/api/core, inlined so the web build never loads that module.
-if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && Boolean((window as { isTauri?: unknown }).isTauri)) {
+if (
+    RUNTIME_TARGET === "desktop" &&
+    typeof window !== "undefined" &&
+    Boolean((window as { isTauri?: unknown }).isTauri)
+) {
     const NEON_AUTH_BASE = NEON_AUTH_URL.replace(/\/$/, "");
     const AUTH_ORIGIN = new URL(WEB_APP_BASE_URL).origin;
     const AUTH_REFERER = new URL("/", WEB_APP_BASE_URL).toString();
@@ -34,15 +38,8 @@ if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && Boolean((wi
             log.error("desktop-fetch", "Couldn't load the desktop network layer, so sign-in may not work.", err);
         });
 
-    window.fetch = async function patchedFetch(
-        input: RequestInfo | URL,
-        init?: RequestInit,
-    ): Promise<Response> {
-        const url = typeof input === "string"
-            ? input
-            : input instanceof URL
-                ? input.href
-                : input.url;
+    window.fetch = async function patchedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
 
         // Only intercept Neon Auth requests; everything else stays native.
         if (!url.startsWith(NEON_AUTH_BASE)) {
@@ -70,4 +67,3 @@ if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && Boolean((wi
         }
     } as typeof fetch;
 }
-

@@ -20,11 +20,7 @@ const SILENT_PRODUCER_MS = 60_000;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export function buildResumeStream(
-    redis: Redis,
-    userKey: string,
-    sid: string,
-): ReadableStream<Uint8Array> {
+export function buildResumeStream(redis: Redis, userKey: string, sid: string): ReadableStream<Uint8Array> {
     const enc = new TextEncoder();
     let lastId = "-"; // "-" = from the start (full replay), then exclusive tail
     let lastFrameAt = Date.now();

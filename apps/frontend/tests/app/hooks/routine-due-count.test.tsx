@@ -7,11 +7,22 @@ const state = vi.hoisted(() => ({
     routines: [] as { logs?: { targetDate: string; status: string }[] }[],
     weekly: vi.fn(),
 }));
-vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: (args: unknown) => { state.weekly(args); return { data: state.routines }; } }));
-vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { notifications: { showHabitNavDueCount: state.enabled } } }) }));
+vi.mock("../../../app/hooks/habits/use-habits", () => ({
+    useHabitsRange: (args: unknown) => {
+        state.weekly(args);
+        return { data: state.routines };
+    },
+}));
+vi.mock("../../../app/hooks/core/use-settings", () => ({
+    useSettings: () => ({ data: { notifications: { showHabitNavDueCount: state.enabled } } }),
+}));
 // The hook reads the user's today; the zone store itself is covered with user-zone.
 vi.mock("../../../app/lib/utils/user-zone", () => ({ useToday: () => "2026-09-23" }));
-beforeEach(() => { state.enabled = true; state.routines = []; vi.clearAllMocks(); });
+beforeEach(() => {
+    state.enabled = true;
+    state.routines = [];
+    vi.clearAllMocks();
+});
 
 it("counts scheduled pending routines today, excluding yesterday and unscheduled routines", () => {
     state.routines = [
@@ -27,16 +38,20 @@ it("counts scheduled pending routines today, excluding yesterday and unscheduled
 });
 
 it("decreases for completed and skipped routines, restores on undo, and reaches zero", () => {
-    state.routines = ["PENDING", "PENDING"].map(status => ({ logs: [{ targetDate: "2026-09-23", status }] }));
+    state.routines = ["PENDING", "PENDING"].map((status) => ({ logs: [{ targetDate: "2026-09-23", status }] }));
     const { result, rerender } = renderHook(useRoutineDueCount);
     expect(result.current).toBe(2);
     state.routines[0].logs![0].status = "COMPLETED";
-    rerender(); expect(result.current).toBe(1);
+    rerender();
+    expect(result.current).toBe(1);
     state.routines[1].logs![0].status = "SKIPPED";
-    rerender(); expect(result.current).toBe(0);
+    rerender();
+    expect(result.current).toBe(0);
     state.routines[0].logs![0].status = "PENDING";
-    rerender(); expect(result.current).toBe(1);
+    rerender();
+    expect(result.current).toBe(1);
     state.enabled = false;
-    rerender(); expect(result.current).toBe(0);
+    rerender();
+    expect(result.current).toBe(0);
     expect(state.weekly).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: false }));
 });

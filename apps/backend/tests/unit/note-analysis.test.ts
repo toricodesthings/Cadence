@@ -3,7 +3,8 @@ import { countHeadings, countWords, generateExcerpt } from "../../src/domains/no
 
 describe("generateExcerpt", () => {
     it("strips markdown to a plain one-line preview", () => {
-        const body = "## Key Points\n\n- **Retention** up 14%\n1. See [the dashboard](https://x.io)\n\nRun `npm test` first.";
+        const body =
+            "## Key Points\n\n- **Retention** up 14%\n1. See [the dashboard](https://x.io)\n\nRun `npm test` first.";
 
         expect(generateExcerpt(body)).toBe("Key Points Retention up 14% See the dashboard Run npm test first.");
     });

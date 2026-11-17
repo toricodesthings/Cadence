@@ -6,15 +6,27 @@ import { makeTask } from "../../helpers";
 const mocks = vi.hoisted(() => ({
     reported: null as DurationReportView | null,
     save: { mutate: vi.fn(), isPending: false, isError: false, variables: undefined as unknown },
-    guess: null as null | { state: "supported" | "tentative"; minutes: number; low: number; high: number; reports: number; days: number },
+    guess: null as null | {
+        state: "supported" | "tentative";
+        minutes: number;
+        low: number;
+        high: number;
+        reports: number;
+        days: number;
+    },
     update: vi.fn(),
     undo: vi.fn(),
 }));
 vi.mock("../../../app/hooks/ai/use-memory", () => ({
-    useReportedDuration: (_id: string, _at: unknown, enabled: boolean) => ({ data: enabled ? mocks.reported : undefined }),
+    useReportedDuration: (_id: string, _at: unknown, enabled: boolean) => ({
+        data: enabled ? mocks.reported : undefined,
+    }),
     useSetReportedDuration: () => mocks.save,
 }));
-vi.mock("../../../app/hooks/ai/use-duration-guess", () => ({ useDurationGuess: () => mocks.guess, useDurationGuesser: () => () => mocks.guess }));
+vi.mock("../../../app/hooks/ai/use-duration-guess", () => ({
+    useDurationGuess: () => mocks.guess,
+    useDurationGuesser: () => () => mocks.guess,
+}));
 vi.mock("../../../app/hooks/tasks/use-update-task", () => ({ useUpdateTask: () => ({ mutate: mocks.update }) }));
 vi.mock("../../../app/lib/utils/undo-toast", () => ({ toastUndo: mocks.undo, toastName: (s: string) => s }));
 

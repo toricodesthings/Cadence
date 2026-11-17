@@ -8,7 +8,17 @@ import { EASE_OUT_EXPO } from "../../lib/constants/motion";
  * Reads the Motion setting from `<html data-motion>` (set by the provider) rather than `useReducedMotionSetting`,
  * so it needs no query client and works in any tree.
  */
-export function Reveal({ open, children, id, className = "" }: { open: boolean; children: ReactNode; id?: string; className?: string }) {
+export function Reveal({
+    open,
+    children,
+    id,
+    className = "",
+}: {
+    open: boolean;
+    children: ReactNode;
+    id?: string;
+    className?: string;
+}) {
     const prefersReduced = useReducedMotion();
     const setting = document.documentElement.dataset.motion;
     const reduced = setting === "reduced" || (setting !== "full" && Boolean(prefersReduced));

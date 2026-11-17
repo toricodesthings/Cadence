@@ -6,14 +6,15 @@ import { computeCurrentStreak, scanStreak } from "../../src/domains/habits/habit
 function occurrences(recurrenceRule: string, createdAt: string, asOf: string): string[] {
     const dtstart = new Date(`${createdAt}T00:00:00.000Z`);
     const rule = rrulestr(recurrenceRule, { dtstart });
-    return rule
-        .between(dtstart, new Date(`${asOf}T23:59:59.999Z`), true)
-        .map((d) => d.toISOString().substring(0, 10));
+    return rule.between(dtstart, new Date(`${asOf}T23:59:59.999Z`), true).map((d) => d.toISOString().substring(0, 10));
 }
 
 /** Completed days (and optionally skipped ones) as the date → status map the scan reads. */
 function done(completed: Iterable<string>, skipped: Iterable<string> = []) {
-    return new Map<string, "COMPLETED" | "SKIPPED">([...[...skipped].map((d) => [d, "SKIPPED"] as const), ...[...completed].map((d) => [d, "COMPLETED"] as const)]);
+    return new Map<string, "COMPLETED" | "SKIPPED">([
+        ...[...skipped].map((d) => [d, "SKIPPED"] as const),
+        ...[...completed].map((d) => [d, "COMPLETED"] as const),
+    ]);
 }
 
 /** Build a `loadResolved` lookup backed by in-memory completed (and skipped) dates. */
@@ -116,21 +117,31 @@ describe("computeCurrentStreak (cadence-agnostic, bounded)", () => {
         expect(streak).toBe(0);
     });
 
-    it.each(["NOT A RULE", "FREQ=SECONDLY", "FREQ=DAILY;BYHOUR=0,1"])("rejects unsafe stored rules explicitly: %s", async (rule) => {
-        await expect(computeCurrentStreak(rule, "2026-01-01", "2026-06-01", lookup([])))
-            .rejects.toMatchObject({ code: "INVALID_RECURRENCE_RULE" });
-    });
+    it.each(["NOT A RULE", "FREQ=SECONDLY", "FREQ=DAILY;BYHOUR=0,1"])(
+        "rejects unsafe stored rules explicitly: %s",
+        async (rule) => {
+            await expect(computeCurrentStreak(rule, "2026-01-01", "2026-06-01", lookup([]))).rejects.toMatchObject({
+                code: "INVALID_RECURRENCE_RULE",
+            });
+        },
+    );
 
     it("preserves yearly and finite-count streaks", async () => {
         const years = ["2024-01-01", "2025-01-01", "2026-01-01"];
         expect(await computeCurrentStreak("FREQ=YEARLY;COUNT=3", "2024-01-01", "2027-01-01", lookup(years))).toBe(3);
         const days = ["2026-01-01", "2026-01-03", "2026-01-05"];
-        expect(await computeCurrentStreak("FREQ=DAILY;INTERVAL=2;COUNT=3", "2026-01-01", "2026-06-01", lookup(days))).toBe(3);
+        expect(
+            await computeCurrentStreak("FREQ=DAILY;INTERVAL=2;COUNT=3", "2026-01-01", "2026-06-01", lookup(days)),
+        ).toBe(3);
     });
 
     it("reaches days logged before the routine was created", async () => {
         const completed = ["2026-09-20", "2026-09-21", "2026-09-22", "2026-09-23"];
 
-        expect(await computeCurrentStreak("FREQ=DAILY", "2026-09-23", "2026-09-23", lookup(completed), { earliest: "2026-09-20" })).toBe(4);
+        expect(
+            await computeCurrentStreak("FREQ=DAILY", "2026-09-23", "2026-09-23", lookup(completed), {
+                earliest: "2026-09-20",
+            }),
+        ).toBe(4);
     });
 });

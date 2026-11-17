@@ -15,11 +15,7 @@ export default function CompletedView() {
     const selection = useTaskDetailSelection();
     const { selectedTaskId, setSelectedTaskId, handleSelectTask } = selection;
 
-
-
-    const sidePanel = (
-        <TaskDetailsRail selection={selection} ariaLabel="Resize completed sidebar" />
-    );
+    const sidePanel = <TaskDetailsRail selection={selection} ariaLabel="Resize completed sidebar" />;
 
     return (
         <MainLayout

@@ -4,7 +4,14 @@
  */
 import type { PlanningEvidence } from "@cadence/contracts/planning";
 import type { Task } from "@cadence/contracts/task";
-import { busyBlocks, feasibleBuckets, findTimes, type Busy, type FindTimeInput, type Proposal } from "@cadence/domain/find-time";
+import {
+    busyBlocks,
+    feasibleBuckets,
+    findTimes,
+    type Busy,
+    type FindTimeInput,
+    type Proposal,
+} from "@cadence/domain/find-time";
 import { preferredBuckets } from "@cadence/domain/slot-preference";
 import { taskMinutes } from "@cadence/domain/task-length";
 import { formatInZone, todayIn, type LocalDate, type Zone } from "@cadence/domain/time";
@@ -12,7 +19,10 @@ import type { DurationGuess } from "@cadence/nlp/duration";
 import { formatChipTime } from "../utils/date-format";
 
 export interface DayPlanInput {
-    task: Pick<Task, "id" | "title" | "projectId" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "notBefore">;
+    task: Pick<
+        Task,
+        "id" | "title" | "projectId" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "notBefore"
+    >;
     listName: string | null;
     day: LocalDate;
     zone: Zone;
@@ -37,11 +47,15 @@ export function planDay(input: DayPlanInput): DayPlan {
     const minutes = taskMinutes(task, input.guess);
     const rule: FindTimeInput = {
         task: { minutes, notBefore: task.notBefore ?? null, currentStart: task.scheduledStart },
-        day, zone,
+        day,
+        zone,
         now: input.now.toISOString(),
         timelineStartHour: input.timelineStartHour,
         // A routine takes no room: it is a point in the day, never a block to keep clear of.
-        busy: busyBlocks(input.dayTasks.filter((t) => !t.isHabit), task.id),
+        busy: busyBlocks(
+            input.dayTasks.filter((t) => !t.isHabit),
+            task.id,
+        ),
         preferred: [],
     };
     const preferred = preferredBuckets(

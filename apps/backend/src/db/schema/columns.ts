@@ -1,5 +1,5 @@
-import { customType } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
+import { customType } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 /**
  * `timestamp with time zone`, read as a strict ISO-8601 string ("2026-03-09T12:00:00.000Z").
@@ -21,4 +21,7 @@ export const rlsUserId = sql`(select ((current_setting('request.jwt.claims', tru
 export const rlsUsing = sql`(user_id = ${rlsUserId})`;
 
 /** When the row was made. */
-export const createdAt = () => timestamptz("created_at").default(sql`now()`).notNull();
+export const createdAt = () =>
+    timestamptz("created_at")
+        .default(sql`now()`)
+        .notNull();

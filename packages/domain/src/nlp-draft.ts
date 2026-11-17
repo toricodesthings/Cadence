@@ -88,8 +88,8 @@ export interface Draft {
  * and a fuzzy list or tag name is only ever a suggestion. Fixed from the corpus sweep, never a setting.
  */
 export function appliesWithoutChoice(e: { type: string; confidence?: "high" | "medium" | "low" }): boolean {
-  if ((e.type === "project" || e.type === "tag") && e.confidence !== "high") return false;
-  return e.confidence === "high" || e.confidence === "medium";
+    if ((e.type === "project" || e.type === "tag") && e.confidence !== "high") return false;
+    return e.confidence === "high" || e.confidence === "medium";
 }
 
 const isNone = (v: unknown) => v === null || v === undefined || (Array.isArray(v) && v.length === 0);
@@ -128,7 +128,11 @@ export function resolveDraft(
     decisions: DraftDecisions,
     ctx: DraftContext,
 ): Draft {
-    const fields: DraftFields = { ...EMPTY_DRAFT_FIELDS, ...decisions.manual, tagIds: [...(decisions.manual?.tagIds ?? [])] };
+    const fields: DraftFields = {
+        ...EMPTY_DRAFT_FIELDS,
+        ...decisions.manual,
+        tagIds: [...(decisions.manual?.tagIds ?? [])],
+    };
     const manual = decisions.manual ?? {};
     const out: Draft = { fields, title: rawInput.trim(), applied: [], suggestions: [], unfit: [] };
     if (decisions.literal) return out;
@@ -141,7 +145,12 @@ export function resolveDraft(
     const relative: ParsedEntity[] = [];
 
     for (const e of entities) {
-        if (ctx.monthDayOnly && (e.type === "due_date" || e.type === "scheduled_start") && !dismissed.has(e.id) && !("dueDate" in manual)) {
+        if (
+            ctx.monthDayOnly &&
+            (e.type === "due_date" || e.type === "scheduled_start") &&
+            !dismissed.has(e.id) &&
+            !("dueDate" in manual)
+        ) {
             const v = e.normalizedValue as DateValue;
             if (v.hasTime || /\b(?:19|20)\d{2}\b/.test(e.sourceText)) {
                 if (!out.unfit.some((u) => u.start === e.start)) out.unfit.push(e);
@@ -186,7 +195,9 @@ export function resolveDraft(
     for (const e of relative) {
         if (!fields.scheduledStart || filled.has("reminderAt")) continue;
         filled.add("reminderAt");
-        fields.reminderAt = new Date(Date.parse(fields.scheduledStart) - (e.normalizedValue as { beforeMinutes: number }).beforeMinutes * 60_000).toISOString();
+        fields.reminderAt = new Date(
+            Date.parse(fields.scheduledStart) - (e.normalizedValue as { beforeMinutes: number }).beforeMinutes * 60_000,
+        ).toISOString();
         out.applied.push(e.id);
         take(e);
     }
@@ -195,10 +206,17 @@ export function resolveDraft(
     return out;
 }
 
-const isRelativeReminder = (e: ParsedEntity) => e.type === "reminder" && typeof (e.normalizedValue as { beforeMinutes?: unknown }).beforeMinutes === "number";
+const isRelativeReminder = (e: ParsedEntity) =>
+    e.type === "reminder" && typeof (e.normalizedValue as { beforeMinutes?: unknown }).beforeMinutes === "number";
 
 /** A read date: a time of day alone, a timed start (and its end), or a day. */
-function applyDate(fields: DraftFields, type: "due_date" | "scheduled_start", v: DateValue, ctx: DraftContext, manual: Partial<DraftFields>) {
+function applyDate(
+    fields: DraftFields,
+    type: "due_date" | "scheduled_start",
+    v: DateValue,
+    ctx: DraftContext,
+    manual: Partial<DraftFields>,
+) {
     if (ctx.capabilities.has("timeOfDay") && !ctx.capabilities.has("scheduledStart")) {
         fields.timeOfDay = v.time;
         return;
@@ -218,17 +236,31 @@ function applyDate(fields: DraftFields, type: "due_date" | "scheduled_start", v:
 function applyEntity(fields: DraftFields, e: ParsedEntity, ctx: DraftContext, manual: Partial<DraftFields>) {
     switch (e.type) {
         case "due_date":
-        case "scheduled_start": applyDate(fields, e.type, e.normalizedValue as DateValue, ctx, manual); break;
-        case "not_before": fields.notBefore = (e.normalizedValue as DateValue).date; break;
+        case "scheduled_start":
+            applyDate(fields, e.type, e.normalizedValue as DateValue, ctx, manual);
+            break;
+        case "not_before":
+            fields.notBefore = (e.normalizedValue as DateValue).date;
+            break;
         case "reminder": {
             const v = e.normalizedValue as DateValue;
             if (v.time) fields.reminderAt = atLocal(v.date, v.time, ctx.zone);
             break;
         }
-        case "recurrence": fields.recurrenceRule = (e.normalizedValue as { rrule: string }).rrule; break;
-        case "priority": fields.priority = e.normalizedValue as number; break;
-        case "project": fields.projectId = (e.normalizedValue as { id: string }).id; break;
-        case "waiting_on": fields.waitingOn = (e.normalizedValue as { person: string }).person; break;
-        case "duration": fields.durationMinutes = (e.normalizedValue as { minutes: number }).minutes; break;
+        case "recurrence":
+            fields.recurrenceRule = (e.normalizedValue as { rrule: string }).rrule;
+            break;
+        case "priority":
+            fields.priority = e.normalizedValue as number;
+            break;
+        case "project":
+            fields.projectId = (e.normalizedValue as { id: string }).id;
+            break;
+        case "waiting_on":
+            fields.waitingOn = (e.normalizedValue as { person: string }).person;
+            break;
+        case "duration":
+            fields.durationMinutes = (e.normalizedValue as { minutes: number }).minutes;
+            break;
     }
 }

@@ -4,10 +4,16 @@ import { noteExtensions, markdownToDoc, docToMarkdown } from "../../../app/lib/n
 import { NoteFind, getFind, replaceAll, setFind } from "../../../app/lib/notes/note-find";
 import { extractNoteOutline, findHeading, currentHeadingId } from "../../../app/lib/notes/note-outline";
 import { applyRemoteDoc } from "../../../app/components/tasks/note/note-selection";
-import { filterSlashCommands, markState, runNoteCommand, SLASH_COMMANDS } from "../../../app/components/tasks/note/note-commands";
+import {
+    filterSlashCommands,
+    markState,
+    runNoteCommand,
+    SLASH_COMMANDS,
+} from "../../../app/components/tasks/note/note-commands";
 
 let editor: Editor | null = null;
-const make = (md: string) => (editor = new Editor({ extensions: [...noteExtensions(), NoteFind], content: markdownToDoc(md) }));
+const make = (md: string) =>
+    (editor = new Editor({ extensions: [...noteExtensions(), NoteFind], content: markdownToDoc(md) }));
 afterEach(() => editor?.destroy());
 
 describe("find and replace", () => {
@@ -33,7 +39,11 @@ describe("outline", () => {
     it("lists headings from the document, ignoring fenced lookalikes, with distinct ids for repeats", () => {
         const e = make("# A\n\ntext\n\n## B\n\n```\n# not a heading\n```\n\n## B");
         const outline = extractNoteOutline(e.state.doc);
-        expect(outline.map((h) => [h.level, h.text])).toEqual([[1, "A"], [2, "B"], [2, "B"]]);
+        expect(outline.map((h) => [h.level, h.text])).toEqual([
+            [1, "A"],
+            [2, "B"],
+            [2, "B"],
+        ]);
         expect(new Set(outline.map((h) => h.id)).size).toBe(3);
         expect(findHeading(outline, "B")).toBe(outline[1]);
         expect(currentHeadingId(outline, outline[2].pos + 2)).toBe(outline[2].id);
@@ -51,8 +61,17 @@ describe("commands", () => {
     });
 
     it("keeps the six slash block ids and finds templates by the word template", () => {
-        expect(SLASH_COMMANDS.slice(0, 6).map((c) => c.id)).toEqual(["heading", "bullet-list", "numbered-list", "checklist", "quote", "divider"]);
-        expect(filterSlashCommands("template").map((c) => c.id)).toEqual(["checklist", "bullets", "meeting", "brainstorm", "decision", "next-steps"].map((t) => `template:${t}`));
+        expect(SLASH_COMMANDS.slice(0, 6).map((c) => c.id)).toEqual([
+            "heading",
+            "bullet-list",
+            "numbered-list",
+            "checklist",
+            "quote",
+            "divider",
+        ]);
+        expect(filterSlashCommands("template").map((c) => c.id)).toEqual(
+            ["checklist", "bullets", "meeting", "brainstorm", "decision", "next-steps"].map((t) => `template:${t}`),
+        );
         expect(filterSlashCommands("zzzz")).toEqual([]);
     });
 });

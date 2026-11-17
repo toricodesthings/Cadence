@@ -49,13 +49,17 @@ export function ChipScroller({ className, children, ...rest }: HTMLAttributes<HT
                 if (drag.current?.moved && ref.current) {
                     // Swallow the click this drag produces, if any, but never a later one.
                     suppressClick.current = true;
-                    setTimeout(() => { suppressClick.current = false; }, 0);
+                    setTimeout(() => {
+                        suppressClick.current = false;
+                    }, 0);
                     ref.current.style.cursor = "";
                     ref.current.releasePointerCapture(e.pointerId);
                 }
                 drag.current = null;
             }}
-            onPointerCancel={() => { drag.current = null; }}
+            onPointerCancel={() => {
+                drag.current = null;
+            }}
             onClickCapture={(e) => {
                 if (!suppressClick.current) return;
                 suppressClick.current = false;

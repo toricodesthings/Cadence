@@ -19,7 +19,16 @@ interface OverlayPanelProps {
 }
 
 /** The assistant panel's slide-in layer (Conversations, Usage, Memory): one header with a Back button over the thread, never over the page. */
-export function OverlayPanel({ label, title, onClose, action, backRef, autoFocusBack = true, className = "bg-panel", children }: OverlayPanelProps) {
+export function OverlayPanel({
+    label,
+    title,
+    onClose,
+    action,
+    backRef,
+    autoFocusBack = true,
+    className = "bg-panel",
+    children,
+}: OverlayPanelProps) {
     const reduceMotion = useReducedMotion();
 
     return (

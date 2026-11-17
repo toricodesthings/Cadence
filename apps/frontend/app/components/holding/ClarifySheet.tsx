@@ -9,7 +9,13 @@ import { useSettings } from "../../hooks/core/use-settings";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useSections } from "../../hooks/sections/use-sections";
 import { PRIORITY_ICON, PRIORITY_OPTIONS } from "../tasks/task-choice-options";
-import { overridesOf, placementFor, priorityFromWords, storedSuggestion, type ThoughtOverrides } from "../../lib/utils/task/suggested-placement";
+import {
+    overridesOf,
+    placementFor,
+    priorityFromWords,
+    storedSuggestion,
+    type ThoughtOverrides,
+} from "../../lib/utils/task/suggested-placement";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import { DetailTitle } from "../shared/DetailTitle";
 import { CARD, DetailGroup, FieldBlock, FieldRow, ValueSelect } from "../shared/DetailPanelSections";
@@ -94,7 +100,11 @@ export function ClarifySheet({
             waitingOn: parse.waitingOn,
             reminderAt: parse.fields.reminderAt,
             notBefore: parse.fields.notBefore,
-            nlp: resolvedNlp(item.rawText, "clarify_sheet", settings?.dateTime.dateStyle ?? "mdy", dismissed, { title, projectId, tagIds }),
+            nlp: resolvedNlp(item.rawText, "clarify_sheet", settings?.dateTime.dateStyle ?? "mdy", dismissed, {
+                title,
+                projectId,
+                tagIds,
+            }),
             skipOptimisticRemoval: openEditor,
             successLabel: openEditor ? "Made a task" : undefined,
         });
@@ -187,7 +197,10 @@ export function ClarifySheet({
                             value={projectId ?? ""}
                             // A section belongs to its list: changing the list clears it.
                             onChange={(id) => save({ projectId: id || null, sectionId: null })}
-                            options={[{ value: "", label: "None" }, ...projects.map((p) => ({ value: p.id, label: p.name }))]}
+                            options={[
+                                { value: "", label: "None" },
+                                ...projects.map((p) => ({ value: p.id, label: p.name })),
+                            ]}
                         />
                     </FieldRow>
                     {projectId && sections.length > 0 && (
@@ -196,7 +209,10 @@ export function ClarifySheet({
                                 label="Section"
                                 value={sectionId ?? ""}
                                 onChange={(id) => save({ sectionId: id || null })}
-                                options={[{ value: "", label: "None" }, ...sections.map((section) => ({ value: section.id, label: section.name }))]}
+                                options={[
+                                    { value: "", label: "None" },
+                                    ...sections.map((section) => ({ value: section.id, label: section.name })),
+                                ]}
                             />
                         </FieldRow>
                     )}

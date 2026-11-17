@@ -13,7 +13,8 @@ import type { Env } from "../../types/env";
 const FROM = { email: "noreply@mail.cadenceapp.cloud", name: "Cadence" };
 
 /** Says which time values are which, so the file reads the same in any tool. */
-const TIME_NOTE = "Days (due_on, end_on, hidden_until, target_date, first_scheduled…) are calendar days as YYYY-MM-DD with no time zone. Moments (scheduled_start, scheduled_end, created_at, …) are ISO 8601 in UTC (…Z); a timed task's zone column is the time zone it was planned in. users.time_zone is yours.";
+const TIME_NOTE =
+    "Days (due_on, end_on, hidden_until, target_date, first_scheduled…) are calendar days as YYYY-MM-DD with no time zone. Moments (scheduled_start, scheduled_end, created_at, …) are ISO 8601 in UTC (…Z); a timed task's zone column is the time zone it was planned in. users.time_zone is yours.";
 
 /** Email caps a message at 25 MiB, body included. ponytail: over this the export fails; zip it or link R2 if anyone gets here. */
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -32,17 +33,36 @@ export async function buildExport(tx: Tx, identity: { userId: string; email: str
         const name = getTableName(table);
         if (SKIPPED_TABLES.has(name)) continue;
         const all: Record<string, any> = getTableColumns(table);
-        const columns = Object.fromEntries(Object.entries(all).filter(([, column]) => !["PgVector", "PgHalfVector"].includes(column.columnType) && !column.generated));
+        const columns = Object.fromEntries(
+            Object.entries(all).filter(
+                ([, column]) => !["PgVector", "PgHalfVector"].includes(column.columnType) && !column.generated,
+            ),
+        );
         const scope =
-            "userId" in all ? eq(all.userId, userId)
-            : name === "users" ? eq(all.id, userId)
-            // task_tags is the one table without a user id: owned through its task
-            : "taskId" in all ? inArray(all.taskId, tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.userId, userId)))
-            : undefined;
+            "userId" in all
+                ? eq(all.userId, userId)
+                : name === "users"
+                  ? eq(all.id, userId)
+                  : // task_tags is the one table without a user id: owned through its task
+                    "taskId" in all
+                    ? inArray(all.taskId, tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.userId, userId)))
+                    : undefined;
         if (!scope) throw new Error(`data export doesn't know how to scope ${name}`);
-        data[name] = await tx.select(columns as never).from(table as never).where(scope);
+        data[name] = await tx
+            .select(columns as never)
+            .from(table as never)
+            .where(scope);
     }
-    return JSON.stringify({ readme: TIME_NOTE, exportedAt: new Date().toISOString(), account: { id: userId, email: identity.email }, data }, null, 2);
+    return JSON.stringify(
+        {
+            readme: TIME_NOTE,
+            exportedAt: new Date().toISOString(),
+            account: { id: userId, email: identity.email },
+            data,
+        },
+        null,
+        2,
+    );
 }
 
 /**
@@ -50,13 +70,20 @@ export async function buildExport(tx: Tx, identity: { userId: string; email: str
  * (`waitUntil`), so it never throws: a failure is logged and leaves the row `failed`.
  * ponytail: runs inside the request's waitUntil window; move to a Cloudflare Queue if exports outgrow it.
  */
-export async function deliverExport(env: Env, request: { id: string; userId: string; email: string }, requestId: string): Promise<void> {
+export async function deliverExport(
+    env: Env,
+    request: { id: string; userId: string; email: string },
+    requestId: string,
+): Promise<void> {
     const db = getDbClient(env);
     const { userId } = request;
     let bytes: number | null = null;
     let status: "sent" | "failed" = "failed";
     try {
-        const { json, day } = await withRls(db, userId, async (tx) => ({ json: await buildExport(tx, request), day: todayIn(await userZone(tx, userId)) }));
+        const { json, day } = await withRls(db, userId, async (tx) => ({
+            json: await buildExport(tx, request),
+            day: todayIn(await userZone(tx, userId)),
+        }));
         bytes = new TextEncoder().encode(json).byteLength;
         if (bytes > MAX_BYTES) throw new Error(`export is ${bytes} bytes, over the ${MAX_BYTES} email limit`);
         await env.EMAIL!.send({
@@ -65,17 +92,36 @@ export async function deliverExport(env: Env, request: { id: string; userId: str
             subject: "Your Cadence data export",
             text: "Your Cadence data is attached as a JSON file. It holds your tasks, routines, lists, tags, captures, notes, settings, assistant conversations, and what the assistant remembers and has learned from your answers. Photos you uploaded (a background, images sent to the assistant) are not included.\n\nIf you didn't ask for this, change your password and reply to let us know.",
             html: "<p>Your Cadence data is attached as a JSON file. It holds your tasks, routines, lists, tags, captures, notes, settings, assistant conversations, and what the assistant remembers and has learned from your answers. Photos you uploaded (a background, images sent to the assistant) are not included.</p><p>If you didn't ask for this, change your password and reply to let us know.</p>",
-            attachments: [{ content: json, filename: `cadence-export-${day}.json`, type: "application/json", disposition: "attachment" }],
+            attachments: [
+                {
+                    content: json,
+                    filename: `cadence-export-${day}.json`,
+                    type: "application/json",
+                    disposition: "attachment",
+                },
+            ],
         });
         status = "sent";
     } catch (error) {
-        logger.error("auth", "data_export_failed", { requestId, userHash: await hashIdentifier(userId), issues: issuesFromError(error) });
+        logger.error("auth", "data_export_failed", {
+            requestId,
+            userHash: await hashIdentifier(userId),
+            issues: issuesFromError(error),
+        });
     }
     try {
         await withRls(db, userId, (tx) =>
-            tx.update(dataExports).set({ status, bytes, completedAt: new Date().toISOString() }).where(and(eq(dataExports.id, request.id), eq(dataExports.userId, userId))));
+            tx
+                .update(dataExports)
+                .set({ status, bytes, completedAt: new Date().toISOString() })
+                .where(and(eq(dataExports.id, request.id), eq(dataExports.userId, userId))),
+        );
     } catch (error) {
         // Still "pending" on the row; the hour's wait on POST /account/export frees it up again
-        logger.error("auth", "data_export_record_failed", { requestId, userHash: await hashIdentifier(userId), issues: issuesFromError(error) });
+        logger.error("auth", "data_export_record_failed", {
+            requestId,
+            userHash: await hashIdentifier(userId),
+            issues: issuesFromError(error),
+        });
     }
 }

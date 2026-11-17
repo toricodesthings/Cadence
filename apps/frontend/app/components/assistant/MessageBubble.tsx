@@ -188,9 +188,7 @@ export function ChatMessage({
             {...bubbleIn(reduceMotion)}
             className={`group/msg flex gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}
         >
-            {!isUser ? (
-                showAvatar ? <ChatAvatar /> : <div className="w-8 min-w-8 shrink-0" aria-hidden />
-            ) : null}
+            {!isUser ? showAvatar ? <ChatAvatar /> : <div className="w-8 min-w-8 shrink-0" aria-hidden /> : null}
 
             <div className={`flex min-w-0 flex-col gap-1.5 ${isUser ? "flex-1 items-end" : "flex-1 items-start"}`}>
                 {editing ? (

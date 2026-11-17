@@ -3,8 +3,8 @@ import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
 // Awaited only when rendering the site (build time); the client build folds this to nothing, so react-dom/server
 // never reaches the browser.
 const { renderToStaticMarkup } = import.meta.env.SSR
-  ? await import("react-dom/server")
-  : ({} as typeof import("react-dom/server"));
+    ? await import("react-dom/server")
+    : ({} as typeof import("react-dom/server"));
 
 /** The browser never renders this: React skips an element that has `dangerouslySetInnerHTML` while it hydrates. */
 const KEEP = { __html: "" };
@@ -17,11 +17,11 @@ const KEEP = { __html: "" };
  * the element itself or stays a React element outside it; the children are only ever drawn.
  */
 export function StaticSvg<T extends ElementType = "svg">({
-  as,
-  children,
-  ...props
+    as,
+    children,
+    ...props
 }: { as?: T; children?: ReactNode } & Omit<ComponentPropsWithoutRef<T>, "children" | "dangerouslySetInnerHTML">) {
-  const Tag: ElementType = as ?? "svg";
-  const html = import.meta.env.SSR ? { __html: renderToStaticMarkup(<>{children}</>) } : KEEP;
-  return <Tag {...props} dangerouslySetInnerHTML={html} suppressHydrationWarning />;
+    const Tag: ElementType = as ?? "svg";
+    const html = import.meta.env.SSR ? { __html: renderToStaticMarkup(<>{children}</>) } : KEEP;
+    return <Tag {...props} dangerouslySetInnerHTML={html} suppressHydrationWarning />;
 }

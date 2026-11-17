@@ -46,9 +46,7 @@ function getEmbeddingModel(env: Env, userHash?: string) {
 /** Guard that an embedding matches the column dimensionality. */
 function assertDimensions(vector: number[]): number[] {
     if (vector.length !== EMBEDDING_DIMENSIONS) {
-        throw new Error(
-            `embedding dimension mismatch: expected ${EMBEDDING_DIMENSIONS}, got ${vector.length}`,
-        );
+        throw new Error(`embedding dimension mismatch: expected ${EMBEDDING_DIMENSIONS}, got ${vector.length}`);
     }
     return vector;
 }
@@ -75,7 +73,10 @@ export async function embedText(
     const spend: EmbeddingSpend = {
         model: getEmbeddingModelId(env),
         inputTokens: usage?.tokens,
-        ...addStepSpend({}, { providerMetadata, response: { modelId: (response?.body as { model?: string } | undefined)?.model } }),
+        ...addStepSpend(
+            {},
+            { providerMetadata, response: { modelId: (response?.body as { model?: string } | undefined)?.model } },
+        ),
     };
     logger.info("ai", "ai_embedding", { ...ctx, ...spend });
     await addDailySpend(env, spend.costUsd);
@@ -83,12 +84,26 @@ export async function embedText(
 }
 
 /** Batch embedding via `embedMany`, logged as one `ai_embedding` line. Each vector is validated against the column size. `inTurn` keeps a chat turn's 5 s budget. */
-export async function embedTexts(env: Env, texts: string[], ctx: { userHash?: string; inTurn?: boolean } = {}): Promise<number[][]> {
+export async function embedTexts(
+    env: Env,
+    texts: string[],
+    ctx: { userHash?: string; inTurn?: boolean } = {},
+): Promise<number[][]> {
     if (texts.length === 0) return [];
     const timeout = ctx.inTurn ? EMBED_TIMEOUT_MS : BATCH_TIMEOUT_MS;
-    const { embeddings, usage, providerMetadata } = await embedMany({ model: getEmbeddingModel(env, ctx.userHash), values: texts, abortSignal: AbortSignal.timeout(timeout) });
+    const { embeddings, usage, providerMetadata } = await embedMany({
+        model: getEmbeddingModel(env, ctx.userHash),
+        values: texts,
+        abortSignal: AbortSignal.timeout(timeout),
+    });
     const spend = addStepSpend({}, { providerMetadata });
-    logger.info("ai", "ai_embedding", { userHash: ctx.userHash, model: getEmbeddingModelId(env), inputTokens: usage?.tokens, texts: texts.length, costUsd: spend.costUsd });
+    logger.info("ai", "ai_embedding", {
+        userHash: ctx.userHash,
+        model: getEmbeddingModelId(env),
+        inputTokens: usage?.tokens,
+        texts: texts.length,
+        costUsd: spend.costUsd,
+    });
     await addDailySpend(env, spend.costUsd);
     return embeddings.map(assertDimensions);
 }

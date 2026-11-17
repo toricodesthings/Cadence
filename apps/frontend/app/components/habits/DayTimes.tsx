@@ -2,10 +2,22 @@ import { HABIT_WEEKDAYS } from "@cadence/contracts/habit";
 import { TimePicker } from "../primitives/TimePicker";
 import { formatWallTime } from "../../lib/utils/date-format";
 
-const DAY_LABELS: Record<(typeof HABIT_WEEKDAYS)[number], string> = { MO: "Mon", TU: "Tue", WE: "Wed", TH: "Thu", FR: "Fri", SA: "Sat", SU: "Sun" };
+const DAY_LABELS: Record<(typeof HABIT_WEEKDAYS)[number], string> = {
+    MO: "Mon",
+    TU: "Tue",
+    WE: "Wed",
+    TH: "Thu",
+    FR: "Fri",
+    SA: "Sat",
+    SU: "Sun",
+};
 
 /** Per-weekday times: empty = the usual time, "Any time" = no time that day. */
-export function DayTimes({ value, usualTime, onChange }: {
+export function DayTimes({
+    value,
+    usualTime,
+    onChange,
+}: {
     value: Record<string, string> | null | undefined;
     usualTime: string | null;
     onChange: (targetTimes: Record<string, string> | null) => void;

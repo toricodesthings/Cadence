@@ -49,9 +49,13 @@ function ReleaseGroups({ groups }: { groups: ChangelogGroup[] }) {
                 const { label, className } = GROUP_LABELS[group.kind];
                 return (
                     <section key={group.kind}>
-                        <h4 className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${className}`}>{label}</h4>
+                        <h4 className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${className}`}>
+                            {label}
+                        </h4>
                         <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[15px] leading-6 text-twilight-text-soft marker:text-twilight-text-muted">
-                            {group.items.map((item) => <li key={item}>{item}</li>)}
+                            {group.items.map((item) => (
+                                <li key={item}>{item}</li>
+                            ))}
                         </ul>
                     </section>
                 );
@@ -95,7 +99,9 @@ function EarlierRelease({ entry }: { entry: ChangelogEntry }) {
             <summary className="flex min-h-[44px] cursor-pointer list-none items-center gap-4 rounded-2xl px-3 py-3.5 transition-colors hover:bg-white/[0.03] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-primary/60 [&::-webkit-details-marker]:hidden">
                 <Glyph glyph={entry.glyph} />
                 <div className="min-w-0 flex-1">
-                    <h3 className="font-display text-base font-semibold tracking-tight text-twilight-text">{entry.version}</h3>
+                    <h3 className="font-display text-base font-semibold tracking-tight text-twilight-text">
+                        {entry.version}
+                    </h3>
                     <p className="truncate text-sm text-twilight-text-soft">{entry.title}</p>
                 </div>
                 <ReleaseDate date={entry.date} />
@@ -134,9 +140,7 @@ export default function ChangelogRoute() {
                         <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight text-twilight-text sm:text-5xl">
                             What's new
                         </h1>
-                        <p className="mt-3 text-[15px] text-twilight-text-soft">
-                            Every release, newest first.
-                        </p>
+                        <p className="mt-3 text-[15px] text-twilight-text-soft">Every release, newest first.</p>
                     </header>
 
                     {latest ? <LatestRelease entry={latest} /> : null}
@@ -147,7 +151,9 @@ export default function ChangelogRoute() {
                                 Earlier releases
                             </h2>
                             <div className="surface-utility mt-3 divide-y divide-white/[0.05] rounded-[1.75rem] border border-white/[0.06] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                                {earlier.map((entry) => <EarlierRelease key={entry.version} entry={entry} />)}
+                                {earlier.map((entry) => (
+                                    <EarlierRelease key={entry.version} entry={entry} />
+                                ))}
                             </div>
                         </section>
                     ) : null}

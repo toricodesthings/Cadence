@@ -14,7 +14,11 @@ const NONE: Record<string, ResetDisposition> = {};
  * blocking it). The ids asked about are fixed on first render, so rows resolved meanwhile keep their answer and new
  * rows get none. Off when Suggest with an AI provider is off, or offline; then every row keeps today's default.
  */
-export function useResetSuggestions(step: ResetSuggestionsRequest["step"], ids: readonly string[], active: boolean): Record<string, ResetDisposition> {
+export function useResetSuggestions(
+    step: ResetSuggestionsRequest["step"],
+    ids: readonly string[],
+    active: boolean,
+): Record<string, ResetDisposition> {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();
     const settings = useSettings().data;

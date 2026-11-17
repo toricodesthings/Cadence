@@ -26,7 +26,10 @@ const fold = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
  * Their next message settles a waiting question: one of its options answers it, anything else is a miss.
  * Null when nothing waited; `answered` names the field whose question the message answered.
  */
-export function settleFieldAsk(state: FieldAskState | null | undefined, reply: string): { state: FieldAskState; answered?: FieldAskKind } | null {
+export function settleFieldAsk(
+    state: FieldAskState | null | undefined,
+    reply: string,
+): { state: FieldAskState; answered?: FieldAskKind } | null {
     if (!state || !reply.trim()) return null;
     const said = fold(reply);
     let next: FieldAskState | null = null;

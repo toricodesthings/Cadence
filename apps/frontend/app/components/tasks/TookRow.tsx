@@ -2,7 +2,12 @@ import { useState } from "react";
 import { Hourglass } from "lucide-react";
 import { formatValue } from "@cadence/domain/duration-chips";
 import type { DurationValue } from "@cadence/contracts/memory";
-import { useReportedDuration, useReportedRoutineDuration, useSetReportedDuration, useSetReportedRoutineDuration } from "../../hooks/ai/use-memory";
+import {
+    useReportedDuration,
+    useReportedRoutineDuration,
+    useSetReportedDuration,
+    useSetReportedRoutineDuration,
+} from "../../hooks/ai/use-memory";
 import { formatWallTime } from "../../lib/utils/date-format";
 import { toastUndo } from "../../lib/utils/undo-toast";
 import { DurationChoices } from "../assistant/DurationChips";
@@ -20,7 +25,15 @@ interface TookSave {
  * teach Cadence. It renders what the server stored, never its own draft: Saving… while a change is on its way, and
  * "Couldn't save · Retry" with the choice kept if it fails. A task's answer and a routine day's are the same row.
  */
-function TookField({ view, save, label = "Took" }: { view: { lowMinutes: number; highMinutes: number } | null | undefined; save: TookSave; label?: string }) {
+function TookField({
+    view,
+    save,
+    label = "Took",
+}: {
+    view: { lowMinutes: number; highMinutes: number } | null | undefined;
+    save: TookSave;
+    label?: string;
+}) {
     const [editing, setEditing] = useState(false);
     const text = view ? formatValue(view) : null;
     const failed = save.isError;
@@ -44,7 +57,17 @@ function TookField({ view, save, label = "Took" }: { view: { lowMinutes: number;
                         <button
                             type="button"
                             onClick={() => {
-                                const before = { value: view.lowMinutes === view.highMinutes ? { kind: "point" as const, minutes: view.lowMinutes } : { kind: "range" as const, lowMinutes: view.lowMinutes, highMinutes: view.highMinutes }, anchored: "anchored" in view ? Boolean(view.anchored) : false };
+                                const before = {
+                                    value:
+                                        view.lowMinutes === view.highMinutes
+                                            ? { kind: "point" as const, minutes: view.lowMinutes }
+                                            : {
+                                                  kind: "range" as const,
+                                                  lowMinutes: view.lowMinutes,
+                                                  highMinutes: view.highMinutes,
+                                              },
+                                    anchored: "anchored" in view ? Boolean(view.anchored) : false,
+                                };
                                 save.mutate(null);
                                 setEditing(false);
                                 toastUndo("Took cleared", () => save.mutate(before));
@@ -80,7 +103,15 @@ function TookField({ view, save, label = "Took" }: { view: { lowMinutes: number;
     );
 }
 
-export function TookRow({ taskId, completedAt, enabled }: { taskId: string; completedAt: string | null | undefined; enabled: boolean }) {
+export function TookRow({
+    taskId,
+    completedAt,
+    enabled,
+}: {
+    taskId: string;
+    completedAt: string | null | undefined;
+    enabled: boolean;
+}) {
     const { data: view } = useReportedDuration(taskId, completedAt, enabled);
     const save = useSetReportedDuration(taskId, completedAt);
     if (!enabled) return null;
@@ -88,7 +119,17 @@ export function TookRow({ taskId, completedAt, enabled }: { taskId: string; comp
 }
 
 /** The same row on a routine's marked day (or marked time): "Took · Add" until they say. Never asked for, only offered. */
-export function RoutineTookRow({ habitId, day, time = null, enabled }: { habitId: string; day: string; time?: string | null; enabled: boolean }) {
+export function RoutineTookRow({
+    habitId,
+    day,
+    time = null,
+    enabled,
+}: {
+    habitId: string;
+    day: string;
+    time?: string | null;
+    enabled: boolean;
+}) {
     const { data: view } = useReportedRoutineDuration(habitId, day, time, enabled);
     const save = useSetReportedRoutineDuration(habitId, day, time);
     if (!enabled) return null;

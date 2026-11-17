@@ -1,9 +1,42 @@
-import { cssVars, MAPLE_LEAF, n1, PIER_EDGES, PIER_PLANKS, placeShape, polyline, smoothThrough, TERRACE_CAPS, yAt } from "./loading-geometry";
+import {
+    cssVars,
+    MAPLE_LEAF,
+    n1,
+    PIER_EDGES,
+    PIER_PLANKS,
+    placeShape,
+    polyline,
+    smoothThrough,
+    TERRACE_CAPS,
+    yAt,
+} from "./loading-geometry";
 
 /* The near hill: a low knoll between the two towns (its flanks run under the houses to the waterline). */
 const MID = smoothThrough(
-    [[0, 862], [200, 838], [330, 860], [450, 918], [600, 988], [720, 1000], [800, 962], [880, 908], [960, 856], [1040, 816], [1110, 792],
-        [1180, 786], [1240, 802], [1290, 838], [1330, 890], [1370, 948], [1420, 1000], [1560, 1010], [1680, 902], [1750, 842], [1840, 880], [1920, 950]],
+    [
+        [0, 862],
+        [200, 838],
+        [330, 860],
+        [450, 918],
+        [600, 988],
+        [720, 1000],
+        [800, 962],
+        [880, 908],
+        [960, 856],
+        [1040, 816],
+        [1110, 792],
+        [1180, 786],
+        [1240, 802],
+        [1290, 838],
+        [1330, 890],
+        [1370, 948],
+        [1420, 1000],
+        [1560, 1010],
+        [1680, 902],
+        [1750, 842],
+        [1840, 880],
+        [1920, 950],
+    ],
     8,
 );
 const MID_CREST = `${polyline(MID)}L1920,950`;
@@ -14,34 +47,70 @@ const MID_D = `M0,1080L${MID_CREST.slice(1)}L1920,1080Z`;
  * ridge crest so they emerge from the hill; only the topmost few carry a cool rim.
  */
 const MAPLES: readonly (readonly [x: number, scale: number, flip: boolean, rim: boolean])[] = [
-    [1012, 0.4, true, false], [1058, 0.58, false, true], [1128, 0.72, true, true], [1178, 0.5, false, false],
-    [1236, 0.82, false, true], [1296, 0.56, true, false], [700, 0.66, false, false], [772, 0.48, true, false],
-    [226, 0.64, true, false], [318, 0.52, false, false], [560, 0.5, false, false], [625, 0.6, true, true],
-    [1345, 0.44, false, false], [1450, 0.45, true, false],
+    [1012, 0.4, true, false],
+    [1058, 0.58, false, true],
+    [1128, 0.72, true, true],
+    [1178, 0.5, false, false],
+    [1236, 0.82, false, true],
+    [1296, 0.56, true, false],
+    [700, 0.66, false, false],
+    [772, 0.48, true, false],
+    [226, 0.64, true, false],
+    [318, 0.52, false, false],
+    [560, 0.5, false, false],
+    [625, 0.6, true, true],
+    [1345, 0.44, false, false],
+    [1450, 0.45, true, false],
 ];
 
 /** A few maples on the hill's near slope, each with the shadow the moon (upper left) throws down-slope from it. */
 const SLOPE_MAPLES: readonly (readonly [x: number, y: number, scale: number, flip: boolean])[] = [
-    [1070, 848, 0.56, false], [1262, 862, 0.54, true], [982, 906, 0.38, true],
+    [1070, 848, 0.56, false],
+    [1262, 862, 0.54, true],
+    [982, 906, 0.38, true],
 ];
 /** The first of them is the sakura, in blossom whatever the season; a few of its petals lie down-slope. */
 const SAKURA_X = SLOPE_MAPLES[0][0];
-const FALLEN_PETALS = "M1092,872l5,-1.6l-1,3.4ZM1118,880l4.6,1l-3,2.4ZM1060,884l4,-2.4l.6,3.4ZM1140,866l4.4,.4l-2.4,2.8ZM1104,896l4.6,-1l-1.6,3.2Z";
+const FALLEN_PETALS =
+    "M1092,872l5,-1.6l-1,3.4ZM1118,880l4.6,1l-3,2.4ZM1060,884l4,-2.4l.6,3.4ZM1140,866l4.4,.4l-2.4,2.8ZM1104,896l4.6,-1l-1.6,3.2Z";
 
 /** The town's own light, breathing: [centre x, centre y, width, height, seconds, delay]. */
 const HEARTHS: readonly (readonly [number, number, number, number, number, number])[] = [
-    [330, 870, 900, 440, 7.5, -2], [1610, 860, 860, 430, 9.5, -6],
+    [330, 870, 900, 440, 7.5, -2],
+    [1610, 860, 860, 430, 9.5, -6],
 ];
 
-const CHOCHIN: readonly (readonly [number, number])[] = [[186, 876], [162, 732], [445, 897], [335, 897], [1380, 902], [1620, 902]];
-const HOSHIGAKI: readonly (readonly [number, number])[] = [[355, 901], [425, 901], [1447, 908], [1528, 909]];
+const CHOCHIN: readonly (readonly [number, number])[] = [
+    [186, 876],
+    [162, 732],
+    [445, 897],
+    [335, 897],
+    [1380, 902],
+    [1620, 902],
+];
+const HOSHIGAKI: readonly (readonly [number, number])[] = [
+    [355, 901],
+    [425, 901],
+    [1447, 908],
+    [1528, 909],
+];
 
 const SETTLED: readonly (readonly [number, number, number, number])[] = [
-    [362, 884, 30, 1], [398, 876, -50, 2], [430, 888, 80, 1], [1432, 886, 20, 2], [1510, 874, -35, 1],
-    [1590, 890, 70, 2], [80, 1031, 10, 1], [210, 1027, -60, 2], [1560, 1021, 45, 1], [1760, 1029, -20, 2],
+    [362, 884, 30, 1],
+    [398, 876, -50, 2],
+    [430, 888, 80, 1],
+    [1432, 886, 20, 2],
+    [1510, 874, -35, 1],
+    [1590, 890, 70, 2],
+    [80, 1031, 10, 1],
+    [210, 1027, -60, 2],
+    [1560, 1021, 45, 1],
+    [1760, 1029, -20, 2],
 ];
 const settledPath = (tone: number) =>
-    SETTLED.filter((l) => l[3] === tone).map(([x, y, r]) => placeShape(MAPLE_LEAF, x, y, 0.55, r)).join(" ");
+    SETTLED.filter((l) => l[3] === tone)
+        .map(([x, y, r]) => placeShape(MAPLE_LEAF, x, y, 0.55, r))
+        .join(" ");
 
 export function LoadingCityscape() {
     return (
@@ -58,7 +127,14 @@ export function LoadingCityscape() {
                 </g>
                 <path d={MID_D} fill="url(#mountain-mid)" />
                 {/* Crest haze: the near hill meets the warm ridge behind it with a soft step, not a cutout */}
-                <path d={MID_CREST} fill="none" stroke="var(--ls-near-base)" strokeWidth="10" opacity=".35" filter="url(#ls-blur-ridge)" />
+                <path
+                    d={MID_CREST}
+                    fill="none"
+                    stroke="var(--ls-near-base)"
+                    strokeWidth="10"
+                    opacity=".35"
+                    filter="url(#ls-blur-ridge)"
+                />
                 <path className="ls-key" d={MID_D} fill="url(#ls-moonlight)" opacity=".55" />
                 <path d={MID_D} fill="url(#ls-town-bounce)" />
                 {/* The hill's lee flank falls into shade */}
@@ -73,8 +149,17 @@ export function LoadingCityscape() {
                     </g>
                     {SLOPE_MAPLES.map(([x, y, sc, flip]) => (
                         <g key={x} transform={`translate(${x} ${y})`}>
-                            <rect x={n1(-3 * sc)} y={n1(-8 * sc)} width={n1(6 * sc)} height={n1(18 * sc)} fill="var(--loading-foliage-shade)" />
-                            <use href={x === SAKURA_X ? "#ls-sakura" : "#ls-crown-rimmed"} transform={`translate(0 ${n1(-14 * sc)}) scale(${flip ? -sc : sc} ${sc})`} />
+                            <rect
+                                x={n1(-3 * sc)}
+                                y={n1(-8 * sc)}
+                                width={n1(6 * sc)}
+                                height={n1(18 * sc)}
+                                fill="var(--loading-foliage-shade)"
+                            />
+                            <use
+                                href={x === SAKURA_X ? "#ls-sakura" : "#ls-crown-rimmed"}
+                                transform={`translate(0 ${n1(-14 * sc)}) scale(${flip ? -sc : sc} ${sc})`}
+                            />
                         </g>
                     ))}
                     <path d={FALLEN_PETALS} fill="var(--ls-sakura-lit)" opacity=".7" />
@@ -111,7 +196,14 @@ export function LoadingCityscape() {
                     <use href="#building-c" x="450" y="880" />
                     <use href="#string-light" x="100" y="780" transform="rotate(10 100 780)" />
                     <use href="#string-light" x="400" y="860" transform="rotate(-5 400 860)" />
-                    <g className="ls-key" fill="none" stroke="var(--loading-key-edge)" strokeWidth="5" strokeLinecap="round" opacity=".2">
+                    <g
+                        className="ls-key"
+                        fill="none"
+                        stroke="var(--loading-key-edge)"
+                        strokeWidth="5"
+                        strokeLinecap="round"
+                        opacity=".2"
+                    >
                         <use href="#bb-ridge" x="-50" y="720" />
                         <use href="#ba-ridge" x="250" y="830" />
                         <use href="#bc-ridge" x="450" y="880" />
@@ -156,7 +248,14 @@ export function LoadingCityscape() {
                         <use key={`${x}-${y}`} href="#ls-chochin" x={x} y={y} />
                     ))}
                     {/* Moon-caught ridge highlight: the one edge that shows where the key light comes from */}
-                    <g className="ls-key" fill="none" stroke="var(--loading-key-edge)" strokeWidth="5" strokeLinecap="round" opacity=".2">
+                    <g
+                        className="ls-key"
+                        fill="none"
+                        stroke="var(--loading-key-edge)"
+                        strokeWidth="5"
+                        strokeLinecap="round"
+                        opacity=".2"
+                    >
                         <use href="#bb-ridge" x="0" y="680" transform="scale(1.2) translate(-20, -50)" />
                         <use href="#ba-ridge" x="350" y="900" />
                     </g>
@@ -197,7 +296,14 @@ export function LoadingCityscape() {
                 <div
                     key={x}
                     className="ls-hearth"
-                    style={cssVars({ "--x": x - w / 2, "--y": y - h / 2, "--w": w, "--h": h, "--dur": `${dur}s`, "--delay": `${delay}s` })}
+                    style={cssVars({
+                        "--x": x - w / 2,
+                        "--y": y - h / 2,
+                        "--w": w,
+                        "--h": h,
+                        "--dur": `${dur}s`,
+                        "--delay": `${delay}s`,
+                    })}
                 >
                     <div />
                 </div>

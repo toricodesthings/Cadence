@@ -68,14 +68,20 @@ describe("useUserLocation", () => {
         mocks.approximateGet.mockReset();
         mocks.weatherGet.mockReset();
         mocks.reverseGet.mockReset();
-        mocks.approximateGet.mockImplementation(async () => Response.json({ data: {
-            countryCode: "CA",
-            subdivisionCode: "CA-ON",
-            subdivisionName: "Ontario",
-            city: "Toronto",
-            coordinates: { latitude: 43.65, longitude: -79.38 },
-        } }));
-        mocks.weatherGet.mockImplementation(async () => Response.json({ data: { temperature: 19.4, weatherCode: 0, isDay: true } }));
+        mocks.approximateGet.mockImplementation(async () =>
+            Response.json({
+                data: {
+                    countryCode: "CA",
+                    subdivisionCode: "CA-ON",
+                    subdivisionName: "Ontario",
+                    city: "Toronto",
+                    coordinates: { latitude: 43.65, longitude: -79.38 },
+                },
+            }),
+        );
+        mocks.weatherGet.mockImplementation(async () =>
+            Response.json({ data: { temperature: 19.4, weatherCode: 0, isDay: true } }),
+        );
     });
 
     it("does nothing until the server copy of settings has loaded", async () => {
@@ -100,7 +106,11 @@ describe("useUserLocation", () => {
 
         await waitFor(() => expect(result.current.weather.status).toBe("ready"));
         expect(result.current.weather.weather).toMatchObject({ temp: 19, condition: "clear" });
-        expect(result.current.location.place).toMatchObject({ source: "approximate", countryCode: "CA", city: "Toronto" });
+        expect(result.current.location.place).toMatchObject({
+            source: "approximate",
+            countryCode: "CA",
+            city: "Toronto",
+        });
         expect(result.current.location.shouldShowPrompt).toBe(true);
         expect(getCurrentPosition).not.toHaveBeenCalled();
         expect(mocks.weatherGet).toHaveBeenCalledWith({ query: { latitude: "43.65", longitude: "-79.38" } });

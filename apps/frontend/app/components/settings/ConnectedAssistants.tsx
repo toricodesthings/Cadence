@@ -16,14 +16,18 @@ export function ConnectedAssistants() {
         <SettingsSection title="Connected assistants">
             <p className="text-sm leading-6 text-twilight-text-soft">
                 Let an assistant you already use, like Claude, read your Cadence, add to Capture or change it. Add{" "}
-                <code className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[13px] text-twilight-text">{CADENCE_MCP_URL}</code>{" "}
+                <code className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[13px] text-twilight-text">
+                    {CADENCE_MCP_URL}
+                </code>{" "}
                 as a connector there, then approve it here. It can't change your settings.
             </p>
             {isError && <p className="text-sm text-twilight-text-soft">Couldn't load your connections.</p>}
             {!isPending && connections?.length === 0 && (
                 <p className="text-sm text-twilight-text-muted">No assistants connected.</p>
             )}
-            {connections?.map((connection) => <ConnectionRow key={connection.id} connection={connection} />)}
+            {connections?.map((connection) => (
+                <ConnectionRow key={connection.id} connection={connection} />
+            ))}
         </SettingsSection>
     );
 }
@@ -41,7 +45,9 @@ function ConnectionRow({ connection }: { connection: McpConnection }) {
                     {permissions} · {connection.redirectHost}
                 </p>
                 <p className="text-xs leading-5 text-twilight-text-muted">
-                    {connection.lastUsedAt ? `Used ${relativeTime(connection.lastUsedAt, { suffix: " ago" })}` : "Not used yet"}
+                    {connection.lastUsedAt
+                        ? `Used ${relativeTime(connection.lastUsedAt, { suffix: " ago" })}`
+                        : "Not used yet"}
                 </p>
             </div>
             <ConfirmDanger

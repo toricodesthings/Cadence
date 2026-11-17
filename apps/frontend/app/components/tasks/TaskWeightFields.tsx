@@ -1,4 +1,13 @@
-import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_ICON, EFFORT_OPTIONS, FIELD_LABEL, PRIORITY_ICON, PRIORITY_OPTIONS } from "./task-choice-options";
+import {
+    CHIP_ACTIVE,
+    CHIP_BASE,
+    CHIP_IDLE,
+    EFFORT_ICON,
+    EFFORT_OPTIONS,
+    FIELD_LABEL,
+    PRIORITY_ICON,
+    PRIORITY_OPTIONS,
+} from "./task-choice-options";
 import type { ComposerEffort } from "../../hooks/tasks/use-composer-effort";
 import { X } from "lucide-react";
 import type { EffortLevel, TaskPriority } from "@cadence/contracts/task";
@@ -68,7 +77,12 @@ export function EffortField({ value, onChange }: { value: EffortLevel; onChange:
  * "Suggested effort: High": a recommendation from the person's own earlier choices, never applied on its own.
  * One press uses a level; the separate × dismisses it for this draft. Saving without touching it leaves Effort unset.
  */
-export function EffortSuggestionRow({ suggestion, onUse, onDismiss, guess }: {
+export function EffortSuggestionRow({
+    suggestion,
+    onUse,
+    onDismiss,
+    guess,
+}: {
     suggestion: EffortSuggestion;
     onUse: (level: 1 | 2 | 3) => void;
     onDismiss: () => void;
@@ -76,10 +90,18 @@ export function EffortSuggestionRow({ suggestion, onUse, onDismiss, guess }: {
     guess?: { why?: string };
 }) {
     return (
-        <div role="group" aria-label="Suggested effort" className="flex flex-wrap items-center gap-1.5 text-[11px] text-twilight-text-soft">
+        <div
+            role="group"
+            aria-label="Suggested effort"
+            className="flex flex-wrap items-center gap-1.5 text-[11px] text-twilight-text-soft"
+        >
             <EFFORT_ICON size={12} aria-hidden="true" />
             {guess ? (
-                <span><span className="sr-only">Effort guess: </span><span aria-hidden="true">~</span>{suggestionLabel(suggestion)}</span>
+                <span>
+                    <span className="sr-only">Effort guess: </span>
+                    <span aria-hidden="true">~</span>
+                    {suggestionLabel(suggestion)}
+                </span>
             ) : (
                 <span>Suggested effort: {suggestionLabel(suggestion)}</span>
             )}
@@ -105,7 +127,8 @@ export function EffortSuggestionRow({ suggestion, onUse, onDismiss, guess }: {
             <details className="w-full">
                 <summary className="min-h-6 cursor-pointer text-twilight-text-muted">Why?</summary>
                 <p className="pt-1 text-twilight-text-muted">
-                    {guess?.why ?? `From the Effort you chose on ${suggestion.support} similar task${suggestion.support === 1 ? "" : "s"}.`}
+                    {guess?.why ??
+                        `From the Effort you chose on ${suggestion.support} similar task${suggestion.support === 1 ? "" : "s"}.`}
                 </p>
             </details>
         </div>
@@ -133,6 +156,7 @@ export function AcceptedEffort({ level, onUndo }: { level: 1 | 2 | 3; onUndo: ()
 /** The line under a composer's title: the Effort just accepted (with Undo), or a suggestion to use or dismiss. */
 export function ComposerEffortRow({ choice }: { choice: ComposerEffort }) {
     if (choice.effort && choice.accepted) return <AcceptedEffort level={choice.effort} onUndo={choice.undoAccept} />;
-    if (choice.suggestion) return <EffortSuggestionRow suggestion={choice.suggestion} onUse={choice.accept} onDismiss={choice.dismiss} />;
+    if (choice.suggestion)
+        return <EffortSuggestionRow suggestion={choice.suggestion} onUse={choice.accept} onDismiss={choice.dismiss} />;
     return null;
 }

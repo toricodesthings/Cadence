@@ -138,7 +138,12 @@ export function MonthFold({
             <div className="shrink-0 px-3 pt-1">
                 <div className="grid grid-cols-7" aria-hidden="true">
                     {WEEKDAYS.map((label, i) => (
-                        <span key={i} className="py-1 text-center text-[10px] font-semibold uppercase text-twilight-text-muted">{label}</span>
+                        <span
+                            key={i}
+                            className="py-1 text-center text-[10px] font-semibold uppercase text-twilight-text-muted"
+                        >
+                            {label}
+                        </span>
                     ))}
                 </div>
                 <div role="grid" aria-label={`${MONTH_NAMES[month]} ${year}`}>
@@ -159,7 +164,9 @@ export function MonthFold({
                                     {week.map((iso, i) => {
                                         if (!iso) return <span key={i} role="gridcell" />;
                                         const items = groups.get(iso) ?? [];
-                                        const kinds = new Set(items.filter((t) => t.state !== "COMPLETE").map(scheduleKind));
+                                        const kinds = new Set(
+                                            items.filter((t) => t.state !== "COMPLETE").map(scheduleKind),
+                                        );
                                         const marked = (markers.get(iso)?.length ?? 0) > 0;
                                         const selected = iso === selectedIso;
                                         const isToday = iso === todayIso;
@@ -171,20 +178,33 @@ export function MonthFold({
                                                     aria-label={`${dayHeading(iso)}${isToday ? ", today" : ""}${items.length ? `, ${loadWord(dayLoad(items))}` : ", open"}${marked ? `, ${markers.get(iso)!.join(", ")}` : ""}${selected ? ". Tap again to open the day" : ""}`}
                                                     className="flex min-h-11 w-full cursor-pointer flex-col items-center justify-center gap-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 rounded-xl"
                                                 >
-                                                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[14px] tabular-nums transition-colors ${
-                                                        selected
-                                                            ? "bg-accent-primary font-semibold text-twilight-void"
-                                                            : isToday
-                                                                ? "font-semibold text-accent-primary ring-1 ring-accent-primary/60"
-                                                                : "text-twilight-text"
-                                                    }`}>
+                                                    <span
+                                                        className={`flex h-8 w-8 items-center justify-center rounded-full text-[14px] tabular-nums transition-colors ${
+                                                            selected
+                                                                ? "bg-accent-primary font-semibold text-twilight-void"
+                                                                : isToday
+                                                                  ? "font-semibold text-accent-primary ring-1 ring-accent-primary/60"
+                                                                  : "text-twilight-text"
+                                                        }`}
+                                                    >
                                                         {dayOfMonth(iso)}
                                                     </span>
-                                                    <span className="flex h-1.5 items-center gap-0.5" aria-hidden="true">
-                                                        {kinds.has("task") ? <span className="h-1.5 w-1.5 rounded-full bg-accent-primary/80" /> : null}
-                                                        {kinds.has("fixed") ? <span className="h-1.5 w-1.5 rounded-full bg-moonlit/80" /> : null}
-                                                        {kinds.has("routine") ? <span className="h-1.5 w-1.5 rounded-full border border-moonlit/70" /> : null}
-                                                        {marked ? <span className="h-1.5 w-1.5 rounded-full bg-solstice" /> : null}
+                                                    <span
+                                                        className="flex h-1.5 items-center gap-0.5"
+                                                        aria-hidden="true"
+                                                    >
+                                                        {kinds.has("task") ? (
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-accent-primary/80" />
+                                                        ) : null}
+                                                        {kinds.has("fixed") ? (
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-moonlit/80" />
+                                                        ) : null}
+                                                        {kinds.has("routine") ? (
+                                                            <span className="h-1.5 w-1.5 rounded-full border border-moonlit/70" />
+                                                        ) : null}
+                                                        {marked ? (
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-solstice" />
+                                                        ) : null}
                                                     </span>
                                                 </button>
                                             </span>
@@ -202,9 +222,11 @@ export function MonthFold({
                     aria-label={folded ? "Show the whole month" : "Fold the month into this week"}
                     className="mx-auto flex h-6 w-16 cursor-pointer items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                 >
-                    {folded
-                        ? <ChevronDown size={16} className="text-twilight-text-soft" aria-hidden="true" />
-                        : <span className="h-1 w-9 rounded-full bg-twilight-text-soft/35" aria-hidden="true" />}
+                    {folded ? (
+                        <ChevronDown size={16} className="text-twilight-text-soft" aria-hidden="true" />
+                    ) : (
+                        <span className="h-1 w-9 rounded-full bg-twilight-text-soft/35" aria-hidden="true" />
+                    )}
                 </button>
             </div>
 
@@ -216,9 +238,10 @@ export function MonthFold({
             >
                 {agenda.map((block) => {
                     if (block.kind === "open") {
-                        const label = block.from === block.to
-                            ? dayShortHeading(block.from)
-                            : `${dayShortHeading(block.from)} – ${dayShortHeading(block.to)}`;
+                        const label =
+                            block.from === block.to
+                                ? dayShortHeading(block.from)
+                                : `${dayShortHeading(block.from)} – ${dayShortHeading(block.to)}`;
                         return (
                             <button
                                 key={block.from}
@@ -244,14 +267,24 @@ export function MonthFold({
                                 onClick={() => onOpenDay(block.iso)}
                                 className="group flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-2xl px-2 pt-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                             >
-                                <span className={`font-display text-[15px] font-semibold ${relation ? "text-accent-primary" : "text-twilight-text"}`}>
+                                <span
+                                    className={`font-display text-[15px] font-semibold ${relation ? "text-accent-primary" : "text-twilight-text"}`}
+                                >
                                     {`${weekdayName(block.iso)} ${dayOfMonth(block.iso)}`}
                                 </span>
-                                {relation ? <span className="text-[12px] text-accent-primary/90">{relation}</span> : null}
+                                {relation ? (
+                                    <span className="text-[12px] text-accent-primary/90">{relation}</span>
+                                ) : null}
                                 <span className="min-w-0 flex-1 truncate text-[12px] text-twilight-text-soft">
-                                    {[items.length ? loadWord(dayLoad(items)) : null, ...dayMarkers].filter(Boolean).join(" · ")}
+                                    {[items.length ? loadWord(dayLoad(items)) : null, ...dayMarkers]
+                                        .filter(Boolean)
+                                        .join(" · ")}
                                 </span>
-                                <ChevronRight size={15} className="shrink-0 text-twilight-text-muted transition-colors group-hover:text-twilight-text" aria-hidden="true" />
+                                <ChevronRight
+                                    size={15}
+                                    className="shrink-0 text-twilight-text-muted transition-colors group-hover:text-twilight-text"
+                                    aria-hidden="true"
+                                />
                             </button>
                             {items.length === 0 ? (
                                 <p className="px-2 pb-2 text-[13px] text-twilight-text-muted">Nothing planned.</p>

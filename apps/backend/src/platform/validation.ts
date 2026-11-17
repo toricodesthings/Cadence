@@ -13,10 +13,7 @@ function formatIssues(issues: Array<{ code: string; message: string; path?: Prop
     }));
 }
 
-export function apiValidator<T extends keyof ValidationTargets, S extends ZodSchema>(
-    target: T,
-    schema: S,
-) {
+export function apiValidator<T extends keyof ValidationTargets, S extends ZodSchema>(target: T, schema: S) {
     return zValidator(target, schema, async (result, c) => {
         if (result.success) {
             return;

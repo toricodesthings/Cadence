@@ -14,7 +14,15 @@ interface ConfirmDangerProps {
 }
 
 /** A "this can't be undone" confirm: say what goes, then Cancel or the red action. */
-export function ConfirmDanger({ trigger, title, description, confirmLabel, onConfirm, open, onOpenChange }: ConfirmDangerProps) {
+export function ConfirmDanger({
+    trigger,
+    title,
+    description,
+    confirmLabel,
+    onConfirm,
+    open,
+    onOpenChange,
+}: ConfirmDangerProps) {
     return (
         <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
             <AlertDialog.Trigger asChild>{trigger}</AlertDialog.Trigger>
@@ -25,10 +33,14 @@ export function ConfirmDanger({ trigger, title, description, confirmLabel, onCon
                 </AlertDialog.Header>
                 <AlertDialog.Footer>
                     <AlertDialog.Cancel asChild>
-                        <Button variant="ghost" size="md">Cancel</Button>
+                        <Button variant="ghost" size="md">
+                            Cancel
+                        </Button>
                     </AlertDialog.Cancel>
                     <AlertDialog.Action asChild>
-                        <Button variant="danger" size="md" onClick={onConfirm}>{confirmLabel}</Button>
+                        <Button variant="danger" size="md" onClick={onConfirm}>
+                            {confirmLabel}
+                        </Button>
                     </AlertDialog.Action>
                 </AlertDialog.Footer>
             </AlertDialog.Content>

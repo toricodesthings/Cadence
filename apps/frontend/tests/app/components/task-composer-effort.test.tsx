@@ -8,22 +8,40 @@ import { projectEffortSuggestion } from "@cadence/domain/effort-evidence";
 configure({ asyncUtilTimeout: 5000 });
 
 const create = vi.fn();
-vi.mock("../../../app/hooks/tasks/use-create-task", () => ({ useCreateTask: () => ({ mutate: create, isPending: false }) }));
+vi.mock("../../../app/hooks/tasks/use-create-task", () => ({
+    useCreateTask: () => ({ mutate: create, isPending: false }),
+}));
 vi.mock("../../../app/hooks/projects/use-projects", () => ({ useProjects: () => ({ data: [] }) }));
 vi.mock("../../../app/hooks/tags/use-tags", () => ({ useTags: () => ({ data: [] }) }));
 vi.mock("../../../app/hooks/sections/use-sections", () => ({ useSections: () => ({ data: [] }) }));
-vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { tasks: { intelligence: {} }, dateTime: { dateStyle: "mdy" } } }) }));
-vi.mock("../../../app/hooks/ui/use-shell-mode", () => ({ useShellMode: () => ({ isCompact: false, isPhone: false, isWide: true }) }));
+vi.mock("../../../app/hooks/core/use-settings", () => ({
+    useSettings: () => ({ data: { tasks: { intelligence: {} }, dateTime: { dateStyle: "mdy" } } }),
+}));
+vi.mock("../../../app/hooks/ui/use-shell-mode", () => ({
+    useShellMode: () => ({ isCompact: false, isPhone: false, isWide: true }),
+}));
 // The real policy over a fixed history of High lab choices; the network read is the only thing replaced.
 vi.mock("../../../app/hooks/tasks/use-effort-suggestion", () => ({
-    useEffortSuggestion: (i: { title: string; projectId: string | null; chosen: 1 | 2 | 3 | null | undefined; dismissed: boolean; literal?: boolean }) =>
+    useEffortSuggestion: (i: {
+        title: string;
+        projectId: string | null;
+        chosen: 1 | 2 | 3 | null | undefined;
+        dismissed: boolean;
+        literal?: boolean;
+    }) =>
         projectEffortSuggestion({
             ...i,
             literal: i.literal ?? false,
             today: "2026-10-06",
             enabled: true,
             supported: true,
-            evidence: [1, 2, 3, 4].map((n) => ({ title: `Class X Lab ${n}`, projectId: null, level: 3 as const, origin: "manual" as const, day: `2026-09-${10 + n}` })),
+            evidence: [1, 2, 3, 4].map((n) => ({
+                title: `Class X Lab ${n}`,
+                projectId: null,
+                level: 3 as const,
+                origin: "manual" as const,
+                day: `2026-09-${10 + n}`,
+            })),
         }),
 }));
 
@@ -32,7 +50,8 @@ function Host() {
     return <Composer open inline onClose={() => {}} {...draft} />;
 }
 
-const type = (text: string) => fireEvent.change(screen.getByRole("textbox", { name: "Task title" }), { target: { value: text } });
+const type = (text: string) =>
+    fireEvent.change(screen.getByRole("textbox", { name: "Task title" }), { target: { value: text } });
 const add = async () => {
     fireEvent.click(screen.getByRole("button", { name: "Add task" }));
     await waitFor(() => expect(create).toHaveBeenCalled());

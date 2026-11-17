@@ -71,7 +71,11 @@ export const NoteFind = Extension.create({
                         if (!s?.matches.length) return DecorationSet.empty;
                         return DecorationSet.create(
                             state.doc,
-                            s.matches.map((m, i) => Decoration.inline(m.from, m.to, { class: i === s.current ? "note-find-match note-find-current" : "note-find-match" })),
+                            s.matches.map((m, i) =>
+                                Decoration.inline(m.from, m.to, {
+                                    class: i === s.current ? "note-find-match note-find-current" : "note-find-match",
+                                }),
+                            ),
                         );
                     },
                 },

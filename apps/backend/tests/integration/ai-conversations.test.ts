@@ -34,8 +34,20 @@ beforeEach(async () => {
 async function seedThread(owner: string, opts: { lastMessageAt?: string; assistantParts?: unknown[] } = {}) {
     return withRls(getTestDb(), owner, async (tx) => {
         const { id } = await resolveOrCreateConversation(tx, owner, {});
-        await appendUserMessage(tx, owner, id, { id: `u-${id}`, role: "user", parts: [{ type: "text", text: "hi" }] }, {});
-        await saveAssistantMessage(tx, owner, id, { id: `a-${id}`, role: "assistant", parts: opts.assistantParts ?? [{ type: "text", text: "hello" }] }, { status: "complete" });
+        await appendUserMessage(
+            tx,
+            owner,
+            id,
+            { id: `u-${id}`, role: "user", parts: [{ type: "text", text: "hi" }] },
+            {},
+        );
+        await saveAssistantMessage(
+            tx,
+            owner,
+            id,
+            { id: `a-${id}`, role: "assistant", parts: opts.assistantParts ?? [{ type: "text", text: "hello" }] },
+            { status: "complete" },
+        );
         await touchConversation(tx, owner, id, { lastMessageAt: opts.lastMessageAt });
         return id;
     });
@@ -79,8 +91,13 @@ describe("rename, archive, delete", () => {
     it("renames and archives a thread", async () => {
         const id = await seedThread(userId);
 
-        expect((await ai("PATCH", `/conversations/${id}`, { title: "Plan the week" })).body.data.title).toBe("Plan the week");
-        expect((await ai("PATCH", `/conversations/${id}`, { archived: true })).body.data).toMatchObject({ title: "Plan the week", archived: true });
+        expect((await ai("PATCH", `/conversations/${id}`, { title: "Plan the week" })).body.data.title).toBe(
+            "Plan the week",
+        );
+        expect((await ai("PATCH", `/conversations/${id}`, { archived: true })).body.data).toMatchObject({
+            title: "Plan the week",
+            archived: true,
+        });
     });
 
     it("rejects a patch that changes nothing", async () => {
@@ -92,7 +109,15 @@ describe("rename, archive, delete", () => {
 
         expect((await ai("DELETE", `/conversations/${id}`)).body.data).toEqual({ id, deleted: true });
         expect((await ai("GET", `/conversations/${id}`)).status).toBe(404);
-        const left = await asOwner(async (pg) => (await pg.query<{ n: number }>("SELECT count(*)::int n FROM ai_messages WHERE conversation_id = $1", [id])).rows[0].n);
+        const left = await asOwner(
+            async (pg) =>
+                (
+                    await pg.query<{ n: number }>(
+                        "SELECT count(*)::int n FROM ai_messages WHERE conversation_id = $1",
+                        [id],
+                    )
+                ).rows[0].n,
+        );
         expect(left).toBe(0);
     });
 
@@ -121,14 +146,22 @@ describe("rename, archive, delete", () => {
     it("refuses to adopt a client-chosen thread id that another user already owns", async () => {
         const theirs = await seedThread(otherId);
 
-        await expect(withRls(getTestDb(), userId, (tx) => resolveOrCreateConversation(tx, userId, { conversationId: theirs }))).rejects.toMatchObject({
+        await expect(
+            withRls(getTestDb(), userId, (tx) => resolveOrCreateConversation(tx, userId, { conversationId: theirs })),
+        ).rejects.toMatchObject({
             code: "NOT_FOUND",
         });
     });
 });
 
 describe("answering approvals", () => {
-    const WAITING = { type: "tool-create_tag", toolCallId: "call-1", state: "approval-requested", input: { name: "Errands" }, approval: { id: "ap-1" } };
+    const WAITING = {
+        type: "tool-create_tag",
+        toolCallId: "call-1",
+        state: "approval-requested",
+        input: { name: "Errands" },
+        approval: { id: "ap-1" },
+    };
     const answer = (conversationId: string, id = "ap-1") => ({
         conversationId,
         approvals: [{ id, approved: true }],
@@ -147,6 +180,8 @@ describe("answering approvals", () => {
         const theirs = await seedThread(otherId, { assistantParts: [WAITING] });
 
         expect((await ai("POST", "/chat", answer(theirs))).status).toBe(404);
-        expect((await otherAi("GET", `/conversations/${theirs}`)).body.data.messages[1].parts[0].state).toBe("approval-requested");
+        expect((await otherAi("GET", `/conversations/${theirs}`)).body.data.messages[1].parts[0].state).toBe(
+            "approval-requested",
+        );
     });
 });

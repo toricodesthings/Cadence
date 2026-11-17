@@ -1,4 +1,15 @@
-import { addDays, dayOf, daysBetween, expandSeries, parseRecurrenceRule, nextOccurrence, type Instant, type SeriesStart, type LocalDate, type Zone } from "./time";
+import {
+    addDays,
+    dayOf,
+    daysBetween,
+    expandSeries,
+    parseRecurrenceRule,
+    nextOccurrence,
+    type Instant,
+    type SeriesStart,
+    type LocalDate,
+    type Zone,
+} from "./time";
 
 /** The day window (LocalDates, inclusive) and paging needed to expand schedule-scoped repeating tasks. */
 export interface ScheduleScopeFilters {
@@ -60,13 +71,19 @@ function seriesStart(task: TaskRow, userZone: Zone): { zone: Zone; start: Series
 }
 
 /** The occurrence of a repeating task on or after `reference` (a day), else the one before it, else its start. */
-export function resolveOccurrenceAnchor(task: TaskRow & { recurrenceRule: string }, reference: LocalDate, userZone: Zone): LocalDate | null {
+export function resolveOccurrenceAnchor(
+    task: TaskRow & { recurrenceRule: string },
+    reference: LocalDate,
+    userZone: Zone,
+): LocalDate | null {
     const { zone, start } = seriesStart(task, userZone);
     if (!start) return null;
     const first = "day" in start ? start.day : dayOf(start.instant, zone);
     const after = nextOccurrence({ rule: task.recurrenceRule, start, zone, from: reference });
     if (after) return after.day;
-    const before = expandSeries({ rule: task.recurrenceRule, start, zone, range: { from: first, to: reference } }).at(-1);
+    const before = expandSeries({ rule: task.recurrenceRule, start, zone, range: { from: first, to: reference } }).at(
+        -1,
+    );
     return before?.day ?? first;
 }
 
@@ -96,7 +113,12 @@ export function expandScheduleScopedTasks<T extends TaskRow>(
         }
 
         const span = task.endDate && task.dueDate ? daysBetween(task.dueDate, task.endDate) : 0;
-        for (const occurrence of expandSeries({ rule: task.recurrenceRule, start: series.start, zone: series.zone, range: { from, to } })) {
+        for (const occurrence of expandSeries({
+            rule: task.recurrenceRule,
+            start: series.start,
+            zone: series.zone,
+            range: { from, to },
+        })) {
             items.push({
                 ...task,
                 id: `${task.id}::${occurrence.day}`,

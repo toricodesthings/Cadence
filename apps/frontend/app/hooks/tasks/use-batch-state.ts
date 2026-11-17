@@ -24,16 +24,17 @@ export function useBatchStateTransition() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: withOfflineSupport<
-            { taskIds: string[]; state: TaskState },
-            Task[]
-        >(
+        mutationFn: withOfflineSupport<{ taskIds: string[]; state: TaskState }, Task[]>(
             ({ taskIds, state }) => ({ type: "batch_state", payload: { taskIds, state } }),
-            ({ taskIds, state }) => inBatches(taskIds, async (ids) =>
-                unwrapResponse(await client.api.tasks.batch.state.$patch({ json: { taskIds: ids, state } }))),
+            ({ taskIds, state }) =>
+                inBatches(taskIds, async (ids) =>
+                    unwrapResponse(await client.api.tasks.batch.state.$patch({ json: { taskIds: ids, state } })),
+                ),
         ),
         onMutate: ({ taskIds, state }) =>
-            taskCache.edit(queryClient, (items) => items.map((task) => (taskIds.includes(task.id) ? { ...task, state } : task))),
+            taskCache.edit(queryClient, (items) =>
+                items.map((task) => (taskIds.includes(task.id) ? { ...task, state } : task)),
+            ),
         // Nothing comes back when it was queued offline.
         onSuccess: (tasks) => tasks?.forEach((task) => reconcileTaskInCaches(queryClient, task)),
         onError: (err, _vars, context) => taskCache.fail(queryClient, err, context, "Couldn't update tasks"),
@@ -50,8 +51,10 @@ export function useBatchRescheduleTasks() {
     return useMutation({
         mutationFn: withOfflineSupport<BatchRescheduleInput, Task[]>(
             (input) => ({ type: "batch_reschedule", payload: input }),
-            ({ taskIds, ...when }) => inBatches(taskIds, async (ids) =>
-                unwrapResponse(await client.api.tasks.batch.reschedule.$post({ json: { taskIds: ids, ...when } }))),
+            ({ taskIds, ...when }) =>
+                inBatches(taskIds, async (ids) =>
+                    unwrapResponse(await client.api.tasks.batch.reschedule.$post({ json: { taskIds: ids, ...when } })),
+                ),
         ),
         onMutate: (input) => {
             const zone = getUserZone();
@@ -59,7 +62,9 @@ export function useBatchRescheduleTasks() {
                 "date" in input
                     ? { ...task, ...rescheduleToDay(task, input.date, zone) }
                     : { ...task, scheduledStart: input.scheduledStart, zone, endDate: null };
-            return taskCache.edit(queryClient, (items) => items.map((task) => (input.taskIds.includes(task.id) ? moved(task) : task)));
+            return taskCache.edit(queryClient, (items) =>
+                items.map((task) => (input.taskIds.includes(task.id) ? moved(task) : task)),
+            );
         },
         // Nothing comes back when it was queued offline.
         onSuccess: (tasks) => tasks?.forEach((task) => reconcileTaskInCaches(queryClient, task)),
@@ -75,16 +80,21 @@ export function useBatchDeleteTasks() {
     const queryClient = useQueryClient();
     const send = withOfflineSupport<{ taskIds: string[] }, Task[]>(
         ({ taskIds }) => ({ type: "batch_delete", payload: { taskIds } }),
-        ({ taskIds }) => inBatches(taskIds, async (ids) =>
-            unwrapResponse(await client.api.tasks.batch.delete.$post({ json: { taskIds: ids } }))),
+        ({ taskIds }) =>
+            inBatches(taskIds, async (ids) =>
+                unwrapResponse(await client.api.tasks.batch.delete.$post({ json: { taskIds: ids } })),
+            ),
     );
 
     return useMutation({
         mutationFn: async (input: { taskIds: string[] }) => {
-            await undoWindow(`Deleted ${countLabel(input.taskIds.length)}`, { description: "They're gone for good once this closes." });
+            await undoWindow(`Deleted ${countLabel(input.taskIds.length)}`, {
+                description: "They're gone for good once this closes.",
+            });
             return send(input);
         },
-        onMutate: ({ taskIds }) => taskCache.edit(queryClient, (items) => items.filter((task) => !taskIds.includes(task.id))),
+        onMutate: ({ taskIds }) =>
+            taskCache.edit(queryClient, (items) => items.filter((task) => !taskIds.includes(task.id))),
         onSuccess: (_results, { taskIds }) => {
             taskIds.forEach((taskId) => removeTaskFromCaches(queryClient, taskId));
         },
@@ -115,21 +125,27 @@ export function useTrashTasks() {
     const queryClient = useQueryClient();
     const { mutate } = useBatchStateTransition();
 
-    return useCallback((taskIds: string[], onDone?: () => void) => {
-        if (taskIds.length === 0) return;
-        const before = statesOf(queryClient, taskIds);
-        mutate({ taskIds, state: "ARCHIVED" }, {
-            onSuccess: () => {
-                onDone?.();
-                toastUndo(`Moved ${countLabel(taskIds.length)} to Trash`, () => {
-                    const byState = new Map<TaskState, string[]>();
-                    for (const id of taskIds) {
-                        const state = before.get(id) ?? "ACTIVE";
-                        byState.set(state, [...(byState.get(state) ?? []), id]);
-                    }
-                    for (const [state, ids] of byState) mutate({ taskIds: ids, state });
-                });
-            },
-        });
-    }, [queryClient, mutate]);
+    return useCallback(
+        (taskIds: string[], onDone?: () => void) => {
+            if (taskIds.length === 0) return;
+            const before = statesOf(queryClient, taskIds);
+            mutate(
+                { taskIds, state: "ARCHIVED" },
+                {
+                    onSuccess: () => {
+                        onDone?.();
+                        toastUndo(`Moved ${countLabel(taskIds.length)} to Trash`, () => {
+                            const byState = new Map<TaskState, string[]>();
+                            for (const id of taskIds) {
+                                const state = before.get(id) ?? "ACTIVE";
+                                byState.set(state, [...(byState.get(state) ?? []), id]);
+                            }
+                            for (const [state, ids] of byState) mutate({ taskIds: ids, state });
+                        });
+                    },
+                },
+            );
+        },
+        [queryClient, mutate],
+    );
 }

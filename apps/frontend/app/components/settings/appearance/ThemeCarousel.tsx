@@ -40,30 +40,15 @@ function ThemePresetCard({ preset, selected, onSelect }: ThemePresetCardProps) {
                 }}
             >
                 {preset.surfaceTint && (
-                    <div
-                        className="pointer-events-none absolute inset-0"
-                        style={{ background: preset.surfaceTint }}
-                    />
+                    <div className="pointer-events-none absolute inset-0" style={{ background: preset.surfaceTint }} />
                 )}
                 <div className="relative flex gap-1">
-                    <div
-                        className="h-1.5 w-5 rounded-full"
-                        style={{ background: colors?.primary }}
-                    />
-                    <div
-                        className="h-1.5 w-3 rounded-full"
-                        style={{ background: colors?.secondary, opacity: 0.6 }}
-                    />
+                    <div className="h-1.5 w-5 rounded-full" style={{ background: colors?.primary }} />
+                    <div className="h-1.5 w-3 rounded-full" style={{ background: colors?.secondary, opacity: 0.6 }} />
                 </div>
                 <div className="relative flex gap-1">
-                    <div
-                        className="h-3 flex-1 rounded"
-                        style={{ background: surfaceBg, opacity: 0.6 }}
-                    />
-                    <div
-                        className="h-3 flex-1 rounded"
-                        style={{ background: surfaceBg, opacity: 0.4 }}
-                    />
+                    <div className="h-3 flex-1 rounded" style={{ background: surfaceBg, opacity: 0.6 }} />
+                    <div className="h-3 flex-1 rounded" style={{ background: surfaceBg, opacity: 0.4 }} />
                 </div>
                 {selected && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/20">
@@ -75,9 +60,7 @@ function ThemePresetCard({ preset, selected, onSelect }: ThemePresetCardProps) {
             {/* Label */}
             <div className="flex items-center gap-1.5 px-0.5">
                 <span className="text-sm">{preset.icon}</span>
-                <span className="truncate text-[12px] font-medium text-twilight-text">
-                    {preset.name}
-                </span>
+                <span className="truncate text-[12px] font-medium text-twilight-text">{preset.name}</span>
             </div>
             <span className="line-clamp-2 px-0.5 text-[10px] leading-tight text-twilight-text-muted">
                 {preset.mood}

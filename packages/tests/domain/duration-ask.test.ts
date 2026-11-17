@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { budgetOpen, groupIsSettled, referenceMinutes, relativeReference, shouldAsk } from "@cadence/domain/duration-ask";
+import {
+    budgetOpen,
+    groupIsSettled,
+    referenceMinutes,
+    relativeReference,
+    shouldAsk,
+} from "@cadence/domain/duration-ask";
 
 const none = { minutes: [], newestDaysAgo: null };
 

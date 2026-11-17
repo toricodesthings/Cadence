@@ -15,7 +15,12 @@ export const rise: Variants = {
  * callbacks and the error pages. Give `title` (plus `description`, `actions`) for a
  * message; `children` render below it. Needs no providers, so root errors can use it.
  */
-export function CardPage({ title, description, actions, children }: {
+export function CardPage({
+    title,
+    description,
+    actions,
+    children,
+}: {
     title?: ReactNode;
     description?: ReactNode;
     actions?: ReactNode;
@@ -30,7 +35,11 @@ export function CardPage({ title, description, actions, children }: {
                 transition={{ duration: 0.6, ease: EASE }}
                 className="cadence-diagonal-sheen glass-surface relative w-full max-w-lg rounded-[1.75rem] px-5 py-6 shadow-[0_36px_120px_rgba(0,0,0,0.38)] sm:px-7"
             >
-                <img src="/logo.svg" alt="Cadence" className="mx-auto mb-4 h-10 w-10 rounded-[0.8rem] object-cover shadow-[0_8px_32px_color-mix(in_srgb,var(--accent-primary)_22%,transparent)]" />
+                <img
+                    src="/logo.svg"
+                    alt="Cadence"
+                    className="mx-auto mb-4 h-10 w-10 rounded-[0.8rem] object-cover shadow-[0_8px_32px_color-mix(in_srgb,var(--accent-primary)_22%,transparent)]"
+                />
                 {title && (
                     <motion.header
                         variants={stagger}
@@ -38,11 +47,17 @@ export function CardPage({ title, description, actions, children }: {
                         animate="show"
                         className={`flex flex-col items-center text-center ${children ? "mb-5" : ""}`}
                     >
-                        <motion.h1 variants={rise} className="font-display text-[1.45rem] font-semibold leading-tight tracking-tight text-twilight-text text-balance">
+                        <motion.h1
+                            variants={rise}
+                            className="font-display text-[1.45rem] font-semibold leading-tight tracking-tight text-twilight-text text-balance"
+                        >
                             {title}
                         </motion.h1>
                         {description && (
-                            <motion.p variants={rise} className="mt-2 max-w-sm text-sm leading-6 text-twilight-text-soft text-pretty">
+                            <motion.p
+                                variants={rise}
+                                className="mt-2 max-w-sm text-sm leading-6 text-twilight-text-soft text-pretty"
+                            >
                                 {description}
                             </motion.p>
                         )}

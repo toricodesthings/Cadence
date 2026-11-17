@@ -1,7 +1,10 @@
 import type { InstructionPatch } from "@cadence/domain/task-instruction";
 import { formatShortDate, formatShortDateTime } from "../date-format";
 
-interface Named { id: string; name: string }
+interface Named {
+    id: string;
+    name: string;
+}
 
 type Lookups = { projects: Named[]; tags: Named[]; sections?: Named[] };
 
@@ -23,7 +26,7 @@ function timeParts(patch: InstructionPatch): string[] {
 function placeParts(patch: InstructionPatch, { projects, tags, sections = [] }: Lookups): string[] {
     const parts: string[] = [];
     if (patch.waitingOn) parts.push(`Waiting on ${patch.waitingOn.trim()}`);
-    const list = patch.projectId ? projects.find((p) => p.id === patch.projectId)?.name ?? "List" : null;
+    const list = patch.projectId ? (projects.find((p) => p.id === patch.projectId)?.name ?? "List") : null;
     const section = patch.sectionId ? sections.find((s) => s.id === patch.sectionId)?.name : null;
     if (list || section) parts.push([list, section].filter(Boolean).join(" › "));
     for (const id of patch.addTagIds ?? []) parts.push(`#${tags.find((t) => t.id === id)?.name ?? "tag"}`);

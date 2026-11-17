@@ -5,10 +5,16 @@ import { stubTouch } from "../../helpers";
 
 describe("getShellMode", () => {
     it.each([
-        [1920, false, "wide"], [1440, true, "wide"],
-        [1119, true, "tablet"], [768, true, "tablet"], [767, true, "phone"],
+        [1920, false, "wide"],
+        [1440, true, "wide"],
+        [1119, true, "tablet"],
+        [768, true, "tablet"],
+        [767, true, "phone"],
         // A mouse keeps the desktop shell on a tall, narrow monitor (1080x1920, 900x1440, 768x1366).
-        [1080, false, "laptop"], [900, false, "laptop"], [768, false, "laptop"], [767, false, "phone"],
+        [1080, false, "laptop"],
+        [900, false, "laptop"],
+        [768, false, "laptop"],
+        [767, false, "phone"],
         [1120, true, "laptop"],
     ] as const)("%ipx, touch=%s → %s", (width, touch, mode) => {
         expect(getShellMode(width, touch)).toBe(mode);
@@ -16,7 +22,9 @@ describe("getShellMode", () => {
 });
 
 describe("useShellMode", () => {
-    afterEach(() => { Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 }); });
+    afterEach(() => {
+        Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
+    });
 
     it("reads width and pointer together", () => {
         Object.defineProperty(window, "innerWidth", { configurable: true, value: 1080 });

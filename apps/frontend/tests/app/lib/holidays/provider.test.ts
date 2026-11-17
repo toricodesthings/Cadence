@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-    fetchHolidays,
-    fetchHolidaySubdivisions,
-} from "../../../../app/lib/holidays/provider";
+import { fetchHolidays, fetchHolidaySubdivisions } from "../../../../app/lib/holidays/provider";
 
 const fetchMock = vi.fn();
 
@@ -21,17 +18,19 @@ describe("holiday provider", () => {
     });
 
     it("requests holidays through the authenticated proxy and returns the normalized payload", async () => {
-        fetchMock.mockResolvedValueOnce(Response.json({
-            data: [
-                {
-                    date: "2026-01-01",
-                    name: "New Year's Day",
-                    countryCode: "DE",
-                    subdivisionCode: null,
-                    isRegional: false,
-                },
-            ],
-        }));
+        fetchMock.mockResolvedValueOnce(
+            Response.json({
+                data: [
+                    {
+                        date: "2026-01-01",
+                        name: "New Year's Day",
+                        countryCode: "DE",
+                        subdivisionCode: null,
+                        isRegional: false,
+                    },
+                ],
+            }),
+        );
 
         const holidays = await fetchHolidays({
             start: "2026-01-01",
@@ -41,10 +40,7 @@ describe("holiday provider", () => {
             locale: "en-US",
         });
 
-        expect(fetchMock).toHaveBeenCalledWith(
-            expect.stringContaining("/api/v1/proxy/holidays?"),
-            expect.anything(),
-        );
+        expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/v1/proxy/holidays?"), expect.anything());
         expect(holidays).toEqual([
             expect.objectContaining({
                 date: "2026-01-01",
@@ -56,24 +52,26 @@ describe("holiday provider", () => {
     });
 
     it("passes subdivision selection through to the authenticated holiday proxy", async () => {
-        fetchMock.mockResolvedValueOnce(Response.json({
-            data: [
-                {
-                    date: "2026-01-01",
-                    name: "New Year's Day",
-                    countryCode: "US",
-                    subdivisionCode: null,
-                    isRegional: false,
-                },
-                {
-                    date: "2026-02-12",
-                    name: "Lincoln's Birthday",
-                    countryCode: "US",
-                    subdivisionCode: "US-CA",
-                    isRegional: true,
-                },
-            ],
-        }));
+        fetchMock.mockResolvedValueOnce(
+            Response.json({
+                data: [
+                    {
+                        date: "2026-01-01",
+                        name: "New Year's Day",
+                        countryCode: "US",
+                        subdivisionCode: null,
+                        isRegional: false,
+                    },
+                    {
+                        date: "2026-02-12",
+                        name: "Lincoln's Birthday",
+                        countryCode: "US",
+                        subdivisionCode: "US-CA",
+                        isRegional: true,
+                    },
+                ],
+            }),
+        );
 
         const holidays = await fetchHolidays({
             start: "2026-01-01",
@@ -83,10 +81,7 @@ describe("holiday provider", () => {
             locale: "en-US",
         });
 
-        expect(fetchMock).toHaveBeenCalledWith(
-            expect.stringContaining("subdivisionCode=US-CA"),
-            expect.anything(),
-        );
+        expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("subdivisionCode=US-CA"), expect.anything());
         expect(holidays).toEqual([
             expect.objectContaining({ date: "2026-01-01", countryCode: "US" }),
             expect.objectContaining({ date: "2026-02-12", subdivisionCode: "US-CA", isRegional: true }),

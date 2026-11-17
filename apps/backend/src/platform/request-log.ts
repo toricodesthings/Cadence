@@ -43,10 +43,7 @@ function summarizeValue(key: string, value: unknown) {
     return value;
 }
 
-function sanitizeRecord(
-    data: Record<string, unknown>,
-    allowedKeys: Set<string>,
-) {
+function sanitizeRecord(data: Record<string, unknown>, allowedKeys: Set<string>) {
     const summary: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(data)) {
@@ -164,15 +161,11 @@ export function createRequestContext() {
     };
 }
 
-export async function logValidationFailure(
-    c: Context<any>,
-    target: string,
-    issues: IssueSummary[],
-    rawData: unknown,
-) {
+export async function logValidationFailure(c: Context<any>, target: string, issues: IssueSummary[], rawData: unknown) {
     const requestId = getRequestId(c);
-    const record = rawData && typeof rawData === "object" ? rawData as Record<string, unknown> : {};
-    const allowedKeys = target === "json" ? JSON_SUMMARY_KEYS : target === "param" ? PARAM_SUMMARY_KEYS : QUERY_SUMMARY_KEYS;
+    const record = rawData && typeof rawData === "object" ? (rawData as Record<string, unknown>) : {};
+    const allowedKeys =
+        target === "json" ? JSON_SUMMARY_KEYS : target === "param" ? PARAM_SUMMARY_KEYS : QUERY_SUMMARY_KEYS;
 
     markLogged(c);
     logger.warn("http", "validation_failed", {
@@ -185,12 +178,7 @@ export async function logValidationFailure(
     });
 }
 
-export async function logErrorResponse(
-    c: Context<any>,
-    error: unknown,
-    status: number,
-    errorCode: string,
-) {
+export async function logErrorResponse(c: Context<any>, error: unknown, status: number, errorCode: string) {
     const requestId = getRequestId(c);
 
     markLogged(c);

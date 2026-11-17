@@ -1,4 +1,19 @@
-import { Pencil, Check, Calendar, Hourglass, Pin, Repeat, Bell, BellOff, Eye, EyeOff, Lock, Unlock, CalendarClock, UserCheck } from "lucide-react";
+import {
+    Pencil,
+    Check,
+    Calendar,
+    Hourglass,
+    Pin,
+    Repeat,
+    Bell,
+    BellOff,
+    Eye,
+    EyeOff,
+    Lock,
+    Unlock,
+    CalendarClock,
+    UserCheck,
+} from "lucide-react";
 import { IdentityBlock, MetaPills, TagPill, type MaybePill, type Pill } from "./ProposalCard";
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useTagsLookup, useTaskTitleLookup, useTaskLookup } from "./card-lookups";
@@ -11,7 +26,10 @@ type TaskPatch = NonNullable<NonNullable<NonNullable<ToolRenderContext<"update_t
 
 /** When it happens and for how long. */
 function timePills(patch: TaskPatch): MaybePill[] {
-    const when = "scheduledStart" in patch || "dueDate" in patch ? (formatWhen(patch.scheduledStart ?? patch.dueDate) ?? "No date") : null;
+    const when =
+        "scheduledStart" in patch || "dueDate" in patch
+            ? (formatWhen(patch.scheduledStart ?? patch.dueDate) ?? "No date")
+            : null;
     return [
         when ? { icon: Calendar, label: when } : null,
         patch.durationEstimate != null ? { icon: Hourglass, label: `${patch.durationEstimate}m block` } : null,
@@ -29,17 +47,31 @@ function changePills(patch: TaskPatch): MaybePill[] {
         patch.waitingOn ? { icon: UserCheck, label: `Waiting on ${patch.waitingOn}` } : null,
         set(patch.isPinned, (on) => ({ icon: Pin, label: on ? "Pin" : "Unpin" })),
         set(patch.recurrenceRule, (rule) => ({ icon: Repeat, label: rule ? "Repeats" : "Stops repeating" })),
-        set(patch.reminderAt, (at) => (at ? { icon: Bell, label: `Remind ${formatWhen(at)}` } : { icon: BellOff, label: "No reminder" })),
-        set(patch.checkInAt, (at) => ({ icon: CalendarClock, label: at ? `Check in ${formatWhen(at)}` : "No check-in" })),
-        set(patch.hideUntil, (day) => (day ? { icon: EyeOff, label: `Hidden until ${formatWhen(day)}` } : { icon: Eye, label: "Always shown" })),
-        set(patch.fixed, (fixed) => ({ icon: fixed ? Lock : Unlock, label: fixed ? "Make it Fixed" : "Make it a task" })),
+        set(patch.reminderAt, (at) =>
+            at ? { icon: Bell, label: `Remind ${formatWhen(at)}` } : { icon: BellOff, label: "No reminder" },
+        ),
+        set(patch.checkInAt, (at) => ({
+            icon: CalendarClock,
+            label: at ? `Check in ${formatWhen(at)}` : "No check-in",
+        })),
+        set(patch.hideUntil, (day) =>
+            day ? { icon: EyeOff, label: `Hidden until ${formatWhen(day)}` } : { icon: Eye, label: "Always shown" },
+        ),
+        set(patch.fixed, (fixed) => ({
+            icon: fixed ? Lock : Unlock,
+            label: fixed ? "Make it Fixed" : "Make it a task",
+        })),
     ];
 }
 
 /** The card's words for one task or several (counting only the rows still ticked). */
 function updateCardText(count: number, kept: number, title: string, updated: number | undefined) {
     if (count > 1) {
-        return { eyebrow: `UPDATE ${count} TASKS`, primaryLabel: count > kept ? `Update ${kept}` : "Update", doneText: `Updated ${updated ?? count} tasks.` };
+        return {
+            eyebrow: `UPDATE ${count} TASKS`,
+            primaryLabel: count > kept ? `Update ${kept}` : "Update",
+            doneText: `Updated ${updated ?? count} tasks.`,
+        };
     }
     return { eyebrow: "TASK UPDATE", primaryLabel: "Update", doneText: `Updated “${title}”.` };
 }
@@ -64,7 +96,8 @@ type UpdateTargetsProps = {
 /** One task by name (with its rename), or a row per task the user can untick. */
 function UpdateTargets({ taskIds, title, rename, off, onToggle }: UpdateTargetsProps) {
     const lookupTitle = useTaskTitleLookup();
-    if (taskIds.length === 1) return <IdentityBlock title={title} subtitle={rename ? `Rename to “${rename}”` : undefined} />;
+    if (taskIds.length === 1)
+        return <IdentityBlock title={title} subtitle={rename ? `Rename to “${rename}”` : undefined} />;
     return (
         <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5">
             {taskIds.map((id, i) => (

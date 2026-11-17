@@ -38,9 +38,17 @@ export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
 }) => {
     const [ownOpen, setOwnOpen] = useState(false);
     const open = controlledOpen ?? ownOpen;
-    const setOpen = (next: boolean) => { setOwnOpen(next); onOpenChange?.(next); };
+    const setOpen = (next: boolean) => {
+        setOwnOpen(next);
+        onOpenChange?.(next);
+    };
     const moment = variant === "moment";
-    const onCloseAutoFocus = returnFocus ? (event: Event) => { event.preventDefault(); returnFocus(); } : undefined;
+    const onCloseAutoFocus = returnFocus
+        ? (event: Event) => {
+              event.preventDefault();
+              returnFocus();
+          }
+        : undefined;
     return (
         <PickerSurface
             trigger={children}
@@ -49,7 +57,8 @@ export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
             onOpenChange={setOpen}
             flush
             contentProps={{
-                className: "w-[320px] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overscroll-contain p-0",
+                className:
+                    "w-[320px] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overscroll-contain p-0",
                 side: "bottom",
                 align: "start",
                 role: "dialog",

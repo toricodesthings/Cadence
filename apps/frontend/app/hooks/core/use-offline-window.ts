@@ -36,9 +36,15 @@ export function useOfflineWindow() {
         let stopped = false;
         const controller = new AbortController();
         let warming = false;
-        const canWarm = () => !stopped && navigator.onLine && document.visibilityState === "visible"
-            && !queryClient.getQueryCache().getAll().some((q) => q.isActive() && q.state.fetchStatus === "fetching")
-            && !getWalSnapshot().some((entry) => entry.status !== "failed");
+        const canWarm = () =>
+            !stopped &&
+            navigator.onLine &&
+            document.visibilityState === "visible" &&
+            !queryClient
+                .getQueryCache()
+                .getAll()
+                .some((q) => q.isActive() && q.state.fetchStatus === "fetching") &&
+            !getWalSnapshot().some((entry) => entry.status !== "failed");
         const run = () => {
             if (warming || !canWarm()) return;
             const today = getToday();
@@ -64,8 +70,9 @@ export function useOfflineWindow() {
             // Each entry is typed by its own factory; together they're just queries to warm.
             const pending = [
                 () => prefetchTaskBatch(client, queryClient, taskFilters, controller.signal),
-                ...(queries as unknown as FetchQueryOptions[]).map((query) =>
-                    () => queryClient.prefetchQuery({ ...query, staleTime: STALE_TIMES.OFFLINE_WINDOW })),
+                ...(queries as unknown as FetchQueryOptions[]).map(
+                    (query) => () => queryClient.prefetchQuery({ ...query, staleTime: STALE_TIMES.OFFLINE_WINDOW }),
+                ),
             ].values();
             const warm = async () => {
                 while (canWarm()) {
@@ -76,15 +83,18 @@ export function useOfflineWindow() {
             };
             warming = true;
             // Background reads must leave room for the view the person is opening.
-            void Promise.all(Array.from({ length: PREFETCH_CONCURRENCY }, warm))
-                .finally(() => { warming = false; });
+            void Promise.all(Array.from({ length: PREFETCH_CONCURRENCY }, warm)).finally(() => {
+                warming = false;
+            });
         };
 
         run();
         document.addEventListener("visibilitychange", run);
         window.addEventListener("online", run);
         // A foreground read completing makes background work eligible again.
-        const unsubscribe = queryClient.getQueryCache().subscribe(() => { queueMicrotask(run); });
+        const unsubscribe = queryClient.getQueryCache().subscribe(() => {
+            queueMicrotask(run);
+        });
         const unsubscribeWal = subscribeWal(run);
         return () => {
             stopped = true;

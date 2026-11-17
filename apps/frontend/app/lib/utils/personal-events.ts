@@ -10,7 +10,11 @@ const EVENT_DEFAULT_TONE = "var(--accent-nav-schedule)";
 /** Colour choices for an event: no colour (the schedule tint) first, then the list palette. "" means none. */
 export const EVENT_SWATCHES = [
     { value: "", color: EVENT_DEFAULT_TONE, label: "Default" },
-    ...PROJECT_ACCENT_OPTIONS.map((option) => ({ value: option.value as string, color: option.varName as string, label: option.label as string })),
+    ...PROJECT_ACCENT_OPTIONS.map((option) => ({
+        value: option.value as string,
+        color: option.varName as string,
+        label: option.label as string,
+    })),
 ];
 
 /** An event's picked tint, or null for none (and for keys no longer in the palette). */
@@ -25,9 +29,19 @@ export function eventToneColor(color: string | null | undefined): string | null 
  */
 export function eventToneStyle(color: string | null | undefined): CSSProperties {
     const tone = eventToneColor(color);
-    return (tone
-        ? { "--event-tone": tone, "--event-ink": `color-mix(in oklab, ${tone} 45%, var(--color-twilight-text))`, "--event-ink-soft": `color-mix(in oklab, ${tone} 30%, var(--color-twilight-text-soft))` }
-        : { "--event-tone": EVENT_DEFAULT_TONE, "--event-ink": EVENT_DEFAULT_TONE, "--event-ink-soft": `color-mix(in srgb, ${EVENT_DEFAULT_TONE} 75%, transparent)` }) as CSSProperties;
+    return (
+        tone
+            ? {
+                  "--event-tone": tone,
+                  "--event-ink": `color-mix(in oklab, ${tone} 45%, var(--color-twilight-text))`,
+                  "--event-ink-soft": `color-mix(in oklab, ${tone} 30%, var(--color-twilight-text-soft))`,
+              }
+            : {
+                  "--event-tone": EVENT_DEFAULT_TONE,
+                  "--event-ink": EVENT_DEFAULT_TONE,
+                  "--event-ink-soft": `color-mix(in srgb, ${EVENT_DEFAULT_TONE} 75%, transparent)`,
+              }
+    ) as CSSProperties;
 }
 
 export type PersonalEventSortMode = "next" | "alphabetical" | "month-day" | "reminders";
@@ -60,7 +74,10 @@ function getPersonalEventOccurrenceDate(monthDay: string, year: number): LocalDa
     return isoDay(year, normalized.month - 1, normalized.day);
 }
 
-export function getNextPersonalEventDate(event: Pick<PersonalEvent, "monthDay">, today: LocalDate = todayDay()): LocalDate {
+export function getNextPersonalEventDate(
+    event: Pick<PersonalEvent, "monthDay">,
+    today: LocalDate = todayDay(),
+): LocalDate {
     const year = Number(today.slice(0, 4));
     const thisYearDate = getPersonalEventOccurrenceDate(event.monthDay, year);
     if (thisYearDate >= today) return thisYearDate;
@@ -138,15 +155,30 @@ export type PersonalEventView = "cards" | "list";
  * The list's month headings: by the month each event next comes round ("next", with the year once it isn't this
  * one) or its calendar month ("month-day"). Other sorts aren't about time, so they stay one unheaded group.
  */
-export function groupPersonalEventsByMonth(items: PersonalEventViewModel[], mode: PersonalEventSortMode, today: LocalDate) {
+export function groupPersonalEventsByMonth(
+    items: PersonalEventViewModel[],
+    mode: PersonalEventSortMode,
+    today: LocalDate,
+) {
     if (mode !== "next" && mode !== "month-day") return [{ key: "all", label: null, items }];
     const groups: { key: string; label: string | null; items: PersonalEventViewModel[] }[] = [];
     for (const item of items) {
-        const day = mode === "next" ? item.nextDate : isoDay(Number(today.slice(0, 4)), Number(item.event.monthDay.slice(0, 2)) - 1, 1);
+        const day =
+            mode === "next"
+                ? item.nextDate
+                : isoDay(Number(today.slice(0, 4)), Number(item.event.monthDay.slice(0, 2)) - 1, 1);
         const key = day.slice(0, 7);
         const last = groups[groups.length - 1];
         if (last?.key === key) last.items.push(item);
-        else groups.push({ key, label: mode === "next" && day.slice(0, 4) !== today.slice(0, 4) ? formatMonthYear(day) : formatMonthName(day), items: [item] });
+        else
+            groups.push({
+                key,
+                label:
+                    mode === "next" && day.slice(0, 4) !== today.slice(0, 4)
+                        ? formatMonthYear(day)
+                        : formatMonthName(day),
+                items: [item],
+            });
     }
     return groups;
 }

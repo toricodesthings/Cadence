@@ -27,7 +27,11 @@ describe("offerDuration", () => {
         await offerDuration(task, "full", api({ ask: false }));
         expect(toastMock.custom).not.toHaveBeenCalled();
 
-        await offerDuration(task, "full", api({ ask: true, token: "tok", completedAt: "2026-10-12T20:00:00.000Z", reference: 45 }));
+        await offerDuration(
+            task,
+            "full",
+            api({ ask: true, token: "tok", completedAt: "2026-10-12T20:00:00.000Z", reference: 45 }),
+        );
         expect(toastMock.custom).toHaveBeenCalledTimes(1);
         expect(toastMock.custom.mock.calls[0][1]).toEqual({ duration: Infinity });
     });
@@ -53,7 +57,13 @@ describe("offerDuration: what the toast is given", () => {
         await offerDuration(task, "full", a);
         const element = toastMock.custom.mock.calls[0][0]("id");
         await element.props.onSave({ kind: "point", minutes: 45 }, false);
-        expect(a.report).toHaveBeenCalledWith({ taskId: "t1", completedAt: "2026-10-12T20:00:00.000Z", value: { kind: "point", minutes: 45 }, anchored: false, token: "tok" });
+        expect(a.report).toHaveBeenCalledWith({
+            taskId: "t1",
+            completedAt: "2026-10-12T20:00:00.000Z",
+            value: { kind: "point", minutes: 45 },
+            anchored: false,
+            token: "tok",
+        });
     });
 
     it("keeps Cadence's own number out of the question (D7)", async () => {

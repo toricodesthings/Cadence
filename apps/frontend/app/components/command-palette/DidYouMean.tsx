@@ -2,7 +2,13 @@ import { Sparkles } from "lucide-react";
 import { useDidYouMean } from "../../hooks/search/use-did-you-mean";
 
 /** One quiet row under "No results": the task the user probably meant. Renders nothing otherwise. */
-export function DidYouMean({ query, onOpen }: { query: string; onOpen: (task: { id: string; title: string }) => void }) {
+export function DidYouMean({
+    query,
+    onOpen,
+}: {
+    query: string;
+    onOpen: (task: { id: string; title: string }) => void;
+}) {
     const task = useDidYouMean(query);
     if (!task) return null;
     return (

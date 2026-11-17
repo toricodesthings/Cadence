@@ -15,7 +15,12 @@ import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useVirtualHabitTasks } from "../../hooks/habits/use-virtual-habit-tasks";
 import { addDays, type LocalDate } from "@cadence/domain/time";
 import { taskDay } from "@cadence/domain/task-recurrence";
-import { formatShortDateLabel, formatWeekdayNarrow, placementLabel, placementReceipt } from "../../lib/utils/date-format";
+import {
+    formatShortDateLabel,
+    formatWeekdayNarrow,
+    placementLabel,
+    placementReceipt,
+} from "../../lib/utils/date-format";
 import { toastName } from "../../lib/utils/undo-toast";
 import { CADENCE_UNDO_DURATION } from "../../lib/utils/cadence-toast";
 import { proposalTime } from "../../lib/planning/day-plan";
@@ -39,7 +44,12 @@ export function useWeekLoad(start: LocalDate, enabled = true, days = 7) {
     const { data: tasks = [] } = useTasks({ state: "ACTIVE", range: { from: start, to: end }, enabled });
     const routines = useVirtualHabitTasks({ start, end, enabled });
     const guessOf = useEffortGuess();
-    const loads = dayLoads([...tasks, ...routines.filter((r) => r.state !== "COMPLETE")], start, days, (task) => guessOf(task)?.level);
+    const loads = dayLoads(
+        [...tasks, ...routines.filter((r) => r.state !== "COMPLETE")],
+        start,
+        days,
+        (task) => guessOf(task)?.level,
+    );
     return { tasks, routines, loads, lightest: lightestDay(new Map([...loads].slice(0, 7)))! };
 }
 
@@ -53,9 +63,24 @@ export type CaptureColumn = "new" | "no-day";
 type PlaceDragData = { title: string; onPlace: (day: LocalDate) => void; onColumn?: (column: CaptureColumn) => void };
 
 /** A Capture group that takes a dragged row: a thought dropped on No day yet becomes a task, a task dropped on New a thought. */
-export function CaptureColumnDrop({ column, className = "", children }: { column: CaptureColumn; className?: string; children: ReactNode }) {
+export function CaptureColumnDrop({
+    column,
+    className = "",
+    children,
+}: {
+    column: CaptureColumn;
+    className?: string;
+    children: ReactNode;
+}) {
     const { setNodeRef, isOver } = useDroppable({ id: `${CAPTURE_COLUMN_DROP}${column}` });
-    return <div ref={setNodeRef} className={`${className} rounded-[28px] transition-shadow ${isOver ? "ring-2 ring-accent-primary/40" : ""}`}>{children}</div>;
+    return (
+        <div
+            ref={setNodeRef}
+            className={`${className} rounded-[28px] transition-shadow ${isOver ? "ring-2 ring-accent-primary/40" : ""}`}
+        >
+            {children}
+        </div>
+    );
 }
 
 /** Desktop Capture: lets captures and Ready tasks be dragged onto the Place rail's days. */
@@ -63,7 +88,8 @@ export function PlaceDndProvider({ children }: { children: ReactNode }) {
     const [active, setActive] = useState<string | null>(null);
     const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 6 } }));
     return (
-        <DndContext sensors={sensors}
+        <DndContext
+            sensors={sensors}
             onDragStart={(e) => setActive((e.active.data.current as PlaceDragData | undefined)?.title ?? null)}
             onDragCancel={() => setActive(null)}
             onDragEnd={({ active: drag, over }) => {
@@ -71,19 +97,44 @@ export function PlaceDndProvider({ children }: { children: ReactNode }) {
                 const id = String(over?.id ?? "");
                 const data = drag.data.current as PlaceDragData | undefined;
                 if (id.startsWith(PLACE_DROP)) data?.onPlace(id.slice(PLACE_DROP.length));
-                if (id.startsWith(CAPTURE_COLUMN_DROP)) data?.onColumn?.(id.slice(CAPTURE_COLUMN_DROP.length) as CaptureColumn);
-            }}>
+                if (id.startsWith(CAPTURE_COLUMN_DROP))
+                    data?.onColumn?.(id.slice(CAPTURE_COLUMN_DROP.length) as CaptureColumn);
+            }}
+        >
             {children}
             <DragOverlay dropAnimation={null}>
-                {active && <div className="max-w-xs cursor-grabbing truncate rounded-2xl border border-accent-primary/40 bg-twilight-surface px-4 py-2.5 text-sm font-medium text-twilight-text shadow-[0_16px_48px_rgba(0,0,0,0.5)] backdrop-blur-md">{active}</div>}
+                {active && (
+                    <div className="max-w-xs cursor-grabbing truncate rounded-2xl border border-accent-primary/40 bg-twilight-surface px-4 py-2.5 text-sm font-medium text-twilight-text shadow-[0_16px_48px_rgba(0,0,0,0.5)] backdrop-blur-md">
+                        {active}
+                    </div>
+                )}
             </DragOverlay>
         </DndContext>
     );
 }
 
-export function PlaceDraggable({ id, title, onPlace, onColumn, className = "", children }: { id: string; className?: string; children: ReactNode } & PlaceDragData) {
-    const { setNodeRef, listeners, isDragging } = useDraggable({ id, data: { title, onPlace, onColumn } satisfies PlaceDragData });
-    return <div ref={setNodeRef} {...listeners} data-dnd-draggable="true" className={`${className} ${isDragging ? "opacity-40" : ""}`}>{children}</div>;
+export function PlaceDraggable({
+    id,
+    title,
+    onPlace,
+    onColumn,
+    className = "",
+    children,
+}: { id: string; className?: string; children: ReactNode } & PlaceDragData) {
+    const { setNodeRef, listeners, isDragging } = useDraggable({
+        id,
+        data: { title, onPlace, onColumn } satisfies PlaceDragData,
+    });
+    return (
+        <div
+            ref={setNodeRef}
+            {...listeners}
+            data-dnd-draggable="true"
+            className={`${className} ${isDragging ? "opacity-40" : ""}`}
+        >
+            {children}
+        </div>
+    );
 }
 
 /**
@@ -96,14 +147,30 @@ export function usePlaceTask() {
     return async (task: Task, day: LocalDate) => {
         const placed = { dueDate: day, endDate: null, scheduledStart: null, scheduledEnd: null };
         await updateTask.mutateAsync({ id: task.id, ...placed });
-        const undo = () => updateTask.mutate({ id: task.id, dueDate: task.dueDate, endDate: task.endDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd });
+        const undo = () =>
+            updateTask.mutate({
+                id: task.id,
+                dueDate: task.dueDate,
+                endDate: task.endDate,
+                scheduledStart: task.scheduledStart,
+                scheduledEnd: task.scheduledEnd,
+            });
         // In a list it stays in that list; otherwise it moves to the view that shows its day.
         const description = task.projectId ? placementLabel(day) : placementReceipt(day);
-        const show = (offerFor: string | null) => toast.custom(
-            (id) => <PlaceReceiptToast id={id} title={toastName(task.title)} description={description} offer={offerFor}
-                onOffer={() => void find.run({ ...task, ...placed }, { day })} onUndo={undo} />,
-            { id: `place-${task.id}`, duration: CADENCE_UNDO_DURATION },
-        );
+        const show = (offerFor: string | null) =>
+            toast.custom(
+                (id) => (
+                    <PlaceReceiptToast
+                        id={id}
+                        title={toastName(task.title)}
+                        description={description}
+                        offer={offerFor}
+                        onOffer={() => void find.run({ ...task, ...placed }, { day })}
+                        onUndo={undo}
+                    />
+                ),
+                { id: `place-${task.id}`, duration: CADENCE_UNDO_DURATION },
+            );
         show(null);
         // The gap is looked up after the receipt is on screen; the receipt gains the time when there is one.
         try {
@@ -115,7 +182,8 @@ export function usePlaceTask() {
     };
 }
 
-const CHIP = "touch-target inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium";
+const CHIP =
+    "touch-target inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium";
 const CHIP_IDLE = "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft";
 
 /**
@@ -123,7 +191,13 @@ const CHIP_IDLE = "border-twilight-border/40 bg-white/[0.03] text-twilight-text-
  * browses days and hands off to Schedule. Busy-ness is shown as bars and words,
  * never counts, so a full week doesn't read as a wall of numbers.
  */
-export function PlaceSheet({ open, task, onClose, onOpenTask, onPlace }: {
+export function PlaceSheet({
+    open,
+    task,
+    onClose,
+    onOpenTask,
+    onPlace,
+}: {
     open: boolean;
     task: Task | null;
     onClose: () => void;
@@ -145,69 +219,200 @@ export function PlaceSheet({ open, task, onClose, onOpenTask, onPlace }: {
     // A routine counts by its typical length when its own answers support one (and it isn't done yet that day).
     const dueRoutines = routines.filter((r) => r.state !== "COMPLETE" && taskDay(r, getUserZone()) === selected);
     const { minutes, unsized } = dayMinutes([...dayTasks, ...dueRoutines], guessOf);
-    const sizedNote = minutes > 0 ? ` · about ${formatDayMinutes(minutes)}${unsized ? ` · ${unsized} not sized` : ""}` : "";
+    const sizedNote =
+        minutes > 0 ? ` · about ${formatDayMinutes(minutes)}${unsized ? ` · ${unsized} not sized` : ""}` : "";
 
-    const close = () => { onClose(); setPicked(null); setStripStart(todayIso); };
-    const jump = (day: LocalDate) => { setStripStart(day); setPicked(day); };
-    const shift = (days: number) => { const next = addDays(stripStart, days); setStripStart(next); setPicked(next); };
+    const close = () => {
+        onClose();
+        setPicked(null);
+        setStripStart(todayIso);
+    };
+    const jump = (day: LocalDate) => {
+        setStripStart(day);
+        setPicked(day);
+    };
+    const shift = (days: number) => {
+        const next = addDays(stripStart, days);
+        setStripStart(next);
+        setPicked(next);
+    };
 
     const band = (
         <div className="shrink-0 space-y-3 border-b border-twilight-border px-4 py-3">
             <div className="flex items-center gap-2">
-                <DatePicker label="Pick a date" value={selected} onChange={(date) => date && jump(date)} className="min-w-0 flex-1">
-                    <Button variant="ghost" size="none" type="button" className="min-w-0 flex-1 flex-col items-start gap-0 rounded-xl text-left font-normal hover:bg-transparent">
-                        <span className="block truncate font-display text-lg font-semibold text-twilight-text">{dayLabel(selected)}</span>
-                        <span className="text-sm text-twilight-text-soft">{loadWord(loads.get(selected) ?? 0)} day{sizedNote} · tap to pick a date</span>
+                <DatePicker
+                    label="Pick a date"
+                    value={selected}
+                    onChange={(date) => date && jump(date)}
+                    className="min-w-0 flex-1"
+                >
+                    <Button
+                        variant="ghost"
+                        size="none"
+                        type="button"
+                        className="min-w-0 flex-1 flex-col items-start gap-0 rounded-xl text-left font-normal hover:bg-transparent"
+                    >
+                        <span className="block truncate font-display text-lg font-semibold text-twilight-text">
+                            {dayLabel(selected)}
+                        </span>
+                        <span className="text-sm text-twilight-text-soft">
+                            {loadWord(loads.get(selected) ?? 0)} day{sizedNote} · tap to pick a date
+                        </span>
                     </Button>
                 </DatePicker>
-                {selected !== todayIso && <Button variant="ghost" size="none" type="button" onClick={() => jump(todayIso)} className={`${CHIP} ${CHIP_IDLE} font-sans`}>Today</Button>}
+                {selected !== todayIso && (
+                    <Button
+                        variant="ghost"
+                        size="none"
+                        type="button"
+                        onClick={() => jump(todayIso)}
+                        className={`${CHIP} ${CHIP_IDLE} font-sans`}
+                    >
+                        Today
+                    </Button>
+                )}
             </div>
 
             <div className="flex items-center gap-1">
-                <Button variant="ghost" size="none" type="button" onClick={() => shift(-7)} aria-label="Previous week" className="mobile-icon-button shrink-0"><ChevronLeft size={18} aria-hidden="true" /></Button>
-                <motion.div drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.2}
-                    onDragEnd={(_, info) => { if (Math.abs(info.offset.x) > 50) shift(info.offset.x < 0 ? 7 : -7); }}
-                    className="grid flex-1 grid-cols-7 gap-1 touch-pan-y">
+                <Button
+                    variant="ghost"
+                    size="none"
+                    type="button"
+                    onClick={() => shift(-7)}
+                    aria-label="Previous week"
+                    className="mobile-icon-button shrink-0"
+                >
+                    <ChevronLeft size={18} aria-hidden="true" />
+                </Button>
+                <motion.div
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 0 }}
+                    dragElastic={0.2}
+                    onDragEnd={(_, info) => {
+                        if (Math.abs(info.offset.x) > 50) shift(info.offset.x < 0 ? 7 : -7);
+                    }}
+                    className="grid flex-1 grid-cols-7 gap-1 touch-pan-y"
+                >
                     {[...loads].map(([iso, load]) => {
                         const isSel = iso === selected;
                         return (
-                            <Button variant="ghost" size="none" key={iso} type="button" onClick={() => setPicked(iso)} aria-pressed={isSel}
+                            <Button
+                                variant="ghost"
+                                size="none"
+                                key={iso}
+                                type="button"
+                                onClick={() => setPicked(iso)}
+                                aria-pressed={isSel}
                                 aria-label={`${dayLabel(iso)}, ${loadWord(load)}`}
                                 className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl text-twilight-text transition-colors ${
-                                    isSel ? "bg-accent-primary text-twilight-void hover:bg-accent-primary hover:text-twilight-void" : iso === todayIso ? "ring-1 ring-accent-primary/50 hover:text-twilight-text" : "hover:bg-white/[0.05] hover:text-twilight-text"}`}>
-                                <span className={`text-[10px] font-semibold uppercase ${isSel ? "" : "text-twilight-text-muted"}`}>{formatWeekdayNarrow(iso)}</span>
+                                    isSel
+                                        ? "bg-accent-primary text-twilight-void hover:bg-accent-primary hover:text-twilight-void"
+                                        : iso === todayIso
+                                          ? "ring-1 ring-accent-primary/50 hover:text-twilight-text"
+                                          : "hover:bg-white/[0.05] hover:text-twilight-text"
+                                }`}
+                            >
+                                <span
+                                    className={`text-[10px] font-semibold uppercase ${isSel ? "" : "text-twilight-text-muted"}`}
+                                >
+                                    {formatWeekdayNarrow(iso)}
+                                </span>
                                 <span className="text-base font-semibold">{Number(iso.slice(8, 10))}</span>
-                                <span aria-hidden="true" className={`h-1 rounded-full ${isSel ? "bg-twilight-void/60" : "bg-accent-primary/70"}`}
-                                    style={{ width: `${Math.min(load, 6) * 3}px` }} />
+                                <span
+                                    aria-hidden="true"
+                                    className={`h-1 rounded-full ${isSel ? "bg-twilight-void/60" : "bg-accent-primary/70"}`}
+                                    style={{ width: `${Math.min(load, 6) * 3}px` }}
+                                />
                             </Button>
                         );
                     })}
                 </motion.div>
-                <Button variant="ghost" size="none" type="button" onClick={() => shift(7)} aria-label="Next week" className="mobile-icon-button shrink-0"><ChevronRight size={18} aria-hidden="true" /></Button>
+                <Button
+                    variant="ghost"
+                    size="none"
+                    type="button"
+                    onClick={() => shift(7)}
+                    aria-label="Next week"
+                    className="mobile-icon-button shrink-0"
+                >
+                    <ChevronRight size={18} aria-hidden="true" />
+                </Button>
             </div>
         </div>
     );
 
     const footer = (
         <div className="border-t border-twilight-border px-4 pb-4 pt-3">
-            {task
-                ? <Button type="button" className="min-h-12 w-full" onClick={() => { void Promise.resolve(place(task, selected)).then(close).catch(() => {}); }}>Place on {dayLabel(selected)}</Button>
-                : <Button type="button" variant="secondary" className="min-h-12 w-full" onClick={() => { close(); navigate(`/schedule?date=${selected}`); }}>Open in Schedule</Button>}
+            {task ? (
+                <Button
+                    type="button"
+                    className="min-h-12 w-full"
+                    onClick={() => {
+                        void Promise.resolve(place(task, selected))
+                            .then(close)
+                            .catch(() => {});
+                    }}
+                >
+                    Place on {dayLabel(selected)}
+                </Button>
+            ) : (
+                <Button
+                    type="button"
+                    variant="secondary"
+                    className="min-h-12 w-full"
+                    onClick={() => {
+                        close();
+                        navigate(`/schedule?date=${selected}`);
+                    }}
+                >
+                    Open in Schedule
+                </Button>
+            )}
         </div>
     );
 
     return (
-        <UtilitySheet title={task ? `Place “${task.title}”` : "Pick a day"} open={open} onClose={close} band={band} footer={footer}>
+        <UtilitySheet
+            title={task ? `Place “${task.title}”` : "Pick a day"}
+            open={open}
+            onClose={close}
+            band={band}
+            footer={footer}
+        >
             <section aria-label={`On ${dayLabel(selected)}`} className="space-y-2">
-                <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted">On {dayLabel(selected)}</h3>
-                {dayTasks.length
-                    ? <FindTimeDayContext.Provider value={selected}><PlanningOfferProvider shown={offers.shown}><div className="flex flex-col gap-0.5">{dayTasks.map((t) => (
-                        <div key={t.id}>
-                            <TaskCard task={t} onSelect={(id) => { close(); onOpenTask(id); }} />
-                            {offers.task?.id === t.id && offers.kind ? <div className="px-3 pb-2"><PlanningOfferChip kind={offers.kind} onAccept={offers.accept} onNotNow={offers.notNow} /></div> : null}
-                        </div>
-                    ))}</div></PlanningOfferProvider></FindTimeDayContext.Provider>
-                    : <p className="px-1 py-6 text-sm text-twilight-text-soft">Nothing here yet — room to breathe.</p>}
+                <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted">
+                    On {dayLabel(selected)}
+                </h3>
+                {dayTasks.length ? (
+                    <FindTimeDayContext.Provider value={selected}>
+                        <PlanningOfferProvider shown={offers.shown}>
+                            <div className="flex flex-col gap-0.5">
+                                {dayTasks.map((t) => (
+                                    <div key={t.id}>
+                                        <TaskCard
+                                            task={t}
+                                            onSelect={(id) => {
+                                                close();
+                                                onOpenTask(id);
+                                            }}
+                                        />
+                                        {offers.task?.id === t.id && offers.kind ? (
+                                            <div className="px-3 pb-2">
+                                                <PlanningOfferChip
+                                                    kind={offers.kind}
+                                                    onAccept={offers.accept}
+                                                    onNotNow={offers.notNow}
+                                                />
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                ))}
+                            </div>
+                        </PlanningOfferProvider>
+                    </FindTimeDayContext.Provider>
+                ) : (
+                    <p className="px-1 py-6 text-sm text-twilight-text-soft">Nothing here yet — room to breathe.</p>
+                )}
             </section>
         </UtilitySheet>
     );

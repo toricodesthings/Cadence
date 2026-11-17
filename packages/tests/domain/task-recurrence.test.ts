@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { expandScheduleScopedTasks, resolveOccurrenceAnchor, validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
+import {
+    expandScheduleScopedTasks,
+    resolveOccurrenceAnchor,
+    validateTaskRecurrenceRule,
+} from "@cadence/domain/task-recurrence";
 import { dayOf, wallTimeOf } from "@cadence/domain/time";
 
 const TORONTO = "America/Toronto";
@@ -21,8 +25,15 @@ const BASE_TASK = {
     interactionMode: "task" as const,
 };
 
-type Occ = { id: string; occurrenceDay?: string; occurrenceStart?: string; occurrenceEnd?: string | null; scheduledStart: string | null };
-const expand = (...args: Parameters<typeof expandScheduleScopedTasks>) => expandScheduleScopedTasks(...args) as unknown as Occ[];
+type Occ = {
+    id: string;
+    occurrenceDay?: string;
+    occurrenceStart?: string;
+    occurrenceEnd?: string | null;
+    scheduledStart: string | null;
+};
+const expand = (...args: Parameters<typeof expandScheduleScopedTasks>) =>
+    expandScheduleScopedTasks(...args) as unknown as Occ[];
 
 const WEEK = { from: "2026-03-09", to: "2026-03-15" };
 
@@ -47,17 +58,29 @@ describe("task recurrence expansion", () => {
         const range = { from: "2026-03-10", to: "2026-06-17" }; // 100 days
         expect(expand([daily], range, TORONTO)).toHaveLength(100);
         expect(expand([daily], { ...range, limit: 5, offset: 2 }, TORONTO).map((i) => i.occurrenceDay)).toEqual([
-            "2026-03-12", "2026-03-13", "2026-03-14", "2026-03-15", "2026-03-16",
+            "2026-03-12",
+            "2026-03-13",
+            "2026-03-14",
+            "2026-03-15",
+            "2026-03-16",
         ]);
     });
 
     it("does not emit expired recurring series", () => {
-        const items = expand([{ ...BASE_TASK, recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260308" }], WEEK, TORONTO);
+        const items = expand(
+            [{ ...BASE_TASK, recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260308" }],
+            WEEK,
+            TORONTO,
+        );
         expect(items).toHaveLength(0);
     });
 
     it("includes the UNTIL day itself", () => {
-        const items = expand([{ ...BASE_TASK, recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260312" }], WEEK, TORONTO);
+        const items = expand(
+            [{ ...BASE_TASK, recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260312" }],
+            WEEK,
+            TORONTO,
+        );
         expect(items.map((i) => i.occurrenceDay)).toEqual(["2026-03-10", "2026-03-12"]);
     });
 
@@ -75,14 +98,22 @@ describe("task recurrence expansion", () => {
             recurrenceRule: "FREQ=WEEKLY;BYDAY=TU",
         };
         const fall = expand([series], { from: "2026-10-27", to: "2026-11-10" }, TORONTO);
-        expect(fall.map((i) => i.occurrenceStart)).toEqual(["2026-10-27T18:35:00.000Z", "2026-11-03T19:35:00.000Z", "2026-11-10T19:35:00.000Z"]);
+        expect(fall.map((i) => i.occurrenceStart)).toEqual([
+            "2026-10-27T18:35:00.000Z",
+            "2026-11-03T19:35:00.000Z",
+            "2026-11-10T19:35:00.000Z",
+        ]);
 
         const spring = expand(
             [{ ...series, scheduledStart: "2026-03-03T19:35:00.000Z", scheduledEnd: "2026-03-03T20:50:00.000Z" }],
             { from: "2026-03-03", to: "2026-03-17" },
             TORONTO,
         );
-        expect(spring.map((i) => i.occurrenceStart)).toEqual(["2026-03-03T19:35:00.000Z", "2026-03-10T18:35:00.000Z", "2026-03-17T18:35:00.000Z"]);
+        expect(spring.map((i) => i.occurrenceStart)).toEqual([
+            "2026-03-03T19:35:00.000Z",
+            "2026-03-10T18:35:00.000Z",
+            "2026-03-17T18:35:00.000Z",
+        ]);
         for (const i of [...fall, ...spring]) {
             expect(wallTimeOf(i.occurrenceStart!, TORONTO)).toBe("14:35");
             expect(wallTimeOf(i.occurrenceEnd!, TORONTO)).toBe("15:50");
@@ -90,7 +121,15 @@ describe("task recurrence expansion", () => {
     });
 
     it("expands all-day series on LocalDates, never an instant", () => {
-        const series = { ...BASE_TASK, id: "rent", scheduledStart: null, scheduledEnd: null, zone: null, dueDate: "2026-03-01", recurrenceRule: "FREQ=WEEKLY;BYDAY=MO;UNTIL=20260316" };
+        const series = {
+            ...BASE_TASK,
+            id: "rent",
+            scheduledStart: null,
+            scheduledEnd: null,
+            zone: null,
+            dueDate: "2026-03-01",
+            recurrenceRule: "FREQ=WEEKLY;BYDAY=MO;UNTIL=20260316",
+        };
         const items = expand([series], { from: "2026-03-01", to: "2026-03-31" }, TORONTO);
         expect(items.map((i) => i.id)).toEqual(["rent::2026-03-02", "rent::2026-03-09", "rent::2026-03-16"]);
         expect(items.every((i) => i.scheduledStart === null && !("occurrenceStart" in i))).toBe(true);

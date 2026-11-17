@@ -58,9 +58,7 @@ function ColorSwatch({
             )}
             style={{ background: hex }}
         >
-            {selected && (
-                <Check size={12} className="absolute inset-0 m-auto text-white drop-shadow-md" />
-            )}
+            {selected && <Check size={12} className="absolute inset-0 m-auto text-white drop-shadow-md" />}
         </button>
     );
 }
@@ -89,12 +87,8 @@ function GradientSwatch({
                 background: `linear-gradient(${gradient.direction}deg, ${gradient.color1}, ${gradient.color2})`,
             }}
         >
-            {selected && (
-                <Check size={14} className="absolute right-2 top-2 text-white drop-shadow-md" />
-            )}
-            <span className="text-xs font-medium text-white drop-shadow-sm">
-                {gradient.name}
-            </span>
+            {selected && <Check size={14} className="absolute right-2 top-2 text-white drop-shadow-md" />}
+            <span className="text-xs font-medium text-white drop-shadow-sm">{gradient.name}</span>
         </button>
     );
 }
@@ -124,7 +118,9 @@ function SourceChoice({ photoActive, hasPhoto, uploading, onCadence, onPhoto, on
                 onClick={onCadence}
                 className={cn(
                     "flex min-h-28 cursor-pointer flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary",
-                    !photoActive ? "border-accent-primary bg-accent-primary/5" : "border-twilight-border-light hover:bg-twilight-surface",
+                    !photoActive
+                        ? "border-accent-primary bg-accent-primary/5"
+                        : "border-twilight-border-light hover:bg-twilight-surface",
                 )}
             >
                 <span className="flex w-full items-center justify-between text-accent-primary">
@@ -148,7 +144,9 @@ function SourceChoice({ photoActive, hasPhoto, uploading, onCadence, onPhoto, on
                 }}
                 className={cn(
                     "flex min-h-28 cursor-pointer flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary",
-                    photoActive ? "border-accent-primary bg-accent-primary/5" : "border-dashed border-twilight-border-light hover:bg-twilight-surface",
+                    photoActive
+                        ? "border-accent-primary bg-accent-primary/5"
+                        : "border-dashed border-twilight-border-light hover:bg-twilight-surface",
                 )}
             >
                 <span className="flex w-full items-center justify-between text-accent-primary">
@@ -156,20 +154,29 @@ function SourceChoice({ photoActive, hasPhoto, uploading, onCadence, onPhoto, on
                     {photoActive && <Check size={16} aria-hidden="true" />}
                 </span>
                 <span className="text-sm font-medium text-twilight-text">Your photo</span>
-                <span className="text-xs text-twilight-text-muted">
-                    {photoCaption(photoActive, hasPhoto)}
-                </span>
+                <span className="text-xs text-twilight-text-muted">{photoCaption(photoActive, hasPhoto)}</span>
             </button>
         </div>
     );
 }
 
-type CadenceBackgroundsProps = Pick<BackgroundSettingsProps, "backgroundMode" | "backgroundColor" | "backgroundGradient" | "onModeChange" | "onColorChange" | "onGradientChange"> & {
+type CadenceBackgroundsProps = Pick<
+    BackgroundSettingsProps,
+    "backgroundMode" | "backgroundColor" | "backgroundGradient" | "onModeChange" | "onColorChange" | "onGradientChange"
+> & {
     themePreset: ThemePresetId;
 };
 
 /** The theme's own background, gradient presets and solid colours (with a custom one). */
-function CadenceBackgrounds({ backgroundMode, themePreset, backgroundColor, backgroundGradient, onModeChange, onColorChange, onGradientChange }: CadenceBackgroundsProps) {
+function CadenceBackgrounds({
+    backgroundMode,
+    themePreset,
+    backgroundColor,
+    backgroundGradient,
+    onModeChange,
+    onColorChange,
+    onGradientChange,
+}: CadenceBackgroundsProps) {
     const preset = THEME_PRESET_MAP[themePreset] ?? THEME_PRESET_MAP.default;
     const defaultBackground = preset.suggestedGradient
         ? `linear-gradient(${preset.suggestedGradient.direction}deg, ${preset.suggestedGradient.color1}, ${preset.suggestedGradient.color2})`
@@ -190,8 +197,12 @@ function CadenceBackgrounds({ backgroundMode, themePreset, backgroundColor, back
                     )}
                     style={{ background: defaultBackground }}
                 >
-                    {backgroundMode === "theme" && <Check size={14} className="absolute right-2 top-2 text-white" aria-hidden="true" />}
-                    <span className="rounded-md bg-twilight-deep/90 px-2 py-1 text-xs text-twilight-text">Theme default</span>
+                    {backgroundMode === "theme" && (
+                        <Check size={14} className="absolute right-2 top-2 text-white" aria-hidden="true" />
+                    )}
+                    <span className="rounded-md bg-twilight-deep/90 px-2 py-1 text-xs text-twilight-text">
+                        Theme default
+                    </span>
                 </button>
                 {GRADIENT_PRESETS.map((gradient) => (
                     <GradientSwatch
@@ -216,9 +227,7 @@ function CadenceBackgrounds({ backgroundMode, themePreset, backgroundColor, back
                             key={c.hex}
                             hex={c.hex}
                             name={c.name}
-                            selected={
-                                backgroundMode === "custom" && backgroundColor === c.hex && !backgroundGradient
-                            }
+                            selected={backgroundMode === "custom" && backgroundColor === c.hex && !backgroundGradient}
                             onSelect={() => onColorChange(c.hex)}
                         />
                     ))}
@@ -228,7 +237,6 @@ function CadenceBackgrounds({ backgroundMode, themePreset, backgroundColor, back
                             "relative flex h-11 w-11 items-center justify-center rounded-xl cursor-pointer",
                             "border border-dashed border-twilight-border-light hover:border-twilight-text-muted transition-colors focus-within:ring-2 focus-within:ring-accent-primary",
                         )}
-
                     >
                         <span className="text-[10px] text-twilight-text-muted">+</span>
                         <input
@@ -241,7 +249,6 @@ function CadenceBackgrounds({ backgroundMode, themePreset, backgroundColor, back
                     </label>
                 </div>
             </div>
-
         </div>
     );
 }

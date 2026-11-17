@@ -18,7 +18,11 @@ const task = {
 };
 
 function setup(overrides: Partial<typeof task> = {}) {
-    render(<Provider><TimetableBlockEditor task={{ ...task, ...overrides }} /></Provider>);
+    render(
+        <Provider>
+            <TimetableBlockEditor task={{ ...task, ...overrides }} />
+        </Provider>,
+    );
 }
 
 describe("TimetableBlockEditor", () => {

@@ -7,15 +7,45 @@ import { cosR, cssVars, MAPLE_LEAF, placeShape, pt, rad, rng, sinR, type Pt } fr
  */
 
 const LIMB: readonly (readonly [number, number, number])[] = [
-    [-30, 20, 17], [30, 34, 14], [90, 46, 11], [150, 58, 9], [205, 74, 7], [250, 94, 5], [290, 118, 3.5],
+    [-30, 20, 17],
+    [30, 34, 14],
+    [90, 46, 11],
+    [150, 58, 9],
+    [205, 74, 7],
+    [250, 94, 5],
+    [290, 118, 3.5],
 ];
 const TWIGS: readonly (readonly [Pt, Pt, Pt])[] = [
-    [[92, 46], [112, 96], [116, 66]],
-    [[150, 58], [170, 128], [168, 90]],
-    [[205, 74], [236, 142], [228, 104]],
-    [[250, 94], [276, 166], [272, 128]],
-    [[62, 40], [104, 14], [84, 20]],
-    [[178, 65], [214, 48], [198, 52]],
+    [
+        [92, 46],
+        [112, 96],
+        [116, 66],
+    ],
+    [
+        [150, 58],
+        [170, 128],
+        [168, 90],
+    ],
+    [
+        [205, 74],
+        [236, 142],
+        [228, 104],
+    ],
+    [
+        [250, 94],
+        [276, 166],
+        [272, 128],
+    ],
+    [
+        [62, 40],
+        [104, 14],
+        [84, 20],
+    ],
+    [
+        [178, 65],
+        [214, 48],
+        [198, 52],
+    ],
 ];
 
 function bough(seed: number, mirror: boolean) {
@@ -53,13 +83,21 @@ function bough(seed: number, mirror: boolean) {
             leaves.push({ x, y, s: 1.5 + rand() * 0.9, r: mirror ? -rot : rot });
         }
     }
-    const lit = new Set([...leaves].sort((a, b) => a.x + 1.2 * a.y - (b.x + 1.2 * b.y)).slice(0, Math.round(leaves.length * 0.35)));
+    const lit = new Set(
+        [...leaves].sort((a, b) => a.x + 1.2 * a.y - (b.x + 1.2 * b.y)).slice(0, Math.round(leaves.length * 0.35)),
+    );
     return {
         wood,
         twigsFill,
         leaves: leaves.map((l) => placeShape(MAPLE_LEAF, l.x, l.y, l.s, l.r)).join(" "),
-        lit: leaves.filter((l) => lit.has(l)).map((l) => placeShape(MAPLE_LEAF, l.x, l.y, l.s, l.r)).join(" "),
-        rim: leaves.filter((l) => lit.has(l)).map((l) => placeShape(MAPLE_LEAF, l.x - 1.3, l.y - 1.3, l.s, l.r)).join(" "),
+        lit: leaves
+            .filter((l) => lit.has(l))
+            .map((l) => placeShape(MAPLE_LEAF, l.x, l.y, l.s, l.r))
+            .join(" "),
+        rim: leaves
+            .filter((l) => lit.has(l))
+            .map((l) => placeShape(MAPLE_LEAF, l.x - 1.3, l.y - 1.3, l.s, l.r))
+            .join(" "),
     };
 }
 
@@ -121,14 +159,36 @@ function Bough({ art, side }: { art: ReturnType<typeof bough>; side: "tl" | "tr"
     );
 }
 
-function Grass({ art, side, blades, plumes }: { art: ReturnType<typeof susuki>; side: "bl" | "br"; blades: [number, number]; plumes: [number, number] }) {
+function Grass({
+    art,
+    side,
+    blades,
+    plumes,
+}: {
+    art: ReturnType<typeof susuki>;
+    side: "bl" | "br";
+    blades: [number, number];
+    plumes: [number, number];
+}) {
     return (
         <div className={`ls-frame ls-susuki ls-par ls-par-frame ls-susuki-${side}`} aria-hidden="true">
-            <svg viewBox="0 0 240 300" style={cssVars({ "--swd": `${blades[0]}s`, "--amp": `${blades[1]}deg`, "--delay": "-1.3s" })}>
+            <svg
+                viewBox="0 0 240 300"
+                style={cssVars({ "--swd": `${blades[0]}s`, "--amp": `${blades[1]}deg`, "--delay": "-1.3s" })}
+            >
                 <path d={art.blades} fill="var(--ls-grass)" filter="url(#ls-blur-grass)" />
             </svg>
-            <svg viewBox="0 0 240 300" style={cssVars({ "--swd": `${plumes[0]}s`, "--amp": `${plumes[1]}deg`, "--delay": "-3.2s" })}>
-                <path d={art.stems} fill="none" stroke="var(--ls-grass)" strokeWidth="1.6" filter="url(#ls-blur-grass)" />
+            <svg
+                viewBox="0 0 240 300"
+                style={cssVars({ "--swd": `${plumes[0]}s`, "--amp": `${plumes[1]}deg`, "--delay": "-3.2s" })}
+            >
+                <path
+                    d={art.stems}
+                    fill="none"
+                    stroke="var(--ls-grass)"
+                    strokeWidth="1.6"
+                    filter="url(#ls-blur-grass)"
+                />
                 <path d={art.rims} fill="var(--ls-persimmon)" opacity=".3" filter="url(#ls-blur-grass)" />
                 <path d={art.heads} fill="var(--ls-plume)" filter="url(#ls-blur-plume)" />
             </svg>
@@ -140,7 +200,13 @@ function Grass({ art, side, blades, plumes }: { art: ReturnType<typeof susuki>; 
 const FIR_TIERS = "M60,22 L86,66 L34,66 Z M60,44 L94,100 L26,100 Z M60,74 L102,138 L18,138 Z";
 const FIR_SNOW = "M60,22 L38,60 L48,58 Z M60,44 L30,94 L44,90 Z M60,74 L22,132 L40,126 Z";
 const FIR_LIGHTS: readonly (readonly [number, number, string])[] = [
-    [52, 58, "#ff5a4a"], [70, 64, "#ffd166"], [44, 90, "#7fd0ff"], [78, 96, "#9be27a"], [36, 126, "#ffd166"], [60, 120, "#ff5a4a"], [88, 130, "#7fd0ff"],
+    [52, 58, "#ff5a4a"],
+    [70, 64, "#ffd166"],
+    [44, 90, "#7fd0ff"],
+    [78, 96, "#9be27a"],
+    [36, 126, "#ffd166"],
+    [60, 120, "#ff5a4a"],
+    [88, 130, "#7fd0ff"],
 ];
 
 function XmasTree() {
@@ -160,7 +226,10 @@ function XmasTree() {
                             </g>
                         ))}
                         <circle cx="60" cy="18" r="9" fill="var(--loading-key)" opacity=".25" />
-                        <path d="M60,10 L62.4,16 L68.5,16.3 L63.7,20.2 L65.5,26 L60,22.6 L54.5,26 L56.3,20.2 L51.5,16.3 L57.6,16 Z" fill="var(--loading-key)" />
+                        <path
+                            d="M60,10 L62.4,16 L68.5,16.3 L63.7,20.2 L65.5,26 L60,22.6 L54.5,26 L56.3,20.2 L51.5,16.3 L57.6,16 Z"
+                            fill="var(--loading-key)"
+                        />
                     </g>
                 </g>
             </svg>

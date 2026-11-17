@@ -39,10 +39,16 @@ describe("batched open task reads", () => {
         await create({ title: "Done", state: "COMPLETE" });
         await create({ title: "Trash", state: "ARCHIVED" });
         await create({ title: "Other account" }, foreign);
-        await create({ title: "Fixed", scheduledStart: "2026-03-01T09:00:00.000Z",
-            scheduledEnd: "2026-03-01T10:00:00.000Z", recurrenceRule: "FREQ=DAILY;COUNT=30", interactionMode: "timetable" });
+        await create({
+            title: "Fixed",
+            scheduledStart: "2026-03-01T09:00:00.000Z",
+            scheduledEnd: "2026-03-01T10:00:00.000Z",
+            recurrenceRule: "FREQ=DAILY;COUNT=30",
+            interactionMode: "timetable",
+        });
         const queries: Record<string, string>[] = [
-            { state: "ACTIVE" }, { state: "WAITING" },
+            { state: "ACTIVE" },
+            { state: "WAITING" },
             { state: "ACTIVE", hasNoDate: "true", hasNoProject: "true" },
             { state: "ACTIVE", effectiveOnOrBeforeDate: "2026-03-09" },
             { state: "ACTIVE", from: "2026-03-09", to: "2026-03-15" },
@@ -62,7 +68,9 @@ describe("batched open task reads", () => {
         expect(JSON.stringify(body.data).length).toBeLessThan(JSON.stringify(singles).length);
         expect(new Set(body.data.tasks.map((task: Task) => task.id)).size).toBe(body.data.tasks.length);
         expect(body.data.tasks.find((task: Task) => task.title === "Capture").tagIds).toEqual([tag.id]);
-        expect(body.data.tasks.some((task: Task) => ["Other account", "Done", "Trash"].includes(task.title))).toBe(false);
+        expect(body.data.tasks.some((task: Task) => ["Other account", "Done", "Trash"].includes(task.title))).toBe(
+            false,
+        );
     });
 
     it("performs one task+tag read in one RLS transaction for nine lists", async () => {
@@ -70,11 +78,16 @@ describe("batched open task reads", () => {
         const db = getTestDb();
         const original = db.transaction.bind(db);
         const reads = vi.fn();
-        const transactions = vi.spyOn(db, "transaction").mockImplementation(async (callback: any) => original(async (tx: any) => {
-            const findMany = tx.query.tasks.findMany.bind(tx.query.tasks);
-            tx.query.tasks.findMany = (...args: any[]) => { reads(); return findMany(...args); };
-            return callback(tx);
-        }));
+        const transactions = vi.spyOn(db, "transaction").mockImplementation(async (callback: any) =>
+            original(async (tx: any) => {
+                const findMany = tx.query.tasks.findMany.bind(tx.query.tasks);
+                tx.query.tasks.findMany = (...args: any[]) => {
+                    reads();
+                    return findMany(...args);
+                };
+                return callback(tx);
+            }),
+        );
         try {
             const result = await tasks("GET", batchPath(Array.from({ length: 9 }, () => ({ state: "ACTIVE" }))));
             expect(result.status).toBe(200);
@@ -82,15 +95,25 @@ describe("batched open task reads", () => {
             expect(reads).toHaveBeenCalledTimes(1);
             expect(result.body.data.tasks).toHaveLength(1);
             expect(result.body.data.lists).toEqual(Array.from({ length: 9 }, () => [0]));
-        } finally { transactions.mockRestore(); }
+        } finally {
+            transactions.mockRestore();
+        }
     });
 
     it("keeps full open lists and full schedule windows", async () => {
         // Direct SQL seeding avoids testing create 60 times; reads still run with real RLS.
         const { asOwner } = await import("../helpers/db");
-        await asOwner((pg) => pg.query(`INSERT INTO tasks (user_id, title, order_index, due_on)
-            SELECT $1, 'Task ' || n, n, '2026-03-09'::date FROM generate_series(1, 60) n`, [userId]));
-        const result = await tasks("GET", batchPath([{ state: "ACTIVE" }, { state: "ACTIVE", from: "2026-03-09", to: "2026-03-09" }]));
+        await asOwner((pg) =>
+            pg.query(
+                `INSERT INTO tasks (user_id, title, order_index, due_on)
+            SELECT $1, 'Task ' || n, n, '2026-03-09'::date FROM generate_series(1, 60) n`,
+                [userId],
+            ),
+        );
+        const result = await tasks(
+            "GET",
+            batchPath([{ state: "ACTIVE" }, { state: "ACTIVE", from: "2026-03-09", to: "2026-03-09" }]),
+        );
         expect(result.status).toBe(200);
         expect(result.body.data.lists.map((list: number[]) => list.length)).toEqual([60, 60]);
     });

@@ -14,8 +14,19 @@ const authState = vi.hoisted(() => ({
 vi.mock("@neondatabase/auth/react/ui", () => ({
     AuthView: ({ view }: { view: "SIGN_IN" | "SIGN_UP" }) => (
         <div data-testid="auth-view" data-view={view}>
-            <div>{[0, 1].map((i) => <button key={i} type="button"><svg aria-hidden="true" /></button>)}</div>
-            <div><input type="password" /><button type="button"><svg aria-hidden="true" /></button></div>
+            <div>
+                {[0, 1].map((i) => (
+                    <button key={i} type="button">
+                        <svg aria-hidden="true" />
+                    </button>
+                ))}
+            </div>
+            <div>
+                <input type="password" />
+                <button type="button">
+                    <svg aria-hidden="true" />
+                </button>
+            </div>
         </div>
     ),
 }));
@@ -68,10 +79,12 @@ describe("auth route", () => {
 
     it("retries an empty callback session and enters the requested route after recovery", async () => {
         vi.useFakeTimers();
-        authState.beginAuthRecovery.mockImplementationOnce(async () => false).mockImplementationOnce(async () => {
-            authState.isAuthenticated = true;
-            return true;
-        });
+        authState.beginAuthRecovery
+            .mockImplementationOnce(async () => false)
+            .mockImplementationOnce(async () => {
+                authState.isAuthenticated = true;
+                return true;
+            });
         const { publishAuthState } = renderAuthPage("/auth/callback?redirectTo=/today");
         await act(() => vi.advanceTimersByTimeAsync(1_000));
         expect(authState.beginAuthRecovery).toHaveBeenCalledTimes(2);

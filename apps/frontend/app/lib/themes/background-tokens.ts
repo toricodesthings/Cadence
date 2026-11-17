@@ -44,17 +44,17 @@ export const hueOf = (hex: string): number => toOklch(hex)!.h ?? 0;
 /** Parse hex (#RRGGBB) to [r, g, b] in 0-255 range */
 export function hexToRgb(hex: string): [number, number, number] {
     const h = hex.replace("#", "");
-    return [
-        parseInt(h.slice(0, 2), 16),
-        parseInt(h.slice(2, 4), 16),
-        parseInt(h.slice(4, 6), 16),
-    ];
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
 /** Format [r, g, b] channels (0-255, unrounded) as a #RRGGBB hex string */
 export function rgbToHex(channels: [number, number, number] | number[]): string {
     return `#${channels
-        .map((channel) => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, "0"))
+        .map((channel) =>
+            Math.max(0, Math.min(255, Math.round(channel)))
+                .toString(16)
+                .padStart(2, "0"),
+        )
         .join("")}`;
 }
 
@@ -109,11 +109,9 @@ export function gradientBaseHex(hex1: string, hex2: string): string {
 }
 
 /** Build a CSS linear-gradient value from two colors and an angle */
-export function buildGradientCSS(
-    color1: string,
-    color2: string,
-    direction: number
-): string {
-    const stops = samples(5).map(interpolate([color1, color2], "oklab")).map((c) => formatHex(c)!);
+export function buildGradientCSS(color1: string, color2: string, direction: number): string {
+    const stops = samples(5)
+        .map(interpolate([color1, color2], "oklab"))
+        .map((c) => formatHex(c)!);
     return `linear-gradient(${direction}deg, ${stops.join(", ")})`;
 }

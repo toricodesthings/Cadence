@@ -59,7 +59,10 @@ export function shouldAsk({ state, today, ageMs, history }: AskCandidate): boole
 }
 
 /** The number the relative toast compares to: the person's own plan only (the estimate, else the timed block), never Cadence's guess. */
-export function referenceMinutes(task: { durationEstimate: number | null; blockMinutes: number | null }): number | null {
+export function referenceMinutes(task: {
+    durationEstimate: number | null;
+    blockMinutes: number | null;
+}): number | null {
     return task.durationEstimate || task.blockMinutes || null;
 }
 

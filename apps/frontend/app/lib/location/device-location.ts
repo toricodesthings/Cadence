@@ -15,7 +15,6 @@ export type { Coordinates, RegionInfo };
 export type DevicePermissionState = "unknown" | "prompt" | "granted" | "denied" | "unsupported";
 export type DeviceLocationStatus = "granted" | "denied" | "unsupported" | "error";
 
-
 export interface DevicePlace extends RegionInfo {
     coordinates: Coordinates;
 }
@@ -144,19 +143,22 @@ export function watchDevicePermission() {
         return;
     }
 
-    navigator.permissions.query({ name: "geolocation" }).then((status) => {
-        const apply = () => {
-            const next = status.state as DevicePermissionState;
-            // No longer granted (revoked, reset, or "allow this time" expired): the
-            // cached position goes with it.
-            if (next !== "granted" && state.place) forgetDevicePlace();
-            setState({ permissionState: next });
-        };
-        apply();
-        status.onchange = apply;
-    }).catch(() => {
-        setState({ permissionState: "prompt" });
-    });
+    navigator.permissions
+        .query({ name: "geolocation" })
+        .then((status) => {
+            const apply = () => {
+                const next = status.state as DevicePermissionState;
+                // No longer granted (revoked, reset, or "allow this time" expired): the
+                // cached position goes with it.
+                if (next !== "granted" && state.place) forgetDevicePlace();
+                setState({ permissionState: next });
+            };
+            apply();
+            status.onchange = apply;
+        })
+        .catch(() => {
+            setState({ permissionState: "prompt" });
+        });
 }
 
 function getCurrentPosition() {

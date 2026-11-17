@@ -6,7 +6,14 @@
  * that was really compared, and kept 90 days (`planning_records`).
  */
 import { and, desc, eq, gt, inArray, isNull, lt, ne, sql } from "drizzle-orm";
-import type { FindTimeBody, PlanningEvidence, PlanningOffer, PlanningOfferOutcome, PlanningOffers, TimeOfDay } from "@cadence/contracts/planning";
+import type {
+    FindTimeBody,
+    PlanningEvidence,
+    PlanningOffer,
+    PlanningOfferOutcome,
+    PlanningOffers,
+    TimeOfDay,
+} from "@cadence/contracts/planning";
 import { bucketOf, feasibleBuckets, busyBlocks } from "@cadence/domain/find-time";
 import { eligibleOffers, type OfferDecline, type OfferTask } from "@cadence/domain/planning-offers";
 import { learnedPreference, type SlotRecord } from "@cadence/domain/slot-preference";
@@ -40,16 +47,28 @@ const timelineStartHourOf = (settings: unknown): number => {
 
 /** What a Not now was about: if the title, steps or what it waits on change, the offer may return. */
 async function fingerprintOf(tx: Tx, userId: string, taskId: string): Promise<string | null> {
-    const [task] = await tx.select({ title: tasks.title, waitingOn: tasks.waitingOn }).from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+    const [task] = await tx
+        .select({ title: tasks.title, waitingOn: tasks.waitingOn })
+        .from(tasks)
+        .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
     if (!task) return null;
-    const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(subtasks).where(and(eq(subtasks.taskId, taskId), eq(subtasks.isComplete, false)));
+    const [{ n }] = await tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(subtasks)
+        .where(and(eq(subtasks.taskId, taskId), eq(subtasks.isComplete, false)));
     return contentHash(`${task.title}|${task.waitingOn ?? ""}|${n}`);
 }
 
 export interface SlotChange {
     taskId: string;
     before: { scheduledStart: string | null };
-    after: { scheduledStart: string | null; scheduledEnd: string | null; projectId: string | null; durationEstimate: number | null; recurrenceRule: string | null };
+    after: {
+        scheduledStart: string | null;
+        scheduledEnd: string | null;
+        projectId: string | null;
+        durationEstimate: number | null;
+        recurrenceRule: string | null;
+    };
     findTime?: FindTimeBody;
     /** When an offline change was first made, if it was replayed. */
     queuedAt?: string | null;
@@ -70,7 +89,13 @@ export async function recordSlot(env: Env, userId: string, change: SlotChange, n
             if (!planningOn(state) || change.after.recurrenceRule) return;
             const zone = await userZone(tx, userId);
             const today = todayIn(zone, now);
-            const suggestedToday = and(eq(planningRecords.userId, userId), eq(planningRecords.taskId, change.taskId), eq(planningRecords.kind, "slot"), eq(planningRecords.suggested, true), eq(planningRecords.saidOn, today));
+            const suggestedToday = and(
+                eq(planningRecords.userId, userId),
+                eq(planningRecords.taskId, change.taskId),
+                eq(planningRecords.kind, "slot"),
+                eq(planningRecords.suggested, true),
+                eq(planningRecords.saidOn, today),
+            );
 
             if (change.findTime?.undo) {
                 await tx.delete(planningRecords).where(suggestedToday);
@@ -89,18 +114,42 @@ export async function recordSlot(env: Env, userId: string, change: SlotChange, n
                 if (change.before.scheduledStart) return; // moving a block isn't deciding when to start something
                 if (change.queuedAt && now.getTime() - Date.parse(change.queuedAt) > MAX_REPLAY_AGE_MS) return;
                 const day = dayOf(start, zone);
-                const [settings] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId));
+                const [settings] = await tx
+                    .select({ settings: users.settings })
+                    .from(users)
+                    .where(eq(users.id, userId));
                 const busy = busyBlocks(await readTasks(tx, userId, { from: day, to: day }), change.taskId);
-                const minutes = taskMinutes({ scheduledStart: start, scheduledEnd: change.after.scheduledEnd, durationEstimate: change.after.durationEstimate });
-                feasible = [...new Set([...feasibleBuckets({
-                    task: { minutes, notBefore: null, currentStart: null },
-                    day, zone, now: now.toISOString(), timelineStartHour: timelineStartHourOf(settings?.settings), busy, preferred: [],
-                }), chosen])];
+                const minutes = taskMinutes({
+                    scheduledStart: start,
+                    scheduledEnd: change.after.scheduledEnd,
+                    durationEstimate: change.after.durationEstimate,
+                });
+                feasible = [
+                    ...new Set([
+                        ...feasibleBuckets({
+                            task: { minutes, notBefore: null, currentStart: null },
+                            day,
+                            zone,
+                            now: now.toISOString(),
+                            timelineStartHour: timelineStartHourOf(settings?.settings),
+                            busy,
+                            preferred: [],
+                        }),
+                        chosen,
+                    ]),
+                ];
             }
             if (feasible.length < 2) return;
             await tx.insert(planningRecords).values({
-                userId, taskId: change.taskId, kind: "slot", projectId: change.after.projectId, chosen, feasible,
-                suggested: !!change.findTime, outcome: "chosen", saidOn: today,
+                userId,
+                taskId: change.taskId,
+                kind: "slot",
+                projectId: change.after.projectId,
+                chosen,
+                feasible,
+                suggested: !!change.findTime,
+                outcome: "chosen",
+                saidOn: today,
             });
         });
     } catch (error) {
@@ -109,14 +158,35 @@ export async function recordSlot(env: Env, userId: string, change: SlotChange, n
 }
 
 /** Not now (declined) or the offered action done (chosen). Full only; anything else stores nothing. */
-export async function recordOfferOutcome(tx: Tx, userId: string, body: PlanningOfferOutcome, now: Date = new Date()): Promise<void> {
+export async function recordOfferOutcome(
+    tx: Tx,
+    userId: string,
+    body: PlanningOfferOutcome,
+    now: Date = new Date(),
+): Promise<void> {
     if (!planningOn(await readMemoryState(tx, userId))) return;
     const fingerprint = await fingerprintOf(tx, userId, body.taskId);
     if (!fingerprint) return;
     const today = todayIn(await userZone(tx, userId), now);
     // One Not now per task and offer: pressing it again changes nothing.
-    await tx.delete(planningRecords).where(and(eq(planningRecords.userId, userId), eq(planningRecords.taskId, body.taskId), eq(planningRecords.kind, body.kind)));
-    await tx.insert(planningRecords).values({ userId, taskId: body.taskId, kind: body.kind, suggested: false, outcome: body.outcome, fingerprint, saidOn: today });
+    await tx
+        .delete(planningRecords)
+        .where(
+            and(
+                eq(planningRecords.userId, userId),
+                eq(planningRecords.taskId, body.taskId),
+                eq(planningRecords.kind, body.kind),
+            ),
+        );
+    await tx.insert(planningRecords).values({
+        userId,
+        taskId: body.taskId,
+        kind: body.kind,
+        suggested: false,
+        outcome: body.outcome,
+        fingerprint,
+        saidOn: today,
+    });
 }
 
 /** The tasks each offer may show on, after every rule and decline. Nothing outside Full. */
@@ -128,41 +198,91 @@ export async function planningOffers(tx: Tx, userId: string, now: Date = new Dat
     const moves = await tx
         .select({ taskId: aiMemorySignals.taskId, on: aiMemorySignals.on })
         .from(aiMemorySignals)
-        .where(and(eq(aiMemorySignals.userId, userId), eq(aiMemorySignals.kind, "reschedule"), gt(aiMemorySignals.on, addDays(today, -28)), sql`${aiMemorySignals.taskId} IS NOT NULL`));
+        .where(
+            and(
+                eq(aiMemorySignals.userId, userId),
+                eq(aiMemorySignals.kind, "reschedule"),
+                gt(aiMemorySignals.on, addDays(today, -28)),
+                sql`${aiMemorySignals.taskId} IS NOT NULL`,
+            ),
+        );
     const movedOn = new Map<string, LocalDate[]>();
     for (const m of moves) movedOn.set(m.taskId!, [...(movedOn.get(m.taskId!) ?? []), m.on]);
     const slipping = [...movedOn].filter(([, days]) => days.length >= 3).map(([id]) => id);
 
     const rows = await tx
-        .select({ id: tasks.id, state: tasks.state, title: tasks.title, waitingOn: tasks.waitingOn, dueDate: tasks.dueDate, notBefore: tasks.notBefore })
+        .select({
+            id: tasks.id,
+            state: tasks.state,
+            title: tasks.title,
+            waitingOn: tasks.waitingOn,
+            dueDate: tasks.dueDate,
+            notBefore: tasks.notBefore,
+        })
         .from(tasks)
-        .where(and(eq(tasks.userId, userId), sql`(${tasks.state} = 'WAITING' OR ${slipping.length ? inArray(tasks.id, slipping) : sql`false`})`, ne(tasks.state, "COMPLETE"), ne(tasks.state, "ARCHIVED"), isNull(tasks.recurrenceRule)))
+        .where(
+            and(
+                eq(tasks.userId, userId),
+                sql`(${tasks.state} = 'WAITING' OR ${slipping.length ? inArray(tasks.id, slipping) : sql`false`})`,
+                ne(tasks.state, "COMPLETE"),
+                ne(tasks.state, "ARCHIVED"),
+                isNull(tasks.recurrenceRule),
+            ),
+        )
         .limit(300);
     if (!rows.length) return none;
 
     const open = await tx
         .select({ taskId: subtasks.taskId, n: sql<number>`count(*)::int` })
         .from(subtasks)
-        .where(and(inArray(subtasks.taskId, rows.map((r) => r.id)), eq(subtasks.isComplete, false)))
+        .where(
+            and(
+                inArray(
+                    subtasks.taskId,
+                    rows.map((r) => r.id),
+                ),
+                eq(subtasks.isComplete, false),
+            ),
+        )
         .groupBy(subtasks.taskId);
     const steps = new Map(open.map((o) => [o.taskId, o.n]));
 
-    const candidates: OfferTask[] = await Promise.all(rows.map(async (r) => ({
-        id: r.id,
-        state: r.state,
-        waitingOn: r.waitingOn,
-        dueDate: r.dueDate,
-        notBefore: r.notBefore,
-        openSteps: steps.get(r.id) ?? 0,
-        fingerprint: await contentHash(`${r.title}|${r.waitingOn ?? ""}|${steps.get(r.id) ?? 0}`),
-        movedOn: movedOn.get(r.id) ?? [],
-    })));
+    const candidates: OfferTask[] = await Promise.all(
+        rows.map(async (r) => ({
+            id: r.id,
+            state: r.state,
+            waitingOn: r.waitingOn,
+            dueDate: r.dueDate,
+            notBefore: r.notBefore,
+            openSteps: steps.get(r.id) ?? 0,
+            fingerprint: await contentHash(`${r.title}|${r.waitingOn ?? ""}|${steps.get(r.id) ?? 0}`),
+            movedOn: movedOn.get(r.id) ?? [],
+        })),
+    );
 
-    const declines: OfferDecline[] = (await tx
-        .select({ taskId: planningRecords.taskId, kind: planningRecords.kind, fingerprint: planningRecords.fingerprint, saidOn: planningRecords.saidOn })
-        .from(planningRecords)
-        .where(and(eq(planningRecords.userId, userId), inArray(planningRecords.kind, ["steps", "later"]), eq(planningRecords.outcome, "declined"), isNull(planningRecords.forgottenAt), gt(planningRecords.saidOn, addDays(today, -PLANNING_RETENTION_DAYS)))))
-        .flatMap((d) => (d.taskId && d.fingerprint ? [{ taskId: d.taskId, kind: d.kind as PlanningOffer, fingerprint: d.fingerprint, saidOn: d.saidOn }] : []));
+    const declines: OfferDecline[] = (
+        await tx
+            .select({
+                taskId: planningRecords.taskId,
+                kind: planningRecords.kind,
+                fingerprint: planningRecords.fingerprint,
+                saidOn: planningRecords.saidOn,
+            })
+            .from(planningRecords)
+            .where(
+                and(
+                    eq(planningRecords.userId, userId),
+                    inArray(planningRecords.kind, ["steps", "later"]),
+                    eq(planningRecords.outcome, "declined"),
+                    isNull(planningRecords.forgottenAt),
+                    gt(planningRecords.saidOn, addDays(today, -PLANNING_RETENTION_DAYS)),
+                ),
+            )
+    ).flatMap((d) =>
+        d.taskId && d.fingerprint
+            ? [{ taskId: d.taskId, kind: d.kind as PlanningOffer, fingerprint: d.fingerprint, saidOn: d.saidOn }]
+            : [],
+    );
 
     const avoid = await avoidedOffers(tx, userId);
     return eligibleOffers(candidates, { today, declines, avoid });
@@ -173,8 +293,17 @@ async function avoidedOffers(tx: Tx, userId: string): Promise<PlanningOffer[]> {
     const rows = await tx
         .select({ avoid: sql<string | null>`${aiMemories.value} ->> 'avoid'` })
         .from(aiMemories)
-        .where(and(eq(aiMemories.userId, userId), eq(aiMemories.status, "active"), eq(aiMemories.kind, "assist"), sql`${aiMemories.value} ->> 'avoid' IN ('steps', 'later')`));
-    return [...new Set(rows.flatMap((r): PlanningOffer[] => (r.avoid === "steps" || r.avoid === "later" ? [r.avoid] : [])))];
+        .where(
+            and(
+                eq(aiMemories.userId, userId),
+                eq(aiMemories.status, "active"),
+                eq(aiMemories.kind, "assist"),
+                sql`${aiMemories.value} ->> 'avoid' IN ('steps', 'later')`,
+            ),
+        );
+    return [
+        ...new Set(rows.flatMap((r): PlanningOffer[] => (r.avoid === "steps" || r.avoid === "later" ? [r.avoid] : []))),
+    ];
 }
 
 /** What Find a time orders by: the person's choices (Full) and what they said (whenever memory is on). */
@@ -182,26 +311,52 @@ export async function planningEvidence(tx: Tx, userId: string, now: Date = new D
     const state = await readMemoryState(tx, userId);
     const mode = state.mode === "off" ? null : state.mode;
     const stated = mode
-        ? (await tx
-              .select({ when: sql<{ buckets: TimeOfDay[]; about: string | null } | null>`${aiMemories.value} -> 'when'` })
-              .from(aiMemories)
-              .where(and(usableBy(userId, mode), eq(aiMemories.kind, "preference"), sql`${aiMemories.value} ? 'when'`))
-              .orderBy(desc(aiMemories.lastSeenOn), desc(aiMemories.createdAt))
-              .limit(20)).flatMap((r) => (r.when?.buckets?.length ? [{ buckets: r.when.buckets, about: r.when.about ?? null }] : []))
+        ? (
+              await tx
+                  .select({
+                      when: sql<{ buckets: TimeOfDay[]; about: string | null } | null>`${aiMemories.value} -> 'when'`,
+                  })
+                  .from(aiMemories)
+                  .where(
+                      and(usableBy(userId, mode), eq(aiMemories.kind, "preference"), sql`${aiMemories.value} ? 'when'`),
+                  )
+                  .orderBy(desc(aiMemories.lastSeenOn), desc(aiMemories.createdAt))
+                  .limit(20)
+          ).flatMap((r) => (r.when?.buckets?.length ? [{ buckets: r.when.buckets, about: r.when.about ?? null }] : []))
         : [];
     if (!planningOn(state)) return { records: [], stated };
 
     const today = todayIn(await userZone(tx, userId), now);
     const rows = await tx
-        .select({ chosen: planningRecords.chosen, feasible: planningRecords.feasible, suggested: planningRecords.suggested, saidOn: planningRecords.saidOn, projectId: planningRecords.projectId })
+        .select({
+            chosen: planningRecords.chosen,
+            feasible: planningRecords.feasible,
+            suggested: planningRecords.suggested,
+            saidOn: planningRecords.saidOn,
+            projectId: planningRecords.projectId,
+        })
         .from(planningRecords)
-        .where(and(eq(planningRecords.userId, userId), eq(planningRecords.kind, "slot"), eq(planningRecords.outcome, "chosen"), isNull(planningRecords.forgottenAt), gt(planningRecords.saidOn, addDays(today, -PLANNING_RETENTION_DAYS))))
+        .where(
+            and(
+                eq(planningRecords.userId, userId),
+                eq(planningRecords.kind, "slot"),
+                eq(planningRecords.outcome, "chosen"),
+                isNull(planningRecords.forgottenAt),
+                gt(planningRecords.saidOn, addDays(today, -PLANNING_RETENTION_DAYS)),
+            ),
+        )
         .orderBy(desc(planningRecords.saidOn), desc(planningRecords.createdAt))
         .limit(MAX_EVIDENCE_RECORDS);
     return {
         records: rows
             .filter((r) => r.chosen && r.feasible)
-            .map((r) => ({ chosen: r.chosen as TimeOfDay, feasible: r.feasible as TimeOfDay[], suggested: r.suggested, saidOn: r.saidOn, projectId: r.projectId })),
+            .map((r) => ({
+                chosen: r.chosen as TimeOfDay,
+                feasible: r.feasible as TimeOfDay[],
+                suggested: r.suggested,
+                saidOn: r.saidOn,
+                projectId: r.projectId,
+            })),
         stated,
     };
 }
@@ -221,15 +376,50 @@ const PHRASE: Record<TimeOfDay, string> = {
  */
 export async function slotPatterns(tx: Tx, userId: string, today: LocalDate): Promise<DerivedFact[]> {
     const rows = await tx
-        .select({ chosen: planningRecords.chosen, feasible: planningRecords.feasible, suggested: planningRecords.suggested, saidOn: planningRecords.saidOn, projectId: planningRecords.projectId })
+        .select({
+            chosen: planningRecords.chosen,
+            feasible: planningRecords.feasible,
+            suggested: planningRecords.suggested,
+            saidOn: planningRecords.saidOn,
+            projectId: planningRecords.projectId,
+        })
         .from(planningRecords)
-        .where(and(eq(planningRecords.userId, userId), eq(planningRecords.kind, "slot"), eq(planningRecords.outcome, "chosen"), isNull(planningRecords.forgottenAt), gt(planningRecords.saidOn, addDays(today, -PLANNING_RETENTION_DAYS))));
-    const records: SlotRecord[] = rows.flatMap((r) => (r.chosen && r.feasible ? [{ chosen: r.chosen as TimeOfDay, feasible: r.feasible as TimeOfDay[], suggested: r.suggested, saidOn: r.saidOn, projectId: r.projectId }] : []));
+        .where(
+            and(
+                eq(planningRecords.userId, userId),
+                eq(planningRecords.kind, "slot"),
+                eq(planningRecords.outcome, "chosen"),
+                isNull(planningRecords.forgottenAt),
+                gt(planningRecords.saidOn, addDays(today, -PLANNING_RETENTION_DAYS)),
+            ),
+        );
+    const records: SlotRecord[] = rows.flatMap((r) =>
+        r.chosen && r.feasible
+            ? [
+                  {
+                      chosen: r.chosen as TimeOfDay,
+                      feasible: r.feasible as TimeOfDay[],
+                      suggested: r.suggested,
+                      saidOn: r.saidOn,
+                      projectId: r.projectId,
+                  },
+              ]
+            : [],
+    );
     const winnerOf = (scope: SlotRecord[], projectId: string | null) =>
-        learnedPreference(scope, { projectId, feasibleToday: [...new Set(scope.flatMap((r) => r.feasible))], today })[0] ?? null;
+        learnedPreference(scope, {
+            projectId,
+            feasibleToday: [...new Set(scope.flatMap((r) => r.feasible))],
+            today,
+        })[0] ?? null;
 
-    const names = new Map((await tx.select({ id: projects.id, title: projects.name }).from(projects).where(eq(projects.userId, userId))).map((p) => [p.id, p.title]));
-    const since = (scope: SlotRecord[]) => formatInZone(scope.map((r) => r.saidOn).sort()[0], "UTC", { month: "long" }, "en-US");
+    const names = new Map(
+        (
+            await tx.select({ id: projects.id, title: projects.name }).from(projects).where(eq(projects.userId, userId))
+        ).map((p) => [p.id, p.title]),
+    );
+    const since = (scope: SlotRecord[]) =>
+        formatInZone(scope.map((r) => r.saidOn).sort()[0], "UTC", { month: "long" }, "en-US");
     const fact = (scope: SlotRecord[], projectId: string | null, bucket: TimeOfDay): DerivedFact => ({
         kind: "pattern",
         key: `pattern|slot|${projectId ?? "all"}|${bucket}`,
@@ -249,7 +439,14 @@ export async function slotPatterns(tx: Tx, userId: string, today: LocalDate): Pr
 
 /** Nightly: records past 90 days go. */
 export async function prunePlanning(tx: Tx, userId: string, today: LocalDate): Promise<void> {
-    await tx.delete(planningRecords).where(and(eq(planningRecords.userId, userId), lt(planningRecords.saidOn, addDays(today, -PLANNING_RETENTION_DAYS))));
+    await tx
+        .delete(planningRecords)
+        .where(
+            and(
+                eq(planningRecords.userId, userId),
+                lt(planningRecords.saidOn, addDays(today, -PLANNING_RETENTION_DAYS)),
+            ),
+        );
 }
 
 /** Clear all: every record, now. */

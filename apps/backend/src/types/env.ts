@@ -137,7 +137,9 @@ export function getDeploymentStage(env: Env): DeploymentStage {
 /** Parse comma-separated origin allowlist from env. */
 export function getAllowedOrigins(env: Env): string[] {
     if (!env.ALLOWED_ORIGINS) return [];
-    return env.ALLOWED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean);
+    return env.ALLOWED_ORIGINS.split(",")
+        .map((o) => o.trim())
+        .filter(Boolean);
 }
 
 /** The web app's origin, without a trailing slash. */

@@ -35,11 +35,14 @@ const SELECT_OPTIONS = [
 ];
 
 const MAX_EVERY = 30;
-const STEP_BUTTON = "flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-twilight-border/40 text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text disabled:cursor-default disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
+const STEP_BUTTON =
+    "flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-twilight-border/40 text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text disabled:cursor-default disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
 function parse(rrule: string) {
     const parts = new Map(rrule.split(";").map((part) => part.split("=") as [string, string]));
-    const days = (parts.get("BYDAY") ?? "").split(",").filter((d): d is WeekdayCode => (WEEKDAY_ORDER as string[]).includes(d));
+    const days = (parts.get("BYDAY") ?? "")
+        .split(",")
+        .filter((d): d is WeekdayCode => (WEEKDAY_ORDER as string[]).includes(d));
     return { freq: parts.get("FREQ"), interval: Math.max(1, Number(parts.get("INTERVAL") ?? 1) || 1), days };
 }
 
@@ -57,29 +60,68 @@ function modeOf(rrule: string): CadenceMode {
     return (Object.keys(PRESETS) as Array<keyof typeof PRESETS>).find((key) => PRESETS[key] === rrule) ?? "custom";
 }
 
-export function CadencePicker({ value, onChange, select = false }: { value: string; onChange: (rrule: string) => void; select?: boolean }) {
+export function CadencePicker({
+    value,
+    onChange,
+    select = false,
+}: {
+    value: string;
+    onChange: (rrule: string) => void;
+    select?: boolean;
+}) {
     const [customPicked, setCustomPicked] = useState(false);
     const mode = customPicked ? "custom" : modeOf(value);
     const { interval, days } = parse(value);
     const pick = (next: CadenceMode) => {
         setCustomPicked(next === "custom");
-        onChange(next === "custom" ? weekly(days.length ? days : ["MO", "WE", "FR"], false) : next === "daily" ? "FREQ=DAILY" : PRESETS[next]);
+        onChange(
+            next === "custom"
+                ? weekly(days.length ? days : ["MO", "WE", "FR"], false)
+                : next === "daily"
+                  ? "FREQ=DAILY"
+                  : PRESETS[next],
+        );
     };
 
     return (
         <div className="flex flex-col gap-3">
             {select ? (
                 <FieldRow icon={Repeat} label="Repeats">
-                    <ValueSelect label="Routine cadence" value={mode} onChange={(next) => pick(next as CadenceMode)} options={SELECT_OPTIONS} />
+                    <ValueSelect
+                        label="Routine cadence"
+                        value={mode}
+                        onChange={(next) => pick(next as CadenceMode)}
+                        options={SELECT_OPTIONS}
+                    />
                 </FieldRow>
-            ) : <ComposerTabs ariaLabel="Routine cadence" options={OPTIONS} value={mode} onChange={pick} />}
+            ) : (
+                <ComposerTabs ariaLabel="Routine cadence" options={OPTIONS} value={mode} onChange={pick} />
+            )}
             {mode === "daily" ? (
-                <div className={`flex items-center gap-2 ${select ? "pl-6 text-[13px] text-twilight-text-soft" : "text-sm text-twilight-text"}`} role="group" aria-label="How often">
-                    <span className="flex-1" aria-live="polite">Every {interval > 1 ? `${interval} days` : "day"}</span>
-                    <button type="button" className={STEP_BUTTON} aria-label="Fewer days between" disabled={interval <= 1} onClick={() => onChange(daily(interval - 1))}>
+                <div
+                    className={`flex items-center gap-2 ${select ? "pl-6 text-[13px] text-twilight-text-soft" : "text-sm text-twilight-text"}`}
+                    role="group"
+                    aria-label="How often"
+                >
+                    <span className="flex-1" aria-live="polite">
+                        Every {interval > 1 ? `${interval} days` : "day"}
+                    </span>
+                    <button
+                        type="button"
+                        className={STEP_BUTTON}
+                        aria-label="Fewer days between"
+                        disabled={interval <= 1}
+                        onClick={() => onChange(daily(interval - 1))}
+                    >
                         <Minus size={14} aria-hidden="true" />
                     </button>
-                    <button type="button" className={STEP_BUTTON} aria-label="More days between" disabled={interval >= MAX_EVERY} onClick={() => onChange(daily(interval + 1))}>
+                    <button
+                        type="button"
+                        className={STEP_BUTTON}
+                        aria-label="More days between"
+                        disabled={interval >= MAX_EVERY}
+                        onClick={() => onChange(daily(interval + 1))}
+                    >
                         <Plus size={14} aria-hidden="true" />
                     </button>
                 </div>

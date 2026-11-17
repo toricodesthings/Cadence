@@ -53,15 +53,31 @@ async function upstreamFetch(upstream: string, url: string, cacheTtl: number): P
     // Validate upstream response content-type
     const ct = res.headers.get("content-type") || "";
     if (!ALLOWED_CONTENT_TYPES.some((t) => ct.includes(t))) {
-        logger.error("proxy", "upstream_bad_response", { upstream, status: res.status, reason: "content_type", contentType: shorten(ct) });
-        return new Response(JSON.stringify({ error: { code: "UPSTREAM_ERROR", message: "Unexpected content type from upstream" } }), { status: 502 });
+        logger.error("proxy", "upstream_bad_response", {
+            upstream,
+            status: res.status,
+            reason: "content_type",
+            contentType: shorten(ct),
+        });
+        return new Response(
+            JSON.stringify({ error: { code: "UPSTREAM_ERROR", message: "Unexpected content type from upstream" } }),
+            { status: 502 },
+        );
     }
 
     // Reject oversized upstream responses
     const cl = res.headers.get("content-length");
     if (cl && parseInt(cl, 10) > MAX_UPSTREAM_BODY) {
-        logger.error("proxy", "upstream_bad_response", { upstream, status: res.status, reason: "oversize", contentLength: parseInt(cl, 10) });
-        return new Response(JSON.stringify({ error: { code: "UPSTREAM_ERROR", message: "Upstream response too large" } }), { status: 502 });
+        logger.error("proxy", "upstream_bad_response", {
+            upstream,
+            status: res.status,
+            reason: "oversize",
+            contentLength: parseInt(cl, 10),
+        });
+        return new Response(
+            JSON.stringify({ error: { code: "UPSTREAM_ERROR", message: "Upstream response too large" } }),
+            { status: 502 },
+        );
     }
 
     if (!res.ok) {
@@ -113,7 +129,12 @@ function getLanguage(locale: string): string {
 
 /** A name in the reader's language, else English, else the first given ("" with none). */
 function localName(names: Array<{ language: string; text: string }>, language: string): string {
-    return names.find((n) => n.language === language)?.text ?? names.find((n) => n.language === "EN")?.text ?? names[0]?.text ?? "";
+    return (
+        names.find((n) => n.language === language)?.text ??
+        names.find((n) => n.language === "EN")?.text ??
+        names[0]?.text ??
+        ""
+    );
 }
 
 type OpenHoliday = {
@@ -178,17 +199,35 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         const res = await upstreamFetch("open-meteo", url, 900); // 15 min CF cache
         if (!res.ok) {
-            return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Weather service unavailable", status: 502 }), 502);
+            return c.json(
+                createErrorBody({ code: "UPSTREAM_ERROR", message: "Weather service unavailable", status: 502 }),
+                502,
+            );
         }
 
-        const payload = (await res.json()) as { current_weather?: { temperature?: unknown; weathercode?: unknown; is_day?: unknown } };
+        const payload = (await res.json()) as {
+            current_weather?: { temperature?: unknown; weathercode?: unknown; is_day?: unknown };
+        };
         const current = payload.current_weather;
         if (typeof current?.temperature !== "number" || typeof current.weathercode !== "number") {
-            return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Weather service returned no current conditions", status: 502 }), 502);
+            return c.json(
+                createErrorBody({
+                    code: "UPSTREAM_ERROR",
+                    message: "Weather service returned no current conditions",
+                    status: 502,
+                }),
+                502,
+            );
         }
 
         return c.json(
-            { data: { temperature: current.temperature, weatherCode: current.weathercode, isDay: current.is_day !== 0 } satisfies WeatherReading },
+            {
+                data: {
+                    temperature: current.temperature,
+                    weatherCode: current.weathercode,
+                    isDay: current.is_day !== 0,
+                } satisfies WeatherReading,
+            },
             200,
             PRIVATE_NO_STORE,
         );
@@ -202,7 +241,10 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         const res = await upstreamFetch("nominatim", url, 86400); // 24h CF cache
         if (!res.ok) {
-            return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Geocoding service unavailable", status: 502 }), 502);
+            return c.json(
+                createErrorBody({ code: "UPSTREAM_ERROR", message: "Geocoding service unavailable", status: 502 }),
+                502,
+            );
         }
 
         const payload = (await res.json()) as { address?: Record<string, string> };
@@ -230,11 +272,21 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         const res = await upstreamFetch("open-meteo-geocoding", url, 86400); // 24h CF cache
         if (!res.ok) {
-            return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Geocoding service unavailable", status: 502 }), 502);
+            return c.json(
+                createErrorBody({ code: "UPSTREAM_ERROR", message: "Geocoding service unavailable", status: 502 }),
+                502,
+            );
         }
 
         const payload = (await res.json()) as {
-            results?: Array<{ name: string; latitude: number; longitude: number; country?: string; country_code?: string; admin1?: string }>;
+            results?: Array<{
+                name: string;
+                latitude: number;
+                longitude: number;
+                country?: string;
+                country_code?: string;
+                admin1?: string;
+            }>;
         };
 
         const results = (payload.results ?? []).map((result): CityResult => ({
@@ -282,7 +334,11 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const language = getLanguage(locale);
 
         const [openRes, nagerRes] = await Promise.allSettled([
-            upstreamFetch("open-holidays", `${OPEN_HOLIDAYS_BASE}/Countries?languageIsoCode=${encodeURIComponent(language)}`, 86400),
+            upstreamFetch(
+                "open-holidays",
+                `${OPEN_HOLIDAYS_BASE}/Countries?languageIsoCode=${encodeURIComponent(language)}`,
+                86400,
+            ),
             upstreamFetch("nager", `${NAGER_BASE}/AvailableCountries`, 86400),
         ]);
 
@@ -290,7 +346,16 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const openOk = openRes.status === "fulfilled" && openRes.value.ok;
         const nagerOk = nagerRes.status === "fulfilled" && nagerRes.value.ok;
         if (!openOk && !nagerOk) {
-            return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Holiday service unavailable", status: 502, isRetryable: true }), 502, PRIVATE_NO_STORE);
+            return c.json(
+                createErrorBody({
+                    code: "UPSTREAM_ERROR",
+                    message: "Holiday service unavailable",
+                    status: 502,
+                    isRetryable: true,
+                }),
+                502,
+                PRIVATE_NO_STORE,
+            );
         }
 
         if (nagerRes.status === "fulfilled" && nagerRes.value.ok) {
@@ -350,7 +415,11 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         if (subdivisions.length === 0) {
             try {
-                const res = await upstreamFetch("nager", `${NAGER_BASE}/PublicHolidays/${year}/${encodeURIComponent(cc)}`, 86400);
+                const res = await upstreamFetch(
+                    "nager",
+                    `${NAGER_BASE}/PublicHolidays/${year}/${encodeURIComponent(cc)}`,
+                    86400,
+                );
                 if (res.ok) {
                     const holidays = (await res.json()) as Array<{
                         types: string[];
@@ -370,7 +439,16 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         }
 
         if (!upstreamOk) {
-            return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Holiday service unavailable", status: 502, isRetryable: true }), 502, PRIVATE_NO_STORE);
+            return c.json(
+                createErrorBody({
+                    code: "UPSTREAM_ERROR",
+                    message: "Holiday service unavailable",
+                    status: 502,
+                    isRetryable: true,
+                }),
+                502,
+                PRIVATE_NO_STORE,
+            );
         }
         const sorted = subdivisions.sort((a, b) => a.label.localeCompare(b.label));
         return c.json({ data: sorted }, 200, cacheHeaders(86400)); // 24h client cache
@@ -391,9 +469,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             const res = await upstreamFetch("open-holidays", url, HOLIDAY_CACHE_SECONDS);
             if (res.ok) {
                 const raw = (await res.json()) as OpenHoliday[];
-                const holidays = raw
-                    .map((h) => fromOpenHoliday(h, language, cc, subCode))
-                    .filter((h) => h !== null);
+                const holidays = raw.map((h) => fromOpenHoliday(h, language, cc, subCode)).filter((h) => h !== null);
 
                 if (holidays.length > 0) {
                     return c.json({ data: holidays }, 200, cacheHeaders(HOLIDAY_CACHE_SECONDS));
@@ -405,9 +481,22 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         // Fallback to Nager
         const year = Number.parseInt(start.slice(0, 4), 10);
-        const nagerRes = await upstreamFetch("nager", `${NAGER_BASE}/PublicHolidays/${year}/${encodeURIComponent(cc)}`, HOLIDAY_CACHE_SECONDS);
+        const nagerRes = await upstreamFetch(
+            "nager",
+            `${NAGER_BASE}/PublicHolidays/${year}/${encodeURIComponent(cc)}`,
+            HOLIDAY_CACHE_SECONDS,
+        );
         if (!nagerRes.ok) {
-            return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Holiday service unavailable", status: 502, isRetryable: true }), 502, PRIVATE_NO_STORE);
+            return c.json(
+                createErrorBody({
+                    code: "UPSTREAM_ERROR",
+                    message: "Holiday service unavailable",
+                    status: 502,
+                    isRetryable: true,
+                }),
+                502,
+                PRIVATE_NO_STORE,
+            );
         }
 
         const nagerRaw = (await nagerRes.json()) as NagerHoliday[];

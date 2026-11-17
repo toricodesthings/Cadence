@@ -8,7 +8,10 @@ const SHOW_UNVERIFIED = import.meta.env.DEV || import.meta.env.VITE_SHOW_UNVERIF
 /** iPhone, iPad and iPadOS in desktop-site mode (which reports a Mac with a touch screen). */
 function isIos(): boolean {
     if (typeof navigator === "undefined" || IS_DESKTOP_RUNTIME) return false;
-    return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    return (
+        /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    );
 }
 
 export interface AppLaunch {
@@ -18,7 +21,8 @@ export interface AppLaunch {
     website: string | null;
 }
 
-const usable = (route: AppRoute | undefined): route is AppRoute => Boolean(route && (route.verified || SHOW_UNVERIFIED));
+const usable = (route: AppRoute | undefined): route is AppRoute =>
+    Boolean(route && (route.verified || SHOW_UNVERIFIED));
 
 /**
  * Where this device sends a tap for the entry, decided before the tap so the link can be a plain anchor.
@@ -29,7 +33,11 @@ export function resolveAppLaunch(entry: AppEntry): AppLaunch | null {
     const website = usable(entry.routes.web) ? entry.routes.web : null;
     const primary = native ?? website;
     if (!primary) return null;
-    return { href: primary.href, opens: primary.opens, website: primary.opens === "app" ? website?.href ?? null : null };
+    return {
+        href: primary.href,
+        opens: primary.opens,
+        website: primary.opens === "app" ? (website?.href ?? null) : null,
+    };
 }
 
 /**

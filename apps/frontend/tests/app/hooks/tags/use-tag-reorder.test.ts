@@ -34,7 +34,9 @@ describe("useTagReorder", () => {
         act(() => result.current.start("t0"));
         act(() => result.current.onDragOver(over("t1", 180)));
         expect(result.current.ordered.map((t) => t.id)).toEqual(["t1", "t0", "t2"]);
-        act(() => { window.dispatchEvent(new Event("dragend")); });
+        act(() => {
+            window.dispatchEvent(new Event("dragend"));
+        });
         expect(result.current.ordered.map((t) => t.id)).toEqual(["t0", "t1", "t2"]);
         expect(mutate).not.toHaveBeenCalled();
     });

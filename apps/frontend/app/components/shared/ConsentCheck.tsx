@@ -8,15 +8,27 @@ const LINK = "font-medium text-accent-primary underline-offset-2 hover:underline
 export function LegalLinks() {
     return (
         <>
-            <ExternalLink href={CADENCE_TERMS_URL} className={LINK}>Terms of Service</ExternalLink>
+            <ExternalLink href={CADENCE_TERMS_URL} className={LINK}>
+                Terms of Service
+            </ExternalLink>
             {" and "}
-            <ExternalLink href={CADENCE_PRIVACY_URL} className={LINK}>Privacy Policy</ExternalLink>
+            <ExternalLink href={CADENCE_PRIVACY_URL} className={LINK}>
+                Privacy Policy
+            </ExternalLink>
         </>
     );
 }
 
 /** One tick box in the sign-up card's glass style. */
-export function ConsentCheck({ checked, onChange, children }: { checked: boolean; onChange: (checked: boolean) => void; children: ReactNode }) {
+export function ConsentCheck({
+    checked,
+    onChange,
+    children,
+}: {
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+    children: ReactNode;
+}) {
     return (
         <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 py-3 text-left text-sm text-twilight-text">
             <input

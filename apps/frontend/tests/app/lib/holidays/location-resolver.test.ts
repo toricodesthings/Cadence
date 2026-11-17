@@ -28,30 +28,33 @@ describe("holiday location resolver", () => {
     });
 
     it("matches subdivisions using labels and aliases", () => {
-        expect(findSubdivisionCode(
-            [
-                { code: "US-CA", label: "California" },
-                { code: "US-NY", label: "New York" },
-            ],
-            { subdivisionName: "CA" },
-        )).toBe("US-CA");
+        expect(
+            findSubdivisionCode(
+                [
+                    { code: "US-CA", label: "California" },
+                    { code: "US-NY", label: "New York" },
+                ],
+                { subdivisionName: "CA" },
+            ),
+        ).toBe("US-CA");
 
-        expect(findSubdivisionCode(
-            [{ code: "CA-QC", label: "Quebec" }],
-            { subdivisionName: "Québec" },
-        )).toBe("CA-QC");
+        expect(findSubdivisionCode([{ code: "CA-QC", label: "Quebec" }], { subdivisionName: "Québec" })).toBe("CA-QC");
     });
 
     it("prefers an ISO subdivision code when the provider lists it", () => {
-        expect(findSubdivisionCode(
-            [{ code: "CA-ON", label: "Ontario" }],
-            { subdivisionCode: "ca-on", subdivisionName: "Somewhere else" },
-        )).toBe("CA-ON");
+        expect(
+            findSubdivisionCode([{ code: "CA-ON", label: "Ontario" }], {
+                subdivisionCode: "ca-on",
+                subdivisionName: "Somewhere else",
+            }),
+        ).toBe("CA-ON");
 
-        expect(findSubdivisionCode(
-            [{ code: "GB-SCT", label: "Scotland" }],
-            { subdivisionCode: "GB-ENG", subdivisionName: "Scotland" },
-        )).toBe("GB-SCT");
+        expect(
+            findSubdivisionCode([{ code: "GB-SCT", label: "Scotland" }], {
+                subdivisionCode: "GB-ENG",
+                subdivisionName: "Scotland",
+            }),
+        ).toBe("GB-SCT");
     });
 
     it("names countries without a network call", () => {

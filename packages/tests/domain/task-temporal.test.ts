@@ -32,7 +32,11 @@ describe("normalizeTaskTemporalFields", () => {
     it("stores a timed block as instants plus the zone it was planned in", () => {
         expect(
             normalizeTaskTemporalFields(
-                { scheduledStart: "2026-03-10T14:00:00.000Z", scheduledEnd: "2026-03-10T15:30:00.000Z", dueDate: "2026-03-10" },
+                {
+                    scheduledStart: "2026-03-10T14:00:00.000Z",
+                    scheduledEnd: "2026-03-10T15:30:00.000Z",
+                    dueDate: "2026-03-10",
+                },
                 TORONTO,
             ),
         ).toEqual({
@@ -42,22 +46,48 @@ describe("normalizeTaskTemporalFields", () => {
             scheduledEnd: "2026-03-10T15:30:00.000Z",
             zone: TORONTO,
         });
-        expect(normalizeTaskTemporalFields({ scheduledStart: "2026-03-10T14:00:00Z", zone: "Asia/Tokyo" }, TORONTO).zone).toBe("Asia/Tokyo");
+        expect(
+            normalizeTaskTemporalFields({ scheduledStart: "2026-03-10T14:00:00Z", zone: "Asia/Tokyo" }, TORONTO).zone,
+        ).toBe("Asia/Tokyo");
     });
 
     it("clears everything when nothing is given", () => {
-        expect(normalizeTaskTemporalFields({}, TORONTO)).toEqual({ dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null });
+        expect(normalizeTaskTemporalFields({}, TORONTO)).toEqual({
+            dueDate: null,
+            endDate: null,
+            scheduledStart: null,
+            scheduledEnd: null,
+            zone: null,
+        });
     });
 
     it("rejects bad shapes", () => {
         expect(() => normalizeTaskTemporalFields({ endDate: "2026-03-10" }, TORONTO)).toThrowError(DomainError);
-        expect(() => normalizeTaskTemporalFields({ dueDate: "2026-03-12", endDate: "2026-03-10" }, TORONTO)).toThrowError(DomainError);
+        expect(() =>
+            normalizeTaskTemporalFields({ dueDate: "2026-03-12", endDate: "2026-03-10" }, TORONTO),
+        ).toThrowError(DomainError);
         expect(() => normalizeTaskTemporalFields({ scheduledStart: "2026-03-10" }, TORONTO)).toThrowError(DomainError); // a start is an instant
-        expect(() => normalizeTaskTemporalFields({ dueDate: "2026-03-10T12:00:00Z" }, TORONTO)).toThrowError(DomainError); // a day is a day
-        expect(() => normalizeTaskTemporalFields({ dueDate: "2026-03-10", scheduledEnd: "2026-03-10T13:00:00Z" }, TORONTO)).toThrowError(DomainError);
-        expect(() => normalizeTaskTemporalFields({ scheduledStart: "2026-03-10T14:00:00Z", scheduledEnd: "2026-03-10T13:00:00Z" }, TORONTO)).toThrowError(DomainError);
-        expect(() => normalizeTaskTemporalFields({ scheduledStart: "2026-03-10T14:00:00Z", endDate: "2026-03-12" }, TORONTO)).toThrowError(DomainError);
-        expect(() => normalizeTaskTemporalFields({ dueDate: "2026-03-10", scheduledStart: "2026-03-10T14:00:00Z", zone: "Not/AZone" }, TORONTO)).toThrowError(DomainError);
+        expect(() => normalizeTaskTemporalFields({ dueDate: "2026-03-10T12:00:00Z" }, TORONTO)).toThrowError(
+            DomainError,
+        ); // a day is a day
+        expect(() =>
+            normalizeTaskTemporalFields({ dueDate: "2026-03-10", scheduledEnd: "2026-03-10T13:00:00Z" }, TORONTO),
+        ).toThrowError(DomainError);
+        expect(() =>
+            normalizeTaskTemporalFields(
+                { scheduledStart: "2026-03-10T14:00:00Z", scheduledEnd: "2026-03-10T13:00:00Z" },
+                TORONTO,
+            ),
+        ).toThrowError(DomainError);
+        expect(() =>
+            normalizeTaskTemporalFields({ scheduledStart: "2026-03-10T14:00:00Z", endDate: "2026-03-12" }, TORONTO),
+        ).toThrowError(DomainError);
+        expect(() =>
+            normalizeTaskTemporalFields(
+                { dueDate: "2026-03-10", scheduledStart: "2026-03-10T14:00:00Z", zone: "Not/AZone" },
+                TORONTO,
+            ),
+        ).toThrowError(DomainError);
         expect(() => normalizeTaskTemporalFields({ dueDate: "2026-03-10" }, "Not/AZone")).toThrowError(DomainError);
     });
 
@@ -85,8 +115,20 @@ describe("rescheduleToDay", () => {
     });
 
     it("moves an all-day task and its end by the same number of days", () => {
-        const day: TaskTemporal = { dueDate: "2026-03-10", endDate: "2026-03-12", scheduledStart: null, scheduledEnd: null, zone: null };
-        expect(rescheduleToDay(day, "2026-03-20", TORONTO)).toEqual({ dueDate: "2026-03-20", endDate: "2026-03-22", scheduledStart: null, scheduledEnd: null, zone: null });
+        const day: TaskTemporal = {
+            dueDate: "2026-03-10",
+            endDate: "2026-03-12",
+            scheduledStart: null,
+            scheduledEnd: null,
+            zone: null,
+        };
+        expect(rescheduleToDay(day, "2026-03-20", TORONTO)).toEqual({
+            dueDate: "2026-03-20",
+            endDate: "2026-03-22",
+            scheduledStart: null,
+            scheduledEnd: null,
+            zone: null,
+        });
     });
 
     // 0.30.0 (B09): moving a work block never moves the commitment it works towards.
@@ -108,7 +150,11 @@ describe("classifyTaskReadShape", () => {
     it("classifies the four shapes", () => {
         expect(classifyTaskReadShape({ dueDate: null, endDate: null, scheduledStart: null })).toBe("unscheduled");
         expect(classifyTaskReadShape({ dueDate: "2026-03-10", endDate: null, scheduledStart: null })).toBe("day");
-        expect(classifyTaskReadShape({ dueDate: "2026-03-10", endDate: "2026-03-12", scheduledStart: null })).toBe("days");
-        expect(classifyTaskReadShape({ dueDate: "2026-03-10", endDate: null, scheduledStart: "2026-03-10T14:00:00Z" })).toBe("timed");
+        expect(classifyTaskReadShape({ dueDate: "2026-03-10", endDate: "2026-03-12", scheduledStart: null })).toBe(
+            "days",
+        );
+        expect(
+            classifyTaskReadShape({ dueDate: "2026-03-10", endDate: null, scheduledStart: "2026-03-10T14:00:00Z" }),
+        ).toBe("timed");
     });
 });

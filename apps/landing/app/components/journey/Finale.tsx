@@ -14,38 +14,36 @@ import { Sigil } from "./Sigil";
  * the blossom holds the one signup link, followed by a single reassurance. */
 
 export function Finale() {
-  return (
-    <section className="finale" aria-labelledby="finale-title">
-      <StaticSvg as="div" className="finale-sky" aria-hidden="true">
-        {import.meta.env.SSR ? <SkyBody /> : null}
-      </StaticSvg>
+    return (
+        <section className="finale" aria-labelledby="finale-title">
+            <StaticSvg as="div" className="finale-sky" aria-hidden="true">
+                {import.meta.env.SSR ? <SkyBody /> : null}
+            </StaticSvg>
 
-      <div className="jsec finale-crown" style={cssVars({ "--h": segmentHeight("finale") })}>
-        <BoughSegment name="finale" />
-      </div>
-      <Drift kind="fall" />
-      {/* The village's lanterns again, rising past the invitation: the same night, a year on */}
-      <Drift kind="lantern" className="finale-lanterns" />
+            <div className="jsec finale-crown" style={cssVars({ "--h": segmentHeight("finale") })}>
+                <BoughSegment name="finale" />
+            </div>
+            <Drift kind="fall" />
+            {/* The village's lanterns again, rising past the invitation: the same night, a year on */}
+            <Drift kind="lantern" className="finale-lanterns" />
 
-      <div className="finale-stage">
-        <h3 id="finale-title" className="finale-title font-display">
-          {FINALE.title}
-        </h3>
-        <p className="finale-body">
-          {FINALE.body}
-        </p>
-        <div className="finale-invitation">
-          <Sigil className="finale-blossom" blossom>
-            <ButtonLink className="finale-action" href={SIGN_UP_URL} data-cloud="">
-              {FINALE.invite}
-              <ArrowIcon className="button-icon button-arrow" />
-            </ButtonLink>
-          </Sigil>
-          <p className="finale-reassurance">{FINALE.reassurance}</p>
-        </div>
-      </div>
+            <div className="finale-stage">
+                <h3 id="finale-title" className="finale-title font-display">
+                    {FINALE.title}
+                </h3>
+                <p className="finale-body">{FINALE.body}</p>
+                <div className="finale-invitation">
+                    <Sigil className="finale-blossom" blossom>
+                        <ButtonLink className="finale-action" href={SIGN_UP_URL} data-cloud="">
+                            {FINALE.invite}
+                            <ArrowIcon className="button-icon button-arrow" />
+                        </ButtonLink>
+                    </Sigil>
+                    <p className="finale-reassurance">{FINALE.reassurance}</p>
+                </div>
+            </div>
 
-      <FinaleLand />
-    </section>
-  );
+            <FinaleLand />
+        </section>
+    );
 }

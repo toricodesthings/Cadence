@@ -87,7 +87,12 @@ export const ANSWER_HINT = "Try 90 or 1h30";
 
 /** "45 min" or "30–60 min". */
 export const formatValue = (v: DurationValue | { lowMinutes: number; highMinutes: number }): string => {
-    const [low, high] = "kind" in v ? (v.kind === "point" ? [v.minutes, v.minutes] : [v.lowMinutes, v.highMinutes]) : [v.lowMinutes, v.highMinutes];
+    const [low, high] =
+        "kind" in v
+            ? v.kind === "point"
+                ? [v.minutes, v.minutes]
+                : [v.lowMinutes, v.highMinutes]
+            : [v.lowMinutes, v.highMinutes];
     return low === high ? formatMinutes(low) : `${low}–${high} min`;
 };
 

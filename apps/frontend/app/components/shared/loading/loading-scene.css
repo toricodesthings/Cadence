@@ -29,11 +29,15 @@
 }
 
 @media (min-aspect-ratio: 2/1) {
-    .loading-screen { --stage-y: 90%; }
+    .loading-screen {
+        --stage-y: 90%;
+    }
 }
 
 @media (max-aspect-ratio: 3/4) {
-    .loading-screen { --stage-x: 42%; }
+    .loading-screen {
+        --stage-x: 42%;
+    }
 }
 
 /* One 16:9 stage; every layer inside shares the 1920×1080 coordinate system */
@@ -56,20 +60,48 @@
 }
 
 /* ── Season / mode gates ── */
-.ls-autumn { display: var(--ls-autumn); }
-.ls-spring { display: var(--ls-spring); }
-.ls-summer { display: var(--ls-summer); }
-.ls-winter { display: var(--ls-winter); }
-.ls-night { display: var(--ls-night); }
-.ls-key { display: var(--ls-key); }
-.ls-lan-opt { display: var(--ls-lan-opt); }
-.ls-stars-8 { display: var(--ls-stars-8); }
-.ls-stars-18 { display: var(--ls-stars-18); }
-.ls-stars-26 { display: var(--ls-stars-26); }
-.loading-screen .ls-rm-hide { display: var(--ls-rm-display, block); }
-.ls-spring-clouds { opacity: var(--ls-spring-cloud); }
-.ls-cloud-opt { display: var(--ls-cloud-opt, block); }
-.ls-crowns { display: var(--ls-crowns); }
+.ls-autumn {
+    display: var(--ls-autumn);
+}
+.ls-spring {
+    display: var(--ls-spring);
+}
+.ls-summer {
+    display: var(--ls-summer);
+}
+.ls-winter {
+    display: var(--ls-winter);
+}
+.ls-night {
+    display: var(--ls-night);
+}
+.ls-key {
+    display: var(--ls-key);
+}
+.ls-lan-opt {
+    display: var(--ls-lan-opt);
+}
+.ls-stars-8 {
+    display: var(--ls-stars-8);
+}
+.ls-stars-18 {
+    display: var(--ls-stars-18);
+}
+.ls-stars-26 {
+    display: var(--ls-stars-26);
+}
+.loading-screen .ls-rm-hide {
+    display: var(--ls-rm-display, block);
+}
+.ls-spring-clouds {
+    opacity: var(--ls-spring-cloud);
+}
+.ls-cloud-opt {
+    display: var(--ls-cloud-opt, block);
+}
+.ls-crowns {
+    display: var(--ls-crowns);
+}
 
 .ls-moon {
     opacity: var(--ls-moon-o, 1);
@@ -157,10 +189,20 @@
 }
 
 /* Stage-filling planes overscan slightly so their edges never show while they sway */
-.ls-par-far { --par: calc(10 * var(--su)); scale: 1.02; }
-.ls-par-town { --par: calc(22 * var(--su)); scale: 1.02; }
-.ls-par-near { --par: calc(34 * var(--su)); }
-.ls-par-frame { --par: 22px; }
+.ls-par-far {
+    --par: calc(10 * var(--su));
+    scale: 1.02;
+}
+.ls-par-town {
+    --par: calc(22 * var(--su));
+    scale: 1.02;
+}
+.ls-par-near {
+    --par: calc(34 * var(--su));
+}
+.ls-par-frame {
+    --par: 22px;
+}
 
 /* ── Hearth light: each town's warm bloom, breathing slowly (the outer box carries the season's glow strength) ── */
 .ls-hearth {
@@ -267,7 +309,9 @@
     opacity: var(--o);
 }
 
-.ls-leaf { opacity: calc(var(--o) * 0.75); }
+.ls-leaf {
+    opacity: calc(var(--o) * 0.75);
+}
 
 /* Falling leaf: the box falls at a steady rate and swings on a sine; the leaf inside spins and flips in time with the swing. */
 .ls-leaf {
@@ -392,8 +436,16 @@
     overflow: visible;
 }
 
-.ls-branch-tl { left: 0; transform-origin: 0 0; --swd: 7s; }
-.ls-branch-tr { right: 0; transform-origin: 100% 0; --swd: 9s; }
+.ls-branch-tl {
+    left: 0;
+    transform-origin: 0 0;
+    --swd: 7s;
+}
+.ls-branch-tr {
+    right: 0;
+    transform-origin: 100% 0;
+    --swd: 9s;
+}
 
 .ls-susuki {
     bottom: 0;
@@ -402,8 +454,12 @@
     opacity: 0.9;
 }
 
-.ls-susuki-bl { left: 0; }
-.ls-susuki-br { right: 0; }
+.ls-susuki-bl {
+    left: 0;
+}
+.ls-susuki-br {
+    right: 0;
+}
 
 /* Winter only: a small lit fir where the susuki stands in autumn */
 .ls-xmas {
@@ -545,24 +601,74 @@ path.lg-part {
 .lg-petal {
     scale: var(--e);
     rotate: calc((1 - var(--e)) * -50deg);
-    animation: var(--ls-still, ls-leaf-sway calc(var(--ls-grow-loop) / 2) var(--ls-ease-sine) var(--sway-delay, 0s) infinite);
+    animation: var(
+        --ls-still,
+        ls-leaf-sway calc(var(--ls-grow-loop) / 2) var(--ls-ease-sine) var(--sway-delay, 0s) infinite
+    );
 }
 
 /* The orbit is the trunk; the arcs branch off it, the road and its dashes follow, leaves open as the line passes them, the check lands last */
-#lg-orbit { --from: 0.0; --span: 0.543; }
-#lg-orbit-inner { --from: 0.087; --span: 0.326; }
-#lg-swash { --from: 0.152; --span: 0.348; }
-#lg-horizon { --from: 0.217; --span: 0.457; }
-#lg-horizon-tail { --from: 0.652; --span: 0.109; }
-#lg-dash-2 { --from: 0.435; --span: 0.109; }
-#lg-dash-1 { --from: 0.5; --span: 0.109; }
-#lg-petal-3 { --from: 0.13; --span: 0.174; }
-#lg-petal-2 { --from: 0.163; --span: 0.174; --sway-delay: -0.6s; }
-#lg-petal-4 { --from: 0.217; --span: 0.239; --sway-delay: -1.1s; }
-#lg-petal-1 { --from: 0.196; --span: 0.174; --sway-delay: -1.7s; }
-#lg-check { --from: 0.525; --span: 0.261; }
-#lg-petal-5 { --from: 0.848; --span: 0.13; --sway-delay: -2.3s; }
-#lg-petal-6 { --from: 0.87; --span: 0.13; --sway-delay: -0.9s; }
+#lg-orbit {
+    --from: 0;
+    --span: 0.543;
+}
+#lg-orbit-inner {
+    --from: 0.087;
+    --span: 0.326;
+}
+#lg-swash {
+    --from: 0.152;
+    --span: 0.348;
+}
+#lg-horizon {
+    --from: 0.217;
+    --span: 0.457;
+}
+#lg-horizon-tail {
+    --from: 0.652;
+    --span: 0.109;
+}
+#lg-dash-2 {
+    --from: 0.435;
+    --span: 0.109;
+}
+#lg-dash-1 {
+    --from: 0.5;
+    --span: 0.109;
+}
+#lg-petal-3 {
+    --from: 0.13;
+    --span: 0.174;
+}
+#lg-petal-2 {
+    --from: 0.163;
+    --span: 0.174;
+    --sway-delay: -0.6s;
+}
+#lg-petal-4 {
+    --from: 0.217;
+    --span: 0.239;
+    --sway-delay: -1.1s;
+}
+#lg-petal-1 {
+    --from: 0.196;
+    --span: 0.174;
+    --sway-delay: -1.7s;
+}
+#lg-check {
+    --from: 0.525;
+    --span: 0.261;
+}
+#lg-petal-5 {
+    --from: 0.848;
+    --span: 0.13;
+    --sway-delay: -2.3s;
+}
+#lg-petal-6 {
+    --from: 0.87;
+    --span: 0.13;
+    --sway-delay: -0.9s;
+}
 
 /* Two petals let go of the check's blossom once it has opened, and drift down and out before the mark folds back */
 .lg-petal#lg-petal-7,
@@ -576,8 +682,15 @@ path.lg-part {
     );
 }
 
-#lg-petal-7 { --dx: -18px; --dy: -60px; }
-#lg-petal-8 { --dx: 12px; --dy: -118px; --fall-delay: 0.12s; }
+#lg-petal-7 {
+    --dx: -18px;
+    --dy: -60px;
+}
+#lg-petal-8 {
+    --dx: 12px;
+    --dy: -118px;
+    --fall-delay: 0.12s;
+}
 
 .ls-wordmark {
     display: flex;
@@ -658,15 +771,21 @@ path.lg-part {
 }
 
 @keyframes ls-wordmark-roll {
-    from { transform: translateZ(calc(-1 * var(--ls-wordmark-depth))) rotateX(0deg); }
-    to { transform: translateZ(calc(-1 * var(--ls-wordmark-depth))) rotateX(90deg); }
+    from {
+        transform: translateZ(calc(-1 * var(--ls-wordmark-depth))) rotateX(0deg);
+    }
+    to {
+        transform: translateZ(calc(-1 * var(--ls-wordmark-depth))) rotateX(90deg);
+    }
 }
 
 /* Logo, then wordmark, settle in (ease-out-quint) */
 .ls-enter {
     animation: var(--ls-still, ls-enter 700ms cubic-bezier(0.22, 1, 0.36, 1) var(--ls-enter-delay, 0ms) backwards);
 }
-.ls-wordmark.ls-enter { --ls-enter-delay: 90ms; }
+.ls-wordmark.ls-enter {
+    --ls-enter-delay: 90ms;
+}
 
 /* Thin rules flanking the wordmark, fading away from it */
 .ls-rule {
@@ -676,18 +795,38 @@ path.lg-part {
     opacity: 0.4;
 }
 
-.ls-rule-l { background: linear-gradient(90deg, transparent, var(--loading-text)); }
-.ls-rule-r { background: linear-gradient(90deg, var(--loading-text), transparent); margin-left: -0.28em; }
+.ls-rule-l {
+    background: linear-gradient(90deg, transparent, var(--loading-text));
+}
+.ls-rule-r {
+    background: linear-gradient(90deg, var(--loading-text), transparent);
+    margin-left: -0.28em;
+}
 
 @media (max-width: 480px) {
-    .ls-rule { display: none; }
-    .ls-wordmark { text-indent: 0; }
+    .ls-rule {
+        display: none;
+    }
+    .ls-wordmark {
+        text-indent: 0;
+    }
     /* Phones: one quiet ring, and the block shrinks to it */
-    .ls-halo-ring-b { display: none; }
-    .ls-logo-block { min-height: 10rem; }
-    .ls-halo-ring-a { --ring: 9rem; }
-    .ls-logo { width: 6.5rem; height: 6.5rem; }
-    .ls-aura-core { scale: 0.75; }
+    .ls-halo-ring-b {
+        display: none;
+    }
+    .ls-logo-block {
+        min-height: 10rem;
+    }
+    .ls-halo-ring-a {
+        --ring: 9rem;
+    }
+    .ls-logo {
+        width: 6.5rem;
+        height: 6.5rem;
+    }
+    .ls-aura-core {
+        scale: 0.75;
+    }
 }
 
 /* The warm valley glow the wordmark sits in; keeps it ≥ 4.5:1 over mid-value daylight ridges. */
@@ -700,20 +839,33 @@ path.lg-part {
 }
 
 @media (min-width: 1440px) {
-    .ls-logo-block { scale: 1.2; }
+    .ls-logo-block {
+        scale: 1.2;
+    }
 }
-
 
 /* ── Crops ── */
 @media (max-aspect-ratio: 3/4) {
     .loading-screen .ls-p-hide,
     .loading-screen .ls-branch-tl,
-    .loading-screen .ls-susuki-br { display: none; }
-    .ls-lan { left: var(--xp, var(--x)); }
-    .ls-moon { transform: translate(260px, 0) scale(0.85); }
-    .ls-key-move { transform: translate(260px, 0); }
-    .ls-branch-tr { width: min(38vw, 30vh); }
-    .ls-susuki-bl { width: min(16vw, 11vh); }
+    .loading-screen .ls-susuki-br {
+        display: none;
+    }
+    .ls-lan {
+        left: var(--xp, var(--x));
+    }
+    .ls-moon {
+        transform: translate(260px, 0) scale(0.85);
+    }
+    .ls-key-move {
+        transform: translate(260px, 0);
+    }
+    .ls-branch-tr {
+        width: min(38vw, 30vh);
+    }
+    .ls-susuki-bl {
+        width: min(16vw, 11vh);
+    }
 }
 
 /* ── Reduced motion: a designed still (OS setting unless the user chose "full", or the in-app setting) ── */
@@ -726,145 +878,283 @@ path.lg-part {
     :root:not([data-motion="full"]) .loading-screen {
         --ls-still: none;
         --ls-rm-display: none;
-        }
+    }
 }
 
 /* ── Keyframes ── */
 @keyframes ls-drift {
-    from { transform: translateX(-50%); }
-    to { transform: translateX(0); }
+    from {
+        transform: translateX(-50%);
+    }
+    to {
+        transform: translateX(0);
+    }
 }
 
 @keyframes ls-shimmer {
-    0%, 100% { transform: translateX(calc(-6 * var(--su))); }
-    50% { transform: translateX(calc(6 * var(--su))); }
+    0%,
+    100% {
+        transform: translateX(calc(-6 * var(--su)));
+    }
+    50% {
+        transform: translateX(calc(6 * var(--su)));
+    }
 }
 
 @keyframes ls-twinkle {
-    0%, 100% { opacity: 0.15; }
-    50% { opacity: 0.95; }
+    0%,
+    100% {
+        opacity: 0.15;
+    }
+    50% {
+        opacity: 0.95;
+    }
 }
 
 @keyframes ls-rise {
-    0% { transform: translate(0, calc(var(--y0) * var(--su))) scale(1); opacity: 0; }
-    12% { opacity: 1; }
-    72% { opacity: 1; }
+    0% {
+        transform: translate(0, calc(var(--y0) * var(--su))) scale(1);
+        opacity: 0;
+    }
+    12% {
+        opacity: 1;
+    }
+    72% {
+        opacity: 1;
+    }
     /* Fades out just past the top edge, so the slow end of the rise still happens in frame */
-    100% { transform: translate(calc(var(--dx) * var(--su)), calc(-120 * var(--su))) scale(0.72); opacity: 0; }
+    100% {
+        transform: translate(calc(var(--dx) * var(--su)), calc(-120 * var(--su))) scale(0.72);
+        opacity: 0;
+    }
 }
 
 @keyframes ls-sway {
-    0%, 100% { transform: rotate(-3deg); }
-    50% { transform: rotate(3deg); }
+    0%,
+    100% {
+        transform: rotate(-3deg);
+    }
+    50% {
+        transform: rotate(3deg);
+    }
 }
 
 @keyframes ls-hearth {
-    0%, 100% { opacity: 0.55; }
-    50% { opacity: 1; }
+    0%,
+    100% {
+        opacity: 0.55;
+    }
+    50% {
+        opacity: 1;
+    }
 }
 
 @keyframes ls-flicker {
-    0%, 100% { opacity: 0.85; }
-    50% { opacity: 1; }
+    0%,
+    100% {
+        opacity: 0.85;
+    }
+    50% {
+        opacity: 1;
+    }
 }
 
 /* Shared by leaves and snow: steady fall on `translate`, sine swing on `transform` (separate properties, so they compose) */
 @keyframes ls-fall {
-    from { translate: 0 -12vh; }
-    to { translate: var(--dx) 112vh; }
+    from {
+        translate: 0 -12vh;
+    }
+    to {
+        translate: var(--dx) 112vh;
+    }
 }
 
 @keyframes ls-swing {
-    from { transform: translateX(calc(var(--sway) * -1)); }
-    to { transform: translateX(var(--sway)); }
+    from {
+        transform: translateX(calc(var(--sway) * -1));
+    }
+    to {
+        transform: translateX(var(--sway));
+    }
 }
 
 @keyframes ls-spin-z {
-    from { rotate: 0deg; }
-    to { rotate: var(--spin); }
+    from {
+        rotate: 0deg;
+    }
+    to {
+        rotate: var(--spin);
+    }
 }
 
 @keyframes ls-lift {
-    0%, 100% { translate: 0 0; }
-    50% { translate: 0 calc(var(--size) * 0.6); }
+    0%,
+    100% {
+        translate: 0 0;
+    }
+    50% {
+        translate: 0 calc(var(--size) * 0.6);
+    }
 }
 
 @keyframes ls-parallax {
-    from { translate: calc(var(--par) * -1) 0; }
-    to { translate: var(--par) 0; }
+    from {
+        translate: calc(var(--par) * -1) 0;
+    }
+    to {
+        translate: var(--par) 0;
+    }
 }
 
 @keyframes ls-flip {
-    from { transform: perspective(600px) rotate3d(var(--ax), var(--ay), 0, -55deg); }
-    to { transform: perspective(600px) rotate3d(var(--ax), var(--ay), 0, 55deg); }
+    from {
+        transform: perspective(600px) rotate3d(var(--ax), var(--ay), 0, -55deg);
+    }
+    to {
+        transform: perspective(600px) rotate3d(var(--ax), var(--ay), 0, 55deg);
+    }
 }
 
 @keyframes ls-rain {
-    from { transform: translate(0, -8vh) rotate(-8deg); }
-    to { transform: translate(var(--dx), 108vh) rotate(-8deg); }
+    from {
+        transform: translate(0, -8vh) rotate(-8deg);
+    }
+    to {
+        transform: translate(var(--dx), 108vh) rotate(-8deg);
+    }
 }
 
 @keyframes ls-wisp {
-    0% { transform: translate(0, 105vh) scale(0.5); opacity: 0; }
-    15% { opacity: var(--o); }
-    50% { transform: translate(var(--dx), 55vh) scale(1); }
-    85% { opacity: calc(var(--o) * 0.5); }
-    100% { transform: translate(calc(var(--dx) * 1.5), -5vh) scale(0.3); opacity: 0; }
+    0% {
+        transform: translate(0, 105vh) scale(0.5);
+        opacity: 0;
+    }
+    15% {
+        opacity: var(--o);
+    }
+    50% {
+        transform: translate(var(--dx), 55vh) scale(1);
+    }
+    85% {
+        opacity: calc(var(--o) * 0.5);
+    }
+    100% {
+        transform: translate(calc(var(--dx) * 1.5), -5vh) scale(0.3);
+        opacity: 0;
+    }
 }
 
 @keyframes ls-bough {
-    0%, 100% { transform: rotate(-1.2deg); }
-    50% { transform: rotate(1.2deg); }
+    0%,
+    100% {
+        transform: rotate(-1.2deg);
+    }
+    50% {
+        transform: rotate(1.2deg);
+    }
 }
 
 @keyframes ls-ruffle {
-    0%, 100% { transform: rotate(-1.4deg) skewX(0.6deg); }
-    50% { transform: rotate(1.4deg) skewX(-0.6deg); }
+    0%,
+    100% {
+        transform: rotate(-1.4deg) skewX(0.6deg);
+    }
+    50% {
+        transform: rotate(1.4deg) skewX(-0.6deg);
+    }
 }
 
 @keyframes ls-grass {
-    0%, 100% { transform: rotate(calc(var(--amp) * -1)); }
-    45% { transform: rotate(var(--amp)); }
+    0%,
+    100% {
+        transform: rotate(calc(var(--amp) * -1));
+    }
+    45% {
+        transform: rotate(var(--amp));
+    }
 }
 
 @keyframes ls-spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes ls-spin-rev {
-    to { transform: rotate(-360deg); }
+    to {
+        transform: rotate(-360deg);
+    }
 }
 
 @keyframes ls-beat {
-    0%, 100% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-2px) scale(1.02); }
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+    }
+    50% {
+        transform: translateY(-2px) scale(1.02);
+    }
 }
 
 @keyframes ls-grow {
-    0% { --ls-grow: 0; }
-    37.5% { --ls-grow: 1; }
-    56.25% { --ls-grow: 1; }
-    93.75%, 100% { --ls-grow: 0; }
+    0% {
+        --ls-grow: 0;
+    }
+    37.5% {
+        --ls-grow: 1;
+    }
+    56.25% {
+        --ls-grow: 1;
+    }
+    93.75%,
+    100% {
+        --ls-grow: 0;
+    }
 }
 
 @keyframes ls-leaf-sway {
-    0%, 100% { transform: translateY(-1.5px) rotate(-3deg); }
-    50% { transform: translateY(2.5px) rotate(4deg); }
+    0%,
+    100% {
+        transform: translateY(-1.5px) rotate(-3deg);
+    }
+    50% {
+        transform: translateY(2.5px) rotate(4deg);
+    }
 }
 
 /* From the blossom (--dx, --dy back from where the petal is drawn), through that spot, and on down */
 @keyframes ls-petal-fall {
-    0%, 37.5% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(-40deg) scale(0.4); }
-    42% { opacity: 1; }
-    48% { opacity: 1; }
-    55.5%, 100% { opacity: 0; transform: translate(-10px, 130px) rotate(70deg) scale(0.9); }
+    0%,
+    37.5% {
+        opacity: 0;
+        transform: translate(var(--dx), var(--dy)) rotate(-40deg) scale(0.4);
+    }
+    42% {
+        opacity: 1;
+    }
+    48% {
+        opacity: 1;
+    }
+    55.5%,
+    100% {
+        opacity: 0;
+        transform: translate(-10px, 130px) rotate(70deg) scale(0.9);
+    }
 }
 
 @keyframes ls-petal-drift {
-    from { translate: -9px 0; }
-    to { translate: 9px 0; }
+    from {
+        translate: -9px 0;
+    }
+    to {
+        translate: 9px 0;
+    }
 }
 
 @keyframes ls-enter {
-    from { opacity: 0; transform: translateY(8px); filter: blur(4px); }
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+        filter: blur(4px);
+    }
 }

@@ -6,6 +6,10 @@ const parseSort = (raw: string | null) => SORT_MODES.find((mode) => mode === raw
 
 /** A task page's sort ("today", "upcoming", "project:<id>"): `?sort=` in the address, else this device's choice; "smart" until picked. */
 export function useSortMode(page: string) {
-    const [sortMode, setSortMode] = useUrlState<SortMode>("sort", { parse: parseSort, fallback: "smart", deviceKey: `cadence:sort:${page}` });
+    const [sortMode, setSortMode] = useUrlState<SortMode>("sort", {
+        parse: parseSort,
+        fallback: "smart",
+        deviceKey: `cadence:sort:${page}`,
+    });
     return { sortMode, setSortMode } as const;
 }

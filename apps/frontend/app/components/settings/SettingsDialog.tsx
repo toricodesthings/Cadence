@@ -19,8 +19,11 @@ export function SettingsDialog() {
     const [searchQuery, setSearchQuery] = React.useState("");
     // Search matches a tab's name or any of its row titles
     const needle = searchQuery.trim().toLowerCase();
-    const matches = SETTINGS_CATEGORIES.filter((item) => !item.isHeader
-        && [item.label, ...(item.keywords ?? [])].some((text) => text.toLowerCase().includes(needle)));
+    const matches = SETTINGS_CATEGORIES.filter(
+        (item) =>
+            !item.isHeader &&
+            [item.label, ...(item.keywords ?? [])].some((text) => text.toLowerCase().includes(needle)),
+    );
 
     const handleClose = async () => {
         await flushAllPendingSettingsMutations();
@@ -51,7 +54,9 @@ export function SettingsDialog() {
                 hideCloseButton
             >
                 <DialogTitle className="sr-only">Settings</DialogTitle>
-                <DialogDescription className="sr-only">Modify your account and application preferences.</DialogDescription>
+                <DialogDescription className="sr-only">
+                    Modify your account and application preferences.
+                </DialogDescription>
 
                 <div className="flex w-full h-full">
                     {/* Left Sidebar */}
@@ -67,13 +72,18 @@ export function SettingsDialog() {
 
                         <nav className="flex flex-col gap-1 pr-2">
                             {needle && matches.length === 0 && (
-                                <p className="px-3 py-2 text-sm text-twilight-text-soft">No settings match “{searchQuery.trim()}”.</p>
+                                <p className="px-3 py-2 text-sm text-twilight-text-soft">
+                                    No settings match “{searchQuery.trim()}”.
+                                </p>
                             )}
                             {SETTINGS_CATEGORIES.map((item, i) => {
                                 if (item.isHeader) {
                                     if (needle) return null;
                                     return (
-                                        <div key={`header-${i}`} className="mt-4 mb-1 px-3 text-xs font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
+                                        <div
+                                            key={`header-${i}`}
+                                            className="mt-4 mb-1 px-3 text-xs font-semibold uppercase tracking-[0.18em] text-twilight-text-soft"
+                                        >
                                             {item.label}
                                         </div>
                                     );
@@ -94,10 +104,15 @@ export function SettingsDialog() {
                                             "flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm focus-visible:ring-2 focus-visible:ring-accent-primary transition-colors cursor-pointer",
                                             isActive
                                                 ? "bg-white/[0.08] text-twilight-text font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
-                                                : "text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text"
+                                                : "text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text",
                                         )}
                                     >
-                                        <Icon className={cn("h-4 w-4", isActive ? "h-5 w-5 text-accent-primary" : "text-twilight-text-muted")} />
+                                        <Icon
+                                            className={cn(
+                                                "h-4 w-4",
+                                                isActive ? "h-5 w-5 text-accent-primary" : "text-twilight-text-muted",
+                                            )}
+                                        />
                                         {item.label}
                                     </button>
                                 );
@@ -117,7 +132,9 @@ export function SettingsDialog() {
                             <div className="btn-icon rounded-full border border-twilight-border-light text-twilight-text-soft group-hover:bg-white/[0.06] group-hover:text-twilight-text">
                                 <X className="w-5 h-5" />
                             </div>
-                            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-twilight-text-muted">ESC</span>
+                            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-twilight-text-muted">
+                                ESC
+                            </span>
                         </button>
 
                         <div className="min-h-full w-full px-8 py-14 md:px-14 xl:px-20">

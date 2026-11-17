@@ -5,112 +5,112 @@
 name: Cadence Desktop
 
 on:
-  workflow_dispatch:
-  pull_request:
-    paths:
-      - apps/desktop/**
-      - apps/frontend/app/platform/**
-      - apps/frontend/app/routes/desktop.*
-      - pnpm-lock.yaml
-      - .github/workflows/cadence-desktop.yml
-  push:
-    branches:
-      - main
-    paths:
-      - apps/desktop/**
-      - apps/frontend/app/platform/**
-      - apps/frontend/app/routes/desktop.*
-      - pnpm-lock.yaml
-      - .github/workflows/cadence-desktop.yml
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - apps/desktop/**
+            - apps/frontend/app/platform/**
+            - apps/frontend/app/routes/desktop.*
+            - pnpm-lock.yaml
+            - .github/workflows/cadence-desktop.yml
+    push:
+        branches:
+            - main
+        paths:
+            - apps/desktop/**
+            - apps/frontend/app/platform/**
+            - apps/frontend/app/routes/desktop.*
+            - pnpm-lock.yaml
+            - .github/workflows/cadence-desktop.yml
 
 permissions:
-  contents: read
+    contents: read
 
 concurrency:
-  group: cadence-desktop-${{ github.ref }}
-  cancel-in-progress: true
+    group: cadence-desktop-${{ github.ref }}
+    cancel-in-progress: true
 
 env:
-  VITE_RUNTIME_TARGET: desktop
-  VITE_DESKTOP_E2E: "true"
-  VITE_API_BASE_URL: https://api.cadenceapp.cloud
-  VITE_NEON_AUTH_URL: https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth
+    VITE_RUNTIME_TARGET: desktop
+    VITE_DESKTOP_E2E: "true"
+    VITE_API_BASE_URL: https://api.cadenceapp.cloud
+    VITE_NEON_AUTH_URL: https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth
 
 jobs:
-  desktop:
-    name: Desktop (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    # A healthy run takes ~5 minutes; a stuck one fails here instead of at GitHub's 6-hour default.
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          # Not ubuntu-latest: 26.04 renamed webkit2gtk-driver to webkitgtk-webdriver. 24.04 still ships the old name.
-          - ubuntu-24.04
-          # Not windows-latest: its newer WebView2 (150+) never opens the DevTools port msedgedriver
-          # waits for, so every session fails with "DevToolsActivePort file doesn't exist".
-          # Unpin once actions/runner-images#14738 is fixed.
-          - windows-2022
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: pnpm
+    desktop:
+        name: Desktop (${{ matrix.os }})
+        runs-on: ${{ matrix.os }}
+        # A healthy run takes ~5 minutes; a stuck one fails here instead of at GitHub's 6-hour default.
+        timeout-minutes: 30
+        strategy:
+            fail-fast: false
+            matrix:
+                os:
+                    # Not ubuntu-latest: 26.04 renamed webkit2gtk-driver to webkitgtk-webdriver. 24.04 still ships the old name.
+                    - ubuntu-24.04
+                    # Not windows-latest: its newer WebView2 (150+) never opens the DevTools port msedgedriver
+                    # waits for, so every session fails with "DevToolsActivePort file doesn't exist".
+                    # Unpin once actions/runner-images#14738 is fixed.
+                    - windows-2022
+        steps:
+            - uses: actions/checkout@v7
+            - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+            - uses: actions/setup-node@v7
+              with:
+                  node-version-file: .node-version
+                  cache: pnpm
 
-      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
-        with:
-          toolchain: stable
-          components: clippy, rustfmt
+            - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+              with:
+                  toolchain: stable
+                  components: clippy, rustfmt
 
-      # Caches target/ and ~/.cargo/bin (so tauri-driver compiles once).
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        with:
-          workspaces: apps/desktop/src-tauri -> target
+            # Caches target/ and ~/.cargo/bin (so tauri-driver compiles once).
+            - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+              with:
+                  workspaces: apps/desktop/src-tauri -> target
 
-      - name: Install Linux desktop prerequisites
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libayatana-appindicator3-dev libgtk-3-dev librsvg2-dev \
-            libwebkit2gtk-4.1-dev patchelf webkit2gtk-driver xvfb dbus-daemon
+            - name: Install Linux desktop prerequisites
+              if: runner.os == 'Linux'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libayatana-appindicator3-dev libgtk-3-dev librsvg2-dev \
+                    libwebkit2gtk-4.1-dev patchelf webkit2gtk-driver xvfb dbus-daemon
 
-      - name: Install
-        run: pnpm install --frozen-lockfile
+            - name: Install
+              run: pnpm install --frozen-lockfile
 
-      - name: Rust lint (fmt + clippy)
-        if: runner.os == 'Linux'
-        run: pnpm --filter @cadence/desktop typecheck
+            - name: Rust lint (fmt + clippy)
+              if: runner.os == 'Linux'
+              run: pnpm --filter @cadence/desktop typecheck
 
-      - name: Install tauri-driver
-        run: cargo install tauri-driver --locked
+            - name: Install tauri-driver
+              run: cargo install tauri-driver --locked
 
-      # The runner's stock msedgedriver tracks Edge, not WebView2; a mismatch fails with
-      # "DevToolsActivePort file doesn't exist". This puts a WebView2-matched driver first on PATH.
-      - name: Install WebView2-matched msedgedriver
-        if: runner.os == 'Windows'
-        run: |
-          cargo install --git https://github.com/chippers/msedgedriver-tool
-          & "$HOME/.cargo/bin/msedgedriver-tool.exe"
-          $PWD.Path >> $env:GITHUB_PATH
-          # Pin tauri-driver to this exact binary so the stock Edge driver can never win on PATH.
-          "TAURI_NATIVE_DRIVER=$($PWD.Path)\msedgedriver.exe" >> $env:GITHUB_ENV
-          # Log both versions so a mismatch is obvious in the run output.
-          & "$($PWD.Path)\msedgedriver.exe" --version
-          (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}').pv
+            # The runner's stock msedgedriver tracks Edge, not WebView2; a mismatch fails with
+            # "DevToolsActivePort file doesn't exist". This puts a WebView2-matched driver first on PATH.
+            - name: Install WebView2-matched msedgedriver
+              if: runner.os == 'Windows'
+              run: |
+                  cargo install --git https://github.com/chippers/msedgedriver-tool
+                  & "$HOME/.cargo/bin/msedgedriver-tool.exe"
+                  $PWD.Path >> $env:GITHUB_PATH
+                  # Pin tauri-driver to this exact binary so the stock Edge driver can never win on PATH.
+                  "TAURI_NATIVE_DRIVER=$($PWD.Path)\msedgedriver.exe" >> $env:GITHUB_ENV
+                  # Log both versions so a mismatch is obvious in the run output.
+                  & "$($PWD.Path)\msedgedriver.exe" --version
+                  (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}').pv
 
-      # A session bus, as a desktop has: single-instance hands a second launch (a deep link) to the
-      # running app over D-Bus, and without one the second launch starts a whole new app instead.
-      - name: Build + smoke test
-        if: runner.os == 'Linux'
-        timeout-minutes: 20
-        env:
-          TAURI_WEBVIEW_AUTOMATION: "true"
-        run: dbus-run-session -- xvfb-run -a pnpm --filter @cadence/desktop e2e:smoke
+            # A session bus, as a desktop has: single-instance hands a second launch (a deep link) to the
+            # running app over D-Bus, and without one the second launch starts a whole new app instead.
+            - name: Build + smoke test
+              if: runner.os == 'Linux'
+              timeout-minutes: 20
+              env:
+                  TAURI_WEBVIEW_AUTOMATION: "true"
+              run: dbus-run-session -- xvfb-run -a pnpm --filter @cadence/desktop e2e:smoke
 
-      - name: Build + smoke test
-        if: runner.os == 'Windows'
-        timeout-minutes: 20
-        run: pnpm --filter @cadence/desktop e2e:smoke
+            - name: Build + smoke test
+              if: runner.os == 'Windows'
+              timeout-minutes: 20
+              run: pnpm --filter @cadence/desktop e2e:smoke

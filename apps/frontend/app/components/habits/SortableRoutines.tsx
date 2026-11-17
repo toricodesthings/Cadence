@@ -1,7 +1,13 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useSortSensors } from "../../hooks/ui/use-sort-sensors";
 import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, arrayMove, rectSortingStrategy, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+    SortableContext,
+    arrayMove,
+    rectSortingStrategy,
+    useSortable,
+    verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import type { Habit } from "@cadence/contracts/habit";
@@ -18,7 +24,13 @@ const SLIDE = { duration: 240, easing: "cubic-bezier(0.22, 1, 0.36, 1)" };
  * order: one midpoint write when the neighbours leave room, otherwise the visible list laid out again.
  * The dropped order is held on screen until those writes settle, so nothing jumps back meanwhile.
  */
-export function SortableRoutines({ habits, sort, onSortChange, layout, children }: {
+export function SortableRoutines({
+    habits,
+    sort,
+    onSortChange,
+    layout,
+    children,
+}: {
     habits: Habit[];
     sort: RoutineSort;
     onSortChange: (sort: RoutineSort) => void;
@@ -51,15 +63,19 @@ export function SortableRoutines({ habits, sort, onSortChange, layout, children 
         const fits = sort === "custom" && (prev === undefined || mid > prev) && (after === undefined || mid < after);
         const writes = fits
             ? [{ id: String(active.id), sortOrder: mid }]
-            : next.map((habit, index) => ({ id: habit.id, sortOrder: computeGappedOrderIndex(index + 1) }))
-                .filter((write, index) => next[index].sortOrder !== write.sortOrder);
+            : next
+                  .map((habit, index) => ({ id: habit.id, sortOrder: computeGappedOrderIndex(index + 1) }))
+                  .filter((write, index) => next[index].sortOrder !== write.sortOrder);
         // A failed write rolls back and says so itself (useUpdateHabit).
         void Promise.allSettled(writes.map((write) => updateHabit.mutateAsync(write))).finally(() => setHeld(null));
     };
 
     return (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-            <SortableContext items={ordered.map((habit) => habit.id)} strategy={layout === "grid" ? rectSortingStrategy : verticalListSortingStrategy}>
+            <SortableContext
+                items={ordered.map((habit) => habit.id)}
+                strategy={layout === "grid" ? rectSortingStrategy : verticalListSortingStrategy}
+            >
                 {children(ordered)}
             </SortableContext>
         </DndContext>

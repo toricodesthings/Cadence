@@ -15,7 +15,9 @@ describe("useDeviceFlag", () => {
     });
 
     it("still works when storage is blocked", () => {
-        const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("blocked"); });
+        const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+            throw new Error("blocked");
+        });
         const { result } = renderHook(() => useDeviceFlag("cadence-test-flag"));
         act(() => result.current[1](true));
         expect(result.current[0]).toBe(true);

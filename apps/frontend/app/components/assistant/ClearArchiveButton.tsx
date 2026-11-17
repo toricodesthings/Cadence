@@ -18,13 +18,23 @@ export function ClearArchiveButton({ disabled, className }: { disabled?: boolean
             open={open}
             onOpenChange={setOpen}
             trigger={
-                <Button variant="danger" size="sm" disabled={disabled || clear.isPending} className={cn("gap-1.5", className)}>
+                <Button
+                    variant="danger"
+                    size="sm"
+                    disabled={disabled || clear.isPending}
+                    className={cn("gap-1.5", className)}
+                >
                     <Trash2 size={14} aria-hidden />
                     Clear archive
                 </Button>
             }
             title="Clear the archive?"
-            description={<>Every archived conversation is deleted for good, with its messages and photos. It can&rsquo;t be undone. Conversations that aren&rsquo;t archived stay.</>}
+            description={
+                <>
+                    Every archived conversation is deleted for good, with its messages and photos. It can&rsquo;t be
+                    undone. Conversations that aren&rsquo;t archived stay.
+                </>
+            }
             confirmLabel="Delete all archived"
             onConfirm={() => clear.mutate()}
         />

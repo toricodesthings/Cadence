@@ -30,7 +30,12 @@ export const MAX_SIGNALS_PER_DAY = 150;
  * silent: it never throws into a request, writes nothing unless the mode is Full, and the callers are
  * routes only (the assistant, MCP and imports go through services and never get here).
  */
-export async function recordPersonActivity(env: Env, userId: string, activities: PersonActivity[], now: Date = new Date()): Promise<void> {
+export async function recordPersonActivity(
+    env: Env,
+    userId: string,
+    activities: PersonActivity[],
+    now: Date = new Date(),
+): Promise<void> {
     if (activities.length === 0) return;
     try {
         await withRls(getDbClient(env), userId, async (tx) => {
@@ -43,15 +48,31 @@ export async function recordPersonActivity(env: Env, userId: string, activities:
                     const bucket = slotBucket(activity.from, zone);
                     if (bucket) rows.push({ userId, kind: "reschedule", on: today, bucket, taskId: activity.taskId });
                 } else if (activity.kind === "complete") {
-                    rows.push({ userId, kind: "complete", on: today, bucket: completionBucket(now.toISOString(), zone) });
+                    rows.push({
+                        userId,
+                        kind: "complete",
+                        on: today,
+                        bucket: completionBucket(now.toISOString(), zone),
+                    });
                 } else if (activity.kind === "routine") {
-                    const [habit] = await tx.select({ title: habits.title }).from(habits).where(and(eq(habits.id, activity.habitId), eq(habits.userId, userId)));
+                    const [habit] = await tx
+                        .select({ title: habits.title })
+                        .from(habits)
+                        .where(and(eq(habits.id, activity.habitId), eq(habits.userId, userId)));
                     if (!habit) continue;
-                    rows.push({ userId, kind: "routine", on: activity.day, bucket: `${formatInZone(activity.day, "UTC", { weekday: "long" }, "en-US").toLowerCase()}|day`, subject: habit.title.slice(0, 40) });
+                    rows.push({
+                        userId,
+                        kind: "routine",
+                        on: activity.day,
+                        bucket: `${formatInZone(activity.day, "UTC", { weekday: "long" }, "en-US").toLowerCase()}|day`,
+                        subject: habit.title.slice(0, 40),
+                    });
                 }
             }
             if (rows.length) {
-                const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(aiMemorySignals)
+                const [{ n }] = await tx
+                    .select({ n: sql<number>`count(*)::int` })
+                    .from(aiMemorySignals)
                     .where(and(eq(aiMemorySignals.userId, userId), eq(aiMemorySignals.on, today)));
                 const room = Math.max(0, MAX_SIGNALS_PER_DAY - n);
                 if (room > 0) await tx.insert(aiMemorySignals).values(rows.slice(0, room));
@@ -72,8 +93,14 @@ export { readMemoryState } from "./memory-mode";
 export async function planningSaid(tx: Tx, userId: string, maxChars: number): Promise<string> {
     const { mode } = await readMemoryState(tx, userId);
     if (!isLearning(mode)) return "";
-    const rows = await tx.select({ content: aiMemories.content }).from(aiMemories)
+    const rows = await tx
+        .select({ content: aiMemories.content })
+        .from(aiMemories)
         .where(and(usableBy(userId, mode), inArray(aiMemories.kind, ["preference", "constraint"])))
-        .orderBy(desc(aiMemories.pinned), desc(aiMemories.updatedAt)).limit(10);
-    return rows.map((m) => m.content).join(" · ").slice(0, maxChars);
+        .orderBy(desc(aiMemories.pinned), desc(aiMemories.updatedAt))
+        .limit(10);
+    return rows
+        .map((m) => m.content)
+        .join(" · ")
+        .slice(0, maxChars);
 }

@@ -8,11 +8,7 @@ import { insertSubtaskSchema } from "@cadence/contracts/subtask";
 import { insertTagSchema } from "@cadence/contracts/tag";
 import { insertTaskSchema } from "@cadence/contracts/task";
 import { upsertNoteSchema } from "@cadence/contracts/note";
-import type {
-    sourceSurfaceEnum,
-    confidenceTierEnum,
-    focusViewSourceEnum,
-} from "../../db/schema";
+import type { sourceSurfaceEnum, confidenceTierEnum, focusViewSourceEnum } from "../../db/schema";
 
 // ── Schemas ──────────────────────────────────────────────────────────
 
@@ -78,7 +74,11 @@ export function seedDate(clock: SeedClock, dayOffset: number): LocalDate {
 
 /** An instant: that wall time on the day `dayOffset` days from today, in the clock's zone (timed starts, reminders, audit times). */
 export function seedDateTime(clock: SeedClock, dayOffset: number, hours = 12, minutes = 0): Instant {
-    return atLocal(seedDate(clock, dayOffset), `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`, clock.zone);
+    return atLocal(
+        seedDate(clock, dayOffset),
+        `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`,
+        clock.zone,
+    );
 }
 
 // ── Fixture builders ─────────────────────────────────────────────────
@@ -135,13 +135,7 @@ export function createSeedSubtask(userId: string, taskId: string, input: SeedSub
 }
 
 export function createSeedHabit(userId: string, input: SeedHabitInput) {
-    const {
-        totalCompletions = 0,
-        totalSkips = 0,
-        currentStreak = 0,
-        longestStreak = 0,
-        ...contractInput
-    } = input;
+    const { totalCompletions = 0, totalSkips = 0, currentStreak = 0, longestStreak = 0, ...contractInput } = input;
 
     return {
         userId,

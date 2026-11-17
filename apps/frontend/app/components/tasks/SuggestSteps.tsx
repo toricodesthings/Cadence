@@ -26,7 +26,13 @@ export function SuggestStepsButton({ s }: { s: SuggestSteps }) {
             {s.status === "drafting" ? "Drafting…" : "Suggest steps"}
         </button>
     );
-    return online ? button : <Tip label="Needs a connection"><span>{button}</span></Tip>;
+    return online ? (
+        button
+    ) : (
+        <Tip label="Needs a connection">
+            <span>{button}</span>
+        </Tip>
+    );
 }
 
 /** The draft: ghost steps, all ticked, each editable; Keep steps, Smaller (once) and ×. */
@@ -38,14 +44,29 @@ export function SuggestedSteps({ s }: { s: SuggestSteps }) {
                 {s.status === "failed" ? (
                     <span className="flex items-center gap-2 px-1 py-1 text-[13px] text-twilight-text-muted">
                         Couldn’t suggest steps
-                        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={s.retry} className="min-h-9 cursor-pointer rounded-full px-2 text-accent-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">Try again</button>
+                        <button
+                            type="button"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={s.retry}
+                            className="min-h-9 cursor-pointer rounded-full px-2 text-accent-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        >
+                            Try again
+                        </button>
                     </span>
                 ) : null}
             </p>
             <Reveal open={!!s.draft}>
                 {s.draft ? (
-                    <div role="group" aria-label="Suggested steps" className="surface-item mt-1 flex flex-col gap-0.5 rounded-2xl border border-dashed border-accent-primary/30 p-2" data-no-dnd="true" data-no-open="true">
-                        {s.draft.length === 0 ? <p className="px-1 py-2 text-[13px] text-twilight-text-muted">No new steps to add.</p> : null}
+                    <div
+                        role="group"
+                        aria-label="Suggested steps"
+                        className="surface-item mt-1 flex flex-col gap-0.5 rounded-2xl border border-dashed border-accent-primary/30 p-2"
+                        data-no-dnd="true"
+                        data-no-open="true"
+                    >
+                        {s.draft.length === 0 ? (
+                            <p className="px-1 py-2 text-[13px] text-twilight-text-muted">No new steps to add.</p>
+                        ) : null}
                         {s.draft.map((step) => (
                             <div key={step.key} className="flex min-h-11 items-center gap-2 rounded-xl px-1">
                                 <input
@@ -67,12 +88,28 @@ export function SuggestedSteps({ s }: { s: SuggestSteps }) {
                         ))}
                         <div className="flex flex-wrap items-center justify-end gap-1.5 pt-1">
                             <Tip label="Discard">
-                                <button type="button" onClick={s.discard} aria-label="Discard suggested steps" className="touch-target inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-twilight-text-soft hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+                                <button
+                                    type="button"
+                                    onClick={s.discard}
+                                    aria-label="Discard suggested steps"
+                                    className="touch-target inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-twilight-text-soft hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                                >
                                     <X size={15} aria-hidden="true" />
                                 </button>
                             </Tip>
-                            {s.canSmaller ? <Button variant="ghost" size="sm" onClick={s.smaller} disabled={s.status === "drafting"}>Smaller</Button> : null}
-                            <Button variant="cardPrimary" size="sm" onClick={s.keep} disabled={!ticked || s.keeping}>Keep steps</Button>
+                            {s.canSmaller ? (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={s.smaller}
+                                    disabled={s.status === "drafting"}
+                                >
+                                    Smaller
+                                </Button>
+                            ) : null}
+                            <Button variant="cardPrimary" size="sm" onClick={s.keep} disabled={!ticked || s.keeping}>
+                                Keep steps
+                            </Button>
                         </div>
                     </div>
                 ) : null}

@@ -17,9 +17,7 @@ const EFFORT_CHOICES: { value: EffortLevel; label: string; icon: LucideIcon }[] 
 export const EffortPicker: React.FC<EffortPickerProps> = ({ currentEffort, onSelect }) => {
     return (
         <div className="flex w-full flex-col gap-2 p-2">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-twilight-text-muted/90">
-                Effort
-            </span>
+            <span className="text-[10px] font-medium uppercase tracking-wider text-twilight-text-muted/90">Effort</span>
             <div className="grid w-full grid-cols-4 gap-1">
                 {EFFORT_CHOICES.map((opt) => {
                     const isActive = currentEffort === opt.value;
@@ -32,10 +30,11 @@ export const EffortPicker: React.FC<EffortPickerProps> = ({ currentEffort, onSel
                                 }}
                                 className={`
                                         group flex h-9 w-full cursor-pointer items-center justify-center rounded-lg border transition-[background-color,border-color] duration-200
-                                        ${isActive
-                                        ? "border-accent-primary bg-accent-primary/10"
-                                        : "border-twilight-border bg-white/[0.04] hover:border-twilight-text-muted/30"
-                                    }
+                                        ${
+                                            isActive
+                                                ? "border-accent-primary bg-accent-primary/10"
+                                                : "border-twilight-border bg-white/[0.04] hover:border-twilight-text-muted/30"
+                                        }
                                     `}
                                 aria-label={opt.label}
                             >

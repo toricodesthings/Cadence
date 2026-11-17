@@ -1,14 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { collectStartupSamples, recordStartupRead, resetStartupTiming, startupMark, startupRoute, startupEndpoint, startupCollecting } from "../../../app/lib/startup-timing";
+import {
+    collectStartupSamples,
+    recordStartupRead,
+    resetStartupTiming,
+    startupMark,
+    startupRoute,
+    startupEndpoint,
+    startupCollecting,
+} from "../../../app/lib/startup-timing";
 import { performanceBatchSchema, TRACK_BATCH_MAX } from "@cadence/contracts/events";
 
 beforeEach(() => resetStartupTiming());
 describe("startup measurements", () => {
     it("reports phase durations separately from time since navigation and excludes resource URLs", () => {
         const clock = vi.spyOn(performance, "now");
-        clock.mockReturnValue(500); startupMark("session.start");
-        clock.mockReturnValue(700); startupMark("session.ready");
-        clock.mockReturnValue(1500); startupMark("reveal.ready");
+        clock.mockReturnValue(500);
+        startupMark("session.start");
+        clock.mockReturnValue(700);
+        startupMark("session.ready");
+        clock.mockReturnValue(1500);
+        startupMark("reveal.ready");
         recordStartupRead("tasks", 1200, "ready");
         const samples = collectStartupSamples({ route: "list", cache: "cold", platform: "web", viewport: "compact" });
         expect(samples.find((s) => s.phase === "session")).toMatchObject({ duration_ms: 200, elapsed_ms: 700 });
@@ -16,7 +27,12 @@ describe("startup measurements", () => {
         expect(performanceBatchSchema.safeParse({ samples }).success).toBe(true);
         expect(JSON.stringify(samples)).not.toContain("http");
     });
-    it.each([["/project/private-id?secret=token", "list"], ["/tag/private-id", "tag"], ["/", "capture"], ["/unrecognized/private", "other"]])("reduces %s to a fixed route category", (path, route) => {
+    it.each([
+        ["/project/private-id?secret=token", "list"],
+        ["/tag/private-id", "tag"],
+        ["/", "capture"],
+        ["/unrecognized/private", "other"],
+    ])("reduces %s to a fixed route category", (path, route) => {
         expect(startupRoute(path)).toBe(route);
     });
 });
@@ -28,7 +44,11 @@ it("excludes background reads after reveal and emits no navigation sample on an 
     clock.mockReturnValue(800);
     recordStartupRead("habits", 600, "ready");
     const context = { route: "capture", cache: "warm", platform: "web", viewport: "wide" } as const;
-    expect(collectStartupSamples(context).filter((s) => s.phase === "api").map((s) => s.category)).toEqual(["tasks"]);
+    expect(
+        collectStartupSamples(context)
+            .filter((s) => s.phase === "api")
+            .map((s) => s.category),
+    ).toEqual(["tasks"]);
     resetStartupTiming(false);
     startupMark("reveal.ready");
     expect(collectStartupSamples(context)).toEqual([]);
@@ -49,12 +69,26 @@ it("keeps headers, body, and legacy readiness timings distinct and labels the bu
     vi.spyOn(performance, "now").mockReturnValue(200);
     recordStartupRead("tasks", 100, "ready", { endpoint: "tasks_open", status: 200 });
     vi.spyOn(performance, "now").mockReturnValue(300);
-    recordStartupRead("tasks", 210, "error", { endpoint: "tasks_open", status: 503, error_code: "INTERNAL_ERROR" }, "api_body");
+    recordStartupRead(
+        "tasks",
+        210,
+        "error",
+        { endpoint: "tasks_open", status: 503, error_code: "INTERNAL_ERROR" },
+        "api_body",
+    );
     startupMark("reveal.ready");
     const samples = collectStartupSamples({ route: "capture", cache: "cold", platform: "web", viewport: "wide" });
-    expect(samples.find(s => s.phase === "api")).toMatchObject({ duration_ms: 100, elapsed_ms: 100, measurement_revision: 3 });
-    expect(samples.find(s => s.phase === "api_body")).toMatchObject({ duration_ms: 90, elapsed_ms: 300, error_code: "INTERNAL_ERROR" });
-    expect(samples.every(s => typeof s.build_id === "string")).toBe(true);
+    expect(samples.find((s) => s.phase === "api")).toMatchObject({
+        duration_ms: 100,
+        elapsed_ms: 100,
+        measurement_revision: 3,
+    });
+    expect(samples.find((s) => s.phase === "api_body")).toMatchObject({
+        duration_ms: 90,
+        elapsed_ms: 300,
+        error_code: "INTERNAL_ERROR",
+    });
+    expect(samples.every((s) => typeof s.build_id === "string")).toBe(true);
     expect(performanceBatchSchema.safeParse({ samples }).success).toBe(true);
 });
 
@@ -71,6 +105,6 @@ it("fits a full startup into one delivery batch and stops collecting after revea
     startupMark("reveal.ready");
     expect(startupCollecting()).toBe(false);
     const samples = collectStartupSamples({ route: "capture", cache: "cold", platform: "web", viewport: "wide" });
-    expect(samples.filter(s => s.phase === "api")).toHaveLength(30);
+    expect(samples.filter((s) => s.phase === "api")).toHaveLength(30);
     expect(samples.length).toBeLessThanOrEqual(TRACK_BATCH_MAX);
 });

@@ -27,8 +27,7 @@ interface TagBubbleProps {
 
 /** A tag chip. Desktop filters by it (right-click recolours or deletes, drag onto a capture row tags it); compact opens its tag page, which owns delete. */
 export function TagBubble({ tag, isActive, onClick, reorder }: TagBubbleProps) {
-    const tint =
-        !tag.color || tag.color === "default" ? "rgba(255,255,255,0.06)" : `${tag.color}15`;
+    const tint = !tag.color || tag.color === "default" ? "rgba(255,255,255,0.06)" : `${tag.color}15`;
     const textColor = resolveTagColor(tag.color, "var(--color-twilight-text-soft)");
 
     const { isCompact } = useShellMode();
@@ -50,9 +49,10 @@ export function TagBubble({ tag, isActive, onClick, reorder }: TagBubbleProps) {
                 transition-[opacity,scale,filter,box-shadow] duration-200 cursor-pointer shrink-0
                 ${reorder?.dragging ? "opacity-35 scale-95" : ""}
                 ${isCompact ? "min-h-11" : ""}
-                ${isActive
-                    ? "ring-1 ring-offset-1 ring-offset-twilight-deep shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_10%,transparent)]"
-                    : "hover:brightness-125"
+                ${
+                    isActive
+                        ? "ring-1 ring-offset-1 ring-offset-twilight-deep shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_10%,transparent)]"
+                        : "hover:brightness-125"
                 }
             `}
             style={{
@@ -64,10 +64,7 @@ export function TagBubble({ tag, isActive, onClick, reorder }: TagBubbleProps) {
                 ? { "aria-current": isActive ? ("page" as const) : undefined, "aria-label": `Open tag: ${tag.name}` }
                 : { "aria-pressed": isActive, "aria-label": `Filter by tag: ${tag.name}` })}
         >
-            <span
-                className="w-2 h-2 shrink-0 rounded-full"
-                style={{ backgroundColor: textColor }}
-            />
+            <span className="w-2 h-2 shrink-0 rounded-full" style={{ backgroundColor: textColor }} />
             <span className="text-truncate-safe">{tag.name}</span>
         </button>
     );
@@ -76,57 +73,67 @@ export function TagBubble({ tag, isActive, onClick, reorder }: TagBubbleProps) {
 
     return (
         <span className="relative inline-flex min-w-0 max-w-full shrink-0">
-        <ContextMenu.Root>
-            <ContextMenu.Trigger asChild>{bubble}</ContextMenu.Trigger>
-            <ContextMenu.Content>
-                <ContextMenu.Sub>
-                    <ContextMenu.SubTrigger className="flex items-center gap-2 text-[13px]">
-                        <Palette size={13} aria-hidden="true" />
-                        Colour
-                    </ContextMenu.SubTrigger>
-                    <ContextMenu.Portal>
-                    <ContextMenu.SubContent className="max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto overscroll-contain">
-                        {TAG_PALETTE.map((color, i) => (
+            <ContextMenu.Root>
+                <ContextMenu.Trigger asChild>{bubble}</ContextMenu.Trigger>
+                <ContextMenu.Content>
+                    <ContextMenu.Sub>
+                        <ContextMenu.SubTrigger className="flex items-center gap-2 text-[13px]">
+                            <Palette size={13} aria-hidden="true" />
+                            Colour
+                        </ContextMenu.SubTrigger>
+                        <ContextMenu.Portal>
+                            <ContextMenu.SubContent className="max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto overscroll-contain">
+                                {TAG_PALETTE.map((color, i) => (
+                                    <ContextMenu.Item
+                                        key={color}
+                                        className="text-[13px] capitalize"
+                                        onSelect={() => updateTag.mutate({ id: tag.id, color })}
+                                    >
+                                        <span
+                                            aria-hidden="true"
+                                            className="size-2.5 shrink-0 rounded-full"
+                                            style={{ backgroundColor: resolveTagColor(color) }}
+                                        />
+                                        <span className="flex-1">{TAG_COLOR_NAMES[i].replace("-", " ")}</span>
+                                        {(tag.color || "default") === color ? (
+                                            <Check size={13} className="text-accent-primary" aria-hidden="true" />
+                                        ) : null}
+                                    </ContextMenu.Item>
+                                ))}
+                            </ContextMenu.SubContent>
+                        </ContextMenu.Portal>
+                    </ContextMenu.Sub>
+                    {reorder ? (
+                        <>
                             <ContextMenu.Item
-                                key={color}
-                                className="text-[13px] capitalize"
-                                onSelect={() => updateTag.mutate({ id: tag.id, color })}
+                                className="text-[13px]"
+                                disabled={reorder.first}
+                                onSelect={() => reorder.onMove(-1)}
                             >
-                                <span
-                                    aria-hidden="true"
-                                    className="size-2.5 shrink-0 rounded-full"
-                                    style={{ backgroundColor: resolveTagColor(color) }}
-                                />
-                                <span className="flex-1">{TAG_COLOR_NAMES[i].replace("-", " ")}</span>
-                                {(tag.color || "default") === color ? <Check size={13} className="text-accent-primary" aria-hidden="true" /> : null}
+                                <ArrowLeft size={13} aria-hidden="true" />
+                                Move earlier
                             </ContextMenu.Item>
-                        ))}
-                    </ContextMenu.SubContent>
-                    </ContextMenu.Portal>
-                </ContextMenu.Sub>
-                {reorder ? (
-                    <>
-                        <ContextMenu.Item className="text-[13px]" disabled={reorder.first} onSelect={() => reorder.onMove(-1)}>
-                            <ArrowLeft size={13} aria-hidden="true" />
-                            Move earlier
-                        </ContextMenu.Item>
-                        <ContextMenu.Item className="text-[13px]" disabled={reorder.last} onSelect={() => reorder.onMove(1)}>
-                            <ArrowRight size={13} aria-hidden="true" />
-                            Move later
-                        </ContextMenu.Item>
-                    </>
-                ) : null}
-                <ContextMenu.Separator />
-                <ContextMenu.Item
-                    variant="danger"
-                    className="text-[13px]"
-                    onSelect={() => deleteTag.mutate({ id: tag.id, name: tag.name })}
-                >
-                    <Trash2 size={13} aria-hidden="true" />
-                    Delete tag
-                </ContextMenu.Item>
-            </ContextMenu.Content>
-        </ContextMenu.Root>
+                            <ContextMenu.Item
+                                className="text-[13px]"
+                                disabled={reorder.last}
+                                onSelect={() => reorder.onMove(1)}
+                            >
+                                <ArrowRight size={13} aria-hidden="true" />
+                                Move later
+                            </ContextMenu.Item>
+                        </>
+                    ) : null}
+                    <ContextMenu.Separator />
+                    <ContextMenu.Item
+                        variant="danger"
+                        className="text-[13px]"
+                        onSelect={() => deleteTag.mutate({ id: tag.id, name: tag.name })}
+                    >
+                        <Trash2 size={13} aria-hidden="true" />
+                        Delete tag
+                    </ContextMenu.Item>
+                </ContextMenu.Content>
+            </ContextMenu.Root>
         </span>
     );
 }

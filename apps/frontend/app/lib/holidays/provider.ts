@@ -1,4 +1,4 @@
-import type {  HolidaySubdivisionOption } from "@cadence/contracts/proxy";
+import type { HolidaySubdivisionOption } from "@cadence/contracts/proxy";
 import { normalizeCountryCode } from "./location-resolver";
 import { apiClient } from "../api/client";
 import { unwrapResponse } from "../api/helpers";
@@ -109,7 +109,9 @@ export async function fetchHolidaySubdivisions(
 
     try {
         const subdivisions = await unwrapResponse(
-            await holidaysApi.subdivisions.$get({ query: { countryCode: normalizedCountryCode, year: String(year), locale } }),
+            await holidaysApi.subdivisions.$get({
+                query: { countryCode: normalizedCountryCode, year: String(year), locale },
+            }),
         );
         return mergeSubdivisionOptions(staticSubdivisions, subdivisions);
     } catch {
@@ -133,6 +135,12 @@ export async function fetchHolidays({
     const normalizedCountryCode = normalizeCountryCode(countryCode);
     if (!normalizedCountryCode) return [];
 
-    const query = { countryCode: normalizedCountryCode, start, end, locale, subdivisionCode: subdivisionCode?.trim() || undefined };
+    const query = {
+        countryCode: normalizedCountryCode,
+        start,
+        end,
+        locale,
+        subdivisionCode: subdivisionCode?.trim() || undefined,
+    };
     return unwrapResponse(await holidaysApi.$get({ query }));
 }

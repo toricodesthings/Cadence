@@ -23,5 +23,7 @@ export const createHabitSchema = insertHabitSchema
     .extend({
         recurrenceRule: z.string().min(1, "Recurrence is required").max(500),
         // Product rule: routines use the list palette (or the default tint).
-        colorAccent: z.string().refine((value) => ROUTINE_SWATCHES.some((option) => option.value === value), "Pick one of the colours"),
+        colorAccent: z
+            .string()
+            .refine((value) => ROUTINE_SWATCHES.some((option) => option.value === value), "Pick one of the colours"),
     });

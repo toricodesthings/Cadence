@@ -55,7 +55,8 @@ function fieldsToObject(raw: unknown): Record<string, string> | null {
     if (Array.isArray(raw)) {
         const out: Record<string, string> = {};
         for (let i = 0; i + 1 < raw.length; i += 2) {
-            if (typeof raw[i] === "string" && typeof raw[i + 1] === "string") out[raw[i] as string] = raw[i + 1] as string;
+            if (typeof raw[i] === "string" && typeof raw[i + 1] === "string")
+                out[raw[i] as string] = raw[i + 1] as string;
         }
         return Object.keys(out).length ? out : null;
     }
@@ -80,12 +81,7 @@ function toStreamEntries(range: unknown): Array<[string, unknown]> {
 // ── Producer side ─────────────────────────────────────────────────────
 
 /** Open the log: seed meta + state=active and arm the active-window TTLs. ONE pipeline. */
-export async function openStream(
-    redis: Redis,
-    userKey: string,
-    sid: string,
-    meta: StreamMeta,
-): Promise<void> {
+export async function openStream(redis: Redis, userKey: string, sid: string, meta: StreamMeta): Promise<void> {
     const k = keys(userKey, sid);
     await redis
         .pipeline()
@@ -116,9 +112,14 @@ export async function flushChunks(
     const k = keys(userKey, sid);
     const res = await redis
         .pipeline()
-        .xadd(k.chunks, "*", { [FRAME_FIELD]: blob }, {
-            trim: { type: "MAXLEN", threshold: STREAM_MAXLEN, comparison: "~" },
-        })
+        .xadd(
+            k.chunks,
+            "*",
+            { [FRAME_FIELD]: blob },
+            {
+                trim: { type: "MAXLEN", threshold: STREAM_MAXLEN, comparison: "~" },
+            },
+        )
         .expire(k.chunks, CHUNKS_TTL_S)
         .expire(k.state, CHUNKS_TTL_S)
         .get<string | null>(k.abort)
@@ -134,12 +135,7 @@ export async function flushChunks(
  * self-evicts the turn ~60s after completion (§15.2) — just enough for a client
  * mid-resume to drain the final frames. Drops the abort flag. ONE pipeline.
  */
-export async function closeStream(
-    redis: Redis,
-    userKey: string,
-    sid: string,
-    state: StreamState,
-): Promise<void> {
+export async function closeStream(redis: Redis, userKey: string, sid: string, state: StreamState): Promise<void> {
     const k = keys(userKey, sid);
     await redis
         .pipeline()
@@ -160,19 +156,10 @@ export type ReadResult = { frames: { id: string; frame: string }[]; state: Strea
  * pipeline (§15.3). `lastId === "-"` reads from the start (full replay); the
  * exclusive `(lastId` form thereafter never re-emits a seen frame.
  */
-export async function readSince(
-    redis: Redis,
-    userKey: string,
-    sid: string,
-    lastId: string,
-): Promise<ReadResult> {
+export async function readSince(redis: Redis, userKey: string, sid: string, lastId: string): Promise<ReadResult> {
     const k = keys(userKey, sid);
     const start = lastId === "-" ? "-" : `(${lastId}`;
-    const res = await redis
-        .pipeline()
-        .xrange(k.chunks, start, "+", 500)
-        .get<string | null>(k.state)
-        .exec();
+    const res = await redis.pipeline().xrange(k.chunks, start, "+", 500).get<string | null>(k.state).exec();
 
     const state = (res[1] as StreamState | null) ?? null;
 

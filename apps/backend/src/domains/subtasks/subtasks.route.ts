@@ -6,7 +6,13 @@ import { getIdempotencyKey, createOnce } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
 import { withCallerRls } from "../../platform/caller-rls";
 import { subtasks } from "../../db/schema";
-import { insertSubtaskSchema, bulkSubtasksSchema, subtasksByTaskQuerySchema, updateSubtaskSchema, reorderSubtaskSchema } from "@cadence/contracts/subtask";
+import {
+    insertSubtaskSchema,
+    bulkSubtasksSchema,
+    subtasksByTaskQuerySchema,
+    updateSubtaskSchema,
+    reorderSubtaskSchema,
+} from "@cadence/contracts/subtask";
 import { uuidParamSchema, taskIdParamSchema } from "@cadence/contracts/common";
 import type { Context } from "hono";
 import type { Env } from "../../types/env";
@@ -23,11 +29,13 @@ async function subtasksByTask(c: SubtaskContext, taskIds: string[]) {
     c.header("Cache-Control", "private, no-store");
     if (uniqueTaskIds.length === 0) return c.json({ data: {} as Record<string, (typeof subtasks.$inferSelect)[]> });
 
-    const rows = await withRls(getDbClient(c.env), userId, (tx) => tx
-        .select()
-        .from(subtasks)
-        .where(and(eq(subtasks.userId, userId), inArray(subtasks.taskId, uniqueTaskIds)))
-        .orderBy(asc(subtasks.taskId), asc(subtasks.orderIndex)));
+    const rows = await withRls(getDbClient(c.env), userId, (tx) =>
+        tx
+            .select()
+            .from(subtasks)
+            .where(and(eq(subtasks.userId, userId), inArray(subtasks.taskId, uniqueTaskIds)))
+            .orderBy(asc(subtasks.taskId), asc(subtasks.orderIndex)),
+    );
 
     const data: Record<string, typeof rows> = Object.fromEntries(uniqueTaskIds.map((taskId) => [taskId, []]));
     for (const row of rows) data[row.taskId]?.push(row);
@@ -35,7 +43,11 @@ async function subtasksByTask(c: SubtaskContext, taskIds: string[]) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function updateSubtask(c: Context<{ Bindings: Env; Variables: AuthVariables }, any, any>, id: string, values: Partial<typeof subtasks.$inferInsert>) {
+async function updateSubtask(
+    c: Context<{ Bindings: Env; Variables: AuthVariables }, any, any>,
+    id: string,
+    values: Partial<typeof subtasks.$inferInsert>,
+) {
     const updated = await withCallerRls(c, async (tx, userId) => {
         const [row] = await tx
             .update(subtasks)
@@ -50,37 +62,60 @@ async function updateSubtask(c: Context<{ Bindings: Env; Variables: AuthVariable
 }
 
 export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    .post("/tasks/:taskId/subtasks", apiValidator("param", taskIdParamSchema), apiValidator("json", insertSubtaskSchema), async (c) => {
-        const { taskId } = c.req.valid("param");
-        const body = c.req.valid("json");
-        const idempotencyKey = getIdempotencyKey(c);
+    .post(
+        "/tasks/:taskId/subtasks",
+        apiValidator("param", taskIdParamSchema),
+        apiValidator("json", insertSubtaskSchema),
+        async (c) => {
+            const { taskId } = c.req.valid("param");
+            const body = c.req.valid("json");
+            const idempotencyKey = getIdempotencyKey(c);
 
-        const item = await withCallerRls(c, async (tx, userId) => {
-            await assertTaskOwnership(tx, userId, taskId);
+            const item = await withCallerRls(c, async (tx, userId) => {
+                await assertTaskOwnership(tx, userId, taskId);
 
-            return createOnce(
-                tx,
-                userId,
-                idempotencyKey,
-                (id) => tx.select().from(subtasks).where(and(eq(subtasks.id, id), eq(subtasks.userId, userId))),
-                () => tx.insert(subtasks).values({ id: body.id, taskId, userId, title: body.title, orderIndex: body.orderIndex }).returning(),
-            );
-        });
+                return createOnce(
+                    tx,
+                    userId,
+                    idempotencyKey,
+                    (id) =>
+                        tx
+                            .select()
+                            .from(subtasks)
+                            .where(and(eq(subtasks.id, id), eq(subtasks.userId, userId))),
+                    () =>
+                        tx
+                            .insert(subtasks)
+                            .values({ id: body.id, taskId, userId, title: body.title, orderIndex: body.orderIndex })
+                            .returning(),
+                );
+            });
 
-        return c.json({ data: item }, 201);
-    })
-    .patch("/subtasks/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateSubtaskSchema), async (c) => {
-        const { id } = c.req.valid("param");
-        const body = c.req.valid("json");
+            return c.json({ data: item }, 201);
+        },
+    )
+    .patch(
+        "/subtasks/:id",
+        apiValidator("param", uuidParamSchema),
+        apiValidator("json", updateSubtaskSchema),
+        async (c) => {
+            const { id } = c.req.valid("param");
+            const body = c.req.valid("json");
 
-        return updateSubtask(c, id, body);
-    })
-    .patch("/subtasks/:id/reorder", apiValidator("param", uuidParamSchema), apiValidator("json", reorderSubtaskSchema), async (c) => {
-        const { id } = c.req.valid("param");
-        const { orderIndex } = c.req.valid("json");
+            return updateSubtask(c, id, body);
+        },
+    )
+    .patch(
+        "/subtasks/:id/reorder",
+        apiValidator("param", uuidParamSchema),
+        apiValidator("json", reorderSubtaskSchema),
+        async (c) => {
+            const { id } = c.req.valid("param");
+            const { orderIndex } = c.req.valid("json");
 
-        return updateSubtask(c, id, { orderIndex });
-    })
+            return updateSubtask(c, id, { orderIndex });
+        },
+    )
     .get("/tasks/:taskId/subtasks", apiValidator("param", taskIdParamSchema), async (c) => {
         const { taskId } = c.req.valid("param");
 
@@ -97,9 +132,13 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         c.header("Cache-Control", "private, no-store");
         return c.json({ data: items });
     })
-    .get("/subtasks", apiValidator("query", subtasksByTaskQuerySchema), (c) => subtasksByTask(c, c.req.valid("query").taskIds))
+    .get("/subtasks", apiValidator("query", subtasksByTaskQuerySchema), (c) =>
+        subtasksByTask(c, c.req.valid("query").taskIds),
+    )
     // Desktop builds bundle the frontend, so ones released before the GET still call this.
-    .post("/subtasks/bulk", apiValidator("json", bulkSubtasksSchema), (c) => subtasksByTask(c, c.req.valid("json").taskIds))
+    .post("/subtasks/bulk", apiValidator("json", bulkSubtasksSchema), (c) =>
+        subtasksByTask(c, c.req.valid("json").taskIds),
+    )
     .delete("/subtasks/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
 

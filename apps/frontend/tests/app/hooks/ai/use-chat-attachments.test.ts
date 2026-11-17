@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useChatAttachments } from "../../../../app/hooks/ai/use-chat-attachments";
 
 const mocks = vi.hoisted(() => ({
-    upload: vi.fn(), discard: vi.fn(), compress: vi.fn(), cache: vi.fn(),
+    upload: vi.fn(),
+    discard: vi.fn(),
+    compress: vi.fn(),
+    cache: vi.fn(),
 }));
 vi.mock("../../../../app/hooks/auth/use-api-client", () => ({
     useApiClient: () => ({ api: { ai: { images: { $post: mocks.upload, ":id": { $delete: mocks.discard } } } } }),
@@ -17,10 +20,14 @@ const uploaded = { id: "image-1", reused: false, images: { used: 1 } };
 
 function setup(perMessage = 3) {
     const onNotice = vi.fn();
-    const hook = renderHook(() => useChatAttachments({
-        conversationId: "conv-1", imageAllowance: { left: 10, blocked: false, label: "Attach an image" },
-        perMessage, onNotice,
-    }));
+    const hook = renderHook(() =>
+        useChatAttachments({
+            conversationId: "conv-1",
+            imageAllowance: { left: 10, blocked: false, label: "Attach an image" },
+            perMessage,
+            onNotice,
+        }),
+    );
     return { ...hook, onNotice };
 }
 
@@ -49,7 +56,12 @@ describe("chat attachment ownership", () => {
 
     it("discards a newly uploaded image if its attachment was removed during upload", async () => {
         let finish!: (data: typeof uploaded) => void;
-        mocks.upload.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+        mocks.upload.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    finish = resolve;
+                }),
+        );
         const { result } = setup();
         act(() => result.current.addImages([file()]));
         await waitFor(() => expect(mocks.upload).toHaveBeenCalled());
@@ -61,7 +73,12 @@ describe("chat attachment ownership", () => {
 
     it("does not delete reused server images when a pending attachment is removed", async () => {
         let finish!: (data: typeof uploaded) => void;
-        mocks.upload.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+        mocks.upload.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    finish = resolve;
+                }),
+        );
         const { result } = setup();
         act(() => result.current.addImages([file()]));
         await waitFor(() => expect(mocks.upload).toHaveBeenCalled());

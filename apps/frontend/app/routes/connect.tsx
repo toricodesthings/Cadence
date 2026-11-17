@@ -17,7 +17,12 @@ import { MCP_SCOPE_COPY } from "../lib/constants/mcp";
 const SUCCESS_HOLD_MS = 1500;
 
 /** Where the consent page is: waiting for the account or request, a dead link, done, or asking. */
-function connectStage(signedIn: boolean, request: string | null, view: ReturnType<typeof useConnectRequest>, approved: boolean) {
+function connectStage(
+    signedIn: boolean,
+    request: string | null,
+    view: ReturnType<typeof useConnectRequest>,
+    approved: boolean,
+) {
     if (!signedIn || (request && view.isPending)) return "loading";
     if (!request || view.isError || !view.data) return "expired";
     return approved ? "done" : "ask";
@@ -133,9 +138,14 @@ function ConnectAsk({ client, email, chosen, setScopes, leaving, failed, respond
                     Allow <span className="text-accent-primary">{client.clientName}</span> to use your Cadence?
                 </h1>
                 <p className="mt-2 text-sm leading-6 text-twilight-text-soft text-pretty">
-                    {client.publisher
-                        ? <>Published by <strong className="font-medium text-twilight-text">{client.publisher}</strong>. </>
-                        : "This app named itself, so its name isn't verified. "}
+                    {client.publisher ? (
+                        <>
+                            Published by <strong className="font-medium text-twilight-text">{client.publisher}</strong>
+                            .{" "}
+                        </>
+                    ) : (
+                        "This app named itself, so its name isn't verified. "
+                    )}
                     Access goes to <strong className="font-medium text-twilight-text">{client.redirectHost}</strong>.
                 </p>
                 {email && (
@@ -163,14 +173,19 @@ function ConnectAsk({ client, email, chosen, setScopes, leaving, failed, respond
                     return (
                         <label
                             key={scope}
-                            className={`flex cursor-pointer items-center justify-between gap-4 rounded-2xl border py-1.5 pl-4 pr-2 transition-colors duration-300 ${on
-                                ? "border-accent-primary/25 bg-accent-primary/[0.06]"
-                                : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]"
-                                }`}
+                            className={`flex cursor-pointer items-center justify-between gap-4 rounded-2xl border py-1.5 pl-4 pr-2 transition-colors duration-300 ${
+                                on
+                                    ? "border-accent-primary/25 bg-accent-primary/[0.06]"
+                                    : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]"
+                            }`}
                         >
                             <span>
-                                <span className="block text-sm font-medium text-twilight-text">{MCP_SCOPE_COPY[scope].title}</span>
-                                <span className="block text-xs leading-5 text-twilight-text-soft">{MCP_SCOPE_COPY[scope].description}</span>
+                                <span className="block text-sm font-medium text-twilight-text">
+                                    {MCP_SCOPE_COPY[scope].title}
+                                </span>
+                                <span className="block text-xs leading-5 text-twilight-text-soft">
+                                    {MCP_SCOPE_COPY[scope].description}
+                                </span>
                             </span>
                             <Switch
                                 checked={on}
@@ -190,19 +205,34 @@ function ConnectAsk({ client, email, chosen, setScopes, leaving, failed, respond
             <motion.p variants={rise} className="flex gap-2.5 text-xs leading-5 text-twilight-text-muted">
                 <ShieldCheck size={14} className="mt-px shrink-0 text-twilight-text-soft" aria-hidden />
                 <span>
-                    {"Your assistant asks you before each change. It can't change your settings. Disconnect anytime in Settings › Integrations; that stops new access, not what it already read."}
+                    {
+                        "Your assistant asks you before each change. It can't change your settings. Disconnect anytime in Settings › Integrations; that stops new access, not what it already read."
+                    }
                 </span>
             </motion.p>
 
             {failed && (
-                <p role="alert" className="text-center text-sm text-red-300">{"That didn't go through. Try again."}</p>
+                <p role="alert" className="text-center text-sm text-red-300">
+                    {"That didn't go through. Try again."}
+                </p>
             )}
 
             <motion.div variants={rise} className="flex gap-3">
-                <Button variant="secondary" size="md" className="flex-1" disabled={leaving} onClick={() => respond(false)}>
+                <Button
+                    variant="secondary"
+                    size="md"
+                    className="flex-1"
+                    disabled={leaving}
+                    onClick={() => respond(false)}
+                >
                     Deny
                 </Button>
-                <Button size="md" className="flex-1" disabled={leaving || chosen.size === 0} onClick={() => respond(true)}>
+                <Button
+                    size="md"
+                    className="flex-1"
+                    disabled={leaving || chosen.size === 0}
+                    onClick={() => respond(true)}
+                >
                     {leaving ? <LoaderCircle size={16} className="animate-spin" aria-label="Connecting" /> : "Allow"}
                 </Button>
             </motion.div>
@@ -215,22 +245,43 @@ function Connected({ clientName }: { clientName: string }) {
     return (
         <div className="flex flex-col items-center py-4 text-center" role="status">
             <motion.div
-                variants={{ hidden: { scale: 0.85, opacity: 0 }, show: { scale: 1, opacity: 1, transition: { duration: 0.45, ease: EASE } } }}
+                variants={{
+                    hidden: { scale: 0.85, opacity: 0 },
+                    show: { scale: 1, opacity: 1, transition: { duration: 0.45, ease: EASE } },
+                }}
                 className="grid h-20 w-20 place-items-center rounded-full bg-accent-primary/10 text-accent-primary shadow-[0_0_48px_color-mix(in_srgb,var(--accent-primary)_28%,transparent)]"
             >
                 <svg viewBox="0 0 52 52" className="h-20 w-20" fill="none" aria-hidden>
                     <motion.circle
-                        cx="26" cy="26" r="24" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                        cx="26"
+                        cy="26"
+                        r="24"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
                         style={{ rotate: -90, transformOrigin: "center" }}
-                        variants={{ hidden: { pathLength: 0 }, show: { pathLength: 1, transition: { duration: 0.6, ease: EASE } } }}
+                        variants={{
+                            hidden: { pathLength: 0 },
+                            show: { pathLength: 1, transition: { duration: 0.6, ease: EASE } },
+                        }}
                     />
                     <motion.path
-                        d="M16 27l7 7 13-15" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-                        variants={{ hidden: { pathLength: 0, opacity: 0 }, show: { pathLength: 1, opacity: 1, transition: { delay: 0.45, duration: 0.4, ease: EASE } } }}
+                        d="M16 27l7 7 13-15"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        variants={{
+                            hidden: { pathLength: 0, opacity: 0 },
+                            show: { pathLength: 1, opacity: 1, transition: { delay: 0.45, duration: 0.4, ease: EASE } },
+                        }}
                     />
                 </svg>
             </motion.div>
-            <motion.h1 variants={rise} className="mt-5 font-display text-2xl font-semibold tracking-tight text-twilight-text">
+            <motion.h1
+                variants={rise}
+                className="mt-5 font-display text-2xl font-semibold tracking-tight text-twilight-text"
+            >
                 Connected
             </motion.h1>
             <motion.p variants={rise} className="mt-1.5 text-sm text-twilight-text-soft">

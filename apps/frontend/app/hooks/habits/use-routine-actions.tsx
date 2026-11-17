@@ -25,6 +25,9 @@ export function useRoutineActions(habit: Habit, { onGone }: { onGone?: () => voi
             onGone?.(); // it leaves the list being shown
         },
         /** Gone at once, with an Undo toast; the delete is only sent once that window closes. */
-        requestDelete: () => { deleteHabit({ id: habit.id, name: habit.title }); onGone?.(); },
+        requestDelete: () => {
+            deleteHabit({ id: habit.id, name: habit.title });
+            onGone?.();
+        },
     };
 }

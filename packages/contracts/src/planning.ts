@@ -50,13 +50,15 @@ export type StatedWhenInput = z.infer<typeof statedWhenSchema>;
  * memory is on. Newest first.
  */
 export const planningEvidenceSchema = z.object({
-    records: z.array(z.object({
-        chosen: timeOfDaySchema,
-        feasible: z.array(timeOfDaySchema),
-        suggested: z.boolean(),
-        saidOn: localDateSchema,
-        projectId: z.uuid().nullable(),
-    })),
+    records: z.array(
+        z.object({
+            chosen: timeOfDaySchema,
+            feasible: z.array(timeOfDaySchema),
+            suggested: z.boolean(),
+            saidOn: localDateSchema,
+            projectId: z.uuid().nullable(),
+        }),
+    ),
     stated: z.array(statedWhenSchema),
 });
 export type PlanningEvidence = z.infer<typeof planningEvidenceSchema>;
@@ -79,7 +81,11 @@ export const suggestedStepsSchema = z.object({ steps: z.array(z.string().max(STE
 export const RESET_SUGGESTION_MAX = 30;
 
 /** What the decision model may guess for a reset row: a bucket, never a date (the device turns "this week" into a day). */
-export const RESET_DISPOSITIONS = { captures: ["today", "this_week", "next_week", "later", "none"], unscheduled: ["today", "this_week", "next_week", "later", "none"], waiting: ["activate", "keep_waiting", "none"] } as const;
+export const RESET_DISPOSITIONS = {
+    captures: ["today", "this_week", "next_week", "later", "none"],
+    unscheduled: ["today", "this_week", "next_week", "later", "none"],
+    waiting: ["activate", "keep_waiting", "none"],
+} as const;
 export const resetDispositionSchema = z.enum(["today", "this_week", "next_week", "later", "activate", "keep_waiting"]);
 export type ResetDisposition = z.infer<typeof resetDispositionSchema>;
 

@@ -63,10 +63,17 @@ describe("uiMessageToRow", () => {
 
     it("keeps only the person's own words for search: none from an assistant, none from an image alone", () => {
         const ctx = { conversationId: "c", userId: "u", orderIndex: 1, status: "complete" } as const;
-        const parts = [{ type: "text", text: "the book" }, { type: "file", url: "cadence-image:x" }, { type: "text", text: "was Piranesi" }];
+        const parts = [
+            { type: "text", text: "the book" },
+            { type: "file", url: "cadence-image:x" },
+            { type: "text", text: "was Piranesi" },
+        ];
         expect(uiMessageToRow({ id: "a", role: "user", parts }, ctx).searchText).toBe("the book was Piranesi");
         expect(uiMessageToRow({ id: "b", role: "assistant", parts }, ctx).searchText).toBeNull();
-        expect(uiMessageToRow({ id: "c", role: "user", parts: [{ type: "file", url: "cadence-image:x" }] }, ctx).searchText).toBeNull();
+        expect(
+            uiMessageToRow({ id: "c", role: "user", parts: [{ type: "file", url: "cadence-image:x" }] }, ctx)
+                .searchText,
+        ).toBeNull();
     });
 
     it("coerces an unknown role to 'user'", () => {
@@ -79,11 +86,13 @@ describe("uiMessageToRow", () => {
     });
 });
 
-
 describe("dropForeignReasoning", () => {
     // Signed, so dropUnsignedReasoning keeps it — only the model switch removes it.
     const meta = () => ({
-        openrouter: { reasoning_details: [{ type: "reasoning.text", format: "google-gemini-v1", text: "t", signature: "sig" }], other: 1 },
+        openrouter: {
+            reasoning_details: [{ type: "reasoning.text", format: "google-gemini-v1", text: "t", signature: "sig" }],
+            other: 1,
+        },
     });
     const msg = (model: string | undefined) => ({
         role: "assistant",
@@ -140,12 +149,28 @@ describe("dropUnsignedReasoning", () => {
 });
 
 describe("compactOldReads", () => {
-    const read = { type: "tool-get_tasks", state: "output-available", output: { tasks: [{ id: "a", title: "A" }, { id: "b", title: "B" }], count: 2 } };
+    const read = {
+        type: "tool-get_tasks",
+        state: "output-available",
+        output: {
+            tasks: [
+                { id: "a", title: "A" },
+                { id: "b", title: "B" },
+            ],
+            count: 2,
+        },
+    };
     const proposal = { type: "tool-propose_create_task", state: "input-available", input: { title: "X" } };
-    const turn = (role: string) => ({ role, parts: role === "assistant" ? [read, proposal] : [{ type: "text", text: "hi" }] });
+    const turn = (role: string) => ({
+        role,
+        parts: role === "assistant" ? [read, proposal] : [{ type: "text", text: "hi" }],
+    });
 
     /** `n` user/assistant exchanges, then the new user message. */
-    const thread = (n: number) => [...Array.from({ length: n }, () => [turn("user"), turn("assistant")]).flat(), turn("user")];
+    const thread = (n: number) => [
+        ...Array.from({ length: n }, () => [turn("user"), turn("assistant")]).flat(),
+        turn("user"),
+    ];
 
     it("shrinks older turns' read rows to ids and keeps recent turns whole", () => {
         const messages = thread(COMPACT_EVERY_TURNS + 1);
@@ -165,30 +190,56 @@ describe("compactOldReads", () => {
         expect(new Set(cuts).size).toBe(3);
         cuts.forEach((cut, n) => expect(cut).toBeLessThanOrEqual(Math.max(0, 2 * (n - 1))));
     });
-
 });
 
 describe("turn context", () => {
-    const row = (role: "user" | "assistant", metadata: Record<string, unknown>): StoredMessage =>
-        ({ id: "m", role, parts: [], metadata, status: "complete", orderIndex: 1 });
+    const row = (role: "user" | "assistant", metadata: Record<string, unknown>): StoredMessage => ({
+        id: "m",
+        role,
+        parts: [],
+        metadata,
+        status: "complete",
+        orderIndex: 1,
+    });
 
     it("stays on the server: the client copy drops it, keeping the rest", () => {
         const stored = row("user", { clientMessageId: "c", turnContext: "CTX" });
         expect(toClientMessage(stored).metadata).toEqual({ clientMessageId: "c" });
         expect(stored.metadata.turnContext).toBe("CTX");
     });
-
 });
 
 describe("approval answers", () => {
-    const waiting = { type: "tool-create_tag", toolCallId: "c1", state: "approval-requested", input: { name: "x" }, approval: { id: "ap1", signature: "sig" } };
-    const done = { type: "tool-create_tag", toolCallId: "c0", state: "output-available", input: { name: "y" }, output: { tagId: "t" } };
+    const waiting = {
+        type: "tool-create_tag",
+        toolCallId: "c1",
+        state: "approval-requested",
+        input: { name: "x" },
+        approval: { id: "ap1", signature: "sig" },
+    };
+    const done = {
+        type: "tool-create_tag",
+        toolCallId: "c0",
+        state: "output-available",
+        input: { name: "y" },
+        output: { tagId: "t" },
+    };
     const reply = { id: "a1", role: "assistant" as const, parts: [done, waiting], metadata: {} };
 
     it("answer only a waiting part, keeping the server's approval id and signature", () => {
-        const answered = applyApprovals(reply, [{ id: "ap1", approved: false, reason: "no" }, { id: "c0", approved: true }])!;
+        const answered = applyApprovals(reply, [
+            { id: "ap1", approved: false, reason: "no" },
+            { id: "c0", approved: true },
+        ])!;
 
-        expect(answered.parts).toEqual([done, { ...waiting, state: "approval-responded", approval: { id: "ap1", signature: "sig", approved: false, reason: "no" } }]);
+        expect(answered.parts).toEqual([
+            done,
+            {
+                ...waiting,
+                state: "approval-responded",
+                approval: { id: "ap1", signature: "sig", approved: false, reason: "no" },
+            },
+        ]);
     });
 
     it("are refused when nothing on the reply waits for them", () => {
@@ -197,30 +248,53 @@ describe("approval answers", () => {
 
     it("left unanswered replay as declined, and half-streamed calls are dropped", () => {
         const streaming = { type: "tool-create_tag", toolCallId: "c2", state: "input-streaming", input: {} };
-        const legacy = { type: "tool-propose_create_task", toolCallId: "c3", state: "input-available", input: { title: "X" } };
+        const legacy = {
+            type: "tool-propose_create_task",
+            toolCallId: "c3",
+            state: "input-available",
+            input: { title: "X" },
+        };
         const [settled] = settleUnanswered([{ ...reply, parts: [done, waiting, streaming, legacy] }]);
 
         expect(settled.parts).toEqual([
             done,
-            { ...waiting, state: "output-denied", approval: { id: "ap1", signature: "sig", approved: false, reason: "Not answered" } },
-            { ...legacy, state: "output-denied", approval: { id: "unanswered-c3", approved: false, reason: "Not answered" } },
+            {
+                ...waiting,
+                state: "output-denied",
+                approval: { id: "ap1", signature: "sig", approved: false, reason: "Not answered" },
+            },
+            {
+                ...legacy,
+                state: "output-denied",
+                approval: { id: "unanswered-c3", approved: false, reason: "Not answered" },
+            },
         ]);
     });
 });
 
 describe("keepFinishedWrites", () => {
-    const row = (id: string, role: StoredMessage["role"], status: StoredMessage["status"], parts: unknown[]): StoredMessage =>
-        ({ id, role, status, parts, metadata: {}, orderIndex: 0 });
+    const row = (
+        id: string,
+        role: StoredMessage["role"],
+        status: StoredMessage["status"],
+        parts: unknown[],
+    ): StoredMessage => ({ id, role, status, parts, metadata: {}, orderIndex: 0 });
     const read = { type: "tool-get_projects", toolCallId: "r", state: "output-available", output: {} };
     const write = { type: "tool-update_tasks", toolCallId: "w", state: "output-available", output: { updated: 1 } };
     const user = row("u", "user", "complete", [{ type: "text", text: "heat" }]);
 
     it("keeps a failed reply's finished steps and drops its partial text", () => {
         const failed = row("a", "assistant", "failed", [
-            { type: "step-start" }, read, { type: "step-start" }, write, { type: "text", text: "Half a sen" },
+            { type: "step-start" },
+            read,
+            { type: "step-start" },
+            write,
+            { type: "text", text: "Half a sen" },
         ]);
         expect(keepFinishedWrites([user, failed], "u")).toEqual({
-            id: "a", role: "assistant", metadata: {},
+            id: "a",
+            role: "assistant",
+            metadata: {},
             parts: [{ type: "step-start" }, read, { type: "step-start" }, write],
         });
     });

@@ -61,8 +61,7 @@ export const useAssistantStore = create<AssistantState>()(
             toggleAssistantPanel: () => set((s) => ({ assistantPanelOpen: !s.assistantPanelOpen })),
             setAssistantPanelOpen: (open) => set({ assistantPanelOpen: open }),
             setAssistantPanelWidth: (width) => set({ assistantPanelWidth: width }),
-            startNewConversation: () =>
-                set({ activeConversationId: crypto.randomUUID(), historyOpen: false }),
+            startNewConversation: () => set({ activeConversationId: crypto.randomUUID(), historyOpen: false }),
             setActiveConversation: (id) => set({ activeConversationId: id, historyOpen: false }),
             setHistoryOpen: (open) => set({ historyOpen: open }),
             setMemoryOpen: (open) => set(open ? { memoryOpen: true, assistantPanelOpen: true } : { memoryOpen: false }),
@@ -84,6 +83,6 @@ export const useAssistantStore = create<AssistantState>()(
                 approvalMode: state.approvalMode,
                 replyUnread: state.replyUnread,
             }),
-        }
-    )
+        },
+    ),
 );

@@ -2,7 +2,19 @@ import type { Task } from "@cadence/contracts/task";
 import type { Habit, TimeMarks } from "@cadence/contracts/habit";
 import type { PersonalEvent } from "@cadence/contracts/settings";
 import { routineTimesOn, timeMarksOn } from "./repeats";
-import { addDays, atLocal, daysBetween, dayOf, expandSeries, todayIn, wallTimeOf, type Instant, type LocalDate, type WallTime, type Zone } from "./time";
+import {
+    addDays,
+    atLocal,
+    daysBetween,
+    dayOf,
+    expandSeries,
+    todayIn,
+    wallTimeOf,
+    type Instant,
+    type LocalDate,
+    type WallTime,
+    type Zone,
+} from "./time";
 
 export type ReminderKind =
     | "task-reminder"
@@ -36,8 +48,25 @@ export interface ReminderFormat {
     date: (day: LocalDate) => string;
 }
 
-export type ReminderTask = Pick<Task, "id" | "title" | "state" | "projectId" | "dueDate" | "reminderAt" | "reminderSilenced" | "waitingOn" | "waitingReminder"> & Partial<Pick<Task, "scheduledStart" | "scheduledEnd" | "recurrenceRule" | "interactionMode">> & { createdAt?: Instant };
-export type ReminderHabit = Pick<Habit, "id" | "title" | "archived" | "reminderEnabled" | "targetTime" | "targetTimes"> & { times?: string[] | null; logs?: Array<{ targetDate: LocalDate; status: string; timeMarks?: TimeMarks | null }> };
+export type ReminderTask = Pick<
+    Task,
+    | "id"
+    | "title"
+    | "state"
+    | "projectId"
+    | "dueDate"
+    | "reminderAt"
+    | "reminderSilenced"
+    | "waitingOn"
+    | "waitingReminder"
+> &
+    Partial<Pick<Task, "scheduledStart" | "scheduledEnd" | "recurrenceRule" | "interactionMode">> & {
+        createdAt?: Instant;
+    };
+export type ReminderHabit = Pick<
+    Habit,
+    "id" | "title" | "archived" | "reminderEnabled" | "targetTime" | "targetTimes"
+> & { times?: string[] | null; logs?: Array<{ targetDate: LocalDate; status: string; timeMarks?: TimeMarks | null }> };
 
 export interface ReminderPrefs {
     taskReminders: boolean;
@@ -57,9 +86,18 @@ export interface ReminderPrefs {
 
 /** Must equal the settings defaults (a test holds them together). */
 export const DEFAULT_REMINDER_PREFS: ReminderPrefs = {
-    taskReminders: true, habitReminders: true, dueDateAlerts: true, followUps: true, scheduleAlerts: true,
-    habitReminderLeadMinutes: 15, blockLeadMinutes: 10, fixedLeadMinutes: 30,
-    dueHeadsUpDays: 1, overdueDays: 3, eventDaysBefore: [0], morningTime: "09:00",
+    taskReminders: true,
+    habitReminders: true,
+    dueDateAlerts: true,
+    followUps: true,
+    scheduleAlerts: true,
+    habitReminderLeadMinutes: 15,
+    blockLeadMinutes: 10,
+    fixedLeadMinutes: 30,
+    dueHeadsUpDays: 1,
+    overdueDays: 3,
+    eventDaysBefore: [0],
+    morningTime: "09:00",
 };
 /** An OS alert still goes out this long after it was due (deadline alerts: until the day ends). */
 export const LATE_ALERT_MS = 15 * 60_000;
@@ -91,7 +129,13 @@ export function isPaused(now: Date, pausedUntil: Instant | null | undefined): bo
 }
 
 /** Handles midnight crossing (e.g. 22:00 → 07:00). */
-export function isInQuietHours(now: Date, zone: Zone, enabled: boolean, start: WallTime | null, end: WallTime | null): boolean {
+export function isInQuietHours(
+    now: Date,
+    zone: Zone,
+    enabled: boolean,
+    start: WallTime | null,
+    end: WallTime | null,
+): boolean {
     if (!enabled || !start || !end) return false;
     return inWindow(minutesOf(wallTimeOf(now, zone)), minutesOf(start), minutesOf(end));
 }
@@ -109,7 +153,12 @@ function inWindow(current: number, from: number, to: number): boolean {
 }
 
 /** Whether the user's reminder switches allow this kind at all. */
-export function reminderKindEnabled(kind: ReminderKind, prefs: Partial<Pick<ReminderPrefs, "taskReminders" | "habitReminders" | "dueDateAlerts" | "followUps" | "scheduleAlerts">>): boolean {
+export function reminderKindEnabled(
+    kind: ReminderKind,
+    prefs: Partial<
+        Pick<ReminderPrefs, "taskReminders" | "habitReminders" | "dueDateAlerts" | "followUps" | "scheduleAlerts">
+    >,
+): boolean {
     const on = { ...DEFAULT_REMINDER_PREFS, ...prefs };
     if (kind === "task-reminder") return on.taskReminders;
     if (kind === "waiting-followup") return on.taskReminders && on.followUps;
@@ -163,9 +212,10 @@ function waitingFollowUp(task: ReminderTask, { now, zone, fmt, today }: DeriveCo
         id: `waiting-followup::${task.id}::${task.waitingReminder}`,
         kind: "waiting-followup",
         title: task.title,
-        body: diffMs > 0
-            ? `Follow up with ${task.waitingOn} at ${fmt.time(task.waitingReminder)}`
-            : `Time to follow up with ${task.waitingOn}`,
+        body:
+            diffMs > 0
+                ? `Follow up with ${task.waitingOn} at ${fmt.time(task.waitingReminder)}`
+                : `Time to follow up with ${task.waitingOn}`,
         triggerAt: task.waitingReminder,
         alertAt: task.waitingReminder,
         relevantUntil: endOfDay(task.waitingReminder, zone),
@@ -262,7 +312,9 @@ function blockReminders(task: ReminderTask, ctx: DeriveContext): Reminder[] {
 
 function taskReminders(task: ReminderTask, ctx: DeriveContext): Reminder[] {
     if (task.state === "COMPLETE" || task.state === "ARCHIVED") return [];
-    const own = [explicitReminder(task, ctx), waitingFollowUp(task, ctx)].filter((item): item is Reminder => item !== null);
+    const own = [explicitReminder(task, ctx), waitingFollowUp(task, ctx)].filter(
+        (item): item is Reminder => item !== null,
+    );
     return [...own, ...deadlineReminders(task, ctx), ...blockReminders(task, ctx)];
 }
 
@@ -312,7 +364,9 @@ function eventReminders(event: PersonalEvent, { zone, prefs, today }: DeriveCont
     const year = Number(today.slice(0, 4));
     const items: Reminder[] = [];
     for (const ahead of prefs.eventDaysBefore) {
-        const day = [year, year + 1].map((y) => personalEventDay(event.monthDay, y)).find((d) => daysBetween(today, d) === ahead);
+        const day = [year, year + 1]
+            .map((y) => personalEventDay(event.monthDay, y))
+            .find((d) => daysBetween(today, d) === ahead);
         if (!day) continue;
         const at = atLocal(today, prefs.morningTime, zone);
         const aheadPart = ahead ? `::${ahead}d` : "";
@@ -343,7 +397,13 @@ export function deriveReminders(
     fmt: ReminderFormat,
     given: Partial<ReminderPrefs> = {},
 ): Reminder[] {
-    const ctx: DeriveContext = { now, zone, fmt, prefs: { ...DEFAULT_REMINDER_PREFS, ...given }, today: todayIn(zone, now) };
+    const ctx: DeriveContext = {
+        now,
+        zone,
+        fmt,
+        prefs: { ...DEFAULT_REMINDER_PREFS, ...given },
+        today: todayIn(zone, now),
+    };
     return [
         ...input.tasks.flatMap((task) => taskReminders(task, ctx)),
         ...input.habits.flatMap((habit) => habitReminders(habit, ctx)),
@@ -414,6 +474,7 @@ export function dueAlert(reminder: Reminder, gate: AlertGate): { key: string; at
     if (isLate(reminder, at, deferred, released, gate)) return null;
     // Only a held alert can go stale; a deferral is the person's own choice of time.
     const held = released > Date.parse(at);
-    if (held && !deferred && reminder.relevantUntil && gate.now.getTime() >= Date.parse(reminder.relevantUntil)) return null;
+    if (held && !deferred && reminder.relevantUntil && gate.now.getTime() >= Date.parse(reminder.relevantUntil))
+        return null;
     return { key: deferred ? `${reminder.id}@${deferred}` : reminder.id, at };
 }

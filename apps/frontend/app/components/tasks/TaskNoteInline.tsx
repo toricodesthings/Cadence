@@ -38,7 +38,8 @@ export function TaskNoteInline({ taskId, onOpenRoom }: { taskId: string; onOpenR
     const trackFocus = (next: boolean) => {
         if (next) return setFocused(true);
         requestAnimationFrame(() => {
-            if (!document.activeElement?.closest("[role=toolbar],[role=listbox],[role=menu],[data-note-inline]")) setFocused(false);
+            if (!document.activeElement?.closest("[role=toolbar],[role=listbox],[role=menu],[data-note-inline]"))
+                setFocused(false);
         });
     };
 
@@ -56,13 +57,28 @@ export function TaskNoteInline({ taskId, onOpenRoom }: { taskId: string; onOpenR
         <div className="flex shrink-0 flex-col gap-3">
             {isLoading || !session || !state ? (
                 loadFailed ? (
-                    <p className="text-[15px] text-twilight-text-soft">Couldn’t load this note. <button type="button" onClick={() => session && void session.load()} className="cursor-pointer text-accent-primary underline underline-offset-4">Retry</button></p>
-                ) : <Skeleton className="h-40 w-full rounded-2xl" />
+                    <p className="text-[15px] text-twilight-text-soft">
+                        Couldn’t load this note.{" "}
+                        <button
+                            type="button"
+                            onClick={() => session && void session.load()}
+                            className="cursor-pointer text-accent-primary underline underline-offset-4"
+                        >
+                            Retry
+                        </button>
+                    </p>
+                ) : (
+                    <Skeleton className="h-40 w-full rounded-2xl" />
+                )
             ) : (
                 <>
                     <div className="note-surface relative min-h-[240px] px-1 pb-8" data-note-inline>
                         {source ? (
-                            <NoteSourceEditor value={body} onChange={(t) => session.edit(t, "inline-source")} onSave={() => void session.flush()} />
+                            <NoteSourceEditor
+                                value={body}
+                                onChange={(t) => session.edit(t, "inline-source")}
+                                onSave={() => void session.flush()}
+                            />
                         ) : (
                             <NoteEditor
                                 key={session.branch}
@@ -80,13 +96,20 @@ export function TaskNoteInline({ taskId, onOpenRoom }: { taskId: string; onOpenR
                         <div className="pointer-events-none absolute bottom-1 right-2 flex items-center gap-3 [&_button]:pointer-events-auto">
                             <NoteStatus
                                 status={status}
-                                onAct={(s) => (s === "save-failed"
-                                    ? copyNote(body)
-                                    : s === "review" && task ? (onOpenRoom?.(), openRoom(task.id, task.title)) : void session.flush())}
+                                onAct={(s) =>
+                                    s === "save-failed"
+                                        ? copyNote(body)
+                                        : s === "review" && task
+                                          ? (onOpenRoom?.(), openRoom(task.id, task.title))
+                                          : void session.flush()
+                                }
                             />
                             {/* The counter only surfaces near the limit: no running tally to watch. */}
                             {near && (
-                                <span className="text-[13px] tabular-nums text-accent-primary" aria-label={`${body.length} of ${NOTE_MAX_CHARS} characters used`}>
+                                <span
+                                    className="text-[13px] tabular-nums text-accent-primary"
+                                    aria-label={`${body.length} of ${NOTE_MAX_CHARS} characters used`}
+                                >
                                     {body.length.toLocaleString()} / {NOTE_MAX_CHARS.toLocaleString()}
                                 </span>
                             )}
@@ -109,14 +132,31 @@ export function TaskNoteInline({ taskId, onOpenRoom }: { taskId: string; onOpenR
                     )}
                     <button
                         type="button"
-                        onClick={() => { if (!task) return; onOpenRoom?.(); openRoom(task.id, task.title); }}
+                        onClick={() => {
+                            if (!task) return;
+                            onOpenRoom?.();
+                            openRoom(task.id, task.title);
+                        }}
                         className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                     >
                         <ExternalLink size={14} aria-hidden="true" />
                         Open writing room
                     </button>
-                    {scope && <span className="w-fit rounded-md bg-moonlit/10 px-1.5 py-0.5 text-[11px] font-medium text-moonlit">{scope}</span>}
-                    {task && <NoteConvertSheet open={convertOpen} onClose={() => setConvertOpen(false)} taskId={task.id} taskTitle={task.title} body={body} seriesNote={!!scope} />}
+                    {scope && (
+                        <span className="w-fit rounded-md bg-moonlit/10 px-1.5 py-0.5 text-[11px] font-medium text-moonlit">
+                            {scope}
+                        </span>
+                    )}
+                    {task && (
+                        <NoteConvertSheet
+                            open={convertOpen}
+                            onClose={() => setConvertOpen(false)}
+                            taskId={task.id}
+                            taskTitle={task.title}
+                            body={body}
+                            seriesNote={!!scope}
+                        />
+                    )}
                 </>
             )}
         </div>

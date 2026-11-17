@@ -12,7 +12,10 @@ const randomTagColor = () => TAG_PALETTE[1 + Math.floor(Math.random() * (TAG_PAL
 
 /** Where a new tag goes: after the person's last one. */
 async function nextSortOrder(tx: Tx, userId: string) {
-    const [row] = await tx.select({ last: max(tags.sortOrder) }).from(tags).where(eq(tags.userId, userId));
+    const [row] = await tx
+        .select({ last: max(tags.sortOrder) })
+        .from(tags)
+        .where(eq(tags.userId, userId));
     return (row?.last ?? 0) + 1000;
 }
 
@@ -22,10 +25,22 @@ export async function createTag(tx: Tx, userId: string, body: InsertTag, idempot
         tx,
         userId,
         idempotencyKey,
-        (id) => tx.select().from(tags).where(and(eq(tags.id, id), eq(tags.userId, userId))),
+        (id) =>
+            tx
+                .select()
+                .from(tags)
+                .where(and(eq(tags.id, id), eq(tags.userId, userId))),
         async () => {
             await assertRowRoom(tx, userId, "tags");
-            return tx.insert(tags).values({ ...body, color: body.color ?? randomTagColor(), sortOrder: body.sortOrder ?? await nextSortOrder(tx, userId), userId }).returning();
+            return tx
+                .insert(tags)
+                .values({
+                    ...body,
+                    color: body.color ?? randomTagColor(),
+                    sortOrder: body.sortOrder ?? (await nextSortOrder(tx, userId)),
+                    userId,
+                })
+                .returning();
         },
     );
 }
@@ -36,23 +51,37 @@ export async function createTag(tx: Tx, userId: string, body: InsertTag, idempot
  * another case. Lets one write tag by name without a read first.
  */
 export async function findOrCreateTags(tx: Tx, userId: string, names: string[]) {
-    const wanted = new Map(names.map((name) => name.trim()).filter(Boolean).map((name) => [name.toLowerCase(), name]));
+    const wanted = new Map(
+        names
+            .map((name) => name.trim())
+            .filter(Boolean)
+            .map((name) => [name.toLowerCase(), name]),
+    );
     if (!wanted.size) return [];
     const ids = new Map(
-        (await tx
-            .select({ id: tags.id, name: tags.name })
-            .from(tags)
-            .where(and(eq(tags.userId, userId), inArray(sql`lower(${tags.name})`, [...wanted.keys()]))))
-            .map((tag) => [tag.name.toLowerCase(), tag.id]),
+        (
+            await tx
+                .select({ id: tags.id, name: tags.name })
+                .from(tags)
+                .where(and(eq(tags.userId, userId), inArray(sql`lower(${tags.name})`, [...wanted.keys()])))
+        ).map((tag) => [tag.name.toLowerCase(), tag.id]),
     );
     const missing = [...wanted].filter(([key]) => !ids.has(key));
     if (missing.length) {
         await assertRowRoom(tx, userId, "tags", missing.length);
         const first = await nextSortOrder(tx, userId);
-        const rows = await tx.insert(tags).values(missing.map(([, name], i) => ({ userId, name, color: randomTagColor(), sortOrder: first + i * 1000 }))).returning({ id: tags.id, name: tags.name });
+        const rows = await tx
+            .insert(tags)
+            .values(
+                missing.map(([, name], i) => ({ userId, name, color: randomTagColor(), sortOrder: first + i * 1000 })),
+            )
+            .returning({ id: tags.id, name: tags.name });
         for (const row of rows) ids.set(row.name.toLowerCase(), row.id);
     }
-    return names.map((name) => name.trim()).filter(Boolean).map((name) => ids.get(name.toLowerCase())!);
+    return names
+        .map((name) => name.trim())
+        .filter(Boolean)
+        .map((name) => ids.get(name.toLowerCase())!);
 }
 
 /** Rename, recolour or move a tag. 404 when it isn't the caller's. */

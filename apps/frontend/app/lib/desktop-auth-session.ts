@@ -53,12 +53,7 @@ function isDesktopAuthSessionData(value: unknown): value is DesktopAuthSessionDa
     const user = data.user as Record<string, unknown> | undefined;
     const session = data.session as Record<string, unknown> | undefined;
 
-    return Boolean(
-        user
-        && session
-        && typeof user.id === "string"
-        && user.id.length > 0,
-    );
+    return Boolean(user && session && typeof user.id === "string" && user.id.length > 0);
 }
 
 function isStoredDesktopAuthSession(value: unknown): value is StoredDesktopAuthSession {
@@ -67,9 +62,11 @@ function isStoredDesktopAuthSession(value: unknown): value is StoredDesktopAuthS
     }
 
     const session = value as Record<string, unknown>;
-    return (session.jwt == null || (typeof session.jwt === "string" && session.jwt.length > 0))
-        && typeof session.persistedAt === "number"
-        && isDesktopAuthSessionData(session.data);
+    return (
+        (session.jwt == null || (typeof session.jwt === "string" && session.jwt.length > 0)) &&
+        typeof session.persistedAt === "number" &&
+        isDesktopAuthSessionData(session.data)
+    );
 }
 
 function parseStoredSession(raw: string | null | undefined): StoredDesktopAuthSession | null {
@@ -87,9 +84,11 @@ function emitDesktopAuthSessionChange(session: StoredDesktopAuthSession | null) 
         return;
     }
 
-    window.dispatchEvent(new CustomEvent<StoredDesktopAuthSession | null>(DESKTOP_AUTH_EVENT, {
-        detail: session,
-    }));
+    window.dispatchEvent(
+        new CustomEvent<StoredDesktopAuthSession | null>(DESKTOP_AUTH_EVENT, {
+            detail: session,
+        }),
+    );
 }
 
 export function deserializeDesktopAuthPayload(payload: string): StoredDesktopAuthSession | null {

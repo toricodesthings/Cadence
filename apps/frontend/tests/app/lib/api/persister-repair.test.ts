@@ -8,7 +8,11 @@ vi.mock("../../../../app/platform/runtime", () => ({ IS_DESKTOP_RUNTIME: false, 
 
 it("repair removes the saved copy and a flush on the way out can't write it back", async () => {
     const persister = createIDBPersister();
-    const pending = persister.persistClient({ timestamp: 1, buster: "account", clientState: { queries: [], mutations: [] } });
+    const pending = persister.persistClient({
+        timestamp: 1,
+        buster: "account",
+        clientState: { queries: [], mutations: [] },
+    });
     await repairWorkspaceCache();
     await persister.flush();
     await pending;

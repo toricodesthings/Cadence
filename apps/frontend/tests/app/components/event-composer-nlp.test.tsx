@@ -8,14 +8,24 @@ import { stubTouch } from "../../helpers";
 configure({ asyncUtilTimeout: 5000 });
 
 const saveThought = vi.fn();
-vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { tasks: { intelligence: {} }, dateTime: { dateStyle: "mdy" } } }) }));
-vi.mock("../../../app/hooks/inbox/use-create-inbox-item", () => ({ useCreateInboxItem: () => ({ mutate: saveThought }) }));
+vi.mock("../../../app/hooks/core/use-settings", () => ({
+    useSettings: () => ({ data: { tasks: { intelligence: {} }, dateTime: { dateStyle: "mdy" } } }),
+}));
+vi.mock("../../../app/hooks/inbox/use-create-inbox-item", () => ({
+    useCreateInboxItem: () => ({ mutate: saveThought }),
+}));
 stubTouch(true);
-vi.mock("../../../app/components/shared/EmojiPickerPopover", () => ({ EmojiPickerPopover: ({ children }: { children: React.ReactNode }) => children }));
+vi.mock("../../../app/components/shared/EmojiPickerPopover", () => ({
+    EmojiPickerPopover: ({ children }: { children: React.ReactNode }) => children,
+}));
 
 const onSubmit = vi.fn();
 const setup = () => {
-    render(<Provider><PersonalEventEditorDialog open onClose={() => {}} onSubmit={onSubmit} /></Provider>);
+    render(
+        <Provider>
+            <PersonalEventEditorDialog open onClose={() => {}} onSubmit={onSubmit} />
+        </Provider>,
+    );
     return screen.getByRole("textbox", { name: "Event name" });
 };
 

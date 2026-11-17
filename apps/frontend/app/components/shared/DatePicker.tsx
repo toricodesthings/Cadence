@@ -4,11 +4,18 @@ import * as Popover from "../primitives/Popover";
 import { CalendarGrid } from "../calendar/CalendarGrid";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { LocalDate } from "@cadence/domain/time";
-import { formatMonthName, formatMonthYear, formatShortDateLabel, isoDay, isoMonthStart } from "../../lib/utils/date-format";
+import {
+    formatMonthName,
+    formatMonthYear,
+    formatShortDateLabel,
+    isoDay,
+    isoMonthStart,
+} from "../../lib/utils/date-format";
 import { today } from "../../lib/utils/user-zone";
 
 // Plain tinted chevrons, as in the iOS calendar: arrows inside a card are not chrome, so no glass.
-const NAV_BTN = "glass-none touch-target flex cursor-pointer items-center justify-center rounded-lg text-accent-primary transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
+const NAV_BTN =
+    "glass-none touch-target flex cursor-pointer items-center justify-center rounded-lg text-accent-primary transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 const NO_MARKS = new Set<number>();
 
 /**
@@ -16,7 +23,14 @@ const NO_MARKS = new Set<number>();
  * `CalendarGrid`. The one calendar body behind every date choice: `DatePicker`
  * and the task schedule surface both render it.
  */
-export function MonthCalendar({ viewDay, onViewDayChange, selectedDate, onSelectDate, marked = NO_MARKS, yearNav = false }: {
+export function MonthCalendar({
+    viewDay,
+    onViewDayChange,
+    selectedDate,
+    onSelectDate,
+    marked = NO_MARKS,
+    yearNav = false,
+}: {
     /** Any LocalDate in the month being viewed. */
     viewDay: LocalDate;
     onViewDayChange: (day: LocalDate) => void;
@@ -45,22 +59,32 @@ export function MonthCalendar({ viewDay, onViewDayChange, selectedDate, onSelect
             <div className="flex items-center justify-between gap-2 px-3 pb-1 pt-3">
                 {yearNav ? (
                     <span className="flex min-w-0 items-center gap-2">
-                        <span className="truncate text-[12px] font-semibold text-twilight-text">{formatMonthName(viewDay)}</span>
+                        <span className="truncate text-[12px] font-semibold text-twilight-text">
+                            {formatMonthName(viewDay)}
+                        </span>
                         <select
                             aria-label="Year"
                             value={year}
                             onChange={(e) => onViewDayChange(isoMonthStart(Number(e.target.value), month))}
                             className="min-h-8 cursor-pointer rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 text-[12px] font-semibold text-twilight-text transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                         >
-                            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+                            {yearOptions.map((y) => (
+                                <option key={y} value={y}>
+                                    {y}
+                                </option>
+                            ))}
                         </select>
                     </span>
                 ) : (
                     <span className="text-[12px] font-semibold text-twilight-text">{formatMonthYear(viewDay)}</span>
                 )}
                 <div className="flex shrink-0 items-center">
-                    <button type="button" onClick={() => go(-1)} aria-label="Previous month" className={NAV_BTN}><ChevronLeft size={15} aria-hidden="true" /></button>
-                    <button type="button" onClick={() => go(1)} aria-label="Next month" className={NAV_BTN}><ChevronRight size={15} aria-hidden="true" /></button>
+                    <button type="button" onClick={() => go(-1)} aria-label="Previous month" className={NAV_BTN}>
+                        <ChevronLeft size={15} aria-hidden="true" />
+                    </button>
+                    <button type="button" onClick={() => go(1)} aria-label="Next month" className={NAV_BTN}>
+                        <ChevronRight size={15} aria-hidden="true" />
+                    </button>
                 </div>
             </div>
             <div className="px-3 pb-3">
@@ -105,7 +129,16 @@ export function DatePicker(props: DatePickerProps) {
 }
 
 /** The field-styled trigger both pickers show, so an empty touch field still reads as a date. */
-function DateFieldButton({ value, label, placeholder = "Pick a date", className, ...rest }: Pick<DatePickerProps, "value" | "placeholder" | "className"> & { label?: string } & Omit<React.ComponentProps<"button">, "value">) {
+function DateFieldButton({
+    value,
+    label,
+    placeholder = "Pick a date",
+    className,
+    ...rest
+}: Pick<DatePickerProps, "value" | "placeholder" | "className"> & { label?: string } & Omit<
+        React.ComponentProps<"button">,
+        "value"
+    >) {
     return (
         <button
             type="button"
@@ -121,24 +154,52 @@ function DateFieldButton({ value, label, placeholder = "Pick a date", className,
     );
 }
 
-function NativeDateField({ value, onChange, label, clearLabel, disabled, placeholder, className, children }: DatePickerProps) {
+function NativeDateField({
+    value,
+    onChange,
+    label,
+    clearLabel,
+    disabled,
+    placeholder,
+    className,
+    children,
+}: DatePickerProps) {
     const input = () => (
         <input
             type="date"
             value={value ?? ""}
             disabled={disabled}
             aria-label={label}
-            onChange={(e) => { if (e.target.value || clearLabel) onChange(e.target.value || null); }}
+            onChange={(e) => {
+                if (e.target.value || clearLabel) onChange(e.target.value || null);
+            }}
             className="absolute inset-0 min-w-0 cursor-pointer opacity-0"
         />
     );
     // The visible trigger stays; a transparent native input over it takes the tap.
     // A custom trigger takes `className` on its wrapper; the default button takes it itself.
-    const trigger = children ?? <DateFieldButton value={value} placeholder={placeholder} disabled={disabled} className={className} />;
-    return <span className={`relative grid min-w-0 ${children ? className ?? "" : "shrink-0"}`}>{React.cloneElement(trigger, { tabIndex: -1, "aria-hidden": true } as object)}{input()}</span>;
+    const trigger = children ?? (
+        <DateFieldButton value={value} placeholder={placeholder} disabled={disabled} className={className} />
+    );
+    return (
+        <span className={`relative grid min-w-0 ${children ? (className ?? "") : "shrink-0"}`}>
+            {React.cloneElement(trigger, { tabIndex: -1, "aria-hidden": true } as object)}
+            {input()}
+        </span>
+    );
 }
 
-function DesktopDatePicker({ value, onChange, label, clearLabel, yearNav, disabled, placeholder = "Pick a date", className, children }: DatePickerProps) {
+function DesktopDatePicker({
+    value,
+    onChange,
+    label,
+    clearLabel,
+    yearNav,
+    disabled,
+    placeholder = "Pick a date",
+    className,
+    children,
+}: DatePickerProps) {
     const [open, setOpen] = React.useState(false);
     const [viewDay, setViewDay] = React.useState<LocalDate>(() => value || today());
 
@@ -165,7 +226,13 @@ function DesktopDatePicker({ value, onChange, label, clearLabel, yearNav, disabl
                 aria-label={label}
                 className="w-[18rem] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overflow-x-hidden overscroll-contain p-0"
             >
-                <MonthCalendar viewDay={viewDay} onViewDayChange={setViewDay} selectedDate={value ?? ""} onSelectDate={pick} yearNav={yearNav} />
+                <MonthCalendar
+                    viewDay={viewDay}
+                    onViewDayChange={setViewDay}
+                    selectedDate={value ?? ""}
+                    onSelectDate={pick}
+                    yearNav={yearNav}
+                />
                 {clearLabel && value ? (
                     <div className="border-t border-twilight-border/40 px-3 py-2">
                         <button

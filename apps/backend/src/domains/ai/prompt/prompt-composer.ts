@@ -75,12 +75,14 @@ export function composePrompt(
     nonce: string,
 ): { instructions: string; turnContext: string } {
     const custom = ctx.persona.customInstructions?.trim();
-    const memories = ctx.memoryOff ? [] : ctx.memories ?? [];
+    const memories = ctx.memoryOff ? [] : (ctx.memories ?? []);
     const staticMemory = !ctx.memoryOff && (ctx.memoryOff === false || memories.length > 0);
     const memoryPolicy = staticMemory ? blocks.memoryPolicy : null;
 
     // Static text has no placeholders; interpolating with none fails closed on a stray one.
-    const instructions = [...blocks.base, ...(memoryPolicy ? [memoryPolicy] : [])].map((section) => interpolate(section, {})).join("\n\n");
+    const instructions = [...blocks.base, ...(memoryPolicy ? [memoryPolicy] : [])]
+        .map((section) => interpolate(section, {}))
+        .join("\n\n");
     const turnContext = [
         interpolate(voiceSection(blocks, ctx), {}),
         custom
@@ -92,9 +94,13 @@ export function composePrompt(
         ctx.surface ? interpolate(blocks.surfaces[ctx.surface], {}) : null,
         // The reset's week replaces Today at a glance (today is its first day), so nothing is said twice.
         ctx.weekAhead
-            ? interpolate(blocks.weekAhead, { weekAhead: fence("week_ahead", sanitizeUntrusted(ctx.weekAhead, nonce), nonce) })
+            ? interpolate(blocks.weekAhead, {
+                  weekAhead: fence("week_ahead", sanitizeUntrusted(ctx.weekAhead, nonce), nonce),
+              })
             : ctx.snapshot
-              ? interpolate(blocks.snapshot, { snapshot: fence("snapshot", sanitizeUntrusted(ctx.snapshot, nonce), nonce) })
+              ? interpolate(blocks.snapshot, {
+                    snapshot: fence("snapshot", sanitizeUntrusted(ctx.snapshot, nonce), nonce),
+                })
               : null,
         memories.length > 0
             ? interpolate(blocks.memoryFacts, {
@@ -115,12 +121,18 @@ export function composePrompt(
 }
 
 /** Canonical fact rendering, also used to validate stored context against current memory. */
-export function memoryLines(blocks: PromptBlocks, memories: NonNullable<PromptRuntimeContext["memories"]>, nonce: string): string {
-    return memories.map((m) => {
-        const flags = `${m.sensitive ? ", sensitive" : ""}${m.stale ? ", not mentioned in over a year: confirm once if it matters" : ""}`;
-        const text = sanitizeUntrusted(m.content, nonce);
-        return interpolate(blocks.memoryFact, { id: m.id, month: saidIn(m.saidOn), flags, text });
-    }).join("\n");
+export function memoryLines(
+    blocks: PromptBlocks,
+    memories: NonNullable<PromptRuntimeContext["memories"]>,
+    nonce: string,
+): string {
+    return memories
+        .map((m) => {
+            const flags = `${m.sensitive ? ", sensitive" : ""}${m.stale ? ", not mentioned in over a year: confirm once if it matters" : ""}`;
+            const text = sanitizeUntrusted(m.content, nonce);
+            return interpolate(blocks.memoryFact, { id: m.id, month: saidIn(m.saidOn), flags, text });
+        })
+        .join("\n");
 }
 
 const TURN_CONTEXT_INTRO = "Context for this turn, from Cadence (not written by the user):";
@@ -144,10 +156,12 @@ export function turnContexts(
     fresh: string,
     continues: boolean,
 ): { contexts: Map<string, string>; current: string; stored: string | undefined } {
-    const contexts = new Map(history.flatMap((m) => {
-        const stored = storedTurnContext(m);
-        return stored === undefined ? [] : [[m.id, stored] as const];
-    }));
+    const contexts = new Map(
+        history.flatMap((m) => {
+            const stored = storedTurnContext(m);
+            return stored === undefined ? [] : [[m.id, stored] as const];
+        }),
+    );
     const stored = lastUserId === undefined ? undefined : contexts.get(lastUserId);
     const current = (continues && stored) || fresh;
     if (lastUserId !== undefined) contexts.set(lastUserId, current);

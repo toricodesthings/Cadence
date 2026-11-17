@@ -18,10 +18,10 @@
 /* ── Autumn twilight (default) ── */
 .loading-screen {
     /* Fire — fixed across seasons; the accent never colours flame */
-    --loading-flame-core: #FFF4D2;
-    --loading-flame-mid: #FFC837;
-    --loading-flame-edge: #FF8008;
-    --loading-flame-deep: #C43A00;
+    --loading-flame-core: #fff4d2;
+    --loading-flame-mid: #ffc837;
+    --loading-flame-edge: #ff8008;
+    --loading-flame-deep: #c43a00;
 
     --loading-sky-deep: #1a1430;
     --loading-sky-mid: #2e1a2a;
@@ -44,11 +44,11 @@
     --loading-frame: #120806;
     --loading-frame-rim: #c9c2b0;
 
-    --loading-text: #FFF4D2;
-    --loading-building-front-top: #110B0E;
-    --loading-building-front-base: #5A2E1D;
-    --loading-building-back-top: #0D090B;
-    --loading-building-back-base: #3D201A;
+    --loading-text: #fff4d2;
+    --loading-building-front-top: #110b0e;
+    --loading-building-front-base: #5a2e1d;
+    --loading-building-back-top: #0d090b;
+    --loading-building-back-base: #3d201a;
     /* Close values between neighbouring ridges: the crests separate by a soft step, not a hard line */
     --loading-mountain-far: #2c2232;
     --loading-mountain-mid: #241e30;
@@ -63,7 +63,7 @@
     --loading-roof-front-end: #481507;
     --loading-roof-side-start: #571905;
     --loading-roof-side-end: #210801;
-    --loading-window-center: #FFF1B8;
+    --loading-window-center: #fff1b8;
     --loading-window-edge: var(--loading-flame-edge);
 
     /* Visibility gates */
@@ -115,7 +115,7 @@
     --ls-cloud-top: color-mix(in srgb, var(--loading-haze-far) 60%, var(--loading-key));
     --ls-cloud-base: color-mix(in srgb, var(--loading-sky-plum) 55%, var(--loading-sky-glow));
     --ls-cloud-rim: var(--loading-key);
-    --ls-lan-glow: color-mix(in srgb, var(--loading-flame-edge) 80%, var(--accent-primary, #FF9D00));
+    --ls-lan-glow: color-mix(in srgb, var(--loading-flame-edge) 80%, var(--accent-primary, #ff9d00));
     --ls-ripple: color-mix(in srgb, var(--loading-water-top) 70%, var(--loading-rim));
 
     /* Logo block — the accent fully drives the aura */
@@ -124,7 +124,8 @@
     --ls-aura-blend: screen;
     --ls-aura-ring-o: 0.6;
     --ls-aura-inner-o: 1;
-    --ls-logo-filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0px 8px 16px rgba(0, 0, 0, 0.8)) brightness(1.05) contrast(1.1);
+    --ls-logo-filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0px 8px 16px rgba(0, 0, 0, 0.8))
+        brightness(1.05) contrast(1.1);
     --ls-text-shadow: 0 0 24px color-mix(in srgb, var(--accent-primary) 80%, transparent), 0 4px 8px rgba(0, 0, 0, 0.6);
     --ls-wordmark-halo: color-mix(in srgb, var(--loading-sky-zenith) 15%, transparent);
 }
@@ -299,8 +300,10 @@
     --ls-aura-blend: multiply;
     --ls-aura-ring-o: 0.35;
     --ls-aura-inner-o: 0.4;
-    --ls-logo-filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2)) drop-shadow(0px 8px 16px rgba(0, 0, 0, 0.15)) brightness(1.05) contrast(1.1);
-    --ls-text-shadow: 0 0 16px color-mix(in srgb, var(--accent-primary) 40%, transparent), 0 2px 4px rgba(0, 0, 0, 0.15);
+    --ls-logo-filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2)) drop-shadow(0px 8px 16px rgba(0, 0, 0, 0.15))
+        brightness(1.05) contrast(1.1);
+    --ls-text-shadow:
+        0 0 16px color-mix(in srgb, var(--accent-primary) 40%, transparent), 0 2px 4px rgba(0, 0, 0, 0.15);
     --ls-wordmark-halo: color-mix(in srgb, var(--loading-sky-glow) 88%, transparent);
 }
 

@@ -34,7 +34,10 @@ export function NoteSlashMenu({
     onDismiss: () => void;
 }) {
     const listRef = useRef<HTMLDivElement>(null);
-    const virtualRef = useMemo(() => ({ current: { getBoundingClientRect: () => caretRect(editor, anchorPos) } }), [editor, anchorPos]);
+    const virtualRef = useMemo(
+        () => ({ current: { getBoundingClientRect: () => caretRect(editor, anchorPos) } }),
+        [editor, anchorPos],
+    );
 
     useEffect(() => {
         listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
@@ -59,9 +62,17 @@ export function NoteSlashMenu({
                 onMouseDown={(e) => e.preventDefault()}
             >
                 {commands.length === 0 ? (
-                    <p className="px-3 py-2.5 text-[15px] text-twilight-text-soft" role="status">No matches. Keep typing, or press Esc.</p>
+                    <p className="px-3 py-2.5 text-[15px] text-twilight-text-soft" role="status">
+                        No matches. Keep typing, or press Esc.
+                    </p>
                 ) : (
-                    <div ref={listRef} id={SLASH_LIST_ID} role="listbox" aria-label="Insert" className="max-h-72 overflow-y-auto overscroll-contain">
+                    <div
+                        ref={listRef}
+                        id={SLASH_LIST_ID}
+                        role="listbox"
+                        aria-label="Insert"
+                        className="max-h-72 overflow-y-auto overscroll-contain"
+                    >
                         {commands.map((cmd, i) => (
                             <div
                                 key={cmd.id}
@@ -71,12 +82,18 @@ export function NoteSlashMenu({
                                 tabIndex={-1}
                                 onMouseEnter={() => onHover(i)}
                                 onClick={() => onPick(cmd)}
-                                className={cn(MENU_ITEM, "gap-3", i === index ? "bg-white/[0.08] text-twilight-text" : "text-twilight-text-soft")}
+                                className={cn(
+                                    MENU_ITEM,
+                                    "gap-3",
+                                    i === index ? "bg-white/[0.08] text-twilight-text" : "text-twilight-text-soft",
+                                )}
                             >
                                 <cmd.icon size={16} className="shrink-0 text-twilight-text-muted" aria-hidden="true" />
                                 <span className="min-w-0 flex-1">
                                     <span className="block truncate">{cmd.label}</span>
-                                    <span className="block truncate text-[12px] text-twilight-text-muted">{cmd.description}</span>
+                                    <span className="block truncate text-[12px] text-twilight-text-muted">
+                                        {cmd.description}
+                                    </span>
                                 </span>
                             </div>
                         ))}

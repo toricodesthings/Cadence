@@ -7,7 +7,8 @@ import { formatShortDate } from "../../lib/utils/date-format";
 import { log } from "../../lib/log";
 import type { AvailableAppUpdate } from "../../platform/runtime";
 
-const VERSION_PILL = "rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs font-semibold text-twilight-text";
+const VERSION_PILL =
+    "rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs font-semibold text-twilight-text";
 
 /** The "update ready" prompt: what's new, then Install (restarts the app) or Later. */
 export function UpdateDialog({ update, onClose }: { update: AvailableAppUpdate; onClose: () => void }) {
@@ -28,7 +29,12 @@ export function UpdateDialog({ update, onClose }: { update: AvailableAppUpdate; 
     };
 
     return (
-        <AlertDialog.Root open onOpenChange={(open) => { if (!open && !installing) onClose(); }}>
+        <AlertDialog.Root
+            open
+            onOpenChange={(open) => {
+                if (!open && !installing) onClose();
+            }}
+        >
             <AlertDialog.Content className="sm:max-w-lg">
                 <AlertDialog.Header className="items-center text-center sm:items-center sm:text-center">
                     <span className="mb-1 flex h-12 w-12 items-center justify-center rounded-2xl border border-accent-primary/25 bg-accent-primary/10 text-accent-primary">
@@ -36,14 +42,17 @@ export function UpdateDialog({ update, onClose }: { update: AvailableAppUpdate; 
                     </span>
                     <AlertDialog.Title>Update ready to install</AlertDialog.Title>
                     <AlertDialog.Description>
-                        Cadence closes for a few seconds and reopens on its own. Your work is saved and will be right where you left it.
+                        Cadence closes for a few seconds and reopens on its own. Your work is saved and will be right
+                        where you left it.
                     </AlertDialog.Description>
                 </AlertDialog.Header>
 
                 <div className="flex flex-wrap items-center justify-center gap-2">
                     <span className={VERSION_PILL}>{update.currentVersion}</span>
                     <ArrowRight size={14} className="text-twilight-text-muted" aria-hidden="true" />
-                    <span className={`${VERSION_PILL} border-accent-primary/30 bg-accent-primary/10 text-accent-primary`}>
+                    <span
+                        className={`${VERSION_PILL} border-accent-primary/30 bg-accent-primary/10 text-accent-primary`}
+                    >
                         {update.version}
                     </span>
                     {update.date && (
@@ -62,13 +71,17 @@ export function UpdateDialog({ update, onClose }: { update: AvailableAppUpdate; 
                             {update.body}
                         </pre>
                     ) : (
-                        <p className="text-sm text-twilight-text-muted">No release notes were included with this update.</p>
+                        <p className="text-sm text-twilight-text-muted">
+                            No release notes were included with this update.
+                        </p>
                     )}
                 </div>
 
                 <AlertDialog.Footer>
                     <AlertDialog.Cancel asChild>
-                        <Button variant="ghost" size="md" disabled={installing}>Later</Button>
+                        <Button variant="ghost" size="md" disabled={installing}>
+                            Later
+                        </Button>
                     </AlertDialog.Cancel>
                     <AlertDialog.Action asChild>
                         <Button
@@ -80,7 +93,11 @@ export function UpdateDialog({ update, onClose }: { update: AvailableAppUpdate; 
                                 void install();
                             }}
                         >
-                            {!installing ? "Install update" : progress === 100 ? "Restarting…" : `Downloading${progress === null ? "…" : ` ${progress}%`}`}
+                            {!installing
+                                ? "Install update"
+                                : progress === 100
+                                  ? "Restarting…"
+                                  : `Downloading${progress === null ? "…" : ` ${progress}%`}`}
                         </Button>
                     </AlertDialog.Action>
                 </AlertDialog.Footer>

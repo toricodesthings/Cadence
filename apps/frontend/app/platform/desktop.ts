@@ -22,15 +22,8 @@ import { LogicalSize } from "@tauri-apps/api/dpi";
 import { redirectlessAuthClient } from "../lib/auth-client";
 import { WEB_APP_BASE_URL } from "../lib/env";
 import { log } from "../lib/log";
-import {
-    DESKTOP_AUTH_STATE_PARAM,
-    prepareDesktopAuthHandoff,
-} from "./desktop-auth-handoff";
-import type {
-    AvailableAppUpdate,
-    NotificationPermissionState,
-    SocialProvider,
-} from "./runtime";
+import { DESKTOP_AUTH_STATE_PARAM, prepareDesktopAuthHandoff } from "./desktop-auth-handoff";
+import type { AvailableAppUpdate, NotificationPermissionState, SocialProvider } from "./runtime";
 import { getAuthCallbackUrl } from "./runtime";
 import { markUpdating } from "./desktop-update-state";
 
@@ -193,49 +186,49 @@ function getDesktopAuthRequestOrigin() {
 
 async function stopOauthServer() {
     if (oauthServerPort === null) {
-    return;
+        return;
     }
 
     const activePort = oauthServerPort;
     oauthServerPort = null;
 
     await cancelOauthServer(activePort).catch(() => {
-    // The plugin server exits after a successful callback, so cancel can race harmlessly.
+        // The plugin server exits after a successful callback, so cancel can race harmlessly.
     });
 }
 
 function publishOauthCallback(rawUrl: string) {
     try {
-    const callbackUrl = new URL(rawUrl);
-    // Kept only while nobody is listening; a delivered callback must not be
-    // replayed when the app remounts for the signed-in account.
-    latestOauthCallback = oauthSubscribers.size === 0 ? callbackUrl : null;
+        const callbackUrl = new URL(rawUrl);
+        // Kept only while nobody is listening; a delivered callback must not be
+        // replayed when the app remounts for the signed-in account.
+        latestOauthCallback = oauthSubscribers.size === 0 ? callbackUrl : null;
 
-    void stopOauthServer();
+        void stopOauthServer();
 
-    oauthSubscribers.forEach((listener) => {
-        listener(callbackUrl);
-    });
+        oauthSubscribers.forEach((listener) => {
+            listener(callbackUrl);
+        });
     } catch {
-    // Never log the URL or the parse error: both can carry the OAuth code.
-    log.error("desktop-oauth", "Sign-in returned a link Cadence couldn't read.");
+        // Never log the URL or the parse error: both can carry the OAuth code.
+        log.error("desktop-oauth", "Sign-in returned a link Cadence couldn't read.");
     }
 }
 
 async function ensureOauthListeners() {
     if (!hasTauriRuntime()) {
-    return;
+        return;
     }
 
     if (!oauthListenerReady) {
-    oauthListenerReady = Promise.all([
-        onOauthUrl((url) => {
-        publishOauthCallback(url);
-        }),
-        onOauthInvalidUrl(() => {
-        log.error("desktop-oauth", "Sign-in returned a link Cadence couldn't read.");
-        }),
-    ]).then(() => undefined);
+        oauthListenerReady = Promise.all([
+            onOauthUrl((url) => {
+                publishOauthCallback(url);
+            }),
+            onOauthInvalidUrl(() => {
+                log.error("desktop-oauth", "Sign-in returned a link Cadence couldn't read.");
+            }),
+        ]).then(() => undefined);
     }
 
     await oauthListenerReady;
@@ -281,15 +274,17 @@ const restoredStores = new Set<string>();
 async function beginSocialRedirect(
     action: "sign-in" | "linking",
     callbackURL: string | undefined,
-    request: (args: { callbackURL: string; disableRedirect: true; fetchOptions: { throw: true; headers: { origin: string } } }) => Promise<unknown>,
+    request: (args: {
+        callbackURL: string;
+        disableRedirect: true;
+        fetchOptions: { throw: true; headers: { origin: string } };
+    }) => Promise<unknown>,
 ): Promise<void> {
     if (!hasTauriRuntime()) {
         throw new Error(`Desktop social ${action} requires the Tauri runtime.`);
     }
 
-    const target = callbackURL
-        ? new URL(callbackURL).searchParams.get("redirectTo")
-        : undefined;
+    const target = callbackURL ? new URL(callbackURL).searchParams.get("redirectTo") : undefined;
     await ensureOauthListeners();
     await stopOauthServer();
 
@@ -323,7 +318,13 @@ export const desktopRuntime = {
         return normalizeNotificationPermission(await requestPermission());
     },
     // The notification plugin answers "granted" without asking Windows, so permission here is a hint, not a check.
-    async sendNotification(notification: { title: string; body?: string; icon?: string; route?: string; tag?: string }): Promise<void> {
+    async sendNotification(notification: {
+        title: string;
+        body?: string;
+        icon?: string;
+        route?: string;
+        tag?: string;
+    }): Promise<void> {
         if (!hasTauriRuntime()) throw new Error("Desktop notifications need the Cadence app.");
         if (!(await isPermissionGranted())) throw new Error("Notifications aren't allowed.");
 
@@ -391,10 +392,14 @@ export const desktopRuntime = {
         };
     },
     async beginSocialSignIn(provider: SocialProvider, callbackURL?: string): Promise<void> {
-        await beginSocialRedirect("sign-in", callbackURL, (args) => redirectlessAuthClient.signIn.social({ provider, ...args }));
+        await beginSocialRedirect("sign-in", callbackURL, (args) =>
+            redirectlessAuthClient.signIn.social({ provider, ...args }),
+        );
     },
     async beginSocialLink(provider: SocialProvider, callbackURL?: string): Promise<void> {
-        await beginSocialRedirect("linking", callbackURL, (args) => (redirectlessAuthClient as any).linkSocial({ provider, ...args }));
+        await beginSocialRedirect("linking", callbackURL, (args) =>
+            (redirectlessAuthClient as any).linkSocial({ provider, ...args }),
+        );
     },
     async platformFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
         if (!hasTauriRuntime()) {
@@ -406,9 +411,8 @@ export const desktopRuntime = {
         try {
             return await tauriFetch(request);
         } catch (error) {
-            const normalizedError = error instanceof Error
-                ? error
-                : new Error(typeof error === "string" ? error : JSON.stringify(error));
+            const normalizedError =
+                error instanceof Error ? error : new Error(typeof error === "string" ? error : JSON.stringify(error));
 
             log.warn("desktop-fetch", `native ${request.method} ${request.url} failed`, error);
 
@@ -442,10 +446,14 @@ export const desktopRuntime = {
                         if (event.event === "Started") total = event.data.contentLength ?? 0;
                         else if (event.event === "Progress") received += event.data.chunkLength;
                         const progress = total ? Math.min(100, Math.round((received / total) * 100)) : undefined;
-                        onProgress?.(event.event === "Finished" ? 100 : progress ?? null);
-                        void win.setProgressBar(progress === undefined
-                            ? { status: ProgressBarStatus.Indeterminate }
-                            : { status: ProgressBarStatus.Normal, progress }).catch(() => undefined);
+                        onProgress?.(event.event === "Finished" ? 100 : (progress ?? null));
+                        void win
+                            .setProgressBar(
+                                progress === undefined
+                                    ? { status: ProgressBarStatus.Indeterminate }
+                                    : { status: ProgressBarStatus.Normal, progress },
+                            )
+                            .catch(() => undefined);
                     });
                 } catch (error) {
                     await win.setProgressBar({ status: ProgressBarStatus.None }).catch(() => undefined);
@@ -470,7 +478,8 @@ export const desktopRuntime = {
         const store = await loadStore(`${storeName}.dat`);
         const save = async () => {
             await store.save();
-            if (storeName !== "cadence_cache") await invoke("store_snapshot", { name: storeName }).catch(() => undefined);
+            if (storeName !== "cadence_cache")
+                await invoke("store_snapshot", { name: storeName }).catch(() => undefined);
         };
         return {
             get: async <T>(key: string): Promise<T | undefined> => {
@@ -483,7 +492,7 @@ export const desktopRuntime = {
             del: async (key: string): Promise<void> => {
                 await store.delete(key);
                 await save();
-            }
+            },
         };
     },
     async resizeWindow(width: number, height: number, center?: boolean) {

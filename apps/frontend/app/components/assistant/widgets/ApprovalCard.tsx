@@ -89,9 +89,19 @@ export function ApprovalCard({
     const outcome = outcomeOf(part, stale);
 
     if (outcome) {
-        const text = { done: doneText, declined: declinedText, failed: "That didn’t go through.", unanswered: "Not answered." }[outcome];
+        const text = {
+            done: doneText,
+            declined: declinedText,
+            failed: "That didn’t go through.",
+            unanswered: "Not answered.",
+        }[outcome];
         return (
-            <ProposalCard {...shell} state="output-available" resolvedCommitted={outcome === "done"} resolvedText={text}>
+            <ProposalCard
+                {...shell}
+                state="output-available"
+                resolvedCommitted={outcome === "done"}
+                resolvedText={text}
+            >
                 {null}
             </ProposalCard>
         );
@@ -114,7 +124,13 @@ export function ApprovalCard({
 type ApprovalCardProps = ComponentProps<typeof ApprovalCard>;
 
 /** A permanent delete: danger framing, "Keep it" to decline. Auto mode still waits for this tap. */
-export function DeleteApprovalCard({ primaryLabel = "Delete it", ...props }: Omit<ApprovalCardProps, "tone" | "eyebrowGlyph" | "primaryGlyph" | "primaryVariant" | "declineLabel" | "declinedText" | "primaryLabel"> & { primaryLabel?: string }) {
+export function DeleteApprovalCard({
+    primaryLabel = "Delete it",
+    ...props
+}: Omit<
+    ApprovalCardProps,
+    "tone" | "eyebrowGlyph" | "primaryGlyph" | "primaryVariant" | "declineLabel" | "declinedText" | "primaryLabel"
+> & { primaryLabel?: string }) {
     return (
         <ApprovalCard
             tone="danger"
@@ -171,12 +187,18 @@ export function TickRow({
                 disabled={!onToggle}
                 onClick={onToggle}
                 className={`mt-px flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-colors ${
-                    on ? "border-accent-primary bg-accent-primary/20 text-accent-primary" : "border-twilight-border text-transparent"
+                    on
+                        ? "border-accent-primary bg-accent-primary/20 text-accent-primary"
+                        : "border-twilight-border text-transparent"
                 } ${onToggle ? "cursor-pointer" : ""}`}
             >
                 <Check size={9} strokeWidth={3} aria-hidden="true" />
             </button>
-            <div className={`min-w-0 flex-1 ${on ? "text-twilight-text-soft" : "text-twilight-text-muted line-through"}`}>{children}</div>
+            <div
+                className={`min-w-0 flex-1 ${on ? "text-twilight-text-soft" : "text-twilight-text-muted line-through"}`}
+            >
+                {children}
+            </div>
         </div>
     );
 }

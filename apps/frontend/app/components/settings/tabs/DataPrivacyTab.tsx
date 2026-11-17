@@ -19,15 +19,18 @@ type DataExport = ReturnType<typeof useDataExport>["data"];
 /** What the export row says, and whether to hold the button: one an hour, matching the server's limit. */
 function exportState(latest: DataExport, email: string, requesting: boolean) {
     // Matches the server's one-an-hour limit, so the button never offers a request it would refuse
-    const busy = requesting || latest?.status === "pending"
-        || (latest?.status === "sent" && Date.now() - new Date(latest.requestedAt).getTime() < 60 * 60 * 1000);
+    const busy =
+        requesting ||
+        latest?.status === "pending" ||
+        (latest?.status === "sent" && Date.now() - new Date(latest.requestedAt).getTime() < 60 * 60 * 1000);
     return { busy, status: exportStatusText(latest, email) };
 }
 
 function exportStatusText(latest: DataExport, email: string) {
     if (!latest) return `Get a JSON file with all your Cadence data, emailed to ${email}.`;
     if (latest.status === "pending") return "Preparing your export. It will arrive by email shortly.";
-    if (latest.status === "sent") return `Last sent to ${latest.email} on ${formatShortDate(latest.completedAt ?? latest.requestedAt)}.`;
+    if (latest.status === "sent")
+        return `Last sent to ${latest.email} on ${formatShortDate(latest.completedAt ?? latest.requestedAt)}.`;
     return "The last export didn't go through. Try again.";
 }
 
@@ -54,9 +57,7 @@ function ExportRow({ email }: { email: string }) {
                     </AlertDialog.Header>
                     <AlertDialog.Footer>
                         <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-                        <AlertDialog.Action onClick={() => requestExport.mutate()}>
-                            Send it
-                        </AlertDialog.Action>
+                        <AlertDialog.Action onClick={() => requestExport.mutate()}>Send it</AlertDialog.Action>
                     </AlertDialog.Footer>
                 </AlertDialog.Content>
             </AlertDialog.Root>
@@ -104,9 +105,7 @@ export function DataPrivacyTab() {
                 >
                     <Switch
                         checked={privacy.usageDiagnostics}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ privacy: { usageDiagnostics: val } })
-                        }
+                        onCheckedChange={(val) => updateSettings.mutate({ privacy: { usageDiagnostics: val } })}
                     />
                 </SettingsRow>
                 <SettingsRow
@@ -115,9 +114,7 @@ export function DataPrivacyTab() {
                 >
                     <Switch
                         checked={privacy.crashReports}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ privacy: { crashReports: val } })
-                        }
+                        onCheckedChange={(val) => updateSettings.mutate({ privacy: { crashReports: val } })}
                     />
                 </SettingsRow>
             </SettingsSection>
@@ -150,7 +147,6 @@ export function DataPrivacyTab() {
             {/* ── Export and deletion status ── */}
             <SettingsSection title="Export">
                 <ExportRow email={email} />
-
             </SettingsSection>
         </div>
     );

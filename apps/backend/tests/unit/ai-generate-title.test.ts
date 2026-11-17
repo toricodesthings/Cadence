@@ -55,7 +55,9 @@ describe("generateConversationTitle", () => {
     it("never calls a model without a key, for empty text, or for an image-only turn", async () => {
         const model = titleModel("unused");
 
-        expect((await generateConversationTitle({} as Env, "remind me to call the IRS about taxes")).title).toBe("Remind me to call the IRS…");
+        expect((await generateConversationTitle({} as Env, "remind me to call the IRS about taxes")).title).toBe(
+            "Remind me to call the IRS…",
+        );
         expect((await generateConversationTitle(KEYED, "   ")).title).toBe("New conversation");
         expect((await generateConversationTitle(KEYED, "", true)).title).toBe("Photo");
         expect(model.doGenerateCalls).toHaveLength(0);

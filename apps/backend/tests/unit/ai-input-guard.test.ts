@@ -26,9 +26,7 @@ function expectInvalidRequest(fn: () => void) {
 
 describe("assertMessageWithinCaps", () => {
     it("accepts a message within all caps", () => {
-        expect(() =>
-            assertMessageWithinCaps({ role: "user", parts: [{ type: "text", text: "hello" }] }),
-        ).not.toThrow();
+        expect(() => assertMessageWithinCaps({ role: "user", parts: [{ type: "text", text: "hello" }] })).not.toThrow();
     });
 
     it("accepts a message with no parts (legacy content-only shape)", () => {
@@ -62,8 +60,16 @@ describe("assertMessageWithinCaps", () => {
 
 describe("assertMessageWithinCaps — image file parts", () => {
     const id = "0b9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2b";
-    const image = (over: Record<string, unknown> = {}) => ({ type: "file", mediaType: "image/webp", url: `cadence-image:${id}`, ...over });
-    const send = (...parts: unknown[]) => () => assertMessageWithinCaps({ role: "user", parts });
+    const image = (over: Record<string, unknown> = {}) => ({
+        type: "file",
+        mediaType: "image/webp",
+        url: `cadence-image:${id}`,
+        ...over,
+    });
+    const send =
+        (...parts: unknown[]) =>
+        () =>
+            assertMessageWithinCaps({ role: "user", parts });
 
     it("accepts cadence-image references up to the cap", () => {
         expect(send(image(), image(), image(), image(), { type: "text", text: "hi" })).not.toThrow();
@@ -89,7 +95,9 @@ describe("historyWindowStart", () => {
     });
 
     it("drops rows in steps, so the window's start holds still between them", () => {
-        const starts = Array.from({ length: 3 * HISTORY_DROP_STEP }, (_, i) => historyWindowStart(MAX_HISTORY_TURNS + 1 + i));
+        const starts = Array.from({ length: 3 * HISTORY_DROP_STEP }, (_, i) =>
+            historyWindowStart(MAX_HISTORY_TURNS + 1 + i),
+        );
         expect(new Set(starts)).toEqual(new Set([HISTORY_DROP_STEP, 2 * HISTORY_DROP_STEP, 3 * HISTORY_DROP_STEP]));
         expect(starts.filter((s) => s === HISTORY_DROP_STEP)).toHaveLength(HISTORY_DROP_STEP);
     });

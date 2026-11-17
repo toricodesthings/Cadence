@@ -44,11 +44,7 @@ export function ReadReceipt({ state: target }: { state: ReceiptState }) {
 
     return (
         <Tip label={LABELS[state]} side="top">
-            <div
-                className="flex items-center justify-center"
-                aria-label={LABELS[state]}
-                role="status"
-            >
+            <div className="flex items-center justify-center" aria-label={LABELS[state]} role="status">
                 <AnimatePresence mode="popLayout" initial={false}>
                     <motion.span
                         key={state}

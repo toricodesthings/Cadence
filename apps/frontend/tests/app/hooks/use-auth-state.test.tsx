@@ -103,7 +103,9 @@ describe("use-auth-state", () => {
         authMocks.getSessionMock.mockReturnValue(pending.promise);
         const { result } = renderHook(() => useAuthState(), { wrapper });
         let recovery!: Promise<boolean>;
-        act(() => { recovery = result.current.beginAuthRecovery(); });
+        act(() => {
+            recovery = result.current.beginAuthRecovery();
+        });
         await act(async () => result.current.completeSignOut());
         await act(async () => {
             pending.resolve({ data: { user: { id: "old-account" }, session: { token: "old-token" } } });
@@ -138,12 +140,21 @@ describe("use-auth-state", () => {
 
     it("opens the last account's workspace when the session can't be checked offline", async () => {
         const refetch = vi.fn();
-        authMocks.useSessionMock.mockReturnValue({ data: { user: { id: "user-1", email: "a@b.c" }, session: { token: "jwt" } }, isPending: false, refetch });
+        authMocks.useSessionMock.mockReturnValue({
+            data: { user: { id: "user-1", email: "a@b.c" }, session: { token: "jwt" } },
+            isPending: false,
+            refetch,
+        });
         const first = renderHook(() => useAuthState(), { wrapper });
         await waitFor(() => expect(first.result.current.status).toBe("authenticated"));
         first.unmount();
 
-        authMocks.useSessionMock.mockReturnValue({ data: null, isPending: false, error: { message: "Failed to fetch" }, refetch });
+        authMocks.useSessionMock.mockReturnValue({
+            data: null,
+            isPending: false,
+            error: { message: "Failed to fetch" },
+            refetch,
+        });
         const { result } = renderHook(() => useAuthState(), { wrapper });
 
         await waitFor(() => expect(result.current.status).toBe("offline"));
@@ -175,7 +186,11 @@ describe("use-auth-state", () => {
             rememberIdentity({ id: "user-1" });
             authMocks.useSessionMock.mockReturnValue(pending);
             const { result, rerender } = view();
-            authMocks.useSessionMock.mockReturnValue({ data: { user: { id: "user-1" }, session: { token: "jwt" } }, isPending: false, refetch: vi.fn() });
+            authMocks.useSessionMock.mockReturnValue({
+                data: { user: { id: "user-1" }, session: { token: "jwt" } },
+                isPending: false,
+                refetch: vi.fn(),
+            });
             rerender();
             await waitFor(() => expect(result.current.auth.status).toBe("authenticated"));
             expect(isSessionHeld()).toBe(false);
@@ -196,7 +211,11 @@ describe("use-auth-state", () => {
             rememberIdentity({ id: "user-1" });
             authMocks.useSessionMock.mockReturnValue(pending);
             const { result, rerender } = view();
-            authMocks.useSessionMock.mockReturnValue({ data: { user: { id: "user-2" }, session: { token: "jwt" } }, isPending: false, refetch: vi.fn() });
+            authMocks.useSessionMock.mockReturnValue({
+                data: { user: { id: "user-2" }, session: { token: "jwt" } },
+                isPending: false,
+                refetch: vi.fn(),
+            });
             rerender();
             await waitFor(() => expect(result.current.auth.session?.user.id).toBe("user-2"));
             expect(isSessionHeld()).toBe(false);
@@ -206,7 +225,11 @@ describe("use-auth-state", () => {
             rememberIdentity({ id: "user-1" });
             authMocks.useSessionMock.mockReturnValue(pending);
             const { result } = renderHook(() => useAuthState(), {
-                wrapper: ({ children }) => <MemoryRouter initialEntries={["/connect"]}><AuthStateProvider>{children}</AuthStateProvider></MemoryRouter>,
+                wrapper: ({ children }) => (
+                    <MemoryRouter initialEntries={["/connect"]}>
+                        <AuthStateProvider>{children}</AuthStateProvider>
+                    </MemoryRouter>
+                ),
             });
             expect(result.current.status).toBe("bootstrapping");
             expect(isSessionHeld()).toBe(false);

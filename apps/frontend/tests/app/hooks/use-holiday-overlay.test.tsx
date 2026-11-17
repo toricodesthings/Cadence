@@ -6,7 +6,10 @@ import { testQueryClient, withClient } from "../../helpers";
 const { fetchHolidays, fetchHolidaySubdivisions, location, preferences } = vi.hoisted(() => ({
     fetchHolidays: vi.fn(),
     fetchHolidaySubdivisions: vi.fn(),
-    location: { place: { countryCode: "CA", subdivisionCode: "CA-ON", subdivisionName: "Ontario", source: "manual" }, isResolving: false },
+    location: {
+        place: { countryCode: "CA", subdivisionCode: "CA-ON", subdivisionName: "Ontario", source: "manual" },
+        isResolving: false,
+    },
     preferences: { enabled: true, locale: "en-CA" },
 }));
 
@@ -17,7 +20,7 @@ vi.mock("../../../app/hooks/core/use-settings", () => ({
 vi.mock("../../../app/hooks/environment/use-user-location", () => ({ useUserLocation: () => location }));
 vi.mock("../../../app/lib/holidays/provider", () => ({ fetchHolidays, fetchHolidaySubdivisions }));
 vi.mock("../../../app/lib/holidays/location-resolver", async (importOriginal) => ({
-    ...await importOriginal<typeof import("../../../app/lib/holidays/location-resolver")>(),
+    ...(await importOriginal<typeof import("../../../app/lib/holidays/location-resolver")>()),
     getPreferredLocale: () => preferences.locale,
 }));
 
@@ -40,7 +43,10 @@ describe("holiday year caching", () => {
     it("reuses a year across ranges, views and remounts while returning only visible dates", async () => {
         const client = testQueryClient();
         const wrapper = withClient(client);
-        const { result, rerender, unmount } = renderHook((options: Options) => useHolidayOverlay(options), { initialProps: january, wrapper });
+        const { result, rerender, unmount } = renderHook((options: Options) => useHolidayOverlay(options), {
+            initialProps: january,
+            wrapper,
+        });
         await waitFor(() => expect(result.current.holidays).toHaveLength(1));
         expect(fetchHolidays).toHaveBeenCalledWith(expect.objectContaining({ start: "2026-01-01", end: "2026-12-31" }));
 
@@ -107,7 +113,9 @@ describe("holiday year caching", () => {
         await waitFor(() => expect(first.result.current.holidays).toHaveLength(1));
         first.unmount();
         clock.mockReturnValue(now + 8 * 86400_000);
-        await act(async () => { renderHook(() => useHolidayOverlay(january), { wrapper }); });
+        await act(async () => {
+            renderHook(() => useHolidayOverlay(january), { wrapper });
+        });
         await waitFor(() => expect(fetchHolidays).toHaveBeenCalledTimes(2));
     });
 });

@@ -33,9 +33,11 @@ function afterPreviousWrite(id: string, write: (freshUpdatedAt: string | undefin
     const previous = lastWriteById.get(id) ?? Promise.resolve(undefined);
     const next = previous.catch(() => undefined).then((last) => write(last?.updatedAt));
     lastWriteById.set(id, next);
-    void next.catch(() => undefined).finally(() => {
-        if (lastWriteById.get(id) === next) lastWriteById.delete(id);
-    });
+    void next
+        .catch(() => undefined)
+        .finally(() => {
+            if (lastWriteById.get(id) === next) lastWriteById.delete(id);
+        });
     return next;
 }
 
@@ -55,7 +57,8 @@ export function useUpdateTask() {
             // empty detail or note key with its client-clock copy, which would otherwise win as "latest" forever.
             if (typeof key[1] !== "object" || !Array.isArray(tasks)) continue;
             const task = tasks.find((item) => item.id === id);
-            if (task?.updatedAt && (!latest || Date.parse(task.updatedAt) > Date.parse(latest))) latest = task.updatedAt;
+            if (task?.updatedAt && (!latest || Date.parse(task.updatedAt) > Date.parse(latest)))
+                latest = task.updatedAt;
         }
         return latest;
     }
@@ -65,17 +68,20 @@ export function useUpdateTask() {
             // A queued edit replays without a version check: it carries only the
             // fields the user touched, so the later write wins field by field.
             ({ id, ...raw }) => ({ type: "update_task", id, payload: normalizeDateRange(raw) }),
-            ({ id, ...raw }) => afterPreviousWrite(id, async (freshUpdatedAt) => {
-                const updates = normalizeDateRange(raw);
-                const res = await client.api.tasks[":id"].$patch({
-                    param: { id },
-                    json: {
-                        ...updates,
-                        ...(updates.expectedUpdatedAt ? {} : { expectedUpdatedAt: freshUpdatedAt ?? getExpectedUpdatedAt(id) }),
-                    },
-                });
-                return unwrapResponse(res);
-            }),
+            ({ id, ...raw }) =>
+                afterPreviousWrite(id, async (freshUpdatedAt) => {
+                    const updates = normalizeDateRange(raw);
+                    const res = await client.api.tasks[":id"].$patch({
+                        param: { id },
+                        json: {
+                            ...updates,
+                            ...(updates.expectedUpdatedAt
+                                ? {}
+                                : { expectedUpdatedAt: freshUpdatedAt ?? getExpectedUpdatedAt(id) }),
+                        },
+                    });
+                    return unwrapResponse(res);
+                }),
         ),
 
         onMutate: async ({ id, ...raw }) => {
@@ -85,16 +91,21 @@ export function useUpdateTask() {
             await taskCache.cancel(queryClient);
             const snapshot = taskCache.snapshot(queryClient);
 
-            queryClient.setQueriesData<Task[]>(
-                { queryKey: queryKeys.tasks.all },
-                (old) => transformListCache(old, (items) => items.map((t) => {
-                    if (t.id === id) return { ...t, ...updates };
-                    // An app or website belongs to the whole series: its cached occurrences show it too.
-                    if (t.seriesId === id && ("linkedAppId" in updates || "linkedUrl" in updates)) {
-                        return { ...t, ...("linkedAppId" in updates && { linkedAppId: updates.linkedAppId }), ...("linkedUrl" in updates && { linkedUrl: updates.linkedUrl }) };
-                    }
-                    return t;
-                })),
+            queryClient.setQueriesData<Task[]>({ queryKey: queryKeys.tasks.all }, (old) =>
+                transformListCache(old, (items) =>
+                    items.map((t) => {
+                        if (t.id === id) return { ...t, ...updates };
+                        // An app or website belongs to the whole series: its cached occurrences show it too.
+                        if (t.seriesId === id && ("linkedAppId" in updates || "linkedUrl" in updates)) {
+                            return {
+                                ...t,
+                                ...("linkedAppId" in updates && { linkedAppId: updates.linkedAppId }),
+                                ...("linkedUrl" in updates && { linkedUrl: updates.linkedUrl }),
+                            };
+                        }
+                        return t;
+                    }),
+                ),
             );
 
             return { snapshot };
@@ -103,7 +114,8 @@ export function useUpdateTask() {
         onSuccess: (task, input) => {
             if (!task) return; // Queued offline
             // Full only; the server decides whether to ask. Never required.
-            if (input.state === "COMPLETE") void offerDuration(task, settings?.assistant?.memoryMode, durationApi, guessOf(task)?.minutes ?? null);
+            if (input.state === "COMPLETE")
+                void offerDuration(task, settings?.assistant?.memoryMode, durationApi, guessOf(task)?.minutes ?? null);
             if (input.effort !== undefined) void queryClient.invalidateQueries({ queryKey: queryKeys.effortEvidence });
             if (isRecurringTask(task)) {
                 taskCache.invalidate(queryClient);

@@ -57,9 +57,9 @@ export function useAnswerConnectRequest(request: string) {
             const param = { request };
             const res = answer
                 ? await client.api.connections.requests[":request"].approve.$post({
-                    param,
-                    json: { scopes: answer.scopes, timezone: getUserZone() },
-                })
+                      param,
+                      json: { scopes: answer.scopes, timezone: getUserZone() },
+                  })
                 : await client.api.connections.requests[":request"].decline.$post({ param });
             return (await unwrapResponse(res)).redirectTo;
         },

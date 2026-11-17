@@ -97,7 +97,10 @@ export function useLiveSync() {
             if (disposed) return;
             if (Date.now() - openedAt >= STABLE_MS && openedAt) attempt = 0;
             openedAt = 0;
-            if (code === ACCOUNT_GONE) { gone = true; return; }
+            if (code === ACCOUNT_GONE) {
+                gone = true;
+                return;
+            }
             if (code === BAD_TOKEN && sentToken === ticket) {
                 ticket = null; // expired or forgotten: sign in with a JWT once more, right away
                 void connect();
@@ -105,11 +108,17 @@ export function useLiveSync() {
             }
             if (code === BAD_TOKEN) {
                 dropAuthJwt(sentToken);
-                getAuthJwt().then((fresh) => {
-                    // A wake may have reconnected meanwhile: then this answer is stale and must not pause the new socket.
-                    if (disposed || socket || connecting) return;
-                    if (fresh && fresh !== sentToken && !authRetried) { authRetried = true; void connect(); } else paused = true;
-                }, () => schedule()); // no answer at all (offline, auth down) is not a bad token: try again later
+                getAuthJwt().then(
+                    (fresh) => {
+                        // A wake may have reconnected meanwhile: then this answer is stale and must not pause the new socket.
+                        if (disposed || socket || connecting) return;
+                        if (fresh && fresh !== sentToken && !authRetried) {
+                            authRetried = true;
+                            void connect();
+                        } else paused = true;
+                    },
+                    () => schedule(),
+                ); // no answer at all (offline, auth down) is not a bad token: try again later
                 return;
             }
             schedule(code === RATE_LIMITED ? 60_000 : 0);
@@ -119,14 +128,21 @@ export function useLiveSync() {
             ws.send("ping");
             window.clearTimeout(pongTimer);
             // No answer: the connection is dead without saying so.
-            pongTimer = window.setTimeout(() => { try { ws.close(); } catch { /* already closed */ } closed(ws, 1006, ""); }, PONG_WAIT_MS);
+            pongTimer = window.setTimeout(() => {
+                try {
+                    ws.close();
+                } catch {
+                    /* already closed */
+                }
+                closed(ws, 1006, "");
+            }, PONG_WAIT_MS);
         };
         async function connect() {
             if (disposed || gone || socket || connecting || !navigator.onLine) return;
             if (isSessionHeld()) return schedule();
             connecting = true;
             try {
-                const token = ticket ?? await getAuthJwt();
+                const token = ticket ?? (await getAuthJwt());
                 if (disposed || socket) return;
                 if (!token) return schedule();
                 const ws = new WebSocket(liveUrl(), ["cadence.live", token, PAGE_ORIGIN]);
@@ -138,16 +154,28 @@ export function useLiveSync() {
                 };
                 ws.onmessage = (event) => {
                     if (disposed || socket !== ws) return;
-                    if (event.data === "pong") { window.clearTimeout(pongTimer); return; }
+                    if (event.data === "pong") {
+                        window.clearTimeout(pongTimer);
+                        return;
+                    }
                     let message: { v?: unknown; ticket?: unknown };
-                    try { message = JSON.parse(String(event.data)) as typeof message; } catch { return; }
+                    try {
+                        message = JSON.parse(String(event.data)) as typeof message;
+                    } catch {
+                        return;
+                    }
                     if (typeof message.ticket === "string") ticket = message.ticket;
                     const { v } = message;
                     if (typeof v !== "number") return;
                     authRetried = false;
                     // A socket's first answer refreshes only if something changed while it was away, or a live read failed
                     // then (startup offline, a dropped connection: nothing else refetches on reconnect). Startup itself already read.
-                    const missed = first && queryClient.getQueryCache().findAll({ type: "active", predicate: isLive }).some((q) => q.state.status === "error");
+                    const missed =
+                        first &&
+                        queryClient
+                            .getQueryCache()
+                            .findAll({ type: "active", predicate: isLive })
+                            .some((q) => q.state.status === "error");
                     first = false;
                     if ((lastV !== null && v !== lastV) || missed) markPending();
                     lastV = v;
@@ -169,7 +197,9 @@ export function useLiveSync() {
             window.clearTimeout(retryTimer);
             void connect();
         };
-        const onVisible = () => { if (document.visibilityState === "visible") wake(); };
+        const onVisible = () => {
+            if (document.visibilityState === "visible") wake();
+        };
         window.addEventListener("online", wake);
         window.addEventListener(WAKE_EVENT, wake);
         document.addEventListener("visibilitychange", onVisible);
@@ -186,7 +216,11 @@ export function useLiveSync() {
             for (const timer of [retryTimer, debounceTimer, maxTimer]) window.clearTimeout(timer);
             const ws = socket;
             socket = null;
-            try { ws?.close(1000); } catch { /* already closed */ }
+            try {
+                ws?.close(1000);
+            } catch {
+                /* already closed */
+            }
         };
     }, [enabled, userId, queryClient]);
 }

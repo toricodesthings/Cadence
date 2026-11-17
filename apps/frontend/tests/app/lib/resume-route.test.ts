@@ -1,7 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RESUME_FOR_MS, RESUME_ROUTE_KEY, RESUME_ROUTE_SCRIPT, forgetRoute, noteWorkspacePath, rememberRoute, returnPath } from "../../../app/lib/resume-route";
+import {
+    RESUME_FOR_MS,
+    RESUME_ROUTE_KEY,
+    RESUME_ROUTE_SCRIPT,
+    forgetRoute,
+    noteWorkspacePath,
+    rememberRoute,
+    returnPath,
+} from "../../../app/lib/resume-route";
 
-const installed = (standalone: boolean) => vi.stubGlobal("matchMedia", (query: string) => ({ matches: standalone && query.includes("standalone") }));
+const installed = (standalone: boolean) =>
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: standalone && query.includes("standalone") }));
 
 /** Loads the page at `path` and runs the head script, as a launch would. */
 const launch = (path: string) => {
@@ -50,7 +59,11 @@ describe("resume route", () => {
 
     it("ignores a saved value it didn't write", () => {
         installed(true);
-        for (const saved of ["{", JSON.stringify({ path: "//evil.example", at: Date.now() }), JSON.stringify({ path: "/today/../connect", at: Date.now() })]) {
+        for (const saved of [
+            "{",
+            JSON.stringify({ path: "//evil.example", at: Date.now() }),
+            JSON.stringify({ path: "/today/../connect", at: Date.now() }),
+        ]) {
             localStorage.setItem(RESUME_ROUTE_KEY, saved);
             expect(launch("/")).toBe("/");
         }

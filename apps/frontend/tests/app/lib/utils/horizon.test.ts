@@ -12,7 +12,15 @@ describe("groupFurtherOut", () => {
         setDateFormatConfig({ ...initial, weekStartsOn: 1 });
         // Sunday 11 Oct: Further out starts Mon 19 Oct, so weeks run until Mon 16 Nov.
         const groups = groupFurtherOut(
-            [at("2026-12-03"), at("2026-10-28"), at("2026-10-20"), at("2026-11-15"), at("2026-11-16"), at("2027-01-05"), at("2026-10-21")],
+            [
+                at("2026-12-03"),
+                at("2026-10-28"),
+                at("2026-10-20"),
+                at("2026-11-15"),
+                at("2026-11-16"),
+                at("2027-01-05"),
+                at("2026-10-21"),
+            ],
             "2026-10-11",
         );
         expect(groups.map((group) => [group.label, group.items.map((item) => item.id)])).toEqual([

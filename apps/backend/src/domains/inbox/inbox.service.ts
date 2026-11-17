@@ -32,7 +32,11 @@ export async function processCapture(
     const replayed = existingId ? await findTask(tx, userId, existingId) : undefined;
     if (replayed) return { task: replayed, alreadyProcessed: true };
 
-    const [item] = await tx.select().from(inboxItems).where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId))).for("update");
+    const [item] = await tx
+        .select()
+        .from(inboxItems)
+        .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)))
+        .for("update");
     throwIfNotFound(item, "Inbox item");
     // Already placed (double submit, second device): return that task, never a duplicate.
     const placed = item.processed && item.placedTaskId ? await findTask(tx, userId, item.placedTaskId) : undefined;
@@ -42,7 +46,10 @@ export async function processCapture(
     const { parsed, inferred } = await inferPlacement(tx, userId, item, body, zone);
 
     const values = captureTaskValues(userId, body, inferred, zone);
-    const taskValues = { ...values, ...(values.effort == null && !values.recurrenceRule && effortGuessFromCapture(item.analysis)) };
+    const taskValues = {
+        ...values,
+        ...(values.effort == null && !values.recurrenceRule && effortGuessFromCapture(item.analysis)),
+    };
     const taskTagIds = Array.from(new Set(inferred.tagIds));
 
     validateTaskRecurrenceRule(taskValues.recurrenceRule, taskValues.zone ?? zone);
@@ -56,21 +63,23 @@ export async function processCapture(
 
     // 1. Create the task atomically
     await assertRowRoom(tx, userId, "tasks");
-    const [task] = await insertWithClientId(() => tx
-        .insert(tasks)
-        .values(body.taskId ? { ...taskValues, id: body.taskId } : taskValues)
-        .returning());
+    const [task] = await insertWithClientId(() =>
+        tx
+            .insert(tasks)
+            .values(body.taskId ? { ...taskValues, id: body.taskId } : taskValues)
+            .returning(),
+    );
 
     if (taskTagIds.length > 0) {
-        await tx.insert(taskTags).values(
-            taskTagIds.map((tagId) => ({ taskId: task.id, tagId })),
-        );
+        await tx.insert(taskTags).values(taskTagIds.map((tagId) => ({ taskId: task.id, tagId })));
     }
 
     await persistNlpSnapshot(tx, parsed, task.id, userId);
 
     if (extras.subtasks?.length) {
-        await tx.insert(subtasks).values(extras.subtasks.map((title, orderIndex) => ({ taskId: task.id, userId, title, orderIndex })));
+        await tx
+            .insert(subtasks)
+            .values(extras.subtasks.map((title, orderIndex) => ({ taskId: task.id, userId, title, orderIndex })));
     }
     if (extras.note) await writeNote(tx, userId, task.id, extras.note, { expectedVersion: 0 });
 
@@ -103,11 +112,26 @@ export async function processCapture(
 /** The model's Effort score for the capture (placement's batched E3) becomes the task's guess, never its Effort. */
 function effortGuessFromCapture(analysis: unknown) {
     const parsed = suggestedEffortSchema.safeParse((analysis as { suggestedEffort?: unknown } | null)?.suggestedEffort);
-    return parsed.success ? { effortGuess: parsed.data.effort, effortGuessSource: "model" as const, effortGuessAt: new Date().toISOString() } : {};
+    return parsed.success
+        ? {
+              effortGuess: parsed.data.effort,
+              effortGuessSource: "model" as const,
+              effortGuessAt: new Date().toISOString(),
+          }
+        : {};
 }
 
 /** Where a ticked-off thought goes: nowhere. */
-const PLACED_NOWHERE = { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null, projectId: null, sectionId: null, recurrenceRule: null };
+const PLACED_NOWHERE = {
+    dueDate: null,
+    endDate: null,
+    scheduledStart: null,
+    scheduledEnd: null,
+    zone: null,
+    projectId: null,
+    sectionId: null,
+    recurrenceRule: null,
+};
 
 /** The task row a capture becomes. A ticked-off thought is done and placed nowhere. */
 function captureTaskValues(
@@ -135,7 +159,7 @@ function captureTaskValues(
         title: body.title,
         orderIndex: 0,
         // Waiting on someone is a state, not just a note: the task shows who only while WAITING.
-        state: waitingOn ? "WAITING" as const : "ACTIVE" as const,
+        state: waitingOn ? ("WAITING" as const) : ("ACTIVE" as const),
         origin: null,
         projectId: "projectId" in body ? body.projectId : inferred.projectId,
         sectionId,
@@ -149,11 +173,19 @@ function captureTaskValues(
         notBefore,
         ...temporalFields,
     };
-    return body.complete ? { ...values, state: "COMPLETE" as const, origin: "thought" as const, ...PLACED_NOWHERE } : values;
+    return body.complete
+        ? { ...values, state: "COMPLETE" as const, origin: "thought" as const, ...PLACED_NOWHERE }
+        : values;
 }
 
 async function findTask(tx: Tx, userId: string, taskId: string) {
-    const [task] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))));
+    const [task] = await withTagIds(
+        tx,
+        await tx
+            .select()
+            .from(tasks)
+            .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))),
+    );
     return task;
 }
 
@@ -206,13 +238,7 @@ async function inferPlacement(
     const parsed = parseCanonicalNlpEnvelope(envelope, { context: nlpRuntime.context, clock: nlpRuntime.clock });
     const explicit = explicitFields(body);
     // `resolved`: the client chose every field; store them as sent (an absent one is "none") and never re-read the words.
-    const inferred = body.nlp?.resolved
-        ? asResolved(explicit)
-        : inferTaskFieldsFromParse(
-            parsed,
-            explicit,
-            zone,
-        );
+    const inferred = body.nlp?.resolved ? asResolved(explicit) : inferTaskFieldsFromParse(parsed, explicit, zone);
     return { parsed, inferred };
 }
 
@@ -253,10 +279,19 @@ export async function updateCapture(
     const [row] = await tx
         .update(inboxItems)
         .set(change)
-        .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId), change.captureStatus ? isNull(inboxItems.placedTaskId) : undefined))
+        .where(
+            and(
+                eq(inboxItems.id, id),
+                eq(inboxItems.userId, userId),
+                change.captureStatus ? isNull(inboxItems.placedTaskId) : undefined,
+            ),
+        )
         .returning();
     if (!row && change.captureStatus) {
-        const [exists] = await tx.select({ id: inboxItems.id }).from(inboxItems).where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)));
+        const [exists] = await tx
+            .select({ id: inboxItems.id })
+            .from(inboxItems)
+            .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)));
         if (exists) throw new AppError(409, "CONFLICT", "This capture was already placed");
     }
     throwIfNotFound(row, "Inbox item");

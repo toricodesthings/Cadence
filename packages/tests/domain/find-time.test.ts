@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { atLocal } from "@cadence/domain/time";
-import { BUFFER_MINUTES, bucketOf, busyBlocks, findTimes, timeOfDay, type FindTimeInput } from "@cadence/domain/find-time";
+import {
+    BUFFER_MINUTES,
+    bucketOf,
+    busyBlocks,
+    findTimes,
+    timeOfDay,
+    type FindTimeInput,
+} from "@cadence/domain/find-time";
 
 const zone = "America/Toronto";
 const day = "2026-10-20";
@@ -45,18 +52,34 @@ describe("busy and buffer", () => {
     });
 
     it("doesn't offer a gap exactly the task's length", () => {
-        const input = base({ task: { minutes: 60, notBefore: null, currentStart: null }, busy: [block("06:00", "09:00"), block("10:00", "22:00")] });
+        const input = base({
+            task: { minutes: 60, notBefore: null, currentStart: null },
+            busy: [block("06:00", "09:00"), block("10:00", "22:00")],
+        });
         expect(findTimes(input)).toEqual([]);
     });
 
     it("offers a gap with room for the buffers", () => {
-        const input = base({ task: { minutes: 60, notBefore: null, currentStart: null }, busy: [block("06:00", "09:00"), block("10:30", "22:00")] });
+        const input = base({
+            task: { minutes: 60, notBefore: null, currentStart: null },
+            busy: [block("06:00", "09:00"), block("10:30", "22:00")],
+        });
         expect(findTimes(input)[0].start).toBe(at("09:15"));
     });
 
     it("busyBlocks skips done, archived, all-day and the task itself", () => {
-        const t = (id: string, state = "ACTIVE", s: string | null = at("09:00"), e: string | null = at("10:00")) => ({ id, state, scheduledStart: s, scheduledEnd: e });
-        expect(busyBlocks([t("a"), t("me"), t("done", "COMPLETE"), t("old", "ARCHIVED"), t("allday", "ACTIVE", null, null)], "me")).toHaveLength(1);
+        const t = (id: string, state = "ACTIVE", s: string | null = at("09:00"), e: string | null = at("10:00")) => ({
+            id,
+            state,
+            scheduledStart: s,
+            scheduledEnd: e,
+        });
+        expect(
+            busyBlocks(
+                [t("a"), t("me"), t("done", "COMPLETE"), t("old", "ARCHIVED"), t("allday", "ACTIVE", null, null)],
+                "me",
+            ),
+        ).toHaveLength(1);
     });
 });
 
@@ -75,7 +98,12 @@ describe("order and spacing", () => {
     it("never offers overlapping proposals, and at most 8", () => {
         const all = findTimes(base());
         expect(all.length).toBeLessThanOrEqual(8);
-        for (let i = 1; i < all.length; i++) for (let j = 0; j < i; j++) expect(Date.parse(all[i].start) < Date.parse(all[j].end) && Date.parse(all[i].end) > Date.parse(all[j].start)).toBe(false);
+        for (let i = 1; i < all.length; i++)
+            for (let j = 0; j < i; j++)
+                expect(
+                    Date.parse(all[i].start) < Date.parse(all[j].end) &&
+                        Date.parse(all[i].end) > Date.parse(all[j].start),
+                ).toBe(false);
     });
 
     it("is chronological without a preference", () => {
@@ -86,7 +114,16 @@ describe("order and spacing", () => {
 
 describe("time of day", () => {
     it("buckets local hours", () => {
-        expect([8, 9, 11, 12, 16, 17, 20, 21].map(timeOfDay)).toEqual(["early", "morning", "morning", "afternoon", "afternoon", "evening", "evening", "late"]);
+        expect([8, 9, 11, 12, 16, 17, 20, 21].map(timeOfDay)).toEqual([
+            "early",
+            "morning",
+            "morning",
+            "afternoon",
+            "afternoon",
+            "evening",
+            "evening",
+            "late",
+        ]);
         expect(bucketOf(at("19:30"), zone)).toBe("evening");
     });
 });

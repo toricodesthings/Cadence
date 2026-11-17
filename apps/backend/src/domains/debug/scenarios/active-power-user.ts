@@ -90,12 +90,15 @@ export async function seed(db: Tx, userId: string) {
     const seedTask = (input: SeedTaskInput) => createSeedTask(userId, input, zone);
 
     // ── Projects ─────────────────────────────────────────────────────
-    const seededProjects = await db.insert(projects).values([
-        createSeedProject(userId, { name: "Feature Launch" }),
-        createSeedProject(userId, { name: "Client Ops", colorAccent: "glacier" }),
-        createSeedProject(userId, { name: "Home Reset", colorAccent: "emerald" }),
-        createSeedProject(userId, { name: "Spring Semester", colorAccent: "rose" }),
-    ]).returning();
+    const seededProjects = await db
+        .insert(projects)
+        .values([
+            createSeedProject(userId, { name: "Feature Launch" }),
+            createSeedProject(userId, { name: "Client Ops", colorAccent: "glacier" }),
+            createSeedProject(userId, { name: "Home Reset", colorAccent: "emerald" }),
+            createSeedProject(userId, { name: "Spring Semester", colorAccent: "rose" }),
+        ])
+        .returning();
 
     const projectByName = new Map(seededProjects.map((p) => [p.name, p] as const));
     const featureLaunchId = getRequiredRow(projectByName, "Feature Launch", "project").id;
@@ -104,16 +107,19 @@ export async function seed(db: Tx, userId: string) {
     const springSemesterId = getRequiredRow(projectByName, "Spring Semester", "project").id;
 
     // ── Task sections ────────────────────────────────────────────────
-    const seededSections = await db.insert(taskSections).values([
-        createSeedSection(userId, { name: "Today", orderIndex: 0, projectId: null }),
-        createSeedSection(userId, { name: "Later This Week", orderIndex: 1, projectId: null }),
-        createSeedSection(userId, { name: "Today", orderIndex: 0, projectId: featureLaunchId }),
-        createSeedSection(userId, { name: "Later This Week", orderIndex: 1, projectId: featureLaunchId }),
-        createSeedSection(userId, { name: "Today", orderIndex: 0, projectId: clientOpsId }),
-        createSeedSection(userId, { name: "Later This Week", orderIndex: 1, projectId: clientOpsId }),
-        createSeedSection(userId, { name: "Later This Week", orderIndex: 0, projectId: homeResetId }),
-        createSeedSection(userId, { name: "Weekly Anchors", orderIndex: 0, projectId: springSemesterId }),
-    ]).returning();
+    const seededSections = await db
+        .insert(taskSections)
+        .values([
+            createSeedSection(userId, { name: "Today", orderIndex: 0, projectId: null }),
+            createSeedSection(userId, { name: "Later This Week", orderIndex: 1, projectId: null }),
+            createSeedSection(userId, { name: "Today", orderIndex: 0, projectId: featureLaunchId }),
+            createSeedSection(userId, { name: "Later This Week", orderIndex: 1, projectId: featureLaunchId }),
+            createSeedSection(userId, { name: "Today", orderIndex: 0, projectId: clientOpsId }),
+            createSeedSection(userId, { name: "Later This Week", orderIndex: 1, projectId: clientOpsId }),
+            createSeedSection(userId, { name: "Later This Week", orderIndex: 0, projectId: homeResetId }),
+            createSeedSection(userId, { name: "Weekly Anchors", orderIndex: 0, projectId: springSemesterId }),
+        ])
+        .returning();
 
     const sectionByProjectAndName = (projectId: string | null, name: string) => {
         const match = seededSections.find((s) => s.projectId === projectId && s.name === name);
@@ -122,219 +128,231 @@ export async function seed(db: Tx, userId: string) {
     };
 
     // ── Inbox sections ───────────────────────────────────────────────
-    const seededInboxSections = await db.insert(inboxSections).values([
-        createSeedInboxSection(userId, { name: "Capture", orderIndex: 0 }),
-        createSeedInboxSection(userId, { name: "Errands", orderIndex: 1 }),
-        createSeedInboxSection(userId, { name: "Reference", orderIndex: 2 }),
-    ]).returning();
+    const seededInboxSections = await db
+        .insert(inboxSections)
+        .values([
+            createSeedInboxSection(userId, { name: "Capture", orderIndex: 0 }),
+            createSeedInboxSection(userId, { name: "Errands", orderIndex: 1 }),
+            createSeedInboxSection(userId, { name: "Reference", orderIndex: 2 }),
+        ])
+        .returning();
 
     const inboxSectionByName = new Map(seededInboxSections.map((s) => [s.name, s] as const));
 
     // ── Tags ─────────────────────────────────────────────────────────
-    const seededTags = await db.insert(tags).values([
-        createSeedTag(userId, { name: "Deep Work", color: "#f2cc60" }),
-        createSeedTag(userId, { name: "Admin", color: "#79c0ff" }),
-        createSeedTag(userId, { name: "Home", color: "#7ee787" }),
-        createSeedTag(userId, { name: "Follow-up", color: "#f472b6" }),
-    ]).returning();
+    const seededTags = await db
+        .insert(tags)
+        .values([
+            createSeedTag(userId, { name: "Deep Work", color: "#f2cc60" }),
+            createSeedTag(userId, { name: "Admin", color: "#79c0ff" }),
+            createSeedTag(userId, { name: "Home", color: "#7ee787" }),
+            createSeedTag(userId, { name: "Follow-up", color: "#f472b6" }),
+        ])
+        .returning();
 
     const tagByName = new Map(seededTags.map((t) => [t.name, t] as const));
 
     // ── Tasks ────────────────────────────────────────────────────────
-    const seededTasks = await db.insert(tasks).values([
-        // 0 — Timed block today (Feature Launch)
-        seedTask({
-            projectId: featureLaunchId,
-            sectionId: sectionByProjectAndName(featureLaunchId, "Today").id,
-            title: "Draft launch announcement",
-            content: "Include retention numbers and revised CTA.",
-            state: "ACTIVE",
-            orderIndex: 1,
-            scheduledStart: seedDateTime(clock, 0, 14, 0),
-            scheduledEnd: seedDateTime(clock, 0, 15, 30),
-            durationEstimate: 90,
-            priority: 3,
-            isPinned: true,
-            reminderAt: seedDateTime(clock, 0, 13, 30),
-            effort: 2,
-        }),
-        // 1 — All-day deadline today (no project)
-        seedTask({
-            sectionId: sectionByProjectAndName(null, "Today").id,
-            title: "Call landlord about hallway leak",
-            state: "ACTIVE",
-            orderIndex: 2,
-            dueDate: seedDate(clock, 0),
-            priority: 4,
-            isPinned: true,
-            reminderAt: seedDateTime(clock, 0, 16, 0),
-            effort: 1,
-        }),
-        // 2 — Timed block today (Client Ops)
-        seedTask({
-            projectId: clientOpsId,
-            sectionId: sectionByProjectAndName(clientOpsId, "Today").id,
-            title: "Reconcile subscription invoices",
-            state: "ACTIVE",
-            orderIndex: 3,
-            scheduledStart: seedDateTime(clock, 0, 10, 0),
-            scheduledEnd: seedDateTime(clock, 0, 10, 30),
-            durationEstimate: 30,
-            priority: 2,
-            effort: 1,
-        }),
-        // 3 — Waiting task (Client Ops)
-        seedTask({
-            projectId: clientOpsId,
-            sectionId: sectionByProjectAndName(clientOpsId, "Today").id,
-            title: "Wait for legal sign-off",
-            state: "WAITING",
-            orderIndex: 4,
-            waitingOn: "external counsel",
-            waitingReminder: seedDateTime(clock, 1, 15, 0),
-            effort: 1,
-        }),
-        // 4 — Recurring weekly (Client Ops)
-        seedTask({
-            projectId: clientOpsId,
-            sectionId: sectionByProjectAndName(clientOpsId, "Later This Week").id,
-            title: "Prepare weekly reset notes",
-            state: "ACTIVE",
-            orderIndex: 5,
-            dueDate: seedDate(clock, 1),
-            recurrenceRule: "FREQ=WEEKLY;BYDAY=MO",
-            priority: 1,
-        }),
-        // 5 — Duration task (no project)
-        seedTask({
-            sectionId: sectionByProjectAndName(null, "Later This Week").id,
-            title: "Outline Q2 research themes",
-            content: "Collect wins, friction points, and three testable hypotheses for the next cycle.",
-            state: "ACTIVE",
-            orderIndex: 6,
-            durationEstimate: 120,
-            effort: 3,
-        }),
-        // 6 — All-day duration with date range (Home Reset)
-        seedTask({
-            projectId: homeResetId,
-            sectionId: sectionByProjectAndName(homeResetId, "Later This Week").id,
-            title: "Stage weekend reset window",
-            state: "ACTIVE",
-            orderIndex: 7,
-            dueDate: seedDate(clock, 2),
-            endDate: seedDate(clock, 3),
-            priority: 1,
-            effort: 2,
-        }),
-        // 7 — Timezone-locked timed block (Feature Launch)
-        seedTask({
-            projectId: featureLaunchId,
-            sectionId: sectionByProjectAndName(featureLaunchId, "Later This Week").id,
-            title: "Pack samples for studio shoot",
-            state: "ACTIVE",
-            orderIndex: 8,
-            scheduledStart: seedDateTime(clock, 1, 16, 0),
-            scheduledEnd: seedDateTime(clock, 1, 17, 0),
-            durationEstimate: 60,
-            timezoneLocked: true,
-            priority: 1,
-            notBefore: seedDate(clock, 1),
-            effort: 2,
-        }),
-        // 8 — Completed task (Feature Launch)
-        seedTask({
-            projectId: featureLaunchId,
-            title: "Ship retrospective notes",
-            content: "Published after the team recap.",
-            state: "COMPLETE",
-            orderIndex: 9,
-            dueDate: seedDate(clock, -1),
-            priority: 1,
-        }),
-        // 9 — Archived task (Home Reset)
-        seedTask({
-            projectId: homeResetId,
-            title: "Archive 2025 receipts",
-            state: "ARCHIVED",
-            orderIndex: 10,
-            dueDate: seedDate(clock, -3),
-        }),
-        // 10 — Recurring weekly timed (Client Ops)
-        seedTask({
-            projectId: clientOpsId,
-            sectionId: sectionByProjectAndName(clientOpsId, "Later This Week").id,
-            title: "Clear inbox to zero",
-            state: "ACTIVE",
-            orderIndex: 11,
-            scheduledStart: seedDateTime(clock, 3, 13, 0),
-            scheduledEnd: seedDateTime(clock, 3, 13, 45),
-            durationEstimate: 45,
-            recurrenceRule: "FREQ=WEEKLY;BYDAY=TH",
-            effort: 2,
-        }),
-        // 11 — Future deadline with reminder (no project)
-        seedTask({
-            title: "Book dentist follow-up",
-            state: "ACTIVE",
-            orderIndex: 12,
-            dueDate: seedDate(clock, 5),
-            reminderAt: seedDateTime(clock, 4, 18, 0),
-            effort: 1,
-        }),
-        // 12 — Timetable clock (Spring Semester)
-        seedTask({
-            projectId: springSemesterId,
-            sectionId: sectionByProjectAndName(springSemesterId, "Weekly Anchors").id,
-            title: "Calculus II lecture",
-            content: "Recurring timetable clock for Tuesday and Thursday mornings during the spring term.",
-            state: "ACTIVE",
-            orderIndex: 13,
-            interactionMode: "timetable",
-            scheduledStart: "2026-03-10T09:30:00.000Z",
-            scheduledEnd: "2026-03-10T10:45:00.000Z",
-            durationEstimate: 75,
-            timezoneLocked: true,
-            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z",
-            priority: 2,
-            effort: 2,
-        }),
-    ]).returning();
+    const seededTasks = await db
+        .insert(tasks)
+        .values([
+            // 0 — Timed block today (Feature Launch)
+            seedTask({
+                projectId: featureLaunchId,
+                sectionId: sectionByProjectAndName(featureLaunchId, "Today").id,
+                title: "Draft launch announcement",
+                content: "Include retention numbers and revised CTA.",
+                state: "ACTIVE",
+                orderIndex: 1,
+                scheduledStart: seedDateTime(clock, 0, 14, 0),
+                scheduledEnd: seedDateTime(clock, 0, 15, 30),
+                durationEstimate: 90,
+                priority: 3,
+                isPinned: true,
+                reminderAt: seedDateTime(clock, 0, 13, 30),
+                effort: 2,
+            }),
+            // 1 — All-day deadline today (no project)
+            seedTask({
+                sectionId: sectionByProjectAndName(null, "Today").id,
+                title: "Call landlord about hallway leak",
+                state: "ACTIVE",
+                orderIndex: 2,
+                dueDate: seedDate(clock, 0),
+                priority: 4,
+                isPinned: true,
+                reminderAt: seedDateTime(clock, 0, 16, 0),
+                effort: 1,
+            }),
+            // 2 — Timed block today (Client Ops)
+            seedTask({
+                projectId: clientOpsId,
+                sectionId: sectionByProjectAndName(clientOpsId, "Today").id,
+                title: "Reconcile subscription invoices",
+                state: "ACTIVE",
+                orderIndex: 3,
+                scheduledStart: seedDateTime(clock, 0, 10, 0),
+                scheduledEnd: seedDateTime(clock, 0, 10, 30),
+                durationEstimate: 30,
+                priority: 2,
+                effort: 1,
+            }),
+            // 3 — Waiting task (Client Ops)
+            seedTask({
+                projectId: clientOpsId,
+                sectionId: sectionByProjectAndName(clientOpsId, "Today").id,
+                title: "Wait for legal sign-off",
+                state: "WAITING",
+                orderIndex: 4,
+                waitingOn: "external counsel",
+                waitingReminder: seedDateTime(clock, 1, 15, 0),
+                effort: 1,
+            }),
+            // 4 — Recurring weekly (Client Ops)
+            seedTask({
+                projectId: clientOpsId,
+                sectionId: sectionByProjectAndName(clientOpsId, "Later This Week").id,
+                title: "Prepare weekly reset notes",
+                state: "ACTIVE",
+                orderIndex: 5,
+                dueDate: seedDate(clock, 1),
+                recurrenceRule: "FREQ=WEEKLY;BYDAY=MO",
+                priority: 1,
+            }),
+            // 5 — Duration task (no project)
+            seedTask({
+                sectionId: sectionByProjectAndName(null, "Later This Week").id,
+                title: "Outline Q2 research themes",
+                content: "Collect wins, friction points, and three testable hypotheses for the next cycle.",
+                state: "ACTIVE",
+                orderIndex: 6,
+                durationEstimate: 120,
+                effort: 3,
+            }),
+            // 6 — All-day duration with date range (Home Reset)
+            seedTask({
+                projectId: homeResetId,
+                sectionId: sectionByProjectAndName(homeResetId, "Later This Week").id,
+                title: "Stage weekend reset window",
+                state: "ACTIVE",
+                orderIndex: 7,
+                dueDate: seedDate(clock, 2),
+                endDate: seedDate(clock, 3),
+                priority: 1,
+                effort: 2,
+            }),
+            // 7 — Timezone-locked timed block (Feature Launch)
+            seedTask({
+                projectId: featureLaunchId,
+                sectionId: sectionByProjectAndName(featureLaunchId, "Later This Week").id,
+                title: "Pack samples for studio shoot",
+                state: "ACTIVE",
+                orderIndex: 8,
+                scheduledStart: seedDateTime(clock, 1, 16, 0),
+                scheduledEnd: seedDateTime(clock, 1, 17, 0),
+                durationEstimate: 60,
+                timezoneLocked: true,
+                priority: 1,
+                notBefore: seedDate(clock, 1),
+                effort: 2,
+            }),
+            // 8 — Completed task (Feature Launch)
+            seedTask({
+                projectId: featureLaunchId,
+                title: "Ship retrospective notes",
+                content: "Published after the team recap.",
+                state: "COMPLETE",
+                orderIndex: 9,
+                dueDate: seedDate(clock, -1),
+                priority: 1,
+            }),
+            // 9 — Archived task (Home Reset)
+            seedTask({
+                projectId: homeResetId,
+                title: "Archive 2025 receipts",
+                state: "ARCHIVED",
+                orderIndex: 10,
+                dueDate: seedDate(clock, -3),
+            }),
+            // 10 — Recurring weekly timed (Client Ops)
+            seedTask({
+                projectId: clientOpsId,
+                sectionId: sectionByProjectAndName(clientOpsId, "Later This Week").id,
+                title: "Clear inbox to zero",
+                state: "ACTIVE",
+                orderIndex: 11,
+                scheduledStart: seedDateTime(clock, 3, 13, 0),
+                scheduledEnd: seedDateTime(clock, 3, 13, 45),
+                durationEstimate: 45,
+                recurrenceRule: "FREQ=WEEKLY;BYDAY=TH",
+                effort: 2,
+            }),
+            // 11 — Future deadline with reminder (no project)
+            seedTask({
+                title: "Book dentist follow-up",
+                state: "ACTIVE",
+                orderIndex: 12,
+                dueDate: seedDate(clock, 5),
+                reminderAt: seedDateTime(clock, 4, 18, 0),
+                effort: 1,
+            }),
+            // 12 — Timetable clock (Spring Semester)
+            seedTask({
+                projectId: springSemesterId,
+                sectionId: sectionByProjectAndName(springSemesterId, "Weekly Anchors").id,
+                title: "Calculus II lecture",
+                content: "Recurring timetable clock for Tuesday and Thursday mornings during the spring term.",
+                state: "ACTIVE",
+                orderIndex: 13,
+                interactionMode: "timetable",
+                scheduledStart: "2026-03-10T09:30:00.000Z",
+                scheduledEnd: "2026-03-10T10:45:00.000Z",
+                durationEstimate: 75,
+                timezoneLocked: true,
+                recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z",
+                priority: 2,
+                effort: 2,
+            }),
+        ])
+        .returning();
     const taskByTitle = new Map(seededTasks.map((task) => [task.title, task] as const));
 
     // ── Subtasks ─────────────────────────────────────────────────────
-    const seededSubtasks = await db.insert(subtasks).values([
-        createSeedSubtask(userId, getRequiredRow(taskByTitle, "Draft launch announcement", "task").id, {
-            title: "Pull retention numbers",
-            isComplete: true,
-            orderIndex: 1,
-        }),
-        createSeedSubtask(userId, getRequiredRow(taskByTitle, "Draft launch announcement", "task").id, {
-            title: "Trim CTA copy",
-            isComplete: false,
-            orderIndex: 2,
-        }),
-        createSeedSubtask(userId, getRequiredRow(taskByTitle, "Draft launch announcement", "task").id, {
-            title: "Send to brand review",
-            isComplete: false,
-            orderIndex: 3,
-        }),
-        createSeedSubtask(userId, getRequiredRow(taskByTitle, "Outline Q2 research themes", "task").id, {
-            title: "Review interview notes",
-            isComplete: true,
-            orderIndex: 1,
-        }),
-        createSeedSubtask(userId, getRequiredRow(taskByTitle, "Outline Q2 research themes", "task").id, {
-            title: "Cluster themes",
-            isComplete: false,
-            orderIndex: 2,
-        }),
-        createSeedSubtask(userId, getRequiredRow(taskByTitle, "Outline Q2 research themes", "task").id, {
-            title: "Write three hypotheses",
-            isComplete: false,
-            orderIndex: 3,
-        }),
-    ]).returning();
+    const seededSubtasks = await db
+        .insert(subtasks)
+        .values([
+            createSeedSubtask(userId, getRequiredRow(taskByTitle, "Draft launch announcement", "task").id, {
+                title: "Pull retention numbers",
+                isComplete: true,
+                orderIndex: 1,
+            }),
+            createSeedSubtask(userId, getRequiredRow(taskByTitle, "Draft launch announcement", "task").id, {
+                title: "Trim CTA copy",
+                isComplete: false,
+                orderIndex: 2,
+            }),
+            createSeedSubtask(userId, getRequiredRow(taskByTitle, "Draft launch announcement", "task").id, {
+                title: "Send to brand review",
+                isComplete: false,
+                orderIndex: 3,
+            }),
+            createSeedSubtask(userId, getRequiredRow(taskByTitle, "Outline Q2 research themes", "task").id, {
+                title: "Review interview notes",
+                isComplete: true,
+                orderIndex: 1,
+            }),
+            createSeedSubtask(userId, getRequiredRow(taskByTitle, "Outline Q2 research themes", "task").id, {
+                title: "Cluster themes",
+                isComplete: false,
+                orderIndex: 2,
+            }),
+            createSeedSubtask(userId, getRequiredRow(taskByTitle, "Outline Q2 research themes", "task").id, {
+                title: "Write three hypotheses",
+                isComplete: false,
+                orderIndex: 3,
+            }),
+        ])
+        .returning();
 
     // ── Task metrics ─────────────────────────────────────────────────
     await db.insert(taskMetrics).values([
@@ -405,58 +423,61 @@ export async function seed(db: Tx, userId: string) {
     ]);
 
     // ── Habits ───────────────────────────────────────────────────────
-    const seededHabits = await db.insert(habits).values([
-        createSeedHabit(userId, {
-            title: "Morning review",
-            description: "Open Cadence before messages.",
-            recurrenceRule: "FREQ=DAILY",
-            targetTime: "07:30",
-            reminderEnabled: true,
-            totalCompletions: 24,
-            totalSkips: 3,
-            currentStreak: 4,
-            longestStreak: 11,
-            colorAccent: "lantern",
-            notes: "Best paired with tea and a five-minute calendar sweep.",
-        }),
-        createSeedHabit(userId, {
-            title: "Hydrate before coffee",
-            description: "One full glass of water before caffeine.",
-            recurrenceRule: "FREQ=DAILY",
-            reminderEnabled: false,
-            totalCompletions: 17,
-            totalSkips: 2,
-            currentStreak: 2,
-            longestStreak: 6,
-            colorAccent: "glacier",
-        }),
-        createSeedHabit(userId, {
-            title: "Strength session",
-            description: "A short lift or resistance circuit.",
-            recurrenceRule: "FREQ=DAILY",
-            targetTime: "18:00",
-            reminderEnabled: true,
-            totalCompletions: 12,
-            totalSkips: 1,
-            currentStreak: 1,
-            longestStreak: 4,
-            colorAccent: "emerald",
-        }),
-        createSeedHabit(userId, {
-            title: "Archive bedside reading",
-            description: "Legacy habit kept for archive view testing.",
-            recurrenceRule: "FREQ=DAILY",
-            targetTime: "21:30",
-            reminderEnabled: false,
-            totalCompletions: 8,
-            totalSkips: 5,
-            currentStreak: 0,
-            longestStreak: 3,
-            colorAccent: "rose",
-            archived: true,
-            notes: "No longer active, but useful for archived-state QA.",
-        }),
-    ]).returning();
+    const seededHabits = await db
+        .insert(habits)
+        .values([
+            createSeedHabit(userId, {
+                title: "Morning review",
+                description: "Open Cadence before messages.",
+                recurrenceRule: "FREQ=DAILY",
+                targetTime: "07:30",
+                reminderEnabled: true,
+                totalCompletions: 24,
+                totalSkips: 3,
+                currentStreak: 4,
+                longestStreak: 11,
+                colorAccent: "lantern",
+                notes: "Best paired with tea and a five-minute calendar sweep.",
+            }),
+            createSeedHabit(userId, {
+                title: "Hydrate before coffee",
+                description: "One full glass of water before caffeine.",
+                recurrenceRule: "FREQ=DAILY",
+                reminderEnabled: false,
+                totalCompletions: 17,
+                totalSkips: 2,
+                currentStreak: 2,
+                longestStreak: 6,
+                colorAccent: "glacier",
+            }),
+            createSeedHabit(userId, {
+                title: "Strength session",
+                description: "A short lift or resistance circuit.",
+                recurrenceRule: "FREQ=DAILY",
+                targetTime: "18:00",
+                reminderEnabled: true,
+                totalCompletions: 12,
+                totalSkips: 1,
+                currentStreak: 1,
+                longestStreak: 4,
+                colorAccent: "emerald",
+            }),
+            createSeedHabit(userId, {
+                title: "Archive bedside reading",
+                description: "Legacy habit kept for archive view testing.",
+                recurrenceRule: "FREQ=DAILY",
+                targetTime: "21:30",
+                reminderEnabled: false,
+                totalCompletions: 8,
+                totalSkips: 5,
+                currentStreak: 0,
+                longestStreak: 3,
+                colorAccent: "rose",
+                archived: true,
+                notes: "No longer active, but useful for archived-state QA.",
+            }),
+        ])
+        .returning();
     const habitByTitle = new Map(seededHabits.map((habit) => [habit.title, habit] as const));
 
     // ── Habit logs ───────────────────────────────────────────────────
@@ -532,27 +553,30 @@ export async function seed(db: Tx, userId: string) {
     ]);
 
     // ── Inbox items ──────────────────────────────────────────────────
-    const seededInboxItems = await db.insert(inboxItems).values([
-        createSeedInboxItem(userId, {
-            sectionId: getRequiredRow(inboxSectionByName, "Capture", "inbox section").id,
-            orderIndex: 0,
-            rawText: "Review customer interview transcript and pull quotable lines",
-        }),
-        createSeedInboxItem(userId, {
-            sectionId: getRequiredRow(inboxSectionByName, "Errands", "inbox section").id,
-            orderIndex: 1,
-            rawText: "Pick up prescription before 6 PM",
-        }),
-        createSeedInboxItem(userId, {
-            sectionId: getRequiredRow(inboxSectionByName, "Reference", "inbox section").id,
-            orderIndex: 2,
-            rawText: "Save the campaign teardown deck for next quarter planning",
-        }),
-        createSeedInboxItem(userId, {
-            orderIndex: 3,
-            rawText: "Ask Maya whether the onboarding checklist needs legal review",
-        }),
-    ]).returning();
+    const seededInboxItems = await db
+        .insert(inboxItems)
+        .values([
+            createSeedInboxItem(userId, {
+                sectionId: getRequiredRow(inboxSectionByName, "Capture", "inbox section").id,
+                orderIndex: 0,
+                rawText: "Review customer interview transcript and pull quotable lines",
+            }),
+            createSeedInboxItem(userId, {
+                sectionId: getRequiredRow(inboxSectionByName, "Errands", "inbox section").id,
+                orderIndex: 1,
+                rawText: "Pick up prescription before 6 PM",
+            }),
+            createSeedInboxItem(userId, {
+                sectionId: getRequiredRow(inboxSectionByName, "Reference", "inbox section").id,
+                orderIndex: 2,
+                rawText: "Save the campaign teardown deck for next quarter planning",
+            }),
+            createSeedInboxItem(userId, {
+                orderIndex: 3,
+                rawText: "Ask Maya whether the onboarding checklist needs legal review",
+            }),
+        ])
+        .returning();
 
     // ── AI memories ──────────────────────────────────────────────────
     const today = seedDate(clock, 0);
@@ -596,49 +620,37 @@ export async function seed(db: Tx, userId: string) {
 
     // ── Task notes ───────────────────────────────────────────────────
     await db.insert(taskNotes).values([
-        createSeedTaskNote(
-            userId,
-            getRequiredRow(taskByTitle, "Draft launch announcement", "task").id,
-            { body: "## Key Points\n\n- Retention up 14% QoQ\n- New onboarding funnel live\n- CTA needs A/B variant copy\n\nCheck with design before finalising the hero." },
-        ),
-        createSeedTaskNote(
-            userId,
-            getRequiredRow(taskByTitle, "Outline Q2 research themes", "task").id,
-            { body: "# Research Themes\n\n## Wins\n- Reduced churn by 8%\n- NPS score improved\n\n## Friction\n- Onboarding drop-off at step 3\n- Mobile sessions shorter than expected\n\n## Hypotheses\n1. Guided tour reduces drop-off\n2. Push notifications improve retention\n3. Simplified dashboard increases engagement" },
-        ),
+        createSeedTaskNote(userId, getRequiredRow(taskByTitle, "Draft launch announcement", "task").id, {
+            body: "## Key Points\n\n- Retention up 14% QoQ\n- New onboarding funnel live\n- CTA needs A/B variant copy\n\nCheck with design before finalising the hero.",
+        }),
+        createSeedTaskNote(userId, getRequiredRow(taskByTitle, "Outline Q2 research themes", "task").id, {
+            body: "# Research Themes\n\n## Wins\n- Reduced churn by 8%\n- NPS score improved\n\n## Friction\n- Onboarding drop-off at step 3\n- Mobile sessions shorter than expected\n\n## Hypotheses\n1. Guided tour reduces drop-off\n2. Push notifications improve retention\n3. Simplified dashboard increases engagement",
+        }),
     ]);
 
     // ── NLP metadata ─────────────────────────────────────────────────
     await db.insert(taskNlpMetadata).values([
-        createSeedNlpMetadata(
-            userId,
-            getRequiredRow(taskByTitle, "Call landlord about hallway leak", "task").id,
-            {
-                sourceSurface: "quick_add",
-                rawInput: "call landlord about hallway leak today p4",
-                cleanedTitle: "Call landlord about hallway leak",
-                confidenceTier: "high",
-                parseResult: {
-                    dueDate: "today",
-                    priority: 4,
-                    tokens: ["call", "landlord", "about", "hallway", "leak"],
-                },
+        createSeedNlpMetadata(userId, getRequiredRow(taskByTitle, "Call landlord about hallway leak", "task").id, {
+            sourceSurface: "quick_add",
+            rawInput: "call landlord about hallway leak today p4",
+            cleanedTitle: "Call landlord about hallway leak",
+            confidenceTier: "high",
+            parseResult: {
+                dueDate: "today",
+                priority: 4,
+                tokens: ["call", "landlord", "about", "hallway", "leak"],
             },
-        ),
-        createSeedNlpMetadata(
-            userId,
-            getRequiredRow(taskByTitle, "Book dentist follow-up", "task").id,
-            {
-                sourceSurface: "inline_add",
-                rawInput: "book dentist follow-up next friday",
-                cleanedTitle: "Book dentist follow-up",
-                confidenceTier: "medium",
-                parseResult: {
-                    dueDate: "next friday",
-                    tokens: ["book", "dentist", "follow-up"],
-                },
+        }),
+        createSeedNlpMetadata(userId, getRequiredRow(taskByTitle, "Book dentist follow-up", "task").id, {
+            sourceSurface: "inline_add",
+            rawInput: "book dentist follow-up next friday",
+            cleanedTitle: "Book dentist follow-up",
+            confidenceTier: "medium",
+            parseResult: {
+                dueDate: "next friday",
+                tokens: ["book", "dentist", "follow-up"],
             },
-        ),
+        }),
     ]);
 
     // ── Saved focus views ────────────────────────────────────────────
@@ -667,36 +679,44 @@ export async function seed(db: Tx, userId: string) {
     ]);
 
     // ── Notification & feature-testing tasks ─────────────────────────
-    const notifTasks = await db.insert(tasks).values([
-        seedTask({
-            projectId: featureLaunchId,
-            title: "Review analytics dashboard mockups",
-            content: "Check the latest Figma frames from design.",
-            state: "ACTIVE",
-            orderIndex: 20,
-            reminderAt: seedDateTime(clock, 0, Math.max(Number(wallTimeOf(new Date(), zone).slice(0, 2)) - 1, 0), 0),
-            reminderSilenced: false,
-            priority: 3,
-            effort: 2,
-        }),
-        seedTask({
-            projectId: clientOpsId,
-            title: "Send revised proposal to Acme Corp",
-            state: "ACTIVE",
-            orderIndex: 21,
-            dueDate: seedDate(clock, 0),
-            priority: 4,
-            effort: 1,
-        }),
-        seedTask({
-            title: "Follow up on venue booking",
-            state: "ACTIVE",
-            orderIndex: 22,
-            dueDate: seedDate(clock, -1),
-            priority: 2,
-            effort: 1,
-        }),
-    ]).returning();
+    const notifTasks = await db
+        .insert(tasks)
+        .values([
+            seedTask({
+                projectId: featureLaunchId,
+                title: "Review analytics dashboard mockups",
+                content: "Check the latest Figma frames from design.",
+                state: "ACTIVE",
+                orderIndex: 20,
+                reminderAt: seedDateTime(
+                    clock,
+                    0,
+                    Math.max(Number(wallTimeOf(new Date(), zone).slice(0, 2)) - 1, 0),
+                    0,
+                ),
+                reminderSilenced: false,
+                priority: 3,
+                effort: 2,
+            }),
+            seedTask({
+                projectId: clientOpsId,
+                title: "Send revised proposal to Acme Corp",
+                state: "ACTIVE",
+                orderIndex: 21,
+                dueDate: seedDate(clock, 0),
+                priority: 4,
+                effort: 1,
+            }),
+            seedTask({
+                title: "Follow up on venue booking",
+                state: "ACTIVE",
+                orderIndex: 22,
+                dueDate: seedDate(clock, -1),
+                priority: 2,
+                effort: 1,
+            }),
+        ])
+        .returning();
 
     // ── Unmanaged tasks (no date, no project) ────────────────────────
     await db.insert(tasks).values([
@@ -816,7 +836,8 @@ export async function seed(db: Tx, userId: string) {
     ]);
 
     // ── User settings (all notification channels enabled) ────────────
-    await db.update(users)
+    await db
+        .update(users)
         .set({
             timeZone: zone,
             settings: {

@@ -8,10 +8,10 @@ import { readIdentity } from "./lib/auth/offline-identity";
 if (readIdentity()) prefetchSavedWorkspace();
 
 startTransition(() => {
-  hydrateRoot(
-    document,
-    <StrictMode>
-      <HydratedRouter />
-    </StrictMode>,
-  );
+    hydrateRoot(
+        document,
+        <StrictMode>
+            <HydratedRouter />
+        </StrictMode>,
+    );
 });

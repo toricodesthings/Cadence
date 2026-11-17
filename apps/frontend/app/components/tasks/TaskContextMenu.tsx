@@ -1,5 +1,24 @@
 import { useContext, useState, type ReactNode } from "react";
-import { EllipsisVertical, Pin, Copy, Trash2, Calendar, Bell, Sun, CalendarDays, ArrowRight, CalendarClock, Clock, X, ListChecks, Pencil, ChevronLeft, ChevronRight, Sunrise, type LucideIcon } from "lucide-react";
+import {
+    EllipsisVertical,
+    Pin,
+    Copy,
+    Trash2,
+    Calendar,
+    Bell,
+    Sun,
+    CalendarDays,
+    ArrowRight,
+    CalendarClock,
+    Clock,
+    X,
+    ListChecks,
+    Pencil,
+    ChevronLeft,
+    ChevronRight,
+    Sunrise,
+    type LucideIcon,
+} from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import type { GenericMenu } from "../primitives/menu-styles";
 import { Button } from "../primitives/Button";
@@ -40,7 +59,12 @@ export interface TaskMenuItemsProps {
 /** A menu row that opens a second view instead of closing the menu. */
 function submenuItem(Menu: GenericMenu, icon: ReactNode, label: string, hint: ReactNode, open: VoidFunction) {
     return (
-        <Menu.Item onSelect={(event) => { event.preventDefault(); open(); }}>
+        <Menu.Item
+            onSelect={(event) => {
+                event.preventDefault();
+                open();
+            }}
+        >
             <div className="flex w-full items-center gap-2">
                 {icon}
                 <span>{label}</span>
@@ -53,7 +77,13 @@ function submenuItem(Menu: GenericMenu, icon: ReactNode, label: string, hint: Re
     );
 }
 /** A plain menu row: icon, label, and an optional key hint at the far end. */
-function menuRow(Menu: GenericMenu, Icon: LucideIcon, label: string, select: () => void, { hint, iconClass, danger }: { hint?: string; iconClass?: string; danger?: boolean } = {}) {
+function menuRow(
+    Menu: GenericMenu,
+    Icon: LucideIcon,
+    label: string,
+    select: () => void,
+    { hint, iconClass, danger }: { hint?: string; iconClass?: string; danger?: boolean } = {},
+) {
     return (
         <Menu.Item onSelect={select} variant={danger ? "danger" : "default"}>
             <div className="flex items-center gap-2">
@@ -70,13 +100,22 @@ function suggestedRow(Menu: GenericMenu, offer: ReturnType<typeof useShownOffer>
     return offer ? (
         <>
             <Menu.Separator />
-            <div className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-twilight-text-muted">Suggested</div>
+            <div className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-twilight-text-muted">
+                Suggested
+            </div>
             {menuRow(Menu, ListChecks, OFFER_LABEL[offer.kind], offer.accept)}
         </>
     ) : null;
 }
 
-export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Menu, onCloseMenu, holdingContext }: TaskMenuItemsProps) {
+export function TaskMenuItems({
+    task,
+    onAddSubtask,
+    onRename,
+    MenuComponents: Menu,
+    onCloseMenu,
+    holdingContext,
+}: TaskMenuItemsProps) {
     // Place lists tasks for one chosen day: Find a time looks there, not at the task's own day.
     const findDay = useContext(FindTimeDayContext);
     const archiveTask = useArchiveTask();
@@ -99,7 +138,8 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
         updateTask.mutate({ id: task.id, isPinned: !task.isPinned });
     };
 
-    const setReminder = (reminderAt: string | null) => updateTask.mutate({ id: task.id, reminderAt, reminderSilenced: false });
+    const setReminder = (reminderAt: string | null) =>
+        updateTask.mutate({ id: task.id, reminderAt, reminderSilenced: false });
 
     /** Opens the reminder picker; a new reminder starts on the deadline when there is one. */
     const handleOpenReminder = () => {
@@ -109,14 +149,24 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
     };
 
     const handleQuickSchedule = (daysToAdd: number, startOfWeekend = false, nextWeek = false) => {
-        trackMenuAction(nextWeek ? "reschedule_next_week" : startOfWeekend ? "reschedule_weekend" : daysToAdd === 0 ? "reschedule_today" : daysToAdd === 1 ? "reschedule_tomorrow" : `reschedule_${daysToAdd}_days`);
+        trackMenuAction(
+            nextWeek
+                ? "reschedule_next_week"
+                : startOfWeekend
+                  ? "reschedule_weekend"
+                  : daysToAdd === 0
+                    ? "reschedule_today"
+                    : daysToAdd === 1
+                      ? "reschedule_tomorrow"
+                      : `reschedule_${daysToAdd}_days`,
+        );
         const now = today();
         const weekday = weekdayOf(now);
         const day = nextWeek
             ? addDays(now, (1 + 7 - weekday) % 7 || 7) // Next Monday
             : startOfWeekend
-                ? addDays(now, (6 - weekday + 7) % 7 || 7) // Next Saturday
-                : addDays(now, daysToAdd);
+              ? addDays(now, (6 - weekday + 7) % 7 || 7) // Next Saturday
+              : addDays(now, daysToAdd);
 
         // The task keeps its shape: an all-day task moves its days, a timed one keeps its time on the new day.
         const moved = rescheduleToDay(task, day, getUserZone());
@@ -139,7 +189,11 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
     if (menuView !== "main") {
         return (
             <div className="-m-1 overflow-hidden">
-                <SubviewHeader title={SUBVIEW_TITLE[menuView]} onBack={() => setMenuView("main")} onClose={() => onCloseMenu?.()} />
+                <SubviewHeader
+                    title={SUBVIEW_TITLE[menuView]}
+                    onBack={() => setMenuView("main")}
+                    onClose={() => onCloseMenu?.()}
+                />
 
                 {menuView === "reminder" ? (
                     <QuickScheduleSurface
@@ -151,7 +205,11 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                         onRequestClose={() => onCloseMenu?.()}
                     />
                 ) : menuView === "reschedule-presets" ? (
-                    <ReschedulePresets onPick={handleQuickSchedule} onCustom={() => setMenuView("reschedule-custom")} onClear={clearSchedule} />
+                    <ReschedulePresets
+                        onPick={handleQuickSchedule}
+                        onCustom={() => setMenuView("reschedule-custom")}
+                        onClear={clearSchedule}
+                    />
                 ) : (
                     <QuickScheduleSurface
                         dueDate={task.dueDate}
@@ -168,8 +226,22 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
         );
     }
 
-    const rescheduleItem = submenuItem(Menu, <Calendar size={16} />, "Reschedule", <span>r</span>, () => setMenuView("reschedule-presets"));
-    const findTimeItem = canFindTime(task) ? menuRow(Menu, Clock, findDay ? `Find a time on ${formatInZone(atLocal(findDay, "12:00", getUserZone()), getUserZone(), { weekday: "short" })}` : "Find a time", () => { trackMenuAction("find_time"); void findTime.run(task, findDay ? { day: findDay } : {}); }) : null;
+    const rescheduleItem = submenuItem(Menu, <Calendar size={16} />, "Reschedule", <span>r</span>, () =>
+        setMenuView("reschedule-presets"),
+    );
+    const findTimeItem = canFindTime(task)
+        ? menuRow(
+              Menu,
+              Clock,
+              findDay
+                  ? `Find a time on ${formatInZone(atLocal(findDay, "12:00", getUserZone()), getUserZone(), { weekday: "short" })}`
+                  : "Find a time",
+              () => {
+                  trackMenuAction("find_time");
+                  void findTime.run(task, findDay ? { day: findDay } : {});
+              },
+          )
+        : null;
     const suggestedItem = suggestedRow(Menu, shownOffer);
     const reminderItem = submenuItem(
         Menu,
@@ -187,7 +259,9 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
 
                     {findTimeItem}
 
-                    {menuRow(Menu, Pin, task.isPinned ? "Unpin task" : "Pin to top", handleTogglePin, { iconClass: task.isPinned ? "fill-accent-primary text-accent-primary" : "" })}
+                    {menuRow(Menu, Pin, task.isPinned ? "Unpin task" : "Pin to top", handleTogglePin, {
+                        iconClass: task.isPinned ? "fill-accent-primary text-accent-primary" : "",
+                    })}
 
                     {menuRow(Menu, Pencil, "Rename", () => onRename?.())}
 
@@ -206,39 +280,45 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                 </>
             ) : (
                 <>
-            {/* ── Scheduling & Time ── */}
-            {rescheduleItem}
+                    {/* ── Scheduling & Time ── */}
+                    {rescheduleItem}
 
-            {findTimeItem}
+                    {findTimeItem}
 
-            {reminderItem}
+                    {reminderItem}
 
-            <Menu.Separator />
+                    <Menu.Separator />
 
-            <OrganizeItems
-                Menu={Menu}
-                task={task}
-                onUpdate={(patch) => updateTask.mutate({ id: task.id, ...patch })}
-                onAddTag={(tagId) => addTaskTag.mutate({ taskId: task.id, tagId })}
-                onRemoveTag={(tagId) => removeTaskTag.mutate({ taskId: task.id, tagId })}
-            />
+                    <OrganizeItems
+                        Menu={Menu}
+                        task={task}
+                        onUpdate={(patch) => updateTask.mutate({ id: task.id, ...patch })}
+                        onAddTag={(tagId) => addTaskTag.mutate({ taskId: task.id, tagId })}
+                        onRemoveTag={(tagId) => removeTaskTag.mutate({ taskId: task.id, tagId })}
+                    />
 
-            <Menu.Separator />
+                    <Menu.Separator />
 
-            {/* ── Status & Actions ── */}
-            {menuRow(Menu, Pin, task.isPinned ? "Unpin task" : "Pin to top", handleTogglePin, { hint: "p", iconClass: task.isPinned ? "fill-accent-primary text-accent-primary" : "" })}
+                    {/* ── Status & Actions ── */}
+                    {menuRow(Menu, Pin, task.isPinned ? "Unpin task" : "Pin to top", handleTogglePin, {
+                        hint: "p",
+                        iconClass: task.isPinned ? "fill-accent-primary text-accent-primary" : "",
+                    })}
 
-            {menuRow(Menu, Pencil, "Rename", () => onRename?.(), { hint: "e" })}
+                    {menuRow(Menu, Pencil, "Rename", () => onRename?.(), { hint: "e" })}
 
-            {menuRow(Menu, Copy, "Duplicate", () => duplicateTask.mutate(task.id))}
+                    {menuRow(Menu, Copy, "Duplicate", () => duplicateTask.mutate(task.id))}
 
-            {onAddSubtask && menuRow(Menu, ListChecks, "Add subtask", onAddSubtask)}
+                    {onAddSubtask && menuRow(Menu, ListChecks, "Add subtask", onAddSubtask)}
 
-            <Menu.Separator />
+                    <Menu.Separator />
 
-            {menuRow(Menu, Trash2, "Move to Trash", () => archiveTask.mutate(task.id), { hint: "Del", danger: true })}
+                    {menuRow(Menu, Trash2, "Move to Trash", () => archiveTask.mutate(task.id), {
+                        hint: "Del",
+                        danger: true,
+                    })}
 
-            {suggestedItem}
+                    {suggestedItem}
                 </>
             )}
         </>
@@ -266,9 +346,7 @@ function SubviewHeader({ title, onBack, onClose }: SubviewHeaderProps) {
                 <ChevronLeft aria-hidden="true" size={13} />
                 Back
             </button>
-            <p className="text-sm font-semibold text-twilight-text">
-                {title}
-            </p>
+            <p className="text-sm font-semibold text-twilight-text">{title}</p>
             <button
                 type="button"
                 onClick={onClose}
@@ -281,14 +359,29 @@ function SubviewHeader({ title, onBack, onClose }: SubviewHeaderProps) {
     );
 }
 
-const PRESET_BUTTON = "flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-twilight-border/35 bg-white/[0.02] px-3 py-3 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text";
+const PRESET_BUTTON =
+    "flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-twilight-border/35 bg-white/[0.02] px-3 py-3 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text";
 
 type QuickSchedule = (daysToAdd: number, startOfWeekend?: boolean, nextWeek?: boolean) => void;
 
-const PRESETS: { label: string; icon: LucideIcon; iconClass: string; days: number; weekend?: boolean; nextWeek?: boolean }[] = [
+const PRESETS: {
+    label: string;
+    icon: LucideIcon;
+    iconClass: string;
+    days: number;
+    weekend?: boolean;
+    nextWeek?: boolean;
+}[] = [
     { label: "Today", icon: Sun, iconClass: "text-accent-primary", days: 0 },
     { label: "Tomorrow", icon: Sunrise, iconClass: "text-twilight-text-muted", days: 1 },
-    { label: "Next week", icon: ArrowRight, iconClass: "text-twilight-text-muted", days: 0, weekend: false, nextWeek: true },
+    {
+        label: "Next week",
+        icon: ArrowRight,
+        iconClass: "text-twilight-text-muted",
+        days: 0,
+        weekend: false,
+        nextWeek: true,
+    },
     { label: "Weekend", icon: CalendarDays, iconClass: "text-twilight-text-muted", days: 0, weekend: true },
     { label: "3 days", icon: CalendarClock, iconClass: "text-twilight-text-muted", days: 3 },
 ];
@@ -307,7 +400,12 @@ function ReschedulePresets({ onPick, onCustom, onClear }: ReschedulePresetsProps
 
             <div className="grid grid-cols-3 gap-2">
                 {PRESETS.map(({ label, icon: Icon, iconClass, days, weekend, nextWeek }) => (
-                    <button key={label} type="button" onClick={() => onPick(days, weekend, nextWeek)} className={PRESET_BUTTON}>
+                    <button
+                        key={label}
+                        type="button"
+                        onClick={() => onPick(days, weekend, nextWeek)}
+                        className={PRESET_BUTTON}
+                    >
                         <Icon aria-hidden="true" size={16} className={iconClass} />
                         <span>{label}</span>
                     </button>
@@ -357,10 +455,7 @@ function OrganizeItems({ Menu, task, onUpdate, onAddTag, onRemoveTag }: Organize
                 Wait! Radix doesn't allow a DropdownMenu trigger inside a ContextMenu item directly if it's not a Submenu. 
                 Instead we will pass Menu={Menu} to PriorityPicker, MoveToSubmenu, TagPickerSubmenu. 
             */}
-            <PriorityPicker
-                currentPriority={task.priority}
-                onSelect={(p) => onUpdate({ priority: p })}
-            />
+            <PriorityPicker currentPriority={task.priority} onSelect={(p) => onUpdate({ priority: p })} />
 
             {/* ── Effort ── */}
             <EffortPicker
@@ -402,7 +497,13 @@ function TaskQuickActions({ task }: { task: Task }) {
     const archiveTask = useArchiveTask();
     return (
         <>
-            {menuRow(DropdownMenu, Pin, task.isPinned ? "Unpin task" : "Pin to top", () => updateTask.mutate({ id: task.id, isPinned: !task.isPinned }), { iconClass: task.isPinned ? "fill-accent-primary text-accent-primary" : "" })}
+            {menuRow(
+                DropdownMenu,
+                Pin,
+                task.isPinned ? "Unpin task" : "Pin to top",
+                () => updateTask.mutate({ id: task.id, isPinned: !task.isPinned }),
+                { iconClass: task.isPinned ? "fill-accent-primary text-accent-primary" : "" },
+            )}
             {menuRow(DropdownMenu, Copy, "Duplicate", () => duplicateTask.mutate(task.id))}
             <DropdownMenu.Separator />
             {menuRow(DropdownMenu, Trash2, "Move to Trash", () => archiveTask.mutate(task.id), { danger: true })}
@@ -442,16 +543,16 @@ export function TaskContextMenu({ task, onAddSubtask, onRename, holdingContext }
                     <TaskQuickActions task={task} />
                 </DropdownMenu.Content>
             ) : (
-            <DropdownMenu.Content className="w-[22rem]" side="right" align="start" sideOffset={8}>
-                <TaskMenuItems
-                    task={task}
-                    onAddSubtask={onAddSubtask}
-                    onRename={onRename}
-                    MenuComponents={DropdownMenu}
-                    onCloseMenu={() => setOpen(false)}
-                    holdingContext={holdingContext}
-                />
-            </DropdownMenu.Content>
+                <DropdownMenu.Content className="w-[22rem]" side="right" align="start" sideOffset={8}>
+                    <TaskMenuItems
+                        task={task}
+                        onAddSubtask={onAddSubtask}
+                        onRename={onRename}
+                        MenuComponents={DropdownMenu}
+                        onCloseMenu={() => setOpen(false)}
+                        holdingContext={holdingContext}
+                    />
+                </DropdownMenu.Content>
             )}
         </DropdownMenu.Root>
     );

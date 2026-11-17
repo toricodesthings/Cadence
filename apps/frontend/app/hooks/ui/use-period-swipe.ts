@@ -28,17 +28,20 @@ export interface UsePeriodSwipeOptions {
 export function usePeriodSwipe({ enabled, onCommit }: UsePeriodSwipeOptions) {
     const reducedMotion = useReducedMotionSetting();
 
-    const handleDragEnd = useCallback((_: unknown, info: PanInfo) => {
-        const { x, y } = info.offset;
-        // A dominantly vertical pan belongs to the timeline, not to navigation.
-        if (Math.abs(x) <= Math.abs(y)) return;
+    const handleDragEnd = useCallback(
+        (_: unknown, info: PanInfo) => {
+            const { x, y } = info.offset;
+            // A dominantly vertical pan belongs to the timeline, not to navigation.
+            if (Math.abs(x) <= Math.abs(y)) return;
 
-        const velocity = info.velocity.x;
-        const flicked = Math.abs(velocity) > COMMIT_VELOCITY && Math.sign(velocity) === Math.sign(x);
-        if (Math.abs(x) < COMMIT_DISTANCE && !flicked) return;
+            const velocity = info.velocity.x;
+            const flicked = Math.abs(velocity) > COMMIT_VELOCITY && Math.sign(velocity) === Math.sign(x);
+            if (Math.abs(x) < COMMIT_DISTANCE && !flicked) return;
 
-        onCommit(x < 0 ? 1 : -1);
-    }, [onCommit]);
+            onCommit(x < 0 ? 1 : -1);
+        },
+        [onCommit],
+    );
 
     return {
         reducedMotion,

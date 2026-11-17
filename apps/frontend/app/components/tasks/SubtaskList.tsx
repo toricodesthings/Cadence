@@ -1,13 +1,24 @@
 import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import { X, GripVertical } from "lucide-react";
 import { motion } from "framer-motion";
-import { useSubtasks, useCreateSubtask, useUpdateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
+import {
+    useSubtasks,
+    useCreateSubtask,
+    useUpdateSubtask,
+    useDeleteSubtask,
+    useReorderSubtasks,
+} from "../../hooks/tasks/use-subtasks";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
 import { SuggestedSteps, SuggestStepsButton } from "./SuggestSteps";
 import { useSuggestSteps } from "../../hooks/ai/use-suggest-steps";
 
-interface EditableItem { id: string; title: string; orderIndex: number; isComplete?: boolean }
+interface EditableItem {
+    id: string;
+    title: string;
+    orderIndex: number;
+    isComplete?: boolean;
+}
 
 interface EditableSubtaskRowProps<T extends EditableItem> extends SortableSubtaskRenderProps<T> {
     onDelete: (id: string) => void;
@@ -78,7 +89,10 @@ export function EditableSubtaskRow<T extends EditableItem>({
                 onBlur={draft.commit}
                 onKeyDown={(e) => {
                     if (e.key === "Enter") e.currentTarget.blur();
-                    if (e.key === "Escape") { draft.cancel(); e.currentTarget.blur(); }
+                    if (e.key === "Escape") {
+                        draft.cancel();
+                        e.currentTarget.blur();
+                    }
                 }}
                 className={`flex-1 min-w-0 bg-transparent outline-none text-[14px] leading-6 transition-all duration-300 ${
                     subtask.isComplete ? "text-twilight-text-muted/50 line-through" : "text-twilight-text"
@@ -97,7 +111,15 @@ export function EditableSubtaskRow<T extends EditableItem>({
     );
 }
 
-export function SubtaskList({ taskId, focusAdd = false, onFocused }: { taskId: string; focusAdd?: boolean; onFocused?: () => void }) {
+export function SubtaskList({
+    taskId,
+    focusAdd = false,
+    onFocused,
+}: {
+    taskId: string;
+    focusAdd?: boolean;
+    onFocused?: () => void;
+}) {
     const { data: subtasks = [], isLoading } = useSubtasks(taskId);
     const createSubtask = useCreateSubtask(taskId);
     const updateSubtask = useUpdateSubtask(taskId);

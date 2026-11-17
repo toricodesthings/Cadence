@@ -24,7 +24,17 @@ import { cn } from "../../lib/utils";
 const DAYS_SHOWN = 14;
 
 /** The day as a bar from the calendar's first hour to the day's end: other blocks muted, the proposal as a ghost of the block that would be made. */
-function MiniDay({ day, startHour, busy, proposal }: { day: LocalDate; startHour: number; busy: readonly { start: string; end: string }[]; proposal: Proposal | null }) {
+function MiniDay({
+    day,
+    startHour,
+    busy,
+    proposal,
+}: {
+    day: LocalDate;
+    startHour: number;
+    busy: readonly { start: string; end: string }[];
+    proposal: Proposal | null;
+}) {
     const zone = useUserZone();
     const from = Math.max(startHour, 6) * 60;
     const to = Number(DAY_END.slice(0, 2)) * 60;
@@ -36,17 +46,33 @@ function MiniDay({ day, startHour, busy, proposal }: { day: LocalDate; startHour
     // A block that crosses midnight or the window's edge is clipped, never drawn outside the bar.
     const bar = (start: string, end: string) => {
         const left = at(start);
-        const right = formatInZone(end, zone, { day: "numeric" }) === formatInZone(start, zone, { day: "numeric" }) ? at(end) : 100;
+        const right =
+            formatInZone(end, zone, { day: "numeric" }) === formatInZone(start, zone, { day: "numeric" })
+                ? at(end)
+                : 100;
         return { left: `${left}%`, width: `${Math.max(right - left, 0.8)}%` };
     };
     return (
         <div className="flex flex-col gap-1" aria-hidden="true">
             <div className="relative h-6 overflow-hidden rounded-full bg-twilight-surface/50">
-                {busy.map((b) => <span key={`${b.start}-${b.end}`} className="absolute inset-y-1 rounded-full bg-moonlit/40" style={bar(b.start, b.end)} />)}
-                {proposal ? <span className="absolute inset-y-0.5 rounded-full border border-dashed border-accent-primary bg-accent-primary/25" style={bar(proposal.start, proposal.end)} /> : null}
+                {busy.map((b) => (
+                    <span
+                        key={`${b.start}-${b.end}`}
+                        className="absolute inset-y-1 rounded-full bg-moonlit/40"
+                        style={bar(b.start, b.end)}
+                    />
+                ))}
+                {proposal ? (
+                    <span
+                        className="absolute inset-y-0.5 rounded-full border border-dashed border-accent-primary bg-accent-primary/25"
+                        style={bar(proposal.start, proposal.end)}
+                    />
+                ) : null}
             </div>
             <div className="flex justify-between px-1 text-[10px] tabular-nums text-twilight-text-muted">
-                {[from, ...[9, 12, 15, 18, 21].map((h) => h * 60).filter((m) => m > from), to].map((m) => <span key={m}>{Math.floor(m / 60)}</span>)}
+                {[from, ...[9, 12, 15, 18, 21].map((h) => h * 60).filter((m) => m > from), to].map((m) => (
+                    <span key={m}>{Math.floor(m / 60)}</span>
+                ))}
             </div>
             <span className="sr-only">{day}</span>
         </div>
@@ -63,13 +89,39 @@ export function FindTimeSheet() {
     const close = useFindTimeStore((s) => s.close);
     const task = useTask(request?.taskId);
     return (
-        <Dialog open={!!request} onOpenChange={(open) => { if (!open) close(); }}>
-            {request && task ? <SheetBody key={request.taskId} task={task} start={request.day} anchorDay={request.anchorDay} reason={request.reason} onClose={close} /> : null}
+        <Dialog
+            open={!!request}
+            onOpenChange={(open) => {
+                if (!open) close();
+            }}
+        >
+            {request && task ? (
+                <SheetBody
+                    key={request.taskId}
+                    task={task}
+                    start={request.day}
+                    anchorDay={request.anchorDay}
+                    reason={request.reason}
+                    onClose={close}
+                />
+            ) : null}
         </Dialog>
     );
 }
 
-function SheetBody({ task, start, anchorDay, reason, onClose }: { task: Task; start: LocalDate; anchorDay: LocalDate | null; reason?: "no-gap"; onClose: () => void }) {
+function SheetBody({
+    task,
+    start,
+    anchorDay,
+    reason,
+    onClose,
+}: {
+    task: Task;
+    start: LocalDate;
+    anchorDay: LocalDate | null;
+    reason?: "no-gap";
+    onClose: () => void;
+}) {
     const zone = getUserZone();
     const find = useFindTime();
     const updateTask = useUpdateTask();
@@ -94,7 +146,9 @@ function SheetBody({ task, start, anchorDay, reason, onClose }: { task: Task; st
                 setSeen(next.proposals[0] ? [next.proposals[0].bucket] : []);
             }
         });
-        return () => { current = false; };
+        return () => {
+            current = false;
+        };
     }, [day, task.durationEstimate, task.id]); // eslint-disable-line react-hooks/exhaustive-deps -- planFor changes identity with every cache update
 
     const days = useMemo(() => Array.from({ length: DAYS_SHOWN }, (_, i) => addDays(today(), i)), []);
@@ -128,9 +182,13 @@ function SheetBody({ task, start, anchorDay, reason, onClose }: { task: Task; st
         setPlacing(true);
         try {
             await find.write(task, proposal, seen);
-            toastUndo(toastName(task.title, 40), () => void updateTask.mutateAsync({ id: task.id, ...before, findTime: { undo: true } }), {
-                description: proposalLabel(proposal, zone),
-            });
+            toastUndo(
+                toastName(task.title, 40),
+                () => void updateTask.mutateAsync({ id: task.id, ...before, findTime: { undo: true } }),
+                {
+                    description: proposalLabel(proposal, zone),
+                },
+            );
             onClose();
         } catch (error) {
             setPlacing(false); // any other failure said why itself
@@ -166,14 +224,20 @@ function SheetBody({ task, start, anchorDay, reason, onClose }: { task: Task; st
                             type="button"
                             role="radio"
                             aria-checked={selected}
-                            aria-label={formatInZone(atLocal(d, "12:00", zone), zone, { weekday: "long", month: "long", day: "numeric" })}
+                            aria-label={formatInZone(atLocal(d, "12:00", zone), zone, {
+                                weekday: "long",
+                                month: "long",
+                                day: "numeric",
+                            })}
                             disabled={disabled}
                             tabIndex={selected ? 0 : -1}
                             onKeyDown={(event) => onStripKey(event, i)}
                             onClick={() => setDay(d)}
                             className={cn(
                                 "flex min-h-11 min-w-11 shrink-0 cursor-pointer flex-col items-center justify-center rounded-2xl px-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-default disabled:opacity-40",
-                                selected ? "bg-accent-primary/20 text-twilight-text ring-1 ring-accent-primary/40" : "bg-twilight-surface/40 text-twilight-text-soft hover:bg-twilight-surface-hover/60",
+                                selected
+                                    ? "bg-accent-primary/20 text-twilight-text ring-1 ring-accent-primary/40"
+                                    : "bg-twilight-surface/40 text-twilight-text-soft hover:bg-twilight-surface-hover/60",
                             )}
                         >
                             <span>{formatInZone(atLocal(d, "12:00", zone), zone, { weekday: "short" })}</span>
@@ -188,15 +252,25 @@ function SheetBody({ task, start, anchorDay, reason, onClose }: { task: Task; st
                 {proposal ? (
                     <>
                         <p className="text-base font-medium text-twilight-text">{proposalLabel(proposal, zone)}</p>
-                        {anchorDay && day > anchorDay ? <p className="text-xs text-twilight-text-muted">After its day</p> : null}
+                        {anchorDay && day > anchorDay ? (
+                            <p className="text-xs text-twilight-text-muted">After its day</p>
+                        ) : null}
                         <MiniDay day={day} startHour={startHour} busy={plan?.busy ?? []} proposal={proposal} />
-                        {exhausted && plan!.proposals.length > 1 ? <p className="text-xs text-twilight-text-muted">That’s every gap on {dayName}</p> : null}
+                        {exhausted && plan!.proposals.length > 1 ? (
+                            <p className="text-xs text-twilight-text-muted">That’s every gap on {dayName}</p>
+                        ) : null}
                     </>
                 ) : null}
                 {noGap ? (
                     <>
-                        <p className="text-base text-twilight-text">No {formatMinutes(plan!.minutes)} gap on {dayName}.</p>
-                        {reason === "no-gap" ? <p className="text-xs text-twilight-text-muted">Nothing was moved. Pick another day, or change how long it takes.</p> : null}
+                        <p className="text-base text-twilight-text">
+                            No {formatMinutes(plan!.minutes)} gap on {dayName}.
+                        </p>
+                        {reason === "no-gap" ? (
+                            <p className="text-xs text-twilight-text-muted">
+                                Nothing was moved. Pick another day, or change how long it takes.
+                            </p>
+                        ) : null}
                     </>
                 ) : null}
             </div>
@@ -205,9 +279,19 @@ function SheetBody({ task, start, anchorDay, reason, onClose }: { task: Task; st
                 <div className="flex flex-col gap-1.5">
                     <p className="text-xs text-twilight-text-muted">Takes {plan ? formatMinutes(plan.minutes) : ""}</p>
                     {editingLength ? (
-                        <DurationChoices reference={null} pointsOnly skipLabel="Cancel" onSkip={() => setEditingLength(false)} onPick={(value) => value.kind === "point" && setLength(value.minutes)} />
+                        <DurationChoices
+                            reference={null}
+                            pointsOnly
+                            skipLabel="Cancel"
+                            onSkip={() => setEditingLength(false)}
+                            onPick={(value) => value.kind === "point" && setLength(value.minutes)}
+                        />
                     ) : (
-                        <button type="button" onClick={() => setEditingLength(true)} className="min-h-11 w-fit cursor-pointer rounded-full px-3 text-sm text-accent-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+                        <button
+                            type="button"
+                            onClick={() => setEditingLength(true)}
+                            className="min-h-11 w-fit cursor-pointer rounded-full px-3 text-sm text-accent-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        >
                             Change how long it takes
                         </button>
                     )}
@@ -215,9 +299,15 @@ function SheetBody({ task, start, anchorDay, reason, onClose }: { task: Task; st
             ) : null}
 
             <DialogFooter>
-                <Button variant="ghost" size="md" onClick={onClose}>Cancel</Button>
-                <Button variant="secondary" size="md" onClick={another} disabled={!plan || exhausted || noGap}>Another time</Button>
-                <Button variant="cardPrimary" size="md" onClick={() => void place()} disabled={!proposal || placing}>Place here</Button>
+                <Button variant="ghost" size="md" onClick={onClose}>
+                    Cancel
+                </Button>
+                <Button variant="secondary" size="md" onClick={another} disabled={!plan || exhausted || noGap}>
+                    Another time
+                </Button>
+                <Button variant="cardPrimary" size="md" onClick={() => void place()} disabled={!proposal || placing}>
+                    Place here
+                </Button>
             </DialogFooter>
         </DialogContent>
     );

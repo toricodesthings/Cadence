@@ -14,8 +14,19 @@ import { parseVirtualHabitId } from "../habits/use-virtual-habit-tasks";
 type Guessable = Pick<Task, "id" | "title" | "projectId">;
 
 /** The person's answers as estimator input. */
-export const toDurationEvidence = (rows: readonly ReturnType<typeof durationEvidenceRowSchema.parse>[]): DurationEvidence[] =>
-    rows.map((r) => ({ taskId: r.taskId, title: r.title, projectId: r.projectId, series: r.series, low: r.lowMinutes, high: r.highMinutes, anchored: r.anchored, day: r.saidOn }));
+export const toDurationEvidence = (
+    rows: readonly ReturnType<typeof durationEvidenceRowSchema.parse>[],
+): DurationEvidence[] =>
+    rows.map((r) => ({
+        taskId: r.taskId,
+        title: r.title,
+        projectId: r.projectId,
+        series: r.series,
+        low: r.lowMinutes,
+        high: r.highMinutes,
+        anchored: r.anchored,
+        day: r.saidOn,
+    }));
 
 /**
  * What a task usually takes this person, from their own answers, or nothing. The guess is computed here from the
@@ -31,14 +42,28 @@ export function useDurationGuesser(): (task: Guessable) => DurationGuess | null 
         queryKey: queryKeys.ai.durationEvidence,
         enabled: full && authReady && isAuthenticated,
         staleTime: 5 * 60_000,
-        queryFn: async () => (await unwrapResponse(await client.api.ai.memory["duration-evidence"].$get())).map((r) => durationEvidenceRowSchema.parse(r)),
+        queryFn: async () =>
+            (await unwrapResponse(await client.api.ai.memory["duration-evidence"].$get())).map((r) =>
+                durationEvidenceRowSchema.parse(r),
+            ),
     });
     // A disabled query keeps its cached rows: outside Full they are never read.
     const rows = full ? data : undefined;
     const evidence = useMemo(() => toDurationEvidence(rows ?? []), [rows]);
     return useCallback(
         // A routine's day on a schedule is a virtual task; its answers are filed under the routine.
-        (task) => (evidence.length ? estimateDuration({ taskId: parseVirtualHabitId(task.id)?.habitId ?? task.id, title: task.title, projectId: task.projectId }, evidence, today()) : null),
+        (task) =>
+            evidence.length
+                ? estimateDuration(
+                      {
+                          taskId: parseVirtualHabitId(task.id)?.habitId ?? task.id,
+                          title: task.title,
+                          projectId: task.projectId,
+                      },
+                      evidence,
+                      today(),
+                  )
+                : null,
         [evidence],
     );
 }

@@ -24,7 +24,9 @@ export function DayEventRows({ events, className = "" }: { events: DayEvent[]; c
                     >
                         <span aria-hidden="true">{evt.emoji ?? "🎉"}</span>
                         <span className="min-w-0 flex-1 truncate">{evt.label}</span>
-                        {evt.dateLabel ? <span className="shrink-0 text-xs text-accent-nav-schedule/60">{evt.dateLabel}</span> : null}
+                        {evt.dateLabel ? (
+                            <span className="shrink-0 text-xs text-accent-nav-schedule/60">{evt.dateLabel}</span>
+                        ) : null}
                     </button>
                 </li>
             ))}

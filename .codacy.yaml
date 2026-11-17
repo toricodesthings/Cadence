@@ -1,26 +1,26 @@
 ---
 exclude_paths:
-  - ".agents/**"
-  - "**/tests/**"
-  - "apps/backend/drizzle/**"
+    - ".agents/**"
+    - "**/tests/**"
+    - "apps/backend/drizzle/**"
 engines:
-  lizard:
-    exclude_paths:
-      - "pnpm-lock.yaml"
-      - "**/tests/**"
-      - "**/*.test.ts"
-      - "**/*.test.tsx"
-      # Static data / SVG / seed fixtures: long by nature, not complex.
-      - "apps/backend/src/domains/debug/scenarios/**"
-      - "apps/frontend/app/components/shared/loading/**"
-      - "apps/landing/app/lib/branch.ts"
-  eslint-8:
-    exclude_paths:
-      - "**/tests/**"
-      - "**/*.test.ts"
-      - "**/*.test.tsx"
-  semgrep:
-    exclude_paths:
-      - "**/package.json"
-      - "**/tests/**"
-      - "scripts/**"
+    lizard:
+        exclude_paths:
+            - "pnpm-lock.yaml"
+            - "**/tests/**"
+            - "**/*.test.ts"
+            - "**/*.test.tsx"
+            # Static data / SVG / seed fixtures: long by nature, not complex.
+            - "apps/backend/src/domains/debug/scenarios/**"
+            - "apps/frontend/app/components/shared/loading/**"
+            - "apps/landing/app/lib/branch.ts"
+    eslint-8:
+        exclude_paths:
+            - "**/tests/**"
+            - "**/*.test.ts"
+            - "**/*.test.tsx"
+    semgrep:
+        exclude_paths:
+            - "**/package.json"
+            - "**/tests/**"
+            - "scripts/**"

@@ -1,14 +1,33 @@
 import { describe, expect, it } from "vitest";
 import { parse } from "@cadence/nlp";
 import { resolveDraft, type DraftField } from "@cadence/domain/nlp-draft";
-import { findSectionMention, instructionPatch, isEmptyPatch, resolveSection, undoPatch } from "@cadence/domain/task-instruction";
+import {
+    findSectionMention,
+    instructionPatch,
+    isEmptyPatch,
+    resolveSection,
+    undoPatch,
+} from "@cadence/domain/task-instruction";
 
 const CLOCK = { today: "2026-10-06", now: "10:00", weekStart: "Sunday" as const }; // a Tuesday
-const CAPS = new Set<DraftField>(["dueDate", "scheduledStart", "scheduledEnd", "durationMinutes", "projectId", "tagIds", "waitingOn", "priority"]);
+const CAPS = new Set<DraftField>([
+    "dueDate",
+    "scheduledStart",
+    "scheduledEnd",
+    "durationMinutes",
+    "projectId",
+    "tagIds",
+    "waitingOn",
+    "priority",
+]);
 const context = { projects: [{ id: "p-work", name: "Work" }], tags: [{ id: "t-err", name: "errands" }] };
 const run = (text: string) => {
     const r = parse({ input: text, sourceSurface: "inline_add", clock: CLOCK, context });
-    return instructionPatch(text, resolveDraft(text, r.entities, {}, { zone: "America/Toronto", capabilities: CAPS }), "America/Toronto");
+    return instructionPatch(
+        text,
+        resolveDraft(text, r.entities, {}, { zone: "America/Toronto", capabilities: CAPS }),
+        "America/Toronto",
+    );
 };
 
 describe("instructionPatch", () => {
@@ -51,7 +70,11 @@ describe("instructionPatch", () => {
 describe("undoPatch", () => {
     it("restores only fields still holding what the patch wrote", () => {
         const patch = { dueDate: "2026-10-12", projectId: "p-work" };
-        const restore = undoPatch(patch, { dueDate: "2026-10-08", projectId: null }, { dueDate: "2026-10-12", projectId: "p-other" });
+        const restore = undoPatch(
+            patch,
+            { dueDate: "2026-10-08", projectId: null },
+            { dueDate: "2026-10-12", projectId: "p-other" },
+        );
         expect(restore).toEqual({ dueDate: "2026-10-08" });
     });
 });
@@ -64,7 +87,9 @@ describe("sections in instructions", () => {
     ];
     const withSection = (text: string) => {
         const mention = findSectionMention(text, SECTIONS);
-        const masked = mention ? text.slice(0, mention.start) + " ".repeat(mention.end - mention.start) + text.slice(mention.end) : text;
+        const masked = mention
+            ? text.slice(0, mention.start) + " ".repeat(mention.end - mention.start) + text.slice(mention.end)
+            : text;
         const r = parse({ input: masked, sourceSurface: "inline_add", clock: CLOCK, context });
         const draft = resolveDraft(masked, r.entities, {}, { zone: "America/Toronto", capabilities: CAPS });
         return instructionPatch(masked, draft, "America/Toronto", resolveSection(mention, draft.fields.projectId));
@@ -75,7 +100,10 @@ describe("sections in instructions", () => {
     });
     it("a name in two lists needs the list named too", () => {
         expect(withSection("move to Next").patch).toEqual({});
-        expect(withSection("move to the Next section in Work").patch).toEqual({ projectId: "p-work", sectionId: "s-next" });
+        expect(withSection("move to the Next section in Work").patch).toEqual({
+            projectId: "p-work",
+            sectionId: "s-next",
+        });
     });
     it("a section named like a day needs the word section, so 'to today' stays a date", () => {
         const today = [{ id: "s-today", name: "Today", projectId: "p-work" }];

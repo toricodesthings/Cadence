@@ -10,7 +10,9 @@ const DESKTOP_LAYOUT_SCALE_KEY = "layout_scale";
 const DESKTOP_LAYOUT_SCALE_STORAGE_KEY = "cadence:desktop-layout-scale";
 
 export const DESKTOP_LAYOUT_SCALE_DEFAULT: DesktopLayoutScale = 100;
-export const DESKTOP_LAYOUT_SCALES: readonly DesktopLayoutScale[] = [75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 135, 150];
+export const DESKTOP_LAYOUT_SCALES: readonly DesktopLayoutScale[] = [
+    75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 135, 150,
+];
 
 /** Names saved before the scale became a percentage. */
 const LEGACY_SCALES: Record<string, DesktopLayoutScale> = { compact: 95, default: 100, comfortable: 110, large: 115 };

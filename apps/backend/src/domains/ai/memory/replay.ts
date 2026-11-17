@@ -8,7 +8,11 @@ import type { MemoryMode } from "@cadence/contracts/memory";
 type Part = { type?: unknown; state?: unknown; output?: unknown };
 type Message = { role: string; parts: unknown[] };
 
-const isRead = (part: Part, tool: string) => part?.type === `tool-${tool}` && part.state === "output-available" && !!part.output && typeof part.output === "object";
+const isRead = (part: Part, tool: string) =>
+    part?.type === `tool-${tool}` &&
+    part.state === "output-available" &&
+    !!part.output &&
+    typeof part.output === "object";
 
 /** The fact ids replayed `recall` results cite. */
 export function citedFactIds(messages: readonly Message[]): string[] {
@@ -17,7 +21,8 @@ export function citedFactIds(messages: readonly Message[]): string[] {
         if (message.role !== "assistant") continue;
         for (const part of message.parts as Part[]) {
             if (!isRead(part, "recall")) continue;
-            for (const fact of ((part.output as { facts?: { id?: unknown }[] }).facts ?? [])) if (typeof fact.id === "string") ids.add(fact.id);
+            for (const fact of (part.output as { facts?: { id?: unknown }[] }).facts ?? [])
+                if (typeof fact.id === "string") ids.add(fact.id);
         }
     }
     return [...ids];
@@ -27,7 +32,11 @@ export function citedFactIds(messages: readonly Message[]): string[] {
  * Replaces the memory reads the person's mode no longer allows. `allowed` is the cited ids that may still be read
  * (active, and usable by the mode); with memory off nothing may be.
  */
-export function redactMemoryReads<T extends Message>(messages: readonly T[], mode: MemoryMode, allowed: ReadonlySet<string>): T[] {
+export function redactMemoryReads<T extends Message>(
+    messages: readonly T[],
+    mode: MemoryMode,
+    allowed: ReadonlySet<string>,
+): T[] {
     const redacted = { redacted: true };
     return messages.map((message) => {
         if (message.role !== "assistant") return message;

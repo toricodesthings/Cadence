@@ -13,11 +13,12 @@ export function useReorderTask() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: withOfflineSupport<
-            { id: string; orderIndex: number; orderedTaskIds: string[] },
-            Task
-        >(
-            ({ id, orderIndex, orderedTaskIds }) => ({ type: "reorder_task", id, payload: { orderIndex, orderedTaskIds } }),
+        mutationFn: withOfflineSupport<{ id: string; orderIndex: number; orderedTaskIds: string[] }, Task>(
+            ({ id, orderIndex, orderedTaskIds }) => ({
+                type: "reorder_task",
+                id,
+                payload: { orderIndex, orderedTaskIds },
+            }),
             async ({ id, orderIndex, orderedTaskIds }) => {
                 const res = await client.api.tasks[":id"].reorder.$patch({
                     param: { id },
@@ -36,7 +37,11 @@ export function useReorderTask() {
                     const reorderedSubset = items
                         .filter((task) => rank.has(task.id))
                         .map((task) => (task.id === id ? { ...task, orderIndex } : task))
-                        .sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+                        .sort(
+                            (a, b) =>
+                                (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+                                (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+                        );
 
                     let subsetIndex = 0;
 

@@ -28,9 +28,34 @@ import type { Task } from "@cadence/contracts/task";
 import { ClaimHeaderMenu, LayoutScaleMenuRow } from "../components/layout/LayoutScaleMenu";
 
 /** The orb's direct add: every task made here carries this tag. */
-function TagTaskSheet({ open, onClose, tag, tasks }: { open: boolean; onClose: () => void; tag: { id: string; name: string }; tasks: Task[] }) {
-    const { reset, ...draft } = useTaskComposer({ open, tasks, lockedTag: tag, onSaved: () => undefined, onSubmitted: onClose });
-    return <Composer open={open} onClose={() => { reset(); onClose(); }} {...draft} />;
+function TagTaskSheet({
+    open,
+    onClose,
+    tag,
+    tasks,
+}: {
+    open: boolean;
+    onClose: () => void;
+    tag: { id: string; name: string };
+    tasks: Task[];
+}) {
+    const { reset, ...draft } = useTaskComposer({
+        open,
+        tasks,
+        lockedTag: tag,
+        onSaved: () => undefined,
+        onSubmitted: onClose,
+    });
+    return (
+        <Composer
+            open={open}
+            onClose={() => {
+                reset();
+                onClose();
+            }}
+            {...draft}
+        />
+    );
 }
 
 /**
@@ -58,7 +83,11 @@ export default function TagView() {
     const tag = tags?.find((t) => t.id === tagId);
     const accent = resolveTagColor(tag?.color, "var(--color-twilight-text-soft)");
     const tasks = useMemo(
-        () => sortTasks((activeTasks ?? []).filter((t) => t.tagIds?.includes(tagId)), "smart"),
+        () =>
+            sortTasks(
+                (activeTasks ?? []).filter((t) => t.tagIds?.includes(tagId)),
+                "smart",
+            ),
         [activeTasks, tagId],
     );
 
@@ -89,8 +118,12 @@ export default function TagView() {
                             <X size={24} className="text-twilight-text-muted" />
                         </div>
                         <h3 className="mb-2 text-lg font-medium text-twilight-text">Tag not found</h3>
-                        <p className="mb-6 max-w-sm text-sm text-twilight-text-muted">This tag may have been deleted or the link is incorrect.</p>
-                        <Button variant="cardPrimary" size="md" onClick={() => navigate("/")}>Go to Capture</Button>
+                        <p className="mb-6 max-w-sm text-sm text-twilight-text-muted">
+                            This tag may have been deleted or the link is incorrect.
+                        </p>
+                        <Button variant="cardPrimary" size="md" onClick={() => navigate("/")}>
+                            Go to Capture
+                        </Button>
                     </div>
                 </PageContent>
             </MainLayout>
@@ -105,7 +138,14 @@ export default function TagView() {
                 onClose={() => setEditOpen(false)}
                 confirm={{ label: "Save", onConfirm: saveEdit, disabled: !name.trim() }}
             >
-                <form id="edit-tag" className="space-y-5" onSubmit={(e) => { e.preventDefault(); saveEdit(); }}>
+                <form
+                    id="edit-tag"
+                    className="space-y-5"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        saveEdit();
+                    }}
+                >
                     <input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
@@ -122,38 +162,53 @@ export default function TagView() {
                 requireAuth
                 hideContextualOrb={shell.isCompact}
                 sidePanel={
-                    <TaskDetailsRail selection={selection} ariaLabel="Resize task panel" minWidth={300} maxWidth={500} />
+                    <TaskDetailsRail
+                        selection={selection}
+                        ariaLabel="Resize task panel"
+                        minWidth={300}
+                        maxWidth={500}
+                    />
                 }
                 sidePanelActive={Boolean(selectedTaskId)}
                 onCloseSidePanel={() => setSelectedTaskId(null)}
                 sidePanelLabel="Task"
                 compactHeaderRightInline
-                headerRight={tag ? (<>
-                    <ClaimHeaderMenu />
-                    <DropdownMenu.Root>
-                        <Tip label="Tag options">
-                            <DropdownMenu.Trigger asChild>
-                                <Button variant="ghost" size="icon" aria-label="Tag options">
-                                    <EllipsisVertical size={18} aria-hidden="true" />
-                                </Button>
-                            </DropdownMenu.Trigger>
-                        </Tip>
-                        <DropdownMenu.Content align="end" className="w-52">
-                            <DropdownMenu.Item className="min-h-11" onSelect={openEdit}>
-                                <Pencil size={15} aria-hidden="true" /> Rename or recolour
-                            </DropdownMenu.Item>
-                            <DropdownMenu.Separator />
-                            <DropdownMenu.Item variant="danger" className="min-h-11" onSelect={handleDelete}>
-                                <Trash2 size={15} aria-hidden="true" /> Delete tag
-                            </DropdownMenu.Item>
-                            <LayoutScaleMenuRow />
-                        </DropdownMenu.Content>
-                    </DropdownMenu.Root>
-                </>) : undefined}
+                headerRight={
+                    tag ? (
+                        <>
+                            <ClaimHeaderMenu />
+                            <DropdownMenu.Root>
+                                <Tip label="Tag options">
+                                    <DropdownMenu.Trigger asChild>
+                                        <Button variant="ghost" size="icon" aria-label="Tag options">
+                                            <EllipsisVertical size={18} aria-hidden="true" />
+                                        </Button>
+                                    </DropdownMenu.Trigger>
+                                </Tip>
+                                <DropdownMenu.Content align="end" className="w-52">
+                                    <DropdownMenu.Item className="min-h-11" onSelect={openEdit}>
+                                        <Pencil size={15} aria-hidden="true" /> Rename or recolour
+                                    </DropdownMenu.Item>
+                                    <DropdownMenu.Separator />
+                                    <DropdownMenu.Item variant="danger" className="min-h-11" onSelect={handleDelete}>
+                                        <Trash2 size={15} aria-hidden="true" /> Delete tag
+                                    </DropdownMenu.Item>
+                                    <LayoutScaleMenuRow />
+                                </DropdownMenu.Content>
+                            </DropdownMenu.Root>
+                        </>
+                    ) : undefined
+                }
                 pageTitle={tag?.name ?? "Tag"}
                 shellHeader={{
                     title: tag?.name ?? "Tag",
-                    icon: <span className="h-3 w-3 rounded-full" style={{ backgroundColor: accent, boxShadow: `0 0 10px ${accent}` }} aria-hidden="true" />,
+                    icon: (
+                        <span
+                            className="h-3 w-3 rounded-full"
+                            style={{ backgroundColor: accent, boxShadow: `0 0 10px ${accent}` }}
+                            aria-hidden="true"
+                        />
+                    ),
                     accentColor: accent,
                 }}
             >
@@ -162,23 +217,42 @@ export default function TagView() {
                         {isLoading ? (
                             <TaskListSkeleton />
                         ) : tasks.length > 0 ? (
-                            <TaskList tasks={tasks} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} reorderable={false} />
+                            <TaskList
+                                tasks={tasks}
+                                selectedTaskId={selectedTaskId}
+                                onSelectTask={handleSelectTask}
+                                reorderable={false}
+                            />
                         ) : (
                             <div className="flex flex-col items-center justify-center px-4 py-20 text-center">
-                                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-twilight-surface ring-1 ring-twilight-border" style={{ color: accent }}>
+                                <div
+                                    className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-twilight-surface ring-1 ring-twilight-border"
+                                    style={{ color: accent }}
+                                >
                                     <TagIcon size={24} aria-hidden="true" />
                                 </div>
-                                <h3 className="mb-2 text-lg font-medium text-twilight-text">No active tasks tagged "{tag?.name}"</h3>
-                                <p className="max-w-sm text-sm text-twilight-text-muted">Add the tag from any task's editor, or tap + to add a task with it.</p>
+                                <h3 className="mb-2 text-lg font-medium text-twilight-text">
+                                    No active tasks tagged "{tag?.name}"
+                                </h3>
+                                <p className="max-w-sm text-sm text-twilight-text-muted">
+                                    Add the tag from any task's editor, or tap + to add a task with it.
+                                </p>
                             </div>
                         )}
                     </PageContent>
                 </ScrollAreaWrapper>
 
-                {shell.isCompact && tag && <>
-                    <ContextualAddOrb directCapture directLabel="Add task" onOpen={() => setAddOpen(true)} />
-                    <TagTaskSheet open={addOpen} onClose={() => setAddOpen(false)} tag={tag} tasks={activeTasks ?? []} />
-                </>}
+                {shell.isCompact && tag && (
+                    <>
+                        <ContextualAddOrb directCapture directLabel="Add task" onOpen={() => setAddOpen(true)} />
+                        <TagTaskSheet
+                            open={addOpen}
+                            onClose={() => setAddOpen(false)}
+                            tag={tag}
+                            tasks={activeTasks ?? []}
+                        />
+                    </>
+                )}
             </MainLayout>
 
             <PhoneTaskDetails selection={selection} ariaLabel="Tag task details" />

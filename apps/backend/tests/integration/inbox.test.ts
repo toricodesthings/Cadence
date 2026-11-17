@@ -63,12 +63,28 @@ describe("processing an item into a task", () => {
         const { status, body } = await inbox("POST", `/${item.id}/process`, { title: "Work on Apollo" });
 
         expect(status).toBe(201);
-        expect(body.data).toMatchObject({ title: "Work on Apollo", projectId: project.data.id, dueDate: "2026-03-09", scheduledStart: null });
+        expect(body.data).toMatchObject({
+            title: "Work on Apollo",
+            projectId: project.data.id,
+            dueDate: "2026-03-09",
+            scheduledStart: null,
+        });
         expect((await tasks("GET", `/${body.data.id}/tags`)).body.data.map((t: any) => t.id)).toEqual([tag.data.id]);
-        const [placed] = await asOwner(async (pg) =>
-            (await pg.query("SELECT capture_status, placed_task_id, processed, analysis_status FROM inbox_items WHERE id = $1", [item.id])).rows,
+        const [placed] = await asOwner(
+            async (pg) =>
+                (
+                    await pg.query(
+                        "SELECT capture_status, placed_task_id, processed, analysis_status FROM inbox_items WHERE id = $1",
+                        [item.id],
+                    )
+                ).rows,
         );
-        expect(placed).toEqual({ capture_status: "placed", placed_task_id: body.data.id, processed: true, analysis_status: "applied" });
+        expect(placed).toEqual({
+            capture_status: "placed",
+            placed_task_id: body.data.id,
+            processed: true,
+            analysis_status: "applied",
+        });
         expect((await inbox("GET", "")).body.data).toEqual([]);
     });
 
@@ -80,7 +96,12 @@ describe("processing an item into a task", () => {
             nlp: { rawInput: "dentist tomorrow p1", sourceSurface: "inbox", dateStyle: "mdy", resolved: true },
         });
 
-        expect(body.data).toMatchObject({ title: "dentist tomorrow p1", dueDate: null, scheduledStart: null, priority: 0 });
+        expect(body.data).toMatchObject({
+            title: "dentist tomorrow p1",
+            dueDate: null,
+            scheduledStart: null,
+            priority: 0,
+        });
     });
 
     it("a capture waiting on someone becomes waiting work", async () => {
@@ -94,7 +115,11 @@ describe("processing an item into a task", () => {
     it("uses explicit fields over what the text implies", async () => {
         const item = await capture("dentist tomorrow p4");
 
-        const { body } = await inbox("POST", `/${item.id}/process`, { title: "Dentist", dueDate: "2026-04-01", priority: 1 });
+        const { body } = await inbox("POST", `/${item.id}/process`, {
+            title: "Dentist",
+            dueDate: "2026-04-01",
+            priority: 1,
+        });
 
         expect(body.data).toMatchObject({ title: "Dentist", dueDate: "2026-04-01", priority: 1 });
     });
@@ -102,7 +127,11 @@ describe("processing an item into a task", () => {
     it("keeps a picked multi-day span", async () => {
         const item = await capture("conference");
 
-        const { body } = await inbox("POST", `/${item.id}/process`, { title: "Conference", dueDate: "2026-04-01", endDate: "2026-04-03" });
+        const { body } = await inbox("POST", `/${item.id}/process`, {
+            title: "Conference",
+            dueDate: "2026-04-01",
+            endDate: "2026-04-03",
+        });
 
         expect(body.data).toMatchObject({ dueDate: "2026-04-01", endDate: "2026-04-03" });
     });
@@ -110,7 +139,10 @@ describe("processing an item into a task", () => {
     it("drops a span's last day when the day it belonged to wasn't the one stored", async () => {
         const item = await capture("conference tomorrow");
 
-        const { status, body } = await inbox("POST", `/${item.id}/process`, { title: "Conference", endDate: "2099-04-03" });
+        const { status, body } = await inbox("POST", `/${item.id}/process`, {
+            title: "Conference",
+            endDate: "2099-04-03",
+        });
 
         expect(status).toBe(201);
         expect(body.data.endDate).toBeNull();
@@ -178,7 +210,10 @@ describe("inbox sections", () => {
         await inbox("POST", "/sections", { name: "Now", orderIndex: 1 });
 
         expect((await inbox("GET", "/sections")).body.data.map((s: any) => s.name)).toEqual(["Now", "Later"]);
-        expect((await inbox("PATCH", `/sections/${later.data.id}`, { name: "Someday" })).body.data).toMatchObject({ name: "Someday", orderIndex: 2 });
+        expect((await inbox("PATCH", `/sections/${later.data.id}`, { name: "Someday" })).body.data).toMatchObject({
+            name: "Someday",
+            orderIndex: 2,
+        });
         expect((await inbox("DELETE", `/sections/${later.data.id}`)).status).toBe(200);
         expect((await inbox("GET", "/sections")).body.data.map((s: any) => s.name)).toEqual(["Now"]);
     });
@@ -211,17 +246,26 @@ describe("inbox sections", () => {
     });
 });
 
-
 describe("Capture exits", () => {
     it("keeps explicit no-day fields even when text has a date", async () => {
         const item = await capture("Water plants tomorrow at 3pm");
-        const result = await inbox("POST", `/${item.id}/process`, { title: "Water plants", dueDate: null, scheduledStart: null, scheduledEnd: null });
+        const result = await inbox("POST", `/${item.id}/process`, {
+            title: "Water plants",
+            dueDate: null,
+            scheduledStart: null,
+            scheduledEnd: null,
+        });
         expect(result.status).toBe(201);
         expect(result.body.data).toMatchObject({ dueDate: null, scheduledStart: null, scheduledEnd: null });
     });
     it("an explicit null date means no date, even when the text names a day (assistant structure card)", async () => {
         const item = await capture("pay rent friday");
-        const result = await inbox("POST", `/${item.id}/process`, { title: "Pay rent", dueDate: null, priority: 3, effort: 1 });
+        const result = await inbox("POST", `/${item.id}/process`, {
+            title: "Pay rent",
+            dueDate: null,
+            priority: 3,
+            effort: 1,
+        });
         expect(result.body.data).toMatchObject({ dueDate: null, scheduledStart: null, priority: 3, effort: 1 });
     });
     it("ticks a thought off and atomically undoes it", async () => {
@@ -247,20 +291,29 @@ describe("Capture exits", () => {
     });
     it("keeps a detected timestamp when the user chooses that suggestion", async () => {
         const item = await capture("Call the dentist tomorrow at 3pm");
-        const result = await inbox("POST", `/${item.id}/process`, { title: "Call the dentist", scheduledStart: "2026-09-24T15:00:00-04:00" });
+        const result = await inbox("POST", `/${item.id}/process`, {
+            title: "Call the dentist",
+            scheduledStart: "2026-09-24T15:00:00-04:00",
+        });
         expect(result.status).toBe(201);
         expect(new Date(result.body.data.scheduledStart).toISOString()).toBe("2026-09-24T19:00:00.000Z");
         expect(result.body.data.zone).not.toBeNull();
     });
 
     it("places a scheduledDay on that day, all-day", async () => {
-        const day = await inbox("POST", `/${(await capture("b")).id}/process`, { title: "B", scheduledDay: "2026-10-06" });
+        const day = await inbox("POST", `/${(await capture("b")).id}/process`, {
+            title: "B",
+            scheduledDay: "2026-10-06",
+        });
         expect(day.body.data).toMatchObject({ dueDate: "2026-10-06", scheduledStart: null });
     });
 
     it("orders equal timestamps by descending id", async () => {
-        const a = await capture("A"); const b = await capture("B");
-        await asOwner(async pg => { await pg.query("UPDATE inbox_items SET created_at = '2026-01-01' WHERE id IN ($1, $2)", [a.id, b.id]); });
+        const a = await capture("A");
+        const b = await capture("B");
+        await asOwner(async (pg) => {
+            await pg.query("UPDATE inbox_items SET created_at = '2026-01-01' WHERE id IN ($1, $2)", [a.id, b.id]);
+        });
         expect((await inbox("GET", "")).body.data.map((i: any) => i.id)).toEqual([a.id, b.id].sort().reverse());
     });
 });
@@ -273,7 +326,9 @@ describe("capture lifecycle", () => {
         expect(patch.status).toBe(409);
         expect((await tasks("GET", `/${body.data.id}`)).body.data.state).toBe("ACTIVE");
         expect((await inbox("PATCH", `/${item.id}`, { captureStatus: "placed" })).status).toBe(400);
-        expect((await inbox("PATCH", `/${(await capture("Open one")).id}`, { captureStatus: "kept" })).status).toBe(200);
+        expect((await inbox("PATCH", `/${(await capture("Open one")).id}`, { captureStatus: "kept" })).status).toBe(
+            200,
+        );
     });
 
     it("a reused task id answers 409, not 500", async () => {

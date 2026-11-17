@@ -5,9 +5,23 @@ import { estimateDuration, roundMinutes, weightedQuantile, type DurationEvidence
 const TODAY = "2026-10-17";
 const Q = { taskId: null, title: "Lab report", projectId: null };
 let n = 0;
-const ev = (minutes: number | [number, number], daysAgo: number, extra: Partial<DurationEvidence> = {}): DurationEvidence => {
+const ev = (
+    minutes: number | [number, number],
+    daysAgo: number,
+    extra: Partial<DurationEvidence> = {},
+): DurationEvidence => {
     const [low, high] = typeof minutes === "number" ? [minutes, minutes] : minutes;
-    return { taskId: `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`, title: "Lab report", projectId: null, series: false, low, high, anchored: false, day: addDaysLocal(TODAY, -daysAgo), ...extra };
+    return {
+        taskId: `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`,
+        title: "Lab report",
+        projectId: null,
+        series: false,
+        low,
+        high,
+        anchored: false,
+        day: addDaysLocal(TODAY, -daysAgo),
+        ...extra,
+    };
 };
 
 describe("weightedQuantile", () => {
@@ -22,7 +36,18 @@ describe("weightedQuantile", () => {
 });
 
 describe("roundMinutes", () => {
-    it.each([[1, 5], [22, 20], [23, 25], [58, 60], [61, 60], [68, 75], [70, 75], [181, 180], [200, 210], [1500, 1500]])("%i → %i", (m, out) => {
+    it.each([
+        [1, 5],
+        [22, 20],
+        [23, 25],
+        [58, 60],
+        [61, 60],
+        [68, 75],
+        [70, 75],
+        [181, 180],
+        [200, 210],
+        [1500, 1500],
+    ])("%i → %i", (m, out) => {
         expect(roundMinutes(m)).toBe(out);
     });
 });
@@ -35,7 +60,10 @@ describe("estimateDuration (worked examples)", () => {
     });
     it("one answer on the same task → tentative", () => {
         const e = ev(50, 3, { series: true });
-        expect(estimateDuration({ ...Q, taskId: e.taskId }, [e], TODAY)).toMatchObject({ state: "tentative", minutes: 50 });
+        expect(estimateDuration({ ...Q, taskId: e.taskId }, [e], TODAY)).toMatchObject({
+            state: "tentative",
+            minutes: 50,
+        });
     });
     it("45, 50, 60 on two days → supported, about 50", () => {
         const g = estimateDuration(Q, [ev(45, 10), ev(50, 8), ev(60, 8)], TODAY);
@@ -57,7 +85,11 @@ describe("estimateDuration (worked examples)", () => {
         expect(g!.minutes).toBeLessThanOrEqual(35);
     });
     it("only anchored answers are at most tentative", () => {
-        const g = estimateDuration(Q, [ev(45, 10, { anchored: true }), ev(50, 8, { anchored: true }), ev(45, 5, { anchored: true })], TODAY);
+        const g = estimateDuration(
+            Q,
+            [ev(45, 10, { anchored: true }), ev(50, 8, { anchored: true }), ev(45, 5, { anchored: true })],
+            TODAY,
+        );
         expect(g?.state).toBe("tentative");
     });
     it("a range and a point → tentative about 30", () => {

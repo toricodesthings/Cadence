@@ -6,28 +6,73 @@ import { StartupReadyContext } from "../../../app/hooks/core/use-workspace-start
 import { testQueryClient, withClient } from "../../helpers";
 
 const fixture = vi.hoisted(() => {
-    const notification = { id: "read-toggle", kind: "task-due", title: "Review plan", body: "Due today", triggerAt: "2026-09-16T10:00:00Z", entityId: "task1", route: "/today", priority: "high", read: false };
+    const notification = {
+        id: "read-toggle",
+        kind: "task-due",
+        title: "Review plan",
+        body: "Due today",
+        triggerAt: "2026-09-16T10:00:00Z",
+        entityId: "task1",
+        route: "/today",
+        priority: "high",
+        read: false,
+    };
     const auth = { authReady: true, isAuthenticated: true, session: { user: { id: "user-1" } } };
     const post = vi.fn(async ({ json }: { json: Record<string, unknown> }) => ({
-        ok: true, status: 201, json: async () => ({ data: {
-            id: "state-1", userId: auth.session.user.id, firstPresentedAt: null, lastPresentedAt: null,
-            dismissedAt: null, deferredUntil: null, actionTaken: null, presentationCount: 1,
-            createdAt: "2026-10-04T00:00:00Z", updatedAt: new Date().toISOString(), ...json,
-        } }),
+        ok: true,
+        status: 201,
+        json: async () => ({
+            data: {
+                id: "state-1",
+                userId: auth.session.user.id,
+                firstPresentedAt: null,
+                lastPresentedAt: null,
+                dismissedAt: null,
+                deferredUntil: null,
+                actionTaken: null,
+                presentationCount: 1,
+                createdAt: "2026-10-04T00:00:00Z",
+                updatedAt: new Date().toISOString(),
+                ...json,
+            },
+        }),
     }));
-    return { notification, auth, empty: [], post, client: { api: { settings: { "notification-state": {
-        $get: vi.fn(async () => ({ ok: true, json: async () => ({ data: [] as unknown[] }) })), $post: post,
-    } } } } };
+    return {
+        notification,
+        auth,
+        empty: [],
+        post,
+        client: {
+            api: {
+                settings: {
+                    "notification-state": {
+                        $get: vi.fn(async () => ({ ok: true, json: async () => ({ data: [] as unknown[] }) })),
+                        $post: post,
+                    },
+                },
+            },
+        },
+    };
 });
 const reads = vi.hoisted(() => ({ tasks: vi.fn(), habits: vi.fn() }));
-vi.mock("../../../app/hooks/tasks/use-tasks", () => ({ useTasks: (options: unknown) => { reads.tasks(options); return { data: fixture.empty }; } }));
-vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: (options: unknown) => { reads.habits(options); return { data: fixture.empty }; } }));
+vi.mock("../../../app/hooks/tasks/use-tasks", () => ({
+    useTasks: (options: unknown) => {
+        reads.tasks(options);
+        return { data: fixture.empty };
+    },
+}));
+vi.mock("../../../app/hooks/habits/use-habits", () => ({
+    useHabitsRange: (options: unknown) => {
+        reads.habits(options);
+        return { data: fixture.empty };
+    },
+}));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: undefined }) }));
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => fixture.auth }));
 vi.mock("../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => fixture.client }));
 vi.mock("../../../app/lib/api/track-event", () => ({ trackUsageEvent: vi.fn() }));
 vi.mock("../../../app/lib/notifications/reminder-engine", async (importOriginal) => ({
-    ...await importOriginal<typeof import("../../../app/lib/notifications/reminder-engine")>(),
+    ...(await importOriginal<typeof import("../../../app/lib/notifications/reminder-engine")>()),
     deriveCandidates: () => [{ ...fixture.notification }],
 }));
 
@@ -50,7 +95,9 @@ it("persists read/unread changes locally, syncs their explicit action, and hydra
     expect(result.current.unreadCount).toBe(1);
     expect(result.current.notifications[0].read).toBe(false);
     expect(JSON.parse(localStorage.getItem("cadence_notification_state")!).readIds).not.toContain("read-toggle");
-    expect(fixture.post).toHaveBeenCalledWith(expect.objectContaining({ json: expect.objectContaining({ triggerId: "read-toggle", actionTaken: "unread" }) }));
+    expect(fixture.post).toHaveBeenCalledWith(
+        expect.objectContaining({ json: expect.objectContaining({ triggerId: "read-toggle", actionTaken: "unread" }) }),
+    );
     act(() => result.current.markRead("read-toggle"));
     expect(result.current.unreadCount).toBe(0);
     await act(async () => {});
@@ -60,14 +107,15 @@ it("persists read/unread changes locally, syncs their explicit action, and hydra
     client.clear();
 });
 
-
 it("shares one presentation write across six surfaces and a remount", async () => {
     const client = testQueryClient();
     const wrapper = withClient(client);
     const hooks = Array.from({ length: 6 }, () => renderHook(() => useNotificationCenter(), { wrapper }));
-    await waitFor(() => expect(client.getQueryData(stateKey)).toEqual([
-        expect.objectContaining({ triggerId: "read-toggle", firstPresentedAt: expect.any(String) }),
-    ]));
+    await waitFor(() =>
+        expect(client.getQueryData(stateKey)).toEqual([
+            expect.objectContaining({ triggerId: "read-toggle", firstPresentedAt: expect.any(String) }),
+        ]),
+    );
     expect(fixture.client.api.settings["notification-state"].$get).toHaveBeenCalledTimes(1);
     expect(fixture.post).toHaveBeenCalledTimes(1);
     expect(fixture.post).toHaveBeenCalledWith({ json: expect.objectContaining({ presentationCountIncrement: 1 }) });
@@ -86,13 +134,29 @@ it("shares one presentation write across six surfaces and a remount", async () =
 it("waits for the shared read and skips an already presented reminder", async () => {
     const client = testQueryClient();
     let resolve!: (value: { ok: boolean; json: () => Promise<{ data: unknown[] }> }) => void;
-    fixture.client.api.settings["notification-state"].$get.mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
+    fixture.client.api.settings["notification-state"].$get.mockImplementationOnce(
+        () =>
+            new Promise((done) => {
+                resolve = done;
+            }),
+    );
     const hook = renderHook(() => useNotificationCenter(), { wrapper: withClient(client) });
     await act(async () => {});
     expect(fixture.post).not.toHaveBeenCalled();
-    await act(async () => resolve({ ok: true, json: async () => ({ data: [{
-        triggerId: "read-toggle", firstPresentedAt: "2026-10-01T00:00:00Z", actionTaken: "read",
-    }] }) }));
+    await act(async () =>
+        resolve({
+            ok: true,
+            json: async () => ({
+                data: [
+                    {
+                        triggerId: "read-toggle",
+                        firstPresentedAt: "2026-10-01T00:00:00Z",
+                        actionTaken: "read",
+                    },
+                ],
+            }),
+        }),
+    );
     await waitFor(() => expect(hook.result.current.unreadCount).toBe(0));
     expect(fixture.post).not.toHaveBeenCalled();
     hook.unmount();
@@ -142,7 +206,13 @@ it("keeps presentation claims and saved rows separate for each account", async (
 it("keeps the bell's reads out of startup: nothing loads until the workspace reveals", async () => {
     const client = testQueryClient();
     const Client = withClient(client);
-    const hook = renderHook(() => useNotificationCenter(), { wrapper: ({ children }) => <Client><StartupReadyContext value={false}>{children}</StartupReadyContext></Client> });
+    const hook = renderHook(() => useNotificationCenter(), {
+        wrapper: ({ children }) => (
+            <Client>
+                <StartupReadyContext value={false}>{children}</StartupReadyContext>
+            </Client>
+        ),
+    });
     await act(async () => {});
     expect(fixture.client.api.settings["notification-state"].$get).not.toHaveBeenCalled();
     expect(reads.tasks).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));

@@ -30,7 +30,10 @@ function TrashActions({ task, stacked = false, onDone }: { task: Task; stacked?:
         <Button
             variant={stacked ? "cardPrimary" : "ghost"}
             size={size}
-            onClick={() => { restoreTask.mutate(task.id); onDone?.(); }}
+            onClick={() => {
+                restoreTask.mutate(task.id);
+                onDone?.();
+            }}
             className={stacked ? wide : "text-forest-green hover:text-forest-green"}
             aria-label={`Restore "${task.title}"`}
         >
@@ -42,8 +45,18 @@ function TrashActions({ task, stacked = false, onDone }: { task: Task; stacked?:
     if (confirmDelete) {
         return (
             <div className={`flex items-center gap-2 ${stacked ? "w-full" : ""}`}>
-                <Button variant="ghost" size={size} className={wide} onClick={() => setConfirmDelete(false)}>Cancel</Button>
-                <Button variant="danger" size={size} className={wide} onClick={() => { deleteTask.mutate(task.id); onDone?.(); }}>
+                <Button variant="ghost" size={size} className={wide} onClick={() => setConfirmDelete(false)}>
+                    Cancel
+                </Button>
+                <Button
+                    variant="danger"
+                    size={size}
+                    className={wide}
+                    onClick={() => {
+                        deleteTask.mutate(task.id);
+                        onDone?.();
+                    }}
+                >
                     Delete forever
                 </Button>
             </div>
@@ -57,7 +70,9 @@ function TrashActions({ task, stacked = false, onDone }: { task: Task; stacked?:
                 variant="ghost"
                 size={size}
                 onClick={() => setConfirmDelete(true)}
-                className={stacked ? `${wide} text-red-400 hover:text-red-300` : "text-twilight-text-muted hover:text-red-400"}
+                className={
+                    stacked ? `${wide} text-red-400 hover:text-red-300` : "text-twilight-text-muted hover:text-red-400"
+                }
                 aria-label={`Permanently delete "${task.title}"`}
             >
                 <Trash2 size={14} className={stacked ? "mr-1.5" : ""} aria-hidden="true" />
@@ -75,12 +90,17 @@ function TrashTaskRow({ task, onOpen }: { task: Task; onOpen?: () => void }) {
             {date ? <p className="mt-0.5 text-xs text-twilight-text-muted">{date}</p> : null}
         </div>
     );
-    const row = "group flex w-full items-center gap-3 rounded-2xl border border-twilight-border/30 bg-twilight-surface/40 px-4 py-3 text-left transition-colors hover:bg-twilight-surface-hover/40";
+    const row =
+        "group flex w-full items-center gap-3 rounded-2xl border border-twilight-border/30 bg-twilight-surface/40 px-4 py-3 text-left transition-colors hover:bg-twilight-surface-hover/40";
 
     // Phones: the whole row opens the sheet, so the title never has to fight the buttons for room.
     if (onOpen) {
         return (
-            <button type="button" onClick={onOpen} className={`${row} cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50`}>
+            <button
+                type="button"
+                onClick={onOpen}
+                className={`${row} cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50`}
+            >
                 {text}
                 <ChevronRight size={16} className="shrink-0 text-twilight-text-soft/90" aria-hidden="true" />
             </button>
@@ -105,13 +125,20 @@ function EmptyTrashButton({ compact }: { compact: boolean }) {
             open={open}
             onOpenChange={setOpen}
             trigger={
-                <Button variant={compact ? "ghost" : "danger"} size="sm" disabled={!online || emptyTrash.isPending} className={compact ? "text-sm text-red-400 hover:text-red-300" : "gap-1.5"}>
+                <Button
+                    variant={compact ? "ghost" : "danger"}
+                    size="sm"
+                    disabled={!online || emptyTrash.isPending}
+                    className={compact ? "text-sm text-red-400 hover:text-red-300" : "gap-1.5"}
+                >
                     {compact ? null : <Trash2 size={14} aria-hidden="true" />}
                     Empty Trash
                 </Button>
             }
             title="Empty Trash?"
-            description={<>Every task in Trash is deleted for good, with its subtasks and notes. It can&rsquo;t be undone.</>}
+            description={
+                <>Every task in Trash is deleted for good, with its subtasks and notes. It can&rsquo;t be undone.</>
+            }
             confirmLabel="Delete all"
             onConfirm={() => emptyTrash.mutate()}
         />
@@ -146,7 +173,8 @@ export default function TrashView() {
                     <div className="mb-4 flex items-start gap-3 rounded-2xl border border-twilight-border/20 bg-twilight-surface/30 px-4 py-3">
                         <TriangleAlert size={16} className="mt-0.5 shrink-0 text-accent-primary/70" />
                         <p className="text-xs leading-relaxed text-twilight-text-muted">
-                            Tasks here can be restored to your active workspace. Permanently deleting a task cannot be undone.
+                            Tasks here can be restored to your active workspace. Permanently deleting a task cannot be
+                            undone.
                         </p>
                     </div>
 
@@ -155,7 +183,11 @@ export default function TrashView() {
                     ) : hasTasks ? (
                         <div className="space-y-2">
                             {tasks!.map((task) => (
-                                <TrashTaskRow key={task.id} task={task} onOpen={shell.isCompact ? () => setOpenId(task.id) : undefined} />
+                                <TrashTaskRow
+                                    key={task.id}
+                                    task={task}
+                                    onOpen={shell.isCompact ? () => setOpenId(task.id) : undefined}
+                                />
                             ))}
                         </div>
                     ) : (

@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, ChevronRight, GripVertical, Plus, X } from "lucide-react";
 import type { Subtask } from "@cadence/contracts/subtask";
-import { useCreateSubtask, useDeleteSubtask, useReorderSubtasks, useUpdateSubtask } from "../../hooks/tasks/use-subtasks";
+import {
+    useCreateSubtask,
+    useDeleteSubtask,
+    useReorderSubtasks,
+    useUpdateSubtask,
+} from "../../hooks/tasks/use-subtasks";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { Reveal } from "../shared/Reveal";
 import { useTitleDraft } from "./SubtaskList";
@@ -46,7 +51,8 @@ export function useInlineSubtasks(taskId: string) {
 }
 
 /** The thread from a task's checkbox down past its open subtasks; rows place it under their own checkbox. */
-export const SUBTASK_RAIL = "pointer-events-none w-px bg-gradient-to-b from-white/[0.14] via-white/[0.08] to-transparent";
+export const SUBTASK_RAIL =
+    "pointer-events-none w-px bg-gradient-to-b from-white/[0.14] via-white/[0.08] to-transparent";
 
 const byOrder = (subtasks: Subtask[]) => [...subtasks].sort((a, b) => a.orderIndex - b.orderIndex);
 
@@ -92,7 +98,10 @@ export function SubtaskChip({
             {allDone ? (
                 <Check size={13} aria-hidden="true" className="shrink-0 text-feedback-success" />
             ) : (
-                <span className="flex h-1.5 w-6 shrink-0 overflow-hidden rounded-full bg-white/[0.06]" aria-hidden="true">
+                <span
+                    className="flex h-1.5 w-6 shrink-0 overflow-hidden rounded-full bg-white/[0.06]"
+                    aria-hidden="true"
+                >
                     <span
                         className="h-full rounded-full bg-feedback-success/60 transition-all duration-300"
                         style={{ width: `${(done / subtasks.length) * 100}%` }}
@@ -160,10 +169,16 @@ function InlineSubtaskItem({
                     data-no-open="true"
                     value={draft.value}
                     onChange={(e) => draft.setValue(e.target.value)}
-                    onBlur={() => { draft.commit(); setEditing(false); }}
+                    onBlur={() => {
+                        draft.commit();
+                        setEditing(false);
+                    }}
                     onKeyDown={(e) => {
                         if (e.key === "Enter") e.currentTarget.blur();
-                        if (e.key === "Escape") { draft.cancel(); e.currentTarget.blur(); }
+                        if (e.key === "Escape") {
+                            draft.cancel();
+                            e.currentTarget.blur();
+                        }
                     }}
                     aria-label="Subtask name"
                     className={`${titleClass} bg-transparent outline-none`}

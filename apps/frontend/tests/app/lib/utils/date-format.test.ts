@@ -41,7 +41,13 @@ describe("date-format shared helpers", () => {
 
     it("lists a week's days as LocalDates", () => {
         expect(getWeekDays("2026-09-23", 1)).toEqual([
-            "2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25", "2026-09-26", "2026-09-27",
+            "2026-09-21",
+            "2026-09-22",
+            "2026-09-23",
+            "2026-09-24",
+            "2026-09-25",
+            "2026-09-26",
+            "2026-09-27",
         ]);
     });
     it("placementReceipt says where a placed task now shows", () => {

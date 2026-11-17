@@ -23,9 +23,15 @@ export function timeAction(time: string, status: ResolveHabitAction["status"], a
  */
 function withNextTime(queryClient: QueryClient, habitId: string, vars: ResolveVariables): ResolveVariables {
     if (vars.time || vars.status !== "COMPLETED") return vars;
-    const habit = queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.all })
+    const habit = queryClient
+        .getQueriesData<Habit[]>({ queryKey: queryKeys.habits.all })
         .flatMap(([, data]) => (Array.isArray(data) ? data : []))
-        .find((entry) => entry.id === habitId && entry.times?.length && entry.logs?.some((log) => log.targetDate === vars.targetDate));
+        .find(
+            (entry) =>
+                entry.id === habitId &&
+                entry.times?.length &&
+                entry.logs?.some((log) => log.targetDate === vars.targetDate),
+        );
     if (!habit) return vars;
     const log = habit.logs?.find((entry) => entry.targetDate === vars.targetDate);
     const time = nextOpenTime(habit.times!, timeMarksOn(habit.times!, log), wallTimeOf(new Date(), getUserZone()));
@@ -48,14 +54,17 @@ export function useResolveHabit(boundHabitId?: string) {
     const queryClient = useQueryClient();
 
     const mutation = useMutation({
-        mutationFn: withOfflineSupport<
-            ResolveVariables,
-            { habit: Habit; requestId: string; requestKey: string }
-        >(
+        mutationFn: withOfflineSupport<ResolveVariables, { habit: Habit; requestId: string; requestKey: string }>(
             (action) => ({
                 type: "resolve_habit",
                 id: idOf(action),
-                payload: { targetDate: action.targetDate, status: action.status, stepStatus: action.stepStatus, time: action.time, at: action.at },
+                payload: {
+                    targetDate: action.targetDate,
+                    status: action.status,
+                    stepStatus: action.stepStatus,
+                    time: action.time,
+                    at: action.at,
+                },
             }),
             async (vars) => {
                 const habitId = idOf(vars);
@@ -88,10 +97,18 @@ export function useResolveHabit(boundHabitId?: string) {
                         // Same rule as the server: step marks decide the day's status.
                         const stepIds = (habit.steps ?? []).map((step) => step.id);
                         const next = habit.times?.length
-                            ? applyTimeMark(habit.times, habit.logs?.find((log) => log.targetDate === action.targetDate), { time: action.time, status: action.status, at: action.at ?? new Date().toISOString() })
+                            ? applyTimeMark(
+                                  habit.times,
+                                  habit.logs?.find((log) => log.targetDate === action.targetDate),
+                                  {
+                                      time: action.time,
+                                      status: action.status,
+                                      at: action.at ?? new Date().toISOString(),
+                                  },
+                              )
                             : stepIds.length && action.stepStatus
-                                ? stepDayStatus(stepIds, action.stepStatus)
-                                : { status: action.status, stepStatus: null };
+                              ? stepDayStatus(stepIds, action.stepStatus)
+                              : { status: action.status, stepStatus: null };
                         const newLogs = habit.logs?.map((log) => {
                             if (log.targetDate === action.targetDate) {
                                 return { ...log, ...next };
@@ -104,16 +121,10 @@ export function useResolveHabit(boundHabitId?: string) {
             };
 
             // Update the flat list (habits.all)
-            queryClient.setQueriesData<Habit[]>(
-                { queryKey: queryKeys.habits.all },
-                applyUpdate,
-            );
+            queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.all }, applyUpdate);
 
             // Update each weekly query variant
-            queryClient.setQueriesData<Habit[]>(
-                { queryKey: queryKeys.habits.weeklyAll },
-                applyUpdate,
-            );
+            queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll }, applyUpdate);
 
             return { snapshot, requestKey };
         },
@@ -140,7 +151,9 @@ export function useResolveHabit(boundHabitId?: string) {
     });
     return {
         ...mutation,
-        mutate: ((vars, options) => mutation.mutate(withNextTime(queryClient, idOf(vars), vars), options)) as typeof mutation.mutate,
-        mutateAsync: ((vars, options) => mutation.mutateAsync(withNextTime(queryClient, idOf(vars), vars), options)) as typeof mutation.mutateAsync,
+        mutate: ((vars, options) =>
+            mutation.mutate(withNextTime(queryClient, idOf(vars), vars), options)) as typeof mutation.mutate,
+        mutateAsync: ((vars, options) =>
+            mutation.mutateAsync(withNextTime(queryClient, idOf(vars), vars), options)) as typeof mutation.mutateAsync,
     };
 }

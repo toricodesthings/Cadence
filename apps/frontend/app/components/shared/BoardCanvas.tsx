@@ -41,7 +41,10 @@ interface BoardCanvasProps {
     headerIcons?: boolean;
 }
 
-type ColumnHeaderProps = Pick<BoardColumn, "title" | "count" | "description" | "headerAction" | "titleHidden" | "icon"> & { showIcon?: boolean };
+type ColumnHeaderProps = Pick<
+    BoardColumn,
+    "title" | "count" | "description" | "headerAction" | "titleHidden" | "icon"
+> & { showIcon?: boolean };
 
 function ColumnHeader({ title, count, description, headerAction, titleHidden, icon, showIcon }: ColumnHeaderProps) {
     return (
@@ -103,18 +106,20 @@ function BoardColumnShell({
     return (
         <section className="surface-card animate-in fade-in flex h-full min-h-0 flex-col rounded-[28px]">
             {!titleHidden || description || headerAction ? (
-                <ColumnHeader title={title} count={count} icon={icon} showIcon={showIcon} description={description} headerAction={headerAction} titleHidden={titleHidden} />
+                <ColumnHeader
+                    title={title}
+                    count={count}
+                    icon={icon}
+                    showIcon={showIcon}
+                    description={description}
+                    headerAction={headerAction}
+                    titleHidden={titleHidden}
+                />
             ) : null}
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 scrollbar-thin">
-                {content}
-            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 scrollbar-thin">{content}</div>
 
-            {footer ? (
-                <div className="shrink-0 border-t border-twilight-border/30 px-3 py-3">
-                    {footer}
-                </div>
-            ) : null}
+            {footer ? <div className="shrink-0 border-t border-twilight-border/30 px-3 py-3">{footer}</div> : null}
         </section>
     );
 }
@@ -134,7 +139,10 @@ export function BoardCanvas({
     const dragScroll = useDragScroll();
     const [localId, setLocalId] = useState(columns[0]?.id ?? "");
     const activeColumnId = controlledId ?? localId;
-    const setActiveColumnId = (id: string) => { setLocalId(id); onActiveColumnChange?.(id); };
+    const setActiveColumnId = (id: string) => {
+        setLocalId(id);
+        onActiveColumnChange?.(id);
+    };
     // Which way the last change went, so the new column slides in from that side.
     const [enterFrom, setEnterFrom] = useState(0);
     const chooser = useRef<HTMLDivElement>(null);
@@ -143,12 +151,24 @@ export function BoardCanvas({
         setEnterFrom(Math.sign(columns.findIndex((c) => c.id === id) - from));
         setActiveColumnId(id);
     };
-    const activeIndex = Math.max(0, columns.findIndex((c) => c.id === activeColumnId));
+    const activeIndex = Math.max(
+        0,
+        columns.findIndex((c) => c.id === activeColumnId),
+    );
     // A swipe has already slid the page into place: no second entrance.
-    const swipe = useColumnSwipe({ index: activeIndex, count: columns.length, onChange: (i) => { setEnterFrom(0); setActiveColumnId(columns[i].id); } });
+    const swipe = useColumnSwipe({
+        index: activeIndex,
+        count: columns.length,
+        onChange: (i) => {
+            setEnterFrom(0);
+            setActiveColumnId(columns[i].id);
+        },
+    });
     // Keep the chosen chip in sight when the chooser overflows (a swipe can land on a hidden one).
     useEffect(() => {
-        chooser.current?.querySelector('[aria-checked="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+        chooser.current
+            ?.querySelector('[aria-checked="true"]')
+            ?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
     }, [activeColumnId]);
 
     useEffect(() => {
@@ -174,31 +194,36 @@ export function BoardCanvas({
         return (
             <div className={["flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 pt-3", className].join(" ").trim()}>
                 <div ref={chooser} className="flex items-center gap-2">
-                <ChipScroller className={`-ml-4 min-w-0 flex-1 pl-4 ${compactTrailing ? "" : "-mr-4 pr-4"}`}>
-                    <SegmentedControl
-                        ariaLabel="Columns"
-                        className="shrink-0"
-                        value={activeColumn.id}
-                        onChange={chooseColumn}
-                        options={columns.map((column) => ({
-                            value: column.id,
-                            label: (
-                                <>
-                                    {column.title}
-                                    <span className="text-[12px] font-normal tabular-nums">{column.count}</span>
-                                </>
-                            ),
-                        }))}
-                    />
-                </ChipScroller>
-                {compactTrailing ? <div className="shrink-0">{compactTrailing}</div> : null}
+                    <ChipScroller className={`-ml-4 min-w-0 flex-1 pl-4 ${compactTrailing ? "" : "-mr-4 pr-4"}`}>
+                        <SegmentedControl
+                            ariaLabel="Columns"
+                            className="shrink-0"
+                            value={activeColumn.id}
+                            onChange={chooseColumn}
+                            options={columns.map((column) => ({
+                                value: column.id,
+                                label: (
+                                    <>
+                                        {column.title}
+                                        <span className="text-[12px] font-normal tabular-nums">{column.count}</span>
+                                    </>
+                                ),
+                            }))}
+                        />
+                    </ChipScroller>
+                    {compactTrailing ? <div className="shrink-0">{compactTrailing}</div> : null}
                 </div>
 
                 <div ref={swipe.ref} className="min-h-0 flex-1 overflow-hidden">
                     {/* The pages strip: the finger moves it, with the neighbours beside the current column while it does. */}
                     <motion.div style={{ x: swipe.x }} className="relative h-full">
                         {swipe.peek && prevColumn ? (
-                            <div inert aria-hidden="true" className="absolute inset-y-0 right-full w-full" style={{ marginRight: PAGE_GAP }}>
+                            <div
+                                inert
+                                aria-hidden="true"
+                                className="absolute inset-y-0 right-full w-full"
+                                style={{ marginRight: PAGE_GAP }}
+                            >
                                 <BoardColumnShell {...prevColumn} titleHidden />
                             </div>
                         ) : null}
@@ -212,7 +237,12 @@ export function BoardCanvas({
                             <BoardColumnShell {...activeColumn} titleHidden />
                         </motion.div>
                         {swipe.peek && nextColumn ? (
-                            <div inert aria-hidden="true" className="absolute inset-y-0 left-full w-full" style={{ marginLeft: PAGE_GAP }}>
+                            <div
+                                inert
+                                aria-hidden="true"
+                                className="absolute inset-y-0 left-full w-full"
+                                style={{ marginLeft: PAGE_GAP }}
+                            >
                                 <BoardColumnShell {...nextColumn} titleHidden />
                             </div>
                         ) : null}

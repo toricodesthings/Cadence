@@ -116,9 +116,16 @@ describe("useNlpParse", () => {
             { wrapper: withClient() },
         );
 
-        await waitFor(() => expect(result.current.scheduledStart).toBe(atLocal("2026-03-21", "17:00", "America/Toronto")));
+        await waitFor(() =>
+            expect(result.current.scheduledStart).toBe(atLocal("2026-03-21", "17:00", "America/Toronto")),
+        );
         expect(result.current.dueDate).toBeNull();
-        expect(parseMock.mock.calls[0][0].clock).toEqual(expect.objectContaining({ today: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), now: expect.stringMatching(/^\d{2}:\d{2}$/) }));
+        expect(parseMock.mock.calls[0][0].clock).toEqual(
+            expect.objectContaining({
+                today: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+                now: expect.stringMatching(/^\d{2}:\d{2}$/),
+            }),
+        );
     });
 
     it("keeps a bare day as the all-day / deadline day", async () => {
@@ -127,14 +134,24 @@ describe("useNlpParse", () => {
             cleanedTitle: "",
             parserVersion: "2.0.0",
             sourceSurface: "inline_add",
-            entities: [{
-                id: "due_date:friday", type: "due_date", sourceText: "by friday", start: 0, end: 9, confidence: "high",
-                normalizedValue: { date: "2026-03-27", time: null, hasTime: false, humanLabel: "Fri, Mar 27" },
-            }],
+            entities: [
+                {
+                    id: "due_date:friday",
+                    type: "due_date",
+                    sourceText: "by friday",
+                    start: 0,
+                    end: 9,
+                    confidence: "high",
+                    normalizedValue: { date: "2026-03-27", time: null, hasTime: false, humanLabel: "Fri, Mar 27" },
+                },
+            ],
             warnings: [],
             summary: "",
         });
-        const { result } = renderHook(() => useNlpParse({ input: "by friday", projects: [], tags: [], enabled: true }), { wrapper: withClient() });
+        const { result } = renderHook(
+            () => useNlpParse({ input: "by friday", projects: [], tags: [], enabled: true }),
+            { wrapper: withClient() },
+        );
         await waitFor(() => expect(result.current.dueDate).toBe("2026-03-27"));
         expect(result.current.scheduledStart).toBeNull();
     });

@@ -43,7 +43,9 @@ export function useFocusViews() {
 }
 
 /** Writes a saved view, then refetches the list. */
-function useFocusViewWrite<TInput, TResult>(write: (client: ReturnType<typeof useApiClient>, input: TInput) => Promise<TResult>) {
+function useFocusViewWrite<TInput, TResult>(
+    write: (client: ReturnType<typeof useApiClient>, input: TInput) => Promise<TResult>,
+) {
     const client = useApiClient();
     const queryClient = useQueryClient();
     const { session } = useAuthState();
@@ -60,16 +62,26 @@ function useFocusViewWrite<TInput, TResult>(write: (client: ReturnType<typeof us
 // narrows to the contract shape.
 const toWire = <T extends Partial<FocusViewInput>>(view: T) => ({
     ...view,
-    source: view.source === "custom" ? "manual" as const : view.source,
+    source: view.source === "custom" ? ("manual" as const) : view.source,
     definition: view.definition as FocusViewDefinitionInput,
 });
 
 export const useCreateFocusView = () =>
-    useFocusViewWrite(async (client, input: FocusViewInput) => unwrapResponse(await client.api.settings["focus-views"].$post({ json: toWire(input) })));
+    useFocusViewWrite(async (client, input: FocusViewInput) =>
+        unwrapResponse(await client.api.settings["focus-views"].$post({ json: toWire(input) })),
+    );
 
 export const useUpdateFocusView = () =>
     useFocusViewWrite(async (client, { id, ...patch }: FocusViewPatch) =>
-        unwrapResponse(await client.api.settings["focus-views"][":id"].$patch({ param: { id }, json: { ...toWire(patch), definition: patch.definition as FocusViewDefinitionInput | undefined } })));
+        unwrapResponse(
+            await client.api.settings["focus-views"][":id"].$patch({
+                param: { id },
+                json: { ...toWire(patch), definition: patch.definition as FocusViewDefinitionInput | undefined },
+            }),
+        ),
+    );
 
 export const useDeleteFocusView = () =>
-    useFocusViewWrite(async (client, id: string) => unwrapResponse(await client.api.settings["focus-views"][":id"].$delete({ param: { id } })));
+    useFocusViewWrite(async (client, id: string) =>
+        unwrapResponse(await client.api.settings["focus-views"][":id"].$delete({ param: { id } })),
+    );

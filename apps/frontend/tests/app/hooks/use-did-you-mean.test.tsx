@@ -9,18 +9,26 @@ const state = vi.hoisted(() => ({
     post: vi.fn(),
 }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: state.settings }) }));
-vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ authReady: true, isAuthenticated: true }) }));
-vi.mock("../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => ({ api: { search: { "did-you-mean": { $post: state.post } } } }) }));
+vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
+    useAuthState: () => ({ authReady: true, isAuthenticated: true }),
+}));
+vi.mock("../../../app/hooks/auth/use-api-client", () => ({
+    useApiClient: () => ({ api: { search: { "did-you-mean": { $post: state.post } } } }),
+}));
 
 const task = { id: "t1", title: "clean out the fridge" };
 const on = (smartPlacement: boolean) => ({ tasks: { intelligence: { smartPlacement } } });
 const client = new QueryClient();
-const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+);
 
 beforeEach(() => {
     client.clear();
     vi.clearAllMocks();
-    state.post.mockResolvedValue(new Response(JSON.stringify({ data: { task } }), { headers: { "content-type": "application/json" } }));
+    state.post.mockResolvedValue(
+        new Response(JSON.stringify({ data: { task } }), { headers: { "content-type": "application/json" } }),
+    );
 });
 
 it("asks only once settings have loaded with the switch on, and hides a cached answer once it's off", async () => {

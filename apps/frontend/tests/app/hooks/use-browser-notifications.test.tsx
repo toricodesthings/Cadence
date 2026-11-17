@@ -11,9 +11,13 @@ vi.mock("../../../app/hooks/notifications/use-device-delivery", () => ({
     useDeviceDeliverySync: () => {},
 }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({
-    useSettings: () => ({ data: { notifications: { quietHoursEnabled: state.quiet, quietHoursStart: "00:00", quietHoursEnd: "23:59" } } }),
+    useSettings: () => ({
+        data: { notifications: { quietHoursEnabled: state.quiet, quietHoursStart: "00:00", quietHoursEnd: "23:59" } },
+    }),
 }));
-vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ session: { user: { id: "u1" } } }) }));
+vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
+    useAuthState: () => ({ session: { user: { id: "u1" } } }),
+}));
 vi.mock("../../../app/hooks/notifications/use-notification-center", () => ({
     getDismissalState: () => ({ dismissedIds: state.dismissed, deferredUntil: new Map() }),
 }));
@@ -22,7 +26,18 @@ import { useBrowserNotifications } from "../../../app/hooks/notifications/use-br
 
 const due = (id: string, minutesAgo = 1): AppNotification => {
     const at = new Date(Date.now() - minutesAgo * 60_000).toISOString();
-    return { id, kind: "task-reminder", title: id, body: "b", triggerAt: at, alertAt: at, entityId: "t", route: "/", priority: "high", read: false };
+    return {
+        id,
+        kind: "task-reminder",
+        title: id,
+        body: "b",
+        triggerAt: at,
+        alertAt: at,
+        entityId: "t",
+        route: "/",
+        priority: "high",
+        read: false,
+    };
 };
 
 beforeEach(() => {

@@ -10,7 +10,11 @@ import type { Tx } from "../../../types/db";
 import type { AgentContext } from "./index";
 import { safeExecute, once } from "./index";
 import { DEFAULT_DEFINITION } from "@cadence/nlp/focus-views";
-import { focusViewDefinitionSchema, savedFocusViewInputSchema, type FocusViewDefinitionInput } from "@cadence/contracts/settings";
+import {
+    focusViewDefinitionSchema,
+    savedFocusViewInputSchema,
+    type FocusViewDefinitionInput,
+} from "@cadence/contracts/settings";
 
 const d = focusViewDefinitionSchema.shape;
 const filtersSchema = z.object({
@@ -22,7 +26,11 @@ const filtersSchema = z.object({
     priorityMin: d.priorityMin.optional().describe("Urgent: at least this priority (0–4)."),
     effortMin: d.effortMin.optional().describe("Demanding: at least this effort (1–3)."),
     effortMax: d.effortMax.optional().describe("Easy: at most this effort (1–3); effort is difficulty, not length."),
-    durationMaxMinutes: d.durationMaxMinutes.optional().describe("Short: estimated at most this many minutes. Length, not difficulty; tasks without an estimate are excluded."),
+    durationMaxMinutes: d.durationMaxMinutes
+        .optional()
+        .describe(
+            "Short: estimated at most this many minutes. Length, not difficulty; tasks without an estimate are excluded.",
+        ),
     dueWindow: d.dueWindow.optional().describe("Due by then (undated stay in); overdue = only overdue."),
     waitingOnly: d.waitingOnly.optional(),
     missingStructureOnly: d.missingStructureOnly.optional().describe("Tasks missing a date or a list."),
@@ -42,8 +50,13 @@ export function readFocusView(definition: unknown): FocusViewDefinitionInput | u
 export function toMinimalFocusView(row: { id: string; name: string; isPinned: boolean; definition: unknown }) {
     const parsed = readFocusView(row.definition);
     const filters = parsed
-        ? Object.fromEntries(Object.entries(parsed).filter(([key, value]) =>
-            JSON.stringify(value) !== JSON.stringify(DEFAULT_DEFINITION[key as keyof FocusViewDefinitionInput])))
+        ? Object.fromEntries(
+              Object.entries(parsed).filter(
+                  ([key, value]) =>
+                      JSON.stringify(value) !==
+                      JSON.stringify(DEFAULT_DEFINITION[key as keyof FocusViewDefinitionInput]),
+              ),
+          )
         : undefined;
     return { id: row.id, name: row.name, pinned: row.isPinned || undefined, filters };
 }
@@ -70,10 +83,19 @@ export const focusViewTools = (env: Env, userId: string, _ctx: AgentContext) => 
                 safeExecute("get_focus_views", userId, async () => {
                     const rows = await withRls(getDbClient(env), userId, (tx) =>
                         tx
-                            .select({ id: savedFocusViews.id, name: savedFocusViews.name, isPinned: savedFocusViews.isPinned, definition: savedFocusViews.definition })
+                            .select({
+                                id: savedFocusViews.id,
+                                name: savedFocusViews.name,
+                                isPinned: savedFocusViews.isPinned,
+                                definition: savedFocusViews.definition,
+                            })
                             .from(savedFocusViews)
                             .where(eq(savedFocusViews.userId, userId))
-                            .orderBy(desc(savedFocusViews.isPinned), asc(savedFocusViews.orderIndex), asc(savedFocusViews.createdAt))
+                            .orderBy(
+                                desc(savedFocusViews.isPinned),
+                                asc(savedFocusViews.orderIndex),
+                                asc(savedFocusViews.createdAt),
+                            )
                             .limit(50),
                     );
                     return { views: rows.map(toMinimalFocusView) };
@@ -85,14 +107,21 @@ export const focusViewTools = (env: Env, userId: string, _ctx: AgentContext) => 
             description:
                 "Saves a focus view. Without focusViewId it makes a new one from a name and the filters it sets (the rest stay open). " +
                 "With focusViewId it renames, pins or unpins it, or changes only the filters sent. Returns the view.",
-            inputSchema: z.object({
-                focusViewId: z.uuid().optional().describe("The view to change; omit to make a new one."),
-                name: savedFocusViewInputSchema.shape.name.optional(),
-                filters: filtersSchema.optional(),
-                pinned: z.boolean().optional().describe("Pin it to the top of the views."),
-            })
-                .refine((v) => v.focusViewId !== undefined || (v.name !== undefined && v.filters !== undefined), "A new view needs a name and filters")
-                .refine((v) => v.name !== undefined || v.filters !== undefined || v.pinned !== undefined, "Nothing to change"),
+            inputSchema: z
+                .object({
+                    focusViewId: z.uuid().optional().describe("The view to change; omit to make a new one."),
+                    name: savedFocusViewInputSchema.shape.name.optional(),
+                    filters: filtersSchema.optional(),
+                    pinned: z.boolean().optional().describe("Pin it to the top of the views."),
+                })
+                .refine(
+                    (v) => v.focusViewId !== undefined || (v.name !== undefined && v.filters !== undefined),
+                    "A new view needs a name and filters",
+                )
+                .refine(
+                    (v) => v.name !== undefined || v.filters !== undefined || v.pinned !== undefined,
+                    "Nothing to change",
+                ),
             execute: async ({ focusViewId, name, filters, pinned }, { toolCallId }) =>
                 safeExecute("save_focus_view", userId, async () =>
                     withRls(getDbClient(env), userId, (tx) =>
@@ -100,7 +129,13 @@ export const focusViewTools = (env: Env, userId: string, _ctx: AgentContext) => 
                             if (focusViewId === undefined) {
                                 const [row] = await tx
                                     .insert(savedFocusViews)
-                                    .values({ userId, name: name!, definition: { ...DEFAULT_DEFINITION, ...filters }, isPinned: pinned ?? false, source: "composed" })
+                                    .values({
+                                        userId,
+                                        name: name!,
+                                        definition: { ...DEFAULT_DEFINITION, ...filters },
+                                        isPinned: pinned ?? false,
+                                        source: "composed",
+                                    })
                                     .returning();
                                 return { result: toMinimalFocusView(row), id: row.id };
                             }
@@ -110,7 +145,12 @@ export const focusViewTools = (env: Env, userId: string, _ctx: AgentContext) => 
                                 .set({
                                     ...(name !== undefined && { name }),
                                     ...(pinned !== undefined && { isPinned: pinned }),
-                                    ...(filters && { definition: { ...(readFocusView(current.definition) ?? DEFAULT_DEFINITION), ...filters } }),
+                                    ...(filters && {
+                                        definition: {
+                                            ...(readFocusView(current.definition) ?? DEFAULT_DEFINITION),
+                                            ...filters,
+                                        },
+                                    }),
                                     updatedAt: sql`NOW()`,
                                 })
                                 .where(and(eq(savedFocusViews.id, focusViewId), eq(savedFocusViews.userId, userId)))
@@ -130,7 +170,9 @@ export const focusViewTools = (env: Env, userId: string, _ctx: AgentContext) => 
                     withRls(getDbClient(env), userId, (tx) =>
                         once(tx, userId, toolCallId, async () => {
                             const row = await find(tx, focusViewId);
-                            await tx.delete(savedFocusViews).where(and(eq(savedFocusViews.id, focusViewId), eq(savedFocusViews.userId, userId)));
+                            await tx
+                                .delete(savedFocusViews)
+                                .where(and(eq(savedFocusViews.id, focusViewId), eq(savedFocusViews.userId, userId)));
                             return { result: { deleted: row.name }, id: userId };
                         }),
                     ),

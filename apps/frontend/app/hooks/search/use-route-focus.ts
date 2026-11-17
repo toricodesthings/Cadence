@@ -58,11 +58,14 @@ export function useRouteFocus(opts?: {
     const focusParams = parseFocusParams(searchParams);
 
     const clearFocusParams = useCallback(() => {
-        setSearchParams((prev) => {
-            const next = new URLSearchParams(prev);
-            FOCUS_PARAM_KEYS.forEach((key) => next.delete(key));
-            return next;
-        }, { replace: true });
+        setSearchParams(
+            (prev) => {
+                const next = new URLSearchParams(prev);
+                FOCUS_PARAM_KEYS.forEach((key) => next.delete(key));
+                return next;
+            },
+            { replace: true },
+        );
     }, [setSearchParams]);
 
     useEffect(() => {
@@ -76,13 +79,16 @@ export function useRouteFocus(opts?: {
             attemptRef.current++;
 
             const el = document.querySelector(
-                `[data-focus-kind="${focusParams.focusKind}"][data-focus-id="${focusParams.focusId}"]`
+                `[data-focus-kind="${focusParams.focusKind}"][data-focus-id="${focusParams.focusId}"]`,
             ) as HTMLElement | null;
 
             if (el) {
                 // Scroll into view, and again once a section opening around it (a Reveal) has settled.
                 el.scrollIntoView({ behavior: "smooth", block: "center" });
-                settleTimerRef.current = setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+                settleTimerRef.current = setTimeout(
+                    () => el.scrollIntoView({ behavior: "smooth", block: "center" }),
+                    300,
+                );
 
                 // Apply reveal animation
                 el.classList.add("focus-pulse-soft");

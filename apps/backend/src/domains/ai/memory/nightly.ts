@@ -12,8 +12,23 @@ import { logger, hashIdentifier, issuesFromError } from "../../../platform/log";
 import { consolidate } from "./consolidate";
 import type { Env } from "../../../types/env";
 import { fenceMemoryState, isLearning, planningOn, readMemoryState } from "./memory-mode";
-import { changedFacts, deleteDecayed, deleteExpired, dropOrphanedFacts, mergeFacts, nearestFacts, syncActivityFacts } from "./memory-store";
-import { derivePatterns, deriveDurations, retentionCutoff, type DerivedFact, type ReportRow, type SignalRow } from "./signals";
+import {
+    changedFacts,
+    deleteDecayed,
+    deleteExpired,
+    dropOrphanedFacts,
+    mergeFacts,
+    nearestFacts,
+    syncActivityFacts,
+} from "./memory-store";
+import {
+    derivePatterns,
+    deriveDurations,
+    retentionCutoff,
+    type DerivedFact,
+    type ReportRow,
+    type SignalRow,
+} from "./signals";
 import { prunePlanning, slotPatterns } from "./planning.service";
 import { readReports } from "./duration";
 import { embedTexts, getEmbeddingModelId } from "./embedding";
@@ -49,31 +64,53 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
             const today = todayIn(await userZone(tx, userId), now);
             // Expiry and decay are plain deletion: they run whatever the mode.
             const expired = await deleteExpired(tx, userId, today);
-            const decayed = await deleteDecayed(tx, userId, today) + (await dropOrphanedFacts(tx, userId));
+            const decayed = (await deleteDecayed(tx, userId, today)) + (await dropOrphanedFacts(tx, userId));
             // Merging asks a model, and only makes sense while memory is on.
             // Signals are kept 90 days; Full reads them for patterns and durations below.
-            await tx.delete(aiMemorySignals).where(and(eq(aiMemorySignals.userId, userId), lt(aiMemorySignals.on, retentionCutoff(today))));
+            await tx
+                .delete(aiMemorySignals)
+                .where(and(eq(aiMemorySignals.userId, userId), lt(aiMemorySignals.on, retentionCutoff(today))));
             await prunePlanning(tx, userId, today);
-            if (!isLearning(state.mode)) return { state, today, expired, decayed, pairs: [], signals: [] as SignalRow[], reports: [] as ReportRow[], slots: [] as DerivedFact[] };
+            if (!isLearning(state.mode))
+                return {
+                    state,
+                    today,
+                    expired,
+                    decayed,
+                    pairs: [],
+                    signals: [] as SignalRow[],
+                    reports: [] as ReportRow[],
+                    slots: [] as DerivedFact[],
+                };
             const since = new Date(now.getTime() - CHANGED_WITHIN_MS).toISOString();
             const pairs: { fact: string; other: string }[] = [];
             const seen = new Set<string>();
             for (const fact of (await changedFacts(tx, userId, since)).slice(0, MAX_PAIRS)) {
-                const [near] = (await nearestFacts(tx, userId, fact.embedding, fact.embeddingModel, fact.kind, 2)).filter((n) => n.id !== fact.id);
+                const [near] = (
+                    await nearestFacts(tx, userId, fact.embedding, fact.embeddingModel, fact.kind, 2)
+                ).filter((n) => n.id !== fact.id);
                 if (!near || near.distance > NEAR_DUPLICATE_DISTANCE) continue;
                 const key = [fact.id, near.id].sort().join("|");
                 if (seen.has(key)) continue;
                 seen.add(key);
                 pairs.push({ fact: fact.id, other: near.id });
             }
-            const signals = state.mode === "full"
-                ? await tx
-                      .select({ kind: aiMemorySignals.kind, on: aiMemorySignals.on, bucket: aiMemorySignals.bucket, subject: aiMemorySignals.subject })
-                      .from(aiMemorySignals)
-                      .where(and(eq(aiMemorySignals.userId, userId), gte(aiMemorySignals.on, retentionCutoff(today))))
-                      .orderBy(desc(aiMemorySignals.on))
-                      .limit(MAX_SIGNALS_READ)
-                : [];
+            const signals =
+                state.mode === "full"
+                    ? await tx
+                          .select({
+                              kind: aiMemorySignals.kind,
+                              on: aiMemorySignals.on,
+                              bucket: aiMemorySignals.bucket,
+                              subject: aiMemorySignals.subject,
+                          })
+                          .from(aiMemorySignals)
+                          .where(
+                              and(eq(aiMemorySignals.userId, userId), gte(aiMemorySignals.on, retentionCutoff(today))),
+                          )
+                          .orderBy(desc(aiMemorySignals.on))
+                          .limit(MAX_SIGNALS_READ)
+                    : [];
             const reports: ReportRow[] = state.mode === "full" ? await readReports(tx, userId, today) : [];
             // How they plan: Full only.
             const slots = planningOn(state) ? await slotPatterns(tx, userId, today) : [];
@@ -86,7 +123,14 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
             const contents = await withRls(db, userId, async (tx) => {
                 const rows = await tx.query.aiMemories.findMany({
                     columns: { id: true, content: true, lastSeenOn: true },
-                    where: (m, { and, eq, inArray }) => and(eq(m.userId, userId), inArray(m.id, plan.pairs.flatMap((p) => [p.fact, p.other]))),
+                    where: (m, { and, eq, inArray }) =>
+                        and(
+                            eq(m.userId, userId),
+                            inArray(
+                                m.id,
+                                plan.pairs.flatMap((p) => [p.fact, p.other]),
+                            ),
+                        ),
                 });
                 return new Map(rows.map((r) => [r.id, r]));
             });
@@ -96,7 +140,14 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
                 return a && b ? [{ a, b }] : [];
             });
             // One call for every pair, as a chat's reading does.
-            const same = await consolidate(env, userHash, pairs.map(({ a, b }) => ({ content: a.content, near: [{ id: b.id, kind: "life", content: b.content, distance: 0 }] })));
+            const same = await consolidate(
+                env,
+                userHash,
+                pairs.map(({ a, b }) => ({
+                    content: a.content,
+                    near: [{ id: b.id, kind: "life", content: b.content, distance: 0 }],
+                })),
+            );
             pairs.forEach(({ a, b }, i) => {
                 if (same[i] !== b.id) return;
                 // The one seen more recently has the newer wording.
@@ -106,11 +157,22 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
 
         // 3 · Apply. Fenced by the epoch, like every background write.
         // Full: what the person's own changes add up to. Deterministic; the only model call is the embedding of new text.
-        const derived = plan.state.mode === "full" ? [...derivePatterns(plan.signals, plan.today), ...deriveDurations(plan.reports, plan.today), ...plan.slots] : [];
+        const derived =
+            plan.state.mode === "full"
+                ? [
+                      ...derivePatterns(plan.signals, plan.today),
+                      ...deriveDurations(plan.reports, plan.today),
+                      ...plan.slots,
+                  ]
+                : [];
         let vectors: (number[] | null)[] = derived.map(() => null);
         if (derived.length > 0) {
             try {
-                vectors = await embedTexts(env, derived.map((d) => d.content), { userHash });
+                vectors = await embedTexts(
+                    env,
+                    derived.map((d) => d.content),
+                    { userHash },
+                );
             } catch {
                 // saved without a vector: still found by words
             }
@@ -121,12 +183,18 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
             if (current.epoch !== plan.state.epoch || !isLearning(current.mode)) return;
             for (const merge of merges) if (await mergeFacts(tx, userId, merge.keep, merge.drop)) result.merged++;
             if (current.mode === "full") {
-                result.activity = await syncActivityFacts(tx, userId, derived.map((d, i) => ({ ...d, embedding: vectors[i], embeddingModel: getEmbeddingModelId(env) })), plan.today);
+                result.activity = await syncActivityFacts(
+                    tx,
+                    userId,
+                    derived.map((d, i) => ({ ...d, embedding: vectors[i], embeddingModel: getEmbeddingModelId(env) })),
+                    plan.today,
+                );
             }
         });
         // The catch-up after choosing Full (a few batches a night).
         if (plan.state.mode === "full") await backfillForUser(env, userId, now);
-        if (result.expired + result.decayed + result.merged + result.activity > 0) logger.info("ai", "ai_memory_nightly", { userHash, ...result });
+        if (result.expired + result.decayed + result.merged + result.activity > 0)
+            logger.info("ai", "ai_memory_nightly", { userHash, ...result });
         return result;
     } catch (error) {
         logger.warn("ai", "memory_nightly_failed", { userHash, issues: issuesFromError(error) });

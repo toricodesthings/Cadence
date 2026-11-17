@@ -33,6 +33,8 @@ export const EFFORT_OPTIONS: { value: Exclude<EffortLevel, null>; label: string;
 ];
 
 export const FIELD_LABEL = "text-[11px] font-medium uppercase tracking-[0.14em] text-twilight-text-soft";
-export const CHIP_BASE = "flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
+export const CHIP_BASE =
+    "flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 export const CHIP_ACTIVE = "border-accent-primary/30 bg-accent-primary/15 text-accent-primary";
-export const CHIP_IDLE = "border-white/[0.06] bg-white/[0.02] text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text";
+export const CHIP_IDLE =
+    "border-white/[0.06] bg-white/[0.02] text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text";

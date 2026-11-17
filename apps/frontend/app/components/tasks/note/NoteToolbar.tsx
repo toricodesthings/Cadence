@@ -12,7 +12,15 @@ import type { ReactNode, CSSProperties } from "react";
 const TONE = { "--segment-tone": "var(--accent-primary)" } as CSSProperties;
 
 /** A formatting button that never takes the editor's focus or selection. */
-export function ToolButton({ id, pressed, disabled, onClick, children, label, className }: {
+export function ToolButton({
+    id,
+    pressed,
+    disabled,
+    onClick,
+    children,
+    label,
+    className,
+}: {
     id?: NoteCommandId;
     pressed?: boolean | "mixed";
     disabled?: boolean;
@@ -49,20 +57,36 @@ const BLOCKS: NoteCommandId[] = ["paragraph", "heading-1", "heading-2", "heading
 
 /** The text-style picker names the current block; deeper headings still show when the caret is in one. */
 function TextStylePicker({ editor, state }: { editor: Editor; state: ToolbarState }) {
-    const options = BLOCKS.includes(state.block as NoteCommandId) || state.block === "code-block" || state.block === "quote"
-        ? [...BLOCKS, ...(state.block === "code-block" || state.block === "quote" ? [state.block as NoteCommandId] : [])]
-        : [...BLOCKS, state.block as NoteCommandId];
+    const options =
+        BLOCKS.includes(state.block as NoteCommandId) || state.block === "code-block" || state.block === "quote"
+            ? [
+                  ...BLOCKS,
+                  ...(state.block === "code-block" || state.block === "quote" ? [state.block as NoteCommandId] : []),
+              ]
+            : [...BLOCKS, state.block as NoteCommandId];
     return (
         <Select.Select
             value={state.block}
-            onValueChange={(value) => { if (value !== "code-block" && value !== "quote") runNoteCommand(editor, value as NoteCommandId); }}
+            onValueChange={(value) => {
+                if (value !== "code-block" && value !== "quote") runNoteCommand(editor, value as NoteCommandId);
+            }}
         >
-            <Select.SelectTrigger aria-label="Text style" className="h-11 w-auto min-w-[8.5rem] gap-2 rounded-xl border-transparent bg-transparent text-sm shadow-none [[data-density=compact]_&]:h-9">
+            <Select.SelectTrigger
+                aria-label="Text style"
+                className="h-11 w-auto min-w-[8.5rem] gap-2 rounded-xl border-transparent bg-transparent text-sm shadow-none [[data-density=compact]_&]:h-9"
+            >
                 <Select.SelectValue>{BLOCK_LABEL[state.block]}</Select.SelectValue>
             </Select.SelectTrigger>
-            <Select.SelectContent onCloseAutoFocus={(e) => { e.preventDefault(); editor.commands.focus(); }}>
+            <Select.SelectContent
+                onCloseAutoFocus={(e) => {
+                    e.preventDefault();
+                    editor.commands.focus();
+                }}
+            >
                 {options.map((id) => (
-                    <Select.SelectItem key={id} value={id}>{BLOCK_LABEL[id as ToolbarState["block"]] ?? getNoteCommand(id).label}</Select.SelectItem>
+                    <Select.SelectItem key={id} value={id}>
+                        {BLOCK_LABEL[id as ToolbarState["block"]] ?? getNoteCommand(id).label}
+                    </Select.SelectItem>
                 ))}
             </Select.SelectContent>
         </Select.Select>
@@ -72,7 +96,11 @@ function TextStylePicker({ editor, state }: { editor: Editor; state: ToolbarStat
 /** One list control: shows the active list kind and opens the other kinds. */
 function ListMenu({ editor, state }: { editor: Editor; state: ToolbarState }) {
     const Icon = state.task ? ListTodo : state.ordered ? ListOrdered : List;
-    const items: [NoteCommandId, typeof List][] = [["bullet-list", List], ["numbered-list", ListOrdered], ["checklist", ListTodo]];
+    const items: [NoteCommandId, typeof List][] = [
+        ["bullet-list", List],
+        ["numbered-list", ListOrdered],
+        ["checklist", ListTodo],
+    ];
     return (
         <DropdownMenu.Root>
             <Tip label="Lists" side="bottom">
@@ -93,7 +121,13 @@ function ListMenu({ editor, state }: { editor: Editor; state: ToolbarState }) {
                     </button>
                 </DropdownMenu.Trigger>
             </Tip>
-            <DropdownMenu.Content align="start" onCloseAutoFocus={(e) => { e.preventDefault(); editor.commands.focus(); }}>
+            <DropdownMenu.Content
+                align="start"
+                onCloseAutoFocus={(e) => {
+                    e.preventDefault();
+                    editor.commands.focus();
+                }}
+            >
                 {items.map(([id, ItemIcon]) => (
                     <DropdownMenu.Item key={id} onSelect={() => runNoteCommand(editor, id)} className="gap-3">
                         <ItemIcon size={16} aria-hidden="true" />
@@ -106,7 +140,11 @@ function ListMenu({ editor, state }: { editor: Editor; state: ToolbarState }) {
                         {(["indent", "outdent"] as const).map((id) => {
                             const c = getNoteCommand(id);
                             return (
-                                <DropdownMenu.Item key={id} onSelect={() => runNoteCommand(editor, id)} className="gap-3">
+                                <DropdownMenu.Item
+                                    key={id}
+                                    onSelect={() => runNoteCommand(editor, id)}
+                                    className="gap-3"
+                                >
                                     <c.icon size={16} aria-hidden="true" />
                                     {c.label}
                                 </DropdownMenu.Item>
@@ -123,21 +161,41 @@ function ListMenu({ editor, state }: { editor: Editor; state: ToolbarState }) {
  * Desktop and tablet formatting bar: undo/redo, text style, bold/italic, lists, link and More.
  * Compact on purpose: the rarer blocks live in More.
  */
-export function NoteToolbar({ editor, onLink, more, className }: { editor: Editor | null; onLink: () => void; more: ReactNode; className?: string }) {
+export function NoteToolbar({
+    editor,
+    onLink,
+    more,
+    className,
+}: {
+    editor: Editor | null;
+    onLink: () => void;
+    more: ReactNode;
+    className?: string;
+}) {
     const state = useNoteToolbarState(editor);
     const run = (id: NoteCommandId) => editor && runNoteCommand(editor, id);
 
     return (
         <div role="toolbar" aria-label="Formatting" className={cn("flex flex-wrap items-center gap-0.5", className)}>
-            <ToolButton id="undo" label="Undo" disabled={!state.canUndo} onClick={() => run("undo")}><Undo2 size={18} aria-hidden="true" /></ToolButton>
-            <ToolButton id="redo" label="Redo" disabled={!state.canRedo} onClick={() => run("redo")}><Redo2 size={18} aria-hidden="true" /></ToolButton>
+            <ToolButton id="undo" label="Undo" disabled={!state.canUndo} onClick={() => run("undo")}>
+                <Undo2 size={18} aria-hidden="true" />
+            </ToolButton>
+            <ToolButton id="redo" label="Redo" disabled={!state.canRedo} onClick={() => run("redo")}>
+                <Redo2 size={18} aria-hidden="true" />
+            </ToolButton>
             <span aria-hidden="true" className="mx-1 h-6 w-px bg-twilight-border" />
             {editor && <TextStylePicker editor={editor} state={state} />}
             <span aria-hidden="true" className="mx-1 h-6 w-px bg-twilight-border" />
-            <ToolButton id="bold" label="Bold" pressed={markPressed(state.bold)} onClick={() => run("bold")}><Bold size={18} aria-hidden="true" /></ToolButton>
-            <ToolButton id="italic" label="Italic" pressed={markPressed(state.italic)} onClick={() => run("italic")}><Italic size={18} aria-hidden="true" /></ToolButton>
+            <ToolButton id="bold" label="Bold" pressed={markPressed(state.bold)} onClick={() => run("bold")}>
+                <Bold size={18} aria-hidden="true" />
+            </ToolButton>
+            <ToolButton id="italic" label="Italic" pressed={markPressed(state.italic)} onClick={() => run("italic")}>
+                <Italic size={18} aria-hidden="true" />
+            </ToolButton>
             {editor && <ListMenu editor={editor} state={state} />}
-            <ToolButton id="link" label="Link" pressed={state.link} onClick={onLink}><Link2 size={18} aria-hidden="true" /></ToolButton>
+            <ToolButton id="link" label="Link" pressed={state.link} onClick={onLink}>
+                <Link2 size={18} aria-hidden="true" />
+            </ToolButton>
             {more}
         </div>
     );

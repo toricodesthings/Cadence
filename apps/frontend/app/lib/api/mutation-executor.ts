@@ -36,11 +36,23 @@ export function toRequests(op: MutationOp): WalRequest[] {
         case "create_task":
             return [{ method: "POST", url: url(api.tasks.$url()), json: op.payload, key: op.payload.id }];
         case "update_task":
-            return [{ method: "PATCH", url: url(api.tasks[":id"].$url({ param: { id: op.id } })), json: without(op.payload, "expectedUpdatedAt") }];
+            return [
+                {
+                    method: "PATCH",
+                    url: url(api.tasks[":id"].$url({ param: { id: op.id } })),
+                    json: without(op.payload, "expectedUpdatedAt"),
+                },
+            ];
         case "delete_task":
             return [{ method: "DELETE", url: url(api.tasks[":id"].$url({ param: { id: op.id } })) }];
         case "reorder_task":
-            return [{ method: "PATCH", url: url(api.tasks[":id"].reorder.$url({ param: { id: op.id } })), json: op.payload }];
+            return [
+                {
+                    method: "PATCH",
+                    url: url(api.tasks[":id"].reorder.$url({ param: { id: op.id } })),
+                    json: op.payload,
+                },
+            ];
         case "duplicate_task":
             return [{ method: "POST", url: url(api.tasks[":id"].duplicate.$url({ param: { id: op.id } })) }];
         case "batch_state":
@@ -49,7 +61,11 @@ export function toRequests(op: MutationOp): WalRequest[] {
             return [{ method: "POST", url: url(api.tasks.batch.reschedule.$url()), json: op.payload }];
         case "batch_delete":
             // Older builds queued more than the route's 50-id cap.
-            return chunk(op.payload.taskIds, 50).map((taskIds) => ({ method: "POST", url: url(api.tasks.batch.delete.$url()), json: { taskIds } }));
+            return chunk(op.payload.taskIds, 50).map((taskIds) => ({
+                method: "POST",
+                url: url(api.tasks.batch.delete.$url()),
+                json: { taskIds },
+            }));
         case "create_inbox":
             return [{ method: "POST", url: url(api.inbox.$url()), json: op.payload, key: op.payload.id }];
         case "update_inbox":
@@ -58,45 +74,104 @@ export function toRequests(op: MutationOp): WalRequest[] {
             return [{ method: "DELETE", url: url(api.inbox[":id"].$url({ param: { id: op.id } })) }];
         case "process_inbox_to_task": {
             const { inboxItemId, rawText, title, ...rest } = op.payload;
-            return [{ method: "POST", url: url(api.inbox[":id"].process.$url({ param: { id: inboxItemId } })), json: { ...rest, title: title?.trim() || rawText } }];
+            return [
+                {
+                    method: "POST",
+                    url: url(api.inbox[":id"].process.$url({ param: { id: inboxItemId } })),
+                    json: { ...rest, title: title?.trim() || rawText },
+                },
+            ];
         }
         case "create_inbox_section":
             return [{ method: "POST", url: url(api.inbox.sections.$url()), json: op.payload }];
         case "update_inbox_section":
-            return [{ method: "PATCH", url: url(api.inbox.sections[":id"].$url({ param: { id: op.id } })), json: op.payload }];
+            return [
+                {
+                    method: "PATCH",
+                    url: url(api.inbox.sections[":id"].$url({ param: { id: op.id } })),
+                    json: op.payload,
+                },
+            ];
         case "delete_inbox_section":
             return [{ method: "DELETE", url: url(api.inbox.sections[":id"].$url({ param: { id: op.id } })) }];
         case "create_habit":
             return [{ method: "POST", url: url(api.habits.$url()), json: op.payload, key: op.payload.id }];
         case "update_habit":
-            return [{ method: "PATCH", url: url(api.habits[":id"].$url({ param: { id: op.id } })), json: without(op.payload, "expectedUpdatedAt") }];
+            return [
+                {
+                    method: "PATCH",
+                    url: url(api.habits[":id"].$url({ param: { id: op.id } })),
+                    json: without(op.payload, "expectedUpdatedAt"),
+                },
+            ];
         case "delete_habit":
             return [{ method: "DELETE", url: url(api.habits[":id"].$url({ param: { id: op.id } })) }];
         case "resolve_habit":
-            return [{ method: "POST", url: url(api.habits[":id"].resolve.$url({ param: { id: op.id } })), json: op.payload }];
+            return [
+                {
+                    method: "POST",
+                    url: url(api.habits[":id"].resolve.$url({ param: { id: op.id } })),
+                    json: op.payload,
+                },
+            ];
         case "unprocess_inbox":
             return [{ method: "POST", url: url(api.inbox[":id"].unprocess.$url({ param: { id: op.id } })) }];
         case "upsert_note": {
             // The session's bookkeeping stays on this device; only what the route reads is sent.
             const { branch: _b, baseBody: _t, opId, ...json } = op.payload;
-            return [{ method: "PATCH", url: url(api.tasks[":taskId"].note.$url({ param: { taskId: op.taskId } })), json, key: opId }];
+            return [
+                {
+                    method: "PATCH",
+                    url: url(api.tasks[":taskId"].note.$url({ param: { taskId: op.taskId } })),
+                    json,
+                    key: opId,
+                },
+            ];
         }
         case "add_task_tag":
-            return [{ method: "POST", url: url(api.tasks[":id"].tags.$url({ param: { id: op.id } })), json: { tagId: op.tagId } }];
+            return [
+                {
+                    method: "POST",
+                    url: url(api.tasks[":id"].tags.$url({ param: { id: op.id } })),
+                    json: { tagId: op.tagId },
+                },
+            ];
         case "remove_task_tag":
-            return [{ method: "DELETE", url: url(api.tasks[":id"].tags[":tagId"].$url({ param: { id: op.id, tagId: op.tagId } })) }];
+            return [
+                {
+                    method: "DELETE",
+                    url: url(api.tasks[":id"].tags[":tagId"].$url({ param: { id: op.id, tagId: op.tagId } })),
+                },
+            ];
         case "create_subtask":
-            return [{ method: "POST", url: url(api.tasks[":taskId"].subtasks.$url({ param: { taskId: op.taskId } })), json: op.payload, key: op.payload.id }];
+            return [
+                {
+                    method: "POST",
+                    url: url(api.tasks[":taskId"].subtasks.$url({ param: { taskId: op.taskId } })),
+                    json: op.payload,
+                    key: op.payload.id,
+                },
+            ];
         case "update_subtask":
-            return [{ method: "PATCH", url: url(api.subtasks[":id"].$url({ param: { id: op.id } })), json: op.payload }];
+            return [
+                { method: "PATCH", url: url(api.subtasks[":id"].$url({ param: { id: op.id } })), json: op.payload },
+            ];
         case "delete_subtask":
             return [{ method: "DELETE", url: url(api.subtasks[":id"].$url({ param: { id: op.id } })) }];
         case "reorder_subtask":
-            return [{ method: "PATCH", url: url(api.subtasks[":id"].reorder.$url({ param: { id: op.id } })), json: op.payload }];
+            return [
+                {
+                    method: "PATCH",
+                    url: url(api.subtasks[":id"].reorder.$url({ param: { id: op.id } })),
+                    json: op.payload,
+                },
+            ];
         case "create_project":
             return [{ method: "POST", url: url(api.projects.$url()), json: op.payload, key: op.payload.id }];
         case "update_project":
-            return [{ method: "PATCH", url: url(api.projects[":id"].$url({ param: { id: op.id } })), json: op.payload }];
+            return [
+                { method: "PATCH", url: url(api.projects[":id"].$url({ param: { id: op.id } })), json: op.payload },
+            ];
         case "create_tag":
             return [{ method: "POST", url: url(api.tags.$url()), json: op.payload, key: op.payload.id }];
         case "update_tag":
@@ -104,7 +179,9 @@ export function toRequests(op: MutationOp): WalRequest[] {
         case "create_section":
             return [{ method: "POST", url: url(api.sections.$url()), json: op.payload, key: op.payload.id }];
         case "update_section":
-            return [{ method: "PATCH", url: url(api.sections[":id"].$url({ param: { id: op.id } })), json: op.payload }];
+            return [
+                { method: "PATCH", url: url(api.sections[":id"].$url({ param: { id: op.id } })), json: op.payload },
+            ];
         default: {
             const _exhaustive: never = op;
             throw new Error(`Unknown mutation operation: ${(_exhaustive as MutationOp).type}`);
@@ -121,7 +198,7 @@ async function send(entry: WalEntry): Promise<void> {
             headers: {
                 // A create's key is its entity id, the same key its online call sent,
                 // so a create that landed before the connection dropped isn't made twice.
-                "Idempotency-Key": index ? `${request.key ?? entry.id}:${index}` : request.key ?? entry.id,
+                "Idempotency-Key": index ? `${request.key ?? entry.id}:${index}` : (request.key ?? entry.id),
                 // When the person made it, so the server can tell a late replay from a choice made just now.
                 "X-Queued-At": new Date(entry.createdAt).toISOString(),
                 ...(request.json !== undefined && { "Content-Type": "application/json" }),
@@ -175,7 +252,8 @@ async function replayOne(entry: WalEntry): Promise<EntryResult> {
         await send(entry);
         return "done";
     } catch (err) {
-        if (!(err instanceof ApiErrorResponse && err.status === 409 && entry.op.type === "upsert_note")) return classify(err, entry);
+        if (!(err instanceof ApiErrorResponse && err.status === 409 && entry.op.type === "upsert_note"))
+            return classify(err, entry);
         try {
             return (await reconcileQueuedNote(entry.op)) === "done"
                 ? "done"
@@ -206,7 +284,10 @@ export async function replayWal(queryClient: QueryClient): Promise<ReplayOutcome
 
             const blocked = new Set(entries.filter((e) => e.status === "failed").flatMap((e) => walTargetIds(e.op)));
             if (walTargetIds(entry.op).some((id) => blocked.has(id))) {
-                await updateWalEntry(entry.id, { status: "failed", error: "It depends on an earlier change that didn't sync." });
+                await updateWalEntry(entry.id, {
+                    status: "failed",
+                    error: "It depends on an earlier change that didn't sync.",
+                });
                 continue;
             }
 
@@ -221,7 +302,11 @@ export async function replayWal(queryClient: QueryClient): Promise<ReplayOutcome
                 await removeWalEntry(entry.id);
                 replayed = true;
             } else {
-                await updateWalEntry(entry.id, { status: "failed", error: result.error, ...(result.conflict && { conflict: true }) });
+                await updateWalEntry(entry.id, {
+                    status: "failed",
+                    error: result.error,
+                    ...(result.conflict && { conflict: true }),
+                });
             }
         }
         if (outcome !== "offline") outcome = replayed ? "done" : "idle";

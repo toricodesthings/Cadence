@@ -25,8 +25,16 @@ export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                 tx,
                 userId,
                 idempotencyKey,
-                (id) => tx.select().from(taskSections).where(and(eq(taskSections.id, id), eq(taskSections.userId, userId))),
-                () => tx.insert(taskSections).values({ ...body, userId }).returning(),
+                (id) =>
+                    tx
+                        .select()
+                        .from(taskSections)
+                        .where(and(eq(taskSections.id, id), eq(taskSections.userId, userId))),
+                () =>
+                    tx
+                        .insert(taskSections)
+                        .values({ ...body, userId })
+                        .returning(),
             );
         });
 
@@ -66,7 +74,7 @@ export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                 .select()
                 .from(taskSections)
                 .where(and(...conditions))
-                .orderBy(asc(taskSections.orderIndex))
+                .orderBy(asc(taskSections.orderIndex)),
         );
 
         return c.json({ data: rows });

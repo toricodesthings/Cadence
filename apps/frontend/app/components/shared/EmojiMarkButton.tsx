@@ -19,7 +19,12 @@ export function EmojiMarkButton({
 }) {
     const label = emoji ? "Change emoji" : "Add an emoji";
     return (
-        <EmojiPickerPopover emoji={emoji ?? ""} onSelect={(next) => onChange(next || null)} onClear={() => onChange(null)} tip={label}>
+        <EmojiPickerPopover
+            emoji={emoji ?? ""}
+            onSelect={(next) => onChange(next || null)}
+            onClear={() => onChange(null)}
+            tip={label}
+        >
             <button
                 type="button"
                 aria-label={label}

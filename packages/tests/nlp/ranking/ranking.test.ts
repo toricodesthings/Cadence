@@ -5,16 +5,17 @@
  * - Reasons are always present and correct
  */
 import { describe, it, expect } from "vitest";
-import {
-    rankTasks,
-    type RankableTask,
-} from "@cadence/nlp/ranking";
+import { rankTasks, type RankableTask } from "@cadence/nlp/ranking";
 
 const NOW = new Date("2026-03-26T10:00:00Z");
 const TODAY = "2026-03-26";
 const YESTERDAY = "2026-03-25";
 const TOMORROW = "2026-03-27";
-const OPTS = { now: NOW, clock: { today: TODAY, now: "10:00", weekStart: "Sunday" as const }, dayOf: (i: string) => i.slice(0, 10) };
+const OPTS = {
+    now: NOW,
+    clock: { today: TODAY, now: "10:00", weekStart: "Sunday" as const },
+    dayOf: (i: string) => i.slice(0, 10),
+};
 
 function makeTask(overrides: Partial<RankableTask> = {}): RankableTask {
     return {
@@ -90,9 +91,7 @@ describe("rankTasks scoring signals", () => {
     });
 
     it("quick-win tasks get quick_win reason", () => {
-        const tasks = [
-            makeTask({ id: "quick", effort: 1, orderIndex: 0 }),
-        ];
+        const tasks = [makeTask({ id: "quick", effort: 1, orderIndex: 0 })];
         const result = rankTasks(tasks, OPTS);
         expect(result[0].reasons).toContain("quick_win");
     });
@@ -114,9 +113,7 @@ describe("rankTasks scoring signals", () => {
     });
 
     it("not-before tasks get penalty when deferred to the future", () => {
-        const tasks = [
-            makeTask({ id: "deferred", notBefore: TOMORROW }),
-        ];
+        const tasks = [makeTask({ id: "deferred", notBefore: TOMORROW })];
         const result = rankTasks(tasks, OPTS);
         expect(result[0].score).toBeLessThan(0);
         expect(result[0].reasons).toContain("not_yet");

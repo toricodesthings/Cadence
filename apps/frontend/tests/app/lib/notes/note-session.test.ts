@@ -1,13 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TaskNote } from "@cadence/contracts/note";
-import { NoteSession, noteStatus, IDLE_SAVE_MS, NOTE_MAX_CHARS, type SessionDeps } from "../../../../app/lib/notes/note-session";
+import {
+    NoteSession,
+    noteStatus,
+    IDLE_SAVE_MS,
+    NOTE_MAX_CHARS,
+    type SessionDeps,
+} from "../../../../app/lib/notes/note-session";
 import type { DraftRecord, NoteJournal } from "../../../../app/lib/notes/note-journal";
 import type { NoteSavePayload, WalEntry } from "../../../../app/lib/api/offline-wal";
 import { ApiErrorResponse, networkError } from "../../../../app/types/api";
 
 const note = (body: string, version: number): TaskNote => ({
-    id: "n", taskId: "t", userId: "u", body, excerpt: "", wordCount: 0, headingCount: 0, version,
-    createdAt: "2026-10-06T12:00:00.000Z", updatedAt: "2026-10-06T12:00:00.000Z",
+    id: "n",
+    taskId: "t",
+    userId: "u",
+    body,
+    excerpt: "",
+    wordCount: 0,
+    headingCount: 0,
+    version,
+    createdAt: "2026-10-06T12:00:00.000Z",
+    updatedAt: "2026-10-06T12:00:00.000Z",
 });
 const conflict = () => new ApiErrorResponse({ status: 409, code: "CONFLICT", message: "stale" });
 
@@ -16,8 +30,13 @@ function memoryJournal(): NoteJournal & { records: Map<string, DraftRecord>; fai
     const j = {
         records,
         failing: false,
-        put: async (_u: string, _o: string, r: DraftRecord) => { if (j.failing) throw new Error("full"); records.set(r.branch, r); },
-        remove: async (_u: string, _o: string, b: string) => { records.delete(b); },
+        put: async (_u: string, _o: string, r: DraftRecord) => {
+            if (j.failing) throw new Error("full");
+            records.set(r.branch, r);
+        },
+        remove: async (_u: string, _o: string, b: string) => {
+            records.delete(b);
+        },
         list: async () => [...records.values()],
     };
     return j;
@@ -34,10 +53,14 @@ let n = 0;
 
 function make(extra: Partial<SessionDeps> = {}) {
     const deps: SessionDeps = {
-        userId: "u", ownerId: "t",
+        userId: "u",
+        ownerId: "t",
         fetchNote: async () => server,
         cachedNote: () => server,
-        send: (p) => { sent.push(p); return sendImpl(p); },
+        send: (p) => {
+            sent.push(p);
+            return sendImpl(p);
+        },
         publish: () => {},
         announce: () => {},
         journal,
@@ -95,7 +118,10 @@ describe("note session saving", () => {
 
     it("doesn't call text typed during a save Saved, and sends it on the revision the save returned", async () => {
         let release!: () => void;
-        sendImpl = (p) => new Promise((res, rej) => { release = () => applyToServer(p).then(res, rej); });
+        sendImpl = (p) =>
+            new Promise((res, rej) => {
+                release = () => applyToServer(p).then(res, rej);
+            });
         const s = make();
         await s.load();
         s.edit("A");
@@ -107,14 +133,22 @@ describe("note session saving", () => {
         await vi.advanceTimersByTimeAsync(0);
         expect(s.getSnapshot().ackedGen).toBeGreaterThan(0);
         await settle();
-        expect(sent.map((p) => [p.body, p.expectedVersion])).toEqual([["A", 1], ["AB", 2]]);
+        expect(sent.map((p) => [p.body, p.expectedVersion])).toEqual([
+            ["A", 1],
+            ["AB", 2],
+        ]);
         expect(s.status).toBe("saved");
     });
 
     it("keeps every request in flight single-file", async () => {
         let inFlight = 0;
         let peak = 0;
-        sendImpl = async (p) => { peak = Math.max(peak, ++inFlight); await Promise.resolve(); inFlight--; return applyToServer(p); };
+        sendImpl = async (p) => {
+            peak = Math.max(peak, ++inFlight);
+            await Promise.resolve();
+            inFlight--;
+            return applyToServer(p);
+        };
         const s = make();
         await s.load();
         s.edit("1");
@@ -146,7 +180,15 @@ describe("note session saving", () => {
     });
 
     it("brings back a draft a closed tab left, and saves it", async () => {
-        journal.records.set("old", { branch: "old", baseBody: "base", baseVersion: 1, body: "base, unsaved", gen: 3, updatedAt: 1, kind: "draft" });
+        journal.records.set("old", {
+            branch: "old",
+            baseBody: "base",
+            baseVersion: 1,
+            body: "base, unsaved",
+            gen: 3,
+            updatedAt: 1,
+            kind: "draft",
+        });
         const s = make();
         await s.load();
         expect(s.getSnapshot().body).toBe("base, unsaved");
@@ -156,7 +198,14 @@ describe("note session saving", () => {
     });
 
     it("leaves another live tab's draft alone", async () => {
-        journal.records.set("other", { branch: "other", baseBody: "base", baseVersion: 1, body: "theirs", gen: 1, updatedAt: 1 });
+        journal.records.set("other", {
+            branch: "other",
+            baseBody: "base",
+            baseVersion: 1,
+            body: "theirs",
+            gen: 1,
+            updatedAt: 1,
+        });
         alive.add("other");
         const s = make();
         await s.load();
@@ -179,7 +228,7 @@ describe("note session saving", () => {
 });
 
 describe("offline and failures", () => {
-  it("shows 'Saved on this device · Offline' only once the draft is on the device", async () => {
+    it("shows 'Saved on this device · Offline' only once the draft is on the device", async () => {
         online = false;
         sendImpl = async () => undefined;
         const s = make();
@@ -206,7 +255,10 @@ describe("offline and failures", () => {
 
     it("retries a transient failure and reports Couldn't sync meanwhile", async () => {
         let fail = true;
-        sendImpl = async (p) => { if (fail) throw networkError(); return applyToServer(p); };
+        sendImpl = async (p) => {
+            if (fail) throw networkError();
+            return applyToServer(p);
+        };
         const s = make();
         await s.load();
         s.edit("x");
@@ -218,7 +270,9 @@ describe("offline and failures", () => {
     });
 
     it("stops saving to a deleted note but keeps the text", async () => {
-        sendImpl = async () => { throw new ApiErrorResponse({ status: 404, code: "NOT_FOUND", message: "gone" }); };
+        sendImpl = async () => {
+            throw new ApiErrorResponse({ status: 404, code: "NOT_FOUND", message: "gone" });
+        };
         const s = make();
         await s.load();
         s.edit("keep me");
@@ -229,7 +283,12 @@ describe("offline and failures", () => {
     });
 
     it("can't open an unavailable note as an empty document", async () => {
-        const s = make({ fetchNote: async () => { throw networkError(); }, cachedNote: () => undefined });
+        const s = make({
+            fetchNote: async () => {
+                throw networkError();
+            },
+            cachedNote: () => undefined,
+        });
         await s.load();
         expect(s.getSnapshot().loadFailed).toBe(true);
         expect(s.getSnapshot().loaded).toBe(false);
@@ -237,7 +296,13 @@ describe("offline and failures", () => {
 
     it("loads again on Retry after a failed load", async () => {
         let fails = true;
-        const s = make({ fetchNote: async () => { if (fails) throw networkError(); return server; }, cachedNote: () => undefined });
+        const s = make({
+            fetchNote: async () => {
+                if (fails) throw networkError();
+                return server;
+            },
+            cachedNote: () => undefined,
+        });
         await s.load();
         expect(s.getSnapshot().loadFailed).toBe(true);
         fails = false;
@@ -249,10 +314,23 @@ describe("offline and failures", () => {
     it("doesn't ask for review of its own queued save when typing continued meanwhile", async () => {
         let walChanged!: () => void;
         sendImpl = async (p) => {
-            wal = [{ id: "w", op: { type: "upsert_note", taskId: "t", payload: p }, status: "pending", attempted: true, createdAt: 0 } as WalEntry];
+            wal = [
+                {
+                    id: "w",
+                    op: { type: "upsert_note", taskId: "t", payload: p },
+                    status: "pending",
+                    attempted: true,
+                    createdAt: 0,
+                } as WalEntry,
+            ];
             return undefined;
         };
-        const s = make({ subscribeWal: (cb) => { walChanged = cb; return () => {}; } });
+        const s = make({
+            subscribeWal: (cb) => {
+                walChanged = cb;
+                return () => {};
+            },
+        });
         await s.load();
         s.edit("base A");
         await settle();
@@ -271,8 +349,18 @@ describe("offline and failures", () => {
     });
 
     it("journals an adopted draft under its own branch before dropping the closed tab's copy", async () => {
-        journal.records.set("old", { branch: "old", baseBody: "base", baseVersion: 1, body: "base, unsaved", gen: 3, updatedAt: 1, kind: "draft" });
-        sendImpl = async () => { throw networkError(); };
+        journal.records.set("old", {
+            branch: "old",
+            baseBody: "base",
+            baseVersion: 1,
+            body: "base, unsaved",
+            gen: 3,
+            updatedAt: 1,
+            kind: "draft",
+        });
+        sendImpl = async () => {
+            throw networkError();
+        };
         const s = make();
         await s.load();
         await settle();
@@ -296,7 +384,11 @@ describe("other tabs, devices and conflicts", () => {
         const s = make();
         await s.load();
         const seen: string[] = [];
-        s.attachView("v", (b) => seen.push(b), () => null);
+        s.attachView(
+            "v",
+            (b) => seen.push(b),
+            () => null,
+        );
         s.receiveRemote(note("from another tab", 2));
         await settle();
         expect(seen).toEqual(["from another tab"]);
@@ -309,7 +401,11 @@ describe("other tabs, devices and conflicts", () => {
         const s = make();
         await s.load();
         const seen: string[] = [];
-        s.attachView("v", (b) => seen.push(b), () => null);
+        s.attachView(
+            "v",
+            (b) => seen.push(b),
+            () => null,
+        );
         s.receiveRemote(note("old", 1));
         s.receiveRemote(note("new", 2));
         s.receiveRemote(note("new", 2));
@@ -363,7 +459,11 @@ describe("other tabs, devices and conflicts", () => {
         server = note("base theirs", 2);
         await settle();
         const seen: string[] = [];
-        s.attachView("v", (b) => seen.push(b), () => null);
+        s.attachView(
+            "v",
+            (b) => seen.push(b),
+            () => null,
+        );
         await s.useLatest();
         expect(seen).toEqual(["base theirs"]);
         expect(s.getSnapshot().recovery?.body).toBe("base mine");
@@ -386,7 +486,11 @@ describe("other tabs, devices and conflicts", () => {
         const s = make();
         await s.load();
         let pending: string | null = "typed just now";
-        const detach = s.attachView("v", () => {}, () => pending);
+        const detach = s.attachView(
+            "v",
+            () => {},
+            () => pending,
+        );
         detach();
         await s.flush();
         expect(server?.body).toBe("typed just now");
@@ -394,13 +498,33 @@ describe("other tabs, devices and conflicts", () => {
 });
 
 describe("status table", () => {
-    const base = { loaded: true, loadFailed: false, body: "", baseBody: "", baseVersion: 0, gen: 0, ackedGen: 0, durableGen: 0, journalFailed: false, sending: false, queued: false, problem: null, conflict: null, recovery: null, online: true } as const;
+    const base = {
+        loaded: true,
+        loadFailed: false,
+        body: "",
+        baseBody: "",
+        baseVersion: 0,
+        gen: 0,
+        ackedGen: 0,
+        durableGen: 0,
+        journalFailed: false,
+        sending: false,
+        queued: false,
+        problem: null,
+        conflict: null,
+        recovery: null,
+        online: true,
+    } as const;
     it("covers each row", () => {
         expect(noteStatus({ ...base, loaded: false })).toBe("loading");
         expect(noteStatus(base)).toBe("saved");
         expect(noteStatus({ ...base, gen: 2, ackedGen: 1 })).toBe("saving");
-        expect(noteStatus({ ...base, gen: 2, ackedGen: 1, durableGen: 2, queued: true, online: false })).toBe("device-offline");
-        expect(noteStatus({ ...base, gen: 2, ackedGen: 1, durableGen: 1, queued: true, online: false })).toBe("save-failed");
+        expect(noteStatus({ ...base, gen: 2, ackedGen: 1, durableGen: 2, queued: true, online: false })).toBe(
+            "device-offline",
+        );
+        expect(noteStatus({ ...base, gen: 2, ackedGen: 1, durableGen: 1, queued: true, online: false })).toBe(
+            "save-failed",
+        );
         expect(noteStatus({ ...base, gen: 2, ackedGen: 1, durableGen: 2, problem: "network" })).toBe("sync-failed");
         expect(noteStatus({ ...base, gen: 2, ackedGen: 1, conflict: { remote: "", remoteVersion: 1 } })).toBe("review");
     });

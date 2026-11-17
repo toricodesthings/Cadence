@@ -2,9 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { Dialog, DialogCloseButton, DialogContent } from "../primitives/Dialog";
 import { SearchField } from "../primitives/SearchField";
 import { useNavigate } from "react-router";
-import {
-    Search,
-} from "lucide-react";
+import { Search } from "lucide-react";
 import { useUniversalSearch, type SearchResult } from "../../hooks/search/use-universal-search";
 import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
 import { useNoteRoomStore } from "../../stores/note-room-store";
@@ -58,49 +56,48 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         setSelectedIndex(0);
     }, [flatResults.length, query]);
 
-    const navigateToResult = useCallback((result: SearchResult) => {
-        onOpenChange(false);
-        trackUsageEvent("command_palette.result_opened", { object_type: result.kind as any });
+    const navigateToResult = useCallback(
+        (result: SearchResult) => {
+            onOpenChange(false);
+            trackUsageEvent("command_palette.result_opened", { object_type: result.kind as any });
 
-        // If the match was in notes/headings, open note room instead
-        if (result.noteAction) {
-            openNoteRoom(
-                result.noteAction.taskId,
-                result.noteAction.taskTitle,
-                result.noteAction.scrollToHeading,
-            );
-            return;
-        }
+            // If the match was in notes/headings, open note room instead
+            if (result.noteAction) {
+                openNoteRoom(result.noteAction.taskId, result.noteAction.taskTitle, result.noteAction.scrollToHeading);
+                return;
+            }
 
-        if (result.kind === "focus-view") {
-            const realId = result.id.replace(/^focus-view-/, "");
-            applySavedView(realId);
-            navigate("/today");
-            return;
-        }
+            if (result.kind === "focus-view") {
+                const realId = result.id.replace(/^focus-view-/, "");
+                applySavedView(realId);
+                navigate("/today");
+                return;
+            }
 
-        if (result.kind === "page") {
-            navigate(result.route);
-            return;
-        }
+            if (result.kind === "page") {
+                navigate(result.route);
+                return;
+            }
 
-        const realId = result.id.replace(/^(task|habit|inbox|project)-/, "");
-        const focusParams = buildFocusSearchParams({
-            focusKind: result.focusKind,
-            focusId: realId,
-            focusScope: result.focusScope,
-            focusSource: "search",
-        });
-        navigate(`${result.route}?${focusParams}`);
-    }, [applySavedView, navigate, onOpenChange, openNoteRoom]);
+            const realId = result.id.replace(/^(task|habit|inbox|project)-/, "");
+            const focusParams = buildFocusSearchParams({
+                focusKind: result.focusKind,
+                focusId: realId,
+                focusScope: result.focusScope,
+                focusSource: "search",
+            });
+            navigate(`${result.route}?${focusParams}`);
+        },
+        [applySavedView, navigate, onOpenChange, openNoteRoom],
+    );
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === "ArrowDown") {
             e.preventDefault();
-            setSelectedIndex(i => Math.min(i + 1, flatResults.length - 1));
+            setSelectedIndex((i) => Math.min(i + 1, flatResults.length - 1));
         } else if (e.key === "ArrowUp") {
             e.preventDefault();
-            setSelectedIndex(i => Math.max(i - 1, 0));
+            setSelectedIndex((i) => Math.max(i - 1, 0));
         } else if (e.key === "Enter" && flatResults[selectedIndex]) {
             e.preventDefault();
             navigateToResult(flatResults[selectedIndex].item);
@@ -120,7 +117,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         for (const group of GROUP_ORDER) {
             const items = results[group] as SearchResult[] | undefined;
             if (items && items.length > 0) {
-                const groupItems = items.map(item => ({ item, flatIndex: idx++ }));
+                const groupItems = items.map((item) => ({ item, flatIndex: idx++ }));
                 groups.push({ key: group, label: GROUP_LABELS[group], items: groupItems });
             }
         }
@@ -154,7 +151,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 </div>
 
                 {/* Results */}
-                <div ref={listRef} className="max-h-[min(60vh,32rem)] overflow-y-auto px-3 pb-3 pt-1 scrollbar-thin" role="listbox" aria-label="Search results">
+                <div
+                    ref={listRef}
+                    className="max-h-[min(60vh,32rem)] overflow-y-auto px-3 pb-3 pt-1 scrollbar-thin"
+                    role="listbox"
+                    aria-label="Search results"
+                >
                     {!hasResults ? (
                         <div className="py-14 text-center">
                             {hasQuery ? (
@@ -195,7 +197,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                                             ${flatIndex === selectedIndex ? "bg-accent-primary/10" : "hover:bg-white/[0.04]"}
                                         `}
                                     >
-                                        <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] ${flatIndex === selectedIndex ? "text-accent-primary" : "text-twilight-text-muted"}`}>
+                                        <div
+                                            className={`flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] ${flatIndex === selectedIndex ? "text-accent-primary" : "text-twilight-text-muted"}`}
+                                        >
                                             <SearchResultIcon result={item} size={16} />
                                         </div>
                                         <div className="flex-1 min-w-0 text-left">
@@ -215,9 +219,17 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
                 {/* Footer hint */}
                 <div className="flex items-center gap-5 border-t border-twilight-border px-6 py-3.5 text-xs text-twilight-text-muted">
-                    {([["↑↓", "Navigate"], ["↵", "Open"], ["Esc", "Close"]] as const).map(([key, label]) => (
+                    {(
+                        [
+                            ["↑↓", "Navigate"],
+                            ["↵", "Open"],
+                            ["Esc", "Close"],
+                        ] as const
+                    ).map(([key, label]) => (
                         <span key={label} className="flex items-center gap-1.5">
-                            <kbd className="rounded-md border border-twilight-border bg-white/[0.04] px-1.5 py-0.5 font-sans text-[11px]">{key}</kbd>
+                            <kbd className="rounded-md border border-twilight-border bg-white/[0.04] px-1.5 py-0.5 font-sans text-[11px]">
+                                {key}
+                            </kbd>
                             {label}
                         </span>
                     ))}

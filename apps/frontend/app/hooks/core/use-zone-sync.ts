@@ -38,7 +38,9 @@ export function useZoneSync() {
 
     useEffect(() => {
         void sync();
-        const onVisible = () => { if (document.visibilityState === "visible" && (setting === undefined || setting === "device")) void sync(); };
+        const onVisible = () => {
+            if (document.visibilityState === "visible" && (setting === undefined || setting === "device")) void sync();
+        };
         document.addEventListener("visibilitychange", onVisible);
         window.addEventListener("online", sync);
         window.addEventListener("focus", onVisible); // the desktop app resuming from sleep

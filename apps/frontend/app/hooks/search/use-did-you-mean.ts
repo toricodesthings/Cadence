@@ -34,7 +34,8 @@ export function useDidYouMean(query: string): { id: string; title: string } | nu
         enabled: on && authReady && isAuthenticated && settled !== "" && settled === query,
         staleTime: 5 * 60_000,
         retry: false,
-        queryFn: async () => unwrapResponse(await client.api.search["did-you-mean"].$post({ json: { query: settled } })),
+        queryFn: async () =>
+            unwrapResponse(await client.api.search["did-you-mean"].$post({ json: { query: settled } })),
     });
     // A cached answer stays in the query cache after the switch goes off; never show it then.
     return on && settled === query ? (data?.task ?? null) : null;

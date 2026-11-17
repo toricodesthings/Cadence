@@ -17,20 +17,42 @@ import type { ReviewActions } from "./shared";
 function RoutineWeek({ item, today, bloom }: { item: HabitReviewItem; today: string; bloom: boolean }) {
     const logs = new Map((item.habit.logs ?? []).map((l) => [l.targetDate, l]));
     return (
-        <div role="group" aria-label={`${item.title}, last 7 days`} className="grid w-full grid-cols-7 gap-1 @3xl:w-auto @3xl:grid-cols-[repeat(7,2.75rem)] @3xl:gap-1.5">
+        <div
+            role="group"
+            aria-label={`${item.title}, last 7 days`}
+            className="grid w-full grid-cols-7 gap-1 @3xl:w-auto @3xl:grid-cols-[repeat(7,2.75rem)] @3xl:gap-1.5"
+        >
             {item.week.map(({ day }) => (
                 <div key={day} className="flex flex-col items-center gap-1.5">
-                    <span aria-hidden="true" className={`text-[0.6875rem] font-medium uppercase tracking-[0.04em] ${day === today ? "text-[var(--routine-tone)]" : "text-twilight-text-muted"}`}>
+                    <span
+                        aria-hidden="true"
+                        className={`text-[0.6875rem] font-medium uppercase tracking-[0.04em] ${day === today ? "text-[var(--routine-tone)]" : "text-twilight-text-muted"}`}
+                    >
                         {formatWeekdayNarrow(day)}
                     </span>
-                    <RoutineDayCell size="fit" habit={item.habit} date={day} log={logs.get(day)} today={today} bloom={bloom} openRing />
+                    <RoutineDayCell
+                        size="fit"
+                        habit={item.habit}
+                        date={day}
+                        log={logs.get(day)}
+                        today={today}
+                        bloom={bloom}
+                        openRing
+                    />
                 </div>
             ))}
         </div>
     );
 }
 
-function HabitReviewCard({ item, today, bloom, onKeep, onPause, onEdit }: {
+function HabitReviewCard({
+    item,
+    today,
+    bloom,
+    onKeep,
+    onPause,
+    onEdit,
+}: {
     item: HabitReviewItem;
     today: string;
     bloom: boolean;
@@ -38,7 +60,8 @@ function HabitReviewCard({ item, today, bloom, onKeep, onPause, onEdit }: {
     onPause: () => void;
     onEdit: () => void;
 }) {
-    const quiet = "glass-none touch-target inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-accent-primary/5 hover:text-twilight-text";
+    const quiet =
+        "glass-none touch-target inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-accent-primary/5 hover:text-twilight-text";
     return (
         <article
             aria-label={item.title}
@@ -49,28 +72,49 @@ function HabitReviewCard({ item, today, bloom, onKeep, onPause, onEdit }: {
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--routine-tone)_14%,transparent)] text-[var(--routine-tone)]">
                     <Flame size={18} aria-hidden="true" />
                 </span>
-                <h3 className="min-w-0 truncate text-base font-medium tracking-[-0.005em] text-twilight-text">{item.title}</h3>
+                <h3 className="min-w-0 truncate text-base font-medium tracking-[-0.005em] text-twilight-text">
+                    {item.title}
+                </h3>
             </div>
             <RoutineWeek item={item} today={today} bloom={bloom} />
             <div className="flex w-full items-center gap-1 @3xl:w-auto">
-                <button type="button" onClick={onKeep} className="surface-control-accent touch-target inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 text-sm font-medium text-accent-primary">
+                <button
+                    type="button"
+                    onClick={onKeep}
+                    className="surface-control-accent touch-target inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 text-sm font-medium text-accent-primary"
+                >
                     <Check size={15} aria-hidden="true" /> Keep
                 </button>
                 {item.allSkipped ? (
-                    <button type="button" onClick={onPause} className="surface-control touch-target inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-twilight-text">
+                    <button
+                        type="button"
+                        onClick={onPause}
+                        className="surface-control touch-target inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-twilight-text"
+                    >
                         <Pause size={15} aria-hidden="true" /> Skip next week?
                     </button>
                 ) : (
-                    <button type="button" onClick={onPause} className={quiet}><Pause size={15} aria-hidden="true" /> Pause</button>
+                    <button type="button" onClick={onPause} className={quiet}>
+                        <Pause size={15} aria-hidden="true" /> Pause
+                    </button>
                 )}
-                <button type="button" onClick={onEdit} className={`${quiet} ml-auto @3xl:ml-0`}><Pencil size={15} aria-hidden="true" /> Edit</button>
+                <button type="button" onClick={onEdit} className={`${quiet} ml-auto @3xl:ml-0`}>
+                    <Pencil size={15} aria-hidden="true" /> Edit
+                </button>
             </div>
         </article>
     );
 }
 
 /* ─── Step 3 · Routines ─── */
-export function HabitsStep({ habits, anyHabits, pauseHabit, onReviewed, onEdit, onTitleVisible }: {
+export function HabitsStep({
+    habits,
+    anyHabits,
+    pauseHabit,
+    onReviewed,
+    onEdit,
+    onTitleVisible,
+}: {
     habits: HabitReviewItem[];
     anyHabits: boolean;
     pauseHabit: ReviewActions["pauseHabit"];
@@ -94,7 +138,10 @@ export function HabitsStep({ habits, anyHabits, pauseHabit, onReviewed, onEdit, 
                                     today={today}
                                     bloom={bloom}
                                     onKeep={() => onReviewed(item.id)}
-                                    onPause={() => { pauseHabit.pause(item.id); onReviewed(item.id); }}
+                                    onPause={() => {
+                                        pauseHabit.pause(item.id);
+                                        onReviewed(item.id);
+                                    }}
                                     onEdit={() => onEdit(item.id)}
                                 />
                             </ResolvingRow>

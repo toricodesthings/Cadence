@@ -17,16 +17,29 @@ const ORDERS: readonly CaptureOrder[] = ["newest", "oldest", "priority"];
  */
 export function useFocusViewUrl(capture: boolean) {
     const [params, setParams] = useSearchParams();
-    const { captureOrder, setCaptureOrder, activePresetId, activeSavedViewId, savedViews, setPreset, applySavedView, customDefinition, setCustomDefinition } = useFocusViewStore();
+    const {
+        captureOrder,
+        setCaptureOrder,
+        activePresetId,
+        activeSavedViewId,
+        savedViews,
+        setPreset,
+        applySavedView,
+        customDefinition,
+        setCustomDefinition,
+    } = useFocusViewStore();
     // The order only means something on Capture; other pages leave `order` alone.
-    const urlOrder = capture ? ORDERS.find((o) => o === params.get("order")) ?? null : null;
+    const urlOrder = capture ? (ORDERS.find((o) => o === params.get("order")) ?? null) : null;
     const preset = FOCUS_VIEW_PRESETS.find((p) => p.id === params.get("focus")) ?? null;
     const urlSaved = params.get("saved");
     // When the address names a view, it is applied first; the store only writes to the address after that.
     const urlCustom = preset || urlSaved ? null : definitionFromParams(params);
     const urlCustomKey = urlCustom ? JSON.stringify(urlCustom) : "";
     // Only a view with nothing named behind it is written as params.
-    const customKey = !activePresetId && !activeSavedViewId && customDefinition ? JSON.stringify(definitionToParams(customDefinition)) : "";
+    const customKey =
+        !activePresetId && !activeSavedViewId && customDefinition
+            ? JSON.stringify(definitionToParams(customDefinition))
+            : "";
     const adopting = useRef(Boolean(urlOrder || preset || urlSaved || urlCustom));
 
     // Address → store.
@@ -37,11 +50,13 @@ export function useFocusViewUrl(capture: boolean) {
         if (preset && preset.id !== activePresetId) setPreset(preset);
     }, [preset?.id]); // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => {
-        if (urlSaved && urlSaved !== activeSavedViewId && savedViews.some((v) => v.id === urlSaved)) applySavedView(urlSaved);
+        if (urlSaved && urlSaved !== activeSavedViewId && savedViews.some((v) => v.id === urlSaved))
+            applySavedView(urlSaved);
     }, [urlSaved, savedViews]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
-        if (urlCustom && urlCustomKey !== (customKey && JSON.stringify(customDefinition))) setCustomDefinition(urlCustom);
+        if (urlCustom && urlCustomKey !== (customKey && JSON.stringify(customDefinition)))
+            setCustomDefinition(urlCustom);
     }, [urlCustomKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Store → address.
@@ -50,12 +65,15 @@ export function useFocusViewUrl(capture: boolean) {
             adopting.current = false;
             return;
         }
-        setParams((prev) => {
-            let next = capture ? writeParam(prev, "order", captureOrder === "newest" ? null : captureOrder) : prev;
-            next = writeParam(next, "focus", activePresetId);
-            const custom = customKey ? (JSON.parse(customKey) as Record<string, string>) : {};
-            for (const k of DEFINITION_PARAMS) next = writeParam(next, k, custom[k] ?? null);
-            return writeParam(next, "saved", activeSavedViewId);
-        }, { replace: true, preventScrollReset: true });
+        setParams(
+            (prev) => {
+                let next = capture ? writeParam(prev, "order", captureOrder === "newest" ? null : captureOrder) : prev;
+                next = writeParam(next, "focus", activePresetId);
+                const custom = customKey ? (JSON.parse(customKey) as Record<string, string>) : {};
+                for (const k of DEFINITION_PARAMS) next = writeParam(next, k, custom[k] ?? null);
+                return writeParam(next, "saved", activeSavedViewId);
+            },
+            { replace: true, preventScrollReset: true },
+        );
     }, [capture, captureOrder, activePresetId, activeSavedViewId, customKey, setParams]);
 }

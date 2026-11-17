@@ -1,4 +1,14 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef, type ReactNode } from "react";
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useState,
+    useCallback,
+    useRef,
+    type ReactNode,
+} from "react";
 import { useLocation, useNavigate } from "react-router";
 import { clearAllDeviceLocationData } from "../../lib/location/device-location";
 import { clearCachedBackgroundImages, setBackgroundCacheSessionActive } from "../../lib/themes/background-image-cache";
@@ -65,23 +75,35 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
     const authRevision = useRef(0);
     const [sessionRejected, setSessionRejected] = useState(false);
     const rejectedToken = useRef<string | undefined>(undefined);
-    const sdkSession = rejectedToken.current !== undefined && session?.session.token === rejectedToken.current ? null : session;
-    const liveSession = sessionRejected ? null : recoveredSession ?? sdkSession ?? desktopSession?.data ?? null;
+    const sdkSession =
+        rejectedToken.current !== undefined && session?.session.token === rejectedToken.current ? null : session;
+    const liveSession = sessionRejected ? null : (recoveredSession ?? sdkSession ?? desktopSession?.data ?? null);
     // The session request failed (or can't be sent): open the last account's
     // cached workspace. A request that answers "no session" has no error.
     const [identity, setIdentity] = useState(readIdentity);
     const offlineSession = useMemo<DesktopAuthSessionData | null>(
-        () => (!sessionRejected && !liveSession && identity && (!online || (!isPending && sessionError && sessionError.status !== 401 && sessionError.status !== 403))
-            ? { user: { ...identity }, session: {} }
-            : null),
+        () =>
+            !sessionRejected &&
+            !liveSession &&
+            identity &&
+            (!online || (!isPending && sessionError && sessionError.status !== 401 && sessionError.status !== 403))
+                ? { user: { ...identity }, session: {} }
+                : null,
         [identity, isPending, liveSession, online, sessionError, sessionRejected],
     );
     // Same exposure as offline mode: data already stored on this device, no tokens.
     // Workspace paths only (never /connect or auth pages).
     const provisionalSession = useMemo<DesktopAuthSessionData | null>(
-        () => (!IS_DESKTOP_RUNTIME && !sessionRejected && !liveSession && !offlineSession && identity && (isPending || !desktopSessionLoaded) && isWorkspacePath(location.pathname)
-            ? { user: { ...identity }, session: {} }
-            : null),
+        () =>
+            !IS_DESKTOP_RUNTIME &&
+            !sessionRejected &&
+            !liveSession &&
+            !offlineSession &&
+            identity &&
+            (isPending || !desktopSessionLoaded) &&
+            isWorkspacePath(location.pathname)
+                ? { user: { ...identity }, session: {} }
+                : null,
         [desktopSessionLoaded, identity, isPending, liveSession, location.pathname, offlineSession, sessionRejected],
     );
     const resolvedSession = liveSession ?? offlineSession ?? provisionalSession;
@@ -91,9 +113,12 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         let active = true;
         void takePrefetchedSession()?.then((early) => {
-            if (active && early?.user.id) setRecovery((current) => current ?? { data: early as SessionData, sdk: sdkSessionRef.current });
+            if (active && early?.user.id)
+                setRecovery((current) => current ?? { data: early as SessionData, sdk: sdkSessionRef.current });
         });
-        return () => { active = false; };
+        return () => {
+            active = false;
+        };
     }, []);
 
     // Invalidate/seed before descendant passive effects start their API reads.
@@ -177,18 +202,22 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
         if (recovery && recovery.sdk !== session) setRecovery(null);
     }, [session, recovery]);
 
-    useEffect(() => subscribeSessionExpiry(() => {
-        authRevision.current++;
-        rejectedToken.current = session?.session.token;
-        setSessionRejected(true);
-        setRecovery(null);
-        setDesktopSession(null);
-        clearAuthJwtCache();
-        forgetIdentity();
-        setIdentity(null);
-        void clearDesktopAuthSession().catch(() => undefined);
-        setStatus("anonymous");
-    }), [session]);
+    useEffect(
+        () =>
+            subscribeSessionExpiry(() => {
+                authRevision.current++;
+                rejectedToken.current = session?.session.token;
+                setSessionRejected(true);
+                setRecovery(null);
+                setDesktopSession(null);
+                clearAuthJwtCache();
+                forgetIdentity();
+                setIdentity(null);
+                void clearDesktopAuthSession().catch(() => undefined);
+                setStatus("anonymous");
+            }),
+        [session],
+    );
 
     // Use a ref to read latest status inside the effect without adding it as a
     // dependency (which would cause re-fire loops when status changed).
@@ -221,9 +250,7 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
         }
 
         if (isPending) {
-            setStatus((current) =>
-                current === "recoverable_error" ? "refreshing" : "bootstrapping",
-            );
+            setStatus((current) => (current === "recoverable_error" ? "refreshing" : "bootstrapping"));
             return;
         }
 
@@ -306,7 +333,9 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
             status,
             session: resolvedSession,
             isAuthenticated: Boolean(resolvedSession),
-            authReady: status === "provisional" || (desktopSessionLoaded && status !== "bootstrapping" && status !== "refreshing"),
+            authReady:
+                status === "provisional" ||
+                (desktopSessionLoaded && status !== "bootstrapping" && status !== "refreshing"),
             beginAuthRecovery,
             completeSignOut,
         }),

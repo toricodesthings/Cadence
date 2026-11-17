@@ -33,15 +33,29 @@ export function HabitMenu({ habit, onEdit }: { habit: Habit; onEdit: () => void 
 }
 
 /** Right-click on a routine row or card: the same items as the ⋯ menu. Desktop only: touch uses ⋯. */
-export function HabitContextMenu({ habit, onEdit, children }: { habit: Habit; onEdit: () => void; children: React.ReactNode }) {
+export function HabitContextMenu({
+    habit,
+    onEdit,
+    children,
+}: {
+    habit: Habit;
+    onEdit: () => void;
+    children: React.ReactNode;
+}) {
     const actions = useRoutineActions(habit);
     const { isTouch } = useShellMode();
     if (isTouch) return <>{children}</>;
     return (
         <>
-            <ContextMenu.Root onOpenChange={(isOpen) => {
-                if (isOpen) trackUsageEvent("habit.context_menu_opened", { object_type: "habit", input_method: "context_menu" });
-            }}>
+            <ContextMenu.Root
+                onOpenChange={(isOpen) => {
+                    if (isOpen)
+                        trackUsageEvent("habit.context_menu_opened", {
+                            object_type: "habit",
+                            input_method: "context_menu",
+                        });
+                }}
+            >
                 <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
                 <ContextMenu.Content>
                     <HabitMenuItems habit={habit} actions={actions} Menu={ContextMenu} onEdit={onEdit} />
@@ -53,7 +67,12 @@ export function HabitContextMenu({ habit, onEdit, children }: { habit: Habit; on
 
 const ITEM = "text-[13px]";
 
-function HabitMenuItems({ habit, actions, Menu, onEdit }: {
+function HabitMenuItems({
+    habit,
+    actions,
+    Menu,
+    onEdit,
+}: {
     habit: Habit;
     actions: ReturnType<typeof useRoutineActions>;
     Menu: GenericMenu;
@@ -79,11 +98,18 @@ function HabitMenuItems({ habit, actions, Menu, onEdit }: {
             </Menu.Item>
             <Menu.Separator />
             <Menu.Item className={ITEM} onSelect={actions.toggleArchive}>
-                {habit.archived ? <ArchiveRestore size={12} aria-hidden="true" /> : <Archive size={12} aria-hidden="true" />}
+                {habit.archived ? (
+                    <ArchiveRestore size={12} aria-hidden="true" />
+                ) : (
+                    <Archive size={12} aria-hidden="true" />
+                )}
                 {habit.archived ? "Restore routine" : "Archive routine"}
             </Menu.Item>
             <Menu.Separator />
-            <Menu.Item className={`${ITEM} text-feedback-error focus:bg-feedback-error/10 focus:text-feedback-error`} onSelect={actions.requestDelete}>
+            <Menu.Item
+                className={`${ITEM} text-feedback-error focus:bg-feedback-error/10 focus:text-feedback-error`}
+                onSelect={actions.requestDelete}
+            >
                 <Trash2 size={12} aria-hidden="true" />
                 Delete routine
             </Menu.Item>

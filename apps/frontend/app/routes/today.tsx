@@ -35,7 +35,11 @@ import { useFocusViewStore } from "../stores/focus-view-store";
 import { atLocal, wallTimeOf } from "@cadence/domain/time";
 import { dayOfInstant, nlpClock } from "../lib/utils/date-format";
 import { getUserZone, useToday } from "../lib/utils/user-zone";
-import { getPassiveTimetableOccurrenceAnchor, getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task/task-scheduling";
+import {
+    getPassiveTimetableOccurrenceAnchor,
+    getTaskTimelineAnchor,
+    isPassiveTimetableTask,
+} from "../lib/utils/task/task-scheduling";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
 import { useEffortGuess } from "../hooks/tasks/use-effort-guess";
 import { rankTasksForRoute } from "../lib/utils/ranking-reasons";
@@ -72,7 +76,6 @@ export default function TodayRoute() {
     const selection = useTaskDetailSelection();
     const { selectedTaskId, setSelectedTaskId, setMobilePanelOpen, handleSelectTask } = selection;
 
-
     const [hideRoutines, setHideRoutines] = useDeviceFlag(ROUTINES_STORAGE_KEY);
     const [hideFixed, setHideFixed] = useDeviceFlag(FIXED_STORAGE_KEY);
     const toggleRoutines = () => setHideRoutines(!hideRoutines);
@@ -86,7 +89,6 @@ export default function TodayRoute() {
     const personalEvents = usePersonalEvents(Number(todayISO.slice(0, 4)));
     const todayEvents = personalEvents.enabled ? personalEvents.getEventsForDate(todayISO) : [];
     const todayDayEvents = todayEvents.map((evt) => ({ ...evt, dateStr: todayISO }));
-
 
     useRouteFocus();
 
@@ -159,20 +161,31 @@ export default function TodayRoute() {
             const zone = task.zone ?? getUserZone();
             const start = new Date(atLocal(occurrence, wallTimeOf(task.scheduledStart, zone), zone));
             const durationMs = task.scheduledEnd ? Date.parse(task.scheduledEnd) - Date.parse(task.scheduledStart) : 0;
-            items.push({ id: task.id, title: task.title, start, end: durationMs > 0 ? new Date(start.getTime() + durationMs) : null });
+            items.push({
+                id: task.id,
+                title: task.title,
+                start,
+                end: durationMs > 0 ? new Date(start.getTime() + durationMs) : null,
+            });
         }
         return items;
     }, [grouped, todayISO]);
-
 
     // Fit today: one preview of today's untimed tasks in its gaps, opened from the controls menu only.
     const fit = useFitDay(todayISO);
     const fitTasks = useMemo(() => [...grouped.stillOpen, ...grouped.today], [grouped]);
     const fitReason = fitTodayReason(fit, fitTasks);
     const [fitDraft, setFitDraft] = useState<FitDayResult | null | false>(false);
-    const fitPreview = fitDraft === false ? null : (
-        <FitDayPreview day={todayISO} fit={fit} initial={fitDraft} ordered={fitTasks} onDone={() => setFitDraft(false)} />
-    );
+    const fitPreview =
+        fitDraft === false ? null : (
+            <FitDayPreview
+                day={todayISO}
+                fit={fit}
+                initial={fitDraft}
+                ordered={fitTasks}
+                onDone={() => setFitDraft(false)}
+            />
+        );
 
     const openRoutine = (habitId: string) => {
         navigate(`/routines?${buildFocusSearchParams({ focusKind: "habit", focusId: habitId })}`);
@@ -182,9 +195,7 @@ export default function TodayRoute() {
 
     const routinesCount = grouped.routinesOpen.length + grouped.routinesDone.length;
 
-    const sidePanel = (
-        <TaskDetailsRail selection={selection} ariaLabel="Resize today sidebar" />
-    );
+    const sidePanel = <TaskDetailsRail selection={selection} ariaLabel="Resize today sidebar" />;
 
     const headerRight = (
         <TaskRouteControls
@@ -195,21 +206,20 @@ export default function TodayRoute() {
             sortMode={sortMode}
             onSortModeChange={setSortMode}
             onOpenDetails={selectedTaskId ? () => setMobilePanelOpen(true) : undefined}
-            actions={[{
-                label: "Fit into today's gaps",
-                icon: CalendarRange,
-                onSelect: () => setFitDraft(fit.ready ? fit.plan(fitTasks) : null),
-                disabledReason: fitReason ?? undefined,
-            }]}
+            actions={[
+                {
+                    label: "Fit into today's gaps",
+                    icon: CalendarRange,
+                    onSelect: () => setFitDraft(fit.ready ? fit.plan(fitTasks) : null),
+                    disabledReason: fitReason ?? undefined,
+                },
+            ]}
         />
     );
 
     const routinesHidden = !shell.isCompact && hideRoutines;
     const totalVisible =
-        grouped.stillOpen.length +
-        grouped.today.length +
-        grouped.fixed.length +
-        (routinesHidden ? 0 : routinesCount);
+        grouped.stillOpen.length + grouped.today.length + grouped.fixed.length + (routinesHidden ? 0 : routinesCount);
 
     const renderTaskBucket = (tasks: Task[], cardVariant?: "list" | "board") => {
         if (tasks.length > 0) {
@@ -233,7 +243,13 @@ export default function TodayRoute() {
             <RoutineAgendaList
                 items={[...grouped.routinesOpen, ...grouped.routinesDone]}
                 onOpen={openRoutine}
-                onComplete={(item) => resolveHabit.mutateAsync({ habitId: item.habitId, targetDate: todayISO, status: item.done ? "PENDING" : "COMPLETED" })}
+                onComplete={(item) =>
+                    resolveHabit.mutateAsync({
+                        habitId: item.habitId,
+                        targetDate: todayISO,
+                        status: item.done ? "PENDING" : "COMPLETED",
+                    })
+                }
             />
         );
     };
@@ -245,28 +261,38 @@ export default function TodayRoute() {
 
     const sections = [
         // Board view: Fixed blocks are the first column, a vertical timeline (list view keeps the strip above).
-        ...(view === "kanban" && spineItems.length > 0 ? [{
-            key: "fixed",
-            title: "Fixed",
-            icon: CalendarClock,
-            accentClass: "text-moonlit",
-            count: spineItems.length,
-            boardDescription: <SpineSummary items={spineItems} />,
-            boardHeaderAction: shell.isCompact ? undefined : <EyeToggle hidden={false} label="Hide Fixed" onToggle={toggleFixed} />,
-            boardCollapsed: !shell.isCompact && hideFixed,
-            onBoardExpand: toggleFixed,
-            listContent: null,
-            boardContent: <SpineTimeline items={spineItems} onOpen={openSpineItem} />,
-        }] : []),
-        ...(grouped.stillOpen.length > 0 ? [{
-            key: "still-open",
-            title: "Still open",
-            icon: Inbox,
-            accentClass: "text-twilight-text-soft",
-            count: grouped.stillOpen.length,
-            listContent: renderTaskBucket(grouped.stillOpen),
-            boardContent: renderTaskBucket(grouped.stillOpen, "board"),
-        }] : []),
+        ...(view === "kanban" && spineItems.length > 0
+            ? [
+                  {
+                      key: "fixed",
+                      title: "Fixed",
+                      icon: CalendarClock,
+                      accentClass: "text-moonlit",
+                      count: spineItems.length,
+                      boardDescription: <SpineSummary items={spineItems} />,
+                      boardHeaderAction: shell.isCompact ? undefined : (
+                          <EyeToggle hidden={false} label="Hide Fixed" onToggle={toggleFixed} />
+                      ),
+                      boardCollapsed: !shell.isCompact && hideFixed,
+                      onBoardExpand: toggleFixed,
+                      listContent: null,
+                      boardContent: <SpineTimeline items={spineItems} onOpen={openSpineItem} />,
+                  },
+              ]
+            : []),
+        ...(grouped.stillOpen.length > 0
+            ? [
+                  {
+                      key: "still-open",
+                      title: "Still open",
+                      icon: Inbox,
+                      accentClass: "text-twilight-text-soft",
+                      count: grouped.stillOpen.length,
+                      listContent: renderTaskBucket(grouped.stillOpen),
+                      boardContent: renderTaskBucket(grouped.stillOpen, "board"),
+                  },
+              ]
+            : []),
         {
             key: "today",
             title: "Today",
@@ -282,20 +308,24 @@ export default function TodayRoute() {
                 </>
             ),
         },
-        ...(routinesCount > 0 ? [{
-            key: "routines",
-            title: "Routines",
-            icon: Flame,
-            accentClass: "text-moonlit",
-            count: routinesHidden ? routinesCount : grouped.routinesOpen.length,
-            headerAction: routinesToggle,
-            lineTint: "var(--color-moonlit)",
-            listOpen: !routinesHidden,
-            boardCollapsed: routinesHidden,
-            onBoardExpand: toggleRoutines,
-            listContent: renderRoutines(),
-            boardContent: renderRoutines(),
-        }] : []),
+        ...(routinesCount > 0
+            ? [
+                  {
+                      key: "routines",
+                      title: "Routines",
+                      icon: Flame,
+                      accentClass: "text-moonlit",
+                      count: routinesHidden ? routinesCount : grouped.routinesOpen.length,
+                      headerAction: routinesToggle,
+                      lineTint: "var(--color-moonlit)",
+                      listOpen: !routinesHidden,
+                      boardCollapsed: routinesHidden,
+                      onBoardExpand: toggleRoutines,
+                      listContent: renderRoutines(),
+                      boardContent: renderRoutines(),
+                  },
+              ]
+            : []),
     ];
 
     const spine = spineItems.length > 0 ? <DaySpine items={spineItems} onOpen={openSpineItem} /> : null;
@@ -318,17 +348,34 @@ export default function TodayRoute() {
             <PageContent width="default" className="shrink-0 pb-0 empty:hidden">
                 <ActiveFilterBar placement="body" />
                 {!shell.isCompact && fitPreview ? (
-                    <section aria-labelledby="fit-today-heading" className="surface-card mb-4 flex flex-col gap-3 rounded-[24px] p-4">
-                        <h2 id="fit-today-heading" className="font-display text-base font-semibold text-twilight-text">Fit into today’s gaps</h2>
+                    <section
+                        aria-labelledby="fit-today-heading"
+                        className="surface-card mb-4 flex flex-col gap-3 rounded-[24px] p-4"
+                    >
+                        <h2 id="fit-today-heading" className="font-display text-base font-semibold text-twilight-text">
+                            Fit into today’s gaps
+                        </h2>
                         {fitPreview}
                     </section>
                 ) : null}
                 {!isLoading && totalVisible === 0 ? <DayEventRows events={todayDayEvents} className="pb-2" /> : null}
             </PageContent>
-            <BucketedRouteBody view={view} sections={sections} isLoading={isLoading} isEmpty={totalVisible === 0} empty="today" lead={spine} />
+            <BucketedRouteBody
+                view={view}
+                sections={sections}
+                isLoading={isLoading}
+                isEmpty={totalVisible === 0}
+                empty="today"
+                lead={spine}
+            />
 
             {shell.isCompact ? (
-                <UtilitySheet title="Fit into today’s gaps" fit open={fitDraft !== false} onClose={() => setFitDraft(false)}>
+                <UtilitySheet
+                    title="Fit into today’s gaps"
+                    fit
+                    open={fitDraft !== false}
+                    onClose={() => setFitDraft(false)}
+                >
                     {fitPreview ?? <span />}
                 </UtilitySheet>
             ) : null}

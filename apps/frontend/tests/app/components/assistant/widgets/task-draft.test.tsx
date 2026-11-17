@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { DraftDetails, DraftQuotes, type TaskDraft } from "../../../../../app/components/assistant/widgets/TaskBatchCard";
+import {
+    DraftDetails,
+    DraftQuotes,
+    type TaskDraft,
+} from "../../../../../app/components/assistant/widgets/TaskBatchCard";
 import { queryKeys } from "../../../../../app/lib/api/query-keys";
 import { testQueryClient, withClient } from "../../../../helpers";
 
@@ -8,20 +12,33 @@ const LIST = "11111111-1111-4111-8111-111111111111";
 const TAG = "22222222-2222-4222-8222-222222222222";
 const SECTION = "33333333-3333-4333-8333-333333333333";
 
-vi.mock("../../../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ authReady: true, isAuthenticated: true }) }));
+vi.mock("../../../../../app/hooks/auth/use-auth-state", () => ({
+    useAuthState: () => ({ authReady: true, isAuthenticated: true }),
+}));
 const { getSections } = vi.hoisted(() => ({ getSections: vi.fn() }));
 vi.mock("../../../../../app/hooks/auth/use-api-client", () => ({
-    useApiClient: () => ({ api: {
-        projects: { $get: async () => Response.json({ data: [{ id: "11111111-1111-4111-8111-111111111111", name: "Perfume" }] }) },
-        sections: { $get: getSections },
-    } }),
+    useApiClient: () => ({
+        api: {
+            projects: {
+                $get: async () =>
+                    Response.json({ data: [{ id: "11111111-1111-4111-8111-111111111111", name: "Perfume" }] }),
+            },
+            sections: { $get: getSections },
+        },
+    }),
 }));
 
 function renderDraft(draft: TaskDraft) {
     const queryClient = testQueryClient();
     queryClient.setQueryData(queryKeys.projects.all, [{ id: LIST, name: "Perfume" }]);
     queryClient.setQueryData(queryKeys.tags.all, [{ id: TAG, name: "Errands", color: "#e8a44a" }]);
-    return render(<><DraftDetails draft={draft} /><DraftQuotes draft={draft} /></>, { wrapper: withClient(queryClient) });
+    return render(
+        <>
+            <DraftDetails draft={draft} />
+            <DraftQuotes draft={draft} />
+        </>,
+        { wrapper: withClient(queryClient) },
+    );
 }
 
 describe("assistant task draft", () => {
@@ -58,7 +75,9 @@ describe("assistant task draft", () => {
     });
 
     it("loads a section name even when that list's sections have never been opened", async () => {
-        getSections.mockResolvedValueOnce(Response.json({ data: [{ id: SECTION, projectId: LIST, name: "COMP2000" }] }));
+        getSections.mockResolvedValueOnce(
+            Response.json({ data: [{ id: SECTION, projectId: LIST, name: "COMP2000" }] }),
+        );
         renderDraft({ title: "Assignment", dueDate: "2026-10-22", projectId: LIST, sectionId: SECTION });
         expect(await screen.findByText("COMP2000")).toBeTruthy();
         expect(getSections).toHaveBeenCalledWith({ query: { projectId: LIST } });

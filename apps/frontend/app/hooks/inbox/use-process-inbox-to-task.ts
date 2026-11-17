@@ -32,26 +32,42 @@ interface ProcessInboxParams extends ProcessInboxPayload {
 }
 
 /** What is sent (and queued offline): everything but the client-side options. */
-const toPayload = ({ successLabel: _label, skipOptimisticRemoval: _skip, silent: _silent, ...payload }: ProcessInboxParams): ProcessInboxPayload => payload;
+const toPayload = ({
+    successLabel: _label,
+    skipOptimisticRemoval: _skip,
+    silent: _silent,
+    ...payload
+}: ProcessInboxParams): ProcessInboxPayload => payload;
 
 /** The task's id is chosen here, once, so the optimistic task is the saved one and never swaps keys on screen. */
-const withTaskId = (params: ProcessInboxParams): ProcessInboxParams => (params.taskId ? params : { ...params, taskId: crypto.randomUUID() });
+const withTaskId = (params: ProcessInboxParams): ProcessInboxParams =>
+    params.taskId ? params : { ...params, taskId: crypto.randomUUID() };
 
 /** The day it was placed on: the saved task's, else what was sent. */
 function placedDay(task: Task, variables: ProcessInboxParams) {
-    return task.scheduledStart ?? task.dueDate ?? variables.scheduledStart ?? variables.scheduledDay ?? variables.dueDate;
+    return (
+        task.scheduledStart ?? task.dueDate ?? variables.scheduledStart ?? variables.scheduledDay ?? variables.dueDate
+    );
 }
 
 /** The task a placed capture becomes, as the caches show it until the server answers. */
 function optimisticFields(params: ProcessInboxParams) {
     const {
-        endDate = null, scheduledStart = null, scheduledEnd = null, projectId = null, sectionId = null,
-        recurrenceRule = null, waitingOn = null, reminderAt = null, notBefore = null, durationEstimate = null,
+        endDate = null,
+        scheduledStart = null,
+        scheduledEnd = null,
+        projectId = null,
+        sectionId = null,
+        recurrenceRule = null,
+        waitingOn = null,
+        reminderAt = null,
+        notBefore = null,
+        durationEstimate = null,
     } = params;
     return {
         title: params.title?.trim() || params.rawText,
         orderIndex: 0,
-        state: waitingOn ? "WAITING" as const : "ACTIVE" as const,
+        state: waitingOn ? ("WAITING" as const) : ("ACTIVE" as const),
         dueDate: params.dueDate ?? params.scheduledDay ?? null,
         endDate,
         scheduledStart,
@@ -74,7 +90,10 @@ function optimisticFields(params: ProcessInboxParams) {
  */
 function whereItWent(task: Task, variables: ProcessInboxParams, queryClient: QueryClient): string {
     const day = placedDay(task, variables);
-    const listName = task.projectId ? queryClient.getQueryData<Project[]>(queryKeys.projects.all)?.find((project) => project.id === task.projectId)?.name : null;
+    const listName = task.projectId
+        ? queryClient.getQueryData<Project[]>(queryKeys.projects.all)?.find((project) => project.id === task.projectId)
+              ?.name
+        : null;
     if (!day) return listName ? `In ${listName}` : "No day yet";
     const shown = task.state === "ACTIVE" && !(task.notBefore && task.notBefore > today());
     return shown ? placementReceipt(day, listName) : placementLabel(day);
@@ -95,7 +114,10 @@ export function useProcessInboxToTask() {
             (params) => ({ type: "process_inbox_to_task", payload: toPayload(params) }),
             async (params) => {
                 const { inboxItemId, rawText, title, ...fields } = toPayload(params);
-                const res = await client.api.inbox[":id"].process.$post({ param: { id: inboxItemId }, json: { ...fields, title: title?.trim() || rawText } });
+                const res = await client.api.inbox[":id"].process.$post({
+                    param: { id: inboxItemId },
+                    json: { ...fields, title: title?.trim() || rawText },
+                });
                 return unwrapResponse(res);
             },
         ),
@@ -117,14 +139,23 @@ export function useProcessInboxToTask() {
             reconcileTaskInCaches(queryClient, _data, context?.optimisticId);
             // The saved task is already in every list; refetching tasks here only risks a stale list snapping it back.
             queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });
-            const label = variables.successLabel ?? (variables.complete ? "Ticked off" : whereItWent(_data, variables, queryClient));
+            const label =
+                variables.successLabel ??
+                (variables.complete ? "Ticked off" : whereItWent(_data, variables, queryClient));
             if (variables.silent) return;
             // It left the screen, so the toast names it and says where it went.
-            toastUndo(toastName(_data.title), () => unprocess.mutate({
-                id: variables.inboxItemId,
-                taskId: _data.id,
-                item: context?.snapshot.flatMap(([, items]) => items ?? []).find((item) => item.id === variables.inboxItemId),
-            }), { description: label });
+            toastUndo(
+                toastName(_data.title),
+                () =>
+                    unprocess.mutate({
+                        id: variables.inboxItemId,
+                        taskId: _data.id,
+                        item: context?.snapshot
+                            .flatMap(([, items]) => items ?? [])
+                            .find((item) => item.id === variables.inboxItemId),
+                    }),
+                { description: label },
+            );
         },
         onError: (err, _variables, context) => {
             // Restore the capture we optimistically removed, and take back the task we showed.
@@ -139,8 +170,10 @@ export function useProcessInboxToTask() {
     });
     return {
         ...mutation,
-        mutate: (params: ProcessInboxParams, options?: Parameters<typeof mutation.mutate>[1]) => mutation.mutate(withTaskId(params), options),
-        mutateAsync: (params: ProcessInboxParams, options?: Parameters<typeof mutation.mutateAsync>[1]) => mutation.mutateAsync(withTaskId(params), options),
+        mutate: (params: ProcessInboxParams, options?: Parameters<typeof mutation.mutate>[1]) =>
+            mutation.mutate(withTaskId(params), options),
+        mutateAsync: (params: ProcessInboxParams, options?: Parameters<typeof mutation.mutateAsync>[1]) =>
+            mutation.mutateAsync(withTaskId(params), options),
     };
 }
 

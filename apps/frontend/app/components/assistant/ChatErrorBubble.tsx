@@ -56,11 +56,7 @@ export function ChatErrorBubble({
     };
 
     return (
-        <motion.div
-            {...bubbleIn(reduceMotion)}
-            className="flex items-start gap-2 pl-9"
-            role="alert"
-        >
+        <motion.div {...bubbleIn(reduceMotion)} className="flex items-start gap-2 pl-9" role="alert">
             <div className="max-w-[80%] rounded-2xl rounded-bl-md border border-feedback-error/20 bg-feedback-error/10 px-3.5 py-2.5">
                 <div className="flex items-start gap-2">
                     <CircleAlert size={14} className="mt-0.5 shrink-0 text-feedback-error" />
@@ -97,10 +93,7 @@ export function ChatErrorBubble({
                         aria-expanded={showDetails}
                     >
                         details
-                        <ChevronDown
-                            size={12}
-                            className={`transition-transform ${showDetails ? "rotate-180" : ""}`}
-                        />
+                        <ChevronDown size={12} className={`transition-transform ${showDetails ? "rotate-180" : ""}`} />
                     </button>
                 </div>
 
@@ -122,9 +115,7 @@ export function ChatErrorBubble({
 
                 <Reveal open={showDetails}>
                     <div className="mt-2 flex items-center justify-between gap-2 rounded bg-twilight-deep/40 px-2 py-1.5">
-                        <span className="truncate text-[10px] text-twilight-text-muted">
-                            {errorRef(error)}
-                        </span>
+                        <span className="truncate text-[10px] text-twilight-text-muted">{errorRef(error)}</span>
                         <button
                             type="button"
                             onClick={() => void copyDetails()}

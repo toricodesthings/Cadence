@@ -21,7 +21,8 @@ export function usePlanningEvidence(): PlanningEvidence | undefined {
         enabled: on && authReady && isAuthenticated,
         staleTime: 5 * 60_000,
         retry: false,
-        queryFn: async () => planningEvidenceSchema.parse(await unwrapResponse(await client.api.ai.memory["planning-evidence"].$get())),
+        queryFn: async () =>
+            planningEvidenceSchema.parse(await unwrapResponse(await client.api.ai.memory["planning-evidence"].$get())),
     });
     return on ? data : undefined;
 }

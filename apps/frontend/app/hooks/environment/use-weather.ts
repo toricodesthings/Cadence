@@ -1,6 +1,18 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Sun, Moon, Cloud, CloudSun, CloudMoon, CloudFog, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, type LucideIcon } from "lucide-react";
+import {
+    Sun,
+    Moon,
+    Cloud,
+    CloudSun,
+    CloudMoon,
+    CloudFog,
+    CloudRain,
+    CloudSnow,
+    CloudLightning,
+    CloudDrizzle,
+    type LucideIcon,
+} from "lucide-react";
 import { useSettings } from "../core/use-settings";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
@@ -74,7 +86,7 @@ export function useWeather() {
         if (!query.data) return null;
         const { label, icon } = describe(query.data.weatherCode, query.data.isDay);
         const celsius = query.data.temperature;
-        const temp = FAHRENHEIT.has(location.place?.countryCode ?? "") ? celsius * 9 / 5 + 32 : celsius;
+        const temp = FAHRENHEIT.has(location.place?.countryCode ?? "") ? (celsius * 9) / 5 + 32 : celsius;
         return { temp: Math.round(temp), condition: label, icon };
     }, [query.data, location.place?.countryCode]);
 

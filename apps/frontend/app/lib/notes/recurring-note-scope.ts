@@ -18,8 +18,8 @@ import type { Task } from "@cadence/contracts/task";
  * For one-off tasks, this is the task's own ID.
  */
 export function getNoteOwnerTaskId(task: Task): string {
-  if (task.seriesId) return task.seriesId;
-  return task.id;
+    if (task.seriesId) return task.seriesId;
+    return task.id;
 }
 
 /**
@@ -27,7 +27,7 @@ export function getNoteOwnerTaskId(task: Task): string {
  * across all occurrences of a recurring task).
  */
 export function isSeriesScopedNote(task: Task): boolean {
-  return Boolean(task.recurrenceRule || task.seriesId || task.isRecurringInstance);
+    return Boolean(task.recurrenceRule || task.seriesId || task.isRecurringInstance);
 }
 
 /**
@@ -35,6 +35,6 @@ export function isSeriesScopedNote(task: Task): boolean {
  * or edits a recurring task's note.
  */
 export function getNoteScopeLabel(task: Task): string | null {
-  if (!isSeriesScopedNote(task)) return null;
-  return "Series note";
+    if (!isSeriesScopedNote(task)) return null;
+    return "Series note";
 }

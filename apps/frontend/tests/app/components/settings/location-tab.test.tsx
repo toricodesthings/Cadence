@@ -3,31 +3,63 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LocationTab } from "../../../../app/components/settings/tabs/LocationTab";
 
-const { location, forget, setManual } = vi.hoisted(() => ({ location: { current: {} as any }, forget: vi.fn(), setManual: vi.fn() }));
-vi.mock("../../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: {} }), useUpdateSettings: () => ({ mutate: vi.fn() }) }));
+const { location, forget, setManual } = vi.hoisted(() => ({
+    location: { current: {} as any },
+    forget: vi.fn(),
+    setManual: vi.fn(),
+}));
+vi.mock("../../../../app/hooks/core/use-settings", () => ({
+    useSettings: () => ({ data: {} }),
+    useUpdateSettings: () => ({ mutate: vi.fn() }),
+}));
 vi.mock("../../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => ({}) }));
 vi.mock("../../../../app/hooks/environment/use-user-location", () => ({ useUserLocation: () => location.current }));
 vi.mock("../../../../app/hooks/environment/use-holiday-overlay", () => ({
     HOLIDAY_SOURCE_LABELS: { manual: "chosen by you" },
-    useHolidayOverlay: () => ({ enabled: true, setEnabled: vi.fn(), regionLabel: "CA-ON, Canada", source: "manual", subdivisionLabel: null }),
+    useHolidayOverlay: () => ({
+        enabled: true,
+        setEnabled: vi.fn(),
+        regionLabel: "CA-ON, Canada",
+        source: "manual",
+        subdivisionLabel: null,
+    }),
 }));
 vi.mock("../../../../app/lib/holidays/provider", () => ({
-    fetchHolidayCountries: async () => [{ code: "CA", label: "Canada" }, { code: "JP", label: "Japan" }],
-    fetchHolidaySubdivisions: async () => [{ code: "CA-ON", label: "Ontario" }, { code: "CA-QC", label: "Quebec" }],
+    fetchHolidayCountries: async () => [
+        { code: "CA", label: "Canada" },
+        { code: "JP", label: "Japan" },
+    ],
+    fetchHolidaySubdivisions: async () => [
+        { code: "CA-ON", label: "Ontario" },
+        { code: "CA-QC", label: "Quebec" },
+    ],
 }));
 
-const setup = () => render(<QueryClientProvider client={new QueryClient()}><LocationTab /></QueryClientProvider>);
+const setup = () =>
+    render(
+        <QueryClientProvider client={new QueryClient()}>
+            <LocationTab />
+        </QueryClientProvider>,
+    );
 
 describe("LocationTab", () => {
     beforeEach(() => {
-        forget.mockClear(); setManual.mockClear();
+        forget.mockClear();
+        setManual.mockClear();
         Element.prototype.scrollIntoView = vi.fn();
         Element.prototype.hasPointerCapture = vi.fn(() => false);
         Element.prototype.releasePointerCapture = vi.fn();
         location.current = {
-            mode: "manual", ready: true, place: { city: "Ottawa", subdivisionName: "Ontario", countryCode: "CA", source: "manual" },
-            manualCountryCode: "CA", manualSubdivisionCode: "CA-ON", savedCity: { name: "Ottawa" }, refreshedAt: null,
-            setMode: vi.fn(), setManualLocation: setManual, forgetLocation: forget,
+            mode: "manual",
+            ready: true,
+            place: { city: "Ottawa", subdivisionName: "Ontario", countryCode: "CA", source: "manual" },
+            manualCountryCode: "CA",
+            manualSubdivisionCode: "CA-ON",
+            savedCity: { name: "Ottawa" },
+            refreshedAt: null,
+            setMode: vi.fn(),
+            setManualLocation: setManual,
+            forgetLocation: forget,
         };
     });
 

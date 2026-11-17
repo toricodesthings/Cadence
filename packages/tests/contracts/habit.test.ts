@@ -24,7 +24,6 @@ describe("habit list queries", () => {
     it("treat any archived value other than 'true' as false", () => {
         expect(habitListQuerySchema.parse({ archived: "yes" })).toEqual({ archived: false });
     });
-
 });
 
 describe("insertHabitSchema", () => {
@@ -60,9 +59,21 @@ describe("resolveHabitActionSchema", () => {
 
 describe("routineStepsSchema", () => {
     it("takes up to 12 named steps with unique ids", () => {
-        expect(routineStepsSchema.safeParse([{ id: "a", title: "Water" }, { id: "b", title: "Stretch" }]).success).toBe(true);
-        expect(routineStepsSchema.safeParse([{ id: "a", title: "Water" }, { id: "a", title: "Stretch" }]).success).toBe(false);
+        expect(
+            routineStepsSchema.safeParse([
+                { id: "a", title: "Water" },
+                { id: "b", title: "Stretch" },
+            ]).success,
+        ).toBe(true);
+        expect(
+            routineStepsSchema.safeParse([
+                { id: "a", title: "Water" },
+                { id: "a", title: "Stretch" },
+            ]).success,
+        ).toBe(false);
         expect(routineStepsSchema.safeParse([{ id: "a", title: "  " }]).success).toBe(false);
-        expect(routineStepsSchema.safeParse(Array.from({ length: 13 }, (_, i) => ({ id: String(i), title: "x" }))).success).toBe(false);
+        expect(
+            routineStepsSchema.safeParse(Array.from({ length: 13 }, (_, i) => ({ id: String(i), title: "x" }))).success,
+        ).toBe(false);
     });
 });

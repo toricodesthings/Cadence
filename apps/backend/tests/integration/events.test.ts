@@ -10,32 +10,65 @@ import { logger } from "../../src/platform/log";
 beforeAll(startTestDb);
 
 async function storedEvents(userId: string) {
-    return asOwner(async (pg) => (await pg.query("SELECT event, metadata FROM usage_events WHERE user_id = $1 ORDER BY created_at, event", [userId])).rows);
+    return asOwner(
+        async (pg) =>
+            (
+                await pg.query(
+                    "SELECT event, metadata FROM usage_events WHERE user_id = $1 ORDER BY created_at, event",
+                    [userId],
+                )
+            ).rows,
+    );
 }
 
 describe("usage events", () => {
-    const sample = { phase: "reveal", route: "capture", duration_ms: 1200, elapsed_ms: 1200, cache: "warm", outcome: "ready", platform: "web", viewport: "compact" };
+    const sample = {
+        phase: "reveal",
+        route: "capture",
+        duration_ms: 1200,
+        elapsed_ms: 1200,
+        cache: "warm",
+        outcome: "ready",
+        platform: "web",
+        viewport: "compact",
+    };
 
     it("sends sanitized client errors to Workers Logs only after checking saved consent", async () => {
         const report = { kind: "render", name: "TypeError", route: "capture", platform: "web", version: "1.0.0" };
         const log = vi.spyOn(logger, "error");
         const userId = await createUser({ settings: { privacy: { usageDiagnostics: false, crashReports: true } } });
         expect((await apiAs(userId, "/events", eventRoutes)("POST", "/errors", { errors: [report] })).status).toBe(201);
-        expect(log).toHaveBeenCalledWith("frontend", "frontend_error", expect.objectContaining({ ...report, origin: "frontend" }));
+        expect(log).toHaveBeenCalledWith(
+            "frontend",
+            "frontend_error",
+            expect.objectContaining({ ...report, origin: "frontend" }),
+        );
         expect(await storedEvents(userId)).toEqual([]);
         log.mockClear();
         const optedOut = await createUser({ settings: { privacy: { crashReports: false } } });
-        expect((await apiAs(optedOut, "/events", eventRoutes)("POST", "/errors", { errors: [report] })).body.data.tracked).toBe(false);
+        expect(
+            (await apiAs(optedOut, "/events", eventRoutes)("POST", "/errors", { errors: [report] })).body.data.tracked,
+        ).toBe(false);
         expect(log).not.toHaveBeenCalled();
         log.mockRestore();
-        expect((await apiAs(userId, "/events", eventRoutes)("POST", "/errors", { errors: [{ ...report, message: "private" }] })).status).toBe(400);
+        expect(
+            (
+                await apiAs(userId, "/events", eventRoutes)("POST", "/errors", {
+                    errors: [{ ...report, message: "private" }],
+                })
+            ).status,
+        ).toBe(400);
     });
     it("writes consent-enabled frontend timings to structured Observability logs only", async () => {
         const userId = await createUser();
         const log = vi.spyOn(logger, "info");
         const res = await apiAs(userId, "/events", eventRoutes)("POST", "/performance", { samples: [sample] });
         expect(res.status).toBe(201);
-        expect(log).toHaveBeenCalledWith("frontend", "frontend_startup", expect.objectContaining({ ...sample, origin: "frontend", schema: 1 }));
+        expect(log).toHaveBeenCalledWith(
+            "frontend",
+            "frontend_startup",
+            expect.objectContaining({ ...sample, origin: "frontend", schema: 1 }),
+        );
         expect(log.mock.calls[0][2]).not.toHaveProperty("userId");
         expect(await storedEvents(userId)).toEqual([]);
         log.mockRestore();
@@ -48,39 +81,61 @@ describe("usage events", () => {
         expect(log).not.toHaveBeenCalled();
         log.mockRestore();
     });
-    it.each([{ ...sample, route: "/project/private-id" }, { ...sample, token: "private" }, { ...sample, duration_ms: -1 }, { ...sample, phase: "arbitrary" }])("rejects unsafe performance dimensions", async (unsafe) => {
+    it.each([
+        { ...sample, route: "/project/private-id" },
+        { ...sample, token: "private" },
+        { ...sample, duration_ms: -1 },
+        { ...sample, phase: "arbitrary" },
+    ])("rejects unsafe performance dimensions", async (unsafe) => {
         const userId = await createUser({ settings: { privacy: { usageDiagnostics: false, crashReports: true } } });
-        expect((await apiAs(userId, "/events", eventRoutes)("POST", "/performance", { samples: [unsafe] })).status).toBe(400);
+        expect(
+            (await apiAs(userId, "/events", eventRoutes)("POST", "/performance", { samples: [unsafe] })).status,
+        ).toBe(400);
     });
     it.each([
-        ["/events", { event: "task.reschedule", metadata: { from: "2026-03-10" } }, [{ event: "task.reschedule", metadata: { from: "2026-03-10" } }]],
+        [
+            "/events",
+            { event: "task.reschedule", metadata: { from: "2026-03-10" } },
+            [{ event: "task.reschedule", metadata: { from: "2026-03-10" } }],
+        ],
         [
             "/events/batch",
             { events: [{ event: "task.complete" }, { event: "schedule.open", metadata: { view: "week" } }] },
-            [{ event: "schedule.open", metadata: { view: "week" } }, { event: "task.complete", metadata: null }],
+            [
+                { event: "schedule.open", metadata: { view: "week" } },
+                { event: "task.complete", metadata: null },
+            ],
         ],
     ])("%s records events for a user with the default diagnostics setting", async (path, body, expected) => {
         const userId = await createUser();
 
-        const { status, body: res } = await apiAs(userId, "/events", eventRoutes)("POST", path.replace("/events", ""), body);
+        const { status, body: res } = await apiAs(userId, "/events", eventRoutes)(
+            "POST",
+            path.replace("/events", ""),
+            body,
+        );
 
         expect(status).toBe(201);
         expect(res.data).toEqual({ tracked: true });
         expect(await storedEvents(userId)).toEqual(expected);
     });
 
-    it.each([["/events", { event: "task.complete" }], ["/events/batch", { events: [{ event: "task.complete" }] }]])(
-        "%s stores nothing once the user opts out",
-        async (path, body) => {
-            const userId = await createUser({ settings: { privacy: { usageDiagnostics: false } } });
+    it.each([
+        ["/events", { event: "task.complete" }],
+        ["/events/batch", { events: [{ event: "task.complete" }] }],
+    ])("%s stores nothing once the user opts out", async (path, body) => {
+        const userId = await createUser({ settings: { privacy: { usageDiagnostics: false } } });
 
-            const { status, body: res } = await apiAs(userId, "/events", eventRoutes)("POST", path.replace("/events", ""), body);
+        const { status, body: res } = await apiAs(userId, "/events", eventRoutes)(
+            "POST",
+            path.replace("/events", ""),
+            body,
+        );
 
-            expect(status).toBe(200);
-            expect(res.data).toEqual({ tracked: false });
-            expect(await storedEvents(userId)).toEqual([]);
-        },
-    );
+        expect(status).toBe(200);
+        expect(res.data).toEqual({ tracked: false });
+        expect(await storedEvents(userId)).toEqual([]);
+    });
 
     it.each([
         ["", { event: "not.a.real.event" }],

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-    checkMessageText,
-    MAX_MESSAGE_CHARS,
-} from "../../../../app/lib/ai/input-guard";
+import { checkMessageText, MAX_MESSAGE_CHARS } from "../../../../app/lib/ai/input-guard";
 
 describe("checkMessageText", () => {
     it("accepts text at or below the char cap", () => {

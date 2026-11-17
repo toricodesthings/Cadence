@@ -11,7 +11,9 @@ function backgroundStyle(mode: string, color: string | null, gradient: string | 
     if (mode === "theme") {
         // Render the current theme preset's default background
         const suggested = THEME_PRESET_MAP[themePreset]?.suggestedGradient;
-        return suggested ? { background: buildGradientCSS(suggested.color1, suggested.color2, suggested.direction) } : null;
+        return suggested
+            ? { background: buildGradientCSS(suggested.color1, suggested.color2, suggested.direction) }
+            : null;
     }
     if (mode !== "custom") return null;
     const preset = gradient ? GRADIENT_PRESETS.find((g) => g.id === gradient) : undefined;
@@ -29,7 +31,7 @@ function backgroundChoice(appearance: Appearance | undefined) {
         bgColor: appearance?.backgroundColor ?? null,
         bgGradient: appearance?.backgroundGradient ?? null,
         themePreset: (appearance?.themePreset ?? "default") as ThemePresetId,
-        photo: bgMode === "image" ? appearance?.backgroundImage ?? null : null,
+        photo: bgMode === "image" ? (appearance?.backgroundImage ?? null) : null,
     };
 }
 
@@ -83,11 +85,5 @@ export function BackgroundLayer() {
 
     if (!style) return null;
 
-    return (
-        <div
-            className="pointer-events-none fixed inset-0"
-            style={style}
-            aria-hidden="true"
-        />
-    );
+    return <div className="pointer-events-none fixed inset-0" style={style} aria-hidden="true" />;
 }

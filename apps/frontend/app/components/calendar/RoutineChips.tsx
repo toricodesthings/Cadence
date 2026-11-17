@@ -34,11 +34,7 @@ const openOnly = (onSelect: (id: string) => void, id: string) => (e: React.Mouse
 };
 
 /** Points share the row, but every routine keeps its own check-off and named details button. */
-export function RoutineRow({
-    layout,
-    onSelect,
-    tipSide,
-}: PointProps) {
+export function RoutineRow({ layout, onSelect, tipSide }: PointProps) {
     const { points } = layout;
     const first = points[0];
     const presentation = useCalendarItemPresentation(points);
@@ -78,11 +74,7 @@ export function RoutineRow({
 }
 
 /** The badge never steals a span's column; its mark checks off, its visible details control opens in place. */
-export function RoutineBadge({
-    layout,
-    onSelect,
-    tipSide,
-}: PointProps) {
+export function RoutineBadge({ layout, onSelect, tipSide }: PointProps) {
     const { points } = layout;
     const first = points[0];
     const presentation = useCalendarItemPresentation(points);

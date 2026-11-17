@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { instantSchema } from "./common";
 
-const base64url = (max: number) => z.string().min(1).max(max).regex(/^[A-Za-z0-9_-]+$/);
+const base64url = (max: number) =>
+    z
+        .string()
+        .min(1)
+        .max(max)
+        .regex(/^[A-Za-z0-9_-]+$/);
 
 /** Where a device sits: a phone, a computer's browser, or the installed Cadence app. */
 export const deviceKindSchema = z.enum(["phone", "computer", "desktop-app"]);

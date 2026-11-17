@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import {
-    Search, Clock, ArrowUpLeft,
-} from "lucide-react";
+import { Search, Clock, ArrowUpLeft } from "lucide-react";
 import { SearchField } from "../primitives/SearchField";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { useUniversalSearch, type SearchResult } from "../../hooks/search/use-universal-search";
@@ -84,7 +82,7 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
             open={open}
             onClose={() => onOpenChange(false)}
             flush
-            header={(
+            header={
                 /* The heading row is a search field here; the sheet still owns
                    the drag handle, backdrop, focus trap, Escape and close. */
                 <form onSubmit={handleSubmit} className="flex min-w-0 flex-1 items-center gap-3">
@@ -99,7 +97,7 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                         className="min-h-0 flex-1"
                     />
                 </form>
-            )}
+            }
         >
             {/* Body */}
             <div className="safe-bottom px-3 py-3">
@@ -122,7 +120,9 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                                     <span className="flex min-w-0 flex-1 flex-col">
                                         <span className="truncate text-[15px] font-medium">{item.title}</span>
                                         {item.context && (
-                                            <span className="truncate text-[13px] text-twilight-text-muted/80">{item.context}</span>
+                                            <span className="truncate text-[13px] text-twilight-text-muted/80">
+                                                {item.context}
+                                            </span>
                                         )}
                                     </span>
                                 </button>
@@ -160,9 +160,17 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                                         }}
                                         className="flex min-h-[48px] w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-twilight-text-soft transition-colors hover:bg-white/[0.04] active:bg-white/[0.06]"
                                     >
-                                        <Clock size={16} className="shrink-0 text-twilight-text-muted/70" aria-hidden="true" />
+                                        <Clock
+                                            size={16}
+                                            className="shrink-0 text-twilight-text-muted/70"
+                                            aria-hidden="true"
+                                        />
                                         <span className="min-w-0 flex-1 truncate text-[15px]">{q}</span>
-                                        <ArrowUpLeft size={16} className="shrink-0 text-twilight-text-muted/50" aria-hidden="true" />
+                                        <ArrowUpLeft
+                                            size={16}
+                                            className="shrink-0 text-twilight-text-muted/50"
+                                            aria-hidden="true"
+                                        />
                                     </button>
                                 ))}
                             </div>

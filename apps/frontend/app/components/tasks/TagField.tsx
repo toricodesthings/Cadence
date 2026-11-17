@@ -35,7 +35,11 @@ export function TagField({
                         onClick={() => onRemove(tag.id)}
                         aria-label={`Remove tag ${tag.name}`}
                         className="group/tag min-h-9 max-w-full gap-2 rounded-full px-3 text-[13px] font-medium hover:brightness-125 press-none pointer-coarse:min-h-11"
-                        style={{ backgroundColor: !tag.color || tag.color === "default" ? "rgba(255,255,255,0.06)" : `${tag.color}15`, color }}
+                        style={{
+                            backgroundColor:
+                                !tag.color || tag.color === "default" ? "rgba(255,255,255,0.06)" : `${tag.color}15`,
+                            color,
+                        }}
                     >
                         <span className="relative grid size-3.5 shrink-0 place-items-center" aria-hidden="true">
                             <span

@@ -17,10 +17,27 @@ import { getUserZone } from "../../lib/utils/user-zone";
 /** The row a new task shows as until the server answers (a create, or a capture placed as a task). */
 export function buildOptimisticTask(id: string, input: CreateTaskInput): Task {
     const {
-        projectId = null, sectionId = null, tagIds = [], content = null, state = "ACTIVE", dueDate = null, endDate = null,
-        scheduledStart = null, scheduledEnd = null, durationEstimate = null, timezoneLocked = false, priority = 0,
-        isPinned = false, reminderAt = null, reminderSilenced = false, recurrenceRule = null,
-        interactionMode = suggestInteractionMode(input), effort = null, waitingOn = null, waitingReminder = null, notBefore = null,
+        projectId = null,
+        sectionId = null,
+        tagIds = [],
+        content = null,
+        state = "ACTIVE",
+        dueDate = null,
+        endDate = null,
+        scheduledStart = null,
+        scheduledEnd = null,
+        durationEstimate = null,
+        timezoneLocked = false,
+        priority = 0,
+        isPinned = false,
+        reminderAt = null,
+        reminderSilenced = false,
+        recurrenceRule = null,
+        interactionMode = suggestInteractionMode(input),
+        effort = null,
+        waitingOn = null,
+        waitingReminder = null,
+        notBefore = null,
     } = input;
     return {
         id,
@@ -36,7 +53,7 @@ export function buildOptimisticTask(id: string, input: CreateTaskInput): Task {
         endDate,
         scheduledStart,
         scheduledEnd,
-        zone: scheduledStart ? input.zone ?? getUserZone() : null,
+        zone: scheduledStart ? (input.zone ?? getUserZone()) : null,
         durationEstimate,
         timezoneLocked,
         priority,
@@ -72,38 +89,41 @@ export function useCreateTask() {
             }),
             async (input) => {
                 const id = clientIdFor(input);
-                const res = await client.api.tasks.$post({
-                    json: {
-                        id,
-                        title: input.title,
-                        ...(input.content !== undefined && { content: input.content }),
-                        orderIndex: input.orderIndex,
-                        state: input.state ?? "ACTIVE",
-                        ...(input.projectId && { projectId: input.projectId }),
-                        ...(input.tagIds?.length ? { tagIds: input.tagIds } : {}),
-                        ...(input.sectionId !== undefined && { sectionId: input.sectionId }),
-                        ...(input.scheduledStart && { scheduledStart: input.scheduledStart }),
-                        ...(input.scheduledEnd && { scheduledEnd: input.scheduledEnd }),
-                        ...(input.dueDate && { dueDate: input.dueDate }),
-                        ...(input.endDate && { endDate: input.endDate }),
-                        ...(input.timezoneLocked !== undefined && { timezoneLocked: input.timezoneLocked }),
-                        ...(input.priority !== undefined && { priority: input.priority }),
-                        ...(input.isPinned !== undefined && { isPinned: input.isPinned }),
-                        ...(input.reminderAt && { reminderAt: input.reminderAt }),
-                        ...(input.reminderSilenced !== undefined && { reminderSilenced: input.reminderSilenced }),
-                        ...(input.recurrenceRule && { recurrenceRule: input.recurrenceRule }),
-                        ...(input.interactionMode && { interactionMode: input.interactionMode }),
-                        ...(input.waitingOn !== undefined && { waitingOn: input.waitingOn }),
-                        ...(input.waitingReminder !== undefined && { waitingReminder: input.waitingReminder }),
-                        ...(input.effort !== undefined && { effort: input.effort }),
-                        ...(input.effortOrigin && { effortOrigin: input.effortOrigin }),
-                        ...(input.notBefore !== undefined && { notBefore: input.notBefore }),
-                        ...(input.durationEstimate !== undefined && { durationEstimate: input.durationEstimate }),
-                        ...(input.nlp && { nlp: input.nlp }),
+                const res = await client.api.tasks.$post(
+                    {
+                        json: {
+                            id,
+                            title: input.title,
+                            ...(input.content !== undefined && { content: input.content }),
+                            orderIndex: input.orderIndex,
+                            state: input.state ?? "ACTIVE",
+                            ...(input.projectId && { projectId: input.projectId }),
+                            ...(input.tagIds?.length ? { tagIds: input.tagIds } : {}),
+                            ...(input.sectionId !== undefined && { sectionId: input.sectionId }),
+                            ...(input.scheduledStart && { scheduledStart: input.scheduledStart }),
+                            ...(input.scheduledEnd && { scheduledEnd: input.scheduledEnd }),
+                            ...(input.dueDate && { dueDate: input.dueDate }),
+                            ...(input.endDate && { endDate: input.endDate }),
+                            ...(input.timezoneLocked !== undefined && { timezoneLocked: input.timezoneLocked }),
+                            ...(input.priority !== undefined && { priority: input.priority }),
+                            ...(input.isPinned !== undefined && { isPinned: input.isPinned }),
+                            ...(input.reminderAt && { reminderAt: input.reminderAt }),
+                            ...(input.reminderSilenced !== undefined && { reminderSilenced: input.reminderSilenced }),
+                            ...(input.recurrenceRule && { recurrenceRule: input.recurrenceRule }),
+                            ...(input.interactionMode && { interactionMode: input.interactionMode }),
+                            ...(input.waitingOn !== undefined && { waitingOn: input.waitingOn }),
+                            ...(input.waitingReminder !== undefined && { waitingReminder: input.waitingReminder }),
+                            ...(input.effort !== undefined && { effort: input.effort }),
+                            ...(input.effortOrigin && { effortOrigin: input.effortOrigin }),
+                            ...(input.notBefore !== undefined && { notBefore: input.notBefore }),
+                            ...(input.durationEstimate !== undefined && { durationEstimate: input.durationEstimate }),
+                            ...(input.nlp && { nlp: input.nlp }),
+                        },
                     },
-                }, {
-                    headers: { "Idempotency-Key": id },
-                });
+                    {
+                        headers: { "Idempotency-Key": id },
+                    },
+                );
                 return unwrapResponse(res);
             },
         ),
@@ -120,7 +140,6 @@ export function useCreateTask() {
                 { queryKey: queryKeys.tasks.all, predicate: (query) => typeof query.queryKey[1] === "object" },
                 (old) => transformListCache(old, (items) => [...items, optimisticTask], { initialize: true }),
             );
-
 
             return { snapshot, optimisticId: optimisticTask.id };
         },

@@ -1,7 +1,8 @@
 import { cssVars, n1, polyline, pt, risingEdges, rng, smoothThrough, yAt, type Pt } from "./loading-geometry";
 
 const ridge = (points: readonly Pt[]) => `M0,1080L${polyline(points).slice(1)}L1920,1080Z`;
-const dot = (x: number, y: number, rx: number, ry = rx) => `M${pt(x - rx, y)}a${n1(rx)},${n1(ry)} 0 1,0 ${n1(2 * rx)},0a${n1(rx)},${n1(ry)} 0 1,0 ${n1(-2 * rx)},0`;
+const dot = (x: number, y: number, rx: number, ry = rx) =>
+    `M${pt(x - rx, y)}a${n1(rx)},${n1(ry)} 0 1,0 ${n1(2 * rx)},0a${n1(rx)},${n1(ry)} 0 1,0 ${n1(-2 * rx)},0`;
 
 /** A natural crest: smooth through hand-placed keys, then roughened by two octaves of seeded value noise (`rough` px). */
 function crest(keys: readonly Pt[], seed: number, rough: number): Pt[] {
@@ -38,32 +39,119 @@ function faces(points: readonly Pt[], [px, left, right, drop, lean]: Peak, seed:
 
 type Peak = readonly [x: number, left: number, right: number, drop: number, lean: number];
 /** Each face is its own path, so the bounding-box gradients run from that summit down. */
-const allFaces = (points: readonly Pt[], peaks: readonly Peak[], seed: number) => peaks.map((peak, i) => faces(points, peak, seed + i));
+const allFaces = (points: readonly Pt[], peaks: readonly Peak[], seed: number) =>
+    peaks.map((peak, i) => faces(points, peak, seed + i));
 
 /* Furthest: a pale range across the whole horizon, seen through the saddle of the nearer mountains. */
 const DISTANT = crest(
-    [[-20, 668], [110, 640], [230, 655], [330, 612], [420, 562], [500, 598], [575, 584], [660, 622], [780, 646], [900, 630], [1010, 604],
-        [1090, 572], [1160, 594], [1260, 634], [1380, 650], [1500, 624], [1600, 642], [1760, 614], [1940, 650]],
-    17, 5,
+    [
+        [-20, 668],
+        [110, 640],
+        [230, 655],
+        [330, 612],
+        [420, 562],
+        [500, 598],
+        [575, 584],
+        [660, 622],
+        [780, 646],
+        [900, 630],
+        [1010, 604],
+        [1090, 572],
+        [1160, 594],
+        [1260, 634],
+        [1380, 650],
+        [1500, 624],
+        [1600, 642],
+        [1760, 614],
+        [1940, 650],
+    ],
+    17,
+    5,
 );
 const DISTANT_D = ridge(DISTANT);
 const DISTANT_RIM = risingEdges(DISTANT.filter((_, i) => i % 4 === 0));
-const DISTANT_FACES = allFaces(DISTANT, [[420, 96, 110, 100, 16], [1090, 96, 110, 90, 14], [1760, 120, 120, 70, 14]], 31);
+const DISTANT_FACES = allFaces(
+    DISTANT,
+    [
+        [420, 96, 110, 100, 16],
+        [1090, 96, 110, 90, 14],
+        [1760, 120, 120, 70, 14],
+    ],
+    31,
+);
 
 /* The mountains proper: a massif on the left, a lower summit behind the wordmark, the great peak on the right. */
 const FAR = crest(
-    [[0, 640], [90, 598], [170, 564], [240, 548], [300, 574], [380, 636], [470, 668], [560, 692], [680, 706], [800, 690], [880, 644], [950, 604],
-        [1010, 586], [1070, 608], [1150, 660], [1240, 702], [1330, 692], [1410, 650], [1470, 606], [1520, 560], [1556, 548], [1596, 498], [1640, 446], [1672, 420],
-        [1700, 410], [1738, 436], [1776, 458], [1820, 512], [1868, 536], [1920, 590]],
-    19, 9,
+    [
+        [0, 640],
+        [90, 598],
+        [170, 564],
+        [240, 548],
+        [300, 574],
+        [380, 636],
+        [470, 668],
+        [560, 692],
+        [680, 706],
+        [800, 690],
+        [880, 644],
+        [950, 604],
+        [1010, 586],
+        [1070, 608],
+        [1150, 660],
+        [1240, 702],
+        [1330, 692],
+        [1410, 650],
+        [1470, 606],
+        [1520, 560],
+        [1556, 548],
+        [1596, 498],
+        [1640, 446],
+        [1672, 420],
+        [1700, 410],
+        [1738, 436],
+        [1776, 458],
+        [1820, 512],
+        [1868, 536],
+        [1920, 590],
+    ],
+    19,
+    9,
 );
-const FAR_FACES = allFaces(FAR, [[240, 170, 150, 170, 34], [1010, 140, 150, 130, 26], [1700, 250, 200, 300, 50]], 41);
+const FAR_FACES = allFaces(
+    FAR,
+    [
+        [240, 170, 150, 170, 34],
+        [1010, 140, 150, 130, 26],
+        [1700, 250, 200, 300, 50],
+    ],
+    41,
+);
 
 /* Wooded hills in front of them. */
 const MID_FAR = crest(
-    [[0, 735], [120, 700], [230, 690], [340, 722], [460, 760], [600, 772], [720, 748], [820, 726], [900, 738], [1000, 770], [1120, 790],
-        [1240, 776], [1360, 740], [1470, 700], [1560, 676], [1650, 690], [1760, 730], [1860, 720], [1920, 740]],
-    23, 4,
+    [
+        [0, 735],
+        [120, 700],
+        [230, 690],
+        [340, 722],
+        [460, 760],
+        [600, 772],
+        [720, 748],
+        [820, 726],
+        [900, 738],
+        [1000, 770],
+        [1120, 790],
+        [1240, 776],
+        [1360, 740],
+        [1470, 700],
+        [1560, 676],
+        [1650, 690],
+        [1760, 730],
+        [1860, 720],
+        [1920, 740],
+    ],
+    23,
+    4,
 );
 
 const SHRINE =
@@ -81,7 +169,10 @@ const WOODS = (() => {
     for (let x = -10; x < 1930;) {
         const y = yAt(MID_FAR, x);
         const r = 4 + rand() * 4.5;
-        line += rand() < 0.26 ? `M${pt(x - r * 0.7, y + 3)}L${pt(x, y - r * 2.5)}L${pt(x + r * 0.7, y + 3)}Z` : dot(x, y - r * 0.3, r);
+        line +=
+            rand() < 0.26
+                ? `M${pt(x - r * 0.7, y + 3)}L${pt(x, y - r * 2.5)}L${pt(x + r * 0.7, y + 3)}Z`
+                : dot(x, y - r * 0.3, r);
         x += r * (0.9 + rand() * 1.1);
     }
     let shade = "";
@@ -101,7 +192,10 @@ const WOODS = (() => {
 })();
 
 const MIST_PUFFS: readonly (readonly [number, number, number, number])[] = [
-    [240, 62, 340, 28], [760, 70, 360, 32], [1260, 70, 340, 32], [1720, 60, 320, 26],
+    [240, 62, 340, 28],
+    [760, 70, 360, 32],
+    [1260, 70, 340, 32],
+    [1720, 60, 320, 26],
 ];
 
 export function LoadingMountains() {
@@ -114,10 +208,19 @@ export function LoadingMountains() {
                     <g filter="url(#ls-blur-distant)">
                         <path d={DISTANT_D} fill="url(#ls-distant)" />
                         <g className="ls-key" fill="url(#ls-face-lit)" opacity=".6">
-                            {DISTANT_FACES.map((f) => <path key={f.lit} d={f.lit} />)}
+                            {DISTANT_FACES.map((f) => (
+                                <path key={f.lit} d={f.lit} />
+                            ))}
                         </g>
                         <path className="ls-key" d={DISTANT_D} fill="url(#ls-moonlight)" opacity=".6" />
-                        <path d={DISTANT_RIM} fill="none" stroke="var(--loading-rim)" strokeWidth="1.5" strokeLinecap="round" opacity=".16" />
+                        <path
+                            d={DISTANT_RIM}
+                            fill="none"
+                            stroke="var(--loading-rim)"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            opacity=".16"
+                        />
                     </g>
                     <g transform={`translate(420 ${n1(yAt(DISTANT, 420) + 1)})`}>
                         <path d={SHRINE} fill="var(--ls-shrine)" />
@@ -128,16 +231,24 @@ export function LoadingMountains() {
                     <g filter="url(#ls-blur-ridge)">
                         <path d={ridge(FAR)} fill="url(#mountain-back-1)" />
                         <g fill="url(#ls-face-shade)">
-                            {FAR_FACES.map((f) => <path key={f.shade} d={f.shade} />)}
+                            {FAR_FACES.map((f) => (
+                                <path key={f.shade} d={f.shade} />
+                            ))}
                         </g>
                         <g className="ls-key" fill="url(#ls-face-lit)">
-                            {FAR_FACES.map((f) => <path key={f.lit} d={f.lit} />)}
+                            {FAR_FACES.map((f) => (
+                                <path key={f.lit} d={f.lit} />
+                            ))}
                         </g>
                         <path className="ls-key" d={ridge(FAR)} fill="url(#ls-moonlight)" opacity=".8" />
                         {/* Winter: snow on every summit, brighter on the moon side */}
                         <g className="ls-winter" fill="url(#ls-snow-face)">
-                            {FAR_FACES.map((f) => <path key={f.lit} d={f.lit} />)}
-                            {FAR_FACES.map((f) => <path key={f.shade} d={f.shade} opacity=".4" />)}
+                            {FAR_FACES.map((f) => (
+                                <path key={f.lit} d={f.lit} />
+                            ))}
+                            {FAR_FACES.map((f) => (
+                                <path key={f.shade} d={f.shade} opacity=".4" />
+                            ))}
                         </g>
                     </g>
                     <rect y="620" width="1920" height="240" fill="url(#ls-haze-near)" />
@@ -160,7 +271,15 @@ export function LoadingMountains() {
                         <g id="ls-mist-far-tile">
                             <rect width="1920" height="130" fill="url(#ls-mist-v-far)" opacity=".16" />
                             {MIST_PUFFS.map(([cx, cy, rx, ry]) => (
-                                <ellipse key={cx} cx={cx} cy={cy} rx={rx} ry={ry} fill="url(#ls-mist-puff-far)" opacity=".14" />
+                                <ellipse
+                                    key={cx}
+                                    cx={cx}
+                                    cy={cy}
+                                    rx={rx}
+                                    ry={ry}
+                                    fill="url(#ls-mist-puff-far)"
+                                    opacity=".14"
+                                />
                             ))}
                         </g>
                         <use href="#ls-mist-far-tile" x="-1920" />

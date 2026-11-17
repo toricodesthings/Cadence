@@ -37,7 +37,13 @@ async function seedThread(userId: string, turns = 3) {
     return withRls(getTestDb(), userId, async (tx) => {
         const { id } = await resolveOrCreateConversation(tx, userId, {});
         for (let i = 1; i <= turns; i++) {
-            await appendUserMessage(tx, userId, id, { id: `${id}-${i}`, role: "user", parts: [{ type: "text", text: `turn ${i}` }] }, {});
+            await appendUserMessage(
+                tx,
+                userId,
+                id,
+                { id: `${id}-${i}`, role: "user", parts: [{ type: "text", text: `turn ${i}` }] },
+                {},
+            );
         }
         return id;
     });
@@ -47,13 +53,17 @@ const bypassingRls = <T>(fn: (tx: Tx) => Promise<T>) => asOwner(() => fn(getTest
 
 async function messageIds(conversationId: string) {
     const { rows } = await asOwner((pg) =>
-        pg.query<{ id: string }>("SELECT id FROM ai_messages WHERE conversation_id = $1 ORDER BY order_index", [conversationId]),
+        pg.query<{ id: string }>("SELECT id FROM ai_messages WHERE conversation_id = $1 ORDER BY order_index", [
+            conversationId,
+        ]),
     );
     return rows.map((r) => r.id);
 }
 
 async function title(conversationId: string) {
-    const { rows } = await asOwner((pg) => pg.query<{ title: string | null }>("SELECT title FROM ai_conversations WHERE id = $1", [conversationId]));
+    const { rows } = await asOwner((pg) =>
+        pg.query<{ title: string | null }>("SELECT title FROM ai_conversations WHERE id = $1", [conversationId]),
+    );
     return rows[0].title;
 }
 
@@ -102,29 +112,43 @@ describe("the replayed history window", () => {
         const total = MAX_HISTORY_TURNS + 5;
         const conv = await seedThread(owner, total);
 
-        const rows = await withRls(getTestDb(), owner, (tx) => loadConversationMessages(tx, owner, conv, { historyWindow: true }));
+        const rows = await withRls(getTestDb(), owner, (tx) =>
+            loadConversationMessages(tx, owner, conv, { historyWindow: true }),
+        );
 
         const start = historyWindowStart(total);
-        expect(rows.map((r) => r.id)).toEqual(Array.from({ length: total - start }, (_, i) => `${conv}-${start + i + 1}`));
+        expect(rows.map((r) => r.id)).toEqual(
+            Array.from({ length: total - start }, (_, i) => `${conv}-${start + i + 1}`),
+        );
     });
 
     it("is the whole thread while it fits", async () => {
         const conv = await seedThread(owner, 3);
-        const rows = await withRls(getTestDb(), owner, (tx) => loadConversationMessages(tx, owner, conv, { historyWindow: true }));
+        const rows = await withRls(getTestDb(), owner, (tx) =>
+            loadConversationMessages(tx, owner, conv, { historyWindow: true }),
+        );
         expect(rows.map((r) => r.id)).toEqual([`${conv}-1`, `${conv}-2`, `${conv}-3`]);
     });
 });
 
 describe("setTurnContext", () => {
     async function metadata(id: string) {
-        const { rows } = await asOwner((pg) => pg.query<{ metadata: Record<string, unknown> }>("SELECT metadata FROM ai_messages WHERE id = $1", [id]));
+        const { rows } = await asOwner((pg) =>
+            pg.query<{ metadata: Record<string, unknown> }>("SELECT metadata FROM ai_messages WHERE id = $1", [id]),
+        );
         return rows[0].metadata;
     }
 
     it("merges into the owner's user message only, keeping its other metadata", async () => {
         const conv = await seedThread(owner, 1);
         await withRls(getTestDb(), owner, (tx) =>
-            appendUserMessage(tx, owner, conv, { id: `${conv}-c`, role: "user", parts: [] }, { clientMessageId: "client-1" }),
+            appendUserMessage(
+                tx,
+                owner,
+                conv,
+                { id: `${conv}-c`, role: "user", parts: [] },
+                { clientMessageId: "client-1" },
+            ),
         );
 
         await bypassingRls((tx) => setTurnContext(tx, other, conv, `${conv}-c`, "HIJACK"));
@@ -139,12 +163,30 @@ describe("saveAssistantMessage onlyIfAbsent", () => {
     it("never overwrites a reply that is already saved", async () => {
         const conv = await seedThread(owner, 1);
         const id = crypto.randomUUID();
-        const full = { id, role: "assistant", parts: [{ type: "text", text: "done" }, { type: "tool-create_tasks", toolCallId: "t1", state: "output-available", input: {}, output: {} }] };
+        const full = {
+            id,
+            role: "assistant",
+            parts: [
+                { type: "text", text: "done" },
+                { type: "tool-create_tasks", toolCallId: "t1", state: "output-available", input: {}, output: {} },
+            ],
+        };
         await withRls(getTestDb(), owner, async (tx) => {
             await saveAssistantMessage(tx, owner, conv, full, { status: "complete", metadata: { model: "m" } });
-            await saveAssistantMessage(tx, owner, conv, { id, role: "assistant", parts: [{ type: "text", text: "par" }] }, { status: "aborted", metadata: {}, onlyIfAbsent: true });
+            await saveAssistantMessage(
+                tx,
+                owner,
+                conv,
+                { id, role: "assistant", parts: [{ type: "text", text: "par" }] },
+                { status: "aborted", metadata: {}, onlyIfAbsent: true },
+            );
         });
-        const { rows } = await asOwner((pg) => pg.query<{ parts: unknown[]; metadata: unknown; status: string }>("SELECT parts, metadata, status FROM ai_messages WHERE id = $1", [id]));
+        const { rows } = await asOwner((pg) =>
+            pg.query<{ parts: unknown[]; metadata: unknown; status: string }>(
+                "SELECT parts, metadata, status FROM ai_messages WHERE id = $1",
+                [id],
+            ),
+        );
         expect(rows[0].parts).toHaveLength(2);
         expect(rows[0].metadata).toEqual({ model: "m" });
         expect(rows[0].status).toBe("complete");

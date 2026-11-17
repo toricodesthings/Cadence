@@ -14,7 +14,10 @@ export function AddPersonalEventDialog({ open, onClose }: { open: boolean; onClo
             onClose={onClose}
             title="Add personal event"
             submitLabel="Add event"
-            onSubmit={(value) => { addEvent(value); onClose(); }}
+            onSubmit={(value) => {
+                addEvent(value);
+                onClose();
+            }}
         />
     );
 }

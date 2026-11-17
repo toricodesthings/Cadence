@@ -9,5 +9,13 @@ const OPTIONS = [
 
 /** Rows ↔ Board, spanning its menu or sheet, one half per option. */
 export function ViewToggle({ view, onViewChange }: { view: ViewMode; onViewChange: (view: ViewMode) => void }) {
-    return <SegmentedControl ariaLabel="View" className="flex w-full [&>button]:flex-1" value={view} onChange={onViewChange} options={OPTIONS} />;
+    return (
+        <SegmentedControl
+            ariaLabel="View"
+            className="flex w-full [&>button]:flex-1"
+            value={view}
+            onChange={onViewChange}
+            options={OPTIONS}
+        />
+    );
 }

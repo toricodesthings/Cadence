@@ -25,7 +25,10 @@ export async function syncUserZone(tx: Tx, userId: string, reported: unknown): P
 
 /** Same synchronization, returning its authoritative settings row for request-scoped reuse. */
 export async function syncUserZoneWithSettings(tx: Tx, userId: string, reported: unknown) {
-    const [row] = await tx.select({ zone: users.timeZone, settings: users.settings }).from(users).where(eq(users.id, userId));
+    const [row] = await tx
+        .select({ zone: users.timeZone, settings: users.settings })
+        .from(users)
+        .where(eq(users.id, userId));
     const current = storedZone(row?.zone);
     // "device" follows the device; anything unrecognised is not a pin.
     const pinned = row?.settings?.dateTime?.timezone;

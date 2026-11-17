@@ -4,7 +4,21 @@ import { today } from "../../lib/utils/user-zone";
 import { ActivityBadge } from "../primitives/ActivityBadge";
 import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
 import {
-    Search, Plus, Settings, Flame, Calendar, CalendarHeart, Inbox, Sprout, LogOut, LifeBuoy, RefreshCw, Info, ShieldCheck, FileText, History,
+    Search,
+    Plus,
+    Settings,
+    Flame,
+    Calendar,
+    CalendarHeart,
+    Inbox,
+    Sprout,
+    LogOut,
+    LifeBuoy,
+    RefreshCw,
+    Info,
+    ShieldCheck,
+    FileText,
+    History,
 } from "lucide-react";
 
 import { Link, useLocation, useNavigate } from "react-router";
@@ -121,15 +135,15 @@ export function IconRail({
 
     return (
         <div
-            className={cn("flex h-full w-[60px] flex-col items-center gap-1 border-r border-twilight-border py-3 shrink-0 [&>*]:shrink-0", className)}
+            className={cn(
+                "flex h-full w-[60px] flex-col items-center gap-1 border-r border-twilight-border py-3 shrink-0 [&>*]:shrink-0",
+                className,
+            )}
             role="navigation"
             aria-label="Icon navigation rail"
         >
             {/* Logo */}
-            <div
-                className="size-10 flex items-center justify-center mb-0.5"
-                aria-label="Cadence"
-            >
+            <div className="size-10 flex items-center justify-center mb-0.5" aria-label="Cadence">
                 <img src="/logo.svg" alt="Cadence" className="size-full object-cover" />
             </div>
 
@@ -137,56 +151,72 @@ export function IconRail({
 
             {/* Primary nav links */}
             <nav aria-label="Primary navigation" className="flex flex-col items-center gap-1 w-full px-2">
-                {NAV_LINKS.map(({ to, icon: Icon, label, activeColor, activeBg, hoverColor, hoverBg, notificationFn }) => {
-                    const isActive = location.pathname === to;
-                    const showDot = to !== "/routines" && notificationFn?.();
-                    const count = to === "/" ? captureCount : to === "/routines" ? routineDueCount : 0;
-                    return (
-                        <Fragment key={to}>
-                        {to === "/weekly-review" && (<>
-<div className="w-[60%] h-px bg-twilight-border rounded-full my-0.5" aria-hidden="true" />
-            <Tip label="Ask Assistant" side="right">
-                <button
-                    onClick={onAssistantOpen ?? toggleAssistantPanel}
-                    aria-label={replyUnread ? "Toggle AI Assistant Panel, new reply" : "Toggle AI Assistant Panel"}
-                    aria-pressed={assistantPanelOpen}
-                    className={`btn-icon press relative cursor-pointer rounded-2xl border transition-[background-color,border-color,color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
-                        assistantPanelOpen
-                            ? "accent-fill border-transparent text-[var(--primary-foreground)]"
-                            : "border-accent-primary/20 bg-accent-primary/10 text-accent-primary hover:border-accent-primary/35 hover:bg-accent-primary/15"
-                    }`}
-                >
-                    {/* The dock's sigil, rail-sized: an unread reply morphs its satellite into a bead, as on phone. */}
-                    <AssistantSigil size={22} notice={replyUnread && !assistantPanelOpen} />
-                </button>
-            </Tip>
-</>)}
-                        <Tip label={label} side="right">
-                            <Link
-                                to={to}
-                                aria-label={to === "/routines" && count > 0 ? `${label}, ${count} due today` : to === "/" ? `${label}, ${count} items` : label}
-                                aria-current={isActive ? "page" : undefined}
-                                className={`
+                {NAV_LINKS.map(
+                    ({ to, icon: Icon, label, activeColor, activeBg, hoverColor, hoverBg, notificationFn }) => {
+                        const isActive = location.pathname === to;
+                        const showDot = to !== "/routines" && notificationFn?.();
+                        const count = to === "/" ? captureCount : to === "/routines" ? routineDueCount : 0;
+                        return (
+                            <Fragment key={to}>
+                                {to === "/weekly-review" && (
+                                    <>
+                                        <div
+                                            className="w-[60%] h-px bg-twilight-border rounded-full my-0.5"
+                                            aria-hidden="true"
+                                        />
+                                        <Tip label="Ask Assistant" side="right">
+                                            <button
+                                                onClick={onAssistantOpen ?? toggleAssistantPanel}
+                                                aria-label={
+                                                    replyUnread
+                                                        ? "Toggle AI Assistant Panel, new reply"
+                                                        : "Toggle AI Assistant Panel"
+                                                }
+                                                aria-pressed={assistantPanelOpen}
+                                                className={`btn-icon press relative cursor-pointer rounded-2xl border transition-[background-color,border-color,color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
+                                                    assistantPanelOpen
+                                                        ? "accent-fill border-transparent text-[var(--primary-foreground)]"
+                                                        : "border-accent-primary/20 bg-accent-primary/10 text-accent-primary hover:border-accent-primary/35 hover:bg-accent-primary/15"
+                                                }`}
+                                            >
+                                                {/* The dock's sigil, rail-sized: an unread reply morphs its satellite into a bead, as on phone. */}
+                                                <AssistantSigil size={22} notice={replyUnread && !assistantPanelOpen} />
+                                            </button>
+                                        </Tip>
+                                    </>
+                                )}
+                                <Tip label={label} side="right">
+                                    <Link
+                                        to={to}
+                                        aria-label={
+                                            to === "/routines" && count > 0
+                                                ? `${label}, ${count} due today`
+                                                : to === "/"
+                                                  ? `${label}, ${count} items`
+                                                  : label
+                                        }
+                                        aria-current={isActive ? "page" : undefined}
+                                        className={`
                                     btn-icon relative rounded-2xl transition-colors outline-none
-                                    ${isActive
-                                        ? `${activeColor} ${activeBg}`
-                                        : `text-twilight-text-muted ${hoverColor} ${hoverBg}`
+                                    ${
+                                        isActive
+                                            ? `${activeColor} ${activeBg}`
+                                            : `text-twilight-text-muted ${hoverColor} ${hoverBg}`
                                     }
                                 `}
-                            >
-                                <Icon size={18} aria-hidden="true" />
-                                {count > 0 && <ActivityBadge count={count} className="absolute -right-1 -top-1" />}
-                                {showDot && !isActive && (
-                                    <ActivityBadge className="absolute right-1 top-1" />
-                                )}
-                            </Link>
-                        </Tip>
-                        </Fragment>
-                    );
-                })}
+                                    >
+                                        <Icon size={18} aria-hidden="true" />
+                                        {count > 0 && (
+                                            <ActivityBadge count={count} className="absolute -right-1 -top-1" />
+                                        )}
+                                        {showDot && !isActive && <ActivityBadge className="absolute right-1 top-1" />}
+                                    </Link>
+                                </Tip>
+                            </Fragment>
+                        );
+                    },
+                )}
             </nav>
-
-
 
             <Tip label="Search" side="right">
                 <button
@@ -259,7 +289,11 @@ export function IconRail({
                         <div className="flex flex-col items-center justify-center p-4 pb-3">
                             <div className="w-20 h-20 rounded-full bg-accent-primary/10 ring-1 ring-twilight-border mb-3 overflow-hidden flex items-center justify-center">
                                 {session.user.image ? (
-                                    <img src={session.user.image} alt="Profile" className="w-full h-full object-cover" />
+                                    <img
+                                        src={session.user.image}
+                                        alt="Profile"
+                                        className="w-full h-full object-cover"
+                                    />
                                 ) : (
                                     <span className="text-accent-primary text-3xl font-semibold font-display">
                                         {(session.user.name || session.user.email || "U")[0].toUpperCase()}
@@ -269,15 +303,16 @@ export function IconRail({
                             <h3 className="text-base font-medium text-twilight-text mb-0.5">
                                 {session.user.name || "Adventurer"}
                             </h3>
-                            <p className="text-sm text-twilight-text-muted">
-                                {session.user.email}
-                            </p>
+                            <p className="text-sm text-twilight-text-muted">{session.user.email}</p>
                         </div>
 
                         <DropdownMenu.Separator className="bg-twilight-border-light" />
 
                         <div className="p-1">
-                            <DropdownMenu.Item className="flex items-center gap-3 px-3 py-2.5 text-[15px] rounded-lg hover:bg-white/5 cursor-pointer outline-none transition-colors" onSelect={() => navigate("?settings=account")}>
+                            <DropdownMenu.Item
+                                className="flex items-center gap-3 px-3 py-2.5 text-[15px] rounded-lg hover:bg-white/5 cursor-pointer outline-none transition-colors"
+                                onSelect={() => navigate("?settings=account")}
+                            >
                                 <Settings size={16} className="text-twilight-text-muted" aria-hidden="true" />
                                 <span>Preferences</span>
                             </DropdownMenu.Item>
@@ -303,9 +338,7 @@ export function IconRail({
                                 onSelect={() => {
                                     void signOut().catch((error: unknown) => {
                                         toast.error(
-                                            error instanceof Error
-                                                ? error.message
-                                                : "Couldn’t sign out right now.",
+                                            error instanceof Error ? error.message : "Couldn’t sign out right now.",
                                         );
                                     });
                                 }}

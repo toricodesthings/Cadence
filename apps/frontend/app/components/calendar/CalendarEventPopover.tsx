@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, CalendarHeart, CalendarRange, CalendarX, CheckSquare, Clock, Repeat, StickyNote } from "lucide-react";
+import {
+    Calendar,
+    CalendarHeart,
+    CalendarRange,
+    CalendarX,
+    CheckSquare,
+    Clock,
+    Repeat,
+    StickyNote,
+} from "lucide-react";
 import { SegmentedControl } from "../primitives/SegmentedControl";
 import { TimePicker } from "../primitives/TimePicker";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
@@ -81,10 +90,18 @@ function buildWeeklyRule(days: WeekdayCode[], endDate: LocalDate | null) {
 }
 
 /** What a calendar block can store from typed words. */
-const TASK_BLOCK_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>(["dueDate", "scheduledStart", "scheduledEnd", "durationMinutes", "priority", "recurrenceRule"]);
+const TASK_BLOCK_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([
+    "dueDate",
+    "scheduledStart",
+    "scheduledEnd",
+    "durationMinutes",
+    "priority",
+    "recurrenceRule",
+]);
 
 /** The days of a plain weekly rule ("every Mon and Wed"), which the weekday picker can show; anything richer stays a typed rule. */
-const weeklyDaysOf = (rule: string | null) => (/^FREQ=WEEKLY;BYDAY=([A-Z,]+)$/.exec(rule ?? "")?.[1].split(",") as WeekdayCode[] | undefined) ?? null;
+const weeklyDaysOf = (rule: string | null) =>
+    (/^FREQ=WEEKLY;BYDAY=([A-Z,]+)$/.exec(rule ?? "")?.[1].split(",") as WeekdayCode[] | undefined) ?? null;
 
 type WhenRowsProps = {
     mode: ComposerMode;
@@ -103,10 +120,28 @@ type WhenRowsProps = {
     onInteractionMode: (mode: TaskInteractionMode) => void;
 };
 
-const REPEAT_OPTIONS = [{ value: "once", label: "Once" }, { value: "weekly", label: "Weekly" }] as const;
+const REPEAT_OPTIONS = [
+    { value: "once", label: "Once" },
+    { value: "weekly", label: "Weekly" },
+] as const;
 
 /** The when, as one grouped card: Starts (day + time), Ends, Repeat, and for a weekly series its days, Until and Fixed. */
-function WhenRows({ mode, onMode, date, start, end, onEdit, weekdays, onWeekdays, endDate, setEndDate, hasEndDate, setHasEndDate, interactionMode, onInteractionMode }: WhenRowsProps) {
+function WhenRows({
+    mode,
+    onMode,
+    date,
+    start,
+    end,
+    onEdit,
+    weekdays,
+    onWeekdays,
+    endDate,
+    setEndDate,
+    hasEndDate,
+    setHasEndDate,
+    interactionMode,
+    onInteractionMode,
+}: WhenRowsProps) {
     const weekly = mode === "weekly";
     const fixed = interactionMode === "timetable";
     const time = <T extends "start" | "end">(key: T, value: string, label: string) => (
@@ -128,13 +163,32 @@ function WhenRows({ mode, onMode, date, start, end, onEdit, weekdays, onWeekdays
                     />
                     {time("start", start, "Start time")}
                 </ComposerRow>
-                <ComposerRow icon={Clock} label="Ends">{time("end", end, "End time")}</ComposerRow>
-                <ComposerRow icon={Repeat} label="Repeat" detail={weekly ? <WeekdayPicker value={weekdays} onChange={onWeekdays} /> : null}>
-                    <SegmentedControl size="sm" ariaLabel="Repeat" value={mode} onChange={onMode} options={REPEAT_OPTIONS} />
+                <ComposerRow icon={Clock} label="Ends">
+                    {time("end", end, "End time")}
+                </ComposerRow>
+                <ComposerRow
+                    icon={Repeat}
+                    label="Repeat"
+                    detail={weekly ? <WeekdayPicker value={weekdays} onChange={onWeekdays} /> : null}
+                >
+                    <SegmentedControl
+                        size="sm"
+                        ariaLabel="Repeat"
+                        value={mode}
+                        onChange={onMode}
+                        options={REPEAT_OPTIONS}
+                    />
                 </ComposerRow>
                 {weekly ? (
                     <ComposerRow icon={CalendarX} label="Until">
-                        {hasEndDate ? <DatePicker label="Until" value={endDate} className={ROW_PILL} onChange={(next) => next && setEndDate(next)} /> : null}
+                        {hasEndDate ? (
+                            <DatePicker
+                                label="Until"
+                                value={endDate}
+                                className={ROW_PILL}
+                                onChange={(next) => next && setEndDate(next)}
+                            />
+                        ) : null}
                         <button
                             type="button"
                             onClick={() => {
@@ -151,7 +205,11 @@ function WhenRows({ mode, onMode, date, start, end, onEdit, weekdays, onWeekdays
             {weekly ? (
                 <ComposerToggle
                     label="Fixed"
-                    description={fixed ? "It just passes if missed. No check-off." : "Still owed if missed. Carries over until checked off."}
+                    description={
+                        fixed
+                            ? "It just passes if missed. No check-off."
+                            : "Still owed if missed. Carries over until checked off."
+                    }
                     checked={fixed}
                     onCheckedChange={(checked) => onInteractionMode(checked ? "timetable" : "task")}
                     ariaLabel="Make this a fixed block"
@@ -187,7 +245,15 @@ function useBlockWords(info: CalendarEventInfo, title: string, priority: TaskPri
     const intelligence = userSettings?.tasks?.intelligence;
     const startTime = minutesToWallTime(info.startHour * 60 + info.startMinute);
     const nlpOn = active && intelligence?.nlpEnabled !== false;
-    const typedWhen = useTypedWhen({ date: info.date, allDay: false, start: startTime, end: addMinutesToTime(startTime, info.durationMinutes ?? 60) }, nlpOn);
+    const typedWhen = useTypedWhen(
+        {
+            date: info.date,
+            allDay: false,
+            start: startTime,
+            end: addMinutesToTime(startTime, info.durationMinutes ?? 60),
+        },
+        nlpOn,
+    );
     const nlp = useNlpParse({
         input: title,
         projects: [],
@@ -240,16 +306,15 @@ function useTaskBlockComposer(info: CalendarEventInfo, active: boolean, onClose:
     const effortChoice = useComposerEffort({ title: submitTitle, projectId: null, literal, open: active });
     const { effort } = effortChoice;
 
-    const isDirty = Boolean(title.trim() || notes.trim() || mode === "weekly" || repeat.hasEndDate || priority > 0 || effort !== null);
-
-    const summary = useMemo(
-        () => {
-            if (!recurrenceRule) return null;
-            const { start, end } = blockInstants(whenStartDate, whenStartTime, whenEndTime);
-            return getTaskRecurrenceSummary({ recurrenceRule, scheduledStart: start, scheduledEnd: end });
-        },
-        [recurrenceRule, whenStartDate, whenStartTime, whenEndTime],
+    const isDirty = Boolean(
+        title.trim() || notes.trim() || mode === "weekly" || repeat.hasEndDate || priority > 0 || effort !== null,
     );
+
+    const summary = useMemo(() => {
+        if (!recurrenceRule) return null;
+        const { start, end } = blockInstants(whenStartDate, whenStartTime, whenEndTime);
+        return getTaskRecurrenceSummary({ recurrenceRule, scheduledStart: start, scheduledEnd: end });
+    }, [recurrenceRule, whenStartDate, whenStartTime, whenEndTime]);
 
     const handleTaskSubmit = useCallback(() => {
         if (!submitTitle) return;
@@ -271,7 +336,20 @@ function useTaskBlockComposer(info: CalendarEventInfo, active: boolean, onClose:
             },
             { onSuccess: onClose },
         );
-    }, [createTask, effortChoice.saved, interactionMode, nlp.fields.priority, notes, onClose, priority, recurrenceRule, submitTitle, whenEndTime, whenStartDate, whenStartTime]);
+    }, [
+        createTask,
+        effortChoice.saved,
+        interactionMode,
+        nlp.fields.priority,
+        notes,
+        onClose,
+        priority,
+        recurrenceRule,
+        submitTitle,
+        whenEndTime,
+        whenStartDate,
+        whenStartTime,
+    ]);
 
     const timeRange = formatTimeRange(whenStartTime, whenEndTime);
     return {
@@ -279,10 +357,21 @@ function useTaskBlockComposer(info: CalendarEventInfo, active: boolean, onClose:
         isDirty,
         title: `Create on ${formatShortDateLabel(whenStartDate)}`,
         subtitle: recurrenceRule ? (summary?.label ?? "Repeats every week") : timeRange,
-        submit: { onSubmit: handleTaskSubmit, submitLabel: submitLabelFor(isPending, mode), icon: CheckSquare, disabled: !submitTitle || isPending },
+        submit: {
+            onSubmit: handleTaskSubmit,
+            submitLabel: submitLabelFor(isPending, mode),
+            icon: CheckSquare,
+            disabled: !submitTitle || isPending,
+        },
         children: (
             <>
-                <ComposerTitle inputRef={titleRef} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What, and when? e.g. Lunch with Sam Fri 1pm" aria-label="Block title" />
+                <ComposerTitle
+                    inputRef={titleRef}
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    placeholder="What, and when? e.g. Lunch with Sam Fri 1pm"
+                    aria-label="Block title"
+                />
 
                 {nlpOn ? (
                     <DraftRow
@@ -341,7 +430,10 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
         open: true,
         initialDate: info.date,
         autoFocus: false,
-        onSubmit: (value) => { addPersonalEvent(value); onClose(); },
+        onSubmit: (value) => {
+            addPersonalEvent(value);
+            onClose();
+        },
     });
 
     useEffect(() => {
@@ -361,13 +453,33 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
             onChange={setTab}
             options={[
                 { id: "task", label: "Task", icon: CheckSquare },
-                { id: "event", label: "Event", icon: CalendarHeart, activeClassName: "bg-accent-nav-schedule/15 text-accent-nav-schedule" },
+                {
+                    id: "event",
+                    label: "Event",
+                    icon: CalendarHeart,
+                    activeClassName: "bg-accent-nav-schedule/15 text-accent-nav-schedule",
+                },
             ]}
         />
     );
-    const shown = tab === "task"
-        ? { title: task.title, icon: CalendarRange, tone: "primary" as const, subtitle: task.subtitle, submit: task.submit, children: task.children }
-        : { title: "Add event", icon: event.icon, tone: event.tone, subtitle: "Yearly personal event", submit: event.submit, children: event.children };
+    const shown =
+        tab === "task"
+            ? {
+                  title: task.title,
+                  icon: CalendarRange,
+                  tone: "primary" as const,
+                  subtitle: task.subtitle,
+                  submit: task.submit,
+                  children: task.children,
+              }
+            : {
+                  title: "Add event",
+                  icon: event.icon,
+                  tone: event.tone,
+                  subtitle: "Yearly personal event",
+                  submit: event.submit,
+                  children: event.children,
+              };
 
     return (
         <Composer

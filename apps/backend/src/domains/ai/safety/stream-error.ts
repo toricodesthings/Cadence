@@ -57,9 +57,7 @@ function isTimeoutLike(error: unknown): boolean {
 /** Extract an HTTP-ish status code from an arbitrary error shape, if present. */
 function statusOf(error: unknown): number | undefined {
     if (error && typeof error === "object") {
-        const candidate =
-            (error as { status?: unknown }).status ??
-            (error as { statusCode?: unknown }).statusCode;
+        const candidate = (error as { status?: unknown }).status ?? (error as { statusCode?: unknown }).statusCode;
         if (typeof candidate === "number") return candidate;
     }
     return undefined;

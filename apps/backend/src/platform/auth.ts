@@ -114,7 +114,9 @@ export async function markAccountDeleted(env: Env, userId: string): Promise<void
  */
 async function ensureUserExists(env: Env, userId: string) {
     if (ensuredUsers.has(userId)) return;
-    const deleted = await getRateLimitRedis(env)?.get(deletedKey(await hashIdentifier(userId))).catch(() => null);
+    const deleted = await getRateLimitRedis(env)
+        ?.get(deletedKey(await hashIdentifier(userId)))
+        .catch(() => null);
     if (deleted) throw new AppError(401, "UNAUTHORIZED", "This account was deleted");
     const db = getDbClient(env);
     await withRls(db, userId, async (tx) => {
@@ -139,7 +141,11 @@ function keySetFor(jwksUrl: string) {
 /** A failure fetching the key set is worth retrying; a bad token is not. */
 function isTransientKeyFailure(err: unknown) {
     const { code, message } = (err ?? {}) as { code?: string; message?: string };
-    return code === "ERR_JOSE_GENERIC" || code === "ERR_JWKS_TIMEOUT" || Boolean(message?.includes("fetch") || message?.includes("network"));
+    return (
+        code === "ERR_JOSE_GENERIC" ||
+        code === "ERR_JWKS_TIMEOUT" ||
+        Boolean(message?.includes("fetch") || message?.includes("network"))
+    );
 }
 
 const MAX_VERIFY_ATTEMPTS = 3;
@@ -170,11 +176,7 @@ export async function verifyAppToken(env: Env, token: string): Promise<{ userId:
         // trusted issuer. Without it, jwtVerify degrades into a bare signature
         // check. Neon Auth tokens carry no `aud` claim, so there is none to check.
         if (getDeploymentStage(env) !== "development" && !expectedIssuer) {
-            throw new AppError(
-                500,
-                "AUTH_MISCONFIGURED",
-                "JWT_ISSUER must be configured outside development",
-            );
+            throw new AppError(500, "AUTH_MISCONFIGURED", "JWT_ISSUER must be configured outside development");
         }
 
         const payload = await verifyToken(token, keySetFor(jwksUrl), {

@@ -13,24 +13,39 @@ const documents = [
     { id: "rent", title: "Pay rent" },
     { id: "course", title: "COMP3005 Assignment 1" },
     { id: "note", title: "Retrospective", notes: "Review 0.31.0 and follow up" },
-    { id: "passport", title: "Renew passport", subtasks: "Book appointment", tags: "Travel", notes: "Bring photograph" },
+    {
+        id: "passport",
+        title: "Renew passport",
+        subtasks: "Book appointment",
+        tags: "Travel",
+        notes: "Bring photograph",
+    },
 ];
 const index = createSearchIndex(documents);
 const ids = (query: string, options = {}) => index.search(query, options).map((hit) => hit.id);
 
 describe("shared conservative search", () => {
-    it.each(["implementation 0.31.0", "implementing v0.31.0", '“implementation 0.31.0”,', "CS App Projects Cadence implementation 0.31.0"])("finds %s", (query) => {
+    it.each([
+        "implementation 0.31.0",
+        "implementing v0.31.0",
+        "“implementation 0.31.0”,",
+        "CS App Projects Cadence implementation 0.31.0",
+    ])("finds %s", (query) => {
         expect(ids(query)).toEqual(["release"]);
     });
     it("ranks title identity ahead of a note reference", () => expect(ids("0.31.0")).toEqual(["release", "note"]));
-    it.each(["0.33.0", "0.31", "0,31.0", "0.31.0 0.32.0", "implementation nonexistent", "!!!", "_"])("never invents a result for %s", (query) => {
-        expect(ids(query, { prefix: true, fuzzy: true })).toEqual([]);
-    });
+    it.each(["0.33.0", "0.31", "0,31.0", "0.31.0 0.32.0", "implementation nonexistent", "!!!", "_"])(
+        "never invents a result for %s",
+        (query) => {
+            expect(ids(query, { prefix: true, fuzzy: true })).toEqual([]);
+        },
+    );
     it("requires every word even after the eighth", () => {
         const long = createSearchIndex([{ id: "long", title: "one two three four five six seven eight" }]);
         expect(long.search("one two three four five six seven eight nonexistent")).toEqual([]);
     });
-    it("does not turn rent into parent, even with spelling tolerance", () => expect(ids("rent", { fuzzy: true, prefix: true })).toEqual(["rent"]));
+    it("does not turn rent into parent, even with spelling tolerance", () =>
+        expect(ids("rent", { fuzzy: true, prefix: true })).toEqual(["rent"]));
     it("keeps numeric course identity, with a separate course family alias", () => {
         expect(ids("COMP3005 assignment")).toEqual(["course"]);
         expect(ids("comp assignment")).toEqual(["course"]);
@@ -41,13 +56,19 @@ describe("shared conservative search", () => {
         expect(index.search("passport booking")[0]?.fields).toContain("subtasks");
     });
     it("allows a one-letter typo only as an approximate result", () => {
-        expect(index.search("implmentation 0.31.0", { fuzzy: true })[0]).toMatchObject({ id: "release", approximate: true });
+        expect(index.search("implmentation 0.31.0", { fuzzy: true })[0]).toMatchObject({
+            id: "release",
+            approximate: true,
+        });
         expect(ids("passpork")).toEqual([]);
         expect(index.search("passpork", { fuzzy: true })[0]).toMatchObject({ id: "passport", approximate: true });
         expect(ids("passxxxx", { fuzzy: true })).toEqual([]);
     });
     it("keeps distinct derivational meanings separate", () => {
-        const meanings = createSearchIndex([{ id: "a", title: "Review university organization" }, { id: "b", title: "Review universe organ" }]);
+        const meanings = createSearchIndex([
+            { id: "a", title: "Review university organization" },
+            { id: "b", title: "Review universe organ" },
+        ]);
         expect(meanings.search("universities organizations").map((hit) => hit.id)).toEqual(["a"]);
         expect(meanings.search("universes organs").map((hit) => hit.id)).toEqual(["b"]);
     });
@@ -69,7 +90,10 @@ describe("shared conservative search", () => {
         expect(prose.search("0.31", { prefix: true, fuzzy: true })).toEqual([]);
     });
     it("keeps symbols literal and supports unicode words", () => {
-        const symbols = createSearchIndex([{ id: "a", title: "C++ résumé 100%" }, { id: "b", title: "C resume 1000" }]);
+        const symbols = createSearchIndex([
+            { id: "a", title: "C++ résumé 100%" },
+            { id: "b", title: "C resume 1000" },
+        ]);
         expect(symbols.search("C++ résumé").map((hit) => hit.id)).toEqual(["a"]);
         expect(symbols.search("100%", { prefix: true, fuzzy: true }).map((hit) => hit.id)).toEqual(["a"]);
         expect(searchTerms("!!!")).toEqual([]);

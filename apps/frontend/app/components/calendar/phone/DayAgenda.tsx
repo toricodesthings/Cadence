@@ -6,7 +6,15 @@ import type { PersonalEvent } from "../../../types/settings";
 import { atLocal, type Instant, type LocalDate } from "@cadence/domain/time";
 import { formatTime } from "../../../lib/utils/date-format";
 import { getUserZone, useToday } from "../../../lib/utils/user-zone";
-import { formatDuration, freeGaps, itemEnd, itemStart, scheduleKind, splitDay, type FreeGap } from "../../../lib/utils/calendar/schedule-day";
+import {
+    formatDuration,
+    freeGaps,
+    itemEnd,
+    itemStart,
+    scheduleKind,
+    splitDay,
+    type FreeGap,
+} from "../../../lib/utils/calendar/schedule-day";
 import { useMinuteClock } from "../../../hooks/ui/use-realtime-clock";
 import { useLaterToday } from "../../../hooks/tasks/use-find-time";
 import { Reveal } from "../../shared/Reveal";
@@ -41,7 +49,12 @@ function nextQuarter(date: Date): Instant {
     return new Date(Math.ceil(date.getTime() / QUARTER_MS) * QUARTER_MS).toISOString();
 }
 
-type FoldProps = { label: string; open: boolean; setOpen: React.Dispatch<React.SetStateAction<boolean>>; children: React.ReactNode };
+type FoldProps = {
+    label: string;
+    open: boolean;
+    setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    children: React.ReactNode;
+};
 
 /** A folded group behind one toggle row ("3 done", "Earlier today"). */
 function Fold({ label, open, setOpen, children }: FoldProps) {
@@ -53,7 +66,11 @@ function Fold({ label, open, setOpen, children }: FoldProps) {
                 aria-expanded={open}
                 className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-2xl px-3 text-[13px] text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
             >
-                <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${open ? "rotate-180" : ""}`} />
+                <ChevronDown
+                    size={14}
+                    aria-hidden="true"
+                    className={`transition-transform ${open ? "rotate-180" : ""}`}
+                />
                 {label}
             </button>
             <Reveal open={open}>{children}</Reveal>
@@ -77,7 +94,10 @@ function GapRow({ gap, onAddAt }: { gap: FreeGap; onAddAt: DayAgendaProps["onAdd
                 Free until {formatTime(gap.end.toISOString())}
                 <span className="text-twilight-text-muted"> · {formatDuration(gap.minutes)}</span>
             </span>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-twilight-text-soft transition-colors group-hover:bg-white/[0.06] group-hover:text-accent-primary" aria-hidden="true">
+            <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-twilight-text-soft transition-colors group-hover:bg-white/[0.06] group-hover:text-accent-primary"
+                aria-hidden="true"
+            >
                 <Plus size={16} />
             </span>
         </button>
@@ -116,7 +136,10 @@ function DayMarkerPills({ holidays, isBirthday, personalEvents }: DayMarkerPills
     return (
         <div className="flex flex-wrap gap-1.5 px-1 pt-3">
             {holidays.map((holiday) => (
-                <span key={holiday.name} className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-solstice/20 bg-solstice/12 px-3 text-xs font-medium text-solstice">
+                <span
+                    key={holiday.name}
+                    className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-solstice/20 bg-solstice/12 px-3 text-xs font-medium text-solstice"
+                >
                     <Flag size={12} strokeWidth={2.2} aria-hidden="true" />
                     {holiday.name}
                 </span>
@@ -127,7 +150,10 @@ function DayMarkerPills({ holidays, isBirthday, personalEvents }: DayMarkerPills
                 </span>
             ) : null}
             {personalEvents.map((event) => (
-                <span key={event.id} className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 text-xs font-medium text-accent-nav-schedule">
+                <span
+                    key={event.id}
+                    className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 text-xs font-medium text-accent-nav-schedule"
+                >
                     <span aria-hidden="true">{event.emoji ?? "✦"}</span> {event.label}
                 </span>
             ))}
@@ -205,8 +231,10 @@ export function DayAgenda({
             earlier,
             upcoming,
             gapsAfter,
-            current: isToday ? upcoming.find((task) => scheduleKind(task) !== "routine" && itemStart(task) <= now) ?? null : null,
-            next: isToday ? upcoming.find((task) => itemStart(task) > now) ?? null : null,
+            current: isToday
+                ? (upcoming.find((task) => scheduleKind(task) !== "routine" && itemStart(task) <= now) ?? null)
+                : null,
+            next: isToday ? (upcoming.find((task) => itemStart(task) > now) ?? null) : null,
         };
     }, [isToday, now, tasks]);
 
@@ -236,7 +264,9 @@ export function DayAgenda({
 
     return (
         <div ref={scrollRef} onScroll={handleScroll} className="touch-scroll-y h-full min-h-0 px-3 pb-36">
-            {hasMarkers ? <DayMarkerPills holidays={holidays} isBirthday={isBirthday} personalEvents={personalEvents} /> : null}
+            {hasMarkers ? (
+                <DayMarkerPills holidays={holidays} isBirthday={isBirthday} personalEvents={personalEvents} />
+            ) : null}
 
             {hasReady && dateIso >= todayIso && onOpenReady ? (
                 <button
@@ -257,7 +287,9 @@ export function DayAgenda({
                     <h3 className={SECTION_LABEL}>Any time</h3>
                     {allDayOpen.map((task) => row(task))}
                     {allDayDone.length > 0 ? (
-                        <Fold label={`${allDayDone.length} done`} open={showDoneRoutines} setOpen={setShowDoneRoutines}>{allDayDone.map((task) => row(task))}</Fold>
+                        <Fold label={`${allDayDone.length} done`} open={showDoneRoutines} setOpen={setShowDoneRoutines}>
+                            {allDayDone.map((task) => row(task))}
+                        </Fold>
                     ) : null}
                 </section>
             ) : null}
@@ -266,7 +298,9 @@ export function DayAgenda({
                 <section aria-label="Timeline">
                     {allDay.length > 0 || hasMarkers ? <h3 className={SECTION_LABEL}>Timeline</h3> : null}
                     {earlier.length > 0 ? (
-                        <Fold label="Earlier today" open={showEarlier} setOpen={setShowEarlier}>{earlier.map((task) => row(task, true))}</Fold>
+                        <Fold label="Earlier today" open={showEarlier} setOpen={setShowEarlier}>
+                            {earlier.map((task) => row(task, true))}
+                        </Fold>
                     ) : null}
                     {isToday && (nowIndex === 0 || upcoming.length === 0) ? nowLine : null}
                     {nowGap ? gapRow(nowGap) : null}

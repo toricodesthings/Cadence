@@ -74,48 +74,134 @@ export type UsageEvent = TrackEvent["event"];
 // Fixed dimensions keep browser telemetry private and useful for percentile graphs.
 // `chunks` and `hydrate` are only sent by revision ≤ 2 clients. Revision 3 adds `boot`
 // (navigation → session start) and gives `api` rows their start offset as `elapsed_ms`.
-export const STARTUP_PHASES = ["boot", "session", "restore", "jwt", "required_data", "chunks", "reveal", "visible_assets", "api", "api_body", "hydrate", "reveal_frame"] as const;
-export const STARTUP_ROUTES = ["capture", "today", "schedule", "routines", "list", "tag", "upcoming", "completed", "trash", "events", "browse", "weekly_reset", "other"] as const;
+export const STARTUP_PHASES = [
+    "boot",
+    "session",
+    "restore",
+    "jwt",
+    "required_data",
+    "chunks",
+    "reveal",
+    "visible_assets",
+    "api",
+    "api_body",
+    "hydrate",
+    "reveal_frame",
+] as const;
+export const STARTUP_ROUTES = [
+    "capture",
+    "today",
+    "schedule",
+    "routines",
+    "list",
+    "tag",
+    "upcoming",
+    "completed",
+    "trash",
+    "events",
+    "browse",
+    "weekly_reset",
+    "other",
+] as const;
 /** `provisional`: revealed from the saved workspace before the session check answered. */
 export const PERFORMANCE_CACHE_CLASSES = ["warm", "cold", "provisional", "unknown"] as const;
 export const PERFORMANCE_PLATFORMS = ["web", "desktop"] as const;
 export const PERFORMANCE_VIEWPORTS = ["compact", "wide"] as const;
-export const PERFORMANCE_CATEGORIES = ["workspace", "tasks", "projects", "tags", "inbox", "habits", "settings", "subtasks", "appearance", "other"] as const;
-export const PERFORMANCE_ENDPOINTS = ["workspace", "tasks_open", "tasks_capture", "tasks_schedule", "tasks_history", "tasks_batch", "task_detail", "settings", "notification_state", "focus_views", "inbox_clarifying", "inbox_kept", "habits_range", "habits", "projects", "tags", "subtasks", "appearance", "proxy", "debug_capabilities", "other"] as const;
-export const performanceSampleSchema = z.object({
-    // Old clients retain their historical timing definitions and an explicit legacy cohort.
-    measurement_revision: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1),
-    build_id: z.string().regex(/^[a-z0-9]{1,32}$/).optional(),
-    version: z.string().regex(/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/).max(40).optional(),
-    endpoint: z.enum(PERFORMANCE_ENDPOINTS).optional(),
-    status: z.number().int().min(100).max(599).optional(),
-    error_code: clientErrorCodeSchema.optional(),
-    phase: z.enum(STARTUP_PHASES),
-    route: z.enum(STARTUP_ROUTES),
-    duration_ms: z.number().finite().min(0).max(600_000),
-    elapsed_ms: z.number().finite().min(0).max(600_000),
-    cache: z.enum(PERFORMANCE_CACHE_CLASSES),
-    outcome: z.enum(["ready", "network_unavailable", "error", "timeout"]),
-    platform: z.enum(PERFORMANCE_PLATFORMS),
-    viewport: z.enum(PERFORMANCE_VIEWPORTS),
-    category: z.enum(PERFORMANCE_CATEGORIES).default("workspace"),
-    count: z.number().int().min(0).max(10_000).default(0),
-    encoded_bytes: z.number().int().min(0).max(100_000_000).default(0),
-    decoded_bytes: z.number().int().min(0).max(100_000_000).default(0),
-}).strict();
-export const performanceBatchSchema = z.object({ samples: z.array(performanceSampleSchema).min(1).max(TRACK_BATCH_MAX) }).strict();
+export const PERFORMANCE_CATEGORIES = [
+    "workspace",
+    "tasks",
+    "projects",
+    "tags",
+    "inbox",
+    "habits",
+    "settings",
+    "subtasks",
+    "appearance",
+    "other",
+] as const;
+export const PERFORMANCE_ENDPOINTS = [
+    "workspace",
+    "tasks_open",
+    "tasks_capture",
+    "tasks_schedule",
+    "tasks_history",
+    "tasks_batch",
+    "task_detail",
+    "settings",
+    "notification_state",
+    "focus_views",
+    "inbox_clarifying",
+    "inbox_kept",
+    "habits_range",
+    "habits",
+    "projects",
+    "tags",
+    "subtasks",
+    "appearance",
+    "proxy",
+    "debug_capabilities",
+    "other",
+] as const;
+export const performanceSampleSchema = z
+    .object({
+        // Old clients retain their historical timing definitions and an explicit legacy cohort.
+        measurement_revision: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1),
+        build_id: z
+            .string()
+            .regex(/^[a-z0-9]{1,32}$/)
+            .optional(),
+        version: z
+            .string()
+            .regex(/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/)
+            .max(40)
+            .optional(),
+        endpoint: z.enum(PERFORMANCE_ENDPOINTS).optional(),
+        status: z.number().int().min(100).max(599).optional(),
+        error_code: clientErrorCodeSchema.optional(),
+        phase: z.enum(STARTUP_PHASES),
+        route: z.enum(STARTUP_ROUTES),
+        duration_ms: z.number().finite().min(0).max(600_000),
+        elapsed_ms: z.number().finite().min(0).max(600_000),
+        cache: z.enum(PERFORMANCE_CACHE_CLASSES),
+        outcome: z.enum(["ready", "network_unavailable", "error", "timeout"]),
+        platform: z.enum(PERFORMANCE_PLATFORMS),
+        viewport: z.enum(PERFORMANCE_VIEWPORTS),
+        category: z.enum(PERFORMANCE_CATEGORIES).default("workspace"),
+        count: z.number().int().min(0).max(10_000).default(0),
+        encoded_bytes: z.number().int().min(0).max(100_000_000).default(0),
+        decoded_bytes: z.number().int().min(0).max(100_000_000).default(0),
+    })
+    .strict();
+export const performanceBatchSchema = z
+    .object({ samples: z.array(performanceSampleSchema).min(1).max(TRACK_BATCH_MAX) })
+    .strict();
 export type PerformanceSample = z.infer<typeof performanceSampleSchema>;
 
 // No messages, stacks, URLs, user content or arbitrary client fields in error reports.
 export const CLIENT_ERROR_KINDS = ["render", "runtime", "unhandled_rejection", "query", "mutation", "action"] as const;
-export const CLIENT_ERROR_NAMES = ["Error", "TypeError", "ReferenceError", "RangeError", "SyntaxError", "ChunkLoadError", "Other"] as const;
-export const clientErrorSchema = z.object({
-    kind: z.enum(CLIENT_ERROR_KINDS),
-    name: z.enum(CLIENT_ERROR_NAMES),
-    code: errorCodeSchema.optional(),
-    route: z.enum(STARTUP_ROUTES),
-    platform: z.enum(PERFORMANCE_PLATFORMS),
-    version: z.string().regex(/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/).max(40),
-}).strict();
-export const clientErrorBatchSchema = z.object({ errors: z.array(clientErrorSchema).min(1).max(TRACK_BATCH_MAX) }).strict();
+export const CLIENT_ERROR_NAMES = [
+    "Error",
+    "TypeError",
+    "ReferenceError",
+    "RangeError",
+    "SyntaxError",
+    "ChunkLoadError",
+    "Other",
+] as const;
+export const clientErrorSchema = z
+    .object({
+        kind: z.enum(CLIENT_ERROR_KINDS),
+        name: z.enum(CLIENT_ERROR_NAMES),
+        code: errorCodeSchema.optional(),
+        route: z.enum(STARTUP_ROUTES),
+        platform: z.enum(PERFORMANCE_PLATFORMS),
+        version: z
+            .string()
+            .regex(/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/)
+            .max(40),
+    })
+    .strict();
+export const clientErrorBatchSchema = z
+    .object({ errors: z.array(clientErrorSchema).min(1).max(TRACK_BATCH_MAX) })
+    .strict();
 export type ClientError = z.infer<typeof clientErrorSchema>;

@@ -3,7 +3,12 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 import { RouteErrorBoundary } from "../../../app/components/shared/RouteErrorBoundary";
 
-const renderErrorBoundary = (error: unknown) => render(<MemoryRouter><RouteErrorBoundary error={error} /></MemoryRouter>);
+const renderErrorBoundary = (error: unknown) =>
+    render(
+        <MemoryRouter>
+            <RouteErrorBoundary error={error} />
+        </MemoryRouter>,
+    );
 
 describe("RouteErrorBoundary", () => {
     it("renders a generic error message for unknown errors", () => {

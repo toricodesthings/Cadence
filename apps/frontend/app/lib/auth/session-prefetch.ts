@@ -4,10 +4,14 @@ import { WORKSPACE_PREFIXES } from "./workspace-path";
 export type PrefetchedSession = { user: { id: string }; session: { token?: string } } | null;
 
 declare global {
-    interface Window { __cadenceSession?: Promise<PrefetchedSession> }
+    interface Window {
+        __cadenceSession?: Promise<PrefetchedSession>;
+    }
 }
 
-const paths = WORKSPACE_PREFIXES.filter((prefix) => prefix !== "/").map((prefix) => prefix.slice(1)).join("|");
+const paths = WORKSPACE_PREFIXES.filter((prefix) => prefix !== "/")
+    .map((prefix) => prefix.slice(1))
+    .join("|");
 
 /**
  * Inline head script (deployed web, workspace paths only): starts the session check

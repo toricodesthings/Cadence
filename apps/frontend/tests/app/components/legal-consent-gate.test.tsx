@@ -15,7 +15,9 @@ vi.mock("../../../app/hooks/core/use-settings", () => ({
     useSettings: () => ({ data: state.settings, dataUpdatedAt: state.dataUpdatedAt }),
     useUpdateSettings: () => ({ mutateAsync: state.mutateAsync }),
 }));
-vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ completeSignOut: state.completeSignOut }) }));
+vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
+    useAuthState: () => ({ completeSignOut: state.completeSignOut }),
+}));
 vi.mock("../../../app/lib/utils/error-toast", () => ({ toastError: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
 
@@ -33,7 +35,9 @@ describe("LegalConsentGate", () => {
         expect(cont.hasAttribute("disabled")).toBe(true);
         fireEvent.click(screen.getByRole("checkbox"));
         fireEvent.click(cont);
-        expect(state.mutateAsync).toHaveBeenCalledWith({ privacy: { legalAcceptedAt: expect.any(String), legalVersion: LEGAL_VERSION } });
+        expect(state.mutateAsync).toHaveBeenCalledWith({
+            privacy: { legalAcceptedAt: expect.any(String), legalVersion: LEGAL_VERSION },
+        });
     });
 
     it("stays away once the current version is accepted, and while only the device's cached copy is showing", () => {

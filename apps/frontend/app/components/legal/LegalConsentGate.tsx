@@ -32,17 +32,21 @@ export function LegalConsentGate() {
         if (!needed || autoRecorded.current) return;
         autoRecorded.current = true;
         const at = takeSignUpTicks();
-        if (at) void record(at).catch(() => { autoRecorded.current = false; });
+        if (at)
+            void record(at).catch(() => {
+                autoRecorded.current = false;
+            });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [needed]);
 
-    const accept = () => startTransition(async () => {
-        try {
-            await record(new Date().toISOString());
-        } catch (error) {
-            toastError(error, "Couldn't save that. Try again.");
-        }
-    });
+    const accept = () =>
+        startTransition(async () => {
+            try {
+                await record(new Date().toISOString());
+            } catch (error) {
+                toastError(error, "Couldn't save that. Try again.");
+            }
+        });
 
     return (
         <AlertDialog.Root open={needed}>
@@ -59,7 +63,9 @@ export function LegalConsentGate() {
                     </ConsentCheck>
                 </div>
                 <AlertDialog.Footer>
-                    <Button variant="ghost" size="md" disabled={pending} onClick={() => void completeSignOut()}>Sign out</Button>
+                    <Button variant="ghost" size="md" disabled={pending} onClick={() => void completeSignOut()}>
+                        Sign out
+                    </Button>
                     <Button size="md" disabled={!ticked || pending} onClick={() => void accept()}>
                         {pending ? "Saving…" : "Continue"}
                     </Button>

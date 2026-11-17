@@ -6,7 +6,15 @@ const CACHE_PREFIX = "cadence:device-location:";
 
 function fakePosition(latitude: number, longitude: number) {
     return {
-        coords: { latitude, longitude, accuracy: 10, altitude: null, altitudeAccuracy: null, heading: null, speed: null },
+        coords: {
+            latitude,
+            longitude,
+            accuracy: 10,
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+        },
         timestamp: Date.now(),
     } as unknown as GeolocationPosition;
 }
@@ -18,15 +26,13 @@ function installGeolocation({
     permission?: PermissionState;
     outcome?: "granted" | "denied" | "timeout";
 } = {}) {
-    const getCurrentPosition = vi.fn((
-        success: PositionCallback,
-        failure?: PositionErrorCallback | null,
-        _options?: PositionOptions,
-    ) => {
-        if (outcome === "denied") failure?.({ code: 1, message: "denied" } as GeolocationPositionError);
-        else if (outcome === "timeout") failure?.({ code: 3, message: "timeout" } as GeolocationPositionError);
-        else success(fakePosition(43.653226, -79.383184));
-    });
+    const getCurrentPosition = vi.fn(
+        (success: PositionCallback, failure?: PositionErrorCallback | null, _options?: PositionOptions) => {
+            if (outcome === "denied") failure?.({ code: 1, message: "denied" } as GeolocationPositionError);
+            else if (outcome === "timeout") failure?.({ code: 3, message: "timeout" } as GeolocationPositionError);
+            else success(fakePosition(43.653226, -79.383184));
+        },
+    );
     Object.defineProperty(window.navigator, "geolocation", { configurable: true, value: { getCurrentPosition } });
 
     const status: { state: PermissionState; onchange: (() => void) | null } = { state: permission, onchange: null };

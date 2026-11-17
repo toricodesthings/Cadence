@@ -34,7 +34,13 @@ describe("task notes", () => {
         const { status, body } = await notes("PATCH", `/tasks/${taskId}/note`, { body: "# Plan\n\nShip the thing" });
 
         expect(status).toBe(200);
-        expect(body.data).toMatchObject({ body: "# Plan\n\nShip the thing", excerpt: "Plan Ship the thing", wordCount: 5, headingCount: 1, version: 1 });
+        expect(body.data).toMatchObject({
+            body: "# Plan\n\nShip the thing",
+            excerpt: "Plan Ship the thing",
+            wordCount: 5,
+            headingCount: 1,
+            version: 1,
+        });
         expect((await notes("GET", `/tasks/${taskId}/note`)).body.data.id).toBe(body.data.id);
     });
 
@@ -52,8 +58,14 @@ describe("task notes", () => {
         await notes("PATCH", `/tasks/${taskId}/note`, { body: "v1" });
         const { body: served } = await notes("GET", `/tasks/${taskId}/note`);
 
-        expect((await notes("PATCH", `/tasks/${taskId}/note`, { body: "v2", expectedUpdatedAt: served.data.updatedAt })).status).toBe(200);
-        expect((await notes("PATCH", `/tasks/${taskId}/note`, { body: "v3", expectedUpdatedAt: served.data.updatedAt })).status).toBe(409);
+        expect(
+            (await notes("PATCH", `/tasks/${taskId}/note`, { body: "v2", expectedUpdatedAt: served.data.updatedAt }))
+                .status,
+        ).toBe(200);
+        expect(
+            (await notes("PATCH", `/tasks/${taskId}/note`, { body: "v3", expectedUpdatedAt: served.data.updatedAt }))
+                .status,
+        ).toBe(409);
         expect((await notes("GET", `/tasks/${taskId}/note`)).body.data.body).toBe("v2");
     });
 
@@ -79,49 +91,49 @@ describe("task notes", () => {
         expect((await otherNotes("GET", `/tasks/${theirs}/note`)).body.data.body).toBe("private");
     });
 
-describe("guarded and retried note writes", () => {
-    const patch = (taskId: string, json: object, key?: string) =>
-        notes("PATCH", `/tasks/${taskId}/note`, json, key ? { "Idempotency-Key": key } : undefined);
+    describe("guarded and retried note writes", () => {
+        const patch = (taskId: string, json: object, key?: string) =>
+            notes("PATCH", `/tasks/${taskId}/note`, json, key ? { "Idempotency-Key": key } : undefined);
 
-    it("honors expectedVersion, including 0 for creation", async () => {
-        const taskId = await newTask();
-        expect((await patch(taskId, { body: "a", expectedVersion: 1 })).status).toBe(409);
-        expect((await patch(taskId, { body: "a", expectedVersion: 0 })).body.data.version).toBe(1);
-        expect((await patch(taskId, { body: "b", expectedVersion: 0 })).status).toBe(409);
-        expect((await patch(taskId, { body: "b", expectedVersion: 1 })).body.data.version).toBe(2);
+        it("honors expectedVersion, including 0 for creation", async () => {
+            const taskId = await newTask();
+            expect((await patch(taskId, { body: "a", expectedVersion: 1 })).status).toBe(409);
+            expect((await patch(taskId, { body: "a", expectedVersion: 0 })).body.data.version).toBe(1);
+            expect((await patch(taskId, { body: "b", expectedVersion: 0 })).status).toBe(409);
+            expect((await patch(taskId, { body: "b", expectedVersion: 1 })).body.data.version).toBe(2);
+        });
+
+        it("lets exactly one of several same-revision writers win, without a 500", async () => {
+            const taskId = await newTask();
+            const first = await Promise.all(["x", "y", "z"].map((body) => patch(taskId, { body, expectedVersion: 0 })));
+            expect(first.map((r) => r.status).sort()).toEqual([200, 409, 409]);
+            const second = await Promise.all(["p", "q"].map((body) => patch(taskId, { body, expectedVersion: 1 })));
+            expect(second.map((r) => r.status).sort()).toEqual([200, 409]);
+            expect((await notes("GET", `/tasks/${taskId}/note`)).body.data.version).toBe(2);
+        });
+
+        it("replays the first answer to a retried operation id instead of a second revision", async () => {
+            const taskId = await newTask();
+            const first = await patch(taskId, { body: "one", expectedVersion: 0 }, "op-1");
+            await patch(taskId, { body: "two", expectedVersion: 1 });
+
+            const retry = await patch(taskId, { body: "one", expectedVersion: 0 }, "op-1");
+
+            expect(retry.status).toBe(200);
+            expect(retry.body.data).toEqual(first.body.data);
+            expect((await notes("GET", `/tasks/${taskId}/note`)).body.data).toMatchObject({ body: "two", version: 2 });
+        });
+
+        it("rejects an operation id reused for a different edit", async () => {
+            const taskId = await newTask();
+            await patch(taskId, { body: "one", expectedVersion: 0 }, "op-2");
+            expect((await patch(taskId, { body: "other", expectedVersion: 0 }, "op-2")).status).toBe(422);
+        });
+
+        it("doesn't bump the revision when the body is unchanged", async () => {
+            const taskId = await newTask();
+            await patch(taskId, { body: "same" });
+            expect((await patch(taskId, { body: "same", expectedVersion: 1 })).body.data.version).toBe(1);
+        });
     });
-
-    it("lets exactly one of several same-revision writers win, without a 500", async () => {
-        const taskId = await newTask();
-        const first = await Promise.all(["x", "y", "z"].map((body) => patch(taskId, { body, expectedVersion: 0 })));
-        expect(first.map((r) => r.status).sort()).toEqual([200, 409, 409]);
-        const second = await Promise.all(["p", "q"].map((body) => patch(taskId, { body, expectedVersion: 1 })));
-        expect(second.map((r) => r.status).sort()).toEqual([200, 409]);
-        expect((await notes("GET", `/tasks/${taskId}/note`)).body.data.version).toBe(2);
-    });
-
-    it("replays the first answer to a retried operation id instead of a second revision", async () => {
-        const taskId = await newTask();
-        const first = await patch(taskId, { body: "one", expectedVersion: 0 }, "op-1");
-        await patch(taskId, { body: "two", expectedVersion: 1 });
-
-        const retry = await patch(taskId, { body: "one", expectedVersion: 0 }, "op-1");
-
-        expect(retry.status).toBe(200);
-        expect(retry.body.data).toEqual(first.body.data);
-        expect((await notes("GET", `/tasks/${taskId}/note`)).body.data).toMatchObject({ body: "two", version: 2 });
-    });
-
-    it("rejects an operation id reused for a different edit", async () => {
-        const taskId = await newTask();
-        await patch(taskId, { body: "one", expectedVersion: 0 }, "op-2");
-        expect((await patch(taskId, { body: "other", expectedVersion: 0 }, "op-2")).status).toBe(422);
-    });
-
-    it("doesn't bump the revision when the body is unchanged", async () => {
-        const taskId = await newTask();
-        await patch(taskId, { body: "same" });
-        expect((await patch(taskId, { body: "same", expectedVersion: 1 })).body.data.version).toBe(1);
-    });
-});
 });

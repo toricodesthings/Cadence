@@ -21,7 +21,8 @@ let otherHabits: ReturnType<typeof apiAs>;
 let userId: string;
 
 /** The caller's zone is the account's (`users.time_zone`), never a request parameter. */
-const setZone = (zone: string) => asOwner((pg) => pg.query("UPDATE users SET time_zone = $2 WHERE id = $1", [userId, zone]));
+const setZone = (zone: string) =>
+    asOwner((pg) => pg.query("UPDATE users SET time_zone = $2 WHERE id = $1", [userId, zone]));
 
 beforeAll(startTestDb);
 beforeEach(async () => {
@@ -39,10 +40,16 @@ async function create(body: Record<string, unknown> = {}, client = habits) {
 
 /** Makes a habit look `days` old so past occurrences exist to resolve. */
 async function backdate(habitId: string, days: number) {
-    await asOwner((pg) => pg.query("UPDATE habits SET created_at = created_at - make_interval(days => $2) WHERE id = $1", [habitId, days]));
+    await asOwner((pg) =>
+        pg.query("UPDATE habits SET created_at = created_at - make_interval(days => $2) WHERE id = $1", [
+            habitId,
+            days,
+        ]),
+    );
 }
 
-const resolve = (id: string, targetDate: string, status: string) => habits("POST", `/${id}/resolve`, { targetDate, status });
+const resolve = (id: string, targetDate: string, status: string) =>
+    habits("POST", `/${id}/resolve`, { targetDate, status });
 
 describe("creating and listing habits", () => {
     it("guards writes, old stored rules, and streak updates while allowing repair", async () => {
@@ -51,7 +58,9 @@ describe("creating and listing habits", () => {
         expect(rejected.body.error.code).toBe("INVALID_RECURRENCE_RULE");
         const habit = await create();
         expect((await habits("PATCH", `/${habit.id}`, { recurrenceRule: "FREQ=DAILY;INTERVAL=-1" })).status).toBe(400);
-        await asOwner((pg) => pg.query("UPDATE habits SET recurrence_rule = $2 WHERE id = $1", [habit.id, "FREQ=SECONDLY"]));
+        await asOwner((pg) =>
+            pg.query("UPDATE habits SET recurrence_rule = $2 WHERE id = $1", [habit.id, "FREQ=SECONDLY"]),
+        );
 
         const read = await habits("GET", `/weekly?start=${day()}&end=${day(6)}`);
         expect(read.status).toBe(400);
@@ -67,13 +76,21 @@ describe("creating and listing habits", () => {
 
         const habit = await create({ tagIds: [tag.data.id] });
 
-        expect(habit).toMatchObject({ title: "Stretch", archived: false, currentStreak: 0, totalCompletions: 0, tagIds: [tag.data.id] });
+        expect(habit).toMatchObject({
+            title: "Stretch",
+            archived: false,
+            currentStreak: 0,
+            totalCompletions: 0,
+            tagIds: [tag.data.id],
+        });
     });
 
     it("refuses another user's tag", async () => {
         const theirTag = (await apiAs(await createUser(), "/tags", tagRoutes)("POST", "", { name: "x" })).body.data;
 
-        expect((await habits("POST", "", { title: "T", recurrenceRule: "FREQ=DAILY", tagIds: [theirTag.id] })).status).toBe(404);
+        expect(
+            (await habits("POST", "", { title: "T", recurrenceRule: "FREQ=DAILY", tagIds: [theirTag.id] })).status,
+        ).toBe(404);
     });
 
     it("lists active habits by default and archived ones on request, for the caller only", async () => {
@@ -97,7 +114,10 @@ describe("updating habits", () => {
     });
 
     it("replaces the tag set when tagIds is sent and keeps it when omitted", async () => {
-        const [a, b] = [(await tags("POST", "", { name: "a" })).body.data, (await tags("POST", "", { name: "b" })).body.data];
+        const [a, b] = [
+            (await tags("POST", "", { name: "a" })).body.data,
+            (await tags("POST", "", { name: "b" })).body.data,
+        ];
         const habit = await create({ tagIds: [a.id] });
 
         expect((await habits("PATCH", `/${habit.id}`, { tagIds: [b.id] })).body.data.tagIds).toEqual([b.id]);
@@ -108,8 +128,12 @@ describe("updating habits", () => {
         const habit = await create();
         const { body: fresh } = await habits("GET", `/${habit.id}`);
 
-        expect((await habits("PATCH", `/${habit.id}`, { title: "A", expectedUpdatedAt: fresh.data.updatedAt })).status).toBe(200);
-        expect((await habits("PATCH", `/${habit.id}`, { title: "B", expectedUpdatedAt: fresh.data.updatedAt })).status).toBe(409);
+        expect(
+            (await habits("PATCH", `/${habit.id}`, { title: "A", expectedUpdatedAt: fresh.data.updatedAt })).status,
+        ).toBe(200);
+        expect(
+            (await habits("PATCH", `/${habit.id}`, { title: "B", expectedUpdatedAt: fresh.data.updatedAt })).status,
+        ).toBe(409);
     });
 
     it("treats another user's habit as not found for read, update, and delete, and never syncs tags onto it", async () => {
@@ -117,10 +141,15 @@ describe("updating habits", () => {
         const { body: myTag } = await tags("POST", "", { name: "mine" });
 
         expect((await habits("GET", `/${theirs.id}`)).status).toBe(404);
-        expect((await habits("PATCH", `/${theirs.id}`, { title: "hijacked", tagIds: [myTag.data.id] })).status).toBe(404);
+        expect((await habits("PATCH", `/${theirs.id}`, { title: "hijacked", tagIds: [myTag.data.id] })).status).toBe(
+            404,
+        );
         expect((await habits("DELETE", `/${theirs.id}`)).status).toBe(404);
         expect((await otherHabits("GET", `/${theirs.id}`)).body.data.title).toBe("Theirs");
-        const linked = await asOwner(async (pg) => (await pg.query("SELECT count(*)::int n FROM habit_tags WHERE habit_id = $1", [theirs.id])).rows[0]);
+        const linked = await asOwner(
+            async (pg) =>
+                (await pg.query("SELECT count(*)::int n FROM habit_tags WHERE habit_id = $1", [theirs.id])).rows[0],
+        );
         expect(linked).toEqual({ n: 0 });
     });
 });
@@ -131,19 +160,40 @@ describe("resolving occurrences", () => {
 
         const done = await resolve(habit.id, day(), "COMPLETED");
         expect(done.status).toBe(200);
-        expect(done.body.data.habit).toMatchObject({ currentStreak: 1, longestStreak: 1, totalCompletions: 1, totalSkips: 0 });
+        expect(done.body.data.habit).toMatchObject({
+            currentStreak: 1,
+            longestStreak: 1,
+            totalCompletions: 1,
+            totalSkips: 0,
+        });
         expect(done.body.data.log).toMatchObject({ status: "COMPLETED", targetDate: day() });
 
-        expect((await resolve(habit.id, day(), "SKIPPED")).body.data.habit).toMatchObject({ currentStreak: 0, totalCompletions: 0, totalSkips: 1 });
+        expect((await resolve(habit.id, day(), "SKIPPED")).body.data.habit).toMatchObject({
+            currentStreak: 0,
+            totalCompletions: 0,
+            totalSkips: 1,
+        });
 
-        expect((await resolve(habit.id, day(), "PENDING")).body.data.habit).toMatchObject({ totalCompletions: 0, totalSkips: 0 });
-        const logs = await asOwner(async (pg) => (await pg.query("SELECT count(*)::int n FROM habit_logs WHERE habit_id = $1", [habit.id])).rows[0]);
+        expect((await resolve(habit.id, day(), "PENDING")).body.data.habit).toMatchObject({
+            totalCompletions: 0,
+            totalSkips: 0,
+        });
+        const logs = await asOwner(
+            async (pg) =>
+                (await pg.query("SELECT count(*)::int n FROM habit_logs WHERE habit_id = $1", [habit.id])).rows[0],
+        );
         expect(logs).toEqual({ n: 0 });
     });
 
     it("steps: a partial day stays pending and kept, every step settled completes it, un-ticking reopens it", async () => {
-        const habit = await create({ steps: [{ id: "water", title: "Water" }, { id: "stretch", title: "Stretch" }] });
-        const steps = (stepStatus: Record<string, string>) => habits("POST", `/${habit.id}/resolve`, { targetDate: day(), status: "PENDING", stepStatus });
+        const habit = await create({
+            steps: [
+                { id: "water", title: "Water" },
+                { id: "stretch", title: "Stretch" },
+            ],
+        });
+        const steps = (stepStatus: Record<string, string>) =>
+            habits("POST", `/${habit.id}/resolve`, { targetDate: day(), status: "PENDING", stepStatus });
 
         const partial = await steps({ water: "COMPLETED" });
         expect(partial.body.data.log).toMatchObject({ status: "PENDING", stepStatus: { water: "COMPLETED" } });
@@ -161,16 +211,23 @@ describe("resolving occurrences", () => {
         expect(body.data[0].logs[0]).toMatchObject({ status: "PENDING", stepStatus: { stretch: "SKIPPED" } });
 
         expect((await steps({})).body.data.log.status).toBe("PENDING");
-        const logs = await asOwner(async (pg) => (await pg.query("SELECT count(*)::int n FROM habit_logs WHERE habit_id = $1", [habit.id])).rows[0]);
+        const logs = await asOwner(
+            async (pg) =>
+                (await pg.query("SELECT count(*)::int n FROM habit_logs WHERE habit_id = $1", [habit.id])).rows[0],
+        );
         expect(logs).toEqual({ n: 0 });
     });
 
     it("set times: each time is recorded on its own, 3 of 3 alone completes the day, a whole-day tap is refused", async () => {
         const habit = await create({ title: "Medication", times: ["08:00", "14:00", "20:00"], reminderEnabled: true });
-        const mark = (time: string, status: string, at?: string) => habits("POST", `/${habit.id}/resolve`, { targetDate: day(), status, time, ...(at && { at }) });
+        const mark = (time: string, status: string, at?: string) =>
+            habits("POST", `/${habit.id}/resolve`, { targetDate: day(), status, time, ...(at && { at }) });
 
         const first = await mark("08:00", "COMPLETED", "2026-10-08T12:07:00.000Z");
-        expect(first.body.data.log).toMatchObject({ status: "PENDING", timeMarks: { "08:00": { status: "COMPLETED", at: "2026-10-08T12:07:00.000Z" } } });
+        expect(first.body.data.log).toMatchObject({
+            status: "PENDING",
+            timeMarks: { "08:00": { status: "COMPLETED", at: "2026-10-08T12:07:00.000Z" } },
+        });
         const second = await mark("14:00", "COMPLETED");
         expect(second.body.data.log.status).toBe("PENDING");
         expect(Object.keys(second.body.data.log.timeMarks)).toEqual(["08:00", "14:00"]); // merged, not replaced
@@ -194,7 +251,8 @@ describe("resolving occurrences", () => {
         const unclear = await resolve(habit.id, day(-1), "COMPLETED");
         expect(unclear.status).toBe(400);
         expect(JSON.stringify(unclear.body)).toContain("08:00, 14:00, 20:00");
-        for (const time of ["08:00", "14:00"]) await habits("POST", `/${habit.id}/resolve`, { targetDate: day(-1), status: "COMPLETED", time });
+        for (const time of ["08:00", "14:00"])
+            await habits("POST", `/${habit.id}/resolve`, { targetDate: day(-1), status: "COMPLETED", time });
         const done = await resolve(habit.id, day(-1), "COMPLETED");
         expect(done.body.data.log.status).toBe("COMPLETED");
 
@@ -203,9 +261,13 @@ describe("resolving occurrences", () => {
     });
 
     it("steps: editing the steps re-derives today from its marks", async () => {
-        const two = [{ id: "a", title: "A" }, { id: "b", title: "B" }];
+        const two = [
+            { id: "a", title: "A" },
+            { id: "b", title: "B" },
+        ];
         const habit = await create({ steps: two });
-        const mark = (stepStatus: Record<string, string>) => habits("POST", `/${habit.id}/resolve`, { targetDate: day(), status: "PENDING", stepStatus });
+        const mark = (stepStatus: Record<string, string>) =>
+            habits("POST", `/${habit.id}/resolve`, { targetDate: day(), status: "PENDING", stepStatus });
         const today = async () => (await habits("GET", `/weekly?start=${day()}&end=${day()}`)).body.data[0];
 
         await mark({ a: "COMPLETED", b: "COMPLETED" });
@@ -220,12 +282,16 @@ describe("resolving occurrences", () => {
 
     it("set times: moving a time keeps its mark, removing the open one closes today, steps and times don't mix", async () => {
         const habit = await create({ title: "Medication", times: ["08:00", "14:00", "20:00"] });
-        const mark = (time: string) => habits("POST", `/${habit.id}/resolve`, { targetDate: day(), status: "COMPLETED", time });
+        const mark = (time: string) =>
+            habits("POST", `/${habit.id}/resolve`, { targetDate: day(), status: "COMPLETED", time });
         await mark("08:00");
         await mark("14:00");
 
         await habits("PATCH", `/${habit.id}`, { times: ["08:00", "14:30", "20:00"] });
-        const todayLog = async () => (await habits("GET", `/weekly?start=${day()}&end=${day()}`)).body.data.find((h: { id: string }) => h.id === habit.id).logs[0];
+        const todayLog = async () =>
+            (await habits("GET", `/weekly?start=${day()}&end=${day()}`)).body.data.find(
+                (h: { id: string }) => h.id === habit.id,
+            ).logs[0];
         expect(Object.keys((await todayLog()).timeMarks).sort()).toEqual(["08:00", "14:30"]);
 
         const closed = await habits("PATCH", `/${habit.id}`, { times: ["08:00", "14:30"] });
@@ -250,7 +316,11 @@ describe("resolving occurrences", () => {
         await backdate(habit.id, 4);
         for (const offset of [-4, -3, -2, -1, 0]) await resolve(habit.id, day(offset), "COMPLETED");
 
-        expect((await habits("GET", `/${habit.id}`)).body.data).toMatchObject({ currentStreak: 5, longestStreak: 5, totalCompletions: 5 });
+        expect((await habits("GET", `/${habit.id}`)).body.data).toMatchObject({
+            currentStreak: 5,
+            longestStreak: 5,
+            totalCompletions: 5,
+        });
 
         const { body } = await resolve(habit.id, day(-2), "PENDING");
 
@@ -271,8 +341,11 @@ describe("resolving occurrences", () => {
         try {
             await setZone("Asia/Tokyo");
             const habit = await create();
-            await asOwner((pg) => pg.query("UPDATE habits SET created_at = '2026-09-01T00:00:00Z' WHERE id = $1", [habit.id]));
-            const inTokyo = (targetDate: string) => habits("POST", `/${habit.id}/resolve`, { targetDate, status: "COMPLETED" });
+            await asOwner((pg) =>
+                pg.query("UPDATE habits SET created_at = '2026-09-01T00:00:00Z' WHERE id = $1", [habit.id]),
+            );
+            const inTokyo = (targetDate: string) =>
+                habits("POST", `/${habit.id}/resolve`, { targetDate, status: "COMPLETED" });
             await inTokyo("2026-09-23");
 
             expect((await inTokyo("2026-09-24")).body.data.habit.currentStreak).toBe(2);
@@ -295,11 +368,13 @@ describe("views", () => {
         const originalRls = rls.withRls;
         const originalProjection = service.projectHabitRange;
         let committed = false;
-        vi.spyOn(rls, "withRls").mockImplementation(async <T>(db: DbClient, userId: string, fn: (tx: Tx) => Promise<T>) => {
-            const result = await originalRls(db, userId, fn);
-            committed = true;
-            return result;
-        });
+        vi.spyOn(rls, "withRls").mockImplementation(
+            async <T>(db: DbClient, userId: string, fn: (tx: Tx) => Promise<T>) => {
+                const result = await originalRls(db, userId, fn);
+                committed = true;
+                return result;
+            },
+        );
         const projection = vi.spyOn(service, "projectHabitRange").mockImplementation((...args) => {
             expect(committed).toBe(true);
             return originalProjection(...args);
@@ -336,16 +411,42 @@ describe("views", () => {
 
     it("weekly: keeps creation-day and step-log rules across DST and different caller zones", async () => {
         await setZone("America/New_York");
-        const habit = await create({ steps: [{ id: "step-a", title: "First" }, { id: "step-b", title: "Second" }] });
-        await asOwner(pg => pg.query("UPDATE habits SET created_at = '2026-03-08T02:30:00.000Z' WHERE id = $1", [habit.id]));
-        const logged = await habits("POST", `/${habit.id}/resolve`, { targetDate: "2026-03-08", status: "PENDING", stepStatus: { "step-a": "COMPLETED" } });
+        const habit = await create({
+            steps: [
+                { id: "step-a", title: "First" },
+                { id: "step-b", title: "Second" },
+            ],
+        });
+        await asOwner((pg) =>
+            pg.query("UPDATE habits SET created_at = '2026-03-08T02:30:00.000Z' WHERE id = $1", [habit.id]),
+        );
+        const logged = await habits("POST", `/${habit.id}/resolve`, {
+            targetDate: "2026-03-08",
+            status: "PENDING",
+            stepStatus: { "step-a": "COMPLETED" },
+        });
         expect(logged.status).toBe(200);
         const ny = (await habits("GET", "/weekly?start=2026-03-06&end=2026-03-10")).body.data[0];
         await setZone("Asia/Tokyo");
         const tokyo = (await habits("GET", "/weekly?start=2026-03-06&end=2026-03-10")).body.data[0];
-        expect(ny.logs.map((log: any) => log.targetDate)).toEqual(["2026-03-06", "2026-03-07", "2026-03-08", "2026-03-09", "2026-03-10"]);
-        expect(tokyo.logs.map((log: any) => log.targetDate)).toEqual(["2026-03-07", "2026-03-08", "2026-03-09", "2026-03-10"]);
-        expect(ny.logs.find((log: any) => log.targetDate === "2026-03-08")).toMatchObject({ id: logged.body.data.log.id, status: "PENDING", stepStatus: { "step-a": "COMPLETED" } });
+        expect(ny.logs.map((log: any) => log.targetDate)).toEqual([
+            "2026-03-06",
+            "2026-03-07",
+            "2026-03-08",
+            "2026-03-09",
+            "2026-03-10",
+        ]);
+        expect(tokyo.logs.map((log: any) => log.targetDate)).toEqual([
+            "2026-03-07",
+            "2026-03-08",
+            "2026-03-09",
+            "2026-03-10",
+        ]);
+        expect(ny.logs.find((log: any) => log.targetDate === "2026-03-08")).toMatchObject({
+            id: logged.body.data.log.id,
+            status: "PENDING",
+            stepStatus: { "step-a": "COMPLETED" },
+        });
     });
 
     it("weekly: a pause hides today onward, never the days already checked", async () => {
@@ -384,7 +485,10 @@ describe("deleting habits", () => {
 
         expect((await habits("DELETE", `/${habit.id}`)).status).toBe(200);
         expect((await habits("GET", `/${habit.id}`)).status).toBe(404);
-        const logs = await asOwner(async (pg) => (await pg.query("SELECT count(*)::int n FROM habit_logs WHERE habit_id = $1", [habit.id])).rows[0]);
+        const logs = await asOwner(
+            async (pg) =>
+                (await pg.query("SELECT count(*)::int n FROM habit_logs WHERE habit_id = $1", [habit.id])).rows[0],
+        );
         expect(logs).toEqual({ n: 0 });
     });
 });

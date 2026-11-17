@@ -52,7 +52,18 @@ function timeRange(task: Task) {
  * right to finish and left for Tomorrow / Pick day; routines swipe right to
  * check in. Every swipe has a tap path too: the check, and the detail sheet.
  */
-export function ScheduleRow({ task, routineEmoji, past = false, laterToday = null, dragActive = false, reducedMotion = false, onOpen, onComplete, onLater, onPickDay }: ScheduleRowProps) {
+export function ScheduleRow({
+    task,
+    routineEmoji,
+    past = false,
+    laterToday = null,
+    dragActive = false,
+    reducedMotion = false,
+    onOpen,
+    onComplete,
+    onLater,
+    onPickDay,
+}: ScheduleRowProps) {
     const kind = scheduleKind(task);
     const done = task.state === "COMPLETE";
     const movable = kind === "task" && !isRecurringTask(task) && !isRecurringTaskInstance(task);
@@ -79,7 +90,9 @@ export function ScheduleRow({ task, routineEmoji, past = false, laterToday = nul
     const handleDragEnd = (_: unknown, info: PanInfo) => {
         const { offset, velocity } = info;
         swiped.current = true;
-        window.setTimeout(() => { swiped.current = false; }, 0);
+        window.setTimeout(() => {
+            swiped.current = false;
+        }, 0);
         if (canSwipeRight && (offset.x > COMMIT || (velocity.x > FLICK && offset.x > 24))) {
             void onComplete(task);
             setActionsOpen(false);
@@ -113,20 +126,27 @@ export function ScheduleRow({ task, routineEmoji, past = false, laterToday = nul
     } else {
         row = (
             <AgendaRow
-                leading={kind === "fixed" ? (
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center" aria-hidden="true">
-                        <span className="h-8 w-1 rounded-full bg-moonlit/70" />
-                    </span>
-                ) : (
-                    <TaskCheckbox task={task} />
-                )}
+                leading={
+                    kind === "fixed" ? (
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center" aria-hidden="true">
+                            <span className="h-8 w-1 rounded-full bg-moonlit/70" />
+                        </span>
+                    ) : (
+                        <TaskCheckbox task={task} />
+                    )
+                }
                 onOpen={open}
                 ariaLabel={`Open ${kind === "fixed" ? "fixed block" : "task"} ${task.title}${meta ? `, ${meta}` : ""}`}
                 className={`items-center py-1.5 ${kind === "fixed" ? "hover:bg-moonlit/[0.05]" : "hover:bg-white/[0.04]"}`}
             >
-                <span className="block truncate text-[15px] leading-snug text-twilight-text">{task.title}<PendingMark id={task.id} /></span>
+                <span className="block truncate text-[15px] leading-snug text-twilight-text">
+                    {task.title}
+                    <PendingMark id={task.id} />
+                </span>
                 {meta ? (
-                    <span className={`block text-[12px] tabular-nums ${kind === "fixed" ? "text-moonlit" : "text-twilight-text-soft"}`}>
+                    <span
+                        className={`block text-[12px] tabular-nums ${kind === "fixed" ? "text-moonlit" : "text-twilight-text-soft"}`}
+                    >
                         {meta}
                     </span>
                 ) : null}
@@ -163,7 +183,10 @@ export function ScheduleRow({ task, routineEmoji, past = false, laterToday = nul
                     <button
                         type="button"
                         tabIndex={actionsOpen ? 0 : -1}
-                        onClick={() => { setActionsOpen(false); onLater(task); }}
+                        onClick={() => {
+                            setActionsOpen(false);
+                            onLater(task);
+                        }}
                         className="flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-2xl bg-white/[0.07] px-3 text-[13px] font-medium text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                     >
                         <ArrowRight size={14} aria-hidden="true" />
@@ -172,7 +195,10 @@ export function ScheduleRow({ task, routineEmoji, past = false, laterToday = nul
                     <button
                         type="button"
                         tabIndex={actionsOpen ? 0 : -1}
-                        onClick={() => { setActionsOpen(false); onPickDay(task); }}
+                        onClick={() => {
+                            setActionsOpen(false);
+                            onPickDay(task);
+                        }}
                         className="flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-2xl bg-white/[0.07] px-3 text-[13px] font-medium text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                     >
                         <CalendarDays size={14} aria-hidden="true" />
@@ -183,7 +209,10 @@ export function ScheduleRow({ task, routineEmoji, past = false, laterToday = nul
                             type="button"
                             tabIndex={actionsOpen ? 0 : -1}
                             aria-label={`Later today at ${laterToday.time}`}
-                            onClick={() => { setActionsOpen(false); laterToday.place(); }}
+                            onClick={() => {
+                                setActionsOpen(false);
+                                laterToday.place();
+                            }}
                             className="flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-2xl bg-accent-primary/15 px-3 text-[13px] font-medium text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                         >
                             <Clock size={14} aria-hidden="true" />
@@ -198,7 +227,9 @@ export function ScheduleRow({ task, routineEmoji, past = false, laterToday = nul
                 dragConstraints={{ left: movable ? -actionsWidth : 0, right: 0 }}
                 dragElastic={reducedMotion ? 0 : { left: 0.08, right: canSwipeRight ? 0.6 : 0 }}
                 dragMomentum={false}
-                onDragStart={() => { swiped.current = true; }}
+                onDragStart={() => {
+                    swiped.current = true;
+                }}
                 onDragEnd={handleDragEnd}
                 animate={{ x: actionsOpen ? -actionsWidth : 0 }}
                 transition={reducedMotion ? { duration: 0 } : SPRINGS.GLIDE}

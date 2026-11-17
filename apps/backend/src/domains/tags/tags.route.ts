@@ -24,29 +24,19 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     })
 
     // ── Update ──
-    .patch(
-        "/:id",
-        apiValidator("param", uuidParamSchema),
-        apiValidator("json", updateTagSchema),
-        async (c) => {
-            const { id } = c.req.valid("param");
-            const body = c.req.valid("json");
+    .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateTagSchema), async (c) => {
+        const { id } = c.req.valid("param");
+        const body = c.req.valid("json");
 
-            const updated = await withCallerRls(c, (tx, userId) => updateTag(tx, userId, id, body));
+        const updated = await withCallerRls(c, (tx, userId) => updateTag(tx, userId, id, body));
 
-            return c.json({ data: updated });
-        },
-    )
+        return c.json({ data: updated });
+    })
 
     // ── Read (List) ──
     .get("/", async (c) => {
-
         const userTags = await withCallerRls(c, (tx, userId) =>
-            tx
-                .select()
-                .from(tags)
-                .where(eq(tags.userId, userId))
-                .orderBy(asc(tags.sortOrder), asc(tags.name)),
+            tx.select().from(tags).where(eq(tags.userId, userId)).orderBy(asc(tags.sortOrder), asc(tags.name)),
         );
 
         return c.json({ data: userTags });

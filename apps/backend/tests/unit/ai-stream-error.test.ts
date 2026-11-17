@@ -3,13 +3,27 @@ import { APICallError, InvalidToolInputError, NoSuchToolError, RetryError } from
 import { buildStreamError, streamErrorCause } from "../../src/domains/ai/safety/stream-error";
 import { AppError } from "../../src/platform/errors";
 
-const httpError = (status: number) => Object.assign(new Error("provider said: key sk-live-123 rejected"), { statusCode: status });
+const httpError = (status: number) =>
+    Object.assign(new Error("provider said: key sk-live-123 rejected"), { statusCode: status });
 const named = (name: string) => Object.assign(new Error("x"), { name });
 
 describe("buildStreamError", () => {
-    it.each([[429, "AI_RATE_LIMITED"], [503, "AI_UPSTREAM_UNAVAILABLE"]] as const)("unwraps exhausted SDK retries for %s", (statusCode, code) => {
-        const cause = new APICallError({ message: "provider secret", url: "https://example.test", requestBodyValues: {}, statusCode, responseBody: "private response" });
-        const exhausted = new RetryError({ message: "Failed after 3 attempts", reason: "maxRetriesExceeded", errors: [cause, cause, cause] });
+    it.each([
+        [429, "AI_RATE_LIMITED"],
+        [503, "AI_UPSTREAM_UNAVAILABLE"],
+    ] as const)("unwraps exhausted SDK retries for %s", (statusCode, code) => {
+        const cause = new APICallError({
+            message: "provider secret",
+            url: "https://example.test",
+            requestBodyValues: {},
+            statusCode,
+            responseBody: "private response",
+        });
+        const exhausted = new RetryError({
+            message: "Failed after 3 attempts",
+            reason: "maxRetriesExceeded",
+            errors: [cause, cause, cause],
+        });
         const nested = new RetryError({ message: "Retry failed", reason: "errorNotRetryable", errors: [exhausted] });
         expect(streamErrorCause(nested)).toBe(cause);
         const result = buildStreamError(nested, "req-1");
@@ -25,7 +39,11 @@ describe("buildStreamError", () => {
     });
 
     it.each([
-        ["a wrong tool input", new InvalidToolInputError({ toolName: "t", toolInput: "{}", cause: new Error("bad") }), "AI_TOOL_FAILED"],
+        [
+            "a wrong tool input",
+            new InvalidToolInputError({ toolName: "t", toolInput: "{}", cause: new Error("bad") }),
+            "AI_TOOL_FAILED",
+        ],
         ["an unknown tool", new NoSuchToolError({ toolName: "t" }), "AI_TOOL_FAILED"],
         ["an AbortError", named("AbortError"), "AI_TIMEOUT"],
         ["a TimeoutError", named("TimeoutError"), "AI_TIMEOUT"],

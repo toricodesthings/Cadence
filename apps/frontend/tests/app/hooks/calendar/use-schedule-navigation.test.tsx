@@ -5,21 +5,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useScheduleNavigation } from "../../../../app/hooks/calendar/use-schedule-navigation";
 
 vi.mock("../../../../app/lib/utils/user-zone", async (original) => ({
-    ...await original<typeof import("../../../../app/lib/utils/user-zone")>(),
-    useToday: () => "2026-10-14", today: () => "2026-10-14",
+    ...(await original<typeof import("../../../../app/lib/utils/user-zone")>()),
+    useToday: () => "2026-10-14",
+    today: () => "2026-10-14",
 }));
 const desktop = { isPhone: false, isDesktop: true };
 const phone = { isPhone: true, isDesktop: false };
 const tablet = { isPhone: false, isDesktop: false };
 function setup(shell = desktop, entry = "/schedule") {
     return renderHook(() => ({ ...useScheduleNavigation(shell), go: useNavigate() }), {
-        wrapper: ({ children }: { children: ReactNode }) => createElement(MemoryRouter, { initialEntries: [entry] }, children),
+        wrapper: ({ children }: { children: ReactNode }) =>
+            createElement(MemoryRouter, { initialEntries: [entry] }, children),
     });
 }
 beforeEach(() => localStorage.clear());
 
 describe("schedule navigation", () => {
-    it.each([[desktop, "month"], [tablet, "week"], [phone, "day"]] as const)("uses the device default %s → %s", (shell, view) => {
+    it.each([
+        [desktop, "month"],
+        [tablet, "week"],
+        [phone, "day"],
+    ] as const)("uses the device default %s → %s", (shell, view) => {
         expect(setup(shell).result.current.viewMode).toBe(view);
     });
     it("gives URL state precedence and lets header navigation move away from that date", () => {

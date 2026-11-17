@@ -38,7 +38,8 @@ const STARTERS = [
  */
 export function ResetChat() {
     const [savedId, saveId] = useDeviceValue(RESET_CHAT_KEY);
-    const { activeConversationId, setSurface, setAssistantPanelOpen, setHistoryOpen, setMemoryOpen } = useAssistantStore();
+    const { activeConversationId, setSurface, setAssistantPanelOpen, setHistoryOpen, setMemoryOpen } =
+        useAssistantStore();
     const { isTouch, isCompact } = useShellMode();
     const { session } = useAuthState();
     const { data: settings } = useSettings();
@@ -53,9 +54,23 @@ export function ResetChat() {
     const reducedMotion = useReducedMotionSetting();
     const stick = useStickToBottom({ initial: "instant", resize: reducedMotion ? "instant" : "smooth" });
     const { scrollToBottom: stickToBottom } = stick;
-    const scrollToBottom = useCallback(() => void stickToBottom(reducedMotion ? "instant" : "smooth"), [stickToBottom, reducedMotion]);
-    const images = useChatAttachments({ conversationId: activeConversationId, imageAllowance, perMessage: usage?.images?.perMessage ?? CHAT_IMAGE_LIMITS.perMessage, onNotice: setInputNotice });
-    const conversation = useAssistantConversation({ online, onNotice: setInputNotice, clearAttachments: images.clearAttachments, onTurnSubmitted: scrollToBottom, open: true });
+    const scrollToBottom = useCallback(
+        () => void stickToBottom(reducedMotion ? "instant" : "smooth"),
+        [stickToBottom, reducedMotion],
+    );
+    const images = useChatAttachments({
+        conversationId: activeConversationId,
+        imageAllowance,
+        perMessage: usage?.images?.perMessage ?? CHAT_IMAGE_LIMITS.perMessage,
+        onNotice: setInputNotice,
+    });
+    const conversation = useAssistantConversation({
+        online,
+        onNotice: setInputNotice,
+        clearAttachments: images.clearAttachments,
+        onTurnSubmitted: scrollToBottom,
+        open: true,
+    });
     const { openSettings } = useUtilityNavigation();
 
     // One thread on screen: the side panel closes while the reset owns the chat, and each turn says it's the reset's.
@@ -120,17 +135,46 @@ export function ResetChat() {
     );
 
     return (
-        <div className="surface-card flex h-[max(24rem,calc(100dvh-16rem))] flex-col overflow-hidden rounded-3xl" role="region" aria-label={`${assistantName}, Weekly Reset chat`}>
-            <div className="sr-only" role="status" aria-live="polite">{conversation.isStreaming ? `${assistantName} is responding` : ""}</div>
-            <AssistantThread conversation={conversation} assistantName={assistantName}
-                userImage={session?.user?.image} userInitial={(session?.user?.name || session?.user?.email || "U")[0]!.toUpperCase()} isTouch={isTouch}
-                scrollRef={stick.scrollRef} contentRef={stick.contentRef}
-                showJump={!stick.isAtBottom} scrollToBottom={scrollToBottom} submitText={submitText} empty={greeting} />
-            <AssistantComposer assistantName={assistantName} isTouch={isTouch} isMobile={isCompact}
-                isStreaming={conversation.isStreaming} online={online}
-                input={input} onInputChange={setInput} inputNotice={inputNotice} setInputNotice={setInputNotice} imageAllowance={imageAllowance}
-                perMessage={usage?.images?.perMessage ?? CHAT_IMAGE_LIMITS.perMessage} usageNotice={usageNotice} images={images} textareaRef={textareaRef}
-                onSend={submitText} onStop={conversation.handleStop} onCommand={runSlashCommand} />
+        <div
+            className="surface-card flex h-[max(24rem,calc(100dvh-16rem))] flex-col overflow-hidden rounded-3xl"
+            role="region"
+            aria-label={`${assistantName}, Weekly Reset chat`}
+        >
+            <div className="sr-only" role="status" aria-live="polite">
+                {conversation.isStreaming ? `${assistantName} is responding` : ""}
+            </div>
+            <AssistantThread
+                conversation={conversation}
+                assistantName={assistantName}
+                userImage={session?.user?.image}
+                userInitial={(session?.user?.name || session?.user?.email || "U")[0]!.toUpperCase()}
+                isTouch={isTouch}
+                scrollRef={stick.scrollRef}
+                contentRef={stick.contentRef}
+                showJump={!stick.isAtBottom}
+                scrollToBottom={scrollToBottom}
+                submitText={submitText}
+                empty={greeting}
+            />
+            <AssistantComposer
+                assistantName={assistantName}
+                isTouch={isTouch}
+                isMobile={isCompact}
+                isStreaming={conversation.isStreaming}
+                online={online}
+                input={input}
+                onInputChange={setInput}
+                inputNotice={inputNotice}
+                setInputNotice={setInputNotice}
+                imageAllowance={imageAllowance}
+                perMessage={usage?.images?.perMessage ?? CHAT_IMAGE_LIMITS.perMessage}
+                usageNotice={usageNotice}
+                images={images}
+                textareaRef={textareaRef}
+                onSend={submitText}
+                onStop={conversation.handleStop}
+                onCommand={runSlashCommand}
+            />
         </div>
     );
 }

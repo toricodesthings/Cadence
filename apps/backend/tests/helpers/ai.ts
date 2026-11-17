@@ -10,7 +10,11 @@ export const usage = {
     outputTokens: { total: 1, text: 1, reasoning: 0 },
 };
 
-export const finish = (reason: "stop" | "tool-calls" = "stop") => ({ type: "finish", finishReason: { unified: reason, raw: reason }, usage });
+export const finish = (reason: "stop" | "tool-calls" = "stop") => ({
+    type: "finish",
+    finishReason: { unified: reason, raw: reason },
+    usage,
+});
 
 export const textChunks = (text: string) => [
     { type: "text-start", id: "t" },
@@ -24,7 +28,8 @@ export const streamOf = (...chunks: unknown[]) => ({
 });
 
 /** A model that answers `text` and stops. */
-export const textModel = (text = "Done.") => new MockLanguageModelV4({ doStream: async () => streamOf(...textChunks(text), finish()) });
+export const textModel = (text = "Done.") =>
+    new MockLanguageModelV4({ doStream: async () => streamOf(...textChunks(text), finish()) });
 
 /** What a mocked `getAgentInstance` resolves to: a real ToolLoopAgent over `model`. */
 export const agentOf = (model: MockLanguageModelV4, opts: { tools?: ToolSet; turnContext?: string } = {}) => ({

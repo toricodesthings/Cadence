@@ -7,24 +7,45 @@ import { setUserZone, today } from "../../../app/lib/utils/user-zone";
 import { Provider } from "../../../app/components/primitives/Tooltip";
 import { stubTouch } from "../../helpers";
 
-const { update, remove, pause, resume, close, resolve } = vi.hoisted(() => ({ update: vi.fn(), remove: vi.fn(), pause: vi.fn(), resume: vi.fn(), close: vi.fn(), resolve: vi.fn() }));
+const { update, remove, pause, resume, close, resolve } = vi.hoisted(() => ({
+    update: vi.fn(),
+    remove: vi.fn(),
+    pause: vi.fn(),
+    resume: vi.fn(),
+    close: vi.fn(),
+    resolve: vi.fn(),
+}));
 stubTouch(true);
 vi.mock("../../../app/hooks/habits/use-update-habit", () => ({ useUpdateHabit: () => ({ mutate: update }) }));
 vi.mock("../../../app/hooks/habits/use-delete-habit", () => ({ useDeleteHabit: () => ({ mutate: remove }) }));
-vi.mock("../../../app/hooks/habits/use-pause-habit", () => ({ usePauseHabit: () => ({ pause }), useResumeHabit: () => ({ resume }) }));
-vi.mock("../../../app/hooks/projects/use-projects", () => ({ useProjects: () => ({ data: [{ id: "project-1", name: "Health" }] }) }));
+vi.mock("../../../app/hooks/habits/use-pause-habit", () => ({
+    usePauseHabit: () => ({ pause }),
+    useResumeHabit: () => ({ resume }),
+}));
+vi.mock("../../../app/hooks/projects/use-projects", () => ({
+    useProjects: () => ({ data: [{ id: "project-1", name: "Health" }] }),
+}));
 vi.mock("../../../app/hooks/tags/use-tags", () => ({ useTags: () => ({ data: [{ id: "tag-1", name: "Daily" }] }) }));
-vi.mock("../../../app/hooks/tags/use-create-tag", () => ({ useCreateTag: () => ({ mutate: vi.fn(), mutateAsync: vi.fn() }) }));
+vi.mock("../../../app/hooks/tags/use-create-tag", () => ({
+    useCreateTag: () => ({ mutate: vi.fn(), mutateAsync: vi.fn() }),
+}));
 const settings = vi.hoisted(() => ({ current: { tasks: { showStreaks: true } } }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: settings.current }) }));
 const { routineToTask } = vi.hoisted(() => ({ routineToTask: vi.fn(() => Promise.resolve()) }));
-vi.mock("../../../app/hooks/habits/use-convert-repeat", () => ({ useConvertRepeat: () => ({ routineToTask, taskToRoutine: vi.fn(), isPending: false }) }));
+vi.mock("../../../app/hooks/habits/use-convert-repeat", () => ({
+    useConvertRepeat: () => ({ routineToTask, taskToRoutine: vi.fn(), isPending: false }),
+}));
 vi.mock("../../../app/hooks/habits/use-resolve-habit", () => ({ useResolveHabit: () => ({ mutate: resolve }) }));
 vi.mock("sonner", () => ({ toast: vi.fn() }));
 const typical = vi.hoisted(() => ({ guess: null as null | { state: "supported" | "tentative"; minutes: number } }));
 vi.mock("../../../app/hooks/ai/use-duration-guess", () => ({ useDurationGuesser: () => () => typical.guess }));
 const tookRow = vi.hoisted(() => vi.fn());
-vi.mock("../../../app/components/tasks/TookRow", () => ({ RoutineTookRow: (props: Record<string, unknown>) => { tookRow(props); return <div data-testid="took-row" />; } }));
+vi.mock("../../../app/components/tasks/TookRow", () => ({
+    RoutineTookRow: (props: Record<string, unknown>) => {
+        tookRow(props);
+        return <div data-testid="took-row" />;
+    },
+}));
 // Every range query answers with the routine due yesterday (open) and today (done).
 setUserZone("America/Toronto");
 const day = (offset: number) => addDays(today(), offset);
@@ -33,13 +54,35 @@ const logs = [
     { id: "b", habitId: "habit-1", status: "COMPLETED", targetDate: day(0), completedAt: null },
 ];
 vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: () => ({ data: [{ ...habit, logs }] }) }));
-const habit = { id: "habit-1", title: "Walk", description: "Fresh air", notes: "Morning", recurrenceRule: "FREQ=DAILY", targetTime: "09:00", reminderEnabled: true, projectId: null, tagIds: ["tag-1"], pausedUntil: null, archived: false, totalCompletions: 8, currentStreak: 2, longestStreak: 5, createdAt: "2026-09-01T00:00:00Z" } as Habit;
+const habit = {
+    id: "habit-1",
+    title: "Walk",
+    description: "Fresh air",
+    notes: "Morning",
+    recurrenceRule: "FREQ=DAILY",
+    targetTime: "09:00",
+    reminderEnabled: true,
+    projectId: null,
+    tagIds: ["tag-1"],
+    pausedUntil: null,
+    archived: false,
+    totalCompletions: 8,
+    currentStreak: 2,
+    longestStreak: 5,
+    createdAt: "2026-09-01T00:00:00Z",
+} as Habit;
 /** Pick from a Cadence Select (ValueSelect is the Radix menu at every size). */
 function choose(field: string, option: string) {
     fireEvent.keyDown(screen.getByRole("combobox", { name: field }), { key: "Enter" });
     fireEvent.click(screen.getByRole("option", { name: option }));
 }
-function setup(value = habit) { return render(<Provider><HabitEditor habit={value} onClose={close} /></Provider>); }
+function setup(value = habit) {
+    return render(
+        <Provider>
+            <HabitEditor habit={value} onClose={close} />
+        </Provider>,
+    );
+}
 beforeEach(() => {
     vi.clearAllMocks();
     // jsdom has none of these; Radix Select reads them while opening.
@@ -56,7 +99,9 @@ describe("HabitEditor: how long it takes (Full only)", () => {
         typical.guess = { state: "supported", minutes: 45 };
         setup();
         expect(screen.getByText("Usually about 45 min")).toBeTruthy();
-        expect(tookRow).toHaveBeenCalledWith(expect.objectContaining({ habitId: "habit-1", day: day(0), enabled: true }));
+        expect(tookRow).toHaveBeenCalledWith(
+            expect.objectContaining({ habitId: "habit-1", day: day(0), enabled: true }),
+        );
         expect(screen.getAllByTestId("took-row")).toHaveLength(1);
     });
 

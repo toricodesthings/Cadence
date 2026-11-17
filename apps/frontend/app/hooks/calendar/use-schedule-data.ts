@@ -19,7 +19,12 @@ import { isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 
 const EMPTY_TASKS: Task[] = [];
 
-export function useScheduleData({ currentDate, viewMode, todayIso, isPhone }: {
+export function useScheduleData({
+    currentDate,
+    viewMode,
+    todayIso,
+    isPhone,
+}: {
     currentDate: LocalDate;
     viewMode: CalendarViewMode;
     todayIso: LocalDate;
@@ -33,7 +38,10 @@ export function useScheduleData({ currentDate, viewMode, todayIso, isPhone }: {
     const periodRange = ranges[viewMode];
     // Phone Day keeps the week strip populated. The query key stays the same as before.
     const queryRange = isPhoneDay ? ranges.week : periodRange;
-    const { data: tasks = EMPTY_TASKS } = useTasks({ state: "ACTIVE", range: { from: queryRange.start, to: queryRange.end } });
+    const { data: tasks = EMPTY_TASKS } = useTasks({
+        state: "ACTIVE",
+        range: { from: queryRange.start, to: queryRange.end },
+    });
     // From settings, never the module default, so the grid and the header read one week.
     const weekDates = useMemo(() => getWeekDays(currentDate, weekStartsOn), [currentDate, weekStartsOn]);
     const holidayOverlay = useHolidayOverlay({ ...queryRange, viewMode });
@@ -65,8 +73,10 @@ export function useScheduleData({ currentDate, viewMode, todayIso, isPhone }: {
     const { data: rawHabits = [] } = useHabitsRange(habitRange);
     const habitById = useMemo(() => new Map(rawHabits.map((habit) => [habit.id, habit])), [rawHabits]);
     const visibleTasks = useMemo(() => applyCalendarClutterFilters(tasks, calendarClutter), [tasks, calendarClutter]);
-    const visibleHabitTasks = useMemo(() => calendarClutter.showHabitAnchors === false ? EMPTY_TASKS : virtualHabitTasks,
-        [calendarClutter.showHabitAnchors, virtualHabitTasks]);
+    const visibleHabitTasks = useMemo(
+        () => (calendarClutter.showHabitAnchors === false ? EMPTY_TASKS : virtualHabitTasks),
+        [calendarClutter.showHabitAnchors, virtualHabitTasks],
+    );
     // ── Group month tasks by LocalDate ──────────────────────────────────────
     // Habits are intentionally NOT injected into tasksByDay for month view (Routines has its own month).
     const { datesWithTasks, tasksByDay } = useMemo(() => {
@@ -83,10 +93,15 @@ export function useScheduleData({ currentDate, viewMode, todayIso, isPhone }: {
     }, [holidayOverlay.holidaysByDate]);
 
     // ── Group week tasks by LocalDate ───────────────────────────────────────
-    const weekTasksByDate = useMemo(() => recordByDay([...visibleTasks, ...visibleHabitTasks]), [visibleHabitTasks, visibleTasks]);
+    const weekTasksByDate = useMemo(
+        () => recordByDay([...visibleTasks, ...visibleHabitTasks]),
+        [visibleHabitTasks, visibleTasks],
+    );
 
-    const allVisibleTasks = useMemo(() => new Map([...visibleTasks, ...visibleHabitTasks].map((task) => [task.id, task])),
-        [visibleTasks, visibleHabitTasks]);
+    const allVisibleTasks = useMemo(
+        () => new Map([...visibleTasks, ...visibleHabitTasks].map((task) => [task.id, task])),
+        [visibleTasks, visibleHabitTasks],
+    );
     // ── Phone surface: one grouping (routines included) for marks and lists ─
     const phoneGroups = useMemo(() => {
         if (!isPhone || viewMode === "year") return new Map<LocalDate, Task[]>();
@@ -99,14 +114,23 @@ export function useScheduleData({ currentDate, viewMode, todayIso, isPhone }: {
         if (!isPhone) return map;
         const add = (iso: LocalDate, name: string) => map.set(iso, [...(map.get(iso) ?? []), name]);
         if (holidayOverlay.enabled) {
-            for (const [iso, holidays] of Object.entries(holidaysByDateRecord)) holidays.forEach((holiday) => add(iso, holiday.name));
+            for (const [iso, holidays] of Object.entries(holidaysByDateRecord))
+                holidays.forEach((holiday) => add(iso, holiday.name));
         }
         if (birthdayDate) add(birthdayDate, "Your birthday");
         if (personalEvents.enabled) {
-            for (const [iso, events] of Object.entries(personalEventsByDateRecord)) events.forEach((event) => add(iso, event.label));
+            for (const [iso, events] of Object.entries(personalEventsByDateRecord))
+                events.forEach((event) => add(iso, event.label));
         }
         return map;
-    }, [birthdayDate, holidayOverlay.enabled, holidaysByDateRecord, personalEvents.enabled, personalEventsByDateRecord, isPhone]);
+    }, [
+        birthdayDate,
+        holidayOverlay.enabled,
+        holidaysByDateRecord,
+        personalEvents.enabled,
+        personalEventsByDateRecord,
+        isPhone,
+    ]);
 
     const weekLoads = useMemo(
         () => new Map(weekDates.map((day) => [day, dayLoad(phoneGroups.get(day) ?? [])])),
@@ -114,23 +138,53 @@ export function useScheduleData({ currentDate, viewMode, todayIso, isPhone }: {
     );
 
     const routineEmoji = useCallback(
-        (task: Task) => (task.isHabit ? habitById.get(parseVirtualHabitId(task.id)?.habitId ?? "")?.emoji ?? null : null),
+        (task: Task) =>
+            task.isHabit ? (habitById.get(parseVirtualHabitId(task.id)?.habitId ?? "")?.emoji ?? null) : null,
         [habitById],
     );
 
-    const { data: holdingTasks = EMPTY_TASKS } = useTasks({ state: "ACTIVE", hasNoProject: true, hasNoDate: true, enabled: isPhoneDay });
+    const { data: holdingTasks = EMPTY_TASKS } = useTasks({
+        state: "ACTIVE",
+        hasNoProject: true,
+        hasNoDate: true,
+        enabled: isPhoneDay,
+    });
     const readyTasks = useMemo(() => holdingTasks.filter((task) => !isPassiveTimetableTask(task)), [holdingTasks]);
 
     /** Today's open, movable tasks: what "Lighten today" may offer. Never fixed blocks or routines. */
-    const lightenCandidates = useMemo(() => (phoneGroups.get(todayIso) ?? []).filter((task) =>
-        scheduleKind(task) === "task" && task.state !== "COMPLETE" && canDragScheduleTask(task),
-    ), [phoneGroups, todayIso]);
+    const lightenCandidates = useMemo(
+        () =>
+            (phoneGroups.get(todayIso) ?? []).filter(
+                (task) => scheduleKind(task) === "task" && task.state !== "COMPLETE" && canDragScheduleTask(task),
+            ),
+        [phoneGroups, todayIso],
+    );
 
     return {
-        visibleTasks, visibleHabitTasks, allVisibleTasks, tasksByDay, datesWithTasks, weekTasksByDate, weekDates, weekStartsOn,
-        periodRange, holidayOverlay, holidaysByDateRecord, birthdayDate, personalEvents, personalEventsByDateRecord,
-        personalEventDateCounts, userSettings, calendarClutter, phoneGroups, phoneMarkers, weekLoads,
-        habitById, routineEmoji, readyTasks, lightenCandidates,
+        visibleTasks,
+        visibleHabitTasks,
+        allVisibleTasks,
+        tasksByDay,
+        datesWithTasks,
+        weekTasksByDate,
+        weekDates,
+        weekStartsOn,
+        periodRange,
+        holidayOverlay,
+        holidaysByDateRecord,
+        birthdayDate,
+        personalEvents,
+        personalEventsByDateRecord,
+        personalEventDateCounts,
+        userSettings,
+        calendarClutter,
+        phoneGroups,
+        phoneMarkers,
+        weekLoads,
+        habitById,
+        routineEmoji,
+        readyTasks,
+        lightenCandidates,
     };
 }
 export type ScheduleData = ReturnType<typeof useScheduleData>;

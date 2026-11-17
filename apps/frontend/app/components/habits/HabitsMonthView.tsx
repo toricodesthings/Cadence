@@ -47,25 +47,49 @@ export function HabitsMonthView({
             {/* Cards share the row (auto-fit), and the band and cards share one
                 width, capped per card so one routine isn't a page-wide month. */}
             <div style={{ maxWidth: `${Math.max(sorted.length, 2) * 36}rem` }}>
-            {lead}
-            {sorted.length === 0 ? empty : (
-                <SortableRoutines habits={sorted} sort={sort} onSortChange={onSortChange} layout="grid">
-                    {(ordered) => (
-                        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(20rem,100%),1fr))] gap-4">
-                            {ordered.map((habit) => (
-                                <RoutineMonthCard key={habit.id} habit={habit} year={year} month={month} weekStartsOn={weekStartsOn} today={today}
-                                    showStreaks={showStreaks} bloom={bloom} trimEarlyWeeks={trimEarlyWeeks} selected={habit.id === selectedHabitId} onSelect={() => onSelectHabit(habit.id)} />
-                            ))}
-                        </div>
-                    )}
-                </SortableRoutines>
-            )}
+                {lead}
+                {sorted.length === 0 ? (
+                    empty
+                ) : (
+                    <SortableRoutines habits={sorted} sort={sort} onSortChange={onSortChange} layout="grid">
+                        {(ordered) => (
+                            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(20rem,100%),1fr))] gap-4">
+                                {ordered.map((habit) => (
+                                    <RoutineMonthCard
+                                        key={habit.id}
+                                        habit={habit}
+                                        year={year}
+                                        month={month}
+                                        weekStartsOn={weekStartsOn}
+                                        today={today}
+                                        showStreaks={showStreaks}
+                                        bloom={bloom}
+                                        trimEarlyWeeks={trimEarlyWeeks}
+                                        selected={habit.id === selectedHabitId}
+                                        onSelect={() => onSelectHabit(habit.id)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </SortableRoutines>
+                )}
             </div>
         </div>
     );
 }
 
-function RoutineMonthCard({ habit, year, month, weekStartsOn, today, showStreaks, bloom, trimEarlyWeeks, selected, onSelect }: {
+function RoutineMonthCard({
+    habit,
+    year,
+    month,
+    weekStartsOn,
+    today,
+    showStreaks,
+    bloom,
+    trimEarlyWeeks,
+    selected,
+    onSelect,
+}: {
     habit: Habit;
     year: number;
     month: number;
@@ -78,12 +102,16 @@ function RoutineMonthCard({ habit, year, month, weekStartsOn, today, showStreaks
     onSelect: () => void;
 }) {
     const sortable = useSortableRoutine(habit);
-    const edit = () => { if (!selected) onSelect(); };
+    const edit = () => {
+        if (!selected) onSelect();
+    };
     const { checkIns, longest } = monthStats(habit, today);
     const footer = [
         checkIns ? `${checkIns} check-in${checkIns === 1 ? "" : "s"} this month` : "No check-ins yet this month",
         showStreaks && longest > 1 ? `longest run ${longest}` : null,
-    ].filter(Boolean).join(" · ");
+    ]
+        .filter(Boolean)
+        .join(" · ");
     return (
         <HabitContextMenu habit={habit} onEdit={edit}>
             <section
@@ -95,11 +123,26 @@ function RoutineMonthCard({ habit, year, month, weekStartsOn, today, showStreaks
             >
                 <div className="flex items-center gap-1">
                     {sortable.grip}
-                    <RoutineIdentity habit={habit} today={today} showStreaks={showStreaks} selected={selected} onSelect={onSelect} />
+                    <RoutineIdentity
+                        habit={habit}
+                        today={today}
+                        showStreaks={showStreaks}
+                        selected={selected}
+                        onSelect={onSelect}
+                    />
                     <HabitMenu habit={habit} onEdit={edit} />
                 </div>
                 <div className="mt-4">
-                    <RoutineMonthGrid habit={habit} year={year} month={month} weekStartsOn={weekStartsOn} today={today} bloom={bloom} fromFirstWeek={trimEarlyWeeks} onEdit={edit} />
+                    <RoutineMonthGrid
+                        habit={habit}
+                        year={year}
+                        month={month}
+                        weekStartsOn={weekStartsOn}
+                        today={today}
+                        bloom={bloom}
+                        fromFirstWeek={trimEarlyWeeks}
+                        onEdit={edit}
+                    />
                 </div>
                 <p className="mt-3 text-xs text-twilight-text-muted">{footer}</p>
             </section>

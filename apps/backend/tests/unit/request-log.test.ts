@@ -29,7 +29,9 @@ describe("request logging", () => {
         const info = vi.spyOn(console, "info").mockImplementation(() => {});
         const pending: Promise<unknown>[] = [];
         let finish!: () => void;
-        const background = new Promise<void>((resolve) => { finish = resolve; });
+        const background = new Promise<void>((resolve) => {
+            finish = resolve;
+        });
         const app = new Hono().use("*", createRequestContext()).get("/", (c) => {
             c.executionCtx.waitUntil(background);
             now += 132;
@@ -51,18 +53,13 @@ describe("request logging", () => {
         const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
         const ctx = createFakeContext();
 
-        await logValidationFailure(
-            ctx,
-            "json",
-            [{ code: "invalid_type", message: "Expected string", path: "state" }],
-            {
-                title: "Do not leak me",
-                taskIds: ["a", "b", "c"],
-                scheduledStart: "2026-03-10",
-                state: "ACTIVE",
-                Authorization: "Bearer secret",
-            },
-        );
+        await logValidationFailure(ctx, "json", [{ code: "invalid_type", message: "Expected string", path: "state" }], {
+            title: "Do not leak me",
+            taskIds: ["a", "b", "c"],
+            scheduledStart: "2026-03-10",
+            state: "ACTIVE",
+            Authorization: "Bearer secret",
+        });
 
         expect(warnSpy).toHaveBeenCalledTimes(1);
         // Workers Logs indexes the logged OBJECT directly — assert we pass an

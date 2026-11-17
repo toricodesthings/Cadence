@@ -3,10 +3,19 @@ import { ChevronLeft, ChevronRight, Sun } from "lucide-react";
 import { Tip } from "../primitives/Tooltip";
 import { SPRINGS } from "../../lib/constants/motion";
 
-const ARROW = "btn-icon cursor-pointer rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text";
+const ARROW =
+    "btn-icon cursor-pointer rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text";
 
 /** Jumps back to the period holding today; greyed out while you're already there. `compact` is the tablet header's small pill. */
-export function PeriodTodayButton({ isCurrent, onToday, compact = false }: { isCurrent: boolean; onToday: () => void; compact?: boolean }) {
+export function PeriodTodayButton({
+    isCurrent,
+    onToday,
+    compact = false,
+}: {
+    isCurrent: boolean;
+    onToday: () => void;
+    compact?: boolean;
+}) {
     return (
         <button
             type="button"
@@ -20,7 +29,13 @@ export function PeriodTodayButton({ isCurrent, onToday, compact = false }: { isC
 }
 
 /** Page header period nav: ‹ Today ›. `unit` names the step for the arrows ("week" → "Previous week"). */
-export function PeriodNav({ unit, isCurrent, onNavigate, onToday, className = "" }: {
+export function PeriodNav({
+    unit,
+    isCurrent,
+    onNavigate,
+    onToday,
+    className = "",
+}: {
     unit: string;
     isCurrent: boolean;
     onNavigate: (delta: number) => void;
@@ -48,7 +63,12 @@ export function PeriodNav({ unit, isCurrent, onNavigate, onToday, className = ""
  * Laptop: ‹ Today › lives in the bottom-right corner, where the thumb-and-eye rest, so the header keeps its room.
  * The same three controls as `PeriodNav`; overlays sit on a higher layer and simply cover it.
  */
-export function PeriodDock(props: { unit: string; isCurrent: boolean; onNavigate: (delta: number) => void; onToday: () => void }) {
+export function PeriodDock(props: {
+    unit: string;
+    isCurrent: boolean;
+    onNavigate: (delta: number) => void;
+    onToday: () => void;
+}) {
     return (
         <div className="layer-floating-bar fixed bottom-5 right-5">
             <PeriodNav {...props} className="glass-surface rounded-full p-1 [&_.btn-icon]:rounded-full" />
@@ -57,7 +77,15 @@ export function PeriodDock(props: { unit: string; isCurrent: boolean; onNavigate
 }
 
 /** Phone: a floating Today pill, bottom left (the add orb owns bottom right), shown only while you're away from today. */
-export function PeriodTodayPill({ show, reducedMotion, onToday }: { show: boolean; reducedMotion: boolean; onToday: () => void }) {
+export function PeriodTodayPill({
+    show,
+    reducedMotion,
+    onToday,
+}: {
+    show: boolean;
+    reducedMotion: boolean;
+    onToday: () => void;
+}) {
     const hidden = reducedMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.96 };
     return (
         <AnimatePresence>

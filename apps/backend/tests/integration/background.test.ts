@@ -13,9 +13,8 @@ const settings = (userId: string) => apiAs(userId, "/settings", settingsRoutes);
 
 /** Smallest valid still WebP: a VP8L chunk with a 2×2 header. */
 const TINY_WEBP = new Uint8Array([
-    0x52, 0x49, 0x46, 0x46, 0x16, 0, 0, 0, 0x57, 0x45, 0x42, 0x50,
-    0x56, 0x50, 0x38, 0x4c, 0x08, 0, 0, 0, 0x2f, 0x01, 0x40, 0, 0, 0, 0, 0,
-    0x45, 0x58, 0x49, 0x46, 0x02, 0, 0, 0, 0xaa, 0xbb,
+    0x52, 0x49, 0x46, 0x46, 0x16, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x4c, 0x08, 0, 0, 0, 0x2f, 0x01,
+    0x40, 0, 0, 0, 0, 0, 0x45, 0x58, 0x49, 0x46, 0x02, 0, 0, 0, 0xaa, 0xbb,
 ]);
 
 /** In-memory stand-in for the R2 binding (only what the route uses). */
@@ -62,13 +61,23 @@ describe("background routes", () => {
     });
 
     it("stores a sanitized photo privately and switches to image mode", async () => {
-        const res = await createApp().request("/settings/background", { method: "POST", body: uploadForm() }, { USER_ASSETS: bucket });
+        const res = await createApp().request(
+            "/settings/background",
+            { method: "POST", body: uploadForm() },
+            { USER_ASSETS: bucket },
+        );
         expect(res.status).toBe(201);
 
         const body = (await res.json()) as { data: any };
         const image = body.data.appearance.backgroundImage;
         expect(body.data.appearance.backgroundMode).toBe("image");
-        expect(image).toMatchObject({ dominant: "#1a2233", swatches: ["#e8a44a", "#7eb8d4"], accent: null, blur: 0, brightness: 80 });
+        expect(image).toMatchObject({
+            dominant: "#1a2233",
+            swatches: ["#e8a44a", "#7eb8d4"],
+            accent: null,
+            blur: 0,
+            brightness: 80,
+        });
 
         const key = `backgrounds/${userId}/${image.id}.webp`;
         expect([...bucket.objects.keys()]).toEqual([key]);
@@ -81,7 +90,11 @@ describe("background routes", () => {
         await app.request("/settings/background", { method: "POST", body: uploadForm() }, { USER_ASSETS: bucket });
         await settings(userId)("PATCH", "", { appearance: { backgroundImage: { blur: 30 } } });
 
-        const res = await app.request("/settings/background", { method: "POST", body: uploadForm() }, { USER_ASSETS: bucket });
+        const res = await app.request(
+            "/settings/background",
+            { method: "POST", body: uploadForm() },
+            { USER_ASSETS: bucket },
+        );
         const image = ((await res.json()) as { data: any }).data.appearance.backgroundImage;
 
         expect(bucket.objects.size).toBe(1);
@@ -92,7 +105,10 @@ describe("background routes", () => {
     it("rejects files that are not WebP without storing anything", async () => {
         const res = await createApp().request(
             "/settings/background",
-            { method: "POST", body: uploadForm(new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...Array.from({ length: 30 }, () => 0)])) },
+            {
+                method: "POST",
+                body: uploadForm(new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...Array.from({ length: 30 }, () => 0)])),
+            },
             { USER_ASSETS: bucket },
         );
         expect(res.status).toBe(415);
@@ -102,12 +118,20 @@ describe("background routes", () => {
     it("rejects malformed swatches", async () => {
         const form = uploadForm();
         form.set("swatches", "red,blue");
-        const res = await createApp().request("/settings/background", { method: "POST", body: form }, { USER_ASSETS: bucket });
+        const res = await createApp().request(
+            "/settings/background",
+            { method: "POST", body: form },
+            { USER_ASSETS: bucket },
+        );
         expect(res.status).toBe(400);
     });
 
     it("serves the photo only to its owner", async () => {
-        const upload = await createApp().request("/settings/background", { method: "POST", body: uploadForm() }, { USER_ASSETS: bucket });
+        const upload = await createApp().request(
+            "/settings/background",
+            { method: "POST", body: uploadForm() },
+            { USER_ASSETS: bucket },
+        );
         const id = ((await upload.json()) as { data: any }).data.appearance.backgroundImage.id;
 
         const own = await createApp().request(`/settings/background/${id}`, {}, { USER_ASSETS: bucket });
@@ -115,7 +139,11 @@ describe("background routes", () => {
         expect(own.headers.get("Content-Type")).toBe("image/webp");
         expect(own.headers.get("Cache-Control")).toContain("private");
 
-        const other = await createApp(await createUser()).request(`/settings/background/${id}`, {}, { USER_ASSETS: bucket });
+        const other = await createApp(await createUser()).request(
+            `/settings/background/${id}`,
+            {},
+            { USER_ASSETS: bucket },
+        );
         expect(other.status).toBe(404);
     });
 

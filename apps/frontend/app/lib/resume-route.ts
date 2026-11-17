@@ -8,18 +8,26 @@ export const RESUME_ROUTE_KEY = "cadence-resume-route";
 export const RESUME_FOR_MS = 6 * 3600_000;
 
 /** Screens worth coming back to: never auth, consent, desktop windows or redirects. */
-const RESUMABLE = /^\/(?:today|schedule|events|upcoming|completed|trash|routines|browse|weekly-review|(?:project|tag)\/[\w-]+)$/;
+const RESUMABLE =
+    /^\/(?:today|schedule|events|upcoming|completed|trash|routines|browse|weekly-review|(?:project|tag)\/[\w-]+)$/;
 
 /** Saves the screen being shown; anything else (Capture included) means the next launch opens Capture. */
 export function rememberRoute(pathname: string, now = Date.now()): void {
     try {
-        if (RESUMABLE.test(pathname)) localStorage.setItem(RESUME_ROUTE_KEY, JSON.stringify({ path: pathname, at: now }));
+        if (RESUMABLE.test(pathname))
+            localStorage.setItem(RESUME_ROUTE_KEY, JSON.stringify({ path: pathname, at: now }));
         else localStorage.removeItem(RESUME_ROUTE_KEY);
-    } catch { /* storage blocked: launches open Capture */ }
+    } catch {
+        /* storage blocked: launches open Capture */
+    }
 }
 
 export function forgetRoute(): void {
-    try { localStorage.removeItem(RESUME_ROUTE_KEY); } catch { /* nothing saved */ }
+    try {
+        localStorage.removeItem(RESUME_ROUTE_KEY);
+    } catch {
+        /* nothing saved */
+    }
 }
 
 /**

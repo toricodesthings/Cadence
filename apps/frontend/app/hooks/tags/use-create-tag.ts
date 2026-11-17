@@ -19,7 +19,9 @@ export function useCreateTag() {
             (input) => ({ type: "create_tag", payload: { ...input, id: clientIdFor(input) } }),
             async (input) => {
                 const id = clientIdFor(input);
-                return unwrapResponse(await client.api.tags.$post({ json: { ...input, id } }, { headers: { "Idempotency-Key": id } }));
+                return unwrapResponse(
+                    await client.api.tags.$post({ json: { ...input, id } }, { headers: { "Idempotency-Key": id } }),
+                );
             },
         ),
 
@@ -32,7 +34,12 @@ export function useCreateTag() {
                 userId: "",
                 name: input.name,
                 color: input.color ?? "default",
-                sortOrder: input.sortOrder ?? Math.max(0, ...(queryClient.getQueryData<Tag[]>(queryKeys.tags.all) ?? []).map((t) => t.sortOrder)) + 1000,
+                sortOrder:
+                    input.sortOrder ??
+                    Math.max(
+                        0,
+                        ...(queryClient.getQueryData<Tag[]>(queryKeys.tags.all) ?? []).map((t) => t.sortOrder),
+                    ) + 1000,
                 createdAt: new Date().toISOString(),
             };
 

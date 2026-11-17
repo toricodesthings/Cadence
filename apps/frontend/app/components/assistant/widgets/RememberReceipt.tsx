@@ -12,7 +12,12 @@ const VERBS: Record<string, string> = { forgot: "Forgot", updated: "Updated", ke
  * What the receipt says now, and whether Undo still applies. `known`: whether the memory page
  * still lists the fact (undefined until it has been read again).
  */
-function receiptState(action: string | undefined, known: boolean | undefined, undone: boolean, stale: boolean | undefined) {
+function receiptState(
+    action: string | undefined,
+    known: boolean | undefined,
+    undone: boolean,
+    stale: boolean | undefined,
+) {
     const forgot = action === "forgot";
     const gone = !undone && known === false && !forgot;
     const back = !undone && known === true && forgot;
@@ -21,7 +26,10 @@ function receiptState(action: string | undefined, known: boolean | undefined, un
     return { label: receiptLabel(action, { undone, gone, back }), canUndo };
 }
 
-function receiptLabel(action: string | undefined, { undone, gone, back }: { undone: boolean; gone: boolean; back: boolean }) {
+function receiptLabel(
+    action: string | undefined,
+    { undone, gone, back }: { undone: boolean; gone: boolean; back: boolean },
+) {
     if (undone) return action === "forgot" ? "Brought back" : "Not saved";
     if (gone) return "No longer remembered";
     if (back) return "Brought back";
@@ -71,7 +79,11 @@ export function RememberReceipt({ ctx }: { ctx: ToolRenderContext<"remember"> })
                 {label}: {toastName(output.text, 80)}
             </span>
             {canUndo ? (
-                <button type="button" onClick={undo} className="shrink-0 cursor-pointer font-medium text-accent-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+                <button
+                    type="button"
+                    onClick={undo}
+                    className="shrink-0 cursor-pointer font-medium text-accent-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                >
                     Undo
                 </button>
             ) : null}

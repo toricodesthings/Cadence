@@ -2,13 +2,24 @@ import { stemmer } from "stemmer";
 
 /** Preserve internal identifier punctuation; remove only surrounding prose punctuation. */
 export function searchTerms(text: string): string[] {
-    const tokens = text.toLowerCase().normalize("NFC").match(/[\p{L}\p{N}_%+][\p{L}\p{N}_.+%#'-]*/gu) ?? [];
-    return [...new Set(tokens.flatMap((token) => {
-        const term = token.replace(/^'+|['.]+$/g, "");
-        if (/\p{N}/u.test(term) || /^[a-z]+[+#]+$/.test(term) || /^[%_+]$/.test(term)) return [term];
-        // Ordinary prose punctuation is a word boundary; identifier punctuation above is literal.
-        return term.replace(/'s$/u, "").split(/[^\p{L}]+/u).filter(Boolean);
-    }))];
+    const tokens =
+        text
+            .toLowerCase()
+            .normalize("NFC")
+            .match(/[\p{L}\p{N}_%+][\p{L}\p{N}_.+%#'-]*/gu) ?? [];
+    return [
+        ...new Set(
+            tokens.flatMap((token) => {
+                const term = token.replace(/^'+|['.]+$/g, "");
+                if (/\p{N}/u.test(term) || /^[a-z]+[+#]+$/.test(term) || /^[%_+]$/.test(term)) return [term];
+                // Ordinary prose punctuation is a word boundary; identifier punctuation above is literal.
+                return term
+                    .replace(/'s$/u, "")
+                    .split(/[^\p{L}]+/u)
+                    .filter(Boolean);
+            }),
+        ),
+    ];
 }
 
 /** "v0.31.0" or "0.31.0". Linear: each `.` separates digit runs, so nothing can backtrack. */

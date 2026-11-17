@@ -13,7 +13,10 @@ describe("undo toasts", () => {
     it("toastUndo shows a long-lived toast whose Undo runs the reversal", () => {
         const onUndo = vi.fn();
         toastUndo("Task moved to Trash", onUndo);
-        expect(message).toHaveBeenCalledWith("Task moved to Trash", expect.objectContaining({ duration: CADENCE_UNDO_DURATION }));
+        expect(message).toHaveBeenCalledWith(
+            "Task moved to Trash",
+            expect.objectContaining({ duration: CADENCE_UNDO_DURATION }),
+        );
         lastOptions().action.onClick();
         expect(onUndo).toHaveBeenCalledOnce();
     });

@@ -9,9 +9,28 @@ describe("focus view URL codec", () => {
     });
 
     it("round-trips a custom view", () => {
-        const d = { ...DEFAULT_DEFINITION, states: ["WAITING", "ACTIVE"], tagIds: ["a", "b"], dueWindow: "this_week" as const, priorityMin: 2, effortMax: 1, durationMaxMinutes: 15, waitingOnly: true, missingStructureOnly: true };
+        const d = {
+            ...DEFAULT_DEFINITION,
+            states: ["WAITING", "ACTIVE"],
+            tagIds: ["a", "b"],
+            dueWindow: "this_week" as const,
+            priorityMin: 2,
+            effortMax: 1,
+            durationMaxMinutes: 15,
+            waitingOnly: true,
+            missingStructureOnly: true,
+        };
         const params = definitionToParams(d);
-        expect(params).toMatchObject({ state: "waiting,active", tags: "a,b", due: "this_week", pmin: "2", emax: "1", dmax: "15", waiting: "1", bare: "1" });
+        expect(params).toMatchObject({
+            state: "waiting,active",
+            tags: "a,b",
+            due: "this_week",
+            pmin: "2",
+            emax: "1",
+            dmax: "15",
+            waiting: "1",
+            bare: "1",
+        });
         expect(definitionFromParams(new URLSearchParams(params))).toEqual(d);
     });
 

@@ -10,7 +10,13 @@ import {
 } from "../../src/domains/ai/tools/projections";
 import { taskDay } from "@cadence/domain/task-recurrence";
 import { TOOL_CATALOG } from "@cadence/contracts/ai-tools";
-import { buildToolRegistry, clampLimit, MAX_LIST_LIMIT, safeExecute, slimSchema } from "../../src/domains/ai/tools/index";
+import {
+    buildToolRegistry,
+    clampLimit,
+    MAX_LIST_LIMIT,
+    safeExecute,
+    slimSchema,
+} from "../../src/domains/ai/tools/index";
 import { AppError } from "../../src/platform/errors";
 import { taskDraftSchema } from "../../src/domains/ai/tools/drafts";
 import { approvalFor, needsTap } from "../../src/domains/ai/safety/approval";
@@ -35,11 +41,22 @@ const baseTask: TaskRow = {
 
 describe("toMinimalTask", () => {
     it("projects only the set fields: DROPS content, nulls and defaults", () => {
-        expect(Object.keys(JSON.parse(JSON.stringify(toMinimalTask(baseTask, "UTC")))).sort()).toEqual(
-            ["dueDate", "durationEstimate", "effort", "id", "priority", "projectId", "state", "title"],
-        );
-        expect(toMinimalTask({ ...baseTask, priority: 0, effort: null, projectId: null, durationEstimate: null, dueDate: null }, "UTC"))
-            .toEqual({ id: "t1", title: "Write report", state: "ACTIVE" });
+        expect(Object.keys(JSON.parse(JSON.stringify(toMinimalTask(baseTask, "UTC")))).sort()).toEqual([
+            "dueDate",
+            "durationEstimate",
+            "effort",
+            "id",
+            "priority",
+            "projectId",
+            "state",
+            "title",
+        ]);
+        expect(
+            toMinimalTask(
+                { ...baseTask, priority: 0, effort: null, projectId: null, durationEstimate: null, dueDate: null },
+                "UTC",
+            ),
+        ).toEqual({ id: "t1", title: "Write report", state: "ACTIVE" });
     });
 
     it("flags timetable blocks and repeats, and names an occurrence by its series id", () => {
@@ -59,7 +76,11 @@ describe("toMinimalTask", () => {
     });
 
     it("writes timed values as the user's wall clock with offset, so the model never converts", () => {
-        const task = { ...baseTask, scheduledStart: "2026-06-10T18:00:00.000Z", scheduledEnd: "2026-06-10T19:30:00.000Z" };
+        const task = {
+            ...baseTask,
+            scheduledStart: "2026-06-10T18:00:00.000Z",
+            scheduledEnd: "2026-06-10T19:30:00.000Z",
+        };
 
         expect(toMinimalTask(task, "America/Toronto")).toMatchObject({
             scheduledStart: "2026-06-10T14:00:00-04:00",
@@ -75,7 +96,9 @@ describe("toMinimalTask", () => {
             expect(toMinimalTask(task, tz)).toMatchObject({ dueDate: "2026-06-10", endDate: "2026-06-12" });
             expect(toMinimalTask(task, tz).scheduledStart).toBeUndefined();
         }
-        expect(toMinimalTask({ ...baseTask, notBefore: "2026-06-08" }, "Pacific/Pago_Pago").hiddenUntil).toBe("2026-06-08");
+        expect(toMinimalTask({ ...baseTask, notBefore: "2026-06-08" }, "Pacific/Pago_Pago").hiddenUntil).toBe(
+            "2026-06-08",
+        );
     });
 });
 
@@ -90,7 +113,8 @@ describe("taskDay", () => {
     it("keeps an all-day task on its stored day in every zone, and is null when undated", () => {
         const allDay = { dueDate: "2026-10-05", scheduledStart: null }; // the COMP3000 case
 
-        for (const tz of ["Pacific/Kiritimati", "Pacific/Pago_Pago", "America/Toronto", "UTC"]) expect(taskDay(allDay, tz)).toBe("2026-10-05");
+        for (const tz of ["Pacific/Kiritimati", "Pacific/Pago_Pago", "America/Toronto", "UTC"])
+            expect(taskDay(allDay, tz)).toBe("2026-10-05");
         expect(taskDay({ dueDate: null, scheduledStart: null }, "UTC")).toBeNull();
     });
 });
@@ -107,12 +131,18 @@ describe("toMinimalHabit", () => {
     };
 
     it("derives adherence from the last 30 due days: done / (done + missed), 2dp", () => {
-        expect(toMinimalHabit(habit, "2026-06-05", { done: 3, missed: 1 })).toMatchObject({ adherence: 0.75, missedLast30: 1 });
+        expect(toMinimalHabit(habit, "2026-06-05", { done: 3, missed: 1 })).toMatchObject({
+            adherence: 0.75,
+            missedLast30: 1,
+        });
     });
 
     it("leaves adherence out when nothing was due, and a clean record has no missed count", () => {
         expect(toMinimalHabit(habit, "2026-06-05", { done: 0, missed: 0 }).adherence).toBeUndefined();
-        expect(toMinimalHabit(habit, "2026-06-05", { done: 5, missed: 0 })).toMatchObject({ adherence: 1, missedLast30: undefined });
+        expect(toMinimalHabit(habit, "2026-06-05", { done: 5, missed: 0 })).toMatchObject({
+            adherence: 1,
+            missedLast30: undefined,
+        });
     });
 
     it("flags paused when currentDate is on/before pausedUntil", () => {
@@ -145,27 +175,48 @@ describe("toMinimalInboxItem", () => {
 
 describe("tool registry", () => {
     it("builds exactly the tools the shared catalog lists", () => {
-        const backend = Object.keys(buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" })).sort();
+        const backend = Object.keys(
+            buildToolRegistry({} as never, "u", {
+                timezone: "UTC",
+                currentDate: "2026-09-23T12:00:00Z",
+                today: "2026-09-23",
+            }),
+        ).sort();
 
         expect(backend).toEqual(Object.keys(TOOL_CATALOG).sort());
     });
 
     it("sends the model schemas without regex patterns, but still validates calls in full", async () => {
-        const tools = buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
+        const tools = buildToolRegistry({} as never, "u", {
+            timezone: "UTC",
+            currentDate: "2026-09-23T12:00:00Z",
+            today: "2026-09-23",
+        }) as any;
         const schema = asSchema(tools.reschedule_tasks.inputSchema);
 
         expect(JSON.stringify(await schema.jsonSchema)).not.toContain("pattern");
         expect((await schema.validate!({ taskIds: ["not-a-uuid"], targetDate: "2026-10-01" })).success).toBe(false);
-        expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01T14:00" })).success).toBe(false);
-        expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01" })).success).toBe(true);
+        expect(
+            (
+                await schema.validate!({
+                    taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"],
+                    targetDate: "2026-10-01T14:00",
+                })
+            ).success,
+        ).toBe(false);
+        expect(
+            (await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01" }))
+                .success,
+        ).toBe(true);
     });
 
     it("sends Claude lean schemas: no nulls on optionals, no strict-only or default keys, still lenient", async () => {
         const ctx = { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" };
         const lean = buildToolRegistry({} as never, "u", { ...ctx, nullableOptionals: false }) as any;
         const padded = buildToolRegistry({} as never, "u", ctx) as any;
-        const text = async (tools: any) => JSON.stringify(await Promise.all(Object.values(tools).map((t: any) => asSchema(t.inputSchema).jsonSchema)));
-        const model = await asSchema(lean.get_tasks.inputSchema).jsonSchema as any;
+        const text = async (tools: any) =>
+            JSON.stringify(await Promise.all(Object.values(tools).map((t: any) => asSchema(t.inputSchema).jsonSchema)));
+        const model = (await asSchema(lean.get_tasks.inputSchema).jsonSchema) as any;
         expect(model.properties.query.type).toBe("string");
         expect(model.properties.state.enum).not.toContain(null);
         for (const schema of [await text(lean), await text(padded)]) {
@@ -174,40 +225,60 @@ describe("tool registry", () => {
         }
         expect((await text(lean)).length).toBeLessThan((await text(padded)).length);
         // A record keeps its value schema: a habit day's steps map step ids to a status.
-        const log = await asSchema(lean.log_habit.inputSchema).jsonSchema as any;
+        const log = (await asSchema(lean.log_habit.inputSchema).jsonSchema) as any;
         expect(log.properties.stepStatus.additionalProperties).toBeTruthy();
         // A null, or a field that only clears, still means the same on the lean schema.
-        const sent = await asSchema(lean.get_tasks.inputSchema).validate!({ query: "x", projectId: null }) as any;
+        const sent = (await asSchema(lean.get_tasks.inputSchema).validate!({ query: "x", projectId: null })) as any;
         expect(JSON.parse(JSON.stringify(sent.value))).toEqual({ query: "x", limit: 20 });
-        const update = await asSchema(lean.update_tasks.inputSchema).jsonSchema as any;
+        const update = (await asSchema(lean.update_tasks.inputSchema).jsonSchema) as any;
         expect(update.properties.patch.properties.clear.items.enum).toContain("dueDate");
     });
 
     it("names colours from the app's palettes, never a free-form token", async () => {
-        const tools = buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23", nullableOptionals: false }) as any;
-        const field = async (name: string, path: string[]) => path.reduce((node: any, key) => node.properties[key], await asSchema(tools[name].inputSchema).jsonSchema);
+        const tools = buildToolRegistry({} as never, "u", {
+            timezone: "UTC",
+            currentDate: "2026-09-23T12:00:00Z",
+            today: "2026-09-23",
+            nullableOptionals: false,
+        }) as any;
+        const field = async (name: string, path: string[]) =>
+            path.reduce((node: any, key) => node.properties[key], await asSchema(tools[name].inputSchema).jsonSchema);
         expect((await field("create_project", ["colorAccent"])).enum).toEqual([...ACCENT_COLORS]);
         expect((await field("create_habit", ["colorAccent"])).enum).toEqual(["lantern", ...ACCENT_COLORS]);
         const event = await field("save_event", ["patch", "color"]);
-        expect(event.enum ?? event.anyOf.find((b: any) => b.enum).enum).toEqual(expect.arrayContaining([...ACCENT_COLORS]));
+        expect(event.enum ?? event.anyOf.find((b: any) => b.enum).enum).toEqual(
+            expect.arrayContaining([...ACCENT_COLORS]),
+        );
         expect((await field("create_tag", ["color"])).enum).toEqual([...TAG_COLOR_NAMES]);
         expect(toMinimalTag({ id: "t", name: "x", color: "#79c0ff" }).color).toBe("blue");
         expect(toMinimalTag({ id: "t", name: "x", color: "#123456" }).color).toBe("#123456");
     });
 
     it("save_* tools make a new item only from its required fields, and change one by id", async () => {
-        const tools = buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23", nullableOptionals: false }) as any;
-        const ok = async (name: string, input: object) => (await asSchema(tools[name].inputSchema).validate!(input)).success;
+        const tools = buildToolRegistry({} as never, "u", {
+            timezone: "UTC",
+            currentDate: "2026-09-23T12:00:00Z",
+            today: "2026-09-23",
+            nullableOptionals: false,
+        }) as any;
+        const ok = async (name: string, input: object) =>
+            (await asSchema(tools[name].inputSchema).validate!(input)).success;
         expect(await ok("save_event", { patch: { label: "Mum" } })).toBe(false);
         expect(await ok("save_event", { patch: { label: "Mum", monthDay: "03-14" } })).toBe(true);
         expect(await ok("save_event", { eventId: "e1", patch: { emoji: "🌷" } })).toBe(true);
         expect(await ok("save_focus_view", { filters: { effortMax: 1 } })).toBe(false);
         expect(await ok("save_focus_view", { name: "Quick", filters: { effortMax: 1 } })).toBe(true);
-        expect(await ok("save_focus_view", { focusViewId: "00000000-0000-4000-8000-000000000001", pinned: true })).toBe(true);
+        expect(await ok("save_focus_view", { focusViewId: "00000000-0000-4000-8000-000000000001", pinned: true })).toBe(
+            true,
+        );
     });
 
     it("drops the placeholders a fill-every-field model sends, and keeps real values", async () => {
-        const tools = buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
+        const tools = buildToolRegistry({} as never, "u", {
+            timezone: "UTC",
+            currentDate: "2026-09-23T12:00:00Z",
+            today: "2026-09-23",
+        }) as any;
         const projects = asSchema(tools.get_projects.inputSchema);
         const tasks = asSchema(tools.get_tasks.inputSchema);
         const nil = "00000000-0000-0000-0000-000000000000";
@@ -215,78 +286,148 @@ describe("tool registry", () => {
 
         // JSON drops the symbol that carries what was ignored, as persisting the call does.
         const plain = (result: unknown) => JSON.parse(JSON.stringify(result));
-        expect(plain(await projects.validate!({ query: "University", projectId: nil, offset: 0, sectionQuery: "", sectionOffset: 0 })))
-            .toEqual({ success: true, value: { query: "University" } });
-        const sent = await tasks.validate!({ query: "COMP3005", state: "ACTIVE", projectId: id, tagId: nil, focusViewId: nil, minPriority: 0, limit: 0 }) as any;
+        expect(
+            plain(
+                await projects.validate!({
+                    query: "University",
+                    projectId: nil,
+                    offset: 0,
+                    sectionQuery: "",
+                    sectionOffset: 0,
+                }),
+            ),
+        ).toEqual({ success: true, value: { query: "University" } });
+        const sent = (await tasks.validate!({
+            query: "COMP3005",
+            state: "ACTIVE",
+            projectId: id,
+            tagId: nil,
+            focusViewId: nil,
+            minPriority: 0,
+            limit: 0,
+        })) as any;
         expect(sent.success).toBe(true);
         expect(plain(sent.value)).toEqual({ query: "COMP3005", state: "ACTIVE", projectId: id, limit: 20 });
         // Optional fields offer null as "not used"; null where it can't clear is dropped without remark.
-        const model = await tasks.jsonSchema as any;
+        const model = (await tasks.jsonSchema) as any;
         expect(model.properties.query.type).toEqual(["string", "null"]);
         expect(model.properties.state.enum).toContain(null);
-        const nulled = await tasks.validate!({ query: "COMP3005", projectId: null, sort: null }) as any;
+        const nulled = (await tasks.validate!({ query: "COMP3005", projectId: null, sort: null })) as any;
         expect(plain(nulled.value)).toEqual({ query: "COMP3005", limit: 20 });
         expect(nulled.value[Object.getOwnPropertySymbols(nulled.value)[0]]).toBeUndefined();
         // Inside an array of drafts too: luna's real first call, every optional field null.
-        const created = await asSchema(tools.create_tasks.inputSchema).validate!({ tasks: [{
-            title: "Call mom", dueDate: null, scheduledStart: "2026-09-24T18:00:00-04:00", scheduledEnd: null, projectId: null, sectionId: null,
-            recurrenceRule: null, tagIds: null, priority: null, effort: null, durationEstimate: null, subtasks: null, fixed: null, note: null,
-            tagNames: null, reminderAt: null, hideUntil: null, fromImage: null, inboxItemId: null,
-        }] }) as any;
+        const created = (await asSchema(tools.create_tasks.inputSchema).validate!({
+            tasks: [
+                {
+                    title: "Call mom",
+                    dueDate: null,
+                    scheduledStart: "2026-09-24T18:00:00-04:00",
+                    scheduledEnd: null,
+                    projectId: null,
+                    sectionId: null,
+                    recurrenceRule: null,
+                    tagIds: null,
+                    priority: null,
+                    effort: null,
+                    durationEstimate: null,
+                    subtasks: null,
+                    fixed: null,
+                    note: null,
+                    tagNames: null,
+                    reminderAt: null,
+                    hideUntil: null,
+                    fromImage: null,
+                    inboxItemId: null,
+                },
+            ],
+        })) as any;
         expect(created.success).toBe(true);
-        expect(created.value.tasks[0]).toMatchObject({ title: "Call mom", scheduledStart: "2026-09-24T18:00:00-04:00" });
+        expect(created.value.tasks[0]).toMatchObject({
+            title: "Call mom",
+            scheduledStart: "2026-09-24T18:00:00-04:00",
+        });
         // From a capture: null reminder/hide-until/fixed set nothing, so the capture rule holds.
-        const fromCapture = await asSchema(tools.create_tasks.inputSchema).validate!({ tasks: [{ title: "Buy ink", fixed: null, reminderAt: null, hideUntil: null, note: "", inboxItemId: id }] }) as any;
+        const fromCapture = (await asSchema(tools.create_tasks.inputSchema).validate!({
+            tasks: [{ title: "Buy ink", fixed: null, reminderAt: null, hideUntil: null, note: "", inboxItemId: id }],
+        })) as any;
         expect(fromCapture.success).toBe(true);
         // A real mistake still fails.
         expect((await tasks.validate!({ state: "DONE", minPriority: 0 })).success).toBe(false);
 
         // In a patch, null and [] change nothing and `clear` empties a field; a rejected "" goes, a valid 0 stays.
         const updateTasks = asSchema(tools.update_tasks.inputSchema);
-        const update = await updateTasks.validate!({ taskIds: [id], patch: { title: "", dueDate: null, priority: 0, addTagIds: [], clear: ["reminderAt"] } }) as any;
-        expect(plain(update.value)).toEqual({ taskIds: [id], patch: { priority: 0, reminderAt: null, clear: ["reminderAt"] } });
+        const update = (await updateTasks.validate!({
+            taskIds: [id],
+            patch: { title: "", dueDate: null, priority: 0, addTagIds: [], clear: ["reminderAt"] },
+        })) as any;
+        expect(plain(update.value)).toEqual({
+            taskIds: [id],
+            patch: { priority: 0, reminderAt: null, clear: ["reminderAt"] },
+        });
         // Luna's real "undo": every patch field null. It used to wipe dates, list and recurrence; now it changes nothing and says so.
-        const wipe = await updateTasks.validate!({ taskIds: [id], patch: {
-            dueDate: null, scheduledStart: null, scheduledEnd: null, projectId: null, sectionId: null, waitingOn: null,
-            recurrenceRule: null, effort: null, durationEstimate: null, reminderAt: null, checkInAt: null, hideUntil: null,
-        } }) as any;
+        const wipe = (await updateTasks.validate!({
+            taskIds: [id],
+            patch: {
+                dueDate: null,
+                scheduledStart: null,
+                scheduledEnd: null,
+                projectId: null,
+                sectionId: null,
+                waitingOn: null,
+                recurrenceRule: null,
+                effort: null,
+                durationEstimate: null,
+                reminderAt: null,
+                checkInAt: null,
+                hideUntil: null,
+            },
+        })) as any;
         expect(wipe.success).toBe(false);
         expect(String(wipe.error?.message)).toContain("Nothing to change");
         // The model's patch: a `clear` list of what can be emptied, and no field says null clears.
-        const patch = (await updateTasks.jsonSchema as any).properties.patch.properties;
-        expect(patch.clear.items.enum).toEqual(expect.arrayContaining(["dueDate", "reminderAt", "projectId", "sectionId", "recurrenceRule"]));
+        const patch = ((await updateTasks.jsonSchema) as any).properties.patch.properties;
+        expect(patch.clear.items.enum).toEqual(
+            expect.arrayContaining(["dueDate", "reminderAt", "projectId", "sectionId", "recurrenceRule"]),
+        );
         expect(patch.clear.items.enum).not.toContain("title");
         expect(JSON.stringify(patch)).not.toMatch(/null (clears|removes|shows|stops)/);
         expect(patch.dueDate.description).toBe("The day it sits on, or its deadline, YYYY-MM-DD (never a time).");
 
         // The tool's result tells the model what was dropped.
         const help = asSchema(tools.get_cadence_help.inputSchema);
-        const [topic] = (await help.jsonSchema as any).properties.topic.enum;
-        const input = (await help.validate!({ topic, listId: nil }) as any).value;
+        const [topic] = ((await help.jsonSchema) as any).properties.topic.enum;
+        const input = ((await help.validate!({ topic, listId: nil })) as any).value;
         expect((await tools.get_cadence_help.execute(input, {})).ignored).toContain("listId");
     });
 
     it("runs an unexpected tool failure once more, but not one of our own errors", async () => {
         let runs = 0;
-        expect(await safeExecute("t", "u", async () => (++runs === 1 ? Promise.reject(new Error("socket")) : "ok"))).toBe("ok");
+        expect(
+            await safeExecute("t", "u", async () => (++runs === 1 ? Promise.reject(new Error("socket")) : "ok")),
+        ).toBe("ok");
         expect(runs).toBe(2);
         runs = 0;
-        const out = await safeExecute("t", "u", async () => { runs++; throw new AppError(404, "NOT_FOUND", "Task not found"); });
+        const out = await safeExecute("t", "u", async () => {
+            runs++;
+            throw new AppError(404, "NOT_FOUND", "Task not found");
+        });
         expect(runs).toBe(1);
         expect(out).toMatchObject({ ok: false, error: "Task not found. Nothing was changed." });
     });
 
     it("slims schemas: no bounds, nullable unions and literal unions folded", () => {
-        expect(slimSchema({
-            type: "object",
-            properties: {
-                minimum: { type: "string", minLength: 1, maxLength: 9 },
-                due: { anyOf: [{ type: "string", format: "date" }, { type: "null" }], description: "d" },
-                kind: { anyOf: [{ type: "string", enum: ["a"] }, { type: "null" }] },
-                priority: { anyOf: [0, 1, 2].map((n) => ({ type: "number", const: n })) },
-                ids: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 20 },
-            },
-        })).toEqual({
+        expect(
+            slimSchema({
+                type: "object",
+                properties: {
+                    minimum: { type: "string", minLength: 1, maxLength: 9 },
+                    due: { anyOf: [{ type: "string", format: "date" }, { type: "null" }], description: "d" },
+                    kind: { anyOf: [{ type: "string", enum: ["a"] }, { type: "null" }] },
+                    priority: { anyOf: [0, 1, 2].map((n) => ({ type: "number", const: n })) },
+                    ids: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 20 },
+                },
+            }),
+        ).toEqual({
             type: "object",
             properties: {
                 minimum: { type: "string" },
@@ -299,11 +440,28 @@ describe("tool registry", () => {
     });
 
     it("takes only the repeat rules the Routines picker can show", async () => {
-        const tools = buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
+        const tools = buildToolRegistry({} as never, "u", {
+            timezone: "UTC",
+            currentDate: "2026-09-23T12:00:00Z",
+            today: "2026-09-23",
+        }) as any;
         const schema = asSchema(tools.create_habit.inputSchema);
-        const ok = async (recurrenceRule: string, targetTime?: string) => (await schema.validate!({ title: "Gym", recurrenceRule, targetTime })).success;
-        for (const rule of ["FREQ=DAILY", "FREQ=DAILY;INTERVAL=3", "FREQ=WEEKLY;BYDAY=MO,WE,FR", "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA"]) expect(await ok(rule)).toBe(true);
-        for (const rule of ["FREQ=HOURLY", "FREQ=WEEKLY", "FREQ=MONTHLY;BYMONTHDAY=1", "FREQ=WEEKLY;INTERVAL=3;BYDAY=MO"]) expect(await ok(rule)).toBe(false);
+        const ok = async (recurrenceRule: string, targetTime?: string) =>
+            (await schema.validate!({ title: "Gym", recurrenceRule, targetTime })).success;
+        for (const rule of [
+            "FREQ=DAILY",
+            "FREQ=DAILY;INTERVAL=3",
+            "FREQ=WEEKLY;BYDAY=MO,WE,FR",
+            "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+        ])
+            expect(await ok(rule)).toBe(true);
+        for (const rule of [
+            "FREQ=HOURLY",
+            "FREQ=WEEKLY",
+            "FREQ=MONTHLY;BYMONTHDAY=1",
+            "FREQ=WEEKLY;INTERVAL=3;BYDAY=MO",
+        ])
+            expect(await ok(rule)).toBe(false);
         expect(await ok("FREQ=DAILY", "7:30")).toBe(false);
         expect(await ok("FREQ=DAILY", "07:30")).toBe(true);
     });
@@ -311,7 +469,8 @@ describe("tool registry", () => {
 
 describe("which calls wait for a tap", () => {
     const ids = (n: number) => Array.from({ length: n }, (_, i) => `t${i}`);
-    const approval = (mode: "ask" | "auto" | "full", toolName: string, input: unknown = {}) => approvalFor(mode)({ toolCall: { toolName, input } });
+    const approval = (mode: "ask" | "auto" | "full", toolName: string, input: unknown = {}) =>
+        approvalFor(mode)({ toolCall: { toolName, input } });
 
     it("Ask waits on every write but never on reads or capture", () => {
         expect(approval("ask", "create_tag")).toBe("user-approval");
@@ -331,7 +490,8 @@ describe("which calls wait for a tap", () => {
         expect(needsTap("edit_subtasks", { remove: [{ subtaskId: "s" }] })).toBe(true);
         expect(needsTap("update_tasks", { taskIds: ids(1), patch: { appendNote: "more" } })).toBe(false);
         expect(needsTap("update_tasks", { taskIds: ids(1), patch: { note: "rewritten" } })).toBe(true);
-        for (const name of ["delete_project", "delete_tag", "delete_captures", "delete_habit", "delete_focus_view"]) expect(needsTap(name, {})).toBe(true);
+        for (const name of ["delete_project", "delete_tag", "delete_captures", "delete_habit", "delete_focus_view"])
+            expect(needsTap(name, {})).toBe(true);
         expect(needsTap("update_captures", { items: ids(5) })).toBe(false);
         expect(needsTap("update_captures", { items: ids(6) })).toBe(true);
         expect(needsTap("create_tasks", { tasks: ids(6) })).toBe(true);
@@ -354,10 +514,18 @@ describe("task drafts", () => {
     });
 
     it("keep quotes for known fields and drop others without failing the call", () => {
-        const parsed = taskDraftSchema.parse({ title: "Pay rent", note: "Amouage", fromImage: { note: "Amouage", project: "Home" } });
+        const parsed = taskDraftSchema.parse({
+            title: "Pay rent",
+            note: "Amouage",
+            fromImage: { note: "Amouage", project: "Home" },
+        });
         expect(parsed.fromImage).toEqual({ note: "Amouage" });
-        expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { subtasks: "x".repeat(300) } }).success).toBe(true);
-        expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { dueDate: "x".repeat(301) } }).success).toBe(false);
+        expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { subtasks: "x".repeat(300) } }).success).toBe(
+            true,
+        );
+        expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { dueDate: "x".repeat(301) } }).success).toBe(
+            false,
+        );
     });
 });
 
@@ -369,8 +537,20 @@ describe("a time in a day field is refused with a way forward", () => {
         const bareDay = taskDraftSchema.safeParse({ title: "Essay", scheduledStart: "2026-10-09" });
         expect(bareDay.success).toBe(false);
         expect(JSON.stringify(bareDay.error?.issues)).toMatch(/dueDate/);
-        expect(taskDraftSchema.safeParse({ title: "Essay", dueDate: "2026-10-09", reminderAt: "2026-10-09T23:00:00-04:00" }).success).toBe(true);
-        expect(taskDraftSchema.safeParse({ title: "Call", scheduledStart: "2026-10-09T18:00:00-04:00", scheduledEnd: "2026-10-09T19:00:00-04:00" }).success).toBe(true);
+        expect(
+            taskDraftSchema.safeParse({
+                title: "Essay",
+                dueDate: "2026-10-09",
+                reminderAt: "2026-10-09T23:00:00-04:00",
+            }).success,
+        ).toBe(true);
+        expect(
+            taskDraftSchema.safeParse({
+                title: "Call",
+                scheduledStart: "2026-10-09T18:00:00-04:00",
+                scheduledEnd: "2026-10-09T19:00:00-04:00",
+            }).success,
+        ).toBe(true);
     });
 });
 

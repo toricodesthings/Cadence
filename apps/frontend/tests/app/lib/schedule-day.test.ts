@@ -1,26 +1,52 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { Task } from "@cadence/contracts/task";
-import { dayLoad, freeGaps, groupByDate, scheduleKind, splitDay, splitMonthDay, taskDays } from "../../../app/lib/utils/calendar/schedule-day";
+import {
+    dayLoad,
+    freeGaps,
+    groupByDate,
+    scheduleKind,
+    splitDay,
+    splitMonthDay,
+    taskDays,
+} from "../../../app/lib/utils/calendar/schedule-day";
 import { setUserZone } from "../../../app/lib/utils/user-zone";
 
 beforeAll(() => setUserZone("America/Toronto"));
 
-const task = (patch: Partial<Task>): Task => ({
-    id: patch.id ?? "t",
-    title: "x",
-    state: "ACTIVE",
-    dueDate: null,
-    scheduledStart: null,
-    scheduledEnd: null,
-    ...patch,
-}) as Task;
+const task = (patch: Partial<Task>): Task =>
+    ({
+        id: patch.id ?? "t",
+        title: "x",
+        state: "ACTIVE",
+        dueDate: null,
+        scheduledStart: null,
+        scheduledEnd: null,
+        ...patch,
+    }) as Task;
 
 describe("schedule-day", () => {
     it("folds repeating Fixed blocks into one Month summary; one-off Fixed and tasks keep chips", () => {
         const { items, fixed } = splitMonthDay([
-            task({ id: "lec", interactionMode: "timetable", seriesId: "s1", scheduledStart: "2026-10-05T12:35:00Z", scheduledEnd: "2026-10-05T13:55:00Z" }),
-            task({ id: "tut", interactionMode: "timetable", recurrenceRule: "FREQ=WEEKLY", scheduledStart: "2026-10-05T18:35:00Z", scheduledEnd: "2026-10-05T19:55:00Z" }),
-            task({ id: "exam", interactionMode: "timetable", scheduledStart: "2026-10-05T16:00:00Z", scheduledEnd: "2026-10-05T17:30:00Z" }),
+            task({
+                id: "lec",
+                interactionMode: "timetable",
+                seriesId: "s1",
+                scheduledStart: "2026-10-05T12:35:00Z",
+                scheduledEnd: "2026-10-05T13:55:00Z",
+            }),
+            task({
+                id: "tut",
+                interactionMode: "timetable",
+                recurrenceRule: "FREQ=WEEKLY",
+                scheduledStart: "2026-10-05T18:35:00Z",
+                scheduledEnd: "2026-10-05T19:55:00Z",
+            }),
+            task({
+                id: "exam",
+                interactionMode: "timetable",
+                scheduledStart: "2026-10-05T16:00:00Z",
+                scheduledEnd: "2026-10-05T17:30:00Z",
+            }),
             task({ id: "todo", dueDate: "2026-10-05" }),
         ]);
         expect(items.map((t) => t.id)).toEqual(["exam", "todo"]);
@@ -70,28 +96,38 @@ describe("schedule-day", () => {
     });
 
     it("spreads an all-day multi-day task over dueDate..endDate", () => {
-        expect(taskDays(task({ dueDate: "2026-10-30", endDate: "2026-11-02" }))).toEqual(["2026-10-30", "2026-10-31", "2026-11-01", "2026-11-02"]);
+        expect(taskDays(task({ dueDate: "2026-10-30", endDate: "2026-11-02" }))).toEqual([
+            "2026-10-30",
+            "2026-10-31",
+            "2026-11-01",
+            "2026-11-02",
+        ]);
         const groups = groupByDate([task({ id: "span", dueDate: "2026-10-30", endDate: "2026-11-01" })]);
         expect([...groups.keys()]).toEqual(["2026-10-30", "2026-10-31", "2026-11-01"]);
     });
 
-    it.each(["Pacific/Kiritimati", "Pacific/Pago_Pago"])("keeps an all-day task due 2026-10-05 on that day for a user in %s", (zone) => {
-        setUserZone(zone);
-        try {
-            const groups = groupByDate([task({ id: "due", dueDate: "2026-10-05" })]);
-            expect([...groups.keys()]).toEqual(["2026-10-05"]);
-        } finally {
-            setUserZone("America/Toronto");
-        }
-    });
+    it.each(["Pacific/Kiritimati", "Pacific/Pago_Pago"])(
+        "keeps an all-day task due 2026-10-05 on that day for a user in %s",
+        (zone) => {
+            setUserZone(zone);
+            try {
+                const groups = groupByDate([task({ id: "due", dueDate: "2026-10-05" })]);
+                expect([...groups.keys()]).toEqual(["2026-10-05"]);
+            } finally {
+                setUserZone("America/Toronto");
+            }
+        },
+    );
 
     it("weighs only open tasks", () => {
-        expect(dayLoad([
-            task({ effort: 3 }),
-            task({ state: "COMPLETE", effort: 3 }),
-            task({ isHabit: true }),
-            task({ interactionMode: "timetable" }),
-            task({}),
-        ])).toBe(4);
+        expect(
+            dayLoad([
+                task({ effort: 3 }),
+                task({ state: "COMPLETE", effort: 3 }),
+                task({ isHabit: true }),
+                task({ interactionMode: "timetable" }),
+                task({}),
+            ]),
+        ).toBe(4);
     });
 });

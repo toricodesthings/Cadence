@@ -37,7 +37,15 @@ export function CreateProjectPopover() {
                 <DialogHeader className="space-y-0">
                     <DialogTitle>New List</DialogTitle>
                 </DialogHeader>
-                <ListIdentityFields emoji={emoji} onEmoji={setEmoji} name={name} onName={setName} color={colorAccent} onColor={setColorAccent} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
+                <ListIdentityFields
+                    emoji={emoji}
+                    onEmoji={setEmoji}
+                    name={name}
+                    onName={setName}
+                    color={colorAccent}
+                    onColor={setColorAccent}
+                    onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                />
                 <Button
                     variant="subtle"
                     size="md"

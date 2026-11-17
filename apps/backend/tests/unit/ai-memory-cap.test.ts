@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const redis = vi.hoisted(() => ({ client: null as null | { incr: (k: string) => Promise<number>; expire: (k: string, s: number) => Promise<unknown> } }));
+const redis = vi.hoisted(() => ({
+    client: null as null | { incr: (k: string) => Promise<number>; expire: (k: string, s: number) => Promise<unknown> },
+}));
 vi.mock("../../src/platform/redis", () => ({ getRedis: () => null, getRateLimitRedis: () => redis.client }));
 
 import { DAILY_EXTRACTIONS, withinDailyCap } from "../../src/domains/ai/memory/memory-job";
@@ -20,7 +22,8 @@ describe("withinDailyCap", () => {
     });
 
     it("allows a day's budget, then stops, and starts over the next day", async () => {
-        for (let i = 0; i < DAILY_EXTRACTIONS; i++) expect(await withinDailyCap(env, USER, day("2026-10-12"))).toBe(true);
+        for (let i = 0; i < DAILY_EXTRACTIONS; i++)
+            expect(await withinDailyCap(env, USER, day("2026-10-12"))).toBe(true);
         expect(await withinDailyCap(env, USER, day("2026-10-12"))).toBe(false);
         expect(await withinDailyCap(env, USER, day("2026-10-13"))).toBe(true);
     });
@@ -35,7 +38,12 @@ describe("withinDailyCap", () => {
     it("never blocks when there is no Redis, or when it fails", async () => {
         redis.client = null;
         expect(await withinDailyCap(env, USER, day("2026-10-12"))).toBe(true);
-        redis.client = { incr: async () => { throw new Error("down"); }, expire: async () => 1 };
+        redis.client = {
+            incr: async () => {
+                throw new Error("down");
+            },
+            expire: async () => 1,
+        };
         expect(await withinDailyCap(env, USER, day("2026-10-12"))).toBe(true);
     });
 });

@@ -18,9 +18,11 @@ export function ManageSectionsButton({ onClick, wide = false }: { onClick: () =>
         <button
             type="button"
             onClick={onClick}
-            className={wide
-                ? "touch-target flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-twilight-border/60 bg-white/[0.02] px-4 text-sm font-medium text-twilight-text-soft active:opacity-80"
-                : "touch-target inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-dashed border-twilight-border/45 bg-twilight-base/35 px-3.5 text-sm font-medium text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"}
+            className={
+                wide
+                    ? "touch-target flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-twilight-border/60 bg-white/[0.02] px-4 text-sm font-medium text-twilight-text-soft active:opacity-80"
+                    : "touch-target inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-dashed border-twilight-border/45 bg-twilight-base/35 px-3.5 text-sm font-medium text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+            }
         >
             <Columns3 size={15} aria-hidden="true" />
             {wide ? "Add or edit sections" : "Sections"}
@@ -29,7 +31,15 @@ export function ManageSectionsButton({ onClick, wide = false }: { onClick: () =>
 }
 
 /** Compact direct add: the orb opens the task composer straight into this project. */
-export function ProjectTaskSheet({ open, onClose, projectId, projectName, tasks, sectionId, onSectionChange }: {
+export function ProjectTaskSheet({
+    open,
+    onClose,
+    projectId,
+    projectName,
+    tasks,
+    sectionId,
+    onSectionChange,
+}: {
     open: boolean;
     onClose: () => void;
     projectId: string;
@@ -45,10 +55,29 @@ export function ProjectTaskSheet({ open, onClose, projectId, projectName, tasks,
         onSaved: () => undefined,
         onSubmitted: onClose,
     });
-    return <Composer open={open} onClose={() => { reset(); onClose(); }} {...draft} />;
+    return (
+        <Composer
+            open={open}
+            onClose={() => {
+                reset();
+                onClose();
+            }}
+            {...draft}
+        />
+    );
 }
 
-function SectionRow({ section, count, editing, onEditingChange, onRename, onDelete, onMove, first, last }: {
+function SectionRow({
+    section,
+    count,
+    editing,
+    onEditingChange,
+    onRename,
+    onDelete,
+    onMove,
+    first,
+    last,
+}: {
     section: TaskSection;
     count: number;
     editing: boolean;
@@ -71,20 +100,52 @@ function SectionRow({ section, count, editing, onEditingChange, onRename, onDele
                 />
             ) : (
                 <>
-                    <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-twilight-text">{section.name}</span>
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-twilight-text">
+                        {section.name}
+                    </span>
                     <span className="text-[12px] tabular-nums text-twilight-text-soft/90">{count}</span>
-                    <Tip label="Move up"><button type="button" disabled={first} onClick={() => onMove(-1)} className="mobile-icon-button disabled:opacity-30" aria-label={`Move ${section.name} up`}>
-                        <ArrowUp size={16} aria-hidden="true" />
-                    </button></Tip>
-                    <Tip label="Move down"><button type="button" disabled={last} onClick={() => onMove(1)} className="mobile-icon-button disabled:opacity-30" aria-label={`Move ${section.name} down`}>
-                        <ArrowDown size={16} aria-hidden="true" />
-                    </button></Tip>
-                    <Tip label="Rename section"><button type="button" onClick={() => onEditingChange(true)} className="mobile-icon-button" aria-label={`Rename ${section.name}`}>
-                        <Pencil size={16} aria-hidden="true" />
-                    </button></Tip>
-                    <Tip label="Delete section"><button type="button" onClick={onDelete} className="mobile-icon-button text-red-400" aria-label={`Delete ${section.name}`}>
-                        <Trash2 size={16} aria-hidden="true" />
-                    </button></Tip>
+                    <Tip label="Move up">
+                        <button
+                            type="button"
+                            disabled={first}
+                            onClick={() => onMove(-1)}
+                            className="mobile-icon-button disabled:opacity-30"
+                            aria-label={`Move ${section.name} up`}
+                        >
+                            <ArrowUp size={16} aria-hidden="true" />
+                        </button>
+                    </Tip>
+                    <Tip label="Move down">
+                        <button
+                            type="button"
+                            disabled={last}
+                            onClick={() => onMove(1)}
+                            className="mobile-icon-button disabled:opacity-30"
+                            aria-label={`Move ${section.name} down`}
+                        >
+                            <ArrowDown size={16} aria-hidden="true" />
+                        </button>
+                    </Tip>
+                    <Tip label="Rename section">
+                        <button
+                            type="button"
+                            onClick={() => onEditingChange(true)}
+                            className="mobile-icon-button"
+                            aria-label={`Rename ${section.name}`}
+                        >
+                            <Pencil size={16} aria-hidden="true" />
+                        </button>
+                    </Tip>
+                    <Tip label="Delete section">
+                        <button
+                            type="button"
+                            onClick={onDelete}
+                            className="mobile-icon-button text-red-400"
+                            aria-label={`Delete ${section.name}`}
+                        >
+                            <Trash2 size={16} aria-hidden="true" />
+                        </button>
+                    </Tip>
                 </>
             )}
         </li>
@@ -95,7 +156,13 @@ function SectionRow({ section, count, editing, onEditingChange, onRename, onDele
 function SectionNameForm({ section, onDone }: { section: TaskSection; onDone: (name: string) => void }) {
     const [name, setName] = useState(section.name);
     return (
-        <form className="flex min-w-0 flex-1 items-center gap-1" onSubmit={(e) => { e.preventDefault(); onDone(name.trim()); }}>
+        <form
+            className="flex min-w-0 flex-1 items-center gap-1"
+            onSubmit={(e) => {
+                e.preventDefault();
+                onDone(name.trim());
+            }}
+        >
             <input
                 autoFocus
                 onFocus={(e) => e.currentTarget.select()}
@@ -105,9 +172,11 @@ function SectionNameForm({ section, onDone }: { section: TaskSection; onDone: (n
                 aria-label={`Rename ${section.name}`}
                 className="min-w-0 flex-1 border-b border-accent-primary/40 bg-transparent py-1 text-base text-twilight-text outline-none"
             />
-            <Tip label="Save name"><button type="submit" className="mobile-icon-button text-accent-primary" aria-label="Save name">
-                <Check size={18} aria-hidden="true" />
-            </button></Tip>
+            <Tip label="Save name">
+                <button type="submit" className="mobile-icon-button text-accent-primary" aria-label="Save name">
+                    <Check size={18} aria-hidden="true" />
+                </button>
+            </Tip>
         </form>
     );
 }
@@ -116,7 +185,13 @@ function SectionNameForm({ section, onDone }: { section: TaskSection; onDone: (n
  * Compact section management: add, rename and delete a project's sections.
  * `focus` opens straight into renaming that section id.
  */
-export function ProjectSectionsSheet({ open, onClose, projectId, tasks, focus }: {
+export function ProjectSectionsSheet({
+    open,
+    onClose,
+    projectId,
+    tasks,
+    focus,
+}: {
     open: boolean;
     onClose: () => void;
     projectId: string;
@@ -152,7 +227,13 @@ export function ProjectSectionsSheet({ open, onClose, projectId, tasks, focus }:
                 open={open}
                 onClose={onClose}
                 footer={
-                    <form className="flex items-center gap-2 border-t border-twilight-border px-4 py-3" onSubmit={(e) => { e.preventDefault(); add(); }}>
+                    <form
+                        className="flex items-center gap-2 border-t border-twilight-border px-4 py-3"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            add();
+                        }}
+                    >
                         <input
                             value={newName}
                             onChange={(e) => setNewName(e.target.value)}
@@ -184,7 +265,9 @@ export function ProjectSectionsSheet({ open, onClose, projectId, tasks, focus }:
                         ))}
                     </ul>
                 ) : (
-                    <p className="pt-4 text-sm text-twilight-text-soft">No sections yet. Tasks without one stay in Unsectioned.</p>
+                    <p className="pt-4 text-sm text-twilight-text-soft">
+                        No sections yet. Tasks without one stay in Unsectioned.
+                    </p>
                 )}
             </UtilitySheet>
         </>

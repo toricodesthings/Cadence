@@ -71,7 +71,10 @@ function over(top: string, alpha: number, under: string, k: number): string {
 describe("floating glass legibility", () => {
     const pinned = {
         twilight: { tint: token(":root", "floating-tint"), brightness: token(":root", "floating-brightness") },
-        daylight: { tint: token('[data-theme="daylight"]', "floating-tint"), brightness: token('[data-theme="daylight"]', "floating-brightness") },
+        daylight: {
+            tint: token('[data-theme="daylight"]', "floating-tint"),
+            brightness: token('[data-theme="daylight"]', "floating-brightness"),
+        },
     };
     it("pins the values this test passes at", () => {
         expect(pinned).toEqual({
@@ -87,7 +90,9 @@ describe("floating glass legibility", () => {
             for (const palette of ACCENT_PALETTES) {
                 for (const backdrop of [palette[theme].primary, opposite, panel]) {
                     const glass = over(panel, tint, backdrop, k);
-                    expect(wcagContrast(text, glass), `${palette.id}: text over ${backdrop}`).toBeGreaterThanOrEqual(4.5);
+                    expect(wcagContrast(text, glass), `${palette.id}: text over ${backdrop}`).toBeGreaterThanOrEqual(
+                        4.5,
+                    );
                 }
             }
         });
@@ -98,7 +103,7 @@ describe("accent-fill", () => {
     // The hover lift, the lightest the fill gets.
     const lift = { twilight: 0.2, daylight: 0.12 };
     it("lifts by the amounts this test checks", () => {
-        expect(css).toContain("&:hover { --fill-lift: 20%; }");
+        expect(css.replace(/\s+/g, "")).toContain("&:hover{--fill-lift:20%;}");
         expect(token('[data-theme="daylight"] .accent-fill:hover', "fill-lift")).toBe("12%");
     });
     for (const theme of ["twilight", "daylight"] as const) {

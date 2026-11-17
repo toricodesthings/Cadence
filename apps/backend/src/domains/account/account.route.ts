@@ -20,7 +20,13 @@ import { withinDailyBudget } from "../../platform/daily-budget";
 const EXPORT_COOLDOWN_MS = 60 * 60 * 1000;
 const EXPORT_STUCK_MS = 15 * 60 * 1000;
 
-const exportColumns = { id: dataExports.id, email: dataExports.email, status: dataExports.status, requestedAt: dataExports.requestedAt, completedAt: dataExports.completedAt };
+const exportColumns = {
+    id: dataExports.id,
+    email: dataExports.email,
+    status: dataExports.status,
+    requestedAt: dataExports.requestedAt,
+    completedAt: dataExports.completedAt,
+};
 
 /** Deletes every object under `prefix` (R2 lists 1,000 keys a page and deletes at most 1,000 per call). */
 async function deletePrefix(bucket: R2Bucket, prefix: string): Promise<void> {
@@ -53,29 +59,42 @@ export async function verifyPresence(
     identity: { userId: string; email?: string },
     proof: { password?: string; otp?: string },
 ): Promise<void> {
-    const fail = () => new AppError(403, "REAUTH_FAILED", proof.password ? "That password isn't right" : "That code isn't right or has expired");
+    const fail = () =>
+        new AppError(
+            403,
+            "REAUTH_FAILED",
+            proof.password ? "That password isn't right" : "That code isn't right or has expired",
+        );
     if (!identity.email || (!proof.password && !proof.otp)) {
         throw new AppError(403, "REAUTH_FAILED", "Confirm it's you with your password or an emailed code");
     }
     // Our own Neon Auth host from env; only the JSON body carries user input.
     const base = authBaseUrl(env);
     const res = proof.password
-        ? await fetch(`${base}/sign-in/email`, { // nosemgrep
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: identity.email, password: proof.password, rememberMe: false }),
-        })
-        : await fetch(`${base}/email-otp/check-verification-otp`, { // nosemgrep
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: identity.email, type: "sign-in", otp: proof.otp }),
-        });
+        ? await fetch(`${base}/sign-in/email`, {
+              // nosemgrep
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: identity.email, password: proof.password, rememberMe: false }),
+          })
+        : await fetch(`${base}/email-otp/check-verification-otp`, {
+              // nosemgrep
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: identity.email, type: "sign-in", otp: proof.otp }),
+          });
     if (!res.ok) throw fail();
-    const body = (await res.json().catch(() => null)) as { user?: { id?: string }; success?: boolean; token?: string } | null;
+    const body = (await res.json().catch(() => null)) as {
+        user?: { id?: string };
+        success?: boolean;
+        token?: string;
+    } | null;
     // The password check signed in a real session: sign it out again (best effort), so checks leave nothing behind.
     const token = res.headers.get("set-auth-token") ?? body?.token;
     if (proof.password && token) {
-        await fetch(`${base}/sign-out`, { method: "POST", headers: { Authorization: `Bearer ${token}` } }).catch(() => {}); // nosemgrep
+        await fetch(`${base}/sign-out`, { method: "POST", headers: { Authorization: `Bearer ${token}` } }).catch(
+            () => {},
+        ); // nosemgrep
     }
     // A password must belong to this very account; an OTP check answers only success
     const ok = proof.password ? body?.user?.id === identity.userId : body?.success === true;
@@ -98,7 +117,12 @@ export async function deleteAuthUser(env: Env, userId: string): Promise<void> {
         { method: "DELETE", headers: { Authorization: `Bearer ${NEON_API_KEY}` } },
     );
     if (!res.ok && res.status !== 404) {
-        throw new AppError(502, "UPSTREAM_ERROR", "Could not remove the sign-in account. Nothing more was deleted; try again", true);
+        throw new AppError(
+            502,
+            "UPSTREAM_ERROR",
+            "Could not remove the sign-in account. Nothing more was deleted; try again",
+            true,
+        );
     }
 }
 
@@ -142,14 +166,28 @@ export const accountRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const userId = c.get("userId");
         const email = c.get("userEmail");
         if (!c.env.EMAIL) throw new AppError(503, "DATA_EXPORT_UNAVAILABLE", "Data export is not available right now");
-        if (!email) throw new AppError(400, "VALIDATION_ERROR", "Your account has no email address to send the export to");
+        if (!email)
+            throw new AppError(400, "VALIDATION_ERROR", "Your account has no email address to send the export to");
 
         const since = new Date(Date.now() - EXPORT_COOLDOWN_MS).toISOString();
         const request = await withRls(getDbClient(c.env), userId, async (tx) => {
-            const [recent] = await tx.select({ id: dataExports.id }).from(dataExports)
-                .where(and(eq(dataExports.userId, userId), gt(dataExports.requestedAt, since), inArray(dataExports.status, ["pending", "sent"])))
+            const [recent] = await tx
+                .select({ id: dataExports.id })
+                .from(dataExports)
+                .where(
+                    and(
+                        eq(dataExports.userId, userId),
+                        gt(dataExports.requestedAt, since),
+                        inArray(dataExports.status, ["pending", "sent"]),
+                    ),
+                )
                 .limit(1);
-            if (recent) throw new AppError(429, "TOO_MANY_REQUESTS", "You asked for an export in the last hour. Check your inbox, or try again later");
+            if (recent)
+                throw new AppError(
+                    429,
+                    "TOO_MANY_REQUESTS",
+                    "You asked for an export in the last hour. Check your inbox, or try again later",
+                );
             const [row] = await tx.insert(dataExports).values({ userId, email }).returning(exportColumns);
             return row;
         });
@@ -161,8 +199,22 @@ export const accountRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
     .get("/export", async (c) => {
         const userId = c.get("userId");
         const [latest] = await withRls(getDbClient(c.env), userId, (tx) =>
-            tx.select(exportColumns).from(dataExports).where(eq(dataExports.userId, userId)).orderBy(desc(dataExports.requestedAt)).limit(1));
+            tx
+                .select(exportColumns)
+                .from(dataExports)
+                .where(eq(dataExports.userId, userId))
+                .orderBy(desc(dataExports.requestedAt))
+                .limit(1),
+        );
         // A request stuck pending (isolate died mid-send) reads as failed; nothing is stored.
-        const stuck = latest?.status === "pending" && Date.now() - new Date(latest.requestedAt).getTime() > EXPORT_STUCK_MS;
-        return c.json({ data: (latest && stuck ? { ...latest, status: "failed" } : latest ?? null) satisfies DataExport | null }, 200);
+        const stuck =
+            latest?.status === "pending" && Date.now() - new Date(latest.requestedAt).getTime() > EXPORT_STUCK_MS;
+        return c.json(
+            {
+                data: (latest && stuck
+                    ? { ...latest, status: "failed" }
+                    : (latest ?? null)) satisfies DataExport | null,
+            },
+            200,
+        );
     });

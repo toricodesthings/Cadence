@@ -8,8 +8,18 @@ export type Season = "spring" | "summer" | "autumn" | "winter";
 export type LoadingMode = "twilight" | "daylight";
 
 const MONTH_SEASONS: readonly Season[] = [
-    "winter", "winter", "spring", "spring", "spring", "summer",
-    "summer", "summer", "autumn", "autumn", "autumn", "winter",
+    "winter",
+    "winter",
+    "spring",
+    "spring",
+    "spring",
+    "summer",
+    "summer",
+    "summer",
+    "autumn",
+    "autumn",
+    "autumn",
+    "winter",
 ];
 
 /** Device zones south of the equator, where the seasons run six months apart. */

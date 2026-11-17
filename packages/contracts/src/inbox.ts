@@ -122,7 +122,6 @@ export const inboxSectionRowSchema = z.object({
     createdAt: instantSchema,
 });
 
-
 /**
  * The list and section a decision model picked for a capture, stored at `analysis.suggestedPlacement`.
  * Present only when it cleared the model's threshold and the pair existed when it was stored.

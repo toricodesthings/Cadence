@@ -5,8 +5,12 @@ import { useUpdateHabit } from "../../../app/hooks/habits/use-update-habit";
 import { queryKeys } from "../../../app/lib/api/query-keys";
 import { testQueryClient, withClient } from "../../helpers";
 const { patch } = vi.hoisted(() => ({ patch: vi.fn() }));
-vi.mock("../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => ({ api: { habits: { ":id": { $patch: patch } } } }) }));
-vi.mock("../../../app/lib/api/offline-mutation", () => ({ withOfflineSupport: (_queue: unknown, online: unknown) => online }));
+vi.mock("../../../app/hooks/auth/use-api-client", () => ({
+    useApiClient: () => ({ api: { habits: { ":id": { $patch: patch } } } }),
+}));
+vi.mock("../../../app/lib/api/offline-mutation", () => ({
+    withOfflineSupport: (_queue: unknown, online: unknown) => online,
+}));
 const habit = { id: "habit-1", title: "Walk", recurrenceRule: "FREQ=DAILY", archived: false } as Habit;
 const weeklyKey = [...queryKeys.habits.weekly({ start: "2026-09-14", end: "2026-09-20" }), false];
 function setup<T>(hook: () => T) {
@@ -21,10 +25,16 @@ describe("Habit cache isolation", () => {
     it("saves successive edits in order across hook instances", async () => {
         const { result } = setup(() => ({ first: useUpdateHabit(), second: useUpdateHabit() }));
         const first = Promise.withResolvers<Response>();
-        patch.mockReturnValueOnce(first.promise).mockImplementationOnce(async () => response({ ...habit, pausedUntil: null }));
-        act(() => { result.current.first.mutate({ id: habit.id, pausedUntil: "2026-09-23" }); });
+        patch
+            .mockReturnValueOnce(first.promise)
+            .mockImplementationOnce(async () => response({ ...habit, pausedUntil: null }));
+        act(() => {
+            result.current.first.mutate({ id: habit.id, pausedUntil: "2026-09-23" });
+        });
         await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
-        act(() => { result.current.second.mutate({ id: habit.id, pausedUntil: null }); });
+        act(() => {
+            result.current.second.mutate({ id: habit.id, pausedUntil: null });
+        });
         await waitFor(() => expect(result.current.second.isPaused).toBe(true));
         expect(patch).toHaveBeenCalledTimes(1);
         await act(async () => first.resolve(response({ ...habit, pausedUntil: "2026-09-23" })));
@@ -34,7 +44,9 @@ describe("Habit cache isolation", () => {
     it("can edit and restore a habit", async () => {
         const { result, client } = setup(useUpdateHabit);
         patch.mockResolvedValue(response({ ...habit, title: "Edited" }));
-        await act(async () => { await result.current.mutateAsync({ id: habit.id, title: "Edited", archived: false }); });
+        await act(async () => {
+            await result.current.mutateAsync({ id: habit.id, title: "Edited", archived: false });
+        });
         expect(client.getQueryData<Habit[]>(weeklyKey)?.[0].title).toBe("Edited");
     });
 });

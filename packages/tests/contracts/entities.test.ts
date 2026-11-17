@@ -20,7 +20,12 @@ import {
 import { upsertNoteSchema } from "@cadence/contracts/note";
 import { insertProjectSchema, updateProjectSchema } from "@cadence/contracts/project";
 import { createSectionSchema, updateSectionSchema } from "@cadence/contracts/section";
-import { bulkSubtasksSchema, insertSubtaskSchema, subtasksByTaskQuerySchema, updateSubtaskSchema } from "@cadence/contracts/subtask";
+import {
+    bulkSubtasksSchema,
+    insertSubtaskSchema,
+    subtasksByTaskQuerySchema,
+    updateSubtaskSchema,
+} from "@cadence/contracts/subtask";
 import { insertTagSchema, updateTagSchema } from "@cadence/contracts/tag";
 import { updateTaskSchema } from "@cadence/contracts/task";
 
@@ -89,7 +94,9 @@ describe("required fields and nullable clears", () => {
 
     it("keeps a capture's placed state out of a client update", () => {
         expect(updateInboxItemSchema.safeParse({ captureStatus: "placed" }).success).toBe(false);
-        expect(updateInboxItemSchema.parse({ processed: true, placedTaskId: crypto.randomUUID(), rawText: "x" })).toEqual({ rawText: "x" });
+        expect(
+            updateInboxItemSchema.parse({ processed: true, placedTaskId: crypto.randomUUID(), rawText: "x" }),
+        ).toEqual({ rawText: "x" });
     });
 
     it("lets an inbox item move out of its section with null", () => {

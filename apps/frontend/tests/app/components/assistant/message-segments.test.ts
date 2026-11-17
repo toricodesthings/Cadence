@@ -5,12 +5,19 @@ import { describeThread, imageFilePart, imageIdsOf, messageStatus } from "../../
 
 describe("assistant message presentation", () => {
     it("keeps stream order while grouping adjacent reads and text around write cards", () => {
-        const write = { type: "tool-create_tasks" as const, toolCallId: "write", state: "approval-requested" as const,
-            input: {}, approval: { id: "approval-1" } };
+        const write = {
+            type: "tool-create_tasks" as const,
+            toolCallId: "write",
+            state: "approval-requested" as const,
+            input: {},
+            approval: { id: "approval-1" },
+        };
         const segments = buildSegments([
             { type: "tool-get_tasks", toolCallId: "r1", state: "output-available", input: {}, output: {} },
             { type: "tool-get_tags", toolCallId: "r2", state: "input-available", input: {} },
-            { type: "text", text: "First" }, { type: "text", text: "Second" }, write,
+            { type: "text", text: "First" },
+            { type: "text", text: "Second" },
+            write,
             { type: "tool-get_tasks", toolCallId: "r3", state: "output-error", input: {}, errorText: "Failed" },
         ]);
         expect(segments.map((segment) => segment.kind)).toEqual(["reads", "text", "card", "reads"]);
@@ -21,19 +28,34 @@ describe("assistant message presentation", () => {
     });
 
     it("shows a proposed plan (fit_day, find_time) as its card once answered, and as a read chip while it runs", () => {
-        const running = { type: "tool-fit_day" as const, toolCallId: "f1", state: "input-available" as const, input: { day: "2026-10-20" } };
-        const answered = { ...running, toolCallId: "f2", state: "output-available" as const, output: { ok: true, day: "2026-10-20", placed: [], didntFit: [], notSized: [], gaps: true } };
+        const running = {
+            type: "tool-fit_day" as const,
+            toolCallId: "f1",
+            state: "input-available" as const,
+            input: { day: "2026-10-20" },
+        };
+        const answered = {
+            ...running,
+            toolCallId: "f2",
+            state: "output-available" as const,
+            output: { ok: true, day: "2026-10-20", placed: [], didntFit: [], notSized: [], gaps: true },
+        };
         expect(buildSegments([running] as UIMessage["parts"]).map((s) => s.kind)).toEqual(["reads"]);
         expect(buildSegments([answered] as UIMessage["parts"])).toEqual([{ kind: "card", part: answered }]);
     });
 
     it("retains retired and unknown tool cards, ignoring nonvisual and empty text parts", () => {
         const parts: UIMessage["parts"] = [
-            { type: "reasoning", text: "Thinking" }, { type: "step-start" }, { type: "text", text: "" },
+            { type: "reasoning", text: "Thinking" },
+            { type: "step-start" },
+            { type: "text", text: "" },
             { type: "tool-propose_tasks", toolCallId: "old", state: "output-available", input: {}, output: {} },
             { type: "tool-future_tool", toolCallId: "new", state: "input-streaming" },
         ];
-        expect(buildSegments(parts)).toEqual([{ kind: "card", part: parts[3] }, { kind: "card", part: parts[4] }]);
+        expect(buildSegments(parts)).toEqual([
+            { kind: "card", part: parts[3] },
+            { kind: "card", part: parts[4] },
+        ]);
     });
 
     it("moves receipts from sent to delivered to read, but keeps typing until reply text arrives", () => {
@@ -41,27 +63,50 @@ describe("assistant message presentation", () => {
         expect(describeThread([user], "submitted")).toMatchObject({ receiptState: "sent", awaitingReply: true });
         expect(describeThread([user], "streaming")).toMatchObject({ receiptState: "delivered", awaitingReply: true });
         const thinking: UIMessage = { id: "a1", role: "assistant", parts: [{ type: "reasoning", text: "" }] };
-        expect(describeThread([user, thinking], "streaming")).toMatchObject({ receiptState: "read", awaitingReply: true });
+        expect(describeThread([user, thinking], "streaming")).toMatchObject({
+            receiptState: "read",
+            awaitingReply: true,
+        });
         thinking.parts.push({ type: "text", text: "Hello there" });
-        expect(describeThread([user, thinking], "streaming")).toMatchObject({ receiptState: "read", awaitingReply: false });
+        expect(describeThread([user, thinking], "streaming")).toMatchObject({
+            receiptState: "read",
+            awaitingReply: false,
+        });
         expect(describeThread([user, thinking, { ...user, id: "u2" }], "submitted")).toMatchObject({
-            lastUserIndex: 2, lastAssistantIndex: 1, receiptState: "sent", awaitingReply: true,
+            lastUserIndex: 2,
+            lastAssistantIndex: 1,
+            receiptState: "sent",
+            awaitingReply: true,
         });
     });
 
     it("uses tool activity as evidence of receipt without treating empty text as a reply", () => {
         const messages: UIMessage[] = [
             { id: "u", role: "user", parts: [] },
-            { id: "a", role: "assistant", parts: [{ type: "tool-get_tasks", toolCallId: "r", state: "input-streaming" }] },
+            {
+                id: "a",
+                role: "assistant",
+                parts: [{ type: "tool-get_tasks", toolCallId: "r", state: "input-streaming" }],
+            },
         ];
         expect(describeThread(messages, "streaming")).toMatchObject({ receiptState: "read", awaitingReply: true });
-        expect(describeThread([], "ready")).toMatchObject({ lastUserIndex: -1, lastAssistantIndex: -1, awaitingReply: false });
+        expect(describeThread([], "ready")).toMatchObject({
+            lastUserIndex: -1,
+            lastAssistantIndex: -1,
+            awaitingReply: false,
+        });
     });
 
     it("extracts image references and failed status without assuming metadata shape", () => {
-        const message: UIMessage = { id: "u", role: "user", metadata: { status: "failed" }, parts: [
-            imageFilePart("11111111-1111-4111-8111-111111111111"), { type: "file", mediaType: "image/png", url: "https://example.com/image.png" },
-        ] };
+        const message: UIMessage = {
+            id: "u",
+            role: "user",
+            metadata: { status: "failed" },
+            parts: [
+                imageFilePart("11111111-1111-4111-8111-111111111111"),
+                { type: "file", mediaType: "image/png", url: "https://example.com/image.png" },
+            ],
+        };
         expect(imageIdsOf(message)).toEqual(["11111111-1111-4111-8111-111111111111"]);
         expect(messageStatus(message)).toBe("failed");
         expect(messageStatus({ ...message, metadata: "invalid" })).toBeUndefined();

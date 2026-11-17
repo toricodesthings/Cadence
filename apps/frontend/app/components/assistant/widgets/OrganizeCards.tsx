@@ -25,7 +25,9 @@ function projectChanges(patch: ProjectPatch, current: string) {
         patch.name && patch.name !== current ? `Renamed from “${current}”` : null,
         emoji,
         patch.colorAccent ? `Colour: ${patch.colorAccent}` : null,
-    ].filter(Boolean).join(" · ");
+    ]
+        .filter(Boolean)
+        .join(" · ");
 }
 
 /** The list's name after the change, its title with the emoji, and what changes. */
@@ -65,7 +67,9 @@ export function DeleteProjectCard({ ctx }: { ctx: ToolRenderContext<"delete_proj
         `Deleted “${name}”.`,
         output?.tasksTrashed ? `${output.tasksTrashed} open tasks moved to Trash.` : null,
         output?.tasksUnlisted ? `${output.tasksUnlisted} tasks kept with no list.` : null,
-    ].filter(Boolean).join(" ");
+    ]
+        .filter(Boolean)
+        .join(" ");
     return (
         <DeleteApprovalCard
             ctx={ctx}
@@ -76,7 +80,9 @@ export function DeleteProjectCard({ ctx }: { ctx: ToolRenderContext<"delete_proj
         >
             <IdentityBlock title={name} tone="danger" />
             <p className="text-xs text-twilight-text-soft">
-                {trash ? "Its sections go too; its open tasks move to Trash (restorable)." : "Its sections go too; its tasks stay, with no list."}
+                {trash
+                    ? "Its sections go too; its open tasks move to Trash (restorable)."
+                    : "Its sections go too; its tasks stay, with no list."}
             </p>
         </DeleteApprovalCard>
     );
@@ -86,10 +92,14 @@ type TagPatch = { name?: string; color?: string };
 
 /** "Renamed from #old · Colour: sage" */
 function tagChanges(patch: TagPatch, current: { name: string } | undefined) {
-    return [
-        patch.name && current && patch.name !== current.name ? `Renamed from #${current.name}` : null,
-        patch.color ? `Colour: ${patch.color}` : null,
-    ].filter(Boolean).join(" · ") || undefined;
+    return (
+        [
+            patch.name && current && patch.name !== current.name ? `Renamed from #${current.name}` : null,
+            patch.color ? `Colour: ${patch.color}` : null,
+        ]
+            .filter(Boolean)
+            .join(" · ") || undefined
+    );
 }
 
 function tagCardName(patch: TagPatch, current: { name: string } | undefined, saved: string | undefined) {
@@ -113,7 +123,11 @@ export function UpdateTagCard({ ctx }: { ctx: ToolRenderContext<"update_tag"> })
             doneText={`Updated #${name}.`}
         >
             <IdentityBlock title={`#${name}`} subtitle={tagChanges(patch, current)} />
-            {current ? <div className="flex"><TagPill tag={{ ...current, name, color: patch.color ?? current.color }} /></div> : null}
+            {current ? (
+                <div className="flex">
+                    <TagPill tag={{ ...current, name, color: patch.color ?? current.color }} />
+                </div>
+            ) : null}
         </ApprovalCard>
     );
 }
@@ -130,7 +144,9 @@ export function DeleteTagCard({ ctx }: { ctx: ToolRenderContext<"delete_tag"> })
             doneText={`Deleted #${name}.`}
         >
             <IdentityBlock title={`#${name}`} tone="danger" />
-            {persona.terse ? null : <p className="text-xs text-twilight-text-soft">It comes off every task and routine; they stay.</p>}
+            {persona.terse ? null : (
+                <p className="text-xs text-twilight-text-soft">It comes off every task and routine; they stay.</p>
+            )}
         </DeleteApprovalCard>
     );
 }
@@ -151,7 +167,12 @@ type ViewFilters = {
     sortMode?: string;
 };
 
-const DUE_COPY: Record<string, string> = { overdue: "Overdue", today: "Due by today", this_week: "Due this week", this_month: "Due this month" };
+const DUE_COPY: Record<string, string> = {
+    overdue: "Overdue",
+    today: "Due by today",
+    this_week: "Due this week",
+    this_month: "Due this month",
+};
 const STATE_COPY: Record<string, string> = { ACTIVE: "Open", WAITING: "Waiting", COMPLETE: "Done", ARCHIVED: "Trash" };
 
 /** An option's label ("High"), or the raw value when it has none. */
@@ -167,7 +188,7 @@ function valueFilterParts(filters: ViewFilters) {
         filters.effortMin ? `${labelOf(EFFORT_OPTIONS, filters.effortMin)} effort or more` : null,
         filters.effortMax ? `${labelOf(EFFORT_OPTIONS, filters.effortMax)} effort or less` : null,
         filters.durationMaxMinutes ? `${filters.durationMaxMinutes} min or less` : null,
-        filters.dueWindow ? DUE_COPY[filters.dueWindow] ?? filters.dueWindow : null,
+        filters.dueWindow ? (DUE_COPY[filters.dueWindow] ?? filters.dueWindow) : null,
         filters.waitingOnly ? "Waiting only" : null,
         filters.missingStructureOnly ? "Missing a date or list" : null,
         filters.sortMode ? `Sort: ${filters.sortMode}` : null,
@@ -178,12 +199,16 @@ function valueFilterParts(filters: ViewFilters) {
 function useFilterSummary(filters: ViewFilters = {}) {
     const projectName = useProjectName();
     const lookupTags = useTagsLookup();
-    return [
-        filters.states?.length ? filters.states.map((state) => STATE_COPY[state] ?? state).join(" + ") : null,
-        ...(filters.projectIds ?? []).map((id) => projectName(id) ?? "a list"),
-        ...lookupTags(filters.tagIds ?? []).map((tag) => `#${tag.name}`),
-        ...valueFilterParts(filters),
-    ].filter(Boolean).join(" · ") || undefined;
+    return (
+        [
+            filters.states?.length ? filters.states.map((state) => STATE_COPY[state] ?? state).join(" + ") : null,
+            ...(filters.projectIds ?? []).map((id) => projectName(id) ?? "a list"),
+            ...lookupTags(filters.tagIds ?? []).map((tag) => `#${tag.name}`),
+            ...valueFilterParts(filters),
+        ]
+            .filter(Boolean)
+            .join(" · ") || undefined
+    );
 }
 
 export function CreateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"save_focus_view"> | RetiredRenderContext }) {
@@ -208,12 +233,18 @@ export function CreateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"save_focu
 const PIN_COPY: Record<string, string> = { true: "Pin", false: "Unpin" };
 
 /** "Renamed from “Old” · Pin · <filters>" */
-function focusViewChanges(input: { name?: string; pinned?: boolean }, current: string | undefined, summary: string | undefined) {
+function focusViewChanges(
+    input: { name?: string; pinned?: boolean },
+    current: string | undefined,
+    summary: string | undefined,
+) {
     return [
         input.name && current && input.name !== current ? `Renamed from “${current}”` : null,
         PIN_COPY[String(input.pinned)],
         summary,
-    ].filter(Boolean).join(" · ");
+    ]
+        .filter(Boolean)
+        .join(" · ");
 }
 
 export function UpdateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"save_focus_view"> | RetiredRenderContext }) {

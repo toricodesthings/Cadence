@@ -13,14 +13,27 @@ type PasswordFieldProps = React.ComponentProps<typeof Input> & { id: string; lab
 function PasswordField({ id, label, hint, ...props }: PasswordFieldProps) {
     return (
         <div className="flex flex-col gap-2">
-            <label htmlFor={id} className="text-sm font-semibold text-twilight-text">{label}</label>
+            <label htmlFor={id} className="text-sm font-semibold text-twilight-text">
+                {label}
+            </label>
             <Input id={id} type="password" aria-describedby={hint ? `${id}-hint` : undefined} {...props} />
-            {hint && <p id={`${id}-hint`} className="text-xs text-twilight-text-soft">{hint}</p>}
+            {hint && (
+                <p id={`${id}-hint`} className="text-xs text-twilight-text-soft">
+                    {hint}
+                </p>
+            )}
         </div>
     );
 }
 
-type CodeStepProps = { email: string; codeSent: boolean; otp: string; setOtp: (otp: string) => void; loading: boolean; onSend: () => void };
+type CodeStepProps = {
+    email: string;
+    codeSent: boolean;
+    otp: string;
+    setOtp: (otp: string) => void;
+    loading: boolean;
+    onSend: () => void;
+};
 
 /** The emailed code: a button to send it, then the field for it. */
 function CodeStep({ email, codeSent, otp, setOtp, loading, onSend }: CodeStepProps) {
@@ -70,7 +83,13 @@ function CurrentPasswordStep({ value, onChange, onForgot }: CurrentPasswordStepP
     );
 }
 
-type NewPasswordFieldsProps = { value: string; onChange: (value: string) => void; confirm: string; onConfirm: (value: string) => void; mismatch: boolean };
+type NewPasswordFieldsProps = {
+    value: string;
+    onChange: (value: string) => void;
+    confirm: string;
+    onConfirm: (value: string) => void;
+    mismatch: boolean;
+};
 
 function NewPasswordFields({ value, onChange, confirm, onConfirm, mismatch }: NewPasswordFieldsProps) {
     return (
@@ -97,7 +116,14 @@ function NewPasswordFields({ value, onChange, confirm, onConfirm, mismatch }: Ne
     );
 }
 
-type PasswordDraft = { useCode: boolean; codeSent: boolean; currentPassword: string; otp: string; newPassword: string; confirmPassword: string };
+type PasswordDraft = {
+    useCode: boolean;
+    codeSent: boolean;
+    currentPassword: string;
+    otp: string;
+    newPassword: string;
+    confirmPassword: string;
+};
 
 /** Long enough, confirmed, and proven: the current password, or the emailed code. */
 function canSavePassword(draft: PasswordDraft) {
@@ -134,20 +160,23 @@ export function PasswordModal({ email, hasPassword }: { email: string; hasPasswo
     const choosing = !useCode || codeSent;
     const title = hasPassword ? "Change password" : "Set a password";
 
-    const sendCode = () => startAction(async () => {
-        const error = await authError(authClient.emailOtp.requestPasswordReset({ email }));
-        if (error) return void toast.error(error.message || "Couldn't send the code");
-        setCodeSent(true);
-        toast.success(`Code sent to ${email}`);
-    });
+    const sendCode = () =>
+        startAction(async () => {
+            const error = await authError(authClient.emailOtp.requestPasswordReset({ email }));
+            if (error) return void toast.error(error.message || "Couldn't send the code");
+            setCodeSent(true);
+            toast.success(`Code sent to ${email}`);
+        });
 
     const save = (e: React.FormEvent) => {
         e.preventDefault();
         if (!canSave) return;
         startAction(async () => {
-            const error = await authError(useCode
-                ? authClient.emailOtp.resetPassword({ email, otp, password: newPassword })
-                : authClient.changePassword({ currentPassword, newPassword, revokeOtherSessions: true }));
+            const error = await authError(
+                useCode
+                    ? authClient.emailOtp.resetPassword({ email, otp, password: newPassword })
+                    : authClient.changePassword({ currentPassword, newPassword, revokeOtherSessions: true }),
+            );
             if (error) return void toast.error(error.message || "Couldn't save your password");
             toast.success(hasPassword ? "Password changed" : "Password set. You can also sign in with your email now.");
             setOpen(false);
@@ -156,7 +185,13 @@ export function PasswordModal({ email, hasPassword }: { email: string; hasPasswo
     };
 
     return (
-        <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (isOpen) reset(); }}>
+        <Dialog.Dialog
+            open={open}
+            onOpenChange={(isOpen) => {
+                setOpen(isOpen);
+                if (isOpen) reset();
+            }}
+        >
             <Dialog.DialogTrigger asChild>
                 <Button variant="secondary" className="w-full sm:w-auto">
                     {title}
@@ -175,15 +210,36 @@ export function PasswordModal({ email, hasPassword }: { email: string; hasPasswo
                     <div className="py-4 flex flex-col gap-4">
                         {/* Lets password managers tie the new password to the right account. */}
                         <input type="email" name="username" autoComplete="username" value={email} readOnly hidden />
-                        {useCode
-                            ? <CodeStep email={email} codeSent={codeSent} otp={otp} setOtp={setOtp} loading={loading} onSend={sendCode} />
-                            : <CurrentPasswordStep value={currentPassword} onChange={setCurrentPassword} onForgot={() => setUseCode(true)} />}
+                        {useCode ? (
+                            <CodeStep
+                                email={email}
+                                codeSent={codeSent}
+                                otp={otp}
+                                setOtp={setOtp}
+                                loading={loading}
+                                onSend={sendCode}
+                            />
+                        ) : (
+                            <CurrentPasswordStep
+                                value={currentPassword}
+                                onChange={setCurrentPassword}
+                                onForgot={() => setUseCode(true)}
+                            />
+                        )}
                         {choosing && (
-                            <NewPasswordFields value={newPassword} onChange={setNewPassword} confirm={confirmPassword} onConfirm={setConfirmPassword} mismatch={mismatch} />
+                            <NewPasswordFields
+                                value={newPassword}
+                                onChange={setNewPassword}
+                                confirm={confirmPassword}
+                                onConfirm={setConfirmPassword}
+                                mismatch={mismatch}
+                            />
                         )}
                     </div>
                     <Dialog.DialogFooter>
-                        <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
+                        <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={loading}>
+                            Cancel
+                        </Button>
                         <Button type="submit" variant="primary" disabled={loading || !canSave}>
                             {loading && choosing ? "Saving..." : "Save password"}
                         </Button>

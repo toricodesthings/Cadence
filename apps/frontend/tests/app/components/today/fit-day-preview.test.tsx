@@ -5,9 +5,14 @@ import { makeTask } from "../../../helpers";
 
 const m = vi.hoisted(() => ({ place: vi.fn(), mutateAsync: vi.fn(), online: true }));
 vi.mock("../../../../app/hooks/tasks/use-fit-day", () => ({ usePlaceTasks: () => m.place }));
-vi.mock("../../../../app/hooks/tasks/use-update-task", () => ({ useUpdateTask: () => ({ mutateAsync: m.mutateAsync }) }));
+vi.mock("../../../../app/hooks/tasks/use-update-task", () => ({
+    useUpdateTask: () => ({ mutateAsync: m.mutateAsync }),
+}));
 // `useToday` reads a store set at import from the real clock; pin it to the day these tests use.
-vi.mock("../../../../app/lib/utils/user-zone", async (importOriginal) => ({ ...(await importOriginal<object>()), useToday: () => "2026-10-20" }));
+vi.mock("../../../../app/lib/utils/user-zone", async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    useToday: () => "2026-10-20",
+}));
 vi.mock("../../../../app/hooks/core/use-online-status", () => ({ useOnlineStatus: () => m.online }));
 
 import { FitDayPreview } from "../../../../app/components/today/FitDayPreview";
@@ -30,11 +35,18 @@ const fit = (over: object = {}) => ({
     timelineStartHour: 7,
     minutesOf: () => null,
     refresh: vi.fn(async () => {}),
-    plan: vi.fn(() => ({ placed: [{ taskId: "garage", start: at("15:00"), end: at("15:45") }], didntFit: [], notSized: [] })),
+    plan: vi.fn(() => ({
+        placed: [{ taskId: "garage", start: at("15:00"), end: at("15:45") }],
+        didntFit: [],
+        notSized: [],
+    })),
     ...over,
 });
 const initial = {
-    placed: [{ taskId: "essay", start: at("09:00"), end: at("10:00") }, { taskId: "email", start: at("10:15"), end: at("10:45") }],
+    placed: [
+        { taskId: "essay", start: at("09:00"), end: at("10:00") },
+        { taskId: "email", start: at("10:15"), end: at("10:45") },
+    ],
     didntFit: ["thesis"],
     notSized: ["garage"],
 };
@@ -51,7 +63,18 @@ beforeEach(() => {
 const setup = (over: object = {}, props: object = {}) => {
     const onDone = vi.fn();
     const f = fit(over);
-    render(<TooltipProvider><FitDayPreview day={day} fit={f as never} initial={initial} titles={new Map([["thesis", "Thesis"]])} onDone={onDone} {...props} /></TooltipProvider>);
+    render(
+        <TooltipProvider>
+            <FitDayPreview
+                day={day}
+                fit={f as never}
+                initial={initial}
+                titles={new Map([["thesis", "Thesis"]])}
+                onDone={onDone}
+                {...props}
+            />
+        </TooltipProvider>,
+    );
     return { onDone, f };
 };
 
@@ -69,26 +92,40 @@ describe("FitDayPreview", () => {
         setup();
         fireEvent.click(screen.getByRole("button", { name: "Leave Email out" }));
         fireEvent.keyDown(screen.getByRole("slider", { name: "Essay" }), { key: "ArrowRight" });
-        await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Place 1" })); });
-        expect(m.place).toHaveBeenCalledWith([{ taskId: "essay", start: new Date(at("09:15")).toISOString(), end: new Date(at("10:15")).toISOString() }], expect.any(Map));
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: "Place 1" }));
+        });
+        expect(m.place).toHaveBeenCalledWith(
+            [{ taskId: "essay", start: new Date(at("09:15")).toISOString(), end: new Date(at("10:15")).toISOString() }],
+            expect.any(Map),
+        );
     });
 
     it("a chosen length stores the estimate and adds the task to the preview", async () => {
         const { f } = setup();
-        await act(async () => { fireEvent.click(screen.getAllByRole("button", { name: "30 min" })[0]); });
+        await act(async () => {
+            fireEvent.click(screen.getAllByRole("button", { name: "30 min" })[0]);
+        });
         expect(m.mutateAsync).toHaveBeenCalledWith({ id: "garage", durationEstimate: 30 });
-        expect(f.plan).toHaveBeenCalledWith([expect.objectContaining({ id: "garage", durationEstimate: 30 })], expect.any(Array));
+        expect(f.plan).toHaveBeenCalledWith(
+            [expect.objectContaining({ id: "garage", durationEstimate: 30 })],
+            expect.any(Array),
+        );
         expect(screen.getByRole("button", { name: "Place 3" })).toBeTruthy();
     });
 
     it("places all of them and closes; a 409 says the day changed and lays it out again", async () => {
         const { onDone, f } = setup();
-        await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Place 2" })); });
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: "Place 2" }));
+        });
         expect(onDone).toHaveBeenCalledWith(true);
 
         m.place.mockRejectedValueOnce(Object.assign(new Error("conflict"), { status: 409 }));
         onDone.mockClear();
-        await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Place 2" })); });
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: "Place 2" }));
+        });
         expect(onDone).not.toHaveBeenCalled();
         expect(f.refresh).toHaveBeenCalled();
         expect(screen.getByText("Your day changed")).toBeTruthy();
@@ -98,7 +135,9 @@ describe("FitDayPreview", () => {
     it("a time that has passed since the plan was made lays the day out again instead of placing it", async () => {
         vi.setSystemTime(new Date(at("09:30")));
         const { f } = setup();
-        await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Place 2" })); });
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: "Place 2" }));
+        });
         expect(m.place).not.toHaveBeenCalled();
         expect(screen.getByText("Your day changed")).toBeTruthy();
         expect(f.plan).toHaveBeenCalled();

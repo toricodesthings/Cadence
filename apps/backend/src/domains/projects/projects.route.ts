@@ -29,13 +29,8 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         return c.json({ data: updated });
     })
     .get("/", async (c) => {
-
         const userProjects = await withCallerRls(c, (tx, userId) =>
-            tx
-                .select()
-                .from(projects)
-                .where(eq(projects.userId, userId))
-                .orderBy(projects.createdAt),
+            tx.select().from(projects).where(eq(projects.userId, userId)).orderBy(projects.createdAt),
         );
 
         return c.json({ data: userProjects });

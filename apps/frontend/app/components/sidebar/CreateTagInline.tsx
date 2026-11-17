@@ -48,15 +48,18 @@ export function CreateTagInline({ onCreated, onCancel }: CreateTagInlineProps) {
                 />
 
                 <div className="flex flex-wrap gap-1.5 px-1 pb-1">
-                    {TAG_COLORS.map(color => (
+                    {TAG_COLORS.map((color) => (
                         <button
                             key={color}
                             onClick={() => setSelectedColor(color)}
-                            className={`w-5 h-5 rounded-full transition-transform cursor-pointer ${selectedColor === color
+                            className={`w-5 h-5 rounded-full transition-transform cursor-pointer ${
+                                selectedColor === color
                                     ? "scale-125 ring-1 ring-offset-1 ring-offset-twilight-surface-muted ring-accent-primary shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_30%,transparent)]"
                                     : "hover:scale-110"
-                                }`}
-                            style={{ backgroundColor: color === "default" ? "var(--color-twilight-text-muted)" : color }}
+                            }`}
+                            style={{
+                                backgroundColor: color === "default" ? "var(--color-twilight-text-muted)" : color,
+                            }}
                             aria-label={`Select color ${color}`}
                         />
                     ))}

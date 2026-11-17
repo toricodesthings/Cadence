@@ -48,20 +48,26 @@ export function usePlanningOffers(ordered: readonly Task[]) {
         enabled: full && authReady && isAuthenticated,
         staleTime: 60_000,
         retry: false,
-        queryFn: async () => planningOffersSchema.parse(await unwrapResponse(await client.api.ai.memory.planning.offers.$get())),
+        queryFn: async () =>
+            planningOffersSchema.parse(await unwrapResponse(await client.api.ai.memory.planning.offers.$get())),
     });
 
-    const report = useCallback(async (taskId: string, kind: PlanningOffer, outcome: "chosen" | "declined") => {
-        try {
-            unwrapResponse(await client.api.ai.memory.planning.offer.$post({ json: { taskId, kind, outcome } }));
-        } catch {
-            // Quiet: an outcome that can't be recorded is not worth an error.
-        }
-        void queryClient.invalidateQueries({ queryKey: queryKeys.ai.planningOffers });
-    }, [client, queryClient]);
+    const report = useCallback(
+        async (taskId: string, kind: PlanningOffer, outcome: "chosen" | "declined") => {
+            try {
+                unwrapResponse(await client.api.ai.memory.planning.offer.$post({ json: { taskId, kind, outcome } }));
+            } catch {
+                // Quiet: an outcome that can't be recorded is not worth an error.
+            }
+            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.planningOffers });
+        },
+        [client, queryClient],
+    );
 
     const eligible = full ? data : undefined;
-    const task = eligible ? ordered.find((t) => eligible.steps.includes(t.id) || eligible.later.includes(t.id)) : undefined;
+    const task = eligible
+        ? ordered.find((t) => eligible.steps.includes(t.id) || eligible.later.includes(t.id))
+        : undefined;
     const kind: PlanningOffer | null = task && eligible ? (eligible.steps.includes(task.id) ? "steps" : "later") : null;
 
     const accept = useCallback(() => {
@@ -71,9 +77,14 @@ export function usePlanningOffers(ordered: readonly Task[]) {
             return;
         }
         const before = task.notBefore ?? null;
-        const until = leaveUntil({ waitingReminderDay: task.waitingReminder ? dayOf(task.waitingReminder, getUserZone()) : null }, today());
+        const until = leaveUntil(
+            { waitingReminderDay: task.waitingReminder ? dayOf(task.waitingReminder, getUserZone()) : null },
+            today(),
+        );
         updateTask.mutate({ id: task.id, notBefore: until });
-        toastUndo(toastName(task.title), () => updateTask.mutate({ id: task.id, notBefore: before }), { description: `Hidden until ${formatShortDateLabel(until)}` });
+        toastUndo(toastName(task.title), () => updateTask.mutate({ id: task.id, notBefore: before }), {
+            description: `Hidden until ${formatShortDateLabel(until)}`,
+        });
         void report(task.id, "later", "chosen");
     }, [askForSteps, kind, report, task, updateTask]);
 
@@ -82,18 +93,34 @@ export function usePlanningOffers(ordered: readonly Task[]) {
     }, [kind, report, task]);
 
     // Weekly Reset's relief: two or more rows that keep slipping, hidden together with one tap (and one Undo).
-    const slipping = useMemo(() => (eligible ? ordered.filter((t) => eligible.steps.includes(t.id)) : []), [eligible, ordered]);
+    const slipping = useMemo(
+        () => (eligible ? ordered.filter((t) => eligible.steps.includes(t.id)) : []),
+        [eligible, ordered],
+    );
     const hideSlipping = useCallback(() => {
         const before = slipping.map((t) => ({ id: t.id, notBefore: t.notBefore ?? null }));
         let until = today();
         for (const t of slipping) {
-            until = leaveUntil({ waitingReminderDay: t.waitingReminder ? dayOf(t.waitingReminder, getUserZone()) : null }, today());
+            until = leaveUntil(
+                { waitingReminderDay: t.waitingReminder ? dayOf(t.waitingReminder, getUserZone()) : null },
+                today(),
+            );
             updateTask.mutate({ id: t.id, notBefore: until });
         }
-        toastUndo(`${slipping.length} tasks`, () => before.forEach((b) => updateTask.mutate(b)), { description: `Hidden until ${formatShortDateLabel(until)}` });
+        toastUndo(`${slipping.length} tasks`, () => before.forEach((b) => updateTask.mutate(b)), {
+            description: `Hidden until ${formatShortDateLabel(until)}`,
+        });
     }, [slipping, updateTask]);
 
-    return { task: task ?? null, kind, accept, notNow, slipping: slipping.length >= 2 ? slipping : [], hideSlipping, shown: task && kind ? { taskId: task.id, kind, accept } satisfies ShownOffer : null };
+    return {
+        task: task ?? null,
+        kind,
+        accept,
+        notNow,
+        slipping: slipping.length >= 2 ? slipping : [],
+        hideSlipping,
+        shown: task && kind ? ({ taskId: task.id, kind, accept } satisfies ShownOffer) : null,
+    };
 }
 
 export function PlanningOfferProvider({ shown, children }: { shown: ShownOffer | null; children: ReactNode }) {

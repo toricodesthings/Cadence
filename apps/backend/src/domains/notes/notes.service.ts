@@ -46,14 +46,24 @@ export async function writeNote(
         const [row] = await tx
             .update(taskNotes)
             .set({ body, ...analysis, version: existing.version + 1, updatedAt: sql`NOW()` })
-            .where(and(eq(taskNotes.id, existing.id), eq(taskNotes.userId, userId), eq(taskNotes.version, existing.version)))
+            .where(
+                and(
+                    eq(taskNotes.id, existing.id),
+                    eq(taskNotes.userId, userId),
+                    eq(taskNotes.version, existing.version),
+                ),
+            )
             .returning();
         if (!row) throw conflict();
         return row;
     }
 
     // The unique task index is the last word on concurrent first writes.
-    const [row] = await tx.insert(taskNotes).values({ taskId, userId, body, ...analysis }).onConflictDoNothing().returning();
+    const [row] = await tx
+        .insert(taskNotes)
+        .values({ taskId, userId, body, ...analysis })
+        .onConflictDoNothing()
+        .returning();
     if (!row) throw conflict();
     return row;
 }

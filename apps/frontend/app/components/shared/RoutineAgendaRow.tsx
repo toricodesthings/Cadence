@@ -64,7 +64,7 @@ export function RoutineAgendaRow({
 
     return (
         <AgendaRow
-            leading={(
+            leading={
                 <button
                     type="button"
                     onClick={handleResolve}
@@ -79,8 +79,8 @@ export function RoutineAgendaRow({
                             done
                                 ? "border-transparent bg-[color-mix(in_srgb,var(--routine-tone)_80%,transparent)] text-[var(--primary-foreground)]"
                                 : isResolving
-                                    ? "border-accent-primary/60 bg-accent-primary/15 text-[var(--routine-tone)]"
-                                    : "border-[color-mix(in_srgb,var(--routine-tone)_45%,transparent)] text-[var(--routine-tone)] group-hover/check:border-[color-mix(in_srgb,var(--routine-tone)_75%,transparent)]"
+                                  ? "border-accent-primary/60 bg-accent-primary/15 text-[var(--routine-tone)]"
+                                  : "border-[color-mix(in_srgb,var(--routine-tone)_45%,transparent)] text-[var(--routine-tone)] group-hover/check:border-[color-mix(in_srgb,var(--routine-tone)_75%,transparent)]"
                         }`}
                     >
                         {done ? (
@@ -92,17 +92,21 @@ export function RoutineAgendaRow({
                         )}
                     </span>
                 </button>
-            )}
+            }
             onOpen={onOpen}
             ariaLabel={`Open routine ${title}`}
             className="items-center rounded-[28px] px-1.5 py-1.5 hover:bg-moonlit/[0.05]"
         >
             <div className="flex min-w-0 items-baseline gap-3">
-                <span className={`min-w-0 flex-1 truncate text-[15px] leading-snug ${done ? "text-twilight-text-muted line-through decoration-twilight-text-muted/60" : "text-twilight-text"}`}>
+                <span
+                    className={`min-w-0 flex-1 truncate text-[15px] leading-snug ${done ? "text-twilight-text-muted line-through decoration-twilight-text-muted/60" : "text-twilight-text"}`}
+                >
                     {title}
                     <PendingMark id={id} />
                 </span>
-                {meta ? <span className="shrink-0 text-[12px] tabular-nums text-twilight-text-soft">{meta}</span> : null}
+                {meta ? (
+                    <span className="shrink-0 text-[12px] tabular-nums text-twilight-text-soft">{meta}</span>
+                ) : null}
             </div>
         </AgendaRow>
     );
@@ -128,11 +132,26 @@ export function routineAgendaItems(habits: Habit[], day: string): RoutineAgendaI
         .flatMap((habit) => {
             const log = habit.logs?.find((entry) => entry.targetDate === day);
             if (!log || log.status === "SKIPPED") return [];
-            const base = { habitId: habit.id, title: habit.title, emoji: habit.emoji ?? null, tone: routineTone(habit.colorAccent), done: log.status === "COMPLETED" };
-            if (!habit.times?.length) return [{ ...base, time: routineTimeOn(habit, day), progress: stepProgress(habit, log), timed: false }];
+            const base = {
+                habitId: habit.id,
+                title: habit.title,
+                emoji: habit.emoji ?? null,
+                tone: routineTone(habit.colorAccent),
+                done: log.status === "COMPLETED",
+            };
+            if (!habit.times?.length)
+                return [{ ...base, time: routineTimeOn(habit, day), progress: stepProgress(habit, log), timed: false }];
             const marks = timeMarksOn(habit.times, log);
             const { done, total } = timeProgress(habit.times, marks);
-            return [{ ...base, time: nextOpenTime(habit.times, marks, wallTimeOf(new Date(), getUserZone())) ?? habit.times.at(-1)!, progress: `${done} of ${total} done`, timed: true }];
+            return [
+                {
+                    ...base,
+                    time:
+                        nextOpenTime(habit.times, marks, wallTimeOf(new Date(), getUserZone())) ?? habit.times.at(-1)!,
+                    progress: `${done} of ${total} done`,
+                    timed: true,
+                },
+            ];
         })
         .sort((a, b) => (a.time ?? "99:99").localeCompare(b.time ?? "99:99") || a.title.localeCompare(b.title));
 }
@@ -142,7 +161,13 @@ export function routineAgendaItems(habits: Habit[], day: string): RoutineAgendaI
  * and the Routines page share it. `animate`: a checked row folds away instead
  * of vanishing (off under reduced motion).
  */
-export function RoutineAgendaList({ items, animate = false, columns = false, onOpen, onComplete }: {
+export function RoutineAgendaList({
+    items,
+    animate = false,
+    columns = false,
+    onOpen,
+    onComplete,
+}: {
     items: RoutineAgendaItem[];
     animate?: boolean;
     /** Wide screens: rows side by side, so a full-width band keeps each time next to its title. */
@@ -153,7 +178,9 @@ export function RoutineAgendaList({ items, animate = false, columns = false, onO
     const [showDone, setShowDone] = useState(false);
     const reducedMotion = useReducedMotionSetting();
     const fold = animate && !reducedMotion;
-    const rowsClass = columns ? "grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-x-2 gap-y-0.5" : "flex flex-col gap-0.5";
+    const rowsClass = columns
+        ? "grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-x-2 gap-y-0.5"
+        : "flex flex-col gap-0.5";
     const open = items.filter((item) => !item.done);
     const done = items.filter((item) => item.done);
     const row = (item: RoutineAgendaItem) => (
@@ -178,11 +205,20 @@ export function RoutineAgendaList({ items, animate = false, columns = false, onO
             ) : (
                 <div className={rowsClass}>
                     <AnimatePresence initial={false}>
-                        {open.map((item) => fold ? (
-                            <motion.div key={item.habitId} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2, ease: EASE_OUT_EXPO }} className="overflow-hidden">
-                                {row(item)}
-                            </motion.div>
-                        ) : row(item))}
+                        {open.map((item) =>
+                            fold ? (
+                                <motion.div
+                                    key={item.habitId}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={{ duration: 0.2, ease: EASE_OUT_EXPO }}
+                                    className="overflow-hidden"
+                                >
+                                    {row(item)}
+                                </motion.div>
+                            ) : (
+                                row(item)
+                            ),
+                        )}
                     </AnimatePresence>
                 </div>
             )}
@@ -194,7 +230,11 @@ export function RoutineAgendaList({ items, animate = false, columns = false, onO
                         aria-expanded={showDone}
                         className="mx-2 mt-1 inline-flex min-h-11 cursor-pointer items-center gap-2 self-start rounded-2xl px-3 text-[13px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                     >
-                        <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${showDone ? "rotate-180" : ""}`} />
+                        <ChevronDown
+                            size={14}
+                            aria-hidden="true"
+                            className={`transition-transform ${showDone ? "rotate-180" : ""}`}
+                        />
                         {done.length} done
                     </button>
                     {showDone ? <div className={rowsClass}>{done.map(row)}</div> : null}

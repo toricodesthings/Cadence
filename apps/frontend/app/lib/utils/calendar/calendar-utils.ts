@@ -43,7 +43,10 @@ interface TimedLayoutBase {
     columns: number;
 }
 
-export type TimedPointLayout = TimedLayoutBase & { points: [Task, ...Task[]] } & ({ marker: "row" } | { marker: "badge" });
+export type TimedPointLayout = TimedLayoutBase & { points: [Task, ...Task[]] } & (
+        | { marker: "row" }
+        | { marker: "badge" }
+    );
 type TimedSpanLayout = TimedLayoutBase & { marker?: never; badge?: boolean };
 export type TimedTaskLayout = TimedPointLayout | TimedSpanLayout;
 
@@ -84,9 +87,7 @@ function buildClusterLayouts(cluster: TimedTaskWithRange[]): TimedTaskLayout[] {
 }
 
 function buildSpanLayouts(spans: Task[]): TimedTaskLayout[] {
-    const timed = spans
-        .map(getTaskRange)
-        .sort((a, b) => (a.start - b.start) || (a.end - b.end));
+    const timed = spans.map(getTaskRange).sort((a, b) => a.start - b.start || a.end - b.end);
 
     const layouts: TimedTaskLayout[] = [];
     let cluster: TimedTaskWithRange[] = [];
@@ -131,11 +132,21 @@ export function buildTimedTaskLayouts(tasks: Task[]): TimedTaskLayout[] {
     }
 
     for (const group of groups) {
-        const covered = layouts.filter((span): span is TimedSpanLayout => span.marker === undefined && group.top < span.top + span.height && group.top + MARKER_HEIGHT > span.top);
-        covered.forEach((span) => { span.badge = true; });
+        const covered = layouts.filter(
+            (span): span is TimedSpanLayout =>
+                span.marker === undefined && group.top < span.top + span.height && group.top + MARKER_HEIGHT > span.top,
+        );
+        covered.forEach((span) => {
+            span.badge = true;
+        });
         layouts.push({
-            task: group.tasks[0], top: group.top, height: MARKER_HEIGHT, column: 0, columns: 1,
-            marker: covered.length ? "badge" : "row", points: group.tasks,
+            task: group.tasks[0],
+            top: group.top,
+            height: MARKER_HEIGHT,
+            column: 0,
+            columns: 1,
+            marker: covered.length ? "badge" : "row",
+            points: group.tasks,
         });
     }
     return layouts;

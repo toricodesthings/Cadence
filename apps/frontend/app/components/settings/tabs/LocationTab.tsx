@@ -60,7 +60,11 @@ const SOURCE_LABELS: Record<LocationSource, string> = {
 };
 
 function formatPlace(place: ResolvedPlace, locale: string, subdivisionFallback: string | null) {
-    const parts = [place.city, place.subdivisionName ?? subdivisionFallback, getCountryLabel(place.countryCode, locale)];
+    const parts = [
+        place.city,
+        place.subdivisionName ?? subdivisionFallback,
+        getCountryLabel(place.countryCode, locale),
+    ];
     return parts.filter(Boolean).join(", ") || "Unknown area";
 }
 
@@ -92,12 +96,21 @@ export function LocationTab() {
 
             <SettingsSection title="How Cadence finds you">
                 <ModePicker location={location} />
-                <LocationCard location={location} locale={locale} subdivisionFallback={holidays.subdivisionLabel} year={year} />
+                <LocationCard
+                    location={location}
+                    locale={locale}
+                    subdivisionFallback={holidays.subdivisionLabel}
+                    year={year}
+                />
             </SettingsSection>
 
             <SettingsSection title="Weather">
                 <SettingsList>
-                    <SettingsRow inline title="Weather" description={location.mode === "off" ? "Hidden while location is off" : undefined}>
+                    <SettingsRow
+                        inline
+                        title="Weather"
+                        description={location.mode === "off" ? "Hidden while location is off" : undefined}
+                    >
                         <Switch
                             checked={weatherEnabled}
                             onCheckedChange={(enabled) => updateSettings.mutate({ weather: { enabled } })}
@@ -109,13 +122,30 @@ export function LocationTab() {
 
             <SettingsSection title="Privacy">
                 <SettingsList>
-                    <SettingsRow inline title="Rounded to about 1 km" description="Weather comes from Open-Meteo. A precise position is named through OpenStreetMap.">
-                        <ExternalLink href={CADENCE_PRIVACY_URL} className="whitespace-nowrap text-sm text-accent-primary hover:underline">
+                    <SettingsRow
+                        inline
+                        title="Rounded to about 1 km"
+                        description="Weather comes from Open-Meteo. A precise position is named through OpenStreetMap."
+                    >
+                        <ExternalLink
+                            href={CADENCE_PRIVACY_URL}
+                            className="whitespace-nowrap text-sm text-accent-primary hover:underline"
+                        >
                             Privacy policy
                         </ExternalLink>
                     </SettingsRow>
-                    <SettingsRow inline title="Saved on this device" description="A precise position is kept up to 7 days, and cleared at sign-out.">
-                        <Button type="button" variant="secondary" size="sm" aria-label="Forget saved location" onClick={handleForget}>
+                    <SettingsRow
+                        inline
+                        title="Saved on this device"
+                        description="A precise position is kept up to 7 days, and cleared at sign-out."
+                    >
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            aria-label="Forget saved location"
+                            onClick={handleForget}
+                        >
                             Forget
                         </Button>
                     </SettingsRow>
@@ -147,7 +177,12 @@ function ModePicker({ location }: { location: UserLocation }) {
                                 : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]",
                         )}
                     >
-                        <span className={cn("inline-flex items-center gap-2 text-sm font-medium", selected ? "text-accent-primary" : "text-twilight-text")}>
+                        <span
+                            className={cn(
+                                "inline-flex items-center gap-2 text-sm font-medium",
+                                selected ? "text-accent-primary" : "text-twilight-text",
+                            )}
+                        >
                             <Icon size={15} aria-hidden="true" />
                             {label}
                         </span>
@@ -172,11 +207,14 @@ function LocationCard({
     year: number;
 }) {
     const { place } = location;
-    const label = location.mode === "off"
-        ? "Location is off"
-        : place
-            ? formatPlace(place, locale, subdivisionFallback)
-            : location.isResolving ? "Finding your area..." : "Not set yet";
+    const label =
+        location.mode === "off"
+            ? "Location is off"
+            : place
+              ? formatPlace(place, locale, subdivisionFallback)
+              : location.isResolving
+                ? "Finding your area..."
+                : "Not set yet";
 
     return (
         <div className="flex flex-col divide-y divide-white/[0.04] rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02]">
@@ -190,12 +228,16 @@ function LocationCard({
                         </span>
                     ) : null}
                     {location.refreshedAt ? (
-                        <span className="text-xs text-twilight-text-muted">Updated {formatUpdatedAt(location.refreshedAt)}</span>
+                        <span className="text-xs text-twilight-text-muted">
+                            Updated {formatUpdatedAt(location.refreshedAt)}
+                        </span>
                     ) : null}
                 </div>
                 <PreciseStatus location={location} />
             </div>
-            {location.mode === "manual" ? <ManualLocationEditor location={location} locale={locale} year={year} /> : null}
+            {location.mode === "manual" ? (
+                <ManualLocationEditor location={location} locale={locale} year={year} />
+            ) : null}
         </div>
     );
 }
@@ -217,7 +259,8 @@ function PreciseStatus({ location }: { location: UserLocation }) {
             ? "Location access is blocked for Cadence on this computer, so Cadence is using your approximate location."
             : "Your browser blocks location for Cadence, so Cadence is using your approximate location. To allow it, open the site settings from the icon next to the address bar.";
     } else if (permissionState === "prompt" && !place) {
-        message = "Precise location isn't allowed on this device yet. Until it is, Cadence uses your approximate location.";
+        message =
+            "Precise location isn't allowed on this device yet. Until it is, Cadence uses your approximate location.";
         action = "Allow on this device";
     } else if (preciseFailed && !place) {
         message = "Your device couldn't find its position just now, so Cadence is using your approximate location.";
@@ -272,16 +315,21 @@ function ManualLocationEditor({ location, locale, year }: { location: UserLocati
 
     const citiesQuery = useQuery({
         queryKey: [...queryKeys.location.all, "city-search", search, locale],
-        queryFn: async () => unwrapResponse(
-            await client.api.proxy.geocode.search.$get({ query: { name: search!, locale } }),
-        ),
+        queryFn: async () =>
+            unwrapResponse(await client.api.proxy.geocode.search.$get({ query: { name: search!, locale } })),
         enabled: search !== null,
         staleTime: 60 * 60 * 1000,
         meta: { persist: false },
     });
 
-    const countries = useMemo(() => (countriesQuery.data ?? []).map(({ code, label }) => ({ value: code, label })), [countriesQuery.data]);
-    const regions = useMemo(() => (subdivisionsQuery.data ?? []).map(({ code, label }) => ({ value: code, label })), [subdivisionsQuery.data]);
+    const countries = useMemo(
+        () => (countriesQuery.data ?? []).map(({ code, label }) => ({ value: code, label })),
+        [countriesQuery.data],
+    );
+    const regions = useMemo(
+        () => (subdivisionsQuery.data ?? []).map(({ code, label }) => ({ value: code, label })),
+        [subdivisionsQuery.data],
+    );
     const noCountry = useMemo(() => [{ value: NONE, label: "Use my time zone" }], []);
     const noRegion = useMemo(() => [{ value: NONE, label: "Country-wide holidays only" }], []);
 
@@ -312,10 +360,12 @@ function ManualLocationEditor({ location, locale, year }: { location: UserLocati
                     <p className={FIELD_LABEL}>Country</p>
                     <SearchSelect
                         value={countryCode ?? NONE}
-                        onValueChange={(value) => void location.setManualLocation({
-                            countryCode: value === NONE ? null : value,
-                            subdivisionCode: null,
-                        })}
+                        onValueChange={(value) =>
+                            void location.setManualLocation({
+                                countryCode: value === NONE ? null : value,
+                                subdivisionCode: null,
+                            })
+                        }
                         options={countries}
                         pinned={noCountry}
                         ariaLabel="Country"
@@ -328,12 +378,20 @@ function ManualLocationEditor({ location, locale, year }: { location: UserLocati
                     <p className={FIELD_LABEL}>Region / State</p>
                     <SearchSelect
                         value={location.manualSubdivisionCode ?? NONE}
-                        onValueChange={(value) => void location.setManualLocation({ subdivisionCode: value === NONE ? null : value })}
+                        onValueChange={(value) =>
+                            void location.setManualLocation({ subdivisionCode: value === NONE ? null : value })
+                        }
                         options={regions}
                         pinned={noRegion}
                         ariaLabel="Region or state"
                         searchLabel="Search regions"
-                        placeholder={!countryCode ? "Choose a country first" : subdivisionsQuery.isLoading ? "Loading regions..." : "Country-wide holidays only"}
+                        placeholder={
+                            !countryCode
+                                ? "Choose a country first"
+                                : subdivisionsQuery.isLoading
+                                  ? "Loading regions..."
+                                  : "Country-wide holidays only"
+                        }
                         disabled={!countryCode}
                     />
                 </div>
@@ -348,8 +406,17 @@ function ManualLocationEditor({ location, locale, year }: { location: UserLocati
                             {location.savedCity.name}
                         </span>
                         <span className="flex gap-1">
-                            <Button type="button" variant="ghost" size="sm" onClick={() => setChanging(true)}>Change</Button>
-                            <Button type="button" variant="ghost" size="sm" onClick={() => void location.setManualLocation({ city: null })}>Remove</Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setChanging(true)}>
+                                Change
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => void location.setManualLocation({ city: null })}
+                            >
+                                Remove
+                            </Button>
                         </span>
                     </div>
                 ) : (
@@ -361,11 +428,27 @@ function ManualLocationEditor({ location, locale, year }: { location: UserLocati
                             aria-label="Search for a city"
                             className="flex-1"
                         />
-                        <Button type="submit" variant="secondary" disabled={draft.trim().length < 2 || citiesQuery.isFetching}>
+                        <Button
+                            type="submit"
+                            variant="secondary"
+                            disabled={draft.trim().length < 2 || citiesQuery.isFetching}
+                        >
                             <Search size={14} aria-hidden="true" />
                             Search
                         </Button>
-                        {changing ? <Button type="button" variant="ghost" onClick={() => { setChanging(false); setSearch(null); setDraft(""); }}>Cancel</Button> : null}
+                        {changing ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => {
+                                    setChanging(false);
+                                    setSearch(null);
+                                    setDraft("");
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                        ) : null}
                     </form>
                 )}
 

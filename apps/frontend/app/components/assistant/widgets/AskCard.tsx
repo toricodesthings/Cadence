@@ -18,7 +18,11 @@ export function AskCard({ ctx }: { ctx: ToolRenderContext<"ask_user"> }) {
     };
 
     return (
-        <div role="group" aria-label={input.question ?? "Question"} className="mt-2 w-full rounded-2xl border border-twilight-border bg-twilight-deep/50 p-3">
+        <div
+            role="group"
+            aria-label={input.question ?? "Question"}
+            className="mt-2 w-full rounded-2xl border border-twilight-border bg-twilight-deep/50 p-3"
+        >
             <p className="mb-2.5 flex items-center gap-1.5 font-display text-[11px] font-semibold uppercase tracking-wider text-twilight-text-muted">
                 <MessageCircleQuestion size={12} aria-hidden="true" />
                 Question
@@ -35,7 +39,9 @@ export function AskCard({ ctx }: { ctx: ToolRenderContext<"ask_user"> }) {
                                 className="flex min-h-11 w-full cursor-pointer flex-col items-start justify-center rounded-xl border border-twilight-border bg-twilight-surface px-3 py-2 text-left transition-colors hover:bg-twilight-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                             >
                                 <span className="text-sm text-twilight-text">{option.label}</span>
-                                {option.description ? <span className="text-xs text-twilight-text-muted">{option.description}</span> : null}
+                                {option.description ? (
+                                    <span className="text-xs text-twilight-text-muted">{option.description}</span>
+                                ) : null}
                             </button>
                         ))}
                     </div>
@@ -46,7 +52,9 @@ export function AskCard({ ctx }: { ctx: ToolRenderContext<"ask_user"> }) {
                             send(text);
                         }}
                     >
-                        <label htmlFor={boxId} className="sr-only">Your own answer</label>
+                        <label htmlFor={boxId} className="sr-only">
+                            Your own answer
+                        </label>
                         <textarea
                             id={boxId}
                             rows={1}

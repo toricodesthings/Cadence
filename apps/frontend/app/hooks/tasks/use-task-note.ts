@@ -11,7 +11,12 @@ import { queryKeys } from "../../lib/api/query-keys";
 import { noteStatus, type NoteSession, type NoteSessionState } from "../../lib/notes/note-session";
 
 /** The shared session for the owner's note, held while `ready` (which implies both ids); never the previous owner's after a switch. */
-function useNoteSession(ready: boolean, userId: string | null, ownerId: string | null, legacy: React.RefObject<string>) {
+function useNoteSession(
+    ready: boolean,
+    userId: string | null,
+    ownerId: string | null,
+    legacy: React.RefObject<string>,
+) {
     const queryClient = useQueryClient();
     const [held, setHeld] = useState<NoteSession | null>(null);
     useEffect(() => {

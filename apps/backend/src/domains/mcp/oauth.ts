@@ -77,7 +77,13 @@ function oauthOptions(env: Env): OAuthProviderOptions<Env> {
                 tx
                     .select({ id: mcpConnections.id })
                     .from(mcpConnections)
-                    .where(and(eq(mcpConnections.id, connectionId), eq(mcpConnections.userId, userId), isNull(mcpConnections.revokedAt))),
+                    .where(
+                        and(
+                            eq(mcpConnections.id, connectionId),
+                            eq(mcpConnections.userId, userId),
+                            isNull(mcpConnections.revokedAt),
+                        ),
+                    ),
             );
             if (row) return;
             await oauthApi(env).revokeGrant(grantId, userId);
@@ -113,12 +119,16 @@ export function isMcpRequest(request: Request, env: Env): boolean {
 }
 
 function requireKv(env: Env): KVNamespace {
-    if (!env.OAUTH_KV) throw new AppError(503, "STORAGE_UNAVAILABLE", "Connecting assistants isn't available right now.");
+    if (!env.OAUTH_KV)
+        throw new AppError(503, "STORAGE_UNAVAILABLE", "Connecting assistants isn't available right now.");
     return env.OAUTH_KV;
 }
 
 const text = (message: string, status = 400) =>
-    new Response(message, { status, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
+    new Response(message, {
+        status,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+    });
 
 /** Expected OAuth failures: redirect only once the client's redirect URI is validated, else render. */
 function authorizationFailure(error: unknown): Response {
@@ -131,7 +141,9 @@ function authorizationFailure(error: unknown): Response {
         return Response.redirect(redirect.href, 302);
     }
     if (error instanceof AuthorizationError) {
-        return text("This link expired, was already used, or was opened in a different browser. Start connecting again from your assistant.");
+        return text(
+            "This link expired, was already used, or was opened in a different browser. Start connecting again from your assistant.",
+        );
     }
     if (error instanceof CimdFetchError) return text("This app could not be verified.");
     throw error;
@@ -268,13 +280,18 @@ async function recordConnection(
         await tx
             .update(mcpConnections)
             .set({ revokedAt: sql`now()` })
-            .where(and(
-                eq(mcpConnections.userId, userId),
-                eq(mcpConnections.clientId, values.clientId),
-                sharedClientId ? eq(mcpConnections.redirectUri, values.redirectUri) : undefined,
-                isNull(mcpConnections.revokedAt),
-            ));
-        const [row] = await tx.insert(mcpConnections).values({ userId, ...values }).returning({ id: mcpConnections.id });
+            .where(
+                and(
+                    eq(mcpConnections.userId, userId),
+                    eq(mcpConnections.clientId, values.clientId),
+                    sharedClientId ? eq(mcpConnections.redirectUri, values.redirectUri) : undefined,
+                    isNull(mcpConnections.revokedAt),
+                ),
+            );
+        const [row] = await tx
+            .insert(mcpConnections)
+            .values({ userId, ...values })
+            .returning({ id: mcpConnections.id });
         return row.id;
     });
 }
@@ -291,7 +308,11 @@ export async function liveConnectionIds(env: Env, userId: string): Promise<Set<s
     try {
         const { items } = await oauthApi(env).listUserGrants(userId, { limit: 1000 });
         const now = Math.floor(Date.now() / 1000);
-        return new Set(items.filter((grant) => !grant.expiresAt || grant.expiresAt > now).map((grant) => grant.metadata?.connectionId));
+        return new Set(
+            items
+                .filter((grant) => !grant.expiresAt || grant.expiresAt > now)
+                .map((grant) => grant.metadata?.connectionId),
+        );
     } catch {
         return null;
     }
@@ -305,7 +326,11 @@ export async function revokeAllGrants(env: Env, userId: string): Promise<void> {
 }
 
 /** Revokes this person's KV grants that `which` picks, so their tokens stop refreshing. Best effort: failures are logged. */
-async function revokeGrants(env: Env, userId: string, which: (grant: { metadata?: { connectionId?: unknown } }) => boolean): Promise<void> {
+async function revokeGrants(
+    env: Env,
+    userId: string,
+    which: (grant: { metadata?: { connectionId?: unknown } }) => boolean,
+): Promise<void> {
     if (!env.OAUTH_KV) return;
     try {
         const oauth = oauthApi(env);
@@ -329,7 +354,13 @@ export async function revokeConnection(env: Env, userId: string, connectionId: s
         tx
             .update(mcpConnections)
             .set({ revokedAt: sql`now()` })
-            .where(and(eq(mcpConnections.id, connectionId), eq(mcpConnections.userId, userId), isNull(mcpConnections.revokedAt)))
+            .where(
+                and(
+                    eq(mcpConnections.id, connectionId),
+                    eq(mcpConnections.userId, userId),
+                    isNull(mcpConnections.revokedAt),
+                ),
+            )
             .returning({ id: mcpConnections.id }),
     );
     await revokeGrants(env, userId, (grant) => grant.metadata?.connectionId === connectionId);

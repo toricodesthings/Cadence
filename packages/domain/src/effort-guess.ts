@@ -17,9 +17,14 @@ export interface GuessTask {
  * The task's Effort if chosen (no guess); else a single-level guess from this person's evidence; else null.
  * Never a range, never the middling fallback. A "no thanks" returns null until the title or list changes.
  */
-export function effortGuessOf(task: GuessTask, evidence: readonly EffortEvidence[], today: LocalDate): EffortGuess | null {
+export function effortGuessOf(
+    task: GuessTask,
+    evidence: readonly EffortEvidence[],
+    today: LocalDate,
+): EffortGuess | null {
     if (task.effort !== null || task.effortGuessSource === "dismissed") return null;
-    if (task.effortGuessSource === "model" && task.effortGuess) return { level: task.effortGuess, source: "model", support: 0 };
+    if (task.effortGuessSource === "model" && task.effortGuess)
+        return { level: task.effortGuess, source: "model", support: 0 };
     const s = suggestEffort(task.title, task.projectId, evidence, today);
     return s?.kind === "level" ? { level: s.level, source: "similar", support: s.support } : null;
 }

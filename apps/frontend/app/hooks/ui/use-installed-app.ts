@@ -18,7 +18,9 @@ export function useInstalledApp(unreadCount: number) {
         if (!isInstalledApp()) return;
         rememberRoute(pathname);
         // Hidden is when iOS may close the app: the time saved is when the person last saw this screen.
-        const onHide = () => { if (document.visibilityState === "hidden") rememberRoute(pathname); };
+        const onHide = () => {
+            if (document.visibilityState === "hidden") rememberRoute(pathname);
+        };
         document.addEventListener("visibilitychange", onHide);
         return () => document.removeEventListener("visibilitychange", onHide);
     }, [pathname]);
@@ -26,10 +28,14 @@ export function useInstalledApp(unreadCount: number) {
     useEffect(() => {
         void syncAppBadge(unreadCount);
         // sw.js raises the badge for pushes while hidden; on return the bell's count is the truth again.
-        const onShow = () => { if (document.visibilityState === "visible") void syncAppBadge(unreadCount); };
+        const onShow = () => {
+            if (document.visibilityState === "visible") void syncAppBadge(unreadCount);
+        };
         document.addEventListener("visibilitychange", onShow);
         return () => document.removeEventListener("visibilitychange", onShow);
     }, [unreadCount]);
 
-    useEffect(() => { void keepAppStorage(); }, []);
+    useEffect(() => {
+        void keepAppStorage();
+    }, []);
 }

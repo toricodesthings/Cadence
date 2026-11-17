@@ -60,7 +60,10 @@ export function quadChain(start: Pt, control: Pt, ends: readonly Pt[], step: num
         for (let k = 1; k <= n; k++) {
             const t = k / n;
             const u = 1 - t;
-            out.push([u * u * p0[0] + 2 * u * t * c[0] + t * t * p1[0], u * u * p0[1] + 2 * u * t * c[1] + t * t * p1[1]]);
+            out.push([
+                u * u * p0[0] + 2 * u * t * c[0] + t * t * p1[0],
+                u * u * p0[1] + 2 * u * t * c[1] + t * t * p1[1],
+            ]);
         }
         p0 = p1;
     });
@@ -80,7 +83,11 @@ export function smoothThrough(keys: readonly Pt[], n: number): Pt[] {
             const t2 = t * t;
             const t3 = t2 * t;
             const at = (j: 0 | 1) =>
-                0.5 * (2 * p1[j] + (p2[j] - p0[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (3 * p1[j] - p0[j] - 3 * p2[j] + p3[j]) * t3);
+                0.5 *
+                (2 * p1[j] +
+                    (p2[j] - p0[j]) * t +
+                    (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 +
+                    (3 * p1[j] - p0[j] - 3 * p2[j] + p3[j]) * t3);
             out.push([at(0), at(1)]);
         }
     }
@@ -117,7 +124,9 @@ export function risingEdges(points: readonly Pt[]): string {
 
 /** One path of small circles, one per star. */
 export const starPath = (stars: readonly { x: number; y: number; r: number }[]): string =>
-    stars.map(({ x, y, r }) => `M${pt(x - r, y)}a${r},${r} 0 1,0 ${n1(2 * r)},0a${r},${r} 0 1,0 ${n1(-2 * r)},0`).join("");
+    stars
+        .map(({ x, y, r }) => `M${pt(x - r, y)}a${r},${r} 0 1,0 ${n1(2 * r)},0a${r},${r} 0 1,0 ${n1(-2 * r)},0`)
+        .join("");
 
 /**
  * Box (in % of a 1920×1080 stage) holding a twinkling pair of distant stars, painted as two radial gradients

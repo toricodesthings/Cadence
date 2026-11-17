@@ -2,7 +2,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AskCard } from "../../../../../app/components/assistant/widgets/AskCard";
 
-const part = { state: "output-available", input: { question: "Which one?", options: [{ label: "COMP2000", description: "Due today" }, { label: "COMP3005" }] } };
+const part = {
+    state: "output-available",
+    input: {
+        question: "Which one?",
+        options: [{ label: "COMP2000", description: "Due today" }, { label: "COMP3005" }],
+    },
+};
 
 describe("AskCard", () => {
     it("answers with a tapped option or typed words, and rests as the question once the thread moved on", () => {

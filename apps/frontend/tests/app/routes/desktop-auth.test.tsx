@@ -13,7 +13,7 @@ vi.mock("../../../app/lib/auth-client", () => ({ authClient: mocks }));
 vi.mock("@neondatabase/auth/react/ui", () => ({ AuthView: () => null }));
 vi.mock("../../../app/hooks/core/use-document-title", () => ({ useDocumentTitle: vi.fn() }));
 vi.mock("../../../app/platform/runtime", async (importOriginal) => ({
-    ...await importOriginal<typeof import("../../../app/platform/runtime")>(),
+    ...(await importOriginal<typeof import("../../../app/platform/runtime")>()),
     IS_DESKTOP_RUNTIME: true,
     getDesktopStore: async () => null,
     hasDesktopWindow: () => false,
@@ -32,13 +32,21 @@ function AccountBoundary({ children }: { children: ReactNode }) {
     return <div key={session?.user.id ?? "anonymous"}>{children}</div>;
 }
 function App({ entry }: { entry: string }) {
-    return <StrictMode><MemoryRouter initialEntries={[entry]}><AuthStateProvider>
-        <Probe />
-        <AccountBoundary><Routes>
-            <Route path="/auth/:pathname" element={<AuthPage />} />
-            <Route path="/today" element={<div>Workspace</div>} />
-        </Routes></AccountBoundary>
-    </AuthStateProvider></MemoryRouter></StrictMode>;
+    return (
+        <StrictMode>
+            <MemoryRouter initialEntries={[entry]}>
+                <AuthStateProvider>
+                    <Probe />
+                    <AccountBoundary>
+                        <Routes>
+                            <Route path="/auth/:pathname" element={<AuthPage />} />
+                            <Route path="/today" element={<div>Workspace</div>} />
+                        </Routes>
+                    </AccountBoundary>
+                </AuthStateProvider>
+            </MemoryRouter>
+        </StrictMode>
+    );
 }
 
 beforeEach(() => {
@@ -59,7 +67,10 @@ it("finishes a callback once across StrictMode and the account remount, before t
     await waitFor(() => expect(screen.getByTestId("auth-state").textContent).toBe("/today:authenticated:user-1"));
     expect(screen.queryByText("Sign-in failed")).toBeNull();
     expect(mocks.getSession).toHaveBeenCalledOnce();
-    mocks.useSession.mockReturnValue({ data: { user: { id: "user-2" }, session: { token: "another-account" } }, isPending: false });
+    mocks.useSession.mockReturnValue({
+        data: { user: { id: "user-2" }, session: { token: "another-account" } },
+        isPending: false,
+    });
     app.rerender(<App entry={entry} />);
     await waitFor(() => expect(screen.getByTestId("auth-state").textContent).toBe("/today:authenticated:user-2"));
 });
@@ -67,7 +78,11 @@ it("finishes a callback once across StrictMode and the account remount, before t
 it("retries a settling session without consuming the desktop handoff again", async () => {
     const state = await prepareDesktopAuthHandoff("/today");
     mocks.getSession.mockResolvedValueOnce({ data: null }).mockResolvedValueOnce({ data: signedIn });
-    render(<App entry={`/auth/callback?redirectTo=/today&desktop_auth_state=${state}&neon_auth_session_verifier=one-time`} />);
+    render(
+        <App
+            entry={`/auth/callback?redirectTo=/today&desktop_auth_state=${state}&neon_auth_session_verifier=one-time`}
+        />,
+    );
     await waitFor(() => expect(screen.getByTestId("auth-state").textContent).toBe("/today:authenticated:user-1"));
     expect(mocks.getSession).toHaveBeenCalledTimes(2);
 });
@@ -83,7 +98,9 @@ it("returns to sign-in after terminal expiry despite stale SDK data, without sig
     // Sign back in without restarting the provider/app; the SDK still holds the old session.
     const state = await prepareDesktopAuthHandoff("/today");
     mocks.getSession.mockResolvedValue({ data: { ...signedIn, session: { token: "refreshed-token" } } });
-    await act(async () => navigate(`/auth/callback?redirectTo=/today&desktop_auth_state=${state}&neon_auth_session_verifier=new-handoff`));
+    await act(async () =>
+        navigate(`/auth/callback?redirectTo=/today&desktop_auth_state=${state}&neon_auth_session_verifier=new-handoff`),
+    );
     await waitFor(() => expect(screen.getByTestId("auth-state").textContent).toBe("/today:authenticated:user-1"));
     expect(mocks.getSession).toHaveBeenCalledOnce();
 });
@@ -100,7 +117,9 @@ it("does not expose a remembered desktop account while reload is checking an exp
 
 it("does not skip callback validation when an old SDK session still exists", async () => {
     mocks.useSession.mockReturnValue({ data: signedIn, isPending: false });
-    render(<App entry="/auth/callback?redirectTo=/today&desktop_auth_state=unrequested&neon_auth_session_verifier=one-time" />);
+    render(
+        <App entry="/auth/callback?redirectTo=/today&desktop_auth_state=unrequested&neon_auth_session_verifier=one-time" />,
+    );
     await screen.findByText("Sign-in failed");
     expect(screen.queryByText("Workspace")).toBeNull();
     expect(mocks.getSession).not.toHaveBeenCalled();
@@ -114,8 +133,14 @@ it("accepts a live desktop session payload after expiry without resurrecting the
     await waitFor(() => expect(screen.getByTestId("auth-state").textContent).toBe("/auth/sign-in:anonymous:none"));
     const state = await prepareDesktopAuthHandoff("/today");
     const jwt = `e30.${btoa(JSON.stringify({ sub: "payload-user", exp: Date.now() / 1000 + 60 }))}.signature`;
-    const payload = btoa(JSON.stringify({ jwt, data: { user: { id: "payload-user" }, session: {} }, persistedAt: Date.now() }));
-    await act(async () => navigate(`/auth/callback?redirectTo=/today&desktop_auth_state=${state}&desktop_oauth_payload=${encodeURIComponent(payload)}`));
+    const payload = btoa(
+        JSON.stringify({ jwt, data: { user: { id: "payload-user" }, session: {} }, persistedAt: Date.now() }),
+    );
+    await act(async () =>
+        navigate(
+            `/auth/callback?redirectTo=/today&desktop_auth_state=${state}&desktop_oauth_payload=${encodeURIComponent(payload)}`,
+        ),
+    );
     await waitFor(() => expect(screen.getByTestId("auth-state").textContent).toBe("/today:authenticated:payload-user"));
     app.unmount();
     const { clearDesktopAuthSession } = await import("../../../app/lib/desktop-auth-session");

@@ -65,7 +65,8 @@ describe("task scheduling helpers", () => {
 
     it("a timed task with a deadline day is still the timed shape", () => {
         expect(
-            getTaskScheduleSummary(makeTask({ dueDate: "2026-03-12", scheduledStart: "2026-03-09T13:00:00.000Z" })).kind,
+            getTaskScheduleSummary(makeTask({ dueDate: "2026-03-12", scheduledStart: "2026-03-09T13:00:00.000Z" }))
+                .kind,
         ).toBe("timed");
     });
 
@@ -120,7 +121,9 @@ describe("task scheduling helpers", () => {
     });
 
     it("says how often an every-N rule repeats", () => {
-        const summary = (recurrenceRule: string) => getTaskRecurrenceSummary(makeTask({ recurrenceRule, scheduledStart: null, scheduledEnd: null }))?.cadenceLabel;
+        const summary = (recurrenceRule: string) =>
+            getTaskRecurrenceSummary(makeTask({ recurrenceRule, scheduledStart: null, scheduledEnd: null }))
+                ?.cadenceLabel;
         expect(summary("FREQ=DAILY;INTERVAL=3")).toBe("Repeats every 3 days");
         expect(summary("FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE")).toBe("Repeats every other week on Mon & Wed");
         expect(summary("FREQ=DAILY")).toBe("Repeats daily");
@@ -156,7 +159,9 @@ describe("task scheduling helpers", () => {
     });
 
     it("reads the series end from a LocalDate UNTIL", () => {
-        const summary = getTaskRecurrenceSummary(makeTask({ recurrenceRule: "FREQ=WEEKLY;BYDAY=MO;UNTIL=20261231", scheduledStart: null }));
+        const summary = getTaskRecurrenceSummary(
+            makeTask({ recurrenceRule: "FREQ=WEEKLY;BYDAY=MO;UNTIL=20261231", scheduledStart: null }),
+        );
         expect(summary?.endLabel).toBe("Dec 31");
     });
 });

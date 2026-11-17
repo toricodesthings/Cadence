@@ -30,5 +30,9 @@ export default function EmojiPicker(props: React.ComponentProps<typeof Picker>) 
         }
         probe.remove();
     }, []);
-    return <div ref={host}><Picker theme="dark" {...props} data={data} /></div>;
+    return (
+        <div ref={host}>
+            <Picker theme="dark" {...props} data={data} />
+        </div>
+    );
 }

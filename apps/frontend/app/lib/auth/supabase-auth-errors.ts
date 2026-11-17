@@ -6,7 +6,11 @@
  */
 export class AuthError extends Error {
     __isAuthError = true;
-    constructor(message: string, public status?: number, public code?: string) {
+    constructor(
+        message: string,
+        public status?: number,
+        public code?: string,
+    ) {
         super(message);
         this.name = "AuthError";
     }

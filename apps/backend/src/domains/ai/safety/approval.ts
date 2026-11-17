@@ -12,7 +12,14 @@ export const AUTO_TASK_LIMIT = 5;
 
 /** Reads (`get_*`, recall, search_past_chats), capture (additive, discardable), a question to the user and `remember` (it shows its own Undo receipt) run without approval in every mode. */
 function isFree(toolName: string) {
-    return toolName.startsWith("get_") || toolName === "recall" || toolName === "search_past_chats" || toolName === "capture_to_inbox" || toolName === "ask_user" || toolName === "remember";
+    return (
+        toolName.startsWith("get_") ||
+        toolName === "recall" ||
+        toolName === "search_past_chats" ||
+        toolName === "capture_to_inbox" ||
+        toolName === "ask_user" ||
+        toolName === "remember"
+    );
 }
 
 /**
@@ -21,7 +28,13 @@ function isFree(toolName: string) {
  * touching more than 5 tasks or captures.
  */
 export function needsTap(toolName: string, input: unknown): boolean {
-    const args = (input ?? {}) as { taskIds?: unknown[]; tasks?: unknown[]; items?: unknown[]; remove?: unknown[]; patch?: { note?: unknown } };
+    const args = (input ?? {}) as {
+        taskIds?: unknown[];
+        tasks?: unknown[];
+        items?: unknown[];
+        remove?: unknown[];
+        patch?: { note?: unknown };
+    };
     if (toolName.startsWith("delete_")) return true;
     if (toolName === "edit_subtasks" && args.remove?.length) return true;
     if (toolName === "update_tasks" && args.patch?.note !== undefined) return true;
@@ -32,7 +45,8 @@ export function needsTap(toolName: string, input: unknown): boolean {
 export function approvalFor(mode: ApprovalMode, { hasImages = () => false }: { hasImages?: () => boolean } = {}) {
     return ({ toolCall }: { toolCall: { toolName: string; input: unknown } }) => {
         if (isFree(toolCall.toolName)) return undefined;
-        if (mode === "full") return toolCall.toolName.startsWith("delete_") && hasImages() ? ("user-approval" as const) : undefined;
+        if (mode === "full")
+            return toolCall.toolName.startsWith("delete_") && hasImages() ? ("user-approval" as const) : undefined;
         if (mode === "ask" || needsTap(toolCall.toolName, toolCall.input)) return "user-approval" as const;
         return undefined;
     };

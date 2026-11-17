@@ -95,7 +95,10 @@ export function formatDuration(minutes: number) {
 
 /** Effort-weighted load of a day's owed tasks: routines and fixed blocks don't weigh on it. */
 export function dayLoad(tasks: Task[]) {
-    return tasks.reduce((sum, task) => (scheduleKind(task) === "task" && task.state !== "COMPLETE" ? sum + (task.effort ?? 1) : sum), 0);
+    return tasks.reduce(
+        (sum, task) => (scheduleKind(task) === "task" && task.state !== "COMPLETE" ? sum + (task.effort ?? 1) : sum),
+        0,
+    );
 }
 
 /** 0–3 dots for a load, matching `loadWord`. */
@@ -111,7 +114,8 @@ export function splitMonthDay(tasks: Task[]) {
     const baseline: Task[] = [];
     const items: Task[] = [];
     for (const task of tasks) {
-        const repeatingFixed = scheduleKind(task) === "fixed" && (isRecurringTask(task) || isRecurringTaskInstance(task));
+        const repeatingFixed =
+            scheduleKind(task) === "fixed" && (isRecurringTask(task) || isRecurringTaskInstance(task));
         (repeatingFixed ? baseline : items).push(task);
     }
     const timed = baseline.filter(isTimed).sort((a, b) => itemStart(a).getTime() - itemStart(b).getTime());

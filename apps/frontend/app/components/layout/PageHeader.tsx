@@ -24,7 +24,14 @@ export interface PageHeaderIdentityProps {
     compact?: boolean;
 }
 
-export function PageHeaderIdentity({ icon, pageName, title, meta, accentColor, compact = false }: PageHeaderIdentityProps) {
+export function PageHeaderIdentity({
+    icon,
+    pageName,
+    title,
+    meta,
+    accentColor,
+    compact = false,
+}: PageHeaderIdentityProps) {
     return (
         <div className="flex min-w-0 items-center gap-3">
             {icon ? (
@@ -38,15 +45,19 @@ export function PageHeaderIdentity({ icon, pageName, title, meta, accentColor, c
             <div className="flex min-w-0 flex-col gap-1">
                 {pageName ? <PageNameLabel>{pageName}</PageNameLabel> : null}
                 <div className="flex min-w-0 items-baseline gap-2">
-                <h1 className={`truncate font-display font-semibold leading-tight tracking-tight text-twilight-text ${compact ? "text-base" : "text-xl"}`}>
-                    {title}
-                </h1>
-                {meta && !compact ? (
-                    <span className="hidden min-w-0 shrink-[999] items-baseline gap-2 truncate text-[13px] text-twilight-text-soft md:flex">
-                        <span aria-hidden="true" className="text-twilight-text-muted">·</span>
-                        {meta}
-                    </span>
-                ) : null}
+                    <h1
+                        className={`truncate font-display font-semibold leading-tight tracking-tight text-twilight-text ${compact ? "text-base" : "text-xl"}`}
+                    >
+                        {title}
+                    </h1>
+                    {meta && !compact ? (
+                        <span className="hidden min-w-0 shrink-[999] items-baseline gap-2 truncate text-[13px] text-twilight-text-soft md:flex">
+                            <span aria-hidden="true" className="text-twilight-text-muted">
+                                ·
+                            </span>
+                            {meta}
+                        </span>
+                    ) : null}
                 </div>
             </div>
         </div>
@@ -54,7 +65,11 @@ export function PageHeaderIdentity({ icon, pageName, title, meta, accentColor, c
 }
 
 function PageNameLabel({ children }: { children: ReactNode }) {
-    return <p className="text-[10.5px] font-semibold uppercase leading-none tracking-[0.18em] text-twilight-text-muted">{children}</p>;
+    return (
+        <p className="text-[10.5px] font-semibold uppercase leading-none tracking-[0.18em] text-twilight-text-muted">
+            {children}
+        </p>
+    );
 }
 
 /** Single-row desktop page header, sized to the shared shell-header height so it lines up with side-panel headers. */
@@ -75,7 +90,12 @@ export function PageHeader({
 }
 
 /** Phone header type: the zoom-out label or page name (when the title isn't it), a large display title, and a quiet meta line. */
-export function PhoneHeaderIdentity({ pageName, title, meta, backLabel }: {
+export function PhoneHeaderIdentity({
+    pageName,
+    title,
+    meta,
+    backLabel,
+}: {
     pageName?: ReactNode;
     title: ReactNode;
     meta?: ReactNode;
@@ -88,7 +108,9 @@ export function PhoneHeaderIdentity({ pageName, title, meta, backLabel }: {
                     <ChevronLeft size={14} aria-hidden="true" className="-ml-1" />
                     {backLabel}
                 </span>
-            ) : pageName ? <PageNameLabel>{pageName}</PageNameLabel> : null}
+            ) : pageName ? (
+                <PageNameLabel>{pageName}</PageNameLabel>
+            ) : null}
             <span className="truncate font-display text-[22px] font-semibold leading-tight tracking-tight text-twilight-text">
                 {title}
             </span>
@@ -98,7 +120,17 @@ export function PhoneHeaderIdentity({ pageName, title, meta, backLabel }: {
 }
 
 /** Phone page header: one row. The label above the title zooms out when `backLabel` is set; `options` open under a sliders icon. */
-export function PhonePageHeader({ pageName, title, meta, backLabel, onZoomOut, leading, actions, options, children }: {
+export function PhonePageHeader({
+    pageName,
+    title,
+    meta,
+    backLabel,
+    onZoomOut,
+    leading,
+    actions,
+    options,
+    children,
+}: {
     pageName?: ReactNode;
     title: ReactNode;
     /** Quiet line under the title, e.g. "Today · light". */
@@ -127,26 +159,28 @@ export function PhonePageHeader({ pageName, title, meta, backLabel, onZoomOut, l
                         >
                             {identity}
                         </button>
-                    ) : identity}
+                    ) : (
+                        identity
+                    )}
                 </h1>
                 <div className="header-glass flex shrink-0 items-center gap-2">
-                {actions}
-                {options && (
-                    <Popover.Root>
-                        <Popover.Trigger asChild>
-                            <button
-                                type="button"
-                                className="btn-icon touch-target rounded-full text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
-                                aria-label="View and display options"
-                            >
-                                <EllipsisVertical size={18} aria-hidden="true" />
-                            </button>
-                        </Popover.Trigger>
-                        <Popover.Content side="bottom" align="end" className="w-[min(20rem,calc(100vw-2rem))] p-3">
-                            {options}
-                        </Popover.Content>
-                    </Popover.Root>
-                )}
+                    {actions}
+                    {options && (
+                        <Popover.Root>
+                            <Popover.Trigger asChild>
+                                <button
+                                    type="button"
+                                    className="btn-icon touch-target rounded-full text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                                    aria-label="View and display options"
+                                >
+                                    <EllipsisVertical size={18} aria-hidden="true" />
+                                </button>
+                            </Popover.Trigger>
+                            <Popover.Content side="bottom" align="end" className="w-[min(20rem,calc(100vw-2rem))] p-3">
+                                {options}
+                            </Popover.Content>
+                        </Popover.Root>
+                    )}
                 </div>
             </div>
             {children ? <div className="mt-2">{children}</div> : null}
@@ -155,13 +189,21 @@ export function PhonePageHeader({ pageName, title, meta, backLabel, onZoomOut, l
 }
 
 /** The view choice at the top of a phone header's options; picking one closes the popover. */
-export function PhoneViewPicker<T extends string>({ value, options, onChange }: {
+export function PhoneViewPicker<T extends string>({
+    value,
+    options,
+    onChange,
+}: {
     value: T;
     options: { value: T; label: string }[];
     onChange: (value: T) => void;
 }) {
     return (
-        <div role="radiogroup" aria-label="View" className="grid auto-cols-fr grid-flow-col gap-1 rounded-2xl border border-twilight-border/40 p-1">
+        <div
+            role="radiogroup"
+            aria-label="View"
+            className="grid auto-cols-fr grid-flow-col gap-1 rounded-2xl border border-twilight-border/40 p-1"
+        >
             {options.map((option) => (
                 <Popover.Close asChild key={option.value}>
                     <button
@@ -170,7 +212,9 @@ export function PhoneViewPicker<T extends string>({ value, options, onChange }: 
                         aria-checked={value === option.value}
                         onClick={() => onChange(option.value)}
                         className={`min-h-11 cursor-pointer rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
-                            value === option.value ? "bg-accent-primary/20 text-accent-primary" : "text-twilight-text-soft hover:bg-white/[0.05]"
+                            value === option.value
+                                ? "bg-accent-primary/20 text-accent-primary"
+                                : "text-twilight-text-soft hover:bg-white/[0.05]"
                         }`}
                     >
                         {option.label}

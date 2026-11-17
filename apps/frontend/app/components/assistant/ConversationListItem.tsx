@@ -133,7 +133,11 @@ export function ConversationListItem({
             >
                 <span className="text-truncate-safe min-w-0 flex-1 font-medium">{title}</span>
                 {onToggleLearn && !conversation.learn ? (
-                    <EyeOff size={12} aria-label="Memory doesn’t learn from this chat" className="shrink-0 text-twilight-text-muted" />
+                    <EyeOff
+                        size={12}
+                        aria-label="Memory doesn’t learn from this chat"
+                        className="shrink-0 text-twilight-text-muted"
+                    />
                 ) : null}
                 <span className="shrink-0 text-[11px] text-twilight-text-muted">
                     {relativeTime(conversation.lastMessageAt)}
@@ -175,11 +179,7 @@ export function ConversationListItem({
                         </DropdownMenu.Item>
                     ) : null}
                     <DropdownMenu.Separator />
-                    <DropdownMenu.Item
-                        variant="danger"
-                        onSelect={() => onDelete()}
-                        className="text-[14px]"
-                    >
+                    <DropdownMenu.Item variant="danger" onSelect={() => onDelete()} className="text-[14px]">
                         <Trash2 size={14} />
                         Delete
                     </DropdownMenu.Item>

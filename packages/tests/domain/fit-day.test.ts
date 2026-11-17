@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { atLocal } from "@cadence/domain/time";
-import { dispositionDay, fitDay, fitMinutes, isFitCandidate, roomiestDay, weekRoom, type FitDayInput, type FitTask, type RoomTask } from "@cadence/domain/fit-day";
+import {
+    dispositionDay,
+    fitDay,
+    fitMinutes,
+    isFitCandidate,
+    roomiestDay,
+    weekRoom,
+    type FitDayInput,
+    type FitTask,
+    type RoomTask,
+} from "@cadence/domain/fit-day";
 
 const zone = "America/Toronto";
 const day = "2026-10-20";
@@ -50,7 +60,9 @@ describe("fitDay", () => {
     });
 
     it("lays out a DST day in two zones on local time", () => {
-        expect(fitDay([task("a", 60)], base({ day: "2026-11-01", now: at("08:00", "2026-10-30") }), none).placed[0].start).toBe(at("07:00", "2026-11-01"));
+        expect(
+            fitDay([task("a", 60)], base({ day: "2026-11-01", now: at("08:00", "2026-10-30") }), none).placed[0].start,
+        ).toBe(at("07:00", "2026-11-01"));
         const london = "Europe/London";
         const input = base({ day: "2026-10-25", zone: london, now: atLocal("2026-10-24", "08:00", london) });
         expect(fitDay([task("a", 60)], input, none).placed[0].start).toBe(atLocal("2026-10-25", "07:00", london));
@@ -66,7 +78,14 @@ describe("what sizes and what takes part", () => {
     });
 
     it("only open, untimed, one-off, one-day tasks that aren't Fixed", () => {
-        const t = { state: "ACTIVE", scheduledStart: null, interactionMode: "normal", recurrenceRule: null, dueDate: day, endDate: null };
+        const t = {
+            state: "ACTIVE",
+            scheduledStart: null,
+            interactionMode: "normal",
+            recurrenceRule: null,
+            dueDate: day,
+            endDate: null,
+        };
         expect(isFitCandidate(t)).toBe(true);
         expect(isFitCandidate({ ...t, scheduledStart: at("09:00") })).toBe(false);
         expect(isFitCandidate({ ...t, state: "WAITING" })).toBe(false);
@@ -77,7 +96,16 @@ describe("what sizes and what takes part", () => {
 });
 
 describe("weekRoom / roomiestDay", () => {
-    const t = (id: string, over: Partial<RoomTask> = {}): RoomTask => ({ id, title: id, state: "ACTIVE", dueDate: null, scheduledStart: null, scheduledEnd: null, durationEstimate: null, ...over });
+    const t = (id: string, over: Partial<RoomTask> = {}): RoomTask => ({
+        id,
+        title: id,
+        state: "ACTIVE",
+        dueDate: null,
+        scheduledStart: null,
+        scheduledEnd: null,
+        durationEstimate: null,
+        ...over,
+    });
     const opts = { from: day, days: 7, zone, timelineStartHour: 7 };
 
     it("an empty week is all open (07:00–22:00 = 900 minutes a day) and the first later day has room", () => {
@@ -88,12 +116,15 @@ describe("weekRoom / roomiestDay", () => {
     });
 
     it("counts overlapping blocks once, adds estimates of untimed tasks due that day, and lists deadlines", () => {
-        const room = weekRoom([
-            t("a", { scheduledStart: at("09:00"), scheduledEnd: at("11:00") }),
-            t("b", { scheduledStart: at("10:00"), scheduledEnd: at("12:00") }),
-            t("c", { dueDate: day, durationEstimate: 30 }),
-            t("d", { dueDate: day, state: "COMPLETE", durationEstimate: 600 }),
-        ], opts);
+        const room = weekRoom(
+            [
+                t("a", { scheduledStart: at("09:00"), scheduledEnd: at("11:00") }),
+                t("b", { scheduledStart: at("10:00"), scheduledEnd: at("12:00") }),
+                t("c", { dueDate: day, durationEstimate: 30 }),
+                t("d", { dueDate: day, state: "COMPLETE", durationEstimate: 600 }),
+            ],
+            opts,
+        );
         expect(room[0]).toMatchObject({ bookedMinutes: 210, openMinutes: 690, deadlines: [{ id: "c", title: "c" }] });
     });
 

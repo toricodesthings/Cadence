@@ -4,22 +4,42 @@ import { createFixtureEmbedder } from "../evals/fixture-embeddings";
 
 describe("paid evaluation run settings", () => {
     it("defaults to one pass and keeps dimension research out of normal validation", () => {
-        expect(evaluationOptions({})).toEqual({ profile: "iteration", assistantRuns: 1, memoryRuns: 1, decisionRuns: 1, embeddingDimensions: false });
-        expect(evaluationOptions({ AI_EVAL_PROFILE: "full" })).toEqual({ profile: "full", assistantRuns: 3, memoryRuns: 3, decisionRuns: 2, embeddingDimensions: false });
+        expect(evaluationOptions({})).toEqual({
+            profile: "iteration",
+            assistantRuns: 1,
+            memoryRuns: 1,
+            decisionRuns: 1,
+            embeddingDimensions: false,
+        });
+        expect(evaluationOptions({ AI_EVAL_PROFILE: "full" })).toEqual({
+            profile: "full",
+            assistantRuns: 3,
+            memoryRuns: 3,
+            decisionRuns: 2,
+            embeddingDimensions: false,
+        });
     });
     it("keeps smoke to one pass despite old repeat settings and accepts explicit suite overrides", () => {
         const smoke = evaluationOptions({ AI_EVAL_PROFILE: "smoke", EVAL_RUNS: "3", MEMORY_EVAL_RUNS: "5" });
         expect([smoke.assistantRuns, smoke.memoryRuns, smoke.decisionRuns]).toEqual([1, 1, 1]);
-        const targeted = evaluationOptions({ EVAL_RUNS: "2", MEMORY_EVAL_RUNS: "3", AI_EVAL_EMBEDDING_DIMENSIONS: "true" });
+        const targeted = evaluationOptions({
+            EVAL_RUNS: "2",
+            MEMORY_EVAL_RUNS: "3",
+            AI_EVAL_EMBEDDING_DIMENSIONS: "true",
+        });
         expect([targeted.assistantRuns, targeted.memoryRuns, targeted.decisionRuns]).toEqual([2, 3, 2]);
         expect(targeted.embeddingDimensions).toBe(true);
     });
-    it.each(["0", "-1", "1.5", "NaN", "Infinity", "", "9007199254740992"])("rejects invalid repeats (%s) before a paid call", (value) => {
-        expect(() => evaluationOptions({ EVAL_RUNS: value })).toThrow("positive integer");
-        expect(() => evaluationOptions({ MEMORY_EVAL_RUNS: value })).toThrow("positive integer");
-        expect(() => evaluationOptions({ DECISIONS_EVAL_RUNS: value })).toThrow("positive integer");
-    });
-    it("rejects unknown profiles", () => expect(() => evaluationOptions({ AI_EVAL_PROFILE: "typo" })).toThrow("Invalid AI_EVAL_PROFILE"));
+    it.each(["0", "-1", "1.5", "NaN", "Infinity", "", "9007199254740992"])(
+        "rejects invalid repeats (%s) before a paid call",
+        (value) => {
+            expect(() => evaluationOptions({ EVAL_RUNS: value })).toThrow("positive integer");
+            expect(() => evaluationOptions({ MEMORY_EVAL_RUNS: value })).toThrow("positive integer");
+            expect(() => evaluationOptions({ DECISIONS_EVAL_RUNS: value })).toThrow("positive integer");
+        },
+    );
+    it("rejects unknown profiles", () =>
+        expect(() => evaluationOptions({ AI_EVAL_PROFILE: "typo" })).toThrow("Invalid AI_EVAL_PROFILE"));
 });
 
 describe("synthetic fixture embeddings", () => {
@@ -42,8 +62,11 @@ describe("synthetic fixture embeddings", () => {
         expect(await embed([])).toEqual([]);
     });
     it("does not reuse failed or incomplete batches", async () => {
-        const load = vi.fn().mockRejectedValueOnce(new Error("provider unavailable"))
-            .mockResolvedValueOnce([]).mockResolvedValue([[42]]);
+        const load = vi
+            .fn()
+            .mockRejectedValueOnce(new Error("provider unavailable"))
+            .mockResolvedValueOnce([])
+            .mockResolvedValue([[42]]);
         const embed = createFixtureEmbedder(load);
         await expect(embed(["synthetic fact"])).rejects.toThrow("provider unavailable");
         await expect(embed(["synthetic fact"])).rejects.toThrow("count mismatch");

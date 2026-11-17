@@ -42,7 +42,15 @@ function EditListForm({ list, onDone }: { list: EditListDialogProps["list"]; onD
 
     return (
         <form onSubmit={submit} className="flex flex-col gap-4">
-            <ListIdentityFields emoji={emoji} onEmoji={setEmoji} name={name} onName={setName} color={color} onColor={setColor} onKeyDown={(e) => e.key === "Escape" && onDone()} />
+            <ListIdentityFields
+                emoji={emoji}
+                onEmoji={setEmoji}
+                name={name}
+                onName={setName}
+                color={color}
+                onColor={setColor}
+                onKeyDown={(e) => e.key === "Escape" && onDone()}
+            />
             <Dialog.DialogFooter>
                 <Button type="button" variant="ghost" size="md" onClick={onDone}>
                     Cancel

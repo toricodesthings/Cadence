@@ -34,7 +34,12 @@ export function RenameTaskDialog({ taskId, currentName, onClose }: RenameTaskDia
     };
 
     return (
-        <Dialog open={!!taskId} onOpenChange={(open) => { if (!open) onClose(); }}>
+        <Dialog
+            open={!!taskId}
+            onOpenChange={(open) => {
+                if (!open) onClose();
+            }}
+        >
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Rename Task</DialogTitle>

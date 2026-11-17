@@ -17,7 +17,13 @@ import { insertInboxItemSchema } from "@cadence/contracts/inbox";
 import { suggestPlacement } from "../../decisions/placement";
 import { assertRowRoom, assertStorageRoom } from "../../../platform/storage-ceiling";
 
-const selectInboxPage = (tx: Parameters<Parameters<typeof withRls>[2]>[0], userId: string, includeProcessed: boolean, limit: number, offset: number) =>
+const selectInboxPage = (
+    tx: Parameters<Parameters<typeof withRls>[2]>[0],
+    userId: string,
+    includeProcessed: boolean,
+    limit: number,
+    offset: number,
+) =>
     tx
         .select({
             id: inboxItems.id,
@@ -63,10 +69,13 @@ async function updateOneCapture(
             .where(and(eq(inboxItems.id, inboxItemId), eq(inboxItems.userId, userId)));
         throwIfNotFound(capture, "Inbox item");
         if (text !== undefined) await updateCapture(tx, userId, inboxItemId, { rawText: text });
-        const { task } = await processCapture(tx, userId, inboxItemId, { title: text ?? capture.rawText, complete: true });
+        const { task } = await processCapture(tx, userId, inboxItemId, {
+            title: text ?? capture.rawText,
+            complete: true,
+        });
         return { inboxItemId, status: "done", taskId: task.id };
     }
-    const status = action === "note" ? "kept" as const : action === "discard" ? "discarded" as const : undefined;
+    const status = action === "note" ? ("kept" as const) : action === "discard" ? ("discarded" as const) : undefined;
     const change = { ...(text !== undefined && { rawText: text }), ...(status && { captureStatus: status }) };
     const row = Object.keys(change).length ? await updateCapture(tx, userId, inboxItemId, change) : undefined;
     return { inboxItemId, status: row?.captureStatus ?? "clarifying" };
@@ -79,17 +88,31 @@ export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
             "Captures in Capture, newest first: thoughts to sort and kept notes (isNote). A placed one carries the taskId it became. " +
             "more:true and nextOffset when there's more.",
         inputSchema: z.object({
-            includeProcessed: z.boolean().default(false).describe("Also captures already placed, ticked off or discarded."),
-            offset: z.number().int().min(0).max(100_000).optional().describe("From nextOffset; omit for the first page."),
+            includeProcessed: z
+                .boolean()
+                .default(false)
+                .describe("Also captures already placed, ticked off or discarded."),
+            offset: z
+                .number()
+                .int()
+                .min(0)
+                .max(100_000)
+                .optional()
+                .describe("From nextOffset; omit for the first page."),
             limit: z.number().int().min(1).max(50).default(20),
         }),
         execute: async ({ includeProcessed, offset = 0, limit }) =>
             safeExecute("get_inbox_items", userId, async () => {
                 const cap = clampLimit(limit);
                 const db = getDbClient(env);
-                const rows = await withRls(db, userId, (tx) => selectInboxPage(tx, userId, includeProcessed, cap + 1, offset));
+                const rows = await withRls(db, userId, (tx) =>
+                    selectInboxPage(tx, userId, includeProcessed, cap + 1, offset),
+                );
                 const more = rows.length > cap;
-                return { items: rows.slice(0, cap).map(toMinimalInboxItem), ...(more && { more, nextOffset: offset + cap }) };
+                return {
+                    items: rows.slice(0, cap).map(toMinimalInboxItem),
+                    ...(more && { more, nextOffset: offset + cap }),
+                };
             }),
     }),
 
@@ -112,9 +135,7 @@ export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         const [existing] = await tx
                             .select({ id: inboxItems.id, rawText: inboxItems.rawText })
                             .from(inboxItems)
-                            .where(
-                                and(eq(inboxItems.id, existingId), eq(inboxItems.userId, userId)),
-                            );
+                            .where(and(eq(inboxItems.id, existingId), eq(inboxItems.userId, userId)));
                         if (existing) {
                             return { item: existing, deduped: true as const };
                         }
@@ -143,11 +164,22 @@ export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
             "Changes 1–50 captures: new words, and/or an action: note (keep as a note), discard, done (tick off: " +
             "it goes to Completed), or new (back to New, the Undo for any of these; a task it became goes to Trash). Returns each result.",
         inputSchema: z.object({
-            items: z.array(z.object({
-                inboxItemId: z.uuid(),
-                text: insertInboxItemSchema.shape.rawText.optional().describe(`The capture's new words (only for one read whole: ≤${NOTE_READ_LIMIT} characters).`),
-                action: z.enum(["note", "discard", "done", "new"]).optional(),
-            }).refine((v) => v.text !== undefined || v.action !== undefined, "Send text or an action")).min(1).max(50),
+            items: z
+                .array(
+                    z
+                        .object({
+                            inboxItemId: z.uuid(),
+                            text: insertInboxItemSchema.shape.rawText
+                                .optional()
+                                .describe(
+                                    `The capture's new words (only for one read whole: ≤${NOTE_READ_LIMIT} characters).`,
+                                ),
+                            action: z.enum(["note", "discard", "done", "new"]).optional(),
+                        })
+                        .refine((v) => v.text !== undefined || v.action !== undefined, "Send text or an action"),
+                )
+                .min(1)
+                .max(50),
         }),
         execute: async ({ items }, { toolCallId }) =>
             safeExecute("update_captures", userId, async () =>
@@ -167,13 +199,20 @@ export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
             "Deletes 1–50 captures for good (can't be undone; discard is the restorable way). Tasks made from them stay. " +
             "Echo each text. Returns how many were deleted.",
         inputSchema: z.object({
-            items: z.array(z.object({ inboxItemId: z.uuid(), text: z.string().max(5000) })).min(1).max(50),
+            items: z
+                .array(z.object({ inboxItemId: z.uuid(), text: z.string().max(5000) }))
+                .min(1)
+                .max(50),
         }),
         execute: async ({ items }, { toolCallId }) =>
             safeExecute("delete_captures", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
-                        const rows = await deleteCaptures(tx, userId, items.map((item) => item.inboxItemId));
+                        const rows = await deleteCaptures(
+                            tx,
+                            userId,
+                            items.map((item) => item.inboxItemId),
+                        );
                         return { result: { deleted: rows.length }, id: userId };
                     }),
                 ),

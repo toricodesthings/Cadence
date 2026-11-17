@@ -6,7 +6,28 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const list = resolve(root, "node_modules/.cache/claude-format.txt");
-const exts = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".json", ".jsonc", ".json5", ".css", ".scss", ".less", ".html", ".vue", ".yaml", ".yml", ".toml", ".graphql"]);
+const exts = new Set([
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".ts",
+    ".tsx",
+    ".mts",
+    ".cts",
+    ".json",
+    ".jsonc",
+    ".json5",
+    ".css",
+    ".scss",
+    ".less",
+    ".html",
+    ".vue",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".graphql",
+]);
 
 const inside = (p) => {
     const rel = relative(root, p);
@@ -24,6 +45,9 @@ if (process.argv[2] === "track") {
     const files = [...new Set(readFileSync(list, "utf8").split("\n"))].filter((f) => f && existsSync(f));
     rmSync(list);
     if (files.length) {
-        spawnSync(resolve(root, "node_modules/.bin/oxfmt"), ["--no-error-on-unmatched-pattern", ...files], { cwd: root, stdio: "ignore" });
+        spawnSync(resolve(root, "node_modules/.bin/oxfmt"), ["--no-error-on-unmatched-pattern", ...files], {
+            cwd: root,
+            stdio: "ignore",
+        });
     }
 }

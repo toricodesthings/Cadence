@@ -29,7 +29,9 @@ export async function editSubtasks(
 ) {
     await assertTaskOwnership(tx, userId, taskId);
 
-    const ids = [...new Set([...update.map((item) => item.subtaskId), ...remove.map((item) => item.subtaskId), ...order])];
+    const ids = [
+        ...new Set([...update.map((item) => item.subtaskId), ...remove.map((item) => item.subtaskId), ...order]),
+    ];
     if (ids.length) {
         const found = await tx
             .select({ id: subtasks.id })
@@ -43,10 +45,22 @@ export async function editSubtasks(
         update
             .filter(({ title, isComplete }) => title !== undefined || isComplete !== undefined)
             .map(({ subtaskId, ...change }) =>
-                tx.update(subtasks).set(change).where(and(eq(subtasks.id, subtaskId), eq(subtasks.userId, userId)))),
+                tx
+                    .update(subtasks)
+                    .set(change)
+                    .where(and(eq(subtasks.id, subtaskId), eq(subtasks.userId, userId))),
+            ),
     );
     if (remove.length) {
-        await tx.delete(subtasks).where(and(eq(subtasks.userId, userId), inArray(subtasks.id, remove.map((item) => item.subtaskId))));
+        await tx.delete(subtasks).where(
+            and(
+                eq(subtasks.userId, userId),
+                inArray(
+                    subtasks.id,
+                    remove.map((item) => item.subtaskId),
+                ),
+            ),
+        );
     }
     if (order.length) {
         const current = await tx
@@ -56,8 +70,14 @@ export async function editSubtasks(
             .orderBy(subtasks.orderIndex);
         const listed = new Set(order);
         const next = [...order, ...current.map((row) => row.id).filter((id) => !listed.has(id))];
-        await Promise.all(next.map((id, orderIndex) =>
-            tx.update(subtasks).set({ orderIndex }).where(and(eq(subtasks.id, id), eq(subtasks.userId, userId)))));
+        await Promise.all(
+            next.map((id, orderIndex) =>
+                tx
+                    .update(subtasks)
+                    .set({ orderIndex })
+                    .where(and(eq(subtasks.id, id), eq(subtasks.userId, userId))),
+            ),
+        );
     }
     let added: string[] = [];
     if (add.length) {

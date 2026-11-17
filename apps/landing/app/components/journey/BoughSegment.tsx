@@ -26,43 +26,45 @@ export type { SegmentName } from "./boughSpecs";
 
 /** Which bough frame: crown, prelude or feature, wide or mobile (a crossing has none). */
 function boughVariant(crossing: boolean, crown: boolean, entrance: boolean, mobile: boolean) {
-  if (crossing) return "";
-  if (crown) return mobile ? " bough-crown-mobile" : " bough-crown-wide";
-  if (entrance) return mobile ? " bough-prelude-mobile" : " bough-prelude-wide";
-  return " bough-feature-wide";
+    if (crossing) return "";
+    if (crown) return mobile ? " bough-crown-mobile" : " bough-crown-wide";
+    if (entrance) return mobile ? " bough-prelude-mobile" : " bough-prelude-wide";
+    return " bough-feature-wide";
 }
 
 /** One drawing: its frame is drawn once at build time and never hydrated (StaticSvg). */
 function Drawing({ name, crossing = false }: { name: SegmentName; crossing?: boolean }) {
-  const mobile = crossing || name.endsWith("-mobile");
-  const crown = name === "finale" || name === "finale-mobile";
-  const entrance = name === "prelude" || name === "prelude-mobile";
-  return (
-    <StaticSvg as="div" className={`bough${boughVariant(crossing, crown, entrance, mobile)}`} aria-hidden="true">
-      {import.meta.env.SSR ? <SegmentDrawing name={name} crossing={crossing} /> : null}
-    </StaticSvg>
-  );
+    const mobile = crossing || name.endsWith("-mobile");
+    const crown = name === "finale" || name === "finale-mobile";
+    const entrance = name === "prelude" || name === "prelude-mobile";
+    return (
+        <StaticSvg as="div" className={`bough${boughVariant(crossing, crown, entrance, mobile)}`} aria-hidden="true">
+            {import.meta.env.SSR ? <SegmentDrawing name={name} crossing={crossing} /> : null}
+        </StaticSvg>
+    );
 }
 
 export function BoughSegment({ name }: { name: SegmentName }) {
-  return name === "finale" || name === "prelude" ? (
-    <>
-      <Drawing name={name} />
-      <Drawing name={`${name}-mobile`} />
-    </>
-  ) : name.endsWith("-mobile") ? <Drawing name={name} /> : (
-    <>
-      <Drawing name={name} />
-      <div className="bough bough-mobile" data-side={mobileBoughSide(name)} aria-hidden="true">
-        <StaticSvg className="bough-strand" viewBox="0 0 24 1000" preserveAspectRatio="none" focusable="false">
-          {import.meta.env.SSR ? <StrandBody /> : null}
-        </StaticSvg>
-        {name === LAST_FEATURE ? null : (
-          <div className="bough-crossing">
-            <Drawing name={name} crossing />
-          </div>
-        )}
-      </div>
-    </>
-  );
+    return name === "finale" || name === "prelude" ? (
+        <>
+            <Drawing name={name} />
+            <Drawing name={`${name}-mobile`} />
+        </>
+    ) : name.endsWith("-mobile") ? (
+        <Drawing name={name} />
+    ) : (
+        <>
+            <Drawing name={name} />
+            <div className="bough bough-mobile" data-side={mobileBoughSide(name)} aria-hidden="true">
+                <StaticSvg className="bough-strand" viewBox="0 0 24 1000" preserveAspectRatio="none" focusable="false">
+                    {import.meta.env.SSR ? <StrandBody /> : null}
+                </StaticSvg>
+                {name === LAST_FEATURE ? null : (
+                    <div className="bough-crossing">
+                        <Drawing name={name} crossing />
+                    </div>
+                )}
+            </div>
+        </>
+    );
 }

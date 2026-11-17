@@ -8,7 +8,13 @@ import { Button } from "../primitives/Button";
 import { PLACE_DROP, dayLabel, useWeekLoad } from "./PlaceSheet";
 import type { LocalDate } from "@cadence/domain/time";
 import { taskDay } from "@cadence/domain/task-recurrence";
-import { formatShortDate, formatTime, formatWeekdayNarrow, formatWeekdayLong, getWeekStart } from "../../lib/utils/date-format";
+import {
+    formatShortDate,
+    formatTime,
+    formatWeekdayNarrow,
+    formatWeekdayLong,
+    getWeekStart,
+} from "../../lib/utils/date-format";
 import { getUserZone, useToday } from "../../lib/utils/user-zone";
 import { loadWord } from "../../lib/utils/task/day-load";
 import { TaskContextMenu } from "../tasks/TaskContextMenu";
@@ -36,10 +42,22 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
 
     const week = (label: string, slice: typeof days) => (
         <section aria-label={label} className="space-y-2">
-            <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted">{label}</h3>
+            <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted">
+                {label}
+            </h3>
             <div className="grid grid-cols-7 gap-1.5">
-                {slice.map(([iso, load]) => <DayTile key={iso} iso={iso} load={load} isToday={iso === todayIso}
-                    isPast={iso < todayIso} isSelected={iso === selected} dragging={dragging} onSelect={() => setSelected(iso)} />)}
+                {slice.map(([iso, load]) => (
+                    <DayTile
+                        key={iso}
+                        iso={iso}
+                        load={load}
+                        isToday={iso === todayIso}
+                        isPast={iso < todayIso}
+                        isSelected={iso === selected}
+                        dragging={dragging}
+                        onSelect={() => setSelected(iso)}
+                    />
+                ))}
             </div>
         </section>
     );
@@ -53,7 +71,9 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
                     <CalendarDays size={17} />
                 </div>
                 <div className="min-w-0 leading-tight">
-                    <h2 className="font-display text-lg font-semibold leading-tight tracking-tight text-twilight-text">Place</h2>
+                    <h2 className="font-display text-lg font-semibold leading-tight tracking-tight text-twilight-text">
+                        Place
+                    </h2>
                     <span className="mt-0.5 block truncate text-[11px] font-medium leading-none text-twilight-text-muted">
                         {dragging ? "Drop on a day" : "Drag a capture or task onto a day"}
                     </span>
@@ -65,50 +85,93 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
                     {week("This week", days.slice(0, 7))}
                     {week("Next week", days.slice(7))}
 
-                    <section aria-live="polite" className="rounded-3xl border border-twilight-border/35 bg-white/[0.02] p-4">
+                    <section
+                        aria-live="polite"
+                        className="rounded-3xl border border-twilight-border/35 bg-white/[0.02] p-4"
+                    >
                         <div className="flex items-baseline justify-between gap-3">
                             <h3 className="font-display text-base font-semibold text-twilight-text">
                                 {selected === todayIso ? "Today" : formatWeekdayLong(selected)}
-                                <span className="ml-2 text-sm font-normal text-twilight-text-soft">{formatShortDate(selected)}</span>
+                                <span className="ml-2 text-sm font-normal text-twilight-text-soft">
+                                    {formatShortDate(selected)}
+                                </span>
                             </h3>
-                            <span className="text-xs text-twilight-text-muted">{loadWord(loads.get(selected) ?? 0)}</span>
+                            <span className="text-xs text-twilight-text-muted">
+                                {loadWord(loads.get(selected) ?? 0)}
+                            </span>
                         </div>
                         {dayTasks.length ? (
                             <FindTimeDayContext.Provider value={selected}>
-                              <PlanningOfferProvider shown={offers.shown}>
-                                <ul className="mt-3 space-y-0.5">
-                                    {dayTasks.map((task) => (
-                                        <li key={task.id}>
-                                            <div className="flex items-center gap-0.5">
-                                                <Button variant="ghost" size="none" type="button" onClick={() => onSelectTask?.(task.id)}
-                                                    className="flex min-h-9 min-w-0 flex-1 justify-start gap-2.5 rounded-xl px-2 text-left font-sans text-sm font-normal text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text">
-                                                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary/70" aria-hidden="true" />
-                                                    <span className="min-w-0 flex-1 truncate">{task.title}</span>
-                                                    {task.scheduledStart && <span className="shrink-0 text-xs text-twilight-text-muted">{formatTime(task.scheduledStart)}</span>}
-                                                </Button>
-                                                {canFindTime(task) ? <TaskContextMenu task={task} /> : null}
-                                            </div>
-                                            {offers.task?.id === task.id && offers.kind ? (
-                                                <div className="px-2 pb-1 pt-0.5">
-                                                    <PlanningOfferChip kind={offers.kind} onAccept={() => { offers.accept(); if (offers.kind === "steps") onSelectTask?.(task.id); }} onNotNow={offers.notNow} />
+                                <PlanningOfferProvider shown={offers.shown}>
+                                    <ul className="mt-3 space-y-0.5">
+                                        {dayTasks.map((task) => (
+                                            <li key={task.id}>
+                                                <div className="flex items-center gap-0.5">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="none"
+                                                        type="button"
+                                                        onClick={() => onSelectTask?.(task.id)}
+                                                        className="flex min-h-9 min-w-0 flex-1 justify-start gap-2.5 rounded-xl px-2 text-left font-sans text-sm font-normal text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text"
+                                                    >
+                                                        <span
+                                                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary/70"
+                                                            aria-hidden="true"
+                                                        />
+                                                        <span className="min-w-0 flex-1 truncate">{task.title}</span>
+                                                        {task.scheduledStart && (
+                                                            <span className="shrink-0 text-xs text-twilight-text-muted">
+                                                                {formatTime(task.scheduledStart)}
+                                                            </span>
+                                                        )}
+                                                    </Button>
+                                                    {canFindTime(task) ? <TaskContextMenu task={task} /> : null}
                                                 </div>
-                                            ) : null}
-                                        </li>
-                                    ))}
-                                </ul>
-                              </PlanningOfferProvider>
+                                                {offers.task?.id === task.id && offers.kind ? (
+                                                    <div className="px-2 pb-1 pt-0.5">
+                                                        <PlanningOfferChip
+                                                            kind={offers.kind}
+                                                            onAccept={() => {
+                                                                offers.accept();
+                                                                if (offers.kind === "steps") onSelectTask?.(task.id);
+                                                            }}
+                                                            onNotNow={offers.notNow}
+                                                        />
+                                                    </div>
+                                                ) : null}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </PlanningOfferProvider>
                             </FindTimeDayContext.Provider>
-                        ) : <p className="mt-2 text-sm text-twilight-text-muted">Nothing here yet.</p>}
+                        ) : (
+                            <p className="mt-2 text-sm text-twilight-text-muted">Nothing here yet.</p>
+                        )}
                     </section>
 
                     <div className="mt-auto flex gap-2">
-                        <DatePicker label="Pick a date" value={null} onChange={(date) => date && navigate(`/schedule?date=${date}`)} className="min-w-0 flex-1">
-                            <Button type="button" variant="secondary" size="md" className="min-w-0 flex-1 rounded-2xl px-3 font-sans font-medium">
+                        <DatePicker
+                            label="Pick a date"
+                            value={null}
+                            onChange={(date) => date && navigate(`/schedule?date=${date}`)}
+                            className="min-w-0 flex-1"
+                        >
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size="md"
+                                className="min-w-0 flex-1 rounded-2xl px-3 font-sans font-medium"
+                            >
                                 Pick a date…
                             </Button>
                         </DatePicker>
-                        <Button type="button" variant="secondary" size="md" onClick={() => navigate(`/schedule?date=${selected}&view=week`)}
-                            className="min-w-0 flex-1 gap-1 whitespace-nowrap rounded-2xl px-3 font-sans font-medium">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="md"
+                            onClick={() => navigate(`/schedule?date=${selected}&view=week`)}
+                            className="min-w-0 flex-1 gap-1 whitespace-nowrap rounded-2xl px-3 font-sans font-medium"
+                        >
                             Schedule <ChevronRight size={14} aria-hidden="true" />
                         </Button>
                     </div>
@@ -118,28 +181,57 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
     );
 }
 
-function DayTile({ iso, load, isToday, isPast, isSelected, dragging, onSelect }: {
-    iso: string; load: number; isToday: boolean; isPast: boolean; isSelected: boolean; dragging: boolean; onSelect: () => void;
+function DayTile({
+    iso,
+    load,
+    isToday,
+    isPast,
+    isSelected,
+    dragging,
+    onSelect,
+}: {
+    iso: string;
+    load: number;
+    isToday: boolean;
+    isPast: boolean;
+    isSelected: boolean;
+    dragging: boolean;
+    onSelect: () => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({ id: PLACE_DROP + iso, disabled: isPast });
     const dots = loadDots(load);
     const tone = isOver
         ? "scale-105 border-accent-primary bg-accent-primary/25 hover:bg-accent-primary/25"
         : isSelected
-            ? "border-accent-primary/50 bg-accent-primary/15 hover:bg-accent-primary/20"
-            : dragging && !isPast
-                ? "border-dashed border-accent-primary/35 bg-white/[0.04]"
-                : "border-twilight-border/30 bg-white/[0.02] hover:bg-white/[0.05]";
+          ? "border-accent-primary/50 bg-accent-primary/15 hover:bg-accent-primary/20"
+          : dragging && !isPast
+            ? "border-dashed border-accent-primary/35 bg-white/[0.04]"
+            : "border-twilight-border/30 bg-white/[0.02] hover:bg-white/[0.05]";
     return (
-        <Button variant="ghost" size="none" ref={setNodeRef} type="button" onClick={onSelect} aria-pressed={isSelected}
+        <Button
+            variant="ghost"
+            size="none"
+            ref={setNodeRef}
+            type="button"
+            onClick={onSelect}
+            aria-pressed={isSelected}
             aria-label={`${dayLabel(iso)}, ${loadWord(load)}`}
-            className={`flex aspect-[4/5] min-h-14 flex-col gap-1 rounded-2xl border transition-[transform,background-color,border-color] duration-150 press-none ${tone} ${isPast ? "opacity-40" : ""}`}>
-            <span className={`text-[10px] font-semibold uppercase tracking-wider ${isToday ? "text-accent-primary" : "text-twilight-text-muted"}`}>
+            className={`flex aspect-[4/5] min-h-14 flex-col gap-1 rounded-2xl border transition-[transform,background-color,border-color] duration-150 press-none ${tone} ${isPast ? "opacity-40" : ""}`}
+        >
+            <span
+                className={`text-[10px] font-semibold uppercase tracking-wider ${isToday ? "text-accent-primary" : "text-twilight-text-muted"}`}
+            >
                 {formatWeekdayNarrow(iso)}
             </span>
-            <span className={`font-display text-lg font-semibold leading-none ${isToday ? "text-accent-primary" : "text-twilight-text"}`}>{Number(iso.slice(8, 10))}</span>
+            <span
+                className={`font-display text-lg font-semibold leading-none ${isToday ? "text-accent-primary" : "text-twilight-text"}`}
+            >
+                {Number(iso.slice(8, 10))}
+            </span>
             <span className="flex h-1.5 gap-0.5" aria-hidden="true">
-                {Array.from({ length: dots }, (_, i) => <span key={i} className="h-1.5 w-1.5 rounded-full bg-accent-primary/75" />)}
+                {Array.from({ length: dots }, (_, i) => (
+                    <span key={i} className="h-1.5 w-1.5 rounded-full bg-accent-primary/75" />
+                ))}
             </span>
         </Button>
     );

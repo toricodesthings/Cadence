@@ -55,7 +55,9 @@ describe("atLocal across DST", () => {
     it("bounds a day, including a 23 and a 25 hour day", () => {
         expect(startOfDay("2026-11-01", TORONTO)).toBe("2026-11-01T04:00:00.000Z");
         expect(endOfDay("2026-11-01", TORONTO)).toBe("2026-11-02T04:59:59.999Z"); // 25 hours
-        expect(Date.parse(startOfDay("2026-03-09", TORONTO)) - Date.parse(startOfDay("2026-03-08", TORONTO))).toBe(23 * 3_600_000);
+        expect(Date.parse(startOfDay("2026-03-09", TORONTO)) - Date.parse(startOfDay("2026-03-08", TORONTO))).toBe(
+            23 * 3_600_000,
+        );
     });
 });
 
@@ -76,7 +78,16 @@ describe("dayOf", () => {
     });
 
     it("round-trips: dayOf(atLocal(d, 00:00, z), z) === d for random days and zones", () => {
-        const zones = ["America/Toronto", "America/Los_Angeles", "Pacific/Kiritimati", "Pacific/Pago_Pago", "Europe/London", "Australia/Lord_Howe", "Asia/Kolkata", "UTC"];
+        const zones = [
+            "America/Toronto",
+            "America/Los_Angeles",
+            "Pacific/Kiritimati",
+            "Pacific/Pago_Pago",
+            "Europe/London",
+            "Australia/Lord_Howe",
+            "Asia/Kolkata",
+            "UTC",
+        ];
         let seed = 42;
         const rand = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
         for (let i = 0; i < 1000; i++) {
@@ -155,7 +166,12 @@ describe("expandSeries", () => {
             range: { from: "2026-10-26", to: "2026-12-31" },
         });
         expect(timed.map((d) => d.day)).toEqual(["2026-10-26", "2026-11-02"]);
-        const allDay = expandSeries({ rule: "FREQ=DAILY;UNTIL=20261007", start: { day: "2026-10-05" }, zone: TORONTO, range: { from: "2026-10-01", to: "2026-10-31" } });
+        const allDay = expandSeries({
+            rule: "FREQ=DAILY;UNTIL=20261007",
+            start: { day: "2026-10-05" },
+            zone: TORONTO,
+            range: { from: "2026-10-01", to: "2026-10-31" },
+        });
         expect(allDay).toEqual([
             { day: "2026-10-05", start: null, end: null },
             { day: "2026-10-06", start: null, end: null },
@@ -176,7 +192,12 @@ describe("expandSeries", () => {
     });
 
     it("stays on the same local days wherever the machine is (floating frame)", () => {
-        const a = expandSeries({ rule: "FREQ=WEEKLY;BYDAY=TU,TH", start: { instant: atLocal("2026-10-06", "09:00", LA) }, zone: LA, range: { from: "2026-10-06", to: "2026-10-12" } });
+        const a = expandSeries({
+            rule: "FREQ=WEEKLY;BYDAY=TU,TH",
+            start: { instant: atLocal("2026-10-06", "09:00", LA) },
+            zone: LA,
+            range: { from: "2026-10-06", to: "2026-10-12" },
+        });
         expect(a.map((d) => d.day)).toEqual(["2026-10-06", "2026-10-08"]);
     });
 });

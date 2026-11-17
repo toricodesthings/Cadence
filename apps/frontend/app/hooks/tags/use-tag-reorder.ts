@@ -14,7 +14,11 @@ export function useTagReorder(tags: Tag[]) {
     const update = useUpdateTag();
     const [drag, setDrag] = useState<Drag | null>(null);
     const moveTo = (id: string, to: number) => {
-        for (const write of reorderWrites(tags.map((t) => ({ id: t.id, order: t.sortOrder })), id, to)) {
+        for (const write of reorderWrites(
+            tags.map((t) => ({ id: t.id, order: t.sortOrder })),
+            id,
+            to,
+        )) {
             update.mutate({ id: write.id, sortOrder: write.order });
         }
     };

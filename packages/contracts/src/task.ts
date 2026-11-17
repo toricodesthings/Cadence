@@ -137,7 +137,10 @@ export const batchRescheduleSchema = z
         scheduledStart: instantSchema.optional(),
         date: localDateSchema.optional(),
     })
-    .refine((v) => (v.scheduledStart === undefined) !== (v.date === undefined), "Send scheduledStart or date, not both");
+    .refine(
+        (v) => (v.scheduledStart === undefined) !== (v.date === undefined),
+        "Send scheduledStart or date, not both",
+    );
 export type BatchReschedule = z.infer<typeof batchRescheduleSchema>;
 
 /**
@@ -247,9 +250,7 @@ export type EffortEvidenceRow = z.infer<typeof effortEvidenceRowSchema>;
 
 // ── List filters (GET /tasks query) ──
 
-const booleanQuerySchema = z
-    .enum(["true", "false"])
-    .transform((v) => v === "true");
+const booleanQuerySchema = z.enum(["true", "false"]).transform((v) => v === "true");
 
 const taskFiltersSchemaBase = z.object({
     state: taskStateSchema.optional(),
@@ -292,25 +293,44 @@ export type TaskListQueryInput = z.input<typeof taskListQuerySchema>;
 
 /** Offline warming only reads open lists; keep history and pagination separate. */
 export const TASK_BATCH_MAX = 10;
-export const taskBatchFiltersSchema = z.array(taskFiltersSchemaBase
-    .extend({ state: z.enum(["ACTIVE", "WAITING"]) })
-    .superRefine(refineTaskFilters)
-    .superRefine((value, ctx) => {
-        if (value.from && value.to && Date.parse(`${value.to}T00:00:00Z`) - Date.parse(`${value.from}T00:00:00Z`) > 41 * 86_400_000) {
-            ctx.addIssue({ code: "custom", message: "Batch schedule ranges must fit within 42 days", path: ["to"] });
-        }
-    }).strict()).min(1).max(TASK_BATCH_MAX);
+export const taskBatchFiltersSchema = z
+    .array(
+        taskFiltersSchemaBase
+            .extend({ state: z.enum(["ACTIVE", "WAITING"]) })
+            .superRefine(refineTaskFilters)
+            .superRefine((value, ctx) => {
+                if (
+                    value.from &&
+                    value.to &&
+                    Date.parse(`${value.to}T00:00:00Z`) - Date.parse(`${value.from}T00:00:00Z`) > 41 * 86_400_000
+                ) {
+                    ctx.addIssue({
+                        code: "custom",
+                        message: "Batch schedule ranges must fit within 42 days",
+                        path: ["to"],
+                    });
+                }
+            })
+            .strict(),
+    )
+    .min(1)
+    .max(TASK_BATCH_MAX);
 export type TaskBatchFiltersInput = z.input<typeof taskBatchFiltersSchema>;
 export type TaskBatchFilters = z.infer<typeof taskBatchFiltersSchema>;
 
 export const taskBatchQuerySchema = z.object({
-    queries: z.string().max(12_000).transform((value, ctx) => {
-        try { return JSON.parse(value) as unknown; }
-        catch {
-            ctx.addIssue({ code: "custom", message: "queries must be a JSON array" });
-            return z.NEVER;
-        }
-    }).pipe(taskBatchFiltersSchema),
+    queries: z
+        .string()
+        .max(12_000)
+        .transform((value, ctx) => {
+            try {
+                return JSON.parse(value) as unknown;
+            } catch {
+                ctx.addIssue({ code: "custom", message: "queries must be a JSON array" });
+                return z.NEVER;
+            }
+        })
+        .pipe(taskBatchFiltersSchema),
 });
 
 /** Task/occurrence rows are sent once; each list holds indices into that array. */

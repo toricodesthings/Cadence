@@ -29,16 +29,18 @@ export function RouteErrorBoundary({ error }: { error: unknown }) {
         <CardPage
             title={heading}
             description={detail}
-            actions={<>
-                <Button variant="secondary" size="md" onClick={() => navigate("/", { replace: true })}>
-                    <ArrowLeft size={14} aria-hidden="true" />
-                    Go home
-                </Button>
-                <Button size="md" onClick={() => window.location.reload()}>
-                    <RefreshCw size={14} aria-hidden="true" />
-                    Reload
-                </Button>
-            </>}
+            actions={
+                <>
+                    <Button variant="secondary" size="md" onClick={() => navigate("/", { replace: true })}>
+                        <ArrowLeft size={14} aria-hidden="true" />
+                        Go home
+                    </Button>
+                    <Button size="md" onClick={() => window.location.reload()}>
+                        <RefreshCw size={14} aria-hidden="true" />
+                        Reload
+                    </Button>
+                </>
+            }
         >
             {!notFound && <ErrorDetails error={error} />}
         </CardPage>

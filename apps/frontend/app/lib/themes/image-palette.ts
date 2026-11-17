@@ -9,7 +9,16 @@
  */
 
 import { wcagContrast } from "culori/fn";
-import { chromaOf, hexOf, hexToRgb, hueOf, lightnessOf, relativeLuminance, rgbToHex, withLightness } from "./background-tokens";
+import {
+    chromaOf,
+    hexOf,
+    hexToRgb,
+    hueOf,
+    lightnessOf,
+    relativeLuminance,
+    rgbToHex,
+    withLightness,
+} from "./background-tokens";
 
 export interface PhotoPalette {
     /** Average tone of the photo; surfaces and text tokens derive from it. */

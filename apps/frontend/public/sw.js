@@ -6,14 +6,17 @@
 const CACHE_NAME = "cadence-shell-v3";
 const CACHE_PREFIX = "cadence-shell-";
 // Every web build asset, written in by react-router.config.ts `buildEnd`.
-const PRECACHE = /*__PRECACHE__*/[];
+const PRECACHE = /*__PRECACHE__*/ [];
 // The asset list the cache was last pruned to, so an open older tab keeps its chunks.
 const MANIFEST_KEY = "/__cadence-precache__";
 
 function isHtml(response) {
-    return response.ok && !response.redirected &&
+    return (
+        response.ok &&
+        !response.redirected &&
         !/\bno-store\b/i.test(response.headers.get("cache-control") ?? "") &&
-        response.headers.get("content-type")?.includes("text/html");
+        response.headers.get("content-type")?.includes("text/html")
+    );
 }
 
 // Only immutable build assets belong in the asset cache. Public scripts,
@@ -29,7 +32,9 @@ const ASSET_TYPES = {
 };
 
 function assetType(url) {
-    return url.search ? null : /^\/assets\/.+-[\w-]{8,}\.(js|css|woff2|png|ico|svg|webp)$/.exec(url.pathname)?.[1] ?? null;
+    return url.search
+        ? null
+        : (/^\/assets\/.+-[\w-]{8,}\.(js|css|woff2|png|ico|svg|webp)$/.exec(url.pathname)?.[1] ?? null);
 }
 
 // Never persist an error or the SPA's HTML fallback as CSS/JavaScript.
@@ -52,12 +57,16 @@ function warmAssets(cache) {
                 const type = assetType(new URL(path, self.location.origin));
                 const saved = await cache.match(path);
                 if (type && saved && isAsset(type, saved)) continue;
-                const asset = await fetch(path, { priority: "low", signal: AbortSignal.timeout(20_000) }).catch(() => null);
+                const asset = await fetch(path, { priority: "low", signal: AbortSignal.timeout(20_000) }).catch(
+                    () => null,
+                );
                 if (type && asset && isAsset(type, asset)) await store(cache, path, asset);
             }
         };
         await Promise.all(Array.from({ length: 3 }, warm));
-    })().finally(() => { assetWarming = undefined; });
+    })().finally(() => {
+        assetWarming = undefined;
+    });
     return assetWarming;
 }
 
@@ -73,41 +82,54 @@ async function refreshShell() {
 self.addEventListener("message", (event) => {
     if (event.data?.type === "cadence-precache") event.waitUntil(caches.open(CACHE_NAME).then(warmAssets));
     if (event.data?.type === "cadence-refresh-shell") {
-        event.waitUntil(refreshShell().catch(() => undefined).finally(() => event.ports[0]?.postMessage("done")));
+        event.waitUntil(
+            refreshShell()
+                .catch(() => undefined)
+                .finally(() => event.ports[0]?.postMessage("done")),
+        );
     }
 });
 
 self.addEventListener("install", (event) => {
-    event.waitUntil((async () => {
-        const cache = await caches.open(CACHE_NAME);
-        const response = await fetch("/", { cache: "reload" });
-        if (isHtml(response)) await store(cache, "/", response);
-        await warmAssets(cache);
-        await self.skipWaiting();
-    })());
+    event.waitUntil(
+        (async () => {
+            const cache = await caches.open(CACHE_NAME);
+            const response = await fetch("/", { cache: "reload" });
+            if (isHtml(response)) await store(cache, "/", response);
+            await warmAssets(cache);
+            await self.skipWaiting();
+        })(),
+    );
 });
 
 self.addEventListener("activate", (event) => {
-    event.waitUntil((async () => {
-        const keys = await caches.keys();
-        await Promise.all(keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
-            .map((key) => caches.delete(key)));
+    event.waitUntil(
+        (async () => {
+            const keys = await caches.keys();
+            await Promise.all(
+                keys
+                    .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
+                    .map((key) => caches.delete(key)),
+            );
 
-        // Keep this build's assets and the previous build's; drop anything older.
-        const cache = await caches.open(CACHE_NAME);
-        const previous = await (await cache.match(MANIFEST_KEY))?.json().catch(() => null);
-        if (Array.isArray(previous) && PRECACHE.length) {
-            const keep = new Set([...previous, ...PRECACHE]);
-            const requests = await cache.keys();
-            await Promise.all(requests.map((request) => {
-                const { pathname } = new URL(request.url);
-                return pathname.startsWith("/assets/") && !keep.has(pathname) ? cache.delete(request) : null;
-            }));
-        }
-        if (PRECACHE.length) await store(cache, MANIFEST_KEY, Response.json(PRECACHE));
-        await self.registration?.navigationPreload?.enable();
-        await self.clients.claim();
-    })());
+            // Keep this build's assets and the previous build's; drop anything older.
+            const cache = await caches.open(CACHE_NAME);
+            const previous = await (await cache.match(MANIFEST_KEY))?.json().catch(() => null);
+            if (Array.isArray(previous) && PRECACHE.length) {
+                const keep = new Set([...previous, ...PRECACHE]);
+                const requests = await cache.keys();
+                await Promise.all(
+                    requests.map((request) => {
+                        const { pathname } = new URL(request.url);
+                        return pathname.startsWith("/assets/") && !keep.has(pathname) ? cache.delete(request) : null;
+                    }),
+                );
+            }
+            if (PRECACHE.length) await store(cache, MANIFEST_KEY, Response.json(PRECACHE));
+            await self.registration?.navigationPreload?.enable();
+            await self.clients.claim();
+        })(),
+    );
 });
 
 // Reminders are shown through the registration (the only way on iOS). The server pushes them
@@ -117,18 +139,24 @@ self.addEventListener("activate", (event) => {
 // body, navigate, tag } }. Older payloads were flat: { title, body, route, tag }.
 self.addEventListener("push", (event) => {
     let data = {};
-    try { data = event.data ? event.data.json() : {}; } catch { /* malformed: still show something */ }
+    try {
+        data = event.data ? event.data.json() : {};
+    } catch {
+        /* malformed: still show something */
+    }
     if (!data || typeof data !== "object") data = {};
     const message = data.notification && typeof data.notification === "object" ? data.notification : data;
-    event.waitUntil(Promise.all([
-        self.registration.showNotification(message.title || "Cadence", {
-            body: message.body || "",
-            icon: "/icon-192.png",
-            tag: message.tag || undefined,
-            data: { route: sameOriginRoute(message.navigate) ?? data.route ?? "/" },
-        }),
-        message.tag === "cadence-test" ? null : raiseBadge(),
-    ]));
+    event.waitUntil(
+        Promise.all([
+            self.registration.showNotification(message.title || "Cadence", {
+                body: message.body || "",
+                icon: "/icon-192.png",
+                tag: message.tag || undefined,
+                data: { route: sameOriginRoute(message.navigate) ?? data.route ?? "/" },
+            }),
+            message.tag === "cadence-test" ? null : raiseBadge(),
+        ]),
+    );
 });
 
 /** Path and query of a same-origin URL; anything else is no route. */
@@ -154,7 +182,9 @@ async function raiseBadge() {
         const count = (Number(await idb("readonly", (s) => s.get(APP_BADGE_KEY))) || 0) + 1;
         await idb("readwrite", (s) => s.put(count, APP_BADGE_KEY));
         await self.navigator.setAppBadge(count);
-    } catch { /* the notification still shows */ }
+    } catch {
+        /* the notification still shows */
+    }
 }
 
 // A tap brings the app forward on the reminder's target. A running tab is told where to go;
@@ -163,12 +193,14 @@ self.addEventListener("notificationclick", (event) => {
     event.notification.close();
     const route = event.notification.data?.route;
     const target = typeof route === "string" && route.startsWith("/") && !route.startsWith("//") ? route : "/";
-    event.waitUntil((async () => {
-        const [client] = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-        if (!client) return self.clients.openWindow(target);
-        await client.focus();
-        client.postMessage({ type: "cadence:open", route: target });
-    })());
+    event.waitUntil(
+        (async () => {
+            const [client] = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+            if (!client) return self.clients.openWindow(target);
+            await client.focus();
+            client.postMessage({ type: "cadence:open", route: target });
+        })(),
+    );
 });
 
 self.addEventListener("fetch", (event) => {
@@ -181,36 +213,44 @@ self.addEventListener("fetch", (event) => {
     if (url.pathname === "/auth" || url.pathname.startsWith("/auth/")) return;
 
     if (request.mode === "navigate") {
-        event.respondWith((async () => {
-            const cache = await caches.open(CACHE_NAME);
-            try {
-                // Stale-while-revalidate: a validated cached shell opens at once; its assets are
-                // precached (this build and the previous one), and a newer deploy is announced by
-                // the app's update toast. The fresh shell is saved for the next visit.
-                const saved = await cache.match("/");
-                const network = (async () => (await event.preloadResponse) || fetch(request))();
-                event.waitUntil(network.then((fresh) => isHtml(fresh) ? store(cache, "/", fresh.clone()) : undefined).catch(() => undefined));
-                if (saved && isHtml(saved)) return saved;
-                return await network;
-            } catch {
-                const saved = await cache.match("/");
-                return saved && isHtml(saved) ? saved : new Response("Offline", { status: 503 });
-            }
-        })());
+        event.respondWith(
+            (async () => {
+                const cache = await caches.open(CACHE_NAME);
+                try {
+                    // Stale-while-revalidate: a validated cached shell opens at once; its assets are
+                    // precached (this build and the previous one), and a newer deploy is announced by
+                    // the app's update toast. The fresh shell is saved for the next visit.
+                    const saved = await cache.match("/");
+                    const network = (async () => (await event.preloadResponse) || fetch(request))();
+                    event.waitUntil(
+                        network
+                            .then((fresh) => (isHtml(fresh) ? store(cache, "/", fresh.clone()) : undefined))
+                            .catch(() => undefined),
+                    );
+                    if (saved && isHtml(saved)) return saved;
+                    return await network;
+                } catch {
+                    const saved = await cache.match("/");
+                    return saved && isHtml(saved) ? saved : new Response("Offline", { status: 503 });
+                }
+            })(),
+        );
         return;
     }
 
     const type = assetType(url);
     if (!type) return;
 
-    event.respondWith((async () => {
-        const cache = await caches.open(CACHE_NAME);
-        const cached = await cache.match(request);
-        if (cached && isAsset(type, cached)) return cached;
-        const response = await fetch(request);
-        if (isAsset(type, response)) event.waitUntil(store(cache, request, response.clone()));
-        return response;
-    })());
+    event.respondWith(
+        (async () => {
+            const cache = await caches.open(CACHE_NAME);
+            const cached = await cache.match(request);
+            if (cached && isAsset(type, cached)) return cached;
+            const response = await fetch(request);
+            if (isAsset(type, response)) event.waitUntil(store(cache, request, response.clone()));
+            return response;
+        })(),
+    );
 });
 
 // ── Background Sync (Chromium/Android only) ──
@@ -285,12 +325,21 @@ async function replayQueue(userId) {
                 body: request.json === undefined ? undefined : JSON.stringify(request.json),
             });
             if (res.ok || (res.status === 404 && !entry.op.type.startsWith("create_"))) continue;
-            if (res.status === 401 || res.status === 429 || res.status >= 500) throw new Error(`Retry later (${res.status})`);
+            if (res.status === 401 || res.status === 429 || res.status >= 500)
+                throw new Error(`Retry later (${res.status})`);
             if (res.status === 409) return; // A note conflict: the app reconciles it (merge or Sync review), never the worker.
             const body = await res.json().catch(() => null);
-            await changeQueue(userId, (all) => all.map((e) => (e.id === entry.id
-                ? { ...e, status: "failed", error: body?.error?.message ?? `Request failed with status ${res.status}` }
-                : e)));
+            await changeQueue(userId, (all) =>
+                all.map((e) =>
+                    e.id === entry.id
+                        ? {
+                              ...e,
+                              status: "failed",
+                              error: body?.error?.message ?? `Request failed with status ${res.status}`,
+                          }
+                        : e,
+                ),
+            );
             return;
         }
         await changeQueue(userId, (all) => all.filter((e) => e.id !== entry.id));
@@ -299,18 +348,21 @@ async function replayQueue(userId) {
 
 self.addEventListener("sync", (event) => {
     if (event.tag !== "cadence-wal") return;
-    event.waitUntil((async () => {
-        const windows = await self.clients.matchAll({ type: "window" });
-        if (windows.length) {
-            for (const client of windows) client.postMessage({ type: "cadence-wal-replay" });
-            return;
-        }
-        const keys = await idb("readonly", (s) => s.getAllKeys());
-        for (const key of keys.filter((k) => typeof k === "string" && k.startsWith(WAL_PREFIX))) {
-            const userId = key.slice(WAL_PREFIX.length);
-            // Another replay (a tab opening right now) already holds it: let that one finish.
-            await navigator.locks.request(`cadence-wal-replay:${userId}`, { ifAvailable: true },
-                (lock) => (lock ? replayQueue(userId) : undefined));
-        }
-    })());
+    event.waitUntil(
+        (async () => {
+            const windows = await self.clients.matchAll({ type: "window" });
+            if (windows.length) {
+                for (const client of windows) client.postMessage({ type: "cadence-wal-replay" });
+                return;
+            }
+            const keys = await idb("readonly", (s) => s.getAllKeys());
+            for (const key of keys.filter((k) => typeof k === "string" && k.startsWith(WAL_PREFIX))) {
+                const userId = key.slice(WAL_PREFIX.length);
+                // Another replay (a tab opening right now) already holds it: let that one finish.
+                await navigator.locks.request(`cadence-wal-replay:${userId}`, { ifAvailable: true }, (lock) =>
+                    lock ? replayQueue(userId) : undefined,
+                );
+            }
+        })(),
+    );
 });

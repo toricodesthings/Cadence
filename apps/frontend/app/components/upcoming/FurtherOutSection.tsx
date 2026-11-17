@@ -23,7 +23,14 @@ export interface FurtherOutItem {
  * quiet line (the count, the next one due); open, it groups by week, then by month. The fold is kept per device, and a
  * visit that points inside it (a search or reminder tap, Weekly Reset's link) opens it for that visit only.
  */
-export function useFurtherOutSection({ items, today, focusTaskId, openRequested, compact, renderTasks }: {
+export function useFurtherOutSection({
+    items,
+    today,
+    focusTaskId,
+    openRequested,
+    compact,
+    renderTasks,
+}: {
     items: FurtherOutItem[];
     today: LocalDate;
     focusTaskId: string | undefined;
@@ -34,9 +41,15 @@ export function useFurtherOutSection({ items, today, focusTaskId, openRequested,
     const [keptOpen, setKeptOpen] = useDeviceFlag(OPEN_STORAGE_KEY);
     const [revealed, setRevealed] = useState(false);
     // Latched during render, not in an effect, so the target row mounts in the same commit the visit starts.
-    if (!revealed && (openRequested || (focusTaskId !== undefined && items.some((item) => item.task.id === focusTaskId)))) setRevealed(true);
+    if (
+        !revealed &&
+        (openRequested || (focusTaskId !== undefined && items.some((item) => item.task.id === focusTaskId)))
+    )
+        setRevealed(true);
     const groups = useMemo(() => {
-        const byDay = [...items].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.task.title.localeCompare(b.task.title));
+        const byDay = [...items].sort(
+            (a, b) => a.dueDate.localeCompare(b.dueDate) || a.task.title.localeCompare(b.task.title),
+        );
         return groupFurtherOut(byDay, today);
     }, [items, today]);
     if (items.length === 0) return null;
@@ -57,15 +70,24 @@ export function useFurtherOutSection({ items, today, focusTaskId, openRequested,
             title={label}
             className="touch-target -my-3 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
         >
-            <ChevronDown size={16} aria-hidden="true" className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+            <ChevronDown
+                size={16}
+                aria-hidden="true"
+                className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            />
         </button>
     );
     const content = (cardVariant?: "board") => (
         <div className="flex flex-col gap-4">
             {groups.map((group) => (
                 <div key={group.key} className="flex flex-col gap-1.5">
-                    <h3 className="px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-twilight-text-muted">{group.label}</h3>
-                    {renderTasks(group.items.map((item) => item.task), cardVariant)}
+                    <h3 className="px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-twilight-text-muted">
+                        {group.label}
+                    </h3>
+                    {renderTasks(
+                        group.items.map((item) => item.task),
+                        cardVariant,
+                    )}
                 </div>
             ))}
         </div>
@@ -78,7 +100,11 @@ export function useFurtherOutSection({ items, today, focusTaskId, openRequested,
         accentClass: "text-twilight-text-soft",
         count: items.length,
         description: open ? undefined : (
-            <button type="button" onClick={toggle} className="cursor-pointer text-left text-[13px] text-twilight-text-muted transition-colors hover:text-twilight-text-soft">
+            <button
+                type="button"
+                onClick={toggle}
+                className="cursor-pointer text-left text-[13px] text-twilight-text-muted transition-colors hover:text-twilight-text-soft"
+            >
                 Next: {next.task.title} · {formatShortDateLabel(next.dueDate)}
             </button>
         ),

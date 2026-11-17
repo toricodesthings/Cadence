@@ -46,17 +46,25 @@ function armMidnight() {
     clearTimeout(midnightTimer);
     const zone = zoneStore.get();
     const next = Date.parse(startOfDay(addDays(todayIn(zone), 1), zone)) - Date.now();
-    midnightTimer = setTimeout(() => {
-        refreshToday();
-        armMidnight();
-    }, Math.max(1_000, next + 500));
+    midnightTimer = setTimeout(
+        () => {
+            refreshToday();
+            armMidnight();
+        },
+        Math.max(1_000, next + 500),
+    );
 }
 
 function subscribeToday(listener: () => void) {
     if (midnightTimer === undefined) armMidnight();
     const unsubscribe = todayStore.subscribe(listener);
     // Sleep and tab suspension can skip the timer; the day is re-read whenever the page returns.
-    const onVisible = () => { if (document.visibilityState === "visible") { refreshToday(); armMidnight(); } };
+    const onVisible = () => {
+        if (document.visibilityState === "visible") {
+            refreshToday();
+            armMidnight();
+        }
+    };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
         unsubscribe();

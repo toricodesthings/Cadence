@@ -30,8 +30,13 @@ import { replanReminders } from "../push/reminder-clock";
 type Effect = "read" | "write";
 
 /** Scope a published tool needs, by kind (`ask_user` isn't published: an MCP client asks in its own chat). The guide needs none. */
-const SCOPE_BY_KIND: Record<Exclude<ToolKind, "ask">, McpScope> = { read: "cadence:read", capture: "cadence:capture", write: "cadence:write" };
-const scopeFor = (name: ToolName, kind: Exclude<ToolKind, "ask">): McpScope | null => (name === "get_cadence_help" ? null : SCOPE_BY_KIND[kind]);
+const SCOPE_BY_KIND: Record<Exclude<ToolKind, "ask">, McpScope> = {
+    read: "cadence:read",
+    capture: "cadence:capture",
+    write: "cadence:write",
+};
+const scopeFor = (name: ToolName, kind: Exclude<ToolKind, "ask">): McpScope | null =>
+    name === "get_cadence_help" ? null : SCOPE_BY_KIND[kind];
 
 /** MCP descriptions where the internal one assumes Cadence's own prompt. */
 const DESCRIPTIONS: Partial<Record<ToolName, string>> = {
@@ -50,10 +55,12 @@ const DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const;
 const writeHints = (destructive = false) =>
     ({ readOnlyHint: false, destructiveHint: destructive, idempotentHint: true, openWorldHint: false }) as const;
-const RETRY_NOTE = "operationKey is a unique id you choose for this change; a retry with the same key and input changes nothing again.";
+const RETRY_NOTE =
+    "operationKey is a unique id you choose for this change; a retry with the same key and input changes nothing again.";
 
 /** Help-guide links are app paths; outside the app they need the origin. */
-const absoluteLinks = (text: string, app: string) => text.replace(/\]\((\/|\?)/g, (_, first) => `](${app}${first === "?" ? "/?" : "/"}`);
+const absoluteLinks = (text: string, app: string) =>
+    text.replace(/\]\((\/|\?)/g, (_, first) => `](${app}${first === "?" ? "/?" : "/"}`);
 
 /**
  * The brief an outside model gets at connect: under 2KB (Claude Code's reported cutoff), essentials in the
@@ -76,7 +83,7 @@ function instructions(ctx: AgentContext, app: string) {
         '- "Delete" a task means Trash (restorable); delete for good only if they say so. Lists, tags and focus views have ' +
             "no Trash: confirm first.",
         "- Lists are projects in tools; sections are a list's columns. Tag by name (tagNames): an existing tag matches, a new name makes one.",
-        "- Turning a relative date into a real one, say its weekday and date. Between midnight and 4am, \"tomorrow\" usually means the coming daytime.",
+        '- Turning a relative date into a real one, say its weekday and date. Between midnight and 4am, "tomorrow" usually means the coming daytime.',
         "- Several matches, or a whole day affected: ask one short question with the options.",
         "- Never guess an id. A result with more:true is incomplete: follow nextOffset or narrow the read.",
         "- Read a note before rewriting it and keep the rest word for word.",
@@ -90,7 +97,9 @@ function withoutPatterns(schema: z.ZodObject) {
     const std = schema["~standard"];
     const lean = (io: "input" | "output") => (options: Parameters<typeof std.jsonSchema.input>[0]) =>
         dropPatterns(std.jsonSchema[io](options)) as Record<string, unknown>;
-    return { "~standard": { ...std, jsonSchema: { input: lean("input"), output: lean("output") } } } as unknown as z.ZodObject;
+    return {
+        "~standard": { ...std, jsonSchema: { input: lean("input"), output: lean("output") } },
+    } as unknown as z.ZodObject;
 }
 
 const ok = (value: unknown): CallToolResult => ({ content: [{ type: "text", text: JSON.stringify(value) }] });
@@ -99,7 +108,11 @@ const fail = (message: string): CallToolResult => ({ isError: true, content: [{ 
 /** The factories' tools; the catalog picks from these. Full zod schemas (patterns included). */
 const allTools = coreTools;
 
-type AnyTool = { description?: string; inputSchema: unknown; execute?: (input: unknown, options: object) => Promise<any> };
+type AnyTool = {
+    description?: string;
+    inputSchema: unknown;
+    execute?: (input: unknown, options: object) => Promise<any>;
+};
 
 // ── Utility ─────────────────────────────────────────────────────────────────
 
@@ -112,7 +125,13 @@ async function openConnection(env: Env, userId: string, connectionId: string) {
         const [row] = await tx
             .update(mcpConnections)
             .set({ lastUsedAt: sql`now()` })
-            .where(and(eq(mcpConnections.id, connectionId), eq(mcpConnections.userId, userId), isNull(mcpConnections.revokedAt)))
+            .where(
+                and(
+                    eq(mcpConnections.id, connectionId),
+                    eq(mcpConnections.userId, userId),
+                    isNull(mcpConnections.revokedAt),
+                ),
+            )
             .returning({ scopes: mcpConnections.scopes });
         if (!row) return null;
         const [user] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
@@ -128,17 +147,27 @@ async function openConnection(env: Env, userId: string, connectionId: string) {
 }
 
 function invalidToken(env: Env): Response {
-    return new Response(JSON.stringify({ error: "invalid_token", error_description: "This connection was disconnected." }), {
-        status: 401,
-        headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-store",
-            "WWW-Authenticate": `Bearer error="invalid_token", resource_metadata="${mcpOrigin(env)}/.well-known/oauth-protected-resource/mcp"`,
+    return new Response(
+        JSON.stringify({ error: "invalid_token", error_description: "This connection was disconnected." }),
+        {
+            status: 401,
+            headers: {
+                "Content-Type": "application/json",
+                "Cache-Control": "no-store",
+                "WWW-Authenticate": `Bearer error="invalid_token", resource_metadata="${mcpOrigin(env)}/.well-known/oauth-protected-resource/mcp"`,
+            },
         },
-    });
+    );
 }
 
-function buildServer(env: Env, userId: string, connectionId: string, scopes: Set<string>, ctx: AgentContext, memoryOn: boolean): McpServer {
+function buildServer(
+    env: Env,
+    userId: string,
+    connectionId: string,
+    scopes: Set<string>,
+    ctx: AgentContext,
+    memoryOn: boolean,
+): McpServer {
     const app = appOrigin(env);
     const server = new McpServer(
         {
@@ -169,20 +198,30 @@ function buildServer(env: Env, userId: string, connectionId: string, scopes: Set
         const write = spec.kind !== "read";
         const inputSchema = write
             ? (tool.inputSchema as z.ZodObject).safeExtend({
-                operationKey: z.string().min(8).max(100).describe("A unique id for this change, reused only to retry it."),
-            })
+                  operationKey: z
+                      .string()
+                      .min(8)
+                      .max(100)
+                      .describe("A unique id for this change, reused only to retry it."),
+              })
             : tool.inputSchema;
         const description = DESCRIPTIONS[name] ?? (write ? `${tool.description} ${RETRY_NOTE}` : tool.description);
 
         server.registerTool(
             name,
-            { description, inputSchema: withoutPatterns(inputSchema as z.ZodObject), annotations: write ? writeHints(spec.destructive) : READ_ONLY },
+            {
+                description,
+                inputSchema: withoutPatterns(inputSchema as z.ZodObject),
+                annotations: write ? writeHints(spec.destructive) : READ_ONLY,
+            },
             async (args: Record<string, unknown>) => {
                 if (!(await withinBudget(write ? "write" : "read"))) return busy;
                 const { operationKey, ...input } = args;
                 // Write keys are namespaced per connection (JSON-RPC ids restart per session) and bind the input,
                 // so a reused key with other input is a new change, never a silent "already done".
-                const toolCallId = write ? `mcp:${connectionId}:${operationKey}:${await hashIdentifier(JSON.stringify(input))}` : "mcp";
+                const toolCallId = write
+                    ? `mcp:${connectionId}:${operationKey}:${await hashIdentifier(JSON.stringify(input))}`
+                    : "mcp";
                 const result = await tool.execute!(input, { toolCallId, messages: [] });
                 if (result?.ok === false) return fail(result.error);
                 if (write) ctx.waitUntil?.(replanReminders(env, userId));
@@ -219,7 +258,10 @@ export async function serveMcp(request: Request, env: Env, ctx: OAuthResourceCon
     const { userId, connectionId } = ctx.props;
     // Before any Postgres work: `initialize` and `tools/list` spend this too. Its own key, so MCP can't starve the app's reads.
     if (env.RATE_LIMITER_READ && !(await env.RATE_LIMITER_READ.limit({ key: `mcp:${userId}` })).success) {
-        return Response.json({ error: "rate_limited", error_description: "Too many requests. Try again in a minute." }, { status: 429, headers: { "Retry-After": "60", "Cache-Control": "no-store" } });
+        return Response.json(
+            { error: "rate_limited", error_description: "Too many requests. Try again in a minute." },
+            { status: 429, headers: { "Retry-After": "60", "Cache-Control": "no-store" } },
+        );
     }
     const connection = await openConnection(env, userId, connectionId);
     if (!connection) return invalidToken(env);
@@ -236,7 +278,10 @@ export async function serveMcp(request: Request, env: Env, ctx: OAuthResourceCon
         waitUntil: (promise) => ctx.waitUntil(promise),
     };
 
-    const handler = createMcpHandler(() => buildServer(env, userId, connectionId, scopes, agentCtx, connection.memoryOn), { responseMode: "json" });
+    const handler = createMcpHandler(
+        () => buildServer(env, userId, connectionId, scopes, agentCtx, connection.memoryOn),
+        { responseMode: "json" },
+    );
     const response = await handler.fetch(request);
     // Tenant data: never cached by anything between us and the client.
     const headers = new Headers(response.headers);

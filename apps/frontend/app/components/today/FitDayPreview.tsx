@@ -24,7 +24,10 @@ const ROW_BUTTON =
 /** `p` moved by `minutes`, kept inside the window and never before now. */
 function shifted(p: FitPlacement, minutes: number, window: { from: number; to: number }): FitPlacement {
     const length = Date.parse(p.end) - Date.parse(p.start);
-    const start = Math.min(Math.max(Date.parse(p.start) + minutes * MIN, window.from, nextGridMark(Date.now())), window.to - length);
+    const start = Math.min(
+        Math.max(Date.parse(p.start) + minutes * MIN, window.from, nextGridMark(Date.now())),
+        window.to - length,
+    );
     return { ...p, start: new Date(start).toISOString(), end: new Date(start + length).toISOString() };
 }
 
@@ -32,7 +35,14 @@ function shifted(p: FitPlacement, minutes: number, window: { from: number; to: n
  * The day as one bar: other blocks muted, each placement a ghost of the block it would make. A ghost drags along the
  * bar (snapping to 15 minutes) or moves with the arrow keys; moving one never moves the others.
  */
-function FitTimeline({ day, startHour, busy, placed, titleOf, onMove }: {
+function FitTimeline({
+    day,
+    startHour,
+    busy,
+    placed,
+    titleOf,
+    onMove,
+}: {
     day: LocalDate;
     startHour: number;
     busy: readonly { start: Instant; end: Instant }[];
@@ -46,7 +56,10 @@ function FitTimeline({ day, startHour, busy, placed, titleOf, onMove }: {
     const bounds = dayWindow(day, startHour, zone);
     const span = bounds.to - bounds.from;
     const left = (instant: Instant) => Math.min(Math.max(((Date.parse(instant) - bounds.from) / span) * 100, 0), 100);
-    const box = (start: Instant, end: Instant) => ({ left: `${left(start)}%`, width: `${Math.max(left(end) - left(start), 0.8)}%` });
+    const box = (start: Instant, end: Instant) => ({
+        left: `${left(start)}%`,
+        width: `${Math.max(left(end) - left(start), 0.8)}%`,
+    });
     const first = Number(wallTimeOf(new Date(bounds.from).toISOString(), zone).slice(0, 2));
     const last = Number(wallTimeOf(new Date(bounds.to).toISOString(), zone).slice(0, 2));
     const hours = [first, ...[9, 12, 15, 18, 21].filter((h) => h > first && h < last), last];
@@ -59,7 +72,12 @@ function FitTimeline({ day, startHour, busy, placed, titleOf, onMove }: {
         onMove(shifted(from.placement, minutes, bounds));
     };
     const onKey = (event: KeyboardEvent, p: FitPlacement) => {
-        const step = event.key === "ArrowRight" || event.key === "ArrowUp" ? STEP : event.key === "ArrowLeft" || event.key === "ArrowDown" ? -STEP : 0;
+        const step =
+            event.key === "ArrowRight" || event.key === "ArrowUp"
+                ? STEP
+                : event.key === "ArrowLeft" || event.key === "ArrowDown"
+                  ? -STEP
+                  : 0;
         if (!step) return;
         event.preventDefault();
         onMove(shifted(p, step, bounds));
@@ -68,7 +86,14 @@ function FitTimeline({ day, startHour, busy, placed, titleOf, onMove }: {
     return (
         <div className="flex flex-col gap-1" data-sheet-no-drag>
             <div ref={bar} className="relative h-10 overflow-hidden rounded-2xl bg-twilight-surface/50">
-                {busy.map((b) => <span key={`${b.start}-${b.end}`} aria-hidden="true" className="absolute inset-y-1.5 rounded-xl bg-moonlit/35" style={box(b.start, b.end)} />)}
+                {busy.map((b) => (
+                    <span
+                        key={`${b.start}-${b.end}`}
+                        aria-hidden="true"
+                        className="absolute inset-y-1.5 rounded-xl bg-moonlit/35"
+                        style={box(b.start, b.end)}
+                    />
+                ))}
                 {placed.map((p) => {
                     const title = titleOf(p.taskId);
                     const minutesIn = Math.round((Date.parse(p.start) - bounds.from) / MIN);
@@ -83,14 +108,23 @@ function FitTimeline({ day, startHour, busy, placed, titleOf, onMove }: {
                             aria-valuenow={minutesIn}
                             aria-valuetext={`${title}, ${formatChipTime(p.start, p.end)}. Arrow keys move it by 15 minutes.`}
                             onKeyDown={(event) => onKey(event, p)}
-                            onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); drag.current = { placement: p, x: event.clientX }; }}
+                            onPointerDown={(event) => {
+                                event.currentTarget.setPointerCapture(event.pointerId);
+                                drag.current = { placement: p, x: event.clientX };
+                            }}
                             onPointerMove={move}
-                            onPointerUp={() => { drag.current = null; }}
-                            onPointerCancel={() => { drag.current = null; }}
+                            onPointerUp={() => {
+                                drag.current = null;
+                            }}
+                            onPointerCancel={() => {
+                                drag.current = null;
+                            }}
                             className="absolute inset-y-0.5 cursor-grab touch-none overflow-hidden rounded-xl border border-dashed border-accent-primary bg-accent-primary/25 px-1 text-left text-[10px] font-medium leading-9 text-twilight-text active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60"
                             style={box(p.start, p.end)}
                         >
-                            <span className="block truncate" aria-hidden="true">{title}</span>
+                            <span className="block truncate" aria-hidden="true">
+                                {title}
+                            </span>
                         </button>
                     );
                 })}
@@ -101,7 +135,9 @@ function FitTimeline({ day, startHour, busy, placed, titleOf, onMove }: {
                         key={h}
                         className={`absolute ${i === 0 ? "" : i === hours.length - 1 ? "-translate-x-full" : "-translate-x-1/2"}`}
                         style={{ left: `${left(atLocal(day, `${String(h).padStart(2, "0")}:00`, zone))}%` }}
-                    >{h}</span>
+                    >
+                        {h}
+                    </span>
                 ))}
             </div>
         </div>
@@ -113,7 +149,15 @@ function FitTimeline({ day, startHour, busy, placed, titleOf, onMove }: {
  * a ghost for each task placed, the rows to drop (×), what didn't fit, and the tasks with no known length, each with
  * the length chips (choosing one stores it and adds the task). Nothing is written until Place; one Undo puts it back.
  */
-export function FitDayPreview({ day, fit, initial, ordered, titles, notice, onDone }: {
+export function FitDayPreview({
+    day,
+    fit,
+    initial,
+    ordered,
+    titles,
+    notice,
+    onDone,
+}: {
     day: LocalDate;
     fit: FitDay;
     initial: FitDayResult | null;
@@ -151,13 +195,19 @@ export function FitDayPreview({ day, fit, initial, ordered, titles, notice, onDo
         setRecompute(true);
     };
 
-    if (!draft) return <p role="status" className="text-sm text-twilight-text-muted">Looking at {day === today ? "today" : "the day"}…</p>;
+    if (!draft)
+        return (
+            <p role="status" className="text-sm text-twilight-text-muted">
+                Looking at {day === today ? "today" : "the day"}…
+            </p>
+        );
 
     const placed = [...draft.placed].sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
     const n = placed.length;
     const dayName = day === today ? "today" : formatInZone(atLocal(day, "12:00", zone), zone, { weekday: "long" });
 
-    const move = (next: FitPlacement) => setDraft({ ...draft, placed: draft.placed.map((p) => (p.taskId === next.taskId ? next : p)) });
+    const move = (next: FitPlacement) =>
+        setDraft({ ...draft, placed: draft.placed.map((p) => (p.taskId === next.taskId ? next : p)) });
     const drop = (id: string) => setDraft({ ...draft, placed: draft.placed.filter((p) => p.taskId !== id) });
     const leaveOut = (id: string) => setDraft({ ...draft, notSized: draft.notSized.filter((x) => x !== id) });
 
@@ -203,18 +253,39 @@ export function FitDayPreview({ day, fit, initial, ordered, titles, notice, onDo
 
     return (
         <div className="flex flex-col gap-3">
-            <p role="status" aria-live="polite" className="min-h-0 text-sm text-twilight-text-soft empty:hidden">{status}</p>
+            <p role="status" aria-live="polite" className="min-h-0 text-sm text-twilight-text-soft empty:hidden">
+                {status}
+            </p>
 
             {n ? (
                 <>
-                    <FitTimeline day={day} startHour={fit.timelineStartHour} busy={fit.busy} placed={placed} titleOf={titleOf} onMove={move} />
+                    <FitTimeline
+                        day={day}
+                        startHour={fit.timelineStartHour}
+                        busy={fit.busy}
+                        placed={placed}
+                        titleOf={titleOf}
+                        onMove={move}
+                    />
                     <ul className="flex flex-col gap-1" aria-label="Placed">
                         {placed.map((p) => (
-                            <li key={p.taskId} className="surface-item flex min-h-11 items-center gap-3 rounded-2xl pl-3 pr-1">
-                                <span className="w-[7.5rem] shrink-0 text-xs tabular-nums text-accent-primary">{formatChipTime(p.start, p.end)}</span>
-                                <span className="min-w-0 flex-1 truncate text-sm text-twilight-text">{titleOf(p.taskId)}</span>
+                            <li
+                                key={p.taskId}
+                                className="surface-item flex min-h-11 items-center gap-3 rounded-2xl pl-3 pr-1"
+                            >
+                                <span className="w-[7.5rem] shrink-0 text-xs tabular-nums text-accent-primary">
+                                    {formatChipTime(p.start, p.end)}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate text-sm text-twilight-text">
+                                    {titleOf(p.taskId)}
+                                </span>
                                 <Tip label="Leave out">
-                                    <button type="button" onClick={() => drop(p.taskId)} aria-label={`Leave ${titleOf(p.taskId)} out`} className={ROW_BUTTON}>
+                                    <button
+                                        type="button"
+                                        onClick={() => drop(p.taskId)}
+                                        aria-label={`Leave ${titleOf(p.taskId)} out`}
+                                        className={ROW_BUTTON}
+                                    >
                                         <X size={15} aria-hidden="true" />
                                     </button>
                                 </Tip>
@@ -223,7 +294,11 @@ export function FitDayPreview({ day, fit, initial, ordered, titles, notice, onDo
                     </ul>
                 </>
             ) : (
-                <p className="text-sm text-twilight-text-soft">{draft.notSized.length ? "Choose how long these take to place them." : `Nothing fits ${dayName}'s gaps.`}</p>
+                <p className="text-sm text-twilight-text-soft">
+                    {draft.notSized.length
+                        ? "Choose how long these take to place them."
+                        : `Nothing fits ${dayName}'s gaps.`}
+                </p>
             )}
 
             {draft.didntFit.length ? (
@@ -239,7 +314,14 @@ export function FitDayPreview({ day, fit, initial, ordered, titles, notice, onDo
                     {draft.notSized.map((id) => (
                         <div key={id} className="flex flex-col gap-1.5">
                             <span className="truncate text-sm text-twilight-text">{titleOf(id)}</span>
-                            <DurationChoices reference={null} pointsOnly disabled={!fit.byId.has(id)} skipLabel="Leave out" onSkip={() => leaveOut(id)} onPick={(value) => value.kind === "point" && void size(id, value.minutes)} />
+                            <DurationChoices
+                                reference={null}
+                                pointsOnly
+                                disabled={!fit.byId.has(id)}
+                                skipLabel="Leave out"
+                                onSkip={() => leaveOut(id)}
+                                onPick={(value) => value.kind === "point" && void size(id, value.minutes)}
+                            />
                         </div>
                     ))}
                 </div>
@@ -247,8 +329,15 @@ export function FitDayPreview({ day, fit, initial, ordered, titles, notice, onDo
 
             <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
                 {!online ? <span className="mr-auto text-xs text-twilight-text-muted">Needs a connection</span> : null}
-                <Button variant="ghost" size="md" onClick={() => onDone(false)}>Cancel</Button>
-                <Button variant="cardPrimary" size="md" onClick={() => void place()} disabled={!n || !online || placing || sizing > 0}>
+                <Button variant="ghost" size="md" onClick={() => onDone(false)}>
+                    Cancel
+                </Button>
+                <Button
+                    variant="cardPrimary"
+                    size="md"
+                    onClick={() => void place()}
+                    disabled={!n || !online || placing || sizing > 0}
+                >
                     {n ? `Place ${n}` : "Place"}
                 </Button>
             </div>

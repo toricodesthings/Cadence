@@ -44,17 +44,17 @@ export const app = new Hono<{ Bindings: Env; Variables: import("./platform/auth"
  * Development: additionally allows any http://localhost:* origin.
  */
 function isAllowedOrigin(origin: string, env: Env): boolean {
-  if (origin === PRODUCTION_ORIGIN) return true;
+    if (origin === PRODUCTION_ORIGIN) return true;
 
-  const extraOrigins = getAllowedOrigins(env);
-  if (extraOrigins.includes(origin)) return true;
+    const extraOrigins = getAllowedOrigins(env);
+    if (extraOrigins.includes(origin)) return true;
 
-  const stage = getDeploymentStage(env);
-  if (stage === "development" && origin.startsWith("http://localhost:")) {
-    return true;
-  }
+    const stage = getDeploymentStage(env);
+    if (stage === "development" && origin.startsWith("http://localhost:")) {
+        return true;
+    }
 
-  return false;
+    return false;
 }
 
 /**
@@ -63,9 +63,9 @@ function isAllowedOrigin(origin: string, env: Env): boolean {
  * 2. ENABLE_DEBUG_ROUTES is explicitly "true"
  */
 function areDebugRoutesEnabled(env: Env): boolean {
-  const stage = getDeploymentStage(env);
-  if (stage === "production") return false;
-  return env.ENABLE_DEBUG_ROUTES?.trim().toLowerCase() === "true";
+    const stage = getDeploymentStage(env);
+    if (stage === "production") return false;
+    return env.ENABLE_DEBUG_ROUTES?.trim().toLowerCase() === "true";
 }
 
 // ── Global Middleware ──
@@ -76,40 +76,40 @@ app.use("*", secureHeaders());
 // Photo uploads (background, chat images) are exempt here and enforce their own limit on the route.
 const UPLOAD_PATHS = new Set(["/api/v1/settings/background", "/api/v1/ai/images"]);
 const limitBody = bodyLimit({
-  maxSize: 100 * 1024,
-  onError: (c) =>
-    c.json(createErrorBody({ code: "PAYLOAD_TOO_LARGE", message: "Request body too large", status: 413 }), 413),
+    maxSize: 100 * 1024,
+    onError: (c) =>
+        c.json(createErrorBody({ code: "PAYLOAD_TOO_LARGE", message: "Request body too large", status: 413 }), 413),
 });
 app.use("/api/v1/*", (c, next) =>
-  c.req.method === "POST" && UPLOAD_PATHS.has(c.req.path.replace(/\/$/, "")) ? next() : limitBody(c, next),
+    c.req.method === "POST" && UPLOAD_PATHS.has(c.req.path.replace(/\/$/, "")) ? next() : limitBody(c, next),
 );
 app.use(
-  "*",
-  cors({
-    origin: (origin, c) => {
-      if (!origin) return PRODUCTION_ORIGIN;
-      if (isAllowedOrigin(origin, (c as any).env)) {
-        return origin;
-      }
-      return PRODUCTION_ORIGIN;
-    },
-    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "X-Queued-At", ORIGIN_HEADER],
-    credentials: true,
-    // Retry delay and response timing (which excludes waitUntil work).
-    exposeHeaders: ["Retry-After", "Server-Timing"],
-    // Every Bearer request is preflighted; without this browsers re-ask every 5s per URL.
-    // Chrome caps at 2h.
-    maxAge: 7200,
-  }),
+    "*",
+    cors({
+        origin: (origin, c) => {
+            if (!origin) return PRODUCTION_ORIGIN;
+            if (isAllowedOrigin(origin, (c as any).env)) {
+                return origin;
+            }
+            return PRODUCTION_ORIGIN;
+        },
+        allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "X-Queued-At", ORIGIN_HEADER],
+        credentials: true,
+        // Retry delay and response timing (which excludes waitUntil work).
+        exposeHeaders: ["Retry-After", "Server-Timing"],
+        // Every Bearer request is preflighted; without this browsers re-ask every 5s per URL.
+        // Chrome caps at 2h.
+        maxAge: 7200,
+    }),
 );
 
 // ── Global Error Handler ──
 app.onError(async (err, c) => {
-  const res = formatErrorResponse(err, getRequestId(c));
-  setRequestErrorCode(c, res.errorCode);
-  await logErrorResponse(c, err, res.status, res.errorCode);
-  return c.json(res.body, res.status as any);
+    const res = formatErrorResponse(err, getRequestId(c));
+    setRequestErrorCode(c, res.errorCode);
+    await logErrorResponse(c, err, res.status, res.errorCode);
+    return c.json(res.body, res.status as any);
 });
 
 // ── Public ──
@@ -117,48 +117,48 @@ app.route("/health", healthRoutes);
 
 // ── Rate-limit helper ──
 function rateLimitResponse(c: import("hono").Context) {
-  setRequestErrorCode(c, "TOO_MANY_REQUESTS");
-  return c.json(
-    createErrorBody({
-      code: "TOO_MANY_REQUESTS",
-      message: "Rate limit exceeded. Please slow down.",
-      status: 429,
-      isRetryable: true,
-      requestId: getRequestId(c),
-    }),
-    { status: 429, headers: { "Retry-After": "60" } },
-  );
+    setRequestErrorCode(c, "TOO_MANY_REQUESTS");
+    return c.json(
+        createErrorBody({
+            code: "TOO_MANY_REQUESTS",
+            message: "Rate limit exceeded. Please slow down.",
+            status: 429,
+            isRetryable: true,
+            requestId: getRequestId(c),
+        }),
+        { status: 429, headers: { "Retry-After": "60" } },
+    );
 }
 
 // ── Protected ──
 
 // Keep admin debug tooling dark in production unless explicitly enabled.
 app.use("/api/v1/debug/*", async (c, next) => {
-  if (!areDebugRoutesEnabled(c.env)) {
-    return c.notFound();
-  }
-  await next();
+    if (!areDebugRoutesEnabled(c.env)) {
+        return c.notFound();
+    }
+    await next();
 });
 
 // Tier 1: IP-based global limiter (pre-auth, catches abuse early)
 app.use("/api/v1/*", async (c, next) => {
-  if (c.req.method === "OPTIONS") return next();
-  const ip = c.req.header("cf-connecting-ip") || "unknown";
-  if (c.env.RATE_LIMITER) {
-    const { success } = await c.env.RATE_LIMITER.limit({ key: ip });
-    if (!success) return rateLimitResponse(c);
-  }
-  await next();
+    if (c.req.method === "OPTIONS") return next();
+    const ip = c.req.header("cf-connecting-ip") || "unknown";
+    if (c.env.RATE_LIMITER) {
+        const { success } = await c.env.RATE_LIMITER.limit({ key: ip });
+        if (!success) return rateLimitResponse(c);
+    }
+    await next();
 });
 
 app.use("/api/v1/*", authMiddleware);
 
 // Tier 2: User-scoped read/write limiters (post-auth)
 app.use("/api/v1/*", async (c, next) => {
-  if (c.req.method === "OPTIONS") return next();
-  const limiter = c.req.method === "GET" ? c.env.RATE_LIMITER_READ : c.env.RATE_LIMITER_WRITE;
-  if (limiter && !(await limiter.limit({ key: c.get("userId") })).success) return rateLimitResponse(c);
-  await next();
+    if (c.req.method === "OPTIONS") return next();
+    const limiter = c.req.method === "GET" ? c.env.RATE_LIMITER_READ : c.env.RATE_LIMITER_WRITE;
+    if (limiter && !(await limiter.limit({ key: c.get("userId") })).success) return rateLimitResponse(c);
+    await next();
 });
 
 // A person's write can change when their reminders fire, so their reminder clock rebuilds once it has committed.
@@ -166,40 +166,40 @@ app.use("/api/v1/*", replanAfterWrites);
 
 // Tier 3: Admin route limiter (tighter ceiling on debug endpoints)
 app.use("/api/v1/debug/*", async (c, next) => {
-  if (c.req.method === "OPTIONS") return next();
-  const userId = c.get("userId");
-  if (c.env.RATE_LIMITER_ADMIN) {
-    const { success } = await c.env.RATE_LIMITER_ADMIN.limit({ key: userId });
-    if (!success) return rateLimitResponse(c);
-  }
-  await next();
+    if (c.req.method === "OPTIONS") return next();
+    const userId = c.get("userId");
+    if (c.env.RATE_LIMITER_ADMIN) {
+        const { success } = await c.env.RATE_LIMITER_ADMIN.limit({ key: userId });
+        if (!success) return rateLimitResponse(c);
+    }
+    await next();
 });
 // Mounts are CHAINED so the accumulated route schema flows into `AppType` — this
 // is what gives the frontend Hono RPC client (`hc<AppType>`) real end-to-end type
 // inference. Mounting as separate statements would discard the per-route types.
 const apiApp = app
-  .route("/api/v1/tasks", taskRoutes)
-  .route("/api/v1/projects", projectRoutes)
-  .route("/api/v1/inbox", inboxRoutes)
-  .route("/api/v1/search", searchRoutes)
-  .route("/api/v1/tags", tagRoutes)
-  .route("/api/v1/habits", habitRoutes)
-  .route("/api/v1", subtaskRoutes)
-  .route("/api/v1", noteRoutes)
-  .route("/api/v1/sections", sectionRoutes)
-  .route("/api/v1/settings/background", backgroundRoutes)
-  .route("/api/v1/settings", settingsRoutes)
-  .route("/api/v1/events", eventRoutes)
-  .route("/api/v1/push", pushRoutes)
-  .route("/api/v1/proxy", proxyRoutes)
-  .route("/api/v1/debug", debugRoutes)
-  .route("/api/v1/ai/images", aiImageRoutes)
-  .route("/api/v1/ai/memory", memoryRoutes)
-  .route("/api/v1/ai/decisions", decisionRoutes)
-  .route("/api/v1/ai", aiRoutes)
-  .route("/api/v1/connections", connectionRoutes)
-  .route("/api/v1/account", accountRoutes)
-  .route("/api/v1/me", meRoutes);
+    .route("/api/v1/tasks", taskRoutes)
+    .route("/api/v1/projects", projectRoutes)
+    .route("/api/v1/inbox", inboxRoutes)
+    .route("/api/v1/search", searchRoutes)
+    .route("/api/v1/tags", tagRoutes)
+    .route("/api/v1/habits", habitRoutes)
+    .route("/api/v1", subtaskRoutes)
+    .route("/api/v1", noteRoutes)
+    .route("/api/v1/sections", sectionRoutes)
+    .route("/api/v1/settings/background", backgroundRoutes)
+    .route("/api/v1/settings", settingsRoutes)
+    .route("/api/v1/events", eventRoutes)
+    .route("/api/v1/push", pushRoutes)
+    .route("/api/v1/proxy", proxyRoutes)
+    .route("/api/v1/debug", debugRoutes)
+    .route("/api/v1/ai/images", aiImageRoutes)
+    .route("/api/v1/ai/memory", memoryRoutes)
+    .route("/api/v1/ai/decisions", decisionRoutes)
+    .route("/api/v1/ai", aiRoutes)
+    .route("/api/v1/connections", connectionRoutes)
+    .route("/api/v1/account", accountRoutes)
+    .route("/api/v1/me", meRoutes);
 
 // ── Type export for Hono RPC ──
 export type AppType = typeof apiApp;
@@ -211,32 +211,35 @@ import { handleMemoryBatch } from "./domains/ai/memory/memory-job";
 export { ReminderClock } from "./domains/push/reminder-clock";
 
 export default {
-  // The MCP origin (outside assistants: OAuth + /mcp) is its own protocol boundary:
-  // no app JWT, CORS or `{ data }` envelope. It shares the per-IP flood limit, and
-  // the unauthenticated doors that store state get a tighter one.
-  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
-    const url = new URL(request.url);
-    // Clients that show a connector by its domain's favicon get Cadence's.
-    if (url.pathname === "/favicon.ico" && url.origin === mcpOrigin(env)) return Response.redirect(`${appOrigin(env)}/favicon.ico`, 301);
-    if (!isMcpRequest(request, env)) return url.pathname === LIVE_PATH ? connectLive(request, env) : app.fetch(request, env, ctx);
-    const ip = request.headers.get("cf-connecting-ip") || "unknown";
-    // Registration (anyone, and each one writes KV) and /authorize get the tight door, per IP.
-    // ponytail: per-IP only; key registration by client name too if one assistant's egress IP ever hits 30/min.
-    const doorLimiter = url.pathname === "/oauth/register" || url.pathname === "/authorize" ? env.RATE_LIMITER_ADMIN : undefined;
-    const limits = [env.RATE_LIMITER?.limit({ key: ip }), doorLimiter?.limit({ key: `${url.pathname}:${ip}` })];
-    if ((await Promise.all(limits)).some((result) => result && !result.success)) {
-      return new Response("Too many requests", { status: 429, headers: { "Retry-After": "60" } });
-    }
-    if (!env.OAUTH_KV) return new Response("Connecting assistants isn't available right now.", { status: 503 });
-    return mcpProvider(env).fetch(request, env, ctx);
-  },
-  // One hourly trigger. Reminders fire from each person's ReminderClock and memory's work arrives as delayed queue
-  // messages, so nothing wakes Postgres on a timer (a failing clock retries no sooner than every 5 minutes).
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(runHourlyCron(env));
-  },
-  // Memory's per-person work (domains/ai/memory/queue.ts). The dead-letter queue has no consumer: read it in the dashboard.
-  async queue(batch: MessageBatch<unknown>, env: Env) {
-    await handleMemoryBatch(batch, env);
-  },
+    // The MCP origin (outside assistants: OAuth + /mcp) is its own protocol boundary:
+    // no app JWT, CORS or `{ data }` envelope. It shares the per-IP flood limit, and
+    // the unauthenticated doors that store state get a tighter one.
+    async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+        const url = new URL(request.url);
+        // Clients that show a connector by its domain's favicon get Cadence's.
+        if (url.pathname === "/favicon.ico" && url.origin === mcpOrigin(env))
+            return Response.redirect(`${appOrigin(env)}/favicon.ico`, 301);
+        if (!isMcpRequest(request, env))
+            return url.pathname === LIVE_PATH ? connectLive(request, env) : app.fetch(request, env, ctx);
+        const ip = request.headers.get("cf-connecting-ip") || "unknown";
+        // Registration (anyone, and each one writes KV) and /authorize get the tight door, per IP.
+        // ponytail: per-IP only; key registration by client name too if one assistant's egress IP ever hits 30/min.
+        const doorLimiter =
+            url.pathname === "/oauth/register" || url.pathname === "/authorize" ? env.RATE_LIMITER_ADMIN : undefined;
+        const limits = [env.RATE_LIMITER?.limit({ key: ip }), doorLimiter?.limit({ key: `${url.pathname}:${ip}` })];
+        if ((await Promise.all(limits)).some((result) => result && !result.success)) {
+            return new Response("Too many requests", { status: 429, headers: { "Retry-After": "60" } });
+        }
+        if (!env.OAUTH_KV) return new Response("Connecting assistants isn't available right now.", { status: 503 });
+        return mcpProvider(env).fetch(request, env, ctx);
+    },
+    // One hourly trigger. Reminders fire from each person's ReminderClock and memory's work arrives as delayed queue
+    // messages, so nothing wakes Postgres on a timer (a failing clock retries no sooner than every 5 minutes).
+    async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+        ctx.waitUntil(runHourlyCron(env));
+    },
+    // Memory's per-person work (domains/ai/memory/queue.ts). The dead-letter queue has no consumer: read it in the dashboard.
+    async queue(batch: MessageBatch<unknown>, env: Env) {
+        await handleMemoryBatch(batch, env);
+    },
 };

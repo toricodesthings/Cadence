@@ -59,16 +59,20 @@ export function useSignOut() {
                 <AlertDialog.Header>
                     <AlertDialog.Title>Sign out with unsynced changes?</AlertDialog.Title>
                     <AlertDialog.Description>
-                        {total === 1 ? "1 change hasn't" : `${total} changes haven't`} synced yet. Signing out
-                        now deletes {total === 1 ? "it" : "them"} from this device.
+                        {total === 1 ? "1 change hasn't" : `${total} changes haven't`} synced yet. Signing out now
+                        deletes {total === 1 ? "it" : "them"} from this device.
                     </AlertDialog.Description>
                 </AlertDialog.Header>
                 <AlertDialog.Footer>
                     <AlertDialog.Cancel asChild>
-                        <Button variant="ghost" size="md">Stay signed in</Button>
+                        <Button variant="ghost" size="md">
+                            Stay signed in
+                        </Button>
                     </AlertDialog.Cancel>
                     <AlertDialog.Action asChild>
-                        <Button variant="danger" size="md" onClick={() => void finish(true)}>Sign out anyway</Button>
+                        <Button variant="danger" size="md" onClick={() => void finish(true)}>
+                            Sign out anyway
+                        </Button>
                     </AlertDialog.Action>
                 </AlertDialog.Footer>
             </AlertDialog.Content>

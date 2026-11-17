@@ -105,23 +105,27 @@ export function warmPlatformRuntime(): void {
 
 /** One runtime method, callable before the adapter has loaded. */
 const call = <K extends keyof PlatformRuntime>(key: K) =>
-    (async (...args: unknown[]) => ((await loadPlatformRuntime())[key] as (...a: unknown[]) => unknown)(...args)) as PlatformRuntime[K];
+    (async (...args: unknown[]) =>
+        ((await loadPlatformRuntime())[key] as (...a: unknown[]) => unknown)(...args)) as PlatformRuntime[K];
 
 export const getNotificationPermission = call("getNotificationPermission");
 export const requestNotificationPermission = call("requestNotificationPermission");
 export const sendPlatformNotification = call("sendNotification");
 
 export function getAuthCallbackUrl(redirectTo?: string): string {
-    const target = normalizeRedirectTo(redirectTo ?? (typeof window === "undefined" ? "/" : `${window.location.pathname}${window.location.search}`));
+    const target = normalizeRedirectTo(
+        redirectTo ?? (typeof window === "undefined" ? "/" : `${window.location.pathname}${window.location.search}`),
+    );
 
     if (RUNTIME_TARGET === "desktop") {
         const params = new URLSearchParams({ redirectTo: target });
         return `cadence://auth/callback?${params.toString()}`;
     }
 
-    const base = typeof window === "undefined"
-        ? new URL("http://localhost/auth/callback")
-        : new URL("/auth/callback", window.location.origin);
+    const base =
+        typeof window === "undefined"
+            ? new URL("http://localhost/auth/callback")
+            : new URL("/auth/callback", window.location.origin);
 
     base.searchParams.set("redirectTo", target);
     return base.toString();

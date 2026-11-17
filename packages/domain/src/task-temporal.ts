@@ -1,5 +1,16 @@
 import { DomainError } from "./errors";
-import { addDays, atLocal, dayOf, daysBetween, isLocalDate, isZone, wallTimeOf, type Instant, type LocalDate, type Zone } from "./time";
+import {
+    addDays,
+    atLocal,
+    dayOf,
+    daysBetween,
+    isLocalDate,
+    isZone,
+    wallTimeOf,
+    type Instant,
+    type LocalDate,
+    type Zone,
+} from "./time";
 
 /** What a task write may carry. All-day is simply "no start". */
 export interface TaskTemporalFields {
@@ -22,7 +33,9 @@ export interface TaskTemporal {
 export type TaskReadShape = "unscheduled" | "day" | "days" | "timed";
 
 /** unscheduled · day (all-day, with or without a deadline) · days (all-day multi-day) · timed. */
-export function classifyTaskReadShape(fields: Pick<TaskTemporal, "dueDate" | "endDate" | "scheduledStart">): TaskReadShape {
+export function classifyTaskReadShape(
+    fields: Pick<TaskTemporal, "dueDate" | "endDate" | "scheduledStart">,
+): TaskReadShape {
     if (fields.scheduledStart) return "timed";
     if (fields.dueDate && fields.endDate) return "days";
     return fields.dueDate ? "day" : "unscheduled";
@@ -45,11 +58,16 @@ function assertDay(value: string | null | undefined, field: string): LocalDate |
 }
 
 /** A timed block's stored shape: valid instants (end not before start), no endDate, and a real zone. */
-function timedTemporal(start: string, end: string | null, { dueDate, endDate, zone }: { dueDate: LocalDate | null; endDate: LocalDate | null; zone: string }): TaskTemporal {
+function timedTemporal(
+    start: string,
+    end: string | null,
+    { dueDate, endDate, zone }: { dueDate: LocalDate | null; endDate: LocalDate | null; zone: string },
+): TaskTemporal {
     assertInstant(start, "scheduledStart");
     if (end) {
         assertInstant(end, "scheduledEnd");
-        if (Date.parse(end) < Date.parse(start)) throw new DomainError("INVALID_TASK_SCHEDULE", "scheduledEnd must not be earlier than scheduledStart");
+        if (Date.parse(end) < Date.parse(start))
+            throw new DomainError("INVALID_TASK_SCHEDULE", "scheduledEnd must not be earlier than scheduledStart");
     }
     if (endDate) throw new DomainError("INVALID_TASK_SCHEDULE", "A timed task has no endDate; use scheduledEnd");
     if (!isZone(zone)) throw new DomainError("INVALID_TASK_SCHEDULE", "zone must be an IANA time zone");
@@ -73,7 +91,8 @@ export function normalizeTaskTemporalFields(fields: TaskTemporalFields, zone: Zo
         if (endDate) throw new DomainError("INVALID_TASK_SCHEDULE", "All-day tasks require a dueDate");
         return { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null };
     }
-    if (endDate && endDate < dueDate) throw new DomainError("INVALID_TASK_SCHEDULE", "endDate must not be earlier than dueDate");
+    if (endDate && endDate < dueDate)
+        throw new DomainError("INVALID_TASK_SCHEDULE", "endDate must not be earlier than dueDate");
     return { dueDate, endDate, scheduledStart: null, scheduledEnd: null, zone: null };
 }
 
@@ -91,12 +110,20 @@ export function rescheduleToDay(row: TaskTemporal, newDay: LocalDate, zone: Zone
             dueDate: row.dueDate,
             endDate: null,
             scheduledStart: atLocal(newDay, wallTimeOf(row.scheduledStart, zone), zone),
-            scheduledEnd: row.scheduledEnd ? atLocal(addDays(dayOf(row.scheduledEnd, zone), shift), wallTimeOf(row.scheduledEnd, zone), zone) : null,
+            scheduledEnd: row.scheduledEnd
+                ? atLocal(addDays(dayOf(row.scheduledEnd, zone), shift), wallTimeOf(row.scheduledEnd, zone), zone)
+                : null,
             zone,
         };
     }
     const shift = row.dueDate ? daysBetween(row.dueDate, newDay) : 0;
-    return { dueDate: newDay, endDate: row.endDate ? addDays(row.endDate, shift) : null, scheduledStart: null, scheduledEnd: null, zone: null };
+    return {
+        dueDate: newDay,
+        endDate: row.endDate ? addDays(row.endDate, shift) : null,
+        scheduledStart: null,
+        scheduledEnd: null,
+        zone: null,
+    };
 }
 
 /** "Hide until" is a day. */

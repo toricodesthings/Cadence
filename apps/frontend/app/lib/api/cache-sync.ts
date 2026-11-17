@@ -47,7 +47,9 @@ export function reconcileTaskInCaches(queryClient: QueryClient, task: Task, repl
         .getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all })
         .filter(([key]) => typeof key[1] === "object");
     // Write responses are bare rows: keep what only list reads carry (tagIds).
-    const cached = taskLists.flatMap(([, list]) => (Array.isArray(list) ? list : [])).find((entry) => entry.id === task.id || entry.id === replaceId);
+    const cached = taskLists
+        .flatMap(([, list]) => (Array.isArray(list) ? list : []))
+        .find((entry) => entry.id === task.id || entry.id === replaceId);
     if (cached) task = { ...cached, ...task, tagIds: task.tagIds ?? cached.tagIds };
     queryClient.setQueryData(queryKeys.tasks.detail(task.id), task);
     taskLists.forEach(([key, old]) => {
@@ -57,9 +59,9 @@ export function reconcileTaskInCaches(queryClient: QueryClient, task: Task, repl
             : [];
         const next = matchesTaskList(task, filters)
             ? [...withoutOld, task].sort((a, b) => {
-                if (a.isPinned !== b.isPinned) return Number(b.isPinned) - Number(a.isPinned);
-                return a.orderIndex - b.orderIndex;
-            })
+                  if (a.isPinned !== b.isPinned) return Number(b.isPinned) - Number(a.isPinned);
+                  return a.orderIndex - b.orderIndex;
+              })
             : withoutOld;
         queryClient.setQueryData(key, next);
     });
@@ -107,7 +109,10 @@ export function reconcileHabitInCaches(queryClient: QueryClient, habit: Habit, r
             return;
         }
 
-        queryClient.setQueryData(key, old.filter((entry) => entry.id !== habit.id && entry.id !== replaceId));
+        queryClient.setQueryData(
+            key,
+            old.filter((entry) => entry.id !== habit.id && entry.id !== replaceId),
+        );
     });
 }
 
@@ -123,14 +128,12 @@ export function removeHabitFromCaches(queryClient: QueryClient, habitId: string)
 
 export function reconcileProjectInCaches(queryClient: QueryClient, project: Project, replaceId?: string) {
     queryClient.setQueryData(queryKeys.projects.detail(project.id), project);
-    queryClient.setQueriesData<Project[]>(
-        { queryKey: queryKeys.projects.all },
-        (old) =>
-            transformListCache(
-                old,
-                (items) => [...items.filter((entry) => entry.id !== project.id && entry.id !== replaceId), project],
-                { initialize: true },
-            ),
+    queryClient.setQueriesData<Project[]>({ queryKey: queryKeys.projects.all }, (old) =>
+        transformListCache(
+            old,
+            (items) => [...items.filter((entry) => entry.id !== project.id && entry.id !== replaceId), project],
+            { initialize: true },
+        ),
     );
 }
 
@@ -142,14 +145,12 @@ export function removeProjectFromCaches(queryClient: QueryClient, projectId: str
 }
 
 export function reconcileTagInCaches(queryClient: QueryClient, tag: Tag, replaceId?: string) {
-    queryClient.setQueriesData<Tag[]>(
-        { queryKey: queryKeys.tags.all },
-        (old) =>
-            transformListCache(
-                old,
-                (items) => [...items.filter((entry) => entry.id !== tag.id && entry.id !== replaceId), tag],
-                { initialize: true },
-            ),
+    queryClient.setQueriesData<Tag[]>({ queryKey: queryKeys.tags.all }, (old) =>
+        transformListCache(
+            old,
+            (items) => [...items.filter((entry) => entry.id !== tag.id && entry.id !== replaceId), tag],
+            { initialize: true },
+        ),
     );
 }
 
@@ -160,14 +161,12 @@ export function removeTagFromCaches(queryClient: QueryClient, tagId: string) {
 }
 
 export function reconcileInboxItemInCaches(queryClient: QueryClient, item: InboxItem, replaceId?: string) {
-    queryClient.setQueriesData<InboxItem[]>(
-        { queryKey: queryKeys.inbox.all },
-        (old) =>
-            transformListCache(
-                old,
-                (items) => [item, ...items.filter((entry) => entry.id !== item.id && entry.id !== replaceId)],
-                { initialize: true },
-            ),
+    queryClient.setQueriesData<InboxItem[]>({ queryKey: queryKeys.inbox.all }, (old) =>
+        transformListCache(
+            old,
+            (items) => [item, ...items.filter((entry) => entry.id !== item.id && entry.id !== replaceId)],
+            { initialize: true },
+        ),
     );
 }
 

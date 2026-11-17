@@ -30,10 +30,8 @@ function assessWindow(window: AiUsageWindow): WindowStatus {
     const remainingTokens = Math.max(0, window.tokens.limit - window.tokens.used);
     const lowRequests =
         window.requests.limit > 0 &&
-        (remainingRequests <= LOW_REQUEST_FLOOR ||
-            remainingRequests / window.requests.limit <= LOW_REQUEST_FRACTION);
-    const lowTokens =
-        window.tokens.limit > 0 && remainingTokens / window.tokens.limit <= LOW_TOKEN_FRACTION;
+        (remainingRequests <= LOW_REQUEST_FLOOR || remainingRequests / window.requests.limit <= LOW_REQUEST_FRACTION);
+    const lowTokens = window.tokens.limit > 0 && remainingTokens / window.tokens.limit <= LOW_TOKEN_FRACTION;
     return {
         remainingRequests,
         lowRequests,
@@ -158,7 +156,8 @@ export function describeImageAllowance(usage: AiUsage | undefined, nowMs: number
     const reset = formatReset(images.resetEpoch, nowMs);
     const suffix = reset ? ` · resets ${reset}` : "";
     if (left === 0) return { left, blocked: true, label: `Image limit reached${suffix}` };
-    if (left <= LOW_IMAGES) return { left, blocked: false, label: `${left} image${left === 1 ? "" : "s"} left${suffix}` };
+    if (left <= LOW_IMAGES)
+        return { left, blocked: false, label: `${left} image${left === 1 ? "" : "s"} left${suffix}` };
     return { left, blocked: false, label: "Attach an image" };
 }
 

@@ -44,13 +44,20 @@ function EditorModal({
     const [open, setOpen] = useState(false);
     const [val, setVal] = useState(initialValue);
     const [loading, startSave] = useTransition();
-    const save = (run: () => Promise<void>) => startSave(async () => {
-        await run();
-        setOpen(false);
-    });
+    const save = (run: () => Promise<void>) =>
+        startSave(async () => {
+            await run();
+            setOpen(false);
+        });
 
     return (
-        <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (isOpen) setVal(initialValue); }}>
+        <Dialog.Dialog
+            open={open}
+            onOpenChange={(isOpen) => {
+                setOpen(isOpen);
+                if (isOpen) setVal(initialValue);
+            }}
+        >
             <Dialog.DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="min-h-11 min-w-11 opacity-100 transition-opacity">
                     {triggerText}
@@ -63,12 +70,23 @@ function EditorModal({
                 <div className="py-4 flex flex-col gap-3">{field(val, setVal)}</div>
                 <Dialog.DialogFooter>
                     {onClear && (
-                        <Button variant="ghost" className="text-red-400 hover:text-red-300 mr-auto" onClick={() => save(onClear)} disabled={loading}>
+                        <Button
+                            variant="ghost"
+                            className="text-red-400 hover:text-red-300 mr-auto"
+                            onClick={() => save(onClear)}
+                            disabled={loading}
+                        >
                             Clear
                         </Button>
                     )}
-                    <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
-                    <Button variant="primary" onClick={() => save(() => onSave(val))} disabled={loading || val === initialValue}>
+                    <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="primary"
+                        onClick={() => save(() => onSave(val))}
+                        disabled={loading || val === initialValue}
+                    >
                         {loading ? "Saving..." : saveLabel}
                     </Button>
                 </Dialog.DialogFooter>
@@ -99,7 +117,7 @@ function OAuthConnectionsBlock() {
     };
 
     const ProviderLogo = ({ provider }: { provider: string }) => {
-        if (provider === 'google') {
+        if (provider === "google") {
             return (
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path
@@ -121,7 +139,7 @@ function OAuthConnectionsBlock() {
                 </svg>
             );
         }
-        if (provider === 'github') {
+        if (provider === "github") {
             return (
                 <svg className="w-5 h-5 fill-white" viewBox="0 0 24 24">
                     <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
@@ -144,7 +162,10 @@ function OAuthConnectionsBlock() {
             ) : accounts && accounts.length > 0 ? (
                 <div className="flex flex-col gap-1">
                     {accounts.map((acc) => (
-                        <div key={acc.id} className="flex justify-between items-center gap-3 group/acc [&>div:first-child]:min-w-0 [&>div:first-child]:break-words px-3 py-3 rounded-xl hover:bg-white/[0.03] transition-all border border-transparent hover:border-twilight-border">
+                        <div
+                            key={acc.id}
+                            className="flex justify-between items-center gap-3 group/acc [&>div:first-child]:min-w-0 [&>div:first-child]:break-words px-3 py-3 rounded-xl hover:bg-white/[0.03] transition-all border border-transparent hover:border-twilight-border"
+                        >
                             <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center border border-twilight-border group-hover/acc:bg-white/[0.06] transition-colors">
                                     <ProviderLogo provider={acc.providerId} />
@@ -152,7 +173,9 @@ function OAuthConnectionsBlock() {
                                 <div className="flex flex-col">
                                     <span className="text-sm text-warm-white font-semibold capitalize tracking-tight flex items-center gap-2">
                                         {acc.providerId}
-                                        <span className="text-[10px] bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded-full border border-green-500/20 font-bold uppercase tracking-widest">Linked</span>
+                                        <span className="text-[10px] bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded-full border border-green-500/20 font-bold uppercase tracking-widest">
+                                            Linked
+                                        </span>
                                     </span>
                                     <span className="text-xs text-warm-white/30 font-mono mt-0.5">
                                         {obfuscateId(acc.accountId || "")}
@@ -163,11 +186,13 @@ function OAuthConnectionsBlock() {
                                 variant="ghost"
                                 size="sm"
                                 className="text-red-400/60 hover:text-red-400 hover:bg-red-400/10 h-8 font-medium"
-                                onClick={() => startAction(async () => {
-                                    const error = await authError(authClient.unlinkAccount({ accountId: acc.id }));
-                                    if (error) toast.error(error.message || "Failed to unlink account");
-                                    else void queryClient.invalidateQueries({ queryKey: queryKeys.auth.accounts });
-                                })}
+                                onClick={() =>
+                                    startAction(async () => {
+                                        const error = await authError(authClient.unlinkAccount({ accountId: acc.id }));
+                                        if (error) toast.error(error.message || "Failed to unlink account");
+                                        else void queryClient.invalidateQueries({ queryKey: queryKeys.auth.accounts });
+                                    })
+                                }
                                 disabled={loading}
                             >
                                 Disconnect
@@ -176,7 +201,12 @@ function OAuthConnectionsBlock() {
                     ))}
                 </div>
             ) : (
-                <EmptyState icon={Link2} title="No accounts linked." description="Use the options below to link one." compact />
+                <EmptyState
+                    icon={Link2}
+                    title="No accounts linked."
+                    description="Use the options below to link one."
+                    compact
+                />
             )}
 
             <div className="pt-4 border-t border-twilight-border flex flex-wrap gap-2">
@@ -184,7 +214,7 @@ function OAuthConnectionsBlock() {
                     variant="secondary"
                     size="sm"
                     className="h-9 px-4 gap-2 font-medium"
-                    disabled={loading || accounts?.some((a) => a.providerId === 'google')}
+                    disabled={loading || accounts?.some((a) => a.providerId === "google")}
                     onClick={async () => {
                         await beginSocialLink("google", getAuthCallbackUrl(window.location.pathname));
                     }}
@@ -196,7 +226,7 @@ function OAuthConnectionsBlock() {
                     variant="secondary"
                     size="sm"
                     className="h-9 px-4 gap-2 font-medium"
-                    disabled={loading || accounts?.some((a) => a.providerId === 'github')}
+                    disabled={loading || accounts?.some((a) => a.providerId === "github")}
                     onClick={async () => {
                         await beginSocialLink("github", getAuthCallbackUrl(window.location.pathname));
                     }}
@@ -223,7 +253,11 @@ function SessionsBlock() {
     const signedInAt = new Date(String(currentSession?.session.createdAt ?? "")).getTime();
     const canList = !(Date.now() - signedInAt >= SESSION_LIST_FRESH_MS);
     // Session rows carry tokens: memory only, never the persisted cache.
-    const { data: sessions, isPending: queryPending, isError: loadError } = useQuery({
+    const {
+        data: sessions,
+        isPending: queryPending,
+        isError: loadError,
+    } = useQuery({
         queryKey: queryKeys.auth.sessions,
         queryFn: async () => {
             const res = await authClient.listSessions();
@@ -237,14 +271,15 @@ function SessionsBlock() {
     const setSessions = (next: (current: AuthSession[]) => AuthSession[]) =>
         queryClient.setQueryData<AuthSession[]>(queryKeys.auth.sessions, (current) => current && next(current));
 
-    const revokeOthers = () => startAction(async () => {
-        const error = await authError(authClient.revokeOtherSessions());
-        if (error) toast.error("Couldn't sign out your other devices");
-        else {
-            toast.success("Signed out of every other device");
-            setSessions((current) => current.filter((s) => s.id === currentSession?.session.id));
-        }
-    });
+    const revokeOthers = () =>
+        startAction(async () => {
+            const error = await authError(authClient.revokeOtherSessions());
+            if (error) toast.error("Couldn't sign out your other devices");
+            else {
+                toast.success("Signed out of every other device");
+                setSessions((current) => current.filter((s) => s.id === currentSession?.session.id));
+            }
+        });
 
     return (
         <div className="flex flex-col gap-3">
@@ -256,7 +291,8 @@ function SessionsBlock() {
                     <p className="text-sm text-warm-white/50">Loading sessions...</p>
                 ) : !canList ? (
                     <p className="text-sm text-warm-white/50">
-                        For your security, other devices are listed only for a day after you sign in. Sign in again to see them one by one, or sign them all out below.
+                        For your security, other devices are listed only for a day after you sign in. Sign in again to
+                        see them one by one, or sign them all out below.
                     </p>
                 ) : loadError ? (
                     <p className="text-sm text-warm-white/50">Couldn't load your devices. Try again in a moment.</p>
@@ -264,14 +300,24 @@ function SessionsBlock() {
                     sessions.map((sess) => {
                         const isCurrent = sess.id === currentSession?.session.id;
                         return (
-                            <div key={sess.id} className={`flex justify-between items-center gap-3 group/session [&>div:first-child]:min-w-0 [&>div:first-child]:break-words ${isCurrent ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-twilight-border'} border rounded-lg p-3 transition-colors`}>
+                            <div
+                                key={sess.id}
+                                className={`flex justify-between items-center gap-3 group/session [&>div:first-child]:min-w-0 [&>div:first-child]:break-words ${isCurrent ? "bg-amber-500/10 border-amber-500/20" : "bg-white/5 border-twilight-border"} border rounded-lg p-3 transition-colors`}
+                            >
                                 <div className="flex flex-col gap-0.5">
                                     <span className="text-sm text-warm-white font-medium flex items-center gap-2">
                                         {isCurrent ? "Current Device" : "Other Device"}
-                                        {isCurrent && <span className="text-[10px] bg-amber-500/20 text-amber-200 px-1.5 rounded uppercase font-bold tracking-wider">Active</span>}
+                                        {isCurrent && (
+                                            <span className="text-[10px] bg-amber-500/20 text-amber-200 px-1.5 rounded uppercase font-bold tracking-wider">
+                                                Active
+                                            </span>
+                                        )}
                                     </span>
-                                    <span className="text-[11px] text-warm-white/40 truncate max-w-[250px]" title={sess.userAgent || "Unknown Device"}>
-                                        {sess.userAgent?.split(' ')[0] || "Unknown Browser"} - {sess.ipAddress}
+                                    <span
+                                        className="text-[11px] text-warm-white/40 truncate max-w-[250px]"
+                                        title={sess.userAgent || "Unknown Device"}
+                                    >
+                                        {sess.userAgent?.split(" ")[0] || "Unknown Browser"} - {sess.ipAddress}
                                     </span>
                                     <span className="text-[10px] text-warm-white/30 italic">
                                         Active: {formatShortDateTime(new Date(sess.updatedAt).toISOString())}
@@ -282,11 +328,15 @@ function SessionsBlock() {
                                         variant="ghost"
                                         size="sm"
                                         className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                                        onClick={() => startAction(async () => {
-                                            const error = await authError(authClient.revokeSession({ token: sess.token }));
-                                            if (error) toast.error("Failed to log out device");
-                                            else setSessions((current) => current.filter((s) => s.id !== sess.id));
-                                        })}
+                                        onClick={() =>
+                                            startAction(async () => {
+                                                const error = await authError(
+                                                    authClient.revokeSession({ token: sess.token }),
+                                                );
+                                                if (error) toast.error("Failed to log out device");
+                                                else setSessions((current) => current.filter((s) => s.id !== sess.id));
+                                            })
+                                        }
                                         disabled={loading}
                                     >
                                         Log Out
@@ -318,7 +368,7 @@ function AvatarEditModal({ onProfileUpdated }: { onProfileUpdated: () => Promise
         if (!file) return;
 
         // Reset the input so they can select the same file again if they cancel
-        e.target.value = '';
+        e.target.value = "";
 
         if (file.size > 5 * 1024 * 1024) {
             toast.error("File is too large. Please select an image under 5MB.");
@@ -354,13 +404,22 @@ function AvatarEditModal({ onProfileUpdated }: { onProfileUpdated: () => Promise
             <label className="absolute inset-0 rounded-full bg-black/60 opacity-0 transition-opacity flex flex-col items-center justify-center cursor-pointer group-hover/avatar:opacity-100 focus-within:opacity-100 focus-within:ring-2 focus-within:ring-inset focus-within:ring-accent-primary">
                 <Camera size={22} aria-hidden="true" />
                 <span className="text-[10px] font-semibold text-white uppercase tracking-wider mt-1">Change</span>
-                <input type="file" aria-label="Change profile picture" accept="image/jpeg,image/png,image/webp" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={handleFileUpload} />
+                <input
+                    type="file"
+                    aria-label="Change profile picture"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    onChange={handleFileUpload}
+                />
             </label>
 
-            <Dialog.Dialog open={open} onOpenChange={(isOpen) => {
-                setOpen(isOpen);
-                if (!isOpen) setPreviewImage("");
-            }}>
+            <Dialog.Dialog
+                open={open}
+                onOpenChange={(isOpen) => {
+                    setOpen(isOpen);
+                    if (!isOpen) setPreviewImage("");
+                }}
+            >
                 <Dialog.DialogContent className="sm:max-w-sm">
                     <Dialog.DialogHeader>
                         <Dialog.DialogTitle>Preview Profile Picture</Dialog.DialogTitle>
@@ -383,12 +442,17 @@ function AvatarEditModal({ onProfileUpdated }: { onProfileUpdated: () => Promise
                         </p>
                     </div>
                     <Dialog.DialogFooter>
-                        <Button variant="ghost" onClick={() => { setOpen(false); setPreviewImage(""); }} disabled={loading}>Cancel</Button>
                         <Button
-                            variant="primary"
-                            onClick={handleSave}
-                            disabled={loading || !previewImage}
+                            variant="ghost"
+                            onClick={() => {
+                                setOpen(false);
+                                setPreviewImage("");
+                            }}
+                            disabled={loading}
                         >
+                            Cancel
+                        </Button>
+                        <Button variant="primary" onClick={handleSave} disabled={loading || !previewImage}>
                             {loading ? "Saving..." : "Save Image"}
                         </Button>
                     </Dialog.DialogFooter>
@@ -405,12 +469,14 @@ export function AccountTab() {
 
     const { data: accounts, isError: accountsError } = useLinkedAccounts();
     const hasPassword = accounts?.some((a) => a.providerId === "credential") ?? false;
-    const providers = accounts?.filter((a) => a.providerId !== "credential").map((a) => a.providerId.charAt(0).toUpperCase() + a.providerId.slice(1));
+    const providers = accounts
+        ?.filter((a) => a.providerId !== "credential")
+        .map((a) => a.providerId.charAt(0).toUpperCase() + a.providerId.slice(1));
     const passwordDescription = accountsError
         ? "Couldn't load your sign-in methods. Try again in a moment."
         : !accounts
-        ? "Loading..."
-        : hasPassword
+          ? "Loading..."
+          : hasPassword
             ? "Use it with your email to sign in. Changing it signs out your other devices."
             : `You sign in with ${providers?.join(" or ") || "a linked account"}. Add a password to also sign in with your email.`;
 
@@ -446,9 +512,20 @@ export function AccountTab() {
                         <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-[var(--color-moonlit)] opacity-[0.12] rounded-full blur-[80px] pointer-events-none" />
 
                         {/* Abstract Topological SVG Waves */}
-                        <svg className="absolute inset-0 w-full h-full opacity-30 mix-blend-overlay pointer-events-none" preserveAspectRatio="none" viewBox="0 0 1000 200" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M-100,100 C200,50 400,150 700,80 C900,30 1100,120 1200,60 L1200,200 L-100,200 Z" fill="url(#moonlitGlow)" />
-                            <path d="M-50,250 C150,150 500,250 800,100 C1000,0 1150,150 1250,50 L1250,-50 L-50,-50 Z" fill="url(#amberGlow)" />
+                        <svg
+                            className="absolute inset-0 w-full h-full opacity-30 mix-blend-overlay pointer-events-none"
+                            preserveAspectRatio="none"
+                            viewBox="0 0 1000 200"
+                            xmlns="http://www.w3.org/2000/svg"
+                        >
+                            <path
+                                d="M-100,100 C200,50 400,150 700,80 C900,30 1100,120 1200,60 L1200,200 L-100,200 Z"
+                                fill="url(#moonlitGlow)"
+                            />
+                            <path
+                                d="M-50,250 C150,150 500,250 800,100 C1000,0 1150,150 1250,50 L1250,-50 L-50,-50 Z"
+                                fill="url(#amberGlow)"
+                            />
 
                             <defs>
                                 <linearGradient id="moonlitGlow" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -463,10 +540,20 @@ export function AccountTab() {
                         </svg>
 
                         {/* Star / Lantern Sparks Geometry */}
-                        <svg className="absolute right-[15%] top-6 w-12 h-12 opacity-40 text-[var(--accent-primary)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <svg
+                            className="absolute right-[15%] top-6 w-12 h-12 opacity-40 text-[var(--accent-primary)]"
+                            viewBox="0 0 100 100"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                        >
                             <path d="M50 0 L55 45 L100 50 L55 55 L50 100 L45 55 L0 50 L45 45 Z" fill="currentColor" />
                         </svg>
-                        <svg className="absolute left-[30%] top-10 w-6 h-6 opacity-30 text-[var(--color-moonlit)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <svg
+                            className="absolute left-[30%] top-10 w-6 h-6 opacity-30 text-[var(--color-moonlit)]"
+                            viewBox="0 0 100 100"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                        >
                             <path d="M50 0 L53 47 L100 50 L53 53 L50 100 L47 53 L0 50 L47 47 Z" fill="currentColor" />
                         </svg>
                     </div>
@@ -474,27 +561,35 @@ export function AccountTab() {
                     <div className="absolute -bottom-10 left-6 group/avatar z-10">
                         <div className="w-20 h-20 bg-twilight-base rounded-full border-4 border-twilight-surface flex items-center justify-center overflow-hidden relative">
                             {user?.image ? (
-                                <img src={user.image} alt={user.name || "User"} className="w-full h-full object-cover" />
+                                <img
+                                    src={user.image}
+                                    alt={user.name || "User"}
+                                    className="w-full h-full object-cover"
+                                />
                             ) : (
                                 <UserRound size={32} className="text-twilight-text-muted" aria-hidden="true" />
                             )}
-                                <AvatarEditModal onProfileUpdated={refetchSession} />
+                            <AvatarEditModal onProfileUpdated={refetchSession} />
                         </div>
                     </div>
                 </div>
                 <div className="pt-14 pb-6 px-6 relative">
                     <div className="flex flex-col gap-1">
                         <h3 className="text-xl font-bold text-warm-white flex flex-wrap items-center gap-2 break-words">
-                            {!authReady ? "Loading..." : user ? (user.name || "Cadence User") : "Guest User"}
-                            {user?.id && <span className="text-warm-white/40 font-normal text-sm">#{user.id.slice(0, 4)}</span>}
+                            {!authReady ? "Loading..." : user ? user.name || "Cadence User" : "Guest User"}
+                            {user?.id && (
+                                <span className="text-warm-white/40 font-normal text-sm">#{user.id.slice(0, 4)}</span>
+                            )}
                         </h3>
                     </div>
 
                     <div className="mt-8 bg-black/20 rounded-xl p-4 flex flex-col gap-4 border border-twilight-border">
                         <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
                             <div>
-                                <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Display Name</p>
-                                <p className="text-sm text-warm-white">{!authReady ? "..." : (user?.name || "None")}</p>
+                                <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">
+                                    Display Name
+                                </p>
+                                <p className="text-sm text-warm-white">{!authReady ? "..." : user?.name || "None"}</p>
                             </div>
                             <EditorModal
                                 title="Edit Display Name"
@@ -506,7 +601,9 @@ export function AccountTab() {
                         </div>
                         <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
                             <div>
-                                <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Pronouns</p>
+                                <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">
+                                    Pronouns
+                                </p>
                                 <p className="text-sm text-warm-white">{profile.pronouns || "Not set"}</p>
                             </div>
                             <EditorModal
@@ -519,19 +616,27 @@ export function AccountTab() {
                         </div>
                         <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
                             <div>
-                                <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Email</p>
+                                <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">
+                                    Email
+                                </p>
                                 <p className="text-sm text-warm-white flex items-center gap-2">
-                                    {!authReady ? "..." : (user?.email || "No email provided")}
+                                    {!authReady ? "..." : user?.email || "No email provided"}
                                 </p>
                             </div>
                             {/* Neon Auth doesn't support email changes yet (changeEmail is disabled server-side). */}
                         </div>
                         <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
                             <div>
-                                <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Birthday</p>
+                                <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">
+                                    Birthday
+                                </p>
                                 <p className="text-sm text-warm-white">
                                     {birthday
-                                        ? formatInZone(birthday, getUserZone(), { month: "long", day: "numeric", year: "numeric" })
+                                        ? formatInZone(birthday, getUserZone(), {
+                                              month: "long",
+                                              day: "numeric",
+                                              year: "numeric",
+                                          })
                                         : "Not set"}
                                 </p>
                             </div>
@@ -543,8 +648,16 @@ export function AccountTab() {
                                 onClear={birthday ? () => Promise.resolve(setBirthday(null)) : undefined}
                                 field={(val, setVal) => (
                                     <>
-                                        <p className="text-sm text-warm-white/70">Your birthday will appear as an overlay on the Schedule calendar. You can clear it at any time.</p>
-                                        <DatePicker label="Birthday" yearNav value={val} onChange={(date) => date && setVal(date)} />
+                                        <p className="text-sm text-warm-white/70">
+                                            Your birthday will appear as an overlay on the Schedule calendar. You can
+                                            clear it at any time.
+                                        </p>
+                                        <DatePicker
+                                            label="Birthday"
+                                            yearNav
+                                            value={val}
+                                            onChange={(date) => date && setVal(date)}
+                                        />
                                     </>
                                 )}
                             />

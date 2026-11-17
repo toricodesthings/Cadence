@@ -17,10 +17,7 @@ import { ConsentCheck, LegalLinks } from "../components/shared/ConsentCheck";
 import { rememberSignUpTicks } from "../lib/legal-consent";
 import { CardPage } from "../components/shared/CardPage";
 import { log } from "../lib/log";
-import {
-    completeDesktopAuthHandoff,
-    DESKTOP_AUTH_STATE_PARAM,
-} from "../platform/desktop-auth-handoff";
+import { completeDesktopAuthHandoff, DESKTOP_AUTH_STATE_PARAM } from "../platform/desktop-auth-handoff";
 import {
     beginSocialSignIn,
     getAuthCallbackUrl,
@@ -28,7 +25,6 @@ import {
     mergedCallbackParams,
     normalizeRedirectTo,
 } from "../platform/runtime";
-
 
 function ProviderLogo({ provider }: { provider: "google" | "github" }) {
     if (provider === "google") {
@@ -70,7 +66,13 @@ function getErrorMessage(error: unknown, fallback: string) {
     return typeof message === "string" && message ? message : fallback;
 }
 
-function DesktopAuthCallbackScreen({ redirectTo, location }: { redirectTo: string; location: { search: string; hash: string } }) {
+function DesktopAuthCallbackScreen({
+    redirectTo,
+    location,
+}: {
+    redirectTo: string;
+    location: { search: string; hash: string };
+}) {
     const navigate = useNavigate();
     const { beginAuthRecovery } = useAuthState();
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -96,32 +98,40 @@ function DesktopAuthCallbackScreen({ redirectTo, location }: { redirectTo: strin
             }
             const payload = params.get(DESKTOP_OAUTH_PAYLOAD_PARAM);
             const stored = payload ? deserializeDesktopAuthPayload(payload) : null;
-            if (!stored || jwtExpiry(stored.jwt) <= Date.now()) throw new Error("This sign-in link is incomplete. Please sign in again.");
+            if (!stored || jwtExpiry(stored.jwt) <= Date.now())
+                throw new Error("This sign-in link is incomplete. Please sign in again.");
             await writeDesktopAuthSession(stored);
-        }).then(() => {
-            if (active) navigate(redirectTo, { replace: true });
-        }).catch(() => {
-            if (active) setErrorMessage("Cadence couldn't finish signing in. Please try again.");
-        });
-        return () => { active = false; };
+        })
+            .then(() => {
+                if (active) navigate(redirectTo, { replace: true });
+            })
+            .catch(() => {
+                if (active) setErrorMessage("Cadence couldn't finish signing in. Please try again.");
+            });
+        return () => {
+            active = false;
+        };
     }, [beginAuthRecovery, search, hash, navigate, redirectTo]);
 
     return (
         <CardPage
             title={errorMessage ? "Sign-in failed" : "Completing sign in"}
             description={errorMessage ?? "Cadence is restoring your session and returning you to the app."}
-            actions={errorMessage ? (
-                <Button variant="secondary" size="md" onClick={() => navigate("/auth/sign-in", { replace: true })}>
-                    Back to sign in
-                </Button>
-            ) : (
-                <LoaderCircle className="animate-spin text-twilight-text-soft" aria-label="Restoring session" />
-            )}
+            actions={
+                errorMessage ? (
+                    <Button variant="secondary" size="md" onClick={() => navigate("/auth/sign-in", { replace: true })}>
+                        Back to sign in
+                    </Button>
+                ) : (
+                    <LoaderCircle className="animate-spin text-twilight-text-soft" aria-label="Restoring session" />
+                )
+            }
         />
     );
 }
 
-const FIELD_INPUT = "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 text-twilight-text";
+const FIELD_INPUT =
+    "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 text-twilight-text";
 
 type AuthFieldProps = React.ComponentProps<typeof Input> & { id: string; label: string };
 
@@ -136,17 +146,30 @@ function AuthField({ id, label, ...input }: AuthFieldProps) {
     );
 }
 
-const SOCIAL_BUTTON = "flex h-14 w-full items-center justify-center rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 text-twilight-text transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-60";
+const SOCIAL_BUTTON =
+    "flex h-14 w-full items-center justify-center rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 text-twilight-text transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-60";
 
 type SocialButtonsProps = { disabled: boolean; onChoose: (provider: "google" | "github") => void };
 
 function SocialButtons({ disabled, onChoose }: SocialButtonsProps) {
     return (
         <div className="grid grid-cols-2 gap-4">
-            <button type="button" aria-label="Continue with Google" disabled={disabled} onClick={() => onChoose("google")} className={SOCIAL_BUTTON}>
+            <button
+                type="button"
+                aria-label="Continue with Google"
+                disabled={disabled}
+                onClick={() => onChoose("google")}
+                className={SOCIAL_BUTTON}
+            >
                 <ProviderLogo provider="google" />
             </button>
-            <button type="button" aria-label="Continue with GitHub" disabled={disabled} onClick={() => onChoose("github")} className={SOCIAL_BUTTON}>
+            <button
+                type="button"
+                aria-label="Continue with GitHub"
+                disabled={disabled}
+                onClick={() => onChoose("github")}
+                className={SOCIAL_BUTTON}
+            >
                 <ProviderLogo provider="github" />
             </button>
         </div>
@@ -161,7 +184,10 @@ function submitLabel(isSubmitting: boolean, isSignUp: boolean) {
 type EmailCredentials = { name: string; email: string; password: string; redirectTo: string };
 
 /** Signs up or in with email; "created" when sign-up made the account but no session (sign in next). */
-async function emailAuth(isSignUp: boolean, { name, email, password, redirectTo }: EmailCredentials): Promise<"created" | "signed-in"> {
+async function emailAuth(
+    isSignUp: boolean,
+    { name, email, password, redirectTo }: EmailCredentials,
+): Promise<"created" | "signed-in"> {
     if (!isSignUp) {
         await authClient.signIn.email({
             email: email.trim(),
@@ -200,7 +226,7 @@ function DesktopAuthForm({ isSignUp, redirectTo }: DesktopAuthFormProps) {
         setIsSubmitting(true);
 
         try {
-            if (await emailAuth(isSignUp, { name, email, password, redirectTo }) === "created") {
+            if ((await emailAuth(isSignUp, { name, email, password, redirectTo })) === "created") {
                 setInfoMessage("Your account was created. Continue with sign in to enter Cadence.");
                 navigate("/auth/sign-in", { replace: true, state: { from: redirectTo } });
                 return;
@@ -215,9 +241,12 @@ function DesktopAuthForm({ isSignUp, redirectTo }: DesktopAuthFormProps) {
             navigate(redirectTo, { replace: true });
         } catch (error) {
             log.warn("email-auth", "sign-in failed", error);
-            setErrorMessage(getErrorMessage(error, isSignUp
-                ? "Cadence could not create your account."
-                : "Cadence could not sign you in."));
+            setErrorMessage(
+                getErrorMessage(
+                    error,
+                    isSignUp ? "Cadence could not create your account." : "Cadence could not sign you in.",
+                ),
+            );
         } finally {
             setIsSubmitting(false);
         }
@@ -270,13 +299,9 @@ function DesktopAuthForm({ isSignUp, redirectTo }: DesktopAuthFormProps) {
                     placeholder={isSignUp ? "Create a password" : "Enter your password"}
                 />
 
-                {errorMessage && (
-                    <p className="text-left text-sm text-feedback-error">{errorMessage}</p>
-                )}
+                {errorMessage && <p className="text-left text-sm text-feedback-error">{errorMessage}</p>}
 
-                {infoMessage && (
-                    <p className="text-left text-sm text-twilight-text-soft">{infoMessage}</p>
-                )}
+                {infoMessage && <p className="text-left text-sm text-twilight-text-soft">{infoMessage}</p>}
 
                 <Button
                     type="submit"
@@ -341,19 +366,23 @@ function WebAuthCallbackScreen({ authError }: { authError: string | null }) {
     return (
         <CardPage
             title={timedOut ? "Sign-in didn't finish" : "Completing sign in"}
-            description={<>
-                {timedOut
-                    ? "Cadence couldn't restore your session. Please try signing in again."
-                    : "Cadence is restoring your session and returning you to the app."}
-                {authError && <span className="mt-2 block font-mono text-xs opacity-70">{authError}</span>}
-            </>}
-            actions={timedOut ? (
-                <Button variant="secondary" size="md" onClick={() => navigate("/auth/sign-in", { replace: true })}>
-                    Back to sign in
-                </Button>
-            ) : (
-                <LoaderCircle className="animate-spin text-twilight-text-soft" aria-label="Restoring session" />
-            )}
+            description={
+                <>
+                    {timedOut
+                        ? "Cadence couldn't restore your session. Please try signing in again."
+                        : "Cadence is restoring your session and returning you to the app."}
+                    {authError && <span className="mt-2 block font-mono text-xs opacity-70">{authError}</span>}
+                </>
+            }
+            actions={
+                timedOut ? (
+                    <Button variant="secondary" size="md" onClick={() => navigate("/auth/sign-in", { replace: true })}>
+                        Back to sign in
+                    </Button>
+                ) : (
+                    <LoaderCircle className="animate-spin text-twilight-text-soft" aria-label="Restoring session" />
+                )
+            }
         />
     );
 }
@@ -370,8 +399,8 @@ export default function AuthPage() {
     const isSignUp = pathname === "/auth/sign-up";
     const isCallback = pathname === "/auth/callback";
     const redirectTo = normalizeRedirectTo(
-        searchParams.get("redirectTo")
-        ?? (typeof state === "object" && state && "from" in state ? String(state.from) : "/"),
+        searchParams.get("redirectTo") ??
+            (typeof state === "object" && state && "from" in state ? String(state.from) : "/"),
     );
 
     useDocumentTitle(`${isCallback ? "Finishing Sign In" : isSignUp ? "Create Account" : "Sign In"} · Cadence`);
@@ -432,13 +461,20 @@ export default function AuthPage() {
         >
             {isSignUp && (
                 <div className="mb-4 space-y-2">
-                    <ConsentCheck checked={isAdult} onChange={setIsAdult}>I confirm I'm 16 years old or older.</ConsentCheck>
-                    <ConsentCheck checked={accepted} onChange={setAccepted}>I accept the <LegalLinks />.</ConsentCheck>
+                    <ConsentCheck checked={isAdult} onChange={setIsAdult}>
+                        I confirm I'm 16 years old or older.
+                    </ConsentCheck>
+                    <ConsentCheck checked={accepted} onChange={setAccepted}>
+                        I accept the <LegalLinks />.
+                    </ConsentCheck>
                 </div>
             )}
 
             {/* Until both boxes are ticked, every control inside (email form, Google, GitHub) is natively disabled */}
-            <fieldset disabled={isSignUp && !ready} className={`neon-auth-wrapper m-0 min-w-0 border-0 p-0 transition-opacity ${isSignUp && !ready ? "opacity-50" : ""}`}>
+            <fieldset
+                disabled={isSignUp && !ready}
+                className={`neon-auth-wrapper m-0 min-w-0 border-0 p-0 transition-opacity ${isSignUp && !ready ? "opacity-50" : ""}`}
+            >
                 {IS_DESKTOP_RUNTIME ? (
                     <DesktopAuthForm isSignUp={isSignUp} redirectTo={redirectTo} />
                 ) : (
@@ -453,19 +489,23 @@ export default function AuthPage() {
                             header: "hidden",
                             title: "hidden",
                             description: "hidden",
-                            continueWith: "text-[11px] font-semibold uppercase tracking-[0.22em] text-twilight-text-soft",
+                            continueWith:
+                                "text-[11px] font-semibold uppercase tracking-[0.22em] text-twilight-text-soft",
                             separator: "text-[11px] uppercase tracking-[0.22em] text-twilight-text-soft",
                             footer: "hidden",
                             footerLink: "hidden",
                             form: {
                                 button: "min-h-10 rounded-[1rem] text-sm font-medium",
                                 primaryButton: "min-h-10 rounded-[1rem] accent-fill press font-semibold",
-                                providerButton: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 text-twilight-text",
-                                secondaryButton: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-transparent text-twilight-text-soft",
+                                providerButton:
+                                    "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 text-twilight-text",
+                                secondaryButton:
+                                    "min-h-10 rounded-[1rem] border border-twilight-border-light bg-transparent text-twilight-text-soft",
                                 input: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 text-twilight-text",
                                 label: "text-sm font-medium text-twilight-text",
                                 description: "text-sm leading-relaxed text-twilight-text-soft",
-                                forgotPasswordLink: "inline-flex min-h-0 items-center py-0 text-sm font-medium leading-none text-accent-primary hover:text-accent-primary",
+                                forgotPasswordLink:
+                                    "inline-flex min-h-0 items-center py-0 text-sm font-medium leading-none text-accent-primary hover:text-accent-primary",
                                 error: "text-sm text-feedback-error",
                             },
                         }}

@@ -17,14 +17,17 @@ export function useArchiveTask() {
     return useMutation({
         mutationFn: withOfflineSupport<string, Task>(
             (id) => ({ type: "update_task", id, payload: { state: "ARCHIVED" } }),
-            async (id) => unwrapResponse(await client.api.tasks[":id"].$patch({ param: { id }, json: { state: "ARCHIVED" } })),
+            async (id) =>
+                unwrapResponse(await client.api.tasks[":id"].$patch({ param: { id }, json: { state: "ARCHIVED" } })),
         ),
 
         onMutate: (id) => taskCache.edit(queryClient, (items) => items.filter((t) => t.id !== id && t.seriesId !== id)),
 
         onSuccess: (task, id) => {
             if (task) reconcileTaskInCaches(queryClient, task);
-            toastUndo("Task moved to Trash", () => restoreTask.mutate(id), { description: task ? toastName(task.title) : undefined });
+            toastUndo("Task moved to Trash", () => restoreTask.mutate(id), {
+                description: task ? toastName(task.title) : undefined,
+            });
         },
 
         onError: (err, _input, context) => taskCache.fail(queryClient, err, context, "Couldn't move task to trash"),

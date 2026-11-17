@@ -1,42 +1,42 @@
 {
-  "name": "@cadence/contracts",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "exports": {
-    "./common": "./src/common.ts",
-    "./constants": "./src/constants.ts",
-    "./task": "./src/task.ts",
-    "./inbox": "./src/inbox.ts",
-    "./search": "./src/search.ts",
-    "./habit": "./src/habit.ts",
-    "./app-link": "./src/app-link.ts",
-    "./project": "./src/project.ts",
-    "./tag": "./src/tag.ts",
-    "./subtask": "./src/subtask.ts",
-    "./section": "./src/section.ts",
-    "./note": "./src/note.ts",
-    "./settings": "./src/settings.ts",
-    "./ai": "./src/ai.ts",
-    "./ai-tools": "./src/ai-tools.ts",
-    "./memory": "./src/memory.ts",
-    "./planning": "./src/planning.ts",
-    "./events": "./src/events.ts",
-    "./proxy": "./src/proxy.ts",
-    "./notification": "./src/notification.ts",
-    "./push": "./src/push.ts",
-    "./connections": "./src/connections.ts",
-    "./account": "./src/account.ts"
-  },
-  "scripts": {
-    "typecheck": "tsc --noEmit",
-    "lint": "oxlint -c ../oxlint.config.mts src"
-  },
-  "dependencies": {
-    "@cadence/nlp": "workspace:*",
-    "zod": "^4.6.5"
-  },
-  "devDependencies": {
-    "typescript": "^7.0.2"
-  }
+    "name": "@cadence/contracts",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "exports": {
+        "./common": "./src/common.ts",
+        "./constants": "./src/constants.ts",
+        "./task": "./src/task.ts",
+        "./inbox": "./src/inbox.ts",
+        "./search": "./src/search.ts",
+        "./habit": "./src/habit.ts",
+        "./app-link": "./src/app-link.ts",
+        "./project": "./src/project.ts",
+        "./tag": "./src/tag.ts",
+        "./subtask": "./src/subtask.ts",
+        "./section": "./src/section.ts",
+        "./note": "./src/note.ts",
+        "./settings": "./src/settings.ts",
+        "./ai": "./src/ai.ts",
+        "./ai-tools": "./src/ai-tools.ts",
+        "./memory": "./src/memory.ts",
+        "./planning": "./src/planning.ts",
+        "./events": "./src/events.ts",
+        "./proxy": "./src/proxy.ts",
+        "./notification": "./src/notification.ts",
+        "./push": "./src/push.ts",
+        "./connections": "./src/connections.ts",
+        "./account": "./src/account.ts"
+    },
+    "scripts": {
+        "typecheck": "tsc --noEmit",
+        "lint": "oxlint -c ../oxlint.config.mts src"
+    },
+    "dependencies": {
+        "@cadence/nlp": "workspace:*",
+        "zod": "^4.6.5"
+    },
+    "devDependencies": {
+        "typescript": "^7.0.2"
+    }
 }

@@ -23,9 +23,10 @@ function listZones(): string[] {
 
 /** "UTC-04:00" etc. for a zone at the given instant. */
 function zoneOffsetLabel(zone: string, atISO: string): string {
-    const offset = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "shortOffset" })
-        .formatToParts(new Date(atISO))
-        .find((part) => part.type === "timeZoneName")?.value ?? "";
+    const offset =
+        new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "shortOffset" })
+            .formatToParts(new Date(atISO))
+            .find((part) => part.type === "timeZoneName")?.value ?? "";
     return offset.replace("GMT", "UTC") || "UTC+0";
 }
 
@@ -33,14 +34,31 @@ function zoneOffsetLabel(zone: string, atISO: string): string {
 function TimezoneRow({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     const device = deviceZone();
     const now = useMinuteClock().toISOString(); // time-ok: the current instant, shown in the chosen zone
-    const options = useMemo(() => listZones().map((zone) => ({ value: zone, label: `${zone.replace(/_/g, " ")} (${zoneOffsetLabel(zone, now)})` })), [now]);
-    const pinned = useMemo(() => [{ value: "device", label: `Device (${device}, ${zoneOffsetLabel(device, now)})` }], [device, now]);
+    const options = useMemo(
+        () =>
+            listZones().map((zone) => ({
+                value: zone,
+                label: `${zone.replace(/_/g, " ")} (${zoneOffsetLabel(zone, now)})`,
+            })),
+        [now],
+    );
+    const pinned = useMemo(
+        () => [{ value: "device", label: `Device (${device}, ${zoneOffsetLabel(device, now)})` }],
+        [device, now],
+    );
     const preview = formatInZone(now, resolveZone(value), { weekday: "short", hour: "numeric", minute: "2-digit" });
 
     return (
         <SettingsRow title="Time zone" description={`Now: ${preview}`}>
             <div className="w-full sm:max-w-[18rem]">
-                <SearchSelect value={value} onValueChange={onChange} options={options} pinned={pinned} ariaLabel="Time zone" searchLabel="Search time zones" />
+                <SearchSelect
+                    value={value}
+                    onValueChange={onChange}
+                    options={options}
+                    pinned={pinned}
+                    ariaLabel="Time zone"
+                    searchLabel="Search time zones"
+                />
             </div>
         </SettingsRow>
     );
@@ -70,9 +88,12 @@ const VIEW: ReadonlyArray<SegmentedOption<NonNullable<Calendar["defaultView"]>>>
 ];
 const HOURS = Array.from({ length: 24 }, (_, hour) => String(hour));
 
-const segment = <T extends string,>(label: string, value: T, options: ReadonlyArray<SegmentedOption<T>>, onChange: (value: T) => void) => (
-    <SegmentedControl ariaLabel={label} className="max-w-full" value={value} options={options} onChange={onChange} />
-);
+const segment = <T extends string>(
+    label: string,
+    value: T,
+    options: ReadonlyArray<SegmentedOption<T>>,
+    onChange: (value: T) => void,
+) => <SegmentedControl ariaLabel={label} className="max-w-full" value={value} options={options} onChange={onChange} />;
 
 /** Which kinds the calendar shows; each is on unless switched off. */
 function clutterShown(clutter: Partial<Calendar["clutter"]>) {
@@ -111,7 +132,13 @@ export function DateTimeTab() {
     const setClutter = (patch: DeepPartial<Calendar["clutter"]>) => setCalendar({ clutter: patch });
 
     /** One line: title, an optional note, and a switch (with an extra button beside it). */
-    const toggle = (title: string, checked: boolean, onChange: (value: boolean) => void, note?: string, extra?: ReactNode) => (
+    const toggle = (
+        title: string,
+        checked: boolean,
+        onChange: (value: boolean) => void,
+        note?: string,
+        extra?: ReactNode,
+    ) => (
         <SettingsRow inline title={title} description={note}>
             <div className="flex items-center gap-3">
                 {extra}
@@ -130,21 +157,46 @@ export function DateTimeTab() {
             <SettingsSection title="Region & format">
                 <SettingsList>
                     <TimezoneRow value={dt.timezone} onChange={(timezone) => setDate({ timezone })} />
-                    <SettingsRow title="Time">{segment("Time format", dt.timeDisplay, TIME_DISPLAY, (timeDisplay) => setDate({ timeDisplay }))}</SettingsRow>
-                    <SettingsRow title="Date">{segment("Date format", dt.dateStyle ?? "mdy", DATE_STYLE, (dateStyle) => setDate({ dateStyle }))}</SettingsRow>
-                    <SettingsRow title="Week starts">{segment("First day of the week", dt.weekStart, WEEK_START, (weekStart) => setDate({ weekStart }))}</SettingsRow>
+                    <SettingsRow title="Time">
+                        {segment("Time format", dt.timeDisplay, TIME_DISPLAY, (timeDisplay) =>
+                            setDate({ timeDisplay }),
+                        )}
+                    </SettingsRow>
+                    <SettingsRow title="Date">
+                        {segment("Date format", dt.dateStyle ?? "mdy", DATE_STYLE, (dateStyle) =>
+                            setDate({ dateStyle }),
+                        )}
+                    </SettingsRow>
+                    <SettingsRow title="Week starts">
+                        {segment("First day of the week", dt.weekStart, WEEK_START, (weekStart) =>
+                            setDate({ weekStart }),
+                        )}
+                    </SettingsRow>
                 </SettingsList>
             </SettingsSection>
 
             <SettingsSection title="Calendar">
                 <SettingsList>
-                    <SettingsRow title="Opens in">{segment("Default calendar view", cal.defaultView ?? "month", VIEW, (defaultView) => setCalendar({ defaultView }))}</SettingsRow>
+                    <SettingsRow title="Opens in">
+                        {segment("Default calendar view", cal.defaultView ?? "month", VIEW, (defaultView) =>
+                            setCalendar({ defaultView }),
+                        )}
+                    </SettingsRow>
                     <SettingsRow title="Day and week open at">
                         <div className="w-full sm:max-w-[10rem]">
-                            <Select value={String(cal.timelineStartHour ?? 7)} onValueChange={(hour) => setCalendar({ timelineStartHour: Number(hour) })}>
-                                <SelectTrigger aria-label="Hour the day and week views open at"><SelectValue /></SelectTrigger>
+                            <Select
+                                value={String(cal.timelineStartHour ?? 7)}
+                                onValueChange={(hour) => setCalendar({ timelineStartHour: Number(hour) })}
+                            >
+                                <SelectTrigger aria-label="Hour the day and week views open at">
+                                    <SelectValue />
+                                </SelectTrigger>
                                 <SelectContent>
-                                    {HOURS.map((hour) => <SelectItem key={hour} value={hour}>{formatWallTime(`${hour.padStart(2, "0")}:00`)}</SelectItem>)}
+                                    {HOURS.map((hour) => (
+                                        <SelectItem key={hour} value={hour}>
+                                            {formatWallTime(`${hour.padStart(2, "0")}:00`)}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -158,11 +210,29 @@ export function DateTimeTab() {
                     {toggle("Timed blocks", shown.showTimedTasks, (showTimedTasks) => setClutter({ showTimedTasks }))}
                     {toggle("Fixed blocks", shown.showFixed, (showFixed) => setClutter({ showFixed }))}
                     {toggle("Routines", shown.showHabitAnchors, (showHabitAnchors) => setClutter({ showHabitAnchors }))}
-                    {toggle("Holidays", holidayOverlay.enabled, holidayOverlay.setEnabled, regionNote,
-                        <Button variant="ghost" size="sm" aria-label="Change holiday region" onClick={() => navigate("?settings=location")}>Change</Button>)}
-                    {toggle("Yearly events", personalEvents.enabled, personalEvents.setEnabled,
+                    {toggle(
+                        "Holidays",
+                        holidayOverlay.enabled,
+                        holidayOverlay.setEnabled,
+                        regionNote,
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Change holiday region"
+                            onClick={() => navigate("?settings=location")}
+                        >
+                            Change
+                        </Button>,
+                    )}
+                    {toggle(
+                        "Yearly events",
+                        personalEvents.enabled,
+                        personalEvents.setEnabled,
                         eventCount > 0 ? `${eventCount} in your library` : "None yet",
-                        <Button asChild variant="ghost" size="sm"><Link to="/events">Manage</Link></Button>)}
+                        <Button asChild variant="ghost" size="sm">
+                            <Link to="/events">Manage</Link>
+                        </Button>,
+                    )}
                 </SettingsList>
             </SettingsSection>
         </div>

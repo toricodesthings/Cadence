@@ -23,7 +23,12 @@ function KindIcon({ type }: { type: string }) {
 
 export function DismissButton({ label, onClick }: { label: string; onClick: () => void }) {
     return (
-        <button type="button" onClick={onClick} aria-label={label} className="-mr-1 flex size-6 cursor-pointer items-center justify-center rounded-full opacity-70 hover:opacity-100">
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={label}
+            className="-mr-1 flex size-6 cursor-pointer items-center justify-center rounded-full opacity-70 hover:opacity-100"
+        >
             <X size={11} aria-hidden="true" />
         </button>
     );
@@ -68,7 +73,12 @@ export function useDraftChoices() {
             setAccepted([]);
             setLiteral(false);
         },
-        row: { literal, onDismiss: dismiss, onAccept: (id: string) => setAccepted((current) => [...current, id]), onLiteral: setLiteral },
+        row: {
+            literal,
+            onDismiss: dismiss,
+            onAccept: (id: string) => setAccepted((current) => [...current, id]),
+            onLiteral: setLiteral,
+        },
     };
 }
 
@@ -84,13 +94,22 @@ interface DraftRowProps {
 }
 
 const CHIP = "inline-flex min-h-8 items-center gap-1 rounded-full border px-2.5 text-[11px] font-medium";
-const ACTION = "inline-flex min-h-8 cursor-pointer items-center rounded-full px-2 text-[11px] font-medium text-twilight-text-soft transition-colors hover:text-twilight-text";
+const ACTION =
+    "inline-flex min-h-8 cursor-pointer items-center rounded-full px-2 text-[11px] font-medium text-twilight-text-soft transition-colors hover:text-twilight-text";
 
 /**
  * The quiet row under a parsed field: values that apply with no control of their own (each with its own remove),
  * and the few meanings that need a choice. Nothing here repeats what a field already shows.
  */
-export function DraftRow({ applied, suggestions, shownElsewhere = [], literal, onDismiss, onAccept, onLiteral }: DraftRowProps) {
+export function DraftRow({
+    applied,
+    suggestions,
+    shownElsewhere = [],
+    literal,
+    onDismiss,
+    onAccept,
+    onLiteral,
+}: DraftRowProps) {
     const values = applied.filter((e) => !shownElsewhere.includes(e.type));
     if (!literal && values.length === 0 && suggestions.length === 0 && applied.length === 0) return null;
 
@@ -103,16 +122,27 @@ export function DraftRow({ applied, suggestions, shownElsewhere = [], literal, o
             ) : (
                 <>
                     {values.map((e) => (
-                        <span key={e.id} className={`${CHIP} border-accent-primary/20 bg-accent-primary/10 text-accent-primary`}>
+                        <span
+                            key={e.id}
+                            className={`${CHIP} border-accent-primary/20 bg-accent-primary/10 text-accent-primary`}
+                        >
                             <KindIcon type={e.type} />
                             <span>{entityLabel(e)}</span>
-                            <DismissButton label={`Remove ${entityLabel(e)}, keep "${e.sourceText}" in the title`} onClick={() => onDismiss(e.id)} />
+                            <DismissButton
+                                label={`Remove ${entityLabel(e)}, keep "${e.sourceText}" in the title`}
+                                onClick={() => onDismiss(e.id)}
+                            />
                         </span>
                     ))}
                     {suggestions.map((e) => (
                         <span key={e.id} className={`${CHIP} border-twilight-border text-twilight-text-soft`}>
                             <KindIcon type={e.type} />
-                            <button type="button" onClick={() => onAccept(e.id)} aria-label={`Use ${entityLabel(e)}`} className="flex cursor-pointer items-center gap-1 hover:text-twilight-text">
+                            <button
+                                type="button"
+                                onClick={() => onAccept(e.id)}
+                                aria-label={`Use ${entityLabel(e)}`}
+                                className="flex cursor-pointer items-center gap-1 hover:text-twilight-text"
+                            >
                                 <Check size={11} aria-hidden="true" />
                                 Use {entityLabel(e)}
                             </button>

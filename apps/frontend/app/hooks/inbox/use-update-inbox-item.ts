@@ -11,10 +11,7 @@ export function useUpdateInboxItem() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: withOfflineSupport<
-            { id: string } & UpdateInboxItem,
-            unknown
-        >(
+        mutationFn: withOfflineSupport<{ id: string } & UpdateInboxItem, unknown>(
             ({ id, ...data }) => ({ type: "update_inbox", id, payload: data as Record<string, unknown> }),
             async ({ id, ...data }) => {
                 const res = await client.api.inbox[":id"].$patch({
@@ -30,7 +27,9 @@ export function useUpdateInboxItem() {
         // section move updates it in place. Both feel instant instead of
         // waiting on the round-trip.
         onMutate: ({ id, ...data }) =>
-            inboxCache.edit(queryClient, (items) => items.map((item) => (item.id === id ? { ...item, ...data } as InboxItem : item))),
+            inboxCache.edit(queryClient, (items) =>
+                items.map((item) => (item.id === id ? ({ ...item, ...data } as InboxItem) : item)),
+            ),
         onError: (err, _variables, context) => {
             if (context) inboxCache.rollback(queryClient, context.snapshot);
             toastError(err, "Couldn't update capture");

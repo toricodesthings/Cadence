@@ -23,11 +23,14 @@ export function useNoteSubtasks(taskId: string, body: string) {
     const [, bump] = useState(0);
     const done = converted.get(signature);
 
-    const undo = useCallback((ids: string[]) => {
-        for (const id of ids) remove.mutate(id);
-        converted.delete(signature);
-        bump((n) => n + 1);
-    }, [remove, signature]);
+    const undo = useCallback(
+        (ids: string[]) => {
+            for (const id of ids) remove.mutate(id);
+            converted.delete(signature);
+            bump((n) => n + 1);
+        },
+        [remove, signature],
+    );
 
     const convert = useCallback(async () => {
         if (submitting || converted.has(signature) || lines.length === 0) return;
@@ -36,10 +39,19 @@ export function useNoteSubtasks(taskId: string, body: string) {
         attempts.set(signature, ids);
         try {
             const base = Date.now();
-            await Promise.all(lines.map((title, i) => create.mutateAsync({ title, orderIndex: base + i, id: ids[i] } as { title: string; orderIndex: number })));
+            await Promise.all(
+                lines.map((title, i) =>
+                    create.mutateAsync({ title, orderIndex: base + i, id: ids[i] } as {
+                        title: string;
+                        orderIndex: number;
+                    }),
+                ),
+            );
             converted.set(signature, ids);
             attempts.delete(signature);
-            toast.success(`Added ${lines.length} subtask${lines.length === 1 ? "" : "s"}`, { action: { label: "Undo", onClick: () => undo(ids) } });
+            toast.success(`Added ${lines.length} subtask${lines.length === 1 ? "" : "s"}`, {
+                action: { label: "Undo", onClick: () => undo(ids) },
+            });
         } catch {
             // The mutation already told the user; ids stay so Retry won't duplicate.
         } finally {

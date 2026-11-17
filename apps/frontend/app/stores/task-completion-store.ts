@@ -10,11 +10,7 @@ interface PendingTaskCompletion {
 
 interface TaskCompletionState {
     pendingById: Record<string, PendingTaskCompletion>;
-    queueCompletion: (input: {
-        taskId: string;
-        durationMs?: number;
-        onCommit: () => void;
-    }) => void;
+    queueCompletion: (input: { taskId: string; durationMs?: number; onCommit: () => void }) => void;
     cancelCompletion: (taskId: string) => void;
     clearCompletion: (taskId: string) => void;
 }

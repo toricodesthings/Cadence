@@ -22,7 +22,8 @@ export interface MemoryState {
 export const resolveMode = (stored: MemoryMode | null | undefined): MemoryMode => stored ?? "basic";
 
 /** What learning and recall may use: Basic or Full, chosen or by default (`null` counts as Basic). */
-export const isLearning = (mode: MemoryMode | null | undefined): mode is "basic" | "full" | null | undefined => mode !== "off";
+export const isLearning = (mode: MemoryMode | null | undefined): mode is "basic" | "full" | null | undefined =>
+    mode !== "off";
 
 /** Full: the only state that records or applies how the person plans (when they like to do things, which offers help). */
 export const planningOn = (state: Pick<MemoryState, "mode">): boolean => state.mode === "full";
@@ -50,6 +51,11 @@ export async function readMemoryState(tx: Tx, userId: string): Promise<MemorySta
  * change (`writeMode`, FOR UPDATE) either committed before and is seen here, or waits until these writes commit.
  */
 export async function fenceMemoryState(tx: Tx, userId: string): Promise<MemoryState> {
-    const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1).for("share");
+    const [row] = await tx
+        .select({ settings: users.settings })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1)
+        .for("share");
     return memoryStateOf(row?.settings);
 }

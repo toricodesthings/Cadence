@@ -18,12 +18,7 @@ import { AppError } from "../../../platform/errors";
 import { dropChatFacts } from "../memory/memory-store";
 import { logger } from "../../../platform/log";
 import { historyWindowStart, MAX_HISTORY_TURNS } from "../safety/input-guard";
-import {
-    nextOrderIndex,
-    uiMessageToRow,
-    type MessageStatus,
-    type StoredMessage,
-} from "./message-mapper";
+import { nextOrderIndex, uiMessageToRow, type MessageStatus, type StoredMessage } from "./message-mapper";
 import { assertRowRoom } from "../../../platform/storage-ceiling";
 
 /** Default page size when loading a thread's messages. */
@@ -55,12 +50,17 @@ export async function resolveOrCreateConversation(
     if (args.conversationId) {
         // Locked, so two turns on one thread persist one after the other (no shared order index).
         const [existing] = await tx
-            .select({ id: aiConversations.id, title: aiConversations.title, activeStreamId: aiConversations.activeStreamId })
+            .select({
+                id: aiConversations.id,
+                title: aiConversations.title,
+                activeStreamId: aiConversations.activeStreamId,
+            })
             .from(aiConversations)
             .where(and(eq(aiConversations.id, args.conversationId), eq(aiConversations.userId, userId)))
             .for("update");
 
-        if (existing) return { id: existing.id, created: false, title: existing.title, activeStreamId: existing.activeStreamId };
+        if (existing)
+            return { id: existing.id, created: false, title: existing.title, activeStreamId: existing.activeStreamId };
 
         // Create-if-absent with the client-chosen id (still ownership-scoped by
         // userId) so the client can own the thread id — needed for the sidebar /
@@ -109,10 +109,7 @@ export async function loadConversationMessages(
     conversationId: string,
     opts?: { limit?: number; beforeOrderIndex?: number; historyWindow?: boolean },
 ): Promise<StoredMessage[]> {
-    const conditions = [
-        eq(aiMessages.conversationId, conversationId),
-        eq(aiMessages.userId, userId),
-    ];
+    const conditions = [eq(aiMessages.conversationId, conversationId), eq(aiMessages.userId, userId)];
     if (opts?.beforeOrderIndex !== undefined) {
         conditions.push(lt(aiMessages.orderIndex, opts.beforeOrderIndex));
     }
@@ -120,7 +117,10 @@ export async function loadConversationMessages(
     let limit = clampLimit(opts?.limit, DEFAULT_MESSAGE_LIMIT, MAX_MESSAGE_LIMIT);
     let offset = 0;
     if (opts?.historyWindow) {
-        const [counted] = await tx.select({ n: sql<number>`count(*)::int` }).from(aiMessages).where(and(...conditions));
+        const [counted] = await tx
+            .select({ n: sql<number>`count(*)::int` })
+            .from(aiMessages)
+            .where(and(...conditions));
         offset = historyWindowStart(counted?.n ?? 0);
         limit = MAX_HISTORY_TURNS;
     }
@@ -215,12 +215,14 @@ export async function setTurnContext(
     await tx
         .update(aiMessages)
         .set({ metadata: sql`${aiMessages.metadata} || ${JSON.stringify({ turnContext })}::jsonb` })
-        .where(and(
-            eq(aiMessages.id, messageId),
-            eq(aiMessages.conversationId, conversationId),
-            eq(aiMessages.userId, userId),
-            eq(aiMessages.role, "user"),
-        ));
+        .where(
+            and(
+                eq(aiMessages.id, messageId),
+                eq(aiMessages.conversationId, conversationId),
+                eq(aiMessages.userId, userId),
+                eq(aiMessages.role, "user"),
+            ),
+        );
 }
 
 /**
@@ -266,11 +268,7 @@ export async function truncateMessagesAfter(
  * Delete every message in a thread (first-message edit — the thread restarts
  * from the new turn). Owner-scoped; the conversation row itself is kept.
  */
-export async function deleteAllMessages(
-    tx: Tx,
-    userId: string,
-    conversationId: string,
-): Promise<void> {
+export async function deleteAllMessages(tx: Tx, userId: string, conversationId: string): Promise<void> {
     await tx
         .delete(aiMessages)
         .where(and(eq(aiMessages.conversationId, conversationId), eq(aiMessages.userId, userId)));
@@ -362,12 +360,7 @@ export async function touchConversation(
  * race between turns, or a user's manual rename are all preserved — we never
  * clobber an existing title. Failures are caller-swallowed (titling is best-effort).
  */
-export async function setTitleIfEmpty(
-    tx: Tx,
-    userId: string,
-    conversationId: string,
-    title: string,
-): Promise<void> {
+export async function setTitleIfEmpty(tx: Tx, userId: string, conversationId: string, title: string): Promise<void> {
     await tx
         .update(aiConversations)
         .set({ title, updatedAt: sql`NOW()` })
@@ -465,12 +458,7 @@ export async function listArchivedImageIds(tx: Tx, userId: string): Promise<stri
  * Mark a conversation as having a live producing stream. Set when production
  * starts so the resume GET can find the in-flight chunk-log (doc Update 4 §7.6).
  */
-export async function setActiveStream(
-    tx: Tx,
-    userId: string,
-    conversationId: string,
-    streamId: string,
-): Promise<void> {
+export async function setActiveStream(tx: Tx, userId: string, conversationId: string, streamId: string): Promise<void> {
     await tx
         .update(aiConversations)
         .set({ activeStreamId: streamId })
@@ -514,7 +502,8 @@ export async function renameOrArchiveConversation(
     const set: Record<string, unknown> = { updatedAt: sql`NOW()` };
     if (patch.title !== undefined) set.title = patch.title;
     if (patch.archived !== undefined) set.archived = patch.archived;
-    if (patch.learn !== undefined) set.metadata = sql`${aiConversations.metadata} || ${JSON.stringify({ learn: patch.learn })}::jsonb`;
+    if (patch.learn !== undefined)
+        set.metadata = sql`${aiConversations.metadata} || ${JSON.stringify({ learn: patch.learn })}::jsonb`;
 
     const updated = await tx
         .update(aiConversations)
@@ -528,15 +517,9 @@ export async function renameOrArchiveConversation(
 }
 
 /** Delete a thread, its messages (cascade) and its image rows; 404 if not theirs. Storage is the caller's job, before this. */
-export async function deleteConversation(
-    tx: Tx,
-    userId: string,
-    conversationId: string,
-): Promise<void> {
+export async function deleteConversation(tx: Tx, userId: string, conversationId: string): Promise<void> {
     await dropChatFacts(tx, userId, [conversationId]);
-    await tx
-        .delete(aiImages)
-        .where(and(eq(aiImages.userId, userId), eq(aiImages.conversationId, conversationId)));
+    await tx.delete(aiImages).where(and(eq(aiImages.userId, userId), eq(aiImages.conversationId, conversationId)));
     const deleted = await tx
         .delete(aiConversations)
         .where(and(eq(aiConversations.id, conversationId), eq(aiConversations.userId, userId)))
@@ -563,7 +546,13 @@ export async function lastUserTexts(tx: Tx, userId: string, conversationId: stri
     const rows = await tx
         .select({ text: aiMessages.searchText })
         .from(aiMessages)
-        .where(and(eq(aiMessages.userId, userId), eq(aiMessages.conversationId, conversationId), eq(aiMessages.role, "user")))
+        .where(
+            and(
+                eq(aiMessages.userId, userId),
+                eq(aiMessages.conversationId, conversationId),
+                eq(aiMessages.role, "user"),
+            ),
+        )
         .orderBy(desc(aiMessages.orderIndex))
         .limit(count);
     return rows.flatMap((r) => (r.text ? [r.text] : [])).reverse();

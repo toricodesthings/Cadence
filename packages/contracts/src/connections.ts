@@ -20,16 +20,18 @@ export const mcpConnectionRowSchema = z.object({
 export type McpConnectionRow = z.infer<typeof mcpConnectionRowSchema>;
 
 /** A connected assistant as Settings lists it (active ones only). */
-export const mcpConnectionSchema = mcpConnectionRowSchema.pick({
-    id: true,
-    clientName: true,
-    createdAt: true,
-    lastUsedAt: true,
-}).extend({
-    scopes: z.array(mcpScopeSchema),
-    /** Where its access goes: the redirect URI's host. */
-    redirectHost: z.string(),
-});
+export const mcpConnectionSchema = mcpConnectionRowSchema
+    .pick({
+        id: true,
+        clientName: true,
+        createdAt: true,
+        lastUsedAt: true,
+    })
+    .extend({
+        scopes: z.array(mcpScopeSchema),
+        /** Where its access goes: the redirect URI's host. */
+        redirectHost: z.string(),
+    });
 export type McpConnection = z.infer<typeof mcpConnectionSchema>;
 
 /** The consent page's view of a waiting authorization request. */

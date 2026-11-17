@@ -14,8 +14,18 @@ describe("catchUpOf: a rough share of Full's 3-month read", () => {
 
     it("sits at 90% while notes are read, then shows the finish for a week", () => {
         expect(catchUpOf({ ...fresh, chats: "done" }, start)?.progress).toBe(0.9);
-        const done = { ...fresh, chats: "done" as const, notes: "done" as const, doneAt: start.toISOString(), learned: 12 };
-        expect(catchUpOf(done, new Date(start.getTime() + 6 * day))).toEqual({ progress: 1, learned: 12, doneAt: start.toISOString() });
+        const done = {
+            ...fresh,
+            chats: "done" as const,
+            notes: "done" as const,
+            doneAt: start.toISOString(),
+            learned: 12,
+        };
+        expect(catchUpOf(done, new Date(start.getTime() + 6 * day))).toEqual({
+            progress: 1,
+            learned: 12,
+            doneAt: start.toISOString(),
+        });
         expect(catchUpOf(done, new Date(start.getTime() + 8 * day))).toBeNull();
     });
 

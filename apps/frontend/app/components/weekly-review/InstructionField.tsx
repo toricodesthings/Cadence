@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import type { DraftField } from "@cadence/domain/nlp-draft";
-import { findSectionMention, instructionPatch, isEmptyPatch, resolveSection, type InstructionPatch } from "@cadence/domain/task-instruction";
+import {
+    findSectionMention,
+    instructionPatch,
+    isEmptyPatch,
+    resolveSection,
+    type InstructionPatch,
+} from "@cadence/domain/task-instruction";
 import { useNlpParse, useParseModule } from "../../hooks/use-nlp-parse";
 import { nlpClock } from "../../lib/utils/date-format";
 import { useProjects } from "../../hooks/projects/use-projects";
@@ -13,7 +19,14 @@ import { previewParts } from "../../lib/utils/task/instruction-preview";
 
 /** What an instruction may change; never the title or notes. */
 const INSTRUCTION_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([
-    "dueDate", "scheduledStart", "scheduledEnd", "durationMinutes", "projectId", "tagIds", "waitingOn", "priority",
+    "dueDate",
+    "scheduledStart",
+    "scheduledEnd",
+    "durationMinutes",
+    "projectId",
+    "tagIds",
+    "waitingOn",
+    "priority",
 ]);
 
 /**
@@ -40,14 +53,25 @@ export function InstructionField({
     const { data: projects = [] } = useProjects();
     const { data: tags = [] } = useTags();
     const { data: settings } = useSettings();
-    const sections = useAllSections(projects.map((p) => p.id), Boolean(text.trim()));
+    const sections = useAllSections(
+        projects.map((p) => p.id),
+        Boolean(text.trim()),
+    );
     // A named section is read first and blanked for the parser, so "Later This Week" is a place, not a date.
     const parse = useParseModule(Boolean(text.trim()));
     // The whole name is a day ("Today", "Monday"); "Later This Week" is a place that merely contains one.
-    const namesADay = (name: string) => Boolean(parse?.({ input: name, sourceSurface: "task_edit_title", clock: nlpClock() }).entities
-        .some((e) => (e.type === "due_date" || e.type === "scheduled_start") && e.sourceText.trim().length === name.trim().length));
+    const namesADay = (name: string) =>
+        Boolean(
+            parse?.({ input: name, sourceSurface: "task_edit_title", clock: nlpClock() }).entities.some(
+                (e) =>
+                    (e.type === "due_date" || e.type === "scheduled_start") &&
+                    e.sourceText.trim().length === name.trim().length,
+            ),
+        );
     const mention = findSectionMention(text, sections, namesADay);
-    const parsedText = mention ? text.slice(0, mention.start) + " ".repeat(mention.end - mention.start) + text.slice(mention.end) : text;
+    const parsedText = mention
+        ? text.slice(0, mention.start) + " ".repeat(mention.end - mention.start) + text.slice(mention.end)
+        : text;
     const nlp = useNlpParse({
         input: parsedText,
         projects,
@@ -59,9 +83,16 @@ export function InstructionField({
     });
     const section = resolveSection(mention, nlp.fields.projectId ?? listId);
     const read = (fields: typeof nlp.fields, title: string) => {
-        const result = instructionPatch(parsedText, { fields, title, applied: [], suggestions: [], unfit: [] }, getUserZone(), resolveSection(mention, fields.projectId ?? listId));
+        const result = instructionPatch(
+            parsedText,
+            { fields, title, applied: [], suggestions: [], unfit: [] },
+            getUserZone(),
+            resolveSection(mention, fields.projectId ?? listId),
+        );
         // A section name that matched more than one list (or not the named one) is shown as not read, never guessed.
-        return mention && !resolveSection(mention, fields.projectId ?? listId) ? { ...result, unread: `${result.unread} ${text.slice(mention.start, mention.end)}`.trim() } : result;
+        return mention && !resolveSection(mention, fields.projectId ?? listId)
+            ? { ...result, unread: `${result.unread} ${text.slice(mention.start, mention.end)}`.trim() }
+            : result;
     };
     const { patch, unread } = read(nlp.fields, nlp.cleanedTitle);
     const parts = previewParts(patch, { projects, tags, sections: section ? [section] : [] });
@@ -76,7 +107,13 @@ export function InstructionField({
 
     return (
         <div className="flex w-full flex-col gap-1.5">
-            <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); void apply(); }}>
+            <form
+                className="flex items-center gap-2"
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    void apply();
+                }}
+            >
                 <input
                     type="text"
                     value={text}
@@ -98,7 +135,9 @@ export function InstructionField({
             {text.trim() ? (
                 <p role="status" className="text-xs text-twilight-text-soft">
                     {parts.length ? parts.join(" · ") : "Not sure what to change yet"}
-                    {unread && parts.length ? <span className="text-twilight-text-muted"> · skipped “{unread}”</span> : null}
+                    {unread && parts.length ? (
+                        <span className="text-twilight-text-muted"> · skipped “{unread}”</span>
+                    ) : null}
                 </p>
             ) : null}
         </div>

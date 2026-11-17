@@ -9,7 +9,15 @@ import { cn } from "../../lib/utils";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useKeyboardInset } from "../../hooks/ui/use-keyboard-inset";
 import { useSheetGesture } from "../../hooks/ui/use-sheet-gesture";
-import { DIALOG_CONTENT, DIALOG_DESCRIPTION, DIALOG_FOOTER, DIALOG_HEADER, DIALOG_OVERLAY, DIALOG_SHEET, DIALOG_TITLE } from "./dialog-styles";
+import {
+    DIALOG_CONTENT,
+    DIALOG_DESCRIPTION,
+    DIALOG_FOOTER,
+    DIALOG_HEADER,
+    DIALOG_OVERLAY,
+    DIALOG_SHEET,
+    DIALOG_TITLE,
+} from "./dialog-styles";
 
 const Dialog = DialogPrimitive.Root;
 
@@ -29,16 +37,16 @@ const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
 
 const DialogOverlay = ({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Overlay>) => (
-    <DialogPrimitive.Overlay
-        className={cn(DIALOG_OVERLAY, className)}
-        {...props}
-    />
+    <DialogPrimitive.Overlay className={cn(DIALOG_OVERLAY, className)} {...props} />
 );
 
 /** The dialog's X button; use it directly when a layout places close inside its own header. */
 const DialogCloseButton = ({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Close>) => (
     <DialogPrimitive.Close
-        className={cn("btn-icon shrink-0 cursor-pointer text-twilight-text-muted opacity-70 transition-[opacity,background-color] duration-150 hover:bg-white/[0.06] hover:text-twilight-text hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:pointer-events-none", className)}
+        className={cn(
+            "btn-icon shrink-0 cursor-pointer text-twilight-text-muted opacity-70 transition-[opacity,background-color] duration-150 hover:bg-white/[0.06] hover:text-twilight-text hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:pointer-events-none",
+            className,
+        )}
         {...props}
     >
         <X className="h-4 w-4" aria-hidden="true" />
@@ -46,7 +54,13 @@ const DialogCloseButton = ({ className, ...props }: React.ComponentProps<typeof 
     </DialogPrimitive.Close>
 );
 
-const DialogContent = ({ className, children, hideCloseButton, phoneSheet = true, ...props }: React.ComponentProps<typeof DialogPrimitive.Content> & {
+const DialogContent = ({
+    className,
+    children,
+    hideCloseButton,
+    phoneSheet = true,
+    ...props
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
     hideCloseButton?: boolean;
     /** False for a surface that is full screen at every size (the photo viewer). */
     phoneSheet?: boolean;
@@ -57,7 +71,11 @@ const DialogContent = ({ className, children, hideCloseButton, phoneSheet = true
     const close = React.useRef<HTMLButtonElement>(null);
     const [sheetEl, setSheetEl] = React.useState<HTMLElement | null>(null);
     // A throw closes through Radix (onOpenChange); the CSS slide-out adds to the drag, so it leaves from the finger.
-    const { y, backdropOpacity } = useSheetGesture({ element: sheetEl, enabled: sheet, onDismiss: () => close.current?.click() });
+    const { y, backdropOpacity } = useSheetGesture({
+        element: sheetEl,
+        enabled: sheet,
+        onDismiss: () => close.current?.click(),
+    });
     // Like every sheet, it rides the keyboard instead of hiding its fields and buttons under it.
     const { inset: keyboard, aboveKeyboard } = useKeyboardInset(sheet);
     const content = (
@@ -69,7 +87,12 @@ const DialogContent = ({ className, children, hideCloseButton, phoneSheet = true
             ) : null}
             {children}
             <ToasterFocusBranch />
-            {!hideCloseButton && <DialogCloseButton data-dialog-x className={sheet ? "absolute right-4 top-7" : "absolute right-4 top-4 sm:right-6 sm:top-5"} />}
+            {!hideCloseButton && (
+                <DialogCloseButton
+                    data-dialog-x
+                    className={sheet ? "absolute right-4 top-7" : "absolute right-4 top-4 sm:right-6 sm:top-5"}
+                />
+            )}
             {sheet ? <DialogPrimitive.Close ref={close} hidden tabIndex={-1} aria-hidden="true" /> : null}
         </>
     );
@@ -79,7 +102,9 @@ const DialogContent = ({ className, children, hideCloseButton, phoneSheet = true
                 <DialogPrimitive.Overlay asChild>
                     <motion.div style={{ opacity: backdropOpacity }} className={DIALOG_OVERLAY} />
                 </DialogPrimitive.Overlay>
-            ) : <DialogOverlay />}
+            ) : (
+                <DialogOverlay />
+            )}
             <DialogPrimitive.Content
                 data-cadence-dialog-content="true"
                 data-dialog-sheet={sheet || undefined}
@@ -91,50 +116,37 @@ const DialogContent = ({ className, children, hideCloseButton, phoneSheet = true
                 {sheet ? (
                     <motion.div
                         ref={setSheetEl}
-                        style={{ y, ...(aboveKeyboard ? { bottom: keyboard, maxHeight: aboveKeyboard ?? undefined, paddingBottom: "1rem" } : {}) }}
+                        style={{
+                            y,
+                            ...(aboveKeyboard
+                                ? { bottom: keyboard, maxHeight: aboveKeyboard ?? undefined, paddingBottom: "1rem" }
+                                : {}),
+                        }}
                     >
                         {content}
                     </motion.div>
-                ) : content}
+                ) : (
+                    content
+                )}
             </DialogPrimitive.Content>
         </DialogPortal>
     );
 };
 
-const DialogHeader = ({
-    className,
-    ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-    <div
-        data-dialog-header
-        className={cn(DIALOG_HEADER, "text-left", className)}
-        {...props}
-    />
+const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    <div data-dialog-header className={cn(DIALOG_HEADER, "text-left", className)} {...props} />
 );
 
-const DialogFooter = ({
-    className,
-    ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-    <div
-        data-dialog-footer
-        className={cn(DIALOG_FOOTER, className)}
-        {...props}
-    />
+const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    <div data-dialog-footer className={cn(DIALOG_FOOTER, className)} {...props} />
 );
 
 const DialogTitle = ({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) => (
-    <DialogPrimitive.Title
-        className={cn(DIALOG_TITLE, className)}
-        {...props}
-    />
+    <DialogPrimitive.Title className={cn(DIALOG_TITLE, className)} {...props} />
 );
 
 const DialogDescription = ({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Description>) => (
-    <DialogPrimitive.Description
-        className={cn(DIALOG_DESCRIPTION, className)}
-        {...props}
-    />
+    <DialogPrimitive.Description className={cn(DIALOG_DESCRIPTION, className)} {...props} />
 );
 
 export {

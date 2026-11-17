@@ -4,7 +4,16 @@ import { RoutineTimes, listTimes } from "../../../app/components/habits/RoutineT
 import { routineAgendaItems } from "../../../app/components/shared/RoutineAgendaRow";
 import { makeHabit } from "../../helpers";
 
-window.matchMedia ??= ((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false })) as typeof window.matchMedia;
+window.matchMedia ??= ((query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener() {},
+    removeEventListener() {},
+    addListener() {},
+    removeListener() {},
+    onchange: null,
+    dispatchEvent: () => false,
+})) as typeof window.matchMedia;
 
 describe("routine at set times", () => {
     it("lists times in the user's format", () => {
@@ -25,8 +34,20 @@ describe("routine at set times", () => {
 
     it("shows the routine once on Today with its progress; Mark done targets the next open time", () => {
         const habit = makeHabit({
-            id: "h", title: "Medication", times: ["00:00", "23:59"],
-            logs: [{ id: "l", habitId: "h", status: "PENDING", targetDate: "2026-10-08", completedAt: null, userId: "u", timeMarks: { "00:00": { status: "COMPLETED", at: "2026-10-08T04:07:00.000Z" } } } as never],
+            id: "h",
+            title: "Medication",
+            times: ["00:00", "23:59"],
+            logs: [
+                {
+                    id: "l",
+                    habitId: "h",
+                    status: "PENDING",
+                    targetDate: "2026-10-08",
+                    completedAt: null,
+                    userId: "u",
+                    timeMarks: { "00:00": { status: "COMPLETED", at: "2026-10-08T04:07:00.000Z" } },
+                } as never,
+            ],
         });
         const [item, ...rest] = routineAgendaItems([habit], "2026-10-08");
         expect(rest).toHaveLength(0);

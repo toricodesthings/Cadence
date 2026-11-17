@@ -5,9 +5,19 @@ import { StartupReadyContext } from "../../../app/hooks/core/use-workspace-start
 import { testQueryClient, withClient } from "../../helpers";
 
 const state = vi.hoisted(() => ({ get: vi.fn() }));
-vi.mock("../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => ({ api: { debug: { capabilities: { $get: state.get } } } }) }));
-vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ authReady: true, isAuthenticated: true, session: { user: { id: "user" }, session: { token: "private-session-token" } } }) }));
-beforeEach(() => { state.get.mockReset(); });
+vi.mock("../../../app/hooks/auth/use-api-client", () => ({
+    useApiClient: () => ({ api: { debug: { capabilities: { $get: state.get } } } }),
+}));
+vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
+    useAuthState: () => ({
+        authReady: true,
+        isAuthenticated: true,
+        session: { user: { id: "user" }, session: { token: "private-session-token" } },
+    }),
+}));
+beforeEach(() => {
+    state.get.mockReset();
+});
 
 describe("developer capability reads", () => {
     it("uses account identity without retaining a private session token", async () => {
@@ -15,7 +25,14 @@ describe("developer capability reads", () => {
         const qc = testQueryClient();
         const { result } = renderHook(useAdminCapabilities, { wrapper: withClient(qc) });
         await waitFor(() => expect(result.current.data?.canUseDeveloperTools).toBe(false));
-        expect(JSON.stringify(qc.getQueryCache().getAll().map(q => q.queryKey))).not.toContain("private-session-token");
+        expect(
+            JSON.stringify(
+                qc
+                    .getQueryCache()
+                    .getAll()
+                    .map((q) => q.queryKey),
+            ),
+        ).not.toContain("private-session-token");
         qc.clear();
     });
     it("retains dev-deployment capabilities and the unavailable fallback", async () => {
@@ -34,7 +51,13 @@ describe("developer capability reads", () => {
     it("never asks before the workspace reveals", async () => {
         const qc = testQueryClient();
         const Client = withClient(qc);
-        renderHook(useAdminCapabilities, { wrapper: ({ children }) => <Client><StartupReadyContext value={false}>{children}</StartupReadyContext></Client> });
+        renderHook(useAdminCapabilities, {
+            wrapper: ({ children }) => (
+                <Client>
+                    <StartupReadyContext value={false}>{children}</StartupReadyContext>
+                </Client>
+            ),
+        });
         await new Promise((resolve) => setTimeout(resolve, 20));
         expect(state.get).not.toHaveBeenCalled();
         qc.clear();

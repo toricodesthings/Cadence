@@ -21,18 +21,45 @@ beforeAll(startTestDb);
 beforeEach(async () => {
     userId = await createUser();
     tasks = apiAs(userId, "/tasks", taskRoutes);
-    const project = (await apiAs(userId, "/projects", projectRoutes)("POST", "", { name: "CS App Projects" })).body.data;
-    const section = (await apiAs(userId, "/sections", sectionRoutes)("POST", "", { name: "Cadence", projectId: project.id, orderIndex: 0 })).body.data;
+    const project = (await apiAs(userId, "/projects", projectRoutes)("POST", "", { name: "CS App Projects" })).body
+        .data;
+    const section = (
+        await apiAs(userId, "/sections", sectionRoutes)("POST", "", {
+            name: "Cadence",
+            projectId: project.id,
+            orderIndex: 0,
+        })
+    ).body.data;
     place = { projectId: project.id, sectionId: section.id };
-    const tools = buildToolRegistry({} as any, userId, { timezone: "UTC", currentDate: "2026-10-12T12:00:00Z", today: "2026-10-12" }) as any;
+    const tools = buildToolRegistry({} as any, userId, {
+        timezone: "UTC",
+        currentDate: "2026-10-12T12:00:00Z",
+        today: "2026-10-12",
+    }) as any;
     run = (args) => tools.get_tasks.execute({ limit: 20, ...args }, { toolCallId: "read", messages: [] });
-    for (const title of ["Implement 0.31.0", "Implement 0.32.0", "Implement 0.31.01", "Implement 10.31.0", "Implement 0.31.0.1", "Implement 0.31.0-rc1", "Buy groceries"]) {
+    for (const title of [
+        "Implement 0.31.0",
+        "Implement 0.32.0",
+        "Implement 0.31.01",
+        "Implement 10.31.0",
+        "Implement 0.31.0.1",
+        "Implement 0.31.0-rc1",
+        "Buy groceries",
+    ]) {
         expect((await tasks("POST", "", { title, orderIndex: 0, ...place })).status).toBe(201);
     }
 });
 
 describe("assistant task search", () => {
-    it.each(["0.31.0", "implementation 0.31.0", "implementing 0.31.0", '“0.31.0”,', "v0.31.0", "Cadence implementation 0.31.0", "CS App Projects Cadence 0.31.0"])("finds the exact version for %s", async (query) => {
+    it.each([
+        "0.31.0",
+        "implementation 0.31.0",
+        "implementing 0.31.0",
+        "“0.31.0”,",
+        "v0.31.0",
+        "Cadence implementation 0.31.0",
+        "CS App Projects Cadence 0.31.0",
+    ])("finds the exact version for %s", async (query) => {
         expect(titles(await run({ query }))).toEqual(["Implement 0.31.0"]);
     });
 
@@ -47,9 +74,12 @@ describe("assistant task search", () => {
         expect(titles(await run({ query: "one two three four five six seven eight nonexistent" }))).toEqual([]);
     });
 
-    it.each(["0.33.0", "implementation 0.33.0", "groceries 0.31.0", "0,31.0", "%", "_", "\\", "!!!"])("does not invent or broaden a match for %s", async (query) => {
-        expect(titles(await run({ query }))).toEqual([]);
-    });
+    it.each(["0.33.0", "implementation 0.33.0", "groceries 0.31.0", "0,31.0", "%", "_", "\\", "!!!"])(
+        "does not invent or broaden a match for %s",
+        async (query) => {
+            expect(titles(await run({ query }))).toEqual([]);
+        },
+    );
 
     it("keeps literal wildcard characters literal", async () => {
         await tasks("POST", "", { title: "Reach 100%", orderIndex: 0 });
@@ -61,7 +91,10 @@ describe("assistant task search", () => {
             await tasks("POST", "", { title, orderIndex: 0 });
         }
         expect(titles(await run({ query: "comp3005 assignment 1" }))).toEqual(["COMP3005 Assignment 1"]);
-        expect(titles(await run({ query: "comp assignment 1" }))).toEqual(["COMP3005 Assignment 1", "COMP30050 Assignment 1"]);
+        expect(titles(await run({ query: "comp assignment 1" }))).toEqual([
+            "COMP3005 Assignment 1",
+            "COMP30050 Assignment 1",
+        ]);
         expect(titles(await run({ query: "0.31.0-rc1" }))).toEqual(["Implement 0.31.0-rc1"]);
         expect(titles(await run({ query: "0.31.0-rc2" }))).toEqual([]);
     });
@@ -101,32 +134,48 @@ describe("assistant task search", () => {
         expect(titles(await run({ query: "0.31.0", projectId: crypto.randomUUID() }))).toEqual([]);
     });
     it("ranks a title match before a higher-priority note reference, then honors explicit sorting", async () => {
-        await tasks("POST", "", { title: "Release retrospective", content: "Discuss 0.31.0", priority: 4, orderIndex: 0 });
+        await tasks("POST", "", {
+            title: "Release retrospective",
+            content: "Discuss 0.31.0",
+            priority: 4,
+            orderIndex: 0,
+        });
         expect((await run({ query: "0.31.0", limit: 1 })).tasks[0].title).toBe("Implement 0.31.0");
-        expect((await run({ query: "0.31.0", limit: 1, sort: "priority" })).tasks[0].title).toBe("Release retrospective");
+        expect((await run({ query: "0.31.0", limit: 1, sort: "priority" })).tasks[0].title).toBe(
+            "Release retrospective",
+        );
     });
 
     it("searches subtasks and tags across fields", async () => {
-        const registry = buildToolRegistry({} as any, userId, { timezone: "UTC", currentDate: "2026-10-12T12:00:00Z", today: "2026-10-12" }) as any;
-        const result = await registry.create_tasks.execute({ tasks: [{ title: "Renew passport", tagNames: ["Travel"], subtasks: ["Book appointment"] }] }, { toolCallId: crypto.randomUUID(), messages: [] });
+        const registry = buildToolRegistry({} as any, userId, {
+            timezone: "UTC",
+            currentDate: "2026-10-12T12:00:00Z",
+            today: "2026-10-12",
+        }) as any;
+        const result = await registry.create_tasks.execute(
+            { tasks: [{ title: "Renew passport", tagNames: ["Travel"], subtasks: ["Book appointment"] }] },
+            { toolCallId: crypto.randomUUID(), messages: [] },
+        );
         expect(result.ok).not.toBe(false);
         expect(titles(await run({ query: "passport booking travel" }))).toEqual(["Renew passport"]);
     });
 
     it("canonical notes replace stale legacy content, including when emptied", async () => {
-        const task = (await tasks("POST", "", { title: "Release checklist", content: "obsoleteword", orderIndex: 0 })).body.data;
+        const task = (await tasks("POST", "", { title: "Release checklist", content: "obsoleteword", orderIndex: 0 }))
+            .body.data;
         const notes = apiAs(userId, "/api", noteRoutes);
         await notes("PATCH", `/tasks/${task.id}/note`, { body: "# Deployment\nImplement v0.35.0." });
         expect(titles(await run({ query: "obsoleteword" }))).toEqual([]);
         expect(titles(await run({ query: "implementation 0.35.0" }))).toEqual(["Release checklist"]);
         const search = apiAs(userId, "/search", searchRoutes);
         const snapshot = (await search("GET", "/task-notes")).body.data;
-        expect(snapshot).toEqual([{ taskId: task.id, terms: ["deployment", "implement", "v0.35.0"], headings: ["Deployment"] }]);
+        expect(snapshot).toEqual([
+            { taskId: task.id, terms: ["deployment", "implement", "v0.35.0"], headings: ["Deployment"] },
+        ]);
         expect((await apiAs(await createUser(), "/search", searchRoutes)("GET", "/task-notes")).body.data).toEqual([]);
         const saved = (await notes("GET", `/tasks/${task.id}/note`)).body.data;
         await notes("PATCH", `/tasks/${task.id}/note`, { body: "", expectedVersion: saved.version });
         expect(titles(await run({ query: "0.35.0" }))).toEqual([]);
         expect(titles(await run({ query: "obsoleteword" }))).toEqual([]);
     });
-
 });

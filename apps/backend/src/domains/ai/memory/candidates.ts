@@ -5,10 +5,21 @@
 import { z } from "zod";
 import { MEMORY_CONTENT_MAX, memoryKindSchema, type MemoryKind } from "@cadence/contracts/memory";
 import { localDateSchema } from "@cadence/contracts/common";
-import { PLANNING_OFFERS, timeOfDaySchema, type PlanningOffer, type StatedWhenInput } from "@cadence/contracts/planning";
+import {
+    PLANNING_OFFERS,
+    timeOfDaySchema,
+    type PlanningOffer,
+    type StatedWhenInput,
+} from "@cadence/contracts/planning";
 
 /** Kinds the chat can teach. Patterns and durations come from activity (Full), never from a model's reading. */
-const EXTRACTED_KINDS = ["preference", "quirk", "life", "constraint", "assist"] as const satisfies readonly MemoryKind[];
+const EXTRACTED_KINDS = [
+    "preference",
+    "quirk",
+    "life",
+    "constraint",
+    "assist",
+] as const satisfies readonly MemoryKind[];
 
 export const MAX_CANDIDATES = 8;
 
@@ -20,10 +31,19 @@ const rawFactSchema = z.object({
     text: z.string(),
     validThrough: localDateSchema.nullable().optional(),
     /** A duration report: how long the thing named in `text` took them. */
-    minutes: z.number().int().min(1).max(24 * 60).nullable().optional(),
+    minutes: z
+        .number()
+        .int()
+        .min(1)
+        .max(24 * 60)
+        .nullable()
+        .optional(),
     flags: z.array(z.string()).optional(),
     /** A preference about the time of day ("I study after dinner"): the parts of the day, and what it is about. */
-    when: z.object({ buckets: z.array(z.string()), about: z.string().nullable() }).nullable().optional(),
+    when: z
+        .object({ buckets: z.array(z.string()), about: z.string().nullable() })
+        .nullable()
+        .optional(),
     /** "Step lists stress me out": the offer that doesn't help them. */
     avoid: z.string().nullable().optional(),
 });
@@ -35,16 +55,18 @@ const rawSchema = z.object({ facts: z.array(z.unknown()) });
  * `rawFactSchema`, checked per candidate.
  */
 export const extractReplySchema = z.object({
-    facts: z.array(z.object({
-        from: z.string(),
-        kind: memoryKindSchema,
-        text: z.string(),
-        validThrough: z.string().nullable(),
-        minutes: z.number().int().nullable(),
-        flags: z.array(z.string()),
-        when: z.object({ buckets: z.array(z.string()), about: z.string().nullable() }).nullable(),
-        avoid: z.string().nullable(),
-    })),
+    facts: z.array(
+        z.object({
+            from: z.string(),
+            kind: memoryKindSchema,
+            text: z.string(),
+            validThrough: z.string().nullable(),
+            minutes: z.number().int().nullable(),
+            flags: z.array(z.string()),
+            when: z.object({ buckets: z.array(z.string()), about: z.string().nullable() }).nullable(),
+            avoid: z.string().nullable(),
+        }),
+    ),
 });
 
 export interface Candidate {
@@ -59,7 +81,10 @@ export interface Candidate {
 
 /** A stated time-of-day preference, checked: known parts of the day only, a short topic, preferences only. */
 function cleanWhen(raw: { buckets: string[]; about: string | null } | null | undefined): StatedWhenInput | null {
-    const buckets = [...new Set(raw?.buckets ?? [])].flatMap((b) => { const ok = timeOfDaySchema.safeParse(b); return ok.success ? [ok.data] : []; });
+    const buckets = [...new Set(raw?.buckets ?? [])].flatMap((b) => {
+        const ok = timeOfDaySchema.safeParse(b);
+        return ok.success ? [ok.data] : [];
+    });
     if (!buckets.length) return null;
     const about = raw?.about ? cleanText(raw.about).slice(0, 60) : "";
     return { buckets, about: about.length >= 2 ? about : null };
@@ -86,7 +111,11 @@ export function isInstructionShaped(text: string): boolean {
 /** One line of plain text: no markup or control characters a fence could be confused by. */
 export function cleanText(text: string): string {
     // eslint-disable-next-line no-control-regex
-    return text.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/[<>`]/g, "").replace(/\s+/g, " ").trim();
+    return text
+        .replace(/[\u0000-\u001f\u007f]+/g, " ")
+        .replace(/[<>`]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
 }
 
 /** Whether a cleaned candidate may be saved at all. */
@@ -103,7 +132,10 @@ function isSavable(kind: string, content: string, flags: readonly string[]): boo
 function candidateValue(fact: z.infer<typeof rawFactSchema>): Candidate["value"] {
     const when = fact.kind === "preference" ? cleanWhen(fact.when) : null;
     if (when) return { when };
-    const avoid = fact.kind === "assist" && (PLANNING_OFFERS as readonly string[]).includes(fact.avoid ?? "") ? (fact.avoid as PlanningOffer) : null;
+    const avoid =
+        fact.kind === "assist" && (PLANNING_OFFERS as readonly string[]).includes(fact.avoid ?? "")
+            ? (fact.avoid as PlanningOffer)
+            : null;
     return avoid ? { avoid } : null;
 }
 

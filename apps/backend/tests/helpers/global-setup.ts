@@ -25,7 +25,9 @@ export default async function setup(project: TestProject) {
     const pg = new PGlite({ extensions: { vector, pg_trgm } });
     // As on Neon, the worker's role exists before the first migration, which grants it table access.
     await pg.exec("CREATE ROLE api_worker NOLOGIN;");
-    const journal = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/_journal.json"), "utf8")) as { entries: { tag: string }[] };
+    const journal = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/_journal.json"), "utf8")) as {
+        entries: { tag: string }[];
+    };
     for (const { tag } of journal.entries) await pg.exec(readFileSync(join(MIGRATIONS_DIR, `${tag}.sql`), "utf8"));
 
     const dir = mkdtempSync(join(tmpdir(), "cadence-test-db-"));

@@ -28,7 +28,9 @@ describe("Trash Undo", () => {
         renderHook(() => useTaskDetailsRequest(open));
         patch.mockResolvedValueOnce(response("ARCHIVED")).mockResolvedValueOnce(response("ACTIVE"));
         const editor = setup();
-        await act(async () => { await editor.result.current.mutateAsync("task-1"); });
+        await act(async () => {
+            await editor.result.current.mutateAsync("task-1");
+        });
         const undo = toast.message.mock.calls[0][1].action.onClick;
         editor.unmount();
         expect(open).not.toHaveBeenCalled();
@@ -43,12 +45,16 @@ describe("Trash Undo", () => {
         renderHook(() => useTaskDetailsRequest(open));
         patch.mockResolvedValueOnce(response("ARCHIVED")).mockRejectedValueOnce(new Error("Restore failed"));
         const editor = setup();
-        await act(async () => { await editor.result.current.mutateAsync("task-1"); });
+        await act(async () => {
+            await editor.result.current.mutateAsync("task-1");
+        });
         act(() => toast.message.mock.calls[0][1].action.onClick());
-        await waitFor(() => expect(toast.error).toHaveBeenCalledWith(
-            "Couldn't restore task",
-            expect.objectContaining({ description: "Something went wrong on our end. Try again." }),
-        ));
+        await waitFor(() =>
+            expect(toast.error).toHaveBeenCalledWith(
+                "Couldn't restore task",
+                expect.objectContaining({ description: "Something went wrong on our end. Try again." }),
+            ),
+        );
         expect(open).not.toHaveBeenCalled();
     });
 });

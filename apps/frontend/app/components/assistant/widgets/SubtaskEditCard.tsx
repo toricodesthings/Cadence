@@ -18,7 +18,9 @@ function changeText(change: NonNullable<SubtaskEdit["update"]>[number]) {
     return [
         change.isComplete === true ? "tick off" : change.isComplete === false ? "untick" : null,
         change.title !== undefined ? `rename to “${change.title}”` : null,
-    ].filter(Boolean).join(", ");
+    ]
+        .filter(Boolean)
+        .join(", ");
 }
 
 /** One row per change: adds, edits, removals, then a reorder. */
@@ -31,14 +33,21 @@ function checklistRows(input: SubtaskEdit, nameOf: (id: string) => string): Chec
         ...(input.add ?? []).map((title) => ({ label: `Add ${title}`, text: `+ ${title}`, remove: false })),
         ...edits,
         ...(input.remove ?? []).map((step) => ({ label: `Remove ${step.title}`, text: step.title, remove: true })),
-        ...(input.order?.length ? [{ label: "Reorder steps", text: `New order: ${input.order.map(nameOf).join(" → ")}`, remove: false }] : []),
+        ...(input.order?.length
+            ? [{ label: "Reorder steps", text: `New order: ${input.order.map(nameOf).join(" → ")}`, remove: false }]
+            : []),
     ];
 }
 
 const onlyAdds = (input: SubtaskEdit) => !input.update?.length && !input.remove?.length && !input.order?.length;
 
 /** A card that only removes steps reads as a delete. */
-const REMOVE_LOOK = { tone: "danger" as const, primaryGlyph: Trash2, primaryVariant: "danger" as const, declineLabel: "Keep them" };
+const REMOVE_LOOK = {
+    tone: "danger" as const,
+    primaryGlyph: Trash2,
+    primaryVariant: "danger" as const,
+    declineLabel: "Keep them",
+};
 
 function primaryLabelFor(onlyAdds: boolean, onlyRemoves: boolean, kept: number) {
     if (onlyAdds) return `Add ${kept === 1 ? "step" : `${kept} steps`}`;

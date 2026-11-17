@@ -15,7 +15,12 @@ export interface DurationApi {
  * records nothing; every failure to *ask* is silent. `guess` is Cadence's own number for this task: the question
  * never uses it as a reference (it would anchor the answer).
  */
-export async function offerDuration(task: { id: string; title: string }, memoryMode: string | null | undefined, api: DurationApi, guess: number | null = null): Promise<void> {
+export async function offerDuration(
+    task: { id: string; title: string },
+    memoryMode: string | null | undefined,
+    api: DurationApi,
+    guess: number | null = null,
+): Promise<void> {
     if (memoryMode !== "full") return;
     try {
         const result = await api.ask(task.id);
@@ -27,7 +32,15 @@ export async function offerDuration(task: { id: string; title: string }, memoryM
                     title={task.title}
                     reference={relativeReference(result.reference, guess)}
                     onShown={() => void api.shown(result.token).catch(() => undefined)}
-                    onSave={(value, anchored) => api.report({ taskId: task.id, completedAt: result.completedAt, value, anchored, token: result.token })}
+                    onSave={(value, anchored) =>
+                        api.report({
+                            taskId: task.id,
+                            completedAt: result.completedAt,
+                            value,
+                            anchored,
+                            token: result.token,
+                        })
+                    }
                 />
             ),
             // Closed by the toast itself, which waits while it is hovered or focused.

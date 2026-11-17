@@ -53,7 +53,9 @@ async function readPreferences() {
         }
 
         const parsed = JSON.parse(raw) as unknown;
-        return isDesktopCommandPreferences(parsed) ? { ...DEFAULT_DESKTOP_COMMAND_PREFERENCES, ...parsed } : DEFAULT_DESKTOP_COMMAND_PREFERENCES;
+        return isDesktopCommandPreferences(parsed)
+            ? { ...DEFAULT_DESKTOP_COMMAND_PREFERENCES, ...parsed }
+            : DEFAULT_DESKTOP_COMMAND_PREFERENCES;
     } catch {
         return DEFAULT_DESKTOP_COMMAND_PREFERENCES;
     }

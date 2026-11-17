@@ -1,13 +1,9 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "types": [
-      "@cloudflare/workers-types"
-    ],
-    "lib": [
-      "ESNext"
-    ],
-    "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx"
-  }
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "types": ["@cloudflare/workers-types"],
+        "lib": ["ESNext"],
+        "jsx": "react-jsx",
+        "jsxImportSource": "hono/jsx"
+    }
 }

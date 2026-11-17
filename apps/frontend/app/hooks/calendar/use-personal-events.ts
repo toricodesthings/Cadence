@@ -22,10 +22,11 @@ export function usePersonalEvents(year: number, month?: number) {
     const personalEvents = settings?.calendar?.personalEvents ?? DEFAULT_PERSONAL_EVENTS;
     const enabled = personalEvents.enabled;
     const items = useMemo(
-        () => (personalEvents.items ?? []).map((event) => ({
-            ...event,
-            startedOn: event.startedOn ?? null,
-        })),
+        () =>
+            (personalEvents.items ?? []).map((event) => ({
+                ...event,
+                startedOn: event.startedOn ?? null,
+            })),
         [personalEvents.items],
     );
 
@@ -69,66 +70,85 @@ export function usePersonalEvents(year: number, month?: number) {
     }, [enabled, items, year]);
 
     // Get events for a specific date string "YYYY-MM-DD"
-    const getEventsForDate = useCallback((dateStr: string): PersonalEvent[] => {
-        if (!enabled) return [];
-        return eventsByDate.get(dateStr) ?? [];
-    }, [enabled, eventsByDate]);
+    const getEventsForDate = useCallback(
+        (dateStr: string): PersonalEvent[] => {
+            if (!enabled) return [];
+            return eventsByDate.get(dateStr) ?? [];
+        },
+        [enabled, eventsByDate],
+    );
 
     // CRUD operations via settings deep merge
-    const addEvent = useCallback((event: Omit<PersonalEvent, "id">) => {
-        const newItem: PersonalEvent = { ...event, id: crypto.randomUUID().slice(0, 12) };
-        updateSettings.mutate({
-            calendar: {
-                personalEvents: {
-                    items: [...items, newItem],
+    const addEvent = useCallback(
+        (event: Omit<PersonalEvent, "id">) => {
+            const newItem: PersonalEvent = { ...event, id: crypto.randomUUID().slice(0, 12) };
+            updateSettings.mutate({
+                calendar: {
+                    personalEvents: {
+                        items: [...items, newItem],
+                    },
                 },
-            },
-        });
-        return newItem;
-    }, [items, updateSettings]);
+            });
+            return newItem;
+        },
+        [items, updateSettings],
+    );
 
-    const updateEvent = useCallback((id: string, patch: Partial<Omit<PersonalEvent, "id">>) => {
-        updateSettings.mutate({
-            calendar: {
-                personalEvents: {
-                    items: items.map((e) => e.id === id ? { ...e, ...patch } : e),
+    const updateEvent = useCallback(
+        (id: string, patch: Partial<Omit<PersonalEvent, "id">>) => {
+            updateSettings.mutate({
+                calendar: {
+                    personalEvents: {
+                        items: items.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+                    },
                 },
-            },
-        });
-    }, [items, updateSettings]);
+            });
+        },
+        [items, updateSettings],
+    );
 
     // Latest list for Undo, which can run after this component has re-rendered or left.
     const itemsRef = useRef(items);
     itemsRef.current = items;
 
     /** Removes the event and offers Undo, which puts it back where it was. */
-    const removeEvent = useCallback((id: string) => {
-        const index = items.findIndex((e) => e.id === id);
-        if (index < 0) return;
-        const removed = items[index];
-        updateSettings.mutate({
-            calendar: {
-                personalEvents: {
-                    items: items.filter((e) => e.id !== id),
+    const removeEvent = useCallback(
+        (id: string) => {
+            const index = items.findIndex((e) => e.id === id);
+            if (index < 0) return;
+            const removed = items[index];
+            updateSettings.mutate({
+                calendar: {
+                    personalEvents: {
+                        items: items.filter((e) => e.id !== id),
+                    },
                 },
-            },
-        });
-        toastUndo(toastName(removed.label), () => {
-            const latest = itemsRef.current;
-            if (latest.some((e) => e.id === id)) return;
-            const next = [...latest];
-            next.splice(Math.min(index, next.length), 0, removed);
-            updateSettings.mutate({ calendar: { personalEvents: { items: next } } });
-        }, { description: "Deleted" });
-    }, [items, updateSettings]);
+            });
+            toastUndo(
+                toastName(removed.label),
+                () => {
+                    const latest = itemsRef.current;
+                    if (latest.some((e) => e.id === id)) return;
+                    const next = [...latest];
+                    next.splice(Math.min(index, next.length), 0, removed);
+                    updateSettings.mutate({ calendar: { personalEvents: { items: next } } });
+                },
+                { description: "Deleted" },
+            );
+        },
+        [items, updateSettings],
+    );
 
-    const setEnabled = useCallback((value: boolean) => {
-        updateSettings.mutate({
-            calendar: {
-                personalEvents: { enabled: value },
-            },
-        });
-    }, [updateSettings]);
+    const setEnabled = useCallback(
+        (value: boolean) => {
+            updateSettings.mutate({
+                calendar: {
+                    personalEvents: { enabled: value },
+                },
+            });
+        },
+        [updateSettings],
+    );
 
     return {
         enabled,

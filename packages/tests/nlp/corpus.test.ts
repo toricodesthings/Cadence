@@ -4,7 +4,19 @@ import { resolveDraft, EMPTY_DRAFT_FIELDS, type DraftField, type DraftFields } f
 import { CLOCK, CONTEXT, CORPUS, ZONE, type Case, type Surface } from "./corpus";
 
 const CAPS: Record<Surface, ReadonlySet<DraftField>> = {
-    task: new Set<DraftField>(["dueDate", "scheduledStart", "scheduledEnd", "recurrenceRule", "priority", "projectId", "tagIds", "waitingOn", "durationMinutes", "notBefore", "reminderAt"]),
+    task: new Set<DraftField>([
+        "dueDate",
+        "scheduledStart",
+        "scheduledEnd",
+        "recurrenceRule",
+        "priority",
+        "projectId",
+        "tagIds",
+        "waitingOn",
+        "durationMinutes",
+        "notBefore",
+        "reminderAt",
+    ]),
     routine: new Set<DraftField>(["recurrenceRule", "timeOfDay", "projectId", "tagIds"]),
     event: new Set<DraftField>(["dueDate"]),
 };
@@ -13,7 +25,12 @@ const empty = (v: unknown) => v === null || v === 0 || (Array.isArray(v) && v.le
 
 function run(c: Case) {
     const r = parse({ input: c.text, sourceSurface: "inline_add", clock: CLOCK, context: CONTEXT });
-    return resolveDraft(c.text, r.entities, {}, { zone: ZONE, capabilities: CAPS[c.surface], monthDayOnly: c.surface === "event" });
+    return resolveDraft(
+        c.text,
+        r.entities,
+        {},
+        { zone: ZONE, capabilities: CAPS[c.surface], monthDayOnly: c.surface === "event" },
+    );
 }
 
 /** Does the applied value equal what the case expects (events compare only the month and day)? */
@@ -23,7 +40,9 @@ function same(c: Case, key: keyof DraftFields, got: unknown, want: unknown) {
 }
 
 function score(cases: Case[]) {
-    let applied = 0, correct = 0, complete = 0;
+    let applied = 0,
+        correct = 0,
+        complete = 0;
     const failures: string[] = [];
     for (const c of cases) {
         const d = run(c);
@@ -35,13 +54,27 @@ function score(cases: Case[]) {
             if (!empty(got)) {
                 applied++;
                 if (want !== undefined && same(c, key, got, want)) correct++;
-                else { ok = false; why.push(`${key}=${JSON.stringify(got)} (wanted ${JSON.stringify(want)})`); }
-            } else if (want !== undefined) { ok = false; why.push(`missing ${key}`); }
+                else {
+                    ok = false;
+                    why.push(`${key}=${JSON.stringify(got)} (wanted ${JSON.stringify(want)})`);
+                }
+            } else if (want !== undefined) {
+                ok = false;
+                why.push(`missing ${key}`);
+            }
         }
         if (ok) complete++;
         else failures.push(`${c.id} ⟶ ${c.text} :: ${why.join("; ")}`);
     }
-    return { total: cases.length, applied, correct, complete, failures, precision: applied ? correct / applied : 1, completion: cases.length ? complete / cases.length : 1 };
+    return {
+        total: cases.length,
+        applied,
+        correct,
+        complete,
+        failures,
+        precision: applied ? correct / applied : 1,
+        completion: cases.length ? complete / cases.length : 1,
+    };
 }
 
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;

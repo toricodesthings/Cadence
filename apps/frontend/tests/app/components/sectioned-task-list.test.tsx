@@ -33,7 +33,12 @@ vi.mock("../../../app/components/tasks/AddTaskInput", () => ({
 }));
 
 const section = (overrides: Partial<TaskSection>): TaskSection => ({
-    id: "section-1", userId: "user-1", projectId: null, name: "Section", orderIndex: 1, createdAt: "2026-03-15T00:00:00.000Z",
+    id: "section-1",
+    userId: "user-1",
+    projectId: null,
+    name: "Section",
+    orderIndex: 1,
+    createdAt: "2026-03-15T00:00:00.000Z",
     ...overrides,
 });
 
@@ -68,9 +73,7 @@ describe("SectionedTaskList", () => {
         render(
             <SectionedTaskList
                 projectId={null}
-                tasks={[
-                    makeTask({ id: "holding-task", title: "Holding task", sectionId: "holding-section" }),
-                ]}
+                tasks={[makeTask({ id: "holding-task", title: "Holding task", sectionId: "holding-section" })]}
             />,
             { wrapper: TooltipProvider },
         );
@@ -90,8 +93,18 @@ describe("SectionedTaskList", () => {
             <SectionedTaskList
                 projectId="project-123"
                 tasks={[
-                    makeTask({ id: "ungrouped-task", title: "Ungrouped task", sectionId: null, projectId: "project-123" }),
-                    makeTask({ id: "sectioned-task", title: "Scoped task", sectionId: "project-section", projectId: "project-123" }),
+                    makeTask({
+                        id: "ungrouped-task",
+                        title: "Ungrouped task",
+                        sectionId: null,
+                        projectId: "project-123",
+                    }),
+                    makeTask({
+                        id: "sectioned-task",
+                        title: "Scoped task",
+                        sectionId: "project-section",
+                        projectId: "project-123",
+                    }),
                 ]}
             />,
             { wrapper: TooltipProvider },

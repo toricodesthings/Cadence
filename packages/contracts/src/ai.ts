@@ -94,30 +94,31 @@ export type ToolApprovalDecision = z.infer<typeof toolApprovalDecisionSchema>;
 export const chatSurfaceSchema = z.enum(["weekly_reset"]);
 export type ChatSurface = z.infer<typeof chatSurfaceSchema>;
 
-export const chatRequestSchema = z.object({
-    conversationId: z.uuid().optional(),
-    /** The new user turn. Omitted when the request only answers approvals. */
-    message: userMessageSchema.optional(),
-    /** Answers to the approvals the last assistant message waits on; the turn then continues. */
-    approvals: z.array(toolApprovalDecisionSchema).min(1).max(50).optional(),
-    /** The client's resolved zone (pinned or device); the server syncs `users.time_zone` from it. Omitted: the stored zone stands. */
-    timezone: z.string().optional(),
-    currentDate: z.string().describe("ISO timestamp representing user's current clock time"),
-    /** BCP-47 locale of the client (e.g. "en-CA") — feeds runtime prompt context. */
-    locale: z.string().min(2).max(35).optional(),
-    clientMessageId: z.string().max(64).optional(),
-    /** The composer's approval mode, rendered into the prompt's Environment. */
-    approvalMode: approvalModeSchema.default("ask"),
-    surface: chatSurfaceSchema.optional(),
-    /**
-     * Edit-truncation anchor. Sent ONLY on an explicit message edit: the id of
-     * the last message the client kept (rows after it are dropped server-side
-     * so the edited-away tail can't resurrect on reload), or null when the
-     * FIRST message was edited (the whole thread restarts). Omitted on normal
-     * sends/regenerates — regeneration anchors on the re-sent message id itself.
-     */
-    editAnchorId: z.string().min(1).max(128).nullable().optional(),
-})
+export const chatRequestSchema = z
+    .object({
+        conversationId: z.uuid().optional(),
+        /** The new user turn. Omitted when the request only answers approvals. */
+        message: userMessageSchema.optional(),
+        /** Answers to the approvals the last assistant message waits on; the turn then continues. */
+        approvals: z.array(toolApprovalDecisionSchema).min(1).max(50).optional(),
+        /** The client's resolved zone (pinned or device); the server syncs `users.time_zone` from it. Omitted: the stored zone stands. */
+        timezone: z.string().optional(),
+        currentDate: z.string().describe("ISO timestamp representing user's current clock time"),
+        /** BCP-47 locale of the client (e.g. "en-CA") — feeds runtime prompt context. */
+        locale: z.string().min(2).max(35).optional(),
+        clientMessageId: z.string().max(64).optional(),
+        /** The composer's approval mode, rendered into the prompt's Environment. */
+        approvalMode: approvalModeSchema.default("ask"),
+        surface: chatSurfaceSchema.optional(),
+        /**
+         * Edit-truncation anchor. Sent ONLY on an explicit message edit: the id of
+         * the last message the client kept (rows after it are dropped server-side
+         * so the edited-away tail can't resurrect on reload), or null when the
+         * FIRST message was edited (the whole thread restarts). Omitted on normal
+         * sends/regenerates — regeneration anchors on the re-sent message id itself.
+         */
+        editAnchorId: z.string().min(1).max(128).nullable().optional(),
+    })
     .refine((v) => !v.message !== !v.approvals, "Send a message or approvals, not both")
     .refine((v) => !v.approvals || v.conversationId, "Approvals need a conversationId");
 
@@ -183,20 +184,24 @@ export const aiConversationRowSchema = z.object({
 export const conversationSchema = aiConversationRowSchema;
 
 /** One row of GET /ai/conversations. */
-export const conversationListItemSchema = conversationSchema.pick({ id: true, title: true, lastMessageAt: true, archived: true }).extend({ learn: z.boolean() });
+export const conversationListItemSchema = conversationSchema
+    .pick({ id: true, title: true, lastMessageAt: true, archived: true })
+    .extend({ learn: z.boolean() });
 export type ConversationListItem = z.infer<typeof conversationListItemSchema>;
 
 /** The thread metadata GET /ai/conversations/:id returns with its messages. */
-export const conversationDetailSchema = conversationSchema.pick({
-    id: true,
-    title: true,
-    model: true,
-    lastMessageAt: true,
-    archived: true,
-    activeStreamId: true,
-    lastStreamId: true,
-    lastStreamStatus: true,
-}).extend({ learn: z.boolean() });
+export const conversationDetailSchema = conversationSchema
+    .pick({
+        id: true,
+        title: true,
+        model: true,
+        lastMessageAt: true,
+        archived: true,
+        activeStreamId: true,
+        lastStreamId: true,
+        lastStreamStatus: true,
+    })
+    .extend({ learn: z.boolean() });
 export type ConversationDetail = z.infer<typeof conversationDetailSchema>;
 export type Conversation = z.infer<typeof conversationSchema>;
 

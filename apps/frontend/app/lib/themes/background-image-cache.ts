@@ -49,7 +49,10 @@ export async function readCachedBackgroundImage(userId: string, imageId: string)
 
 /** Store this photo and drop any earlier one for the same account. */
 export function cacheBackgroundImage(
-    userId: string, imageId: string, blob: Blob, expectedGeneration: number,
+    userId: string,
+    imageId: string,
+    blob: Blob,
+    expectedGeneration: number,
 ): Promise<void> {
     return serializeWrite(async () => {
         if (!isBackgroundCacheCurrent(expectedGeneration)) return;

@@ -20,11 +20,13 @@ function isPendingDesktopAuthHandoff(value: unknown): value is PendingDesktopAut
     }
 
     const handoff = value as Record<string, unknown>;
-    return typeof handoff.state === "string"
-        && handoff.state.length > 0
-        && typeof handoff.redirectTo === "string"
-        && typeof handoff.createdAt === "number"
-        && typeof handoff.expiresAt === "number";
+    return (
+        typeof handoff.state === "string" &&
+        handoff.state.length > 0 &&
+        typeof handoff.redirectTo === "string" &&
+        typeof handoff.createdAt === "number" &&
+        typeof handoff.expiresAt === "number"
+    );
 }
 
 function createStateToken() {
@@ -112,10 +114,14 @@ export async function consumeDesktopAuthHandoff(state: string, redirectTo: strin
 // React StrictMode and account-provider remounts can revisit the same callback.
 // Consume its one-time state and exchange its verifier once for the entire handoff.
 let completion: { state: string; redirectTo: string; work: Promise<void> } | null = null;
-export function completeDesktopAuthHandoff(state: string, redirectTo: string, restore: () => Promise<void>): Promise<void> {
+export function completeDesktopAuthHandoff(
+    state: string,
+    redirectTo: string,
+    restore: () => Promise<void>,
+): Promise<void> {
     if (completion?.state === state && completion.redirectTo === redirectTo) return completion.work;
     const work = (async () => {
-        if (!await consumeDesktopAuthHandoff(state, redirectTo)) {
+        if (!(await consumeDesktopAuthHandoff(state, redirectTo))) {
             throw new Error("This sign-in link has expired. Please sign in again.");
         }
         await restore();

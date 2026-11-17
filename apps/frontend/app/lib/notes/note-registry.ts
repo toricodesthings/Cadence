@@ -31,11 +31,19 @@ let watchingPage = false;
 function watchPage() {
     if (watchingPage || typeof document === "undefined") return;
     watchingPage = true;
-    document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && checkpointNoteSessions());
+    document.addEventListener(
+        "visibilitychange",
+        () => document.visibilityState === "hidden" && checkpointNoteSessions(),
+    );
     window.addEventListener("pagehide", checkpointNoteSessions);
 }
 
-export function acquireNoteSession(queryClient: QueryClient, userId: string, ownerId: string, legacySeed?: () => string): NoteSession {
+export function acquireNoteSession(
+    queryClient: QueryClient,
+    userId: string,
+    ownerId: string,
+    legacySeed?: () => string,
+): NoteSession {
     watchPage();
     for (const [key, entry] of sessions) {
         if (!key.startsWith(`${userId}:`)) drop(key, entry);
@@ -57,10 +65,15 @@ export function acquireNoteSession(queryClient: QueryClient, userId: string, own
             publish: (next) => {
                 const note = queryClient.setQueryData<TaskNote | null>(noteKey, next);
                 // Keep local search current, including a deliberately cleared note and offline saves.
-                if (note) queryClient.setQueryData<SearchNote[]>(queryKeys.notes.search, (old) => old && [
-                    ...old.filter((entry) => entry.taskId !== ownerId),
-                    { taskId: ownerId, terms: searchTerms(note.body), headings: noteHeadings(note.body) },
-                ]);
+                if (note)
+                    queryClient.setQueryData<SearchNote[]>(
+                        queryKeys.notes.search,
+                        (old) =>
+                            old && [
+                                ...old.filter((entry) => entry.taskId !== ownerId),
+                                { taskId: ownerId, terms: searchTerms(note.body), headings: noteHeadings(note.body) },
+                            ],
+                    );
             },
             announce: (message) => announceNoteSaved({ userId, ...message }),
             journal: noteJournal,
@@ -68,7 +81,8 @@ export function acquireNoteSession(queryClient: QueryClient, userId: string, own
             subscribeWal,
             discardQueued: (branch) => {
                 for (const e of getWalSnapshot()) {
-                    if (e.op.type === "upsert_note" && e.op.taskId === ownerId && e.op.payload.branch === branch) void removeWalEntry(e.id);
+                    if (e.op.type === "upsert_note" && e.op.taskId === ownerId && e.op.payload.branch === branch)
+                        void removeWalEntry(e.id);
                 }
             },
             isOnline: () => navigator.onLine,

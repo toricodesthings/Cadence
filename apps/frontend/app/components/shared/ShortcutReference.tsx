@@ -26,9 +26,7 @@ export function ShortcutReference({ open, onOpenChange }: ShortcutReferenceProps
                 <div className="px-6 py-5">
                     <div className="mb-4 flex items-center gap-2">
                         <Keyboard size={16} className="text-twilight-text-soft" aria-hidden="true" />
-                        <DialogTitle className="font-display text-base leading-normal">
-                            Keyboard shortcuts
-                        </DialogTitle>
+                        <DialogTitle className="font-display text-base leading-normal">Keyboard shortcuts</DialogTitle>
                     </div>
 
                     <div className="grid grid-cols-2 gap-x-8 gap-y-4 max-h-[60vh] overflow-y-auto">
@@ -38,16 +36,24 @@ export function ShortcutReference({ open, onOpenChange }: ShortcutReferenceProps
                                     {section.title}
                                 </h3>
                                 <ul className="space-y-1">
-                                    {section.items.filter((item) => IS_DESKTOP_RUNTIME || !item.desktopOnly).map((item) => (
-                                        <li key={item.label} className="flex items-center justify-between gap-2 py-0.5">
-                                            <span className="text-xs text-twilight-text-soft">{item.label}</span>
-                                            <span className="flex items-center gap-0.5">
-                                                {(item.binding ? bindingKeys(bindings[item.binding]) : item.keys ?? []).map((k, i) => (
-                                                    <Kbd key={i}>{k}</Kbd>
-                                                ))}
-                                            </span>
-                                        </li>
-                                    ))}
+                                    {section.items
+                                        .filter((item) => IS_DESKTOP_RUNTIME || !item.desktopOnly)
+                                        .map((item) => (
+                                            <li
+                                                key={item.label}
+                                                className="flex items-center justify-between gap-2 py-0.5"
+                                            >
+                                                <span className="text-xs text-twilight-text-soft">{item.label}</span>
+                                                <span className="flex items-center gap-0.5">
+                                                    {(item.binding
+                                                        ? bindingKeys(bindings[item.binding])
+                                                        : (item.keys ?? [])
+                                                    ).map((k, i) => (
+                                                        <Kbd key={i}>{k}</Kbd>
+                                                    ))}
+                                                </span>
+                                            </li>
+                                        ))}
                                 </ul>
                             </div>
                         ))}

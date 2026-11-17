@@ -19,19 +19,21 @@ export function useRestoreTask(options?: { showSuccessToast?: boolean; openDetai
     return useMutation({
         mutationFn: withOfflineSupport<string, Task>(
             (id) => ({ type: "update_task", id, payload: { state: "ACTIVE" } }),
-            async (id) => unwrapResponse(await client.api.tasks[":id"].$patch({ param: { id }, json: { state: "ACTIVE" } })),
+            async (id) =>
+                unwrapResponse(await client.api.tasks[":id"].$patch({ param: { id }, json: { state: "ACTIVE" } })),
         ),
 
         onMutate: async (id) => {
             await taskCache.cancel(queryClient);
             const snapshot = taskCache.snapshot(queryClient);
             // Kept so a restore queued offline can put the task back in its lists now.
-            const trashed = snapshot.flatMap(([, list]) => (Array.isArray(list) ? (list as Task[]) : [])).find((t) => t.id === id);
+            const trashed = snapshot
+                .flatMap(([, list]) => (Array.isArray(list) ? (list as Task[]) : []))
+                .find((t) => t.id === id);
 
             // Remove from archived/trash cache optimistically
-            queryClient.setQueriesData<Task[]>(
-                { queryKey: queryKeys.tasks.all },
-                (old) => transformListCache(old, (items) => items.filter((t) => t.id !== id)),
+            queryClient.setQueriesData<Task[]>({ queryKey: queryKeys.tasks.all }, (old) =>
+                transformListCache(old, (items) => items.filter((t) => t.id !== id)),
             );
 
             return { snapshot, trashed };

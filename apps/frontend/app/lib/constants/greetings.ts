@@ -31,7 +31,13 @@ export type DayPeriod = keyof typeof GREETINGS;
 /** The part of the day in the user's zone; it also tints Capture's window. */
 export function dayPeriodOf(now: Date = new Date()): DayPeriod {
     const hour = Number(wallTimeOf(now, getUserZone()).slice(0, 2));
-    return hour >= 5 && hour < 12 ? "morning" : hour >= 12 && hour < 17 ? "afternoon" : hour >= 17 && hour < 22 ? "evening" : "night";
+    return hour >= 5 && hour < 12
+        ? "morning"
+        : hour >= 12 && hour < 17
+          ? "afternoon"
+          : hour >= 17 && hour < 22
+            ? "evening"
+            : "night";
 }
 
 export function getTimeBasedGreeting(now: Date = new Date(), name?: string): string {

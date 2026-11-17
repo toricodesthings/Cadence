@@ -67,15 +67,32 @@ export interface MinimalTask {
 /** The task columns the projection reads (a full row fits; `content` is dropped). */
 export type TaskRow = Pick<
     TaskRecord,
-    | "id" | "title" | "state" | "dueDate" | "scheduledStart" | "scheduledEnd"
-    | "durationEstimate" | "priority" | "effort" | "projectId" | "waitingOn" | "interactionMode" | "recurrenceRule"
-> & Partial<Pick<TaskRecord, "endDate" | "sectionId" | "content" | "isPinned" | "reminderAt" | "waitingReminder" | "notBefore">> & {
-    /** Set on an expanded occurrence of a repeating task (see expandScheduleScopedTasks). */
-    seriesId?: string;
-    tagNames?: string[];
-    listName?: string | null;
-    sectionName?: string | null;
-};
+    | "id"
+    | "title"
+    | "state"
+    | "dueDate"
+    | "scheduledStart"
+    | "scheduledEnd"
+    | "durationEstimate"
+    | "priority"
+    | "effort"
+    | "projectId"
+    | "waitingOn"
+    | "interactionMode"
+    | "recurrenceRule"
+> &
+    Partial<
+        Pick<
+            TaskRecord,
+            "endDate" | "sectionId" | "content" | "isPinned" | "reminderAt" | "waitingReminder" | "notBefore"
+        >
+    > & {
+        /** Set on an expanded occurrence of a repeating task (see expandScheduleScopedTasks). */
+        seriesId?: string;
+        tagNames?: string[];
+        listName?: string | null;
+        sectionName?: string | null;
+    };
 
 const EFFORT_WORDS = { 1: "low", 2: "medium", 3: "high" } as const;
 
@@ -90,7 +107,11 @@ const nonEmpty = <T>(list: T[] | null | undefined): T[] | undefined => (list?.le
  * days as stored ("2026-03-10"), instants as the user's wall clock with offset
  * ("2026-03-10T14:00:00-04:00").
  */
-export function toMinimalTask(row: TaskRow, timezone: string, hint?: { takesAbout?: number; took?: number | string; effortGuess?: 1 | 2 | 3 }): MinimalTask {
+export function toMinimalTask(
+    row: TaskRow,
+    timezone: string,
+    hint?: { takesAbout?: number; took?: number | string; effortGuess?: 1 | 2 | 3 },
+): MinimalTask {
     const show = (value: string | null | undefined) => (value ? toZonedIso(value, timezone) : undefined);
     const fixedBlock = row.interactionMode === "timetable";
     // Unset fields are undefined, which JSON leaves out, so they cost nothing on the wire.
@@ -186,7 +207,10 @@ export interface MinimalHabit {
 export type HabitRow = Pick<
     HabitRecord,
     "id" | "title" | "recurrenceRule" | "currentStreak" | "longestStreak" | "archived" | "pausedUntil"
-> & Partial<Pick<HabitRecord, "emoji" | "targetTime" | "steps" | "targetTimes" | "times" | "colorAccent" | "projectId">> & { tagIds?: string[] };
+> &
+    Partial<
+        Pick<HabitRecord, "emoji" | "targetTime" | "steps" | "targetTimes" | "times" | "colorAccent" | "projectId">
+    > & { tagIds?: string[] };
 
 /**
  * Project a routine. `recent` is its last 30 days before today (from `habitDays`):
@@ -194,7 +218,11 @@ export type HabitRow = Pick<
  * logged counts against it (the stored totals never see those). `currentDate`
  * (YYYY-MM-DD) sets the `paused` flag (paused from today through `pausedUntil`).
  */
-export function toMinimalHabit(row: HabitRow, currentDate: string, recent?: { done: number; missed: number }): MinimalHabit {
+export function toMinimalHabit(
+    row: HabitRow,
+    currentDate: string,
+    recent?: { done: number; missed: number },
+): MinimalHabit {
     const counted = recent ? recent.done + recent.missed : 0;
     const paused = isPausedOn(row.pausedUntil, currentDate, currentDate);
     const times = nonEmpty(row.times);
@@ -223,7 +251,11 @@ export function toMinimalHabit(row: HabitRow, currentDate: string, recent?: { do
 export type InboxItemRow = Pick<InboxItemRecord, "id" | "rawText" | "captureKind" | "captureStatus" | "processed"> &
     Partial<Pick<InboxItemRecord, "placedTaskId">>;
 
-export type MinimalInboxItem = Omit<InboxItemRow, "placedTaskId"> & { isNote: boolean; truncated?: true; taskId?: string };
+export type MinimalInboxItem = Omit<InboxItemRow, "placedTaskId"> & {
+    isNote: boolean;
+    truncated?: true;
+    taskId?: string;
+};
 
 /** Project an inbox capture: the user's own words, verbatim up to the note read limit (truncated:true past it). */
 export function toMinimalInboxItem(row: InboxItemRow): MinimalInboxItem {

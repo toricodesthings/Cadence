@@ -3,7 +3,12 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { Markdown } from "../../../../app/components/assistant/Markdown";
 
-const show = (text: string) => render(<MemoryRouter><Markdown>{text}</Markdown></MemoryRouter>);
+const show = (text: string) =>
+    render(
+        <MemoryRouter>
+            <Markdown>{text}</Markdown>
+        </MemoryRouter>,
+    );
 
 describe("assistant links", () => {
     it("shows where an external link goes when its text hides it", () => {

@@ -77,9 +77,10 @@ export function CalendarGrid({
                     <div
                         key={d}
                         className={`text-center uppercase py-1.5
-                            ${isCompact
-                                ? "text-[10px] text-twilight-text-soft tracking-widest font-semibold"
-                                : "pb-4 text-[12px] font-semibold text-twilight-text-soft tracking-[0.18em]"
+                            ${
+                                isCompact
+                                    ? "text-[10px] text-twilight-text-soft tracking-widest font-semibold"
+                                    : "pb-4 text-[12px] font-semibold text-twilight-text-soft tracking-[0.18em]"
                             }`}
                     >
                         {d}

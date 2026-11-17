@@ -25,11 +25,17 @@ export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onO
                 <div className="grid gap-4 px-6 py-6 md:grid-cols-2">
                     <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
                         <div className="flex items-center gap-2 text-sm font-semibold text-twilight-text">
-                            {isOnline ? <CheckCircle2 size={16} className="text-accent-primary" /> : <WifiOff size={16} className="text-amber-300" />}
+                            {isOnline ? (
+                                <CheckCircle2 size={16} className="text-accent-primary" />
+                            ) : (
+                                <WifiOff size={16} className="text-amber-300" />
+                            )}
                             Connectivity
                         </div>
                         <p className="mt-3 text-sm text-twilight-text-soft">
-                            {isOnline ? "Online and ready to sync." : "Offline. Cadence will queue local changes until the connection returns."}
+                            {isOnline
+                                ? "Online and ready to sync."
+                                : "Offline. Cadence will queue local changes until the connection returns."}
                         </p>
                     </div>
 
@@ -39,27 +45,42 @@ export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onO
                             Last activity
                         </div>
                         <p className="mt-3 text-sm text-twilight-text-soft">
-                            {lastSyncedAt ? `Manual sync completed at ${formatTime(lastSyncedAt.toISOString())}.` : "No manual sync has been run in this session."}
+                            {lastSyncedAt
+                                ? `Manual sync completed at ${formatTime(lastSyncedAt.toISOString())}.`
+                                : "No manual sync has been run in this session."}
                         </p>
                     </div>
 
                     <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 md:col-span-2">
                         <div className="flex flex-wrap items-center gap-3 text-sm font-semibold text-twilight-text">
-                            <RefreshCw size={16} className={isSyncing || outbox.replaying > 0 ? "sync-spin text-moonlit" : "text-twilight-text-soft"} />
+                            <RefreshCw
+                                size={16}
+                                className={
+                                    isSyncing || outbox.replaying > 0
+                                        ? "sync-spin text-moonlit"
+                                        : "text-twilight-text-soft"
+                                }
+                            />
                             Mutation outbox
                         </div>
 
                         <div className="mt-4 grid gap-3 sm:grid-cols-3">
                             <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-3">
-                                <p className="text-[11px] uppercase tracking-[0.16em] text-twilight-text-muted">Pending</p>
+                                <p className="text-[11px] uppercase tracking-[0.16em] text-twilight-text-muted">
+                                    Pending
+                                </p>
                                 <p className="mt-2 text-2xl font-semibold text-twilight-text">{outbox.pending}</p>
                             </div>
                             <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-3">
-                                <p className="text-[11px] uppercase tracking-[0.16em] text-twilight-text-muted">Replaying</p>
+                                <p className="text-[11px] uppercase tracking-[0.16em] text-twilight-text-muted">
+                                    Replaying
+                                </p>
                                 <p className="mt-2 text-2xl font-semibold text-twilight-text">{outbox.replaying}</p>
                             </div>
                             <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-3">
-                                <p className="text-[11px] uppercase tracking-[0.16em] text-twilight-text-muted">Failed</p>
+                                <p className="text-[11px] uppercase tracking-[0.16em] text-twilight-text-muted">
+                                    Failed
+                                </p>
                                 <p className="mt-2 text-2xl font-semibold text-twilight-text">{outbox.failed.length}</p>
                             </div>
                         </div>
@@ -71,7 +92,8 @@ export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onO
                                     Failed sync attempts need attention
                                 </div>
                                 <p className="mt-2">
-                                    Retry them once the connection is stable. To drop one, use Review in the banner at the top.
+                                    Retry them once the connection is stable. To drop one, use Review in the banner at
+                                    the top.
                                 </p>
                             </div>
                         ) : null}
@@ -83,7 +105,9 @@ export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onO
                             Updates
                         </div>
                         <p className="mt-3 text-sm text-twilight-text-soft">
-                            {update ? `Cadence ${update.version} is ready to install.` : "No desktop update is currently staged."}
+                            {update
+                                ? `Cadence ${update.version} is ready to install.`
+                                : "No desktop update is currently staged."}
                         </p>
                     </div>
                 </div>

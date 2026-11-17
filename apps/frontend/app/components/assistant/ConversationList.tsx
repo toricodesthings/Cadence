@@ -59,7 +59,12 @@ export function ConversationList({
     );
 
     return (
-        <OverlayPanel label="Saved conversations" title="Conversations" onClose={onClose} autoFocusBack={false} action={(
+        <OverlayPanel
+            label="Saved conversations"
+            title="Conversations"
+            onClose={onClose}
+            autoFocusBack={false}
+            action={
                 <Button
                     variant="cardPrimary"
                     size="none"
@@ -69,16 +74,14 @@ export function ConversationList({
                     <Plus size={14} />
                     New chat
                 </Button>
-            )}>
+            }
+        >
             <ScrollArea.Root className="min-h-0 flex-1">
                 <ScrollArea.Viewport className="px-2 py-2">
                     {isLoading ? (
                         <div className="space-y-1.5 p-1" aria-busy="true" aria-label="Loading conversations">
                             {[0, 1, 2].map((i) => (
-                                <div
-                                    key={i}
-                                    className="flex items-center justify-between rounded-xl px-3 py-2.5"
-                                >
+                                <div key={i} className="flex items-center justify-between rounded-xl px-3 py-2.5">
                                     <Skeleton className="h-4 w-40" />
                                     <Skeleton className="h-3 w-10" />
                                 </div>
@@ -91,9 +94,7 @@ export function ConversationList({
                             className="flex w-full items-start gap-2 rounded-xl border border-twilight-border bg-twilight-surface px-3 py-3 text-left text-twilight-text-soft transition-colors hover:bg-twilight-surface-hover cursor-pointer"
                         >
                             <CircleAlert size={14} className="mt-0.5 shrink-0 text-feedback-error" />
-                            <span className="text-sm">
-                                Couldn’t load your conversations. Tap to try again.
-                            </span>
+                            <span className="text-sm">Couldn’t load your conversations. Tap to try again.</span>
                         </button>
                     ) : active.length === 0 && archived.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-14 text-center">
@@ -102,8 +103,7 @@ export function ConversationList({
                             </div>
                             <p className="text-sm font-medium text-twilight-text">No conversations yet</p>
                             <p className="mt-2 max-w-[240px] text-[13px] leading-relaxed text-twilight-text-muted">
-                                Every chat is saved here, so you can pick any thread back up
-                                right where you left it.
+                                Every chat is saved here, so you can pick any thread back up right where you left it.
                             </p>
                             <Button
                                 variant="cardPrimary"
@@ -126,11 +126,7 @@ export function ConversationList({
                                         onClick={() => setShowArchived((v) => !v)}
                                         className="flex w-full items-center gap-1 rounded-lg px-3 py-2 text-[12px] text-twilight-text-muted transition-colors hover:text-twilight-text-soft cursor-pointer pointer-coarse:min-h-11 pointer-coarse:text-[13px]"
                                     >
-                                        {showArchived ? (
-                                            <ChevronDown size={14} />
-                                        ) : (
-                                            <ChevronRight size={14} />
-                                        )}
+                                        {showArchived ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                         Show archived ({archived.length})
                                     </button>
                                     <Reveal open={showArchived} className="space-y-0.5">

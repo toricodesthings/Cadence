@@ -25,10 +25,13 @@ export function useScheduleNavigation({ isPhone, isDesktop }: { isPhone: boolean
     // Phones zoom Day → Month → Year; Week's strip lives inside Day there.
     const viewMode: CalendarViewMode = isPhone && storedViewMode === "week" ? "day" : storedViewMode;
     const isPhoneDay = isPhone && viewMode === "day";
-    const setViewMode = useCallback((mode: CalendarViewMode) => {
-        setLinkedView(null);
-        store(mode);
-    }, [store]);
+    const setViewMode = useCallback(
+        (mode: CalendarViewMode) => {
+            setLinkedView(null);
+            store(mode);
+        },
+        [store],
+    );
 
     const [currentDate, setCurrentDate] = useState<LocalDate>(() => {
         const queryDate = searchParams.get("date");
@@ -51,18 +54,25 @@ export function useScheduleNavigation({ isPhone, isDesktop }: { isPhone: boolean
         }
     }, [searchParams, setViewMode]);
 
-    const handleNavigate = useCallback((delta: number) => {
-        setZoom(0);
-        setDirection(delta);
-        setCurrentDate((prev) => {
-            switch (viewMode) {
-                case "day": return addDays(prev, delta);
-                case "week": return addDays(prev, delta * 7);
-                case "month": return addMonthsToDay(prev, delta);
-                case "year": return addYearsToDay(prev, delta);
-            }
-        });
-    }, [viewMode]);
+    const handleNavigate = useCallback(
+        (delta: number) => {
+            setZoom(0);
+            setDirection(delta);
+            setCurrentDate((prev) => {
+                switch (viewMode) {
+                    case "day":
+                        return addDays(prev, delta);
+                    case "week":
+                        return addDays(prev, delta * 7);
+                    case "month":
+                        return addMonthsToDay(prev, delta);
+                    case "year":
+                        return addYearsToDay(prev, delta);
+                }
+            });
+        },
+        [viewMode],
+    );
 
     const handleToday = useCallback(() => {
         setZoom(0);
@@ -71,33 +81,49 @@ export function useScheduleNavigation({ isPhone, isDesktop }: { isPhone: boolean
         setCurrentDate(todayStr);
     }, [currentDate]);
 
-    const handleSelectDate = useCallback((day: LocalDate) => {
-        setCurrentDate(day);
-        setViewMode("day");
-    }, [setViewMode]);
+    const handleSelectDate = useCallback(
+        (day: LocalDate) => {
+            setCurrentDate(day);
+            setViewMode("day");
+        },
+        [setViewMode],
+    );
 
     // ── View mode change ────────────────────────────────────────────────────
-    const handleViewMode = useCallback((mode: CalendarViewMode) => {
-        const depth: Record<CalendarViewMode, number> = { day: 0, week: 1, month: 2, year: 3 };
-        setZoom(isPhone ? Math.sign(depth[viewMode] - depth[mode]) : 0);
-        setDirection(0);
-        setViewMode(mode);
-    }, [setViewMode, isPhone, viewMode]);
+    const handleViewMode = useCallback(
+        (mode: CalendarViewMode) => {
+            const depth: Record<CalendarViewMode, number> = { day: 0, week: 1, month: 2, year: 3 };
+            setZoom(isPhone ? Math.sign(depth[viewMode] - depth[mode]) : 0);
+            setDirection(0);
+            setViewMode(mode);
+        },
+        [setViewMode, isPhone, viewMode],
+    );
 
     /** Phone: open a day from Month or Year, zooming in. */
-    const openDay = useCallback((iso: LocalDate) => {
-        setCurrentDate(iso);
-        handleViewMode("day");
-    }, [handleViewMode]);
+    const openDay = useCallback(
+        (iso: LocalDate) => {
+            setCurrentDate(iso);
+            handleViewMode("day");
+        },
+        [handleViewMode],
+    );
 
-    const handleYearSelectMonth = useCallback((m: number) => {
-        setCurrentDate(isoMonthStart(parseYMD(currentDate).y, m));
-        setViewMode("month");
-    }, [currentDate, setViewMode]);
+    const handleYearSelectMonth = useCallback(
+        (m: number) => {
+            setCurrentDate(isoMonthStart(parseYMD(currentDate).y, m));
+            setViewMode("month");
+        },
+        [currentDate, setViewMode],
+    );
 
     const viewed = parseYMD(currentDate);
-    const isOffToday = viewMode === "year" ? viewed.y !== year
-        : viewMode === "month" ? viewed.y !== year || viewed.m !== month : currentDate !== todayIso;
+    const isOffToday =
+        viewMode === "year"
+            ? viewed.y !== year
+            : viewMode === "month"
+              ? viewed.y !== year || viewed.m !== month
+              : currentDate !== todayIso;
     const selectStripDay = (day: LocalDate) => {
         setZoom(0);
         setDirection(day > currentDate ? 1 : -1);
@@ -108,15 +134,33 @@ export function useScheduleNavigation({ isPhone, isDesktop }: { isPhone: boolean
         setDirection(delta);
         setCurrentDate((prev) => addDays(prev, delta * 7));
     };
-    const selectViewShortcut = useCallback((mode: CalendarViewMode) => {
-        setDirection(0);
-        setViewMode(mode);
-    }, [setViewMode]);
+    const selectViewShortcut = useCallback(
+        (mode: CalendarViewMode) => {
+            setDirection(0);
+            setViewMode(mode);
+        },
+        [setViewMode],
+    );
     return {
-        currentDate, setCurrentDate, todayIso, viewMode, isPhoneDay, direction, zoom, isOffToday,
-        year: viewed.y, month: viewed.m,
-        handleNavigate, handleToday, handleSelectDate, handleViewMode, openDay, handleYearSelectMonth,
-        selectStripDay, shiftStripWeek, selectViewShortcut,
+        currentDate,
+        setCurrentDate,
+        todayIso,
+        viewMode,
+        isPhoneDay,
+        direction,
+        zoom,
+        isOffToday,
+        year: viewed.y,
+        month: viewed.m,
+        handleNavigate,
+        handleToday,
+        handleSelectDate,
+        handleViewMode,
+        openDay,
+        handleYearSelectMonth,
+        selectStripDay,
+        shiftStripWeek,
+        selectViewShortcut,
     };
 }
 export type ScheduleNavigation = ReturnType<typeof useScheduleNavigation>;

@@ -2,11 +2,22 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { EmptyState } from "../tasks/EmptyState";
 import { groupTasksBySection } from "../../lib/utils/task/group-by-section";
 import {
-    DndContext, DragOverlay, closestCenter, closestCorners,
-    KeyboardSensor, PointerSensor, useSensor, useSensors,
+    DndContext,
+    DragOverlay,
+    closestCenter,
+    closestCorners,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
 } from "@dnd-kit/core";
 import type { CollisionDetection, DragStartEvent, DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+    SortableContext,
+    horizontalListSortingStrategy,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { Columns3, Plus, EllipsisVertical, Pencil, Trash2, ArrowLeft, ArrowRight } from "lucide-react";
 import { useSections, useCreateSection, useDeleteSection, useUpdateSection } from "../../hooks/sections/use-sections";
@@ -95,9 +106,15 @@ function KanbanColumn({
                         autoFocus
                         defaultValue={section.name}
                         className="border-b border-accent-primary/30 bg-transparent font-display text-base font-semibold text-twilight-text outline-none"
-                        onBlur={(e) => { onRename(e.target.value); setIsRenaming(false); }}
+                        onBlur={(e) => {
+                            onRename(e.target.value);
+                            setIsRenaming(false);
+                        }}
                         onKeyDown={(e) => {
-                            if (e.key === "Enter") { onRename((e.target as HTMLInputElement).value); setIsRenaming(false); }
+                            if (e.key === "Enter") {
+                                onRename((e.target as HTMLInputElement).value);
+                                setIsRenaming(false);
+                            }
                             if (e.key === "Escape") setIsRenaming(false);
                         }}
                     />
@@ -159,17 +176,13 @@ function KanbanColumn({
             >
                 <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
                     {tasks.map((task) => (
-                        <TaskContextMenuWrapper
-                            key={task.id}
-                            task={task}
-                            onRename={() => setRenamingTask(task)}
-                        >
+                        <TaskContextMenuWrapper key={task.id} task={task} onRename={() => setRenamingTask(task)}>
                             <SortableTaskCard
                                 task={task}
                                 tags={tagsByTaskId[task.id] ?? []}
                                 subtasks={subtasksByTaskId[task.id] ?? []}
                                 isSelected={task.id === selectedTaskId}
-                                onSelect={onSelectTask || (() => { })}
+                                onSelect={onSelectTask || (() => {})}
                                 variant="board"
                             />
                         </TaskContextMenuWrapper>
@@ -177,7 +190,12 @@ function KanbanColumn({
                 </SortableContext>
 
                 {tasks.length === 0 && (
-                    <EmptyState icon={Columns3} title={`Nothing in ${section.name} yet.`} description="Drop a task here." compact />
+                    <EmptyState
+                        icon={Columns3}
+                        title={`Nothing in ${section.name} yet.`}
+                        description="Drop a task here."
+                        compact
+                    />
                 )}
             </div>
 
@@ -210,7 +228,7 @@ export function KanbanBoard({
     tasks,
     projectId = null,
     selectedTaskId = null,
-    onSelectTask = () => { },
+    onSelectTask = () => {},
     desktopCanvasPaddingClassName = "px-4 pb-4 pt-2",
     activeSectionId,
     onActiveSectionChange,
@@ -301,7 +319,10 @@ export function KanbanBoard({
         if (!over || active.id === over.id) return;
 
         if (active.data.current?.type === SECTION_SORT) {
-            reorder.moveTo(String(active.data.current.sectionId), sections.findIndex((s) => `section:${s.id}` === over.id));
+            reorder.moveTo(
+                String(active.data.current.sectionId),
+                sections.findIndex((s) => `section:${s.id}` === over.id),
+            );
             return;
         }
 
@@ -319,9 +340,8 @@ export function KanbanBoard({
             const newSectionId = overData.section.id === "ungrouped" ? null : overData.section.id;
             targetSectionId = newSectionId;
             const targetTasks = (targetSectionId ? sectionTaskMap.get(targetSectionId) : ungroupedTasks) || [];
-            newOrderIndex = targetTasks.length > 0
-                ? Math.max(...targetTasks.map(t => t.orderIndex || 0)) + 1000
-                : 1000;
+            newOrderIndex =
+                targetTasks.length > 0 ? Math.max(...targetTasks.map((t) => t.orderIndex || 0)) + 1000 : 1000;
 
             if (draggedTask.sectionId !== targetSectionId) {
                 shouldUpdate = true;
@@ -333,24 +353,27 @@ export function KanbanBoard({
                 targetSectionId = overTask.sectionId || null;
                 const targetTasks = (targetSectionId ? sectionTaskMap.get(targetSectionId) : ungroupedTasks) || [];
                 const sortedTasks = [...targetTasks].sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
-                const overIndex = sortedTasks.findIndex(t => t.id === over.id);
+                const overIndex = sortedTasks.findIndex((t) => t.id === over.id);
 
                 const activeRect = active.rect.current.translated;
-                const isBelow = activeRect && activeRect.top > over.rect.top + (over.rect.height / 2);
+                const isBelow = activeRect && activeRect.top > over.rect.top + over.rect.height / 2;
 
                 if (isBelow) {
                     const prevOrder = overTask.orderIndex || 0;
                     const nextTask = sortedTasks[overIndex + 1];
-                    const nextOrder = nextTask ? (nextTask.orderIndex || prevOrder + 2000) : prevOrder + 2000;
+                    const nextOrder = nextTask ? nextTask.orderIndex || prevOrder + 2000 : prevOrder + 2000;
                     newOrderIndex = (prevOrder + nextOrder) / 2;
                 } else {
                     const nextOrder = overTask.orderIndex || 0;
                     const prevTask = sortedTasks[overIndex - 1];
-                    const prevOrder = prevTask ? (prevTask.orderIndex || nextOrder - 2000) : nextOrder - 2000;
+                    const prevOrder = prevTask ? prevTask.orderIndex || nextOrder - 2000 : nextOrder - 2000;
                     newOrderIndex = (prevOrder + nextOrder) / 2;
                 }
 
-                if (draggedTask.sectionId !== targetSectionId || Math.abs(draggedTask.orderIndex - newOrderIndex) > 0.001) {
+                if (
+                    draggedTask.sectionId !== targetSectionId ||
+                    Math.abs(draggedTask.orderIndex - newOrderIndex) > 0.001
+                ) {
                     shouldUpdate = true;
                 }
             }
@@ -369,26 +392,35 @@ export function KanbanBoard({
         selectedTaskId,
         projectId,
         onSelectTask,
-        onRename: column.id === "ungrouped" ? undefined : (name: string) => updateSection.mutate({ id: column.id, name }),
-        onDelete: column.id === "ungrouped" ? undefined : () => deleteSection.mutate({ id: column.id, name: column.section.name }),
+        onRename:
+            column.id === "ungrouped" ? undefined : (name: string) => updateSection.mutate({ id: column.id, name }),
+        onDelete:
+            column.id === "ungrouped"
+                ? undefined
+                : () => deleteSection.mutate({ id: column.id, name: column.section.name }),
     });
 
     const handleCreateColumn = () => {
         const name = newColumnName.trim();
         if (!name) return;
-        const nextOrder = sections.length > 0
-            ? Math.max(...sections.map((s) => s.orderIndex)) + 1
-            : 1;
-        createSection.mutate({ name, orderIndex: nextOrder }, {
-            onSuccess: () => {
-                // After optimistic insert, scroll to show the new column
-                requestAnimationFrame(() => {
-                    if (addColumnRef.current) {
-                        addColumnRef.current.scrollIntoView({ behavior: "smooth", inline: "end", block: "nearest" });
-                    }
-                });
+        const nextOrder = sections.length > 0 ? Math.max(...sections.map((s) => s.orderIndex)) + 1 : 1;
+        createSection.mutate(
+            { name, orderIndex: nextOrder },
+            {
+                onSuccess: () => {
+                    // After optimistic insert, scroll to show the new column
+                    requestAnimationFrame(() => {
+                        if (addColumnRef.current) {
+                            addColumnRef.current.scrollIntoView({
+                                behavior: "smooth",
+                                inline: "end",
+                                block: "nearest",
+                            });
+                        }
+                    });
+                },
             },
-        });
+        );
         setNewColumnName("");
         setIsAddingColumn(false);
     };
@@ -404,16 +436,17 @@ export function KanbanBoard({
                         id: column.id,
                         title: column.name,
                         count: column.tasks.length,
-                        content: column.tasks.length > 0 ? (
-                            <TaskList
-                                tasks={column.tasks}
-                                selectedTaskId={selectedTaskId}
-                                onSelectTask={onSelectTask}
-                                cardVariant="board"
-                            />
-                        ) : (
-                            <EmptyState title={`Nothing in ${column.name} yet.`} description={null} compact />
-                        ),
+                        content:
+                            column.tasks.length > 0 ? (
+                                <TaskList
+                                    tasks={column.tasks}
+                                    selectedTaskId={selectedTaskId}
+                                    onSelectTask={onSelectTask}
+                                    cardVariant="board"
+                                />
+                            ) : (
+                                <EmptyState title={`Nothing in ${column.name} yet.`} description={null} compact />
+                            ),
                     }))}
                 />
             </div>
@@ -436,64 +469,81 @@ export function KanbanBoard({
                 onPointerCancel={dragScroll.onPointerCancel}
             >
                 <div className={`flex h-full min-h-full items-stretch gap-4 ${desktopCanvasPaddingClassName}`.trim()}>
-                {/* Unsectioned column first; only section columns can be renamed, moved or deleted */}
-                {visibleColumns.filter((column) => column.id === "ungrouped").map((column) => (
-                    <FoldColumn key={column.id} hidden={hideEmptySections && column.tasks.length === 0}>
-                        <div className="h-full w-[min(24rem,80vw)]">
-                            <KanbanColumn {...columnProps(column)} />
-                        </div>
-                    </FoldColumn>
-                ))}
-                <SortableContext items={sections.map((s) => `section:${s.id}`)} strategy={horizontalListSortingStrategy}>
-                    {visibleColumns.filter((column) => column.id !== "ungrouped").map((column, index, columns) => (
-                        <FoldColumn key={column.id} hidden={hideEmptySections && column.tasks.length === 0}>
-                        <SortableSection id={column.id} name={column.name} className="h-full w-[min(24rem,80vw)]">
-                            {(grip) => (
-                                <KanbanColumn
-                                    {...columnProps(column)}
-                                    grip={grip}
-                                    onMove={(by) => reorder.move(column.id, by)}
-                                    first={index === 0}
-                                    last={index === columns.length - 1}
-                                />
-                            )}
-                        </SortableSection>
-                        </FoldColumn>
-                    ))}
-                </SortableContext>
+                    {/* Unsectioned column first; only section columns can be renamed, moved or deleted */}
+                    {visibleColumns
+                        .filter((column) => column.id === "ungrouped")
+                        .map((column) => (
+                            <FoldColumn key={column.id} hidden={hideEmptySections && column.tasks.length === 0}>
+                                <div className="h-full w-[min(24rem,80vw)]">
+                                    <KanbanColumn {...columnProps(column)} />
+                                </div>
+                            </FoldColumn>
+                        ))}
+                    <SortableContext
+                        items={sections.map((s) => `section:${s.id}`)}
+                        strategy={horizontalListSortingStrategy}
+                    >
+                        {visibleColumns
+                            .filter((column) => column.id !== "ungrouped")
+                            .map((column, index, columns) => (
+                                <FoldColumn key={column.id} hidden={hideEmptySections && column.tasks.length === 0}>
+                                    <SortableSection
+                                        id={column.id}
+                                        name={column.name}
+                                        className="h-full w-[min(24rem,80vw)]"
+                                    >
+                                        {(grip) => (
+                                            <KanbanColumn
+                                                {...columnProps(column)}
+                                                grip={grip}
+                                                onMove={(by) => reorder.move(column.id, by)}
+                                                first={index === 0}
+                                                last={index === columns.length - 1}
+                                            />
+                                        )}
+                                    </SortableSection>
+                                </FoldColumn>
+                            ))}
+                    </SortableContext>
 
-                {/* Add column button */}
-                <div ref={addColumnRef} className="w-[min(20rem,70vw)] shrink-0">
-                    {isAddingColumn ? (
-                        <div className="bg-twilight-backdrop/20 rounded-2xl border border-twilight-border/40 p-4">
-                            <input
-                                autoFocus
-                                value={newColumnName}
-                                onChange={(e) => setNewColumnName(e.target.value)}
-                                placeholder="Section name..."
-                                className="w-full bg-transparent text-[13px] text-twilight-text outline-none border-b border-twilight-border/40 pb-2 placeholder:text-twilight-text-muted/40"
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleCreateColumn();
-                                    if (e.key === "Escape") { setIsAddingColumn(false); setNewColumnName(""); }
-                                }}
-                                onBlur={() => {
-                                    if (newColumnName.trim()) handleCreateColumn();
-                                    else { setIsAddingColumn(false); setNewColumnName(""); }
-                                }}
-                            />
-                        </div>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => setIsAddingColumn(true)}
-                            data-add-section-trigger
-                            className="w-full h-[60px] rounded-2xl border-2 border-dashed border-twilight-border/30 flex items-center justify-center gap-2 text-[13px] text-twilight-text-muted/50 hover:text-twilight-text-muted hover:border-twilight-border/50 transition-colors cursor-pointer"
-                        >
-                            <Plus size={16} />
-                            Add section
-                        </button>
-                    )}
-                </div>
+                    {/* Add column button */}
+                    <div ref={addColumnRef} className="w-[min(20rem,70vw)] shrink-0">
+                        {isAddingColumn ? (
+                            <div className="bg-twilight-backdrop/20 rounded-2xl border border-twilight-border/40 p-4">
+                                <input
+                                    autoFocus
+                                    value={newColumnName}
+                                    onChange={(e) => setNewColumnName(e.target.value)}
+                                    placeholder="Section name..."
+                                    className="w-full bg-transparent text-[13px] text-twilight-text outline-none border-b border-twilight-border/40 pb-2 placeholder:text-twilight-text-muted/40"
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleCreateColumn();
+                                        if (e.key === "Escape") {
+                                            setIsAddingColumn(false);
+                                            setNewColumnName("");
+                                        }
+                                    }}
+                                    onBlur={() => {
+                                        if (newColumnName.trim()) handleCreateColumn();
+                                        else {
+                                            setIsAddingColumn(false);
+                                            setNewColumnName("");
+                                        }
+                                    }}
+                                />
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => setIsAddingColumn(true)}
+                                data-add-section-trigger
+                                className="w-full h-[60px] rounded-2xl border-2 border-dashed border-twilight-border/30 flex items-center justify-center gap-2 text-[13px] text-twilight-text-muted/50 hover:text-twilight-text-muted hover:border-twilight-border/50 transition-colors cursor-pointer"
+                            >
+                                <Plus size={16} />
+                                Add section
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 

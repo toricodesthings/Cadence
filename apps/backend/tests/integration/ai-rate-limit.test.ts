@@ -16,7 +16,9 @@ vi.mock("../../src/platform/db", () => ({ getDbClient: () => ({}) }));
 vi.mock("../../src/platform/rls", () => ({
     withRls: (_db: unknown, _userId: string, fn: (tx: unknown) => unknown) => fn({}),
 }));
-vi.mock("../../src/platform/user-zone", () => ({ syncUserZoneWithSettings: async (_tx: unknown, _userId: string, zone: string) => ({ timezone: zone, settings: {} }) }));
+vi.mock("../../src/platform/user-zone", () => ({
+    syncUserZoneWithSettings: async (_tx: unknown, _userId: string, zone: string) => ({ timezone: zone, settings: {} }),
+}));
 vi.mock("../../src/platform/redis", () => ({ getRedis: () => null, getRateLimitRedis: getRateLimitRedisMock }));
 vi.mock("../../src/domains/ai/persistence/conversation-repo");
 vi.mock("../../src/domains/ai/agent");
@@ -51,7 +53,12 @@ beforeEach(async () => {
 
 /** One chat turn; the stream is drained so onFinish (and settle) has run on return. */
 async function chat(env: Record<string, unknown> = {}, parts: unknown[] = [{ type: "text", text: "hello there" }]) {
-    const res = await apiAs(TEST_USER_ID, "/ai", aiRoutes, env)("POST", "/chat", {
+    const res = await apiAs(
+        TEST_USER_ID,
+        "/ai",
+        aiRoutes,
+        env,
+    )("POST", "/chat", {
         conversationId: CONV_ID,
         message: { id: "m1", role: "user", parts },
         currentDate: "2026-09-29T14:00:00.000Z",
@@ -117,7 +124,12 @@ describe("POST /ai/chat — usage budget", () => {
     });
 
     it("fails closed by default in production when the store is unreachable", async () => {
-        getRateLimitRedisMock.mockReturnValue({ eval: async () => { throw new Error("redis down"); }, get: async () => null });
+        getRateLimitRedisMock.mockReturnValue({
+            eval: async () => {
+                throw new Error("redis down");
+            },
+            get: async () => null,
+        });
 
         expect((await chat()).status).toBe(429);
         expect(appendUserMessage).not.toHaveBeenCalled();
@@ -149,9 +161,17 @@ describe("POST /ai/chat — usage budget", () => {
     it("charges a turn that fails mid-stream at least its reserve", async () => {
         const redis = new FakeRedis();
         getRateLimitRedisMock.mockReturnValue(redis);
-        vi.mocked(getAgentInstance).mockResolvedValue(agentOf(new MockLanguageModelV4({
-            doStream: async () => streamOf(...textChunks("Half a").slice(0, 2), { type: "error", error: new Error("provider dropped") }),
-        })));
+        vi.mocked(getAgentInstance).mockResolvedValue(
+            agentOf(
+                new MockLanguageModelV4({
+                    doStream: async () =>
+                        streamOf(...textChunks("Half a").slice(0, 2), {
+                            type: "error",
+                            error: new Error("provider dropped"),
+                        }),
+                }),
+            ),
+        );
 
         const { status } = await chat();
 
@@ -163,9 +183,15 @@ describe("POST /ai/chat — usage budget", () => {
     it("refunds a turn that fails before the model says anything", async () => {
         const redis = new FakeRedis();
         getRateLimitRedisMock.mockReturnValue(redis);
-        vi.mocked(getAgentInstance).mockResolvedValue(agentOf(new MockLanguageModelV4({
-            doStream: async () => { throw new Error("provider down"); },
-        })));
+        vi.mocked(getAgentInstance).mockResolvedValue(
+            agentOf(
+                new MockLanguageModelV4({
+                    doStream: async () => {
+                        throw new Error("provider down");
+                    },
+                }),
+            ),
+        );
 
         await chat();
 

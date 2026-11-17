@@ -65,17 +65,26 @@ export function ControlsSheet({
         // takeover costs more than it carries. Longer lists drill into a
         // sub-panel that slides in the way iOS menus do.
         const drillSection = sections.find((section) => section.id === drillId) ?? null;
-        const slide = (from: number) => (reduceMotion
-            ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
-            : { initial: { opacity: 0, x: from }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -from } });
+        const slide = (from: number) =>
+            reduceMotion
+                ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
+                : { initial: { opacity: 0, x: from }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -from } };
 
         return (
-            <Popover.Root open={open} onOpenChange={(next) => { setOpen(next); if (!next) setDrillId(null); }}>
-                <Tip label={triggerLabel}><Popover.Trigger asChild>
-                    <button type="button" className="mobile-icon-button" aria-label={triggerLabel}>
-                        <EllipsisVertical size={20} aria-hidden="true" />
-                    </button>
-                </Popover.Trigger></Tip>
+            <Popover.Root
+                open={open}
+                onOpenChange={(next) => {
+                    setOpen(next);
+                    if (!next) setDrillId(null);
+                }}
+            >
+                <Tip label={triggerLabel}>
+                    <Popover.Trigger asChild>
+                        <button type="button" className="mobile-icon-button" aria-label={triggerLabel}>
+                            <EllipsisVertical size={20} aria-hidden="true" />
+                        </button>
+                    </Popover.Trigger>
+                </Tip>
 
                 <Popover.Content
                     side="bottom"
@@ -85,7 +94,12 @@ export function ControlsSheet({
                 >
                     <AnimatePresence initial={false} mode="wait">
                         {drillSection ? (
-                            <motion.div key={drillSection.id} {...slide(18)} transition={{ duration: reduceMotion ? 0 : 0.18 }} className="space-y-2">
+                            <motion.div
+                                key={drillSection.id}
+                                {...slide(18)}
+                                transition={{ duration: reduceMotion ? 0 : 0.18 }}
+                                className="space-y-2"
+                            >
                                 <button
                                     type="button"
                                     onClick={() => setDrillId(null)}
@@ -97,17 +111,30 @@ export function ControlsSheet({
                                 <div className="px-1 pb-1">{drillSection.content}</div>
                             </motion.div>
                         ) : (
-                            <motion.div key="root" {...slide(-18)} transition={{ duration: reduceMotion ? 0 : 0.18 }} className="space-y-3">
-                                {description ? <p className="px-1 pt-1 text-sm text-twilight-text-soft">{description}</p> : null}
+                            <motion.div
+                                key="root"
+                                {...slide(-18)}
+                                transition={{ duration: reduceMotion ? 0 : 0.18 }}
+                                className="space-y-3"
+                            >
+                                {description ? (
+                                    <p className="px-1 pt-1 text-sm text-twilight-text-soft">{description}</p>
+                                ) : null}
 
-                                {sections.map((section) => section.display === "drill" ? (
-                                    <DrillRow key={section.id} section={section} onOpen={() => setDrillId(section.id)} />
-                                ) : (
-                                    <section key={section.id} aria-label={section.label} className="space-y-2">
-                                        <h3 className={SECTION_LABEL}>{section.label}</h3>
-                                        <div className="px-1">{section.content}</div>
-                                    </section>
-                                ))}
+                                {sections.map((section) =>
+                                    section.display === "drill" ? (
+                                        <DrillRow
+                                            key={section.id}
+                                            section={section}
+                                            onOpen={() => setDrillId(section.id)}
+                                        />
+                                    ) : (
+                                        <section key={section.id} aria-label={section.label} className="space-y-2">
+                                            <h3 className={SECTION_LABEL}>{section.label}</h3>
+                                            <div className="px-1">{section.content}</div>
+                                        </section>
+                                    ),
+                                )}
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -125,7 +152,9 @@ export function ControlsSheet({
                         "touch-target inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-twilight-border/45 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft",
                         "hover:bg-white/[0.06] hover:text-twilight-text",
                         triggerClassName,
-                    ].join(" ").trim()}
+                    ]
+                        .join(" ")
+                        .trim()}
                 >
                     <EllipsisVertical size={15} aria-hidden="true" />
                     {triggerLabel}
@@ -159,9 +188,7 @@ export function ControlsSheet({
                     ) : null}
                 </div>
 
-                <div className="max-h-[70dvh] overflow-y-auto px-5 py-5 scrollbar-thin">
-                    {activeSection?.content}
-                </div>
+                <div className="max-h-[70dvh] overflow-y-auto px-5 py-5 scrollbar-thin">{activeSection?.content}</div>
             </Dialog.DialogContent>
         </Dialog.Dialog>
     );

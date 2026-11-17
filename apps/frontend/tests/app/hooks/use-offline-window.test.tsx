@@ -9,12 +9,24 @@ import type { ReactNode } from "react";
 const { client, read, options } = vi.hoisted(() => {
     const read = vi.fn<() => Promise<unknown>>();
     return {
-        client: { api: { tasks: { batch: { $get: async (input: { query: { queries: string } }) => {
-            await read();
-            return Response.json({ data: { tasks: [], lists: JSON.parse(input.query.queries).map(() => []) } });
-        } } } } }, read,
+        client: {
+            api: {
+                tasks: {
+                    batch: {
+                        $get: async (input: { query: { queries: string } }) => {
+                            await read();
+                            return Response.json({
+                                data: { tasks: [], lists: JSON.parse(input.query.queries).map(() => []) },
+                            });
+                        },
+                    },
+                },
+            },
+        },
+        read,
         options: (domain: string, filters?: unknown) => ({
-            queryKey: [domain, filters ?? null], queryFn: () => read(),
+            queryKey: [domain, filters ?? null],
+            queryFn: () => read(),
         }),
     };
 });
@@ -39,7 +51,7 @@ let online: boolean;
 beforeEach(() => {
     visible = online = true;
     pending = [];
-    vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visible ? "visible" : "hidden");
+    vi.spyOn(document, "visibilityState", "get").mockImplementation(() => (visible ? "visible" : "hidden"));
     vi.spyOn(navigator, "onLine", "get").mockImplementation(() => online);
     read.mockReset().mockImplementation(() => {
         const request = Promise.withResolvers<unknown>();
@@ -57,24 +69,36 @@ describe("offline window background requests", () => {
     it("waits for the shared startup commit before warming", async () => {
         const queryClient = testQueryClient();
         const Client = withClient(queryClient);
-        const { unmount } = renderHook(useOfflineWindow, { wrapper: ({ children }: { children: ReactNode }) => <Client><StartupReadyContext value={false}>{children}</StartupReadyContext></Client> });
+        const { unmount } = renderHook(useOfflineWindow, {
+            wrapper: ({ children }: { children: ReactNode }) => (
+                <Client>
+                    <StartupReadyContext value={false}>{children}</StartupReadyContext>
+                </Client>
+            ),
+        });
         await act(async () => {});
         expect(read).not.toHaveBeenCalled();
-        unmount(); queryClient.clear();
+        unmount();
+        queryClient.clear();
     });
     it("pauses queued warming while an active foreground query is fetching", async () => {
         const { queryClient, unmount } = setup();
         await waitFor(() => expect(read).toHaveBeenCalledTimes(3));
         const foreground = Promise.withResolvers<unknown>();
         const { QueryObserver } = await import("@tanstack/react-query");
-        const observer = new QueryObserver(queryClient, { queryKey: ["foreground"], queryFn: () => foreground.promise });
+        const observer = new QueryObserver(queryClient, {
+            queryKey: ["foreground"],
+            queryFn: () => foreground.promise,
+        });
         const stop = observer.subscribe(() => {});
         await act(async () => pending.forEach((request) => request.resolve([])));
         expect(read).toHaveBeenCalledTimes(3);
         read.mockResolvedValue([]);
         await act(async () => foreground.resolve("ready"));
         await waitFor(() => expect(read.mock.calls.length).toBeGreaterThan(3));
-        stop(); unmount(); queryClient.clear();
+        stop();
+        unmount();
+        queryClient.clear();
     });
     it("bounds the initial load and warms the rest as requests finish, keeping fresh data cached", async () => {
         const { queryClient, unmount } = setup();
@@ -127,7 +151,8 @@ describe("offline window background requests", () => {
         const { queryClient, unmount } = setup();
         await waitFor(() => expect(read).toHaveBeenCalled());
         expect(setInterval.mock.calls.filter(([, ms]) => (ms ?? 0) >= 60_000)).toEqual([]);
-        unmount(); queryClient.clear();
+        unmount();
+        queryClient.clear();
     });
 
     it("does not start the rest of an account's requests after its workspace unmounts", async () => {
@@ -148,7 +173,10 @@ describe("offline window background requests", () => {
         const { queryClient, unmount } = setup();
         await waitFor(() => expect(queryClient.isFetching()).toBe(0));
         await waitFor(() => expect(queryClient.getQueryCache().getAll().length).toBeGreaterThan(10));
-        const keys = queryClient.getQueryCache().getAll().map((q) => q.queryKey as [string, Record<string, unknown> | null]);
+        const keys = queryClient
+            .getQueryCache()
+            .getAll()
+            .map((q) => q.queryKey as [string, Record<string, unknown> | null]);
         const filters = (domain: string) => keys.filter(([d]) => d === domain).map(([, f]) => f);
         expect(filters("tasks")).toContainEqual({ state: "ACTIVE", effectiveOnOrBeforeDate: "2026-03-25" });
         expect(filters("tasks")).toContainEqual({ state: "ACTIVE", range: { from: "2026-03-23", to: "2026-03-29" } });
@@ -156,6 +184,8 @@ describe("offline window background requests", () => {
         expect(filters("habits")).toContainEqual({ start: "2026-02-23", end: "2026-04-01" });
         expect(filters("habits")).toContainEqual({ start: "2026-03-01", end: "2026-03-31" });
         expect(JSON.stringify(filters("habits"))).not.toMatch(/timezone|T\d\d:/);
-        unmount(); queryClient.clear(); vi.useRealTimers();
+        unmount();
+        queryClient.clear();
+        vi.useRealTimers();
     });
 });

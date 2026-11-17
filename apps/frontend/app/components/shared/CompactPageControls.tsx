@@ -33,25 +33,15 @@ export function CompactPageControls({
                 "flex min-h-11 items-center gap-2 overflow-hidden rounded-[1.35rem] border border-twilight-border/40 bg-white/[0.03] p-1.5 backdrop-blur-xl",
                 sticky ? "supports-[backdrop-filter]:bg-twilight-deep/55" : "",
                 className,
-            ].join(" ").trim()}
+            ]
+                .join(" ")
+                .trim()}
         >
-            {primaryControl ? (
-                <div className="min-w-0 flex-1 [&>*]:w-full">
-                    {primaryControl}
-                </div>
-            ) : null}
+            {primaryControl ? <div className="min-w-0 flex-1 [&>*]:w-full">{primaryControl}</div> : null}
 
-            {secondaryControl ? (
-                <div className="shrink-0 [&>*]:max-w-full">
-                    {secondaryControl}
-                </div>
-            ) : null}
+            {secondaryControl ? <div className="shrink-0 [&>*]:max-w-full">{secondaryControl}</div> : null}
 
-            {controlsTrigger ? (
-                <div className="shrink-0 [&>*]:max-w-full">
-                    {controlsTrigger}
-                </div>
-            ) : null}
+            {controlsTrigger ? <div className="shrink-0 [&>*]:max-w-full">{controlsTrigger}</div> : null}
         </div>
     );
 }

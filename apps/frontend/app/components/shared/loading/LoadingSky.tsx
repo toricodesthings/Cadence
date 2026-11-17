@@ -34,7 +34,8 @@ const STAR_SETS: readonly (readonly [number, number, string | undefined])[] = [
     [18, 26, "ls-stars-26"],
 ];
 
-const MARIA = "M537,290a11,8 0 1,0 22,0a11,8 0 1,0 -22,0M564,306a8,6 0 1,0 16,0a8,6 0 1,0 -16,0M550,318a6,4 0 1,0 12,0a6,4 0 1,0 -12,0";
+const MARIA =
+    "M537,290a11,8 0 1,0 22,0a11,8 0 1,0 -22,0M564,306a8,6 0 1,0 16,0a8,6 0 1,0 -16,0M550,318a6,4 0 1,0 12,0a6,4 0 1,0 -12,0";
 
 /** Six twinklers as three opacity-animated pairs of distant stars (keeps the animation budget). */
 const TWINKLE_PAIRS: readonly { a: Pt; b: Pt; dur: number; delay: number }[] = [
@@ -44,25 +45,51 @@ const TWINKLE_PAIRS: readonly { a: Pt; b: Pt; dur: number; delay: number }[] = [
 ];
 
 function twinkleStyle({ a, b, dur, delay }: (typeof TWINKLE_PAIRS)[number]) {
-    return cssVars({ ...twinkleBox(a, b, "var(--ls-star-cool)", "var(--ls-star-warm)"), "--dur": `${dur}s`, "--delay": `${delay}s` });
+    return cssVars({
+        ...twinkleBox(a, b, "var(--ls-star-cool)", "var(--ls-star-warm)"),
+        "--dur": `${dur}s`,
+        "--delay": `${delay}s`,
+    });
 }
 
 /** Drifting cloud bank (one 1920-wide tile, y 120–420): [cx, base, width, height]. */
-const DRIFT_CLOUDS = ([[640, 372, 300, 58], [1250, 236, 420, 72], [1730, 336, 260, 50], [180, 214, 250, 46]] as const).map(
-    ([cx, base, w, h], i) => cloud(cx, base, w, h, 71 + i),
-);
+const DRIFT_CLOUDS = (
+    [
+        [640, 372, 300, 58],
+        [1250, 236, 420, 72],
+        [1730, 336, 260, 50],
+        [180, 214, 250, 46],
+    ] as const
+).map(([cx, base, w, h], i) => cloud(cx, base, w, h, 71 + i));
 
 /** Spring's overcast: wider, flatter clouds that stay put. */
-const SPRING_CLOUDS = ([[300, 220, 420, 50], [800, 175, 520, 60], [1400, 270, 380, 44], [1700, 205, 460, 54], [500, 318, 340, 38],
-    [1020, 96, 760, 64], [110, 352, 420, 42], [1580, 372, 540, 48]] as const).map(
-    ([cx, base, w, h], i) => cloud(cx, base, w, h, 81 + i),
-);
+const SPRING_CLOUDS = (
+    [
+        [300, 220, 420, 50],
+        [800, 175, 520, 60],
+        [1400, 270, 380, 44],
+        [1700, 205, 460, 54],
+        [500, 318, 340, 38],
+        [1020, 96, 760, 64],
+        [110, 352, 420, 42],
+        [1580, 372, 540, 48],
+    ] as const
+).map(([cx, base, w, h], i) => cloud(cx, base, w, h, 81 + i));
 
 /** Glassy cloud: a faint underside nudged down-right (warmed by the valley glow on low clouds), a thin specular crest peeking above, then the body; the tile's group opacity makes the whole cloud translucent. */
 function Cloud({ d, low }: { d: string; low?: boolean }) {
     return (
         <>
-            <path d={d} fill={low ? "color-mix(in srgb, var(--ls-cloud-base) 80%, var(--loading-sky-glow))" : "var(--ls-cloud-base)"} opacity=".28" transform="translate(3 6)" />
+            <path
+                d={d}
+                fill={
+                    low
+                        ? "color-mix(in srgb, var(--ls-cloud-base) 80%, var(--loading-sky-glow))"
+                        : "var(--ls-cloud-base)"
+                }
+                opacity=".28"
+                transform="translate(3 6)"
+            />
             <path d={d} fill="url(#ls-cloud-edge)" transform="translate(-1.5 -2.5)" />
             <path d={d} fill="url(#ls-cloud-grad)" />
         </>
@@ -81,8 +108,18 @@ export function LoadingSky() {
                 {STAR_SETS.flatMap(([from, to, cls]) => {
                     const set = STARS.slice(from, to);
                     return [
-                        <path key={`${from}c`} className={cls} d={starPath(set.filter((s) => !s.warm))} fill="var(--ls-star-cool)" />,
-                        <path key={`${from}w`} className={cls} d={starPath(set.filter((s) => s.warm))} fill="var(--ls-star-warm)" />,
+                        <path
+                            key={`${from}c`}
+                            className={cls}
+                            d={starPath(set.filter((s) => !s.warm))}
+                            fill="var(--ls-star-cool)"
+                        />,
+                        <path
+                            key={`${from}w`}
+                            className={cls}
+                            d={starPath(set.filter((s) => s.warm))}
+                            fill="var(--ls-star-warm)"
+                        />,
                     ];
                 })}
             </g>

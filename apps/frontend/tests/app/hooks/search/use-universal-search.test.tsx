@@ -3,10 +3,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Task } from "@cadence/contracts/task";
 import { useUniversalSearch } from "../../../../app/hooks/search/use-universal-search";
 
-const data = vi.hoisted(() => ({ tasks: [] as Task[], notes: [] as { taskId: string; terms: string[]; headings: string[] }[], indexBuilds: vi.fn() }));
+const data = vi.hoisted(() => ({
+    tasks: [] as Task[],
+    notes: [] as { taskId: string; terms: string[]; headings: string[] }[],
+    indexBuilds: vi.fn(),
+}));
 vi.mock("@cadence/search", async (original) => {
     const actual = await original<typeof import("@cadence/search")>();
-    return { ...actual, createSearchIndex: (...args: Parameters<typeof actual.createSearchIndex>) => { data.indexBuilds(); return actual.createSearchIndex(...args); } };
+    return {
+        ...actual,
+        createSearchIndex: (...args: Parameters<typeof actual.createSearchIndex>) => {
+            data.indexBuilds();
+            return actual.createSearchIndex(...args);
+        },
+    };
 });
 vi.mock("../../../../app/hooks/tasks/use-tasks", () => ({ useTasks: () => ({ data: data.tasks }) }));
 vi.mock("../../../../app/hooks/tasks/use-subtasks", () => ({ useSubtasksByTaskIds: () => ({}) }));
@@ -22,7 +32,8 @@ vi.mock("../../../../app/stores/focus-view-store", () => {
 });
 vi.mock("../../../../app/lib/utils/user-zone", () => ({ today: () => "2026-10-12" }));
 
-const task = (id: string, title: string, extra: Partial<Task> = {}) => ({ id, title, state: "ACTIVE", tagIds: [], content: "", ...extra }) as Task;
+const task = (id: string, title: string, extra: Partial<Task> = {}) =>
+    ({ id, title, state: "ACTIVE", tagIds: [], content: "", ...extra }) as Task;
 beforeEach(() => {
     data.tasks = [task("release", "Implement 0.31.0"), task("decoy", "Implement 0.31.01")];
     data.notes = [];
@@ -31,7 +42,9 @@ beforeEach(() => {
 
 describe("universal search integration", () => {
     it("reuses the index across keystrokes and never matches a nearby version", async () => {
-        const hook = renderHook(({ query }) => useUniversalSearch(query, true), { initialProps: { query: "implementation 0.31.0" } });
+        const hook = renderHook(({ query }) => useUniversalSearch(query, true), {
+            initialProps: { query: "implementation 0.31.0" },
+        });
         expect(hook.result.current.results.tasks.map((item) => item.id)).toEqual(["task-release"]);
         const builds = data.indexBuilds.mock.calls.length;
         hook.rerender({ query: "0.31.0" });
@@ -44,8 +57,14 @@ describe("universal search integration", () => {
     it("opens a canonical heading and drops replaced or cleared note terms", async () => {
         data.tasks = [task("note", "Checklist", { content: "obsoleteword" })];
         data.notes = [{ taskId: "note", terms: ["deployment", "0.35.0"], headings: ["Deployment"] }];
-        const hook = renderHook(({ query }) => useUniversalSearch(query, true), { initialProps: { query: "deployment" } });
-        expect(hook.result.current.results.tasks[0]?.noteAction).toEqual({ taskId: "note", taskTitle: "Checklist", scrollToHeading: "Deployment" });
+        const hook = renderHook(({ query }) => useUniversalSearch(query, true), {
+            initialProps: { query: "deployment" },
+        });
+        expect(hook.result.current.results.tasks[0]?.noteAction).toEqual({
+            taskId: "note",
+            taskTitle: "Checklist",
+            scrollToHeading: "Deployment",
+        });
         data.notes = [{ taskId: "note", terms: [], headings: [] }];
         hook.rerender({ query: "obsoleteword" });
         await waitFor(() => expect(hook.result.current.query).toBe("obsoleteword"));

@@ -3,7 +3,16 @@ import { resolvedNlp } from "../../lib/utils/task/resolved-nlp";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useSettings } from "../../hooks/core/use-settings";
-import { useCallback, useState, useRef, useEffect, useLayoutEffect, useContext, useTransition, type KeyboardEvent } from "react";
+import {
+    useCallback,
+    useState,
+    useRef,
+    useEffect,
+    useLayoutEffect,
+    useContext,
+    useTransition,
+    type KeyboardEvent,
+} from "react";
 import { Calendar, CheckSquare, Inbox, MessageSquare, Plus } from "lucide-react";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
 import { useProcessInboxToTask } from "../../hooks/inbox/use-process-inbox-to-task";
@@ -47,11 +56,18 @@ export const pickHolds = (pickedFor: string, value: string): boolean => {
     return value.trim().startsWith(anchor.slice(0, Math.ceil(anchor.length / 2)));
 };
 
-const isDated = ({ dueDate, scheduledStart }: Pick<DraftFields, "dueDate" | "scheduledStart">) => Boolean(dueDate || scheduledStart);
+const isDated = ({ dueDate, scheduledStart }: Pick<DraftFields, "dueDate" | "scheduledStart">) =>
+    Boolean(dueDate || scheduledStart);
 
 /** Read and write a tab-scoped draft; storage can be missing or blocked, and the draft still works without it. */
 /** A typed task as sent: what is shown is what is sent, and the server stores it as sent. */
-function taskPayload(id: string, text: string, draft: { cleanedTitle: string; fields: DraftFields }, endDate: LocalDate | null, dateStyle: DateStyle) {
+function taskPayload(
+    id: string,
+    text: string,
+    draft: { cleanedTitle: string; fields: DraftFields },
+    endDate: LocalDate | null,
+    dateStyle: DateStyle,
+) {
     const { fields } = draft;
     return {
         inboxItemId: id,
@@ -75,7 +91,11 @@ function taskPayload(id: string, text: string, draft: { cleanedTitle: string; fi
 
 function readDraft(key: string | undefined): string {
     if (!key) return "";
-    try { return sessionStorage.getItem(key) ?? ""; } catch { return ""; }
+    try {
+        return sessionStorage.getItem(key) ?? "";
+    } catch {
+        return "";
+    }
 }
 
 /** Shared draft semantics for the page, phone composer and Quick Add. With `storageKey`, a half-written thought survives leaving the page. */
@@ -86,7 +106,9 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         try {
             if (value) sessionStorage.setItem(storageKey, value);
             else sessionStorage.removeItem(storageKey);
-        } catch { /* the draft just won't outlive the page */ }
+        } catch {
+            /* the draft just won't outlive the page */
+        }
     }, [storageKey, value]);
     const [count, setCount] = useState(0);
     const [busy, startSave] = useTransition();
@@ -118,8 +140,15 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         projects,
         tags,
         manual: picked
-            ? { dueDate: picked.dueDate, scheduledStart: picked.scheduledStart, scheduledEnd: picked.scheduledEnd, recurrenceRule: picked.recurrenceRule }
-            : isTaskLine(value) ? undefined : WORDS_ONLY,
+            ? {
+                  dueDate: picked.dueDate,
+                  scheduledStart: picked.scheduledStart,
+                  scheduledEnd: picked.scheduledEnd,
+                  recurrenceRule: picked.recurrenceRule,
+              }
+            : isTaskLine(value)
+              ? undefined
+              : WORDS_ONLY,
         capabilities: TASK_FIELDS,
         sourceSurface: "inbox",
         dateStyle,
@@ -146,7 +175,12 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         return nlp.ready ? nlp : nlp.finalize();
     };
     /** Saves one line as a capture, then (as a task) places it. `retry` is a capture that saved before its placing failed. */
-    const saveLine = async (text: string, draft: Awaited<ReturnType<typeof draftFor>>, task: boolean, retry: InboxItem | undefined) => {
+    const saveLine = async (
+        text: string,
+        draft: Awaited<ReturnType<typeof draftFor>>,
+        task: boolean,
+        retry: InboxItem | undefined,
+    ) => {
         // Offline the create is queued and returns nothing, but the id is ours,
         // so "as task" can still be queued right behind it.
         const id = retry?.id ?? crypto.randomUUID();
@@ -155,7 +189,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             // What is shown is what is sent, and the server stores it as sent. A task always has its draft.
             if (task) await process.mutateAsync(taskPayload(id, text, draft!, endDate, dateStyle));
         } catch (err) {
-            savedCapture.current = item ?? { id } as InboxItem;
+            savedCapture.current = item ?? ({ id } as InboxItem);
             throw err;
         }
         return item;
@@ -179,7 +213,12 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             input.current?.focus();
             try {
                 while (remaining.length) {
-                    const item = await saveLine(remaining[0], draft, task, remaining.length === 1 && !split ? retry : undefined);
+                    const item = await saveLine(
+                        remaining[0],
+                        draft,
+                        task,
+                        remaining.length === 1 && !split ? retry : undefined,
+                    );
                     remaining = remaining.slice(1);
                     setCount((c) => c + 1);
                     if (!split || !remaining.length) onSaved?.(item);
@@ -190,7 +229,10 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
                 setValue((current) => (current ? current : left));
             }
         };
-        if (pending instanceof Promise) startSave(async () => { void run(await pending); });
+        if (pending instanceof Promise)
+            startSave(async () => {
+                void run(await pending);
+            });
         else void run(pending);
     };
     const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -224,9 +266,11 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             }}
             onKeyDown={keyDown}
             onPaste={(e) => setPasted(e.clipboardData.getData("text").includes("\n"))}
-            className={inline
-                ? "scrollbar-hidden block w-full min-w-0 resize-none bg-transparent font-display text-lg leading-7 text-twilight-text outline-none placeholder:text-twilight-text-soft group-data-draft:text-twilight-text-soft data-overflow:[mask-image:linear-gradient(transparent,#000_12px,#000_calc(100%-12px),transparent)]"
-                : `${COMPOSER_FIELD} resize-none text-base placeholder:text-twilight-text-muted`}
+            className={
+                inline
+                    ? "scrollbar-hidden block w-full min-w-0 resize-none bg-transparent font-display text-lg leading-7 text-twilight-text outline-none placeholder:text-twilight-text-soft group-data-draft:text-twilight-text-soft data-overflow:[mask-image:linear-gradient(transparent,#000_12px,#000_calc(100%-12px),transparent)]"
+                    : `${COMPOSER_FIELD} resize-none text-base placeholder:text-twilight-text-muted`
+            }
         />
     );
     const feedback = (
@@ -275,7 +319,12 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             onClick={() => save(true)}
             className={`shrink-0 gap-1 rounded-lg font-sans text-xs font-medium ${isTouch ? "min-h-9 px-2" : "px-1.5 py-1"}`}
         >
-            {isTouch ? <><Plus size={13} aria-hidden="true" />As task</> : (
+            {isTouch ? (
+                <>
+                    <Plus size={13} aria-hidden="true" />
+                    As task
+                </>
+            ) : (
                 <>
                     <kbd className={KEYCAP}>{MOD_KEY}</kbd>
                     <kbd className={KEYCAP}>↵</kbd>
@@ -324,7 +373,12 @@ export function useCaptureComposer({
         isDirty: Boolean(draft.value.trim()),
         discardTitle: "Discard this thought?",
         reset: draft.reset,
-        submit: { onSubmit: () => draft.save(draft.taskMode), submitLabel: draft.submitLabel, icon: draft.asTask ? Plus : Inbox, disabled: !draft.value.trim() || draft.busy },
+        submit: {
+            onSubmit: () => draft.save(draft.taskMode),
+            submitLabel: draft.submitLabel,
+            icon: draft.asTask ? Plus : Inbox,
+            disabled: !draft.value.trim() || draft.busy,
+        },
         children: (
             <>
                 {draft.field(5)}
@@ -347,7 +401,6 @@ export const KBD =
 /** The hero's keycaps share one size, so "Ctrl" and "↵" read as a pair. */
 const KEYCAP = KBD.replace("text-[10px]", "text-[11px]");
 
-
 /**
  * One quiet line until you type; then it grows with each line and the Capture row slides in. It stays open
  * while focus stays, so a run of captures doesn't jolt the feed (or the greeting) after every save. Leaving
@@ -355,7 +408,10 @@ const KEYCAP = KBD.replace("text-[10px]", "text-[11px]");
  */
 export function CaptureInput() {
     const { session } = useAuthState();
-    const draft = useCaptureDraft(undefined, session?.user?.id ? `cadence:capture-draft:${session.user.id}` : undefined);
+    const draft = useCaptureDraft(
+        undefined,
+        session?.user?.id ? `cadence:capture-draft:${session.user.id}` : undefined,
+    );
     const [focused, setFocused] = useState(false);
     const [engaged, setEngaged] = useState(false);
     const hasDraft = draft.value.trim().length > 0;
@@ -432,7 +488,9 @@ export function CaptureInput() {
                         <div className="flex min-w-0 items-center gap-3">
                             {draft.dayControl}
                             {draft.taskControl && (
-                                <div className="opacity-0 transition-opacity duration-300 group-focus-within:opacity-100">{draft.taskControl}</div>
+                                <div className="opacity-0 transition-opacity duration-300 group-focus-within:opacity-100">
+                                    {draft.taskControl}
+                                </div>
                             )}
                         </div>
                     )}

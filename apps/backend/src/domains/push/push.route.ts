@@ -37,7 +37,11 @@ const toDevice = (row: DeviceRow): Device => ({
 });
 
 const listDevices = (tx: Parameters<Parameters<typeof withRls>[2]>[0], userId: string) =>
-    tx.select().from(devices).where(eq(devices.userId, userId)).orderBy(desc(devices.lastSeenAt), desc(devices.createdAt));
+    tx
+        .select()
+        .from(devices)
+        .where(eq(devices.userId, userId))
+        .orderBy(desc(devices.lastSeenAt), desc(devices.createdAt));
 
 export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // The public VAPID key the browser subscribes with. No key = push is off and devices stay local.
@@ -66,15 +70,27 @@ export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         }
         const userId = c.get("userId");
         const seenAt = new Date().toISOString();
-        const push = subscription ? { endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth } : { endpoint: null, p256dh: null, auth: null };
+        const push = subscription
+            ? { endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth }
+            : { endpoint: null, p256dh: null, auth: null };
 
         let released: string[] = [];
         const rows = await withRls(getDbClient(c.env), userId, async (tx) => {
             if (subscription) {
                 // One account at a time per browser endpoint, and never two rows of this user for one endpoint.
-                const owners = await tx.select({ id: sql<string | null>`r.id` }).from(sql`push_release_endpoint(${subscription.endpoint}, ${userId}::uuid) AS r(id)`);
+                const owners = await tx
+                    .select({ id: sql<string | null>`r.id` })
+                    .from(sql`push_release_endpoint(${subscription.endpoint}, ${userId}::uuid) AS r(id)`);
                 released = [...new Set(owners.map((owner) => owner.id).filter((id): id is string => Boolean(id)))];
-                await tx.delete(devices).where(and(eq(devices.userId, userId), eq(devices.endpoint, subscription.endpoint), ne(devices.installId, installId)));
+                await tx
+                    .delete(devices)
+                    .where(
+                        and(
+                            eq(devices.userId, userId),
+                            eq(devices.endpoint, subscription.endpoint),
+                            ne(devices.installId, installId),
+                        ),
+                    );
             }
             await tx
                 .insert(devices)
@@ -91,42 +107,65 @@ export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             return listDevices(tx, userId);
         });
         // The accounts this endpoint was taken from must stop sending to it (this account's clock replans after every write).
-        if (released.length > 0) c.executionCtx.waitUntil(Promise.all(released.map((id) => replanReminders(c.env, id))));
+        if (released.length > 0)
+            c.executionCtx.waitUntil(Promise.all(released.map((id) => replanReminders(c.env, id))));
         return c.json({ data: rows.map(toDevice) }, 200);
     })
     // Turn a device on or off from anywhere, including this one.
-    .patch("/devices/:id", apiValidator("param", uuidParamSchema), apiValidator("json", devicePatchSchema), async (c) => {
-        const userId = c.get("userId");
-        const [row] = await withRls(getDbClient(c.env), userId, (tx) =>
-            tx.update(devices).set({ enabled: c.req.valid("json").enabled })
-                .where(and(eq(devices.userId, userId), eq(devices.installId, c.req.valid("param").id)))
-                .returning());
-        throwIfNotFound(row, "Device");
-        return c.json({ data: toDevice(row) }, 200);
-    })
+    .patch(
+        "/devices/:id",
+        apiValidator("param", uuidParamSchema),
+        apiValidator("json", devicePatchSchema),
+        async (c) => {
+            const userId = c.get("userId");
+            const [row] = await withRls(getDbClient(c.env), userId, (tx) =>
+                tx
+                    .update(devices)
+                    .set({ enabled: c.req.valid("json").enabled })
+                    .where(and(eq(devices.userId, userId), eq(devices.installId, c.req.valid("param").id)))
+                    .returning(),
+            );
+            throwIfNotFound(row, "Device");
+            return c.json({ data: toDevice(row) }, 200);
+        },
+    )
     // Forget a device entirely (signing out, or clearing one from the list).
     .delete("/devices/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         await withRls(getDbClient(c.env), userId, (tx) =>
-            tx.delete(devices).where(and(eq(devices.userId, userId), eq(devices.installId, c.req.valid("param").id))));
+            tx.delete(devices).where(and(eq(devices.userId, userId), eq(devices.installId, c.req.valid("param").id))),
+        );
         return c.json({ data: { removed: true } }, 200);
     })
     // One explicit test through this device's real delivery path. It ignores quiet hours and saved preferences.
     .post("/test", apiValidator("json", pushTestSchema), async (c) => {
         const [device] = await withCallerRls(c, (tx, userId) =>
-            tx.select().from(devices).where(and(eq(devices.userId, userId), eq(devices.installId, c.req.valid("json").installId))));
+            tx
+                .select()
+                .from(devices)
+                .where(and(eq(devices.userId, userId), eq(devices.installId, c.req.valid("json").installId))),
+        );
         throwIfNotFound(device, "Device");
         if (!device.endpoint || !device.p256dh || !device.auth) {
-            throw new AppError(409, "PUSH_UNAVAILABLE", "This device shows reminders itself; there is nothing for the server to send.");
+            throw new AppError(
+                409,
+                "PUSH_UNAVAILABLE",
+                "This device shows reminders itself; there is nothing for the server to send.",
+            );
         }
-        if (!vapidConfigured(c.env)) throw new AppError(503, "PUSH_UNAVAILABLE", "Device notifications aren't available right now.", true);
+        if (!vapidConfigured(c.env))
+            throw new AppError(503, "PUSH_UNAVAILABLE", "Device notifications aren't available right now.", true);
 
-        const outcome = await sendWebPush(c.env, { endpoint: device.endpoint, p256dh: device.p256dh, auth: device.auth }, {
-            title: "Cadence test notification",
-            body: "If you can see this, reminders will reach this device.",
-            route: null,
-            tag: "cadence-test",
-        });
+        const outcome = await sendWebPush(
+            c.env,
+            { endpoint: device.endpoint, p256dh: device.p256dh, auth: device.auth },
+            {
+                title: "Cadence test notification",
+                body: "If you can see this, reminders will reach this device.",
+                route: null,
+                tag: "cadence-test",
+            },
+        );
         if (outcome === "gone") await withCallerRls(c, (tx) => tx.delete(devices).where(eq(devices.id, device.id)));
         const result: PushTestResult = { outcome };
         return c.json({ data: result }, 200);

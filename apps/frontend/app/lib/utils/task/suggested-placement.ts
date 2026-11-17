@@ -1,9 +1,20 @@
-import { suggestedPlacementSchema, suggestedPriorityFromWordsSchema, type InboxItem, type SuggestedPlacement } from "@cadence/contracts/inbox";
+import {
+    suggestedPlacementSchema,
+    suggestedPriorityFromWordsSchema,
+    type InboxItem,
+    type SuggestedPlacement,
+} from "@cadence/contracts/inbox";
 
 /** What the user set on a thought before it became a task (Clarify, the row menu), saved at `analysis.userOverrides`. */
-export type ThoughtOverrides = { title?: string; projectId?: string | null; sectionId?: string | null; tagIds?: string[] };
+export type ThoughtOverrides = {
+    title?: string;
+    projectId?: string | null;
+    sectionId?: string | null;
+    tagIds?: string[];
+};
 
-export const overridesOf = (item: InboxItem): ThoughtOverrides => (item.analysis?.userOverrides ?? {}) as ThoughtOverrides;
+export const overridesOf = (item: InboxItem): ThoughtOverrides =>
+    (item.analysis?.userOverrides ?? {}) as ThoughtOverrides;
 
 /** The list and section the server suggested for a capture, if it stored one. */
 export function storedSuggestion(item: InboxItem): SuggestedPlacement | null {
@@ -23,7 +34,12 @@ export function placementFor(
     const picked = overridesOf(item);
     const projectId = picked.projectId !== undefined ? picked.projectId : (cue ?? suggestion?.projectId ?? null);
     if (!projectId) return null;
-    const sectionId = picked.sectionId !== undefined ? picked.sectionId : suggestion?.projectId === projectId ? suggestion.sectionId : null;
+    const sectionId =
+        picked.sectionId !== undefined
+            ? picked.sectionId
+            : suggestion?.projectId === projectId
+              ? suggestion.sectionId
+              : null;
     return { projectId, sectionId };
 }
 

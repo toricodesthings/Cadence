@@ -1,4 +1,14 @@
-import { GINKGO_HALF, GINKGO_LEAF, GINKGO_VEINS, MAPLE_HALF, MAPLE_LEAF, MAPLE_VEINS, PIER_D, TERRACE_D, WATER_D } from "./loading-geometry";
+import {
+    GINKGO_HALF,
+    GINKGO_LEAF,
+    GINKGO_VEINS,
+    MAPLE_HALF,
+    MAPLE_LEAF,
+    MAPLE_VEINS,
+    PIER_D,
+    TERRACE_D,
+    WATER_D,
+} from "./loading-geometry";
 
 /** Rounded paper sky lantern, lit from within: soft stops, no dark rim, so it reads painted rather than photographic. */
 const LANTERN_BODY = "M -17,-26 Q 0,-33 17,-26 Q 19,-4 13,15 Q 0,19 -13,15 Q -19,-4 -17,-26 Z";
@@ -8,21 +18,37 @@ const LANTERN_BODIES: Record<string, readonly [string, string, string, string]> 
     vermilion: ["#FFE9C0", "#FFB866", "#F57A3A", "#DC4A24"],
 };
 
-const BULBS: readonly (readonly [number, number, number])[] = [[50, 20, 3], [100, 35, 3], [150, 40, 4], [200, 35, 3], [250, 20, 3]];
+const BULBS: readonly (readonly [number, number, number])[] = [
+    [50, 20, 3],
+    [100, 35, 3],
+    [150, 40, 4],
+    [200, 35, 3],
+    [250, 20, 3],
+];
 /** Winter: every bulb on the string lights takes a colour. */
 const BULB_COLORS = ["#ff5a4a", "#9be27a", "#ffd166", "#7fd0ff", "#ff5a4a"];
 /** A swag of fir under an eave: [x0, x1, y, loops]; a red bow where each loop is pinned. */
 const garland = (x0: number, x1: number, y: number, loops: number) => {
     const w = (x1 - x0) / loops;
     return {
-        d: `M${x0},${y}` + Array.from({ length: loops }, (_, i) => `Q${x0 + w * (i + 0.5)},${y + 9} ${x0 + w * (i + 1)},${y}`).join(""),
+        d:
+            `M${x0},${y}` +
+            Array.from({ length: loops }, (_, i) => `Q${x0 + w * (i + 0.5)},${y + 9} ${x0 + w * (i + 1)},${y}`).join(
+                "",
+            ),
         bows: Array.from({ length: loops + 1 }, (_, i) => `M${x0 + w * i - 3.4},${y - 1}h6.8l-3.4,6Z`).join(""),
     };
 };
 const GARLAND_C = garland(8, 192, 6, 4);
 const GARLAND_B = garland(14, 136, 92, 3);
 const MULLIONS = "M7,2h2v20h-2zM2,10h12v2h-12z";
-const ROOF_RIM = { stroke: "var(--loading-rim)", strokeWidth: 1, opacity: 0.35, fill: "none", strokeLinecap: "round" as const };
+const ROOF_RIM = {
+    stroke: "var(--loading-rim)",
+    strokeWidth: 1,
+    opacity: 0.35,
+    fill: "none",
+    strokeLinecap: "round" as const,
+};
 const CROWN =
     "M-62,6 C-72,-4 -66,-20 -54,-22 C-62,-34 -50,-48 -36,-44 C-36,-58 -18,-66 -6,-56 C2,-72 24,-68 28,-54 C40,-62 56,-52 50,-38 C64,-36 72,-20 62,-10 C70,-2 64,10 54,8 C40,16 -44,16 -62,6 Z";
 const HOSHIGAKI = Array.from({ length: 7 }, (_, i) => {
@@ -108,8 +134,16 @@ export function LoadingDefs() {
             </mask>
 
             {/* Key light (moon / sun) */}
-            {radial("ls-key-halo-wide", "var(--loading-key)", [[0, 0.05], [0.5, 0.02], [1, 0]])}
-            {radial("ls-key-halo", "var(--loading-key)", [[0, 0.16], [0.35, 0.08], [1, 0]])}
+            {radial("ls-key-halo-wide", "var(--loading-key)", [
+                [0, 0.05],
+                [0.5, 0.02],
+                [1, 0],
+            ])}
+            {radial("ls-key-halo", "var(--loading-key)", [
+                [0, 0.16],
+                [0.35, 0.08],
+                [1, 0],
+            ])}
             <radialGradient id="ls-key-disk">
                 <stop offset="0" stopColor="var(--loading-key)" />
                 <stop offset=".86" stopColor="var(--loading-key-edge)" />
@@ -156,7 +190,14 @@ export function LoadingDefs() {
                 <stop offset="1" stopColor="var(--ls-afterglow)" stopOpacity=".3" />
             </linearGradient>
             {/* The afterglow itself: a low ember band on the horizon, hottest behind the saddle */}
-            <radialGradient id="ls-afterglow" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate(1060 700) scale(1000 250)">
+            <radialGradient
+                id="ls-afterglow"
+                gradientUnits="userSpaceOnUse"
+                cx="0"
+                cy="0"
+                r="1"
+                gradientTransform="translate(1060 700) scale(1000 250)"
+            >
                 <stop offset="0" stopColor="var(--ls-afterglow-core)" stopOpacity=".5" />
                 <stop offset=".3" stopColor="var(--ls-afterglow)" stopOpacity=".4" />
                 <stop offset=".65" stopColor="var(--ls-afterglow)" stopOpacity=".14" />
@@ -254,20 +295,49 @@ export function LoadingDefs() {
                 <stop offset="100%" stopColor="var(--loading-window-edge)" stopOpacity="0.2" />
             </radialGradient>
             <radialGradient id="ls-window-glow">
-                <stop offset="0" stopColor="var(--loading-window-edge)" style={{ stopOpacity: "var(--ls-window-glow-o)" }} />
+                <stop
+                    offset="0"
+                    stopColor="var(--loading-window-edge)"
+                    style={{ stopOpacity: "var(--ls-window-glow-o)" }}
+                />
                 <stop offset="1" stopColor="var(--loading-window-edge)" stopOpacity="0" />
             </radialGradient>
             <pattern id="ls-ishigaki" width="34" height="14" patternUnits="userSpaceOnUse">
                 <rect width="34" height="14" fill="var(--ls-stone)" />
-                <path d="M0,.5H34M0,7.5H34M9,.5V7.5M26,.5V7.5M4,7.5V14M18,7.5V14M31,7.5V14" stroke="var(--loading-mountain-near)" strokeWidth="1.1" />
-                <path d="M1,1.6H8M10,1.6H25M27,1.6H33M0,8.6H3M5,8.6H17M19,8.6H30" stroke="var(--loading-rim)" strokeWidth=".6" opacity=".18" />
+                <path
+                    d="M0,.5H34M0,7.5H34M9,.5V7.5M26,.5V7.5M4,7.5V14M18,7.5V14M31,7.5V14"
+                    stroke="var(--loading-mountain-near)"
+                    strokeWidth="1.1"
+                />
+                <path
+                    d="M1,1.6H8M10,1.6H25M27,1.6H33M0,8.6H3M5,8.6H17M19,8.6H30"
+                    stroke="var(--loading-rim)"
+                    strokeWidth=".6"
+                    opacity=".18"
+                />
             </pattern>
 
             {/* Fire — fixed flame tokens, the accent only tints ≤20% of the lantern outer glow */}
-            {radial("ls-bulb-glow", "var(--loading-flame-mid)", [[0, 0.55], [0.4, 0.2], [1, 0]])}
-            {radial("ls-ember", "var(--ls-afterglow)", [[0, 0.42], [0.5, 0.14], [1, 0]])}
-            {radial("ls-spill", "var(--loading-flame-edge)", [[0, 0.24], [0.5, 0.08], [1, 0]])}
-            {radial("ls-chochin-glow", "#ff6a2a", [[0, 0.38], [0.5, 0.1], [1, 0]])}
+            {radial("ls-bulb-glow", "var(--loading-flame-mid)", [
+                [0, 0.55],
+                [0.4, 0.2],
+                [1, 0],
+            ])}
+            {radial("ls-ember", "var(--ls-afterglow)", [
+                [0, 0.42],
+                [0.5, 0.14],
+                [1, 0],
+            ])}
+            {radial("ls-spill", "var(--loading-flame-edge)", [
+                [0, 0.24],
+                [0.5, 0.08],
+                [1, 0],
+            ])}
+            {radial("ls-chochin-glow", "#ff6a2a", [
+                [0, 0.38],
+                [0.5, 0.1],
+                [1, 0],
+            ])}
             <radialGradient id="ls-chochin-body" cx="50%" cy="45%" r="60%">
                 <stop offset="0" stopColor="var(--loading-flame-mid)" />
                 <stop offset=".45" stopColor="#e8431c" />
@@ -279,7 +349,11 @@ export function LoadingDefs() {
                 <stop offset="50%" stopColor="var(--loading-flame-edge)" stopOpacity="0.5" />
                 <stop offset="100%" stopColor="var(--loading-flame-edge)" stopOpacity="0" />
             </radialGradient>
-            {radial("lantern-glow-outer", "var(--ls-lan-glow)", [[0, 0.6], [0.5, 0.2], [1, 0]])}
+            {radial("lantern-glow-outer", "var(--ls-lan-glow)", [
+                [0, 0.6],
+                [0.5, 0.2],
+                [1, 0],
+            ])}
             {Object.entries(LANTERN_BODIES).map(([name, [a, b, c, d]]) => (
                 <radialGradient key={name} id={`lan-body-${name}`} cx="50%" cy="60%" r="60%" fx="50%" fy="70%">
                     <stop offset="0%" stopColor={a} />
@@ -327,9 +401,22 @@ export function LoadingDefs() {
 
             {/* Sky lanterns: shared parts (faint paper ribs, inner light, flat rim, open base with its flame), three body colours, outer glow for far sprites */}
             <g id="lan-parts">
-                <path d="M -7,-28 Q -9,-6 -10,16 M 7,-28 Q 9,-6 10,16 M 0,-29.5 V 17.5" fill="none" stroke="#FFE7A8" strokeWidth=".8" opacity=".28" />
+                <path
+                    d="M -7,-28 Q -9,-6 -10,16 M 7,-28 Q 9,-6 10,16 M 0,-29.5 V 17.5"
+                    fill="none"
+                    stroke="#FFE7A8"
+                    strokeWidth=".8"
+                    opacity=".28"
+                />
                 <ellipse cx="0" cy="2" rx="11" ry="14" fill="url(#lantern-glow-core)" />
-                <path d="M -13,-26 Q 0,-31 13,-26" fill="none" stroke="#8a3a14" strokeWidth="1.6" strokeLinecap="round" opacity=".55" />
+                <path
+                    d="M -13,-26 Q 0,-31 13,-26"
+                    fill="none"
+                    stroke="#8a3a14"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    opacity=".55"
+                />
                 <ellipse cx="0" cy="15.5" rx="14" ry="3" fill="#8a3212" opacity=".55" />
                 <ellipse cx="0" cy="16" rx="4.5" ry="2" fill="var(--loading-flame-core)" />
             </g>
@@ -401,13 +488,31 @@ export function LoadingDefs() {
             <g id="ls-wreath">
                 <circle r="7" fill="none" stroke="var(--ls-fir)" strokeWidth="4.6" />
                 <circle r="7" fill="none" stroke="var(--ls-fir-lit)" strokeWidth="2.2" strokeDasharray="2.4 2" />
-                <path d="M0,6.4 L-4.6,3.4 L-4.6,9.6 Z M0,6.4 L4.6,3.4 L4.6,9.6 Z M-1,6.6 L-2.8,13 L0,10.8 L2.8,13 L1,6.6 Z" fill="#c8322a" />
-                <path d="M-5.8,-4.2a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0M4,-5.6a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0M-7.6,1.6a1,1 0 1,0 2,0a1,1 0 1,0 -2,0" fill="#ff5a4a" />
+                <path
+                    d="M0,6.4 L-4.6,3.4 L-4.6,9.6 Z M0,6.4 L4.6,3.4 L4.6,9.6 Z M-1,6.6 L-2.8,13 L0,10.8 L2.8,13 L1,6.6 Z"
+                    fill="#c8322a"
+                />
+                <path
+                    d="M-5.8,-4.2a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0M4,-5.6a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0M-7.6,1.6a1,1 0 1,0 2,0a1,1 0 1,0 -2,0"
+                    fill="#ff5a4a"
+                />
             </g>
-            {([["ls-garland-c", GARLAND_C], ["ls-garland-b", GARLAND_B]] as const).map(([id, g]) => (
+            {(
+                [
+                    ["ls-garland-c", GARLAND_C],
+                    ["ls-garland-b", GARLAND_B],
+                ] as const
+            ).map(([id, g]) => (
                 <g key={id} id={id}>
                     <path d={g.d} fill="none" stroke="var(--ls-fir)" strokeWidth="4" strokeLinecap="round" />
-                    <path d={g.d} fill="none" stroke="var(--ls-fir-lit)" strokeWidth="1.6" strokeDasharray="2 2.4" strokeLinecap="round" />
+                    <path
+                        d={g.d}
+                        fill="none"
+                        stroke="var(--ls-fir-lit)"
+                        strokeWidth="1.6"
+                        strokeDasharray="2 2.4"
+                        strokeLinecap="round"
+                    />
                     <path d={g.bows} fill="#c8322a" />
                 </g>
             ))}
@@ -471,7 +576,9 @@ export function LoadingDefs() {
                     <circle key={x} cx={x} cy={y} r={r * 3.2} fill="url(#ls-bulb-glow)" />
                 ))}
                 <path
-                    d={BULBS.map(([x, y, r]) => `M${x - r},${y}a${r},${r} 0 1,0 ${2 * r},0a${r},${r} 0 1,0 ${-2 * r},0`).join("")}
+                    d={BULBS.map(
+                        ([x, y, r]) => `M${x - r},${y}a${r},${r} 0 1,0 ${2 * r},0a${r},${r} 0 1,0 ${-2 * r},0`,
+                    ).join("")}
                     fill="var(--loading-flame-mid)"
                 />
                 <g className="ls-winter">
@@ -516,8 +623,12 @@ export function LoadingDefs() {
                 <path d={GINKGO_HALF} fill="#000" stroke="none" opacity=".2" />
                 <path d={GINKGO_VEINS} fill="none" stroke="var(--vein)" strokeWidth=".5" strokeLinecap="round" />
             </g>
-            <g id="ls-maple-art-blur" filter="url(#ls-blur-leaf)"><use href="#ls-maple-art" /></g>
-            <g id="ls-ginkgo-art-blur" filter="url(#ls-blur-leaf)"><use href="#ls-ginkgo-art" /></g>
+            <g id="ls-maple-art-blur" filter="url(#ls-blur-leaf)">
+                <use href="#ls-maple-art" />
+            </g>
+            <g id="ls-ginkgo-art-blur" filter="url(#ls-blur-leaf)">
+                <use href="#ls-ginkgo-art" />
+            </g>
         </defs>
     );
 }

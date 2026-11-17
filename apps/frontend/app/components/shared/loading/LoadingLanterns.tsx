@@ -25,8 +25,28 @@ interface LanternConfig {
 }
 
 const FAR: readonly LanternConfig[] = [
-    { x: 12, scale: 0.3, opacity: 0.35, blur: "far", color: "honey", duration: 43, phase: 0.18, pose: 330, optional: true },
-    { x: 63, scale: 0.35, opacity: 0.4, blur: "far", color: "amber", duration: 47, phase: 0.64, pose: 420, optional: true },
+    {
+        x: 12,
+        scale: 0.3,
+        opacity: 0.35,
+        blur: "far",
+        color: "honey",
+        duration: 43,
+        phase: 0.18,
+        pose: 330,
+        optional: true,
+    },
+    {
+        x: 63,
+        scale: 0.35,
+        opacity: 0.4,
+        blur: "far",
+        color: "amber",
+        duration: 47,
+        phase: 0.64,
+        pose: 420,
+        optional: true,
+    },
     { x: 82, xp: 32, scale: 0.5, opacity: 0.55, blur: "mid", color: "vermilion", duration: 37, phase: 0.4, pose: 520 },
     { x: 34, xp: 54.5, scale: 0.55, opacity: 0.6, blur: "mid", color: "amber", duration: 41, phase: 0.86, pose: 380 },
     { x: 66, xp: 56.5, scale: 0.75, opacity: 0.75, color: "honey", duration: 36, phase: 0.52, pose: 590 },
@@ -35,8 +55,30 @@ const FAR: readonly LanternConfig[] = [
 
 // Portrait xp values put the columns at the viewport edges (the wordmark spans most of a phone's width).
 const NEAR: readonly LanternConfig[] = [
-    { x: 28, xp: 31, scale: 1.15, opacity: 1, color: "amber", duration: 23, phase: 0.36, pose: 800, sway: 6.1, flicker: 3.7 },
-    { x: 76, xp: 57.5, scale: 1.35, opacity: 1, color: "vermilion", duration: 19, phase: 0.7, pose: 238, sway: 5.3, flicker: 4.3 },
+    {
+        x: 28,
+        xp: 31,
+        scale: 1.15,
+        opacity: 1,
+        color: "amber",
+        duration: 23,
+        phase: 0.36,
+        pose: 800,
+        sway: 6.1,
+        flicker: 3.7,
+    },
+    {
+        x: 76,
+        xp: 57.5,
+        scale: 1.35,
+        opacity: 1,
+        color: "vermilion",
+        duration: 19,
+        phase: 0.7,
+        pose: 238,
+        sway: 5.3,
+        flicker: 4.3,
+    },
     { x: 91, scale: 0.95, opacity: 1, color: "honey", duration: 21, phase: 0.08, pose: 520, sway: 5.7, flicker: 3.9 },
 ];
 
@@ -45,7 +87,9 @@ export function LoadingLanterns({ plane }: { plane: "far" | "near" }) {
     return (
         <div className={`ls-lanterns ls-par ${near ? "ls-par-near" : "ls-par-far"}`}>
             {(near ? NEAR : FAR).map((l) => {
-                const classes = ["ls-lan", l.optional && "ls-lan-opt", l.xp === undefined && "ls-p-hide"].filter(Boolean).join(" ");
+                const classes = ["ls-lan", l.optional && "ls-lan-opt", l.xp === undefined && "ls-p-hide"]
+                    .filter(Boolean)
+                    .join(" ");
                 return (
                     <div
                         key={l.x}

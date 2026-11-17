@@ -16,13 +16,40 @@ import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import { taskTagSchema } from "@cadence/contracts/tag";
-import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, placeTasksSchema, reorderTaskSchema, taskListQuerySchema, taskBatchQuerySchema, updateTaskSchema } from "@cadence/contracts/task";
+import {
+    sourceSurfaceSchema,
+    batchDeleteSchema,
+    batchRescheduleSchema,
+    batchStateSchema,
+    insertTaskSchema,
+    placeTasksSchema,
+    reorderTaskSchema,
+    taskListQuerySchema,
+    taskBatchQuerySchema,
+    updateTaskSchema,
+} from "@cadence/contracts/task";
 import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
 import { recordSlot } from "../ai/memory/planning.service";
 import { suggestEffortGuess } from "../decisions/effort-guess";
-import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, justCompleted, placeTasks, rescheduleTasks, setTaskState, slotsOf, temporalColumns, toTask, trackTaskChanges, updateTask, withTagIds, type TaskSlot } from "./tasks.service";
+import {
+    createTask,
+    deleteTasks,
+    deleteTrashedTasks,
+    duplicateTask,
+    justCompleted,
+    placeTasks,
+    rescheduleTasks,
+    setTaskState,
+    slotsOf,
+    temporalColumns,
+    toTask,
+    trackTaskChanges,
+    updateTask,
+    withTagIds,
+    type TaskSlot,
+} from "./tasks.service";
 import { userZone } from "../../platform/user-zone";
 import type { Zone } from "@cadence/domain/time";
 
@@ -52,7 +79,13 @@ const nlpReparseSchema = z.object({
 async function replayedTask(tx: Tx, userId: string, idempotencyKey: string | undefined) {
     const existingId = await checkIdempotency(tx, userId, idempotencyKey);
     if (!existingId) return undefined;
-    const [existing] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId))));
+    const [existing] = await withTagIds(
+        tx,
+        await tx
+            .select()
+            .from(tasks)
+            .where(and(eq(tasks.id, existingId), eq(tasks.userId, userId))),
+    );
     return existing;
 }
 
@@ -80,14 +113,17 @@ function withInferred(body: CreateTaskBody, inferred: ReturnType<typeof inferTas
         durationEstimate: inferred.durationEstimate ?? body.durationEstimate,
         waitingOn: inferred.waitingOn ?? body.waitingOn,
         recurrenceRule: inferred.recurrenceRule ?? body.recurrenceRule,
-        ...temporalColumns({
-            dueDate: inferred.dueDate ?? body.dueDate ?? null,
-            endDate: body.endDate,
-            scheduledStart: inferred.scheduledStart ?? body.scheduledStart ?? null,
-            scheduledEnd: inferred.scheduledEnd ?? body.scheduledEnd ?? null,
-            zone: body.zone,
-            notBefore: body.notBefore,
-        }, zone),
+        ...temporalColumns(
+            {
+                dueDate: inferred.dueDate ?? body.dueDate ?? null,
+                endDate: body.endDate,
+                scheduledStart: inferred.scheduledStart ?? body.scheduledStart ?? null,
+                scheduledEnd: inferred.scheduledEnd ?? body.scheduledEnd ?? null,
+                zone: body.zone,
+                notBefore: body.notBefore,
+            },
+            zone,
+        ),
     };
 }
 
@@ -129,23 +165,25 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             const fallbackEnvelope = {
                 rawInput: body.rawInput,
                 sourceSurface: (body.sourceSurface ?? "quick_add") as CanonicalNlpEnvelope["sourceSurface"],
-                dateStyle: (body.dateStyle ?? (nlpRuntime.settings.dateTime?.dateStyle ?? "mdy")) as CanonicalNlpEnvelope["dateStyle"],
+                dateStyle: (body.dateStyle ??
+                    nlpRuntime.settings.dateTime?.dateStyle ??
+                    "mdy") as CanonicalNlpEnvelope["dateStyle"],
                 dismissedEntityIds: body.dismissedEntityIds ?? Array.from(nlpRuntime.dismissedEntityIds),
                 userOverrides: body.userOverrides ?? {},
             } satisfies CanonicalNlpEnvelope;
             const envelope: CanonicalNlpEnvelope = body.nlp
                 ? {
-                    ...fallbackEnvelope,
-                    ...body.nlp,
-                    sourceSurface: body.nlp.sourceSurface ?? fallbackEnvelope.sourceSurface,
-                    dateStyle: body.nlp.dateStyle ?? fallbackEnvelope.dateStyle,
-                    dismissedEntityIds: body.nlp.dismissedEntityIds ?? fallbackEnvelope.dismissedEntityIds,
-                    userOverrides: body.nlp.userOverrides ?? fallbackEnvelope.userOverrides,
-                }
+                      ...fallbackEnvelope,
+                      ...body.nlp,
+                      sourceSurface: body.nlp.sourceSurface ?? fallbackEnvelope.sourceSurface,
+                      dateStyle: body.nlp.dateStyle ?? fallbackEnvelope.dateStyle,
+                      dismissedEntityIds: body.nlp.dismissedEntityIds ?? fallbackEnvelope.dismissedEntityIds,
+                      userOverrides: body.nlp.userOverrides ?? fallbackEnvelope.userOverrides,
+                  }
                 : fallbackEnvelope;
             const parsed = parseCanonicalNlpEnvelope(envelope, {
                 context: nlpRuntime.context,
-                            clock: nlpRuntime.clock,
+                clock: nlpRuntime.clock,
             });
 
             const values = {
@@ -173,7 +211,10 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     return [updated];
                 }
 
-                return tx.insert(taskNlpMetadata).values({ taskId: id, userId, ...values }).returning();
+                return tx
+                    .insert(taskNlpMetadata)
+                    .values({ taskId: id, userId, ...values })
+                    .returning();
             })();
             await recordMutation(tx, userId, idempotencyKey, row.id);
             return row;
@@ -188,50 +229,51 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const db = getDbClient(c.env);
 
         const task = await withRls(db, userId, async (tx) => {
-                // Idempotency: return existing result if this mutation was already processed
-                const replayed = await replayedTask(tx, userId, idempotencyKey);
-                if (replayed) return replayed;
+            // Idempotency: return existing result if this mutation was already processed
+            const replayed = await replayedTask(tx, userId, idempotencyKey);
+            if (replayed) return replayed;
 
-                const fromWords = nlp ? await parseCreateNlp(tx, userId, nlp) : null;
-                const parsed = fromWords?.parsed ?? null;
+            const fromWords = nlp ? await parseCreateNlp(tx, userId, nlp) : null;
+            const parsed = fromWords?.parsed ?? null;
 
-                const zone = await userZone(tx, userId);
-                // `resolved`: the client sent the user's final fields; they are stored as sent and never re-inferred.
-                const inferred = fromWords && !nlp?.resolved
+            const zone = await userZone(tx, userId);
+            // `resolved`: the client sent the user's final fields; they are stored as sent and never re-inferred.
+            const inferred =
+                fromWords && !nlp?.resolved
                     ? inferTaskFieldsFromParse(
-                        fromWords.parsed,
-                        {
-                            projectId: body.projectId,
-                            tagIds: tagIds,
-                            priority: body.priority,
-                            durationEstimate: body.durationEstimate,
-                            waitingOn: body.waitingOn,
-                            recurrenceRule: body.recurrenceRule,
-                            dueDate: body.dueDate,
-                            scheduledStart: body.scheduledStart,
-                            scheduledEnd: body.scheduledEnd,
-                        },
-                        zone,
-                    )
+                          fromWords.parsed,
+                          {
+                              projectId: body.projectId,
+                              tagIds: tagIds,
+                              priority: body.priority,
+                              durationEstimate: body.durationEstimate,
+                              waitingOn: body.waitingOn,
+                              recurrenceRule: body.recurrenceRule,
+                              dueDate: body.dueDate,
+                              scheduledStart: body.scheduledStart,
+                              scheduledEnd: body.scheduledEnd,
+                          },
+                          zone,
+                      )
                     : null;
 
-                const allTagIds = Array.from(new Set([...(tagIds ?? []), ...(inferred?.tagIds ?? [])]));
-                const taskBody = inferred
-                    ? withInferred(body, inferred, zone)
-                    : {
-                        ...body,
-                        ...temporalColumns(body, zone),
-                    };
+            const allTagIds = Array.from(new Set([...(tagIds ?? []), ...(inferred?.tagIds ?? [])]));
+            const taskBody = inferred
+                ? withInferred(body, inferred, zone)
+                : {
+                      ...body,
+                      ...temporalColumns(body, zone),
+                  };
 
-                const row = await createTask(tx, userId, taskBody, allTagIds);
+            const row = await createTask(tx, userId, taskBody, allTagIds);
 
-                if (parsed) {
-                    await persistNlpSnapshot(tx, parsed, row.id, userId);
-                }
+            if (parsed) {
+                await persistNlpSnapshot(tx, parsed, row.id, userId);
+            }
 
-                await recordMutation(tx, userId, idempotencyKey, row.id);
-                return toTask(row, allTagIds);
-            });
+            await recordMutation(tx, userId, idempotencyKey, row.id);
+            return toTask(row, allTagIds);
+        });
 
         trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { created: [task.id] });
         c.executionCtx.waitUntil(suggestEffortGuess(c.env, userId, task.id));
@@ -254,11 +296,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
             // Idempotent: re-attaching an attached tag (e.g. an offline replay) returns the
             // existing association instead of tripping the unique (task, tag) index.
-            const [assoc] = await tx
-                .insert(taskTags)
-                .values({ taskId: id, tagId })
-                .onConflictDoNothing()
-                .returning();
+            const [assoc] = await tx.insert(taskTags).values({ taskId: id, tagId }).onConflictDoNothing().returning();
             if (assoc) return assoc;
             const [existing] = await tx
                 .select()
@@ -279,7 +317,13 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             from = await slotsOf(tx, userId, body.taskIds);
             return withTagIds(tx, await rescheduleTasks(tx, userId, body));
         });
-        trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { rescheduled: updatedTasks, from }, { env: c.env });
+        trackTaskChanges(
+            (p) => c.executionCtx.waitUntil(p),
+            db,
+            userId,
+            { rescheduled: updatedTasks, from },
+            { env: c.env },
+        );
 
         return c.json({ data: updatedTasks });
     })
@@ -311,75 +355,106 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             if (moving || findTime) from = await slotsOf(tx, userId, [id]);
             return withTagIds(tx, [await updateTask(tx, userId, id, body, expectedUpdatedAt)]);
         });
-        trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, {
-            rescheduled: moving ? [updated] : [],
-            completed: justCompleted(updated) ? [id] : [],
-            from,
-        }, { env: c.env });
-        if (body.title !== undefined || body.projectId !== undefined) c.executionCtx.waitUntil(suggestEffortGuess(c.env, userId, id));
+        trackTaskChanges(
+            (p) => c.executionCtx.waitUntil(p),
+            db,
+            userId,
+            {
+                rescheduled: moving ? [updated] : [],
+                completed: justCompleted(updated) ? [id] : [],
+                from,
+            },
+            { env: c.env },
+        );
+        if (body.title !== undefined || body.projectId !== undefined)
+            c.executionCtx.waitUntil(suggestEffortGuess(c.env, userId, id));
         // A choice about when to start something: the person's own (a drop, the time field) or a Cadence proposal they
         // picked or undid. Best-effort and silent; it never changes the response.
         if (moving || findTime) {
-            c.executionCtx.waitUntil(recordSlot(c.env, userId, {
-                taskId: id,
-                before: { scheduledStart: from.get(id)?.scheduledStart ?? null },
-                after: { scheduledStart: updated.scheduledStart, scheduledEnd: updated.scheduledEnd, projectId: updated.projectId, durationEstimate: updated.durationEstimate, recurrenceRule: updated.recurrenceRule },
-                findTime,
-                queuedAt: c.req.header("X-Queued-At"),
-            }));
+            c.executionCtx.waitUntil(
+                recordSlot(c.env, userId, {
+                    taskId: id,
+                    before: { scheduledStart: from.get(id)?.scheduledStart ?? null },
+                    after: {
+                        scheduledStart: updated.scheduledStart,
+                        scheduledEnd: updated.scheduledEnd,
+                        projectId: updated.projectId,
+                        durationEstimate: updated.durationEstimate,
+                        recurrenceRule: updated.recurrenceRule,
+                    },
+                    findTime,
+                    queuedAt: c.req.header("X-Queued-At"),
+                }),
+            );
         }
 
         return c.json({ data: updated });
     })
-    .patch("/:id/reorder", apiValidator("param", uuidParamSchema), apiValidator("json", reorderTaskSchema), async (c) => {
-        const { id } = c.req.valid("param");
-        const { orderIndex, orderedTaskIds } = c.req.valid("json");
+    .patch(
+        "/:id/reorder",
+        apiValidator("param", uuidParamSchema),
+        apiValidator("json", reorderTaskSchema),
+        async (c) => {
+            const { id } = c.req.valid("param");
+            const { orderIndex, orderedTaskIds } = c.req.valid("json");
 
-        const updated = await withCallerRls(c, async (tx, userId) => {
-            // If the client sent the full ordered list, rebalance all affected tasks
-            if (orderedTaskIds && orderedTaskIds.length > 1) {
-                // Batch all reorder updates into a single UPDATE with CASE. The cast is
-                // required: drivers send JS numbers untyped, and a CASE whose branches are
-                // all untyped resolves to text, which Postgres won't assign to a double.
-                const caseChunks = orderedTaskIds.map(
-                    (taskId, idx) => sql`WHEN ${taskId} THEN ${computeGappedOrderIndex(idx)}::double precision`,
-                );
-                await tx.execute(sql`
+            const updated = await withCallerRls(c, async (tx, userId) => {
+                // If the client sent the full ordered list, rebalance all affected tasks
+                if (orderedTaskIds && orderedTaskIds.length > 1) {
+                    // Batch all reorder updates into a single UPDATE with CASE. The cast is
+                    // required: drivers send JS numbers untyped, and a CASE whose branches are
+                    // all untyped resolves to text, which Postgres won't assign to a double.
+                    const caseChunks = orderedTaskIds.map(
+                        (taskId, idx) => sql`WHEN ${taskId} THEN ${computeGappedOrderIndex(idx)}::double precision`,
+                    );
+                    await tx.execute(sql`
                     UPDATE tasks
                     SET order_index = CASE id ${sql.join(caseChunks, sql` `)} END,
                         updated_at = NOW()
-                    WHERE id IN ${sql`(${sql.join(orderedTaskIds.map((id) => sql`${id}`), sql`, `)})`}
+                    WHERE id IN ${sql`(${sql.join(
+                        orderedTaskIds.map((id) => sql`${id}`),
+                        sql`, `,
+                    )})`}
                       AND user_id = ${userId}
                 `);
 
+                    const rows = await tx
+                        .select()
+                        .from(tasks)
+                        .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+                    return withTagIds(tx, rows);
+                }
+
+                // Fallback: only update the single moved task
                 const rows = await tx
-                    .select()
-                    .from(tasks)
-                    .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+                    .update(tasks)
+                    .set({ orderIndex, updatedAt: sql`NOW()` })
+                    .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
+                    .returning();
                 return withTagIds(tx, rows);
-            }
+            }).then(([row]) => row);
 
-            // Fallback: only update the single moved task
-            const rows = await tx
-                .update(tasks)
-                .set({ orderIndex, updatedAt: sql`NOW()` })
-                .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-                .returning();
-            return withTagIds(tx, rows);
-        }).then(([row]) => row);
-
-        throwIfNotFound(updated, "Task");
-        return c.json({ data: updated });
-    })
+            throwIfNotFound(updated, "Task");
+            return c.json({ data: updated });
+        },
+    )
     .patch("/batch/state", apiValidator("json", batchStateSchema), async (c) => {
         const userId = c.get("userId");
         const { taskIds, state } = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const updatedTasks = await withRls(db, userId, async (tx) => withTagIds(tx, await setTaskState(tx, userId, taskIds, state)));
-        trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, {
-            completed: updatedTasks.filter(justCompleted).map((task) => task.id),
-        }, { env: c.env });
+        const updatedTasks = await withRls(db, userId, async (tx) =>
+            withTagIds(tx, await setTaskState(tx, userId, taskIds, state)),
+        );
+        trackTaskChanges(
+            (p) => c.executionCtx.waitUntil(p),
+            db,
+            userId,
+            {
+                completed: updatedTasks.filter(justCompleted).map((task) => task.id),
+            },
+            { env: c.env },
+        );
 
         return c.json({ data: updatedTasks });
     })
@@ -408,7 +483,13 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { id } = c.req.valid("param");
 
         const [task] = await withCallerRls(c, async (tx, userId) =>
-            withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)))),
+            withTagIds(
+                tx,
+                await tx
+                    .select()
+                    .from(tasks)
+                    .where(and(eq(tasks.id, id), eq(tasks.userId, userId))),
+            ),
         );
 
         throwIfNotFound(task, "Task");
@@ -446,7 +527,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     })
     // Empty Trash. Registered before `/:id` so "trash" never reaches the id route.
     .delete("/trash", async (c) => {
-
         const deleted = await withCallerRls(c, (tx, userId) => deleteTrashedTasks(tx, userId));
         return c.json({ data: { deleted } });
     })

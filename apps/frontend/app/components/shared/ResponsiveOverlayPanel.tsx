@@ -39,11 +39,14 @@ type SheetShape = {
 };
 
 /** A peek sheet follows the finger (`y`) and sits above the keyboard; a full sheet only rises above it. */
-function sheetStyle({ isPeekMobile, isMobile, keyboard, aboveKeyboard, fit, isTablet }: SheetShape, y: MotionValue<number>) {
+function sheetStyle(
+    { isPeekMobile, isMobile, keyboard, aboveKeyboard, fit, isTablet }: SheetShape,
+    y: MotionValue<number>,
+) {
     if (isPeekMobile) {
         return {
             y,
-            height: fit ? "auto" : aboveKeyboard ?? "min(92dvh, 52rem)",
+            height: fit ? "auto" : (aboveKeyboard ?? "min(92dvh, 52rem)"),
             maxHeight: aboveKeyboard ?? "min(92dvh, 52rem)",
             bottom: keyboard || undefined,
             width: "100%",
@@ -77,7 +80,11 @@ function SheetHeader({ title, onClose }: { title: string; onClose: () => void })
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-twilight-text-soft">
                     Workspace details
                 </p>
-                <DialogPrimitive.Title data-sheet-heading tabIndex={-1} className="mt-1 font-display text-xl font-semibold text-twilight-text">
+                <DialogPrimitive.Title
+                    data-sheet-heading
+                    tabIndex={-1}
+                    className="mt-1 font-display text-xl font-semibold text-twilight-text"
+                >
                     {title}
                 </DialogPrimitive.Title>
             </div>
@@ -98,7 +105,9 @@ const BACKDROP_LAYER = { room: "layer-room-sheet-backdrop", route: "layer-route-
 
 /** Focus the sheet's own first field (or its heading) instead of Radix's first focusable. */
 function focusInitial(panel: HTMLElement | null, event: Event) {
-    const target = panel?.querySelector<HTMLElement>("[data-initial-focus]") ?? panel?.querySelector<HTMLElement>("[data-sheet-heading]");
+    const target =
+        panel?.querySelector<HTMLElement>("[data-initial-focus]") ??
+        panel?.querySelector<HTMLElement>("[data-sheet-heading]");
     if (!target) return;
     event.preventDefault();
     // The sheet is still sliding up from below the keyboard: a plain focus makes iOS pan the page to it.
@@ -132,13 +141,21 @@ export function ResponsiveOverlayPanel({
     const live = useKeyboardInset(open && isMobile);
     // Closing keeps the open shape, so the exit slides from where the sheet was instead of jumping first.
     const [held, setHeld] = useState({ inset: 0, aboveKeyboard: null as string | null });
-    if (open && (held.inset !== live.inset || held.aboveKeyboard !== live.aboveKeyboard)) setHeld({ inset: live.inset, aboveKeyboard: live.aboveKeyboard });
+    if (open && (held.inset !== live.inset || held.aboveKeyboard !== live.aboveKeyboard))
+        setHeld({ inset: live.inset, aboveKeyboard: live.aboveKeyboard });
     const { inset: keyboard, aboveKeyboard } = open ? live : held;
     const panelRef = useRef<HTMLElement | null>(null);
     const [panel, setPanel] = useState<HTMLElement | null>(null);
-    const attachPanel = useCallback((node: HTMLElement | null) => { panelRef.current = node; setPanel(node); }, []);
+    const attachPanel = useCallback((node: HTMLElement | null) => {
+        panelRef.current = node;
+        setPanel(node);
+    }, []);
     // Grab anywhere. Enter and exit are CSS (`.sheet-*` in app.css), so a throw leaves from the finger.
-    const { y, backdropOpacity } = useSheetGesture({ element: panel, enabled: open && isPeekMobile, onDismiss: onClose });
+    const { y, backdropOpacity } = useSheetGesture({
+        element: panel,
+        enabled: open && isPeekMobile,
+        onDismiss: onClose,
+    });
 
     return (
         <DialogPrimitive.Root open={open} onOpenChange={(next) => !next && onClose()}>
@@ -156,16 +173,25 @@ export function ResponsiveOverlayPanel({
                 >
                     <motion.aside
                         ref={attachPanel}
-                        style={sheetStyle({ isPeekMobile, isMobile, keyboard, aboveKeyboard, fit, isTablet: shell.isTablet }, y)}
+                        style={sheetStyle(
+                            { isPeekMobile, isMobile, keyboard, aboveKeyboard, fit, isTablet: shell.isTablet },
+                            y,
+                        )}
                         className={sheetClass({ isPeekMobile, isMobile, isFocus, fit, layer })}
                     >
                         {isPeekMobile && (
-                            <div data-sheet-handle className="flex h-8 shrink-0 items-center justify-center" aria-hidden="true">
+                            <div
+                                data-sheet-handle
+                                className="flex h-8 shrink-0 items-center justify-center"
+                                aria-hidden="true"
+                            >
                                 <div className="h-1 w-10 rounded-full bg-twilight-text-soft/40" />
                             </div>
                         )}
 
-                        {showHeader && title ? <SheetHeader title={title} onClose={onClose} /> : (
+                        {showHeader && title ? (
+                            <SheetHeader title={title} onClose={onClose} />
+                        ) : (
                             <DialogPrimitive.Title className="sr-only">{ariaLabel}</DialogPrimitive.Title>
                         )}
 

@@ -24,6 +24,7 @@ describe("resolveDefaultDueDate", () => {
 describe("mapPriorityNameToNumber", () => {
     it("starts tasks at Low or None only; a stored higher default acts as None", () => {
         expect(mapPriorityNameToNumber("low")).toBe(1);
-        for (const name of ["none", "medium", "high", "urgent", null, undefined]) expect(mapPriorityNameToNumber(name)).toBe(0);
+        for (const name of ["none", "medium", "high", "urgent", null, undefined])
+            expect(mapPriorityNameToNumber(name)).toBe(0);
     });
 });

@@ -1,4 +1,14 @@
-import { Brain, ClipboardList, Goal, Feather, Heart, Check, ShieldCheck, type LucideIcon, Sparkles } from "lucide-react";
+import {
+    Brain,
+    ClipboardList,
+    Goal,
+    Feather,
+    Heart,
+    Check,
+    ShieldCheck,
+    type LucideIcon,
+    Sparkles,
+} from "lucide-react";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { Button, Input, Switch } from "../../primitives";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
@@ -45,7 +55,8 @@ const BEHAVIOR_SWITCHES: ReadonlyArray<BehaviorSwitch> = [
     {
         key: "emoji",
         title: "Emoji",
-        description: "Let the assistant mirror emoji when you use them. It never leads with them. Interface icons are unaffected.",
+        description:
+            "Let the assistant mirror emoji when you use them. It never leads with them. Interface icons are unaffected.",
     },
 ];
 
@@ -72,8 +83,8 @@ export function AssistantTab() {
                     Cadence Assistant
                 </h2>
                 <p className="max-w-3xl text-sm leading-relaxed text-twilight-text-soft">
-                    Tune how {assistantName} talks, how much initiative {assistantName} takes, and what
-                    personal guidance should stay in mind while helping you plan.
+                    Tune how {assistantName} talks, how much initiative {assistantName} takes, and what personal
+                    guidance should stay in mind while helping you plan.
                 </p>
             </div>
 
@@ -111,12 +122,17 @@ export function AssistantTab() {
                 <fieldset className="flex flex-col gap-3">
                     <legend className="sr-only">Assistant persona</legend>
                     <p className="text-sm leading-relaxed text-twilight-text-soft">
-                        Pick a voice. It sets how {assistantName} speaks and how much it says — adaptive
-                        tone gently softens it when your workload spikes.
+                        Pick a voice. It sets how {assistantName} speaks and how much it says — adaptive tone gently
+                        softens it when your workload spikes.
                     </p>
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         {personaOptions.map((option) => (
-                            <PersonaCard key={option.value} option={option} active={assistant.persona === option.value} onSelect={selectPersona} />
+                            <PersonaCard
+                                key={option.value}
+                                option={option}
+                                active={assistant.persona === option.value}
+                                onSelect={selectPersona}
+                            />
                         ))}
                     </div>
                 </fieldset>
@@ -235,7 +251,11 @@ function MemorySection() {
                 title="How much to remember"
                 description="Basic remembers what you tell the assistant. Full is everything that helps: I’ll also learn from how you actually work: what you finish, what you move, how long things take, when you like to do things, which suggestions you use, your task notes, and our past chats."
             >
-                <div role="radiogroup" aria-label="How much to remember" className="flex gap-1 rounded-full border border-twilight-border bg-twilight-surface/40 p-1">
+                <div
+                    role="radiogroup"
+                    aria-label="How much to remember"
+                    className="flex gap-1 rounded-full border border-twilight-border bg-twilight-surface/40 p-1"
+                >
                     {(["off", "basic", "full"] as const).map((mode) => (
                         <button
                             aria-checked={(memory.mode ?? "basic") === mode}
@@ -246,7 +266,9 @@ function MemorySection() {
                             onClick={() => (memory.mode ?? "basic") !== mode && setMemoryMode.mutate(mode)}
                             className={cn(
                                 "min-h-9 flex-1 cursor-pointer rounded-full px-4 text-sm font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50",
-                                (memory.mode ?? "basic") === mode ? "bg-accent-primary/15 text-twilight-text" : "text-twilight-text-soft hover:text-twilight-text",
+                                (memory.mode ?? "basic") === mode
+                                    ? "bg-accent-primary/15 text-twilight-text"
+                                    : "text-twilight-text-soft hover:text-twilight-text",
                             )}
                         >
                             {mode === "basic" && memory.mode === null ? "Basic (default)" : mode}
@@ -258,7 +280,15 @@ function MemorySection() {
                 title="What Cadence knows"
                 description="See everything remembered, forget anything with one tap, or ask for a change in chat."
             >
-                <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => { closeSettings(); setMemoryOpen(true); }}>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => {
+                        closeSettings();
+                        setMemoryOpen(true);
+                    }}
+                >
                     <Brain aria-hidden size={14} />
                     Open
                 </Button>
@@ -277,10 +307,9 @@ function GuidanceSection({ assistantName, value, onChange }: GuidanceSectionProp
                 <div className="flex flex-col gap-1">
                     <h4 className="text-base font-medium text-twilight-text">Personal instructions</h4>
                     <p className="text-sm leading-relaxed text-twilight-text-soft">
-                        Added to {assistantName}&rsquo;s context at the start of every conversation to
-                        shape its voice, your defaults, and how it breaks work down. It&rsquo;s read as a
-                        preference, not a command &mdash; it can&rsquo;t change Cadence&rsquo;s core
-                        behavior or override its safety rules.
+                        Added to {assistantName}&rsquo;s context at the start of every conversation to shape its voice,
+                        your defaults, and how it breaks work down. It&rsquo;s read as a preference, not a command
+                        &mdash; it can&rsquo;t change Cadence&rsquo;s core behavior or override its safety rules.
                     </p>
                 </div>
 

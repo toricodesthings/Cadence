@@ -34,24 +34,39 @@ export async function didYouMean(
         if (!(await smartPlacementOn(tx, userId))) return { fuzzy: [], recent: [] };
         const base = and(
             eq(tasks.userId, userId),
-            scope ?? and(inArray(tasks.state, ["ACTIVE", "WAITING"]), taskSearch(query, Object.values(taskPlaceColumns)).identifiers),
+            scope ??
+                and(
+                    inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                    taskSearch(query, Object.values(taskPlaceColumns)).identifiers,
+                ),
             ne(tasks.interactionMode, "timetable"),
         );
         // Broad SQL retrieval only; shared search verifies every term across the canonical fields.
-        const documents = await tx.select({
-            id: tasks.id, title: tasks.title, ...taskPlaceColumns, ...taskSearchColumns,
-            notes: sql<string>`left(${taskSearchColumns.notes}, ${NOTES_CHARS})`,
-        })
-            .from(tasks).where(and(base, taskSearch(query, Object.values(taskPlaceColumns), true).condition))
-            .orderBy(desc(tasks.updatedAt), desc(tasks.id)).limit(MAX_DOCUMENTS);
-        const hits = createSearchIndex(documents.map((doc) => ({ ...doc, list: doc.listName ?? "", section: doc.sectionName ?? "" })))
-            .search(query, { fuzzy: true });
+        const documents = await tx
+            .select({
+                id: tasks.id,
+                title: tasks.title,
+                ...taskPlaceColumns,
+                ...taskSearchColumns,
+                notes: sql<string>`left(${taskSearchColumns.notes}, ${NOTES_CHARS})`,
+            })
+            .from(tasks)
+            .where(and(base, taskSearch(query, Object.values(taskPlaceColumns), true).condition))
+            .orderBy(desc(tasks.updatedAt), desc(tasks.id))
+            .limit(MAX_DOCUMENTS);
+        const hits = createSearchIndex(
+            documents.map((doc) => ({ ...doc, list: doc.listName ?? "", section: doc.sectionName ?? "" })),
+        ).search(query, { fuzzy: true });
         const byId = new Map(documents.map((doc) => [doc.id, doc]));
         const fuzzy = hits.map((hit) => byId.get(hit.id)!);
         if (fuzzy.length === 1 || !decisionModel(env)) return { fuzzy, recent: [] };
         // Semantic fallback is confirmation-only; rank by spelling before limiting the model's options.
-        const recent = await tx.select({ id: tasks.id, title: tasks.title }).from(tasks).where(base)
-            .orderBy(desc(sql`word_similarity(${query}, ${tasks.title})`), desc(tasks.updatedAt), desc(tasks.id)).limit(255);
+        const recent = await tx
+            .select({ id: tasks.id, title: tasks.title })
+            .from(tasks)
+            .where(base)
+            .orderBy(desc(sql`word_similarity(${query}, ${tasks.title})`), desc(tasks.updatedAt), desc(tasks.id))
+            .limit(255);
         return { fuzzy, recent };
     });
     // A spelling candidate is still a suggestion, never permission to mutate a task.

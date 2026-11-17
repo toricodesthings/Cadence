@@ -13,7 +13,16 @@ const fold = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").repl
  * A `Select` for lists too long to scan (countries, regions, time zones): a search box narrows it as you
  * type. `pinned` options lead the list ("Use my time zone"), and the chosen one stays listed while searching.
  */
-export function SearchSelect({ value, onValueChange, options, pinned = [], ariaLabel, searchLabel, placeholder, disabled }: {
+export function SearchSelect({
+    value,
+    onValueChange,
+    options,
+    pinned = [],
+    ariaLabel,
+    searchLabel,
+    placeholder,
+    disabled,
+}: {
     value: string;
     onValueChange: (value: string) => void;
     options: ReadonlyArray<SearchSelectOption>;
@@ -33,7 +42,10 @@ export function SearchSelect({ value, onValueChange, options, pinned = [], ariaL
 
     // Radix focuses the selected item on open; steal focus back for the search box one frame later.
     useEffect(() => {
-        if (!open) { setQuery(""); return; }
+        if (!open) {
+            setQuery("");
+            return;
+        }
         const id = requestAnimationFrame(() => searchRef.current?.focus());
         return () => cancelAnimationFrame(id);
     }, [open]);
@@ -44,9 +56,19 @@ export function SearchSelect({ value, onValueChange, options, pinned = [], ariaL
                 <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>
-                <SelectSearch ref={searchRef} aria-label={searchLabel} placeholder="Search" value={query} onChange={(event) => setQuery(event.target.value)} />
+                <SelectSearch
+                    ref={searchRef}
+                    aria-label={searchLabel}
+                    placeholder="Search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                />
                 {needle && hits.length === 0 && <p className="px-3 py-2 text-sm text-twilight-text-soft">No matches</p>}
-                {shown.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                {shown.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                    </SelectItem>
+                ))}
             </SelectContent>
         </Select>
     );

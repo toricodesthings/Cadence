@@ -67,7 +67,11 @@ vi.mock("../../../app/components/tasks/RenameTaskDialog", () => ({
 
 describe("KanbanBoard", () => {
     it("keeps the Unsectioned column and add-section trigger visible for an empty project board", () => {
-        const { container } = render(<MemoryRouter><KanbanBoard tasks={[]} projectId="project-1" /></MemoryRouter>);
+        const { container } = render(
+            <MemoryRouter>
+                <KanbanBoard tasks={[]} projectId="project-1" />
+            </MemoryRouter>,
+        );
 
         expect(screen.getByText("Unsectioned")).toBeTruthy();
         expect(screen.getByTestId("add-task-ungrouped")).toBeTruthy();

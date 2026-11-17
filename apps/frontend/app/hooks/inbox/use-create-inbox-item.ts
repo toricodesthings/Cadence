@@ -27,7 +27,10 @@ export function useCreateInboxItem() {
         mutationFn: withOfflineSupport<NewCapture, InboxItem>(
             ({ id, rawText }) => ({ type: "create_inbox", payload: { id, rawText } }),
             async ({ id, rawText }) => {
-                const res = await client.api.inbox.$post({ json: { id, rawText } }, { headers: { "Idempotency-Key": id } });
+                const res = await client.api.inbox.$post(
+                    { json: { id, rawText } },
+                    { headers: { "Idempotency-Key": id } },
+                );
                 return unwrapResponse(res);
             },
         ),
@@ -56,9 +59,8 @@ export function useCreateInboxItem() {
                 createdAt: new Date().toISOString(),
             };
 
-            queryClient.setQueriesData<InboxItem[]>(
-                { queryKey: queryKeys.inbox.all },
-                (old) => transformListCache(old, (items) => [optimisticItem, ...items], { initialize: true }),
+            queryClient.setQueriesData<InboxItem[]>({ queryKey: queryKeys.inbox.all }, (old) =>
+                transformListCache(old, (items) => [optimisticItem, ...items], { initialize: true }),
             );
 
             return { snapshot, optimisticId: optimisticItem.id };
@@ -68,7 +70,8 @@ export function useCreateInboxItem() {
             if (!item || placing) return; // Queued offline, or about to become a task
             reconcileInboxItemInCaches(queryClient, item, context?.optimisticId);
             // The server suggests a list and section after saving; pick it up once, quietly, a moment later.
-            if (smartPlacementOn) setTimeout(() => queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }), 4_000);
+            if (smartPlacementOn)
+                setTimeout(() => queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }), 4_000);
         },
 
         onError: (err, _input, context) => {
@@ -77,6 +80,7 @@ export function useCreateInboxItem() {
         },
 
         // A placed capture's refetch belongs to the placing (it would show the thought again in between).
-        onSettled: (data, error, { placing }) => !placing && !wasQueued(data, error) && queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),
+        onSettled: (data, error, { placing }) =>
+            !placing && !wasQueued(data, error) && queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),
     });
 }

@@ -11,7 +11,9 @@ export function markUpdating(version: string | null) {
     try {
         if (version) localStorage.setItem(UPDATING_KEY, version);
         else localStorage.removeItem(UPDATING_KEY);
-    } catch { /* storage blocked: the confirmation is a nicety */ }
+    } catch {
+        /* storage blocked: the confirmation is a nicety */
+    }
 }
 
 /** After an update restart, says once that it worked. */
@@ -20,7 +22,9 @@ export function confirmDesktopUpdate(openChangelog: () => void) {
     try {
         target = localStorage.getItem(UPDATING_KEY);
         localStorage.removeItem(UPDATING_KEY);
-    } catch { return; }
+    } catch {
+        return;
+    }
     if (target !== CADENCE_VERSION) return;
     toast.success(`Cadence updated to ${CADENCE_VERSION}.`, {
         action: { label: "What’s new", onClick: openChangelog },

@@ -4,7 +4,14 @@
  * so every mutation writes it back into the cache and nothing is merged client-side.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type DurationReport, type DurationReportView, type DurationValue, type MemoryMode, type MemoryPage, type RoutineDurationView } from "@cadence/contracts/memory";
+import {
+    type DurationReport,
+    type DurationReportView,
+    type DurationValue,
+    type MemoryMode,
+    type MemoryPage,
+    type RoutineDurationView,
+} from "@cadence/contracts/memory";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
 import { unwrapResponse } from "../../lib/api/helpers";
@@ -62,11 +69,17 @@ export function useForgetMemory() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async ({ id, undo = false }: { id: string; undo?: boolean }) =>
-            unwrapResponse(await client.api.ai.memory[":id"].$delete({ param: { id }, query: { undo: undo ? "true" : "false" } })),
+            unwrapResponse(
+                await client.api.ai.memory[":id"].$delete({ param: { id }, query: { undo: undo ? "true" : "false" } }),
+            ),
         onMutate: async ({ id }) => {
             await queryClient.cancelQueries({ queryKey: queryKeys.ai.memory });
             const before = queryClient.getQueryData<MemoryPage>(queryKeys.ai.memory);
-            if (before) queryClient.setQueryData<MemoryPage>(queryKeys.ai.memory, { ...before, facts: before.facts.filter((f) => f.id !== id) });
+            if (before)
+                queryClient.setQueryData<MemoryPage>(queryKeys.ai.memory, {
+                    ...before,
+                    facts: before.facts.filter((f) => f.id !== id),
+                });
             return { before };
         },
         onError: (error, _input, context) => {
@@ -84,7 +97,8 @@ export function useRestoreMemory() {
     const client = useApiClient();
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (id: string) => unwrapResponse(await client.api.ai.memory[":id"].restore.$post({ param: { id } })),
+        mutationFn: async (id: string) =>
+            unwrapResponse(await client.api.ai.memory[":id"].restore.$post({ param: { id } })),
         onSettled: () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.ai.memory });
             void queryClient.invalidateQueries({ queryKey: queryKeys.ai.durationEvidence }); // a duration fact's answers hide with it
@@ -109,8 +123,10 @@ export function useDurationApi() {
     const client = useApiClient();
     const queryClient = useQueryClient();
     return {
-        ask: async (taskId: string) => unwrapResponse(await client.api.ai.memory.duration.ask.$post({ json: { taskId } })),
-        shown: async (token: string) => void unwrapResponse(await client.api.ai.memory.duration.shown.$post({ json: { token } })),
+        ask: async (taskId: string) =>
+            unwrapResponse(await client.api.ai.memory.duration.ask.$post({ json: { taskId } })),
+        shown: async (token: string) =>
+            void unwrapResponse(await client.api.ai.memory.duration.shown.$post({ json: { token } })),
         /** Resolves with what the server stored (null when it stored nothing), and rejects when it couldn't: "Saved" follows only the first. */
         report: async (input: DurationReport) => {
             const view = await unwrapResponse(await client.api.ai.memory.duration.$post({ json: input }));
@@ -132,7 +148,10 @@ export function useReportedDuration(taskId: string, completedAt: string | null |
         queryKey: queryKeys.ai.duration(taskId, completedAt),
         enabled,
         staleTime: 30_000,
-        queryFn: async () => unwrapResponse(await client.api.ai.memory.duration.$get({ query: { taskId, ...(completedAt && { completedAt }) } })),
+        queryFn: async () =>
+            unwrapResponse(
+                await client.api.ai.memory.duration.$get({ query: { taskId, ...(completedAt && { completedAt }) } }),
+            ),
     });
 }
 
@@ -144,14 +163,22 @@ export function useSetReportedDuration(taskId: string, completedAt: string | nul
     const client = useApiClient();
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (input: { value: DurationValue; anchored: boolean } | null): Promise<DurationReportView | null> => {
+        mutationFn: async (
+            input: { value: DurationValue; anchored: boolean } | null,
+        ): Promise<DurationReportView | null> => {
             if (input === null) {
-                unwrapResponse(await client.api.ai.memory.duration.$delete({ json: { taskId, ...(completedAt && { completedAt }) } }));
+                unwrapResponse(
+                    await client.api.ai.memory.duration.$delete({
+                        json: { taskId, ...(completedAt && { completedAt }) },
+                    }),
+                );
                 return null;
             }
             // A done task always carries its completion; without one there is nothing to answer for.
             if (!completedAt) throw new Error("No completion to answer for");
-            return unwrapResponse(await client.api.ai.memory.duration.$post({ json: { taskId, completedAt, ...input } }));
+            return unwrapResponse(
+                await client.api.ai.memory.duration.$post({ json: { taskId, completedAt, ...input } }),
+            );
         },
         onSuccess: (view) => {
             queryClient.setQueryData(queryKeys.ai.duration(taskId, completedAt), view);
@@ -167,7 +194,10 @@ export function useReportedRoutineDuration(habitId: string, day: string, time: s
         queryKey: queryKeys.ai.routineDuration(habitId, day, time),
         enabled,
         staleTime: 30_000,
-        queryFn: async () => unwrapResponse(await client.api.ai.memory.duration.routine.$get({ query: { habitId, day, ...(time && { time }) } })),
+        queryFn: async () =>
+            unwrapResponse(
+                await client.api.ai.memory.duration.routine.$get({ query: { habitId, day, ...(time && { time }) } }),
+            ),
     });
 }
 
@@ -176,12 +206,22 @@ export function useSetReportedRoutineDuration(habitId: string, day: string, time
     const client = useApiClient();
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (input: { value: DurationValue; anchored: boolean } | null): Promise<RoutineDurationView | null> => {
+        mutationFn: async (
+            input: { value: DurationValue; anchored: boolean } | null,
+        ): Promise<RoutineDurationView | null> => {
             if (input === null) {
-                unwrapResponse(await client.api.ai.memory.duration.routine.$delete({ json: { habitId, day, ...(time && { time }) } }));
+                unwrapResponse(
+                    await client.api.ai.memory.duration.routine.$delete({
+                        json: { habitId, day, ...(time && { time }) },
+                    }),
+                );
                 return null;
             }
-            return unwrapResponse(await client.api.ai.memory.duration.routine.$post({ json: { habitId, day, ...(time && { time }), ...input } }));
+            return unwrapResponse(
+                await client.api.ai.memory.duration.routine.$post({
+                    json: { habitId, day, ...(time && { time }), ...input },
+                }),
+            );
         },
         onSuccess: (view) => {
             queryClient.setQueryData(queryKeys.ai.routineDuration(habitId, day, time), view);

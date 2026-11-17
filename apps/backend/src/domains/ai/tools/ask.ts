@@ -9,17 +9,25 @@ import type { Env } from "../../../types/env";
 import type { Tx } from "../../../types/db";
 import type { AgentContext } from "./index";
 
-const fieldAskOf = (settings: unknown) => ((settings as { assistant?: { fieldAsk?: FieldAskState | null } } | null)?.assistant?.fieldAsk ?? null);
+const fieldAskOf = (settings: unknown) =>
+    (settings as { assistant?: { fieldAsk?: FieldAskState | null } } | null)?.assistant?.fieldAsk ?? null;
 
 /** A field question sent without `field` still counts, so a retry can't skip the back-off. ponytail: English cues, widen with the eval's misses. */
-const FIELD_CUES = { priority: /\b(?:matters? most|most important|priorit)/i, effort: /\b(?:heaviest|hardest|most effort|biggest)\b/i };
+const FIELD_CUES = {
+    priority: /\b(?:matters? most|most important|priorit)/i,
+    effort: /\b(?:heaviest|hardest|most effort|biggest)\b/i,
+};
 const fieldOf = (question: string, field?: "priority" | "effort") =>
-    field ?? (FIELD_CUES.priority.test(question) ? "priority" : FIELD_CUES.effort.test(question) ? "effort" : undefined);
+    field ??
+    (FIELD_CUES.priority.test(question) ? "priority" : FIELD_CUES.effort.test(question) ? "effort" : undefined);
 
 /** Merged in SQL: the rest of `settings` is never rewritten from a stale read. */
 const writeFieldAsk = (tx: Tx, userId: string, value: FieldAskState) =>
-    tx.update(users)
-        .set({ settings: sql`coalesce(${users.settings}, '{}'::jsonb) || jsonb_build_object('assistant', coalesce(${users.settings}->'assistant', '{}'::jsonb) || jsonb_build_object('fieldAsk', ${JSON.stringify(value)}::jsonb))` })
+    tx
+        .update(users)
+        .set({
+            settings: sql`coalesce(${users.settings}, '{}'::jsonb) || jsonb_build_object('assistant', coalesce(${users.settings}->'assistant', '{}'::jsonb) || jsonb_build_object('fieldAsk', ${JSON.stringify(value)}::jsonb))`,
+        })
         .where(eq(users.id, userId));
 
 /** The turn's message settles a field question still waiting: an option answers it, anything else is a miss (A2 back-off). */
@@ -43,21 +51,45 @@ export const askTools = (env: Env, userId: string, ctx: AgentContext) => ({
             "The card shows the question, your options to tap, and a box to type their own answer; their reply is the next message. Don't repeat the question in text.",
         inputSchema: z.object({
             question: z.string().min(1).max(200).describe("One plain question."),
-            options: z.array(z.object({
-                label: z.string().min(1).max(60).describe("A short answer they can tap."),
-                description: z.string().max(120).optional().describe("What it means, when the label isn't enough."),
-            })).min(2).max(4).describe("The likely answers, most likely first. They can always type their own."),
-            field: z.enum(["priority", "effort"]).optional().describe("Set for \"Which matters most today?\" (priority) or \"Which is heaviest?\" (effort)."),
+            options: z
+                .array(
+                    z.object({
+                        label: z.string().min(1).max(60).describe("A short answer they can tap."),
+                        description: z
+                            .string()
+                            .max(120)
+                            .optional()
+                            .describe("What it means, when the label isn't enough."),
+                    }),
+                )
+                .min(2)
+                .max(4)
+                .describe("The likely answers, most likely first. They can always type their own."),
+            field: z
+                .enum(["priority", "effort"])
+                .optional()
+                .describe('Set for "Which matters most today?" (priority) or "Which is heaviest?" (effort).'),
         }),
         execute: async ({ question, options, field: given }) => {
             const field = fieldOf(question, given);
             if (!field) return { asked: true };
             return withRls(getDbClient(env), userId, async (tx) => {
-                const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
+                const [row] = await tx
+                    .select({ settings: users.settings })
+                    .from(users)
+                    .where(eq(users.id, userId))
+                    .limit(1);
                 const state = fieldAskOf(row?.settings) ?? {};
                 const entry = state[field];
-                if (!fieldAskOpen(entry, ctx.today)) return { asked: false, reason: "They skipped this question recently: don't ask; carry on without it." };
-                await writeFieldAsk(tx, userId, { ...state, [field]: { lastOn: ctx.today, misses: entry?.misses ?? 0, labels: options.map((o) => o.label) } });
+                if (!fieldAskOpen(entry, ctx.today))
+                    return {
+                        asked: false,
+                        reason: "They skipped this question recently: don't ask; carry on without it.",
+                    };
+                await writeFieldAsk(tx, userId, {
+                    ...state,
+                    [field]: { lastOn: ctx.today, misses: entry?.misses ?? 0, labels: options.map((o) => o.label) },
+                });
                 return { asked: true };
             });
         },

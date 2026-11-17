@@ -7,42 +7,42 @@ import { formatShortDateLabel } from "../utils/date-format";
 import { today } from "../utils/user-zone";
 
 export interface NoteTemplate {
-  id: string;
-  label: string;
-  description: string;
-  body: string;
+    id: string;
+    label: string;
+    description: string;
+    body: string;
 }
 
 export const NOTE_TEMPLATES: NoteTemplate[] = [
-  {
-    id: "checklist",
-    label: "Checklist",
-    description: "Simple checklist to track steps",
-    body: `## Checklist
+    {
+        id: "checklist",
+        label: "Checklist",
+        description: "Simple checklist to track steps",
+        body: `## Checklist
 
 - [ ] Step 1
 - [ ] Step 2
 - [ ] Step 3
 `,
-  },
-  {
-    id: "bullets",
-    label: "Bullet List",
-    description: "Quick bullet outline",
-    body: `## Notes
+    },
+    {
+        id: "bullets",
+        label: "Bullet List",
+        description: "Quick bullet outline",
+        body: `## Notes
 
 - Point one
 - Point two
 - Point three
 `,
-  },
-  {
-    id: "meeting",
-    label: "Meeting Notes",
-    description: "Capture meeting outcomes and actions",
-    // A getter: the date is when the template is inserted, in the user's zone.
-    get body() {
-      return `## Meeting Notes
+    },
+    {
+        id: "meeting",
+        label: "Meeting Notes",
+        description: "Capture meeting outcomes and actions",
+        // A getter: the date is when the template is inserted, in the user's zone.
+        get body() {
+            return `## Meeting Notes
 
 **Date:** ${formatShortDateLabel(today(), { year: true })}
 **Attendees:**
@@ -61,13 +61,13 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
 
 - [ ]
 `;
+        },
     },
-  },
-  {
-    id: "brainstorm",
-    label: "Brainstorm",
-    description: "Free-form idea capture",
-    body: `## Brainstorm
+    {
+        id: "brainstorm",
+        label: "Brainstorm",
+        description: "Free-form idea capture",
+        body: `## Brainstorm
 
 ### Ideas
 
@@ -81,12 +81,12 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
 
 - [ ]
 `,
-  },
-  {
-    id: "decision",
-    label: "Decision Record",
-    description: "Document a key decision and context",
-    body: `## Decision
+    },
+    {
+        id: "decision",
+        label: "Decision Record",
+        description: "Document a key decision and context",
+        body: `## Decision
 
 **Context:**
 
@@ -103,12 +103,12 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
 
 - [ ]
 `,
-  },
-  {
-    id: "next-steps",
-    label: "Next Steps",
-    description: "Plan clear follow-up actions",
-    body: `## Next Steps
+    },
+    {
+        id: "next-steps",
+        label: "Next Steps",
+        description: "Plan clear follow-up actions",
+        body: `## Next Steps
 
 - [ ] Action 1
 - [ ] Action 2
@@ -117,5 +117,5 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
 ### Notes
 
 `,
-  },
+    },
 ];

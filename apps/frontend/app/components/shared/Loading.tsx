@@ -37,7 +37,13 @@ let cancelRelease = () => {};
 function publish(leaving?: Request) {
     const owner = requests.filter((r) => r.title !== undefined).at(-1) ?? requests.at(-1) ?? leaving ?? null;
     const progress = owner === leaving && owner?.progress !== undefined ? 1 : owner?.progress;
-    if (owner === snapshot.owner && owner?.title === snapshot.title && progress === snapshot.progress && slot === snapshot.slot) return;
+    if (
+        owner === snapshot.owner &&
+        owner?.title === snapshot.title &&
+        progress === snapshot.progress &&
+        slot === snapshot.slot
+    )
+        return;
     snapshot = { owner, title: owner?.title, progress, slot };
     listeners.forEach((listener) => listener());
 }

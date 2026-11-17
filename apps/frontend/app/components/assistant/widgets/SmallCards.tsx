@@ -18,7 +18,8 @@ const withEmoji = (emoji: string | null | undefined, name: string) => (emoji ? `
 /** A routine's HH:MM in the viewer's clock format. */
 const wallClock = (time: string) => formatTime(`2000-01-01T${time}:00`);
 /** Copy for a switch the draft sets: on, off, or null when it leaves it alone. */
-const switchCopy = (value: boolean | undefined, on: string, off: string) => (value === undefined ? null : value ? on : off);
+const switchCopy = (value: boolean | undefined, on: string, off: string) =>
+    value === undefined ? null : value ? on : off;
 
 export function CreateProjectCard({ ctx }: { ctx: ToolRenderContext<"create_project"> }) {
     const input = ctx.part?.input ?? {};
@@ -65,13 +66,19 @@ const LOG_COPY: Record<string, { done: string; ask: string }> = {
 };
 
 /** What logging does: the settled verb and the card's line ("Water ✓ · Stretch skipped" for steps). */
-function logHabitText(input: { status?: string; time?: unknown; stepStatus?: Record<string, string> }, steps: { id: string; title: string }[]) {
+function logHabitText(
+    input: { status?: string; time?: unknown; stepStatus?: Record<string, string> },
+    steps: { id: string; title: string }[],
+) {
     const marks = input.stepStatus;
     const copy = LOG_COPY[input.status ?? "COMPLETED"] ?? { done: "Cleared", ask: "Clear" };
     const at = typeof input.time === "string" ? ` at ${wallClock(input.time)}` : "";
     if (!marks) return { verb: copy.done + at, line: copy.ask + at };
     // Step marks, in the routine's order.
-    const line = steps.filter((step) => marks[step.id]).map((step) => `${step.title} ${marks[step.id] === "SKIPPED" ? "skipped" : "✓"}`).join(" · ");
+    const line = steps
+        .filter((step) => marks[step.id])
+        .map((step) => `${step.title} ${marks[step.id] === "SKIPPED" ? "skipped" : "✓"}`)
+        .join(" · ");
     return { verb: "Logged steps", line: line || "Clear every step" };
 }
 
@@ -115,15 +122,32 @@ type RoutineDraft = {
     position?: number;
 };
 
-const WEEKDAY_NAMES: Record<string, string> = { MO: "Mon", TU: "Tue", WE: "Wed", TH: "Thu", FR: "Fri", SA: "Sat", SU: "Sun" };
+const WEEKDAY_NAMES: Record<string, string> = {
+    MO: "Mon",
+    TU: "Tue",
+    WE: "Wed",
+    TH: "Thu",
+    FR: "Fri",
+    SA: "Sat",
+    SU: "Sun",
+};
 
 /** When it happens: set times, one usual time ("Any time" when cleared), and per-day times. */
 function routineTimeParts(draft: RoutineDraft) {
-    const times = draft.times?.length ? draft.times.map(wallClock).join(", ")
-        : draft.targetTime ? wallClock(draft.targetTime) : draft.targetTime === null ? "Any time" : null;
+    const times = draft.times?.length
+        ? draft.times.map(wallClock).join(", ")
+        : draft.targetTime
+          ? wallClock(draft.targetTime)
+          : draft.targetTime === null
+            ? "Any time"
+            : null;
     const dayTimes = draft.dayTimes
-        ? Object.entries(draft.dayTimes).map(([day, time]) => `${WEEKDAY_NAMES[day] ?? day} ${time ? wallClock(time) : "any time"}`).join(", ")
-        : draft.dayTimes === null ? "Same time every day" : null;
+        ? Object.entries(draft.dayTimes)
+              .map(([day, time]) => `${WEEKDAY_NAMES[day] ?? day} ${time ? wallClock(time) : "any time"}`)
+              .join(", ")
+        : draft.dayTimes === null
+          ? "Same time every day"
+          : null;
     return { times, dayTimes };
 }
 
@@ -142,16 +166,30 @@ function routinePlacementParts(draft: RoutineDraft, tagNames: string[]) {
 function routineSummary(draft: RoutineDraft, tagNames: string[] = []) {
     const { times, dayTimes } = routineTimeParts(draft);
     const steps = draft.steps?.map((step) => (typeof step === "string" ? step : step.title)).join(" → ");
-    return [
-        draft.recurrenceRule ? getTaskRecurrenceSummary({ recurrenceRule: draft.recurrenceRule, scheduledStart: null, scheduledEnd: null })?.cadenceLabel ?? "Repeats" : null,
-        times,
-        draft.steps ? (draft.steps.length ? steps : "No steps") : null,
-        switchCopy(draft.reminderEnabled, "Reminder on", "Reminder off"),
-        draft.pausedUntil ? `Paused until ${formatShortDate(draft.pausedUntil)}` : draft.pausedUntil === null ? "Resumed" : null,
-        switchCopy(draft.archived, "Archived", "Restored"),
-        dayTimes,
-        ...routinePlacementParts(draft, tagNames),
-    ].filter(Boolean).join(" · ") || undefined;
+    return (
+        [
+            draft.recurrenceRule
+                ? (getTaskRecurrenceSummary({
+                      recurrenceRule: draft.recurrenceRule,
+                      scheduledStart: null,
+                      scheduledEnd: null,
+                  })?.cadenceLabel ?? "Repeats")
+                : null,
+            times,
+            draft.steps ? (draft.steps.length ? steps : "No steps") : null,
+            switchCopy(draft.reminderEnabled, "Reminder on", "Reminder off"),
+            draft.pausedUntil
+                ? `Paused until ${formatShortDate(draft.pausedUntil)}`
+                : draft.pausedUntil === null
+                  ? "Resumed"
+                  : null,
+            switchCopy(draft.archived, "Archived", "Restored"),
+            dayTimes,
+            ...routinePlacementParts(draft, tagNames),
+        ]
+            .filter(Boolean)
+            .join(" · ") || undefined
+    );
 }
 
 export function CreateHabitCard({ ctx }: { ctx: ToolRenderContext<"create_habit"> }) {
@@ -170,9 +208,16 @@ export function CreateHabitCard({ ctx }: { ctx: ToolRenderContext<"create_habit"
         >
             <IdentityBlock
                 title={withEmoji(draft.emoji, name)}
-                subtitle={routineSummary(draft, lookupTags(draft.tagIds ?? []).map((tag) => tag.name))}
+                subtitle={routineSummary(
+                    draft,
+                    lookupTags(draft.tagIds ?? []).map((tag) => tag.name),
+                )}
             />
-            {draft.projectId ? <div className="flex flex-wrap gap-1.5"><TaskDestination projectId={draft.projectId} /></div> : null}
+            {draft.projectId ? (
+                <div className="flex flex-wrap gap-1.5">
+                    <TaskDestination projectId={draft.projectId} />
+                </div>
+            ) : null}
             {draft.description ? <p className="text-xs text-twilight-text-soft">{draft.description}</p> : null}
         </ApprovalCard>
     );
@@ -187,7 +232,11 @@ function habitChanges(patch: RoutineDraft, habit: { title: string } | undefined,
 }
 
 /** The routine's name after the change, and its title with the emoji it will have. */
-function habitCardTitle(patch: RoutineDraft, habit: { title: string; emoji?: string | null } | undefined, saved: string | undefined) {
+function habitCardTitle(
+    patch: RoutineDraft,
+    habit: { title: string; emoji?: string | null } | undefined,
+    saved: string | undefined,
+) {
     const name = patch.title ?? habit?.title ?? saved ?? "this routine";
     const emoji = "emoji" in patch ? patch.emoji : habit?.emoji;
     return { name, title: withEmoji(emoji, name) };
@@ -212,10 +261,18 @@ export function UpdateHabitCard({ ctx }: { ctx: ToolRenderContext<"update_habit"
         >
             <IdentityBlock
                 title={title}
-                subtitle={habitChanges(patch, habit, lookupTags(patch.tagIds ?? []).map((tag) => tag.name))}
+                subtitle={habitChanges(
+                    patch,
+                    habit,
+                    lookupTags(patch.tagIds ?? []).map((tag) => tag.name),
+                )}
             />
             {patch.description ? <p className="text-xs text-twilight-text-soft">{patch.description}</p> : null}
-            {patch.projectId ? <div className="flex flex-wrap gap-1.5"><TaskDestination projectId={patch.projectId} /></div> : null}
+            {patch.projectId ? (
+                <div className="flex flex-wrap gap-1.5">
+                    <TaskDestination projectId={patch.projectId} />
+                </div>
+            ) : null}
         </ApprovalCard>
     );
 }
@@ -232,12 +289,21 @@ export function DeleteHabitCard({ ctx }: { ctx: ToolRenderContext<"delete_habit"
             doneText={`Deleted “${name}” and its history.`}
         >
             <IdentityBlock title={name} tone="danger" />
-            {persona.terse ? null : <p className="text-xs text-twilight-text-soft">Its history and streaks go too. Archive keeps them.</p>}
+            {persona.terse ? null : (
+                <p className="text-xs text-twilight-text-soft">Its history and streaks go too. Archive keeps them.</p>
+            )}
         </DeleteApprovalCard>
     );
 }
 
-type EventDraft = { label?: string; monthDay?: string; emoji?: string | null; notify?: boolean; startedOn?: string | null; color?: string | null };
+type EventDraft = {
+    label?: string;
+    monthDay?: string;
+    emoji?: string | null;
+    notify?: boolean;
+    startedOn?: string | null;
+    color?: string | null;
+};
 
 /** The event as it is now, from the settings cache. */
 function useEventLookup() {
@@ -306,10 +372,7 @@ export function UpdateEventCard({ ctx }: { ctx: ToolRenderContext<"save_event"> 
             primaryGlyph={Check}
             doneText={`Updated “${name}”.`}
         >
-            <IdentityBlock
-                title={eventTitle({ label: name, emoji }, name)}
-                subtitle={eventChanges(patch)}
-            />
+            <IdentityBlock title={eventTitle({ label: name, emoji }, name)} subtitle={eventChanges(patch)} />
         </ApprovalCard>
     );
 }
@@ -344,7 +407,10 @@ export function CreateSectionsCard({ ctx }: { ctx: ToolRenderContext<"create_sec
             primaryGlyph={Check}
             doneText={`Added ${label}.`}
         >
-            <IdentityBlock title={names.join(" · ")} subtitle={input.projectId ? <TaskDestination projectId={input.projectId} /> : undefined} />
+            <IdentityBlock
+                title={names.join(" · ")}
+                subtitle={input.projectId ? <TaskDestination projectId={input.projectId} /> : undefined}
+            />
         </ApprovalCard>
     );
 }
@@ -354,7 +420,9 @@ function sectionChanges(input: { name?: string; position?: number }, current: st
     return [
         input.name && input.name !== current ? `Renamed from “${current}”` : null,
         input.position ? (input.position === 1 ? "Moved to the top" : `Moved to position ${input.position}`) : null,
-    ].filter(Boolean).join(" · ");
+    ]
+        .filter(Boolean)
+        .join(" · ");
 }
 
 export function UpdateSectionCard({ ctx }: { ctx: ToolRenderContext<"update_section"> }) {
@@ -392,7 +460,9 @@ export function DeleteSectionCard({ ctx }: { ctx: ToolRenderContext<"delete_sect
             doneText={`Deleted “${name}”${output?.tasksUnsectioned ? `; ${output.tasksUnsectioned} tasks now have no section` : ""}.`}
         >
             <IdentityBlock title={name} tone="danger" />
-            {persona.terse ? null : <p className="text-xs text-twilight-text-soft">Its tasks stay in the list, with no section.</p>}
+            {persona.terse ? null : (
+                <p className="text-xs text-twilight-text-soft">Its tasks stay in the list, with no section.</p>
+            )}
         </DeleteApprovalCard>
     );
 }

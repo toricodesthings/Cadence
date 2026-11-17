@@ -1,4 +1,15 @@
-import { CalendarHeart, CheckCircle2, ChevronRight, History, LayoutGrid, LifeBuoy, RefreshCw, Settings, Sprout, Trash2 } from "lucide-react";
+import {
+    CalendarHeart,
+    CheckCircle2,
+    ChevronRight,
+    History,
+    LayoutGrid,
+    LifeBuoy,
+    RefreshCw,
+    Settings,
+    Sprout,
+    Trash2,
+} from "lucide-react";
 import { useAuthState } from "../hooks/auth/use-auth-state";
 import { useSettings } from "../hooks/core/use-settings";
 import { useWorkspaceSync } from "../hooks/core/use-workspace-sync";
@@ -46,42 +57,70 @@ export default function BrowsePage() {
     const { data: userSettings } = useSettings();
     const { sync, isSyncing } = useWorkspaceSync();
 
-    return <MainLayout
-        requireAuth
-        hideContextualOrb
-        compactHeaderRightInline
-        headerRight={
-            <button type="button" onClick={() => void sync()} disabled={isSyncing} aria-label="Sync workspace" className="mobile-icon-button text-twilight-text-soft disabled:opacity-50">
-                <RefreshCw size={18} className={isSyncing ? "sync-spin" : ""} aria-hidden="true" />
-            </button>
-        }
-        shellHeader={{
-            title: "Browse",
-            icon: <LayoutGrid size={18} aria-hidden="true" />,
-        }}
-    >
-        <div className="mobile-page-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3"><div className="mx-auto max-w-3xl space-y-5">
-            <ProfileCard onOpen={() => openSettings("account")} />
+    return (
+        <MainLayout
+            requireAuth
+            hideContextualOrb
+            compactHeaderRightInline
+            headerRight={
+                <button
+                    type="button"
+                    onClick={() => void sync()}
+                    disabled={isSyncing}
+                    aria-label="Sync workspace"
+                    className="mobile-icon-button text-twilight-text-soft disabled:opacity-50"
+                >
+                    <RefreshCw size={18} className={isSyncing ? "sync-spin" : ""} aria-hidden="true" />
+                </button>
+            }
+            shellHeader={{
+                title: "Browse",
+                icon: <LayoutGrid size={18} aria-hidden="true" />,
+            }}
+        >
+            <div className="mobile-page-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3">
+                <div className="mx-auto max-w-3xl space-y-5">
+                    <ProfileCard onOpen={() => openSettings("account")} />
 
-            {/* Capture owns Today, Upcoming, Projects and Tags; Browse keeps the
+                    {/* Capture owns Today, Upcoming, Projects and Tags; Browse keeps the
                 destinations you visit occasionally. */}
-            <nav aria-label="Workspace" className={NAV_GROUP}>
-                <NavigationRow to="/events" icon={CalendarHeart}>Events</NavigationRow>
-                <NavigationRow to="/weekly-review" icon={Sprout}>Weekly Reset</NavigationRow>
-                <NavigationRow icon={Settings} onClick={() => openSettings()}>Settings</NavigationRow>
-            </nav>
+                    <nav aria-label="Workspace" className={NAV_GROUP}>
+                        <NavigationRow to="/events" icon={CalendarHeart}>
+                            Events
+                        </NavigationRow>
+                        <NavigationRow to="/weekly-review" icon={Sprout}>
+                            Weekly Reset
+                        </NavigationRow>
+                        <NavigationRow icon={Settings} onClick={() => openSettings()}>
+                            Settings
+                        </NavigationRow>
+                    </nav>
 
-            {(!userSettings?.tasks?.hideCompleted || !userSettings?.tasks?.hideTrash) && (
-                <nav aria-label="Archive" className={NAV_GROUP}>
-                    {!userSettings?.tasks?.hideCompleted && <NavigationRow to="/completed" icon={CheckCircle2}>Completed</NavigationRow>}
-                    {!userSettings?.tasks?.hideTrash && <NavigationRow to="/trash" icon={Trash2}>Trash</NavigationRow>}
-                </nav>
-            )}
+                    {(!userSettings?.tasks?.hideCompleted || !userSettings?.tasks?.hideTrash) && (
+                        <nav aria-label="Archive" className={NAV_GROUP}>
+                            {!userSettings?.tasks?.hideCompleted && (
+                                <NavigationRow to="/completed" icon={CheckCircle2}>
+                                    Completed
+                                </NavigationRow>
+                            )}
+                            {!userSettings?.tasks?.hideTrash && (
+                                <NavigationRow to="/trash" icon={Trash2}>
+                                    Trash
+                                </NavigationRow>
+                            )}
+                        </nav>
+                    )}
 
-            <nav aria-label="Support" className={NAV_GROUP}>
-                <NavigationRow to="/help-feedback" icon={LifeBuoy}>Help & Feedback</NavigationRow>
-                <NavigationRow to="/changelog" icon={History}>What’s new</NavigationRow>
-            </nav>
-        </div></div>
-    </MainLayout>;
+                    <nav aria-label="Support" className={NAV_GROUP}>
+                        <NavigationRow to="/help-feedback" icon={LifeBuoy}>
+                            Help & Feedback
+                        </NavigationRow>
+                        <NavigationRow to="/changelog" icon={History}>
+                            What’s new
+                        </NavigationRow>
+                    </nav>
+                </div>
+            </div>
+        </MainLayout>
+    );
 }

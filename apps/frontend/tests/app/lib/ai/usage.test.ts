@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { describeImageAllowance, describeUsage, describeUsageMeters, formatReset, formatResetDetail } from "../../../../app/lib/ai/usage";
+import {
+    describeImageAllowance,
+    describeUsage,
+    describeUsageMeters,
+    formatReset,
+    formatResetDetail,
+} from "../../../../app/lib/ai/usage";
 import type { AiUsage } from "@cadence/contracts/ai";
 
 const NOW = 1_760_000_000_000; // fixed clock (ms)
@@ -48,18 +54,12 @@ describe("describeUsage", () => {
     });
 
     it("uses the singular form for one remaining message", () => {
-        const line = describeUsage(
-            usage({ fiveH: { requests: { used: 49, limit: 50 }, resetEpoch: null } }),
-            NOW,
-        );
+        const line = describeUsage(usage({ fiveH: { requests: { used: 49, limit: 50 }, resetEpoch: null } }), NOW);
         expect(line).toBe("≈ 1 message left");
     });
 
     it("says 'No messages left' at zero", () => {
-        const line = describeUsage(
-            usage({ fiveH: { requests: { used: 50, limit: 50 }, resetEpoch: nowS + 60 } }),
-            NOW,
-        );
+        const line = describeUsage(usage({ fiveH: { requests: { used: 50, limit: 50 }, resetEpoch: nowS + 60 } }), NOW);
         expect(line).toBe("No messages left · resets in a minute");
     });
 
@@ -75,10 +75,7 @@ describe("describeUsage", () => {
     });
 
     it("uses the generic capacity line when only tokens are draining", () => {
-        const line = describeUsage(
-            usage({ fiveH: { tokens: { used: 95_000, limit: 100_000 } } }),
-            NOW,
-        );
+        const line = describeUsage(usage({ fiveH: { tokens: { used: 95_000, limit: 100_000 } } }), NOW);
         expect(line).toBe("Running low on AI capacity");
     });
 });
@@ -103,7 +100,10 @@ describe("describeImageAllowance", () => {
     const reset = nowS + 7 * 3600;
 
     it("stays quiet while there's plenty", () => {
-        expect(describeImageAllowance(usage({ images: { used: 10 } }), NOW)).toMatchObject({ blocked: false, label: "Attach an image" });
+        expect(describeImageAllowance(usage({ images: { used: 10 } }), NOW)).toMatchObject({
+            blocked: false,
+            label: "Attach an image",
+        });
         expect(describeImageAllowance(undefined, NOW).blocked).toBe(false);
     });
 
@@ -126,7 +126,9 @@ describe("describeImageAllowance", () => {
 
 describe("formatResetDetail", () => {
     it("counts days and hours, then the date and time", () => {
-        expect(formatResetDetail(nowS + 2 * 86400 + 5 * 3600 + 30, NOW)).toMatch(/^Resets in 2 days 5 hours \(on .+, .+\)$/);
+        expect(formatResetDetail(nowS + 2 * 86400 + 5 * 3600 + 30, NOW)).toMatch(
+            /^Resets in 2 days 5 hours \(on .+, .+\)$/,
+        );
     });
 
     it("drops a zero part and uses singulars", () => {
@@ -145,7 +147,13 @@ describe("describeUsageMeters", () => {
 
     it("waits for the first message when no window is armed", () => {
         const [fiveH] = describeUsageMeters(usage(), NOW)!;
-        expect(fiveH).toMatchObject({ fraction: 0, headline: "0% used", caption: "Starts with your next message", reset: null, full: false });
+        expect(fiveH).toMatchObject({
+            fraction: 0,
+            headline: "0% used",
+            caption: "Starts with your next message",
+            reset: null,
+            full: false,
+        });
     });
 
     it("counts messages left when requests are the tighter dimension", () => {
@@ -170,7 +178,12 @@ describe("describeUsageMeters", () => {
             usage({ fiveH: { requests: { used: 50, limit: 50 }, resetEpoch: nowS + 3600 } }),
             NOW,
         )!;
-        expect(fiveH).toMatchObject({ fraction: 1, headline: "Limit reached", caption: "Nothing left until it resets", full: true });
+        expect(fiveH).toMatchObject({
+            fraction: 1,
+            headline: "Limit reached",
+            caption: "Nothing left until it resets",
+            full: true,
+        });
     });
 
     it("shows photos with the per-message cap, and a reset once any are sent", () => {

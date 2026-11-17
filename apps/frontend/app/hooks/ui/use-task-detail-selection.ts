@@ -29,5 +29,13 @@ export function useTaskDetailSelection(onPick?: () => void) {
         }
     };
 
-    return { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask };
+    return {
+        selectedTaskId,
+        setSelectedTaskId,
+        mobilePanelOpen,
+        setMobilePanelOpen,
+        mobileDetailMode,
+        setMobileDetailMode,
+        handleSelectTask,
+    };
 }

@@ -84,7 +84,10 @@ describe("AddTaskInput", () => {
     });
 
     it("outside a list, a list named in words is where it goes", async () => {
-        expect(await submitText("Plan budget in Client Ops")).toMatchObject({ title: "Plan budget", projectId: "p-ops" });
+        expect(await submitText("Plan budget in Client Ops")).toMatchObject({
+            title: "Plan budget",
+            projectId: "p-ops",
+        });
     });
 
     it("waiting on someone saves as waiting work, so the person shows", async () => {

@@ -22,7 +22,9 @@ const eventInput = z.object({
     monthDay: eventFields.shape.monthDay.describe("The yearly date, MM-DD."),
     emoji: eventFields.shape.emoji.optional().describe("One emoji, or null for none."),
     notify: eventFields.shape.notify.optional().describe("Remind on the day. Default true."),
-    startedOn: eventFields.shape.startedOn.optional().describe("YYYY-MM-DD the first one happened (birth year, wedding day), to count years."),
+    startedOn: eventFields.shape.startedOn
+        .optional()
+        .describe("YYYY-MM-DD the first one happened (birth year, wedding day), to count years."),
     color: z.enum(ACCENT_COLORS).nullable().optional().describe("Its card tint; null = none."),
 });
 
@@ -70,7 +72,9 @@ async function writeEvents(tx: Tx, userId: string, change: (items: PersonalEvent
     if (items.length > MAX_EVENTS) throw new AppError(400, "VALIDATION_ERROR", `Events hold at most ${MAX_EVENTS}`);
     await tx
         .update(users)
-        .set({ settings: { ...settings, calendar: { ...settings.calendar, personalEvents: { ...personalEvents, items } } } })
+        .set({
+            settings: { ...settings, calendar: { ...settings.calendar, personalEvents: { ...personalEvents, items } } },
+        })
         .where(eq(users.id, userId));
 }
 
@@ -86,7 +90,9 @@ export function projectEvents(settings: SettingsView, today: string) {
     return {
         today,
         shownOnCalendar: enabled ? undefined : false,
-        events: (items as PersonalEvent[]).map((event) => toMinimalEvent(event, today)).sort((a, b) => a.daysUntil - b.daysUntil),
+        events: (items as PersonalEvent[])
+            .map((event) => toMinimalEvent(event, today))
+            .sort((a, b) => a.daysUntil - b.daysUntil),
     };
 }
 
@@ -96,10 +102,15 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
         description:
             "Adds or changes a yearly personal event (birthday, anniversary) on Events. Without eventId it adds one " +
             "(label and monthDay needed); with eventId it changes only what the patch sends. Returns the event.",
-        inputSchema: z.object({
-            eventId: z.string().min(1).max(24).optional().describe("The event to change; omit to add one."),
-            patch: eventInput.partial(),
-        }).refine((v) => v.eventId !== undefined || (v.patch.label !== undefined && v.patch.monthDay !== undefined), "A new event needs a label and monthDay"),
+        inputSchema: z
+            .object({
+                eventId: z.string().min(1).max(24).optional().describe("The event to change; omit to add one."),
+                patch: eventInput.partial(),
+            })
+            .refine(
+                (v) => v.eventId !== undefined || (v.patch.label !== undefined && v.patch.monthDay !== undefined),
+                "A new event needs a label and monthDay",
+            ),
         execute: async ({ eventId, patch }, { toolCallId }) =>
             safeExecute("save_event", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>

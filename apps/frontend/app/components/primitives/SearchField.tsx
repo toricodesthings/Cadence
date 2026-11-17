@@ -11,7 +11,13 @@
  *
  * Not for pickers: the search inside a long `Select` is `SearchSelect`.
  */
-import { useImperativeHandle, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import {
+    useImperativeHandle,
+    useRef,
+    type ButtonHTMLAttributes,
+    type InputHTMLAttributes,
+    type ReactNode,
+} from "react";
 import { LoaderCircle, Search, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -27,8 +33,10 @@ const SIZE: Record<SearchFieldSize, { box: string; text: string; icon: number; c
 const FIELD_SURFACE =
     "rounded-xl border border-twilight-border-light bg-white/[0.05] shadow-sm transition-colors focus-within:border-accent-primary/40 focus-within:ring-1 focus-within:ring-accent-primary/40";
 
-export interface SearchFieldProps
-    extends Omit<InputHTMLAttributes<HTMLInputElement>, "size" | "type" | "value" | "onChange" | "aria-label"> {
+export interface SearchFieldProps extends Omit<
+    InputHTMLAttributes<HTMLInputElement>,
+    "size" | "type" | "value" | "onChange" | "aria-label"
+> {
     value: string;
     onValueChange: (value: string) => void;
     /** Required: a search box has no visible label. */
@@ -47,7 +55,20 @@ export interface SearchFieldProps
     className?: string;
 }
 
-export function SearchField({ value, onValueChange, variant = "field", size = "md", loading = false, clearable = true, onClear, trailing, className, disabled, ref, ...inputProps }: SearchFieldProps & { ref?: React.Ref<HTMLInputElement> }) {
+export function SearchField({
+    value,
+    onValueChange,
+    variant = "field",
+    size = "md",
+    loading = false,
+    clearable = true,
+    onClear,
+    trailing,
+    className,
+    disabled,
+    ref,
+    ...inputProps
+}: SearchFieldProps & { ref?: React.Ref<HTMLInputElement> }) {
     const inputRef = useRef<HTMLInputElement>(null);
     useImperativeHandle(ref, () => inputRef.current as HTMLInputElement);
     const dims = SIZE[size];
@@ -82,7 +103,11 @@ export function SearchField({ value, onValueChange, variant = "field", size = "m
                 )}
             />
             {loading ? (
-                <LoaderCircle size={dims.icon} className="shrink-0 animate-spin text-twilight-text-muted" aria-hidden="true" />
+                <LoaderCircle
+                    size={dims.icon}
+                    className="shrink-0 animate-spin text-twilight-text-muted"
+                    aria-hidden="true"
+                />
             ) : null}
             {showClear ? (
                 <button
@@ -115,7 +140,14 @@ export interface SearchTriggerProps extends Omit<ButtonHTMLAttributes<HTMLButton
 }
 
 /** A button that looks like a `SearchField` and opens search elsewhere. */
-export function SearchTrigger({ label = "Search…", size = "md", shortcut, className, type = "button", ...props }: SearchTriggerProps & { ref?: React.Ref<HTMLButtonElement> }) {
+export function SearchTrigger({
+    label = "Search…",
+    size = "md",
+    shortcut,
+    className,
+    type = "button",
+    ...props
+}: SearchTriggerProps & { ref?: React.Ref<HTMLButtonElement> }) {
     const dims = SIZE[size];
     return (
         <button
@@ -131,7 +163,9 @@ export function SearchTrigger({ label = "Search…", size = "md", shortcut, clas
         >
             <Search size={dims.icon} className="shrink-0" aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate">{label}</span>
-            {shortcut ? <kbd className="shrink-0 font-sans text-[11px] text-twilight-text-muted">{shortcut}</kbd> : null}
+            {shortcut ? (
+                <kbd className="shrink-0 font-sans text-[11px] text-twilight-text-muted">{shortcut}</kbd>
+            ) : null}
         </button>
     );
 }

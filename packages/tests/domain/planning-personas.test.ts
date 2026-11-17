@@ -14,18 +14,33 @@ const today = (n: number): LocalDate => addDays(START, n);
 /** A tiny seeded generator, so a persona is the same every run. */
 function rng(seed: number) {
     let state = seed >>> 0;
-    return () => ((state = (Math.imul(state, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+    return () => (state = (Math.imul(state, 1664525) + 1013904223) >>> 0) / 2 ** 32;
 }
 
-const block = (day: LocalDate, from: string, to: string) => ({ id: `${day}-${from}`, state: "ACTIVE", scheduledStart: atLocal(day, from, zone), scheduledEnd: atLocal(day, to, zone) });
+const block = (day: LocalDate, from: string, to: string) => ({
+    id: `${day}-${from}`,
+    state: "ACTIVE",
+    scheduledStart: atLocal(day, from, zone),
+    scheduledEnd: atLocal(day, to, zone),
+});
 
 const inputFor = (day: LocalDate, tasks: ReturnType<typeof block>[]): FindTimeInput => ({
     task: { minutes: 45, notBefore: null, currentStart: null },
-    day, zone, now: atLocal(addDays(day, -1), "08:00", zone), timelineStartHour: 7, busy: busyBlocks(tasks, "me"), preferred: [],
+    day,
+    zone,
+    now: atLocal(addDays(day, -1), "08:00", zone),
+    timelineStartHour: 7,
+    busy: busyBlocks(tasks, "me"),
+    preferred: [],
 });
 
 /** What the server would record for a manual drop: nothing unless another part of the day also had room. */
-function record(day: LocalDate, chosen: TimeOfDay, tasks: ReturnType<typeof block>[], suggested = false): SlotRecord | null {
+function record(
+    day: LocalDate,
+    chosen: TimeOfDay,
+    tasks: ReturnType<typeof block>[],
+    suggested = false,
+): SlotRecord | null {
     const feasible = [...new Set([...feasibleBuckets(inputFor(day, tasks)), chosen])];
     return feasible.length < 2 ? null : { chosen, feasible, suggested, saidOn: day, projectId: null };
 }
@@ -38,7 +53,14 @@ describe("personas", () => {
         let claimedAfter = 0;
         for (let d = 0; d < 6 && !claimedAfter; d++) {
             for (let i = 0; i < 2; i++) records.push(record(today(d), "evening", [])!);
-            if (learnedPreference(records, { projectId: null, feasibleToday: feasibleOn(today(d + 1)), today: today(d + 1) })[0] === "evening") claimedAfter = records.length;
+            if (
+                learnedPreference(records, {
+                    projectId: null,
+                    feasibleToday: feasibleOn(today(d + 1)),
+                    today: today(d + 1),
+                })[0] === "evening"
+            )
+                claimedAfter = records.length;
         }
         expect(claimedAfter).toBe(8);
         expect(new Set(records.map((r) => r.saidOn)).size).toBe(4);
@@ -48,7 +70,9 @@ describe("personas", () => {
         const random = rng(7);
         const buckets: TimeOfDay[] = ["morning", "afternoon", "evening"];
         const records = Array.from({ length: 24 }, (_, i) => record(today(i), buckets[Math.floor(random() * 3)], [])!);
-        expect(learnedPreference(records, { projectId: null, feasibleToday: feasibleOn(today(30)), today: today(30) })).toEqual([]);
+        expect(
+            learnedPreference(records, { projectId: null, feasibleToday: feasibleOn(today(30)), today: today(30) }),
+        ).toEqual([]);
     });
 
     it("shift worker with one free slot a day: zero records, and Find a time still works", () => {
@@ -63,7 +87,18 @@ describe("personas", () => {
         const [first] = findTimes(inputFor(today(0), []));
         expect(first.start).toBe(atLocal(today(0), "07:00", zone));
         const offers = eligibleOffers(
-            [{ id: "t", state: "ACTIVE", waitingOn: null, dueDate: null, notBefore: null, openSteps: 0, fingerprint: "f", movedOn: [today(0), today(1), today(1)] }],
+            [
+                {
+                    id: "t",
+                    state: "ACTIVE",
+                    waitingOn: null,
+                    dueDate: null,
+                    notBefore: null,
+                    openSteps: 0,
+                    fingerprint: "f",
+                    movedOn: [today(0), today(1), today(1)],
+                },
+            ],
             { today: today(2), declines: [], avoid: [] },
         );
         expect(offers.steps).toEqual(["t"]);
@@ -72,13 +107,16 @@ describe("personas", () => {
     it("month-away: the preference they had is still theirs when they come back", () => {
         const records = Array.from({ length: 10 }, (_, i) => record(today(i), "evening", [])!);
         const back = today(10 + 30);
-        expect(learnedPreference(records, { projectId: null, feasibleToday: feasibleOn(back), today: back })).toEqual(["evening"]);
+        expect(learnedPreference(records, { projectId: null, feasibleToday: feasibleOn(back), today: back })).toEqual([
+            "evening",
+        ]);
     });
 
     it("new job: a lifelong evening person who starts choosing mornings lets go within 3 contradictions", () => {
         const records = Array.from({ length: 10 }, (_, i) => record(today(i), "evening", [])!);
         const at = (n: number) => today(10 + n);
-        const verdict = (n: number) => learnedPreference(records, { projectId: null, feasibleToday: feasibleOn(at(n)), today: at(n) })[0] ?? null;
+        const verdict = (n: number) =>
+            learnedPreference(records, { projectId: null, feasibleToday: feasibleOn(at(n)), today: at(n) })[0] ?? null;
         expect(verdict(0)).toBe("evening");
         let letGoAfter = 0;
         for (let n = 1; n <= 6 && !letGoAfter; n++) {

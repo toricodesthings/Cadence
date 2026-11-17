@@ -104,7 +104,9 @@ export function atLocal(day: LocalDate, time: WallTime, zone: Zone): Instant {
     const wall = wallMs(day, time);
     const before = offsetMinutes(wall - DAY_MS, zone);
     const after = offsetMinutes(wall + DAY_MS, zone);
-    const valid = [...new Set([before, after])].map((off) => wall - off * MIN).filter((t) => offsetMinutes(t, zone) === (wall - t) / MIN);
+    const valid = [...new Set([before, after])]
+        .map((off) => wall - off * MIN)
+        .filter((t) => offsetMinutes(t, zone) === (wall - t) / MIN);
     // No valid candidate: the time is in a gap; the pre-jump offset lands it one gap later.
     const ms = valid.length ? Math.min(...valid) : wall - before * MIN;
     return new Date(ms).toISOString();
@@ -169,11 +171,18 @@ export function monthRange(day: LocalDate): { start: LocalDate; end: LocalDate }
  * The only display formatter. An instant is shown in `zone`; a LocalDate is a day
  * with no zone, so it renders as stored (date parts only).
  */
-export function formatInZone(value: Instant | LocalDate | Date, zone: Zone, options: Intl.DateTimeFormatOptions, locale = "en-US"): string {
+export function formatInZone(
+    value: Instant | LocalDate | Date,
+    zone: Zone,
+    options: Intl.DateTimeFormatOptions,
+    locale = "en-US",
+): string {
     const day = typeof value === "string" && isLocalDate(value);
     const timeZone = day ? "UTC" : zone;
     const format = formatter(`${locale}|${timeZone}|${JSON.stringify(options)}`, locale, { ...options, timeZone });
-    return format.format(day ? new Date(wallMs(value as LocalDate, "12:00")) : typeof value === "string" ? new Date(value) : value);
+    return format.format(
+        day ? new Date(wallMs(value as LocalDate, "12:00")) : typeof value === "string" ? new Date(value) : value,
+    );
 }
 
 // ── Repeating series ──
@@ -188,7 +197,11 @@ export const floatingDay = (date: Date): LocalDate => date.toISOString().slice(0
 
 export type SeriesStart = { day: LocalDate } | { instant: Instant; end?: Instant | null };
 
-export interface SeriesOccurrence { day: LocalDate; start: Instant | null; end: Instant | null }
+export interface SeriesOccurrence {
+    day: LocalDate;
+    start: Instant | null;
+    end: Instant | null;
+}
 
 const UNTIL = /(^|;)UNTIL=([^;]+)/i;
 
@@ -201,7 +214,11 @@ function splitUntil(rule: string, zone: Zone): { rule: string; until: LocalDate 
     let until: LocalDate | undefined = date ? `${date[1]}-${date[2]}-${date[3]}` : undefined;
     if (!until) {
         const full = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/.exec(raw);
-        if (full) until = dayOf(`${full[1]}-${full[2]}-${full[3]}T${full[4]}:${full[5]}:${full[6]}${raw.endsWith("Z") ? "Z" : ""}`, zone);
+        if (full)
+            until = dayOf(
+                `${full[1]}-${full[2]}-${full[3]}T${full[4]}:${full[5]}:${full[6]}${raw.endsWith("Z") ? "Z" : ""}`,
+                zone,
+            );
     }
     return { rule: rule.replace(UNTIL, "").replace(/^;/, ""), until };
 }
@@ -220,16 +237,27 @@ export function untilClause(day: LocalDate): string {
 export const MAX_RECURRENCE_DAYS = 36_600;
 
 function invalidRule(): never {
-    throw new DomainError("INVALID_RECURRENCE_RULE", "Use a daily, weekly, monthly or yearly repeat with valid calendar fields");
+    throw new DomainError(
+        "INVALID_RECURRENCE_RULE",
+        "Use a daily, weekly, monthly or yearly repeat with valid calendar fields",
+    );
 }
 
 /** BYSETPOS bounds per FREQ: positions select days within a period, never a timeset. */
 const SETPOS_MAX: Record<string, number> = { DAILY: 1, WEEKLY: 7, MONTHLY: 31, YEARLY: 366 };
 const positiveInt = (value: string) => /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) >= 1;
 /** Comma list of non-zero integers within ±max (1..max when `negative` is false). */
-const signedList = (value: string, max: number, negative = true) => value.split(",").every((item) =>
-    /^[+-]?\d+$/.test(item) && Number.isSafeInteger(Number(item)) && Number(item) !== 0 &&
-    Number(item) >= (negative ? -max : 1) && Number(item) <= max);
+const signedList = (value: string, max: number, negative = true) =>
+    value
+        .split(",")
+        .every(
+            (item) =>
+                /^[+-]?\d+$/.test(item) &&
+                Number.isSafeInteger(Number(item)) &&
+                Number(item) !== 0 &&
+                Number(item) >= (negative ? -max : 1) &&
+                Number(item) <= max,
+        );
 /** Every RRULE field this contract accepts, each with its own check; any other field is invalid. */
 const RRULE_FIELDS: Record<string, (value: string, freq: string) => boolean> = {
     FREQ: () => true,
@@ -240,12 +268,14 @@ const RRULE_FIELDS: Record<string, (value: string, freq: string) => boolean> = {
     BYMONTHDAY: (value) => signedList(value, 31),
     BYYEARDAY: (value) => signedList(value, 366),
     // Bound prefix work too: between's callback only sees in-range dates.
-    BYSETPOS: (value, freq) => signedList(value, SETPOS_MAX[freq]) && new Set(value.split(",").map(Number)).size === value.split(",").length,
+    BYSETPOS: (value, freq) =>
+        signedList(value, SETPOS_MAX[freq]) && new Set(value.split(",").map(Number)).size === value.split(",").length,
     BYWEEKNO: (value) => signedList(value, 53),
-    BYDAY: (value) => value.split(",").every((day) => {
-        const match = /^([+-]?\d+)?(MO|TU|WE|TH|FR|SA|SU)$/.exec(day);
-        return match !== null && (!match[1] || signedList(match[1], 53));
-    }),
+    BYDAY: (value) =>
+        value.split(",").every((day) => {
+            const match = /^([+-]?\d+)?(MO|TU|WE|TH|FR|SA|SU)$/.exec(day);
+            return match !== null && (!match[1] || signedList(match[1], 53));
+        }),
     WKST: (value) => /^(MO|TU|WE|TH|FR|SA|SU)$/.test(value),
 };
 
@@ -256,7 +286,10 @@ const RRULE_FIELDS: Record<string, (value: string, freq: string) => boolean> = {
  */
 export function parseRecurrenceRule(rule: string, zone: Zone = "UTC") {
     if (rule.length > 500) invalidRule();
-    const normalized = rule.trim().replace(/^RRULE:/i, "").toUpperCase();
+    const normalized = rule
+        .trim()
+        .replace(/^RRULE:/i, "")
+        .toUpperCase();
     const fields = new Map<string, string>();
     for (const part of normalized.split(";")) {
         const match = /^([A-Z]+)=([A-Z0-9,+-]+)$/.exec(part);
@@ -310,7 +343,9 @@ export function expandSeries(args: {
     const startDay = "instant" in s ? dayOf(s.instant, zone) : s.day;
     const startWall = "instant" in s ? wallTimeOf(s.instant, zone) : "00:00";
     const endInstant = "instant" in s ? s.end : null;
-    const spanMs = endInstant ? Math.max(0, wallMs(dayOf(endInstant, zone), wallTimeOf(endInstant, zone)) - wallMs(startDay, startWall)) : 0;
+    const spanMs = endInstant
+        ? Math.max(0, wallMs(dayOf(endInstant, zone), wallTimeOf(endInstant, zone)) - wallMs(startDay, startWall))
+        : 0;
 
     const options = parseRecurrenceRule(args.rule, zone);
     const until = options.until ? floatingDay(options.until) : null;
@@ -318,12 +353,16 @@ export function expandSeries(args: {
     if (last < range.from || last < startDay) return [];
     const first = startDay < range.from ? startDay : range.from;
     if (![first, startDay, last].every(isLocalDate) || daysBetween(first, last) >= MAX_RECURRENCE_DAYS) {
-        throw new DomainError("INVALID_RECURRENCE_RULE", "Repeat history or date range is too long (maximum 36,600 days)");
+        throw new DomainError(
+            "INVALID_RECURRENCE_RULE",
+            "Repeat history or date range is too long (maximum 36,600 days)",
+        );
     }
 
     const parsed = new RRule({ ...options, dtstart: new Date(wallMs(startDay, startWall)) }, true);
     const floating = parsed.between(floatingStart(range.from), floatingEnd(last), true, (_date, index) => {
-        if (index >= MAX_RECURRENCE_DAYS) throw new DomainError("INVALID_RECURRENCE_RULE", "This repeat produces too many occurrences");
+        if (index >= MAX_RECURRENCE_DAYS)
+            throw new DomainError("INVALID_RECURRENCE_RULE", "This repeat produces too many occurrences");
         return true;
     });
     return floating.map((f) => {
@@ -339,7 +378,9 @@ export function expandSeries(args: {
 }
 
 /** The first occurrence on or after `from` (up to ~2 years ahead), or null. Used to anchor a series near a day. */
-export function nextOccurrence(args: Omit<Parameters<typeof expandSeries>[0], "range"> & { from: LocalDate }): SeriesOccurrence | null {
+export function nextOccurrence(
+    args: Omit<Parameters<typeof expandSeries>[0], "range"> & { from: LocalDate },
+): SeriesOccurrence | null {
     for (let i = 0; i < 4; i++) {
         const from = addDays(args.from, i * 183);
         const hit = expandSeries({ ...args, range: { from, to: addDays(from, 182) } })[0];

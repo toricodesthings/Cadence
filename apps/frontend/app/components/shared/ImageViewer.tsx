@@ -58,7 +58,12 @@ export function ImageViewer({
                                     {formatBytes(current.bytes)}
                                 </span>
                             ) : null}
-                            <button type="button" onClick={() => onIndexChange(null)} className={NAV_BUTTON} aria-label="Close">
+                            <button
+                                type="button"
+                                onClick={() => onIndexChange(null)}
+                                className={NAV_BUTTON}
+                                aria-label="Close"
+                            >
                                 <X size={18} aria-hidden />
                             </button>
                         </div>
@@ -77,19 +82,36 @@ export function ImageViewer({
                                     Couldn’t load this image
                                 </span>
                             ) : (
-                                <LoaderCircle size={20} className="animate-spin text-twilight-text-muted" aria-label="Loading image" />
+                                <LoaderCircle
+                                    size={20}
+                                    className="animate-spin text-twilight-text-muted"
+                                    aria-label="Loading image"
+                                />
                             )}
                         </div>
 
                         {count > 1 ? (
                             <div className="flex shrink-0 items-center justify-center gap-4">
-                                <button type="button" onClick={() => step(-1)} className={NAV_BUTTON} aria-label="Previous image">
+                                <button
+                                    type="button"
+                                    onClick={() => step(-1)}
+                                    className={NAV_BUTTON}
+                                    aria-label="Previous image"
+                                >
                                     <ChevronLeft size={18} aria-hidden />
                                 </button>
-                                <span className="min-w-12 text-center text-[12px] tabular-nums text-twilight-text-muted" aria-live="polite">
+                                <span
+                                    className="min-w-12 text-center text-[12px] tabular-nums text-twilight-text-muted"
+                                    aria-live="polite"
+                                >
                                     {index + 1} of {count}
                                 </span>
-                                <button type="button" onClick={() => step(1)} className={NAV_BUTTON} aria-label="Next image">
+                                <button
+                                    type="button"
+                                    onClick={() => step(1)}
+                                    className={NAV_BUTTON}
+                                    aria-label="Next image"
+                                >
                                     <ChevronRight size={18} aria-hidden />
                                 </button>
                             </div>

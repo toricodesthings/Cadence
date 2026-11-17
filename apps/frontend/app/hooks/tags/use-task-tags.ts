@@ -7,7 +7,10 @@ import { taskCache } from "../tasks/optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
-interface TaskTagVars { taskId: string; tagId: string }
+interface TaskTagVars {
+    taskId: string;
+    tagId: string;
+}
 
 /** Shared optimistic add/remove: the task's `tagIds` flip at once so pickers tick without waiting. */
 function useTaskTagMutation(adding: boolean, request: (vars: TaskTagVars) => Promise<unknown>) {
@@ -22,15 +25,18 @@ function useTaskTagMutation(adding: boolean, request: (vars: TaskTagVars) => Pro
             await taskCache.cancel(queryClient);
             const snapshot = taskCache.snapshot(queryClient);
             queryClient.setQueriesData<Task[]>({ queryKey: queryKeys.tasks.all }, (old) =>
-                transformListCache(old, (items) => items.map((t) => {
-                    if (t.id !== taskId) return t;
-                    const rest = (t.tagIds ?? []).filter((id) => id !== tagId);
-                    return { ...t, tagIds: adding ? [...rest, tagId] : rest };
-                })),
+                transformListCache(old, (items) =>
+                    items.map((t) => {
+                        if (t.id !== taskId) return t;
+                        const rest = (t.tagIds ?? []).filter((id) => id !== tagId);
+                        return { ...t, tagIds: adding ? [...rest, tagId] : rest };
+                    }),
+                ),
             );
             return { snapshot };
         },
-        onError: (err, _vars, context) => taskCache.fail(queryClient, err, context, adding ? "Couldn't add tag" : "Couldn't remove tag"),
+        onError: (err, _vars, context) =>
+            taskCache.fail(queryClient, err, context, adding ? "Couldn't add tag" : "Couldn't remove tag"),
     });
 }
 

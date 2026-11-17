@@ -12,7 +12,10 @@ export interface NoteAnnouncement {
 }
 
 let channel: BroadcastChannel | null | undefined;
-const get = () => (channel === undefined ? (channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel("cadence-notes")) : channel);
+const get = () =>
+    channel === undefined
+        ? (channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel("cadence-notes"))
+        : channel;
 
 export function announceNoteSaved(message: NoteAnnouncement) {
     get()?.postMessage(message);

@@ -1,40 +1,40 @@
 {
-  "name": "@cadence/domain",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "exports": {
-    "./errors": "./src/errors.ts",
-    "./task-temporal": "./src/task-temporal.ts",
-    "./task-recurrence": "./src/task-recurrence.ts",
-    "./ordering": "./src/ordering.ts",
-    "./ai-title": "./src/ai-title.ts",
-    "./repeats": "./src/repeats.ts",
-    "./time": "./src/time.ts",
-    "./reminders": "./src/reminders.ts",
-    "./nlp-draft": "./src/nlp-draft.ts",
-    "./task-instruction": "./src/task-instruction.ts",
-    "./effort-evidence": "./src/effort-evidence.ts",
-    "./effort-guess": "./src/effort-guess.ts",
-    "./field-ask": "./src/field-ask.ts",
-    "./duration-ask": "./src/duration-ask.ts",
-    "./duration-chips": "./src/duration-chips.ts",
-    "./task-length": "./src/task-length.ts",
-    "./find-time": "./src/find-time.ts",
-    "./fit-day": "./src/fit-day.ts",
-    "./slot-preference": "./src/slot-preference.ts",
-    "./planning-offers": "./src/planning-offers.ts"
-  },
-  "scripts": {
-    "typecheck": "tsc --noEmit",
-    "lint": "oxlint -c ../oxlint.config.mts src"
-  },
-  "dependencies": {
-    "@cadence/contracts": "workspace:*",
-    "rrule": "^2.8.1",
-    "@cadence/nlp": "workspace:*"
-  },
-  "devDependencies": {
-    "typescript": "^7.0.2"
-  }
+    "name": "@cadence/domain",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "exports": {
+        "./errors": "./src/errors.ts",
+        "./task-temporal": "./src/task-temporal.ts",
+        "./task-recurrence": "./src/task-recurrence.ts",
+        "./ordering": "./src/ordering.ts",
+        "./ai-title": "./src/ai-title.ts",
+        "./repeats": "./src/repeats.ts",
+        "./time": "./src/time.ts",
+        "./reminders": "./src/reminders.ts",
+        "./nlp-draft": "./src/nlp-draft.ts",
+        "./task-instruction": "./src/task-instruction.ts",
+        "./effort-evidence": "./src/effort-evidence.ts",
+        "./effort-guess": "./src/effort-guess.ts",
+        "./field-ask": "./src/field-ask.ts",
+        "./duration-ask": "./src/duration-ask.ts",
+        "./duration-chips": "./src/duration-chips.ts",
+        "./task-length": "./src/task-length.ts",
+        "./find-time": "./src/find-time.ts",
+        "./fit-day": "./src/fit-day.ts",
+        "./slot-preference": "./src/slot-preference.ts",
+        "./planning-offers": "./src/planning-offers.ts"
+    },
+    "scripts": {
+        "typecheck": "tsc --noEmit",
+        "lint": "oxlint -c ../oxlint.config.mts src"
+    },
+    "dependencies": {
+        "@cadence/contracts": "workspace:*",
+        "@cadence/nlp": "workspace:*",
+        "rrule": "^2.8.1"
+    },
+    "devDependencies": {
+        "typescript": "^7.0.2"
+    }
 }

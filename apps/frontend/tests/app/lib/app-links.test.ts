@@ -4,14 +4,16 @@ import { APP_CATALOG, appEntry } from "../../../app/lib/app-links/catalog";
 import { createAppSearch, pickerSections, suggestForTitle } from "../../../app/lib/app-links/picker";
 import { resolveAppLaunch } from "../../../app/platform/app-links";
 
-const ids = (sections: ReturnType<typeof pickerSections>) => sections.flatMap((section) => section.apps.map((app) => app.id));
+const ids = (sections: ReturnType<typeof pickerSections>) =>
+    sections.flatMap((section) => section.apps.map((app) => app.id));
 
 describe("catalogue", () => {
     it("has one entry per contract id, with fixed initials and no URL carrying identity", () => {
         expect(APP_CATALOG.map((entry) => entry.id).sort()).toEqual([...APP_LINK_IDS].sort());
         for (const entry of APP_CATALOG) {
             expect(entry.initials.length).toBeGreaterThan(0);
-            for (const route of Object.values(entry.routes)) expect(route.href).toMatch(route.opens === "website" ? /^https:\/\// : /^[a-z][a-z0-9+.-]*:/);
+            for (const route of Object.values(entry.routes))
+                expect(route.href).toMatch(route.opens === "website" ? /^https:\/\// : /^[a-z][a-z0-9+.-]*:/);
         }
     });
 
@@ -46,7 +48,12 @@ describe("picker order", () => {
         const sections = pickerSections(APP_CATALOG, null, suggestForTitle("Morning routine", APP_CATALOG), "routine");
         expect(sections).toHaveLength(1);
         expect(sections[0].heading).toBeUndefined();
-        expect(ids(sections)).toEqual([...APP_CATALOG].map((entry) => entry.label).sort((a, b) => a.localeCompare(b)).map((label) => APP_CATALOG.find((entry) => entry.label === label)!.id));
+        expect(ids(sections)).toEqual(
+            [...APP_CATALOG]
+                .map((entry) => entry.label)
+                .sort((a, b) => a.localeCompare(b))
+                .map((label) => APP_CATALOG.find((entry) => entry.label === label)!.id),
+        );
     });
 });
 
@@ -85,13 +92,20 @@ describe("picker search", () => {
 describe("launch resolution", () => {
     it("never puts a title or identity in a destination", () => {
         for (const entry of APP_CATALOG) {
-            for (const route of Object.values(entry.routes)) expect(route.href).not.toMatch(/[?&](q|query|title|text|subject|to|email)=/);
+            for (const route of Object.values(entry.routes))
+                expect(route.href).not.toMatch(/[?&](q|query|title|text|subject|to|email)=/);
         }
     });
 
     it("on an iPhone, email apps open natively with their website held back for a manual retry", () => {
-        const ua = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)");
-        expect(resolveAppLaunch(appEntry("gmail")!)).toEqual({ href: "googlegmail://", opens: "app", website: "https://mail.google.com/" });
+        const ua = vi
+            .spyOn(navigator, "userAgent", "get")
+            .mockReturnValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)");
+        expect(resolveAppLaunch(appEntry("gmail")!)).toEqual({
+            href: "googlegmail://",
+            opens: "app",
+            website: "https://mail.google.com/",
+        });
         expect(resolveAppLaunch(appEntry("outlook")!)).toMatchObject({ href: "ms-outlook://", opens: "app" });
         expect(resolveAppLaunch(appEntry("apple-mail")!)).toEqual({ href: "message://", opens: "app", website: null });
         ua.mockRestore();

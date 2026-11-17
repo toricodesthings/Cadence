@@ -26,7 +26,8 @@ import { StartupReadyContext } from "../core/use-workspace-startup";
 
 // Keys are `${userId}:${notificationId}`, shared across surfaces and remounts; released with the workspace QueryClient.
 const presentedByClient = new WeakMap<QueryClient, Set<string>>();
-const getPresentedIds = (client: QueryClient) => presentedByClient.get(client) ?? presentedByClient.set(client, new Set()).get(client)!;
+const getPresentedIds = (client: QueryClient) =>
+    presentedByClient.get(client) ?? presentedByClient.set(client, new Set()).get(client)!;
 
 const NOTIFICATION_STATE_STORAGE_KEY = "cadence_notification_state";
 
@@ -48,7 +49,9 @@ function readPersistedState(): PersistedNotificationState {
         return {
             dismissedIds: Array.isArray(parsed.dismissedIds) ? parsed.dismissedIds : [],
             readIds: Array.isArray(parsed.readIds) ? parsed.readIds : [],
-            deferredUntilEntries: Array.isArray(parsed.deferredUntilEntries) ? parsed.deferredUntilEntries as Array<[string, string]> : [],
+            deferredUntilEntries: Array.isArray(parsed.deferredUntilEntries)
+                ? (parsed.deferredUntilEntries as Array<[string, string]>)
+                : [],
         };
     } catch {
         return { dismissedIds: [], readIds: [], deferredUntilEntries: [] };
@@ -73,15 +76,33 @@ function writePersistedState() {
 }
 
 /** The synced state when the person acts on a notification at `now`. */
-function actedOn(actionTaken: UpsertNotificationState["actionTaken"], now: string, extra: { dismissedAt?: string; deferredUntil?: string } = {}) {
-    return { firstPresentedAt: null, lastPresentedAt: now, dismissedAt: null, deferredUntil: null, actionTaken, ...extra };
+function actedOn(
+    actionTaken: UpsertNotificationState["actionTaken"],
+    now: string,
+    extra: { dismissedAt?: string; deferredUntil?: string } = {},
+) {
+    return {
+        firstPresentedAt: null,
+        lastPresentedAt: now,
+        dismissedAt: null,
+        deferredUntil: null,
+        actionTaken,
+        ...extra,
+    };
 }
 
-function toNotificationRecord(notification: AppNotification): { objectType: "task" | "habit" | "event"; objectId: string; triggerId: string } | null {
+function toNotificationRecord(
+    notification: AppNotification,
+): { objectType: "task" | "habit" | "event"; objectId: string; triggerId: string } | null {
     if (!notification.entityId) return null;
 
     return {
-        objectType: notification.kind === "habit-reminder" ? "habit" : notification.kind === "system" || notification.kind === "personal-event" ? "event" : "task",
+        objectType:
+            notification.kind === "habit-reminder"
+                ? "habit"
+                : notification.kind === "system" || notification.kind === "personal-event"
+                  ? "event"
+                  : "task",
         objectId: notification.entityId,
         triggerId: notification.id,
     };
@@ -185,27 +206,38 @@ export function useNotificationCenter() {
         if (changed) emitChange();
     }, [persistedRows]);
 
-    const syncNotificationState = useCallback(async (notification: AppNotification, payload: Omit<UpsertNotificationState, "triggerId" | "objectId" | "objectType">) => {
-        const record = toNotificationRecord(notification);
-        if (!record || !authReady || !isAuthenticated || !userId) return false;
+    const syncNotificationState = useCallback(
+        async (
+            notification: AppNotification,
+            payload: Omit<UpsertNotificationState, "triggerId" | "objectId" | "objectType">,
+        ) => {
+            const record = toNotificationRecord(notification);
+            if (!record || !authReady || !isAuthenticated || !userId) return false;
 
-        try {
-            const response = await client.api.settings["notification-state"].$post({
-                json: { ...record, ...payload },
-            });
-            const row = await unwrapResponse(response);
-            queryClient.setQueryData<NotificationState[]>(queryKeys.settings.notificationState(userId), (rows = []) => {
-                const existing = rows.find((item) => item.objectId === row.objectId && item.triggerId === row.triggerId);
-                // Concurrent actions can return out of order; keep the newer server state.
-                if (existing && existing.updatedAt > row.updatedAt) return rows;
-                return [...rows.filter((item) => item !== existing), row];
-            });
-            return true;
-        } catch {
-            // Best-effort sync; local persistence remains authoritative until next refresh.
-            return false;
-        }
-    }, [client, queryClient, authReady, isAuthenticated, userId]);
+            try {
+                const response = await client.api.settings["notification-state"].$post({
+                    json: { ...record, ...payload },
+                });
+                const row = await unwrapResponse(response);
+                queryClient.setQueryData<NotificationState[]>(
+                    queryKeys.settings.notificationState(userId),
+                    (rows = []) => {
+                        const existing = rows.find(
+                            (item) => item.objectId === row.objectId && item.triggerId === row.triggerId,
+                        );
+                        // Concurrent actions can return out of order; keep the newer server state.
+                        if (existing && existing.updatedAt > row.updatedAt) return rows;
+                        return [...rows.filter((item) => item !== existing), row];
+                    },
+                );
+                return true;
+            } catch {
+                // Best-effort sync; local persistence remains authoritative until next refresh.
+                return false;
+            }
+        },
+        [client, queryClient, authReady, isAuthenticated, userId],
+    );
 
     // §11.7: 3-step pipeline — candidates → behavior filter → presentation rules
     const allNotifications = useMemo(() => {
@@ -213,7 +245,11 @@ export function useNotificationCenter() {
         // Step 1: Pure candidate derivation
         const candidates = deriveCandidates(tasks, habits, now, { personalEvents: notifiedEvents, prefs });
         // Step 2: Behavior filtering (preferences, quiet hours, bundling)
-        const filtered = filterByBehavior(candidates, now, { ...prefs, bundleMissedHabits, hidden: getDismissalState() });
+        const filtered = filterByBehavior(candidates, now, {
+            ...prefs,
+            bundleMissedHabits,
+            hidden: getDismissalState(),
+        });
         // Sort: high priority first, then by trigger time
         filtered.sort((a, b) => {
             if (a.priority !== b.priority) return a.priority === "high" ? -1 : 1;
@@ -239,19 +275,14 @@ export function useNotificationCenter() {
             list.push(n);
             groups.set(g, list);
         }
-        return GROUP_ORDER
-            .filter((g) => groups.has(g))
-            .map((g) => ({
-                group: g,
-                label: g === "now" ? "Now" : g === "today" ? "Today" : "Earlier",
-                items: groups.get(g)!,
-            })) satisfies GroupedNotifications[];
+        return GROUP_ORDER.filter((g) => groups.has(g)).map((g) => ({
+            group: g,
+            label: g === "now" ? "Now" : g === "today" ? "Today" : "Earlier",
+            items: groups.get(g)!,
+        })) satisfies GroupedNotifications[];
     }, [notifications]);
 
-    const unreadCount = useMemo(
-        () => notifications.filter((n) => !n.read).length,
-        [notifications],
-    );
+    const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
     const hasUnread = unreadCount > 0;
 
@@ -267,7 +298,12 @@ export function useNotificationCenter() {
             // Claim synchronously before starting I/O so sibling effects cannot duplicate it.
             presentedIds.add(claim);
             trackUsageEvent("reminder.presented", {
-                object_type: notification.kind === "habit-reminder" ? "habit" : notification.kind === "system" ? "event" : "task",
+                object_type:
+                    notification.kind === "habit-reminder"
+                        ? "habit"
+                        : notification.kind === "system"
+                          ? "event"
+                          : "task",
             });
             void syncNotificationState(notification, {
                 firstPresentedAt: nowIso,
@@ -277,16 +313,29 @@ export function useNotificationCenter() {
                 if (!synced) presentedIds.delete(claim);
             });
         }
-    }, [notifications, syncNotificationState, authReady, isAuthenticated, userId, stateLoaded, persistedRows, queryClient]);
+    }, [
+        notifications,
+        syncNotificationState,
+        authReady,
+        isAuthenticated,
+        userId,
+        stateLoaded,
+        persistedRows,
+        queryClient,
+    ]);
 
-    const setRead = useCallback((id: string, read: boolean) => {
-        if (read) readIds.add(id); else readIds.delete(id);
-        emitChange();
-        const notification = notifications.find((item) => item.id === id);
-        if (notification) {
-            void syncNotificationState(notification, actedOn(read ? "read" : "unread", new Date().toISOString()));
-        }
-    }, [notifications, syncNotificationState]);
+    const setRead = useCallback(
+        (id: string, read: boolean) => {
+            if (read) readIds.add(id);
+            else readIds.delete(id);
+            emitChange();
+            const notification = notifications.find((item) => item.id === id);
+            if (notification) {
+                void syncNotificationState(notification, actedOn(read ? "read" : "unread", new Date().toISOString()));
+            }
+        },
+        [notifications, syncNotificationState],
+    );
 
     const markRead = useCallback((id: string) => setRead(id, true), [setRead]);
     const markUnread = useCallback((id: string) => setRead(id, false), [setRead]);
@@ -299,31 +348,40 @@ export function useNotificationCenter() {
         emitChange();
     }, [notifications, syncNotificationState]);
 
-    const dismissMany = useCallback((ids: string[]) => {
-        const selected = new Set(ids);
-        const nowIso = new Date().toISOString();
-        for (const notification of notifications) {
-            if (!selected.has(notification.id)) continue;
-            trackUsageEvent("reminder.dismissed");
-            dismissedIds.add(notification.id);
-            void syncNotificationState(notification, actedOn("dismissed", nowIso, { dismissedAt: nowIso }));
-        }
-        emitChange();
-    }, [notifications, syncNotificationState]);
+    const dismissMany = useCallback(
+        (ids: string[]) => {
+            const selected = new Set(ids);
+            const nowIso = new Date().toISOString();
+            for (const notification of notifications) {
+                if (!selected.has(notification.id)) continue;
+                trackUsageEvent("reminder.dismissed");
+                dismissedIds.add(notification.id);
+                void syncNotificationState(notification, actedOn("dismissed", nowIso, { dismissedAt: nowIso }));
+            }
+            emitChange();
+        },
+        [notifications, syncNotificationState],
+    );
 
     const dismiss = useCallback((id: string) => dismissMany([id]), [dismissMany]);
 
     /** §11.7: Defer a notification — it will resurface after the chosen delay */
-    const defer = useCallback((id: string, choice: DeferChoice) => {
-        trackUsageEvent("reminder.deferred", { outcome: choice });
-        const until = computeDeferUntil(choice, new Date(), prefs);
-        deferredUntil.set(id, until);
-        emitChange();
-        const notification = notifications.find((item) => item.id === id);
-        if (notification) {
-            void syncNotificationState(notification, actedOn("deferred", new Date().toISOString(), { deferredUntil: until }));
-        }
-    }, [notifications, syncNotificationState, prefs]);
+    const defer = useCallback(
+        (id: string, choice: DeferChoice) => {
+            trackUsageEvent("reminder.deferred", { outcome: choice });
+            const until = computeDeferUntil(choice, new Date(), prefs);
+            deferredUntil.set(id, until);
+            emitChange();
+            const notification = notifications.find((item) => item.id === id);
+            if (notification) {
+                void syncNotificationState(
+                    notification,
+                    actedOn("deferred", new Date().toISOString(), { deferredUntil: until }),
+                );
+            }
+        },
+        [notifications, syncNotificationState, prefs],
+    );
 
     return {
         notifications,

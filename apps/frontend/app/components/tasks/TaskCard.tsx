@@ -1,4 +1,9 @@
-import { COLLECTION_ROW_SURFACE, COLLECTION_ROW_HOVER, COLLECTION_ROW_SELECTED, COLLECTION_ROW_TITLE } from "./task-row-styles";
+import {
+    COLLECTION_ROW_SURFACE,
+    COLLECTION_ROW_HOVER,
+    COLLECTION_ROW_SELECTED,
+    COLLECTION_ROW_TITLE,
+} from "./task-row-styles";
 import { ThoughtMark } from "./ThoughtMark";
 import { getTagTone } from "./TagSignal";
 import { useState, useId } from "react";
@@ -99,7 +104,10 @@ type PrimaryCue = { icon: LucideIcon; label: string; className: string };
 function primaryCueOf(task: Task, scheduleSummary: ScheduleSummary, isPassiveTimetable: boolean): PrimaryCue | null {
     const scheduleLabel = scheduleSummary.primaryLabel;
     if (scheduleLabel) {
-        const emphasis = scheduleSummary.isDeadline || scheduleSummary.isDuration ? "text-accent-primary" : "text-twilight-text-soft";
+        const emphasis =
+            scheduleSummary.isDeadline || scheduleSummary.isDuration
+                ? "text-accent-primary"
+                : "text-twilight-text-soft";
         return {
             icon: isPassiveTimetable ? CalendarClock : Calendar,
             label: scheduleLabel,
@@ -119,7 +127,7 @@ function tagSignal(tags: Tag[]): CollapsedSignal | null {
     return {
         key: "tags",
         icon: TagIcon,
-        label: tags.length === 1 ? tags[0]?.name ?? "1 tag" : `${tags.length} tags`,
+        label: tags.length === 1 ? (tags[0]?.name ?? "1 tag") : `${tags.length} tags`,
         className: "",
         style: {
             backgroundColor: primaryTagTone.backgroundColor,
@@ -135,19 +143,19 @@ function reminderSignals(task: Task): Array<CollapsedSignal | null> {
     return [
         task.waitingReminder
             ? {
-                key: "waiting-reminder",
-                icon: Bell,
-                label: `Waiting reminder ${formatShortDate(task.waitingReminder)}`,
-                className: "text-moonlit",
-            }
+                  key: "waiting-reminder",
+                  icon: Bell,
+                  label: `Waiting reminder ${formatShortDate(task.waitingReminder)}`,
+                  className: "text-moonlit",
+              }
             : null,
         task.reminderAt
             ? {
-                key: "reminder",
-                icon: task.reminderSilenced ? BellOff : Bell,
-                label: task.reminderSilenced ? "Reminder silenced" : "Reminder set",
-                className: "text-twilight-text-soft",
-            }
+                  key: "reminder",
+                  icon: task.reminderSilenced ? BellOff : Bell,
+                  label: task.reminderSilenced ? "Reminder silenced" : "Reminder set",
+                  className: "text-twilight-text-soft",
+              }
             : null,
     ];
 }
@@ -160,37 +168,37 @@ function getTaskCues(task: Task, tags: Tag[], scheduleSummary: ScheduleSummary, 
     const secondarySignalCandidates: Array<CollapsedSignal | null> = [
         !scheduleLabel && task.notBefore
             ? {
-                key: "not-before",
-                icon: Calendar,
-                label: `Hidden until ${formatShortDate(task.notBefore)}`,
-                className: "text-moonlit",
-            }
+                  key: "not-before",
+                  icon: Calendar,
+                  label: `Hidden until ${formatShortDate(task.notBefore)}`,
+                  className: "text-moonlit",
+              }
             : null,
         scheduleLabel && task.waitingOn
             ? {
-                key: "waiting",
-                icon: Clock,
-                label: `Waiting on ${task.waitingOn}`,
-                className: "text-moonlit",
-            }
+                  key: "waiting",
+                  icon: Clock,
+                  label: `Waiting on ${task.waitingOn}`,
+                  className: "text-moonlit",
+              }
             : null,
         tagSignal(tags),
         task.effort
             ? {
-                key: "effort",
-                icon: EFFORT_OPTIONS[task.effort - 1].icon,
-                label: EFFORT_LABELS[task.effort],
-                className: "text-twilight-text-soft",
-            }
+                  key: "effort",
+                  icon: EFFORT_OPTIONS[task.effort - 1].icon,
+                  label: EFFORT_LABELS[task.effort],
+                  className: "text-twilight-text-soft",
+              }
             : null,
         ...reminderSignals(task),
         task.recurrenceRule && primaryCue?.label !== "Repeating task"
             ? {
-                key: "recurrence",
-                icon: Repeat,
-                label: "Repeats",
-                className: "text-twilight-text-soft",
-            }
+                  key: "recurrence",
+                  icon: Repeat,
+                  label: "Repeats",
+                  className: "text-twilight-text-soft",
+              }
             : null,
     ];
 
@@ -232,11 +240,11 @@ export function TaskCard({
     const scheduleLabel = scheduleSummary.primaryLabel;
     const isPassiveTimetable = isPassiveTimetableTask(task);
     const isPastDue = Boolean(
-        !isPassiveTimetable
-        && scheduleSummary.anchorDate
-        && scheduleSummary.anchorDate < todayDay
-        && task.state !== "COMPLETE"
-        && task.state !== "ARCHIVED",
+        !isPassiveTimetable &&
+        scheduleSummary.anchorDate &&
+        scheduleSummary.anchorDate < todayDay &&
+        task.state !== "COMPLETE" &&
+        task.state !== "ARCHIVED",
     );
     const orderedSubtasks = [...subtasks].sort((a, b) => a.orderIndex - b.orderIndex);
     const { primaryCue, secondarySignals } = getTaskCues(task, tags, scheduleSummary, isPassiveTimetable);
@@ -283,16 +291,22 @@ export function TaskCard({
             }}
             className={`
                 ${COLLECTION_ROW_SURFACE} flex cursor-pointer
-                ${isBoardCard
-                    ? (isCompactCard ? "items-center gap-2 px-3.5 py-3" : "items-start gap-2 px-3.5 py-3.5")
-                    : (isCompactCard ? "items-center gap-2.5 px-4 py-3.5 sm:px-5 sm:py-3.5" : "items-start gap-2.5 px-4 py-4 sm:px-5 sm:py-5")
+                ${
+                    isBoardCard
+                        ? isCompactCard
+                            ? "items-center gap-2 px-3.5 py-3"
+                            : "items-start gap-2 px-3.5 py-3.5"
+                        : isCompactCard
+                          ? "items-center gap-2.5 px-4 py-3.5 sm:px-5 sm:py-3.5"
+                          : "items-start gap-2.5 px-4 py-4 sm:px-5 sm:py-5"
                 }
                 ${task.state === "WAITING" ? "border-moonlit/25" : ""}
                 ${isPassiveTimetable ? PASSIVE_TIMETABLE_CARD_CLASS : ""}
                 ${isComplete ? "opacity-45" : ""}
-                ${isTaskSelected
-                    ? `${COLLECTION_ROW_SELECTED} ring-1 ring-accent-primary/15`
-                    : `${COLLECTION_ROW_HOVER} ${isDropTarget || isPassiveTimetable ? "" : PRIORITY_BG_CLASS[task.priority]}`
+                ${
+                    isTaskSelected
+                        ? `${COLLECTION_ROW_SELECTED} ring-1 ring-accent-primary/15`
+                        : `${COLLECTION_ROW_HOVER} ${isDropTarget || isPassiveTimetable ? "" : PRIORITY_BG_CLASS[task.priority]}`
                 }
                 ${isDropTarget ? "ring-1 ring-moonlit/30 border-moonlit/35 [--row-wash:color-mix(in_srgb,var(--color-moonlit)_3.5%,transparent)]" : ""}
                 ${isDragging ? "shadow-[0_18px_46px_rgba(0,0,0,0.32),0_0_24px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]" : ""}
@@ -350,7 +364,7 @@ export function TaskCard({
                     >
                         {/* Board titles (21px line) drop onto the 32px checkbox's centre line, with the grip. */}
                         <div className={`flex items-start gap-2 ${isBoardCard ? "pt-[5px]" : ""}`}>
-                            {(task.isPinned || showUrgentIcon) ? (
+                            {task.isPinned || showUrgentIcon ? (
                                 <div className="mt-0.5 flex shrink-0 items-center gap-1.5">
                                     {task.isPinned && (
                                         <Pin size={12} className="rotate-45 text-accent-primary" aria-label="Pinned" />
@@ -358,7 +372,12 @@ export function TaskCard({
                                     {showUrgentIcon && (
                                         <PriorityIcon
                                             size={13}
-                                            style={{ color: task.priority === 4 ? "var(--color-priority-urgent)" : "var(--color-priority-high)" }}
+                                            style={{
+                                                color:
+                                                    task.priority === 4
+                                                        ? "var(--color-priority-urgent)"
+                                                        : "var(--color-priority-high)",
+                                            }}
                                             aria-hidden="true"
                                         />
                                     )}
@@ -369,7 +388,9 @@ export function TaskCard({
                                 <span
                                     className={`block line-clamp-2 ${
                                         // Board cards float the ⋮ over the corner; keep the title clear of it.
-                                        isBoardCard ? "pr-5 pointer-coarse:pr-6 text-[15px] leading-[1.4]" : COLLECTION_ROW_TITLE
+                                        isBoardCard
+                                            ? "pr-5 pointer-coarse:pr-6 text-[15px] leading-[1.4]"
+                                            : COLLECTION_ROW_TITLE
                                     } ${isComplete ? "line-through text-twilight-text-muted" : "text-twilight-text"}`}
                                 >
                                     {task.title}
@@ -377,7 +398,9 @@ export function TaskCard({
                                 </span>
 
                                 {primaryCue ? (
-                                    <div className={`mt-1.5 flex min-w-0 items-center gap-1.5 text-[12px] font-medium ${primaryCue.className}`}>
+                                    <div
+                                        className={`mt-1.5 flex min-w-0 items-center gap-1.5 text-[12px] font-medium ${primaryCue.className}`}
+                                    >
                                         {(() => {
                                             const PrimaryCueIcon = primaryCue.icon;
                                             return <PrimaryCueIcon size={12} aria-hidden="true" />;
@@ -399,7 +422,9 @@ export function TaskCard({
                                 ) : null}
 
                                 {visibleSignals.length > 0 ? (
-                                    <div className={`${primaryCue ? "mt-2" : "mt-1.5"} flex flex-wrap items-center gap-2`}>
+                                    <div
+                                        className={`${primaryCue ? "mt-2" : "mt-1.5"} flex flex-wrap items-center gap-2`}
+                                    >
                                         {visibleSignals.map((signal) => {
                                             const SignalIcon = signal.icon;
                                             return (
@@ -454,8 +479,20 @@ export function TaskCard({
             </div>
 
             {/* Context menu — subtly visible, full opacity on hover */}
-            <div data-no-dnd="true" className={isBoardCard ? "absolute right-1.5 top-2 pointer-coarse:right-2 pointer-fine:top-2.5 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity" : `-mr-2.5 shrink-0 sm:-mr-3.5 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}>
-                <TaskContextMenu task={task} onAddSubtask={holdingContext ? undefined : subtaskUi.startAdding} onRename={handleRename} holdingContext={holdingContext} />
+            <div
+                data-no-dnd="true"
+                className={
+                    isBoardCard
+                        ? "absolute right-1.5 top-2 pointer-coarse:right-2 pointer-fine:top-2.5 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+                        : `-mr-2.5 shrink-0 sm:-mr-3.5 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`
+                }
+            >
+                <TaskContextMenu
+                    task={task}
+                    onAddSubtask={holdingContext ? undefined : subtaskUi.startAdding}
+                    onRename={handleRename}
+                    holdingContext={holdingContext}
+                />
             </div>
 
             <RenameTaskDialog

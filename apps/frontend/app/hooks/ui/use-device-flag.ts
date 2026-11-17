@@ -11,15 +11,18 @@ function read(key: string): string | null {
 /** A view preference kept on this device only (a folded section, a chosen view, a step). If storage fails it's just forgotten; null clears it. */
 export function useDeviceValue(key: string): [string | null, (next: string | null) => void] {
     const [saved, setSaved] = useState(() => ({ key, value: read(key) }));
-    const set = useCallback((next: string | null) => {
-        try {
-            if (next === null) window.localStorage.removeItem(key);
-            else window.localStorage.setItem(key, next);
-        } catch {
-            // Per-device convenience only.
-        }
-        setSaved({ key, value: next });
-    }, [key]);
+    const set = useCallback(
+        (next: string | null) => {
+            try {
+                if (next === null) window.localStorage.removeItem(key);
+                else window.localStorage.setItem(key, next);
+            } catch {
+                // Per-device convenience only.
+            }
+            setSaved({ key, value: next });
+        },
+        [key],
+    );
     return [saved.key === key ? saved.value : read(key), set];
 }
 

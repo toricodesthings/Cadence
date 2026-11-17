@@ -12,12 +12,17 @@ export function useUpdateProject() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: withOfflineSupport<{ id: string; name?: string; colorAccent?: string; emoji?: string | null }, Project>(
+        mutationFn: withOfflineSupport<
+            { id: string; name?: string; colorAccent?: string; emoji?: string | null },
+            Project
+        >(
             ({ id, ...payload }) => ({ type: "update_project", id, payload }),
-            async ({ id, ...updates }) => unwrapResponse(await client.api.projects[":id"].$patch({ param: { id }, json: updates })),
+            async ({ id, ...updates }) =>
+                unwrapResponse(await client.api.projects[":id"].$patch({ param: { id }, json: updates })),
         ),
 
-        onMutate: ({ id, ...updates }) => projectCache.edit(queryClient, (items) => items.map((p) => (p.id === id ? { ...p, ...updates } : p))),
+        onMutate: ({ id, ...updates }) =>
+            projectCache.edit(queryClient, (items) => items.map((p) => (p.id === id ? { ...p, ...updates } : p))),
 
         onSuccess: (project) => {
             if (project) reconcileProjectInCaches(queryClient, project);

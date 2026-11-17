@@ -34,18 +34,14 @@ function ThemeSections({ appearance, update, onThemePreset: handleThemePreset }:
         <>
             {/* ── Theme Mode ── */}
             <SettingsSection title="Theme">
-                {photoNote && (
-                    <p className="text-[12px] leading-relaxed text-twilight-text-muted">{photoNote}</p>
-                )}
+                {photoNote && <p className="text-[12px] leading-relaxed text-twilight-text-muted">{photoNote}</p>}
                 <div className="grid grid-cols-3 gap-3">
                     {(["twilight", "daylight", "system"] as const).map((mode) => (
                         <ThemeModeCard
                             key={mode}
                             mode={mode}
                             selected={!photoActive && appearance.theme === mode}
-                            onSelect={() =>
-                                update({ appearance: { theme: mode, ...leavePhoto } })
-                            }
+                            onSelect={() => update({ appearance: { theme: mode, ...leavePhoto } })}
                         />
                     ))}
                 </div>
@@ -96,27 +92,36 @@ function ThemeSections({ appearance, update, onThemePreset: handleThemePreset }:
     );
 }
 
-type BackgroundSectionProps = Pick<React.ComponentProps<typeof BackgroundSettings>, "onColorChange" | "onGradientChange" | "onImageAdjust"> & {
+type BackgroundSectionProps = Pick<
+    React.ComponentProps<typeof BackgroundSettings>,
+    "onColorChange" | "onGradientChange" | "onImageAdjust"
+> & {
     appearance: Appearance;
     update: Update;
 };
 
-function BackgroundSection({ appearance, update, onColorChange, onGradientChange, onImageAdjust }: BackgroundSectionProps) {
+function BackgroundSection({
+    appearance,
+    update,
+    onColorChange,
+    onGradientChange,
+    onImageAdjust,
+}: BackgroundSectionProps) {
     return (
         <SettingsSection title="Background">
             <BackgroundSettings
-                backgroundMode={
-                    (appearance.backgroundMode ?? "theme") as "theme" | "custom" | "image"
-                }
+                backgroundMode={(appearance.backgroundMode ?? "theme") as "theme" | "custom" | "image"}
                 themePreset={(appearance.themePreset ?? "default") as ThemePresetId}
                 backgroundColor={appearance.backgroundColor ?? null}
                 backgroundGradient={appearance.backgroundGradient ?? null}
                 backgroundImage={appearance.backgroundImage ?? null}
                 onModeChange={(mode) =>
-                    update({ appearance: {
-                        backgroundMode: mode,
-                        ...(mode === "theme" ? { backgroundColor: null, backgroundGradient: null } : {}),
-                    } })
+                    update({
+                        appearance: {
+                            backgroundMode: mode,
+                            ...(mode === "theme" ? { backgroundColor: null, backgroundGradient: null } : {}),
+                        },
+                    })
                 }
                 onColorChange={onColorChange}
                 onGradientChange={onGradientChange}
@@ -135,7 +140,9 @@ function ComfortSections({ appearance, update, lowStimulation }: ComfortSections
         <>
             {/* ── Loading screen ── */}
             <SettingsSection title="Loading screen">
-                <p className="text-sm text-twilight-text-muted">The scene you see while Cadence opens. Auto changes with the seasons.</p>
+                <p className="text-sm text-twilight-text-muted">
+                    The scene you see while Cadence opens. Auto changes with the seasons.
+                </p>
                 <LoadingScenePicker
                     value={appearance.loadingSeason ?? "auto"}
                     onChange={(loadingSeason) => update({ appearance: { loadingSeason } })}
@@ -167,7 +174,9 @@ function ComfortSections({ appearance, update, lowStimulation }: ComfortSections
                     <Switch
                         checked={lowStimulation}
                         aria-label="Low stimulation"
-                        onCheckedChange={(lowStimulationMode) => update({ tasks: { intelligence: { lowStimulationMode } } })}
+                        onCheckedChange={(lowStimulationMode) =>
+                            update({ tasks: { intelligence: { lowStimulationMode } } })
+                        }
                     />
                 </SettingsRow>
             </SettingsSection>
@@ -206,7 +215,9 @@ function ComfortSections({ appearance, update, lowStimulation }: ComfortSections
                                 </SelectTrigger>
                                 <SelectContent>
                                     {DESKTOP_LAYOUT_SCALES.map((scale) => (
-                                        <SelectItem key={scale} value={String(scale)}>{scale}%</SelectItem>
+                                        <SelectItem key={scale} value={String(scale)}>
+                                            {scale}%
+                                        </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -304,7 +315,11 @@ export function AppearanceTab() {
                 onImageAdjust={handleImageAdjust}
             />
 
-            <ComfortSections appearance={appearance} update={update} lowStimulation={settings?.tasks?.intelligence?.lowStimulationMode ?? false} />
+            <ComfortSections
+                appearance={appearance}
+                update={update}
+                lowStimulation={settings?.tasks?.intelligence?.lowStimulationMode ?? false}
+            />
         </div>
     );
 }

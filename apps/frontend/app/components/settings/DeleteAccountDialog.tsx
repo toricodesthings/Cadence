@@ -28,7 +28,18 @@ type IdentityProofProps = {
 };
 
 /** Proof it's them: their password, or a code emailed to them when they sign in with Google or GitHub. */
-function IdentityProof({ hasPassword, email, password, setPassword, otp, setOtp, codeSent, sending, pending, onSendCode }: IdentityProofProps) {
+function IdentityProof({
+    hasPassword,
+    email,
+    password,
+    setPassword,
+    otp,
+    setOtp,
+    codeSent,
+    sending,
+    pending,
+    onSendCode,
+}: IdentityProofProps) {
     if (hasPassword) {
         return (
             <label className="mt-4 block text-sm text-twilight-text-soft">
@@ -68,7 +79,13 @@ function IdentityProof({ hasPassword, email, password, setPassword, otp, setOtp,
                     </div>
                 </label>
             ) : (
-                <Button variant="secondary" size="md" className="mt-3" disabled={sending || !email} onClick={onSendCode}>
+                <Button
+                    variant="secondary"
+                    size="md"
+                    className="mt-3"
+                    disabled={sending || !email}
+                    onClick={onSendCode}
+                >
                     {sending ? "Sending…" : "Email me a code"}
                 </Button>
             )}
@@ -120,7 +137,9 @@ export function DeleteAccountDialog() {
         setPending(true);
         try {
             const proof = hasPassword ? { password } : { otp: otp.trim() };
-            await unwrapResponse(await client.api.account.delete.$post({ json: { confirmation: ACCOUNT_DELETE_PHRASE, ...proof } }));
+            await unwrapResponse(
+                await client.api.account.delete.$post({ json: { confirmation: ACCOUNT_DELETE_PHRASE, ...proof } }),
+            );
         } catch (error) {
             setPending(false);
             toastError(error, "Couldn't delete your account. Nothing was removed; try again.");
@@ -134,7 +153,15 @@ export function DeleteAccountDialog() {
     };
 
     return (
-        <AlertDialog.Root open={open} onOpenChange={(next) => { if (!pending) { setOpen(next); reset(); } }}>
+        <AlertDialog.Root
+            open={open}
+            onOpenChange={(next) => {
+                if (!pending) {
+                    setOpen(next);
+                    reset();
+                }
+            }}
+        >
             <AlertDialog.Trigger asChild>
                 <Button variant="danger">Delete account</Button>
             </AlertDialog.Trigger>
@@ -143,8 +170,8 @@ export function DeleteAccountDialog() {
                     <AlertDialog.Title>Delete your account permanently?</AlertDialog.Title>
                     <AlertDialog.Description>
                         This erases your tasks, notes, routines, events, settings, assistant conversations, photos and
-                        connected assistants, and removes your sign-in. It cannot be undone and nothing can be
-                        restored, not by you and not by us.
+                        connected assistants, and removes your sign-in. It cannot be undone and nothing can be restored,
+                        not by you and not by us.
                     </AlertDialog.Description>
                 </AlertDialog.Header>
                 <label className="mt-4 block text-sm text-twilight-text-soft">
@@ -178,10 +205,17 @@ export function DeleteAccountDialog() {
 
                 <AlertDialog.Footer>
                     <AlertDialog.Cancel asChild>
-                        <Button variant="ghost" size="md" disabled={pending}>Keep my account</Button>
+                        <Button variant="ghost" size="md" disabled={pending}>
+                            Keep my account
+                        </Button>
                     </AlertDialog.Cancel>
                     {/* A plain button, not AlertDialog.Action: Action closes the dialog before the request finishes */}
-                    <Button variant="danger" size="md" disabled={!confirmed || !proven || pending} onClick={() => void remove()}>
+                    <Button
+                        variant="danger"
+                        size="md"
+                        disabled={!confirmed || !proven || pending}
+                        onClick={() => void remove()}
+                    >
                         {pending ? "Deleting…" : "Delete everything"}
                     </Button>
                 </AlertDialog.Footer>

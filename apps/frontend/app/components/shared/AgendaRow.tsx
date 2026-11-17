@@ -11,14 +11,7 @@ interface AgendaRowProps {
     actionClassName?: string;
 }
 
-export function AgendaRow({
-    leading,
-    onOpen,
-    ariaLabel,
-    children,
-    className,
-    actionClassName,
-}: AgendaRowProps) {
+export function AgendaRow({ leading, onOpen, ariaLabel, children, className, actionClassName }: AgendaRowProps) {
     return (
         <div
             className={cn(

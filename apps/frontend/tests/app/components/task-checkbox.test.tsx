@@ -32,19 +32,24 @@ vi.mock("../../../app/hooks/core/use-settings", () => ({
 }));
 
 vi.mock("../../../app/stores/task-completion-store", () => ({
-    useTaskCompletionStore: (select: (state: object) => unknown) => select({
-        pendingById: {}, queueCompletion: queueCompletionMock, cancelCompletion: noop, clearCompletion: noop,
-    }),
+    useTaskCompletionStore: (select: (state: object) => unknown) =>
+        select({
+            pendingById: {},
+            queueCompletion: queueCompletionMock,
+            cancelCompletion: noop,
+            clearCompletion: noop,
+        }),
 }));
 
-const createTask = (overrides: Partial<Task> = {}) => makeTask({
-    scheduledStart: "2026-03-10T09:30:00.000Z",
-    scheduledEnd: "2026-03-10T10:45:00.000Z",
-    durationEstimate: 75,
-    timezoneLocked: true,
-    recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH",
-    ...overrides,
-});
+const createTask = (overrides: Partial<Task> = {}) =>
+    makeTask({
+        scheduledStart: "2026-03-10T09:30:00.000Z",
+        scheduledEnd: "2026-03-10T10:45:00.000Z",
+        durationEstimate: 75,
+        timezoneLocked: true,
+        recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH",
+        ...overrides,
+    });
 
 describe("TaskCheckbox", () => {
     it("suppresses completion affordances for passive timetable anchors", () => {

@@ -20,9 +20,20 @@ vi.mock("../../../app/lib/utils/image", () => ({
 vi.mock("react-easy-crop", async () => {
     const { useEffect } = await import("react");
     return {
-        default: ({ image, zoom, mediaProps, onMediaLoaded, onCropSizeChange, onCropComplete }: {
-            image: string; zoom: number; mediaProps?: { alt?: string };
-            onMediaLoaded: (m: object) => void; onCropSizeChange: (s: object) => void; onCropComplete: (a: object, p: object) => void;
+        default: ({
+            image,
+            zoom,
+            mediaProps,
+            onMediaLoaded,
+            onCropSizeChange,
+            onCropComplete,
+        }: {
+            image: string;
+            zoom: number;
+            mediaProps?: { alt?: string };
+            onMediaLoaded: (m: object) => void;
+            onCropSizeChange: (s: object) => void;
+            onCropComplete: (a: object, p: object) => void;
         }) => {
             useEffect(() => {
                 onMediaLoaded({ width: 480, height: 270, naturalWidth: 1600, naturalHeight: 900 });
@@ -39,10 +50,20 @@ vi.mock("react-easy-crop", async () => {
 });
 
 function setup() {
-    return render(<MemoryRouter><BackgroundSettings
-        backgroundMode="theme" backgroundColor={null} backgroundGradient={null} backgroundImage={null}
-        onModeChange={vi.fn()} onColorChange={vi.fn()} onGradientChange={vi.fn()} onImageAdjust={vi.fn()}
-    /></MemoryRouter>);
+    return render(
+        <MemoryRouter>
+            <BackgroundSettings
+                backgroundMode="theme"
+                backgroundColor={null}
+                backgroundGradient={null}
+                backgroundImage={null}
+                onModeChange={vi.fn()}
+                onColorChange={vi.fn()}
+                onGradientChange={vi.fn()}
+                onImageAdjust={vi.fn()}
+            />
+        </MemoryRouter>,
+    );
 }
 function pick() {
     fireEvent.change(screen.getByLabelText("Choose background photo"), {
@@ -70,10 +91,13 @@ describe("Background photo confirmation", () => {
     });
 
     it("uploads the confirmed zoomed crop once", async () => {
-        setup(); pick();
+        setup();
+        pick();
         await screen.findByAltText("Preview of your background crop");
         fireEvent.change(screen.getByLabelText("Zoom"), { target: { value: "200" } });
-        await waitFor(() => expect((screen.getByRole("button", { name: "Set background" }) as HTMLButtonElement).disabled).toBe(false));
+        await waitFor(() =>
+            expect((screen.getByRole("button", { name: "Set background" }) as HTMLButtonElement).disabled).toBe(false),
+        );
         fireEvent.click(screen.getByRole("button", { name: "Set background" }));
         await waitFor(() => expect(mocks.upload).toHaveBeenCalledOnce());
         expect(mocks.crop.mock.calls[0][1]).toEqual({ x: 400, y: 225, width: 800, height: 450 });
@@ -82,9 +106,12 @@ describe("Background photo confirmation", () => {
 
     it("retains the preview and presents an error when upload fails", async () => {
         mocks.upload.mockRejectedValueOnce(new Error("Upload limit reached"));
-        setup(); pick();
+        setup();
+        pick();
         await screen.findByAltText("Preview of your background crop");
-        await waitFor(() => expect((screen.getByRole("button", { name: "Set background" }) as HTMLButtonElement).disabled).toBe(false));
+        await waitFor(() =>
+            expect((screen.getByRole("button", { name: "Set background" }) as HTMLButtonElement).disabled).toBe(false),
+        );
         fireEvent.click(screen.getByRole("button", { name: "Set background" }));
         expect((await screen.findByRole("alert")).textContent).toBe("Upload limit reached");
         expect(screen.getByRole("dialog")).toBeTruthy();

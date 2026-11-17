@@ -19,11 +19,21 @@ interface MoveToSubmenuProps {
 }
 
 /** One list: a plain row, or a submenu of its sections when it has any. */
-function ListRow({ Menu, project, currentProjectId, currentSectionId, onSelect }: { Menu: GenericMenu; project: Project } & Omit<MoveToSubmenuProps, "MenuComponents" | "hideNoList">) {
+function ListRow({
+    Menu,
+    project,
+    currentProjectId,
+    currentSectionId,
+    onSelect,
+}: { Menu: GenericMenu; project: Project } & Omit<MoveToSubmenuProps, "MenuComponents" | "hideNoList">) {
     const { data: sections = [] } = useSections(project.id);
     const here = currentProjectId === project.id;
     if (sections.length === 0)
-        return <Menu.Item onSelect={() => onSelect(project.id, null)} className={here ? CURRENT : ""}>{project.name}</Menu.Item>;
+        return (
+            <Menu.Item onSelect={() => onSelect(project.id, null)} className={here ? CURRENT : ""}>
+                {project.name}
+            </Menu.Item>
+        );
     return (
         <Menu.Sub>
             <Menu.SubTrigger className={`flex items-center gap-2 ${here ? CURRENT : ""}`}>
@@ -32,10 +42,19 @@ function ListRow({ Menu, project, currentProjectId, currentSectionId, onSelect }
             </Menu.SubTrigger>
             <Menu.Portal>
                 <Menu.SubContent>
-                    <Menu.Item onSelect={() => onSelect(project.id, null)} className={here && !currentSectionId ? CURRENT : ""}>Unsectioned</Menu.Item>
+                    <Menu.Item
+                        onSelect={() => onSelect(project.id, null)}
+                        className={here && !currentSectionId ? CURRENT : ""}
+                    >
+                        Unsectioned
+                    </Menu.Item>
                     <Menu.Separator />
                     {sections.map((section) => (
-                        <Menu.Item key={section.id} onSelect={() => onSelect(project.id, section.id)} className={currentSectionId === section.id ? CURRENT : ""}>
+                        <Menu.Item
+                            key={section.id}
+                            onSelect={() => onSelect(project.id, section.id)}
+                            className={currentSectionId === section.id ? CURRENT : ""}
+                        >
                             {section.name}
                         </Menu.Item>
                     ))}
@@ -65,7 +84,10 @@ export const MoveToSubmenu: React.FC<MoveToSubmenuProps> = ({
                 <Menu.SubContent>
                     {!hideNoList && (
                         <>
-                            <Menu.Item onSelect={() => onSelect(null, null)} className={!currentProjectId ? CURRENT : ""}>
+                            <Menu.Item
+                                onSelect={() => onSelect(null, null)}
+                                className={!currentProjectId ? CURRENT : ""}
+                            >
                                 No List (Capture)
                             </Menu.Item>
                             <Menu.Separator />

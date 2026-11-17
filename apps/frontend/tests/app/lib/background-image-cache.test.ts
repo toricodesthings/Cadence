@@ -3,11 +3,20 @@ const data = vi.hoisted(() => new Map<string, Blob>());
 vi.mock("idb-keyval", () => ({
     createStore: () => ({}),
     get: async (key: string) => data.get(key),
-    set: async (key: string, blob: Blob) => { data.set(key, blob); },
+    set: async (key: string, blob: Blob) => {
+        data.set(key, blob);
+    },
     keys: async () => [...data.keys()],
-    del: async (key: string) => { data.delete(key); },
+    del: async (key: string) => {
+        data.delete(key);
+    },
 }));
-import { backgroundCacheGeneration, cacheBackgroundImage, clearCachedBackgroundImages, setBackgroundCacheSessionActive } from "../../../app/lib/themes/background-image-cache";
+import {
+    backgroundCacheGeneration,
+    cacheBackgroundImage,
+    clearCachedBackgroundImages,
+    setBackgroundCacheSessionActive,
+} from "../../../app/lib/themes/background-image-cache";
 
 describe("private background cache lifecycle", () => {
     it("rejects late writes from work started before sign-out", async () => {

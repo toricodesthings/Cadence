@@ -4,8 +4,18 @@ import { addDaysLocal } from "@cadence/nlp/core";
 
 const TODAY = "2026-10-06";
 const ago = (days: number) => addDaysLocal(TODAY, -days);
-const ev = (title: string, level: EffortLevel, daysAgo: number, extra: Partial<EffortEvidence> = {}): EffortEvidence => ({
-    title, projectId: null, level, origin: "manual", day: ago(daysAgo), ...extra,
+const ev = (
+    title: string,
+    level: EffortLevel,
+    daysAgo: number,
+    extra: Partial<EffortEvidence> = {},
+): EffortEvidence => ({
+    title,
+    projectId: null,
+    level,
+    origin: "manual",
+    day: ago(daysAgo),
+    ...extra,
 });
 const labs = (levels: EffortLevel[]) => levels.map((l, i) => ev(`Class X Lab ${i + 1}`, l, 7 * (i + 1)));
 
@@ -28,16 +38,29 @@ describe("suggestEffort", () => {
     it("needs at least one manual choice among its matches (D12)", () => {
         const accepted = labs([3, 3, 3, 3]).map((e) => ({ ...e, origin: "accepted" as const }));
         expect(suggestEffort("Class X Lab", null, accepted, TODAY)).toBeNull();
-        expect(suggestEffort("Class X Lab", null, [...accepted, ev("Class X Lab 9", 3, 3)], TODAY)).toMatchObject({ kind: "level", level: 3 });
+        expect(suggestEffort("Class X Lab", null, [...accepted, ev("Class X Lab 9", 3, 3)], TODAY)).toMatchObject({
+            kind: "level",
+            level: 3,
+        });
     });
     it("suggests one level when a person has chosen it consistently", () => {
-        expect(suggestEffort("Class X Lab", null, labs([3, 3, 3, 3]), TODAY)).toMatchObject({ kind: "level", level: 3 });
+        expect(suggestEffort("Class X Lab", null, labs([3, 3, 3, 3]), TODAY)).toMatchObject({
+            kind: "level",
+            level: 3,
+        });
     });
     it("suggests a bounded range when choices split between neighbours", () => {
-        expect(suggestEffort("Class X Lab", null, labs([2, 3, 2, 3, 3, 2]), TODAY)).toMatchObject({ kind: "range", low: 2, high: 3 });
+        expect(suggestEffort("Class X Lab", null, labs([2, 3, 2, 3, 3, 2]), TODAY)).toMatchObject({
+            kind: "range",
+            low: 2,
+            high: 3,
+        });
     });
     it("is personal: another person's Low history gives Low", () => {
-        expect(suggestEffort("Class X Lab", null, labs([1, 1, 1, 1]), TODAY)).toMatchObject({ kind: "level", level: 1 });
+        expect(suggestEffort("Class X Lab", null, labs([1, 1, 1, 1]), TODAY)).toMatchObject({
+            kind: "level",
+            level: 1,
+        });
     });
     it("abstains with no history, sparse history, or contradictory history", () => {
         expect(suggestEffort("Class X Lab", null, [], TODAY)).toBeNull();
@@ -57,14 +80,26 @@ describe("suggestEffort", () => {
         expect(suggestEffort("Class X Lab", null, history, TODAY)).not.toBeNull();
     });
     it("lets recent choices outweigh old ones, and drops evidence over a year old", () => {
-        const drift = [...[3, 3, 3, 3].map((l, i) => ev("Class X Lab", l as EffortLevel, 300 + i)), ...[1, 1, 1].map((l, i) => ev("Class X Lab", l as EffortLevel, 5 + i))];
+        const drift = [
+            ...[3, 3, 3, 3].map((l, i) => ev("Class X Lab", l as EffortLevel, 300 + i)),
+            ...[1, 1, 1].map((l, i) => ev("Class X Lab", l as EffortLevel, 5 + i)),
+        ];
         expect(suggestEffort("Class X Lab", null, drift, TODAY)).toMatchObject({ level: 1 });
-        expect(suggestEffort("Class X Lab", null, [3, 3, 3, 3].map((l, i) => ev("Class X Lab", l as EffortLevel, 400 + i)), TODAY)).toBeNull();
+        expect(
+            suggestEffort(
+                "Class X Lab",
+                null,
+                [3, 3, 3, 3].map((l, i) => ev("Class X Lab", l as EffortLevel, 400 + i)),
+                TODAY,
+            ),
+        ).toBeNull();
     });
     it("counts an accepted suggestion for less than a direct choice", () => {
         const few = [3, 3, 3].map((l, i) => ev("Class X Lab", l as EffortLevel, 7 + i, { origin: "accepted" }));
         expect(suggestEffort("Class X Lab", null, few, TODAY)).toBeNull(); // agreeing three times is not yet evidence
-        const accepted = [3, 3, 3, 3, 3].map((l, i) => ev("Class X Lab", l as EffortLevel, 7 + i, { origin: "accepted" }));
+        const accepted = [3, 3, 3, 3, 3].map((l, i) =>
+            ev("Class X Lab", l as EffortLevel, 7 + i, { origin: "accepted" }),
+        );
         expect(suggestEffort("Class X Lab", null, accepted, TODAY)).toBeNull(); // accepted-only never suggests (D12)
         const withOne = [...accepted, ev("Class X Lab", 3, 9)];
         expect(suggestEffort("Class X Lab", null, withOne, TODAY)).toMatchObject({ level: 3 });
@@ -81,19 +116,23 @@ describe("suggestEffort", () => {
 /** Synthetic users with chronological holdouts: only earlier choices may inform a later one. */
 describe("evaluation against a modal baseline", () => {
     let seed = 7;
-    const rand = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
+    const rand = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
     const pick = (preferred: EffortLevel): EffortLevel => {
         const r = rand();
         if (r < 0.8) return preferred;
         const neighbour = (preferred === 2 ? (rand() < 0.5 ? 1 : 3) : preferred === 1 ? 2 : 2) as EffortLevel;
-        return r < 0.95 ? neighbour : (preferred === 3 ? 1 : 3);
+        return r < 0.95 ? neighbour : preferred === 3 ? 1 : 3;
     };
 
     it("beats the user's historical mode where they overlap, and abstains where it cannot know", () => {
-        let covered = 0, total = 0, mine = 0, baseline = 0, hits = 0;
+        let covered = 0,
+            total = 0,
+            mine = 0,
+            baseline = 0,
+            hits = 0;
         for (let user = 0; user < 40; user++) {
             const before = (1 + Math.floor(rand() * 3)) as EffortLevel;
-            const after = (rand() < 0.5 ? before : ((1 + Math.floor(rand() * 3)) as EffortLevel)); // some people change
+            const after = rand() < 0.5 ? before : ((1 + Math.floor(rand() * 3)) as EffortLevel); // some people change
             const course = `Course${user}`;
             const rows: EffortEvidence[] = [];
             for (let i = 0; i < 12; i++) {
@@ -128,13 +167,21 @@ describe("evaluation against a modal baseline", () => {
 describe("suggestEffort on irregular lives", () => {
     it("three weeks of silence leave the suggestion unchanged and unpenalised", () => {
         const before = suggestEffort("Class X Lab", null, labs([3, 3, 3, 3]), TODAY);
-        const away = suggestEffort("Class X Lab", null, labs([3, 3, 3, 3]).map((e) => ({ ...e, day: addDaysLocal(e.day, -21) })), TODAY);
+        const away = suggestEffort(
+            "Class X Lab",
+            null,
+            labs([3, 3, 3, 3]).map((e) => ({ ...e, day: addDaysLocal(e.day, -21) })),
+            TODAY,
+        );
         expect(before).toMatchObject({ kind: "level", level: 3 });
         expect(away).toMatchObject({ kind: "level", level: 3 });
     });
     it("one evening of identical choices is real evidence, and one different tap does not flip it", () => {
         const binge = Array.from({ length: 10 }, (_, i) => ev(`Class X Lab ${i + 1}`, 3, 0));
         expect(suggestEffort("Class X Lab", null, binge, TODAY)).toMatchObject({ kind: "level", level: 3 });
-        expect(suggestEffort("Class X Lab", null, [...binge, ev("Class X Lab 11", 1, 0)], TODAY)).toMatchObject({ kind: "level", level: 3 });
+        expect(suggestEffort("Class X Lab", null, [...binge, ev("Class X Lab 11", 1, 0)], TODAY)).toMatchObject({
+            kind: "level",
+            level: 3,
+        });
     });
 });

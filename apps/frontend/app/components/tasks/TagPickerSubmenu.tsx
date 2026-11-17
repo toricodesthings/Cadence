@@ -67,12 +67,15 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
                 {newTagName.trim().length > 0 && (
                     <div className="mt-2 flex items-center justify-between px-1 animate-in fade-in slide-in-from-top-2 duration-200">
                         <div className="flex items-center gap-1.5">
-                            {TAG_COLORS.map(color => (
+                            {TAG_COLORS.map((color) => (
                                 <button
                                     key={color}
                                     onClick={() => setSelectedColor(color)}
                                     className={`w-4 h-4 rounded-full transition-transform ${selectedColor === color ? "scale-125 ring-1 ring-offset-1 ring-offset-twilight-base ring-accent-primary" : "hover:scale-110"}`}
-                                    style={{ backgroundColor: color === "default" ? "var(--color-twilight-text-muted)" : color }}
+                                    style={{
+                                        backgroundColor:
+                                            color === "default" ? "var(--color-twilight-text-muted)" : color,
+                                    }}
                                     aria-label={`Select color ${color}`}
                                 />
                             ))}
@@ -84,7 +87,6 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
             <ScrollArea.Root className="h-60" type="scroll">
                 <ScrollArea.Viewport className="h-full w-full">
                     <div className="pr-3">
-
                         {tags.length === 0 && !newTagName && (
                             <div className="px-2 py-4 text-center text-[10px] text-twilight-text-muted">
                                 No tags created yet
@@ -93,7 +95,8 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
                         {tags.map((tag) => {
                             const isActive = activeTagIds.includes(tag.id);
                             // Ensure the new tag we are creating isn't literally matching existing tags (or hide existing ones when creating exact match)
-                            if (newTagName.trim() && tag.name.toLowerCase() === newTagName.trim().toLowerCase()) return null;
+                            if (newTagName.trim() && tag.name.toLowerCase() === newTagName.trim().toLowerCase())
+                                return null;
 
                             return (
                                 <Menu.Item
@@ -107,14 +110,18 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
                                 >
                                     <div
                                         className="h-2 w-2 rounded-full"
-                                        style={{ backgroundColor: !tag.color || tag.color === "default" ? "var(--color-twilight-text-muted)" : tag.color }}
+                                        style={{
+                                            backgroundColor:
+                                                !tag.color || tag.color === "default"
+                                                    ? "var(--color-twilight-text-muted)"
+                                                    : tag.color,
+                                        }}
                                     />
                                     <span className="flex-1 truncate">{tag.name}</span>
                                     {isActive && <Check size={14} className="text-accent-primary" />}
                                 </Menu.Item>
                             );
                         })}
-
                     </div>
                 </ScrollArea.Viewport>
                 <ScrollArea.Scrollbar orientation="vertical">
@@ -145,7 +152,13 @@ export const TagPickerSubmenu: React.FC<TagPickerSubmenuProps> = (props) => {
 };
 
 /** Compact tag picker: a sheet with thumb-sized rows; typing filters, and an unmatched name can be created. */
-export function TagPickerSheet({ open, onClose, activeTagIds, onAdd, onRemove }: TagPickerListProps & { open: boolean; onClose: () => void }) {
+export function TagPickerSheet({
+    open,
+    onClose,
+    activeTagIds,
+    onAdd,
+    onRemove,
+}: TagPickerListProps & { open: boolean; onClose: () => void }) {
     const { data: tags = [] } = useTags();
     const createTag = useCreateTag();
     const [query, setQuery] = useState("");
@@ -167,9 +180,18 @@ export function TagPickerSheet({ open, onClose, activeTagIds, onAdd, onRemove }:
         <UtilitySheet
             title="Tags"
             open={open}
-            onClose={() => { setQuery(""); onClose(); }}
+            onClose={() => {
+                setQuery("");
+                onClose();
+            }}
             footer={
-                <form className="space-y-3 border-t border-twilight-border px-4 py-3" onSubmit={(e) => { e.preventDefault(); void create(); }}>
+                <form
+                    className="space-y-3 border-t border-twilight-border px-4 py-3"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        void create();
+                    }}
+                >
                     {canCreate ? <Swatches options={TAG_SWATCHES} value={color} onChange={setColor} /> : null}
                     <div className="flex items-center gap-2">
                         <SearchField
@@ -180,13 +202,25 @@ export function TagPickerSheet({ open, onClose, activeTagIds, onAdd, onRemove }:
                             enterKeyHint="done"
                             className="min-h-12 flex-1 rounded-2xl"
                         />
-                        {canCreate ? <Button type="submit" variant="primary" size="md" className="min-h-12" disabled={createTag.isPending}>Create</Button> : null}
+                        {canCreate ? (
+                            <Button
+                                type="submit"
+                                variant="primary"
+                                size="md"
+                                className="min-h-12"
+                                disabled={createTag.isPending}
+                            >
+                                Create
+                            </Button>
+                        ) : null}
                     </div>
                 </form>
             }
         >
             {shown.length === 0 ? (
-                <p className="py-6 text-center text-sm text-twilight-text-muted/90">{name ? `No tag called “${name}” yet.` : "No tags yet. Type a name below to make one."}</p>
+                <p className="py-6 text-center text-sm text-twilight-text-muted/90">
+                    {name ? `No tag called “${name}” yet.` : "No tags yet. Type a name below to make one."}
+                </p>
             ) : (
                 <ul className="flex flex-col gap-1" aria-label="Tags">
                     {shown.map((tag) => {
@@ -200,9 +234,15 @@ export function TagPickerSheet({ open, onClose, activeTagIds, onAdd, onRemove }:
                                     onClick={() => (active ? onRemove(tag.id) : onAdd(tag.id))}
                                     className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-2xl px-4 text-left text-[15px] text-twilight-text transition-colors hover:bg-white/[0.04] active:bg-white/[0.06]"
                                 >
-                                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: resolveTagColor(tag.color) }} aria-hidden="true" />
+                                    <span
+                                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                        style={{ backgroundColor: resolveTagColor(tag.color) }}
+                                        aria-hidden="true"
+                                    />
                                     <span className="min-w-0 flex-1 truncate">{tag.name}</span>
-                                    {active ? <Check size={18} className="text-accent-primary" aria-hidden="true" /> : null}
+                                    {active ? (
+                                        <Check size={18} className="text-accent-primary" aria-hidden="true" />
+                                    ) : null}
                                 </button>
                             </li>
                         );

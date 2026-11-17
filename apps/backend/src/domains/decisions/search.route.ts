@@ -14,10 +14,17 @@ import { didYouMean } from "./did-you-mean";
 export const searchRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .get("/task-notes", async (c) => {
         const userId = c.get("userId");
-        const notes = await withRls(getDbClient(c.env), userId, (tx) => tx
-            .select({ taskId: taskNotes.taskId, body: taskNotes.body }).from(taskNotes)
-            .where(eq(taskNotes.userId, userId)));
-        const data: SearchNote[] = notes.map(({ taskId, body }) => ({ taskId, terms: searchTerms(body), headings: noteHeadings(body) }));
+        const notes = await withRls(getDbClient(c.env), userId, (tx) =>
+            tx
+                .select({ taskId: taskNotes.taskId, body: taskNotes.body })
+                .from(taskNotes)
+                .where(eq(taskNotes.userId, userId)),
+        );
+        const data: SearchNote[] = notes.map(({ taskId, body }) => ({
+            taskId,
+            terms: searchTerms(body),
+            headings: noteHeadings(body),
+        }));
         return c.json({ data });
     })
     // POST so the query never lands in a URL log.

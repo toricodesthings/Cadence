@@ -4,7 +4,16 @@ import { AnimatePresence, motion } from "framer-motion";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
 import { addDays, weekdayOf, type LocalDate } from "@cadence/domain/time";
-import { getWeekDays, getMonthDateRange, isoMonthStart, formatMonthYear, formatMonthName, formatShortDate, weekdayLabels, WEEK_START_INDEX } from "../lib/utils/date-format";
+import {
+    getWeekDays,
+    getMonthDateRange,
+    isoMonthStart,
+    formatMonthYear,
+    formatMonthName,
+    formatShortDate,
+    weekdayLabels,
+    WEEK_START_INDEX,
+} from "../lib/utils/date-format";
 import { useToday } from "../lib/utils/user-zone";
 import { slideVariants, SPRINGS } from "../lib/constants/motion";
 import { HabitsCanvas } from "../components/habits/HabitsCanvas";
@@ -24,18 +33,35 @@ import { useRightPanelStore } from "../stores/right-panel-store";
 import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { ChevronLeft, ChevronRight, Plus, Flame, EllipsisVertical, CalendarPlus, Clock, ArrowDownAZ, GripVertical, type LucideIcon } from "lucide-react";
+import {
+    ChevronLeft,
+    ChevronRight,
+    Plus,
+    Flame,
+    EllipsisVertical,
+    CalendarPlus,
+    Clock,
+    ArrowDownAZ,
+    GripVertical,
+    type LucideIcon,
+} from "lucide-react";
 import type { RoutineSort } from "../lib/utils/habits";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useReducedMotionSetting } from "../hooks/ui/use-reduced-motion";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
-import { HEADER_ICON_BUTTON, HEADER_SELECT_TRIGGER, PageHeader, PhonePageHeader } from "../components/layout/PageHeader";
+import {
+    HEADER_ICON_BUTTON,
+    HEADER_SELECT_TRIGGER,
+    PageHeader,
+    PhonePageHeader,
+} from "../components/layout/PageHeader";
 import { PeriodDock, PeriodNav, PeriodTodayPill } from "../components/layout/PeriodNav";
 import { LayoutScaleMenuRow } from "../components/layout/LayoutScaleMenu";
 import { useUrlState } from "../hooks/ui/use-url-state";
 
 const HABITS_ACCENT = "var(--accent-nav-habits, var(--accent-primary))";
-const NAV_BUTTON = "btn-icon cursor-pointer rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text";
+const NAV_BUTTON =
+    "btn-icon cursor-pointer rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text";
 
 type DisplayMode = "week" | "month";
 
@@ -59,31 +85,77 @@ type RoutinesMenuProps = {
     onStreaksChange: (on: boolean) => void;
 };
 
-function RoutinesMenu({ phone, display, onDisplayChange, show, onShowChange, sort, onSortChange, streaks, onStreaksChange }: RoutinesMenuProps) {
+function RoutinesMenu({
+    phone,
+    display,
+    onDisplayChange,
+    show,
+    onShowChange,
+    sort,
+    onSortChange,
+    streaks,
+    onStreaksChange,
+}: RoutinesMenuProps) {
     return (
         <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
-                <button type="button" aria-label="Routine view and sort options"
-                    className={phone ? "btn-icon touch-target rounded-full text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text" : HEADER_ICON_BUTTON}>
+                <button
+                    type="button"
+                    aria-label="Routine view and sort options"
+                    className={
+                        phone
+                            ? "btn-icon touch-target rounded-full text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                            : HEADER_ICON_BUTTON
+                    }
+                >
                     <EllipsisVertical size={18} aria-hidden="true" />
                 </button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end" className="w-[min(17rem,calc(100vw-2rem))]">
                 <DropdownMenu.Label>View</DropdownMenu.Label>
                 <div className={`space-y-2 ${MENU_SEGMENT}`}>
-                    {phone ? <SegmentedControl ariaLabel="Routine view" className="flex w-full [&>button]:flex-1" value={display} onChange={onDisplayChange}
-                        options={[{ value: "week", label: "Week" }, { value: "month", label: "Month" }]} /> : null}
-                    <SegmentedControl ariaLabel="Which routines" className="flex w-full [&>button]:flex-1" value={show} onChange={onShowChange}
-                        options={[{ value: "active", label: "Active" }, { value: "archived", label: "Archived" }]} />
+                    {phone ? (
+                        <SegmentedControl
+                            ariaLabel="Routine view"
+                            className="flex w-full [&>button]:flex-1"
+                            value={display}
+                            onChange={onDisplayChange}
+                            options={[
+                                { value: "week", label: "Week" },
+                                { value: "month", label: "Month" },
+                            ]}
+                        />
+                    ) : null}
+                    <SegmentedControl
+                        ariaLabel="Which routines"
+                        className="flex w-full [&>button]:flex-1"
+                        value={show}
+                        onChange={onShowChange}
+                        options={[
+                            { value: "active", label: "Active" },
+                            { value: "archived", label: "Archived" },
+                        ]}
+                    />
                 </div>
                 <DropdownMenu.Separator />
                 <DropdownMenu.Label>Sort by</DropdownMenu.Label>
                 {ROUTINE_SORTS.map(({ value, label, icon }) => (
-                    <DropdownMenu.CheckItem key={value} icon={icon} label={label} checked={sort === value} onSelect={() => onSortChange(value)} />
+                    <DropdownMenu.CheckItem
+                        key={value}
+                        icon={icon}
+                        label={label}
+                        checked={sort === value}
+                        onSelect={() => onSortChange(value)}
+                    />
                 ))}
                 <DropdownMenu.Separator />
                 <DropdownMenu.Label>Show</DropdownMenu.Label>
-                <DropdownMenu.SwitchItem icon={Flame} label="Streaks" checked={streaks} onCheckedChange={onStreaksChange} />
+                <DropdownMenu.SwitchItem
+                    icon={Flame}
+                    label="Streaks"
+                    checked={streaks}
+                    onCheckedChange={onStreaksChange}
+                />
                 <LayoutScaleMenuRow />
             </DropdownMenu.Content>
         </DropdownMenu.Root>
@@ -135,15 +207,42 @@ type RoutinesHeaderProps = {
 };
 
 /** The phone header, or the page header with period nav (not on laptop: the dock has it) and Add (not on compact: the orb has it). */
-function RoutinesHeader({ shell, titles, meta, isCurrentPeriod, displayMode, onDisplayMode, onNavigate, onToday, onAdd, menu }: RoutinesHeaderProps) {
+function RoutinesHeader({
+    shell,
+    titles,
+    meta,
+    isCurrentPeriod,
+    displayMode,
+    onDisplayMode,
+    onNavigate,
+    onToday,
+    onAdd,
+    menu,
+}: RoutinesHeaderProps) {
     if (shell.isPhone) {
-        return <RoutinesPhoneHeader title={titles.phoneTitle} periodWord={titles.periodWord} onNavigate={onNavigate} menu={menu(true)} />;
+        return (
+            <RoutinesPhoneHeader
+                title={titles.phoneTitle}
+                periodWord={titles.periodWord}
+                onNavigate={onNavigate}
+                menu={menu(true)}
+            />
+        );
     }
     return (
         <RoutinesDesktopHeader
             heading={titles.heading}
             meta={meta}
-            periodNav={shell.isLaptop ? null : <PeriodNav unit={titles.periodWord} isCurrent={isCurrentPeriod} onNavigate={onNavigate} onToday={onToday} />}
+            periodNav={
+                shell.isLaptop ? null : (
+                    <PeriodNav
+                        unit={titles.periodWord}
+                        isCurrent={isCurrentPeriod}
+                        onNavigate={onNavigate}
+                        onToday={onToday}
+                    />
+                )
+            }
             displayMode={displayMode}
             onDisplayMode={onDisplayMode}
             onAdd={shell.isCompact ? null : onAdd}
@@ -163,20 +262,32 @@ type RoutinesFloatingProps = {
 };
 
 /** What floats over the page: the laptop's period dock, the phone's Today pill, the compact add orb. */
-function RoutinesFloating({ shell, periodWord, isCurrentPeriod, reducedMotion, onNavigate, onToday, onAdd }: RoutinesFloatingProps) {
+function RoutinesFloating({
+    shell,
+    periodWord,
+    isCurrentPeriod,
+    reducedMotion,
+    onNavigate,
+    onToday,
+    onAdd,
+}: RoutinesFloatingProps) {
     return (
         <>
-            {shell.isLaptop ? <PeriodDock unit={periodWord} isCurrent={isCurrentPeriod} onNavigate={onNavigate} onToday={onToday} /> : null}
+            {shell.isLaptop ? (
+                <PeriodDock unit={periodWord} isCurrent={isCurrentPeriod} onNavigate={onNavigate} onToday={onToday} />
+            ) : null}
             <PeriodTodayPill show={shell.isPhone && !isCurrentPeriod} reducedMotion={reducedMotion} onToday={onToday} />
             {shell.isCompact ? <ContextualAddOrb directCapture directLabel="Add routine" onOpen={onAdd} /> : null}
         </>
     );
 }
 
-const parseRoutineSort = (raw: string | null): RoutineSort | null => ROUTINE_SORTS.find((option) => option.value === raw)?.value ?? null;
+const parseRoutineSort = (raw: string | null): RoutineSort | null =>
+    ROUTINE_SORTS.find((option) => option.value === raw)?.value ?? null;
 
 /** On a desktop week the grid's today column already is today's check-in, so the band shows only where today is scattered (month cards, phone cards). */
-const showsTodayBand = (viewMode: ViewMode, displayMode: DisplayMode, compact: boolean) => viewMode === "active" && (displayMode === "month" || compact);
+const showsTodayBand = (viewMode: ViewMode, displayMode: DisplayMode, compact: boolean) =>
+    viewMode === "active" && (displayMode === "month" || compact);
 
 type RoutinesPeriodProps = {
     shared: Omit<React.ComponentProps<typeof HabitsCanvas>, "days" | "stacked" | "showWeekCount">;
@@ -193,7 +304,19 @@ type RoutinesPeriodProps = {
 };
 
 /** The week grid or the month, sliding between periods (still when motion is calm). */
-function RoutinesPeriod({ shared, displayMode, rangeStart, direction, bloom, days, phone, wide, year, month, weekStartsOn }: RoutinesPeriodProps) {
+function RoutinesPeriod({
+    shared,
+    displayMode,
+    rangeStart,
+    direction,
+    bloom,
+    days,
+    phone,
+    wide,
+    year,
+    month,
+    weekStartsOn,
+}: RoutinesPeriodProps) {
     return (
         <AnimatePresence initial={false} custom={{ direction, distance: bloom ? 28 : 0 }} mode="wait">
             <motion.div
@@ -209,7 +332,13 @@ function RoutinesPeriod({ shared, displayMode, rangeStart, direction, bloom, day
                 {displayMode === "week" ? (
                     <HabitsCanvas {...shared} days={days} stacked={phone} showWeekCount={wide} />
                 ) : (
-                    <HabitsMonthView {...shared} trimEarlyWeeks={phone} year={year} month={month} weekStartsOn={weekStartsOn} />
+                    <HabitsMonthView
+                        {...shared}
+                        trimEarlyWeeks={phone}
+                        year={year}
+                        month={month}
+                        weekStartsOn={weekStartsOn}
+                    />
                 )}
             </motion.div>
         </AnimatePresence>
@@ -233,7 +362,8 @@ function RoutineDetailOverlay({ habit, mode, onModeChange, onClose }: RoutineDet
             mode={mode}
             fill
         >
-            <EditSidePanel kind="habit"
+            <EditSidePanel
+                kind="habit"
                 habit={habit}
                 detailMode={mode}
                 onDetailModeChange={onModeChange}
@@ -245,8 +375,17 @@ function RoutineDetailOverlay({ habit, mode, onModeChange, onClose }: RoutineDet
 
 /** A text field, a grid or a menu that wants the arrows keeps them. */
 function ownsArrows(target: EventTarget | null) {
-    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
-    return target instanceof HTMLElement && (target.isContentEditable || Boolean(target.closest('[role="grid"], [role="menu"], [role="dialog"], [role="listbox"]')));
+    if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+    )
+        return true;
+    return (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+            Boolean(target.closest('[role="grid"], [role="menu"], [role="dialog"], [role="listbox"]')))
+    );
 }
 
 /** ← / → change the period, as on Schedule. */
@@ -278,7 +417,12 @@ function periodTitles(displayMode: DisplayMode, weekDates: LocalDate[], currentD
     return { heading, periodWord: week ? "week" : "month", phoneTitle: week ? weekTitle : monthTitle };
 }
 
-type RoutinesPhoneHeaderProps = { title: string; periodWord: string; onNavigate: (delta: number) => void; menu: React.ReactNode };
+type RoutinesPhoneHeaderProps = {
+    title: string;
+    periodWord: string;
+    onNavigate: (delta: number) => void;
+    menu: React.ReactNode;
+};
 
 /** Same as Schedule: Week/Month live under ⋮, Today floats bottom left. */
 function RoutinesPhoneHeader({ title, periodWord, onNavigate, menu }: RoutinesPhoneHeaderProps) {
@@ -286,16 +430,27 @@ function RoutinesPhoneHeader({ title, periodWord, onNavigate, menu }: RoutinesPh
         <PhonePageHeader
             pageName="Routines"
             title={title}
-            actions={<div className="flex shrink-0 items-center gap-2">
-                <button type="button" onClick={() => onNavigate(-1)} className={`${NAV_BUTTON} touch-target rounded-full`} aria-label={`Previous ${periodWord}`}>
-                    <ChevronLeft size={15} aria-hidden="true" />
-                </button>
-                <button type="button" onClick={() => onNavigate(1)} className={`${NAV_BUTTON} touch-target rounded-full`} aria-label={`Next ${periodWord}`}>
-                    <ChevronRight size={15} aria-hidden="true" />
-                </button>
-                {menu}
-            </div>}
-
+            actions={
+                <div className="flex shrink-0 items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => onNavigate(-1)}
+                        className={`${NAV_BUTTON} touch-target rounded-full`}
+                        aria-label={`Previous ${periodWord}`}
+                    >
+                        <ChevronLeft size={15} aria-hidden="true" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onNavigate(1)}
+                        className={`${NAV_BUTTON} touch-target rounded-full`}
+                        aria-label={`Next ${periodWord}`}
+                    >
+                        <ChevronRight size={15} aria-hidden="true" />
+                    </button>
+                    {menu}
+                </div>
+            }
         />
     );
 }
@@ -311,7 +466,15 @@ type RoutinesDesktopHeaderProps = {
     menu: React.ReactNode;
 };
 
-function RoutinesDesktopHeader({ heading, meta, periodNav, displayMode, onDisplayMode, onAdd, menu }: RoutinesDesktopHeaderProps) {
+function RoutinesDesktopHeader({
+    heading,
+    meta,
+    periodNav,
+    displayMode,
+    onDisplayMode,
+    onAdd,
+    menu,
+}: RoutinesDesktopHeaderProps) {
     return (
         <PageHeader
             icon={<Flame size={18} aria-hidden="true" />}
@@ -319,30 +482,34 @@ function RoutinesDesktopHeader({ heading, meta, periodNav, displayMode, onDispla
             pageName="Routines"
             title={heading}
             meta={meta}
-            actions={<>
-                {periodNav}
-                <Select value={displayMode} onValueChange={(value) => onDisplayMode(value as DisplayMode)}>
-                    <SelectTrigger
-                        aria-label="Routine view"
-                        className={`${HEADER_SELECT_TRIGGER} focus:ring-accent-nav-habits/40`}
-                    >
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent align="end">
-                        <SelectItem value="week">Week</SelectItem>
-                        <SelectItem value="month">Month</SelectItem>
-                    </SelectContent>
-                </Select>
-                {onAdd ? <button
-                    type="button"
-                    onClick={onAdd}
-                    className="surface-control-accent inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl border border-accent-primary/20 px-4 text-sm font-medium text-accent-primary transition-colors hover:border-accent-primary/30"
-                >
-                    <Plus size={14} aria-hidden="true" />
-                    Add routine
-                </button> : null}
-                {menu}
-            </>}
+            actions={
+                <>
+                    {periodNav}
+                    <Select value={displayMode} onValueChange={(value) => onDisplayMode(value as DisplayMode)}>
+                        <SelectTrigger
+                            aria-label="Routine view"
+                            className={`${HEADER_SELECT_TRIGGER} focus:ring-accent-nav-habits/40`}
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent align="end">
+                            <SelectItem value="week">Week</SelectItem>
+                            <SelectItem value="month">Month</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {onAdd ? (
+                        <button
+                            type="button"
+                            onClick={onAdd}
+                            className="surface-control-accent inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl border border-accent-primary/20 px-4 text-sm font-medium text-accent-primary transition-colors hover:border-accent-primary/30"
+                        >
+                            <Plus size={14} aria-hidden="true" />
+                            Add routine
+                        </button>
+                    ) : null}
+                    {menu}
+                </>
+            }
         />
     );
 }
@@ -363,31 +530,52 @@ export default function Routines() {
     // doesn't render Monday-first and then jump once settings load.
     const { settings, updateSettings, weekStartsOn, showStreaks, reducedMotion, bloom } = useRoutineSettings();
     // The order is this device's own (a drag still saves the Custom order itself to the account).
-    const [routineSort, setRoutineSort] = useUrlState<RoutineSort>("sort", { parse: parseRoutineSort, fallback: "created", deviceKey: "cadence:routines:sort" });
+    const [routineSort, setRoutineSort] = useUrlState<RoutineSort>("sort", {
+        parse: parseRoutineSort,
+        fallback: "created",
+        deviceKey: "cadence:routines:sort",
+    });
 
     const periodYear = Number(currentDate.slice(0, 4));
     const periodMonth = Number(currentDate.slice(5, 7)) - 1;
     const weekDates = useMemo(() => getWeekDays(currentDate, weekStartsOn), [currentDate, weekStartsOn]);
-    const range = displayMode === "week" ? { start: weekDates[0], end: weekDates[6] } : getMonthDateRange(periodYear, periodMonth);
+    const range =
+        displayMode === "week"
+            ? { start: weekDates[0], end: weekDates[6] }
+            : getMonthDateRange(periodYear, periodMonth);
     const isCurrentPeriod = inRange(todayIso, range);
 
-    const { data: habits = [] } = useHabitsRange({ ...range, archived: viewMode === "archived", enabled: Boolean(settings) });
-    const visibleHabits = useMemo(() => habits.filter((habit) => habit.archived === (viewMode === "archived")), [habits, viewMode]);
+    const { data: habits = [] } = useHabitsRange({
+        ...range,
+        archived: viewMode === "archived",
+        enabled: Boolean(settings),
+    });
+    const visibleHabits = useMemo(
+        () => habits.filter((habit) => habit.archived === (viewMode === "archived")),
+        [habits, viewMode],
+    );
     const selectedHabit = visibleHabits.find((h) => h.id === selectedHabitId);
 
-    const days = useMemo<RoutineDay[]>(() => weekDates.map((date) => {
-        const short = weekdayLabels(3, 0)[weekdayOf(date)];
-        return { iso: date, short, initial: short[0], dayNum: Number(date.slice(8)) };
-    }), [weekDates]);
+    const days = useMemo<RoutineDay[]>(
+        () =>
+            weekDates.map((date) => {
+                const short = weekdayLabels(3, 0)[weekdayOf(date)];
+                return { iso: date, short, initial: short[0], dayNum: Number(date.slice(8)) };
+            }),
+        [weekDates],
+    );
 
-    const handleNavigate = useCallback((delta: number) => {
-        setDirection(delta);
-        setCurrentDate((prev) => {
-            if (displayMode === "week") return addDays(prev, delta * 7);
-            const index = Number(prev.slice(0, 4)) * 12 + Number(prev.slice(5, 7)) - 1 + delta;
-            return isoMonthStart(Math.floor(index / 12), index % 12);
-        });
-    }, [displayMode]);
+    const handleNavigate = useCallback(
+        (delta: number) => {
+            setDirection(delta);
+            setCurrentDate((prev) => {
+                if (displayMode === "week") return addDays(prev, delta * 7);
+                const index = Number(prev.slice(0, 4)) * 12 + Number(prev.slice(5, 7)) - 1 + delta;
+                return isoMonthStart(Math.floor(index / 12), index % 12);
+            });
+        },
+        [displayMode],
+    );
 
     const handleToday = useCallback(() => {
         setDirection(todayIso >= currentDate ? 1 : -1);
@@ -411,7 +599,13 @@ export default function Routines() {
         if (!id) return;
         setSelectedHabitId(id);
         setRailView("context");
-        setSearchParams((params) => { params.delete("routine"); return params; }, { replace: true });
+        setSearchParams(
+            (params) => {
+                params.delete("routine");
+                return params;
+            },
+            { replace: true },
+        );
     }, [searchParams, setSearchParams, setRailView]);
 
     useArrowPeriods(handleNavigate);
@@ -422,7 +616,6 @@ export default function Routines() {
         }
     }, [selectedHabitId, habits.length, visibleHabits]);
 
-
     useRouteFocus({
         onFocusMatch: (params) => {
             if (params.focusKind === "habit" && params.focusId) setSelectedHabitId(params.focusId);
@@ -431,26 +624,44 @@ export default function Routines() {
 
     const { heading, periodWord, phoneTitle } = periodTitles(displayMode, weekDates, currentDate, todayIso);
 
-    const setDisplay = (mode: DisplayMode) => { setDirection(0); setDisplayMode(mode); };
+    const setDisplay = (mode: DisplayMode) => {
+        setDirection(0);
+        setDisplayMode(mode);
+    };
 
     // One ⋮ on every size, the same menu as Today's: what to show, the order, streaks, and (desktop app) the scale.
     const menu = (phone: boolean) => (
         <RoutinesMenu
             phone={phone}
-            display={displayMode} onDisplayChange={setDisplay}
-            show={viewMode} onShowChange={setViewMode}
-            sort={routineSort} onSortChange={setRoutineSort}
-            streaks={showStreaks} onStreaksChange={(value) => updateSettings.mutate({ tasks: { showStreaks: value } })}
+            display={displayMode}
+            onDisplayChange={setDisplay}
+            show={viewMode}
+            onShowChange={setViewMode}
+            sort={routineSort}
+            onSortChange={setRoutineSort}
+            streaks={showStreaks}
+            onStreaksChange={(value) => updateSettings.mutate({ tasks: { showStreaks: value } })}
         />
     );
 
-
     // On a desktop week the grid's today column already is today's check-in, so
     // the band shows only where today is scattered (month cards, phone cards).
-    const lead = isCurrentPeriod && showsTodayBand(viewMode, displayMode, shell.isCompact)
-        ? <RoutineTodayBand habits={visibleHabits} today={todayIso} bloom={bloom} columns={!shell.isCompact} onOpen={handleSelectHabit} />
-        : null;
-    const empty = <EmptyState variant={viewMode === "archived" ? "routines-archived" : "routines"} onAction={() => setIsCreateOpen(true)} />;
+    const lead =
+        isCurrentPeriod && showsTodayBand(viewMode, displayMode, shell.isCompact) ? (
+            <RoutineTodayBand
+                habits={visibleHabits}
+                today={todayIso}
+                bloom={bloom}
+                columns={!shell.isCompact}
+                onOpen={handleSelectHabit}
+            />
+        ) : null;
+    const empty = (
+        <EmptyState
+            variant={viewMode === "archived" ? "routines-archived" : "routines"}
+            onAction={() => setIsCreateOpen(true)}
+        />
+    );
     const shared = {
         habits: visibleHabits,
         sort: routineSort,
@@ -465,12 +676,17 @@ export default function Routines() {
     };
 
     return (
-        <MainLayout requireAuth hideHeader hideContextualOrb
-            sidePanel={(
+        <MainLayout
+            requireAuth
+            hideHeader
+            hideContextualOrb
+            sidePanel={
                 <EditSidePanelRail ariaLabel="Resize routine detail panel">
-                    {shell.isWide && selectedHabit ? <EditSidePanel kind="habit" habit={selectedHabit} onClose={() => setSelectedHabitId(null)} /> : null}
+                    {shell.isWide && selectedHabit ? (
+                        <EditSidePanel kind="habit" habit={selectedHabit} onClose={() => setSelectedHabitId(null)} />
+                    ) : null}
                 </EditSidePanelRail>
-            )}
+            }
             sidePanelActive={Boolean(selectedHabit)}
             sidePanelLabel="Routine"
             onCloseSidePanel={() => setSelectedHabitId(null)}
@@ -512,10 +728,23 @@ export default function Routines() {
                 <CreateHabitDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
 
                 {!shell.isWide && selectedHabit ? (
-                    <RoutineDetailOverlay habit={selectedHabit} mode={mobileDetailMode} onModeChange={setMobileDetailMode} onClose={() => setSelectedHabitId(null)} />
+                    <RoutineDetailOverlay
+                        habit={selectedHabit}
+                        mode={mobileDetailMode}
+                        onModeChange={setMobileDetailMode}
+                        onClose={() => setSelectedHabitId(null)}
+                    />
                 ) : null}
 
-                <RoutinesFloating shell={shell} periodWord={periodWord} isCurrentPeriod={isCurrentPeriod} reducedMotion={reducedMotion} onNavigate={handleNavigate} onToday={handleToday} onAdd={() => setIsCreateOpen(true)} />
+                <RoutinesFloating
+                    shell={shell}
+                    periodWord={periodWord}
+                    isCurrentPeriod={isCurrentPeriod}
+                    reducedMotion={reducedMotion}
+                    onNavigate={handleNavigate}
+                    onToday={handleToday}
+                    onAdd={() => setIsCreateOpen(true)}
+                />
             </div>
         </MainLayout>
     );

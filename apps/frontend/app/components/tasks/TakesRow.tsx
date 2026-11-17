@@ -29,20 +29,22 @@ export function TakesRow({ task }: { task: Task }) {
         const before = estimate;
         updateTask.mutate({ id: getTaskSeriesId(task), durationEstimate: minutes });
         setEditing(false);
-        toastUndo(minutes === null ? "Takes cleared" : `Takes ${formatMinutes(minutes)}`, () => updateTask.mutate({ id: getTaskSeriesId(task), durationEstimate: before }));
+        toastUndo(minutes === null ? "Takes cleared" : `Takes ${formatMinutes(minutes)}`, () =>
+            updateTask.mutate({ id: getTaskSeriesId(task), durationEstimate: before }),
+        );
     };
 
     const shownGuess = !estimate && guess ? guess : null;
     const label = estimate
         ? formatMinutes(estimate)
         : shownGuess
-            ? `about ${formatMinutes(shownGuess.minutes)}${shownGuess.state === "tentative" ? "?" : ""}`
-            : "Not set";
+          ? `about ${formatMinutes(shownGuess.minutes)}${shownGuess.state === "tentative" ? "?" : ""}`
+          : "Not set";
     const name = estimate
         ? `Takes ${formatMinutes(estimate)}. Change`
         : shownGuess
-            ? `Takes about ${formatMinutes(shownGuess.minutes)}, a guess from ${shownGuess.reports} of your answers${shownGuess.state === "tentative" ? ", not yet sure" : ""}. Change`
-            : "How long will it take? Set";
+          ? `Takes about ${formatMinutes(shownGuess.minutes)}, a guess from ${shownGuess.reports} of your answers${shownGuess.state === "tentative" ? ", not yet sure" : ""}. Change`
+          : "How long will it take? Set";
 
     return (
         <FieldRow icon={Hourglass} label="Takes">
@@ -63,7 +65,12 @@ export function TakesRow({ task }: { task: Task }) {
                     ) : null}
                 </div>
             ) : (
-                <button type="button" onClick={() => setEditing(true)} aria-label={name} className={`${VALUE_BTN} ${estimate ? "" : "text-twilight-text-muted"}`}>
+                <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    aria-label={name}
+                    className={`${VALUE_BTN} ${estimate ? "" : "text-twilight-text-muted"}`}
+                >
                     {label}
                 </button>
             )}

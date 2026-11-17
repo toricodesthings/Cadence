@@ -12,11 +12,14 @@ export function useUtilityNavigation() {
         next.delete("settings");
         next.delete("notifications");
         next.set(kind, value);
-        navigate({ pathname: location.pathname, search: `?${next}` }, {
-            replace: isOpen,
-            state: isOpen ? location.state : { utilitySheet: true },
-            preventScrollReset: true,
-        });
+        navigate(
+            { pathname: location.pathname, search: `?${next}` },
+            {
+                replace: isOpen,
+                state: isOpen ? location.state : { utilitySheet: true },
+                preventScrollReset: true,
+            },
+        );
     }
 
     function close() {
@@ -27,7 +30,10 @@ export function useUtilityNavigation() {
         const next = new URLSearchParams(location.search);
         next.delete("settings");
         next.delete("notifications");
-        navigate({ pathname: location.pathname, search: next.size ? `?${next}` : "" }, { replace: true, preventScrollReset: true });
+        navigate(
+            { pathname: location.pathname, search: next.size ? `?${next}` : "" },
+            { replace: true, preventScrollReset: true },
+        );
     }
 
     return {

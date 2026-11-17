@@ -23,7 +23,10 @@ import * as routineReads from "../../src/domains/ai/tools/routine-reads";
 let userId: string;
 const now = "2026-10-13T18:00:00Z";
 const env = { TOOL_APPROVAL_SECRET: "test-secret" } as Env;
-const settings: UserSettings = { assistant: { memoryMode: "basic" }, dateTime: { weekStart: "Monday", timezone: "America/Toronto", timeDisplay: "12h" } };
+const settings: UserSettings = {
+    assistant: { memoryMode: "basic" },
+    dateTime: { weekStart: "Monday", timezone: "America/Toronto", timeDisplay: "12h" },
+};
 
 beforeAll(startTestDb);
 beforeEach(async () => {
@@ -32,13 +35,24 @@ beforeEach(async () => {
     userId = await createUser({ settings, zone: "UTC" });
 });
 async function fact(kind: string, content: string) {
-    return asOwner((pg) => pg.query(`INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence)
-        VALUES ($1, $2::memory_kind, $3, '2026-10-01', '2026-10-01', 'chat', 'stated')`, [userId, kind, content]));
+    return asOwner((pg) =>
+        pg.query(
+            `INSERT INTO ai_memories (user_id, kind, content, said_on, last_seen_on, source, confidence)
+        VALUES ($1, $2::memory_kind, $3, '2026-10-01', '2026-10-01', 'chat', 'stated')`,
+            [userId, kind, content],
+        ),
+    );
 }
 async function prepare(queryText = "Help me plan this afternoon", provided: UserSettings = settings) {
     const diagnostics = createRunDiagnostics(() => performance.now());
     const result = await getAgentInstance(env, userId, {
-        timezone: "America/Toronto", currentDate: now, queryText, nonce: "fixture", approvalMode: "full", settings: provided, diagnostics,
+        timezone: "America/Toronto",
+        currentDate: now,
+        queryText,
+        nonce: "fixture",
+        approvalMode: "full",
+        settings: provided,
+        diagnostics,
     });
     return { ...result, diagnostics: diagnostics.snapshot() };
 }
@@ -49,7 +63,9 @@ describe("exact preparation", () => {
         const current = await prepare();
         expect(current.turnContext).toContain("Keep Friday evenings free");
         const history = [{ role: "user", metadata: { turnContext: current.turnContext } }];
-        const replay = await validateStoredContexts(history, "full", (ids) => withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13", "full")));
+        const replay = await validateStoredContexts(history, "full", (ids) =>
+            withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13", "full")),
+        );
         expect(replay).toEqual(history);
     });
 
@@ -70,7 +86,10 @@ describe("exact preparation", () => {
     it("keeps lexical recall when the embedding fails and candidates exist", async () => {
         await fact("pattern", "Afternoon gardening works best");
         vi.mocked(embedText).mockRejectedValue(new Error("unavailable"));
-        const result = await prepare("Help me with afternoon gardening", { ...settings, assistant: { memoryMode: "full" } });
+        const result = await prepare("Help me with afternoon gardening", {
+            ...settings,
+            assistant: { memoryMode: "full" },
+        });
         expect(embedText).toHaveBeenCalledOnce();
         expect(result.turnContext).toContain("Afternoon gardening works best");
         expect(result.diagnostics.memoryCoverage?.hasRecallCandidates).toBe(true);
@@ -108,7 +127,10 @@ describe("exact preparation", () => {
         await fact("pattern", "Afternoon gardening works best");
         await prepare("ok");
         expect(embedText).not.toHaveBeenCalled();
-        const result = await prepare("Help with afternoon gardening", { ...settings, assistant: { memoryMode: "off" } });
+        const result = await prepare("Help with afternoon gardening", {
+            ...settings,
+            assistant: { memoryMode: "off" },
+        });
         expect(embedText).not.toHaveBeenCalled();
         expect(result.turnContext).not.toContain("Afternoon gardening works best");
         expect(result.diagnostics.memoryCoverage).toBeUndefined();
@@ -129,18 +151,30 @@ describe("exact preparation", () => {
         await fact("constraint", "Keep Friday evenings free");
         const first = await prepare();
         const history = [{ id: "u1", role: "user", metadata: { turnContext: first.turnContext } }];
-        const valid = await validateStoredContexts(history, "full",
-            (ids) => withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13", "full")));
+        const valid = await validateStoredContexts(history, "full", (ids) =>
+            withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13", "full")),
+        );
         expect(valid[0]).toBe(history[0]);
         const diagnostics = createRunDiagnostics(() => performance.now());
-        const next = await getAgentInstance(env, userId, { timezone: "Europe/Paris", currentDate: now,
-            queryText: "Continue planning", nonce: "newnonce", approvalMode: "ask", settings,
-            reusedTurnContext: Promise.resolve(valid[0].metadata.turnContext), diagnostics });
+        const next = await getAgentInstance(env, userId, {
+            timezone: "Europe/Paris",
+            currentDate: now,
+            queryText: "Continue planning",
+            nonce: "newnonce",
+            approvalMode: "ask",
+            settings,
+            reusedTurnContext: Promise.resolve(valid[0].metadata.turnContext),
+            diagnostics,
+        });
         expect(next.turnContext).toBe(first.turnContext);
         expect(embedText).not.toHaveBeenCalled();
-        expect(diagnostics.snapshot().phases.some((p) => ["profile", "embedding", "recall", "snapshot"].includes(p.name))).toBe(false);
+        expect(
+            diagnostics.snapshot().phases.some((p) => ["profile", "embedding", "recall", "snapshot"].includes(p.name)),
+        ).toBe(false);
         const schedule = await (next.agent.tools.get_schedule_window.execute as any)(
-            { start: "2026-10-13", end: "2026-10-13", limit: 12 }, { toolCallId: "fresh", messages: [] });
+            { start: "2026-10-13", end: "2026-10-13", limit: 12 },
+            { toolCallId: "fresh", messages: [] },
+        );
         expect(schedule.range.timezone).toBe("Europe/Paris");
     });
 
@@ -148,22 +182,32 @@ describe("exact preparation", () => {
         await fact("constraint", "Keep Friday evenings free");
         const first = await prepare();
         const history = [{ id: "u1", role: "user", metadata: { turnContext: first.turnContext, other: "kept" } }];
-        const validate = () => validateStoredContexts(history, "full",
-            (ids) => withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13", "full")));
+        const validate = () =>
+            validateStoredContexts(history, "full", (ids) =>
+                withRls(getTestDb(), userId, (tx) => loadContextFacts(tx, userId, ids, "2026-10-13", "full")),
+            );
         await fact("life", "An unrelated new fact");
         expect((await validate())[0]).toBe(history[0]);
-        const saved = await asOwner((pg) => pg.query<{ id: string }>("SELECT id FROM ai_memories WHERE user_id = $1 AND kind = 'constraint'", [userId]));
+        const saved = await asOwner((pg) =>
+            pg.query<{ id: string }>("SELECT id FROM ai_memories WHERE user_id = $1 AND kind = 'constraint'", [userId]),
+        );
         const id = saved.rows[0].id;
         await asOwner((pg) => pg.query("UPDATE ai_memories SET content = 'Changed' WHERE id = $1", [id]));
         expect((await validate())[0].metadata).toEqual({ other: "kept" });
-        await asOwner((pg) => pg.query("UPDATE ai_memories SET content = 'Keep Friday evenings free', valid_through = '2026-10-12' WHERE id = $1", [id]));
+        await asOwner((pg) =>
+            pg.query(
+                "UPDATE ai_memories SET content = 'Keep Friday evenings free', valid_through = '2026-10-12' WHERE id = $1",
+                [id],
+            ),
+        );
         expect((await validate())[0].metadata).toEqual({ other: "kept" });
         await asOwner((pg) => pg.query("UPDATE ai_memories SET valid_through = NULL WHERE id = $1", [id]));
         await withRls(getTestDb(), userId, (tx) => forgetFact(tx, userId, id));
         expect((await validate())[0].metadata).toEqual({ other: "kept" });
         const other = await createUser();
-        const foreign = await validateStoredContexts(history, "full",
-            (ids) => withRls(getTestDb(), other, (tx) => loadContextFacts(tx, other, ids, "2026-10-13", "full")));
+        const foreign = await validateStoredContexts(history, "full", (ids) =>
+            withRls(getTestDb(), other, (tx) => loadContextFacts(tx, other, ids, "2026-10-13", "full")),
+        );
         expect(foreign[0].metadata).toEqual({ other: "kept" });
         expect(history[0].metadata.turnContext).toBe(first.turnContext);
     });
@@ -176,27 +220,54 @@ describe("exact preparation", () => {
         expect((await validateStoredContexts(history, "off", read))[0].metadata).toEqual({});
         expect(read).not.toHaveBeenCalled();
         const off = { ...settings, assistant: { memoryMode: "off" as const } };
-        const next = await getAgentInstance(env, userId, { timezone: "UTC", currentDate: now, nonce: "next",
-            approvalMode: "full", settings: off, reusedTurnContext: Promise.resolve(undefined) });
+        const next = await getAgentInstance(env, userId, {
+            timezone: "UTC",
+            currentDate: now,
+            nonce: "next",
+            approvalMode: "full",
+            settings: off,
+            reusedTurnContext: Promise.resolve(undefined),
+        });
         expect(next.turnContext).toContain("Memory is off");
         expect(next.turnContext).not.toContain("Keep Friday evenings free");
         expect(Object.keys(next.agent.tools)).not.toContain("recall");
-        const onAgain = await validateStoredContexts([{ role: "user", metadata: { turnContext: next.turnContext } }], "full", read);
+        const onAgain = await validateStoredContexts(
+            [{ role: "user", metadata: { turnContext: next.turnContext } }],
+            "full",
+            read,
+        );
         expect(onAgain[0].metadata).toEqual({});
     });
 
     it("shares the bounded routine rows, preserves snapshot output, and keeps subsequent tools fresh", async () => {
-        await asOwner((pg) => pg.query(`INSERT INTO habits (user_id, title, recurrence_rule, target_time, created_at)
-            VALUES ($1, 'Morning walk', 'FREQ=DAILY', '08:30', '2026-10-01T12:00:00Z')`, [userId]));
+        await asOwner((pg) =>
+            pg.query(
+                `INSERT INTO habits (user_id, title, recurrence_rule, target_time, created_at)
+            VALUES ($1, 'Morning walk', 'FREQ=DAILY', '08:30', '2026-10-01T12:00:00Z')`,
+                [userId],
+            ),
+        );
         await asOwner(async (pg) => {
-            await pg.query(`INSERT INTO habits (user_id, title, recurrence_rule, times, created_at)
-                VALUES ($1, 'Medicine', 'FREQ=DAILY', '["08:00","20:00"]', '2026-10-01T12:00:00Z')`, [userId]);
-            await pg.query(`INSERT INTO habits (user_id, title, recurrence_rule, steps, created_at)
-                VALUES ($1, 'Get ready', 'FREQ=DAILY', '[{"id":"step-1","title":"Brush teeth"},{"id":"step-2","title":"Get dressed"}]', '2026-10-01T12:00:00Z')`, [userId]);
-            await pg.query(`INSERT INTO habit_logs (user_id, habit_id, target_date, status, step_status)
-                SELECT $1, id, '2026-10-13', 'PENDING', '{"step-1":"COMPLETED"}' FROM habits WHERE user_id = $1 AND title = 'Get ready'`, [userId]);
-            await pg.query(`INSERT INTO habits (user_id, title, recurrence_rule, paused_until, created_at)
-                VALUES ($1, 'Paused', 'FREQ=DAILY', '2026-10-20', '2026-10-01T12:00:00Z')`, [userId]);
+            await pg.query(
+                `INSERT INTO habits (user_id, title, recurrence_rule, times, created_at)
+                VALUES ($1, 'Medicine', 'FREQ=DAILY', '["08:00","20:00"]', '2026-10-01T12:00:00Z')`,
+                [userId],
+            );
+            await pg.query(
+                `INSERT INTO habits (user_id, title, recurrence_rule, steps, created_at)
+                VALUES ($1, 'Get ready', 'FREQ=DAILY', '[{"id":"step-1","title":"Brush teeth"},{"id":"step-2","title":"Get dressed"}]', '2026-10-01T12:00:00Z')`,
+                [userId],
+            );
+            await pg.query(
+                `INSERT INTO habit_logs (user_id, habit_id, target_date, status, step_status)
+                SELECT $1, id, '2026-10-13', 'PENDING', '{"step-1":"COMPLETED"}' FROM habits WHERE user_id = $1 AND title = 'Get ready'`,
+                [userId],
+            );
+            await pg.query(
+                `INSERT INTO habits (user_id, title, recurrence_rule, paused_until, created_at)
+                VALUES ($1, 'Paused', 'FREQ=DAILY', '2026-10-20', '2026-10-01T12:00:00Z')`,
+                [userId],
+            );
         });
         const clock = userClock("America/Toronto", now);
         const ctx = { timezone: clock.timezone, currentDate: now, today: clock.today };
@@ -225,44 +296,71 @@ describe("exact preparation", () => {
         const tools = buildToolRegistry(env, userId, ctx);
         const events = { today: clock.today, shownOnCalendar: false, events: [] };
         const original = routineReads.readSnapshotRoutines;
-        const read = vi.spyOn(routineReads, "readSnapshotRoutines").mockImplementationOnce(() => { throw new Error("temporary read failure"); });
+        const read = vi.spyOn(routineReads, "readSnapshotRoutines").mockImplementationOnce(() => {
+            throw new Error("temporary read failure");
+        });
         const recovered = JSON.parse(await loadAgentSnapshot(env, userId, ctx, tools, events));
         expect(recovered).toHaveProperty("schedule");
         expect(recovered).toHaveProperty("routines");
         expect(read.mock.calls.length).toBeGreaterThan(1);
-        read.mockImplementation(() => { throw new Error("read failure"); });
+        read.mockImplementation(() => {
+            throw new Error("read failure");
+        });
         const failed = JSON.parse(await loadAgentSnapshot(env, userId, ctx, tools, events));
         expect(failed).not.toHaveProperty("schedule");
         expect(failed).not.toHaveProperty("routines");
         expect(failed).toHaveProperty("overdue");
         expect(failed).toHaveProperty("capture");
         expect(failed.events).toEqual([]);
-        read.mockImplementation(original); read.mockRestore();
+        read.mockImplementation(original);
+        read.mockRestore();
     });
 
-    it.skipIf(process.env.AI_PREPARATION_BENCHMARK !== "true")("compares 100 paired shared and independent snapshot preparations", async () => {
-        const clock = userClock("America/Toronto", now);
-        const ctx = { timezone: clock.timezone, currentDate: now, today: clock.today };
-        const tools = buildToolRegistry(env, userId, ctx);
-        const events = { today: clock.today, shownOnCalendar: false, events: [] };
-        await asOwner((pg) => pg.query(`INSERT INTO habits (user_id, title, recurrence_rule, created_at)
-            SELECT $1, 'Routine ' || i, 'FREQ=DAILY', '2026-10-01T12:00:00Z'::timestamptz FROM generate_series(1, 55) i`, [userId]));
-        const samples: Record<string, number>[] = [];
-        for (let i = 0; i < 100; i++) {
-            const times: Record<string, number> = {};
-            const outputs: string[] = [];
-            for (const variant of i % 2 ? ["shared", "independent"] : ["independent", "shared"]) {
-                const start = performance.now();
-                outputs.push(await (variant === "shared" ? loadAgentSnapshot(env, userId, ctx, tools, events) : loadSnapshot(tools, clock.today, events)));
-                times[variant] = performance.now() - start;
+    it.skipIf(process.env.AI_PREPARATION_BENCHMARK !== "true")(
+        "compares 100 paired shared and independent snapshot preparations",
+        async () => {
+            const clock = userClock("America/Toronto", now);
+            const ctx = { timezone: clock.timezone, currentDate: now, today: clock.today };
+            const tools = buildToolRegistry(env, userId, ctx);
+            const events = { today: clock.today, shownOnCalendar: false, events: [] };
+            await asOwner((pg) =>
+                pg.query(
+                    `INSERT INTO habits (user_id, title, recurrence_rule, created_at)
+            SELECT $1, 'Routine ' || i, 'FREQ=DAILY', '2026-10-01T12:00:00Z'::timestamptz FROM generate_series(1, 55) i`,
+                    [userId],
+                ),
+            );
+            const samples: Record<string, number>[] = [];
+            for (let i = 0; i < 100; i++) {
+                const times: Record<string, number> = {};
+                const outputs: string[] = [];
+                for (const variant of i % 2 ? ["shared", "independent"] : ["independent", "shared"]) {
+                    const start = performance.now();
+                    outputs.push(
+                        await (variant === "shared"
+                            ? loadAgentSnapshot(env, userId, ctx, tools, events)
+                            : loadSnapshot(tools, clock.today, events)),
+                    );
+                    times[variant] = performance.now() - start;
+                }
+                expect(outputs[0]).toBe(outputs[1]);
+                samples.push(times);
             }
-            expect(outputs[0]).toBe(outputs[1]);
-            samples.push(times);
-        }
-        const directory = join(__dirname, "../../../../output/evals");
-        mkdirSync(directory, { recursive: true });
-        writeFileSync(join(directory, "snapshot-preparation-parity.json"), JSON.stringify({
-            evidence: "local PGlite; 100 alternating pairs; 55 routines; unchanged isolated transactions; not production latency", samples,
-        }, null, 2));
-    }, 60_000);
+            const directory = join(__dirname, "../../../../output/evals");
+            mkdirSync(directory, { recursive: true });
+            writeFileSync(
+                join(directory, "snapshot-preparation-parity.json"),
+                JSON.stringify(
+                    {
+                        evidence:
+                            "local PGlite; 100 alternating pairs; 55 routines; unchanged isolated transactions; not production latency",
+                        samples,
+                    },
+                    null,
+                    2,
+                ),
+            );
+        },
+        60_000,
+    );
 });

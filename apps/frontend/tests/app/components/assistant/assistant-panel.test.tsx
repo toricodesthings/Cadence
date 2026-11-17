@@ -7,36 +7,73 @@ import { useAssistantStore } from "../../../../app/stores/assistant-store";
 const mocks = vi.hoisted(() => ({
     memory: { mode: "basic" as string | null },
     conversation: {
-        messages: [], status: "ready", isStreaming: false, threadTitle: null, activeConversationId: "conv-1",
-        submitText: vi.fn(), handleNewChat: vi.fn(), handleSelectConversation: vi.fn(), handleStop: vi.fn(),
-        handleEdit: vi.fn(), handleRetry: vi.fn(), regenerateLocal: vi.fn(), answerApproval: vi.fn(), replyToQuestion: vi.fn(),
-        streamError: null, imageError: null, sendWithoutImages: vi.fn(), shareImages: vi.fn(),
+        messages: [],
+        status: "ready",
+        isStreaming: false,
+        threadTitle: null,
+        activeConversationId: "conv-1",
+        submitText: vi.fn(),
+        handleNewChat: vi.fn(),
+        handleSelectConversation: vi.fn(),
+        handleStop: vi.fn(),
+        handleEdit: vi.fn(),
+        handleRetry: vi.fn(),
+        regenerateLocal: vi.fn(),
+        answerApproval: vi.fn(),
+        replyToQuestion: vi.fn(),
+        streamError: null,
+        imageError: null,
+        sendWithoutImages: vi.fn(),
+        shareImages: vi.fn(),
     },
 }));
-vi.mock("../../../../app/hooks/ai/use-assistant-conversation", () => ({ useAssistantConversation: () => mocks.conversation }));
-vi.mock("../../../../app/hooks/ai/use-chat-attachments", () => ({ useChatAttachments: () => ({
-    attachments: [], readyImages: [], uploading: false, clearAttachments: vi.fn(), addImages: vi.fn(), removeAttachment: vi.fn(),
-}) }));
+vi.mock("../../../../app/hooks/ai/use-assistant-conversation", () => ({
+    useAssistantConversation: () => mocks.conversation,
+}));
+vi.mock("../../../../app/hooks/ai/use-chat-attachments", () => ({
+    useChatAttachments: () => ({
+        attachments: [],
+        readyImages: [],
+        uploading: false,
+        clearAttachments: vi.fn(),
+        addImages: vi.fn(),
+        removeAttachment: vi.fn(),
+    }),
+}));
 vi.mock("../../../../app/hooks/ai/use-ai-usage", () => ({ useAiUsage: () => ({ data: undefined }) }));
-vi.mock("../../../../app/hooks/ai/use-memory", () => ({ useMemoryPage: () => ({ data: mocks.memory }), useSetMemoryMode: () => ({ mutate: vi.fn(), isPending: false }) }));
+vi.mock("../../../../app/hooks/ai/use-memory", () => ({
+    useMemoryPage: () => ({ data: mocks.memory }),
+    useSetMemoryMode: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 vi.mock("../../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ session: null }) }));
 vi.mock("../../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: undefined }) }));
 vi.mock("../../../../app/hooks/core/use-online-status", () => ({ useOnlineStatus: () => true }));
 vi.mock("../../../../app/hooks/ui/use-shell-mode", () => ({ useShellMode: () => ({ isTouch: false }) }));
 vi.mock("../../../../app/hooks/ai/use-step-out-of-assistant", () => ({ useStepOutOfAssistant: () => vi.fn() }));
-vi.mock("../../../../app/hooks/ui/use-utility-navigation", () => ({ useUtilityNavigation: () => ({ openSettings: vi.fn() }) }));
+vi.mock("../../../../app/hooks/ui/use-utility-navigation", () => ({
+    useUtilityNavigation: () => ({ openSettings: vi.fn() }),
+}));
 vi.mock("../../../../app/components/assistant/MemoryPicker", () => ({ MemoryPicker: () => null }));
 
 beforeEach(() => {
     vi.clearAllMocks();
     mocks.memory.mode = "basic";
     mocks.conversation.submitText.mockReturnValue(true);
-    useAssistantStore.setState({ assistantPanelOpen: true, activeConversationId: "conv-1",
-        historyOpen: false, memoryOpen: false, pendingMessage: null });
+    useAssistantStore.setState({
+        assistantPanelOpen: true,
+        activeConversationId: "conv-1",
+        historyOpen: false,
+        memoryOpen: false,
+        pendingMessage: null,
+    });
     Object.defineProperty(HTMLDivElement.prototype, "scrollTo", { configurable: true, value: vi.fn() });
 });
 
-const panel = () => <Tooltip.Provider><AssistantSidePanel width={360} isMobile /></Tooltip.Provider>;
+const panel = () => (
+    <Tooltip.Provider>
+        <AssistantSidePanel width={360} isMobile />
+    </Tooltip.Provider>
+);
 
 describe("assistant panel composition", () => {
     it("clears the shared draft after either a starter or composer send, retaining rejected drafts", () => {

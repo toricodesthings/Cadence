@@ -43,10 +43,14 @@ export function deviceStatus(f: DeviceFacts): DeviceStatus {
  * cost a reminder on a second computer, and a missed reminder is worse than a repeated one.
  * The app is the one to drop: a browser's push covers closed Cadence too.
  */
-export function duplicateRisk(devices: Device[], thisInstallId: string, status: DeviceStatus):
-    { kind: "app-also" | "browser-also"; device: Device } | null {
+export function duplicateRisk(
+    devices: Device[],
+    thisInstallId: string,
+    status: DeviceStatus,
+): { kind: "app-also" | "browser-also"; device: Device } | null {
     if (status !== "connected" && status !== "local") return null;
-    const other = (kind: DeviceKind) => devices.find((device) => device.kind === kind && device.enabled && device.installId !== thisInstallId);
+    const other = (kind: DeviceKind) =>
+        devices.find((device) => device.kind === kind && device.enabled && device.installId !== thisInstallId);
     const here = devices.find((device) => device.installId === thisInstallId);
     if (!here?.enabled) return null;
     if (here.kind === "computer" && here.push) {
@@ -54,7 +58,10 @@ export function duplicateRisk(devices: Device[], thisInstallId: string, status: 
         return app ? { kind: "app-also", device: app } : null;
     }
     if (here.kind === "desktop-app") {
-        const browser = devices.find((device) => device.kind === "computer" && device.push && device.enabled && device.installId !== thisInstallId);
+        const browser = devices.find(
+            (device) =>
+                device.kind === "computer" && device.push && device.enabled && device.installId !== thisInstallId,
+        );
         return browser ? { kind: "browser-also", device: browser } : null;
     }
     return null;
@@ -64,7 +71,11 @@ const INSTALL_KEY = "cadence_install_id";
 const ENABLED_KEY = "cadence_device_enabled";
 
 function storage<T>(fn: (s: Storage) => T, fallback: T): T {
-    try { return fn(window.localStorage); } catch { return fallback; }
+    try {
+        return fn(window.localStorage);
+    } catch {
+        return fallback;
+    }
 }
 
 /**
@@ -83,13 +94,17 @@ export function installId(): string {
  * Last known answer for "are reminders on here", so a cold start with no network still alerts
  * (a missed reminder is worse than one the person meant to silence). The server row is the truth.
  */
-export const readLocalEnabled = () => typeof window !== "undefined" && storage((s) => s.getItem(ENABLED_KEY) !== "0", true);
-export const writeLocalEnabled = (enabled: boolean) => storage((s) => s.setItem(ENABLED_KEY, enabled ? "1" : "0"), undefined);
+export const readLocalEnabled = () =>
+    typeof window !== "undefined" && storage((s) => s.getItem(ENABLED_KEY) !== "0", true);
+export const writeLocalEnabled = (enabled: boolean) =>
+    storage((s) => s.setItem(ENABLED_KEY, enabled ? "1" : "0"), undefined);
 
 export const isBrave = () => typeof navigator !== "undefined" && "brave" in navigator;
 
-const isIosDevice = () => typeof navigator !== "undefined"
-    && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+const isIosDevice = () =>
+    typeof navigator !== "undefined" &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
 
 /** iPhone/iPad outside the installed Home Screen app: no push, no Notification API. */
 export const isIosTab = () => isIosDevice() && !isInstalledApp();
@@ -98,7 +113,8 @@ export const hasNotificationApi = () => typeof window !== "undefined" && "Notifi
 export const canPush = () => hasNotificationApi() && "serviceWorker" in navigator && "PushManager" in window;
 
 /** Windows only: the one platform slice 4's background delivery was built and can be verified on. */
-export const isWindowsDesktop = () => IS_DESKTOP_RUNTIME && typeof navigator !== "undefined" && /Windows/.test(navigator.userAgent);
+export const isWindowsDesktop = () =>
+    IS_DESKTOP_RUNTIME && typeof navigator !== "undefined" && /Windows/.test(navigator.userAgent);
 
 function osName(): string {
     const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
@@ -131,7 +147,10 @@ export function describeDevice(): { kind: DeviceKind; label: string } {
 }
 
 const bytesOf = (text: string) => {
-    const padded = text.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(text.length / 4) * 4, "=");
+    const padded = text
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")
+        .padEnd(Math.ceil(text.length / 4) * 4, "=");
     return Uint8Array.from(atob(padded), (ch) => ch.charCodeAt(0));
 };
 
@@ -160,7 +179,9 @@ async function subscribeHere(client: ApiClient): Promise<PushSubscription | "una
     if (!registration) return "unavailable";
     const key = bytesOf(publicKey);
     let subscription = await registration.pushManager.getSubscription();
-    const sameKey = subscription?.options.applicationServerKey && new Uint8Array(subscription.options.applicationServerKey).join() === key.join();
+    const sameKey =
+        subscription?.options.applicationServerKey &&
+        new Uint8Array(subscription.options.applicationServerKey).join() === key.join();
     if (subscription && !sameKey) {
         await subscription.unsubscribe();
         subscription = null;
@@ -173,7 +194,9 @@ async function subscribeHere(client: ApiClient): Promise<PushSubscription | "una
     }
 }
 
-export type RegisterResult = { devices: Device[]; push: "connected" | "unavailable" | "blocked" } | { devices: null; push: "failed" };
+export type RegisterResult =
+    | { devices: Device[]; push: "connected" | "unavailable" | "blocked" }
+    | { devices: null; push: "failed" };
 
 /**
  * Registers this device and marks it seen, with a push subscription when the browser gives one.
@@ -182,15 +205,20 @@ export type RegisterResult = { devices: Device[]; push: "connected" | "unavailab
  */
 export async function registerThisDevice(client: ApiClient): Promise<RegisterResult> {
     try {
-        const subscription = IS_DESKTOP_RUNTIME ? "unavailable" as const : await subscribeHere(client);
-        const json = typeof subscription === "string"
-            ? { ...describeDevice(), installId: installId(), subscription: null }
-            : (() => {
-                const { endpoint, keys } = subscription.toJSON();
-                return endpoint && keys?.p256dh && keys.auth
-                    ? { ...describeDevice(), installId: installId(), subscription: { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } } }
-                    : null;
-            })();
+        const subscription = IS_DESKTOP_RUNTIME ? ("unavailable" as const) : await subscribeHere(client);
+        const json =
+            typeof subscription === "string"
+                ? { ...describeDevice(), installId: installId(), subscription: null }
+                : (() => {
+                      const { endpoint, keys } = subscription.toJSON();
+                      return endpoint && keys?.p256dh && keys.auth
+                          ? {
+                                ...describeDevice(),
+                                installId: installId(),
+                                subscription: { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } },
+                            }
+                          : null;
+                  })();
         if (!json) return { devices: null, push: "failed" };
         const devices = await unwrapResponse(await client.api.push.devices.$put({ json }));
         return { devices, push: typeof subscription === "string" ? subscription : "connected" };

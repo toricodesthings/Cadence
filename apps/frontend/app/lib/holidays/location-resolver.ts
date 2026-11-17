@@ -242,10 +242,7 @@ export function getCountryLabel(countryCode: string | null | undefined, locale: 
     }
 }
 
-export function findSubdivisionCode(
-    subdivisions: HolidaySubdivisionOption[],
-    hint: RegionHint | null,
-) {
+export function findSubdivisionCode(subdivisions: HolidaySubdivisionOption[], hint: RegionHint | null) {
     const code = hint?.subdivisionCode?.trim().toUpperCase();
     if (code && subdivisions.some((subdivision) => subdivision.code.toUpperCase() === code)) {
         return subdivisions.find((subdivision) => subdivision.code.toUpperCase() === code)!.code;
@@ -257,10 +254,7 @@ export function findSubdivisionCode(
     if (!target) return null;
 
     for (const subdivision of subdivisions) {
-        const candidates = new Set<string>([
-            normalizeText(subdivision.code),
-            normalizeText(subdivision.label),
-        ]);
+        const candidates = new Set<string>([normalizeText(subdivision.code), normalizeText(subdivision.label)]);
 
         for (const alias of SUBDIVISION_ALIASES[subdivision.code] ?? []) {
             candidates.add(normalizeText(alias));

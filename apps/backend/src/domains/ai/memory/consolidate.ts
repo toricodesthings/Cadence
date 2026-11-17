@@ -47,7 +47,10 @@ export async function consolidate(env: Env, userHash: string, items: Consolidati
         return key;
     };
     const prompt = withNear
-        .map(({ item }, n) => `NEW ${n + 1}: ${item.content}\nKNOWN for it:\n${item.near.map((k) => `  ${keyOf(k.id)}: ${k.content}`).join("\n")}`)
+        .map(
+            ({ item }, n) =>
+                `NEW ${n + 1}: ${item.content}\nKNOWN for it:\n${item.near.map((k) => `  ${keyOf(k.id)}: ${k.content}`).join("\n")}`,
+        )
         .join("\n\n");
 
     try {

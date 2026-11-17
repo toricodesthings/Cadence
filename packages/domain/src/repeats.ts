@@ -1,7 +1,16 @@
 // Repeating things come in three kinds (Fixed · Routine · Task). These helpers
 // hold the rules shared by every client.
 import { RRule } from "rrule";
-import { addDays, dayOf, daysBetween, expandSeries, parseRecurrenceRule, weekdayOf, type LocalDate, type Zone } from "./time";
+import {
+    addDays,
+    dayOf,
+    daysBetween,
+    expandSeries,
+    parseRecurrenceRule,
+    weekdayOf,
+    type LocalDate,
+    type Zone,
+} from "./time";
 
 const RRULE_DAY_KEYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
 
@@ -55,9 +64,19 @@ function habitStart(recurrenceRule: string, createdAt: string, from: LocalDate, 
  * The days a routine is due between two days, inclusive (see {@link habitStart}).
  * Throws on an invalid rule.
  */
-export function habitOccurrences(recurrenceRule: string, createdAt: string, from: LocalDate, to: LocalDate, zone: Zone): LocalDate[] {
-    return expandSeries({ rule: recurrenceRule, start: { day: habitStart(recurrenceRule, createdAt, from, zone) }, zone, range: { from, to } })
-        .map((occurrence) => occurrence.day);
+export function habitOccurrences(
+    recurrenceRule: string,
+    createdAt: string,
+    from: LocalDate,
+    to: LocalDate,
+    zone: Zone,
+): LocalDate[] {
+    return expandSeries({
+        rule: recurrenceRule,
+        start: { day: habitStart(recurrenceRule, createdAt, from, zone) },
+        zone,
+        range: { from, to },
+    }).map((occurrence) => occurrence.day);
 }
 
 type StepMark = "COMPLETED" | "SKIPPED";
@@ -71,7 +90,10 @@ export function stepDayStatus(
     stepIds: readonly string[],
     marks: Readonly<Record<string, StepMark>>,
 ): { status: StepMark | "PENDING"; stepStatus: Record<string, StepMark> | null } {
-    const kept = Object.fromEntries(stepIds.flatMap((id) => (marks[id] ? [[id, marks[id]]] : []))) as Record<string, StepMark>;
+    const kept = Object.fromEntries(stepIds.flatMap((id) => (marks[id] ? [[id, marks[id]]] : []))) as Record<
+        string,
+        StepMark
+    >;
     const settled = Object.values(kept);
     if (!settled.length) return { status: "PENDING", stepStatus: null };
     if (settled.length < stepIds.length) return { status: "PENDING", stepStatus: kept };
@@ -87,19 +109,27 @@ export function stepMarksOn(
     log: { status: string; stepStatus?: Readonly<Record<string, StepMark>> | null } | undefined,
 ): Record<string, StepMark> {
     if (log?.stepStatus) return stepDayStatus(stepIds, log.stepStatus).stepStatus ?? {};
-    if (log?.status === "COMPLETED" || log?.status === "SKIPPED") return Object.fromEntries(stepIds.map((id) => [id, log.status as StepMark]));
+    if (log?.status === "COMPLETED" || log?.status === "SKIPPED")
+        return Object.fromEntries(stepIds.map((id) => [id, log.status as StepMark]));
     return {};
 }
 
 /** A routine at set times: one mark per "HH:MM". `at` is when it happened; null on a day logged whole. */
-export interface TimeMarkOn { status: StepMark; at: string | null }
+export interface TimeMarkOn {
+    status: StepMark;
+    at: string | null;
+}
 
 /**
  * A routine's times on a day: its set times when it has them (they replace the
  * usual time and weekday overrides), otherwise its one time, otherwise none.
  */
 export function routineTimesOn(
-    routine: { targetTime: string | null; targetTimes?: Record<string, string> | null; times?: readonly string[] | null },
+    routine: {
+        targetTime: string | null;
+        targetTimes?: Record<string, string> | null;
+        times?: readonly string[] | null;
+    },
     date: string,
 ): string[] {
     if (routine.times?.length) return [...routine.times].sort();
@@ -116,8 +146,12 @@ export function timeMarksOn(
     times: readonly string[],
     log: { status: string; timeMarks?: Readonly<Record<string, TimeMarkOn>> | null } | undefined,
 ): Record<string, TimeMarkOn> {
-    if (log?.timeMarks) return Object.fromEntries(times.flatMap((time) => (log.timeMarks![time] ? [[time, log.timeMarks![time]]] : [])));
-    if (log?.status === "COMPLETED" || log?.status === "SKIPPED") return Object.fromEntries(times.map((time) => [time, { status: log.status as StepMark, at: null }]));
+    if (log?.timeMarks)
+        return Object.fromEntries(
+            times.flatMap((time) => (log.timeMarks![time] ? [[time, log.timeMarks![time]]] : [])),
+        );
+    if (log?.status === "COMPLETED" || log?.status === "SKIPPED")
+        return Object.fromEntries(times.map((time) => [time, { status: log.status as StepMark, at: null }]));
     return {};
 }
 
@@ -126,7 +160,10 @@ export function timeMarksOn(
  * left open but some skipped → SKIPPED (closed, never claimed as done). Any
  * time still open → PENDING. A miss never carries forward: the next day starts fresh.
  */
-export function timeDayStatus(times: readonly string[], marks: Readonly<Record<string, TimeMarkOn>>): StepMark | "PENDING" {
+export function timeDayStatus(
+    times: readonly string[],
+    marks: Readonly<Record<string, TimeMarkOn>>,
+): StepMark | "PENDING" {
     const settled = times.filter((time) => marks[time]);
     if (!times.length || settled.length < times.length) return "PENDING";
     return settled.every((time) => marks[time].status === "COMPLETED") ? "COMPLETED" : "SKIPPED";
@@ -146,7 +183,8 @@ export function applyTimeMark(
     if (change.time) {
         Object.assign(marks, timeMarksOn(times, log));
         if (change.status === "PENDING") delete marks[change.time];
-        else if (marks[change.time]?.status !== change.status) marks[change.time] = { status: change.status, at: change.at }; // a repeat keeps when it happened
+        else if (marks[change.time]?.status !== change.status)
+            marks[change.time] = { status: change.status, at: change.at }; // a repeat keeps when it happened
     }
     return { status: timeDayStatus(times, marks), timeMarks: Object.keys(marks).length ? marks : null };
 }
@@ -163,7 +201,11 @@ export function timeProgress(times: readonly string[], marks: Readonly<Record<st
  * else the latest open one (everything left is late). Earlier open times stay
  * reachable in the checklist. Null once nothing is open.
  */
-export function nextOpenTime(times: readonly string[], marks: Readonly<Record<string, TimeMarkOn>>, now: string): string | null {
+export function nextOpenTime(
+    times: readonly string[],
+    marks: Readonly<Record<string, TimeMarkOn>>,
+    now: string,
+): string | null {
     const open = [...times].sort().filter((time) => !marks[time]);
     return open.find((time) => time >= now) ?? open.at(-1) ?? null;
 }
@@ -176,7 +218,11 @@ export const LIKELY_TIME_MINUTES = 90;
  * ("HH:MM") when it's within {@link LIKELY_TIME_MINUTES} (08:00 at 8:45); on
  * another day (`now` null) the only one left open. Null when it isn't clear: ask.
  */
-export function likelyOpenTime(times: readonly string[], marks: Readonly<Record<string, TimeMarkOn>>, now: string | null): string | null {
+export function likelyOpenTime(
+    times: readonly string[],
+    marks: Readonly<Record<string, TimeMarkOn>>,
+    now: string | null,
+): string | null {
     const open = times.filter((time) => !marks[time]);
     if (now === null) return open.length === 1 ? open[0] : null;
     const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
@@ -186,7 +232,8 @@ export function likelyOpenTime(times: readonly string[], marks: Readonly<Record<
 }
 
 // ponytail: keyword list, not a classifier. The user can switch kinds in one tap.
-const FIXED_WORDS = /\b(class|lecture|lab|seminar|tutorial|lesson|course|school|shift|stand-?up|meeting|appointment|therapy)\b/i;
+const FIXED_WORDS =
+    /\b(class|lecture|lab|seminar|tutorial|lesson|course|school|shift|stand-?up|meeting|appointment|therapy)\b/i;
 
 /**
  * Default "each time" behaviour for a new task. A timed series with an end

@@ -8,7 +8,10 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { jwtVerifyMock, redisMock } = vi.hoisted(() => ({ jwtVerifyMock: vi.fn(), redisMock: { current: null as unknown } }));
+const { jwtVerifyMock, redisMock } = vi.hoisted(() => ({
+    jwtVerifyMock: vi.fn(),
+    redisMock: { current: null as unknown },
+}));
 
 vi.mock("../../src/platform/redis", () => ({ getRedis: () => null, getRateLimitRedis: () => redisMock.current }));
 
@@ -86,25 +89,33 @@ describe("authentication", () => {
         const response = await send(authedRequest(USAGE));
 
         expect(response.status).toBe(status);
-        expect((await response.json() as any).error.code).toBe(code);
+        expect(((await response.json()) as any).error.code).toBe(code);
     });
 
     it.each([
-        { name: "a key-set HTTP failure", error: Object.assign(new Error("Expected 200 OK from the JSON Web Key Set HTTP response"), { code: "ERR_JOSE_GENERIC" }) },
-        { name: "a key-set timeout", error: Object.assign(new Error("request timed out"), { code: "ERR_JWKS_TIMEOUT" }) },
+        {
+            name: "a key-set HTTP failure",
+            error: Object.assign(new Error("Expected 200 OK from the JSON Web Key Set HTTP response"), {
+                code: "ERR_JOSE_GENERIC",
+            }),
+        },
+        {
+            name: "a key-set timeout",
+            error: Object.assign(new Error("request timed out"), { code: "ERR_JWKS_TIMEOUT" }),
+        },
     ])("treats $name as the provider being down (503), not a bad token", async ({ error }) => {
         jwtVerifyMock.mockRejectedValue(error);
 
         const response = await send(authedRequest(USAGE));
 
         expect(response.status).toBe(503);
-        expect((await response.json() as any).error.code).toBe("AUTH_PROVIDER_UNAVAILABLE");
+        expect(((await response.json()) as any).error.code).toBe("AUTH_PROVIDER_UNAVAILABLE");
     });
 
     it("marks an unreachable auth provider as retryable", async () => {
         jwtVerifyMock.mockRejectedValue(new Error("fetch failed: network error"));
 
-        const body = await (await send(authedRequest(USAGE))).json() as any;
+        const body = (await (await send(authedRequest(USAGE))).json()) as any;
 
         expect(body.error.isRetryable).toBe(true);
     });
@@ -123,7 +134,7 @@ describe("authentication", () => {
         const response = await send(authedRequest(USAGE), { DEPLOYMENT_STAGE: stage, [missing]: undefined });
 
         expect(response.status).toBe(status);
-        if (status === 500) expect((await response.json() as any).error.code).toBe("AUTH_MISCONFIGURED");
+        if (status === 500) expect(((await response.json()) as any).error.code).toBe("AUTH_MISCONFIGURED");
     });
 
     it("fails with 500 when NEON_AUTH_JWKS_URL is not configured", async () => {
@@ -160,7 +171,7 @@ describe("every route family requires auth", () => {
         const response = await send(new Request(`http://localhost${path}`, { method }));
 
         expect(response.status).toBe(401);
-        const { error } = await response.json() as any;
+        const { error } = (await response.json()) as any;
         expect(error).toMatchObject({ code: "UNAUTHORIZED", status: 401, isRetryable: false });
         expect(error.message).toEqual(expect.any(String));
         expect(error.requestId).toMatch(UUID);
@@ -207,7 +218,7 @@ describe("rate limiting", () => {
         const response = await send(authedRequest(USAGE), { RATE_LIMITER_READ: limiter(false) });
 
         expect(response.status).toBe(429);
-        expect((await response.json() as any).error.code).toBe("TOO_MANY_REQUESTS");
+        expect(((await response.json()) as any).error.code).toBe("TOO_MANY_REQUESTS");
         expect(jwtVerifyMock).toHaveBeenCalledTimes(1);
     });
 
@@ -224,7 +235,7 @@ describe("rate limiting", () => {
         const response = await send(request, { RATE_LIMITER_WRITE: limiter(false) });
 
         expect(response.status).toBe(429);
-        expect((await response.json() as any).error.code).toBe("TOO_MANY_REQUESTS");
+        expect(((await response.json()) as any).error.code).toBe("TOO_MANY_REQUESTS");
     });
 });
 
@@ -237,7 +248,11 @@ describe("token checks", () => {
     it("refuses a write from a just-deleted account instead of recreating it", async () => {
         jwtVerifyMock.mockResolvedValue({ payload: { sub: "deleted-user" } });
         redisMock.current = { get: vi.fn(async () => "1") };
-        const request = authedRequest("/api/v1/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "x" }) });
+        const request = authedRequest("/api/v1/projects", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: "x" }),
+        });
 
         const response = await send(request);
         redisMock.current = null;
@@ -274,7 +289,9 @@ describe("request handling", () => {
     });
 
     it("issues its own request id and ignores a client-supplied one", async () => {
-        const response = await send(new Request("http://localhost/health", { headers: { "x-request-id": "attacker-id" } }));
+        const response = await send(
+            new Request("http://localhost/health", { headers: { "x-request-id": "attacker-id" } }),
+        );
 
         expect(response.headers.get("x-request-id")).toMatch(UUID);
     });
@@ -289,7 +306,12 @@ describe("request handling", () => {
 
 describe("CORS", () => {
     it.each([
-        { stage: "development", origin: "http://localhost:8788", allowed: undefined, expected: "http://localhost:8788" },
+        {
+            stage: "development",
+            origin: "http://localhost:8788",
+            allowed: undefined,
+            expected: "http://localhost:8788",
+        },
         { stage: "development", origin: "https://evil.example.com", allowed: undefined, expected: DASHBOARD_ORIGIN },
         { stage: "production", origin: "http://localhost:8788", allowed: undefined, expected: DASHBOARD_ORIGIN },
         { stage: "production", origin: "https://evil.example.com", allowed: undefined, expected: DASHBOARD_ORIGIN },
@@ -309,9 +331,13 @@ describe("CORS", () => {
     });
 
     it("exposes Retry-After so the client can wait out a 429", async () => {
-        const response = await send(new Request("http://localhost/health", { headers: { Origin: "http://localhost:8788" } }));
+        const response = await send(
+            new Request("http://localhost/health", { headers: { Origin: "http://localhost:8788" } }),
+        );
 
-        expect(response.headers.get("access-control-expose-headers")?.split(",")).toEqual(expect.arrayContaining(["Retry-After", "Server-Timing"]));
+        expect(response.headers.get("access-control-expose-headers")?.split(",")).toEqual(
+            expect.arrayContaining(["Retry-After", "Server-Timing"]),
+        );
         expect(response.headers.get("Server-Timing")).toMatch(/^app;dur=\d+$/);
     });
 

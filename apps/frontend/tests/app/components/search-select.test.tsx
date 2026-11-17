@@ -10,7 +10,16 @@ const options = [
 const pinned = [{ value: "__none__", label: "Use my time zone" }];
 
 const setup = (value = "CA", onValueChange = vi.fn()) => {
-    render(<SearchSelect value={value} onValueChange={onValueChange} options={options} pinned={pinned} ariaLabel="Country" searchLabel="Search countries" />);
+    render(
+        <SearchSelect
+            value={value}
+            onValueChange={onValueChange}
+            options={options}
+            pinned={pinned}
+            ariaLabel="Country"
+            searchLabel="Search countries"
+        />,
+    );
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Country" }), { key: "Enter" });
     return onValueChange;
 };
@@ -25,7 +34,12 @@ describe("SearchSelect", () => {
 
     it("lists the pinned option first, then everything", () => {
         setup();
-        expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Use my time zone", "Canada", "Türkiye", "Japan"]);
+        expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+            "Use my time zone",
+            "Canada",
+            "Türkiye",
+            "Japan",
+        ]);
     });
 
     it("narrows as you type, ignoring accents, and keeps the chosen one", () => {

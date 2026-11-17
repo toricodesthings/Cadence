@@ -81,13 +81,27 @@ export class FakeRedis {
         const [kr5, kr7, kt5, kt7, kinf, kimg] = keys;
         const n = (v: string | number) => Number(v);
         const reserve = n(argv[0]);
-        const lr5 = n(argv[1]), lt5 = n(argv[2]), lr7 = n(argv[3]), lt7 = n(argv[4]), lc = n(argv[5]);
-        const w5 = n(argv[6]), w7 = n(argv[7]), infttl = n(argv[8]);
-        const imgs = n(argv[9]), li = n(argv[10]), w24 = n(argv[11]);
+        const lr5 = n(argv[1]),
+            lt5 = n(argv[2]),
+            lr7 = n(argv[3]),
+            lt7 = n(argv[4]),
+            lc = n(argv[5]);
+        const w5 = n(argv[6]),
+            w7 = n(argv[7]),
+            infttl = n(argv[8]);
+        const imgs = n(argv[9]),
+            li = n(argv[10]),
+            w24 = n(argv[11]);
         const cur = (k: string) => Number(this.strings.get(k) ?? "0");
-        const r5 = cur(kr5), r7 = cur(kr7), t5 = cur(kt5), t7 = cur(kt7), inf = cur(kinf);
+        const r5 = cur(kr5),
+            r7 = cur(kr7),
+            t5 = cur(kt5),
+            t7 = cur(kt7),
+            inf = cur(kinf);
         let i = cur(kimg);
-        let p5 = this._pttl(kr5), p7 = this._pttl(kr7), pi = this._pttl(kimg);
+        let p5 = this._pttl(kr5),
+            p7 = this._pttl(kr7),
+            pi = this._pttl(kimg);
         const used = [r5, t5, r7, t7, p5, p7, i, pi];
         if (inf + 1 > lc) return [0, "concurrency", "5h", ...used];
         if (r5 + 1 > lr5) return [0, "req", "5h", ...used];
@@ -95,17 +109,24 @@ export class FakeRedis {
         if (r7 + 1 > lr7) return [0, "req", "7d", ...used];
         if (t7 + reserve > lt7) return [0, "tok", "7d", ...used];
         if (imgs > 0 && i + imgs > li) return [0, "img", "24h", ...used];
-        this._incrby(kr5, 1); this._expire(kr5, w5, "NX");
-        this._incrby(kr7, 1); this._expire(kr7, w7, "NX");
-        this._incrby(kt5, reserve); this._expire(kt5, w5, "NX");
-        this._incrby(kt7, reserve); this._expire(kt7, w7, "NX");
-        this._incrby(kinf, 1); this._expire(kinf, infttl);
+        this._incrby(kr5, 1);
+        this._expire(kr5, w5, "NX");
+        this._incrby(kr7, 1);
+        this._expire(kr7, w7, "NX");
+        this._incrby(kt5, reserve);
+        this._expire(kt5, w5, "NX");
+        this._incrby(kt7, reserve);
+        this._expire(kt7, w7, "NX");
+        this._incrby(kinf, 1);
+        this._expire(kinf, infttl);
         if (imgs > 0) {
-            this._incrby(kimg, imgs); this._expire(kimg, w24, "NX");
+            this._incrby(kimg, imgs);
+            this._expire(kimg, w24, "NX");
             i += imgs;
             pi = this._pttl(kimg);
         }
-        p5 = this._pttl(kr5); p7 = this._pttl(kr7);
+        p5 = this._pttl(kr5);
+        p7 = this._pttl(kr7);
         return [1, "", "", r5 + 1, t5 + reserve, r7 + 1, t7 + reserve, p5, p7, i, pi];
     }
     private _evalSettle(keys: string[], argv: Array<string | number>): number {

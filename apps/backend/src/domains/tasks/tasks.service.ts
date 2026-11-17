@@ -5,8 +5,24 @@
  */
 import { and, asc, eq, inArray, isNull, ne, notInArray, sql, type SQL } from "drizzle-orm";
 import { tracing } from "cloudflare:workers";
-import type { BatchReschedule, EffortLevel, InsertTask, PlaceTaskItem, Task, TaskPriority, TaskRow, TaskState, UpdateTask } from "@cadence/contracts/task";
-import { hasTaskTemporalMutation, normalizeHiddenUntil, normalizeTaskTemporalFields, rescheduleToDay, type TaskTemporalFields } from "@cadence/domain/task-temporal";
+import type {
+    BatchReschedule,
+    EffortLevel,
+    InsertTask,
+    PlaceTaskItem,
+    Task,
+    TaskPriority,
+    TaskRow,
+    TaskState,
+    UpdateTask,
+} from "@cadence/contracts/task";
+import {
+    hasTaskTemporalMutation,
+    normalizeHiddenUntil,
+    normalizeTaskTemporalFields,
+    rescheduleToDay,
+    type TaskTemporalFields,
+} from "@cadence/domain/task-temporal";
 import { addDays, daysBetween, type Zone } from "@cadence/domain/time";
 import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { suggestInteractionMode } from "@cadence/domain/repeats";
@@ -55,20 +71,46 @@ export function effortProvenance(effort: number | null | undefined, origin: "man
  * Effort guess columns after a write: a chosen Effort, or a new title or list, makes the guess stale and clears it
  * (and a "no thanks" with it); a "no thanks" in the same write is kept.
  */
-export function guessAfterWrite(patch: { effort?: unknown; title?: unknown; projectId?: unknown; effortGuessSource?: "dismissed" }) {
-    if (patch.effortGuessSource) return { effortGuess: null, effortGuessSource: patch.effortGuessSource, effortGuessAt: null };
-    if (patch.title !== undefined || patch.projectId !== undefined) return { effortGuess: null, effortGuessSource: null, effortGuessAt: null };
+export function guessAfterWrite(patch: {
+    effort?: unknown;
+    title?: unknown;
+    projectId?: unknown;
+    effortGuessSource?: "dismissed";
+}) {
+    if (patch.effortGuessSource)
+        return { effortGuess: null, effortGuessSource: patch.effortGuessSource, effortGuessAt: null };
+    if (patch.title !== undefined || patch.projectId !== undefined)
+        return { effortGuess: null, effortGuessSource: null, effortGuessAt: null };
     // A chosen Effort ends the guess but keeps a "no thanks", so clearing the Effort later doesn't bring it back.
     if (patch.effort !== undefined && patch.effort !== null) {
-        return { effortGuess: null, effortGuessSource: sql<"dismissed" | null>`nullif(${tasks.effortGuessSource}, 'model')`, effortGuessAt: null };
+        return {
+            effortGuess: null,
+            effortGuessSource: sql<"dismissed" | null>`nullif(${tasks.effortGuessSource}, 'model')`,
+            effortGuessAt: null,
+        };
     }
     return {};
 }
 
 /** A task as the assistant drafts it: plain fields, plus checklist steps and a note. */
-export type TaskDraft = Partial<Pick<InsertTask,
-    "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "projectId" | "sectionId" |
-    "priority" | "effort" | "recurrenceRule" | "tagIds" | "reminderAt" | "notBefore">> & {
+export type TaskDraft = Partial<
+    Pick<
+        InsertTask,
+        | "dueDate"
+        | "endDate"
+        | "scheduledStart"
+        | "scheduledEnd"
+        | "durationEstimate"
+        | "projectId"
+        | "sectionId"
+        | "priority"
+        | "effort"
+        | "recurrenceRule"
+        | "tagIds"
+        | "reminderAt"
+        | "notBefore"
+    >
+> & {
     title: string;
     subtasks?: string[];
     /** A class or shift that just passes (Fixed). */
@@ -112,15 +154,30 @@ export function trackTaskChanges(
     const { created = [], rescheduled = [], completed = [], from } = changes;
     if (byPerson) {
         const activity: PersonActivity[] = [
-            ...rescheduled.flatMap((task) => (from?.get(task.id) ? [{ kind: "reschedule" as const, taskId: task.id, from: from.get(task.id)! }] : [])),
+            ...rescheduled.flatMap((task) =>
+                from?.get(task.id) ? [{ kind: "reschedule" as const, taskId: task.id, from: from.get(task.id)! }] : [],
+            ),
             ...completed.map(() => ({ kind: "complete" as const })),
         ];
         if (activity.length) waitUntil(recordPersonActivity(byPerson.env, userId, activity));
     }
     if (rescheduled.length) {
-        waitUntil(tracing.enterSpan("tasks.metrics.reschedule", () => trackReschedules(db, userId, rescheduled.map((task) => ({ taskId: task.id, scheduledStart: task.scheduledStart, dueDate: task.dueDate })))));
+        waitUntil(
+            tracing.enterSpan("tasks.metrics.reschedule", () =>
+                trackReschedules(
+                    db,
+                    userId,
+                    rescheduled.map((task) => ({
+                        taskId: task.id,
+                        scheduledStart: task.scheduledStart,
+                        dueDate: task.dueDate,
+                    })),
+                ),
+            ),
+        );
     }
-    if (completed.length) waitUntil(tracing.enterSpan("tasks.metrics.completion", () => trackBatchCompletion(db, completed, userId)));
+    if (completed.length)
+        waitUntil(tracing.enterSpan("tasks.metrics.completion", () => trackBatchCompletion(db, completed, userId)));
     const events = [
         ...created.map((taskId) => ({ event: "task.create", metadata: { taskId } })),
         ...rescheduled.map((task) => ({ event: "task.reschedule", metadata: { taskId: task.id } })),
@@ -135,20 +192,41 @@ export function trackTaskChanges(
  * A task row as the API sends it. Writes only accept priority 0–4 and effort 1–3
  * (the contract validates them), so the columns narrow to their literal unions.
  */
-export function toTask(row: TaskRow & Pick<Task, "seriesId" | "isRecurringInstance" | "occurrenceStart" | "occurrenceEnd">, tagIds: string[]): Task {
-    return { ...row, priority: row.priority as TaskPriority, effort: row.effort as EffortLevel | null,
-        effortGuess: row.effortGuess as EffortLevel | null, effortGuessSource: row.effortGuessSource as Task["effortGuessSource"], tagIds };
+export function toTask(
+    row: TaskRow & Pick<Task, "seriesId" | "isRecurringInstance" | "occurrenceStart" | "occurrenceEnd">,
+    tagIds: string[],
+): Task {
+    return {
+        ...row,
+        priority: row.priority as TaskPriority,
+        effort: row.effort as EffortLevel | null,
+        effortGuess: row.effortGuess as EffortLevel | null,
+        effortGuessSource: row.effortGuessSource as Task["effortGuessSource"],
+        tagIds,
+    };
 }
 
 /** `toTask` for rows fresh from a write: loads their tag ids in one query. */
 export async function withTagIds(tx: Tx, rows: TaskRow[]): Promise<Task[]> {
     const links = rows.length
-        ? await tracing.enterSpan("tasks.tags.read", () => tx
-              .select({ taskId: taskTags.taskId, tagId: taskTags.tagId })
-              .from(taskTags)
-              .where(inArray(taskTags.taskId, rows.map((row) => row.id))))
+        ? await tracing.enterSpan("tasks.tags.read", () =>
+              tx
+                  .select({ taskId: taskTags.taskId, tagId: taskTags.tagId })
+                  .from(taskTags)
+                  .where(
+                      inArray(
+                          taskTags.taskId,
+                          rows.map((row) => row.id),
+                      ),
+                  ),
+          )
         : [];
-    return rows.map((row) => toTask(row, links.filter((link) => link.taskId === row.id).map((link) => link.tagId)));
+    return rows.map((row) =>
+        toTask(
+            row,
+            links.filter((link) => link.taskId === row.id).map((link) => link.tagId),
+        ),
+    );
 }
 
 // ── Create ────────────────────────────────────────────────────────────
@@ -160,15 +238,17 @@ export async function createTask(tx: Tx, userId: string, values: NewTask, tagIds
     await assertRowRoom(tx, userId, "tasks");
     await assertStorageRoom(tx, userId, [values.content]);
 
-    const [row] = await insertWithClientId(() => tx
-        .insert(tasks)
-        .values({
-            ...values,
-            interactionMode: values.interactionMode ?? suggestInteractionMode(values),
-            userId,
-            ...effortProvenance(values.effort, values.effortOrigin),
-        })
-        .returning());
+    const [row] = await insertWithClientId(() =>
+        tx
+            .insert(tasks)
+            .values({
+                ...values,
+                interactionMode: values.interactionMode ?? suggestInteractionMode(values),
+                userId,
+                ...effortProvenance(values.effort, values.effortOrigin),
+            })
+            .returning(),
+    );
     if (tagIds.length > 0) {
         await tx.insert(taskTags).values(tagIds.map((tagId) => ({ taskId: row.id, tagId })));
     }
@@ -182,14 +262,28 @@ export async function createTask(tx: Tx, userId: string, values: NewTask, tagIds
 export async function createTasks(tx: Tx, userId: string, drafts: TaskDraft[]) {
     const created: { taskId: string; title: string; subtaskIds: string[] }[] = [];
     const zone = await userZone(tx, userId);
-    for (const { subtasks: steps = [], fixed, note, tagIds = [], dueDate, endDate, scheduledStart, scheduledEnd, notBefore, ...draft } of drafts) {
+    for (const {
+        subtasks: steps = [],
+        fixed,
+        note,
+        tagIds = [],
+        dueDate,
+        endDate,
+        scheduledStart,
+        scheduledEnd,
+        notBefore,
+        ...draft
+    } of drafts) {
         const row = await createTask(
             tx,
             userId,
             {
                 ...draft,
                 orderIndex: 0,
-                ...temporalColumns({ dueDate, endDate, scheduledStart, scheduledEnd, ...(notBefore !== undefined && { notBefore }) }, zone),
+                ...temporalColumns(
+                    { dueDate, endDate, scheduledStart, scheduledEnd, ...(notBefore !== undefined && { notBefore }) },
+                    zone,
+                ),
                 ...(fixed && { interactionMode: "timetable" as const }),
             },
             [...new Set(tagIds)],
@@ -249,14 +343,14 @@ export async function duplicateTask(tx: Tx, userId: string, id: string, title?: 
         })
         .returning();
 
-    const originalTags = await tx
-        .select({ tagId: taskTags.tagId })
-        .from(taskTags)
-        .where(eq(taskTags.taskId, id));
+    const originalTags = await tx.select({ tagId: taskTags.tagId }).from(taskTags).where(eq(taskTags.taskId, id));
     if (originalTags.length > 0) {
         await tx.insert(taskTags).values(originalTags.map((tag) => ({ taskId: dup.id, tagId: tag.tagId })));
     }
-    return toTask(dup, originalTags.map((tag) => tag.tagId));
+    return toTask(
+        dup,
+        originalTags.map((tag) => tag.tagId),
+    );
 }
 
 // ── Update ────────────────────────────────────────────────────────────
@@ -265,7 +359,9 @@ type StoredTemporal = Pick<TaskRow, "dueDate" | "endDate" | "scheduledStart" | "
 
 /** A multi-day task's last day after its first day moves: the span is kept. */
 function movedEndDate(existing: StoredTemporal, dueDate: string | null | undefined) {
-    return dueDate && existing.dueDate && existing.endDate ? addDays(existing.endDate, daysBetween(existing.dueDate, dueDate)) : existing.endDate;
+    return dueDate && existing.dueDate && existing.endDate
+        ? addDays(existing.endDate, daysBetween(existing.dueDate, dueDate))
+        : existing.endDate;
 }
 
 /**
@@ -281,9 +377,11 @@ function mergeTemporal(existing: StoredTemporal, body: TaskPatch): TaskTemporalF
     const scheduledStart = has("scheduledStart") ? body.scheduledStart : existing.scheduledStart;
     // Leaving timed behind (start cleared) forgets the old end; becoming timed forgets the old end day.
     const scheduledEnd = has("scheduledEnd") ? body.scheduledEnd : startsNull ? null : existing.scheduledEnd;
-    const endDate = has("endDate") ? body.endDate
-        : scheduledStart && has("scheduledStart") ? null
-            : movedEndDate(existing, body.dueDate);
+    const endDate = has("endDate")
+        ? body.endDate
+        : scheduledStart && has("scheduledStart")
+          ? null
+          : movedEndDate(existing, body.dueDate);
     return {
         dueDate,
         endDate,
@@ -305,23 +403,25 @@ async function patchOverStored(
     expectedUpdatedAt: string | undefined,
     { placementChanged, temporalChanged }: { placementChanged: boolean; temporalChanged: boolean },
 ) {
-    const [existing] = await tracing.enterSpan("tasks.update.lock", () => tx
-        .select({
-            id: tasks.id,
-            ...WHEN_COLUMNS,
-            updatedAt: tasks.updatedAt,
-            projectId: tasks.projectId,
-            sectionId: tasks.sectionId,
-        })
-        .from(tasks)
-        .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-        .for("update"));
+    const [existing] = await tracing.enterSpan("tasks.update.lock", () =>
+        tx
+            .select({
+                id: tasks.id,
+                ...WHEN_COLUMNS,
+                updatedAt: tasks.updatedAt,
+                projectId: tasks.projectId,
+                sectionId: tasks.sectionId,
+            })
+            .from(tasks)
+            .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
+            .for("update"),
+    );
     throwIfNotFound(existing, "Task");
     assertNoConflict(expectedUpdatedAt, existing.updatedAt, "Task");
 
     const projectId = body.projectId !== undefined ? body.projectId : existing.projectId;
-    const sectionId = body.sectionId !== undefined ? body.sectionId
-        : projectId !== existing.projectId ? null : existing.sectionId;
+    const sectionId =
+        body.sectionId !== undefined ? body.sectionId : projectId !== existing.projectId ? null : existing.sectionId;
     if (placementChanged) await assertOwnership(tx, userId, { projectId, sectionId });
     const zone = temporalChanged || body.recurrenceRule !== undefined ? await userZone(tx, userId) : "UTC";
     validateTaskRecurrenceRule(body.recurrenceRule, existing.zone ?? zone);
@@ -354,7 +454,10 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
     const versionCondition = !needsExisting && expectedUpdatedAt ? sameVersionSql(expectedUpdatedAt) : undefined;
     await assertStorageRoom(tx, userId, [body.content]);
     if (body.state === "COMPLETE") {
-        const [stored] = await tx.select({ interactionMode: tasks.interactionMode }).from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+        const [stored] = await tx
+            .select({ interactionMode: tasks.interactionMode })
+            .from(tasks)
+            .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
         if ((body.interactionMode ?? stored?.interactionMode) === "timetable") {
             throw new AppError(400, "VALIDATION_ERROR", "A Fixed block just passes; it isn't checked off");
         }
@@ -367,17 +470,21 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
         ...guessAfterWrite(columns as Parameters<typeof guessAfterWrite>[0]),
     };
 
-    const [row] = await tracing.enterSpan("tasks.update.write", () => tx
-        .update(tasks)
-        .set({ ...columns, ...provenance, updatedAt: sql`NOW()` })
-        .where(and(eq(tasks.id, id), eq(tasks.userId, userId), versionCondition))
-        .returning());
+    const [row] = await tracing.enterSpan("tasks.update.write", () =>
+        tx
+            .update(tasks)
+            .set({ ...columns, ...provenance, updatedAt: sql`NOW()` })
+            .where(and(eq(tasks.id, id), eq(tasks.userId, userId), versionCondition))
+            .returning(),
+    );
     if (!row && expectedUpdatedAt && !needsExisting) {
         // Only a rejected write needs this read, to distinguish 404 from 409.
-        const [existing] = await tracing.enterSpan("tasks.update.conflict", () => tx
-            .select({ updatedAt: tasks.updatedAt })
-            .from(tasks)
-            .where(and(eq(tasks.id, id), eq(tasks.userId, userId))));
+        const [existing] = await tracing.enterSpan("tasks.update.conflict", () =>
+            tx
+                .select({ updatedAt: tasks.updatedAt })
+                .from(tasks)
+                .where(and(eq(tasks.id, id), eq(tasks.userId, userId))),
+        );
         throwIfNotFound(existing, "Task");
         throw new AppError(409, "CONFLICT", "Task was modified by another client");
     }
@@ -389,7 +496,12 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
 export async function updateTasks(
     tx: Tx,
     userId: string,
-    { taskIds, patch, addTagIds = [], removeTagIds = [] }: { taskIds: string[]; patch: TaskPatch; addTagIds?: string[]; removeTagIds?: string[] },
+    {
+        taskIds,
+        patch,
+        addTagIds = [],
+        removeTagIds = [],
+    }: { taskIds: string[]; patch: TaskPatch; addTagIds?: string[]; removeTagIds?: string[] },
 ) {
     await assertOwnership(tx, userId, { tagIds: addTagIds });
     // Issued together: postgres.js pipelines them on the transaction's connection, so the
@@ -418,25 +530,54 @@ export async function placeTasks(tx: Tx, userId: string, items: PlaceTaskItem[])
     if (new Set(ids).size !== ids.length) throw new AppError(400, "VALIDATION_ERROR", "Each task can be placed once");
     const rows = await tx
         .select({
-            id: tasks.id, state: tasks.state, interactionMode: tasks.interactionMode, recurrenceRule: tasks.recurrenceRule, updatedAt: tasks.updatedAt,
+            id: tasks.id,
+            state: tasks.state,
+            interactionMode: tasks.interactionMode,
+            recurrenceRule: tasks.recurrenceRule,
+            updatedAt: tasks.updatedAt,
             ...WHEN_COLUMNS,
         })
         .from(tasks)
         .where(and(eq(tasks.userId, userId), inArray(tasks.id, ids)))
         .for("update");
     if (rows.length !== ids.length) throwIfNotFound(undefined, "Task");
-    if (rows.some((row) => row.state === "COMPLETE" || row.state === "ARCHIVED" || row.interactionMode === "timetable" || row.recurrenceRule)) {
+    if (
+        rows.some(
+            (row) =>
+                row.state === "COMPLETE" ||
+                row.state === "ARCHIVED" ||
+                row.interactionMode === "timetable" ||
+                row.recurrenceRule,
+        )
+    ) {
         throw new AppError(400, "VALIDATION_ERROR", "Only open, one-off tasks that aren't Fixed can be placed");
     }
     const byId = new Map(rows.map((row) => [row.id, row]));
     const changed = items.filter((item) => !sameVersion(item.expectedUpdatedAt, byId.get(item.id)!.updatedAt));
     if (changed.length) {
-        throw new AppError(409, "CONFLICT", "Tasks were modified by another client", false, changed.map((item) => ({ code: "conflict", message: "Changed since it was read", path: item.id })));
+        throw new AppError(
+            409,
+            "CONFLICT",
+            "Tasks were modified by another client",
+            false,
+            changed.map((item) => ({ code: "conflict", message: "Changed since it was read", path: item.id })),
+        );
     }
-    const updated = await Promise.all(items.map(({ id, scheduledStart, scheduledEnd, dueDate, endDate, zone }) => updateTask(tx, userId, id, { scheduledStart, scheduledEnd, dueDate, endDate, zone })));
+    const updated = await Promise.all(
+        items.map(({ id, scheduledStart, scheduledEnd, dueDate, endDate, zone }) =>
+            updateTask(tx, userId, id, { scheduledStart, scheduledEnd, dueDate, endDate, zone }),
+        ),
+    );
     return {
         tasks: await withTagIds(tx, updated),
-        previous: rows.map(({ id, scheduledStart, scheduledEnd, dueDate, endDate, zone }) => ({ id, scheduledStart, scheduledEnd, dueDate, endDate, zone })),
+        previous: rows.map(({ id, scheduledStart, scheduledEnd, dueDate, endDate, zone }) => ({
+            id,
+            scheduledStart,
+            scheduledEnd,
+            dueDate,
+            endDate,
+            zone,
+        })),
     };
 }
 
@@ -464,7 +605,13 @@ export async function setTaskState(
             ...(waitingReminder !== undefined && { waitingReminder }),
             updatedAt: sql`NOW()`,
         })
-        .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds), ...(state === "COMPLETE" ? [ne(tasks.interactionMode, "timetable")] : [])))
+        .where(
+            and(
+                eq(tasks.userId, userId),
+                inArray(tasks.id, taskIds),
+                ...(state === "COMPLETE" ? [ne(tasks.interactionMode, "timetable")] : []),
+            ),
+        )
         .returning();
 }
 
@@ -501,7 +648,8 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
                     .set({ ...rescheduleToDay(row, date, zone), updatedAt: sql`NOW()` })
                     .where(and(eq(tasks.id, row.id), eq(tasks.userId, userId)))
                     .returning()
-                    .then(([updated]) => updated)),
+                    .then(([updated]) => updated),
+            ),
     );
 }
 
@@ -509,13 +657,21 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
 export type TaskPlacement = { to: "top" | "bottom" } | { beforeTaskId: string } | { afterTaskId: string };
 
 /** The order indexes the moved tasks land between; undefined = an open end. */
-function placementBounds(siblings: { id: string; orderIndex: number }[], placement: TaskPlacement): [number | undefined, number | undefined] {
+function placementBounds(
+    siblings: { id: string; orderIndex: number }[],
+    placement: TaskPlacement,
+): [number | undefined, number | undefined] {
     if ("to" in placement) {
         return placement.to === "top" ? [undefined, siblings[0]?.orderIndex] : [siblings.at(-1)?.orderIndex, undefined];
     }
     const anchorId = "beforeTaskId" in placement ? placement.beforeTaskId : placement.afterTaskId;
     const at = siblings.findIndex((row) => row.id === anchorId);
-    if (at === -1) throw new AppError(400, "VALIDATION_ERROR", "The task to place next to must be another open task in the same list");
+    if (at === -1)
+        throw new AppError(
+            400,
+            "VALIDATION_ERROR",
+            "The task to place next to must be another open task in the same list",
+        );
     return "beforeTaskId" in placement
         ? [siblings[at - 1]?.orderIndex, siblings[at].orderIndex]
         : [siblings[at].orderIndex, siblings[at + 1]?.orderIndex];
@@ -536,25 +692,36 @@ export async function reorderTasks(tx: Tx, userId: string, taskIds: string[], pl
     const siblings = await tx
         .select({ id: tasks.id, orderIndex: tasks.orderIndex })
         .from(tasks)
-        .where(and(
-            eq(tasks.userId, userId),
-            projectId ? eq(tasks.projectId, projectId) : isNull(tasks.projectId),
-            inArray(tasks.state, ["ACTIVE", "WAITING"]),
-            notInArray(tasks.id, taskIds),
-        ))
+        .where(
+            and(
+                eq(tasks.userId, userId),
+                projectId ? eq(tasks.projectId, projectId) : isNull(tasks.projectId),
+                inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                notInArray(tasks.id, taskIds),
+            ),
+        )
         .orderBy(asc(tasks.orderIndex));
 
     const [lo, hi] = placementBounds(siblings, placement);
     const n = taskIds.length;
     const indexAt = (i: number) =>
-        lo !== undefined && hi !== undefined ? lo + ((hi - lo) * (i + 1)) / (n + 1)
-            : lo !== undefined ? lo + ORDER_INDEX_GAP * (i + 1)
-                : hi !== undefined ? hi - ORDER_INDEX_GAP * (n - i)
-                    : ORDER_INDEX_GAP * i;
+        lo !== undefined && hi !== undefined
+            ? lo + ((hi - lo) * (i + 1)) / (n + 1)
+            : lo !== undefined
+              ? lo + ORDER_INDEX_GAP * (i + 1)
+              : hi !== undefined
+                ? hi - ORDER_INDEX_GAP * (n - i)
+                : ORDER_INDEX_GAP * i;
     // ponytail: halving the gap on every insert-between loses precision after ~50 moves
     // into one spot; the REST reorder's full rebalance (orderedTaskIds) resets it.
-    await Promise.all(taskIds.map((id, i) =>
-        tx.update(tasks).set({ orderIndex: indexAt(i), updatedAt: sql`NOW()` }).where(and(eq(tasks.id, id), eq(tasks.userId, userId)))));
+    await Promise.all(
+        taskIds.map((id, i) =>
+            tx
+                .update(tasks)
+                .set({ orderIndex: indexAt(i), updatedAt: sql`NOW()` })
+                .where(and(eq(tasks.id, id), eq(tasks.userId, userId))),
+        ),
+    );
     return { moved: n };
 }
 

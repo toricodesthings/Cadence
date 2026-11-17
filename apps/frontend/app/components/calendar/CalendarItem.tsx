@@ -108,7 +108,11 @@ export function RoutineRing({ task, size = 24 }: { task: Task; size?: number }) 
 }
 
 /** A visible details path beside a check-off mark; also serves as a popover trigger. */
-export const RoutineDetailsButton = ({ label, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string } & { ref?: React.Ref<HTMLButtonElement> }) => (
+export const RoutineDetailsButton = ({
+    label,
+    children,
+    ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string } & { ref?: React.Ref<HTMLButtonElement> }) => (
     <Tip label={label}>
         <button
             {...props}

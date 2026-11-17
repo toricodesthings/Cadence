@@ -31,7 +31,13 @@ const QUICK_ADD_CHOICES = [
     { value: "project", label: "List" },
     { value: "tag", label: "Tag" },
 ] as const;
-function TaskDefaultsSection({ taskSettings, updateSettings }: { taskSettings: TaskSettings; updateSettings: Updater }) {
+function TaskDefaultsSection({
+    taskSettings,
+    updateSettings,
+}: {
+    taskSettings: TaskSettings;
+    updateSettings: Updater;
+}) {
     const set = (tasks: Partial<TaskSettings>) => updateSettings.mutate({ tasks });
     return (
         <SettingsSection title="Task defaults">
@@ -40,7 +46,9 @@ function TaskDefaultsSection({ taskSettings, updateSettings }: { taskSettings: T
                 description="When you create a new task, Cadence will pre-fill this due date."
                 value={taskSettings.defaultDueDate || "None"}
                 options={DUE_OPTIONS}
-                onChange={(val) => set({ defaultDueDate: val === "None" ? null : val as TaskSettings["defaultDueDate"] })}
+                onChange={(val) =>
+                    set({ defaultDueDate: val === "None" ? null : (val as TaskSettings["defaultDueDate"]) })
+                }
             />
             <SwitchSetting
                 title="Start new tasks at Low priority"
@@ -59,7 +67,13 @@ function TaskDefaultsSection({ taskSettings, updateSettings }: { taskSettings: T
     );
 }
 
-function ViewsAndWorkflowSections({ taskSettings, updateSettings }: { taskSettings: TaskSettings; updateSettings: Updater }) {
+function ViewsAndWorkflowSections({
+    taskSettings,
+    updateSettings,
+}: {
+    taskSettings: TaskSettings;
+    updateSettings: Updater;
+}) {
     const set = (tasks: Partial<TaskSettings>) => updateSettings.mutate({ tasks });
     return (
         <>
@@ -148,7 +162,13 @@ function QuickAddSection({ taskSettings, updateSettings }: { taskSettings: TaskS
     );
 }
 
-function IntelligenceSection({ intelligence, updateSettings }: { intelligence: Intelligence; updateSettings: Updater }) {
+function IntelligenceSection({
+    intelligence,
+    updateSettings,
+}: {
+    intelligence: Intelligence;
+    updateSettings: Updater;
+}) {
     const setIntel = (patch: Partial<Intelligence>) => updateSettings.mutate({ tasks: { intelligence: patch } });
     return (
         <SettingsSection title="Intelligence">

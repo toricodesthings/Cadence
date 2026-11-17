@@ -13,20 +13,40 @@ function setup(isTouch = false, accepted = true) {
     function ControlledComposer() {
         const [input, setInput] = useState("");
         const textareaRef = useRef<HTMLTextAreaElement>(null);
-        return <Tooltip.Provider>
-        <AssistantComposer assistantName="Cadence" isTouch={isTouch} isMobile={false}
-            isStreaming={false} online={true}
-            input={input} onInputChange={setInput} inputNotice={null} setInputNotice={vi.fn()} usageNotice={null} perMessage={3}
-            imageAllowance={{ left: 20, blocked: false, label: "Attach an image" }}
-            images={{ attachments: [], readyImages: [], uploading: false,
-                addImages: vi.fn(), removeAttachment: vi.fn(), clearAttachments: vi.fn() }}
-            textareaRef={textareaRef} onSend={(text) => {
-                const accepted = onSend(text);
-                if (accepted) setInput("");
-                return accepted;
-            }}
-            onStop={vi.fn()} onCommand={onCommand} />
-        </Tooltip.Provider>;
+        return (
+            <Tooltip.Provider>
+                <AssistantComposer
+                    assistantName="Cadence"
+                    isTouch={isTouch}
+                    isMobile={false}
+                    isStreaming={false}
+                    online={true}
+                    input={input}
+                    onInputChange={setInput}
+                    inputNotice={null}
+                    setInputNotice={vi.fn()}
+                    usageNotice={null}
+                    perMessage={3}
+                    imageAllowance={{ left: 20, blocked: false, label: "Attach an image" }}
+                    images={{
+                        attachments: [],
+                        readyImages: [],
+                        uploading: false,
+                        addImages: vi.fn(),
+                        removeAttachment: vi.fn(),
+                        clearAttachments: vi.fn(),
+                    }}
+                    textareaRef={textareaRef}
+                    onSend={(text) => {
+                        const accepted = onSend(text);
+                        if (accepted) setInput("");
+                        return accepted;
+                    }}
+                    onStop={vi.fn()}
+                    onCommand={onCommand}
+                />
+            </Tooltip.Provider>
+        );
     }
     render(<ControlledComposer />);
     const input = screen.getByLabelText<HTMLTextAreaElement>("Message Cadence");

@@ -15,22 +15,36 @@ let run: (name: string, args: Record<string, unknown>) => Promise<any>;
 let tasks: ReturnType<typeof apiAs>;
 let memory: ReturnType<typeof apiAs>;
 
-const sql = async <T = any>(text: string, params: unknown[] = []): Promise<T[]> => asOwner(async (pg) => (await pg.query<T>(text, params)).rows);
+const sql = async <T = any>(text: string, params: unknown[] = []): Promise<T[]> =>
+    asOwner(async (pg) => (await pg.query<T>(text, params)).rows);
 
 beforeAll(startTestDb);
 beforeEach(async () => {
     userId = await createUser({ zone: ZONE });
     tasks = apiAs(userId, "/tasks", taskRoutes);
     memory = apiAs(userId, "/memory", memoryRoutes);
-    const tools = buildToolRegistry({} as any, userId, { timezone: ZONE, currentDate: "2026-10-19T14:00:00.000Z", today: "2026-10-19", weekStart: "Monday" }) as any;
+    const tools = buildToolRegistry({} as any, userId, {
+        timezone: ZONE,
+        currentDate: "2026-10-19T14:00:00.000Z",
+        today: "2026-10-19",
+        weekStart: "Monday",
+    }) as any;
     // What the model receives: JSON, where an absent field is no key at all.
-    run = async (name, args) => JSON.parse(JSON.stringify(await tools[name].execute(args, { toolCallId: "t", messages: [] })));
+    run = async (name, args) =>
+        JSON.parse(JSON.stringify(await tools[name].execute(args, { toolCallId: "t", messages: [] })));
 });
 
 describe("find_time", () => {
     it("offers up to 3 spaced gaps on the day, with a buffer around blocks, and changes nothing", async () => {
-        const target = (await tasks("POST", "", { title: "Lab report", orderIndex: 1, durationEstimate: 45 })).body.data;
-        await tasks("POST", "", { title: "Class", orderIndex: 2, scheduledStart: "2026-10-20T13:00:00.000Z", scheduledEnd: "2026-10-20T14:30:00.000Z", zone: ZONE }); // 9:00–10:30 local
+        const target = (await tasks("POST", "", { title: "Lab report", orderIndex: 1, durationEstimate: 45 })).body
+            .data;
+        await tasks("POST", "", {
+            title: "Class",
+            orderIndex: 2,
+            scheduledStart: "2026-10-20T13:00:00.000Z",
+            scheduledEnd: "2026-10-20T14:30:00.000Z",
+            zone: ZONE,
+        }); // 9:00–10:30 local
         const before = JSON.stringify((await tasks("GET", `/${target.id}`)).body.data);
 
         const found = await run("find_time", { taskId: target.id, day: "2026-10-20" });
@@ -38,20 +52,26 @@ describe("find_time", () => {
         expect(found.proposals).toHaveLength(3);
         expect(found.proposals[0]).toMatchObject({ gap: true, start: "2026-10-20T07:00:00-04:00" });
         expect(found.proposals.every((p: any) => p.label.startsWith("Tue "))).toBe(true);
-        for (const p of found.proposals) expect(p.start >= "2026-10-20T07:00" && p.end <= "2026-10-20T22:00").toBe(true);
+        for (const p of found.proposals)
+            expect(p.start >= "2026-10-20T07:00" && p.end <= "2026-10-20T22:00").toBe(true);
         expect(JSON.stringify((await tasks("GET", `/${target.id}`)).body.data)).toBe(before);
     });
 
     it("orders by a time of day they said they like", async () => {
-        const target = (await tasks("POST", "", { title: "Study for stats", orderIndex: 1, durationEstimate: 60 })).body.data;
+        const target = (await tasks("POST", "", { title: "Study for stats", orderIndex: 1, durationEstimate: 60 })).body
+            .data;
         await memory("POST", "/mode", { mode: "basic" });
-        await sql(`INSERT INTO ai_memories (user_id, kind, content, value, said_on, last_seen_on, source, confidence) VALUES ($1, 'preference', 'Studies after dinner', '{"when":{"buckets":["evening"],"about":"study"}}', '2026-10-01', '2026-10-01', 'chat', 'stated')`, [userId]);
+        await sql(
+            `INSERT INTO ai_memories (user_id, kind, content, value, said_on, last_seen_on, source, confidence) VALUES ($1, 'preference', 'Studies after dinner', '{"when":{"buckets":["evening"],"about":"study"}}', '2026-10-01', '2026-10-01', 'chat', 'stated')`,
+            [userId],
+        );
         const found = await run("find_time", { taskId: target.id, day: "2026-10-20" });
         expect(found.proposals[0].start).toMatch(/T(17|18|19|20):/);
     });
 
     it("says so when nothing fits, and refuses a task that isn't an open one-off", async () => {
-        const target = (await tasks("POST", "", { title: "Long one", orderIndex: 1, durationEstimate: 1000 })).body.data;
+        const target = (await tasks("POST", "", { title: "Long one", orderIndex: 1, durationEstimate: 1000 })).body
+            .data;
         expect((await run("find_time", { taskId: target.id, day: "2026-10-20" })).proposals).toEqual([]);
         const done = (await tasks("POST", "", { title: "Done", orderIndex: 2, state: "COMPLETE" })).body.data;
         expect(await run("find_time", { taskId: done.id, day: "2026-10-20" })).toMatchObject({ ok: false });
@@ -63,11 +83,26 @@ describe("find_time", () => {
 
 describe("fit_day", () => {
     it("lays sized untimed tasks into the day's gaps in order, lists the rest, and changes nothing", async () => {
-        const essay = (await tasks("POST", "", { title: "Essay", orderIndex: 1, dueDate: "2026-10-19", durationEstimate: 60 })).body.data;
-        const email = (await tasks("POST", "", { title: "Email", orderIndex: 2, dueDate: "2026-10-19", durationEstimate: 30 })).body.data;
-        const vague = (await tasks("POST", "", { title: "Sort the garage", orderIndex: 3, dueDate: "2026-10-19" })).body.data;
-        const huge = (await tasks("POST", "", { title: "Thesis", orderIndex: 4, dueDate: "2026-10-19", durationEstimate: 900 })).body.data;
-        const timed = (await tasks("POST", "", { title: "Class", orderIndex: 5, scheduledStart: "2026-10-19T15:00:00.000Z", scheduledEnd: "2026-10-19T16:00:00.000Z", zone: ZONE })).body.data; // 11:00–12:00
+        const essay = (
+            await tasks("POST", "", { title: "Essay", orderIndex: 1, dueDate: "2026-10-19", durationEstimate: 60 })
+        ).body.data;
+        const email = (
+            await tasks("POST", "", { title: "Email", orderIndex: 2, dueDate: "2026-10-19", durationEstimate: 30 })
+        ).body.data;
+        const vague = (await tasks("POST", "", { title: "Sort the garage", orderIndex: 3, dueDate: "2026-10-19" })).body
+            .data;
+        const huge = (
+            await tasks("POST", "", { title: "Thesis", orderIndex: 4, dueDate: "2026-10-19", durationEstimate: 900 })
+        ).body.data;
+        const timed = (
+            await tasks("POST", "", {
+                title: "Class",
+                orderIndex: 5,
+                scheduledStart: "2026-10-19T15:00:00.000Z",
+                scheduledEnd: "2026-10-19T16:00:00.000Z",
+                zone: ZONE,
+            })
+        ).body.data; // 11:00–12:00
 
         const fit = await run("fit_day", { day: "2026-10-19" });
         expect(fit.ok).toBe(true);
@@ -86,13 +121,29 @@ describe("fit_day", () => {
 
     it("with through: one entry per day, carries what didn't fit (never past its deadline), offers undated tasks, and never goes past day+6", async () => {
         // Monday is full from 10:15 on, so Tuesday's work and an undated task have to look further.
-        await tasks("POST", "", { title: "Workshop", orderIndex: 1, scheduledStart: "2026-10-19T14:00:00.000Z", scheduledEnd: "2026-10-20T01:45:00.000Z", zone: ZONE });
-        const flexible = (await tasks("POST", "", { title: "Read paper", orderIndex: 2, dueDate: "2026-10-19", durationEstimate: 60 })).body.data;
+        await tasks("POST", "", {
+            title: "Workshop",
+            orderIndex: 1,
+            scheduledStart: "2026-10-19T14:00:00.000Z",
+            scheduledEnd: "2026-10-20T01:45:00.000Z",
+            zone: ZONE,
+        });
+        const flexible = (
+            await tasks("POST", "", { title: "Read paper", orderIndex: 2, dueDate: "2026-10-19", durationEstimate: 60 })
+        ).body.data;
         const loose = (await tasks("POST", "", { title: "Call bank", orderIndex: 3, durationEstimate: 30 })).body.data;
 
         const fit = await run("fit_day", { day: "2026-10-19", through: "2026-10-30", includeUnscheduled: true });
         expect(fit.ok).toBe(true);
-        expect(fit.days.map((d: any) => d.day)).toEqual(["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23", "2026-10-24", "2026-10-25"]);
+        expect(fit.days.map((d: any) => d.day)).toEqual([
+            "2026-10-19",
+            "2026-10-20",
+            "2026-10-21",
+            "2026-10-22",
+            "2026-10-23",
+            "2026-10-24",
+            "2026-10-25",
+        ]);
         // Due Monday: it stays a Monday "didn't fit", never moved past its deadline.
         expect(fit.days[0].didntFit.map((t: any) => t.id)).toContain(flexible.id);
         // No deadline: carried to Tuesday and placed there.
@@ -104,8 +155,14 @@ describe("fit_day", () => {
 describe("what a task takes, in the assistant's reads", () => {
     const answers = async (title: string, minutes: number[]) => {
         for (const [i, m] of minutes.entries()) {
-            const [{ id }] = await sql(`INSERT INTO tasks (user_id, title, order_index, state, created_at) VALUES ($1, $2, 1, 'COMPLETE', now() - interval '3 days') RETURNING id`, [userId, title]);
-            await sql(`INSERT INTO duration_reports (user_id, task_id, completed_at, low_minutes, high_minutes, title, group_key, said_on) SELECT $1, id, completed_at, $3, $3, title, 'lab report', ('2026-10-19'::date - $4::int) FROM tasks WHERE id = $2`, [userId, id, m, i]);
+            const [{ id }] = await sql(
+                `INSERT INTO tasks (user_id, title, order_index, state, created_at) VALUES ($1, $2, 1, 'COMPLETE', now() - interval '3 days') RETURNING id`,
+                [userId, title],
+            );
+            await sql(
+                `INSERT INTO duration_reports (user_id, task_id, completed_at, low_minutes, high_minutes, title, group_key, said_on) SELECT $1, id, completed_at, $3, $3, title, 'lab report', ('2026-10-19'::date - $4::int) FROM tasks WHERE id = $2`,
+                [userId, id, m, i],
+            );
         }
     };
 

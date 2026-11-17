@@ -28,7 +28,10 @@ export function ChatImages({ ids }: { ids: string[] }) {
             meta: { persist: false },
             retry: (count: number, err: Error) => (err as unknown as ApiErrorResponse).status !== 404 && count < 2,
             queryFn: async ({ signal }: { signal: AbortSignal }) => {
-                const response = (await client.api.ai.images[":id"].$get({ param: { id } }, { init: { signal } })) as unknown as UnwrappableResponse & {
+                const response = (await client.api.ai.images[":id"].$get(
+                    { param: { id } },
+                    { init: { signal } },
+                )) as unknown as UnwrappableResponse & {
                     blob(): Promise<Blob>;
                 };
                 if (!response.ok) throw await parseApiError(response);
@@ -71,7 +74,8 @@ function ChatThumb({ result, onOpen }: { result: UseQueryResult<Blob>; onOpen: (
             </div>
         );
     }
-    if (!url) return <div className="h-24 w-24 animate-pulse rounded-2xl bg-panel-raised/60" aria-label="Loading image" />;
+    if (!url)
+        return <div className="h-24 w-24 animate-pulse rounded-2xl bg-panel-raised/60" aria-label="Loading image" />;
     return (
         <button
             type="button"
@@ -79,7 +83,11 @@ function ChatThumb({ result, onOpen }: { result: UseQueryResult<Blob>; onOpen: (
             className="block cursor-zoom-in rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
             aria-label="View image full size"
         >
-            <img src={url} alt={SENT_TITLE} className="block max-h-48 max-w-[200px] rounded-2xl object-cover ring-1 ring-white/10" />
+            <img
+                src={url}
+                alt={SENT_TITLE}
+                className="block max-h-48 max-w-[200px] rounded-2xl object-cover ring-1 ring-white/10"
+            />
         </button>
     );
 }

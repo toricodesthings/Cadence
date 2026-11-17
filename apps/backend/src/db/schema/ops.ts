@@ -11,8 +11,8 @@ import {
     uniqueIndex,
     check,
     pgPolicy,
-} from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
+} from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createdAt, timestamptz, rlsUsing } from "./columns";
 import { confidenceTierEnum, sourceSurfaceEnum, focusViewSourceEnum, ownerId, tasks } from "./core";
 
@@ -58,8 +58,11 @@ export const notificationState = pgTable(
             .notNull(),
     },
     (table) => ({
-        userObjectTriggerIdx: uniqueIndex("notification_state_user_object_trigger_unique")
-            .on(table.userId, table.objectId, table.triggerId),
+        userObjectTriggerIdx: uniqueIndex("notification_state_user_object_trigger_unique").on(
+            table.userId,
+            table.objectId,
+            table.triggerId,
+        ),
         rlsPolicy: pgPolicy("notification_state_owner_access", {
             as: "permissive",
             for: "all",
@@ -95,7 +98,9 @@ export const devices = pgTable(
     (table) => ({
         userInstallIdx: uniqueIndex("devices_user_install_unique").on(table.userId, table.installId),
         // A push endpoint belongs to one account at a time (push_release_endpoint hands it over).
-        endpointIdx: uniqueIndex("devices_endpoint_unique").on(table.endpoint).where(sql`${table.endpoint} IS NOT NULL`),
+        endpointIdx: uniqueIndex("devices_endpoint_unique")
+            .on(table.endpoint)
+            .where(sql`${table.endpoint} IS NOT NULL`),
         rlsPolicy: pgPolicy("devices_owner_access", {
             as: "permissive",
             for: "all",
@@ -146,10 +151,7 @@ export const mutationDedup = pgTable(
         createdAt: createdAt(),
     },
     (table) => ({
-        dedupIdx: uniqueIndex("mutation_dedup_user_mutation_idx").on(
-            table.userId,
-            table.clientMutationId,
-        ),
+        dedupIdx: uniqueIndex("mutation_dedup_user_mutation_idx").on(table.userId, table.clientMutationId),
         rlsPolicy: pgPolicy("mutation_dedup_owner_access", {
             as: "permissive",
             for: "all",

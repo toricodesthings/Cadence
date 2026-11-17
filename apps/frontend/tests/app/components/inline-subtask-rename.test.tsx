@@ -9,8 +9,13 @@ vi.mock("../../../app/hooks/tasks/use-subtasks", () => ({
     useReorderSubtasks: () => ({ mutate: vi.fn() }),
     useUpdateSubtask: () => ({ mutate: update }),
 }));
-vi.mock("../../../app/hooks/ai/use-suggest-steps", () => ({ useSuggestSteps: () => ({ draft: null, status: "idle" }) }));
-vi.mock("../../../app/components/tasks/SuggestSteps", () => ({ SuggestedSteps: () => null, SuggestStepsButton: () => null }));
+vi.mock("../../../app/hooks/ai/use-suggest-steps", () => ({
+    useSuggestSteps: () => ({ draft: null, status: "idle" }),
+}));
+vi.mock("../../../app/components/tasks/SuggestSteps", () => ({
+    SuggestedSteps: () => null,
+    SuggestStepsButton: () => null,
+}));
 vi.mock("../../../app/components/tasks/TaskCheckbox", () => ({ TaskCheckbox: () => null }));
 vi.mock("../../../app/hooks/ui/use-shell-mode", () => ({ useShellMode: () => ({ isTouch: false }) }));
 

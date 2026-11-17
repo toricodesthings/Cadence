@@ -28,16 +28,25 @@ const task = {
     scheduledEnd: "2026-09-15T10:00:00Z",
 } as Task;
 
-const renderChip = (ui: React.ReactElement, actions = {}) => render(
-    <TooltipProvider><CalendarChipActionsContext.Provider value={actions}>{ui}</CalendarChipActionsContext.Provider></TooltipProvider>,
-);
+const renderChip = (ui: React.ReactElement, actions = {}) =>
+    render(
+        <TooltipProvider>
+            <CalendarChipActionsContext.Provider value={actions}>{ui}</CalendarChipActionsContext.Provider>
+        </TooltipProvider>,
+    );
 
 describe("CalendarTaskChip menu", () => {
     beforeEach(() => archive.mockClear());
     it("retains a named details button in a narrow Fixed block and can change variants without changing hook order", () => {
         const select = vi.fn();
         const { rerender } = renderChip(<CalendarTaskChip task={task} variant="pill" onSelect={select} />);
-        rerender(<TooltipProvider><CalendarChipActionsContext.Provider value={{}}><CalendarTaskChip task={task} variant="block" style={{ width: 48, height: 72 }} onSelect={select} /></CalendarChipActionsContext.Provider></TooltipProvider>);
+        rerender(
+            <TooltipProvider>
+                <CalendarChipActionsContext.Provider value={{}}>
+                    <CalendarTaskChip task={task} variant="block" style={{ width: 48, height: 72 }} onSelect={select} />
+                </CalendarChipActionsContext.Provider>
+            </TooltipProvider>,
+        );
         const details = screen.getByRole("button", { name: `Open details for ${task.title}` });
         expect(details.tabIndex).toBe(0);
         fireEvent.click(details);
@@ -64,7 +73,18 @@ describe("CalendarTaskChip menu", () => {
     it("offers a task its day actions and Trash, with no quick Archive button on the chip", () => {
         const moveToTomorrow = vi.fn();
         renderChip(
-            <CalendarTaskChip task={{ ...task, id: "task-1", seriesId: undefined, recurrenceRule: null, isRecurringInstance: false, interactionMode: "task" }} variant="pill" onSelect={vi.fn()} />,
+            <CalendarTaskChip
+                task={{
+                    ...task,
+                    id: "task-1",
+                    seriesId: undefined,
+                    recurrenceRule: null,
+                    isRecurringInstance: false,
+                    interactionMode: "task",
+                }}
+                variant="pill"
+                onSelect={vi.fn()}
+            />,
             { moveToTomorrow },
         );
         expect(screen.getByRole("button", { name: "Mark complete" })).toBeTruthy();

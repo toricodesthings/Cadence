@@ -13,12 +13,21 @@ import { cn } from "../../../lib/utils";
 import { getUserZone } from "../../../lib/utils/user-zone";
 import { formatShortDateTime } from "../../../lib/utils/date-format";
 import { isWindowsDesktop } from "../../../lib/notifications/device-delivery";
-import { setBackgroundDelivery, syncLoginLaunch, useDesktopCommandPreferences } from "../../../hooks/ui/use-desktop-command-preferences";
+import {
+    setBackgroundDelivery,
+    syncLoginLaunch,
+    useDesktopCommandPreferences,
+} from "../../../hooks/ui/use-desktop-command-preferences";
 
 type Notif = UserSettings["notifications"];
 
 /** One choice out of a few numbers, as chips: every option visible, one tap. */
-function ChipRow<T extends number>({ value, options, onChange, label }: {
+function ChipRow<T extends number>({
+    value,
+    options,
+    onChange,
+    label,
+}: {
     value: T;
     options: ReadonlyArray<readonly [T, string]>;
     onChange: (value: T) => void;
@@ -36,14 +45,24 @@ function ChipRow<T extends number>({ value, options, onChange, label }: {
 }
 
 /** Several of a few numbers at once, as toggle chips. */
-function MultiChips<T extends number>({ value, options, onChange, label }: {
+function MultiChips<T extends number>({
+    value,
+    options,
+    onChange,
+    label,
+}: {
     value: readonly T[];
     options: ReadonlyArray<readonly [T, string]>;
     onChange: (value: T[]) => void;
     label: string;
 }) {
     return (
-        <div role="group" aria-label={label} className="flex flex-wrap gap-2" style={{ "--segment-tone": "var(--accent-primary)" } as CSSProperties}>
+        <div
+            role="group"
+            aria-label={label}
+            className="flex flex-wrap gap-2"
+            style={{ "--segment-tone": "var(--accent-primary)" } as CSSProperties}
+        >
             {options.map(([n, text]) => {
                 const on = value.includes(n);
                 return (
@@ -51,8 +70,13 @@ function MultiChips<T extends number>({ value, options, onChange, label }: {
                         key={n}
                         type="button"
                         aria-pressed={on}
-                        onClick={() => onChange(options.map(([o]) => o).filter((o) => (o === n ? !on : value.includes(o))))}
-                        className={cn("min-h-11 cursor-pointer rounded-xl border px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50", on ? SEGMENT_ACTIVE : SEGMENT_IDLE)}
+                        onClick={() =>
+                            onChange(options.map(([o]) => o).filter((o) => (o === n ? !on : value.includes(o))))
+                        }
+                        className={cn(
+                            "min-h-11 cursor-pointer rounded-xl border px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50",
+                            on ? SEGMENT_ACTIVE : SEGMENT_IDLE,
+                        )}
                     >
                         {text}
                     </button>
@@ -70,28 +94,68 @@ const timeField = (label: string, value: string, onChange: (value: string) => vo
 
 type SectionProps = { notif: Notif; set: (patch: Partial<Notif>) => void };
 
-const lead = (none = "At time") => [[0, none], [5, "5 min"], [10, "10 min"], [15, "15 min"], [30, "30 min"], [60, "1 hr"]] as const;
+const lead = (none = "At time") =>
+    [
+        [0, none],
+        [5, "5 min"],
+        [10, "10 min"],
+        [15, "15 min"],
+        [30, "30 min"],
+        [60, "1 hr"],
+    ] as const;
 
 function TaskAlerts({ notif, set }: SectionProps) {
     return (
         <>
             <SettingsSection title="Tasks">
-                <SwitchSetting title="Task reminders" checked={notif.taskReminders} onChange={(taskReminders) => set({ taskReminders })} />
+                <SwitchSetting
+                    title="Task reminders"
+                    checked={notif.taskReminders}
+                    onChange={(taskReminders) => set({ taskReminders })}
+                />
                 {notif.taskReminders && (
-                    <SwitchSetting title="Waiting follow-ups" checked={notif.followUps} onChange={(followUps) => set({ followUps })} />
+                    <SwitchSetting
+                        title="Waiting follow-ups"
+                        checked={notif.followUps}
+                        onChange={(followUps) => set({ followUps })}
+                    />
                 )}
-                <SwitchSetting title="Due dates" checked={notif.dueDateAlerts} onChange={(dueDateAlerts) => set({ dueDateAlerts })} />
+                <SwitchSetting
+                    title="Due dates"
+                    checked={notif.dueDateAlerts}
+                    onChange={(dueDateAlerts) => set({ dueDateAlerts })}
+                />
                 {notif.dueDateAlerts && (
                     <>
                         <SettingsRow title="Heads-up before">
-                            <ChipRow label="Heads-up before a due date" value={notif.dueHeadsUpDays}
-                                options={[[0, "None"], [1, "1 day"], [2, "2 days"], [7, "1 week"]] as const}
-                                onChange={(dueHeadsUpDays) => set({ dueHeadsUpDays })} />
+                            <ChipRow
+                                label="Heads-up before a due date"
+                                value={notif.dueHeadsUpDays}
+                                options={
+                                    [
+                                        [0, "None"],
+                                        [1, "1 day"],
+                                        [2, "2 days"],
+                                        [7, "1 week"],
+                                    ] as const
+                                }
+                                onChange={(dueHeadsUpDays) => set({ dueHeadsUpDays })}
+                            />
                         </SettingsRow>
                         <SettingsRow title="Keep overdue for">
-                            <ChipRow label="How long overdue tasks stay listed" value={notif.overdueDays}
-                                options={[[0, "Due day"], [1, "1 day"], [3, "3 days"], [7, "1 week"]] as const}
-                                onChange={(overdueDays) => set({ overdueDays })} />
+                            <ChipRow
+                                label="How long overdue tasks stay listed"
+                                value={notif.overdueDays}
+                                options={
+                                    [
+                                        [0, "Due day"],
+                                        [1, "1 day"],
+                                        [3, "3 days"],
+                                        [7, "1 week"],
+                                    ] as const
+                                }
+                                onChange={(overdueDays) => set({ overdueDays })}
+                            />
                         </SettingsRow>
                     </>
                 )}
@@ -104,17 +168,36 @@ function ScheduleAlerts({ notif, set }: SectionProps) {
     return (
         <>
             <SettingsSection title="Schedule">
-                <SwitchSetting title="Timed blocks" checked={notif.scheduleAlerts} onChange={(scheduleAlerts) => set({ scheduleAlerts })} />
+                <SwitchSetting
+                    title="Timed blocks"
+                    checked={notif.scheduleAlerts}
+                    onChange={(scheduleAlerts) => set({ scheduleAlerts })}
+                />
                 {notif.scheduleAlerts && (
                     <>
                         <SettingsRow title="Before a block">
-                            <ChipRow label="Alert before a timed block" value={notif.blockLeadMinutes} options={lead("At start")}
-                                onChange={(blockLeadMinutes) => set({ blockLeadMinutes })} />
+                            <ChipRow
+                                label="Alert before a timed block"
+                                value={notif.blockLeadMinutes}
+                                options={lead("At start")}
+                                onChange={(blockLeadMinutes) => set({ blockLeadMinutes })}
+                            />
                         </SettingsRow>
                         <SettingsRow title="Before Fixed blocks">
-                            <ChipRow label="Alert before a Fixed block" value={notif.fixedLeadMinutes}
-                                options={[[0, "At start"], [15, "15 min"], [30, "30 min"], [60, "1 hr"], [120, "2 hr"]] as const}
-                                onChange={(fixedLeadMinutes) => set({ fixedLeadMinutes })} />
+                            <ChipRow
+                                label="Alert before a Fixed block"
+                                value={notif.fixedLeadMinutes}
+                                options={
+                                    [
+                                        [0, "At start"],
+                                        [15, "15 min"],
+                                        [30, "30 min"],
+                                        [60, "1 hr"],
+                                        [120, "2 hr"],
+                                    ] as const
+                                }
+                                onChange={(fixedLeadMinutes) => set({ fixedLeadMinutes })}
+                            />
                         </SettingsRow>
                     </>
                 )}
@@ -127,46 +210,89 @@ function RoutineAlerts({ notif, set }: SectionProps) {
     return (
         <>
             <SettingsSection title="Routines">
-                <SwitchSetting title="Routine reminders" checked={notif.habitReminders} onChange={(habitReminders) => set({ habitReminders })} />
+                <SwitchSetting
+                    title="Routine reminders"
+                    checked={notif.habitReminders}
+                    onChange={(habitReminders) => set({ habitReminders })}
+                />
                 {notif.habitReminders && (
                     <>
                         <SettingsRow title="Before target time">
-                            <ChipRow label="Alert before a routine's time" value={notif.habitReminderLeadMinutes} options={lead()}
-                                onChange={(habitReminderLeadMinutes) => set({ habitReminderLeadMinutes })} />
+                            <ChipRow
+                                label="Alert before a routine's time"
+                                value={notif.habitReminderLeadMinutes}
+                                options={lead()}
+                                onChange={(habitReminderLeadMinutes) => set({ habitReminderLeadMinutes })}
+                            />
                         </SettingsRow>
-                        <SwitchSetting title="Group several at once" label="Group several routine reminders" checked={notif.bundleMissedRoutinePrompts} onChange={(bundleMissedRoutinePrompts) => set({ bundleMissedRoutinePrompts })} />
+                        <SwitchSetting
+                            title="Group several at once"
+                            label="Group several routine reminders"
+                            checked={notif.bundleMissedRoutinePrompts}
+                            onChange={(bundleMissedRoutinePrompts) => set({ bundleMissedRoutinePrompts })}
+                        />
                     </>
                 )}
-                <SwitchSetting title="Dot on Routines" description="Shows on Routines in the navigation while some are still due today." checked={notif.showHabitNavDueCount} onChange={(showHabitNavDueCount) => set({ showHabitNavDueCount })} />
+                <SwitchSetting
+                    title="Dot on Routines"
+                    description="Shows on Routines in the navigation while some are still due today."
+                    checked={notif.showHabitNavDueCount}
+                    onChange={(showHabitNavDueCount) => set({ showHabitNavDueCount })}
+                />
             </SettingsSection>
         </>
     );
 }
 
-function QuietSections({ notif, set, paused, pauseFor, pauseUntilMorning }: SectionProps & { paused: boolean; pauseFor: (hours: number) => void; pauseUntilMorning: () => void }) {
+function QuietSections({
+    notif,
+    set,
+    paused,
+    pauseFor,
+    pauseUntilMorning,
+}: SectionProps & { paused: boolean; pauseFor: (hours: number) => void; pauseUntilMorning: () => void }) {
     return (
         <>
             <SettingsSection title="Quiet">
                 <SettingsRow title="Pause">
                     {paused ? (
                         <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-                            <span className="text-sm text-twilight-text-soft">Until {formatShortDateTime(notif.pausedUntil!)}</span>
-                            <Button variant="secondary" onClick={() => set({ pausedUntil: null })}>Resume</Button>
+                            <span className="text-sm text-twilight-text-soft">
+                                Until {formatShortDateTime(notif.pausedUntil!)}
+                            </span>
+                            <Button variant="secondary" onClick={() => set({ pausedUntil: null })}>
+                                Resume
+                            </Button>
                         </div>
                     ) : (
                         <div className="flex flex-wrap gap-2 sm:justify-end">
-                            <Button variant="secondary" onClick={() => pauseFor(1)}>1 hour</Button>
-                            <Button variant="secondary" onClick={pauseUntilMorning}>Until tomorrow</Button>
+                            <Button variant="secondary" onClick={() => pauseFor(1)}>
+                                1 hour
+                            </Button>
+                            <Button variant="secondary" onClick={pauseUntilMorning}>
+                                Until tomorrow
+                            </Button>
                         </div>
                     )}
                 </SettingsRow>
-                <SwitchSetting title="Quiet hours" description="Reminders wait in Cadence; any still ahead alert when it ends." checked={notif.quietHoursEnabled} onChange={(quietHoursEnabled) => set({ quietHoursEnabled })} />
+                <SwitchSetting
+                    title="Quiet hours"
+                    description="Reminders wait in Cadence; any still ahead alert when it ends."
+                    checked={notif.quietHoursEnabled}
+                    onChange={(quietHoursEnabled) => set({ quietHoursEnabled })}
+                />
                 {notif.quietHoursEnabled && (
                     <SettingsRow title="From – to">
                         <div className="flex w-full items-center gap-2 sm:justify-end">
-                            {timeField("Quiet hours start", notif.quietHoursStart ?? "22:00", (quietHoursStart) => set({ quietHoursStart }))}
-                            <span aria-hidden="true" className="text-twilight-text-soft">→</span>
-                            {timeField("Quiet hours end", notif.quietHoursEnd ?? "07:00", (quietHoursEnd) => set({ quietHoursEnd }))}
+                            {timeField("Quiet hours start", notif.quietHoursStart ?? "22:00", (quietHoursStart) =>
+                                set({ quietHoursStart }),
+                            )}
+                            <span aria-hidden="true" className="text-twilight-text-soft">
+                                →
+                            </span>
+                            {timeField("Quiet hours end", notif.quietHoursEnd ?? "07:00", (quietHoursEnd) =>
+                                set({ quietHoursEnd }),
+                            )}
                         </div>
                     </SettingsRow>
                 )}
@@ -193,7 +319,8 @@ export function NotificationsTab() {
     const [loginLaunchFailed, setLoginLaunchFailed] = useState(false);
     // Windows' startup list can drift from the saved setting (turned off in Task Manager, an old registration).
     useEffect(() => {
-        if (isWindowsDesktop() && desktopPrefs.backgroundDelivery) void syncLoginLaunch(true).then((ok) => setLoginLaunchFailed(!ok));
+        if (isWindowsDesktop() && desktopPrefs.backgroundDelivery)
+            void syncLoginLaunch(true).then((ok) => setLoginLaunchFailed(!ok));
     }, [desktopPrefs.backgroundDelivery]);
     const paused = !!notif.pausedUntil && Date.parse(notif.pausedUntil) > Date.now();
     const pauseFor = (hours: number) => set({ pausedUntil: new Date(Date.now() + hours * 3_600_000).toISOString() });
@@ -212,14 +339,18 @@ export function NotificationsTab() {
                 {isWindowsDesktop() && (
                     <SettingsRow
                         title="Keep running in the background"
-                        description={loginLaunchFailed
-                            ? "Windows didn't let Cadence start at sign-in, so reminders begin once you open it. The tray still works."
-                            : "Reminders keep arriving after you close the window. Quit from the tray icon. Applies next launch."}
+                        description={
+                            loginLaunchFailed
+                                ? "Windows didn't let Cadence start at sign-in, so reminders begin once you open it. The tray still works."
+                                : "Reminders keep arriving after you close the window. Quit from the tray icon. Applies next launch."
+                        }
                     >
                         <Switch
                             checked={desktopPrefs.backgroundDelivery}
                             aria-label="Keep running in the background"
-                            onCheckedChange={(val) => void setBackgroundDelivery(val).then((ok) => setLoginLaunchFailed(val && !ok))}
+                            onCheckedChange={(val) =>
+                                void setBackgroundDelivery(val).then((ok) => setLoginLaunchFailed(val && !ok))
+                            }
                         />
                     </SettingsRow>
                 )}
@@ -230,7 +361,9 @@ export function NotificationsTab() {
                     className="opacity-60"
                 >
                     <div className="flex items-center gap-3 sm:justify-end">
-                        <span className="text-xs font-medium uppercase tracking-wider text-twilight-text-soft">Upcoming</span>
+                        <span className="text-xs font-medium uppercase tracking-wider text-twilight-text-soft">
+                            Upcoming
+                        </span>
                         {/* ponytail: no sender exists yet, so the switch is inert; wire notif.email when the summary ships */}
                         <Switch checked={false} disabled aria-label="Daily summary (upcoming)" />
                     </div>
@@ -247,13 +380,28 @@ export function NotificationsTab() {
 
             <SettingsSection title="Yearly events">
                 <SettingsRow title="Notify" description="Each event's bell turns it on.">
-                    <MultiChips label="When to notify for events" value={notif.eventDaysBefore}
-                        options={[[0, "Same day"], [1, "1 day before"], [7, "1 week before"]] as const}
-                        onChange={(eventDaysBefore) => set({ eventDaysBefore })} />
+                    <MultiChips
+                        label="When to notify for events"
+                        value={notif.eventDaysBefore}
+                        options={
+                            [
+                                [0, "Same day"],
+                                [1, "1 day before"],
+                                [7, "1 week before"],
+                            ] as const
+                        }
+                        onChange={(eventDaysBefore) => set({ eventDaysBefore })}
+                    />
                 </SettingsRow>
             </SettingsSection>
 
-            <QuietSections notif={notif} set={set} paused={paused} pauseFor={pauseFor} pauseUntilMorning={pauseUntilMorning} />
+            <QuietSections
+                notif={notif}
+                set={set}
+                paused={paused}
+                pauseFor={pauseFor}
+                pauseUntilMorning={pauseUntilMorning}
+            />
         </div>
     );
 }

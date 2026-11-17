@@ -29,8 +29,8 @@ export function useSpine(items: SpineItem[]) {
     const summary = current
         ? `Now: ${current.title} · until ${formatTime(current.end!.toISOString())}`
         : next
-            ? `Next: ${next.title} · ${formatTime(next.start.toISOString())} (${formatIn(next.start.getTime() - now.getTime())})`
-            : "Nothing else fixed today";
+          ? `Next: ${next.title} · ${formatTime(next.start.toISOString())} (${formatIn(next.start.getTime() - now.getTime())})`
+          : "Nothing else fixed today";
     return { now, sorted, current, next, summary };
 }
 
@@ -62,7 +62,11 @@ export function DaySpine({ items, onOpen }: { items: SpineItem[]; onOpen: (item:
                 <CalendarClock size={16} className="shrink-0 text-moonlit" aria-hidden="true" />
                 <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-twilight-text">{summary}</span>
                 <span className="shrink-0 text-[12px] text-twilight-text-soft">{sorted.length} fixed</span>
-                <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-twilight-text-soft transition-transform ${collapsed ? "" : "rotate-180"}`} />
+                <ChevronDown
+                    size={16}
+                    aria-hidden="true"
+                    className={`shrink-0 text-twilight-text-soft transition-transform ${collapsed ? "" : "rotate-180"}`}
+                />
             </button>
 
             <Reveal open={!collapsed} id="day-spine-list">
@@ -74,7 +78,10 @@ export function DaySpine({ items, onOpen }: { items: SpineItem[]; onOpen: (item:
                         const markerAfter = nowIndex === -1 && index === sorted.length - 1;
                         const time = formatTime(item.start.toISOString());
                         return (
-                            <li key={item.id} className={`flex items-center gap-2 ${markerAfter ? "min-w-0 flex-1" : "shrink-0"}`}>
+                            <li
+                                key={item.id}
+                                className={`flex items-center gap-2 ${markerAfter ? "min-w-0 flex-1" : "shrink-0"}`}
+                            >
                                 {markerBefore ? <NowMarker now={now} /> : null}
                                 <button
                                     type="button"
@@ -90,7 +97,9 @@ export function DaySpine({ items, onOpen }: { items: SpineItem[]; onOpen: (item:
                                         {isCurrent ? "Now" : time}
                                         {item.end ? ` – ${formatTime(item.end.toISOString())}` : ""}
                                     </span>
-                                    <span className="max-w-[14rem] truncate text-[13px] font-medium text-twilight-text">{item.title}</span>
+                                    <span className="max-w-[14rem] truncate text-[13px] font-medium text-twilight-text">
+                                        {item.title}
+                                    </span>
                                 </button>
                                 {markerAfter ? <NowRest now={now} /> : null}
                             </li>
@@ -122,17 +131,27 @@ export function SpineTimeline({ items, onOpen }: { items: SpineItem[]; onOpen: (
                     <li key={item.id} className="flex flex-col gap-1.5">
                         {index === nowIndex ? <NowLine now={now} /> : null}
                         <div className={`flex items-stretch gap-3 ${isPast ? "opacity-50" : ""}`}>
-                            <span className="w-[4.5rem] shrink-0 whitespace-nowrap pt-2.5 text-right text-[12px] tabular-nums text-moonlit">{isCurrent ? "Now" : time}</span>
+                            <span className="w-[4.5rem] shrink-0 whitespace-nowrap pt-2.5 text-right text-[12px] tabular-nums text-moonlit">
+                                {isCurrent ? "Now" : time}
+                            </span>
                             <button
                                 type="button"
                                 onClick={() => onOpen(item)}
                                 aria-label={`${item.title}, ${time}${item.end ? ` to ${formatTime(item.end.toISOString())}` : ""}${isCurrent ? ", happening now" : ""}`}
                                 className={`flex min-h-11 min-w-0 flex-1 cursor-pointer flex-col justify-center rounded-2xl border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
-                                    isCurrent ? "border-moonlit/45 bg-moonlit/15" : "surface-item border-moonlit/20 hover:bg-white/[0.06]"
+                                    isCurrent
+                                        ? "border-moonlit/45 bg-moonlit/15"
+                                        : "surface-item border-moonlit/20 hover:bg-white/[0.06]"
                                 }`}
                             >
-                                <span className="truncate text-[13px] font-medium text-twilight-text">{item.title}</span>
-                                {item.end ? <span className="text-[11px] tabular-nums text-twilight-text-soft">{time} – {formatTime(item.end.toISOString())}</span> : null}
+                                <span className="truncate text-[13px] font-medium text-twilight-text">
+                                    {item.title}
+                                </span>
+                                {item.end ? (
+                                    <span className="text-[11px] tabular-nums text-twilight-text-soft">
+                                        {time} – {formatTime(item.end.toISOString())}
+                                    </span>
+                                ) : null}
                             </button>
                         </div>
                         {index === sorted.length - 1 && nowIndex === -1 ? <NowLine now={now} /> : null}
@@ -145,8 +164,14 @@ export function SpineTimeline({ items, onOpen }: { items: SpineItem[]; onOpen: (
 
 function NowLine({ now }: { now: Date }) {
     return (
-        <div className="flex items-center gap-2 text-[11px] font-medium tabular-nums text-accent-primary" role="separator" aria-label={`Now, ${formatTime(now.toISOString())}`}>
-            <span className="w-[4.5rem] shrink-0 whitespace-nowrap text-right" aria-hidden="true">{formatTime(now.toISOString())}</span>
+        <div
+            className="flex items-center gap-2 text-[11px] font-medium tabular-nums text-accent-primary"
+            role="separator"
+            aria-label={`Now, ${formatTime(now.toISOString())}`}
+        >
+            <span className="w-[4.5rem] shrink-0 whitespace-nowrap text-right" aria-hidden="true">
+                {formatTime(now.toISOString())}
+            </span>
             <span className="h-2 w-2 shrink-0 rounded-full bg-accent-primary" aria-hidden="true" />
             <span className="h-px flex-1 bg-accent-primary/50" aria-hidden="true" />
         </div>
@@ -155,7 +180,10 @@ function NowLine({ now }: { now: Date }) {
 
 function NowMarker({ now }: { now: Date }) {
     return (
-        <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium tabular-nums text-accent-primary" aria-label={`Now, ${formatTime(now.toISOString())}`}>
+        <span
+            className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium tabular-nums text-accent-primary"
+            aria-label={`Now, ${formatTime(now.toISOString())}`}
+        >
             <span className="h-2 w-2 rounded-full bg-accent-primary" aria-hidden="true" />
             <span aria-hidden="true">{formatTime(now.toISOString())}</span>
         </span>
@@ -165,10 +193,15 @@ function NowMarker({ now }: { now: Date }) {
 /** Row view, nothing left today: the dot anchors now, a soft line fills the rest of the strip, the time sits at the far end. */
 function NowRest({ now }: { now: Date }) {
     return (
-        <span className="flex min-w-[7rem] flex-1 items-center gap-2 pr-2" aria-label={`Now, ${formatTime(now.toISOString())}`}>
+        <span
+            className="flex min-w-[7rem] flex-1 items-center gap-2 pr-2"
+            aria-label={`Now, ${formatTime(now.toISOString())}`}
+        >
             <span className="h-2 w-2 shrink-0 rounded-full bg-accent-primary" aria-hidden="true" />
             <span className="h-px min-w-[2rem] flex-1 bg-accent-primary/20" aria-hidden="true" />
-            <span className="shrink-0 text-[11px] font-medium tabular-nums text-twilight-text-soft" aria-hidden="true">{formatTime(now.toISOString())}</span>
+            <span className="shrink-0 text-[11px] font-medium tabular-nums text-twilight-text-soft" aria-hidden="true">
+                {formatTime(now.toISOString())}
+            </span>
         </span>
     );
 }

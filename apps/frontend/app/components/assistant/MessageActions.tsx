@@ -4,15 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { Tip } from "../primitives";
 
-function ActionButton({
-    label,
-    onClick,
-    children,
-}: {
-    label: string;
-    onClick: () => void;
-    children: React.ReactNode;
-}) {
+function ActionButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
     return (
         <Tip label={label} side="top">
             <button

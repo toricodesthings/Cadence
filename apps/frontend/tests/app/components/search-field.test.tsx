@@ -5,7 +5,15 @@ import { SearchField, SearchTrigger } from "../../../app/components/primitives/S
 
 function Harness({ initial = "", onClear, loading }: { initial?: string; onClear?: () => void; loading?: boolean }) {
     const [value, setValue] = useState(initial);
-    return <SearchField aria-label="Search things" value={value} onValueChange={setValue} onClear={onClear} loading={loading} />;
+    return (
+        <SearchField
+            aria-label="Search things"
+            value={value}
+            onValueChange={setValue}
+            onClear={onClear}
+            loading={loading}
+        />
+    );
 }
 
 describe("SearchField", () => {

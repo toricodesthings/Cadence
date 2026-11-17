@@ -7,16 +7,37 @@ import { CLOCK, ZONE } from "./corpus";
 describe("parse performance (this machine, node, warm)", () => {
     it("stays far from a regression for a 200-character input with 500 lists / 2,000 tags", () => {
         const context = {
-            projects: Array.from({ length: 500 }, (_, i) => ({ id: `p${i}`, name: `List ${i} ${["Work", "Home", "Garden", "Study"][i % 4]}` })),
+            projects: Array.from({ length: 500 }, (_, i) => ({
+                id: `p${i}`,
+                name: `List ${i} ${["Work", "Home", "Garden", "Study"][i % 4]}`,
+            })),
             tags: Array.from({ length: 2000 }, (_, i) => ({ id: `t${i}`, name: `tag${i}` })),
         };
-        const input = "Prepare the quarterly review deck with the finance team tomorrow at 3pm for 45 minutes p2 in List 42 Work tag it tag7 waiting on Priya and follow the notes from the August planning thread over the weekend";
+        const input =
+            "Prepare the quarterly review deck with the finance team tomorrow at 3pm for 45 minutes p2 in List 42 Work tag it tag7 waiting on Priya and follow the notes from the August planning thread over the weekend";
         expect(input.length).toBeGreaterThanOrEqual(190);
         const times: number[] = [];
         for (let i = 0; i < 120; i++) {
             const t0 = performance.now();
             const r = parse({ input, sourceSurface: "inline_add", clock: CLOCK, context });
-            resolveDraft(input, r.entities, {}, { zone: ZONE, capabilities: new Set(["dueDate", "scheduledStart", "scheduledEnd", "priority", "projectId", "tagIds", "waitingOn", "durationMinutes"]) });
+            resolveDraft(
+                input,
+                r.entities,
+                {},
+                {
+                    zone: ZONE,
+                    capabilities: new Set([
+                        "dueDate",
+                        "scheduledStart",
+                        "scheduledEnd",
+                        "priority",
+                        "projectId",
+                        "tagIds",
+                        "waitingOn",
+                        "durationMinutes",
+                    ]),
+                },
+            );
             times.push(performance.now() - t0);
         }
         const warm = times.slice(20).sort((a, b) => a - b);

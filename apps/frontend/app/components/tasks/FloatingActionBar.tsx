@@ -1,8 +1,24 @@
 import type { ComponentProps } from "react";
 import { cn } from "../../lib/utils";
-import { X, type LucideIcon, Calendar, Trash2, Sun, ArrowRight, FolderOpen, CheckCircle2, Sunrise, Tag } from "lucide-react";
+import {
+    X,
+    type LucideIcon,
+    Calendar,
+    Trash2,
+    Sun,
+    ArrowRight,
+    FolderOpen,
+    CheckCircle2,
+    Sunrise,
+    Tag,
+} from "lucide-react";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
-import { useBatchStateTransition, useBatchDeleteTasks, useBatchRescheduleTasks, useTrashTasks } from "../../hooks/tasks/use-batch-state";
+import {
+    useBatchStateTransition,
+    useBatchDeleteTasks,
+    useBatchRescheduleTasks,
+    useTrashTasks,
+} from "../../hooks/tasks/use-batch-state";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
@@ -15,9 +31,19 @@ import { today } from "../../lib/utils/user-zone";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
 import { PickerChoice } from "./QuickAddActionTray";
 
-function BarButton({ icon: Icon, label, className, ...rest }: { icon: LucideIcon; label: string } & Omit<ComponentProps<typeof Button>, "children" | "variant" | "size">) {
+function BarButton({
+    icon: Icon,
+    label,
+    className,
+    ...rest
+}: { icon: LucideIcon; label: string } & Omit<ComponentProps<typeof Button>, "children" | "variant" | "size">) {
     return (
-        <Button variant="ghost" size="sm" className={cn("shrink-0 text-twilight-text-soft hover:text-white", className)} {...rest}>
+        <Button
+            variant="ghost"
+            size="sm"
+            className={cn("shrink-0 text-twilight-text-soft hover:text-white", className)}
+            {...rest}
+        >
             <Icon size={14} className="opacity-80" />
             {label}
         </Button>
@@ -44,10 +70,7 @@ export function FloatingActionBar() {
     if (count === 0) return null;
 
     const handleMarkComplete = () => {
-        batchState.mutate(
-            { taskIds: selectedArray, state: "COMPLETE" },
-            { onSuccess: clearSelection }
-        );
+        batchState.mutate({ taskIds: selectedArray, state: "COMPLETE" }, { onSuccess: clearSelection });
     };
 
     const handleDelete = () => {
@@ -60,12 +83,13 @@ export function FloatingActionBar() {
 
     const handleReschedule = (updates: ScheduleUpdates) => {
         // A picked time moves tasks to that instant; a picked day moves each to the day, keeping its own time.
-        const when = updates.scheduledStart ? { scheduledStart: updates.scheduledStart } : updates.dueDate ? { date: updates.dueDate } : null;
+        const when = updates.scheduledStart
+            ? { scheduledStart: updates.scheduledStart }
+            : updates.dueDate
+              ? { date: updates.dueDate }
+              : null;
         if (!when) return;
-        batchReschedule.mutate(
-            { taskIds: selectedArray, ...when },
-            { onSuccess: clearSelection }
-        );
+        batchReschedule.mutate({ taskIds: selectedArray, ...when }, { onSuccess: clearSelection });
     };
 
     const handleQuickReschedule = (daysFromNow: number) => {
@@ -77,17 +101,13 @@ export function FloatingActionBar() {
 
     const handleMove = async (projectId: string | null) => {
         await Promise.all(
-            selectedArray.map((taskId) =>
-                updateTask.mutateAsync({ id: taskId, projectId, sectionId: null }),
-            ),
+            selectedArray.map((taskId) => updateTask.mutateAsync({ id: taskId, projectId, sectionId: null })),
         );
         clearSelection();
     };
 
     const handleTag = async (tagId: string) => {
-        await Promise.all(
-            selectedArray.map((taskId) => addTaskTag.mutateAsync({ taskId, tagId })),
-        );
+        await Promise.all(selectedArray.map((taskId) => addTaskTag.mutateAsync({ taskId, tagId })));
         clearSelection();
     };
 
@@ -114,7 +134,12 @@ export function FloatingActionBar() {
 
                 <BarButton icon={Sunrise} label="Tomorrow" onClick={() => handleQuickReschedule(1)} />
 
-                <BarButton icon={ArrowRight} label="Next week" onClick={() => handleQuickReschedule(7)} className="hidden sm:flex" />
+                <BarButton
+                    icon={ArrowRight}
+                    label="Next week"
+                    onClick={() => handleQuickReschedule(7)}
+                    className="hidden sm:flex"
+                />
 
                 <DeadlinePickerPopover
                     dueDate={null}
@@ -139,7 +164,11 @@ export function FloatingActionBar() {
                                 Capture
                             </button>
                             {projects.map((project) => (
-                                <PickerChoice key={project.id} item={project} onClick={() => void handleMove(project.id)} />
+                                <PickerChoice
+                                    key={project.id}
+                                    item={project}
+                                    onClick={() => void handleMove(project.id)}
+                                />
                             ))}
                         </div>
                     </Popover.Content>

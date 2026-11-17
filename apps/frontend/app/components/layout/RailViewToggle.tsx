@@ -32,40 +32,40 @@ export function RailViewToggle({
     return (
         // Header-height strip so the pill centers on the panel header's title row.
         <div className="pointer-events-none absolute right-4 top-0 z-40 flex h-(--shell-header-h) items-center">
-        <div
-            role="tablist"
-            aria-label="Right panel view"
-            className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-twilight-border bg-twilight-deep/85 p-0.5 shadow-lg backdrop-blur-xl"
-        >
-            {tabs.map(({ id, label, icon: Icon }) => {
-                const active = view === id;
-                return (
-                    <Tip key={id} label={label} side="bottom">
-                        <button
-                            type="button"
-                            role="tab"
-                            aria-selected={active}
-                            aria-label={label}
-                            onClick={() => onChange(id)}
-                            className={`relative flex h-9 w-9 items-center justify-center rounded-full transition-colors cursor-pointer ${
-                                active
-                                    ? "text-twilight-text"
-                                    : "text-twilight-text-muted hover:text-twilight-text-soft"
-                            }`}
-                        >
-                            {active ? (
-                                <motion.span
-                                    layoutId="rail-toggle-active"
-                                    className="absolute inset-0 rounded-full bg-accent-primary/18 ring-1 ring-accent-primary/25"
-                                    transition={SPRINGS.GLIDE}
-                                />
-                            ) : null}
-                            <Icon size={id === "assistant" ? 19 : 16} className="relative" />
-                        </button>
-                    </Tip>
-                );
-            })}
-        </div>
+            <div
+                role="tablist"
+                aria-label="Right panel view"
+                className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-twilight-border bg-twilight-deep/85 p-0.5 shadow-lg backdrop-blur-xl"
+            >
+                {tabs.map(({ id, label, icon: Icon }) => {
+                    const active = view === id;
+                    return (
+                        <Tip key={id} label={label} side="bottom">
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={active}
+                                aria-label={label}
+                                onClick={() => onChange(id)}
+                                className={`relative flex h-9 w-9 items-center justify-center rounded-full transition-colors cursor-pointer ${
+                                    active
+                                        ? "text-twilight-text"
+                                        : "text-twilight-text-muted hover:text-twilight-text-soft"
+                                }`}
+                            >
+                                {active ? (
+                                    <motion.span
+                                        layoutId="rail-toggle-active"
+                                        className="absolute inset-0 rounded-full bg-accent-primary/18 ring-1 ring-accent-primary/25"
+                                        transition={SPRINGS.GLIDE}
+                                    />
+                                ) : null}
+                                <Icon size={id === "assistant" ? 19 : 16} className="relative" />
+                            </button>
+                        </Tip>
+                    );
+                })}
+            </div>
         </div>
     );
 }

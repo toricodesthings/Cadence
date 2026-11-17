@@ -8,17 +8,33 @@ import { appOrigin, type Env } from "../../types/env";
 
 type Bytes = Uint8Array<ArrayBuffer>;
 
-export const toBase64Url = (bytes: Uint8Array): string => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-export const fromBase64Url = (text: string): Bytes => Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), (ch) => ch.charCodeAt(0));
+export const toBase64Url = (bytes: Uint8Array): string =>
+    btoa(String.fromCharCode(...bytes))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+export const fromBase64Url = (text: string): Bytes =>
+    Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), (ch) => ch.charCodeAt(0));
 
 // The push services browsers use today: Chrome/Android/Edge-on-FCM, Firefox, Safari/iOS, Edge on Windows.
-const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /(^|\.)push\.services\.mozilla\.com$/, /(^|\.)push\.apple\.com$/, /(^|\.)notify\.windows\.com$/];
+const PUSH_HOSTS = [
+    /^fcm\.googleapis\.com$/,
+    /(^|\.)push\.services\.mozilla\.com$/,
+    /(^|\.)push\.apple\.com$/,
+    /(^|\.)notify\.windows\.com$/,
+];
 
 /** A subscription endpoint must be https on a known push service, so a stored endpoint can never aim the Worker at something else. */
 export function isAllowedPushEndpoint(endpoint: string): boolean {
     try {
         const url = new URL(endpoint);
-        return url.protocol === "https:" && !url.username && !url.password && !url.port && PUSH_HOSTS.some((host) => host.test(url.hostname));
+        return (
+            url.protocol === "https:" &&
+            !url.username &&
+            !url.password &&
+            !url.port &&
+            PUSH_HOSTS.some((host) => host.test(url.hostname))
+        );
     } catch {
         return false;
     }
@@ -55,13 +71,17 @@ export interface PushMessage {
 export function pushPayload(env: Env, message: PushMessage) {
     const title = message.title.slice(0, 120) || "Cadence";
     const body = message.body.slice(0, 240);
-    const route = message.route && message.route.startsWith("/") && !message.route.startsWith("//") ? message.route : "/";
+    const route =
+        message.route && message.route.startsWith("/") && !message.route.startsWith("//") ? message.route : "/";
     const tag = message.tag.slice(0, 200);
     return {
         web_push: 8030,
         mutable: true,
         notification: { title, body, navigate: `${appOrigin(env)}${route}`, tag },
-        title, body, route, tag,
+        title,
+        body,
+        route,
+        tag,
     };
 }
 
@@ -77,9 +97,17 @@ export async function sendWebPush(
 ): Promise<PushOutcome> {
     if (!vapidConfigured(env) || !isAllowedPushEndpoint(subscription.endpoint)) return "failed";
     try {
-        const sub = { endpoint: subscription.endpoint, expirationTime: null, keys: { p256dh: subscription.p256dh, auth: subscription.auth } };
+        const sub = {
+            endpoint: subscription.endpoint,
+            expirationTime: null,
+            keys: { p256dh: subscription.p256dh, auth: subscription.auth },
+        };
         const [{ headers }, body] = await Promise.all([
-            vapidHeaders(sub, { subject: env.VAPID_SUBJECT || "mailto:support@cadenceapp.cloud", publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY }),
+            vapidHeaders(sub, {
+                subject: env.VAPID_SUBJECT || "mailto:support@cadenceapp.cloud",
+                publicKey: env.VAPID_PUBLIC_KEY,
+                privateKey: env.VAPID_PRIVATE_KEY,
+            }),
             encryptNotification(sub, new TextEncoder().encode(JSON.stringify(pushPayload(env, message)))),
         ]);
         const response = await fetch(subscription.endpoint, {

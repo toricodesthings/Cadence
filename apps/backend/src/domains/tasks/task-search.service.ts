@@ -8,8 +8,12 @@ import { searchTerms, isIdentifier, identifierPattern, processTerm, canApproxima
 const qualified = (column: AnyPgColumn) => sql`${column.table}.${sql.identifier(column.name)}`;
 
 export const taskPlaceColumns = {
-    listName: sql<string | null>`(select ${qualified(projects.name)} from ${projects} where ${qualified(projects.id)} = ${qualified(tasks.projectId)})`,
-    sectionName: sql<string | null>`(select ${qualified(taskSections.name)} from ${taskSections} where ${qualified(taskSections.id)} = ${qualified(tasks.sectionId)})`,
+    listName: sql<
+        string | null
+    >`(select ${qualified(projects.name)} from ${projects} where ${qualified(projects.id)} = ${qualified(tasks.projectId)})`,
+    sectionName: sql<
+        string | null
+    >`(select ${qualified(taskSections.name)} from ${taskSections} where ${qualified(taskSections.id)} = ${qualified(tasks.sectionId)})`,
 };
 
 /** Canonical notes replace legacy content, including an intentionally empty note. */
@@ -33,7 +37,9 @@ function matchesTerm(column: SQLWrapper, term: string, fuzzy: boolean): SQL {
             fuzzy && canApproximate(term) ? sql`word_similarity(${term}, coalesce(${column}, '')) >= 0.2` : undefined,
             // A broad candidate prefix only: the shared index verifies full word forms before returning anything.
             // Short terms skip it and the prefix keeps ≥3 letters: "ab" → "a[[:alpha:]]*" matched almost every row (abuse guard).
-            term.length >= 4 ? sql`${column} ~* ${`\\m${processTerm(term).slice(0, Math.max(3, processTerm(term).length - 2))}[[:alpha:]]*\\M`}` : undefined,
+            term.length >= 4
+                ? sql`${column} ~* ${`\\m${processTerm(term).slice(0, Math.max(3, processTerm(term).length - 2))}[[:alpha:]]*\\M`}`
+                : undefined,
         )!;
     }
     // Non-word text, including LIKE wildcards, stays literal.
@@ -46,9 +52,12 @@ const MAX_SEARCH_TERMS = 8;
 /** All terms must match the same task. Reuse the identifier subset when offering a fuzzy suggestion. */
 export function taskSearch(query: string, places: SQLWrapper[], fuzzy = false) {
     const terms = searchTerms(query).slice(0, MAX_SEARCH_TERMS);
-    const match = (term: string) => or(
-        ...[tasks.title, ...Object.values(taskSearchColumns), ...places].map((column) => matchesTerm(column, term, fuzzy)),
-    );
+    const match = (term: string) =>
+        or(
+            ...[tasks.title, ...Object.values(taskSearchColumns), ...places].map((column) =>
+                matchesTerm(column, term, fuzzy),
+            ),
+        );
     return {
         condition: terms.length ? and(...terms.map(match))! : sql`false`,
         identifiers: terms.length ? and(...terms.filter(isIdentifier).map(match)) : sql`false`,

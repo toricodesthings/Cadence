@@ -15,11 +15,7 @@ async function assertRowOwnership(
     id: string,
     label: string,
 ) {
-    const [row] = await tx
-        .select({ userId: table.userId })
-        .from(table)
-        .where(eq(table.id, id))
-        .limit(1);
+    const [row] = await tx.select({ userId: table.userId }).from(table).where(eq(table.id, id)).limit(1);
     if (!row) throw new AppError(404, "NOT_FOUND", `${label} not found`);
     if (row.userId !== userId) throw new AppError(403, "FORBIDDEN", `${label} belongs to another user`);
 }
@@ -35,8 +31,11 @@ export async function assertProjectOwnership(tx: Tx, userId: string, projectId: 
 
 /** An owned section must belong to the task's effective list (null = unscoped). */
 async function assertSectionOwnership(tx: Tx, userId: string, sectionId: string, projectId?: string | null) {
-    const [row] = await tx.select({ userId: taskSections.userId, projectId: taskSections.projectId })
-        .from(taskSections).where(eq(taskSections.id, sectionId)).limit(1);
+    const [row] = await tx
+        .select({ userId: taskSections.userId, projectId: taskSections.projectId })
+        .from(taskSections)
+        .where(eq(taskSections.id, sectionId))
+        .limit(1);
     if (!row) throw new AppError(404, "NOT_FOUND", "Section not found");
     if (row.userId !== userId) throw new AppError(403, "FORBIDDEN", "Section belongs to another user");
     if (projectId !== undefined && row.projectId !== projectId) {
@@ -52,10 +51,7 @@ async function assertSectionOwnership(tx: Tx, userId: string, sectionId: string,
 async function assertTagsOwnership(tx: Tx, userId: string, tagIds: string[]) {
     if (tagIds.length === 0) return;
     const uniqueIds = [...new Set(tagIds)];
-    const rows = await tx
-        .select({ id: tags.id, userId: tags.userId })
-        .from(tags)
-        .where(inArray(tags.id, uniqueIds));
+    const rows = await tx.select({ id: tags.id, userId: tags.userId }).from(tags).where(inArray(tags.id, uniqueIds));
     if (rows.length !== uniqueIds.length) {
         throw new AppError(404, "NOT_FOUND", "One or more tags not found");
     }
@@ -76,7 +72,8 @@ export async function assertOwnership(
     const checks: Promise<void>[] = [];
     if (refs.projectId) checks.push(assertProjectOwnership(tx, userId, refs.projectId));
     if (refs.sectionId) checks.push(assertSectionOwnership(tx, userId, refs.sectionId, refs.projectId));
-    if (refs.inboxSectionId) checks.push(assertRowOwnership(tx, inboxSections, userId, refs.inboxSectionId, "Inbox section"));
+    if (refs.inboxSectionId)
+        checks.push(assertRowOwnership(tx, inboxSections, userId, refs.inboxSectionId, "Inbox section"));
     if (refs.tagIds?.length) checks.push(assertTagsOwnership(tx, userId, refs.tagIds));
     await Promise.all(checks);
 }

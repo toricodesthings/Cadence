@@ -10,42 +10,99 @@ export function testQueryClient() {
 
 /** `wrapper` for render/renderHook that provides a QueryClient. */
 export function withClient(client = testQueryClient()) {
-    return ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    return ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
 }
 
 /** Makes `matchMedia` report a touch-first device (or a mouse), as `useShellMode().isTouch` reads it. */
 export function stubTouch(touch: boolean) {
     window.matchMedia = ((query: string) => ({
-        matches: touch && query.includes("pointer: coarse"), media: query, onchange: null,
-        addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false,
+        matches: touch && query.includes("pointer: coarse"),
+        media: query,
+        onchange: null,
+        addEventListener() {},
+        removeEventListener() {},
+        addListener() {},
+        removeListener() {},
+        dispatchEvent: () => false,
     })) as typeof window.matchMedia;
 }
 
 /** Prints the router's path and query so tests can assert navigation. */
 export function Location() {
     const location = useLocation();
-    return <output aria-label="Current location">{location.pathname}{location.search}</output>;
+    return (
+        <output aria-label="Current location">
+            {location.pathname}
+            {location.search}
+        </output>
+    );
 }
 
 export function makeTask(overrides: Partial<Task> = {}): Task {
     return {
-        id: "task-1", userId: "user-1", projectId: null, sectionId: null, title: "Task", content: null,
-        state: "ACTIVE", orderIndex: 1, dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null, notBefore: null,
-        durationEstimate: null, timezoneLocked: false, priority: 0, isPinned: false, reminderAt: null,
-        reminderSilenced: false, recurrenceRule: null, interactionMode: "task", effort: null, tagIds: [],
-        completedAt: null, seriesId: undefined, isRecurringInstance: false, occurrenceStart: null, occurrenceEnd: null,
-        createdAt: "2026-03-09T00:00:00.000Z", updatedAt: "2026-03-09T00:00:00.000Z",
+        id: "task-1",
+        userId: "user-1",
+        projectId: null,
+        sectionId: null,
+        title: "Task",
+        content: null,
+        state: "ACTIVE",
+        orderIndex: 1,
+        dueDate: null,
+        endDate: null,
+        scheduledStart: null,
+        scheduledEnd: null,
+        zone: null,
+        notBefore: null,
+        durationEstimate: null,
+        timezoneLocked: false,
+        priority: 0,
+        isPinned: false,
+        reminderAt: null,
+        reminderSilenced: false,
+        recurrenceRule: null,
+        interactionMode: "task",
+        effort: null,
+        tagIds: [],
+        completedAt: null,
+        seriesId: undefined,
+        isRecurringInstance: false,
+        occurrenceStart: null,
+        occurrenceEnd: null,
+        createdAt: "2026-03-09T00:00:00.000Z",
+        updatedAt: "2026-03-09T00:00:00.000Z",
         ...overrides,
     };
 }
 
 export function makeHabit(overrides: Partial<Habit> = {}): Habit {
     return {
-        id: "habit-1", userId: "user-1", title: "Habit", description: null, steps: null, notes: null,
-        recurrenceRule: "FREQ=DAILY", targetTime: null, targetTimes: null, times: null, reminderEnabled: false,
-        totalCompletions: 0, totalSkips: 0, currentStreak: 0, longestStreak: 0, colorAccent: "lantern",
-        archived: false, emoji: null, projectId: null, sortOrder: 0, pausedUntil: null, logs: [],
-        createdAt: "2026-03-09T00:00:00.000Z", updatedAt: "2026-03-09T00:00:00.000Z",
+        id: "habit-1",
+        userId: "user-1",
+        title: "Habit",
+        description: null,
+        steps: null,
+        notes: null,
+        recurrenceRule: "FREQ=DAILY",
+        targetTime: null,
+        targetTimes: null,
+        times: null,
+        reminderEnabled: false,
+        totalCompletions: 0,
+        totalSkips: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        colorAccent: "lantern",
+        archived: false,
+        emoji: null,
+        projectId: null,
+        sortOrder: 0,
+        pausedUntil: null,
+        logs: [],
+        createdAt: "2026-03-09T00:00:00.000Z",
+        updatedAt: "2026-03-09T00:00:00.000Z",
         ...overrides,
     };
 }

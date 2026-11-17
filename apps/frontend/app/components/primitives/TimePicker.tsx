@@ -123,7 +123,8 @@ export function TimePicker(props: TimePickerProps) {
  * `type="time"` speaks "HH:mm" natively and follows the device's 12h/24h
  * locale automatically.
  */
-const FIELD_SHELL = "flex items-center gap-0.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1 has-[:disabled]:opacity-40";
+const FIELD_SHELL =
+    "flex items-center gap-0.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1 has-[:disabled]:opacity-40";
 
 function NativeTimeField({ value, onChange, icon, className, label, disabled, clearable }: TimePickerProps) {
     return (
@@ -150,7 +151,16 @@ function NativeTimeField({ value, onChange, icon, className, label, disabled, cl
  * the current value highlighted and scrolled into view. Commits on Enter,
  * blur, or picking; invalid input silently reverts.
  */
-function DesktopTimePicker({ value, onChange, icon, className, label, disabled, placeholder, clearable }: TimePickerProps) {
+function DesktopTimePicker({
+    value,
+    onChange,
+    icon,
+    className,
+    label,
+    disabled,
+    placeholder,
+    clearable,
+}: TimePickerProps) {
     const is24h = getDateFormatConfig().timeDisplay === "24h";
     const listId = React.useId();
 

@@ -4,7 +4,17 @@
  * as rows the user can untick.
  */
 import { useState } from "react";
-import { ArrowUpDown, CalendarClock, Check, CheckCircle2, Copy, Trash2, RotateCcw, type LucideIcon, UserCheck } from "lucide-react";
+import {
+    ArrowUpDown,
+    CalendarClock,
+    Check,
+    CheckCircle2,
+    Copy,
+    Trash2,
+    RotateCcw,
+    type LucideIcon,
+    UserCheck,
+} from "lucide-react";
 import { ApprovalCard, DeleteApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useTaskTitleLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
@@ -49,11 +59,36 @@ function TaskRows({ rows, off, onToggle, countOnly }: TaskRowsProps) {
 
 type State = "COMPLETE" | "ARCHIVED" | "ACTIVE" | "WAITING";
 
-const STATE_COPY: Record<State, { eyebrow: string; glyph: LucideIcon; primary: (n: number) => string; done: (n: number, waitingOn?: string) => string; tone?: "success" }> = {
-    COMPLETE: { eyebrow: "MARK DONE", glyph: CheckCircle2, primary: (n) => `Mark ${n} done`, done: (n) => `Marked ${n} done. Nice.`, tone: "success" },
-    ARCHIVED: { eyebrow: "MOVE TO TRASH", glyph: Trash2, primary: () => "Move to Trash", done: (n) => `Moved ${n} to Trash.` },
+const STATE_COPY: Record<
+    State,
+    {
+        eyebrow: string;
+        glyph: LucideIcon;
+        primary: (n: number) => string;
+        done: (n: number, waitingOn?: string) => string;
+        tone?: "success";
+    }
+> = {
+    COMPLETE: {
+        eyebrow: "MARK DONE",
+        glyph: CheckCircle2,
+        primary: (n) => `Mark ${n} done`,
+        done: (n) => `Marked ${n} done. Nice.`,
+        tone: "success",
+    },
+    ARCHIVED: {
+        eyebrow: "MOVE TO TRASH",
+        glyph: Trash2,
+        primary: () => "Move to Trash",
+        done: (n) => `Moved ${n} to Trash.`,
+    },
     ACTIVE: { eyebrow: "REOPEN", glyph: RotateCcw, primary: () => "Reopen", done: (n) => `Reopened ${n}.` },
-    WAITING: { eyebrow: "ON HOLD", glyph: UserCheck, primary: () => "Put on hold", done: (n, on) => (on ? `On hold, waiting on ${on}.` : `Put ${n} on hold.`) },
+    WAITING: {
+        eyebrow: "ON HOLD",
+        glyph: UserCheck,
+        primary: () => "Put on hold",
+        done: (n, on) => (on ? `On hold, waiting on ${on}.` : `Put ${n} on hold.`),
+    },
 };
 
 const copyFor = (state: string | undefined) => STATE_COPY[(state ?? "COMPLETE") as State] ?? STATE_COPY.COMPLETE;
@@ -61,7 +96,14 @@ const copyFor = (state: string | undefined) => STATE_COPY[(state ?? "COMPLETE") 
 /** "Waiting on Sam · check in Mar 8" when the tasks go on hold with either. */
 function waitingLine(input: { state?: string; waitingOn?: string; checkInAt?: string | null }) {
     if (input.state !== "WAITING") return null;
-    return [input.waitingOn ? `Waiting on ${input.waitingOn}` : null, input.checkInAt ? `check in ${formatWhen(input.checkInAt)}` : null].filter(Boolean).join(" · ") || null;
+    return (
+        [
+            input.waitingOn ? `Waiting on ${input.waitingOn}` : null,
+            input.checkInAt ? `check in ${formatWhen(input.checkInAt)}` : null,
+        ]
+            .filter(Boolean)
+            .join(" · ") || null
+    );
 }
 
 /** Card for `set_task_state`: done, Trash (restorable), reopen, or waiting on someone. */
@@ -117,7 +159,9 @@ export function DeleteTasksCard({ ctx }: { ctx: ToolRenderContext<"delete_tasks"
             ariaLabel={`Delete: ${titles.join(", ")}`}
             primaryLabel={titles.length > 1 ? `Delete ${kept}` : "Delete it"}
             removed={removed(titles)}
-            doneText={titles.length > 1 ? `Deleted ${ctx.part?.output?.deleted ?? titles.length}.` : `Deleted “${titles[0]}”.`}
+            doneText={
+                titles.length > 1 ? `Deleted ${ctx.part?.output?.deleted ?? titles.length}.` : `Deleted “${titles[0]}”.`
+            }
         >
             <TaskRows rows={titles} off={off} onToggle={onToggle} />
             {persona.terse ? null : <p className="text-xs text-twilight-text-soft">These won’t come back.</p>}
@@ -150,14 +194,18 @@ export function RescheduleCard({ ctx }: { ctx: ToolRenderContext<"reschedule_tas
             eyebrow={`RESCHEDULE ${titles.length} ${titles.length === 1 ? "ITEM" : "ITEMS"}`}
             eyebrowGlyph={CalendarClock}
             ariaLabel={`Move to ${day}: ${titles.join(", ")}`}
-            primaryLabel={kept === titles.length ? `Move ${titles.length > 1 ? "all " : ""}to ${day}` : `Move ${kept} to ${day}`}
+            primaryLabel={
+                kept === titles.length ? `Move ${titles.length > 1 ? "all " : ""}to ${day}` : `Move ${kept} to ${day}`
+            }
             primaryGlyph={Check}
             removed={removed(titles)}
             // Fixed blocks stay put, so the server's count is the honest one.
             doneText={`Moved ${ctx.part?.output?.moved ?? titles.length} to ${day}.`}
             declinedText="Left them where they were."
         >
-            {persona.terse ? null : <p className="text-xs text-twilight-text-soft">Want me to push these to {day} so today’s lighter?</p>}
+            {persona.terse ? null : (
+                <p className="text-xs text-twilight-text-soft">Want me to push these to {day} so today’s lighter?</p>
+            )}
             <TaskRows rows={titles.map((title) => `${title} → ${day}`)} off={off} onToggle={onToggle} />
         </ApprovalCard>
     );
@@ -182,7 +230,11 @@ export function DuplicateTasksCard({ ctx }: { ctx: ToolRenderContext<"duplicate_
             primaryLabel={rows.length > 1 ? `Copy ${kept}` : "Copy it"}
             primaryGlyph={Check}
             removed={removed(rows)}
-            doneText={rows.length > 1 ? `Copied ${ctx.part?.output?.created?.length ?? rows.length} tasks.` : `Copied as “${rows[0]}”.`}
+            doneText={
+                rows.length > 1
+                    ? `Copied ${ctx.part?.output?.created?.length ?? rows.length} tasks.`
+                    : `Copied as “${rows[0]}”.`
+            }
         >
             <TaskRows rows={rows} off={off} onToggle={onToggle} />
         </ApprovalCard>
@@ -194,10 +246,16 @@ export function ReorderTasksCard({ ctx }: { ctx: ToolRenderContext<"reorder_task
     const lookupTitle = useTaskTitleLookup();
     const input = ctx.part?.input ?? {};
     const titles = ((input.taskIds ?? []) as string[]).map(lookupTitle);
-    const where = input.to === "top" ? "To the top of the list"
-        : input.to === "bottom" ? "To the bottom of the list"
-            : input.beforeTaskId ? `Before “${lookupTitle(input.beforeTaskId)}”`
-                : input.afterTaskId ? `After “${lookupTitle(input.afterTaskId)}”` : "New order";
+    const where =
+        input.to === "top"
+            ? "To the top of the list"
+            : input.to === "bottom"
+              ? "To the bottom of the list"
+              : input.beforeTaskId
+                ? `Before “${lookupTitle(input.beforeTaskId)}”`
+                : input.afterTaskId
+                  ? `After “${lookupTitle(input.afterTaskId)}”`
+                  : "New order";
     return (
         <ApprovalCard
             ctx={ctx}
@@ -211,7 +269,11 @@ export function ReorderTasksCard({ ctx }: { ctx: ToolRenderContext<"reorder_task
         >
             <p className="text-xs text-twilight-text-soft">{where}</p>
             <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5 text-[11px] text-twilight-text-soft">
-                {titles.map((title, i) => <p key={i} className="text-truncate-safe py-0.5">{i + 1}. {title}</p>)}
+                {titles.map((title, i) => (
+                    <p key={i} className="text-truncate-safe py-0.5">
+                        {i + 1}. {title}
+                    </p>
+                ))}
             </div>
         </ApprovalCard>
     );

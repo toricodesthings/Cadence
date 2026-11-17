@@ -6,15 +6,7 @@
  * via `[data-palette="..."]` attributes on `<html>`.
  */
 
-export type PaletteId =
-    | "lantern"
-    | "ember"
-    | "rose"
-    | "violet"
-    | "sapphire"
-    | "jade"
-    | "copper"
-    | "frost";
+export type PaletteId = "lantern" | "ember" | "rose" | "violet" | "sapphire" | "jade" | "copper" | "frost";
 
 export interface PaletteColors {
     primary: string;

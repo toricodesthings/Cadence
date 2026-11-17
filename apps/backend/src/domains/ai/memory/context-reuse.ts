@@ -5,12 +5,15 @@ import type { MemoryMode } from "@cadence/contracts/memory";
 import type { loadContextFacts } from "./memory-store";
 import { isLearning } from "./memory-mode";
 
-const MEMORY_FENCE = /<<<CADENCE_DATA_([a-zA-Z0-9]+) kind="memory" trust="untrusted">>>\n([\s\S]*?)\n<<<END_CADENCE_DATA_\1>>>/;
+const MEMORY_FENCE =
+    /<<<CADENCE_DATA_([a-zA-Z0-9]+) kind="memory" trust="untrusted">>>\n([\s\S]*?)\n<<<END_CADENCE_DATA_\1>>>/;
 const FACT_ID = /^- (?:\(said [^\n]*\) )?\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/gm;
 
 /** Returns replay copies; never edits the persisted historical prefix. Invalid contexts rebuild on continuation. */
 export async function validateStoredContexts<M extends { role: string; metadata?: unknown }>(
-    history: M[], mode: MemoryMode | null, readFacts: (ids: string[]) => ReturnType<typeof loadContextFacts>,
+    history: M[],
+    mode: MemoryMode | null,
+    readFacts: (ids: string[]) => ReturnType<typeof loadContextFacts>,
 ): Promise<M[]> {
     const memoryOn = isLearning(mode);
     const parsed = history.map((message) => {
@@ -29,7 +32,10 @@ export async function validateStoredContexts<M extends { role: string; metadata?
         if (!memoryOn) valid = !fence && (!context.includes("## Memory") || context.endsWith(PROMPT_BLOCKS.memoryOff));
         else if (fence) {
             const current = ids.flatMap((id) => byId.get(id) ?? []);
-            valid = ids.length > 0 && current.length === ids.length && memoryLines(PROMPT_BLOCKS, current, fence[1]) === fence[2];
+            valid =
+                ids.length > 0 &&
+                current.length === ids.length &&
+                memoryLines(PROMPT_BLOCKS, current, fence[1]) === fence[2];
         } else valid = !context.includes("## Memory");
         if (valid) return message;
         const { turnContext: _removed, ...metadata } = message.metadata as Record<string, unknown>;

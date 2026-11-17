@@ -61,8 +61,9 @@ export function inferTaskFieldsFromParse(
 ) {
     const found = readEntities(parsed, zone);
     // Any placement field given (even null) means the caller placed the task itself.
-    const placed = [explicit.dueDate, explicit.scheduledStart, explicit.scheduledEnd, explicit.scheduledDay]
-        .some((field) => field !== undefined);
+    const placed = [explicit.dueDate, explicit.scheduledStart, explicit.scheduledEnd, explicit.scheduledDay].some(
+        (field) => field !== undefined,
+    );
     const temporal = placed ? undefined : found.temporal;
     return {
         projectId: given(explicit.projectId, found.projectId),
@@ -100,10 +101,18 @@ function readEntities(parsed: CanonicalNlpSnapshot, zone: Zone) {
                 if (tagId) found.tagIds.add(tagId);
                 break;
             }
-            case "priority": found.priority = entity.normalizedValue as number; break;
-            case "duration": found.duration = value.minutes as number; break;
-            case "waiting_on": found.waitingOn = value.person as string; break;
-            case "recurrence": found.recurrence = value.rrule as string; break;
+            case "priority":
+                found.priority = entity.normalizedValue as number;
+                break;
+            case "duration":
+                found.duration = value.minutes as number;
+                break;
+            case "waiting_on":
+                found.waitingOn = value.person as string;
+                break;
+            case "recurrence":
+                found.recurrence = value.rrule as string;
+                break;
             case "due_date":
             case "scheduled_start":
                 found.temporal = temporalOf(entity.type, value, zone);
@@ -128,12 +137,7 @@ function given<T, P>(explicit: T | undefined, parsed: P): T | P {
     return explicit !== undefined ? explicit : parsed;
 }
 
-export async function persistNlpSnapshot(
-    tx: Tx,
-    snapshot: CanonicalNlpSnapshot,
-    taskId: string,
-    userId: string,
-) {
+export async function persistNlpSnapshot(tx: Tx, snapshot: CanonicalNlpSnapshot, taskId: string, userId: string) {
     const [existing] = await tx
         .select()
         .from(taskNlpMetadata)

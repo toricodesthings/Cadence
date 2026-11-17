@@ -10,7 +10,9 @@ vi.mock("../../../app/components/calendar/TimeGutter", () => ({
     TimeGutter: () => <div data-testid="time-gutter" />,
 }));
 
-vi.mock("../../../app/hooks/tasks/use-archive-task", () => ({ useArchiveTask: () => ({ mutate: vi.fn(), isPending: false }) }));
+vi.mock("../../../app/hooks/tasks/use-archive-task", () => ({
+    useArchiveTask: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 vi.mock("../../../app/hooks/projects/use-projects", () => ({ useProjects: () => ({ data: [] }) }));
 vi.mock("../../../app/hooks/sections/use-sections", () => ({ useAllSections: () => [] }));
 vi.mock("../../../app/components/tasks/TaskCheckbox", () => ({
@@ -26,21 +28,33 @@ vi.mock("../../../app/components/calendar/CalendarDropTargets", () => ({
 
 const SUNDAY_WEEK = ["2026-03-15", "2026-03-16", "2026-03-17", "2026-03-18", "2026-03-19", "2026-03-20", "2026-03-21"];
 
-const renderWeek = (tasksByDate: Record<string, Task[]>) => render(
-    <TooltipProvider>
-        <WeekView weekDates={SUNDAY_WEEK} tasksByDate={tasksByDate} onSelectTask={() => {}} />
-    </TooltipProvider>,
-);
+const renderWeek = (tasksByDate: Record<string, Task[]>) =>
+    render(
+        <TooltipProvider>
+            <WeekView weekDates={SUNDAY_WEEK} tasksByDate={tasksByDate} onSelectTask={() => {}} />
+        </TooltipProvider>,
+    );
 
 describe("WeekView", () => {
     it.each([0, 1] as const)("keeps the real header and grid on the same week with week start %s", (weekStartsOn) => {
         setDateFormatConfig({ timeDisplay: "12h", dateStyle: "mdy", weekStartsOn });
         const dates = getWeekDays("2026-03-18", weekStartsOn);
-        const { container } = render(<TooltipProvider>
-            <ScheduleHeader year={2026} month={2} currentDate="2026-03-18" viewMode="week" weekStartsOn={weekStartsOn}
-                isCurrentPeriod={false} onViewMode={vi.fn()} onNavigate={vi.fn()} onToday={vi.fn()} />
-            <WeekView weekDates={dates} tasksByDate={{}} onSelectTask={vi.fn()} />
-        </TooltipProvider>);
+        const { container } = render(
+            <TooltipProvider>
+                <ScheduleHeader
+                    year={2026}
+                    month={2}
+                    currentDate="2026-03-18"
+                    viewMode="week"
+                    weekStartsOn={weekStartsOn}
+                    isCurrentPeriod={false}
+                    onViewMode={vi.fn()}
+                    onNavigate={vi.fn()}
+                    onToday={vi.fn()}
+                />
+                <WeekView weekDates={dates} tasksByDate={{}} onSelectTask={vi.fn()} />
+            </TooltipProvider>,
+        );
         expect(screen.getByText(weekStartsOn === 0 ? "Mar 15 – 21" : "Mar 16 – 22")).toBeTruthy();
         expect(container.querySelector("[data-calendar-column]")?.getAttribute("data-calendar-column")).toBe(dates[0]);
     });
@@ -51,14 +65,33 @@ describe("WeekView", () => {
     });
 
     it("folds anytime routines into one strip of marks, not pills", () => {
-        const routine = (id: string, title: string) => ({ id: `habit-${id}--2026-03-16`, title, isHabit: true, state: "ACTIVE", dueDate: "2026-03-16", endDate: null, scheduledStart: null, scheduledEnd: null }) as unknown as Task;
+        const routine = (id: string, title: string) =>
+            ({
+                id: `habit-${id}--2026-03-16`,
+                title,
+                isHabit: true,
+                state: "ACTIVE",
+                dueDate: "2026-03-16",
+                endDate: null,
+                scheduledStart: null,
+                scheduledEnd: null,
+            }) as unknown as Task;
         renderWeek({ "2026-03-16": [routine("a", "French"), routine("b", "Read"), routine("c", "Journal")] });
         expect(screen.getAllByRole("button", { name: /^Mark .* done$/ })).toHaveLength(3);
         expect(document.querySelectorAll("[data-task-chip]")).toHaveLength(3);
     });
 
     it("draws a multi-day task as one bar across its days", () => {
-        const prep = { id: "t1", title: "Reading week prep", state: "ACTIVE", priority: 0, dueDate: "2026-03-19", endDate: "2026-03-21", scheduledStart: null, scheduledEnd: null } as unknown as Task;
+        const prep = {
+            id: "t1",
+            title: "Reading week prep",
+            state: "ACTIVE",
+            priority: 0,
+            dueDate: "2026-03-19",
+            endDate: "2026-03-21",
+            scheduledStart: null,
+            scheduledEnd: null,
+        } as unknown as Task;
         renderWeek({ "2026-03-19": [prep], "2026-03-20": [prep], "2026-03-21": [prep] });
         const bars = screen.getAllByText("Reading week prep");
         expect(bars).toHaveLength(1);

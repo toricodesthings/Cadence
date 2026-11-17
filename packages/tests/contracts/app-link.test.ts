@@ -37,14 +37,29 @@ describe("parseWebsite / linkedUrl", () => {
     ])("%j → %s", (input, expected) => expect(parseWebsite(input)).toBe(expected));
 
     it.each([
-        "", "https://", "http://example.com", "javascript:alert(1)", "JAVASCRIPT:alert(1)", "data:text/html,x", "file:///etc/passwd",
-        "ftp://example.com", "https://user:pass@example.com", "https://localhost", "https://example.", "https://exa mple.com",
-        "https://exa\nmple.com", `https://example.com/${"a".repeat(2100)}`, "mfp://",
+        "",
+        "https://",
+        "http://example.com",
+        "javascript:alert(1)",
+        "JAVASCRIPT:alert(1)",
+        "data:text/html,x",
+        "file:///etc/passwd",
+        "ftp://example.com",
+        "https://user:pass@example.com",
+        "https://localhost",
+        "https://example.",
+        "https://exa mple.com",
+        "https://exa\nmple.com",
+        `https://example.com/${"a".repeat(2100)}`,
+        "mfp://",
     ])("refuses %j", (input) => expect(parseWebsite(input)).toBeNull());
 
     it("the update schemas accept only the normalised https form, and null removes", () => {
         for (const schema of [updateTaskSchema, updateHabitSchema]) {
-            expect(schema.parse({ linkedUrl: "https://example.com/" })).toHaveProperty("linkedUrl", "https://example.com/");
+            expect(schema.parse({ linkedUrl: "https://example.com/" })).toHaveProperty(
+                "linkedUrl",
+                "https://example.com/",
+            );
             expect(schema.parse({ linkedUrl: null })).toHaveProperty("linkedUrl", null);
             expect(schema.parse({})).not.toHaveProperty("linkedUrl");
             expect(schema.safeParse({ linkedUrl: "javascript:alert(1)" }).success).toBe(false);

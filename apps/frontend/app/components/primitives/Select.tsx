@@ -1,36 +1,47 @@
-import * as React from "react"
-import * as SelectPrimitive from "@radix-ui/react-select"
-import { Check, ChevronDown } from "lucide-react"
+import * as React from "react";
+import * as SelectPrimitive from "@radix-ui/react-select";
+import { Check, ChevronDown } from "lucide-react";
 
-import { cn } from "../../lib/utils"
-import { FLOATING_MORPH, MENU_HOVER, morphFrom } from "./menu-styles"
+import { cn } from "../../lib/utils";
+import { FLOATING_MORPH, MENU_HOVER, morphFrom } from "./menu-styles";
 
-const Select = SelectPrimitive.Root
+const Select = SelectPrimitive.Root;
 
-const SelectValue = SelectPrimitive.Value
+const SelectValue = SelectPrimitive.Value;
 
 const SelectTrigger = ({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Trigger>) => (
     <SelectPrimitive.Trigger
         className={cn(
             "flex h-11 w-full items-center justify-between whitespace-nowrap rounded-xl border border-twilight-border-light bg-white/[0.05] px-3 py-2 text-sm text-twilight-text shadow-sm ring-offset-twilight-base placeholder:text-twilight-text-muted focus:outline-none focus:ring-1 focus:ring-accent-primary/40 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 cursor-pointer hover:bg-white/[0.08] transition-[background-color,opacity] [&[data-state=open]>svg]:rotate-180",
-            className
+            className,
         )}
         {...props}
     >
         {children}
         <SelectPrimitive.Icon asChild>
-            <ChevronDown className="h-4 w-4 shrink-0 text-twilight-text-muted transition-transform duration-200 ease-[var(--ease-out-quart)]" aria-hidden="true" />
+            <ChevronDown
+                className="h-4 w-4 shrink-0 text-twilight-text-muted transition-transform duration-200 ease-[var(--ease-out-quart)]"
+                aria-hidden="true"
+            />
         </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
 );
 
-const SelectContent = ({ className, children, position = "popper", sideOffset = 4, fromRadius = "0.75rem", style, ...props }: React.ComponentProps<typeof SelectPrimitive.Content> & { fromRadius?: string }) => (
+const SelectContent = ({
+    className,
+    children,
+    position = "popper",
+    sideOffset = 4,
+    fromRadius = "0.75rem",
+    style,
+    ...props
+}: React.ComponentProps<typeof SelectPrimitive.Content> & { fromRadius?: string }) => (
     <SelectPrimitive.Portal>
         <SelectPrimitive.Content
             className={cn(
                 "surface-floating glass-edge layer-floating-ui relative max-h-96 min-w-[8rem] overflow-hidden rounded-xl text-twilight-text",
                 position === "popper" && FLOATING_MORPH,
-                className
+                className,
             )}
             position={position}
             sideOffset={position === "popper" ? sideOffset : undefined}
@@ -41,7 +52,7 @@ const SelectContent = ({ className, children, position = "popper", sideOffset = 
                 className={cn(
                     "p-1",
                     position === "popper" &&
-                    "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
+                        "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]",
                 )}
             >
                 {children}
@@ -55,7 +66,7 @@ const SelectItem = ({ className, children, ...props }: React.ComponentProps<type
         className={cn(
             "relative flex min-h-11 w-full cursor-pointer select-none items-center rounded-lg py-2 pl-9 pr-3 text-[15px] text-twilight-text-soft outline-none focus:text-twilight-text data-[state=checked]:font-medium data-[state=checked]:text-accent-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
             MENU_HOVER,
-            className
+            className,
         )}
         {...props}
     >
@@ -77,37 +88,34 @@ const SelectItem = ({ className, children, ...props }: React.ComponentProps<type
  * that back, so pair this with a controlled `open` on `Select` and focus it from an effect:
  * `useEffect(() => { if (open) requestAnimationFrame(() => ref.current?.focus()); }, [open])`.
  */
-const SelectSearch = ({ className, onKeyDown, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { ref?: React.Ref<HTMLInputElement> }) => (
+const SelectSearch = ({
+    className,
+    onKeyDown,
+    ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & { ref?: React.Ref<HTMLInputElement> }) => (
     <div className="sticky top-0 z-10 -mx-1 -mt-1 mb-1 bg-[inherit] px-1 pb-1 pt-1">
         <input
             type="search"
             onKeyDown={(event) => {
                 if (event.key === "ArrowDown") {
-                    event.preventDefault()
+                    event.preventDefault();
                     const option = event.currentTarget
                         .closest("[data-radix-select-viewport]")
-                        ?.querySelector<HTMLElement>('[role="option"]')
-                    option?.focus()
+                        ?.querySelector<HTMLElement>('[role="option"]');
+                    option?.focus();
                 } else if (event.key !== "Escape") {
                     // Keep typing in the box; only Escape should reach Radix's own handling (closes the menu).
-                    event.stopPropagation()
+                    event.stopPropagation();
                 }
-                onKeyDown?.(event)
+                onKeyDown?.(event);
             }}
             className={cn(
                 "w-full rounded-lg border border-twilight-border-light bg-white/[0.06] px-2.5 py-1.5 text-sm text-twilight-text placeholder:text-twilight-text-muted outline-none focus:ring-1 focus:ring-accent-primary/40",
-                className
+                className,
             )}
             {...props}
         />
     </div>
 );
 
-export {
-    Select,
-    SelectValue,
-    SelectTrigger,
-    SelectContent,
-    SelectItem,
-    SelectSearch,
-}
+export { Select, SelectValue, SelectTrigger, SelectContent, SelectItem, SelectSearch };

@@ -4,8 +4,12 @@ import { renderHook, waitFor } from "@testing-library/react";
 const put = vi.fn();
 let zone = "America/Toronto";
 let userId = "u1";
-vi.mock("../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => ({ api: { me: { "time-zone": { $put: put } } } }) }));
-vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ authReady: true, isAuthenticated: true, session: { user: { id: userId } } }) }));
+vi.mock("../../../app/hooks/auth/use-api-client", () => ({
+    useApiClient: () => ({ api: { me: { "time-zone": { $put: put } } } }),
+}));
+vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
+    useAuthState: () => ({ authReady: true, isAuthenticated: true, session: { user: { id: userId } } }),
+}));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: undefined }) }));
 vi.mock("../../../app/lib/utils/user-zone", () => ({ resolveZone: () => zone, setUserZone: vi.fn() }));
 vi.mock("../../../app/lib/api/helpers", () => ({ unwrapResponse: async (r: unknown) => r }));
@@ -16,11 +20,15 @@ import { WAKE_EVENT } from "../../../app/hooks/core/use-wake-refresh";
 const flush = () => waitFor(() => expect(put).toHaveBeenCalled());
 
 describe("useZoneSync", () => {
-    beforeEach(() => { put.mockReset(); put.mockResolvedValue({}); });
+    beforeEach(() => {
+        put.mockReset();
+        put.mockResolvedValue({});
+    });
 
     it("writes once per zone and user, however often the window wakes; a failed write is retried", async () => {
         // A fresh module state per test comes from using distinct zones/users.
-        zone = "Europe/Paris"; userId = "u1";
+        zone = "Europe/Paris";
+        userId = "u1";
         const { unmount } = renderHook(() => useZoneSync());
         await flush();
         expect(put).toHaveBeenCalledTimes(1);
@@ -52,7 +60,8 @@ describe("useZoneSync", () => {
     });
 
     it("says its zone again after an hour, in case another device in another zone stored its own", async () => {
-        zone = "America/Halifax"; userId = "u3";
+        zone = "America/Halifax";
+        userId = "u3";
         const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
         const { unmount } = renderHook(() => useZoneSync());
         await waitFor(() => expect(put).toHaveBeenCalledTimes(1));

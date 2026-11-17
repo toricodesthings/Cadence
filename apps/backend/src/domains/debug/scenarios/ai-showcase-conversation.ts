@@ -119,7 +119,8 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
     const clusterThemes = subtask("Cluster themes");
     const hypotheses = subtask("Write three hypotheses");
     const clientOps = project("Client Ops");
-    const section = (projectId: string, name: string) => find(refs.sections, (s) => s.projectId === projectId && s.name === name, `section "${name}"`);
+    const section = (projectId: string, name: string) =>
+        find(refs.sections, (s) => s.projectId === projectId && s.name === name, `section "${name}"`);
     const opsToday = section(clientOps.id, "Today");
     const opsLater = section(clientOps.id, "Later This Week");
     const featureLaunch = project("Feature Launch");
@@ -133,29 +134,39 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
     const tag = (name: string) => find(refs.tags, (t) => t.name === name, `tag "${name}"`);
     const followUp = tag("Follow-up");
     const admin = tag("Admin");
-    const views = await db.select().from(savedFocusViews).where(eq(savedFocusViews.userId, userId)).orderBy(asc(savedFocusViews.orderIndex));
+    const views = await db
+        .select()
+        .from(savedFocusViews)
+        .where(eq(savedFocusViews.userId, userId))
+        .orderBy(asc(savedFocusViews.orderIndex));
     const overdueView = find(views, (v) => v.name === "Overdue Review", "focus view");
 
     // ── Side effects the conversation implies ───────────────────────────
     // capture_to_inbox writes immediately.
-    const [passport] = await db.insert(inboxItems).values({
-        userId,
-        rawText: "Renew passport before March",
-        captureKind: "task",
-        orderIndex: 10,
-    }).returning();
+    const [passport] = await db
+        .insert(inboxItems)
+        .values({
+            userId,
+            rawText: "Renew passport before March",
+            captureKind: "task",
+            orderIndex: 10,
+        })
+        .returning();
 
     // remember saves immediately (its receipt carries Undo).
-    const [remembered] = await db.insert(aiMemories).values({
-        userId,
-        kind: "preference",
-        content: "Prefers one question at a time when things are busy",
-        saidOn: today,
-        lastSeenOn: today,
-        source: "explicit",
-        confidence: "stated",
-        pinned: true,
-    }).returning();
+    const [remembered] = await db
+        .insert(aiMemories)
+        .values({
+            userId,
+            kind: "preference",
+            content: "Prefers one question at a time when things are busy",
+            saidOn: today,
+            lastSeenOn: today,
+            source: "explicit",
+            confidence: "stated",
+            pinned: true,
+        })
+        .returning();
 
     // Approved: set_task_state.
     await setTaskState(db, userId, [invoices.id], "COMPLETE");
@@ -184,7 +195,11 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
         durationEstimate: 45,
         projectId: featureLaunch.id,
     };
-    const { task: transcriptTask } = await processCapture(db, userId, transcript.id, { ...transcriptDraft, scheduledStart: null, tagIds: [] });
+    const { task: transcriptTask } = await processCapture(db, userId, transcript.id, {
+        ...transcriptDraft,
+        scheduledStart: null,
+        tagIds: [],
+    });
     const planningDraft = { name: "Q3 Planning", emoji: "🧭", colorAccent: "luminous-amber" };
     const planning = await createProject(db, userId, planningDraft);
 
@@ -210,11 +225,14 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
     const activeHabits = refs.habits.filter((h) => !h.archived);
 
     // ── Thread ──────────────────────────────────────────────────────────
-    const [conversation] = await db.insert(aiConversations).values({
-        userId,
-        title: "Planning a heavy day",
-        lastMessageAt: seedDateTime(clock, 0, 9, 18),
-    }).returning();
+    const [conversation] = await db
+        .insert(aiConversations)
+        .values({
+            userId,
+            title: "Planning a heavy day",
+            lastMessageAt: seedDateTime(clock, 0, 9, 18),
+        })
+        .returning();
 
     const turns: { role: "user" | "assistant"; minute: number; parts: unknown[] }[] = [
         {
@@ -228,34 +246,73 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
             parts: [
                 step,
                 read("get_user_metrics", {}, { metrics: metrics ?? null }),
-                read("get_tasks", { dueWindow: "today", limit: 20 }, {
-                    tasks: activeTasks.filter(isToday).map(mini),
-                    count: activeTasks.filter(isToday).length,
-                }),
+                read(
+                    "get_tasks",
+                    { dueWindow: "today", limit: 20 },
+                    {
+                        tasks: activeTasks.filter(isToday).map(mini),
+                        count: activeTasks.filter(isToday).length,
+                    },
+                ),
                 read("get_tasks", { dueWindow: "overdue", limit: 20 }, { tasks: [mini(venue)], count: 1 }),
-                read("get_schedule_window", { start: today, end: weekEnd, limit: 50 }, {
-                    range: { start: today, end: weekEnd, timezone: TZ },
-                    tasks: inWeek.map(mini),
-                    routines: routinesDue(activeHabits, today, weekEnd, today),
-                }),
-                read("find_time", { taskId: venue.id, day: seedDate(clock, 1) }, {
-                    ok: true,
-                    task: { id: venue.id, title: venue.title, minutes: 30 },
-                    day: seedDate(clock, 1),
-                    proposals: [{ start: `${seedDate(clock, 1)}T09:00:00-04:00`, end: `${seedDate(clock, 1)}T09:30:00-04:00`, label: "Tomorrow 9:00–9:30 AM", gap: true }],
-                }),
-                read("fit_day", { day: today }, {
-                    ok: true,
-                    day: today,
-                    placed: [{ id: venue.id, title: venue.title, start: `${today}T16:00:00-04:00`, end: `${today}T16:30:00-04:00`, label: "4:00–4:30 PM" }],
-                    didntFit: [],
-                    notSized: [],
-                    gaps: true,
-                }),
-                read("get_habit_status_today", {}, {
-                    date: today,
-                    statuses: routinesDue(activeHabits, today, today, today).map((h) => ({ habitId: h.id, title: h.title, status: "PENDING" })),
-                }),
+                read(
+                    "get_schedule_window",
+                    { start: today, end: weekEnd, limit: 50 },
+                    {
+                        range: { start: today, end: weekEnd, timezone: TZ },
+                        tasks: inWeek.map(mini),
+                        routines: routinesDue(activeHabits, today, weekEnd, today),
+                    },
+                ),
+                read(
+                    "find_time",
+                    { taskId: venue.id, day: seedDate(clock, 1) },
+                    {
+                        ok: true,
+                        task: { id: venue.id, title: venue.title, minutes: 30 },
+                        day: seedDate(clock, 1),
+                        proposals: [
+                            {
+                                start: `${seedDate(clock, 1)}T09:00:00-04:00`,
+                                end: `${seedDate(clock, 1)}T09:30:00-04:00`,
+                                label: "Tomorrow 9:00–9:30 AM",
+                                gap: true,
+                            },
+                        ],
+                    },
+                ),
+                read(
+                    "fit_day",
+                    { day: today },
+                    {
+                        ok: true,
+                        day: today,
+                        placed: [
+                            {
+                                id: venue.id,
+                                title: venue.title,
+                                start: `${today}T16:00:00-04:00`,
+                                end: `${today}T16:30:00-04:00`,
+                                label: "4:00–4:30 PM",
+                            },
+                        ],
+                        didntFit: [],
+                        notSized: [],
+                        gaps: true,
+                    },
+                ),
+                read(
+                    "get_habit_status_today",
+                    {},
+                    {
+                        date: today,
+                        statuses: routinesDue(activeHabits, today, today, today).map((h) => ({
+                            habitId: h.id,
+                            title: h.title,
+                            status: "PENDING",
+                        })),
+                    },
+                ),
                 step,
                 text(
                     "Today is full but doable. You have **the launch announcement block at 2 PM**, the " +
@@ -269,9 +326,11 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
         {
             role: "user",
             minute: 4,
-            parts: [text(
-                "Invoices are already done, mark them off. And add a task to prep slides for the client review in two days.",
-            )],
+            parts: [
+                text(
+                    "Invoices are already done, mark them off. And add a task to prep slides for the client review in two days.",
+                ),
+            ],
         },
         {
             role: "assistant",
@@ -295,10 +354,20 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
             role: "assistant",
             minute: 5,
             // A question to tap or type an answer to; answered by the next message, so it rests settled.
-            parts: [step, read("ask_user", {
-                question: "Which review do you mean?",
-                options: [{ label: "The client review", description: "In two days, with the slides" }, { label: "Something else" }],
-            }, { asked: true })],
+            parts: [
+                step,
+                read(
+                    "ask_user",
+                    {
+                        question: "Which review do you mean?",
+                        options: [
+                            { label: "The client review", description: "In two days, with the slides" },
+                            { label: "Something else" },
+                        ],
+                    },
+                    { asked: true },
+                ),
+            ],
         },
         {
             role: "user",
@@ -310,23 +379,47 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
             minute: 9,
             parts: [
                 step,
-                read("get_habits", { includeArchived: false, limit: 20 }, {
-                    habits: activeHabits.map((h) => toMinimalHabit(h, today)),
-                }),
-                read("get_habit_history", { start: seedDate(clock, -2), end: seedDate(clock, -1) }, {
-                    range: { start: seedDate(clock, -2), end: seedDate(clock, -1) },
-                    routines: routinesDue(activeHabits, seedDate(clock, -2), seedDate(clock, -1), today, clock.zone).map((h) => ({ habitId: h.id, title: h.title, due: h.days.length, missed: h.days })),
-                }),
+                read(
+                    "get_habits",
+                    { includeArchived: false, limit: 20 },
+                    {
+                        habits: activeHabits.map((h) => toMinimalHabit(h, today)),
+                    },
+                ),
+                read(
+                    "get_habit_history",
+                    { start: seedDate(clock, -2), end: seedDate(clock, -1) },
+                    {
+                        range: { start: seedDate(clock, -2), end: seedDate(clock, -1) },
+                        routines: routinesDue(
+                            activeHabits,
+                            seedDate(clock, -2),
+                            seedDate(clock, -1),
+                            today,
+                            clock.zone,
+                        ).map((h) => ({ habitId: h.id, title: h.title, due: h.days.length, missed: h.days })),
+                    },
+                ),
                 step,
                 text("Good call resting your back. Here are both check-ins:"),
-                approved("log_habit", { habitId: hydrate.id, status: "COMPLETED", targetDate: today }, {
-                    status: "COMPLETED",
-                    currentStreak: hydrateLog.habit.currentStreak,
-                }, true),
-                approved("log_habit", { habitId: strength.id, status: "SKIPPED", targetDate: today }, {
-                    status: "SKIPPED",
-                    currentStreak: strengthLog.habit.currentStreak,
-                }, true),
+                approved(
+                    "log_habit",
+                    { habitId: hydrate.id, status: "COMPLETED", targetDate: today },
+                    {
+                        status: "COMPLETED",
+                        currentStreak: hydrateLog.habit.currentStreak,
+                    },
+                    true,
+                ),
+                approved(
+                    "log_habit",
+                    { habitId: strength.id, status: "SKIPPED", targetDate: today },
+                    {
+                        status: "SKIPPED",
+                        currentStreak: strengthLog.habit.currentStreak,
+                    },
+                    true,
+                ),
             ],
         },
         {
@@ -339,9 +432,13 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
             minute: 13,
             parts: [
                 step,
-                read("get_inbox_items", { includeProcessed: false, limit: 20 }, {
-                    items: refs.inboxItems.map(toMinimalInboxItem),
-                }),
+                read(
+                    "get_inbox_items",
+                    { includeProcessed: false, limit: 20 },
+                    {
+                        items: refs.inboxItems.map(toMinimalInboxItem),
+                    },
+                ),
                 read("get_tags", {}, { tags: refs.tags.map(toMinimalTag) }),
                 step,
                 text(
@@ -349,9 +446,15 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                         "The teardown deck feeds next quarter, so it could live in a new list once you say yes to it. " +
                         "I also suggested an **Errands** tag for things like the prescription.",
                 ),
-                approved("create_tasks", { tasks: [{ inboxItemId: transcript.id, ...transcriptDraft }] }, {
-                    created: [{ inboxItemId: transcript.id, taskId: transcriptTask.id, title: transcriptTask.title }],
-                }),
+                approved(
+                    "create_tasks",
+                    { tasks: [{ inboxItemId: transcript.id, ...transcriptDraft }] },
+                    {
+                        created: [
+                            { inboxItemId: transcript.id, taskId: transcriptTask.id, title: transcriptTask.title },
+                        ],
+                    },
+                ),
                 approved("create_project", planningDraft, { projectId: planning.id, name: planning.name }),
                 declined("create_tag", { name: "Errands", color: "default" }, "Declined"),
             ],
@@ -359,47 +462,85 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
         {
             role: "user",
             minute: 15,
-            parts: [text(
-                "Skip the tag. Random thought: renew my passport before March. Also the 2025 receipts task can go, " +
-                    `and put the Acme proposal on hold until Maya signs off. Oh, and I still need to ${prescription.rawText.toLowerCase()}, ` +
-                    "plus the essay on the handout I photographed. Give Strength an emoji, set up a nightly 9:30 stretch routine, add Sam's birthday on Nov 3, " +
-                    "make Mom's cake emoji a flower, drop the launch-day event, and in Client Ops add a Waiting section, " +
-                    "rename Today to Now and drop Later This Week.",
-            )],
+            parts: [
+                text(
+                    "Skip the tag. Random thought: renew my passport before March. Also the 2025 receipts task can go, " +
+                        `and put the Acme proposal on hold until Maya signs off. Oh, and I still need to ${prescription.rawText.toLowerCase()}, ` +
+                        "plus the essay on the handout I photographed. Give Strength an emoji, set up a nightly 9:30 stretch routine, add Sam's birthday on Nov 3, " +
+                        "make Mom's cake emoji a flower, drop the launch-day event, and in Client Ops add a Waiting section, " +
+                        "rename Today to Now and drop Later This Week.",
+                ),
+            ],
         },
         {
             role: "assistant",
             minute: 16,
             parts: [
                 step,
-                read("capture_to_inbox", {
-                    rawText: passport.rawText,
-                    captureKind: "task",
-                }, { item: { id: passport.id, rawText: passport.rawText }, deduped: false }),
-                read("recall", { query: "one question at a time" }, {
-                    ok: true,
-                    facts: [{ id: remembered.id, text: remembered.content, saidOn: today }],
-                }),
-                read("search_past_chats", { query: "passport", after: seedDate(clock, -30) }, {
-                    ok: true,
-                    chats: [],
-                }),
-                read("remember", { action: "save", kind: "preference", text: remembered.content }, {
-                    ok: true,
-                    action: "saved",
-                    id: remembered.id,
-                    text: remembered.content,
-                }),
-                read("get_events", {}, {
-                    today,
-                    events: [toMinimalEvent({ id: "mom-birthday", label: "Mom's Birthday", monthDay: seedDate(clock, 4).slice(5), emoji: "🎂", notify: true, startedOn: null }, today)],
-                }),
-                read("get_task_detail", { taskId: acme.id }, {
-                    task: mini(acme),
-                    subtasks: [],
-                    tags: [],
-                    note: { text: "", truncated: false, version: 0 },
-                }),
+                read(
+                    "capture_to_inbox",
+                    {
+                        rawText: passport.rawText,
+                        captureKind: "task",
+                    },
+                    { item: { id: passport.id, rawText: passport.rawText }, deduped: false },
+                ),
+                read(
+                    "recall",
+                    { query: "one question at a time" },
+                    {
+                        ok: true,
+                        facts: [{ id: remembered.id, text: remembered.content, saidOn: today }],
+                    },
+                ),
+                read(
+                    "search_past_chats",
+                    { query: "passport", after: seedDate(clock, -30) },
+                    {
+                        ok: true,
+                        chats: [],
+                    },
+                ),
+                read(
+                    "remember",
+                    { action: "save", kind: "preference", text: remembered.content },
+                    {
+                        ok: true,
+                        action: "saved",
+                        id: remembered.id,
+                        text: remembered.content,
+                    },
+                ),
+                read(
+                    "get_events",
+                    {},
+                    {
+                        today,
+                        events: [
+                            toMinimalEvent(
+                                {
+                                    id: "mom-birthday",
+                                    label: "Mom's Birthday",
+                                    monthDay: seedDate(clock, 4).slice(5),
+                                    emoji: "🎂",
+                                    notify: true,
+                                    startedOn: null,
+                                },
+                                today,
+                            ),
+                        ],
+                    },
+                ),
+                read(
+                    "get_task_detail",
+                    { taskId: acme.id },
+                    {
+                        task: mini(acme),
+                        subtasks: [],
+                        tags: [],
+                        note: { text: "", truncated: false, version: 0 },
+                    },
+                ),
                 step,
                 text(
                     "Passport is saved to Capture. Below: Acme on hold for Maya, the checklist changes, " +
@@ -437,7 +578,13 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                     ],
                 }),
                 waiting("update_habit", { habitId: strength.id, patch: { emoji: "🏋️" } }),
-                waiting("create_habit", { title: "Evening stretch", recurrenceRule: "FREQ=DAILY", targetTime: "21:30", emoji: "🧘", steps: ["Neck rolls", "Hamstrings", "Child's pose"] }),
+                waiting("create_habit", {
+                    title: "Evening stretch",
+                    recurrenceRule: "FREQ=DAILY",
+                    targetTime: "21:30",
+                    emoji: "🧘",
+                    steps: ["Neck rolls", "Hamstrings", "Child's pose"],
+                }),
                 waiting("save_event", { patch: { label: "Sam's birthday", monthDay: "11-03", emoji: "🎂" } }),
                 waiting("save_event", { eventId: "mom-birthday", patch: { emoji: "🌷" } }),
                 waiting("delete_event", { eventId: "cadence-launch" }),
@@ -450,12 +597,14 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
         {
             role: "user",
             minute: 20,
-            parts: [text(
-                "Housekeeping: copy the slides task for next week, put the launch announcement at the top, remind me about Acme at 4, " +
-                    "rename Home Reset to Home, drop Spring Semester but keep its tasks, rename Follow-up to Chase, delete the Admin tag, " +
-                    "keep the teardown deck as a note, bin the Maya capture for good, delete Hydrate for good, " +
-                    "save a view of my urgent work, pin Overdue Review and drop the This Week view.",
-            )],
+            parts: [
+                text(
+                    "Housekeeping: copy the slides task for next week, put the launch announcement at the top, remind me about Acme at 4, " +
+                        "rename Home Reset to Home, drop Spring Semester but keep its tasks, rename Follow-up to Chase, delete the Admin tag, " +
+                        "keep the teardown deck as a note, bin the Maya capture for good, delete Hydrate for good, " +
+                        "save a view of my urgent work, pin Overdue Review and drop the This Week view.",
+                ),
+            ],
         },
         {
             role: "assistant",
@@ -464,14 +613,29 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 step,
                 read("get_focus_views", {}, { views: views.map(toMinimalFocusView) }),
                 read("get_tags", { query: "follow" }, { tags: [toMinimalTag(followUp)] }),
-                read("get_cadence_help", { topic: "organizing" }, { topic: "organizing", text: HELP_TOPICS.organizing }),
+                read(
+                    "get_cadence_help",
+                    { topic: "organizing" },
+                    { topic: "organizing", text: HELP_TOPICS.organizing },
+                ),
                 step,
-                text("Here's the whole tidy-up. Deleting Hydrate and the Maya capture is for good, so those wait for you either way."),
-                waiting("duplicate_tasks", { tasks: [{ taskId: slidesCreated[0].taskId, targetDate: seedDate(clock, 9) }] }),
+                text(
+                    "Here's the whole tidy-up. Deleting Hydrate and the Maya capture is for good, so those wait for you either way.",
+                ),
+                waiting("duplicate_tasks", {
+                    tasks: [{ taskId: slidesCreated[0].taskId, targetDate: seedDate(clock, 9) }],
+                }),
                 waiting("reorder_tasks", { taskIds: [launch.id], to: "top" }),
-                waiting("update_tasks", { taskIds: [acme.id], patch: { reminderAt: seedDateTime(clock, 0, 16, 0), addTagNames: ["Legal"] } }),
+                waiting("update_tasks", {
+                    taskIds: [acme.id],
+                    patch: { reminderAt: seedDateTime(clock, 0, 16, 0), addTagNames: ["Legal"] },
+                }),
                 waiting("update_project", { projectId: homeReset.id, patch: { name: "Home" } }),
-                waiting("delete_project", { projectId: project("Spring Semester").id, name: "Spring Semester", tasks: "keep" }),
+                waiting("delete_project", {
+                    projectId: project("Spring Semester").id,
+                    name: "Spring Semester",
+                    tasks: "keep",
+                }),
                 waiting("update_tag", { tagId: followUp.id, patch: { name: "Chase" } }),
                 waiting("delete_tag", { tagId: admin.id, name: admin.name }),
                 waiting("update_captures", { items: [{ inboxItemId: teardown.id, action: "note" }] }),
@@ -479,7 +643,10 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 waiting("delete_habit", { habitId: hydrate.id, title: hydrate.title }),
                 waiting("save_focus_view", { name: "Urgent work", filters: { priorityMin: 4 }, pinned: true }),
                 waiting("save_focus_view", { focusViewId: overdueView.id, pinned: true }),
-                waiting("delete_focus_view", { focusViewId: find(views, (v) => v.name === "This Week", "focus view").id, name: "This Week" }),
+                waiting("delete_focus_view", {
+                    focusViewId: find(views, (v) => v.name === "This Week", "focus view").id,
+                    name: "This Week",
+                }),
             ],
         },
     ];

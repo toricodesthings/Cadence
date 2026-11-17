@@ -16,7 +16,15 @@ import { FieldBlock, FieldRow, ValueSelect } from "../shared/DetailPanelSections
 import { TagField } from "../tasks/TagField";
 import { ROUTINE_DEFAULT_ACCENT, ROUTINE_SWATCHES, chosen, routineTone } from "../../lib/utils/habits";
 import { EmojiMarkButton } from "../shared/EmojiMarkButton";
-import { Composer, type ComposerDraft, ComposerMore, ComposerTabs, ComposerTitle, ComposerToggle, COMPOSER_FIELD } from "../shared/Composer";
+import {
+    Composer,
+    type ComposerDraft,
+    ComposerMore,
+    ComposerTabs,
+    ComposerTitle,
+    ComposerToggle,
+    COMPOSER_FIELD,
+} from "../shared/Composer";
 import { CHIP_BASE, CHIP_IDLE, FIELD_LABEL } from "../tasks/task-choice-options";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
 import { fromTimeValue } from "../../lib/utils/date-format";
@@ -27,21 +35,59 @@ import { RoutineTimes } from "./RoutineTimes";
 import { createHabitSchema } from "../../lib/validations/habit-schemas";
 
 const IDEAS = [
-    { emoji: "🌅", colorAccent: "luminous-amber", title: "Morning review", description: "Check Today, clear Capture, and start with intention.", recurrenceRule: "FREQ=DAILY" },
-    { emoji: "🏋️", colorAccent: "ember-red", title: "Workout", description: "Keep a steady training rhythm across the week.", recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,WE,FR" },
-    { emoji: "💧", colorAccent: "sky", title: "Hydration", description: "A small daily reset that keeps the baseline healthy.", recurrenceRule: "FREQ=DAILY" },
-    { emoji: "📚", colorAccent: "violet", title: "Reading", description: "A calm evening reading routine.", recurrenceRule: "FREQ=DAILY" },
+    {
+        emoji: "🌅",
+        colorAccent: "luminous-amber",
+        title: "Morning review",
+        description: "Check Today, clear Capture, and start with intention.",
+        recurrenceRule: "FREQ=DAILY",
+    },
+    {
+        emoji: "🏋️",
+        colorAccent: "ember-red",
+        title: "Workout",
+        description: "Keep a steady training rhythm across the week.",
+        recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,WE,FR",
+    },
+    {
+        emoji: "💧",
+        colorAccent: "sky",
+        title: "Hydration",
+        description: "A small daily reset that keeps the baseline healthy.",
+        recurrenceRule: "FREQ=DAILY",
+    },
+    {
+        emoji: "📚",
+        colorAccent: "violet",
+        title: "Reading",
+        description: "A calm evening reading routine.",
+        recurrenceRule: "FREQ=DAILY",
+    },
 ] as const;
 
 const DEFAULT_TIME = "09:00";
 
 /** What a routine stores: a cadence, a time of day, a list and tags. */
-const ROUTINE_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>(["recurrenceRule", "timeOfDay", "projectId", "tagIds"]);
+const ROUTINE_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([
+    "recurrenceRule",
+    "timeOfDay",
+    "projectId",
+    "tagIds",
+]);
 
 /** New routine, alone in the composer (the Routines page). */
 export function CreateHabitDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
     const { reset, ...draft } = useRoutineComposer({ onSaved: () => onOpenChange(false) });
-    return <Composer open={open} onClose={() => { reset(); onOpenChange(false); }} {...draft} />;
+    return (
+        <Composer
+            open={open}
+            onClose={() => {
+                reset();
+                onOpenChange(false);
+            }}
+            {...draft}
+        />
+    );
 }
 
 /** The routine composer: name, which days, when, then everything optional. */
@@ -75,11 +121,15 @@ function routineInput(choice: RoutineChoices) {
         reminderEnabled: Boolean(choice.time) && choice.reminderEnabled,
         projectId: choice.projectId,
         tagIds: choice.tagIds.length ? choice.tagIds : undefined,
-        steps: many ? undefined : choice.steps ?? undefined,
+        steps: many ? undefined : (choice.steps ?? undefined),
     };
 }
 
-export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | null | undefined) => void }): ComposerDraft {
+export function useRoutineComposer({
+    onSaved,
+}: {
+    onSaved: (created: Habit | null | undefined) => void;
+}): ComposerDraft {
     const shell = useShellMode();
     const { mutate: createHabit, isPending } = useCreateHabit();
     const { data: projects = [] } = useProjects();
@@ -129,8 +179,15 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
     const targetTime = chosen(touched.has("timeOfDay"), timeState, nlp.fields.timeOfDay);
     const projectId = chosen(touched.has("projectId"), projectState, nlp.fields.projectId);
     const tagIds = chosen(touched.has("tagIds"), tagState, nlp.fields.tagIds.length ? nlp.fields.tagIds : null);
-    const setRecurrenceRule = (rule: string) => { setRuleState(rule); touch("recurrenceRule"); };
-    const setTargetTime = (time: string | null) => { setTimeState(time); setManyTimes(null); touch("timeOfDay"); };
+    const setRecurrenceRule = (rule: string) => {
+        setRuleState(rule);
+        touch("recurrenceRule");
+    };
+    const setTargetTime = (time: string | null) => {
+        setTimeState(time);
+        setManyTimes(null);
+        touch("timeOfDay");
+    };
     const timeList = manyTimes ?? (targetTime ? [targetTime] : []);
     const setTimeList = (list: string[]) => {
         if (list.length < 2) return setTargetTime(list[0] ?? null);
@@ -139,13 +196,28 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
         touch("timeOfDay");
         if (!reminderTouched) setReminderEnabled(true); // a routine at set times reminds at each one
     };
-    const setProjectId = (id: string | null) => { setProjectState(id); touch("projectId"); };
+    const setProjectId = (id: string | null) => {
+        setProjectState(id);
+        touch("projectId");
+    };
     const setTagIds = (update: string[] | ((prev: string[]) => string[])) => {
         setTagState(typeof update === "function" ? update(tagIds) : update);
         touch("tagIds");
     };
 
-    const isDirty = Boolean(title.trim() || emoji || colorAccent !== ROUTINE_DEFAULT_ACCENT || recurrenceRule !== "FREQ=DAILY" || targetTime || manyTimes || targetTimes || description.trim() || projectId || tagIds.length || steps);
+    const isDirty = Boolean(
+        title.trim() ||
+        emoji ||
+        colorAccent !== ROUTINE_DEFAULT_ACCENT ||
+        recurrenceRule !== "FREQ=DAILY" ||
+        targetTime ||
+        manyTimes ||
+        targetTimes ||
+        description.trim() ||
+        projectId ||
+        tagIds.length ||
+        steps,
+    );
 
     const reset = () => {
         setTitle("");
@@ -174,20 +246,22 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
     const send = (draft: NlpParseOutput) => {
         const { fields } = draft;
         const time = chosen(touched.has("timeOfDay"), timeState, fields.timeOfDay);
-        const parsed = createHabitSchema.safeParse(routineInput({
-            title: (draft.cleanedTitle || title).trim(),
-            description,
-            recurrenceRule: chosen(touched.has("recurrenceRule"), ruleState, fields.recurrenceRule),
-            colorAccent,
-            time,
-            targetTimes: time ? targetTimes : null,
-            manyTimes,
-            emoji,
-            reminderEnabled,
-            projectId: chosen(touched.has("projectId"), projectState, fields.projectId),
-            tagIds: chosen(touched.has("tagIds"), tagState, fields.tagIds.length ? fields.tagIds : null),
-            steps,
-        }));
+        const parsed = createHabitSchema.safeParse(
+            routineInput({
+                title: (draft.cleanedTitle || title).trim(),
+                description,
+                recurrenceRule: chosen(touched.has("recurrenceRule"), ruleState, fields.recurrenceRule),
+                colorAccent,
+                time,
+                targetTimes: time ? targetTimes : null,
+                manyTimes,
+                emoji,
+                reminderEnabled,
+                projectId: chosen(touched.has("projectId"), projectState, fields.projectId),
+                tagIds: chosen(touched.has("tagIds"), tagState, fields.tagIds.length ? fields.tagIds : null),
+                steps,
+            }),
+        );
         if (!parsed.success) {
             toast.error(parsed.error.issues[0]?.message ?? "Couldn't create routine");
             return;
@@ -209,7 +283,12 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
     const cadence = recurrenceRule === "FREQ=DAILY" ? "Every day" : (summary?.label ?? "Repeats");
 
     const projectName = projects.find((project) => project.id === projectId)?.name;
-    const moreSummary = [steps ? `${steps.length} step${steps.length > 1 ? "s" : ""}` : null, projectName, tagIds.length ? `${tagIds.length} tag${tagIds.length > 1 ? "s" : ""}` : null, description.trim() ? "purpose" : null]
+    const moreSummary = [
+        steps ? `${steps.length} step${steps.length > 1 ? "s" : ""}` : null,
+        projectName,
+        tagIds.length ? `${tagIds.length} tag${tagIds.length > 1 ? "s" : ""}` : null,
+        description.trim() ? "purpose" : null,
+    ]
         .filter(Boolean)
         .join(" · ");
 
@@ -220,135 +299,160 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
         subtitle,
         isDirty,
         discardTitle: "Discard this routine?",
-        submit: { onSubmit: () => void submit(), submitLabel: isPending ? "Creating…" : "Create routine", icon: Flame, tone: "habits", disabled: !title.trim() || isPending },
+        submit: {
+            onSubmit: () => void submit(),
+            submitLabel: isPending ? "Creating…" : "Create routine",
+            icon: Flame,
+            tone: "habits",
+            disabled: !title.trim() || isPending,
+        },
         reset,
         children: (
             <>
-            <div className="space-y-3">
-                <ComposerTitle
-                    autoFocus={!shell.isCompact}
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing && title.trim()) void submit(); }}
-                    placeholder="Name this routine…"
-                    maxLength={200}
-                    aria-label="Routine name"
-                    leading={(
-                        <span className="flex items-center" style={{ color: routineTone(colorAccent) }}>
-                            <EmojiMarkButton emoji={emoji} onChange={setEmoji} />
-                            <ColourDot options={ROUTINE_SWATCHES} value={colorAccent} onChange={setColorAccent} label="Routine colour" />
-                        </span>
+                <div className="space-y-3">
+                    <ComposerTitle
+                        autoFocus={!shell.isCompact}
+                        value={title}
+                        onChange={(event) => setTitle(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === "Enter" && !event.nativeEvent.isComposing && title.trim()) void submit();
+                        }}
+                        placeholder="Name this routine…"
+                        maxLength={200}
+                        aria-label="Routine name"
+                        leading={
+                            <span className="flex items-center" style={{ color: routineTone(colorAccent) }}>
+                                <EmojiMarkButton emoji={emoji} onChange={setEmoji} />
+                                <ColourDot
+                                    options={ROUTINE_SWATCHES}
+                                    value={colorAccent}
+                                    onChange={setColorAccent}
+                                    label="Routine colour"
+                                />
+                            </span>
+                        }
+                    />
+                    <DraftRow
+                        applied={nlp.applied}
+                        suggestions={nlp.suggestions}
+                        shownElsewhere={["recurrence", "scheduled_start", "project", "tag"]}
+                        {...choices.row}
+                    />
+                    {title.trim() ? null : (
+                        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Ideas">
+                            {IDEAS.map((idea) => (
+                                <button
+                                    key={idea.title}
+                                    type="button"
+                                    onClick={() => {
+                                        setTitle(idea.title);
+                                        setEmoji(idea.emoji);
+                                        setColorAccent(idea.colorAccent);
+                                        setDescription(idea.description);
+                                        setRecurrenceRule(idea.recurrenceRule);
+                                    }}
+                                    className={`${CHIP_BASE} ${CHIP_IDLE} px-3`}
+                                >
+                                    <span aria-hidden="true">{idea.emoji}</span>
+                                    {idea.title}
+                                </button>
+                            ))}
+                        </div>
                     )}
-                />
-                <DraftRow
-                    applied={nlp.applied}
-                    suggestions={nlp.suggestions}
-                    shownElsewhere={["recurrence", "scheduled_start", "project", "tag"]}
-                    {...choices.row}
-                />
-                {title.trim() ? null : (
-                    <div className="flex flex-wrap gap-1.5" role="group" aria-label="Ideas">
-                        {IDEAS.map((idea) => (
-                            <button
-                                key={idea.title}
-                                type="button"
-                                onClick={() => {
-                                    setTitle(idea.title);
-                                    setEmoji(idea.emoji);
-                                    setColorAccent(idea.colorAccent);
-                                    setDescription(idea.description);
-                                    setRecurrenceRule(idea.recurrenceRule);
+                </div>
+
+                <div className="space-y-2">
+                    <span className={FIELD_LABEL}>Repeats</span>
+                    <CadencePicker value={recurrenceRule} onChange={setRecurrenceRule} />
+                </div>
+
+                <div className="space-y-3">
+                    <span className={FIELD_LABEL}>When</span>
+                    <ComposerTabs
+                        ariaLabel="When"
+                        options={[
+                            { id: "any", label: "Any time" },
+                            { id: "set", label: "At set times" },
+                        ]}
+                        value={targetTime ? "set" : "any"}
+                        onChange={(next) => setTargetTime(next === "set" ? (targetTime ?? DEFAULT_TIME) : null)}
+                    />
+                    {targetTime ? (
+                        <>
+                            <RoutineTimes times={timeList} onChange={setTimeList} cadence={cadence} />
+                            <ComposerToggle
+                                icon={Bell}
+                                label="Remind me"
+                                description={timeList.length > 1 ? "At each time." : "A nudge at this time."}
+                                checked={reminderEnabled}
+                                onCheckedChange={(on) => {
+                                    setReminderTouched(true);
+                                    setReminderEnabled(on);
                                 }}
-                                className={`${CHIP_BASE} ${CHIP_IDLE} px-3`}
-                            >
-                                <span aria-hidden="true">{idea.emoji}</span>
-                                {idea.title}
-                            </button>
-                        ))}
+                                ariaLabel={timeList.length > 1 ? "Remind me at each time" : "Remind me at this time"}
+                            />
+                        </>
+                    ) : null}
+                </div>
+
+                {manyTimes || !targetTime ? null : (
+                    <div role="group" aria-label="Times by day">
+                        <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
+                            <CalendarClock size={12} aria-hidden="true" />
+                            Times by day
+                        </span>
+                        <DayTimes value={targetTimes} usualTime={targetTime} onChange={setTargetTimes} />
                     </div>
                 )}
-            </div>
 
-            <div className="space-y-2">
-                <span className={FIELD_LABEL}>Repeats</span>
-                <CadencePicker value={recurrenceRule} onChange={setRecurrenceRule} />
-            </div>
+                <ComposerMore summary={moreSummary}>
+                    {manyTimes ? null : (
+                        <div role="group" aria-label="Steps">
+                            <span className={`mb-1 flex items-center gap-1.5 ${FIELD_LABEL}`}>
+                                <ListChecks size={12} aria-hidden="true" />
+                                Steps
+                            </span>
+                            <RoutineStepsEditor steps={steps ?? []} onChange={setSteps} />
+                        </div>
+                    )}
 
-            <div className="space-y-3">
-                <span className={FIELD_LABEL}>When</span>
-                <ComposerTabs
-                    ariaLabel="When"
-                    options={[{ id: "any", label: "Any time" }, { id: "set", label: "At set times" }]}
-                    value={targetTime ? "set" : "any"}
-                    onChange={(next) => setTargetTime(next === "set" ? (targetTime ?? DEFAULT_TIME) : null)}
-                />
-                {targetTime ? (
-                    <>
-                        <RoutineTimes times={timeList} onChange={setTimeList} cadence={cadence} />
-                        <ComposerToggle
-                            icon={Bell}
-                            label="Remind me"
-                            description={timeList.length > 1 ? "At each time." : "A nudge at this time."}
-                            checked={reminderEnabled}
-                            onCheckedChange={(on) => { setReminderTouched(true); setReminderEnabled(on); }}
-                            ariaLabel={timeList.length > 1 ? "Remind me at each time" : "Remind me at this time"}
+                    <label className="block">
+                        <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
+                            <StickyNote size={12} aria-hidden="true" />
+                            Purpose
+                        </span>
+                        <textarea
+                            value={description}
+                            onChange={(event) => setDescription(event.target.value)}
+                            rows={2}
+                            placeholder="Why this routine matters to you…"
+                            className={`${COMPOSER_FIELD} resize-y`}
                         />
-                    </>
-                ) : null}
-            </div>
+                    </label>
 
-            {manyTimes || !targetTime ? null : <div role="group" aria-label="Times by day">
-                <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
-                    <CalendarClock size={12} aria-hidden="true" />
-                    Times by day
-                </span>
-                <DayTimes value={targetTimes} usualTime={targetTime} onChange={setTargetTimes} />
-            </div>}
-
-            <ComposerMore summary={moreSummary}>
-                {manyTimes ? null : <div role="group" aria-label="Steps">
-                    <span className={`mb-1 flex items-center gap-1.5 ${FIELD_LABEL}`}>
-                        <ListChecks size={12} aria-hidden="true" />
-                        Steps
-                    </span>
-                    <RoutineStepsEditor steps={steps ?? []} onChange={setSteps} />
-                </div>}
-
-                <label className="block">
-                    <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
-                        <StickyNote size={12} aria-hidden="true" />
-                        Purpose
-                    </span>
-                    <textarea
-                        value={description}
-                        onChange={(event) => setDescription(event.target.value)}
-                        rows={2}
-                        placeholder="Why this routine matters to you…"
-                        className={`${COMPOSER_FIELD} resize-y`}
-                    />
-                </label>
-
-
-                <div>
-                    {projects.length > 0 ? (
-                        <FieldRow icon={FolderOpen} label="List">
-                            <ValueSelect
-                                label="List"
-                                value={projectId ?? ""}
-                                onChange={(id) => setProjectId(id || null)}
-                                options={[{ value: "", label: "None" }, ...projects.map((project) => ({ value: project.id, label: project.name }))]}
+                    <div>
+                        {projects.length > 0 ? (
+                            <FieldRow icon={FolderOpen} label="List">
+                                <ValueSelect
+                                    label="List"
+                                    value={projectId ?? ""}
+                                    onChange={(id) => setProjectId(id || null)}
+                                    options={[
+                                        { value: "", label: "None" },
+                                        ...projects.map((project) => ({ value: project.id, label: project.name })),
+                                    ]}
+                                />
+                            </FieldRow>
+                        ) : null}
+                        <FieldBlock icon={Tag} label="Tags">
+                            <TagField
+                                tagIds={tagIds}
+                                onAdd={(id) => setTagIds((prev) => [...prev, id])}
+                                onRemove={(id) => setTagIds((prev) => prev.filter((tagId) => tagId !== id))}
                             />
-                        </FieldRow>
-                    ) : null}
-                    <FieldBlock icon={Tag} label="Tags">
-                        <TagField
-                            tagIds={tagIds}
-                            onAdd={(id) => setTagIds((prev) => [...prev, id])}
-                            onRemove={(id) => setTagIds((prev) => prev.filter((tagId) => tagId !== id))}
-                        />
-                    </FieldBlock>
-                </div>
-            </ComposerMore>
+                        </FieldBlock>
+                    </div>
+                </ComposerMore>
             </>
         ),
     };

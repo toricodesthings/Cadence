@@ -66,8 +66,21 @@ export interface NoteEditorProps {
  * applied as a minimal remote transaction that is never reported back.
  */
 export function NoteEditor({
-    session, viewId, placeholder, commandHint, variant, editable = true, autoFocus, onUnfaithful, onEditor, onSave, onFind,
-    onRequestEdit, onFocusChange, slashBottomInset = 0, className,
+    session,
+    viewId,
+    placeholder,
+    commandHint,
+    variant,
+    editable = true,
+    autoFocus,
+    onUnfaithful,
+    onEditor,
+    onSave,
+    onFind,
+    onRequestEdit,
+    onFocusChange,
+    slashBottomInset = 0,
+    className,
 }: NoteEditorProps) {
     const dirty = useRef(false);
     const dirtySince = useRef(0);
@@ -100,27 +113,38 @@ export function NoteEditor({
             setSlashIndex(0);
         }
         slashRef.current = live;
-        setSlash((prev) => (prev?.from === live?.from && prev?.to === live?.to && prev?.query === live?.query ? prev : live));
+        setSlash((prev) =>
+            prev?.from === live?.from && prev?.to === live?.to && prev?.query === live?.query ? prev : live,
+        );
     }, []);
 
-    const report = useCallback((editor: Editor) => {
-        clearTimeout(timer.current);
-        timer.current = undefined;
-        dirty.current = false;
-        session.edit(docToMarkdown(editor.getJSON()), viewId);
-    }, [session, viewId]);
+    const report = useCallback(
+        (editor: Editor) => {
+            clearTimeout(timer.current);
+            timer.current = undefined;
+            dirty.current = false;
+            session.edit(docToMarkdown(editor.getJSON()), viewId);
+        },
+        [session, viewId],
+    );
 
-    const schedule = useCallback((editor: Editor) => {
-        if (!dirty.current) dirtySince.current = Date.now();
-        dirty.current = true;
-        clearTimeout(timer.current);
-        const run = () => {
-            // Don't serialize mid-composition; the committed text is reported right after.
-            if (editor.view.composing) timer.current = setTimeout(run, 60);
-            else report(editor);
-        };
-        timer.current = setTimeout(run, Math.max(0, Math.min(REPORT_MS, REPORT_MAX_MS - (Date.now() - dirtySince.current))));
-    }, [report]);
+    const schedule = useCallback(
+        (editor: Editor) => {
+            if (!dirty.current) dirtySince.current = Date.now();
+            dirty.current = true;
+            clearTimeout(timer.current);
+            const run = () => {
+                // Don't serialize mid-composition; the committed text is reported right after.
+                if (editor.view.composing) timer.current = setTimeout(run, 60);
+                else report(editor);
+            };
+            timer.current = setTimeout(
+                run,
+                Math.max(0, Math.min(REPORT_MS, REPORT_MAX_MS - (Date.now() - dirtySince.current))),
+            );
+        },
+        [report],
+    );
 
     /** The first Escape closes the menu and leaves the typed text alone. */
     const dismissSlash = useCallback(() => {
@@ -142,33 +166,45 @@ export function NoteEditor({
     }, []);
 
     /** Keys while the slash menu is open: move, pick, close. Undefined for any other key. */
-    const slashKey = useCallback((event: KeyboardEvent): boolean | undefined => {
-        const list = matchesRef.current;
-        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            if (list.length) {
-                const step = event.key === "ArrowDown" ? 1 : -1;
-                slashIndexRef.current = (slashIndexRef.current + step + list.length) % list.length;
-                setSlashIndex(slashIndexRef.current);
+    const slashKey = useCallback(
+        (event: KeyboardEvent): boolean | undefined => {
+            const list = matchesRef.current;
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                if (list.length) {
+                    const step = event.key === "ArrowDown" ? 1 : -1;
+                    slashIndexRef.current = (slashIndexRef.current + step + list.length) % list.length;
+                    setSlashIndex(slashIndexRef.current);
+                }
+                return true;
             }
-            return true;
-        }
-        if (event.key === "Enter" || event.key === "Tab") {
-            if (!list.length) return false;
-            pickSlash(list[Math.min(slashIndexRef.current, list.length - 1)]);
-            return true;
-        }
-        if (event.key === "Escape") {
-            dismissSlash();
-            return true;
-        }
-        return undefined;
-    }, [dismissSlash, pickSlash]);
+            if (event.key === "Enter" || event.key === "Tab") {
+                if (!list.length) return false;
+                pickSlash(list[Math.min(slashIndexRef.current, list.length - 1)]);
+                return true;
+            }
+            if (event.key === "Escape") {
+                dismissSlash();
+                return true;
+            }
+            return undefined;
+        },
+        [dismissSlash, pickSlash],
+    );
 
     /** ⌘/Ctrl shortcuts: S saves, F finds, K links. */
     const shortcutKey = useCallback((key: string) => {
-        if (key === "s") { handlers.current.onSave?.(); return true; }
-        if (key === "f") { handlers.current.onFind?.(); return true; }
-        if (key === "k") { setLinkOpen(true); return true; }
+        if (key === "s") {
+            handlers.current.onSave?.();
+            return true;
+        }
+        if (key === "f") {
+            handlers.current.onFind?.();
+            return true;
+        }
+        if (key === "k") {
+            setLinkOpen(true);
+            return true;
+        }
         return false;
     }, []);
 
@@ -197,7 +233,10 @@ export function NoteEditor({
             handleClick: (view, pos, event) => {
                 // A plain tap just places the caret; following a link is explicit (⌘/Ctrl-click, or Open in the link editor).
                 if (!(event.metaKey || event.ctrlKey)) return false;
-                const href = view.state.doc.resolve(pos).marks().find((m) => m.type.name === "link")?.attrs.href as string | undefined;
+                const href = view.state.doc
+                    .resolve(pos)
+                    .marks()
+                    .find((m) => m.type.name === "link")?.attrs.href as string | undefined;
                 if (!href) return false;
                 void openExternalUrl(href);
                 return true;
@@ -310,7 +349,21 @@ export function NoteEditor({
             className={cn("note-editor relative", className)}
         >
             <EditorContent editor={editor} />
-            {slash && <NoteSlashMenu editor={editor} anchorPos={slash.to} commands={matches} index={slashIndex} bottomInset={slashBottomInset} onPick={pickSlash} onDismiss={dismissSlash} onHover={(i) => { slashIndexRef.current = i; setSlashIndex(i); }} />}
+            {slash && (
+                <NoteSlashMenu
+                    editor={editor}
+                    anchorPos={slash.to}
+                    commands={matches}
+                    index={slashIndex}
+                    bottomInset={slashBottomInset}
+                    onPick={pickSlash}
+                    onDismiss={dismissSlash}
+                    onHover={(i) => {
+                        slashIndexRef.current = i;
+                        setSlashIndex(i);
+                    }}
+                />
+            )}
             <NoteLinkPopover editor={editor} open={linkOpen} onOpenChange={setLinkOpen} />
         </div>
     );

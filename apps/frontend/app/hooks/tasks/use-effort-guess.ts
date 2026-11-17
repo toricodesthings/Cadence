@@ -10,7 +10,9 @@ import { queryKeys } from "../../lib/api/query-keys";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { getUserZone, today } from "../../lib/utils/user-zone";
 
-export type GuessOf = (task: Pick<Task, "effort" | "effortGuess" | "effortGuessSource" | "title" | "projectId">) => EffortGuess | null;
+export type GuessOf = (
+    task: Pick<Task, "effort" | "effortGuess" | "effortGuessSource" | "title" | "projectId">,
+) => EffortGuess | null;
 
 /** This account's own Effort choices as evidence, and whether Effort suggestions are on. Loads once; offline or loading, empty. */
 export function useEffortEvidence(open = true) {
@@ -22,7 +24,10 @@ export function useEffortEvidence(open = true) {
 
     const { data: rows } = useQuery({
         queryKey: queryKeys.effortEvidence,
-        queryFn: async () => (await unwrapResponse(await client.api.tasks["effort-evidence"].$get())).map((r) => effortEvidenceRowSchema.parse(r)),
+        queryFn: async () =>
+            (await unwrapResponse(await client.api.tasks["effort-evidence"].$get())).map((r) =>
+                effortEvidenceRowSchema.parse(r),
+            ),
         enabled: open && enabled && authReady && isAuthenticated,
         staleTime: 5 * 60_000,
     });

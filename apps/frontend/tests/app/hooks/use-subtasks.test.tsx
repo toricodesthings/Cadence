@@ -20,16 +20,20 @@ describe("useSubtasksByTaskIds", () => {
 
     it("fetches subtasks for many tasks with a single bulk request", async () => {
         const subtask = { taskId: "task-1", isComplete: false, createdAt: "2026-03-20T00:00:00.000Z" };
-        bulkGetMock.mockResolvedValue(Response.json({
-            data: {
-                "task-1": [
-                    { ...subtask, id: "subtask-1", title: "First", orderIndex: 2 },
-                    { ...subtask, id: "subtask-2", title: "Second", orderIndex: 1 },
-                ],
-            },
-        }));
+        bulkGetMock.mockResolvedValue(
+            Response.json({
+                data: {
+                    "task-1": [
+                        { ...subtask, id: "subtask-1", title: "First", orderIndex: 2 },
+                        { ...subtask, id: "subtask-2", title: "Second", orderIndex: 1 },
+                    ],
+                },
+            }),
+        );
 
-        const { result } = renderHook(() => useSubtasksByTaskIds(["task-2", "task-1", "task-1"]), { wrapper: withClient() });
+        const { result } = renderHook(() => useSubtasksByTaskIds(["task-2", "task-1", "task-1"]), {
+            wrapper: withClient(),
+        });
 
         await waitFor(() => expect(result.current.data).toBeDefined());
 

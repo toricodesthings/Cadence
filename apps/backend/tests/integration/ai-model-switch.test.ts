@@ -18,7 +18,9 @@ vi.mock("../../src/platform/db", () => ({ getDbClient: getDbClientMock }));
 vi.mock("../../src/platform/rls", () => ({
     withRls: (_db: unknown, _userId: string, fn: (tx: unknown) => unknown) => fn({}),
 }));
-vi.mock("../../src/platform/user-zone", () => ({ syncUserZoneWithSettings: async (_tx: unknown, _userId: string, zone: string) => ({ timezone: zone, settings: {} }) }));
+vi.mock("../../src/platform/user-zone", () => ({
+    syncUserZoneWithSettings: async (_tx: unknown, _userId: string, zone: string) => ({ timezone: zone, settings: {} }),
+}));
 vi.mock("../../src/platform/redis", () => ({ getRedis: getRedisMock, getRateLimitRedis: getRateLimitRedisMock }));
 vi.mock("../../src/domains/ai/persistence/conversation-repo");
 vi.mock("../../src/domains/ai/agent");
@@ -44,7 +46,9 @@ beforeEach(() => {
     vi.mocked(truncateMessagesAfter).mockResolvedValue(false);
     vi.mocked(getAgentInstance).mockResolvedValue(agentOf(textModel()));
     // The thread remembers the model its last turn touched it with.
-    vi.mocked(getConversation).mockImplementation(async () => ({ model: vi.mocked(touchConversation).mock.calls.at(-1)?.[3]?.model ?? null }) as never);
+    vi.mocked(getConversation).mockImplementation(
+        async () => ({ model: vi.mocked(touchConversation).mock.calls.at(-1)?.[3]?.model ?? null }) as never,
+    );
 });
 
 /** Send one user turn on the shared conversation; returns the model it was built, saved and touched with. */

@@ -22,7 +22,9 @@ function formatVersionLabel(version: string): string {
 export function parseChangelog(markdown: string): ChangelogEntry[] {
     const tooLong = markdown.split("\n").filter((line) => line.startsWith("- ") && line.length - 2 > MAX_BULLET_LENGTH);
     if (tooLong.length > 0) {
-        throw new Error(`CHANGELOG.md bullets must be ${MAX_BULLET_LENGTH} characters or fewer:\n${tooLong.join("\n")}`);
+        throw new Error(
+            `CHANGELOG.md bullets must be ${MAX_BULLET_LENGTH} characters or fewer:\n${tooLong.join("\n")}`,
+        );
     }
 
     return markdown.split(/^## /m).slice(1).flatMap(parseRelease);
@@ -34,13 +36,15 @@ function parseRelease(block: string): ChangelogEntry[] {
     const [, version, date] = VERSION_HEADING.exec(heading) ?? [];
     if (!version) return [];
     const { groups, summary } = readSections(lines);
-    return [{
-        version: formatVersionLabel(version),
-        date,
-        title: summary ?? "Improvements and fixes",
-        groups: groups.filter((group) => group.items.length > 0),
-        glyph: glyphOf(groups),
-    }];
+    return [
+        {
+            version: formatVersionLabel(version),
+            date,
+            title: summary ?? "Improvements and fixes",
+            groups: groups.filter((group) => group.items.length > 0),
+            glyph: glyphOf(groups),
+        },
+    ];
 }
 
 /** The bullets under each known `###` kind, and the first plain line as the summary. */
@@ -70,7 +74,7 @@ function glyphOf(groups: ChangelogGroup[]): ChangelogEntry["glyph"] {
 
 export function readReleaseInfo(repoRoot: URL) {
     const { version } = JSON.parse(readFileSync(new URL("package.json", repoRoot), "utf8")) as { version?: string };
-    if (!version) throw new Error("Root package.json is missing \"version\".");
+    if (!version) throw new Error('Root package.json is missing "version".');
 
     return {
         version: formatVersionLabel(version),

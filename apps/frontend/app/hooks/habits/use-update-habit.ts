@@ -16,10 +16,7 @@ export function useUpdateHabit() {
     return useMutation({
         // Inline fields can save together; preserve their order across editor/menu hooks.
         scope: { id: "habit-updates" },
-        mutationFn: withOfflineSupport<
-            UpdateHabit & { id: string },
-            Habit
-        >(
+        mutationFn: withOfflineSupport<UpdateHabit & { id: string }, Habit>(
             ({ id, ...patch }) => ({ type: "update_habit", id, payload: patch as Record<string, unknown> }),
             async ({ id, ...patch }) => {
                 const res = await client.api.habits[":id"].$patch({
@@ -36,50 +33,48 @@ export function useUpdateHabit() {
 
             let fullHabit: Habit | undefined;
             queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.all, exact: true }).forEach(([, data]) => {
-                const found = data?.find(h => h.id === id);
+                const found = data?.find((h) => h.id === id);
                 if (found) fullHabit = found;
             });
             // Also search weekly caches — archived habits may only exist there
             if (!fullHabit) {
                 queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll }).forEach(([, data]) => {
-                    const found = data?.find(h => h.id === id);
+                    const found = data?.find((h) => h.id === id);
                     if (found) fullHabit = found;
                 });
             }
 
             const apply = (old: Habit[] | undefined): Habit[] | undefined => {
                 return transformListCache(old, (items) => {
-                    const exists = items.some(h => h.id === id);
+                    const exists = items.some((h) => h.id === id);
                     if (patch.archived === false && !exists && fullHabit) {
                         return [{ ...fullHabit, ...patch } as Habit, ...items];
                     }
-                    return items.map((h) => h.id === id ? { ...h, ...patch } as Habit : h);
+                    return items.map((h) => (h.id === id ? ({ ...h, ...patch } as Habit) : h));
                 });
             };
 
             queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.all, exact: true }, apply);
 
-            queryClient
-                .getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll })
-                .forEach(([key, old]) => {
-                    const archivedFlag = key.at(-1);
-                    const shouldInclude = patch.archived === undefined || archivedFlag === patch.archived;
-                    const withoutTarget = transformListCache(old, (items) => items.filter((habit) => habit.id !== id));
+            queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll }).forEach(([key, old]) => {
+                const archivedFlag = key.at(-1);
+                const shouldInclude = patch.archived === undefined || archivedFlag === patch.archived;
+                const withoutTarget = transformListCache(old, (items) => items.filter((habit) => habit.id !== id));
 
-                    if (!shouldInclude) {
-                        queryClient.setQueryData(key, withoutTarget);
-                        return;
-                    }
+                if (!shouldInclude) {
+                    queryClient.setQueryData(key, withoutTarget);
+                    return;
+                }
 
-                    queryClient.setQueryData(
-                        key,
-                        transformListCache(withoutTarget, (items) => {
-                            const existing = old?.find((habit) => habit.id === id) || fullHabit;
-                            if (!existing) return items;
-                            return [...items, { ...existing, ...patch } as Habit];
-                        }),
-                    );
-                });
+                queryClient.setQueryData(
+                    key,
+                    transformListCache(withoutTarget, (items) => {
+                        const existing = old?.find((habit) => habit.id === id) || fullHabit;
+                        if (!existing) return items;
+                        return [...items, { ...existing, ...patch } as Habit];
+                    }),
+                );
+            });
 
             return { snapshot };
         },

@@ -8,14 +8,26 @@ export const CARD = "rounded-[1.25rem] border border-twilight-border/35 bg-white
 export const PANEL_TRIGGER = `${CARD} flex min-h-16 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:border-twilight-border/50 hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50`;
 
 /** Collapsed pane: icon, name, one-line summary, chevron. */
-export function PanelTrigger({ icon: Icon, title, summary, onOpen }: {
+export function PanelTrigger({
+    icon: Icon,
+    title,
+    summary,
+    onOpen,
+}: {
     icon: React.ElementType;
     title: string;
     summary: string;
     onOpen: () => void;
 }) {
     return (
-        <Button variant="ghost" size="none" type="button" onClick={onOpen} aria-expanded={false} className={`${PANEL_TRIGGER} font-normal`}>
+        <Button
+            variant="ghost"
+            size="none"
+            type="button"
+            onClick={onOpen}
+            aria-expanded={false}
+            className={`${PANEL_TRIGGER} font-normal`}
+        >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-twilight-text-muted">
                 <Icon size={16} aria-hidden="true" />
             </span>
@@ -36,7 +48,9 @@ export function PanelHeader({ title, summary, onDone }: { title: string; summary
                 <p className="text-sm font-medium text-twilight-text">{title}</p>
                 {summary ? <p className="truncate text-xs text-twilight-text-muted">{summary}</p> : null}
             </div>
-            <Button variant="ghost" size="none"
+            <Button
+                variant="ghost"
+                size="none"
                 type="button"
                 onClick={onDone}
                 aria-expanded={true}
@@ -49,12 +63,16 @@ export function PanelHeader({ title, summary, onDone }: { title: string; summary
 }
 
 /** Borderless value on the right of a FieldRow; opens a picker. */
-export const VALUE_BTN = "flex min-h-10 max-w-full cursor-pointer items-center rounded-lg px-2.5 text-right text-[13px] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
+export const VALUE_BTN =
+    "flex min-h-10 max-w-full cursor-pointer items-center rounded-lg px-2.5 text-right text-[13px] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
 /** Titled cluster of related fields inside a detail card. */
 export function DetailGroup({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <section className="flex flex-col gap-1 border-t border-twilight-border/25 px-4 py-4 first:border-t-0" aria-label={title}>
+        <section
+            className="flex flex-col gap-1 border-t border-twilight-border/25 px-4 py-4 first:border-t-0"
+            aria-label={title}
+        >
             <p className={`${FIELD_LABEL} mb-1`}>{title}</p>
             {children}
         </section>
@@ -62,7 +80,15 @@ export function DetailGroup({ title, children }: { title: string; children: Reac
 }
 
 /** Label above a full-width control — for choice rows that need the width. */
-export function FieldBlock({ icon: Icon, label, children }: { icon: React.ElementType; label: string; children: React.ReactNode }) {
+export function FieldBlock({
+    icon: Icon,
+    label,
+    children,
+}: {
+    icon: React.ElementType;
+    label: string;
+    children: React.ReactNode;
+}) {
     return (
         <div className="flex flex-col gap-2 py-1.5" role="group" aria-label={label}>
             <span className="flex items-center gap-2 text-[13px] text-twilight-text-muted">
@@ -75,7 +101,12 @@ export function FieldBlock({ icon: Icon, label, children }: { icon: React.Elemen
 }
 
 /** Label left, value right — for single-value rows. `hint` sits under the label when the value side is a toggle. */
-export function FieldRow({ icon: Icon, label, hint, children }: {
+export function FieldRow({
+    icon: Icon,
+    label,
+    hint,
+    children,
+}: {
     icon: React.ElementType;
     label: string;
     hint?: string;
@@ -99,7 +130,12 @@ export function FieldRow({ icon: Icon, label, hint, children }: {
 const NONE = "__none";
 
 /** A FieldRow value that picks one option: the Cadence Select at every size. "" is the empty choice. */
-export function ValueSelect({ label, value, onChange, options }: {
+export function ValueSelect({
+    label,
+    value,
+    onChange,
+    options,
+}: {
     label: string;
     value: string;
     onChange: (value: string) => void;
@@ -115,7 +151,11 @@ export function ValueSelect({ label, value, onChange, options }: {
                 <SelectValue />
             </SelectTrigger>
             <SelectContent align="end" className="max-w-64">
-                {options.map((o) => <SelectItem key={o.value} value={o.value || NONE}>{o.label}</SelectItem>)}
+                {options.map((o) => (
+                    <SelectItem key={o.value} value={o.value || NONE}>
+                        {o.label}
+                    </SelectItem>
+                ))}
             </SelectContent>
         </Select>
     );

@@ -57,16 +57,24 @@ describe("reading and patching settings", () => {
     it("rejects an invalid patch with field-level issues and saves nothing", async () => {
         vi.spyOn(console, "warn").mockImplementation(() => {});
 
-        const { status, body } = await settings("PATCH", "", { notifications: { email: "yes" }, tasks: { hideCompleted: true } });
+        const { status, body } = await settings("PATCH", "", {
+            notifications: { email: "yes" },
+            tasks: { hideCompleted: true },
+        });
 
         expect(status).toBe(400);
-        expect(body.error.issues).toEqual(expect.arrayContaining([expect.objectContaining({ path: "notifications.email" })]));
+        expect(body.error.issues).toEqual(
+            expect.arrayContaining([expect.objectContaining({ path: "notifications.email" })]),
+        );
         expect((await settings("GET", "")).body.data.tasks.hideCompleted).toBe(false);
     });
 
     it("never lets a patch create a background photo (only the upload route can)", async () => {
         const { body } = await settings("PATCH", "", {
-            appearance: { backgroundMode: "image", backgroundImage: { id: "22222222-2222-4222-8222-222222222222", blur: 10 } },
+            appearance: {
+                backgroundMode: "image",
+                backgroundImage: { id: "22222222-2222-4222-8222-222222222222", blur: 10 },
+            },
         });
 
         expect(body.data.appearance.backgroundImage).toBeNull();
@@ -83,11 +91,19 @@ describe("reading and patching settings", () => {
 describe("saved focus views", () => {
     it("creates a view (manual by default) and lists pinned views first", async () => {
         await settings("POST", "/focus-views", { name: "Later", definition: FOCUS_DEFINITION, orderIndex: 0 });
-        const { status, body } = await settings("POST", "/focus-views", { name: "Quick Wins", definition: FOCUS_DEFINITION, isPinned: true, orderIndex: 5 });
+        const { status, body } = await settings("POST", "/focus-views", {
+            name: "Quick Wins",
+            definition: FOCUS_DEFINITION,
+            isPinned: true,
+            orderIndex: 5,
+        });
 
         expect(status).toBe(201);
         expect(body.data.source).toBe("manual");
-        expect((await settings("GET", "/focus-views")).body.data.map((v: any) => v.name)).toEqual(["Quick Wins", "Later"]);
+        expect((await settings("GET", "/focus-views")).body.data.map((v: any) => v.name)).toEqual([
+            "Quick Wins",
+            "Later",
+        ]);
     });
 
     it("renames and deletes a view", async () => {
@@ -99,7 +115,10 @@ describe("saved focus views", () => {
     });
 
     it("treats another user's view as not found for update and delete", async () => {
-        const { body: theirs } = await otherSettings("POST", "/focus-views", { name: "Theirs", definition: FOCUS_DEFINITION });
+        const { body: theirs } = await otherSettings("POST", "/focus-views", {
+            name: "Theirs",
+            definition: FOCUS_DEFINITION,
+        });
 
         expect((await settings("PATCH", `/focus-views/${theirs.data.id}`, { name: "hijacked" })).status).toBe(404);
         expect((await settings("DELETE", `/focus-views/${theirs.data.id}`)).status).toBe(404);
@@ -110,8 +129,18 @@ describe("saved focus views", () => {
 describe("notification state", () => {
     it("upserts per object and trigger: counts presentations, keeps the first time, records the dismissal", async () => {
         const key = { objectType: "task", objectId: OBJECT_ID, triggerId: "due_date_reminder" };
-        await settings("POST", "/notification-state", { ...key, firstPresentedAt: "2026-03-09T09:00:00.000Z", lastPresentedAt: "2026-03-09T09:00:00.000Z", presentationCountIncrement: 1 });
-        await settings("POST", "/notification-state", { ...key, firstPresentedAt: "2026-03-10T09:00:00.000Z", lastPresentedAt: "2026-03-10T09:00:00.000Z", presentationCountIncrement: 1 });
+        await settings("POST", "/notification-state", {
+            ...key,
+            firstPresentedAt: "2026-03-09T09:00:00.000Z",
+            lastPresentedAt: "2026-03-09T09:00:00.000Z",
+            presentationCountIncrement: 1,
+        });
+        await settings("POST", "/notification-state", {
+            ...key,
+            firstPresentedAt: "2026-03-10T09:00:00.000Z",
+            lastPresentedAt: "2026-03-10T09:00:00.000Z",
+            presentationCountIncrement: 1,
+        });
         await settings("POST", "/notification-state", { ...key, dismissedAt: "2026-03-10T09:05:00.000Z" });
 
         const { body } = await settings("GET", "/notification-state");
@@ -132,7 +161,11 @@ describe("clearing intelligence history", () => {
     it("wipes NLP parses, dismissals, and inbox analysis for the caller only", async () => {
         const tasks = apiAs(userId, "/tasks", taskRoutes);
         const inbox = apiAs(userId, "/inbox", inboxRoutes);
-        const { body: task } = await tasks("POST", "", { title: "T", orderIndex: 1, nlp: { rawInput: "T tomorrow", sourceSurface: "quick_add", dateStyle: "mdy" } });
+        const { body: task } = await tasks("POST", "", {
+            title: "T",
+            orderIndex: 1,
+            nlp: { rawInput: "T tomorrow", sourceSurface: "quick_add", dateStyle: "mdy" },
+        });
         await tasks("POST", `/${task.data.id}/reparse`, { rawInput: "T friday" });
         const { body: item } = await inbox("POST", "", { rawText: "analyzed" });
         await inbox("PATCH", `/${item.data.id}`, { analysisStatus: "parsed", analysisSummary: "summary" });
@@ -143,8 +176,16 @@ describe("clearing intelligence history", () => {
         expect((await settings("POST", "/intelligence-history/clear")).body.data).toEqual({ cleared: true });
 
         const counts = await asOwner(async (pg) => ({
-            metadata: (await pg.query<{ n: number }>("SELECT count(*)::int n FROM task_nlp_metadata WHERE user_id = $1", [userId])).rows[0].n,
-            inbox: (await pg.query("SELECT analysis_status, analysis_summary FROM inbox_items WHERE id = $1", [item.data.id])).rows[0],
+            metadata: (
+                await pg.query<{ n: number }>("SELECT count(*)::int n FROM task_nlp_metadata WHERE user_id = $1", [
+                    userId,
+                ])
+            ).rows[0].n,
+            inbox: (
+                await pg.query("SELECT analysis_status, analysis_summary FROM inbox_items WHERE id = $1", [
+                    item.data.id,
+                ])
+            ).rows[0],
         }));
         expect(counts).toEqual({ metadata: 0, inbox: { analysis_status: "pending", analysis_summary: null } });
         expect((await settings("GET", "")).body.data.tasks.intelligence.dismissedEntityIds).toEqual([]);
@@ -155,9 +196,17 @@ describe("clearing intelligence history", () => {
 });
 
 describe("the user's time zone", () => {
-    const storedZone = async (id = userId) => (await asOwner(async (pg) => (await pg.query<{ time_zone: string }>("SELECT time_zone FROM users WHERE id = $1", [id])).rows))[0].time_zone;
+    const storedZone = async (id = userId) =>
+        (
+            await asOwner(
+                async (pg) =>
+                    (await pg.query<{ time_zone: string }>("SELECT time_zone FROM users WHERE id = $1", [id])).rows,
+            )
+        )[0].time_zone;
     let me: ReturnType<typeof apiAs>;
-    beforeEach(() => { me = apiAs(userId, "/me", meRoutes); });
+    beforeEach(() => {
+        me = apiAs(userId, "/me", meRoutes);
+    });
 
     it("a new user's zone is UTC until the device reports one", async () => {
         expect(await storedZone()).toBe("UTC");
@@ -169,17 +218,22 @@ describe("the user's time zone", () => {
         expect(status).toBe(200);
         expect(body.data).toEqual({ timeZone: "Asia/Tokyo" });
         expect(await storedZone()).toBe("Asia/Tokyo");
-        expect((await me("PUT", "/time-zone", { timeZone: "America/Toronto" })).body.data.timeZone).toBe("America/Toronto");
+        expect((await me("PUT", "/time-zone", { timeZone: "America/Toronto" })).body.data.timeZone).toBe(
+            "America/Toronto",
+        );
         expect(await storedZone()).toBe("America/Toronto");
     });
 
-    it.each(["local", "device", "+05:00", "UTC+5", "EST5EDT-garbage", "not a zone", ""])("rejects %j with 400 and keeps the stored zone", async (timeZone) => {
-        vi.spyOn(console, "warn").mockImplementation(() => {});
-        await me("PUT", "/time-zone", { timeZone: "Asia/Tokyo" });
+    it.each(["local", "device", "+05:00", "UTC+5", "EST5EDT-garbage", "not a zone", ""])(
+        "rejects %j with 400 and keeps the stored zone",
+        async (timeZone) => {
+            vi.spyOn(console, "warn").mockImplementation(() => {});
+            await me("PUT", "/time-zone", { timeZone: "Asia/Tokyo" });
 
-        expect((await me("PUT", "/time-zone", { timeZone })).status).toBe(400);
-        expect(await storedZone()).toBe("Asia/Tokyo");
-    });
+            expect((await me("PUT", "/time-zone", { timeZone })).status).toBe(400);
+            expect(await storedZone()).toBe("Asia/Tokyo");
+        },
+    );
 
     it("rejects a missing or non-string zone", async () => {
         vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -203,7 +257,7 @@ describe("the user's time zone", () => {
         expect(await storedZone()).toBe("America/Toronto");
     });
 
-    it("with Settings on \"device\", the device report is the zone", async () => {
+    it('with Settings on "device", the device report is the zone', async () => {
         await settings("PATCH", "", { dateTime: { timezone: "America/Toronto" } });
         await settings("PATCH", "", { dateTime: { timezone: "device" } });
 

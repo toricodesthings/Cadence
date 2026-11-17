@@ -20,7 +20,9 @@ describe("reconcileTaskInCaches with a bare write response", () => {
         const { tagIds: _omitted, ...bareRow } = makeTask({ title: "Renamed" });
         reconcileTaskInCaches(queryClient, bareRow as Task);
 
-        expect(queryClient.getQueryData<Task[]>(key)).toEqual([expect.objectContaining({ title: "Renamed", tagIds: ["tag-1"] })]);
+        expect(queryClient.getQueryData<Task[]>(key)).toEqual([
+            expect.objectContaining({ title: "Renamed", tagIds: ["tag-1"] }),
+        ]);
     });
 });
 
@@ -33,11 +35,19 @@ describe("reconcileTaskInCaches day windows", () => {
 
         reconcileTaskInCaches(queryClient, makeTask({ id: "a", dueDate: "2026-03-29" }));
         // 02:30 UTC on the 30th is still the 29th in Toronto (EDT).
-        reconcileTaskInCaches(queryClient, makeTask({ id: "b", scheduledStart: "2026-03-30T02:30:00.000Z", zone: "America/Toronto" }));
+        reconcileTaskInCaches(
+            queryClient,
+            makeTask({ id: "b", scheduledStart: "2026-03-30T02:30:00.000Z", zone: "America/Toronto" }),
+        );
         reconcileTaskInCaches(queryClient, makeTask({ id: "c", dueDate: "2026-03-30" }));
         reconcileTaskInCaches(queryClient, makeTask({ id: "d" }));
 
-        expect(queryClient.getQueryData<Task[]>(week)?.map((t) => t.id).sort()).toEqual(["a", "b"]);
+        expect(
+            queryClient
+                .getQueryData<Task[]>(week)
+                ?.map((t) => t.id)
+                .sort(),
+        ).toEqual(["a", "b"]);
     });
 });
 
@@ -51,7 +61,9 @@ describe("api/cache-sync", () => {
         queryClient.setQueryData(queryKeys.tasks.list({ state: "ACTIVE" }), [activeTask]);
         queryClient.setQueryData(queryKeys.tasks.list({ state: "WAITING" }), [waitingTask]);
         queryClient.setQueryData(queryKeys.tasks.list({ state: "ACTIVE", hasNoProject: true }), [holdingTask]);
-        queryClient.setQueryData(queryKeys.tasks.list({ state: "ACTIVE", effectiveOnOrBeforeDate: "2026-03-09" }), [holdingTask]);
+        queryClient.setQueryData(queryKeys.tasks.list({ state: "ACTIVE", effectiveOnOrBeforeDate: "2026-03-09" }), [
+            holdingTask,
+        ]);
         queryClient.setQueryData(queryKeys.tasks.detail(activeTask.id), activeTask);
 
         const updated = makeTask({ id: activeTask.id, state: "WAITING", title: "Moved task" });
@@ -63,9 +75,9 @@ describe("api/cache-sync", () => {
             waitingTask,
             updated,
         ]);
-        expect(queryClient.getQueryData<Task[]>(queryKeys.tasks.list({ state: "ACTIVE", hasNoProject: true }))).toEqual([
-            holdingTask,
-        ]);
+        expect(queryClient.getQueryData<Task[]>(queryKeys.tasks.list({ state: "ACTIVE", hasNoProject: true }))).toEqual(
+            [holdingTask],
+        );
     });
 
     it("removes task detail and list cache entries", () => {
@@ -98,7 +110,18 @@ describe("api/cache-sync", () => {
     it("replaces optimistic habits", () => {
         const queryClient = new QueryClient();
         const optimistic = makeHabit({ id: "temp-1", title: "Optimistic habit" });
-        const weekly = makeHabit({ id: "temp-1", logs: [{ id: "virt", habitId: "temp-1", targetDate: "2026-03-09T00:00:00.000Z", status: "PENDING", completedAt: null }] });
+        const weekly = makeHabit({
+            id: "temp-1",
+            logs: [
+                {
+                    id: "virt",
+                    habitId: "temp-1",
+                    targetDate: "2026-03-09T00:00:00.000Z",
+                    status: "PENDING",
+                    completedAt: null,
+                },
+            ],
+        });
 
         queryClient.setQueryData(queryKeys.habits.all, [optimistic]);
         queryClient.setQueryData(["habits", "weekly", { start: "2026-03-08", end: "2026-03-14" }, false], [weekly]);
@@ -109,16 +132,17 @@ describe("api/cache-sync", () => {
         expect(queryClient.getQueryData<Habit[]>(queryKeys.habits.all)).toEqual([serverHabit]);
         expect(
             queryClient.getQueryData<Habit[]>(["habits", "weekly", { start: "2026-03-08", end: "2026-03-14" }, false]),
-        ).toEqual([
-            expect.objectContaining({ id: "habit-1", title: "Server habit" }),
-        ]);
+        ).toEqual([expect.objectContaining({ id: "habit-1", title: "Server habit" })]);
     });
 
     it("removes habits from the wrong weekly archive view during reconciliation", () => {
         const queryClient = new QueryClient();
         const activeHabit = makeHabit({ id: "habit-1", archived: false });
 
-        queryClient.setQueryData(["habits", "weekly", { start: "2026-03-08", end: "2026-03-14" }, false], [activeHabit]);
+        queryClient.setQueryData(
+            ["habits", "weekly", { start: "2026-03-08", end: "2026-03-14" }, false],
+            [activeHabit],
+        );
         queryClient.setQueryData(["habits", "weekly", { start: "2026-03-08", end: "2026-03-14" }, true], [activeHabit]);
 
         reconcileHabitInCaches(queryClient, { ...activeHabit, archived: true });

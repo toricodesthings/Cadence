@@ -26,7 +26,8 @@ const { withOfflineSupport } = await import("../../../../app/lib/api/offline-mut
 
 const TASK = "11111111-1111-4111-8111-111111111111";
 const ok = () => Response.json({ data: {} });
-const status = (code: number) => Response.json({ error: { code: "X", message: "no", status: code, isRetryable: false } }, { status: code });
+const status = (code: number) =>
+    Response.json({ error: { code: "X", message: "no", status: code, isRetryable: false } }, { status: code });
 
 beforeEach(async () => {
     store.clear();
@@ -47,7 +48,11 @@ describe("offline queue", () => {
 
     it("replays a create with its own id as the Idempotency-Key and drops expectedUpdatedAt", async () => {
         await wal.enqueueWalEntry({ type: "create_task", payload: { id: TASK, title: "Offline", orderIndex: 1 } });
-        await wal.enqueueWalEntry({ type: "update_task", id: TASK, payload: { title: "Renamed", expectedUpdatedAt: "2026-01-01T00:00:00.000Z" } });
+        await wal.enqueueWalEntry({
+            type: "update_task",
+            id: TASK,
+            payload: { title: "Renamed", expectedUpdatedAt: "2026-01-01T00:00:00.000Z" },
+        });
 
         expect(await replayWal(testQueryClient())).toBe("done");
 
@@ -88,8 +93,11 @@ describe("offline queue", () => {
 });
 
 describe("offline notes", () => {
-    const note = (body: string, extra: Record<string, unknown> = {}) =>
-        ({ type: "upsert_note" as const, taskId: TASK, payload: { body, expectedVersion: 1, branch: "tab-a", baseBody: "base", ...extra } });
+    const note = (body: string, extra: Record<string, unknown> = {}) => ({
+        type: "upsert_note" as const,
+        taskId: TASK,
+        payload: { body, expectedVersion: 1, branch: "tab-a", baseBody: "base", ...extra },
+    });
 
     it("folds unsent saves from one editing line on one base into the newest text", async () => {
         await wal.enqueueWalEntry(note("Draft"));
@@ -104,7 +112,12 @@ describe("offline notes", () => {
         const [first] = wal.getWalSnapshot();
         await wal.updateWalEntry(first.id, { attempted: true });
         await wal.enqueueWalEntry(note("A, more"));
-        expect(wal.getWalSnapshot().map((e) => (e.op as { payload: { body: string } }).payload.body)).toEqual(["A", "B", "C", "A, more"]);
+        expect(wal.getWalSnapshot().map((e) => (e.op as { payload: { body: string } }).payload.body)).toEqual([
+            "A",
+            "B",
+            "C",
+            "A, more",
+        ]);
     });
 
     it("never folds saves queued by older builds (no branch)", async () => {
@@ -155,13 +168,17 @@ describe("withOfflineSupport", () => {
     const op = () => ({ type: "delete_task" as const, id: TASK });
 
     it("queues a write whose request never got an answer instead of losing it", async () => {
-        const write = withOfflineSupport(op, async () => { throw networkError(); });
+        const write = withOfflineSupport(op, async () => {
+            throw networkError();
+        });
         await expect(write(undefined)).resolves.toBeUndefined();
         expect(wal.getWalSnapshot()).toHaveLength(1);
     });
 
     it("still throws when the server answers with an error", async () => {
-        const write = withOfflineSupport(op, async () => { throw new ApiErrorResponse({ status: 400, code: "VALIDATION_ERROR", message: "no" }); });
+        const write = withOfflineSupport(op, async () => {
+            throw new ApiErrorResponse({ status: 400, code: "VALIDATION_ERROR", message: "no" });
+        });
         await expect(write(undefined)).rejects.toMatchObject({ status: 400 });
         expect(wal.getWalSnapshot()).toEqual([]);
     });

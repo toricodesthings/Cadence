@@ -7,9 +7,12 @@ vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../h
 vi.mock("../../src/platform/daily-budget", () => ({ withinDailyBudget: vi.fn(async () => true) }));
 vi.mock("../../src/domains/ai/memory/embedding", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../src/domains/ai/memory/embedding")>()),
-    embedTexts: async (_env: unknown, texts: string[]) => texts.map((text) => Array.from({ length: 512 }, (_, i) => ((text.charCodeAt(i % text.length) + i) % 7) / 7)),
+    embedTexts: async (_env: unknown, texts: string[]) =>
+        texts.map((text) => Array.from({ length: 512 }, (_, i) => ((text.charCodeAt(i % text.length) + i) % 7) / 7)),
 }));
-vi.mock("../../src/domains/ai/memory/consolidate", () => ({ consolidate: async (_e: unknown, _h: string, items: unknown[]) => items.map(() => null) }));
+vi.mock("../../src/domains/ai/memory/consolidate", () => ({
+    consolidate: async (_e: unknown, _h: string, items: unknown[]) => items.map(() => null),
+}));
 
 import { memoryRoutes } from "../../src/domains/ai/memory/memory.route";
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
@@ -22,18 +25,41 @@ let userId: string;
 let memory: ReturnType<typeof apiAs>;
 let tasksApi: ReturnType<typeof apiAs>;
 
-const sql = async <T = any>(text: string, params: unknown[] = []): Promise<T[]> => asOwner(async (pg) => (await pg.query<T>(text, params)).rows);
+const sql = async <T = any>(text: string, params: unknown[] = []): Promise<T[]> =>
+    asOwner(async (pg) => (await pg.query<T>(text, params)).rows);
 const setMode = (mode: "off" | "basic" | "full") => memory("POST", "/mode", { mode });
 const tomorrow = () => addDays(todayIn(ZONE), 1);
 /** A time tomorrow, so the window is never clamped to "now". */
 const at = (time: string, day = tomorrow()) => atLocal(day, time, ZONE);
 const newTask = async (title = "Lab report", extra: { project?: string; recurrence?: string } = {}) =>
-    (await sql(`INSERT INTO tasks (user_id, title, order_index, project_id, recurrence_rule) VALUES ($1, $2, 1, $3, $4) RETURNING id`, [userId, title, extra.project ?? null, extra.recurrence ?? null]))[0].id as string;
+    (
+        await sql(
+            `INSERT INTO tasks (user_id, title, order_index, project_id, recurrence_rule) VALUES ($1, $2, 1, $3, $4) RETURNING id`,
+            [userId, title, extra.project ?? null, extra.recurrence ?? null],
+        )
+    )[0].id as string;
 const block = async (start: string, end: string) =>
-    sql(`INSERT INTO tasks (user_id, title, order_index, scheduled_start, scheduled_end, zone) VALUES ($1, 'Busy', 1, $2, $3, $4)`, [userId, at(start), at(end), ZONE]);
+    sql(
+        `INSERT INTO tasks (user_id, title, order_index, scheduled_start, scheduled_end, zone) VALUES ($1, 'Busy', 1, $2, $3, $4)`,
+        [userId, at(start), at(end), ZONE],
+    );
 const drop = (id: string, time: string, minutes = 45, extra: object = {}, headers: Record<string, string> = {}) =>
-    tasksApi("PATCH", `/${id}`, { scheduledStart: at(time), scheduledEnd: new Date(Date.parse(at(time)) + minutes * 60_000).toISOString(), zone: ZONE, ...extra }, headers);
-const slots = () => sql("SELECT chosen, feasible, suggested, project_id, task_id, said_on::text AS said_on, forgotten_at FROM planning_records WHERE user_id = $1 AND kind = 'slot' ORDER BY created_at", [userId]);
+    tasksApi(
+        "PATCH",
+        `/${id}`,
+        {
+            scheduledStart: at(time),
+            scheduledEnd: new Date(Date.parse(at(time)) + minutes * 60_000).toISOString(),
+            zone: ZONE,
+            ...extra,
+        },
+        headers,
+    );
+const slots = () =>
+    sql(
+        "SELECT chosen, feasible, suggested, project_id, task_id, said_on::text AS said_on, forgotten_at FROM planning_records WHERE user_id = $1 AND kind = 'slot' ORDER BY created_at",
+        [userId],
+    );
 
 beforeAll(startTestDb);
 beforeEach(async () => {
@@ -81,9 +107,21 @@ describe("a manual drop onto a time", () => {
 
     it("ignores an offline change replayed more than an hour later", async () => {
         await setMode("full");
-        await drop(await newTask("Late"), "19:00", 45, {}, { "X-Queued-At": new Date(Date.now() - 2 * 3600_000).toISOString() });
+        await drop(
+            await newTask("Late"),
+            "19:00",
+            45,
+            {},
+            { "X-Queued-At": new Date(Date.now() - 2 * 3600_000).toISOString() },
+        );
         expect(await slots()).toEqual([]);
-        await drop(await newTask("Fresh"), "19:00", 45, {}, { "X-Queued-At": new Date(Date.now() - 5 * 60_000).toISOString() });
+        await drop(
+            await newTask("Fresh"),
+            "19:00",
+            45,
+            {},
+            { "X-Queued-At": new Date(Date.now() - 5 * 60_000).toISOString() },
+        );
         expect(await slots()).toHaveLength(1);
     });
 });
@@ -119,13 +157,19 @@ describe("what Find a time orders by", () => {
     it("returns the person's records in Full and their stated preferences whenever memory is on", async () => {
         await setMode("full");
         await drop(await newTask(), "19:00");
-        await sql(`INSERT INTO ai_memories (user_id, kind, content, value, said_on, last_seen_on, source, confidence) VALUES ($1, 'preference', 'Studies after dinner', '{"when":{"buckets":["evening"],"about":"study"}}', '2026-10-01', '2026-10-01', 'chat', 'stated')`, [userId]);
+        await sql(
+            `INSERT INTO ai_memories (user_id, kind, content, value, said_on, last_seen_on, source, confidence) VALUES ($1, 'preference', 'Studies after dinner', '{"when":{"buckets":["evening"],"about":"study"}}', '2026-10-01', '2026-10-01', 'chat', 'stated')`,
+            [userId],
+        );
         const full = (await memory("GET", "/planning-evidence")).body.data;
         expect(full.records).toHaveLength(1);
         expect(full.stated).toEqual([{ buckets: ["evening"], about: "study" }]);
 
         await setMode("basic");
-        expect((await memory("GET", "/planning-evidence")).body.data).toMatchObject({ records: [], stated: [{ buckets: ["evening"], about: "study" }] });
+        expect((await memory("GET", "/planning-evidence")).body.data).toMatchObject({
+            records: [],
+            stated: [{ buckets: ["evening"], about: "study" }],
+        });
         await setMode("off");
         expect((await memory("GET", "/planning-evidence")).body.data).toEqual({ records: [], stated: [] });
     });
@@ -142,7 +186,12 @@ describe("the pattern and Forget", () => {
             );
         }
     };
-    const patternFact = async () => (await sql(`SELECT id, content, value, status FROM ai_memories WHERE user_id = $1 AND kind = 'pattern'`, [userId]))[0];
+    const patternFact = async () =>
+        (
+            await sql(`SELECT id, content, value, status FROM ai_memories WHERE user_id = $1 AND kind = 'pattern'`, [
+                userId,
+            ])
+        )[0];
 
     it("shows 'Often plans things in the evening', and Forget hides the records, Undo restores them, the scrub deletes them, and new choices can teach it again", async () => {
         await seed();
@@ -159,7 +208,9 @@ describe("the pattern and Forget", () => {
 
         await memory("DELETE", `/${fact.id}`);
         await sql("UPDATE ai_memories SET forgotten_at = now() - interval '11 minutes' WHERE id = $1", [fact.id]);
-        await sql("UPDATE planning_records SET forgotten_at = now() - interval '11 minutes' WHERE user_id = $1", [userId]);
+        await sql("UPDATE planning_records SET forgotten_at = now() - interval '11 minutes' WHERE user_id = $1", [
+            userId,
+        ]);
         await learnForUser(env, userId, new Date());
         expect(await slots()).toEqual([]);
         expect(await patternFact()).toBeUndefined(); // no tombstone
@@ -180,7 +231,10 @@ describe("the pattern and Forget", () => {
 
     it("drops records older than 90 days at night", async () => {
         await setMode("full");
-        await sql(`INSERT INTO planning_records (user_id, kind, chosen, feasible, suggested, outcome, said_on) VALUES ($1, 'slot', 'evening', '{morning,evening}', false, 'chosen', $2)`, [userId, addDays(todayIn(ZONE), -100)]);
+        await sql(
+            `INSERT INTO planning_records (user_id, kind, chosen, feasible, suggested, outcome, said_on) VALUES ($1, 'slot', 'evening', '{morning,evening}', false, 'chosen', $2)`,
+            [userId, addDays(todayIn(ZONE), -100)],
+        );
         await nightlyForUser(env, userId);
         expect(await slots()).toEqual([]);
     });
@@ -189,7 +243,10 @@ describe("the pattern and Forget", () => {
 describe("planning offers", () => {
     const slip = async (taskId: string, days: number[]) => {
         for (const d of days) {
-            await sql(`INSERT INTO ai_memory_signals (user_id, kind, "on", bucket, task_id) VALUES ($1, 'reschedule', $2, 'monday|day', $3)`, [userId, addDays(todayIn(ZONE), -d), taskId]);
+            await sql(
+                `INSERT INTO ai_memory_signals (user_id, kind, "on", bucket, task_id) VALUES ($1, 'reschedule', $2, 'monday|day', $3)`,
+                [userId, addDays(todayIn(ZONE), -d), taskId],
+            );
         }
     };
     const offers = async () => (await memory("GET", "/planning/offers")).body.data;
@@ -203,7 +260,10 @@ describe("planning offers", () => {
         expect(await offers()).toEqual({ steps: [slipping], later: [waiting] });
 
         // A step already written, or a deadline this week, takes the offer away.
-        await sql("INSERT INTO subtasks (task_id, user_id, title, order_index) VALUES ($1, $2, 'Outline', 1)", [slipping, userId]);
+        await sql("INSERT INTO subtasks (task_id, user_id, title, order_index) VALUES ($1, $2, 'Outline', 1)", [
+            slipping,
+            userId,
+        ]);
         await sql("UPDATE tasks SET due_on = $2 WHERE id = $1", [waiting, addDays(todayIn(ZONE), 3)]);
         expect(await offers()).toEqual({ steps: [], later: [] });
     });
@@ -229,7 +289,8 @@ describe("planning offers", () => {
         const others = [await newTask("Beta"), await newTask("Gamma")];
         for (const t of others) await slip(t, [1, 1, 3]);
         await memory("POST", "/planning/offer", { taskId: a, kind: "steps", outcome: "declined" });
-        for (const t of others) await memory("POST", "/planning/offer", { taskId: t, kind: "steps", outcome: "declined" });
+        for (const t of others)
+            await memory("POST", "/planning/offer", { taskId: t, kind: "steps", outcome: "declined" });
         const fresh = await newTask("Delta");
         await slip(fresh, [1, 1, 3]);
         expect((await offers()).steps).toEqual([]);
@@ -239,7 +300,10 @@ describe("planning offers", () => {
         await setMode("full");
         const a = await newTask("Alpha");
         await slip(a, [1, 1, 3]);
-        await sql(`INSERT INTO ai_memories (user_id, kind, content, value, said_on, last_seen_on, source, confidence) VALUES ($1, 'assist', 'Step lists stress them out', '{"avoid":"steps"}', '2026-10-01', '2026-10-01', 'chat', 'stated')`, [userId]);
+        await sql(
+            `INSERT INTO ai_memories (user_id, kind, content, value, said_on, last_seen_on, source, confidence) VALUES ($1, 'assist', 'Step lists stress them out', '{"avoid":"steps"}', '2026-10-01', '2026-10-01', 'chat', 'stated')`,
+            [userId],
+        );
         expect((await offers()).steps).toEqual([]);
     });
 
@@ -248,6 +312,9 @@ describe("planning offers", () => {
         const id = await newTask("Moves", {});
         await sql("UPDATE tasks SET due_on = $2 WHERE id = $1", [id, tomorrow()]);
         await tasksApi("PATCH", `/${id}`, { dueDate: addDays(tomorrow(), 1) });
-        expect((await sql("SELECT task_id FROM ai_memory_signals WHERE user_id = $1 AND kind = 'reschedule'", [userId]))[0].task_id).toBe(id);
+        expect(
+            (await sql("SELECT task_id FROM ai_memory_signals WHERE user_id = $1 AND kind = 'reschedule'", [userId]))[0]
+                .task_id,
+        ).toBe(id);
     });
 });

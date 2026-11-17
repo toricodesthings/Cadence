@@ -14,7 +14,10 @@ export interface HorizonGroup<T> {
  * Upcoming's "Further out", grouped the way people plan far ahead: the next four calendar weeks one by one, then whole
  * months. Groups run in date order; each keeps its items in the order given.
  */
-export function groupFurtherOut<T extends { dueDate: LocalDate }>(items: readonly T[], today: LocalDate): HorizonGroup<T>[] {
+export function groupFurtherOut<T extends { dueDate: LocalDate }>(
+    items: readonly T[],
+    today: LocalDate,
+): HorizonGroup<T>[] {
     const monthsFrom = addDays(getWeekStart(addDays(today, 8)), HORIZON_WEEKS * 7);
     const groups = new Map<string, HorizonGroup<T> & { from: LocalDate }>();
     for (const item of items) {

@@ -37,35 +37,47 @@ export function createSearchIndex(documents: readonly SearchDocument[]) {
     engine.addAll(documents);
     const titles = new Map(documents.map((doc) => [doc.id, doc.title.toLowerCase().trim()]));
     return {
-        search(query: string, { prefix = false, fuzzy = false }: { prefix?: boolean; fuzzy?: boolean } = {}): SearchHit[] {
+        search(
+            query: string,
+            { prefix = false, fuzzy = false }: { prefix?: boolean; fuzzy?: boolean } = {},
+        ): SearchHit[] {
             const terms = searchTerms(query);
             if (!terms.length) return [];
             const exact = engine.search(query);
             const strict = new Set(exact.map((hit) => String(hit.id)));
             const options = {
-                prefix: (term: string, index: number) => prefix && index === terms.length - 1 && /^[a-z]{3,}$/.test(term),
-                fuzzy: (term: string) => fuzzy && canApproximate(term) ? 1 : false,
+                prefix: (term: string, index: number) =>
+                    prefix && index === terms.length - 1 && /^[a-z]{3,}$/.test(term),
+                fuzzy: (term: string) => (fuzzy && canApproximate(term) ? 1 : false),
             };
-            const expanded = prefix || fuzzy ? [
-                ...engine.search(query, options),
-                ...engine.search(query, {
-                    ...options,
-                    processTerm: (term) => isVersion(term) ? processTerm(term) : term,
-                }),
-            ] : [];
+            const expanded =
+                prefix || fuzzy
+                    ? [
+                          ...engine.search(query, options),
+                          ...engine.search(query, {
+                              ...options,
+                              processTerm: (term) => (isVersion(term) ? processTerm(term) : term),
+                          }),
+                      ]
+                    : [];
             const merged = new Map([...expanded, ...exact].map((hit) => [String(hit.id), hit]));
-            return [...merged.values()].map((hit) => {
-                const id = String(hit.id);
-                const approximate = !strict.has(id);
-                const titleExact = titles.get(id) === query.toLowerCase().trim();
-                return {
-                    id,
-                    approximate,
-                    // Exact terms always outrank spelling guesses, even in a longer title.
-                    score: (approximate ? 0 : 1000) + (titleExact ? 500 : 0) + 100 * hit.score / (1 + hit.score),
-                    fields: [...new Set(Object.values(hit.match).flat())] as SearchField[],
-                };
-            }).sort((a, b) => Number(a.approximate) - Number(b.approximate) || b.score - a.score || a.id.localeCompare(b.id));
+            return [...merged.values()]
+                .map((hit) => {
+                    const id = String(hit.id);
+                    const approximate = !strict.has(id);
+                    const titleExact = titles.get(id) === query.toLowerCase().trim();
+                    return {
+                        id,
+                        approximate,
+                        // Exact terms always outrank spelling guesses, even in a longer title.
+                        score: (approximate ? 0 : 1000) + (titleExact ? 500 : 0) + (100 * hit.score) / (1 + hit.score),
+                        fields: [...new Set(Object.values(hit.match).flat())] as SearchField[],
+                    };
+                })
+                .sort(
+                    (a, b) =>
+                        Number(a.approximate) - Number(b.approximate) || b.score - a.score || a.id.localeCompare(b.id),
+                );
         },
     };
 }

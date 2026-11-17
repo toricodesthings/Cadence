@@ -9,13 +9,26 @@ describe("normalizeSettings", () => {
             calendar: { holidays: { enabled: false, usePreciseLocation: false, locationMode: "auto" } },
         });
 
-        expect(normalized.location).toEqual({ mode: "approximate", countryCode: null, subdivisionCode: null, city: null, promptDismissedAt: null });
+        expect(normalized.location).toEqual({
+            mode: "approximate",
+            countryCode: null,
+            subdivisionCode: null,
+            city: null,
+            promptDismissedAt: null,
+        });
         expect(normalized.weather).toEqual({ enabled: true });
         expect(normalized.calendar.holidays.enabled).toBe(false);
     });
 
     it("keeps a stored photo instead of merging it into the null default", () => {
-        const image = { id: "22222222-2222-4222-8222-222222222222", dominant: "#1a2233", swatches: ["#e8a44a"], accent: null, blur: 20, brightness: 70 };
+        const image = {
+            id: "22222222-2222-4222-8222-222222222222",
+            dominant: "#1a2233",
+            swatches: ["#e8a44a"],
+            accent: null,
+            blur: 20,
+            brightness: 70,
+        };
 
         const normalized = normalizeSettings({ appearance: { backgroundMode: "image", backgroundImage: image } });
 
@@ -35,7 +48,9 @@ describe("normalizeSettings", () => {
     });
 
     it("never lets legacy preferredView override an explicit tasks.defaultView", () => {
-        expect(normalizeSettings({ preferredView: "kanban", tasks: { defaultView: "list" } }).tasks.defaultView).toBe("list");
+        expect(normalizeSettings({ preferredView: "kanban", tasks: { defaultView: "list" } }).tasks.defaultView).toBe(
+            "list",
+        );
     });
 });
 
@@ -44,10 +59,23 @@ describe("migrateLegacySettings", () => {
 
     it("lifts manual holiday location into settings.location", () => {
         const migrated = migrateLegacySettings(
-            legacy({ enabled: true, usePreciseLocation: false, locationMode: "manual", countryCode: "CA", subdivisionCode: "CA-ON", promptDismissedAt: null }),
+            legacy({
+                enabled: true,
+                usePreciseLocation: false,
+                locationMode: "manual",
+                countryCode: "CA",
+                subdivisionCode: "CA-ON",
+                promptDismissedAt: null,
+            }),
         ) as any;
 
-        expect(migrated.location).toEqual({ mode: "manual", countryCode: "CA", subdivisionCode: "CA-ON", city: null, promptDismissedAt: null });
+        expect(migrated.location).toEqual({
+            mode: "manual",
+            countryCode: "CA",
+            subdivisionCode: "CA-ON",
+            city: null,
+            promptDismissedAt: null,
+        });
     });
 
     it.each([
@@ -59,7 +87,9 @@ describe("migrateLegacySettings", () => {
     });
 
     it("keeps a permanent prompt dismissal", () => {
-        const migrated = migrateLegacySettings(legacy({ usePreciseLocation: true, promptDismissedAt: "2026-03-11T15:00:00.000Z" })) as any;
+        const migrated = migrateLegacySettings(
+            legacy({ usePreciseLocation: true, promptDismissedAt: "2026-03-11T15:00:00.000Z" }),
+        ) as any;
         expect(migrated.location.promptDismissedAt).toBe("2026-03-11T15:00:00.000Z");
     });
 

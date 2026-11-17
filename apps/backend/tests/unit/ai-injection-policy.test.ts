@@ -17,7 +17,6 @@ describe("fenceData", () => {
                 `<<<END_CADENCE_DATA_${nonce}>>>`,
         );
     });
-
 });
 
 describe("sanitizeUntrusted", () => {

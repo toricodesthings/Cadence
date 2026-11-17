@@ -2,7 +2,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getToolName, lastAssistantMessageIsCompleteWithApprovalResponses, type ChatStatus, type UIMessage } from "ai";
-import { CONVERSATION_TITLE_DATA_TYPE, type ConversationTitleData, type ConversationListItem, type ConversationDetail } from "@cadence/contracts/ai";
+import {
+    CONVERSATION_TITLE_DATA_TYPE,
+    type ConversationTitleData,
+    type ConversationListItem,
+    type ConversationDetail,
+} from "@cadence/contracts/ai";
 import { deriveFallbackTitle } from "@cadence/domain/ai-title";
 import { useAssistantStore } from "../../stores/assistant-store";
 import { useConversationMessages } from "./use-conversations";
@@ -45,21 +50,35 @@ function stampFirstTokens(turn: TurnTiming, parts: UIMessage["parts"], since: nu
 }
 
 /** Dev only: stamps the turn's first-token times and logs it once it ends. Returns the turn still in flight. */
-function trackTurnTiming(current: TurnTiming | null, status: ChatStatus, last: UIMessage | undefined): TurnTiming | null {
+function trackTurnTiming(
+    current: TurnTiming | null,
+    status: ChatStatus,
+    last: UIMessage | undefined,
+): TurnTiming | null {
     const fromAssistant = last?.role === "assistant" ? last.parts : [];
-    const turn = current ?? (status === "submitted" ? { t0: performance.now(), skipParts: fromAssistant.length } : null);
+    const turn =
+        current ?? (status === "submitted" ? { t0: performance.now(), skipParts: fromAssistant.length } : null);
     if (!turn) return null;
     const parts = fromAssistant.slice(turn.skipParts);
     const since = Math.round(performance.now() - turn.t0);
     stampFirstTokens(turn, parts, since);
     if (status !== "ready" && status !== "error") return turn;
     const toolCalls = parts.filter(isAssistantToolPart).length;
-    log.debug("ai-turn", `${status} · headers ${ms(turn.headersMs)} · ttft ${ms(turn.ttftMs)} · first text ${ms(turn.firstTextMs)} · total ${since}ms · ${toolCalls} tool calls`);
+    log.debug(
+        "ai-turn",
+        `${status} · headers ${ms(turn.headersMs)} · ttft ${ms(turn.ttftMs)} · first text ${ms(turn.firstTextMs)} · total ${since}ms · ${toolCalls} tool calls`,
+    );
     return null;
 }
 
 /** Owns the active chat session and its persisted/cross-tab lifecycle. */
-export function useAssistantConversation({ online, onNotice, clearAttachments, onTurnSubmitted, open: embeddedOpen }: {
+export function useAssistantConversation({
+    online,
+    onNotice,
+    clearAttachments,
+    onTurnSubmitted,
+    open: embeddedOpen,
+}: {
     online: boolean;
     /** Embedded outside the side panel (the Weekly Reset's chat): the thread loads while it's mounted. */
     open?: boolean;
@@ -67,7 +86,13 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
     clearAttachments: (discard: boolean) => void;
     onTurnSubmitted: () => void;
 }) {
-    const { assistantPanelOpen: panelOpen, activeConversationId, startNewConversation, setActiveConversation, surface } = useAssistantStore();
+    const {
+        assistantPanelOpen: panelOpen,
+        activeConversationId,
+        startNewConversation,
+        setActiveConversation,
+        surface,
+    } = useAssistantStore();
     const assistantPanelOpen = embeddedOpen ?? panelOpen;
     const queryClient = useQueryClient();
     const client = useApiClient();
@@ -157,8 +182,17 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
         },
     };
     // Resume is manual (`resume` defaults off): automatically attaching after our own turn would replay its reply.
-    const { messages, sendMessage, regenerate, setMessages, addToolApprovalResponse, status, stop, error, resumeStream } =
-        useChat({ chat: liveChat(queryClient, activeConversationId ?? "none") });
+    const {
+        messages,
+        sendMessage,
+        regenerate,
+        setMessages,
+        addToolApprovalResponse,
+        status,
+        stop,
+        error,
+        resumeStream,
+    } = useChat({ chat: liveChat(queryClient, activeConversationId ?? "none") });
 
     const isStreaming = status === "submitted" || status === "streaming";
 
@@ -168,7 +202,8 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
     }, [status, messages, refreshAfterWrites]);
 
     useEffect(() => {
-        if (import.meta.env.DEV) turnTimingRef.current = trackTurnTiming(turnTimingRef.current, status, messages.at(-1));
+        if (import.meta.env.DEV)
+            turnTimingRef.current = trackTurnTiming(turnTimingRef.current, status, messages.at(-1));
     }, [status, messages]);
 
     // Stop includes the server stream id to avoid aborting a newer turn.
@@ -252,9 +287,12 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
     );
 
     // Fresh client-minted threads have no server row to fetch yet.
-    const { data: history, error: historyError, isFetching: historyFetching, isLoading: historyLoading } = useConversationMessages(
-        assistantPanelOpen && !isFreshThread ? activeConversationId : null,
-    );
+    const {
+        data: history,
+        error: historyError,
+        isFetching: historyFetching,
+        isLoading: historyLoading,
+    } = useConversationMessages(assistantPanelOpen && !isFreshThread ? activeConversationId : null);
     // The persisted thread is gone server-side (deleted elsewhere, DB reset) — start fresh
     // instead of leaving the panel stuck on a 404.
     useEffect(() => {
@@ -312,9 +350,13 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
             if (!convId || msgs.length === 0) return;
             queryClient.setQueryData<ConversationSnapshot>(queryKeys.ai.conversation(convId), (prev) => {
                 return {
-                    conversation:
-                        prev?.conversation ??
-                        { id: convId, title: null, model: null, lastMessageAt: null, archived: false },
+                    conversation: prev?.conversation ?? {
+                        id: convId,
+                        title: null,
+                        model: null,
+                        lastMessageAt: null,
+                        archived: false,
+                    },
                     messages: msgs,
                 };
             });
@@ -400,7 +442,8 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
 
     // The last thread is on its way: the thread shows its shape instead of the empty welcome, which would
     // otherwise sit there until the old messages pop in.
-    const restoring = messages.length === 0 && !isFreshThread && (historyLoading || (history?.messages.length ?? 0) > 0);
+    const restoring =
+        messages.length === 0 && !isFreshThread && (historyLoading || (history?.messages.length ?? 0) > 0);
 
     const submitText = (raw: string, readyImages: readonly ReadyAttachment[], uploading: boolean): boolean => {
         const text = raw.trim();
@@ -427,7 +470,12 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
         const convId = conversationIdRef.current;
         if (convId && isFreshThread && messages.length === 0) {
             // The reset's thread is named by its day (the server names it the same way, with no title model call).
-            applyTitle(convId, surface === "weekly_reset" ? `Weekly Reset · ${formatShortDateLabel(today())}` : deriveFallbackTitle(text, imageIds.length > 0));
+            applyTitle(
+                convId,
+                surface === "weekly_reset"
+                    ? `Weekly Reset · ${formatShortDateLabel(today())}`
+                    : deriveFallbackTitle(text, imageIds.length > 0),
+            );
         }
         const files = imageIds.map(imageFilePart);
         sendLocal(text ? { text, files } : { files });
@@ -441,11 +489,7 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
         const convId = conversationIdRef.current;
         if (convId) {
             try {
-                await stopServerStream(
-                    convId,
-                    activeStreamIdRef.current,
-                    messages.at(-1),
-                );
+                await stopServerStream(convId, activeStreamIdRef.current, messages.at(-1));
             } catch {
                 // Best-effort: fall through to local teardown regardless.
             }
@@ -529,10 +573,25 @@ export function useAssistantConversation({ online, onNotice, clearAttachments, o
     const imageError = streamError && lastUserImages.length > 0 ? streamError.code : null;
 
     return {
-        messages, status, isStreaming, restoring, threadTitle, activeConversationId,
-        submitText, handleNewChat, handleSelectConversation, handleStop,
-        handleEdit, handleRetry, regenerateLocal, answerApproval, replyToQuestion,
-        streamError, imageError, sendWithoutImages, shareImages,
+        messages,
+        status,
+        isStreaming,
+        restoring,
+        threadTitle,
+        activeConversationId,
+        submitText,
+        handleNewChat,
+        handleSelectConversation,
+        handleStop,
+        handleEdit,
+        handleRetry,
+        regenerateLocal,
+        answerApproval,
+        replyToQuestion,
+        streamError,
+        imageError,
+        sendWithoutImages,
+        shareImages,
     };
 }
 

@@ -17,7 +17,10 @@ import { toastError } from "../../lib/utils/error-toast";
  * The saved app to carry across a conversion. An id this build can't send would drop the choice, so the
  * conversion stops first, before anything is created or trashed.
  */
-function appToCarry(stored: string | null | undefined, url: string | null | undefined): { ok: true; id: LinkedAppId | null; url: string | null } | { ok: false } {
+function appToCarry(
+    stored: string | null | undefined,
+    url: string | null | undefined,
+): { ok: true; id: LinkedAppId | null; url: string | null } | { ok: false } {
     // A website the check refuses was never valid to store; it is not carried.
     const website = url ? parseWebsite(url) : null;
     if (!stored) return { ok: true, id: null, url: website };
@@ -94,9 +97,12 @@ export function useConvertRepeat() {
         const today = getToday();
         const timing = habit.targetTime
             ? (() => {
-                const start = fromTimeValue(today, habit.targetTime);
-                return { scheduledStart: start, scheduledEnd: new Date(Date.parse(start) + DEFAULT_BLOCK_MINUTES * 60_000).toISOString() };
-            })()
+                  const start = fromTimeValue(today, habit.targetTime);
+                  return {
+                      scheduledStart: start,
+                      scheduledEnd: new Date(Date.parse(start) + DEFAULT_BLOCK_MINUTES * 60_000).toISOString(),
+                  };
+              })()
             : { dueDate: today };
         const task = await createTask.mutateAsync({
             title: habit.title,

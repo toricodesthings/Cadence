@@ -20,11 +20,17 @@ interface UseHabitsRangeOptions {
  * optimistic update covers them all.
  */
 export function useHabitsRange({ start, end, archived = false, enabled = true }: UseHabitsRangeOptions) {
-    return useAuthedQuery((client) => habitsRangeQueryOptions(client, { start, end, archived }), enabled && !!start && !!end);
+    return useAuthedQuery(
+        (client) => habitsRangeQueryOptions(client, { start, end, archived }),
+        enabled && !!start && !!end,
+    );
 }
 
 /** One range's query; shared with the offline prefetch so their keys match. */
-export function habitsRangeQueryOptions(client: ApiClient, { start, end, archived = false }: Omit<UseHabitsRangeOptions, "enabled">) {
+export function habitsRangeQueryOptions(
+    client: ApiClient,
+    { start, end, archived = false }: Omit<UseHabitsRangeOptions, "enabled">,
+) {
     return queryOptions({
         queryKey: [...queryKeys.habits.weekly({ start, end }), archived],
         staleTime: STALE_TIMES.HABITS,

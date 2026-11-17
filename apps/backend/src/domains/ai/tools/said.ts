@@ -10,14 +10,17 @@ const quote = z.string().max(80);
 export const saidSchema = z
     .object({ priority: quote.optional(), effort: quote.optional() })
     .optional()
-    .describe("Exact words they typed that set priority or effort, ≤80 characters each. No quote, no value. Words read from an image go in `fromImage`, not here.");
+    .describe(
+        "Exact words they typed that set priority or effort, ≤80 characters each. No quote, no value. Words read from an image go in `fromImage`, not here.",
+    );
 
 const fold = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** Words that state importance or weight. ponytail: English cue lists; widen with the eval's misses. */
 const CUES = {
-    priority: /\b(?:asap|urgent(?:ly)?|important|priority|prio|p[1-4]|matters?|critical|crucial|essential|rush|wait|whenever|later|someday|eventually|right away|immediately|now|soon|top|low|high|medium)\b|!!/i,
+    priority:
+        /\b(?:asap|urgent(?:ly)?|important|priority|prio|p[1-4]|matters?|critical|crucial|essential|rush|wait|whenever|later|someday|eventually|right away|immediately|now|soon|top|low|high|medium)\b|!!/i,
     effort: /\b(?:quick(?:ly)?|easy|easily|simple|small|tiny|light|short|big|huge|large|hard|heavy|tough|long|massive|difficult|draining|effort|minutes?|hours?|all day|low|medium|high|lot of work)\b/i,
 };
 

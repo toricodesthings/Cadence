@@ -64,11 +64,18 @@ describe("tags", () => {
 
     it("migration 0027 keeps tags in their alphabetical order", async () => {
         const userId = await createUser();
-        const backfill = readFileSync(resolve(import.meta.dirname, "../../drizzle/0027_tag_sort_order.sql"), "utf8").split("--> statement-breakpoint").pop()!;
+        const backfill = readFileSync(resolve(import.meta.dirname, "../../drizzle/0027_tag_sort_order.sql"), "utf8")
+            .split("--> statement-breakpoint")
+            .pop()!;
         const order = await asOwner(async (pg) => {
-            for (const name of ["pear", "Apple", "mango"]) await pg.query("INSERT INTO tags (user_id, name, sort_order) VALUES ($1, $2, 0)", [userId, name]);
+            for (const name of ["pear", "Apple", "mango"])
+                await pg.query("INSERT INTO tags (user_id, name, sort_order) VALUES ($1, $2, 0)", [userId, name]);
             await pg.exec(backfill);
-            return (await pg.query<{ name: string }>("SELECT name FROM tags WHERE user_id = $1 ORDER BY sort_order", [userId])).rows.map((r) => r.name);
+            return (
+                await pg.query<{ name: string }>("SELECT name FROM tags WHERE user_id = $1 ORDER BY sort_order", [
+                    userId,
+                ])
+            ).rows.map((r) => r.name);
         });
 
         expect(order).toEqual(["Apple", "mango", "pear"]);

@@ -8,9 +8,42 @@ import type { AppNotification } from "../../../app/lib/notifications/notificatio
 import { Location } from "../../helpers";
 
 const notices: AppNotification[] = [
-    { id: "old", title: "Old priority task", body: "Due today", kind: "task-due", priority: "high", read: false, alertAt: null, triggerAt: "2026-09-16T08:00:00Z", route: "/today", entityId: "task1" },
-    { id: "new", title: "New reminder", body: "Review the launch", kind: "task-reminder", priority: "normal", read: false, alertAt: null, triggerAt: "2026-09-16T10:00:00Z", route: "/today", entityId: "task2" },
-    { id: "bundle", title: "Missed routines", body: "3 habits are waiting for you", kind: "habit-reminder", priority: "normal", read: true, alertAt: null, triggerAt: "2026-09-16T09:00:00Z", route: "/habits", entityId: null },
+    {
+        id: "old",
+        title: "Old priority task",
+        body: "Due today",
+        kind: "task-due",
+        priority: "high",
+        read: false,
+        alertAt: null,
+        triggerAt: "2026-09-16T08:00:00Z",
+        route: "/today",
+        entityId: "task1",
+    },
+    {
+        id: "new",
+        title: "New reminder",
+        body: "Review the launch",
+        kind: "task-reminder",
+        priority: "normal",
+        read: false,
+        alertAt: null,
+        triggerAt: "2026-09-16T10:00:00Z",
+        route: "/today",
+        entityId: "task2",
+    },
+    {
+        id: "bundle",
+        title: "Missed routines",
+        body: "3 habits are waiting for you",
+        kind: "habit-reminder",
+        priority: "normal",
+        read: true,
+        alertAt: null,
+        triggerAt: "2026-09-16T09:00:00Z",
+        route: "/habits",
+        entityId: null,
+    },
 ];
 
 function Back() {
@@ -21,20 +54,41 @@ function setup(items = notices) {
     const cleared = vi.fn();
     function Harness() {
         const [notifications, setNotifications] = useState(items);
-        return <NotificationCenter fullPage grouped={[{ group: "today", label: "Today", items: notifications }]}
-            hasUnread={notifications.some((n) => !n.read)} onClose={vi.fn()}
-            markRead={(id) => setNotifications((all) => all.map((n) => n.id === id ? { ...n, read: true } : n))}
-            markUnread={(id) => setNotifications((all) => all.map((n) => n.id === id ? { ...n, read: false } : n))}
-            markAllRead={() => setNotifications((all) => all.map((n) => ({ ...n, read: true })))}
-            dismiss={(id) => setNotifications((all) => all.filter((n) => n.id !== id))}
-            dismissMany={(ids) => { cleared(ids); setNotifications((all) => all.filter((n) => !ids.includes(n.id))); }}
-            defer={(id) => setNotifications((all) => all.filter((n) => n.id !== id))} />;
+        return (
+            <NotificationCenter
+                fullPage
+                grouped={[{ group: "today", label: "Today", items: notifications }]}
+                hasUnread={notifications.some((n) => !n.read)}
+                onClose={vi.fn()}
+                markRead={(id) => setNotifications((all) => all.map((n) => (n.id === id ? { ...n, read: true } : n)))}
+                markUnread={(id) =>
+                    setNotifications((all) => all.map((n) => (n.id === id ? { ...n, read: false } : n)))
+                }
+                markAllRead={() => setNotifications((all) => all.map((n) => ({ ...n, read: true })))}
+                dismiss={(id) => setNotifications((all) => all.filter((n) => n.id !== id))}
+                dismissMany={(ids) => {
+                    cleared(ids);
+                    setNotifications((all) => all.filter((n) => !ids.includes(n.id)));
+                }}
+                defer={(id) => setNotifications((all) => all.filter((n) => n.id !== id))}
+            />
+        );
     }
-    render(<MemoryRouter initialEntries={["/today?tag=work", "/today?tag=work&notifications=true"]} initialIndex={1}><TooltipProvider><Location /><Back /><Harness /></TooltipProvider></MemoryRouter>);
+    render(
+        <MemoryRouter initialEntries={["/today?tag=work", "/today?tag=work&notifications=true"]} initialIndex={1}>
+            <TooltipProvider>
+                <Location />
+                <Back />
+                <Harness />
+            </TooltipProvider>
+        </MemoryRouter>,
+    );
     return { cleared };
 }
 function rowTitles() {
-    return screen.getAllByRole("listitem").map((row) => within(row).getAllByRole("button")[0].getAttribute("aria-label")?.split(".")[0]);
+    return screen
+        .getAllByRole("listitem")
+        .map((row) => within(row).getAllByRole("button")[0].getAttribute("aria-label")?.split(".")[0]);
 }
 
 function openMenu(name: string | RegExp) {
@@ -80,7 +134,9 @@ describe("Expanded notification center", () => {
         const readMark = screen.getByRole("button", { name: "Mark as unread: Missed routines" });
         expect(readMark.getAttribute("aria-pressed")).toBe("true");
         fireEvent.click(readMark);
-        expect(screen.getByRole("button", { name: "Mark as read: Missed routines" }).getAttribute("aria-pressed")).toBe("false");
+        expect(screen.getByRole("button", { name: "Mark as read: Missed routines" }).getAttribute("aria-pressed")).toBe(
+            "false",
+        );
         fireEvent.click(screen.getByRole("button", { name: /^Unread/ }));
         expect(rowTitles()).toContain("Missed routines");
         expect(screen.getByRole("status", { name: "Current location" }).textContent).toContain("notifications=true");
@@ -118,7 +174,14 @@ describe("Expanded notification center", () => {
     });
 
     it("bounds large lists while searching all notifications, and labels future reminders", () => {
-        setup(Array.from({ length: 75 }, (_, i) => ({ ...notices[0], id: `n${i}`, title: `Reminder ${i}`, triggerAt: "2099-09-16T10:00:00Z" })));
+        setup(
+            Array.from({ length: 75 }, (_, i) => ({
+                ...notices[0],
+                id: `n${i}`,
+                title: `Reminder ${i}`,
+                triggerAt: "2099-09-16T10:00:00Z",
+            })),
+        );
         expect(screen.getAllByRole("listitem")).toHaveLength(30);
         expect(within(screen.getAllByRole("listitem")[0]).getByText(/^In /)).toBeTruthy();
         fireEvent.click(screen.getByRole("button", { name: "Show more · 45 remaining" }));

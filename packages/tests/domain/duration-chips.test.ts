@@ -44,7 +44,8 @@ describe("duration chips", () => {
     });
 
     it("rejects what is not a length", () => {
-        for (const text of ["soon", "0", "99999", "1441", "25h", "60-30", "30-30", "at least an hour", ""]) expect(parseAnswer(text), text).toBeNull();
+        for (const text of ["soon", "0", "99999", "1441", "25h", "60-30", "30-30", "at least an hour", ""])
+            expect(parseAnswer(text), text).toBeNull();
     });
 
     it("writes a value", () => {

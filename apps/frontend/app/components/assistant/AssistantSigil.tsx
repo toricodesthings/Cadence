@@ -17,7 +17,11 @@ const QUARTERS = [0, 90, 180, 270];
  * With `notice` (the dock's unread reply), the small star drifts out to the ring and
  * rounds into a bead that breaks it; `false` keeps the morph ready to run either way.
  */
-export function AssistantSigil({ size = 16, notice, ...props }: { size?: number; notice?: boolean } & SVGAttributes<SVGSVGElement>) {
+export function AssistantSigil({
+    size = 16,
+    notice,
+    ...props
+}: { size?: number; notice?: boolean } & SVGAttributes<SVGSVGElement>) {
     return (
         <svg
             {...props}
@@ -40,7 +44,13 @@ export function AssistantSigil({ size = 16, notice, ...props }: { size?: number;
             ) : (
                 <g className="sigil-satellite" data-notice={notice || undefined}>
                     <path className="sigil-satellite-star" d={star(0, 0, 13, 0.14)} fill="currentColor" stroke="none" />
-                    <circle className="sigil-satellite-bead" r="17" fill="currentColor" strokeWidth="14" paintOrder="stroke" />
+                    <circle
+                        className="sigil-satellite-bead"
+                        r="17"
+                        fill="currentColor"
+                        strokeWidth="14"
+                        paintOrder="stroke"
+                    />
                 </g>
             )}
         </svg>

@@ -32,23 +32,39 @@ interface QuickAddActionTrayProps {
 
 const PRIORITY_CHOICES: Array<{ value: TaskPriority | null; label: string }> = [
     { value: null, label: "No priority" },
-    ...PRIORITY_OPTIONS.filter((o) => o.value > 0).map((o) => ({ value: o.value, label: `P${5 - o.value} · ${o.label}` })),
+    ...PRIORITY_OPTIONS.filter((o) => o.value > 0).map((o) => ({
+        value: o.value,
+        label: `P${5 - o.value} · ${o.label}`,
+    })),
 ];
 
 const TRIGGER = "inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-colors";
-const triggerTone = (active: unknown) => (active
-    ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
-    : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]");
-const choiceTone = (active: boolean) => (active
-    ? "bg-accent-primary/12 text-accent-primary"
-    : "text-twilight-text-soft hover:bg-white/[0.05]");
+const triggerTone = (active: unknown) =>
+    active
+        ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
+        : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]";
+const choiceTone = (active: boolean) =>
+    active ? "bg-accent-primary/12 text-accent-primary" : "text-twilight-text-soft hover:bg-white/[0.05]";
 
-const tagDotColor = (color: string | null | undefined) => (!color || color === "default" ? "var(--color-twilight-text-muted)" : color);
+const tagDotColor = (color: string | null | undefined) =>
+    !color || color === "default" ? "var(--color-twilight-text-muted)" : color;
 
 /** One list or tag in a picker popover: its emoji or colour dot, then its name; `active` marks the chosen ones. */
-export function PickerChoice({ item, active = false, onClick }: { item: { name: string; emoji?: string | null; color?: string | null }; active?: boolean; onClick: () => void }) {
+export function PickerChoice({
+    item,
+    active = false,
+    onClick,
+}: {
+    item: { name: string; emoji?: string | null; color?: string | null };
+    active?: boolean;
+    onClick: () => void;
+}) {
     return (
-        <button type="button" onClick={onClick} className={`flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm transition-colors ${choiceTone(active)}`}>
+        <button
+            type="button"
+            onClick={onClick}
+            className={`flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm transition-colors ${choiceTone(active)}`}
+        >
             {"color" in item ? (
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tagDotColor(item.color) }} />
             ) : item.emoji ? (
@@ -59,9 +75,20 @@ export function PickerChoice({ item, active = false, onClick }: { item: { name: 
     );
 }
 
-type DateActionProps = Pick<QuickAddActionTrayProps, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "recurrenceRule" | "onScheduleChange"> & { iconOnly: boolean };
+type DateActionProps = Pick<
+    QuickAddActionTrayProps,
+    "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "recurrenceRule" | "onScheduleChange"
+> & { iconOnly: boolean };
 
-function DateAction({ dueDate, endDate, scheduledStart, scheduledEnd, recurrenceRule, onScheduleChange, iconOnly }: DateActionProps) {
+function DateAction({
+    dueDate,
+    endDate,
+    scheduledStart,
+    scheduledEnd,
+    recurrenceRule,
+    onScheduleChange,
+    iconOnly,
+}: DateActionProps) {
     const scheduled = dueDate || scheduledStart;
     return (
         <DeadlinePickerPopover
@@ -72,10 +99,7 @@ function DateAction({ dueDate, endDate, scheduledStart, scheduledEnd, recurrence
             recurrenceRule={recurrenceRule}
             onChange={onScheduleChange}
         >
-            <button
-                type="button"
-                className={`relative ${TRIGGER} ${triggerTone(scheduled)}`}
-            >
+            <button type="button" className={`relative ${TRIGGER} ${triggerTone(scheduled)}`}>
                 <Calendar size={14} aria-hidden="true" />
                 {!iconOnly ? <span>{scheduled ? "Scheduled" : "Date"}</span> : null}
             </button>
@@ -90,10 +114,7 @@ function PriorityAction({ priority, onPriorityChange, iconOnly }: PriorityAction
     return (
         <Popover.Root>
             <Popover.Trigger asChild>
-                <button
-                    type="button"
-                    className={`${TRIGGER} ${triggerTone(priority)}`}
-                >
+                <button type="button" className={`${TRIGGER} ${triggerTone(priority)}`}>
                     <PriorityIcon size={14} aria-hidden="true" />
                     {!iconOnly ? <span>{priority ? `P${5 - priority}` : "Priority"}</span> : null}
                 </button>
@@ -124,10 +145,7 @@ function ProjectAction({ projectId, onProjectChange, iconOnly }: ProjectActionPr
     return (
         <Popover.Root>
             <Popover.Trigger asChild>
-                <button
-                    type="button"
-                    className={`${TRIGGER} ${triggerTone(selectedProject)}`}
-                >
+                <button type="button" className={`${TRIGGER} ${triggerTone(selectedProject)}`}>
                     <FolderOpen size={14} aria-hidden="true" />
                     {!iconOnly ? <span>{selectedProject?.name ?? "List"}</span> : null}
                 </button>
@@ -142,7 +160,12 @@ function ProjectAction({ projectId, onProjectChange, iconOnly }: ProjectActionPr
                         No list
                     </button>
                     {projects.map((project) => (
-                        <PickerChoice key={project.id} item={project} active={selectedProject?.id === project.id} onClick={() => onProjectChange(project.id)} />
+                        <PickerChoice
+                            key={project.id}
+                            item={project}
+                            active={selectedProject?.id === project.id}
+                            onClick={() => onProjectChange(project.id)}
+                        />
                     ))}
                 </div>
             </Popover.Content>
@@ -159,10 +182,7 @@ function TagAction({ tagIds, onToggleTag, iconOnly }: TagActionProps) {
     return (
         <Popover.Root>
             <Popover.Trigger asChild>
-                <button
-                    type="button"
-                    className={`${TRIGGER} ${triggerTone(selectedCount)}`}
-                >
+                <button type="button" className={`${TRIGGER} ${triggerTone(selectedCount)}`}>
                     <Tag size={14} aria-hidden="true" />
                     {!iconOnly ? <span>{tagCountLabel(selectedCount)}</span> : null}
                 </button>
@@ -170,10 +190,17 @@ function TagAction({ tagIds, onToggleTag, iconOnly }: TagActionProps) {
             <Popover.Content className="w-56 p-1">
                 <div className="max-h-64 space-y-1 overflow-auto">
                     {tags.map((tag) => (
-                        <PickerChoice key={tag.id} item={tag} active={tagIds.includes(tag.id)} onClick={() => onToggleTag(tag.id)} />
+                        <PickerChoice
+                            key={tag.id}
+                            item={tag}
+                            active={tagIds.includes(tag.id)}
+                            onClick={() => onToggleTag(tag.id)}
+                        />
                     ))}
                     {!tags.length ? (
-                        <p className="px-3 py-3 text-sm text-twilight-text-muted">Create a tag first to use quick tagging.</p>
+                        <p className="px-3 py-3 text-sm text-twilight-text-muted">
+                            Create a tag first to use quick tagging.
+                        </p>
                     ) : null}
                 </div>
             </Popover.Content>

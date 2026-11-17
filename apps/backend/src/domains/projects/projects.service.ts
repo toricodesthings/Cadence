@@ -12,10 +12,17 @@ export async function createProject(tx: Tx, userId: string, body: InsertProject,
         tx,
         userId,
         idempotencyKey,
-        (id) => tx.select().from(projects).where(and(eq(projects.id, id), eq(projects.userId, userId))),
+        (id) =>
+            tx
+                .select()
+                .from(projects)
+                .where(and(eq(projects.id, id), eq(projects.userId, userId))),
         async () => {
             await assertRowRoom(tx, userId, "lists");
-            return tx.insert(projects).values({ ...body, userId }).returning();
+            return tx
+                .insert(projects)
+                .values({ ...body, userId })
+                .returning();
         },
     );
 }
@@ -40,7 +47,9 @@ export async function deleteProject(tx: Tx, userId: string, id: string, { trashO
         ? await tx
               .update(tasks)
               .set({ state: "ARCHIVED", updatedAt: sql`NOW()` })
-              .where(and(eq(tasks.userId, userId), eq(tasks.projectId, id), inArray(tasks.state, ["ACTIVE", "WAITING"])))
+              .where(
+                  and(eq(tasks.userId, userId), eq(tasks.projectId, id), inArray(tasks.state, ["ACTIVE", "WAITING"])),
+              )
               .returning({ id: tasks.id })
         : [];
     const [{ kept }] = await tx

@@ -1,7 +1,23 @@
-import { COLLECTION_ROW_SURFACE, COLLECTION_ROW_HOVER, COLLECTION_ROW_SELECTED, COLLECTION_ROW_TITLE } from "../tasks/task-row-styles";
+import {
+    COLLECTION_ROW_SURFACE,
+    COLLECTION_ROW_HOVER,
+    COLLECTION_ROW_SELECTED,
+    COLLECTION_ROW_TITLE,
+} from "../tasks/task-row-styles";
 import { useRef, useState, useEffect, useId, type ReactElement } from "react";
 import {
-    CalendarPlus, CheckSquare, FolderOpen, ListChecks, Inbox, EllipsisVertical, Moon, StickyNote, Sun, Trash2, Calendar, Sunrise,
+    CalendarPlus,
+    CheckSquare,
+    FolderOpen,
+    ListChecks,
+    Inbox,
+    EllipsisVertical,
+    Moon,
+    StickyNote,
+    Sun,
+    Trash2,
+    Calendar,
+    Sunrise,
 } from "lucide-react";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import type { Task } from "@cadence/contracts/task";
@@ -65,7 +81,9 @@ function usePlacementChip(item: InboxItem | undefined, cueProjectId: string | nu
     const { data: lists = [] } = useProjects();
     const { data: listSections = [] } = useSections(chip?.projectId);
     const listName = chip ? lists.find((list) => list.id === chip.projectId)?.name : undefined;
-    const sectionName = chip?.sectionId ? listSections.find((section) => section.id === chip.sectionId)?.name : undefined;
+    const sectionName = chip?.sectionId
+        ? listSections.find((section) => section.id === chip.sectionId)?.name
+        : undefined;
     return { placement, placementLabelText: listLabel(listName, sectionName) };
 }
 
@@ -75,11 +93,19 @@ function listLabel(listName: string | undefined, sectionName: string | undefined
 }
 
 function rowClass(selected: boolean | undefined, tagOver: boolean) {
-    const tone = selected ? `${COLLECTION_ROW_SELECTED} [--row-wash:color-mix(in_srgb,var(--accent-primary)_10%,transparent)] ring-accent-primary/15` : COLLECTION_ROW_HOVER;
+    const tone = selected
+        ? `${COLLECTION_ROW_SELECTED} [--row-wash:color-mix(in_srgb,var(--accent-primary)_10%,transparent)] ring-accent-primary/15`
+        : COLLECTION_ROW_HOVER;
     return `${COLLECTION_ROW_SURFACE} min-w-0 px-4 py-3.5 sm:px-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary ${tone} ${tagOver ? "ring-1 ring-accent-primary/40" : ""}`;
 }
 
-type DayPillProps = { day: string; suggested?: boolean; className?: string; disabled: boolean; onPlace: (day: string) => void };
+type DayPillProps = {
+    day: string;
+    suggested?: boolean;
+    className?: string;
+    disabled: boolean;
+    onPlace: (day: string) => void;
+};
 
 /** Place on a day, named the way the row says it. */
 function DayPill({ day, suggested = false, className = "", disabled, onPlace }: DayPillProps) {
@@ -101,7 +127,13 @@ function DayPill({ day, suggested = false, className = "", disabled, onPlace }: 
     );
 }
 
-type SideDayPillProps = { detected: string | null | undefined; lightest: string; offerLightest: boolean; disabled: boolean; onPlace: (day: string) => void };
+type SideDayPillProps = {
+    detected: string | null | undefined;
+    lightest: string;
+    offerLightest: boolean;
+    disabled: boolean;
+    onPlace: (day: string) => void;
+};
 
 /** The day the words name; otherwise, on hover, the lightest day. */
 function SideDayPill({ detected, lightest, offerLightest, disabled, onPlace }: SideDayPillProps) {
@@ -158,7 +190,19 @@ type RowMenuProps = {
  * a list, keep it as a note, add a subtask, select, discard. `closeMenu` exists only where the menu can be closed by
  * hand, so only there can a calendar (which isn't a menu item) pick a day.
  */
-function RowMenuItems({ Menu, item, task, disabled, place, moveToList, discard, status, subtaskUi, onToggleSelection, closeMenu }: Omit<RowMenuProps, "title"> & { Menu: GenericMenu; closeMenu?: () => void }) {
+function RowMenuItems({
+    Menu,
+    item,
+    task,
+    disabled,
+    place,
+    moveToList,
+    discard,
+    status,
+    subtaskUi,
+    onToggleSelection,
+    closeMenu,
+}: Omit<RowMenuProps, "title"> & { Menu: GenericMenu; closeMenu?: () => void }) {
     const [pickerMonth, setPickerMonth] = useState<LocalDate>(() => today());
     return (
         <>
@@ -214,10 +258,16 @@ function RowMenuItems({ Menu, item, task, disabled, place, moveToList, discard, 
                     className="gap-2.5"
                     disabled={disabled}
                     onSelect={() =>
-                        void status.setStatus(item, item.captureStatus === "kept" ? "clarifying" : "kept").catch(() => {})
+                        void status
+                            .setStatus(item, item.captureStatus === "kept" ? "clarifying" : "kept")
+                            .catch(() => {})
                     }
                 >
-                    {item.captureStatus === "kept" ? <Inbox aria-hidden size={16} /> : <StickyNote aria-hidden size={16} />}
+                    {item.captureStatus === "kept" ? (
+                        <Inbox aria-hidden size={16} />
+                    ) : (
+                        <StickyNote aria-hidden size={16} />
+                    )}
                     {item.captureStatus === "kept" ? "Back to New" : "Keep as a note"}
                 </Menu.Item>
             )}
@@ -365,13 +415,7 @@ export function CaptureRow({
         reminderAt: parse.fields.reminderAt,
         notBefore: parse.fields.notBefore,
         complete,
-        nlp: resolvedNlp(
-            item!.rawText,
-            "inbox",
-            dateStyle,
-            dismissedIds,
-            overrides ?? {},
-        ),
+        nlp: resolvedNlp(item!.rawText, "inbox", dateStyle, dismissedIds, overrides ?? {}),
     });
     const { data: lists = [] } = useProjects();
     /** A thought becomes a task with no day in that list; a task just changes list. Either way it leaves Capture. */
@@ -394,10 +438,14 @@ export function CaptureRow({
         const captureId = crypto.randomUUID();
         createCapture.mutate({ id: captureId, rawText: task.title });
         update.mutate({ id: task.id, state: "ARCHIVED" });
-        toastUndo(toastName(task.title), () => {
-            deleteCapture.mutate(captureId);
-            update.mutate({ id: task.id, state: task.state });
-        }, { description: "Back in New" });
+        toastUndo(
+            toastName(task.title),
+            () => {
+                deleteCapture.mutate(captureId);
+                update.mutate({ id: task.id, state: task.state });
+            },
+            { description: "Back in New" },
+        );
     };
     const dropOnColumn = (column: CaptureColumn) => {
         if (column === "no-day" && item && item.captureStatus !== "kept") place();
@@ -436,11 +484,7 @@ export function CaptureRow({
             });
     };
     const startPress = (e: React.PointerEvent) => {
-        if (
-            e.pointerType !== "touch" ||
-            (e.target as HTMLElement).closest("button:not([data-capture-title])")
-        )
-            return;
+        if (e.pointerType !== "touch" || (e.target as HTMLElement).closest("button:not([data-capture-title])")) return;
         longPressed.current = false;
         timer.current = setTimeout(() => {
             longPressed.current = true;
@@ -472,9 +516,7 @@ export function CaptureRow({
             "2": () => place(tomorrowISO()),
             "3": () => place(),
             x: () =>
-                item
-                    ? place(undefined, true)
-                    : (e.currentTarget.querySelector("button") as HTMLButtonElement)?.click(),
+                item ? place(undefined, true) : (e.currentTarget.querySelector("button") as HTMLButtonElement)?.click(),
             Enter: onOpen,
             Backspace: discard,
             Delete: discard,
@@ -492,121 +534,159 @@ export function CaptureRow({
             actions[e.key]();
         }
     };
-    const menuProps: RowMenuProps = { item, task, title, disabled, place, moveToList, discard, status, subtaskUi, onToggleSelection };
+    const menuProps: RowMenuProps = {
+        item,
+        task,
+        title,
+        disabled,
+        place,
+        moveToList,
+        discard,
+        status,
+        subtaskUi,
+        onToggleSelection,
+    };
     const detected = item && item.captureStatus !== "kept" ? (parse.scheduledStart ?? parse.dueDate) : null;
     return (
-        <PlaceDraggable id={`capture:${object.id}`} title={title} onPlace={(date) => place(date)} onColumn={dropOnColumn}>
+        <PlaceDraggable
+            id={`capture:${object.id}`}
+            title={title}
+            onPlace={(date) => place(date)}
+            onColumn={dropOnColumn}
+        >
             <RowContextMenu {...menuProps}>
-            <article
-                data-focus-kind={item ? "inbox" : "task"}
-                data-focus-id={object.id}
-                aria-label={title}
-                data-selected={selected}
-                data-capture-row={object.id}
-                tabIndex={tabIndex}
-                onFocus={() => {
-                    onFocusRow?.();
-                }}
-                onPointerDown={startPress}
-                onDragOver={dragOver}
-                onDragLeave={dragLeave}
-                onDrop={dropTag}
-                onPointerUp={cancelPress}
-                onPointerCancel={cancelPress}
-                onPointerMove={cancelPress}
-                onKeyDown={keyDown}
-                onClickCapture={(e) => {
-                    if (e.shiftKey || longPressed.current) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (!longPressed.current) onToggleSelection?.();
-                        longPressed.current = false;
-                    }
-                }}
-                className={rowClass(selected, tagOver)}
-            >
-                {/* Side controls centre on the 44px title line, like task cards, so a tag line hangs below. */}
-                <div className="flex min-h-9 items-start gap-2">
-                    <div className="flex h-11 shrink-0 items-center">
-                        {task ? <TaskCheckbox task={task} compact /> : <TickOff disabled={disabled} onTick={() => place(undefined, true)} />}
-                    </div>
-                    {task?.origin === "thought" && (
+                <article
+                    data-focus-kind={item ? "inbox" : "task"}
+                    data-focus-id={object.id}
+                    aria-label={title}
+                    data-selected={selected}
+                    data-capture-row={object.id}
+                    tabIndex={tabIndex}
+                    onFocus={() => {
+                        onFocusRow?.();
+                    }}
+                    onPointerDown={startPress}
+                    onDragOver={dragOver}
+                    onDragLeave={dragLeave}
+                    onDrop={dropTag}
+                    onPointerUp={cancelPress}
+                    onPointerCancel={cancelPress}
+                    onPointerMove={cancelPress}
+                    onKeyDown={keyDown}
+                    onClickCapture={(e) => {
+                        if (e.shiftKey || longPressed.current) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!longPressed.current) onToggleSelection?.();
+                            longPressed.current = false;
+                        }
+                    }}
+                    className={rowClass(selected, tagOver)}
+                >
+                    {/* Side controls centre on the 44px title line, like task cards, so a tag line hangs below. */}
+                    <div className="flex min-h-9 items-start gap-2">
                         <div className="flex h-11 shrink-0 items-center">
-                            <ThoughtMark />
+                            {task ? (
+                                <TaskCheckbox task={task} compact />
+                            ) : (
+                                <TickOff disabled={disabled} onTick={() => place(undefined, true)} />
+                            )}
+                        </div>
+                        {task?.origin === "thought" && (
+                            <div className="flex h-11 shrink-0 items-center">
+                                <ThoughtMark />
+                            </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                            <Button
+                                variant="text"
+                                size="none"
+                                data-capture-title
+                                disabled={disabled}
+                                onClick={onOpen}
+                                className={`block min-h-11 w-full min-w-0 rounded-lg px-1 text-left font-sans font-normal text-twilight-text hover:text-twilight-text press-none ${COLLECTION_ROW_TITLE}`}
+                            >
+                                <span className="line-clamp-3 break-words">
+                                    {title}
+                                    <PendingMark id={object.id} />
+                                </span>
+                            </Button>
+                            {(rowTags.length > 0 || placementLabelText || (stacked && detected)) && (
+                                <div className="flex flex-wrap items-center gap-1.5 px-1 pb-0.5">
+                                    {stacked && detected && (
+                                        <DayPill day={detected} suggested disabled={disabled} onPlace={place} />
+                                    )}
+                                    {placementLabelText && (
+                                        <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-twilight-border px-2 py-0.5 text-xs text-twilight-text-soft">
+                                            <FolderOpen aria-hidden size={12} />
+                                            {placementLabelText}
+                                        </span>
+                                    )}
+                                    <TagSignal tags={rowTags} />
+                                </div>
+                            )}
+                            {task && subtasks.length > 0 && (
+                                <div className="px-1">
+                                    <SubtaskChip
+                                        subtasks={subtasks}
+                                        open={subtaskUi.open}
+                                        onToggle={subtaskUi.toggle}
+                                        controls={subtaskPanelId}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex h-11 shrink-0 items-center">
+                            {stacked ? null : (
+                                <SideDayPill
+                                    detected={detected}
+                                    lightest={lightest}
+                                    offerLightest={!shell.isTouch && item?.captureStatus !== "kept"}
+                                    disabled={disabled}
+                                    onPlace={place}
+                                />
+                            )}
+                        </div>
+                        {/* Age only once it means something; fresh rows stay quiet. */}
+                        {!quiet && !stacked && ageDays >= 3 && (
+                            <time
+                                className="min-w-9 shrink-0 whitespace-nowrap text-right text-xs leading-[2.75rem] tabular-nums text-twilight-text-muted"
+                                dateTime={object.createdAt}
+                                title={`Captured ${ageDays} days ago`}
+                            >
+                                {relativeTime(object.createdAt)}
+                            </time>
+                        )}
+                        <div className="-mr-2.5 shrink-0 sm:-mr-3.5">
+                            <RowMenu {...menuProps} />
+                        </div>
+                    </div>
+                    {task && ((subtaskUi.open && subtasks.length > 0) || subtaskUi.adding) && (
+                        // Under the checkbox (w-8 at the px-4/sm:px-5 edge, centred on the 44px title line), down past the subtasks.
+                        <span
+                            aria-hidden="true"
+                            className={`absolute bottom-3.5 left-8 top-[3.25rem] sm:left-9 ${SUBTASK_RAIL}`}
+                        />
+                    )}
+                    {task && (
+                        // Below the whole row so it spans past the day pill and time; indented to the title (checkbox
+                        // w-8 + gap-2, plus the 14px ThoughtMark + gap-2). Stops row drag and row shortcuts in the list.
+                        <div
+                            className={task.origin === "thought" ? "pl-[3.875rem]" : "pl-10"}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
+                        >
+                            <InlineSubtaskPanel
+                                id={subtaskPanelId}
+                                taskId={task.id}
+                                subtasks={subtasks}
+                                open={subtaskUi.open}
+                                adding={subtaskUi.adding}
+                                onAddingChange={subtaskUi.setAdding}
+                            />
                         </div>
                     )}
-                    <div className="min-w-0 flex-1">
-                        <Button
-                            variant="text"
-                            size="none"
-                            data-capture-title
-                            disabled={disabled}
-                            onClick={onOpen}
-                            className={`block min-h-11 w-full min-w-0 rounded-lg px-1 text-left font-sans font-normal text-twilight-text hover:text-twilight-text press-none ${COLLECTION_ROW_TITLE}`}
-                        >
-                            <span className="line-clamp-3 break-words">{title}<PendingMark id={object.id} /></span>
-                        </Button>
-                        {(rowTags.length > 0 || placementLabelText || (stacked && detected)) && (
-                            <div className="flex flex-wrap items-center gap-1.5 px-1 pb-0.5">
-                                {stacked && detected && <DayPill day={detected} suggested disabled={disabled} onPlace={place} />}
-                                {placementLabelText && (
-                                    <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-twilight-border px-2 py-0.5 text-xs text-twilight-text-soft">
-                                        <FolderOpen aria-hidden size={12} />
-                                        {placementLabelText}
-                                    </span>
-                                )}
-                                <TagSignal tags={rowTags} />
-                            </div>
-                        )}
-                        {task && subtasks.length > 0 && (
-                            <div className="px-1">
-                                <SubtaskChip
-                                    subtasks={subtasks}
-                                    open={subtaskUi.open}
-                                    onToggle={subtaskUi.toggle}
-                                    controls={subtaskPanelId}
-                                />
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex h-11 shrink-0 items-center">
-                        {stacked ? null : <SideDayPill detected={detected} lightest={lightest} offerLightest={!shell.isTouch && item?.captureStatus !== "kept"} disabled={disabled} onPlace={place} />}
-                    </div>
-                    {/* Age only once it means something; fresh rows stay quiet. */}
-                    {!quiet && !stacked && ageDays >= 3 && (
-                        <time
-                            className="min-w-9 shrink-0 whitespace-nowrap text-right text-xs leading-[2.75rem] tabular-nums text-twilight-text-muted"
-                            dateTime={object.createdAt}
-                            title={`Captured ${ageDays} days ago`}
-                        >
-                            {relativeTime(object.createdAt)}
-                        </time>
-                    )}
-                    <div className="-mr-2.5 shrink-0 sm:-mr-3.5"><RowMenu {...menuProps} /></div>
-                </div>
-                {task && ((subtaskUi.open && subtasks.length > 0) || subtaskUi.adding) && (
-                    // Under the checkbox (w-8 at the px-4/sm:px-5 edge, centred on the 44px title line), down past the subtasks.
-                    <span aria-hidden="true" className={`absolute bottom-3.5 left-8 top-[3.25rem] sm:left-9 ${SUBTASK_RAIL}`} />
-                )}
-                {task && (
-                    // Below the whole row so it spans past the day pill and time; indented to the title (checkbox
-                    // w-8 + gap-2, plus the 14px ThoughtMark + gap-2). Stops row drag and row shortcuts in the list.
-                    <div
-                        className={task.origin === "thought" ? "pl-[3.875rem]" : "pl-10"}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
-                    >
-                        <InlineSubtaskPanel
-                            id={subtaskPanelId}
-                            taskId={task.id}
-                            subtasks={subtasks}
-                            open={subtaskUi.open}
-                            adding={subtaskUi.adding}
-                            onAddingChange={subtaskUi.setAdding}
-                        />
-                    </div>
-                )}
-            </article>
+                </article>
             </RowContextMenu>
         </PlaceDraggable>
     );

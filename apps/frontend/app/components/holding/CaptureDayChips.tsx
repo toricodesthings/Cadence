@@ -6,15 +6,15 @@ import { placementLabel } from "../../lib/utils/date-format";
 import { todayISO, tomorrowISO } from "../../hooks/inbox/use-process-inbox-to-task";
 
 /** Pill treatment shared with task signals: rounded, hairline border, 36px tall. */
-export const DAY_PILL =
-    "min-h-9 shrink-0 whitespace-nowrap rounded-full border px-3 text-xs font-medium press-none";
+export const DAY_PILL = "min-h-9 shrink-0 whitespace-nowrap rounded-full border px-3 text-xs font-medium press-none";
 export const DAY_PILL_SUGGESTED =
     "border-accent-primary/25 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/15";
 export const DAY_PILL_PLAIN =
     "border-white/[0.07] bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.06] hover:text-twilight-text";
 
 /** The inbox-process fields for a placement: an all-day day, or a timed start. */
-export const placeFields = (when: LocalDate | Instant) => (isLocalDate(when) ? { scheduledDay: when } : { scheduledStart: when });
+export const placeFields = (when: LocalDate | Instant) =>
+    isLocalDate(when) ? { scheduledDay: when } : { scheduledStart: when };
 
 /** The same placement vocabulary for thoughts, tasks, details and bulk actions. */
 export function CaptureDayChips({

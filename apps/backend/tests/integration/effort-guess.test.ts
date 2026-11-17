@@ -9,21 +9,38 @@ import { tasks } from "../../src/db/schema";
 
 const env = { OPENROUTER_API_KEY: "k", AI_DECISION_MODEL: "vendor/model-1" } as never;
 let userId: string;
-const row = (id: string) => withRls(getTestDb(), userId, async (tx) => (await tx.select().from(tasks).where(eq(tasks.id, id)))[0]);
+const row = (id: string) =>
+    withRls(getTestDb(), userId, async (tx) => (await tx.select().from(tasks).where(eq(tasks.id, id)))[0]);
 const make = (title: string, extra: object = {}) =>
-    withRls(getTestDb(), userId, async (tx) => (await createTask(tx, userId, { title, orderIndex: 0, ...extra } as never, [])).id);
+    withRls(
+        getTestDb(),
+        userId,
+        async (tx) => (await createTask(tx, userId, { title, orderIndex: 0, ...extra } as never, [])).id,
+    );
 const modelSays = (level: number, p = 0.98) =>
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
-        answers: { effort: { probabilities: { [String(level)]: p } } },
-    }), { status: 200 })));
+    vi.stubGlobal(
+        "fetch",
+        vi.fn(
+            async () =>
+                new Response(
+                    JSON.stringify({
+                        answers: { effort: { probabilities: { [String(level)]: p } } },
+                    }),
+                    { status: 200 },
+                ),
+        ),
+    );
 
 /** Eight own choices over two levels, none similar to "Write up the lab". */
 async function history() {
-    for (let i = 0; i < 8; i++) await make(`Unrelated chore ${"abcdefgh"[i]}${i}`, { effort: i % 2 ? 3 : 1, effortOrigin: "manual" });
+    for (let i = 0; i < 8; i++)
+        await make(`Unrelated chore ${"abcdefgh"[i]}${i}`, { effort: i % 2 ? 3 : 1, effortOrigin: "manual" });
 }
 
 beforeAll(startTestDb);
-beforeEach(async () => { userId = await createUser(); });
+beforeEach(async () => {
+    userId = await createUser();
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe("model effort guess", () => {
@@ -70,7 +87,10 @@ describe("model effort guess", () => {
 
     it("never throws when the provider fails", async () => {
         await history();
-        vi.stubGlobal("fetch", vi.fn(async () => new Response("no", { status: 500 })));
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async () => new Response("no", { status: 500 })),
+        );
         const id = await make("Write up the lab");
         await expect(suggestEffortGuess(env, userId, id)).resolves.toBeUndefined();
     });
@@ -82,15 +102,27 @@ describe("capture batching", () => {
         const { processCapture } = await import("../../src/domains/inbox/inbox.service");
         const { inboxItems } = await import("../../src/db/schema");
         await history();
-        const fetch = vi.fn(async () => new Response(JSON.stringify({ answers: { effort: { probabilities: { "2": 0.97 } } } }), { status: 200 }));
+        const fetch = vi.fn(
+            async () =>
+                new Response(JSON.stringify({ answers: { effort: { probabilities: { "2": 0.97 } } } }), {
+                    status: 200,
+                }),
+        );
         vi.stubGlobal("fetch", fetch);
-        const [capture] = await withRls(getTestDb(), userId, (tx) => tx.insert(inboxItems).values({ userId, rawText: "Write up the lab" }).returning());
+        const [capture] = await withRls(getTestDb(), userId, (tx) =>
+            tx.insert(inboxItems).values({ userId, rawText: "Write up the lab" }).returning(),
+        );
 
         await suggestPlacement(env, userId, capture.id);
         expect(fetch).toHaveBeenCalledTimes(1);
-        expect(Object.keys(JSON.parse((fetch.mock.calls[0] as any)[1].body).questions).sort()).toEqual(["effort", "priority"]);
+        expect(Object.keys(JSON.parse((fetch.mock.calls[0] as any)[1].body).questions).sort()).toEqual([
+            "effort",
+            "priority",
+        ]);
 
-        const { task } = await withRls(getTestDb(), userId, (tx) => processCapture(tx, userId, capture.id, { title: "Write up the lab" } as never));
+        const { task } = await withRls(getTestDb(), userId, (tx) =>
+            processCapture(tx, userId, capture.id, { title: "Write up the lab" } as never),
+        );
         expect(await row(task.id)).toMatchObject({ effort: null, effortGuess: 3, effortGuessSource: "model" });
     });
 });

@@ -28,7 +28,14 @@ type DesktopShellOptions = {
  * The desktop app's side of the shell (no-ops on the web): remembers the workspace route and reopens it,
  * runs menu, tray and Jump List commands, follows Quick Capture saves, and sets the global capture shortcut.
  */
-export function useDesktopShell({ setCommandOpen, setSyncInspectorOpen, sync, stepLayoutScale, setLayoutScale, quickCaptureShortcutEnabled }: DesktopShellOptions) {
+export function useDesktopShell({
+    setCommandOpen,
+    setSyncInspectorOpen,
+    sync,
+    stepLayoutScale,
+    setLayoutScale,
+    quickCaptureShortcutEnabled,
+}: DesktopShellOptions) {
     const navigate = useNavigate();
     const location = useLocation();
 

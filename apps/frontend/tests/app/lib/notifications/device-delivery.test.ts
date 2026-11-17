@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { deviceStatus, type DeviceFacts } from "../../../../app/lib/notifications/device-delivery";
 
-const base: DeviceFacts = { unsupported: false, iosTab: false, permission: "granted", accountOn: true, thisDevice: { enabled: true, push: true } };
+const base: DeviceFacts = {
+    unsupported: false,
+    iosTab: false,
+    permission: "granted",
+    accountOn: true,
+    thisDevice: { enabled: true, push: true },
+};
 const status = (over: Partial<DeviceFacts>) => deviceStatus({ ...base, ...over });
 
 describe("deviceStatus", () => {
@@ -27,8 +33,16 @@ describe("deviceStatus", () => {
 import { duplicateRisk } from "../../../../app/lib/notifications/device-delivery";
 import type { Device } from "@cadence/contracts/push";
 
-const device = (over: Partial<Device>): Device =>
-    ({ installId: crypto.randomUUID(), kind: "computer", label: "Chrome on Windows", enabled: true, push: true, lastSeenAt: null, createdAt: "2026-10-07T00:00:00.000Z", ...over });
+const device = (over: Partial<Device>): Device => ({
+    installId: crypto.randomUUID(),
+    kind: "computer",
+    label: "Chrome on Windows",
+    enabled: true,
+    push: true,
+    lastSeenAt: null,
+    createdAt: "2026-10-07T00:00:00.000Z",
+    ...over,
+});
 
 describe("duplicateRisk", () => {
     const app = device({ kind: "desktop-app", label: "Cadence app on Windows", push: false });
@@ -36,11 +50,17 @@ describe("duplicateRisk", () => {
     const phone = device({ kind: "phone", label: "Cadence on iPhone" });
 
     it("warns a pushed browser about the desktop app, naming the app as the one to drop", () => {
-        expect(duplicateRisk([browser, app], browser.installId, "connected")).toEqual({ kind: "app-also", device: app });
+        expect(duplicateRisk([browser, app], browser.installId, "connected")).toEqual({
+            kind: "app-also",
+            device: app,
+        });
     });
 
     it("warns the desktop app about a pushed browser, since push also covers closed Cadence", () => {
-        expect(duplicateRisk([browser, app], app.installId, "local")).toEqual({ kind: "browser-also", device: browser });
+        expect(duplicateRisk([browser, app], app.installId, "local")).toEqual({
+            kind: "browser-also",
+            device: browser,
+        });
     });
 
     it("says nothing about a phone, which is a different place, or about devices already off", () => {

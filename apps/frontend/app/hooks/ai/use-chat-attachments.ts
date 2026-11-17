@@ -18,13 +18,19 @@ type AttachmentPreview = {
     bytes: number;
 };
 
-export type Attachment = AttachmentPreview & (
-    | { status: "uploading" | "failed"; imageId?: never; blob?: never }
-    | { status: "ready"; imageId: string; blob: Blob }
-);
+export type Attachment = AttachmentPreview &
+    (
+        | { status: "uploading" | "failed"; imageId?: never; blob?: never }
+        | { status: "ready"; imageId: string; blob: Blob }
+    );
 export type ReadyAttachment = Extract<Attachment, { status: "ready" }>;
 
-export function useChatAttachments({ conversationId, imageAllowance, perMessage, onNotice }: {
+export function useChatAttachments({
+    conversationId,
+    imageAllowance,
+    perMessage,
+    onNotice,
+}: {
     conversationId: string | null;
     imageAllowance: ImageAllowance;
     perMessage: number;
@@ -79,11 +85,19 @@ export function useChatAttachments({ conversationId, imageAllowance, perMessage,
                 }
                 return;
             }
-            setAttachments((prev) => prev.map((a) => a.id === localId
-                ? { ...a, status: "ready", imageId: data.id, blob: compressed, bytes: compressed.size } : a));
+            setAttachments((prev) =>
+                prev.map((a) =>
+                    a.id === localId
+                        ? { ...a, status: "ready", imageId: data.id, blob: compressed, bytes: compressed.size }
+                        : a,
+                ),
+            );
         } catch (error) {
-            setAttachments((prev) => prev.map((a) => a.id === localId
-                ? { ...a, status: "failed", imageId: undefined, blob: undefined } : a));
+            setAttachments((prev) =>
+                prev.map((a) =>
+                    a.id === localId ? { ...a, status: "failed", imageId: undefined, blob: undefined } : a,
+                ),
+            );
             onNotice(error instanceof Error && error.message ? error.message : "Couldn’t attach that image.");
         }
     };
@@ -117,7 +131,8 @@ export function useChatAttachments({ conversationId, imageAllowance, perMessage,
         const gone = attachments.find((a) => a.id === id);
         if (!gone) return;
         URL.revokeObjectURL(gone.url);
-        if (gone.imageId && !attachments.some((a) => a.id !== id && a.imageId === gone.imageId)) discardImage(gone.imageId);
+        if (gone.imageId && !attachments.some((a) => a.id !== id && a.imageId === gone.imageId))
+            discardImage(gone.imageId);
         setAttachments((prev) => prev.filter((a) => a.id !== id));
     };
     // Release preview blobs when the panel unmounts (unsent uploads are swept server-side).

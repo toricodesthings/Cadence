@@ -10,11 +10,7 @@ import {
     type DragOverEvent,
     type DragCancelEvent,
 } from "@dnd-kit/core";
-import {
-    SortableContext,
-    arrayMove,
-    verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { SortableTaskCard } from "./SortableTaskCard";
 import { TaskCard } from "./TaskCard";
 import { useReorderTask } from "../../hooks/tasks/use-reorder-task";
@@ -75,7 +71,16 @@ function reorderedBy(tasks: Task[], activeId: UniqueIdentifier, overId: UniqueId
 function DragPreview(props: Omit<React.ComponentProps<typeof TaskCard>, "isDragging">) {
     return (
         <div className="w-[min(100%,44rem)] cursor-grabbing">
-            <TaskCard task={props.task} tags={props.tags} subtasks={props.subtasks} isSelected={props.isSelected} onSelect={props.onSelect} isDragging variant={props.variant} rationaleLabel={props.rationaleLabel} />
+            <TaskCard
+                task={props.task}
+                tags={props.tags}
+                subtasks={props.subtasks}
+                isSelected={props.isSelected}
+                onSelect={props.onSelect}
+                isDragging
+                variant={props.variant}
+                rationaleLabel={props.rationaleLabel}
+            />
         </div>
     );
 }
@@ -127,7 +132,7 @@ export function TaskList({
         rationaleLabel: rationaleByTaskId?.[task.id] ?? null,
     });
 
-    const activeTask = activeTaskId ? tasks.find((task) => task.id === activeTaskId) ?? null : null;
+    const activeTask = activeTaskId ? (tasks.find((task) => task.id === activeTaskId) ?? null) : null;
 
     const handleDragStart = (event: DragStartEvent) => {
         setActiveTaskId(String(event.active.id));
@@ -172,10 +177,22 @@ export function TaskList({
             <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 <div className={`flex flex-col ${cardVariant === "board" ? "gap-2.5" : "gap-2"} ${className}`}>
                     {tasks.map((task) => (
-                        <TaskContextMenuWrapper key={task.id} task={task} onRename={() => {
-                            onSelectTask?.(task.id);
-                            setTimeout(() => window.dispatchEvent(new CustomEvent('cadence:focus-task-title', { detail: { taskId: task.id } })), 150);
-                        }}>
+                        <TaskContextMenuWrapper
+                            key={task.id}
+                            task={task}
+                            onRename={() => {
+                                onSelectTask?.(task.id);
+                                setTimeout(
+                                    () =>
+                                        window.dispatchEvent(
+                                            new CustomEvent("cadence:focus-task-title", {
+                                                detail: { taskId: task.id },
+                                            }),
+                                        ),
+                                    150,
+                                );
+                            }}
+                        >
                             <SortableTaskCard
                                 task={task}
                                 {...cardData(task)}

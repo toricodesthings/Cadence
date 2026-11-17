@@ -16,20 +16,32 @@ function sectionsKey(projectId?: string | null) {
 }
 
 /** `onMutate` for a section change: stop in-flight reads, remember the list, and show `edit` (kept in order) in it. */
-async function beginEdit(queryClient: QueryClient, key: ReturnType<typeof sectionsKey>, edit: (items: TaskSection[]) => TaskSection[], initialize = false) {
+async function beginEdit(
+    queryClient: QueryClient,
+    key: ReturnType<typeof sectionsKey>,
+    edit: (items: TaskSection[]) => TaskSection[],
+    initialize = false,
+) {
     await queryClient.cancelQueries({ queryKey: key });
     const previous = queryClient.getQueryData<TaskSection[]>(key);
-    queryClient.setQueryData<TaskSection[]>(key, (old) => transformListCache(old, (items) => edit(items).sort((a, b) => a.orderIndex - b.orderIndex), { initialize }));
+    queryClient.setQueryData<TaskSection[]>(key, (old) =>
+        transformListCache(old, (items) => edit(items).sort((a, b) => a.orderIndex - b.orderIndex), { initialize }),
+    );
     return { previous };
 }
 
-function revertEdit(queryClient: QueryClient, key: ReturnType<typeof sectionsKey>, context: { previous?: TaskSection[] } | undefined) {
+function revertEdit(
+    queryClient: QueryClient,
+    key: ReturnType<typeof sectionsKey>,
+    context: { previous?: TaskSection[] } | undefined,
+) {
     if (context?.previous) queryClient.setQueryData(key, context.previous);
 }
 
 /** A `beginEdit` mutation's ends: put the list back on failure, then refetch unless it was queued offline. */
 const editEnds = (queryClient: QueryClient, key: ReturnType<typeof sectionsKey>) => ({
-    onError: (_err: unknown, _vars: unknown, context: { previous?: TaskSection[] } | undefined) => revertEdit(queryClient, key, context),
+    onError: (_err: unknown, _vars: unknown, context: { previous?: TaskSection[] } | undefined) =>
+        revertEdit(queryClient, key, context),
     onSettled: (data: unknown, error: unknown) => {
         if (!wasQueued(data, error)) queryClient.invalidateQueries({ queryKey: key });
     },
@@ -71,7 +83,10 @@ export function useCreateSection(projectId?: string | null) {
 
     return useMutation({
         mutationFn: withOfflineSupport<{ name: string; orderIndex: number }, TaskSection>(
-            (input) => ({ type: "create_section", payload: { ...input, id: clientIdFor(input), projectId: projectId ?? null } }),
+            (input) => ({
+                type: "create_section",
+                payload: { ...input, id: clientIdFor(input), projectId: projectId ?? null },
+            }),
             async (input) => {
                 const id = clientIdFor(input);
                 const res = await client.api.sections.$post(
@@ -104,9 +119,13 @@ export function useUpdateSection(projectId?: string | null) {
     return useMutation({
         mutationFn: withOfflineSupport<{ id: string; name?: string; orderIndex?: number }, TaskSection>(
             ({ id, ...payload }) => ({ type: "update_section", id, payload }),
-            async ({ id, ...updates }) => unwrapResponse(await client.api.sections[":id"].$patch({ param: { id }, json: updates })),
+            async ({ id, ...updates }) =>
+                unwrapResponse(await client.api.sections[":id"].$patch({ param: { id }, json: updates })),
         ),
-        onMutate: (variables) => beginEdit(queryClient, key, (items) => items.map((s) => (s.id === variables.id ? { ...s, ...variables } : s))),
+        onMutate: (variables) =>
+            beginEdit(queryClient, key, (items) =>
+                items.map((s) => (s.id === variables.id ? { ...s, ...variables } : s)),
+            ),
         ...editEnds(queryClient, key),
     });
 }
@@ -128,7 +147,9 @@ export function useDeleteSection(projectId?: string | null) {
         onMutate: async ({ id }) => {
             const { previous } = await beginEdit(queryClient, key, (items) => items.filter((s) => s.id !== id));
             // The server sets the section's tasks to unsectioned; mirror it so they stay visible.
-            const tasks = await taskCache.edit(queryClient, (items) => items.map((t) => (t.sectionId === id ? { ...t, sectionId: null } : t)));
+            const tasks = await taskCache.edit(queryClient, (items) =>
+                items.map((t) => (t.sectionId === id ? { ...t, sectionId: null } : t)),
+            );
             return { previous, previousTasks: tasks.snapshot };
         },
         onError: (err, _input, context) => {

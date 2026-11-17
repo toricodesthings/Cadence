@@ -6,7 +6,9 @@ const fetchMock = vi.fn();
 const objects = new Map<string, Response>();
 const cache = {
     match: vi.fn(async (key: Request) => objects.get(key.url)?.clone()),
-    put: vi.fn(async (key: Request, response: Response) => { objects.set(key.url, response.clone()); }),
+    put: vi.fn(async (key: Request, response: Response) => {
+        objects.set(key.url, response.clone());
+    }),
 };
 const api = apiAs("user-a", "/proxy", proxyRoutes);
 const january = "/holidays?countryCode=CA&start=2026-01-01&end=2026-12-31&subdivisionCode=CA-ON&locale=en-CA";
@@ -18,12 +20,14 @@ beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock);
     fetchMock.mockImplementation(async (input: string) => {
         const url = new URL(input);
-        return Response.json([{
-            startDate: url.searchParams.get("validFrom"),
-            name: [{ language: "EN", text: "New Year" }],
-            nationwide: true,
-            subdivisions: [],
-        }]);
+        return Response.json([
+            {
+                startDate: url.searchParams.get("validFrom"),
+                name: [{ language: "EN", text: "New Year" }],
+                nationwide: true,
+                subdivisions: [],
+            },
+        ]);
     });
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -33,9 +37,12 @@ describe("public holiday edge cache", () => {
         const first = await api("GET", january, undefined, { Authorization: "Bearer first-user" });
         expect(first.status).toBe(200);
         expect(fetchMock).toHaveBeenCalledTimes(1);
-        const second = await apiAs("user-b", "/proxy", proxyRoutes)("GET",
+        const second = await apiAs("user-b", "/proxy", proxyRoutes)(
+            "GET",
             "/holidays?locale=en-CA&subdivisionCode=CA-ON&end=2026-12-31&start=2026-01-01&countryCode=CA",
-            undefined, { Authorization: "Bearer second-user" });
+            undefined,
+            { Authorization: "Bearer second-user" },
+        );
         expect(second.body).toEqual(first.body);
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(cache.put).toHaveBeenCalledTimes(1);
@@ -46,8 +53,13 @@ describe("public holiday edge cache", () => {
     });
 
     it("keeps country, region, language and dates in separate entries", async () => {
-        for (const path of [january, january.replace("CA-ON", "CA-QC"), january.replace("en-CA", "fr-CA"),
-            january.replaceAll("2026", "2027"), january.replace("countryCode=CA", "countryCode=US")]) {
+        for (const path of [
+            january,
+            january.replace("CA-ON", "CA-QC"),
+            january.replace("en-CA", "fr-CA"),
+            january.replaceAll("2026", "2027"),
+            january.replace("countryCode=CA", "countryCode=US"),
+        ]) {
             expect((await api("GET", path)).status).toBe(200);
         }
         expect(fetchMock).toHaveBeenCalledTimes(5);
@@ -55,7 +67,8 @@ describe("public holiday edge cache", () => {
     });
 
     it("does not turn a provider outage into a week of cached missing holidays", async () => {
-        fetchMock.mockResolvedValueOnce(Response.json({}, { status: 503 }))
+        fetchMock
+            .mockResolvedValueOnce(Response.json({}, { status: 503 }))
             .mockResolvedValueOnce(Response.json({}, { status: 503 }));
         const failed = await api("GET", january);
         expect(failed.status).toBe(502);
@@ -78,7 +91,8 @@ describe("public holiday edge cache", () => {
     });
 
     it("does not cache partial country lists during an outage", async () => {
-        fetchMock.mockResolvedValueOnce(Response.json({}, { status: 503 }))
+        fetchMock
+            .mockResolvedValueOnce(Response.json({}, { status: 503 }))
             .mockResolvedValueOnce(Response.json([{ countryCode: "CA", name: "Canada" }]));
         const result = await api("GET", "/holidays/countries?locale=en");
         expect(result.status).toBe(200);
@@ -94,7 +108,9 @@ describe("public holiday edge cache", () => {
     });
 
     it("does not cache weather or malformed holiday queries", async () => {
-        fetchMock.mockImplementation(async () => Response.json({ current_weather: { temperature: 10, weathercode: 1 } }));
+        fetchMock.mockImplementation(async () =>
+            Response.json({ current_weather: { temperature: 10, weathercode: 1 } }),
+        );
         await api("GET", "/weather?latitude=0&longitude=0");
         await api("GET", "/weather?latitude=0&longitude=0");
         expect(fetchMock).toHaveBeenCalledTimes(2);

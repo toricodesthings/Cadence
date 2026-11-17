@@ -38,7 +38,11 @@ export function toastError(error: unknown, title: string) {
         description: reason(error),
         action: {
             label: "Copy details",
-            onClick: () => void navigator.clipboard?.writeText(ref).then(() => toast.success("Details copied")).catch(() => undefined),
+            onClick: () =>
+                void navigator.clipboard
+                    ?.writeText(ref)
+                    .then(() => toast.success("Details copied"))
+                    .catch(() => undefined),
         },
     });
 }

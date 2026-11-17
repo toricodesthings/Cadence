@@ -1,12 +1,25 @@
 import { describe, expect, it } from "vitest";
 import type { TimeOfDay } from "@cadence/contracts/planning";
-import { learnedPreference, preferredBuckets, statedPreference, type SlotRecord } from "@cadence/domain/slot-preference";
+import {
+    learnedPreference,
+    preferredBuckets,
+    statedPreference,
+    type SlotRecord,
+} from "@cadence/domain/slot-preference";
 import { addDays } from "@cadence/domain/time";
 
 const today = "2026-10-20";
 const BUCKETS: TimeOfDay[] = ["morning", "afternoon", "evening"];
-const rec = (daysAgo: number, chosen: TimeOfDay, over: Partial<SlotRecord> = {}): SlotRecord => ({ chosen, feasible: BUCKETS, suggested: false, saidOn: addDays(today, -daysAgo), projectId: null, ...over });
-const evenings = (n: number, over: Partial<SlotRecord> = {}) => Array.from({ length: n }, (_, i) => rec(i + 1, "evening", over));
+const rec = (daysAgo: number, chosen: TimeOfDay, over: Partial<SlotRecord> = {}): SlotRecord => ({
+    chosen,
+    feasible: BUCKETS,
+    suggested: false,
+    saidOn: addDays(today, -daysAgo),
+    projectId: null,
+    ...over,
+});
+const evenings = (n: number, over: Partial<SlotRecord> = {}) =>
+    Array.from({ length: n }, (_, i) => rec(i + 1, "evening", over));
 const opts = { projectId: null, feasibleToday: BUCKETS, today };
 
 describe("learnedPreference", () => {
@@ -14,7 +27,12 @@ describe("learnedPreference", () => {
         expect(learnedPreference(evenings(7), opts)).toEqual([]);
         expect(learnedPreference(evenings(8), opts)).toEqual(["evening"]);
         // 8 choices all on one day is a single day's mood.
-        expect(learnedPreference(Array.from({ length: 8 }, () => rec(1, "evening")), opts)).toEqual([]);
+        expect(
+            learnedPreference(
+                Array.from({ length: 8 }, () => rec(1, "evening")),
+                opts,
+            ),
+        ).toEqual([]);
     });
 
     it("counts a suggested pick for half", () => {
@@ -34,7 +52,11 @@ describe("learnedPreference", () => {
     it("claims nothing when today offers one bucket, or choices form a cycle", () => {
         expect(learnedPreference(evenings(8), { ...opts, feasibleToday: ["evening"] })).toEqual([]);
         const cycle = Array.from({ length: 12 }, (_, i) => {
-            const pair: [TimeOfDay, TimeOfDay, TimeOfDay] = [["morning", "afternoon", "evening"], ["afternoon", "evening", "morning"], ["evening", "morning", "afternoon"]][i % 3] as never;
+            const pair: [TimeOfDay, TimeOfDay, TimeOfDay] = [
+                ["morning", "afternoon", "evening"],
+                ["afternoon", "evening", "morning"],
+                ["evening", "morning", "afternoon"],
+            ][i % 3] as never;
             return rec(i + 1, pair[0], { feasible: [pair[0], pair[1]] });
         });
         expect(learnedPreference(cycle, opts)).toEqual([]);
@@ -50,7 +72,10 @@ describe("learnedPreference", () => {
     });
 
     it("uses the list's own choices when it has enough, else everyone's", () => {
-        const all = [...evenings(8, { projectId: "A" }), ...Array.from({ length: 8 }, (_, i) => rec(i + 1, "morning", { projectId: "B" }))];
+        const all = [
+            ...evenings(8, { projectId: "A" }),
+            ...Array.from({ length: 8 }, (_, i) => rec(i + 1, "morning", { projectId: "B" })),
+        ];
         expect(learnedPreference(all, { ...opts, projectId: "B" })).toEqual(["morning"]);
         expect(learnedPreference(all, { ...opts, projectId: "C" })).toEqual([]);
     });
@@ -69,7 +94,21 @@ describe("stated preference", () => {
         expect(statedPreference(stated.slice(0, 2), { title: "Pay rent", listName: null })).toEqual([]);
     });
     it("beats anything learned", () => {
-        expect(preferredBuckets({ records: evenings(8), stated: [{ buckets: ["morning"], about: null }] }, { title: "x", projectId: null, listName: null }, BUCKETS, today)).toEqual(["morning"]);
-        expect(preferredBuckets({ records: evenings(8), stated: [] }, { title: "x", projectId: null, listName: null }, BUCKETS, today)).toEqual(["evening"]);
+        expect(
+            preferredBuckets(
+                { records: evenings(8), stated: [{ buckets: ["morning"], about: null }] },
+                { title: "x", projectId: null, listName: null },
+                BUCKETS,
+                today,
+            ),
+        ).toEqual(["morning"]);
+        expect(
+            preferredBuckets(
+                { records: evenings(8), stated: [] },
+                { title: "x", projectId: null, listName: null },
+                BUCKETS,
+                today,
+            ),
+        ).toEqual(["evening"]);
     });
 });

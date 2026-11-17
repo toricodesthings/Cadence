@@ -37,14 +37,19 @@ function formatInput(input: unknown): string {
  * with multiple reads in one turn collapsing into a "Looked a few things up · N"
  * chip. Clicking it expands the exact calls (tool + arguments + status).
  */
-export function ToolActivityChip({ calls, pending }: { calls: ToolCall[]; /** True while any read is in-flight. */ pending?: boolean }) {
+export function ToolActivityChip({
+    calls,
+    pending,
+}: {
+    calls: ToolCall[];
+    /** True while any read is in-flight. */ pending?: boolean;
+}) {
     const reduceMotion = useReducedMotion();
     const [open, setOpen] = useState(false);
     // Three task lookups in a row still read as one "Checked your tasks".
     const labels = [...new Set(calls.map((c) => c.label))];
     const count = labels.length;
-    const summary =
-        count <= 1 ? (labels[0] ?? "Looked something up") : `Looked a few things up`;
+    const summary = count <= 1 ? (labels[0] ?? "Looked something up") : `Looked a few things up`;
     const expandable = calls.some((c) => c.tool);
     const failed = !pending && calls.some((c) => c.failed);
 
@@ -78,7 +83,11 @@ export function ToolActivityChip({ calls, pending }: { calls: ToolCall[]; /** Tr
                         transition={SETTLE_POP}
                         className="inline-flex"
                     >
-                        {failed ? <X size={11} className="text-feedback-error" /> : <Check size={11} className="text-feedback-success" />}
+                        {failed ? (
+                            <X size={11} className="text-feedback-error" />
+                        ) : (
+                            <Check size={11} className="text-feedback-success" />
+                        )}
                     </motion.span>
                 )}
                 <span className={pending && !reduceMotion ? "animate-pulse" : undefined}>{summary}</span>
@@ -102,7 +111,10 @@ export function ToolActivityChip({ calls, pending }: { calls: ToolCall[]; /** Tr
                                 )}
                                 <span className="shrink-0">{c.label}</span>
                                 {c.tool ? (
-                                    <code className="min-w-0 truncate font-mono text-[10px] opacity-70" title={`${c.tool}(${args})`}>
+                                    <code
+                                        className="min-w-0 truncate font-mono text-[10px] opacity-70"
+                                        title={`${c.tool}(${args})`}
+                                    >
                                         {c.tool}({args})
                                     </code>
                                 ) : null}

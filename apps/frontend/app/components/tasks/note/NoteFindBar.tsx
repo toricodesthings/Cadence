@@ -9,10 +9,19 @@ import { Reveal } from "../../shared/Reveal";
 import { getFind, replaceAll, replaceCurrent, setFind, stepFind } from "../../../lib/notes/note-find";
 import { cn } from "../../../lib/utils";
 
-const FIELD = "h-11 min-w-0 flex-1 rounded-xl border border-twilight-border-light bg-white/[0.05] px-3 text-[15px] text-twilight-text placeholder:text-twilight-text-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/40";
+const FIELD =
+    "h-11 min-w-0 flex-1 rounded-xl border border-twilight-border-light bg-white/[0.05] px-3 text-[15px] text-twilight-text placeholder:text-twilight-text-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/40";
 
 /** Find (and, when disclosed, replace) in the open note. Matches are decorations: nothing here edits until you replace. */
-export function NoteFindBar({ editor, onClose, className }: { editor: Editor; onClose: () => void; className?: string }) {
+export function NoteFindBar({
+    editor,
+    onClose,
+    className,
+}: {
+    editor: Editor;
+    onClose: () => void;
+    className?: string;
+}) {
     const [query, setQuery] = useState("");
     const [replacement, setReplacement] = useState("");
     const [replacing, setReplacing] = useState(false);
@@ -67,17 +76,85 @@ export function NoteFindBar({ editor, onClose, className }: { editor: Editor; on
                     aria-label="Find"
                     className="flex-1"
                 />
-                <span role="status" className="min-w-[4.5rem] text-center text-[13px] tabular-nums text-twilight-text-muted">{label}</span>
-                <Tip label="Previous match" side="bottom"><Button variant="ghost" size="icon" aria-label="Previous match" disabled={!find.count} onClick={() => stepFind(editor, -1)}><ChevronUp size={18} aria-hidden="true" /></Button></Tip>
-                <Tip label="Next match" side="bottom"><Button variant="ghost" size="icon" aria-label="Next match" disabled={!find.count} onClick={() => stepFind(editor, 1)}><ChevronDown size={18} aria-hidden="true" /></Button></Tip>
-                <Tip label="Replace" side="bottom"><Button variant="ghost" size="icon" aria-label="Show replace" aria-expanded={replacing} onClick={() => setReplacing((v) => !v)}><Replace size={18} aria-hidden="true" /></Button></Tip>
-                <Tip label="Close find" side="bottom"><Button variant="ghost" size="icon" aria-label="Close find" onClick={() => { onClose(); editor.commands.focus(); }}><X size={18} aria-hidden="true" /></Button></Tip>
+                <span
+                    role="status"
+                    className="min-w-[4.5rem] text-center text-[13px] tabular-nums text-twilight-text-muted"
+                >
+                    {label}
+                </span>
+                <Tip label="Previous match" side="bottom">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Previous match"
+                        disabled={!find.count}
+                        onClick={() => stepFind(editor, -1)}
+                    >
+                        <ChevronUp size={18} aria-hidden="true" />
+                    </Button>
+                </Tip>
+                <Tip label="Next match" side="bottom">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Next match"
+                        disabled={!find.count}
+                        onClick={() => stepFind(editor, 1)}
+                    >
+                        <ChevronDown size={18} aria-hidden="true" />
+                    </Button>
+                </Tip>
+                <Tip label="Replace" side="bottom">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Show replace"
+                        aria-expanded={replacing}
+                        onClick={() => setReplacing((v) => !v)}
+                    >
+                        <Replace size={18} aria-hidden="true" />
+                    </Button>
+                </Tip>
+                <Tip label="Close find" side="bottom">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Close find"
+                        onClick={() => {
+                            onClose();
+                            editor.commands.focus();
+                        }}
+                    >
+                        <X size={18} aria-hidden="true" />
+                    </Button>
+                </Tip>
             </div>
             <Reveal open={replacing}>
                 <div className="flex items-center gap-1.5 pb-0.5">
-                    <input value={replacement} onChange={(e) => setReplacement(e.target.value)} placeholder="Replace with" aria-label="Replace with" className={FIELD} autoComplete="off" />
-                    <Button variant="secondary" size="sm" disabled={!find.count} onClick={() => replaceCurrent(editor, replacement)}>Replace</Button>
-                    <Button variant="secondary" size="sm" disabled={!find.count} onClick={() => replaceAll(editor, replacement)}>All</Button>
+                    <input
+                        value={replacement}
+                        onChange={(e) => setReplacement(e.target.value)}
+                        placeholder="Replace with"
+                        aria-label="Replace with"
+                        className={FIELD}
+                        autoComplete="off"
+                    />
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={!find.count}
+                        onClick={() => replaceCurrent(editor, replacement)}
+                    >
+                        Replace
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={!find.count}
+                        onClick={() => replaceAll(editor, replacement)}
+                    >
+                        All
+                    </Button>
                 </div>
             </Reveal>
         </div>

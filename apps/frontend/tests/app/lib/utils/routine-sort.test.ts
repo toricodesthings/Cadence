@@ -2,9 +2,18 @@ import { describe, expect, it } from "vitest";
 import type { Habit } from "@cadence/contracts/habit";
 import { sortRoutines } from "../../../../app/lib/utils/habits";
 
-const routine = (id: string, patch: Partial<Habit>): Habit => ({
-    id, title: id, createdAt: "2026-10-01T09:00:00Z", sortOrder: 0, targetTime: null, times: null, isDueToday: true, isOverdue: false, ...patch,
-} as Habit);
+const routine = (id: string, patch: Partial<Habit>): Habit =>
+    ({
+        id,
+        title: id,
+        createdAt: "2026-10-01T09:00:00Z",
+        sortOrder: 0,
+        targetTime: null,
+        times: null,
+        isDueToday: true,
+        isOverdue: false,
+        ...patch,
+    }) as Habit;
 
 const a = routine("a", { title: "Stretch", createdAt: "2026-10-01T09:00:00Z", targetTime: "21:00", sortOrder: 3 });
 const b = routine("b", { title: "hydrate", createdAt: "2026-10-02T09:00:00Z", sortOrder: 1 });

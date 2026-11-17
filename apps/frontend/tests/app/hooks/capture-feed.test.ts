@@ -14,11 +14,17 @@ describe("Capture count", () => {
             { id: "discarded", captureStatus: "discarded", createdAt: "2026-09-23T10:00:00Z" },
         ] as InboxItem[];
         const base = { state: "ACTIVE", projectId: null, dueDate: null, scheduledStart: null, interactionMode: "task" };
-        const tasks = [{ ...base, id: "plain" }, { ...base, id: "dated", dueDate: "2026-09-24" }, { ...base, id: "listed", projectId: "list" }, { ...base, id: "done", state: "COMPLETE" }, { ...base, id: "fixed", interactionMode: "timetable" }] as Task[];
+        const tasks = [
+            { ...base, id: "plain" },
+            { ...base, id: "dated", dueDate: "2026-09-24" },
+            { ...base, id: "listed", projectId: "list" },
+            { ...base, id: "done", state: "COMPLETE" },
+            { ...base, id: "fixed", interactionMode: "timetable" },
+        ] as Task[];
         const feed = captureFeed(items, tasks, now);
         expect(feed.count).toBe(2);
-        expect(feed.thoughts.map(i => i.id)).toEqual(["new"]);
-        expect(feed.older.map(i => i.id)).toEqual(["old"]);
-        expect(feed.tasks.map(t => t.id)).toEqual(["plain"]);
+        expect(feed.thoughts.map((i) => i.id)).toEqual(["new"]);
+        expect(feed.older.map((i) => i.id)).toEqual(["old"]);
+        expect(feed.tasks.map((t) => t.id)).toEqual(["plain"]);
     });
 });

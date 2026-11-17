@@ -19,7 +19,8 @@ export function useDragScroll() {
         // React's synthetic events bubble through the component tree even when the
         // DOM nodes live outside this container, so we must gate on DOM containment.
         if (!el.contains(target)) return;
-        if (target.closest("article, button, input, textarea, a, select, label, [data-no-dnd], [data-dnd-card]")) return;
+        if (target.closest("article, button, input, textarea, a, select, label, [data-no-dnd], [data-dnd-card]"))
+            return;
         e.preventDefault();
         isDragging.current = true;
         startX.current = e.clientX;

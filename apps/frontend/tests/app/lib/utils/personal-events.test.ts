@@ -23,27 +23,22 @@ describe("personal event utilities", () => {
     });
 
     it("returns the next occurrence in the current year when the date is still ahead", () => {
-        expect(
-            getNextPersonalEventDate(
-                { monthDay: "11-04" },
-                "2026-03-24",
-            ),
-        ).toBe("2026-11-04");
+        expect(getNextPersonalEventDate({ monthDay: "11-04" }, "2026-03-24")).toBe("2026-11-04");
     });
 
     it("rolls over to the next year when the event already passed", () => {
-        expect(
-            getNextPersonalEventDate(
-                { monthDay: "01-10" },
-                "2026-03-24",
-            ),
-        ).toBe("2027-01-10");
+        expect(getNextPersonalEventDate({ monthDay: "01-10" }, "2026-03-24")).toBe("2027-01-10");
     });
 
     it("puts Feb 29 on Feb 28 in non-leap years", () => {
         expect(getNextPersonalEventDate({ monthDay: "02-29" }, "2026-03-01")).toBe("2027-02-28");
         expect(getNextPersonalEventDate({ monthDay: "02-29" }, "2027-03-01")).toBe("2028-02-29");
-        expect(toPersonalEventViewModel({ id: "x", label: "L", monthDay: "02-29", emoji: null, notify: true, startedOn: null }, "2026-02-27").daysUntil).toBe(1);
+        expect(
+            toPersonalEventViewModel(
+                { id: "x", label: "L", monthDay: "02-29", emoji: null, notify: true, startedOn: null },
+                "2026-02-27",
+            ).daysUntil,
+        ).toBe(1);
     });
 
     it("formats countdown labels with friendly near-term wording", () => {
@@ -60,10 +55,19 @@ describe("personal event utilities", () => {
 
     it("sorts reminder-enabled events first when requested", () => {
         const today = "2026-03-24";
-        const sorted = sortPersonalEventViewModels([
-            toPersonalEventViewModel({ id: "a", label: "Later", monthDay: "04-20", emoji: null, notify: false, startedOn: null }, today),
-            toPersonalEventViewModel({ id: "b", label: "Soon", monthDay: "03-28", emoji: null, notify: true, startedOn: "2020-03-28" }, today),
-        ], "reminders");
+        const sorted = sortPersonalEventViewModels(
+            [
+                toPersonalEventViewModel(
+                    { id: "a", label: "Later", monthDay: "04-20", emoji: null, notify: false, startedOn: null },
+                    today,
+                ),
+                toPersonalEventViewModel(
+                    { id: "b", label: "Soon", monthDay: "03-28", emoji: null, notify: true, startedOn: "2020-03-28" },
+                    today,
+                ),
+            ],
+            "reminders",
+        );
 
         expect(sorted.map((item) => item.event.id)).toEqual(["b", "a"]);
         expect(sorted[0].milestoneLabel).toBe("Marks 6 years");
@@ -72,7 +76,10 @@ describe("personal event utilities", () => {
     it("treats a missing, null or unknown colour as no colour and keeps the schedule tint", () => {
         for (const color of [undefined, null, "", "not-a-colour"]) {
             expect(eventToneColor(color)).toBeNull();
-            expect(eventToneStyle(color)).toMatchObject({ "--event-tone": "var(--accent-nav-schedule)", "--event-ink": "var(--accent-nav-schedule)" });
+            expect(eventToneStyle(color)).toMatchObject({
+                "--event-tone": "var(--accent-nav-schedule)",
+                "--event-ink": "var(--accent-nav-schedule)",
+            });
         }
         expect(EVENT_SWATCHES[0]).toMatchObject({ value: "", label: "Default" });
     });
@@ -94,12 +101,30 @@ describe("personal event utilities", () => {
 
     it("groups the list under the month each event next comes round, with the year once it isn't this one", () => {
         const today = "2026-11-20";
-        const item = (id: string, monthDay: string) => toPersonalEventViewModel({ id, label: id, monthDay, emoji: null, notify: false, startedOn: null }, today);
-        const next = sortPersonalEventViewModels([item("jan", "01-05"), item("nov", "11-25"), item("dec", "12-01")], "next");
-        expect(groupPersonalEventsByMonth(next, "next", today).map((group) => [group.label, group.items.map((i) => i.event.id)]))
-            .toEqual([["November", ["nov"]], ["December", ["dec"]], ["January 2027", ["jan"]]]);
+        const item = (id: string, monthDay: string) =>
+            toPersonalEventViewModel({ id, label: id, monthDay, emoji: null, notify: false, startedOn: null }, today);
+        const next = sortPersonalEventViewModels(
+            [item("jan", "01-05"), item("nov", "11-25"), item("dec", "12-01")],
+            "next",
+        );
+        expect(
+            groupPersonalEventsByMonth(next, "next", today).map((group) => [
+                group.label,
+                group.items.map((i) => i.event.id),
+            ]),
+        ).toEqual([
+            ["November", ["nov"]],
+            ["December", ["dec"]],
+            ["January 2027", ["jan"]],
+        ]);
         const byMonth = sortPersonalEventViewModels(next, "month-day");
-        expect(groupPersonalEventsByMonth(byMonth, "month-day", today).map((group) => group.label)).toEqual(["January", "November", "December"]);
-        expect(groupPersonalEventsByMonth(next, "alphabetical", today)).toEqual([{ key: "all", label: null, items: next }]);
+        expect(groupPersonalEventsByMonth(byMonth, "month-day", today).map((group) => group.label)).toEqual([
+            "January",
+            "November",
+            "December",
+        ]);
+        expect(groupPersonalEventsByMonth(next, "alphabetical", today)).toEqual([
+            { key: "all", label: null, items: next },
+        ]);
     });
 });

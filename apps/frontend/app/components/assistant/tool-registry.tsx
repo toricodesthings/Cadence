@@ -6,14 +6,36 @@ import { ProposalCard } from "./widgets/ProposalCard";
 import { TaskBatchCard } from "./widgets/TaskBatchCard";
 import { UpdateTasksCard } from "./widgets/UpdateTasksCard";
 import { SubtaskEditCard } from "./widgets/SubtaskEditCard";
-import { DeleteTasksCard, DuplicateTasksCard, ReorderTasksCard, RescheduleCard, SetStateCard } from "./widgets/TaskListCards";
 import {
-    CreateEventCard, CreateProjectCard, CreateSectionsCard, CreateTagCard, DeleteEventCard, DeleteHabitCard, DeleteSectionCard,
-    CreateHabitCard, LogHabitCard, UpdateEventCard, UpdateHabitCard, UpdateSectionCard,
+    DeleteTasksCard,
+    DuplicateTasksCard,
+    ReorderTasksCard,
+    RescheduleCard,
+    SetStateCard,
+} from "./widgets/TaskListCards";
+import {
+    CreateEventCard,
+    CreateProjectCard,
+    CreateSectionsCard,
+    CreateTagCard,
+    DeleteEventCard,
+    DeleteHabitCard,
+    DeleteSectionCard,
+    CreateHabitCard,
+    LogHabitCard,
+    UpdateEventCard,
+    UpdateHabitCard,
+    UpdateSectionCard,
 } from "./widgets/SmallCards";
 import { DeleteCapturesCard, UpdateCapturesCard } from "./widgets/CaptureCards";
 import {
-    CreateFocusViewCard, DeleteFocusViewCard, DeleteProjectCard, DeleteTagCard, UpdateFocusViewCard, UpdateProjectCard, UpdateTagCard,
+    CreateFocusViewCard,
+    DeleteFocusViewCard,
+    DeleteProjectCard,
+    DeleteTagCard,
+    UpdateFocusViewCard,
+    UpdateProjectCard,
+    UpdateTagCard,
 } from "./widgets/OrganizeCards";
 import { outcomeOf, type RetiredRenderContext, type ToolRenderContext } from "./widgets/ApprovalCard";
 import { AskCard } from "./widgets/AskCard";
@@ -43,7 +65,8 @@ interface ToolDescriptor {
 }
 
 /** A write card that takes only the tool's context. */
-const card = <N extends ToolName>(Card: React.ComponentType<{ ctx: ToolRenderContext<N> }>) =>
+const card =
+    <N extends ToolName>(Card: React.ComponentType<{ ctx: ToolRenderContext<N> }>) =>
     (ctx: ToolRenderContext<N>) => <Card ctx={ctx} />;
 
 const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRenderContext<N>) => React.ReactNode } } = {
@@ -90,9 +113,16 @@ const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRend
     create_habit: { label: "Added a routine", render: card(CreateHabitCard) },
     update_habit: { label: "Changed a routine", render: card(UpdateHabitCard) },
     delete_habit: { label: "Deleted a routine", render: card(DeleteHabitCard) },
-    save_event: { label: "Saved an event", render: (ctx) => ctx.part?.input?.eventId ? <UpdateEventCard ctx={ctx} /> : <CreateEventCard ctx={ctx} /> },
+    save_event: {
+        label: "Saved an event",
+        render: (ctx) => (ctx.part?.input?.eventId ? <UpdateEventCard ctx={ctx} /> : <CreateEventCard ctx={ctx} />),
+    },
     delete_event: { label: "Deleted an event", render: card(DeleteEventCard) },
-    save_focus_view: { label: "Saved a focus view", render: (ctx) => ctx.part?.input?.focusViewId ? <UpdateFocusViewCard ctx={ctx} /> : <CreateFocusViewCard ctx={ctx} /> },
+    save_focus_view: {
+        label: "Saved a focus view",
+        render: (ctx) =>
+            ctx.part?.input?.focusViewId ? <UpdateFocusViewCard ctx={ctx} /> : <CreateFocusViewCard ctx={ctx} />,
+    },
     delete_focus_view: { label: "Deleted a focus view", render: card(DeleteFocusViewCard) },
 
     // ── remember → one-line receipt with Undo, never an approval ───────────
@@ -137,7 +167,9 @@ function RetiredProposal({ applied }: { applied: boolean }) {
 
 /** Resolve the descriptor for a tool name, or undefined for unknown tools. */
 export function getToolDescriptor(toolName: string | undefined): ToolDescriptor | undefined {
-    return toolName && isToolName(toolName) ? { class: TOOL_CATALOG[toolName].kind, ...TOOL_REGISTRY[toolName] } : undefined;
+    return toolName && isToolName(toolName)
+        ? { class: TOOL_CATALOG[toolName].kind, ...TOOL_REGISTRY[toolName] }
+        : undefined;
 }
 
 /**
@@ -164,16 +196,27 @@ export function ToolPart({
     const toolName = safeToolName(part);
     const descriptor = getToolDescriptor(toolName);
     if (toolName?.startsWith("propose_")) return <RetiredProposal applied={part?.output?.decision === "commit"} />;
-    if (toolName && RETIRED_CAPTURE_WRITES.has(toolName)) return <RetiredProposal applied={outcomeOf(part, true) === "done"} />;
+    if (toolName && RETIRED_CAPTURE_WRITES.has(toolName))
+        return <RetiredProposal applied={outcomeOf(part, true) === "done"} />;
     const retired = toolName ? RETIRED_WRITES[toolName] : undefined;
     if (retired) return <>{retired({ part, toolName: toolName!, answer, stale })}</>;
 
     if (!descriptor) {
         // Unknown / future tool → neutral chip.
-        return <ToolActivityChip
-                calls={[{ label: "Working…", tool: toolName, input: part?.input, pending: isInFlight(part), failed: isFailed(part) }]}
+        return (
+            <ToolActivityChip
+                calls={[
+                    {
+                        label: "Working…",
+                        tool: toolName,
+                        input: part?.input,
+                        pending: isInFlight(part),
+                        failed: isFailed(part),
+                    },
+                ]}
                 pending={isInFlight(part)}
-            />;
+            />
+        );
     }
 
     if (descriptor.class === "read" && !descriptor.render) {
@@ -196,8 +239,14 @@ export function isInFlight(part: { state?: string } | undefined): boolean {
 /** Ran and failed: thrown or rejected (`output-error`), or a tool's own `{ ok: false }`. */
 export function isFailed(part: { state?: string; output?: unknown } | undefined): boolean {
     const output = part?.output;
-    return part?.state === "output-error" || (part?.state === "output-available" &&
-        !!output && typeof output === "object" && "ok" in output && output.ok === false);
+    return (
+        part?.state === "output-error" ||
+        (part?.state === "output-available" &&
+            !!output &&
+            typeof output === "object" &&
+            "ok" in output &&
+            output.ok === false)
+    );
 }
 
 /** Safely extract a tool name from a part, tolerating non-tool parts. */

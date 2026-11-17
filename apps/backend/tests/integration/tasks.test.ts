@@ -35,7 +35,8 @@ async function create(body: Record<string, unknown>, client = tasks) {
 }
 
 /** The caller's zone is the account's (`users.time_zone`). */
-const setZone = (zone: string, id = userId) => asOwner((pg) => pg.query("UPDATE users SET time_zone = $2 WHERE id = $1", [id, zone]));
+const setZone = (zone: string, id = userId) =>
+    asOwner((pg) => pg.query("UPDATE users SET time_zone = $2 WHERE id = $1", [id, zone]));
 
 const titles = (list: any[]) => list.map((t) => t.title);
 
@@ -47,7 +48,9 @@ describe("creating tasks", () => {
         expect((await tasks("PATCH", `/${task.id}`, { recurrenceRule: "FREQ=DAILY;BYSECOND=0,1" })).status).toBe(400);
 
         // Model a row persisted before the write guard existed.
-        await asOwner((pg) => pg.query("UPDATE tasks SET recurrence_rule = $2 WHERE id = $1", [task.id, unsafe.recurrenceRule]));
+        await asOwner((pg) =>
+            pg.query("UPDATE tasks SET recurrence_rule = $2 WHERE id = $1", [task.id, unsafe.recurrenceRule]),
+        );
         const read = await tasks("GET", "?from=2026-10-07&to=2027-10-06&limit=1");
         expect(read.status).toBe(400);
         expect(read.body.error.code).toBe("INVALID_RECURRENCE_RULE");
@@ -68,7 +71,13 @@ describe("creating tasks", () => {
     it("stores a multi-day all-day task as a first and last LocalDate with no instants", async () => {
         const task = await create({ title: "Trip", dueDate: "2026-03-10", endDate: "2026-03-12" });
 
-        expect(task).toMatchObject({ dueDate: "2026-03-10", endDate: "2026-03-12", scheduledStart: null, scheduledEnd: null, zone: null });
+        expect(task).toMatchObject({
+            dueDate: "2026-03-10",
+            endDate: "2026-03-12",
+            scheduledStart: null,
+            scheduledEnd: null,
+            zone: null,
+        });
     });
 
     it("resolves project, tag, and date from quick-add text and stores the parse", async () => {
@@ -77,12 +86,23 @@ describe("creating tasks", () => {
 
         const task = await create({
             title: "Work on Apollo",
-            nlp: { rawInput: "Work on Apollo /apollo #planning 2026-03-09", sourceSurface: "quick_add", dateStyle: "mdy" },
+            nlp: {
+                rawInput: "Work on Apollo /apollo #planning 2026-03-09",
+                sourceSurface: "quick_add",
+                dateStyle: "mdy",
+            },
         });
 
         expect(task).toMatchObject({ projectId: project.data.id, dueDate: "2026-03-09" });
         expect((await tasks("GET", `/${task.id}/tags`)).body.data.map((t: any) => t.id)).toEqual([tag.data.id]);
-        const [meta] = await asOwner(async (pg) => (await pg.query("SELECT source_surface, is_current FROM task_nlp_metadata WHERE task_id = $1", [task.id])).rows);
+        const [meta] = await asOwner(
+            async (pg) =>
+                (
+                    await pg.query("SELECT source_surface, is_current FROM task_nlp_metadata WHERE task_id = $1", [
+                        task.id,
+                    ])
+                ).rows,
+        );
         expect(meta).toEqual({ source_surface: "quick_add", is_current: true });
     });
 
@@ -91,12 +111,20 @@ describe("creating tasks", () => {
 
         const task = await create({
             title: "Work on Apollo tomorrow",
-            nlp: { rawInput: "Work on Apollo tomorrow 2026-03-09", sourceSurface: "inline_add", dateStyle: "mdy", resolved: true },
+            nlp: {
+                rawInput: "Work on Apollo tomorrow 2026-03-09",
+                sourceSurface: "inline_add",
+                dateStyle: "mdy",
+                resolved: true,
+            },
         });
 
         expect(project.data.id).toBeTruthy();
         expect(task).toMatchObject({ title: "Work on Apollo tomorrow", projectId: null, dueDate: null });
-        const [meta] = await asOwner(async (pg) => (await pg.query("SELECT raw_input FROM task_nlp_metadata WHERE task_id = $1", [task.id])).rows);
+        const [meta] = await asOwner(
+            async (pg) =>
+                (await pg.query("SELECT raw_input FROM task_nlp_metadata WHERE task_id = $1", [task.id])).rows,
+        );
         expect(meta).toEqual({ raw_input: "Work on Apollo tomorrow 2026-03-09" });
     });
 
@@ -124,7 +152,8 @@ describe("creating tasks", () => {
 
     it("refuses another user's project or tag", async () => {
         const { body: theirTag } = await otherTags("POST", "", { name: "theirs" });
-        const theirProject = (await apiAs((await createUser()), "/projects", projectRoutes)("POST", "", { name: "P" })).body.data;
+        const theirProject = (await apiAs(await createUser(), "/projects", projectRoutes)("POST", "", { name: "P" }))
+            .body.data;
 
         expect((await tasks("POST", "", { title: "x", orderIndex: 1, projectId: theirProject.id })).status).toBe(404);
         expect((await tasks("POST", "", { title: "x", orderIndex: 1, tagIds: [theirTag.data.id] })).status).toBe(404);
@@ -203,18 +232,27 @@ describe("listing tasks", () => {
 
     it("returns tasks anchored in a date window and series running into it, and nothing else", async () => {
         const timed = (start: string, extra: Record<string, unknown> = {}) => ({
-            scheduledStart: start, scheduledEnd: start.replace("T09", "T10"), ...extra,
+            scheduledStart: start,
+            scheduledEnd: start.replace("T09", "T10"),
+            ...extra,
         });
         await create({ title: "W timed", ...timed("2027-05-12T09:00:00.000Z") });
         await create({ title: "W due", dueDate: "2027-05-13" });
         await create({ title: "W before", dueDate: "2027-05-01" });
         await create({ title: "W after", dueDate: "2027-05-20" });
         await create({ title: "W weekly", ...timed("2027-04-07T09:00:00.000Z", { recurrenceRule: "FREQ=WEEKLY" }) });
-        await create({ title: "W starts later", ...timed("2027-06-01T09:00:00.000Z", { recurrenceRule: "FREQ=DAILY" }) });
+        await create({
+            title: "W starts later",
+            ...timed("2027-06-01T09:00:00.000Z", { recurrenceRule: "FREQ=DAILY" }),
+        });
 
         const { body } = await tasks("GET", "?state=ACTIVE&from=2027-05-10&to=2027-05-16");
 
-        expect(titles(body.data).filter((title: string) => title.startsWith("W ")).sort()).toEqual(["W due", "W timed", "W weekly"]);
+        expect(
+            titles(body.data)
+                .filter((title: string) => title.startsWith("W "))
+                .sort(),
+        ).toEqual(["W due", "W timed", "W weekly"]);
     });
 
     it("rejects half a range with a structured 400", async () => {
@@ -226,8 +264,12 @@ describe("listing tasks", () => {
     });
 
     it("returns every open task when no limit is sent", async () => {
-        await asOwner((pg) => pg.query(
-            "INSERT INTO tasks (user_id, title, order_index) SELECT $1, 'T' || n, n FROM generate_series(1, 60) n", [userId]));
+        await asOwner((pg) =>
+            pg.query(
+                "INSERT INTO tasks (user_id, title, order_index) SELECT $1, 'T' || n, n FROM generate_series(1, 60) n",
+                [userId],
+            ),
+        );
 
         expect((await tasks("GET", "?state=ACTIVE")).body.data).toHaveLength(60);
     });
@@ -257,13 +299,23 @@ describe("updating tasks", () => {
 
         expect((await tasks("PATCH", `/${task.id}`, { effort: 2 })).body.data.tagIds).toEqual([tag.data.id]);
         expect((await tasks("GET", `/${task.id}`)).body.data.tagIds).toEqual([tag.data.id]);
-        expect((await tasks("PATCH", "/batch/state", { taskIds: [task.id], state: "COMPLETE" })).body.data[0].tagIds).toEqual([tag.data.id]);
+        expect(
+            (await tasks("PATCH", "/batch/state", { taskIds: [task.id], state: "COMPLETE" })).body.data[0].tagIds,
+        ).toEqual([tag.data.id]);
     });
 
     it("moves a timed task to an all-day date the way the client sends it (clearing the time block)", async () => {
-        const task = await create({ title: "T", scheduledStart: "2026-03-09T14:00:00.000Z", scheduledEnd: "2026-03-09T15:30:00.000Z" });
+        const task = await create({
+            title: "T",
+            scheduledStart: "2026-03-09T14:00:00.000Z",
+            scheduledEnd: "2026-03-09T15:30:00.000Z",
+        });
 
-        const { body } = await tasks("PATCH", `/${task.id}`, { dueDate: "2026-03-10", scheduledStart: null, scheduledEnd: null });
+        const { body } = await tasks("PATCH", `/${task.id}`, {
+            dueDate: "2026-03-10",
+            scheduledStart: null,
+            scheduledEnd: null,
+        });
 
         expect(body.data).toMatchObject({ dueDate: "2026-03-10", scheduledStart: null, scheduledEnd: null });
     });
@@ -272,14 +324,20 @@ describe("updating tasks", () => {
         const task = await create({ title: "T" });
         const { body: fresh } = await tasks("GET", `/${task.id}`);
 
-        expect((await tasks("PATCH", `/${task.id}`, { title: "T2", expectedUpdatedAt: fresh.data.updatedAt })).status).toBe(200);
-        expect((await tasks("PATCH", `/${task.id}`, { title: "T3", expectedUpdatedAt: fresh.data.updatedAt })).status).toBe(409);
+        expect(
+            (await tasks("PATCH", `/${task.id}`, { title: "T2", expectedUpdatedAt: fresh.data.updatedAt })).status,
+        ).toBe(200);
+        expect(
+            (await tasks("PATCH", `/${task.id}`, { title: "T3", expectedUpdatedAt: fresh.data.updatedAt })).status,
+        ).toBe(409);
         expect((await tasks("GET", `/${task.id}`)).body.data.title).toBe("T2");
     });
 
     it("updates a simple field without reading first, matching the served version despite Postgres microseconds", async () => {
         const task = await create({ title: "T", priority: 3 });
-        await asOwner((pg) => pg.query("UPDATE tasks SET updated_at = $1 WHERE id = $2", ["2026-03-10T09:00:00.123456Z", task.id]));
+        await asOwner((pg) =>
+            pg.query("UPDATE tasks SET updated_at = $1 WHERE id = $2", ["2026-03-10T09:00:00.123456Z", task.id]),
+        );
         const { body: fresh } = await tasks("GET", `/${task.id}`);
         expect(fresh.data.updatedAt).toBe("2026-03-10T09:00:00.123Z");
 
@@ -293,7 +351,10 @@ describe("updating tasks", () => {
 
     it("treats an invalid version string as a conflict and leaves the task intact", async () => {
         const task = await create({ title: "Original" });
-        const { status, body } = await tasks("PATCH", `/${task.id}`, { title: "Changed", expectedUpdatedAt: "not-a-date" });
+        const { status, body } = await tasks("PATCH", `/${task.id}`, {
+            title: "Changed",
+            expectedUpdatedAt: "not-a-date",
+        });
         expect(status).toBe(409);
         expect(body.error.code).toBe("CONFLICT");
         expect((await tasks("GET", `/${task.id}`)).body.data.title).toBe("Original");
@@ -303,9 +364,13 @@ describe("updating tasks", () => {
         const task = await create({ title: "Original" });
         const expectedUpdatedAt = "2026-03-10T09:00:00.123Z";
         await asOwner((pg) => pg.query("UPDATE tasks SET updated_at = $1 WHERE id = $2", [expectedUpdatedAt, task.id]));
-        const results = await Promise.all(["A", "B"].map((title) => tasks("PATCH", `/${task.id}`, { title, expectedUpdatedAt })));
+        const results = await Promise.all(
+            ["A", "B"].map((title) => tasks("PATCH", `/${task.id}`, { title, expectedUpdatedAt })),
+        );
         expect(results.map((result) => result.status).sort()).toEqual([200, 409]);
-        expect((await tasks("GET", `/${task.id}`)).body.data.title).toBe(results.find((result) => result.status === 200)!.body.data.title);
+        expect((await tasks("GET", `/${task.id}`)).body.data.title).toBe(
+            results.find((result) => result.status === 200)!.body.data.title,
+        );
     });
 
     it("returns 404 for a versioned edit of a missing or another user's task", async () => {
@@ -318,7 +383,10 @@ describe("updating tasks", () => {
 
     it("keeps stale-edit protection for schedule edits that still need the locked row", async () => {
         const task = await create({ title: "T", dueDate: "2026-03-10" });
-        const { status, body } = await tasks("PATCH", `/${task.id}`, { dueDate: "2026-03-11", expectedUpdatedAt: "2020-01-01T00:00:00.000Z" });
+        const { status, body } = await tasks("PATCH", `/${task.id}`, {
+            dueDate: "2026-03-11",
+            expectedUpdatedAt: "2020-01-01T00:00:00.000Z",
+        });
         expect(status).toBe(409);
         expect(body.error.code).toBe("CONFLICT");
         expect((await tasks("GET", `/${task.id}`)).body.data.dueDate).toBe("2026-03-10");
@@ -328,7 +396,10 @@ describe("updating tasks", () => {
         const [a, b, c] = [await create({ title: "A" }), await create({ title: "B" }), await create({ title: "C" })];
 
         // Regression: this path returned 500 in production (untyped CASE branches resolved to text).
-        const { status } = await tasks("PATCH", `/${b.id}/reorder`, { orderIndex: 0, orderedTaskIds: [c.id, a.id, b.id] });
+        const { status } = await tasks("PATCH", `/${b.id}/reorder`, {
+            orderIndex: 0,
+            orderedTaskIds: [c.id, a.id, b.id],
+        });
 
         expect(status).toBe(200);
         const listed = (await tasks("GET", "")).body.data;
@@ -342,21 +413,33 @@ describe("batch operations", () => {
         const [a, b] = [await create({ title: "A" }), await create({ title: "B" })];
         const theirs = await create({ title: "Theirs", dueDate: "2026-01-01" }, otherTasks);
 
-        const { body } = await tasks("POST", "/batch/reschedule", { taskIds: [a.id, b.id, theirs.id], date: "2026-03-10" });
+        const { body } = await tasks("POST", "/batch/reschedule", {
+            taskIds: [a.id, b.id, theirs.id],
+            date: "2026-03-10",
+        });
 
         expect(titles(body.data).sort()).toEqual(["A", "B"]);
         for (const t of body.data) expect(t).toMatchObject({ dueDate: "2026-03-10", scheduledStart: null });
-        const counts = await asOwner(async (pg) => (await pg.query("SELECT reschedule_count FROM task_metrics WHERE task_id = ANY($1)", [[a.id, b.id]])).rows);
+        const counts = await asOwner(
+            async (pg) =>
+                (await pg.query("SELECT reschedule_count FROM task_metrics WHERE task_id = ANY($1)", [[a.id, b.id]]))
+                    .rows,
+        );
         expect(counts).toEqual([{ reschedule_count: 1 }, { reschedule_count: 1 }]);
         expect((await otherTasks("GET", `/${theirs.id}`)).body.data.dueDate).toBe("2026-01-01");
 
         // Later writes update each task's one metrics row instead of adding another.
         await tasks("POST", "/batch/reschedule", { taskIds: [a.id, b.id], date: "2026-03-11" });
         await tasks("PATCH", "/batch/state", { taskIds: [a.id], state: "COMPLETE" });
-        const rows = await asOwner(async (pg) => (await pg.query(
-            "SELECT reschedule_count, first_scheduled IS NOT NULL AS has_first, completed_at IS NOT NULL AS done FROM task_metrics WHERE task_id = ANY($1) ORDER BY done DESC",
-            [[a.id, b.id]],
-        )).rows);
+        const rows = await asOwner(
+            async (pg) =>
+                (
+                    await pg.query(
+                        "SELECT reschedule_count, first_scheduled IS NOT NULL AS has_first, completed_at IS NOT NULL AS done FROM task_metrics WHERE task_id = ANY($1) ORDER BY done DESC",
+                        [[a.id, b.id]],
+                    )
+                ).rows,
+        );
         expect(rows).toEqual([
             { reschedule_count: 2, has_first: true, done: true },
             { reschedule_count: 2, has_first: true, done: false },
@@ -366,9 +449,17 @@ describe("batch operations", () => {
     it("moves tasks to a local date keeping each one's time: timed stays 2 PM local, all-day stays all-day", async () => {
         await setZone("America/Toronto");
         // 2:00 PM Friday in Toronto, an all-day Friday task, and a Fixed class.
-        const call = await create({ title: "Call", scheduledStart: "2026-09-25T18:00:00.000Z", scheduledEnd: "2026-09-25T18:30:00.000Z" });
+        const call = await create({
+            title: "Call",
+            scheduledStart: "2026-09-25T18:00:00.000Z",
+            scheduledEnd: "2026-09-25T18:30:00.000Z",
+        });
         const rent = await create({ title: "Rent", dueDate: "2026-09-25" });
-        const lecture = await create({ title: "Lecture", scheduledStart: "2026-09-25T13:00:00.000Z", interactionMode: "timetable" });
+        const lecture = await create({
+            title: "Lecture",
+            scheduledStart: "2026-09-25T13:00:00.000Z",
+            interactionMode: "timetable",
+        });
 
         const { body } = await tasks("POST", "/batch/reschedule", {
             taskIds: [call.id, rent.id, lecture.id],
@@ -376,11 +467,16 @@ describe("batch operations", () => {
         });
 
         const byTitle = Object.fromEntries(body.data.map((t: any) => [t.title, t]));
-        expect(byTitle.Call).toMatchObject({ scheduledStart: "2026-09-28T18:00:00.000Z", scheduledEnd: "2026-09-28T18:30:00.000Z" });
+        expect(byTitle.Call).toMatchObject({
+            scheduledStart: "2026-09-28T18:00:00.000Z",
+            scheduledEnd: "2026-09-28T18:30:00.000Z",
+        });
         expect(byTitle.Rent).toMatchObject({ dueDate: "2026-09-28", scheduledStart: null });
         expect(byTitle.Lecture).toBeUndefined(); // Fixed blocks stay put alongside other tasks
-        expect((await tasks("POST", "/batch/reschedule", { taskIds: [lecture.id], date: "2026-09-28" })).body.data[0].scheduledStart)
-            .toBe("2026-09-28T13:00:00.000Z");
+        expect(
+            (await tasks("POST", "/batch/reschedule", { taskIds: [lecture.id], date: "2026-09-28" })).body.data[0]
+                .scheduledStart,
+        ).toBe("2026-09-28T13:00:00.000Z");
     });
 
     it("completes many tasks at once, recording completion, and skips other users' tasks", async () => {
@@ -390,7 +486,15 @@ describe("batch operations", () => {
         const { body } = await tasks("PATCH", "/batch/state", { taskIds: [a.id, b.id, theirs.id], state: "COMPLETE" });
 
         expect(body.data.map((t: any) => t.state)).toEqual(["COMPLETE", "COMPLETE"]);
-        const done = await asOwner(async (pg) => (await pg.query<{ n: number }>("SELECT count(*)::int n FROM task_metrics WHERE task_id = ANY($1) AND completed_at IS NOT NULL", [[a.id, b.id]])).rows[0].n);
+        const done = await asOwner(
+            async (pg) =>
+                (
+                    await pg.query<{ n: number }>(
+                        "SELECT count(*)::int n FROM task_metrics WHERE task_id = ANY($1) AND completed_at IS NOT NULL",
+                        [[a.id, b.id]],
+                    )
+                ).rows[0].n,
+        );
         expect(done).toBe(2);
         expect((await otherTasks("GET", `/${theirs.id}`)).body.data.state).toBe("ACTIVE");
     });
@@ -410,7 +514,13 @@ describe("batch operations", () => {
 describe("duplicating tasks", () => {
     it("copies the task and its tags as a new, unpinned, active task", async () => {
         const { body: tag } = await tags("POST", "", { name: "t" });
-        const original = await create({ title: "Report", priority: 2, isPinned: true, state: "WAITING", tagIds: [tag.data.id] });
+        const original = await create({
+            title: "Report",
+            priority: 2,
+            isPinned: true,
+            state: "WAITING",
+            tagIds: [tag.data.id],
+        });
 
         const { status, body } = await tasks("POST", `/${original.id}/duplicate`);
 
@@ -466,7 +576,10 @@ describe("reparsing quick-add text", () => {
         expect((await tasks("POST", `/${task.id}/reparse`, { rawInput: "call mom tomorrow" })).status).toBe(201);
         expect((await tasks("POST", `/${task.id}/reparse`, { rawInput: "call mom friday" })).status).toBe(201);
 
-        const current = await asOwner(async (pg) => (await pg.query("SELECT raw_input FROM task_nlp_metadata WHERE task_id = $1", [task.id])).rows);
+        const current = await asOwner(
+            async (pg) =>
+                (await pg.query("SELECT raw_input FROM task_nlp_metadata WHERE task_id = $1", [task.id])).rows,
+        );
         expect(current).toEqual([{ raw_input: "call mom friday" }]);
     });
 });
@@ -515,7 +628,12 @@ describe("reading and deleting", () => {
 describe("one time model", () => {
     const onDay = async (day: string) => titles((await tasks("GET", `?state=ACTIVE&from=${day}&to=${day}`)).body.data);
     const localTime = (instant: string, zone: string) =>
-        new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(instant));
+        new Intl.DateTimeFormat("en-GB", {
+            timeZone: zone,
+            hour: "2-digit",
+            minute: "2-digit",
+            hourCycle: "h23",
+        }).format(new Date(instant));
 
     it.each(["America/Toronto", "Pacific/Kiritimati", "UTC", "Pacific/Pago_Pago"])(
         "an all-day task due 2026-10-05 is on that day for a %s user, and on no neighbouring day (COMP3000 regression)",
@@ -526,15 +644,25 @@ describe("one time model", () => {
             expect(await onDay("2026-10-05")).toEqual(["COMP3000"]);
             expect(await onDay("2026-10-04")).toEqual([]);
             expect(await onDay("2026-10-06")).toEqual([]);
-            expect(titles((await tasks("GET", "?state=ACTIVE&from=2026-10-01&to=2026-10-31")).body.data)).toEqual(["COMP3000"]);
+            expect(titles((await tasks("GET", "?state=ACTIVE&from=2026-10-01&to=2026-10-31")).body.data)).toEqual([
+                "COMP3000",
+            ]);
         },
     );
 
     it("a timed task at 23:30 local lands on its local day, not the UTC one", async () => {
         await setZone("America/Toronto");
-        const task = await create({ title: "Late", scheduledStart: "2026-10-05T23:30:00-04:00", scheduledEnd: "2026-10-06T00:00:00-04:00" });
+        const task = await create({
+            title: "Late",
+            scheduledStart: "2026-10-05T23:30:00-04:00",
+            scheduledEnd: "2026-10-06T00:00:00-04:00",
+        });
 
-        expect(task).toMatchObject({ scheduledStart: "2026-10-06T03:30:00.000Z", zone: "America/Toronto", dueDate: null });
+        expect(task).toMatchObject({
+            scheduledStart: "2026-10-06T03:30:00.000Z",
+            zone: "America/Toronto",
+            dueDate: null,
+        });
         expect(await onDay("2026-10-05")).toEqual(["Late"]);
         expect(await onDay("2026-10-06")).toEqual([]);
     });
@@ -549,20 +677,39 @@ describe("one time model", () => {
 
     it("a weekly 14:35 Toronto series keeps 14:35 local across the 2026-11-01 DST change", async () => {
         await setZone("America/Toronto");
-        const series = await create({ title: "Weekly", scheduledStart: "2026-10-25T14:35:00-04:00", scheduledEnd: "2026-10-25T15:35:00-04:00", recurrenceRule: "FREQ=WEEKLY" });
+        const series = await create({
+            title: "Weekly",
+            scheduledStart: "2026-10-25T14:35:00-04:00",
+            scheduledEnd: "2026-10-25T15:35:00-04:00",
+            recurrenceRule: "FREQ=WEEKLY",
+        });
 
         const { body } = await tasks("GET", "?state=ACTIVE&from=2026-10-25&to=2026-11-08");
 
-        expect(body.data.map((t: any) => t.id)).toEqual([`${series.id}::2026-10-25`, `${series.id}::2026-11-01`, `${series.id}::2026-11-08`]);
-        expect(body.data.map((t: any) => localTime(t.scheduledStart, "America/Toronto"))).toEqual(["14:35", "14:35", "14:35"]);
+        expect(body.data.map((t: any) => t.id)).toEqual([
+            `${series.id}::2026-10-25`,
+            `${series.id}::2026-11-01`,
+            `${series.id}::2026-11-08`,
+        ]);
+        expect(body.data.map((t: any) => localTime(t.scheduledStart, "America/Toronto"))).toEqual([
+            "14:35",
+            "14:35",
+            "14:35",
+        ]);
         // The UTC hour moves by one: that is the DST change, not drift.
         expect(body.data.map((t: any) => t.scheduledStart.slice(11, 16))).toEqual(["18:35", "19:35", "19:35"]);
     });
 
     it("rejects a day field holding an instant and a start holding a day", async () => {
-        expect((await tasks("POST", "", { title: "Old", orderIndex: 1, dueDate: "2026-10-06T03:59:00.000Z" })).status).toBe(400);
-        expect((await tasks("POST", "", { title: "Old", orderIndex: 1, scheduledStart: "2026-10-05" })).status).toBe(400);
-        expect((await tasks("POST", "", { title: "Old", orderIndex: 1, notBefore: "2026-10-06T03:59:00.000Z" })).status).toBe(400);
+        expect(
+            (await tasks("POST", "", { title: "Old", orderIndex: 1, dueDate: "2026-10-06T03:59:00.000Z" })).status,
+        ).toBe(400);
+        expect((await tasks("POST", "", { title: "Old", orderIndex: 1, scheduledStart: "2026-10-05" })).status).toBe(
+            400,
+        );
+        expect(
+            (await tasks("POST", "", { title: "Old", orderIndex: 1, notBefore: "2026-10-06T03:59:00.000Z" })).status,
+        ).toBe(400);
     });
 
     it("moving a multi-day task's first day keeps its span", async () => {
@@ -574,7 +721,12 @@ describe("one time model", () => {
     });
 
     it("rejects an end day before the first day", async () => {
-        const { status } = await tasks("POST", "", { title: "Bad", orderIndex: 1, dueDate: "2026-10-05", endDate: "2026-10-04" });
+        const { status } = await tasks("POST", "", {
+            title: "Bad",
+            orderIndex: 1,
+            dueDate: "2026-10-05",
+            endDate: "2026-10-04",
+        });
 
         expect(status).toBe(400);
     });
@@ -597,7 +749,14 @@ describe("effort evidence", () => {
         await create({ title: "From the assistant", effort: 2 });
         const cleared = await create({ title: "Cleared", effort: 2, effortOrigin: "manual" });
         await tasks("PATCH", `/${cleared.id}`, { effort: null });
-        await create({ title: "Every week", effort: 2, effortOrigin: "manual", scheduledStart: "2026-03-10T14:00:00.000Z", scheduledEnd: "2026-03-10T15:00:00.000Z", recurrenceRule: "FREQ=WEEKLY" });
+        await create({
+            title: "Every week",
+            effort: 2,
+            effortOrigin: "manual",
+            scheduledStart: "2026-03-10T14:00:00.000Z",
+            scheduledEnd: "2026-03-10T15:00:00.000Z",
+            recurrenceRule: "FREQ=WEEKLY",
+        });
         const kept = await create({ title: "Kept", effort: 1, effortOrigin: "manual" });
         const trashed = await create({ title: "Trashed", effort: 1, effortOrigin: "manual" });
         await tasks("PATCH", "/batch/state", { taskIds: [trashed.id], state: "ARCHIVED" });
@@ -624,7 +783,12 @@ describe("effort evidence", () => {
 describe("what a task opens", () => {
     it("stores only a normalised https website, copies it, and the database refuses anything else", async () => {
         const task = await create({ title: "Read the plan" });
-        for (const linkedUrl of ["javascript:alert(1)", "http://example.com/", "https://user:pw@example.com/", "https://example.com"]) {
+        for (const linkedUrl of [
+            "javascript:alert(1)",
+            "http://example.com/",
+            "https://user:pw@example.com/",
+            "https://example.com",
+        ]) {
             expect((await tasks("PATCH", `/${task.id}`, { linkedUrl })).status, linkedUrl).toBe(400);
         }
         const saved = await tasks("PATCH", `/${task.id}`, { linkedUrl: "https://example.com/plan", linkedAppId: null });
@@ -632,7 +796,9 @@ describe("what a task opens", () => {
         expect(saved.body.data).toMatchObject({ linkedUrl: "https://example.com/plan", linkedAppId: null });
         expect((await tasks("POST", `/${task.id}/duplicate`)).body.data.linkedUrl).toBe("https://example.com/plan");
 
-        await expect(asOwner((pg) => pg.query("UPDATE tasks SET linked_url = 'javascript:alert(1)' WHERE id = $1", [task.id]))).rejects.toThrow(/tasks_linked_url_check/);
+        await expect(
+            asOwner((pg) => pg.query("UPDATE tasks SET linked_url = 'javascript:alert(1)' WHERE id = $1", [task.id])),
+        ).rejects.toThrow(/tasks_linked_url_check/);
         expect((await tasks("PATCH", `/${task.id}`, { linkedUrl: null })).body.data.linkedUrl).toBeNull();
     });
 });
@@ -641,7 +807,14 @@ describe("task state rules", () => {
     it("counts a completion once, however often Done is sent", async () => {
         const a = await create({ title: "A" });
         await tasks("PATCH", "/batch/state", { taskIds: [a.id], state: "COMPLETE" });
-        const stamp = async () => (await asOwner((pg) => pg.query<{ completed_at: string }>("SELECT completed_at FROM task_metrics WHERE task_id = $1", [a.id]))).rows[0]?.completed_at;
+        const stamp = async () =>
+            (
+                await asOwner((pg) =>
+                    pg.query<{ completed_at: string }>("SELECT completed_at FROM task_metrics WHERE task_id = $1", [
+                        a.id,
+                    ]),
+                )
+            ).rows[0]?.completed_at;
         const first = await stamp();
         expect(first).toBeTruthy();
         await new Promise((resolve) => setTimeout(resolve, 20));
@@ -651,7 +824,11 @@ describe("task state rules", () => {
     });
 
     it("batch reschedule moves only open tasks", async () => {
-        const [open, done, trashed] = [await create({ title: "Open" }), await create({ title: "Done", state: "COMPLETE" }), await create({ title: "Trash", state: "ARCHIVED" })];
+        const [open, done, trashed] = [
+            await create({ title: "Open" }),
+            await create({ title: "Done", state: "COMPLETE" }),
+            await create({ title: "Trash", state: "ARCHIVED" }),
+        ];
         for (const body of [{ date: "2026-03-10" }, { scheduledStart: "2026-03-10T15:00:00.000Z" }]) {
             const res = await tasks("POST", "/batch/reschedule", { taskIds: [open.id, done.id, trashed.id], ...body });
             expect(titles(res.body.data)).toEqual(["Open"]);
@@ -661,7 +838,12 @@ describe("task state rules", () => {
     });
 
     it("a Fixed block can't be marked Done", async () => {
-        const fixed = await create({ title: "Class", interactionMode: "timetable", scheduledStart: "2026-03-10T15:00:00.000Z", scheduledEnd: "2026-03-10T16:00:00.000Z" });
+        const fixed = await create({
+            title: "Class",
+            interactionMode: "timetable",
+            scheduledStart: "2026-03-10T15:00:00.000Z",
+            scheduledEnd: "2026-03-10T16:00:00.000Z",
+        });
         const normal = await create({ title: "Normal" });
         const batch = await tasks("PATCH", "/batch/state", { taskIds: [fixed.id, normal.id], state: "COMPLETE" });
         expect(titles(batch.body.data)).toEqual(["Normal"]);

@@ -84,7 +84,16 @@ export function HoldingFeed({
     const parse = useParseModule(captureOrder === "priority" || Boolean(definition));
     const ordered = useMemo(() => {
         const rank = (item: InboxItem) => {
-            if (!parse) return { item, priority: 0, effort: null, state: "ACTIVE", projectId: null, dueDate: null, scheduledStart: null };
+            if (!parse)
+                return {
+                    item,
+                    priority: 0,
+                    effort: null,
+                    state: "ACTIVE",
+                    projectId: null,
+                    dueDate: null,
+                    scheduledStart: null,
+                };
             const parsed = parse({
                 input: item.rawText,
                 sourceSurface: "inbox",
@@ -122,7 +131,10 @@ export function HoldingFeed({
         return {
             thoughts: thoughts(feed.thoughts),
             older: thoughts(feed.older),
-            tasks: (definition ? applyFocusView(feed.tasks, definition, { clock: nlpClock(), dayOf: dayOfInstant }) : [...feed.tasks]).sort(compare),
+            tasks: (definition
+                ? applyFocusView(feed.tasks, definition, { clock: nlpClock(), dayOf: dayOfInstant })
+                : [...feed.tasks]
+            ).sort(compare),
         };
     }, [feed.thoughts, feed.older, feed.tasks, definition, captureOrder, settings?.dateTime.dateStyle, parse]);
     const toggle = (id: string) =>
@@ -137,7 +149,15 @@ export function HoldingFeed({
         const overrides = overridesOf(item);
         const dismissedEntityIds = (item.analysis?.dismissedEntityIds ?? []) as string[];
         const dateStyle = settings?.dateTime.dateStyle ?? "mdy";
-        const draft = computeNlp(parseText, { input: item.rawText, projects, tags: [], dismissedEntityIds, sourceSurface: "inbox", dateStyle, capabilities: TASK_FIELDS });
+        const draft = computeNlp(parseText, {
+            input: item.rawText,
+            projects,
+            tags: [],
+            dismissedEntityIds,
+            sourceSurface: "inbox",
+            dateStyle,
+            capabilities: TASK_FIELDS,
+        });
         const where = placementFor(item, { cue: draft.projectId });
         return {
             inboxItemId: item.id,
@@ -148,7 +168,13 @@ export function HoldingFeed({
             tagIds: overrides.tagIds,
             reminderAt: draft.fields.reminderAt,
             notBefore: draft.fields.notBefore,
-            nlp: { rawInput: item.rawText, sourceSurface: "inbox" as const, dateStyle, dismissedEntityIds, userOverrides: overrides },
+            nlp: {
+                rawInput: item.rawText,
+                sourceSurface: "inbox" as const,
+                dateStyle,
+                dismissedEntityIds,
+                userOverrides: overrides,
+            },
         };
     };
     const bulk = (date?: LocalDate, discard = false) => {
@@ -158,7 +184,11 @@ export function HoldingFeed({
                 const parseText = await loadParse();
                 for (const item of [...feed.thoughts, ...feed.older, ...feed.notes].filter((i) => selected.has(i.id))) {
                     if (discard) await status.setStatus(item, "discarded");
-                    else await process.mutateAsync({ ...asTask(item, parseText), ...(date ? { scheduledDay: date } : NO_DAY) });
+                    else
+                        await process.mutateAsync({
+                            ...asTask(item, parseText),
+                            ...(date ? { scheduledDay: date } : NO_DAY),
+                        });
                     setSelected((old) => {
                         const next = new Set(old);
                         next.delete(item.id);
@@ -278,7 +308,13 @@ export function HoldingFeed({
     const thoughtsAction = (sortable.length > 0 || sortAction) && (
         <div className="flex flex-wrap items-center gap-2">
             {sortable.length > 0 && (
-                <Button variant="subtle" size="sm" className="shrink-0 px-2.5" disabled={busy} onClick={() => sortAll()}>
+                <Button
+                    variant="subtle"
+                    size="sm"
+                    className="shrink-0 px-2.5"
+                    disabled={busy}
+                    onClick={() => sortAll()}
+                >
                     Sort all
                 </Button>
             )}
@@ -303,7 +339,9 @@ export function HoldingFeed({
             ))}
         </>
     );
-    const empty = (icon: typeof Inbox, title: string) => <EmptyState compact icon={icon} title={title} description={null} />;
+    const empty = (icon: typeof Inbox, title: string) => (
+        <EmptyState compact icon={icon} title={title} description={null} />
+    );
     const shortcuts = !isTouch && (
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-twilight-text-muted">
             {SHORTCUTS.map(([key, label]) => (
@@ -319,60 +357,61 @@ export function HoldingFeed({
             <div className="flex h-full min-h-0 flex-col">
                 {toolbar}
                 <div className="min-h-0 flex-1">
-                <BucketedCollectionView
-                    view="kanban"
-                    fill
-                    headerIcons
-                    sections={[
-                        {
-                            key: "new",
-                            title: "New",
-                            icon: Inbox,
-                            accentClass: "text-twilight-text-soft",
-                            count: ordered.thoughts.length,
-                            headerAction: thoughtsAction || undefined,
-                            listContent: null,
-                            boardContent: (
-                                <CaptureColumnDrop column="new" className="min-h-full space-y-2">
-                                    {rows(ordered.thoughts)}
-                                    {!ordered.thoughts.length && empty(Inbox, "Nothing new. Add a thought whenever you need.")}
-                                    {ordered.older.length > 0 && (
-                                        <Fold title="Older" count={ordered.older.length}>
-                                            {rows(ordered.older)}
-                                        </Fold>
-                                    )}
-                                </CaptureColumnDrop>
-                            ),
-                        },
-                        {
-                            key: "no-day",
-                            title: "No day yet",
-                            icon: CalendarClock,
-                            accentClass: "text-twilight-text-soft",
-                            count: ordered.tasks.length,
-                            listContent: null,
-                            boardContent: (
-                                <CaptureColumnDrop column="no-day" className="min-h-full space-y-2">
-                                    {taskRows}
-                                    {!ordered.tasks.length && empty(CalendarClock, "No tasks waiting for a day.")}
-                                </CaptureColumnDrop>
-                            ),
-                        },
-                        ...(feed.notes.length
-                            ? [
-                                  {
-                                      key: "notes",
-                                      title: "Notes",
-                                      icon: StickyNote,
-                                      accentClass: "text-twilight-text-soft",
-                                      count: feed.notes.length,
-                                      listContent: null,
-                                      boardContent: <div className="space-y-2">{rows(feed.notes)}</div>,
-                                  },
-                              ]
-                            : []),
-                    ]}
-                />
+                    <BucketedCollectionView
+                        view="kanban"
+                        fill
+                        headerIcons
+                        sections={[
+                            {
+                                key: "new",
+                                title: "New",
+                                icon: Inbox,
+                                accentClass: "text-twilight-text-soft",
+                                count: ordered.thoughts.length,
+                                headerAction: thoughtsAction || undefined,
+                                listContent: null,
+                                boardContent: (
+                                    <CaptureColumnDrop column="new" className="min-h-full space-y-2">
+                                        {rows(ordered.thoughts)}
+                                        {!ordered.thoughts.length &&
+                                            empty(Inbox, "Nothing new. Add a thought whenever you need.")}
+                                        {ordered.older.length > 0 && (
+                                            <Fold title="Older" count={ordered.older.length}>
+                                                {rows(ordered.older)}
+                                            </Fold>
+                                        )}
+                                    </CaptureColumnDrop>
+                                ),
+                            },
+                            {
+                                key: "no-day",
+                                title: "No day yet",
+                                icon: CalendarClock,
+                                accentClass: "text-twilight-text-soft",
+                                count: ordered.tasks.length,
+                                listContent: null,
+                                boardContent: (
+                                    <CaptureColumnDrop column="no-day" className="min-h-full space-y-2">
+                                        {taskRows}
+                                        {!ordered.tasks.length && empty(CalendarClock, "No tasks waiting for a day.")}
+                                    </CaptureColumnDrop>
+                                ),
+                            },
+                            ...(feed.notes.length
+                                ? [
+                                      {
+                                          key: "notes",
+                                          title: "Notes",
+                                          icon: StickyNote,
+                                          accentClass: "text-twilight-text-soft",
+                                          count: feed.notes.length,
+                                          listContent: null,
+                                          boardContent: <div className="space-y-2">{rows(feed.notes)}</div>,
+                                      },
+                                  ]
+                                : []),
+                        ]}
+                    />
                 </div>
                 {shortcuts && <div className="shrink-0 px-4 pb-4 sm:px-6 lg:px-8">{shortcuts}</div>}
             </div>
@@ -382,35 +421,40 @@ export function HoldingFeed({
             {toolbar}
             {greet && ordered.thoughts.length > 0 && <CaptureWindow variant="band" />}
             <CaptureColumnDrop column="new">
-            <section aria-label="New" className="flex flex-col gap-3">
-                <BucketedSectionHeader
-                    title="New"
-                    icon={Inbox}
-                    accentClass="text-twilight-text-soft"
-                    count={ordered.thoughts.length}
-                    headerAction={thoughtsAction || undefined}
-                    fold={newFold}
-                />
-                <Reveal open={newFold.open} id={newFold.id}>
-                    <div className="space-y-2">{rows(ordered.thoughts)}</div>
-                    {!ordered.thoughts.length && (greet ? <CaptureWindow variant="empty" /> : empty(Inbox, "Nothing new. Add a thought whenever you need."))}
-                </Reveal>
-            </section>
+                <section aria-label="New" className="flex flex-col gap-3">
+                    <BucketedSectionHeader
+                        title="New"
+                        icon={Inbox}
+                        accentClass="text-twilight-text-soft"
+                        count={ordered.thoughts.length}
+                        headerAction={thoughtsAction || undefined}
+                        fold={newFold}
+                    />
+                    <Reveal open={newFold.open} id={newFold.id}>
+                        <div className="space-y-2">{rows(ordered.thoughts)}</div>
+                        {!ordered.thoughts.length &&
+                            (greet ? (
+                                <CaptureWindow variant="empty" />
+                            ) : (
+                                empty(Inbox, "Nothing new. Add a thought whenever you need.")
+                            ))}
+                    </Reveal>
+                </section>
             </CaptureColumnDrop>
             <CaptureColumnDrop column="no-day">
-            <section aria-label="No day yet" className="flex flex-col gap-3">
-                <BucketedSectionHeader
-                    title="No day yet"
-                    icon={CalendarClock}
-                    accentClass="text-twilight-text-soft"
-                    count={ordered.tasks.length}
-                    fold={dayFold}
-                />
-                <Reveal open={dayFold.open} id={dayFold.id}>
-                    <div className="space-y-2">{taskRows}</div>
-                    {!ordered.tasks.length && empty(CalendarClock, "No tasks waiting for a day.")}
-                </Reveal>
-            </section>
+                <section aria-label="No day yet" className="flex flex-col gap-3">
+                    <BucketedSectionHeader
+                        title="No day yet"
+                        icon={CalendarClock}
+                        accentClass="text-twilight-text-soft"
+                        count={ordered.tasks.length}
+                        fold={dayFold}
+                    />
+                    <Reveal open={dayFold.open} id={dayFold.id}>
+                        <div className="space-y-2">{taskRows}</div>
+                        {!ordered.tasks.length && empty(CalendarClock, "No tasks waiting for a day.")}
+                    </Reveal>
+                </section>
             </CaptureColumnDrop>
             {ordered.older.length > 0 && (
                 <Fold title="Older" count={ordered.older.length}>
@@ -443,24 +487,26 @@ function Fold({ title, count, children }: { title: string; count: number; childr
     const id = useId();
     return (
         <div>
-            <Tip label={open ? "Collapse" : "Expand"}><button
-                type="button"
-                onClick={() => setOpen((value) => !value)}
-                aria-expanded={open}
-                aria-controls={id}
-                className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-            >
-                <ChevronRight
-                    size={14}
-                    aria-hidden
-                    className={`text-twilight-text-soft transition-transform duration-200 ${open ? "rotate-90" : ""}`}
-                />
-                <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-twilight-text">
-                    {title}
-                </span>
-                <span className="ml-1 text-[12px] tabular-nums text-twilight-text-soft/90">{count}</span>
-                <span className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
-            </button></Tip>
+            <Tip label={open ? "Collapse" : "Expand"}>
+                <button
+                    type="button"
+                    onClick={() => setOpen((value) => !value)}
+                    aria-expanded={open}
+                    aria-controls={id}
+                    className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                >
+                    <ChevronRight
+                        size={14}
+                        aria-hidden
+                        className={`text-twilight-text-soft transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+                    />
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-twilight-text">
+                        {title}
+                    </span>
+                    <span className="ml-1 text-[12px] tabular-nums text-twilight-text-soft/90">{count}</span>
+                    <span className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
+                </button>
+            </Tip>
             <Reveal open={open} id={id}>
                 <div className="mb-2 mt-1 space-y-2">{children}</div>
             </Reveal>

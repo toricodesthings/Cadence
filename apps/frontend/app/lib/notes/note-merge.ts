@@ -36,7 +36,8 @@ function hunks(base: string[], other: string[]): Hunk[] | null {
     return out;
 }
 
-const sameHunk = (x: Hunk, y: Hunk) => x.start === y.start && x.end === y.end && x.lines.join("\n") === y.lines.join("\n");
+const sameHunk = (x: Hunk, y: Hunk) =>
+    x.start === y.start && x.end === y.end && x.lines.join("\n") === y.lines.join("\n");
 const touches = (x: Hunk, y: Hunk) => x.start <= y.end && y.start <= x.end;
 const fences = (text: string) => (text.match(/^\s*(```|~~~)/gm) ?? []).length % 2;
 

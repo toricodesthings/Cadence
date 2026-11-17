@@ -32,11 +32,13 @@ describe("api/client", () => {
         platformFetchMock.mockReset();
         tokenFetchMock.mockReset().mockResolvedValue(Response.json({ token: null }));
         vi.stubGlobal("fetch", tokenFetchMock);
-        platformFetchMock.mockImplementation(async (_input, init) => Response.json({
-            headers: Object.fromEntries(new Headers(init?.headers).entries()),
-            cache: init?.cache ?? null,
-            method: init?.method ?? "GET",
-        }));
+        platformFetchMock.mockImplementation(async (_input, init) =>
+            Response.json({
+                headers: Object.fromEntries(new Headers(init?.headers).entries()),
+                cache: init?.cache ?? null,
+                method: init?.method ?? "GET",
+            }),
+        );
     });
 
     it("returns headers before consuming a JSON body and records only bounded diagnostics", async () => {
@@ -45,24 +47,49 @@ describe("api/client", () => {
         resetStartupTiming();
         seedAuthJwtCache(jwt({ sub: "user", exp: liveExpiry }), "user");
         let controller!: ReadableStreamDefaultController<Uint8Array>;
-        const response = new Response(new ReadableStream<Uint8Array>({ start(value) { controller = value; } }), { status: 503 });
+        const response = new Response(
+            new ReadableStream<Uint8Array>({
+                start(value) {
+                    controller = value;
+                },
+            }),
+            { status: 503 },
+        );
         platformFetchMock.mockResolvedValue(response);
         const result = await apiClient.api.tasks.$get({ query: {} });
         expect(result.bodyUsed).toBe(false);
         const body = result.json();
-        controller.enqueue(new TextEncoder().encode(JSON.stringify({ error: { code: "INTERNAL_ERROR", message: "private content" } })));
+        controller.enqueue(
+            new TextEncoder().encode(JSON.stringify({ error: { code: "INTERNAL_ERROR", message: "private content" } })),
+        );
         controller.close();
         await body;
         const samples = collectStartupSamples({ route: "capture", platform: "web", viewport: "wide", cache: "cold" });
-        expect(samples.filter(s => s.phase === "api" || s.phase === "api_body").map(s => [s.phase, s.endpoint, s.status])).toEqual([["api", "tasks_open", 503], ["api_body", "tasks_open", 503]]);
-        expect(samples.find(s => s.phase === "api_body")).toMatchObject({ outcome: "error", error_code: "INTERNAL_ERROR" });
+        expect(
+            samples
+                .filter((s) => s.phase === "api" || s.phase === "api_body")
+                .map((s) => [s.phase, s.endpoint, s.status]),
+        ).toEqual([
+            ["api", "tasks_open", 503],
+            ["api_body", "tasks_open", 503],
+        ]);
+        expect(samples.find((s) => s.phase === "api_body")).toMatchObject({
+            outcome: "error",
+            error_code: "INTERNAL_ERROR",
+        });
         expect(JSON.stringify(samples)).not.toContain("private content");
     });
 
     const jwt = (payload: object) => `e30.${btoa(JSON.stringify(payload)).replaceAll("=", "")}.signature`;
     it("seeds only an unexpired JWT belonging to the resolved account", async () => {
         const { seedAuthJwtCache, authenticatedFetch } = await import("../../../../app/lib/api/client");
-        for (const token of ["session-cookie", "x.invalid.y", jwt({ sub: "other", exp: liveExpiry }), jwt({ sub: "user", exp: Date.now() / 1000 + 2 }), jwt({ sub: "user" })]) {
+        for (const token of [
+            "session-cookie",
+            "x.invalid.y",
+            jwt({ sub: "other", exp: liveExpiry }),
+            jwt({ sub: "user", exp: Date.now() / 1000 + 2 }),
+            jwt({ sub: "user" }),
+        ]) {
             expect(seedAuthJwtCache(token, "user")).toBe(false);
         }
         const token = jwt({ sub: "user", exp: liveExpiry });
@@ -103,9 +130,11 @@ describe("api/client", () => {
     it("shares token acquisition across concurrent requests and skips session reads on cache hits", async () => {
         tokenFetchMock.mockImplementation(async () => Response.json({ token: jwt({ sub: "user", exp: liveExpiry }) }));
         const { authenticatedFetch } = await import("../../../../app/lib/api/client");
-        await Promise.all(["tasks", "projects", "settings"].map((path) =>
-            authenticatedFetch(`/api/${path}`, { authenticated: true }),
-        ));
+        await Promise.all(
+            ["tasks", "projects", "settings"].map((path) =>
+                authenticatedFetch(`/api/${path}`, { authenticated: true }),
+            ),
+        );
         await authenticatedFetch("/api/tags", { authenticated: true });
         expect(tokenFetchMock).toHaveBeenCalledTimes(1);
         expect(getSessionMock).not.toHaveBeenCalled();
@@ -124,7 +153,9 @@ describe("api/client", () => {
         expect(platformFetchMock).not.toHaveBeenCalled();
         tokenFetchMock.mockResolvedValueOnce(Response.json({ token: jwt({ sub: "new", exp: liveExpiry }) }));
         await authenticatedFetch("/api/tasks", { authenticated: true });
-        expect(new Headers(platformFetchMock.mock.calls[0][1].headers).get("Authorization")).toBe(`Bearer ${jwt({ sub: "new", exp: liveExpiry })}`);
+        expect(new Headers(platformFetchMock.mock.calls[0][1].headers).get("Authorization")).toBe(
+            `Bearer ${jwt({ sub: "new", exp: liveExpiry })}`,
+        );
     });
 
     it("injects bearer tokens and disables GET caching for authenticated requests", async () => {
@@ -134,7 +165,7 @@ describe("api/client", () => {
 
         const { authenticatedFetch } = await import("../../../../app/lib/api/client");
         const response = await authenticatedFetch("/api/tasks", { authenticated: true });
-        const body = await response.json() as EchoedRequest;
+        const body = (await response.json()) as EchoedRequest;
 
         expect(body.headers.authorization).toBe(`Bearer ${jwt({ sub: "user", exp: liveExpiry })}`);
         expect(body.cache).toBe("no-store");
@@ -152,7 +183,7 @@ describe("api/client", () => {
             method: "POST",
             body: JSON.stringify({ title: "Create" }),
         });
-        const body = await response.json() as EchoedRequest;
+        const body = (await response.json()) as EchoedRequest;
 
         expect(body.headers.authorization).toBe(`Bearer ${jwt({ sub: "user", exp: liveExpiry })}`);
         expect(body.cache).toBeNull();
@@ -162,22 +193,30 @@ describe("api/client", () => {
     it("reports no connection as a network error, never as signed out", async () => {
         tokenFetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
         const { authenticatedFetch, clearAuthJwtCache } = await import("../../../../app/lib/api/client");
-        await expect(authenticatedFetch("/api/tasks", { authenticated: true }))
-            .rejects.toMatchObject({ code: "NETWORK_UNAVAILABLE", isAuthError: false });
+        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({
+            code: "NETWORK_UNAVAILABLE",
+            isAuthError: false,
+        });
 
         clearAuthJwtCache();
         tokenFetchMock.mockResolvedValue(Response.json({ token: jwt({ sub: "a", exp: liveExpiry }) }));
         platformFetchMock.mockRejectedValueOnce(new TypeError("Load failed"));
-        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({ code: "NETWORK_UNAVAILABLE" });
+        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({
+            code: "NETWORK_UNAVAILABLE",
+        });
 
         // A captive portal answers with its own page.
         platformFetchMock.mockResolvedValueOnce(new Response("<html>", { headers: { "content-type": "text/html" } }));
-        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({ code: "NETWORK_UNAVAILABLE" });
+        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({
+            code: "NETWORK_UNAVAILABLE",
+        });
 
         // ...including to the token request, which must not read as signed out.
         clearAuthJwtCache();
         tokenFetchMock.mockResolvedValueOnce(new Response("<html>", { headers: { "content-type": "text/html" } }));
-        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({ code: "NETWORK_UNAVAILABLE" });
+        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({
+            code: "NETWORK_UNAVAILABLE",
+        });
         expect(getSessionMock).not.toHaveBeenCalled();
     });
 
@@ -187,12 +226,13 @@ describe("api/client", () => {
         const { authenticatedFetch } = await import("../../../../app/lib/api/client");
         const { ApiErrorResponse } = await import("../../../../app/types/api");
 
-        await expect(
-            authenticatedFetch("/api/tasks", { authenticated: true }),
-        ).rejects.toBeInstanceOf(ApiErrorResponse);
-        await expect(
-            authenticatedFetch("/api/tasks", { authenticated: true }),
-        ).rejects.toMatchObject({ code: "UNAUTHORIZED", status: 401 });
+        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toBeInstanceOf(
+            ApiErrorResponse,
+        );
+        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({
+            code: "UNAUTHORIZED",
+            status: 401,
+        });
     });
     it("cancels promptly during shared token acquisition without cancelling another caller", async () => {
         const pending = Promise.withResolvers<Response>();
@@ -210,17 +250,20 @@ describe("api/client", () => {
         expect(tokenFetchMock).toHaveBeenCalledTimes(1);
     });
 
-
-
     it("refreshes a rejected assistant POST once with its body and idempotency key intact", async () => {
         const { authenticatedFetch, seedAuthJwtCache } = await import("../../../../app/lib/api/client");
         seedAuthJwtCache(jwt({ sub: "user", exp: Date.now() / 1000 + 60 }), "user");
         const fresh = jwt({ sub: "user", exp: Date.now() / 1000 + 120 });
         tokenFetchMock.mockResolvedValue(Response.json({ token: fresh }));
-        platformFetchMock.mockResolvedValueOnce(new Response(null, { status: 401 })).mockResolvedValueOnce(new Response("ok"));
+        platformFetchMock
+            .mockResolvedValueOnce(new Response(null, { status: 401 }))
+            .mockResolvedValueOnce(new Response("ok"));
         const body = JSON.stringify({ message: "Help me plan" });
         const response = await authenticatedFetch("/api/v1/ai/chat", {
-            authenticated: true, method: "POST", body, headers: { "Idempotency-Key": "message-1" },
+            authenticated: true,
+            method: "POST",
+            body,
+            headers: { "Idempotency-Key": "message-1" },
         });
         expect(response.status).toBe(200);
         expect(platformFetchMock).toHaveBeenCalledTimes(2);
@@ -236,11 +279,16 @@ describe("api/client", () => {
         seedAuthJwtCache(old, "user");
         const fresh = jwt({ sub: "user", exp: Date.now() / 1000 + 120 });
         tokenFetchMock.mockImplementation(async () => Response.json({ token: fresh }));
-        platformFetchMock.mockImplementation(async (_input, init) => new Response(null, {
-            status: new Headers(init.headers).get("Authorization") === `Bearer ${old}` ? 401 : 200,
-        }));
-        const responses = await Promise.all(["tasks", "ai/chat", "settings"].map(path => authenticatedFetch(`/api/${path}`, { authenticated: true })));
-        expect(responses.map(r => r.status)).toEqual([200, 200, 200]);
+        platformFetchMock.mockImplementation(
+            async (_input, init) =>
+                new Response(null, {
+                    status: new Headers(init.headers).get("Authorization") === `Bearer ${old}` ? 401 : 200,
+                }),
+        );
+        const responses = await Promise.all(
+            ["tasks", "ai/chat", "settings"].map((path) => authenticatedFetch(`/api/${path}`, { authenticated: true })),
+        );
+        expect(responses.map((r) => r.status)).toEqual([200, 200, 200]);
         expect(tokenFetchMock).toHaveBeenCalledTimes(1);
     });
 
@@ -264,13 +312,19 @@ describe("api/client", () => {
         const expired = vi.fn();
         const unsubscribe = subscribeSessionExpiry(expired);
         getSessionMock.mockResolvedValue({ data: null });
-        localStorage.setItem("desktop_oauth_session", JSON.stringify({
-            jwt: jwt({ sub: "user", exp: Date.now() / 1000 - 60 }),
-            data: { user: { id: "user" }, session: {} }, persistedAt: Date.now() - 120_000,
-        }));
+        localStorage.setItem(
+            "desktop_oauth_session",
+            JSON.stringify({
+                jwt: jwt({ sub: "user", exp: Date.now() / 1000 - 60 }),
+                data: { user: { id: "user" }, session: {} },
+                persistedAt: Date.now() - 120_000,
+            }),
+        );
         await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({ status: 401 });
         expect(platformFetchMock).not.toHaveBeenCalled();
-        expect(getSessionMock).toHaveBeenCalledWith({ fetchOptions: { headers: { "X-Force-Fetch": "true" }, cache: "no-store" } });
+        expect(getSessionMock).toHaveBeenCalledWith({
+            fetchOptions: { headers: { "X-Force-Fetch": "true" }, cache: "no-store" },
+        });
         expect(expired).toHaveBeenCalledOnce();
         unsubscribe();
     });
@@ -291,7 +345,8 @@ describe("api/client", () => {
     });
 
     it("does not expire a new account when an old request returns 401", async () => {
-        const { authenticatedFetch, seedAuthJwtCache, clearAuthJwtCache } = await import("../../../../app/lib/api/client");
+        const { authenticatedFetch, seedAuthJwtCache, clearAuthJwtCache } =
+            await import("../../../../app/lib/api/client");
         const { subscribeSessionExpiry } = await import("../../../../app/lib/auth/session");
         const expired = vi.fn();
         const unsubscribe = subscribeSessionExpiry(expired);
@@ -317,13 +372,16 @@ describe("api/client", () => {
         seedAuthJwtCache(jwt({ sub: "user", exp: Date.now() / 1000 + 60 }), "user");
         platformFetchMock.mockResolvedValueOnce(new Response(null, { status: 401 }));
         tokenFetchMock.mockResolvedValueOnce(new Response(null, { status: 503 }));
-        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({ code: "NETWORK_UNAVAILABLE" });
+        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({
+            code: "NETWORK_UNAVAILABLE",
+        });
         expect(expired).not.toHaveBeenCalled();
         unsubscribe();
     });
 
     it("holds API calls during a warm start until the real session seeds its JWT", async () => {
-        const { holdForSession, releaseSessionHold, seedAuthJwtCache, authenticatedFetch, isSessionHeld } = await import("../../../../app/lib/api/client");
+        const { holdForSession, releaseSessionHold, seedAuthJwtCache, authenticatedFetch, isSessionHeld } =
+            await import("../../../../app/lib/api/client");
         holdForSession();
         expect(isSessionHeld()).toBe(true);
         const request = authenticatedFetch("/api/tasks", { authenticated: true });
@@ -332,13 +390,14 @@ describe("api/client", () => {
         const token = jwt({ sub: "user", exp: liveExpiry });
         seedAuthJwtCache(token, "user");
         releaseSessionHold();
-        const body = await (await request).json() as EchoedRequest;
+        const body = (await (await request).json()) as EchoedRequest;
         expect(body.headers.authorization).toBe(`Bearer ${token}`);
         expect(tokenFetchMock).not.toHaveBeenCalled();
         expect(isSessionHeld()).toBe(false);
     });
     it("aborts held calls when the session check answers with another account", async () => {
-        const { holdForSession, releaseSessionHold, clearAuthJwtCache, authenticatedFetch } = await import("../../../../app/lib/api/client");
+        const { holdForSession, releaseSessionHold, clearAuthJwtCache, authenticatedFetch } =
+            await import("../../../../app/lib/api/client");
         holdForSession();
         const request = authenticatedFetch("/api/tasks", { authenticated: true });
         clearAuthJwtCache();

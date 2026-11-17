@@ -9,8 +9,20 @@ const mocks = vi.hoisted(() => ({
     retryAndReplay: vi.fn().mockResolvedValue(undefined),
     removeWalEntry: vi.fn().mockResolvedValue(undefined),
 }));
-let walSnapshot: Array<{ id: string; op: { type: string; id: string }; status: string; error?: string; createdAt: number }> = [];
-const entry = (status: string, id = "1") => ({ id, op: { type: "delete_task", id: `task-${id}` }, status, error: "It may have been deleted.", createdAt: Date.now() });
+let walSnapshot: Array<{
+    id: string;
+    op: { type: string; id: string };
+    status: string;
+    error?: string;
+    createdAt: number;
+}> = [];
+const entry = (status: string, id = "1") => ({
+    id,
+    op: { type: "delete_task", id: `task-${id}` },
+    status,
+    error: "It may have been deleted.",
+    createdAt: Date.now(),
+});
 
 vi.mock("../../../app/lib/api/offline-wal", () => ({
     subscribeWal: () => () => {},
@@ -21,13 +33,20 @@ vi.mock("../../../app/lib/api/offline-wal", () => ({
     walTargetIds: (op: { id: string }) => [op.id],
 }));
 
-vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ authReady: true, isAuthenticated: true, session: null }) }));
+vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
+    useAuthState: () => ({ authReady: true, isAuthenticated: true, session: null }),
+}));
 vi.mock("../../../app/lib/api/mutation-executor", () => ({ retryAndReplay: mocks.retryAndReplay, replayWal: vi.fn() }));
 
 const Client = withClient();
-const renderBanner = () => render(<OfflineBanner />, {
-    wrapper: ({ children }) => <Client><TooltipProvider>{children}</TooltipProvider></Client>,
-});
+const renderBanner = () =>
+    render(<OfflineBanner />, {
+        wrapper: ({ children }) => (
+            <Client>
+                <TooltipProvider>{children}</TooltipProvider>
+            </Client>
+        ),
+    });
 
 describe("OfflineBanner", () => {
     beforeEach(() => {

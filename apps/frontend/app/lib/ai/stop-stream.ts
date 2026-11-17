@@ -38,9 +38,7 @@ export async function stopServerStream(
     const body: StopStreamRequest = {
         activeStreamId: activeStreamId ?? undefined,
         assistantMessage:
-            lastMessage?.role === "assistant"
-                ? (lastMessage as StopStreamRequest["assistantMessage"])
-                : undefined,
+            lastMessage?.role === "assistant" ? (lastMessage as StopStreamRequest["assistantMessage"]) : undefined,
     };
 
     await apiClient.api.ai.chat[":id"].stop.$post({ param: { id: conversationId }, json: body });

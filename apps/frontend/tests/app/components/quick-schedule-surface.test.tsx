@@ -12,7 +12,11 @@ const NONE = { endDate: null, scheduledStart: null, scheduledEnd: null, recurren
 
 function setup(extra: Partial<React.ComponentProps<typeof QuickScheduleSurface>> = {}) {
     const onChange = vi.fn();
-    render(<Provider><QuickScheduleSurface {...props} {...extra} onChange={onChange} /></Provider>);
+    render(
+        <Provider>
+            <QuickScheduleSurface {...props} {...extra} onChange={onChange} />
+        </Provider>,
+    );
     return onChange;
 }
 
@@ -33,7 +37,10 @@ describe("QuickScheduleSurface", () => {
     });
 
     it("moves a timed block to another day at the same local time, as instants", () => {
-        const onChange = setup({ scheduledStart: "2026-10-05T13:00:00.000Z", scheduledEnd: "2026-10-05T14:30:00.000Z" }); // 09:00-10:30 EDT
+        const onChange = setup({
+            scheduledStart: "2026-10-05T13:00:00.000Z",
+            scheduledEnd: "2026-10-05T14:30:00.000Z",
+        }); // 09:00-10:30 EDT
         fireEvent.click(screen.getByRole("button", { name: "Tomorrow" }));
         expect(onChange).toHaveBeenLastCalledWith({
             dueDate: null,
@@ -49,7 +56,9 @@ describe("QuickScheduleSurface", () => {
         const onChange = setup({ scheduledStart: "2026-10-30T13:00:00.000Z" });
         vi.setSystemTime(new Date("2026-10-30T14:00:00.000Z"));
         fireEvent.click(screen.getByRole("button", { name: "Next Monday" })); // 2026-11-02
-        expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ scheduledStart: "2026-11-02T14:00:00.000Z" }));
+        expect(onChange).toHaveBeenLastCalledWith(
+            expect.objectContaining({ scheduledStart: "2026-11-02T14:00:00.000Z" }),
+        );
     });
 
     it("clears every schedule field", () => {

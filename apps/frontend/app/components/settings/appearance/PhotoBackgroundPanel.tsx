@@ -78,11 +78,18 @@ function AccentPicker({ image, onAdjust }: Pick<PhotoBackgroundPanelProps, "imag
                     />
                 ))}
                 <Tip label="Choose any accent color" side="top">
-                    <label className={cn(
-                        "relative flex h-11 w-11 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-twilight-border-light focus-within:ring-2 focus-within:ring-accent-primary",
-                        image.accent && !swatches.includes(image.accent) && "ring-2 ring-accent-primary",
-                    )} style={image.accent && !swatches.includes(image.accent) ? { background: image.accent } : undefined}>
-                        <span className="rounded bg-twilight-deep/90 p-1 text-twilight-text"><Pipette size={16} aria-hidden="true" /></span>
+                    <label
+                        className={cn(
+                            "relative flex h-11 w-11 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-twilight-border-light focus-within:ring-2 focus-within:ring-accent-primary",
+                            image.accent && !swatches.includes(image.accent) && "ring-2 ring-accent-primary",
+                        )}
+                        style={
+                            image.accent && !swatches.includes(image.accent) ? { background: image.accent } : undefined
+                        }
+                    >
+                        <span className="rounded bg-twilight-deep/90 p-1 text-twilight-text">
+                            <Pipette size={16} aria-hidden="true" />
+                        </span>
                         <input
                             type="color"
                             aria-label="Custom photo accent"
@@ -93,17 +100,15 @@ function AccentPicker({ image, onAdjust }: Pick<PhotoBackgroundPanelProps, "imag
                     </label>
                 </Tip>
             </div>
-            <p className="text-xs text-twilight-text-muted">Choose a color from your photo, or pick any color with the eyedropper. Cadence adjusts it for readable contrast.</p>
+            <p className="text-xs text-twilight-text-muted">
+                Choose a color from your photo, or pick any color with the eyedropper. Cadence adjusts it for readable
+                contrast.
+            </p>
         </div>
     );
 }
 
-export function PhotoBackgroundPanel({
-    image,
-    uploading,
-    onChoosePhoto,
-    onAdjust,
-}: PhotoBackgroundPanelProps) {
+export function PhotoBackgroundPanel({ image, uploading, onChoosePhoto, onAdjust }: PhotoBackgroundPanelProps) {
     const [confirmingDelete, setConfirmingDelete] = useState(false);
 
     const remove = useDeleteBackgroundImage();
@@ -113,9 +118,12 @@ export function PhotoBackgroundPanel({
         <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-twilight-text-muted">
             <Lock size={11} className="mt-0.5 shrink-0" aria-hidden="true" />
             <span>
-                Kept in private storage and shown only to you. Location and camera details are stripped before it
-                leaves this device.{" "}
-                <ExternalLink href={CADENCE_PRIVACY_URL} className="underline underline-offset-2 hover:text-twilight-text-soft">
+                Kept in private storage and shown only to you. Location and camera details are stripped before it leaves
+                this device.{" "}
+                <ExternalLink
+                    href={CADENCE_PRIVACY_URL}
+                    className="underline underline-offset-2 hover:text-twilight-text-soft"
+                >
                     How Cadence handles it
                 </ExternalLink>
                 .
@@ -198,8 +206,8 @@ export function PhotoBackgroundPanel({
                     <AlertDialog.Header>
                         <AlertDialog.Title>Delete this background?</AlertDialog.Title>
                         <AlertDialog.Description>
-                            The photo is removed from Cadence's storage for good, and your background returns to
-                            your theme.
+                            The photo is removed from Cadence's storage for good, and your background returns to your
+                            theme.
                         </AlertDialog.Description>
                     </AlertDialog.Header>
                     <AlertDialog.Footer>

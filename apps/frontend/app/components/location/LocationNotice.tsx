@@ -23,9 +23,12 @@ export function LocationNotice() {
                     <MapPin size={16} aria-hidden="true" />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-twilight-text">Weather and holidays use your approximate area</p>
+                    <p className="text-sm font-medium text-twilight-text">
+                        Weather and holidays use your approximate area
+                    </p>
                     <p className="mt-1 text-sm leading-relaxed text-twilight-text-soft">
-                        Cadence estimates it from your network connection, so there&apos;s no permission prompt. You can change this any time in Settings.
+                        Cadence estimates it from your network connection, so there&apos;s no permission prompt. You can
+                        change this any time in Settings.
                     </p>
                 </div>
                 <button

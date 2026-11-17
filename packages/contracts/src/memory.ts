@@ -53,11 +53,13 @@ export const memoryPageSchema = z.object({
      * Full's read of the last 3 months: a rough share done (chats by how far back it has read, then notes) and
      * what it learned. Kept for a week after it finishes, for the "Done" line; null otherwise.
      */
-    catchUp: z.object({
-        progress: z.number().min(0).max(1),
-        learned: z.number().int().min(0),
-        doneAt: instantSchema.nullable(),
-    }).nullable(),
+    catchUp: z
+        .object({
+            progress: z.number().min(0).max(1),
+            learned: z.number().int().min(0),
+            doneAt: instantSchema.nullable(),
+        })
+        .nullable(),
     facts: z.array(memoryFactSchema),
     /** Pass to `GET /ai/memory?cursor=` for the next 30 older facts; null at the end. */
     nextCursor: z.string().nullable(),
@@ -74,7 +76,12 @@ export type SetMemoryMode = z.infer<typeof setMemoryModeSchema>;
 /** How long something took, as the person said it: one number, or a range ("30-60"). */
 export const durationValueSchema = z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("point"), minutes: z.number().int().min(1).max(1440) }),
-    z.object({ kind: z.literal("range"), lowMinutes: z.number().int().min(1).max(1440), highMinutes: z.number().int().min(1).max(1440) })
+    z
+        .object({
+            kind: z.literal("range"),
+            lowMinutes: z.number().int().min(1).max(1440),
+            highMinutes: z.number().int().min(1).max(1440),
+        })
         .refine((v) => v.lowMinutes < v.highMinutes, "low must be below high"),
 ]);
 export type DurationValue = z.infer<typeof durationValueSchema>;
@@ -102,7 +109,11 @@ export const durationReportViewSchema = z.object({
 export type DurationReportView = z.infer<typeof durationReportViewSchema>;
 
 /** How long a routine took on one marked day (and, for a routine at set times, one marked time). */
-export const routineDurationKeySchema = z.object({ habitId: z.uuid(), day: localDateSchema, time: wallTimeSchema.nullable().optional() });
+export const routineDurationKeySchema = z.object({
+    habitId: z.uuid(),
+    day: localDateSchema,
+    time: wallTimeSchema.nullable().optional(),
+});
 export type RoutineDurationKey = z.infer<typeof routineDurationKeySchema>;
 /** `POST /ai/memory/duration/routine`: the day must be marked done; a second answer for the same day and time replaces the first. */
 export const routineDurationSchema = routineDurationKeySchema.extend({
@@ -111,7 +122,11 @@ export const routineDurationSchema = routineDurationKeySchema.extend({
 });
 export type RoutineDuration = z.input<typeof routineDurationSchema>;
 /** `GET|DELETE /ai/memory/duration/routine` query. */
-export const routineDurationQuerySchema = z.object({ habitId: z.uuid(), day: localDateSchema, time: wallTimeSchema.optional() });
+export const routineDurationQuerySchema = z.object({
+    habitId: z.uuid(),
+    day: localDateSchema,
+    time: wallTimeSchema.optional(),
+});
 export const routineDurationViewSchema = z.object({
     habitId: z.uuid(),
     day: localDateSchema,
@@ -126,7 +141,12 @@ export type RoutineDurationView = z.infer<typeof routineDurationViewSchema>;
 export const durationAskSchema = z.object({ taskId: z.uuid() });
 export const durationAskResultSchema = z.union([
     z.object({ ask: z.literal(false) }),
-    z.object({ ask: z.literal(true), token: z.string(), completedAt: instantSchema, reference: z.number().int().positive().nullable() }),
+    z.object({
+        ask: z.literal(true),
+        token: z.string(),
+        completedAt: instantSchema,
+        reference: z.number().int().positive().nullable(),
+    }),
 ]);
 export type DurationAskResult = z.infer<typeof durationAskResultSchema>;
 
@@ -153,7 +173,10 @@ export type DurationEvidenceRow = z.infer<typeof durationEvidenceRowSchema>;
 
 /** `DELETE /ai/memory` query: also switch memory off. */
 export const clearMemoryQuerySchema = z.object({
-    turnOff: z.enum(["true", "false"]).optional().transform((value) => value === "true"),
+    turnOff: z
+        .enum(["true", "false"])
+        .optional()
+        .transform((value) => value === "true"),
 });
 
 /** What `remember` hands back, and the chat shows as "Remembered: … · Undo". `kept`: it was already known (seen once more), so there is nothing to undo. */

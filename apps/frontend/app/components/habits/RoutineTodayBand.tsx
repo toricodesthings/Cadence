@@ -28,7 +28,9 @@ function ProgressRing({ done, total, still }: { done: number; total: number; sti
                     className={`stroke-moonlit ${still ? "" : "transition-[stroke-dashoffset] duration-500 motion-reduce:transition-none"}`}
                 />
             </svg>
-            <span className="text-xs font-semibold tabular-nums text-twilight-text">{done}/{total}</span>
+            <span className="text-xs font-semibold tabular-nums text-twilight-text">
+                {done}/{total}
+            </span>
         </span>
     );
 }
@@ -38,7 +40,13 @@ function ProgressRing({ done, total, still }: { done: number; total: number; sti
  * Today), done ones folded, beside a ring with the count; side by side on wide
  * screens. Same surface as Today's routine section. Collapsing is remembered on this device.
  */
-export function RoutineTodayBand({ habits, today, bloom, columns, onOpen }: {
+export function RoutineTodayBand({
+    habits,
+    today,
+    bloom,
+    columns,
+    onOpen,
+}: {
     habits: Habit[];
     today: string;
     bloom: boolean;
@@ -52,9 +60,12 @@ export function RoutineTodayBand({ habits, today, bloom, columns, onOpen }: {
     if (!items.length) return null;
     const done = items.filter((item) => item.done).length;
     const next = items.find((item) => !item.done && item.time);
-    const line = done === items.length
-        ? "All done for today"
-        : next ? `Next at ${formatTime(`${today}T${next.time}:00`)} · ${next.title}` : `${items.length - done} left, any time today`;
+    const line =
+        done === items.length
+            ? "All done for today"
+            : next
+              ? `Next at ${formatTime(`${today}T${next.time}:00`)} · ${next.title}`
+              : `${items.length - done} left, any time today`;
 
     const toggle = () => setCollapsed(!collapsed);
 
@@ -75,7 +86,11 @@ export function RoutineTodayBand({ habits, today, bloom, columns, onOpen }: {
                     aria-label={collapsed ? "Show today's routines" : "Hide today's routines"}
                     className="btn-icon cursor-pointer rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
                 >
-                    <ChevronDown size={16} aria-hidden="true" className={`transition-transform ${collapsed ? "" : "rotate-180"}`} />
+                    <ChevronDown
+                        size={16}
+                        aria-hidden="true"
+                        className={`transition-transform ${collapsed ? "" : "rotate-180"}`}
+                    />
                 </button>
             </div>
             <Reveal open={!collapsed} id="routine-today-band">
@@ -85,7 +100,13 @@ export function RoutineTodayBand({ habits, today, bloom, columns, onOpen }: {
                         animate={bloom}
                         columns={columns}
                         onOpen={onOpen}
-                        onComplete={(item) => resolve({ habitId: item.habitId, targetDate: today, status: item.done ? "PENDING" : "COMPLETED" })}
+                        onComplete={(item) =>
+                            resolve({
+                                habitId: item.habitId,
+                                targetDate: today,
+                                status: item.done ? "PENDING" : "COMPLETED",
+                            })
+                        }
                     />
                 </div>
             </Reveal>

@@ -21,9 +21,21 @@ function checkboxSubject(task: Task | undefined, subtask: Subtask | undefined) {
     if (task) {
         // A Fixed block passes on its own: no check-off.
         const fixed = !supportsManualTaskCompletion(task);
-        return { id: task.id, title: task.title, fixed, isComplete: task.state === "COMPLETE", isWaiting: task.state === "WAITING" };
+        return {
+            id: task.id,
+            title: task.title,
+            fixed,
+            isComplete: task.state === "COMPLETE",
+            isWaiting: task.state === "WAITING",
+        };
     }
-    return { id: subtask?.id ?? "", title: subtask?.title ?? "", fixed: false, isComplete: subtask?.isComplete, isWaiting: false };
+    return {
+        id: subtask?.id ?? "",
+        title: subtask?.title ?? "",
+        fixed: false,
+        isComplete: subtask?.isComplete,
+        isWaiting: false,
+    };
 }
 
 /** How much of the completion countdown is left, 1 → 0. */
@@ -31,7 +43,13 @@ function countdownOf(pending: { commitAt: number; durationMs: number } | undefin
     return pending ? Math.max(0, Math.min(1, (pending.commitAt - now) / pending.durationMs)) : 0;
 }
 
-type CheckboxLabelState = { fixed: boolean; title: string; isComplete: boolean | undefined; isPendingComplete: boolean; isWaiting: boolean };
+type CheckboxLabelState = {
+    fixed: boolean;
+    title: string;
+    isComplete: boolean | undefined;
+    isPendingComplete: boolean;
+    isWaiting: boolean;
+};
 
 function checkboxLabel({ fixed, title, isComplete, isPendingComplete, isWaiting }: CheckboxLabelState) {
     if (fixed) return `${title} is fixed, no check-off`;
@@ -60,7 +78,9 @@ function markSize(small: boolean, compact: boolean) {
 
 function markTone(confirmed: boolean, isWaiting: boolean) {
     if (confirmed) return "bg-accent-primary/20 border-accent-primary text-accent-primary";
-    return isWaiting ? "border-moonlit/80 text-moonlit/80 group-hover:border-moonlit" : "border-twilight-text-muted/70 group-hover:border-accent-primary/50";
+    return isWaiting
+        ? "border-moonlit/80 text-moonlit/80 group-hover:border-moonlit"
+        : "border-twilight-text-muted/70 group-hover:border-accent-primary/50";
 }
 
 type CheckMarkProps = {
@@ -75,7 +95,15 @@ type CheckMarkProps = {
 };
 
 /** The ring: a countdown halo while completion waits, a check or pause inside, and the celebration burst. */
-function CheckMark({ compact, small, confirmed, isWaiting, isPendingComplete, countdownProgress, sparkleKey }: CheckMarkProps) {
+function CheckMark({
+    compact,
+    small,
+    confirmed,
+    isWaiting,
+    isPendingComplete,
+    countdownProgress,
+    sparkleKey,
+}: CheckMarkProps) {
     return (
         <>
             <AnimatePresence>
@@ -99,13 +127,13 @@ function CheckMark({ compact, small, confirmed, isWaiting, isPendingComplete, co
                 animate={
                     confirmed
                         ? {
-                            scale: [0.88, 1.06, 1],
-                            boxShadow: [
-                                "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)",
-                                "0 0 18px color-mix(in srgb, var(--accent-primary) 22%, transparent)",
-                                "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)",
-                            ],
-                        }
+                              scale: [0.88, 1.06, 1],
+                              boxShadow: [
+                                  "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)",
+                                  "0 0 18px color-mix(in srgb, var(--accent-primary) 22%, transparent)",
+                                  "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)",
+                              ],
+                          }
                         : { scale: 1, boxShadow: "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)" }
                 }
                 transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
@@ -135,11 +163,7 @@ function CheckMark({ compact, small, confirmed, isWaiting, isPendingComplete, co
                             />
                         </motion.svg>
                     ) : isWaiting ? (
-                        <motion.div
-                            key="pause"
-                            {...MARK_POP}
-                            transition={{ duration: 0.18 }}
-                        >
+                        <motion.div key="pause" {...MARK_POP} transition={{ duration: 0.18 }}>
                             <Pause className="h-3 w-3" />
                         </motion.div>
                     ) : null}
@@ -148,9 +172,7 @@ function CheckMark({ compact, small, confirmed, isWaiting, isPendingComplete, co
 
             {/* Celebration sparkle burst */}
             <AnimatePresence>
-                {sparkleKey > 0 && (
-                    <CelebrationBurst key={sparkleKey} compact={compact} />
-                )}
+                {sparkleKey > 0 && <CelebrationBurst key={sparkleKey} compact={compact} />}
             </AnimatePresence>
         </>
     );
@@ -158,7 +180,11 @@ function CheckMark({ compact, small, confirmed, isWaiting, isPendingComplete, co
 
 /** Circular checkbox that toggles task between states */
 /** The check or pause mark swapping in and out. */
-const MARK_POP = { initial: { opacity: 0, scale: 0.8 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.8 } };
+const MARK_POP = {
+    initial: { opacity: 0, scale: 0.8 },
+    animate: { opacity: 1, scale: 1 },
+    exit: { opacity: 0, scale: 0.8 },
+};
 
 export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxProps) {
     const updateTask = useUpdateTask();

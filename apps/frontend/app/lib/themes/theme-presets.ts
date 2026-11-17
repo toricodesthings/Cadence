@@ -121,6 +121,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     },
 ];
 
-export const THEME_PRESET_MAP = Object.fromEntries(
-    THEME_PRESETS.map((t) => [t.id, t])
-) as Record<ThemePresetId, ThemePreset>;
+export const THEME_PRESET_MAP = Object.fromEntries(THEME_PRESETS.map((t) => [t.id, t])) as Record<
+    ThemePresetId,
+    ThemePreset
+>;

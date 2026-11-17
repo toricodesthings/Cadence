@@ -9,7 +9,6 @@ vi.mock("../../../app/hooks/auth/use-api-client", () => ({
 }));
 vi.mock("sonner", () => ({ toast: { message, error } }));
 
-
 function setup() {
     const wrapper = withClient();
     const hook = renderHook(() => useDeleteTag(), { wrapper });
@@ -27,21 +26,30 @@ describe("deferred delete (tag)", () => {
         del.mockResolvedValue(Response.json({ data: { id: "t1" } }));
         const { result } = setup();
         let done!: Promise<unknown>;
-        act(() => { done = result.current.mutateAsync({ id: "t1", name: "Errands" }); });
+        act(() => {
+            done = result.current.mutateAsync({ id: "t1", name: "Errands" });
+        });
         await waitFor(() => expect(message).toHaveBeenCalledWith("Deleted tag Errands", expect.anything()));
         expect(del).not.toHaveBeenCalled();
-        await act(async () => { message.mock.calls[0][1].onAutoClose(); await done; });
+        await act(async () => {
+            message.mock.calls[0][1].onAutoClose();
+            await done;
+        });
         expect(del).toHaveBeenCalledWith({ param: { id: "t1" } });
     });
 
     it("Undo means the server is never asked, and no error toast shows", async () => {
         const { result } = setup();
         let done!: Promise<unknown>;
-        act(() => { done = result.current.mutateAsync({ id: "t1", name: "Errands" }).catch(() => undefined); });
+        act(() => {
+            done = result.current.mutateAsync({ id: "t1", name: "Errands" }).catch(() => undefined);
+        });
         await waitFor(() => expect(message).toHaveBeenCalled());
-        await act(async () => { message.mock.calls[0][1].action.onClick(); await done; });
+        await act(async () => {
+            message.mock.calls[0][1].action.onClick();
+            await done;
+        });
         expect(del).not.toHaveBeenCalled();
         expect(error).not.toHaveBeenCalled();
     });
 });
-

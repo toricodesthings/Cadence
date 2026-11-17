@@ -106,23 +106,23 @@ export const debugRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         return c.json({ data: { message: "Cleared all user data except the user profile." } });
     })
     .post("/seed", async (c) => {
-    const { userId } = requireAdmin(c);
-    const db = getDbClient(c.env);
+        const { userId } = requireAdmin(c);
+        const db = getDbClient(c.env);
 
-    try {
-        await withRls(db, userId, async (tx) => {
-            await clearUserData(tx, userId);
-            await seed(tx, userId);
-        });
-    } catch (err: unknown) {
-        const cause = err instanceof Error && err.cause ? err.cause : null;
-        const detail = cause instanceof Error ? cause.message : String(cause ?? "");
-        throw new AppError(
-            500,
-            "SEED_FAILED",
-            `Seed failed: ${err instanceof Error ? err.message : String(err)}${detail ? ` — cause: ${detail}` : ""}`,
-        );
-    }
+        try {
+            await withRls(db, userId, async (tx) => {
+                await clearUserData(tx, userId);
+                await seed(tx, userId);
+            });
+        } catch (err: unknown) {
+            const cause = err instanceof Error && err.cause ? err.cause : null;
+            const detail = cause instanceof Error ? cause.message : String(cause ?? "");
+            throw new AppError(
+                500,
+                "SEED_FAILED",
+                `Seed failed: ${err instanceof Error ? err.message : String(err)}${detail ? ` — cause: ${detail}` : ""}`,
+            );
+        }
 
         return c.json({
             data: {

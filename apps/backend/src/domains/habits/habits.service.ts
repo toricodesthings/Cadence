@@ -1,7 +1,23 @@
 import { and, eq, inArray, max, min, sql } from "drizzle-orm";
 import type { HabitRow, HabitLog, InsertHabit, ResolveHabitAction, UpdateHabit } from "@cadence/contracts/habit";
-import { habitDays, habitOccurrences, applyTimeMark, likelyOpenTime, stepDayStatus, timeDayStatus, timeMarksOn } from "@cadence/domain/repeats";
-import { addDays, dayOf, parseRecurrenceRule, todayIn, wallTimeOf, type LocalDate, type Zone } from "@cadence/domain/time";
+import {
+    habitDays,
+    habitOccurrences,
+    applyTimeMark,
+    likelyOpenTime,
+    stepDayStatus,
+    timeDayStatus,
+    timeMarksOn,
+} from "@cadence/domain/repeats";
+import {
+    addDays,
+    dayOf,
+    parseRecurrenceRule,
+    todayIn,
+    wallTimeOf,
+    type LocalDate,
+    type Zone,
+} from "@cadence/domain/time";
 import { habits, habitLogs, habitTags } from "../../db/schema";
 import { AppError, assertNoConflict, throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
@@ -17,13 +33,23 @@ import { assertRowRoom } from "../../platform/storage-ceiling";
  * Shared recurrence expansion — single source of truth. The days (YYYY-MM-DD)
  * a routine is due in [startDate, endDate]; unsafe stored rules fail explicitly.
  */
-export function expandOccurrences(recurrenceRule: string, createdAt: string, from: LocalDate, to: LocalDate, zone: Zone): LocalDate[] {
+export function expandOccurrences(
+    recurrenceRule: string,
+    createdAt: string,
+    from: LocalDate,
+    to: LocalDate,
+    zone: Zone,
+): LocalDate[] {
     return habitOccurrences(recurrenceRule, String(createdAt), from, to, zone);
 }
 
 /** Expand the committed SQL snapshot after releasing its RLS connection. */
 export function projectHabitRange(
-    { userHabits, logs, allTags }: { userHabits: HabitRow[]; logs: HabitLog[]; allTags: { habitId: string; tagId: string }[] },
+    {
+        userHabits,
+        logs,
+        allTags,
+    }: { userHabits: HabitRow[]; logs: HabitLog[]; allTags: { habitId: string; tagId: string }[] },
     { start, end, timeZone: tz, today: todayStr }: { start: string; end: string; timeZone: string; today: string },
 ) {
     const tagsByHabit = new Map<string, string[]>();
@@ -52,16 +78,14 @@ export function projectHabitRange(
         }));
 
         // Compute window summary
-        const completedInWindow = logsHydrated.filter(l => l.status === "COMPLETED").length;
-        const pendingInWindow = logsHydrated.filter(l => l.status === "PENDING").length;
+        const completedInWindow = logsHydrated.filter((l) => l.status === "COMPLETED").length;
+        const pendingInWindow = logsHydrated.filter((l) => l.status === "PENDING").length;
         const scheduledInWindow = logsHydrated.length;
         const adherenceInWindow = scheduledInWindow > 0 ? completedInWindow / scheduledInWindow : 0;
 
         // Determine due-today and overdue status
         const isDueToday = days.some((day) => day.date === todayStr);
-        const isOverdue = logsHydrated.some(l =>
-            l.status === "PENDING" && l.targetDate < todayStr
-        );
+        const isOverdue = logsHydrated.some((l) => l.status === "PENDING" && l.targetDate < todayStr);
 
         return {
             ...habit,
@@ -104,7 +128,8 @@ function recomputeStreaks(
         const status = logByDate.get(date);
         if (status === "COMPLETED") {
             streak++;
-        } else if (status !== "SKIPPED") { // a skip is a planned rest: it neither extends nor breaks a run
+        } else if (status !== "SKIPPED") {
+            // a skip is a planned rest: it neither extends nor breaks a run
             if (streak > longestStreak) longestStreak = streak;
             // Current streak is only from the most recent unbroken run
             if (currentStreak === 0) currentStreak = streak;
@@ -128,12 +153,14 @@ async function loadResolvedOccurrenceDates(
     const rows = await tx
         .select({ targetDate: habitLogs.targetDate, status: habitLogs.status })
         .from(habitLogs)
-        .where(and(
-            eq(habitLogs.userId, userId),
-            eq(habitLogs.habitId, habitId),
-            inArray(habitLogs.status, ["COMPLETED", "SKIPPED"]),
-            inArray(habitLogs.targetDate, dates),
-        ));
+        .where(
+            and(
+                eq(habitLogs.userId, userId),
+                eq(habitLogs.habitId, habitId),
+                inArray(habitLogs.status, ["COMPLETED", "SKIPPED"]),
+                inArray(habitLogs.targetDate, dates),
+            ),
+        );
     return new Map(rows.map((r) => [r.targetDate, r.status as ResolvedStatus]));
 }
 
@@ -223,7 +250,10 @@ export async function computeCurrentStreak(
 export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: InsertHabit, idempotencyKey?: string) {
     const existingId = await checkIdempotency(tx, userId, idempotencyKey);
     if (existingId) {
-        const [existing] = await tx.select().from(habits).where(and(eq(habits.id, existingId), eq(habits.userId, userId)));
+        const [existing] = await tx
+            .select()
+            .from(habits)
+            .where(and(eq(habits.id, existingId), eq(habits.userId, userId)));
         if (existing) return existing;
     }
 
@@ -235,14 +265,19 @@ export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: I
     await assertRowRoom(tx, userId, "routines");
     // A new routine goes last in the person's own (Custom) order.
     if (body.sortOrder === undefined) {
-        const [{ last }] = await tx.select({ last: max(habits.sortOrder) }).from(habits).where(eq(habits.userId, userId));
+        const [{ last }] = await tx
+            .select({ last: max(habits.sortOrder) })
+            .from(habits)
+            .where(eq(habits.userId, userId));
         body.sortOrder = (last ?? 0) + 1;
     }
 
-    const [row] = await insertWithClientId(() => tx
-        .insert(habits)
-        .values({ ...body, userId })
-        .returning());
+    const [row] = await insertWithClientId(() =>
+        tx
+            .insert(habits)
+            .values({ ...body, userId })
+            .returning(),
+    );
 
     if (tagIds && tagIds.length > 0) {
         await tx.insert(habitTags).values(tagIds.map((tagId) => ({ habitId: row.id, tagId, userId })));
@@ -254,14 +289,24 @@ export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: I
 
 type HabitDbRow = typeof habits.$inferSelect;
 type HabitLogDbRow = typeof habitLogs.$inferSelect;
-type DayMarks = { status: HabitLogDbRow["status"]; stepStatus: HabitLogDbRow["stepStatus"]; timeMarks: HabitLogDbRow["timeMarks"] };
+type DayMarks = {
+    status: HabitLogDbRow["status"];
+    stepStatus: HabitLogDbRow["stepStatus"];
+    timeMarks: HabitLogDbRow["timeMarks"];
+};
 
 /**
  * The day's status and marks after this check-in. Steps decide the day when sent; a routine at set times
  * takes one time, and a "done" with no time (the assistant) records the time it clearly means, never the
  * whole day; unclear → say which are open, so it asks.
  */
-function resolveDay(habit: HabitDbRow, existing: HabitLogDbRow | undefined, targetDate: LocalDate, action: Omit<ResolveHabitAction, "targetDate">, zone: Zone): DayMarks {
+function resolveDay(
+    habit: HabitDbRow,
+    existing: HabitLogDbRow | undefined,
+    targetDate: LocalDate,
+    action: Omit<ResolveHabitAction, "targetDate">,
+    zone: Zone,
+): DayMarks {
     const stepIds = (habit.steps ?? []).map((step) => step.id);
     const times = habit.times ?? [];
     if (!times.length) {
@@ -269,39 +314,81 @@ function resolveDay(habit: HabitDbRow, existing: HabitLogDbRow | undefined, targ
             ? { ...stepDayStatus(stepIds, action.stepStatus), timeMarks: null }
             : { status: action.status, stepStatus: null, timeMarks: null };
     }
-    if (action.time && !times.includes(action.time)) throw new AppError(400, "VALIDATION_ERROR", "This routine has no such time.");
+    if (action.time && !times.includes(action.time))
+        throw new AppError(400, "VALIDATION_ERROR", "This routine has no such time.");
     const at = action.at ?? new Date().toISOString();
-    const time = !action.time && action.status === "COMPLETED" ? impliedTime(times, existing, targetDate, at, zone) : action.time;
+    const time =
+        !action.time && action.status === "COMPLETED"
+            ? impliedTime(times, existing, targetDate, at, zone)
+            : action.time;
     return { ...applyTimeMark(times, existing, { time, status: action.status, at }), stepStatus: null };
 }
 
 /** The set time a whole-day "done" clearly means; unclear → refused, naming the open times so the caller asks. */
-function impliedTime(times: string[], existing: HabitLogDbRow | undefined, targetDate: LocalDate, at: string, zone: Zone): string {
+function impliedTime(
+    times: string[],
+    existing: HabitLogDbRow | undefined,
+    targetDate: LocalDate,
+    at: string,
+    zone: Zone,
+): string {
     const marks = timeMarksOn(times, existing);
     const time = likelyOpenTime(times, marks, targetDate === todayIn(zone, new Date(at)) ? wallTimeOf(at, zone) : null);
     if (time) return time;
     const open = times.filter((entry) => !marks[entry]);
-    throw new AppError(400, "VALIDATION_ERROR", open.length
-        ? `Which time? Still open: ${open.join(", ")}. Ask the user, then send that time.`
-        : "Every time is already checked off that day.");
+    throw new AppError(
+        400,
+        "VALIDATION_ERROR",
+        open.length
+            ? `Which time? Still open: ${open.join(", ")}. Ask the user, then send that time.`
+            : "Every time is already checked off that day.",
+    );
 }
 
 /** Store the day: an open day with no marks has no row (clearing deletes it); anything else upserts. */
-async function writeDayLog(tx: Tx, userId: string, habitId: string, targetDate: LocalDate, existing: HabitLogDbRow | undefined, day: DayMarks) {
+async function writeDayLog(
+    tx: Tx,
+    userId: string,
+    habitId: string,
+    targetDate: LocalDate,
+    existing: HabitLogDbRow | undefined,
+    day: DayMarks,
+) {
     const { status, stepStatus, timeMarks } = day;
     if (status === "PENDING" && !stepStatus && !timeMarks) {
         if (!existing) {
-            return { id: `virt_${targetDate}`, habitId, userId, status: "PENDING" as const, targetDate, completedAt: null, resolvedAt: null, stepStatus: null, timeMarks: null, createdAt: new Date().toISOString() };
+            return {
+                id: `virt_${targetDate}`,
+                habitId,
+                userId,
+                status: "PENDING" as const,
+                targetDate,
+                completedAt: null,
+                resolvedAt: null,
+                stepStatus: null,
+                timeMarks: null,
+                createdAt: new Date().toISOString(),
+            };
         }
         // Clearing a resolution — delete the log row to avoid noisy PENDING accumulation
         await tx.delete(habitLogs).where(eq(habitLogs.id, existing.id));
-        return { ...existing, status: "PENDING" as const, completedAt: null, resolvedAt: null, stepStatus: null, timeMarks: null };
+        return {
+            ...existing,
+            status: "PENDING" as const,
+            completedAt: null,
+            resolvedAt: null,
+            stepStatus: null,
+            timeMarks: null,
+        };
     }
     const now = sql`NOW()`;
     const values = { status, stepStatus, timeMarks, completedAt: status === "COMPLETED" ? now : null, resolvedAt: now };
     const [row] = existing
         ? await tx.update(habitLogs).set(values).where(eq(habitLogs.id, existing.id)).returning()
-        : await tx.insert(habitLogs).values({ userId, habitId, targetDate, ...values }).returning();
+        : await tx
+              .insert(habitLogs)
+              .values({ userId, habitId, targetDate, ...values })
+              .returning();
     return row;
 }
 
@@ -311,9 +398,10 @@ async function writeDayLog(tx: Tx, userId: string, habitId: string, targetDate: 
  */
 async function recomputeStreak(tx: Tx, userId: string, habit: HabitDbRow, targetDate: LocalDate, zone: Zone) {
     const todayStr = todayIn(zone);
-    const occurrencesAfter = targetDate < todayStr
-        ? expandOccurrences(habit.recurrenceRule, habit.createdAt, addDays(targetDate, 1), todayStr, zone)
-        : [];
+    const occurrencesAfter =
+        targetDate < todayStr
+            ? expandOccurrences(habit.recurrenceRule, habit.createdAt, addDays(targetDate, 1), todayStr, zone)
+            : [];
 
     if (occurrencesAfter.length === 0) {
         // Hot path: bounded backward walk from today (O(streak), not O(history)).
@@ -321,7 +409,9 @@ async function recomputeStreak(tx: Tx, userId: string, habit: HabitDbRow, target
         const [{ earliest }] = await tx
             .select({ earliest: min(habitLogs.targetDate) })
             .from(habitLogs)
-            .where(and(eq(habitLogs.userId, userId), eq(habitLogs.habitId, habit.id), eq(habitLogs.status, "COMPLETED")));
+            .where(
+                and(eq(habitLogs.userId, userId), eq(habitLogs.habitId, habit.id), eq(habitLogs.status, "COMPLETED")),
+            );
         const currentStreak = await computeCurrentStreak(
             habit.recurrenceRule,
             habit.createdAt,
@@ -341,10 +431,16 @@ async function recomputeStreak(tx: Tx, userId: string, habit: HabitDbRow, target
         .where(and(eq(habitLogs.habitId, habit.id), eq(habitLogs.userId, userId)));
 
     // From the creation day, or the oldest log when one predates it.
-    const firstDay = allLogs.reduce((first, log) => log.targetDate < first ? log.targetDate : first, dayOf(habit.createdAt, zone));
+    const firstDay = allLogs.reduce(
+        (first, log) => (log.targetDate < first ? log.targetDate : first),
+        dayOf(habit.createdAt, zone),
+    );
     const allOccurrences = expandOccurrences(habit.recurrenceRule, habit.createdAt, firstDay, todayStr, zone);
     const streakData = recomputeStreaks(allLogs, allOccurrences);
-    return { currentStreak: streakData.currentStreak, longestStreak: Math.max(habit.longestStreak, streakData.longestStreak) };
+    return {
+        currentStreak: streakData.currentStreak,
+        longestStreak: Math.max(habit.longestStreak, streakData.longestStreak),
+    };
 }
 
 /**
@@ -378,11 +474,7 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
         .select()
         .from(habitLogs)
         .where(
-            and(
-                eq(habitLogs.userId, userId),
-                eq(habitLogs.habitId, habit.id),
-                eq(habitLogs.targetDate, targetDate)
-            )
+            and(eq(habitLogs.userId, userId), eq(habitLogs.habitId, habit.id), eq(habitLogs.targetDate, targetDate)),
         );
     const zone = await userZone(tx, userId);
     const day = resolveDay(habit, existing, targetDate, action, zone);
@@ -392,7 +484,10 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
 
     // Incremental totals (O(1)): what this day counted before, and what it counts now.
     const was = existing?.status;
-    const totalCompletions = Math.max(0, habit.totalCompletions + Number(day.status === "COMPLETED") - Number(was === "COMPLETED"));
+    const totalCompletions = Math.max(
+        0,
+        habit.totalCompletions + Number(day.status === "COMPLETED") - Number(was === "COMPLETED"),
+    );
     const totalSkips = Math.max(0, habit.totalSkips + Number(day.status === "SKIPPED") - Number(was === "SKIPPED"));
     const { currentStreak, longestStreak } = await recomputeStreak(tx, userId, habit, targetDate, zone);
     const now = sql`NOW()`;
@@ -418,12 +513,14 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
 function normalizeTimes(body: { times?: string[] | null; targetTime?: string | null }) {
     if (!body.times) return;
     body.times = [...body.times].sort();
-    if (body.times.length < 2) Object.assign(body, { targetTime: body.times[0] ?? body.targetTime ?? null, times: null });
+    if (body.times.length < 2)
+        Object.assign(body, { targetTime: body.times[0] ?? body.targetTime ?? null, times: null });
 }
 
 /** Steps and set times don't mix: each would check the day off its own way. */
 function assertStepsOrTimes({ steps, times }: { steps?: unknown[] | null; times?: unknown[] | null }) {
-    if (steps?.length && times?.length) throw new AppError(400, "VALIDATION_ERROR", "A routine has steps or set times, not both.");
+    if (steps?.length && times?.length)
+        throw new AppError(400, "VALIDATION_ERROR", "A routine has steps or set times, not both.");
 }
 
 /**
@@ -432,8 +529,16 @@ function assertStepsOrTimes({ steps, times }: { steps?: unknown[] | null; times?
  */
 async function lockStepsAndTimes(tx: Tx, userId: string, id: string, body: Pick<UpdateHabit, "steps" | "times">) {
     if (body.times === undefined && body.steps === undefined) return undefined;
-    const [before] = await tx.select({ steps: habits.steps, times: habits.times }).from(habits).where(and(eq(habits.id, id), eq(habits.userId, userId))).for("update");
-    if (before) assertStepsOrTimes({ steps: body.steps !== undefined ? body.steps : before.steps, times: body.times !== undefined ? body.times : before.times });
+    const [before] = await tx
+        .select({ steps: habits.steps, times: habits.times })
+        .from(habits)
+        .where(and(eq(habits.id, id), eq(habits.userId, userId)))
+        .for("update");
+    if (before)
+        assertStepsOrTimes({
+            steps: body.steps !== undefined ? body.steps : before.steps,
+            times: body.times !== undefined ? body.times : before.times,
+        });
     return before;
 }
 
@@ -450,7 +555,12 @@ async function replaceHabitTags(tx: Tx, userId: string, id: string, tagIds: stri
  * day, and today's status is re-derived from the new times.
  * ponytail: past days keep their stored status when a time is added or removed; recompute them if History confuses.
  */
-export async function updateHabit(tx: Tx, userId: string, id: string, { expectedUpdatedAt, tagIds, ...body }: UpdateHabit) {
+export async function updateHabit(
+    tx: Tx,
+    userId: string,
+    id: string,
+    { expectedUpdatedAt, tagIds, ...body }: UpdateHabit,
+) {
     if (body.recurrenceRule !== undefined) parseRecurrenceRule(body.recurrenceRule);
     normalizeTimes(body);
     const before = await lockStepsAndTimes(tx, userId, id, body);
@@ -477,7 +587,8 @@ export async function updateHabit(tx: Tx, userId: string, id: string, { expected
 
     if (tagIds !== undefined) await replaceHabitTags(tx, userId, id, tagIds);
 
-    if (body.times !== undefined) return (await followTimes(tx, userId, id, before?.times ?? [], row.times ?? [])) ?? row;
+    if (body.times !== undefined)
+        return (await followTimes(tx, userId, id, before?.times ?? [], row.times ?? [])) ?? row;
     if (body.steps !== undefined) return (await followSteps(tx, userId, id, row)) ?? row;
     return row;
 }
@@ -491,9 +602,13 @@ async function followSteps(tx: Tx, userId: string, id: string, habit: HabitDbRow
     const stepIds = (habit.steps ?? []).map((step) => step.id);
     if (!stepIds.length || habit.times?.length) return undefined;
     const today = todayIn(await userZone(tx, userId));
-    const [log] = await tx.select().from(habitLogs).where(and(eq(habitLogs.habitId, id), eq(habitLogs.targetDate, today)));
+    const [log] = await tx
+        .select()
+        .from(habitLogs)
+        .where(and(eq(habitLogs.habitId, id), eq(habitLogs.targetDate, today)));
     if (!log?.stepStatus || stepDayStatus(stepIds, log.stepStatus).status === log.status) return undefined;
-    return (await resolveHabit(tx, userId, id, { targetDate: today, status: "PENDING", stepStatus: log.stepStatus })).habit;
+    return (await resolveHabit(tx, userId, id, { targetDate: today, status: "PENDING", stepStatus: log.stepStatus }))
+        .habit;
 }
 
 /**
@@ -506,19 +621,38 @@ async function followTimes(tx: Tx, userId: string, id: string, oldTimes: string[
     const removed = oldTimes.filter((time) => !newTimes.includes(time));
     const added = newTimes.filter((time) => !oldTimes.includes(time));
     if (removed.length === 1 && added.length === 1) {
-        await tx.update(habitLogs)
-            .set({ timeMarks: sql`(${habitLogs.timeMarks} - ${removed[0]}::text) || jsonb_build_object(${added[0]}::text, ${habitLogs.timeMarks} -> ${removed[0]}::text)` })
-            .where(and(eq(habitLogs.habitId, id), eq(habitLogs.userId, userId), sql`jsonb_exists(${habitLogs.timeMarks}, ${removed[0]}::text)`));
+        await tx
+            .update(habitLogs)
+            .set({
+                timeMarks: sql`(${habitLogs.timeMarks} - ${removed[0]}::text) || jsonb_build_object(${added[0]}::text, ${habitLogs.timeMarks} -> ${removed[0]}::text)`,
+            })
+            .where(
+                and(
+                    eq(habitLogs.habitId, id),
+                    eq(habitLogs.userId, userId),
+                    sql`jsonb_exists(${habitLogs.timeMarks}, ${removed[0]}::text)`,
+                ),
+            );
     }
 
     if (!newTimes.length) return undefined;
     const today = todayIn(await userZone(tx, userId));
-    const [log] = await tx.select().from(habitLogs).where(and(eq(habitLogs.habitId, id), eq(habitLogs.targetDate, today)));
+    const [log] = await tx
+        .select()
+        .from(habitLogs)
+        .where(and(eq(habitLogs.habitId, id), eq(habitLogs.targetDate, today)));
     if (!log) return undefined;
     const marks = timeMarksOn(newTimes, log);
     if (timeDayStatus(newTimes, marks) === log.status) return undefined;
     const [time, mark] = Object.entries(marks)[0] ?? [newTimes[0], undefined];
-    return (await resolveHabit(tx, userId, id, { targetDate: today, time, status: mark?.status ?? "PENDING", at: mark?.at ?? undefined })).habit;
+    return (
+        await resolveHabit(tx, userId, id, {
+            targetDate: today,
+            time,
+            status: mark?.status ?? "PENDING",
+            at: mark?.at ?? undefined,
+        })
+    ).habit;
 }
 
 /** Move a routine to `position` (1 = first) in the Routines order; past the end = last. */
@@ -532,8 +666,14 @@ export async function moveHabit(tx: Tx, userId: string, id: string, position: nu
     const order = rows.map((row) => row.id).filter((rowId) => rowId !== id);
     order.splice(Math.min(position - 1, order.length), 0, id);
     // Pipelined on the transaction's connection, like the other batch writes.
-    await Promise.all(order.map((rowId, sortOrder) =>
-        tx.update(habits).set({ sortOrder }).where(and(eq(habits.id, rowId), eq(habits.userId, userId)))));
+    await Promise.all(
+        order.map((rowId, sortOrder) =>
+            tx
+                .update(habits)
+                .set({ sortOrder })
+                .where(and(eq(habits.id, rowId), eq(habits.userId, userId))),
+        ),
+    );
 }
 
 // ── Delete ────────────────────────────────────────────────────────────

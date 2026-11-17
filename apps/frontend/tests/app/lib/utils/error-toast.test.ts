@@ -28,7 +28,10 @@ describe("toastError", () => {
 
     it("says why in plain words, never the raw server text", () => {
         toastError(apiError(500, "INTERNAL_ERROR"), "Couldn't save");
-        expect(toast.error).toHaveBeenCalledWith("Couldn't save", expect.objectContaining({ action: expect.anything() }));
+        expect(toast.error).toHaveBeenCalledWith(
+            "Couldn't save",
+            expect.objectContaining({ action: expect.anything() }),
+        );
         expect(description()).toBe("Something went wrong on our end. Try again.");
     });
 

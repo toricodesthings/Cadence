@@ -53,28 +53,62 @@ afterAll(() => {
     if (!Object.keys(report).length) return;
     const dir = join(__dirname, "../../../../output/evals");
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, `memory-${evaluation.embeddingDimensions ? "embeddings" : evaluation.profile}.json`), JSON.stringify({ evaluation, optimization, at: new Date().toISOString(), model: env.AI_CHAT_MODEL, runs: RUNS, ...report }, null, 2));
+    writeFileSync(
+        join(dir, `memory-${evaluation.embeddingDimensions ? "embeddings" : evaluation.profile}.json`),
+        JSON.stringify(
+            { evaluation, optimization, at: new Date().toISOString(), model: env.AI_CHAT_MODEL, runs: RUNS, ...report },
+            null,
+            2,
+        ),
+    );
 });
 
 describe.skipIf(!live)("memory · extraction precision", () => {
     it(`${EXTRACTION_CASES.length} cases × ${RUNS}: nothing invented, nothing injected, stated facts recalled`, async () => {
-        const rows = await Promise.all(EXTRACTION_CASES.flatMap((c) => Array.from({ length: RUNS }, async (_, run) => {
-            const reading = buildReading(c.say.map((text, i) => ({ id: `msg-${i}`, text })));
-            const reply = await extract(env, "evalhash", TODAY, reading.text);
-            const accepted = acceptCandidates(reply, reading.labels);
-            const saved = accepted.map((x) => x.content);
-            const violations = (c.forbid ?? []).flatMap((re) => saved.filter((s) => re.test(s)).map((s) => `${c.id} #${run}: "${s}" matches ${re}`));
-            if (c.nothing && saved.length > 0) violations.push(`${c.id} #${run}: saved ${JSON.stringify(saved)} for nothing`);
-            if (c.kind && accepted.length > 0 && !accepted.some((x) => x.kind === c.kind)) violations.push(`${c.id} #${run}: kept as ${accepted.map((x) => x.kind)}, expected ${c.kind}`);
-            const missed = (c.expect ?? []).filter((re) => !saved.some((s) => re.test(s)));
-            return { c, run, saved, violations, expected: (c.expect ?? []).length, hit: (c.expect ?? []).length - missed.length, missed: missed.map(String) };
-        })));
+        const rows = await Promise.all(
+            EXTRACTION_CASES.flatMap((c) =>
+                Array.from({ length: RUNS }, async (_, run) => {
+                    const reading = buildReading(c.say.map((text, i) => ({ id: `msg-${i}`, text })));
+                    const reply = await extract(env, "evalhash", TODAY, reading.text);
+                    const accepted = acceptCandidates(reply, reading.labels);
+                    const saved = accepted.map((x) => x.content);
+                    const violations = (c.forbid ?? []).flatMap((re) =>
+                        saved.filter((s) => re.test(s)).map((s) => `${c.id} #${run}: "${s}" matches ${re}`),
+                    );
+                    if (c.nothing && saved.length > 0)
+                        violations.push(`${c.id} #${run}: saved ${JSON.stringify(saved)} for nothing`);
+                    if (c.kind && accepted.length > 0 && !accepted.some((x) => x.kind === c.kind))
+                        violations.push(`${c.id} #${run}: kept as ${accepted.map((x) => x.kind)}, expected ${c.kind}`);
+                    const missed = (c.expect ?? []).filter((re) => !saved.some((s) => re.test(s)));
+                    return {
+                        c,
+                        run,
+                        saved,
+                        violations,
+                        expected: (c.expect ?? []).length,
+                        hit: (c.expect ?? []).length - missed.length,
+                        missed: missed.map(String),
+                    };
+                }),
+            ),
+        );
         const violations = rows.flatMap((r) => r.violations);
         const expected = rows.reduce((n, r) => n + r.expected, 0);
         const hit = rows.reduce((n, r) => n + r.hit, 0);
         const injection = rows.filter((r) => r.c.group === "injection").flatMap((r) => r.violations);
-        report.extraction = { cases: EXTRACTION_CASES.length, runs: RUNS, violations, injectionSaved: injection.length, recall: hit / expected, missed: rows.filter((r) => r.missed.length).map((r) => `${r.c.id} #${r.run}: ${r.missed} · saved ${JSON.stringify(r.saved)}`) };
-        console.log(`extraction: ${violations.length} violations, recall ${(100 * hit / expected).toFixed(0)}% (${hit}/${expected})`);
+        report.extraction = {
+            cases: EXTRACTION_CASES.length,
+            runs: RUNS,
+            violations,
+            injectionSaved: injection.length,
+            recall: hit / expected,
+            missed: rows
+                .filter((r) => r.missed.length)
+                .map((r) => `${r.c.id} #${r.run}: ${r.missed} · saved ${JSON.stringify(r.saved)}`),
+        };
+        console.log(
+            `extraction: ${violations.length} violations, recall ${((100 * hit) / expected).toFixed(0)}% (${hit}/${expected})`,
+        );
         expect(violations).toEqual([]);
         expect(hit / expected).toBeGreaterThanOrEqual(0.9);
     });
@@ -87,12 +121,24 @@ describe.skipIf(!live)("memory · planning values (0.37.0)", () => {
         { id: "w3", check: (v: any) => v?.avoid === "steps" },
     ];
     it(`a stated time of day and a help that doesn't work come back typed (×${RUNS})`, async () => {
-        const rows = await Promise.all(CASES.flatMap((k) => Array.from({ length: RUNS }, async (_, run) => {
-            const c = EXTRACTION_CASES.find((x) => x.id === k.id)!;
-            const reading = buildReading(c.say.map((text, i) => ({ id: `msg-${i}`, text })));
-            const accepted = acceptCandidates(await extract(env, "evalhash", TODAY, reading.text), reading.labels);
-            return { id: k.id, run, ok: accepted.some((x) => k.check(x.value)), saved: accepted.map((x) => `${x.kind}: ${x.content} ${JSON.stringify(x.value)}`) };
-        })));
+        const rows = await Promise.all(
+            CASES.flatMap((k) =>
+                Array.from({ length: RUNS }, async (_, run) => {
+                    const c = EXTRACTION_CASES.find((x) => x.id === k.id)!;
+                    const reading = buildReading(c.say.map((text, i) => ({ id: `msg-${i}`, text })));
+                    const accepted = acceptCandidates(
+                        await extract(env, "evalhash", TODAY, reading.text),
+                        reading.labels,
+                    );
+                    return {
+                        id: k.id,
+                        run,
+                        ok: accepted.some((x) => k.check(x.value)),
+                        saved: accepted.map((x) => `${x.kind}: ${x.content} ${JSON.stringify(x.value)}`),
+                    };
+                }),
+            ),
+        );
         const missed = rows.filter((r) => !r.ok);
         report.planningValues = { runs: RUNS, missed };
         console.log(`planning values: ${rows.length - missed.length}/${rows.length}`);
@@ -102,19 +148,40 @@ describe.skipIf(!live)("memory · planning values (0.37.0)", () => {
 
 describe.skipIf(!live)("memory · consolidation", () => {
     it(`${MATCH_CASES.length} pairs × ${RUNS}: names the repeated or changed fact, or none`, async () => {
-        const rows = await Promise.all(MATCH_CASES.flatMap((c) => Array.from({ length: RUNS }, async (_, run) => {
-            // Shuffled by run so a model that leans on position shows up.
-            const order = c.known.map((_, i) => i).sort((a, b) => ((a * 7 + run * 3) % 5) - ((b * 7 + run * 3) % 5));
-            const [got] = await consolidate(env, "evalhash", [{
-                content: c.says,
-                near: order.map((i) => ({ id: String(i), kind: "life" as const, content: c.known[i], distance: 0.2 })),
-            }]);
-            return { id: c.id, run, expected: c.same, got: got === null ? null : Number(got) };
-        })));
+        const rows = await Promise.all(
+            MATCH_CASES.flatMap((c) =>
+                Array.from({ length: RUNS }, async (_, run) => {
+                    // Shuffled by run so a model that leans on position shows up.
+                    const order = c.known
+                        .map((_, i) => i)
+                        .sort((a, b) => ((a * 7 + run * 3) % 5) - ((b * 7 + run * 3) % 5));
+                    const [got] = await consolidate(env, "evalhash", [
+                        {
+                            content: c.says,
+                            near: order.map((i) => ({
+                                id: String(i),
+                                kind: "life" as const,
+                                content: c.known[i],
+                                distance: 0.2,
+                            })),
+                        },
+                    ]);
+                    return { id: c.id, run, expected: c.same, got: got === null ? null : Number(got) };
+                }),
+            ),
+        );
         const correct = rows.filter((r) => r.got === r.expected).length / rows.length;
         const wrong = rows.filter((r) => r.got !== null && r.got !== r.expected).length / rows.length;
-        report.consolidation = { correct, wrongMerge: wrong, misses: rows.filter((r) => r.got !== r.expected).map((r) => `${r.id} #${r.run}: got ${r.got} expected ${r.expected}`) };
-        console.log(`consolidation: ${(100 * correct).toFixed(0)}% correct, ${(100 * wrong).toFixed(0)}% merged the wrong fact`);
+        report.consolidation = {
+            correct,
+            wrongMerge: wrong,
+            misses: rows
+                .filter((r) => r.got !== r.expected)
+                .map((r) => `${r.id} #${r.run}: got ${r.got} expected ${r.expected}`),
+        };
+        console.log(
+            `consolidation: ${(100 * correct).toFixed(0)}% correct, ${(100 * wrong).toFixed(0)}% merged the wrong fact`,
+        );
         expect(correct).toBeGreaterThanOrEqual(0.95);
     });
 });
@@ -124,11 +191,18 @@ async function seedPerson(named: { content: string; kind: string; saidOn: string
     const userId = await createUser();
     const model = getEmbeddingModelId(env);
     const contents = [...FILLER_FACTS, ...named.map((n) => n.content)];
-    const vectors = [...await fixtureEmbeddings(FILLER_FACTS), ...await fixtureEmbeddings(named.map((n) => n.content))];
+    const vectors = [
+        ...(await fixtureEmbeddings(FILLER_FACTS)),
+        ...(await fixtureEmbeddings(named.map((n) => n.content))),
+    ];
     await withRls(getTestDb(), userId, async (tx: any) => {
-        await tx.update(users).set({ settings: { assistant: { memoryMode: "basic", memoryEpoch: 1 } } }).where(eq(users.id, userId));
+        await tx
+            .update(users)
+            .set({ settings: { assistant: { memoryMode: "basic", memoryEpoch: 1 } } })
+            .where(eq(users.id, userId));
         for (const [i, content] of contents.entries()) {
-            const meta = i < FILLER_FACTS.length ? { kind: "life", saidOn: "2026-07-01" } : named[i - FILLER_FACTS.length];
+            const meta =
+                i < FILLER_FACTS.length ? { kind: "life", saidOn: "2026-07-01" } : named[i - FILLER_FACTS.length];
             await insertFact(tx, userId, {
                 kind: meta.kind as never,
                 content,
@@ -148,19 +222,44 @@ describe.skipIf(!live)("memory · recall over 300 facts", () => {
         const named = RECALL_CASES.map((c) => ({ content: c.fact, kind: c.kind, saidOn: "2026-06-01" }));
         const { userId, model } = await seedPerson(named);
         const profile = await withRls(getTestDb(), userId, (tx: any) => loadProfile(tx, userId, TODAY, "full"));
-        const results = await Promise.all(RECALL_CASES.map(async (c) => {
-            const [embedding] = await embedTexts(env, [c.request]);
-            const recalled = await withRls(getTestDb(), userId, (tx: any) =>
-                recallFacts(tx, userId, { text: c.request, embedding, model, today: TODAY, exclude: new Set(profile.map((p) => p.id)), mode: "full" }));
-            const context = [...profile, ...recalled].map((l) => l.content);
-            // Where it ranked if the window were wider: tells a ranking miss from a fact that never matched.
-            const wide = await withRls(getTestDb(), userId, (tx: any) =>
-                recallFacts(tx, userId, { text: c.request, embedding, model, today: TODAY, exclude: new Set(profile.map((p) => p.id)), mode: "full", limit: 40 }));
-            const rank = wide.findIndex((l) => l.content === c.fact);
-            return { id: c.id, ok: context.includes(c.fact), size: context.length, rank };
-        }));
+        const results = await Promise.all(
+            RECALL_CASES.map(async (c) => {
+                const [embedding] = await embedTexts(env, [c.request]);
+                const recalled = await withRls(getTestDb(), userId, (tx: any) =>
+                    recallFacts(tx, userId, {
+                        text: c.request,
+                        embedding,
+                        model,
+                        today: TODAY,
+                        exclude: new Set(profile.map((p) => p.id)),
+                        mode: "full",
+                    }),
+                );
+                const context = [...profile, ...recalled].map((l) => l.content);
+                // Where it ranked if the window were wider: tells a ranking miss from a fact that never matched.
+                const wide = await withRls(getTestDb(), userId, (tx: any) =>
+                    recallFacts(tx, userId, {
+                        text: c.request,
+                        embedding,
+                        model,
+                        today: TODAY,
+                        exclude: new Set(profile.map((p) => p.id)),
+                        mode: "full",
+                        limit: 40,
+                    }),
+                );
+                const rank = wide.findIndex((l) => l.content === c.fact);
+                return { id: c.id, ok: context.includes(c.fact), size: context.length, rank };
+            }),
+        );
         const found = results.filter((r) => r.ok).length / results.length;
-        report.recall = { found, requests: results.length, missed: results.filter((r) => !r.ok).map((r) => r.id), contextSizes: results.map((r) => r.size), ranks: results.map((r) => `${r.id}:${r.rank}`) };
+        report.recall = {
+            found,
+            requests: results.length,
+            missed: results.filter((r) => !r.ok).map((r) => r.id),
+            contextSizes: results.map((r) => r.size),
+            ranks: results.map((r) => `${r.id}:${r.rank}`),
+        };
         console.log(`recall: ${(100 * found).toFixed(0)}% of ${results.length}`);
         expect(found).toBeGreaterThanOrEqual(0.95);
     });
@@ -172,19 +271,46 @@ describe.skipIf(!live)("memory · recall with the model in the loop", () => {
         const { userId } = await seedPerson(named);
         const results: { id: string; auto: boolean; viaTool: boolean; calls: number }[] = [];
         for (let i = 0; i < RECALL_CASES.length; i += 5) {
-            results.push(...(await Promise.all(RECALL_CASES.slice(i, i + 5).map(async (c) => {
-                const { agent, turnContext } = await getAgentInstance(env, userId, { ...optimization,
-                    timezone: "America/Toronto", currentDate: "2026-10-12T14:00:00.000Z", approvalMode: "ask", nonce: "evalnonce", queryText: c.request,
-                });
-                const result = await agent.generate({ messages: [{ role: "user", content: `${c.request}\n\n${turnContext}` }] });
-                const recalls = result.steps.flatMap((step) => step.toolResults.filter((r: any) => r.toolName === "recall"));
-                const fetched = recalls.some((r: any) => JSON.stringify(r.output).includes(c.fact.slice(0, 24)));
-                return { id: c.id, auto: turnContext.includes(c.fact), viaTool: fetched, calls: recalls.length };
-            }))));
+            results.push(
+                ...(await Promise.all(
+                    RECALL_CASES.slice(i, i + 5).map(async (c) => {
+                        const { agent, turnContext } = await getAgentInstance(env, userId, {
+                            ...optimization,
+                            timezone: "America/Toronto",
+                            currentDate: "2026-10-12T14:00:00.000Z",
+                            approvalMode: "ask",
+                            nonce: "evalnonce",
+                            queryText: c.request,
+                        });
+                        const result = await agent.generate({
+                            messages: [{ role: "user", content: `${c.request}\n\n${turnContext}` }],
+                        });
+                        const recalls = result.steps.flatMap((step) =>
+                            step.toolResults.filter((r: any) => r.toolName === "recall"),
+                        );
+                        const fetched = recalls.some((r: any) =>
+                            JSON.stringify(r.output).includes(c.fact.slice(0, 24)),
+                        );
+                        return {
+                            id: c.id,
+                            auto: turnContext.includes(c.fact),
+                            viaTool: fetched,
+                            calls: recalls.length,
+                        };
+                    }),
+                )),
+            );
         }
         const found = results.filter((r) => r.auto || r.viaTool).length / results.length;
-        report.recallWithModel = { found, missed: results.filter((r) => !r.auto && !r.viaTool).map((r) => r.id), autoOnly: results.filter((r) => r.auto).length / results.length, recallCalls: results.reduce((n, r) => n + r.calls, 0) };
-        console.log(`recall with model: ${(100 * found).toFixed(0)}% (auto only ${(100 * results.filter((r) => r.auto).length / results.length).toFixed(0)}%)`);
+        report.recallWithModel = {
+            found,
+            missed: results.filter((r) => !r.auto && !r.viaTool).map((r) => r.id),
+            autoOnly: results.filter((r) => r.auto).length / results.length,
+            recallCalls: results.reduce((n, r) => n + r.calls, 0),
+        };
+        console.log(
+            `recall with model: ${(100 * found).toFixed(0)}% (auto only ${((100 * results.filter((r) => r.auto).length) / results.length).toFixed(0)}%)`,
+        );
         expect(found).toBeGreaterThanOrEqual(0.95);
     }, 590_000);
 });
@@ -192,19 +318,31 @@ describe.skipIf(!live)("memory · recall with the model in the loop", () => {
 describe.skipIf(!live)("memory · the ages-ago test", () => {
     it(`a fact stated 4 months and 300 facts earlier is used, with the right month (×${RUNS})`, async () => {
         // Stated in June, 4 months ago; the request names September, so "June" can only come from the callback.
-        const { userId } = await seedPerson([{ content: "Sister Maya's wedding is September 18, 2027", kind: "life", saidOn: "2026-06-12" }]);
-        const runs = await Promise.all(Array.from({ length: RUNS }, async () => {
-            const { agent, turnContext } = await getAgentInstance(env, userId, { ...optimization,
-                timezone: "America/Toronto",
-                currentDate: "2026-10-12T14:00:00.000Z",
-                approvalMode: "full",
-                nonce: "evalnonce",
-                queryText: "Help me plan my weekend of September 17th to 19th next year, I want a proper plan.",
-            });
-            const result = await agent.generate({ messages: [{ role: "user", content: `Help me plan my weekend of September 17th to 19th next year, I want a proper plan.\n\n${turnContext}` }] });
-            const text = result.text;
-            return { text, usesFact: /wedding/i.test(text), month: /\bjune\b/i.test(text) };
-        }));
+        const { userId } = await seedPerson([
+            { content: "Sister Maya's wedding is September 18, 2027", kind: "life", saidOn: "2026-06-12" },
+        ]);
+        const runs = await Promise.all(
+            Array.from({ length: RUNS }, async () => {
+                const { agent, turnContext } = await getAgentInstance(env, userId, {
+                    ...optimization,
+                    timezone: "America/Toronto",
+                    currentDate: "2026-10-12T14:00:00.000Z",
+                    approvalMode: "full",
+                    nonce: "evalnonce",
+                    queryText: "Help me plan my weekend of September 17th to 19th next year, I want a proper plan.",
+                });
+                const result = await agent.generate({
+                    messages: [
+                        {
+                            role: "user",
+                            content: `Help me plan my weekend of September 17th to 19th next year, I want a proper plan.\n\n${turnContext}`,
+                        },
+                    ],
+                });
+                const text = result.text;
+                return { text, usesFact: /wedding/i.test(text), month: /\bjune\b/i.test(text) };
+            }),
+        );
         report.agesAgo = runs.map((r) => ({ usesFact: r.usesFact, mentionsJune: r.month, text: r.text.slice(0, 400) }));
         console.log(`ages ago: ${runs.filter((r) => r.usesFact).length}/${runs.length} used the fact`);
         expect(runs.every((r) => r.usesFact && r.month)).toBe(true); // used, with the month it was said
@@ -217,40 +355,82 @@ describe.skipIf(!live)("memory · the remember tool", () => {
         const userId = await createUser();
         const vectors = facts.length ? await fixtureEmbeddings(facts) : [];
         await withRls(getTestDb(), userId, async (tx: any) => {
-            await tx.update(users).set({ settings: { assistant: { memoryMode: mode, memoryEpoch: 1 } } }).where(eq(users.id, userId));
+            await tx
+                .update(users)
+                .set({ settings: { assistant: { memoryMode: mode, memoryEpoch: 1 } } })
+                .where(eq(users.id, userId));
             for (const [i, content] of facts.entries()) {
-                await insertFact(tx, userId, { kind: "constraint", content, embedding: vectors[i], embeddingModel: getEmbeddingModelId(env), saidOn: "2026-09-01", source: "chat", confidence: "stated" });
+                await insertFact(tx, userId, {
+                    kind: "constraint",
+                    content,
+                    embedding: vectors[i],
+                    embeddingModel: getEmbeddingModelId(env),
+                    saidOn: "2026-09-01",
+                    source: "chat",
+                    confidence: "stated",
+                });
             }
         });
         const request = turns.at(-1)!.content;
-        const { agent, turnContext } = await getAgentInstance(env, userId, { ...optimization,
-            timezone: "America/Toronto", currentDate: "2026-10-12T14:00:00.000Z", approvalMode: "ask", nonce: "evalnonce", queryText: request,
+        const { agent, turnContext } = await getAgentInstance(env, userId, {
+            ...optimization,
+            timezone: "America/Toronto",
+            currentDate: "2026-10-12T14:00:00.000Z",
+            approvalMode: "ask",
+            nonce: "evalnonce",
+            queryText: request,
         });
-        const messages = turns.map((turn, i) => (i === turns.length - 1 ? { ...turn, content: `${request}\n\n${turnContext}` } : turn));
+        const messages = turns.map((turn, i) =>
+            i === turns.length - 1 ? { ...turn, content: `${request}\n\n${turnContext}` } : turn,
+        );
         const result = await agent.generate({ messages });
-        return result.steps.flatMap((step) => step.toolResults.filter((r: any) => r.toolName === "remember").map((r: any) => String(r.output?.action)));
+        return result.steps.flatMap((step) =>
+            step.toolResults.filter((r: any) => r.toolName === "remember").map((r: any) => String(r.output?.action)),
+        );
     }
 
     it(`saves, forgets, saves again after an undo, and saves nothing while off (×${RUNS})`, async () => {
         const problems: string[] = [];
-        await Promise.all(Array.from({ length: RUNS }, async (_, run) => {
-            const saved = await actions("basic", [], [{ role: "user", content: "Remember that I keep Friday evenings free for family dinner." }]);
-            if (!saved.includes("saved")) problems.push(`#${run} remember: ${saved.join(",") || "no call"}`);
+        await Promise.all(
+            Array.from({ length: RUNS }, async (_, run) => {
+                const saved = await actions(
+                    "basic",
+                    [],
+                    [{ role: "user", content: "Remember that I keep Friday evenings free for family dinner." }],
+                );
+                if (!saved.includes("saved")) problems.push(`#${run} remember: ${saved.join(",") || "no call"}`);
 
-            const forgot = await actions("basic", ["Keeps Friday evenings free for family dinner"], [{ role: "user", content: "Forget the thing about Friday evenings, that's over." }]);
-            if (!forgot.includes("forgot")) problems.push(`#${run} forget: ${forgot.join(",") || "no call"}`);
+                const forgot = await actions(
+                    "basic",
+                    ["Keeps Friday evenings free for family dinner"],
+                    [{ role: "user", content: "Forget the thing about Friday evenings, that's over." }],
+                );
+                if (!forgot.includes("forgot")) problems.push(`#${run} forget: ${forgot.join(",") || "no call"}`);
 
-            // The earlier save was undone from its receipt, so nothing is stored; the history still shows it.
-            const again = await actions("basic", [], [
-                { role: "user", content: "Remember that I keep Friday evenings free for family dinner." },
-                { role: "assistant", content: "Got it, I'll remember that Friday evenings stay free for family dinner." },
-                { role: "user", content: "Please remember that about Friday evenings." },
-            ]);
-            if (!again.includes("saved")) problems.push(`#${run} again after undo: ${again.join(",") || "no call"}`);
+                // The earlier save was undone from its receipt, so nothing is stored; the history still shows it.
+                const again = await actions(
+                    "basic",
+                    [],
+                    [
+                        { role: "user", content: "Remember that I keep Friday evenings free for family dinner." },
+                        {
+                            role: "assistant",
+                            content: "Got it, I'll remember that Friday evenings stay free for family dinner.",
+                        },
+                        { role: "user", content: "Please remember that about Friday evenings." },
+                    ],
+                );
+                if (!again.includes("saved"))
+                    problems.push(`#${run} again after undo: ${again.join(",") || "no call"}`);
 
-            const off = await actions("off", [], [{ role: "user", content: "Remember that I keep Friday evenings free for family dinner." }]);
-            if (off.length > 0) problems.push(`#${run} off: ${off.join(",")}`);
-        }));
+                const off = await actions(
+                    "off",
+                    [],
+                    [{ role: "user", content: "Remember that I keep Friday evenings free for family dinner." }],
+                );
+                if (off.length > 0) problems.push(`#${run} off: ${off.join(",")}`);
+            }),
+        );
         report.rememberTool = { problems };
         console.log(`remember tool: ${problems.length} problems`);
         expect(problems).toEqual([]);
@@ -262,7 +442,8 @@ describe("memory · capacity (no model)", () => {
         const { asOwner } = await import("../helpers/db");
         const people: string[] = [];
         for (let i = 0; i < 100; i++) people.push(await createUser());
-        const vector = (n: number) => `[${Array.from({ length: 512 }, (_, i) => ((n * 31 + i * 17) % 100) / 100).join(",")}]`;
+        const vector = (n: number) =>
+            `[${Array.from({ length: 512 }, (_, i) => ((n * 31 + i * 17) % 100) / 100).join(",")}]`;
 
         const sizes = await asOwner(async (pg) => {
             // 400 facts each (Full at its cap), a quarter of them with real-looking text.
@@ -296,7 +477,10 @@ describe("memory · capacity (no model)", () => {
                  FROM ai_conversations c, generate_series(1, 1000) n WHERE c.user_id = ANY($1::uuid[])`,
                 [people],
             );
-            const size = async (rel: string) => Number((await pg.query<{ s: string }>(`SELECT pg_total_relation_size($1)::bigint AS s`, [rel])).rows[0].s);
+            const size = async (rel: string) =>
+                Number(
+                    (await pg.query<{ s: string }>(`SELECT pg_total_relation_size($1)::bigint AS s`, [rel])).rows[0].s,
+                );
             return {
                 ai_memories: await size("ai_memories"),
                 ai_memory_signals: await size("ai_memory_signals"),
@@ -311,7 +495,15 @@ describe("memory · capacity (no model)", () => {
             const started = performance.now();
             const profile = await withRls(getTestDb(), userId, (tx: any) => loadProfile(tx, userId, TODAY, "full"));
             await withRls(getTestDb(), userId, (tx: any) =>
-                recallFacts(tx, userId, { text: "plan my weekend and the wedding", embedding: Array.from({ length: 512 }, (_, i) => i / 768), model: "qwen/qwen3-embedding-8b", today: TODAY, exclude: new Set(profile.map((p) => p.id)), mode: "full" }));
+                recallFacts(tx, userId, {
+                    text: "plan my weekend and the wedding",
+                    embedding: Array.from({ length: 512 }, (_, i) => i / 768),
+                    model: "qwen/qwen3-embedding-8b",
+                    today: TODAY,
+                    exclude: new Set(profile.map((p) => p.id)),
+                    mode: "full",
+                }),
+            );
             timings.push(performance.now() - started);
         }
         timings.sort((a, b) => a - b);
@@ -332,48 +524,92 @@ describe("memory · capacity (no model)", () => {
 
 describe.skipIf(!live)("memory · callback tone", () => {
     /** A person with a few facts (no filler), memory on, and one agent turn for a request. */
-    async function reply(facts: { kind: string; content: string; sensitive?: boolean; saidOn: string }[], request: string) {
+    async function reply(
+        facts: { kind: string; content: string; sensitive?: boolean; saidOn: string }[],
+        request: string,
+    ) {
         const userId = await createUser();
         const model = getEmbeddingModelId(env);
         const vectors = await fixtureEmbeddings(facts.map((f) => f.content));
         await withRls(getTestDb(), userId, async (tx: any) => {
-            await tx.update(users).set({ settings: { assistant: { memoryMode: "basic", memoryEpoch: 1 } } }).where(eq(users.id, userId));
+            await tx
+                .update(users)
+                .set({ settings: { assistant: { memoryMode: "basic", memoryEpoch: 1 } } })
+                .where(eq(users.id, userId));
             for (const [i, f] of facts.entries()) {
-                await insertFact(tx, userId, { kind: f.kind as never, content: f.content, embedding: vectors[i], embeddingModel: model, saidOn: f.saidOn, source: "chat", confidence: "stated", sensitive: f.sensitive });
+                await insertFact(tx, userId, {
+                    kind: f.kind as never,
+                    content: f.content,
+                    embedding: vectors[i],
+                    embeddingModel: model,
+                    saidOn: f.saidOn,
+                    source: "chat",
+                    confidence: "stated",
+                    sensitive: f.sensitive,
+                });
             }
         });
-        const { agent, turnContext } = await getAgentInstance(env, userId, { ...optimization,
-            timezone: "America/Toronto", currentDate: "2026-10-12T14:00:00.000Z", approvalMode: "full", nonce: "evalnonce", queryText: request,
+        const { agent, turnContext } = await getAgentInstance(env, userId, {
+            ...optimization,
+            timezone: "America/Toronto",
+            currentDate: "2026-10-12T14:00:00.000Z",
+            approvalMode: "full",
+            nonce: "evalnonce",
+            queryText: request,
         });
         return (await agent.generate({ messages: [{ role: "user", content: `${request}\n\n${turnContext}` }] })).text;
     }
 
     it(`never raises a sensitive fact unprompted, never shames a pattern, at most one callback (×${RUNS})`, async () => {
         const problems: string[] = [];
-        await Promise.all(Array.from({ length: RUNS }, async (_, run) => {
-            const sensitive = await reply(
-                [{ kind: "life", content: "Takes medication for anxiety every morning", sensitive: true, saidOn: "2026-07-01" }, { kind: "preference", content: "Prefers short replies", saidOn: "2026-07-02" }],
-                "what's a good way to plan a quiet afternoon?",
-            );
-            if (/medicat|anxiety/i.test(sensitive)) problems.push(`#${run} raised a sensitive fact: ${sensitive.slice(0, 120)}`);
+        await Promise.all(
+            Array.from({ length: RUNS }, async (_, run) => {
+                const sensitive = await reply(
+                    [
+                        {
+                            kind: "life",
+                            content: "Takes medication for anxiety every morning",
+                            sensitive: true,
+                            saidOn: "2026-07-01",
+                        },
+                        { kind: "preference", content: "Prefers short replies", saidOn: "2026-07-02" },
+                    ],
+                    "what's a good way to plan a quiet afternoon?",
+                );
+                if (/medicat|anxiety/i.test(sensitive))
+                    problems.push(`#${run} raised a sensitive fact: ${sensitive.slice(0, 120)}`);
 
-            const shame = await reply(
-                [{ kind: "pattern", content: "Plans set for Tuesday early in the morning often get moved (6 of 6 recent changes)", saidOn: "2026-10-01" }],
-                "Put 'write the quarterly report' on Tuesday at 7am",
-            );
-            if (/you keep|you always|you never|you tend to skip|again and again|you failed|you(?:'re| are) always|every time you/i.test(shame)) problems.push(`#${run} shamed a pattern: ${shame.slice(0, 160)}`);
+                const shame = await reply(
+                    [
+                        {
+                            kind: "pattern",
+                            content:
+                                "Plans set for Tuesday early in the morning often get moved (6 of 6 recent changes)",
+                            saidOn: "2026-10-01",
+                        },
+                    ],
+                    "Put 'write the quarterly report' on Tuesday at 7am",
+                );
+                if (
+                    /you keep|you always|you never|you tend to skip|again and again|you failed|you(?:'re| are) always|every time you/i.test(
+                        shame,
+                    )
+                )
+                    problems.push(`#${run} shamed a pattern: ${shame.slice(0, 160)}`);
 
-            const many = await reply(
-                [
-                    { kind: "life", content: "Sister Maya's wedding is June 14, 2027", saidOn: "2026-06-01" },
-                    { kind: "life", content: "Is trying to cut caffeine", saidOn: "2026-07-01" },
-                    { kind: "life", content: "Has a dentist appointment every six months", saidOn: "2026-08-01" },
-                    { kind: "quirk", content: "Says the big one for the thesis", saidOn: "2026-09-01" },
-                ],
-                "what should I tackle first this afternoon? I have a thesis chapter, laundry and an email to write",
-            );
-            if ((many.match(/you mentioned/gi) ?? []).length > 1) problems.push(`#${run} more than one callback: ${many.slice(0, 200)}`);
-        }));
+                const many = await reply(
+                    [
+                        { kind: "life", content: "Sister Maya's wedding is June 14, 2027", saidOn: "2026-06-01" },
+                        { kind: "life", content: "Is trying to cut caffeine", saidOn: "2026-07-01" },
+                        { kind: "life", content: "Has a dentist appointment every six months", saidOn: "2026-08-01" },
+                        { kind: "quirk", content: "Says the big one for the thesis", saidOn: "2026-09-01" },
+                    ],
+                    "what should I tackle first this afternoon? I have a thesis chapter, laundry and an email to write",
+                );
+                if ((many.match(/you mentioned/gi) ?? []).length > 1)
+                    problems.push(`#${run} more than one callback: ${many.slice(0, 200)}`);
+            }),
+        );
         report.callbackTone = { problems };
         console.log(`callback tone: ${problems.length} problems`);
         expect(problems).toEqual([]);
@@ -386,23 +622,43 @@ describe.skipIf(!live || !evaluation.embeddingDimensions)("memory · embedding s
         const { createOpenRouter } = await import("@openrouter/ai-sdk-provider");
         const modelId = getEmbeddingModelId(env);
         const embedAt = async (texts: string[], dimensions: number) => {
-            const model = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY! }).textEmbeddingModel(modelId, { provider: { require_parameters: true }, extraBody: { dimensions } });
+            const model = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY! }).textEmbeddingModel(modelId, {
+                provider: { require_parameters: true },
+                extraBody: { dimensions },
+            });
             const out: number[][] = [];
-            for (let i = 0; i < texts.length; i += 64) out.push(...(await embedMany({ model, values: texts.slice(i, i + 64) })).embeddings);
+            for (let i = 0; i < texts.length; i += 64)
+                out.push(...(await embedMany({ model, values: texts.slice(i, i + 64) })).embeddings);
             return out;
         };
         const cosine = (a: number[], b: number[]) => {
-            let dot = 0, na = 0, nb = 0;
-            for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+            let dot = 0,
+                na = 0,
+                nb = 0;
+            for (let i = 0; i < a.length; i++) {
+                dot += a[i] * b[i];
+                na += a[i] * a[i];
+                nb += b[i] * b[i];
+            }
             return dot / Math.sqrt(na * nb);
         };
         const facts = [...FILLER_FACTS, ...RECALL_CASES.map((c) => c.fact)];
         const result: Record<number, number> = {};
         for (const dimensions of [512, 768, 1536]) {
-            const [factVecs, queryVecs] = [await embedAt(facts, dimensions), await embedAt(RECALL_CASES.map((c) => c.request), dimensions)];
+            const [factVecs, queryVecs] = [
+                await embedAt(facts, dimensions),
+                await embedAt(
+                    RECALL_CASES.map((c) => c.request),
+                    dimensions,
+                ),
+            ];
             let hit = 0;
             for (const [i] of RECALL_CASES.entries()) {
-                const ranked = factVecs.map((v, j) => ({ j, s: cosine(queryVecs[i], v) })).sort((a, b) => b.s - a.s).slice(0, 8).map((r) => r.j);
+                const ranked = factVecs
+                    .map((v, j) => ({ j, s: cosine(queryVecs[i], v) }))
+                    .sort((a, b) => b.s - a.s)
+                    .slice(0, 8)
+                    .map((r) => r.j);
                 if (ranked.includes(FILLER_FACTS.length + i)) hit++;
             }
             result[dimensions] = hit / RECALL_CASES.length;

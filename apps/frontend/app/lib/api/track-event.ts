@@ -1,4 +1,10 @@
-import { CLIENT_ERROR_NAMES, TRACK_BATCH_MAX, type ClientError, type UsageEvent, type PerformanceSample } from "@cadence/contracts/events";
+import {
+    CLIENT_ERROR_NAMES,
+    TRACK_BATCH_MAX,
+    type ClientError,
+    type UsageEvent,
+    type PerformanceSample,
+} from "@cadence/contracts/events";
 import { ERROR_CODES, type ErrorCode } from "@cadence/contracts/common";
 import { CADENCE_VERSION } from "../constants/app-info";
 import { startupRoute } from "../startup-timing";
@@ -56,13 +62,15 @@ export function setCrashReportsEnabled(enabled: boolean) {
 
 export function trackClientError(error: unknown, kind: ClientError["kind"]) {
     if (!crashReportsEnabled || errorCount >= TRACK_BATCH_MAX || typeof window === "undefined") return;
-    const value = error && typeof error === "object" ? error as { name?: unknown; code?: unknown } : {};
+    const value = error && typeof error === "object" ? (error as { name?: unknown; code?: unknown }) : {};
     if (value.name === "AbortError" || seenErrors.has(value)) return;
     seenErrors.add(value);
     errorCount++;
     pendingErrors.push({
         kind,
-        name: (CLIENT_ERROR_NAMES as readonly unknown[]).includes(value.name) ? value.name as ClientError["name"] : "Other",
+        name: (CLIENT_ERROR_NAMES as readonly unknown[]).includes(value.name)
+            ? (value.name as ClientError["name"])
+            : "Other",
         ...((ERROR_CODES as readonly unknown[]).includes(value.code) ? { code: value.code as ErrorCode } : {}),
         route: startupRoute(window.location.pathname),
         platform: IS_DESKTOP_RUNTIME ? "desktop" : "web",
@@ -74,7 +82,10 @@ export function trackClientError(error: unknown, kind: ClientError["kind"]) {
 setErrorReporter(trackClientError);
 
 function scheduleFlush() {
-    if (!flushTimer) flushTimer = setTimeout(() => { void flushEvents(); }, 5_000);
+    if (!flushTimer)
+        flushTimer = setTimeout(() => {
+            void flushEvents();
+        }, 5_000);
 }
 
 export function trackPerformance(samples: PerformanceSample[]) {
@@ -111,15 +122,37 @@ async function flushEvents() {
 
     try {
         await Promise.allSettled([
-            ...(batch.length ? [apiClient.api.events.batch.$post({ json: { events: batch } }, { init: { signal: controller.signal, keepalive: true } })] : []),
-            ...(samples.length ? [apiClient.api.events.performance.$post({ json: { samples } }, { init: { signal: controller.signal, keepalive: true } })] : []),
-            ...(errors.length ? [apiClient.api.events.errors.$post({ json: { errors } }, { init: { signal: controller.signal, keepalive: true } })] : []),
+            ...(batch.length
+                ? [
+                      apiClient.api.events.batch.$post(
+                          { json: { events: batch } },
+                          { init: { signal: controller.signal, keepalive: true } },
+                      ),
+                  ]
+                : []),
+            ...(samples.length
+                ? [
+                      apiClient.api.events.performance.$post(
+                          { json: { samples } },
+                          { init: { signal: controller.signal, keepalive: true } },
+                      ),
+                  ]
+                : []),
+            ...(errors.length
+                ? [
+                      apiClient.api.events.errors.$post(
+                          { json: { errors } },
+                          { init: { signal: controller.signal, keepalive: true } },
+                      ),
+                  ]
+                : []),
         ]);
     } catch {
         // Best-effort telemetry — silently discard on failure
     } finally {
         if (delivery === controller) delivery = null;
-        if (delivery === null && (pendingEvents.length || pendingPerformance.length || pendingErrors.length)) scheduleFlush();
+        if (delivery === null && (pendingEvents.length || pendingPerformance.length || pendingErrors.length))
+            scheduleFlush();
     }
 }
 

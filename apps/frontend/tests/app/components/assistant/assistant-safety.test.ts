@@ -33,8 +33,20 @@ describe("approval cards", () => {
             role: "assistant" as const,
             parts: [
                 { type: "text", text: "Here you go" },
-                { type: "tool-create_tag", toolCallId: "c1", state: "approval-responded", input: {}, approval: { id: "ap1", approved: true } },
-                { type: "tool-delete_tasks", toolCallId: "c2", state: "approval-responded", input: {}, approval: { id: "ap2", approved: false, reason: "no" } },
+                {
+                    type: "tool-create_tag",
+                    toolCallId: "c1",
+                    state: "approval-responded",
+                    input: {},
+                    approval: { id: "ap1", approved: true },
+                },
+                {
+                    type: "tool-delete_tasks",
+                    toolCallId: "c2",
+                    state: "approval-responded",
+                    input: {},
+                    approval: { id: "ap2", approved: false, reason: "no" },
+                },
             ],
         };
         expect(approvalAnswers(reply as never)).toEqual([

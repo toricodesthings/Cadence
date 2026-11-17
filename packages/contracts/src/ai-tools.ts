@@ -5,7 +5,10 @@
  * destructive — may overwrite, Trash or delete existing data.
  */
 export type ToolKind = "read" | "write" | "capture" | "ask";
-export interface ToolSpec { kind: ToolKind; destructive?: true }
+export interface ToolSpec {
+    kind: ToolKind;
+    destructive?: true;
+}
 
 const read = { kind: "read" } as const;
 const write = { kind: "write" } as const;

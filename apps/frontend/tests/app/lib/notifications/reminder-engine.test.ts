@@ -110,7 +110,14 @@ describe("deriveCandidates", () => {
 
     it("produces a personal-event candidate on the day, only with its bell on", () => {
         const now = at("10:00");
-        const event = { id: "ev1", label: "Mum's birthday", monthDay: "03-26", emoji: null, notify: true, startedOn: null };
+        const event = {
+            id: "ev1",
+            label: "Mum's birthday",
+            monthDay: "03-26",
+            emoji: null,
+            notify: true,
+            startedOn: null,
+        };
         const candidates = deriveCandidates([], [], now, { personalEvents: [event] });
         expect(candidates.length).toBe(1);
         expect(candidates[0].kind).toBe("personal-event");
@@ -184,7 +191,11 @@ describe("filterByBehavior", () => {
     it("leaves dismissed and deferred routines out of the bundle count", () => {
         const now = at("15:00");
         const habits: Habit[] = Array.from({ length: 4 }, (_, i) => ({
-            ...BASE_HABIT, id: `h${i}`, title: `Habit ${i}`, reminderEnabled: true, targetTime: "14:00",
+            ...BASE_HABIT,
+            id: `h${i}`,
+            title: `Habit ${i}`,
+            reminderEnabled: true,
+            targetTime: "14:00",
             logs: [{ id: "virt", habitId: `h${i}`, status: "PENDING", targetDate: "2026-03-26", completedAt: null }],
         }));
         const candidates = deriveCandidates([], habits, now);
@@ -202,8 +213,15 @@ describe("filterByBehavior", () => {
 
 describe("routine reminders", () => {
     const now = at("14:30");
-    const routine = (logs: Habit["logs"]): Habit => ({ ...BASE_HABIT, reminderEnabled: true, targetTime: "14:00", logs });
-    const log = (status: "PENDING" | "COMPLETED" | "SKIPPED") => [{ id: "l", habitId: "h1", status, targetDate: "2026-03-26", completedAt: null }];
+    const routine = (logs: Habit["logs"]): Habit => ({
+        ...BASE_HABIT,
+        reminderEnabled: true,
+        targetTime: "14:00",
+        logs,
+    });
+    const log = (status: "PENDING" | "COMPLETED" | "SKIPPED") => [
+        { id: "l", habitId: "h1", status, targetDate: "2026-03-26", completedAt: null },
+    ];
 
     it("remind only while today's check-in is open (not done, skipped, unscheduled or paused)", () => {
         expect(deriveCandidates([], [routine(log("PENDING"))], now)).toHaveLength(1);

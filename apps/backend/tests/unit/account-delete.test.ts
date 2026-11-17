@@ -79,14 +79,21 @@ describe("presence checks are bounded", () => {
     const me = { userId: user, email: "me@test.dev" };
 
     it("signs the password check's session out again", async () => {
-        const fetchMock = vi.fn()
-            .mockResolvedValueOnce(new Response(JSON.stringify({ user: { id: user } }), { headers: { "set-auth-token": "sess-1" } }))
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValueOnce(
+                new Response(JSON.stringify({ user: { id: user } }), { headers: { "set-auth-token": "sess-1" } }),
+            )
             .mockResolvedValueOnce(new Response(null, { status: 200 }));
         vi.stubGlobal("fetch", fetchMock);
         await verifyPresence(authEnv, me, { password: "pw" });
-        expect(fetchMock).toHaveBeenLastCalledWith("https://auth.test/neondb/auth/sign-out", expect.objectContaining({
-            method: "POST", headers: { Authorization: "Bearer sess-1" },
-        }));
+        expect(fetchMock).toHaveBeenLastCalledWith(
+            "https://auth.test/neondb/auth/sign-out",
+            expect.objectContaining({
+                method: "POST",
+                headers: { Authorization: "Bearer sess-1" },
+            }),
+        );
     });
 
     it("refuses past the day's tries without asking Neon Auth", async () => {
@@ -94,11 +101,15 @@ describe("presence checks are bounded", () => {
         const fetchMock = vi.fn();
         vi.stubGlobal("fetch", fetchMock);
         const app = createTestApp("/account", accountRoutes);
-        const res = await app.request("/account/delete", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ confirmation: "delete my account", password: "guess" }),
-        }, { ...env, ...authEnv });
+        const res = await app.request(
+            "/account/delete",
+            {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ confirmation: "delete my account", password: "guess" }),
+            },
+            { ...env, ...authEnv },
+        );
         expect(res.status).toBe(429);
         expect(fetchMock).not.toHaveBeenCalled();
         budget.within = true;

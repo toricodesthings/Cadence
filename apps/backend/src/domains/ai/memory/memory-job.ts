@@ -16,7 +16,14 @@ import { learnFromNote, pendingNotes } from "./note-learn";
 import { isLearning, readMemoryState } from "./memory-mode";
 import { scrubForgotten } from "./memory-store";
 import { nightlyForUser } from "./nightly";
-import { IDLE_MINUTES, LEARN_DELAY_SECONDS, learnPendingKey, memoryMessageSchema, sendMemoryMessages, type MemoryMessage } from "./queue";
+import {
+    IDLE_MINUTES,
+    LEARN_DELAY_SECONDS,
+    learnPendingKey,
+    memoryMessageSchema,
+    sendMemoryMessages,
+    type MemoryMessage,
+} from "./queue";
 
 /** Per run: how many people and how many chats each, so a backlog drains over a few minutes instead of one burst. */
 const USERS_PER_RUN = 10;
@@ -50,7 +57,11 @@ export async function withinDailyCap(env: Env, userId: string, now: Date): Promi
  * the stop. `activeAt` is the latest moment a chat or note still in progress was touched: it isn't idle yet, so its
  * reading is due 10 minutes after that.
  */
-export async function learnForUser(env: Env, userId: string, now: Date): Promise<{ scrubbed: number; learned: number; activeAt: string | null }> {
+export async function learnForUser(
+    env: Env,
+    userId: string,
+    now: Date,
+): Promise<{ scrubbed: number; learned: number; activeAt: string | null }> {
     const db = getDbClient(env);
     let learned = 0;
     let scrubbed = 0;
@@ -62,25 +73,44 @@ export async function learnForUser(env: Env, userId: string, now: Date): Promise
         const [chat] = await tx
             .select({ at: max(aiConversations.lastMessageAt) })
             .from(aiConversations)
-            .where(and(eq(aiConversations.userId, userId), gte(aiConversations.lastMessageAt, idleBefore), sql`coalesce(${aiConversations.metadata} ->> 'learn', 'true') <> 'false'`));
-        const [note] = state.mode === "full"
-            ? await tx.select({ at: max(taskNotes.updatedAt) }).from(taskNotes).where(and(eq(taskNotes.userId, userId), gte(taskNotes.updatedAt, idleBefore)))
-            : [];
-        const activeAt = [chat?.at, note?.at].filter((at): at is string => !!at).sort().at(-1) ?? null;
+            .where(
+                and(
+                    eq(aiConversations.userId, userId),
+                    gte(aiConversations.lastMessageAt, idleBefore),
+                    sql`coalesce(${aiConversations.metadata} ->> 'learn', 'true') <> 'false'`,
+                ),
+            );
+        const [note] =
+            state.mode === "full"
+                ? await tx
+                      .select({ at: max(taskNotes.updatedAt) })
+                      .from(taskNotes)
+                      .where(and(eq(taskNotes.userId, userId), gte(taskNotes.updatedAt, idleBefore)))
+                : [];
+        const activeAt =
+            [chat?.at, note?.at]
+                .filter((at): at is string => !!at)
+                .sort()
+                .at(-1) ?? null;
         const recentAfter = new Date(now.getTime() - RECENT_DAYS * 24 * 60 * 60_000).toISOString();
         const found = await tx
             .select({ id: aiConversations.id })
             .from(aiConversations)
-            .where(and(
-                eq(aiConversations.userId, userId),
-                lt(aiConversations.lastMessageAt, idleBefore),
-                gt(aiConversations.lastMessageAt, recentAfter),
-                sql`(${aiConversations.metadata} ->> 'memoryCursor' IS NULL OR (${aiConversations.metadata} ->> 'memoryCursor')::timestamptz < ${aiConversations.lastMessageAt})`,
-                sql`coalesce(${aiConversations.metadata} ->> 'learn', 'true') <> 'false'`,
-            ))
+            .where(
+                and(
+                    eq(aiConversations.userId, userId),
+                    lt(aiConversations.lastMessageAt, idleBefore),
+                    gt(aiConversations.lastMessageAt, recentAfter),
+                    sql`(${aiConversations.metadata} ->> 'memoryCursor' IS NULL OR (${aiConversations.metadata} ->> 'memoryCursor')::timestamptz < ${aiConversations.lastMessageAt})`,
+                    sql`coalesce(${aiConversations.metadata} ->> 'learn', 'true') <> 'false'`,
+                ),
+            )
             .orderBy(desc(aiConversations.lastMessageAt))
             .limit(CONVERSATIONS_PER_USER);
-        const notes = state.mode === "full" ? await pendingNotes(tx, userId, now, IDLE_MINUTES, RECENT_DAYS, NOTES_PER_USER, state.notBefore) : [];
+        const notes =
+            state.mode === "full"
+                ? await pendingNotes(tx, userId, now, IDLE_MINUTES, RECENT_DAYS, NOTES_PER_USER, state.notBefore)
+                : [];
         return { chats: found.map((c) => c.id), notes, activeAt };
     });
     const admit = () => withinDailyCap(env, userId, now);
@@ -132,7 +162,12 @@ export async function runMemoryJob(env: Env, now: Date = new Date()): Promise<vo
             .orderBy(sql`random()`)
             .limit(queued ? QUEUED_USERS_PER_RUN : USERS_PER_RUN);
         if (queued) {
-            const due: MemoryMessage[] = (await claimLearn(env, rows.map((row) => row.id))).map((userId) => ({ kind: "learn", userId, at: now.toISOString() }));
+            const due: MemoryMessage[] = (
+                await claimLearn(
+                    env,
+                    rows.map((row) => row.id),
+                )
+            ).map((userId) => ({ kind: "learn", userId, at: now.toISOString() }));
             await sendMemoryMessages(env, due);
             if (due.length > 0) logger.info("ai", "memory_job", { users: rows.length, queued: due.length });
             return;

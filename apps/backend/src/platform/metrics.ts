@@ -18,13 +18,15 @@ export async function trackReschedules(
         const zone = await userZone(tx, userId);
         await tx
             .insert(taskMetrics)
-            .values(rescheduled.map(({ taskId, scheduledStart, dueDate }) => ({
-                taskId,
-                userId,
-                rescheduleCount: 1,
-                firstScheduled: scheduledStart ? dayOf(scheduledStart, zone) : dueDate,
-                lastRescheduledAt: new Date().toISOString(),
-            })))
+            .values(
+                rescheduled.map(({ taskId, scheduledStart, dueDate }) => ({
+                    taskId,
+                    userId,
+                    rescheduleCount: 1,
+                    firstScheduled: scheduledStart ? dayOf(scheduledStart, zone) : dueDate,
+                    lastRescheduledAt: new Date().toISOString(),
+                })),
+            )
             .onConflictDoUpdate({
                 target: taskMetrics.taskId,
                 set: {
@@ -58,12 +60,14 @@ export async function trackBatchCompletion(db: DbClient, taskIds: string[], user
         const now = new Date().toISOString();
         await tx
             .insert(taskMetrics)
-            .values(foundTasks.map((t) => ({
-                taskId: t.id,
-                userId,
-                completedAt: now,
-                createdToDone: Math.floor((Date.now() - new Date(t.createdAt).getTime()) / 1000),
-            })))
+            .values(
+                foundTasks.map((t) => ({
+                    taskId: t.id,
+                    userId,
+                    completedAt: now,
+                    createdToDone: Math.floor((Date.now() - new Date(t.createdAt).getTime()) / 1000),
+                })),
+            )
             .onConflictDoUpdate({
                 target: taskMetrics.taskId,
                 set: { completedAt: sql`excluded.completed_at`, createdToDone: sql`excluded.created_to_done` },
@@ -79,9 +83,9 @@ export async function trackBatchEvents(
 ) {
     try {
         await withRls(db, userId, async (tx) => {
-            await tx.insert(usageEvents).values(
-                events.map((e) => ({ userId, event: e.event, metadata: e.metadata ?? null })),
-            );
+            await tx
+                .insert(usageEvents)
+                .values(events.map((e) => ({ userId, event: e.event, metadata: e.metadata ?? null })));
         });
     } catch (err) {
         // Best-effort telemetry — never block the caller, but surface the failure.
@@ -111,13 +115,7 @@ export async function computeWorkloadSignals(db: DbClient, userId: string) {
         const fourteenDaysAgo = daysAgo(14);
         const sevenDaysAgo = daysAgo(7);
 
-        const [
-            reschedule,
-            overdue,
-            completedCount,
-            habit,
-            density,
-        ] = await Promise.all([
+        const [reschedule, overdue, completedCount, habit, density] = await Promise.all([
             queryRescheduleVelocity(tx, userId, fourteenDaysAgo, nowIso),
             queryOverdueCarryLoad(tx, userId, today, zone),
             queryCompletedCount(tx, userId, fourteenDaysAgo, nowIso),
@@ -158,7 +156,13 @@ async function queryRescheduleVelocity(tx: Tx, userId: string, since: string, un
     const [stats] = await tx
         .select({ avgReschedules: avg(taskMetrics.rescheduleCount), rows: count() })
         .from(taskMetrics)
-        .where(and(eq(taskMetrics.userId, userId), gte(taskMetrics.lastRescheduledAt, since), lte(taskMetrics.lastRescheduledAt, until)));
+        .where(
+            and(
+                eq(taskMetrics.userId, userId),
+                gte(taskMetrics.lastRescheduledAt, since),
+                lte(taskMetrics.lastRescheduledAt, until),
+            ),
+        );
     return { value: parseFloat(String(stats?.avgReschedules ?? "0")), rows: stats?.rows ?? 0 };
 }
 
@@ -180,7 +184,13 @@ async function queryCompletedCount(tx: Tx, userId: string, since: string, until:
     const [stats] = await tx
         .select({ cnt: count() })
         .from(taskMetrics)
-        .where(and(eq(taskMetrics.userId, userId), gte(taskMetrics.completedAt, since), lte(taskMetrics.completedAt, until)));
+        .where(
+            and(
+                eq(taskMetrics.userId, userId),
+                gte(taskMetrics.completedAt, since),
+                lte(taskMetrics.completedAt, until),
+            ),
+        );
     return stats?.cnt ?? 0;
 }
 
@@ -191,10 +201,25 @@ async function queryCompletedCount(tx: Tx, userId: string, since: string, until:
 async function queryHabitAdherenceRate(tx: Tx, userId: string, since: LocalDate, today: LocalDate, zone: Zone) {
     const yesterday = addDays(today, -1);
     const [routines, logs] = await Promise.all([
-        tx.select({ id: habits.id, recurrenceRule: habits.recurrenceRule, createdAt: habits.createdAt, pausedUntil: habits.pausedUntil })
-            .from(habits).where(eq(habits.userId, userId)),
-        tx.select({ habitId: habitLogs.habitId, targetDate: habitLogs.targetDate, status: habitLogs.status })
-            .from(habitLogs).where(and(eq(habitLogs.userId, userId), gte(habitLogs.targetDate, since), lte(habitLogs.targetDate, yesterday))),
+        tx
+            .select({
+                id: habits.id,
+                recurrenceRule: habits.recurrenceRule,
+                createdAt: habits.createdAt,
+                pausedUntil: habits.pausedUntil,
+            })
+            .from(habits)
+            .where(eq(habits.userId, userId)),
+        tx
+            .select({ habitId: habitLogs.habitId, targetDate: habitLogs.targetDate, status: habitLogs.status })
+            .from(habitLogs)
+            .where(
+                and(
+                    eq(habitLogs.userId, userId),
+                    gte(habitLogs.targetDate, since),
+                    lte(habitLogs.targetDate, yesterday),
+                ),
+            ),
     ]);
     const byRoutine = new Map<string, Map<string, { targetDate: string; status: string }>>();
     for (const log of logs) {
@@ -204,7 +229,14 @@ async function queryHabitAdherenceRate(tx: Tx, userId: string, since: LocalDate,
     let completed = 0;
     let total = 0;
     for (const routine of routines) {
-        for (const { log } of habitDays(routine, byRoutine.get(routine.id) ?? new Map(), since, yesterday, zone, today)) {
+        for (const { log } of habitDays(
+            routine,
+            byRoutine.get(routine.id) ?? new Map(),
+            since,
+            yesterday,
+            zone,
+            today,
+        )) {
             if (log?.status === "SKIPPED") continue;
             total++;
             if (log?.status === "COMPLETED") completed++;
@@ -221,7 +253,15 @@ async function queryScheduleDensity(tx: Tx, userId: string, since: string, until
             blocks: count(),
         })
         .from(tasks)
-        .where(and(eq(tasks.userId, userId), sql`${tasks.scheduledStart} IS NOT NULL`, sql`${tasks.scheduledEnd} IS NOT NULL`, gte(tasks.scheduledStart, since), lte(tasks.scheduledStart, until)));
+        .where(
+            and(
+                eq(tasks.userId, userId),
+                sql`${tasks.scheduledStart} IS NOT NULL`,
+                sql`${tasks.scheduledEnd} IS NOT NULL`,
+                gte(tasks.scheduledStart, since),
+                lte(tasks.scheduledStart, until),
+            ),
+        );
     return { minutesPerDay: (Number(stats?.totalMinutes) || 0) / 7, blocks: stats?.blocks ?? 0 };
 }
 

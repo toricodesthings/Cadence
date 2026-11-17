@@ -29,21 +29,27 @@ export function ResizableSidePanel({
     const startWidth = useRef(0);
     const resolvedWidth = width ?? panelWidth;
 
-    const updateWidth = useCallback((nextWidth: number) => {
-        if (width === undefined) {
-            setPanelWidth(nextWidth);
-        }
-        onWidthChange?.(nextWidth);
-    }, [onWidthChange, width]);
+    const updateWidth = useCallback(
+        (nextWidth: number) => {
+            if (width === undefined) {
+                setPanelWidth(nextWidth);
+            }
+            onWidthChange?.(nextWidth);
+        },
+        [onWidthChange, width],
+    );
 
-    const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        isDragging.current = true;
-        startX.current = e.clientX;
-        startWidth.current = resolvedWidth;
-        document.body.style.cursor = "col-resize";
-        document.body.style.userSelect = "none";
-    }, [resolvedWidth]);
+    const handleMouseDown = useCallback(
+        (e: React.MouseEvent<HTMLDivElement>) => {
+            e.preventDefault();
+            isDragging.current = true;
+            startX.current = e.clientX;
+            startWidth.current = resolvedWidth;
+            document.body.style.cursor = "col-resize";
+            document.body.style.userSelect = "none";
+        },
+        [resolvedWidth],
+    );
 
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
@@ -96,9 +102,7 @@ export function ResizableSidePanel({
                     aria-hidden="true"
                     className="pointer-events-none absolute inset-x-0 top-0 h-(--shell-header-h) border-b border-twilight-border"
                 />
-                <div
-                    className="absolute inset-y-0 -left-0.5 w-1.5 rounded-full bg-accent-primary/25 opacity-0 transition-opacity group-hover:opacity-100"
-                />
+                <div className="absolute inset-y-0 -left-0.5 w-1.5 rounded-full bg-accent-primary/25 opacity-0 transition-opacity group-hover:opacity-100" />
             </div>
 
             {/* Panel container — spans full height (overtakes toolbar thanks to MainLayout flex) */}

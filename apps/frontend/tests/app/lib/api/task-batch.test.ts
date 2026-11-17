@@ -36,7 +36,9 @@ describe("offline task batching", () => {
         await warm(qc);
         expect(get).toHaveBeenCalledTimes(1);
         expect(JSON.parse(get.mock.calls[0][0].query.queries)).toEqual([
-            active, waiting, { state: "ACTIVE", hasNoProject: "true", hasNoDate: "true" },
+            active,
+            waiting,
+            { state: "ACTIVE", hasNoProject: "true", hasNoDate: "true" },
         ]);
         expect(qc.getQueryData(queryKeys.tasks.list(active))).toEqual([task]);
         expect(qc.getQueryData(queryKeys.tasks.list(capture))).toEqual([task]);
@@ -105,7 +107,9 @@ describe("offline task batching", () => {
     it("preserves previous data on failure, then retries on the next warming run", async () => {
         const qc = testQueryClient();
         qc.setQueryData(queryKeys.tasks.list(active), [task], { updatedAt: Date.now() - 3_600_001 });
-        get.mockResolvedValueOnce(Response.json({ error: { code: "INTERNAL_ERROR", message: "Failed" } }, { status: 503 }));
+        get.mockResolvedValueOnce(
+            Response.json({ error: { code: "INTERNAL_ERROR", message: "Failed" } }, { status: 503 }),
+        );
         await warm(qc);
         expect(qc.getQueryData(queryKeys.tasks.list(active))).toEqual([task]);
         expect(get).toHaveBeenCalledTimes(1);
@@ -130,10 +134,15 @@ describe("offline task batching", () => {
         const qc = testQueryClient();
         const controller = new AbortController();
         let transportSignal: AbortSignal | undefined;
-        get.mockImplementation((_input, options) => new Promise((_resolve, reject) => {
-            transportSignal = options.init.signal;
-            transportSignal!.addEventListener("abort", () => reject(new DOMException("Cancelled", "AbortError")));
-        }));
+        get.mockImplementation(
+            (_input, options) =>
+                new Promise((_resolve, reject) => {
+                    transportSignal = options.init.signal;
+                    transportSignal!.addEventListener("abort", () =>
+                        reject(new DOMException("Cancelled", "AbortError")),
+                    );
+                }),
+        );
         const warming = warm(qc, controller);
         controller.abort();
         await warming;

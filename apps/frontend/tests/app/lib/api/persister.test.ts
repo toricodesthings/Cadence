@@ -6,10 +6,22 @@ import { createIDBPersister, prefetchSavedWorkspace, type ManagedPersister } fro
 const storage = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn(), del: vi.fn() }));
 vi.mock("idb-keyval", () => storage);
 vi.mock("../../../../app/platform/runtime", () => ({ IS_DESKTOP_RUNTIME: false, getNativeStore: vi.fn() }));
-const snapshot = (timestamp: number): PersistedClient => ({ timestamp, buster: "account", clientState: { queries: [], mutations: [] } });
+const snapshot = (timestamp: number): PersistedClient => ({
+    timestamp,
+    buster: "account",
+    clientState: { queries: [], mutations: [] },
+});
 let persister: ManagedPersister;
-beforeEach(() => { vi.useFakeTimers(); vi.clearAllMocks(); storage.set.mockResolvedValue(undefined); persister = createIDBPersister(); });
-afterEach(() => { persister.dispose(); vi.useRealTimers(); });
+beforeEach(() => {
+    vi.useFakeTimers();
+    vi.clearAllMocks();
+    storage.set.mockResolvedValue(undefined);
+    persister = createIDBPersister();
+});
+afterEach(() => {
+    persister.dispose();
+    vi.useRealTimers();
+});
 
 describe("workspace cache persistence", () => {
     it("coalesces a burst and saves the newest complete snapshot", async () => {
@@ -48,11 +60,14 @@ describe("workspace cache persistence", () => {
 
 it("restores the stored snapshot untouched (old-shape data is dropped by the cache buster, not here)", async () => {
     const qc = new QueryClient();
-    const keys = [["tasks", { state: "ACTIVE" }], ["habits", "weekly", { start: "2026-03-06", end: "2026-03-10" }, false]];
+    const keys = [
+        ["tasks", { state: "ACTIVE" }],
+        ["habits", "weekly", { start: "2026-03-06", end: "2026-03-10" }, false],
+    ];
     for (const key of keys) qc.setQueryData(key, []);
     storage.get.mockResolvedValue({ ...snapshot(1), clientState: dehydrate(qc) });
     const restored = await persister.restoreClient();
-    expect(restored?.clientState.queries.map(q => q.queryKey)).toEqual(keys);
+    expect(restored?.clientState.queries.map((q) => q.queryKey)).toEqual(keys);
     expect(restored?.buster).toBe("account");
     qc.clear();
 });

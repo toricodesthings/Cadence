@@ -42,7 +42,9 @@ describe("ordering math", () => {
 
         it("lays the list out again when neighbours tie", () => {
             expect(reorderWrites(items(5, 5, 5), "c", 1)).toEqual([
-                { id: "a", order: 1024 }, { id: "c", order: 2048 }, { id: "b", order: 3072 },
+                { id: "a", order: 1024 },
+                { id: "c", order: 2048 },
+                { id: "b", order: 3072 },
             ]);
         });
 

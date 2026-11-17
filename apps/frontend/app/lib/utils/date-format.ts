@@ -69,7 +69,8 @@ export const toDay = (value: Instant | LocalDate): LocalDate => (isLocalDate(val
 export const toTimeValue = (instant: Instant): WallTime => wallTimeOf(instant, getUserZone());
 
 /** The instant at `time` on `day` in the user's zone (`day` may also be an instant: its user's day is used). */
-export const fromTimeValue = (day: LocalDate | Instant, time: WallTime): Instant => atLocal(toDay(day), time, getUserZone());
+export const fromTimeValue = (day: LocalDate | Instant, time: WallTime): Instant =>
+    atLocal(toDay(day), time, getUserZone());
 
 /** The end instant of a block that starts at `start` and ends at wall time `time`: on `day`, or the next day when that is not after the start (overnight). */
 export function blockEnd(day: LocalDate, start: Instant, time: WallTime): Instant {
@@ -124,7 +125,11 @@ export function formatShortDateTime(instant: Instant): string {
 
 /** Weekday + short date from a day: "Thu, Mar 8" or "Thu 8 Mar" (dmy); `year` appends the year. */
 export function formatShortDateLabel(day: LocalDate, { year = false }: { year?: boolean } = {}): string {
-    return format(day, { weekday: "short", day: "numeric", month: "short", ...(year ? { year: "numeric" } : {}) }, dmy() ? "en-GB" : "en-US");
+    return format(
+        day,
+        { weekday: "short", day: "numeric", month: "short", ...(year ? { year: "numeric" } : {}) },
+        dmy() ? "en-GB" : "en-US",
+    );
 }
 
 /** "Mar 8 - Mar 10" from two days. */
@@ -192,8 +197,18 @@ export function getWeekDays(day: LocalDate, weekStartsOn?: 0 | 1 | 6): LocalDate
 }
 
 export const MONTH_NAMES = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
 ];
 
 const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -229,7 +244,8 @@ export function isoDay(year: number, month: number, day: number): LocalDate {
 
 export const getMonthDateRange = (year: number, month: number) => monthRange(isoMonthStart(year, month));
 
-export const getWeekDateRange = (day: LocalDate, weekStartsOn: 0 | 1 | 6 = _config.weekStartsOn) => weekRange(day, WEEK_START_NAME[weekStartsOn]);
+export const getWeekDateRange = (day: LocalDate, weekStartsOn: 0 | 1 | 6 = _config.weekStartsOn) =>
+    weekRange(day, WEEK_START_NAME[weekStartsOn]);
 
 export const getYearDateRange = (year: number) => ({ start: isoDay(year, 0, 1), end: isoDay(year, 11, 31) });
 
@@ -237,9 +253,12 @@ export const getYearDateRange = (year: number) => ({ start: isoDay(year, 0, 1), 
 export function placementLabel(value: Instant | LocalDate): string {
     const day = toDay(value);
     const now = today();
-    const label = day === now ? "Today"
-        : day === addDays(now, 1) ? "Tomorrow"
-        : format(day, { weekday: "short", month: "short", day: "numeric" });
+    const label =
+        day === now
+            ? "Today"
+            : day === addDays(now, 1)
+              ? "Tomorrow"
+              : format(day, { weekday: "short", month: "short", day: "numeric" });
     return isLocalDate(value) ? label : `${label} · ${formatTime(value)}`;
 }
 

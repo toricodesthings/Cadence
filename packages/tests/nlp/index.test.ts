@@ -7,13 +7,16 @@ const CLOCK = clockOf("2026-03-20");
 
 describe("@cadence/nlp canonical behavior", () => {
     it("parses canonical envelopes with source surface, dismissal, and confidence metadata", () => {
-        const result = parseCanonicalNlpEnvelope({
-            rawInput: "Submit report by 5pm",
-            sourceSurface: "inbox",
-            dateStyle: "mdy",
-            dismissedEntityIds: [],
-            userOverrides: {},
-        }, { clock: CLOCK });
+        const result = parseCanonicalNlpEnvelope(
+            {
+                rawInput: "Submit report by 5pm",
+                sourceSurface: "inbox",
+                dateStyle: "mdy",
+                dismissedEntityIds: [],
+                userOverrides: {},
+            },
+            { clock: CLOCK },
+        );
 
         expect(result.rawInput).toBe("Submit report by 5pm");
         expect(result.sourceSurface).toBe("inbox");
@@ -24,7 +27,8 @@ describe("@cadence/nlp canonical behavior", () => {
     it("exposes resolvedId aliases for project and tag entities", () => {
         const result = parse({
             input: "Work on Apollo /apollo #planning",
-            sourceSurface: "quick_add", clock: CLOCK,
+            sourceSurface: "quick_add",
+            clock: CLOCK,
             context: {
                 projects: [{ id: "proj-1", name: "Apollo" }],
                 tags: [{ id: "tag-1", name: "planning" }],
@@ -46,8 +50,38 @@ describe("@cadence/nlp canonical behavior", () => {
 
         const filtered = applyFocusView(
             [
-                { id: "1", state: "ACTIVE", dueDate: "2026-03-20", projectId: null, tagIds: [], priority: 0, effort: null, waitingOn: null, notBefore: null, durationEstimate: null, isPinned: false, orderIndex: 1, scheduledStart: null, scheduledEnd: null },
-                { id: "2", state: "ACTIVE", dueDate: null, projectId: "proj-1", tagIds: [], priority: 0, effort: null, waitingOn: null, notBefore: null, durationEstimate: null, isPinned: false, orderIndex: 2, scheduledStart: null, scheduledEnd: null },
+                {
+                    id: "1",
+                    state: "ACTIVE",
+                    dueDate: "2026-03-20",
+                    projectId: null,
+                    tagIds: [],
+                    priority: 0,
+                    effort: null,
+                    waitingOn: null,
+                    notBefore: null,
+                    durationEstimate: null,
+                    isPinned: false,
+                    orderIndex: 1,
+                    scheduledStart: null,
+                    scheduledEnd: null,
+                },
+                {
+                    id: "2",
+                    state: "ACTIVE",
+                    dueDate: null,
+                    projectId: "proj-1",
+                    tagIds: [],
+                    priority: 0,
+                    effort: null,
+                    waitingOn: null,
+                    notBefore: null,
+                    durationEstimate: null,
+                    isPinned: false,
+                    orderIndex: 2,
+                    scheduledStart: null,
+                    scheduledEnd: null,
+                },
             ],
             composed.definition,
             { clock: clockOf("2026-03-20"), dayOf: (i) => i.slice(0, 10) },
@@ -71,13 +105,45 @@ describe("@cadence/nlp canonical behavior", () => {
         expect(deepFocus?.definition.priorityMin).toBeNull();
 
         const tasks = [
-            { id: "short-hard", state: "ACTIVE", projectId: null, dueDate: null, scheduledStart: null, priority: 0, effort: 3, durationEstimate: 15 },
-            { id: "long-easy", state: "ACTIVE", projectId: null, dueDate: null, scheduledStart: null, priority: 0, effort: 1, durationEstimate: 120 },
-            { id: "unestimated", state: "ACTIVE", projectId: null, dueDate: null, scheduledStart: null, priority: 0, effort: null, durationEstimate: null },
+            {
+                id: "short-hard",
+                state: "ACTIVE",
+                projectId: null,
+                dueDate: null,
+                scheduledStart: null,
+                priority: 0,
+                effort: 3,
+                durationEstimate: 15,
+            },
+            {
+                id: "long-easy",
+                state: "ACTIVE",
+                projectId: null,
+                dueDate: null,
+                scheduledStart: null,
+                priority: 0,
+                effort: 1,
+                durationEstimate: 120,
+            },
+            {
+                id: "unestimated",
+                state: "ACTIVE",
+                projectId: null,
+                dueDate: null,
+                scheduledStart: null,
+                priority: 0,
+                effort: null,
+                durationEstimate: null,
+            },
         ];
         const ctx = { clock: clockOf("2026-03-20"), dayOf: (i: string) => i.slice(0, 10) };
-        expect(applyFocusView(tasks, composeFocusView("short tasks").definition, ctx).map((t) => t.id)).toEqual(["short-hard"]);
-        expect(applyFocusView(tasks, composeFocusView("demanding tasks").definition, ctx).map((t) => t.id)).toEqual(["short-hard", "unestimated"]);
+        expect(applyFocusView(tasks, composeFocusView("short tasks").definition, ctx).map((t) => t.id)).toEqual([
+            "short-hard",
+        ]);
+        expect(applyFocusView(tasks, composeFocusView("demanding tasks").definition, ctx).map((t) => t.id)).toEqual([
+            "short-hard",
+            "unestimated",
+        ]);
     });
 });
 
@@ -94,7 +160,11 @@ describe("Parser test matrix", () => {
         });
 
         it("preserves title with no NLP artifacts", () => {
-            const result = parse({ input: "Call the dentist about the appointment", sourceSurface: "quick_add", clock: CLOCK });
+            const result = parse({
+                input: "Call the dentist about the appointment",
+                sourceSurface: "quick_add",
+                clock: CLOCK,
+            });
             expect(result.entities).toHaveLength(0);
             expect(result.cleanedTitle).toBe("Call the dentist about the appointment");
         });
@@ -110,20 +180,23 @@ describe("Parser test matrix", () => {
     describe("ADHD-style shorthand", () => {
         it("treats a standalone !! as Urgent and removes it from the task title", () => {
             const result = parse({ input: "Call the plumber !!", sourceSurface: "holding_capture", clock: CLOCK });
-            expect(result.entities.find(e => e.type === "priority")?.normalizedValue).toBe(4);
+            expect(result.entities.find((e) => e.type === "priority")?.normalizedValue).toBe(4);
             expect(result.cleanedTitle).toBe("Call the plumber");
         });
 
-        it.each(["Wonderful!!!", "Remember wow!!", 'Remember "!!"'])
-            ("preserves literal punctuation in %s", input => {
-                expect(parse({ input, sourceSurface: "holding_capture", clock: CLOCK }).entities
-                    .some(e => e.type === "priority")).toBe(false);
-            });
+        it.each(["Wonderful!!!", "Remember wow!!", 'Remember "!!"'])("preserves literal punctuation in %s", (input) => {
+            expect(
+                parse({ input, sourceSurface: "holding_capture", clock: CLOCK }).entities.some(
+                    (e) => e.type === "priority",
+                ),
+            ).toBe(false);
+        });
 
         it("parses brain dump with loose date", () => {
             const result = parse({
                 input: "Ask Maya if legal needs this before launch maybe sometime soon",
-                sourceSurface: "holding_capture", clock: CLOCK,
+                sourceSurface: "holding_capture",
+                clock: CLOCK,
             });
             // Loose phrasing should produce 0 entities or non-high confidence
             if (result.entities.length > 0) {
@@ -136,23 +209,25 @@ describe("Parser test matrix", () => {
         it("parses combined shorthand: priority + date + project", () => {
             const result = parse({
                 input: "Fix login bug p1 tomorrow /work",
-                sourceSurface: "quick_add", clock: CLOCK,
+                sourceSurface: "quick_add",
+                clock: CLOCK,
                 context: { projects: [{ id: "p1", name: "work" }], tags: [] },
             });
-            expect(result.entities.some(e => e.type === "priority")).toBe(true);
-            expect(result.entities.some(e => e.type === "scheduled_start")).toBe(true);
-            expect(result.entities.some(e => e.type === "project")).toBe(true);
+            expect(result.entities.some((e) => e.type === "priority")).toBe(true);
+            expect(result.entities.some((e) => e.type === "scheduled_start")).toBe(true);
+            expect(result.entities.some((e) => e.type === "project")).toBe(true);
         });
 
         it("parses power user shorthand with recurrence + tag", () => {
             const result = parse({
                 input: "Review sprint board every weekday #planning p2",
-                sourceSurface: "quick_add", clock: CLOCK,
+                sourceSurface: "quick_add",
+                clock: CLOCK,
                 context: { projects: [], tags: [{ id: "t1", name: "planning" }] },
             });
-            expect(result.entities.some(e => e.type === "recurrence")).toBe(true);
-            expect(result.entities.some(e => e.type === "priority")).toBe(true);
-            expect(result.entities.some(e => e.type === "tag")).toBe(true);
+            expect(result.entities.some((e) => e.type === "recurrence")).toBe(true);
+            expect(result.entities.some((e) => e.type === "priority")).toBe(true);
+            expect(result.entities.some((e) => e.type === "tag")).toBe(true);
         });
     });
 
@@ -165,7 +240,7 @@ describe("Parser test matrix", () => {
                 clock: clockOf("2026-01-01"),
                 dateStyle: "mdy",
             });
-            const dateEntity = result.entities.find(e => e.type === "scheduled_start");
+            const dateEntity = result.entities.find((e) => e.type === "scheduled_start");
             expect(dateEntity).toBeDefined();
             const value = dateEntity!.normalizedValue as { date: string };
             // 3/5 in MDY = March 5
@@ -179,7 +254,7 @@ describe("Parser test matrix", () => {
                 clock: clockOf("2026-01-01"),
                 dateStyle: "dmy",
             });
-            const dateEntity = result.entities.find(e => e.type === "scheduled_start");
+            const dateEntity = result.entities.find((e) => e.type === "scheduled_start");
             expect(dateEntity).toBeDefined();
             const value = dateEntity!.normalizedValue as { date: string };
             // 3/5 in DMY = May 3
@@ -192,16 +267,18 @@ describe("Parser test matrix", () => {
         it("protects quoted text from NLP parsing", () => {
             const result = parse({
                 input: '"Buy milk next Friday" is done tomorrow',
-                sourceSurface: "quick_add", clock: CLOCK,
+                sourceSurface: "quick_add",
+                clock: CLOCK,
             });
             expect(result.cleanedTitle).toContain("Buy milk next Friday");
-            expect(result.entities.some(e => e.type === "scheduled_start")).toBe(true);
+            expect(result.entities.some((e) => e.type === "scheduled_start")).toBe(true);
         });
 
         it("preserves quoted text without date entities", () => {
             const result = parse({
                 input: '"Buy milk next Friday" is the task name',
-                sourceSurface: "inline_add", clock: CLOCK,
+                sourceSurface: "inline_add",
+                clock: CLOCK,
             });
             // The date inside quotes should NOT be parsed
             expect(result.cleanedTitle).toContain("Buy milk next Friday");
@@ -212,7 +289,7 @@ describe("Parser test matrix", () => {
     describe("recurring patterns", () => {
         it("parses daily recurrence", () => {
             const result = parse({ input: "Take vitamins daily", sourceSurface: "quick_add", clock: CLOCK });
-            const rec = result.entities.find(e => e.type === "recurrence");
+            const rec = result.entities.find((e) => e.type === "recurrence");
             expect(rec).toBeDefined();
             expect((rec!.normalizedValue as { rrule: string }).rrule).toBe("FREQ=DAILY");
             expect(rec!.confidence).toBe("high");
@@ -220,28 +297,28 @@ describe("Parser test matrix", () => {
 
         it("parses weekly day recurrence", () => {
             const result = parse({ input: "Water plants every Monday", sourceSurface: "quick_add", clock: CLOCK });
-            const rec = result.entities.find(e => e.type === "recurrence");
+            const rec = result.entities.find((e) => e.type === "recurrence");
             expect(rec).toBeDefined();
             expect((rec!.normalizedValue as { rrule: string }).rrule).toBe("FREQ=WEEKLY;BYDAY=MO");
         });
 
         it("parses biweekly recurrence", () => {
             const result = parse({ input: "Team sync every other week", sourceSurface: "quick_add", clock: CLOCK });
-            const rec = result.entities.find(e => e.type === "recurrence");
+            const rec = result.entities.find((e) => e.type === "recurrence");
             expect(rec).toBeDefined();
             expect((rec!.normalizedValue as { rrule: string }).rrule).toBe("FREQ=WEEKLY;INTERVAL=2");
         });
 
         it("parses monthly recurrence", () => {
             const result = parse({ input: "Review goals every month", sourceSurface: "quick_add", clock: CLOCK });
-            const rec = result.entities.find(e => e.type === "recurrence");
+            const rec = result.entities.find((e) => e.type === "recurrence");
             expect(rec).toBeDefined();
             expect((rec!.normalizedValue as { rrule: string }).rrule).toContain("FREQ=MONTHLY");
         });
 
         it("parses every N days", () => {
             const result = parse({ input: "Check garden every 3 days", sourceSurface: "quick_add", clock: CLOCK });
-            const rec = result.entities.find(e => e.type === "recurrence");
+            const rec = result.entities.find((e) => e.type === "recurrence");
             expect(rec).toBeDefined();
             expect((rec!.normalizedValue as { rrule: string }).rrule).toBe("FREQ=DAILY;INTERVAL=3");
         });
@@ -251,7 +328,7 @@ describe("Parser test matrix", () => {
     describe("waiting-on language", () => {
         it("parses 'waiting on [person]'", () => {
             const result = parse({ input: "waiting on John to review the PR", sourceSurface: "inbox", clock: CLOCK });
-            const w = result.entities.find(e => e.type === "waiting_on");
+            const w = result.entities.find((e) => e.type === "waiting_on");
             expect(w).toBeDefined();
             expect((w!.normalizedValue as { person: string }).person).toBe("John to review the PR");
             expect(w!.confidence).toBe("high");
@@ -259,14 +336,14 @@ describe("Parser test matrix", () => {
 
         it("parses 'waiting for [person]'", () => {
             const result = parse({ input: "waiting for Sarah", sourceSurface: "quick_add", clock: CLOCK });
-            const w = result.entities.find(e => e.type === "waiting_on");
+            const w = result.entities.find((e) => e.type === "waiting_on");
             expect(w).toBeDefined();
             expect((w!.normalizedValue as { person: string }).person).toBe("Sarah");
         });
 
         it("parses waiting-on with date boundary", () => {
             const result = parse({ input: "waiting on Mike by tomorrow", sourceSurface: "inbox", clock: CLOCK });
-            const w = result.entities.find(e => e.type === "waiting_on");
+            const w = result.entities.find((e) => e.type === "waiting_on");
             expect(w).toBeDefined();
             expect((w!.normalizedValue as { person: string }).person).toBe("Mike");
         });
@@ -276,56 +353,56 @@ describe("Parser test matrix", () => {
     describe("duration phrases", () => {
         it("parses minutes", () => {
             const result = parse({ input: "Quick 15m task: reply to email", sourceSurface: "quick_add", clock: CLOCK });
-            const d = result.entities.find(e => e.type === "duration");
+            const d = result.entities.find((e) => e.type === "duration");
             expect(d).toBeDefined();
             expect((d!.normalizedValue as { minutes: number }).minutes).toBe(15);
         });
 
         it("parses hours", () => {
             const result = parse({ input: "Deep work session 2h", sourceSurface: "quick_add", clock: CLOCK });
-            const d = result.entities.find(e => e.type === "duration");
+            const d = result.entities.find((e) => e.type === "duration");
             expect(d).toBeDefined();
             expect((d!.normalizedValue as { minutes: number }).minutes).toBe(120);
         });
 
         it("parses compound hours and minutes", () => {
             const result = parse({ input: "Meeting prep 1h30m", sourceSurface: "quick_add", clock: CLOCK });
-            const d = result.entities.find(e => e.type === "duration");
+            const d = result.entities.find((e) => e.type === "duration");
             expect(d).toBeDefined();
             expect((d!.normalizedValue as { minutes: number }).minutes).toBe(90);
         });
 
         it("parses 'half hour'", () => {
             const result = parse({ input: "half hour call with team", sourceSurface: "quick_add", clock: CLOCK });
-            const d = result.entities.find(e => e.type === "duration");
+            const d = result.entities.find((e) => e.type === "duration");
             expect(d).toBeDefined();
             expect((d!.normalizedValue as { minutes: number }).minutes).toBe(30);
         });
 
         it("parses 'half an hour'", () => {
             const result = parse({ input: "half an hour of reading", sourceSurface: "inline_add", clock: CLOCK });
-            const d = result.entities.find(e => e.type === "duration");
+            const d = result.entities.find((e) => e.type === "duration");
             expect(d).toBeDefined();
             expect((d!.normalizedValue as { minutes: number }).minutes).toBe(30);
         });
 
         it("parses 'quarter hour'", () => {
             const result = parse({ input: "quarter hour standup", sourceSurface: "quick_add", clock: CLOCK });
-            const d = result.entities.find(e => e.type === "duration");
+            const d = result.entities.find((e) => e.type === "duration");
             expect(d).toBeDefined();
             expect((d!.normalizedValue as { minutes: number }).minutes).toBe(15);
         });
 
         it("parses '90 mins'", () => {
             const result = parse({ input: "Study session 90 mins", sourceSurface: "quick_add", clock: CLOCK });
-            const d = result.entities.find(e => e.type === "duration");
+            const d = result.entities.find((e) => e.type === "duration");
             expect(d).toBeDefined();
             expect((d!.normalizedValue as { minutes: number }).minutes).toBe(90);
         });
 
         it("rejects impossible durations", () => {
             const result = parse({ input: "Marathon 1000m task", sourceSurface: "quick_add", clock: CLOCK });
-            const d = result.entities.find(e => e.type === "duration");
+            const d = result.entities.find((e) => e.type === "duration");
             expect(d).toBeUndefined();
         });
     });
@@ -334,42 +411,58 @@ describe("Parser test matrix", () => {
     describe("false positives", () => {
         it("does not parse 'monthly report' as a date", () => {
             const result = parse({ input: "monthly report", sourceSurface: "quick_add", clock: CLOCK });
-            expect(result.entities.filter(e => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(0);
+            expect(result.entities.filter((e) => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(
+                0,
+            );
         });
 
         it("does not parse 'Friday's notes' as a date", () => {
             const result = parse({ input: "Friday's notes from meeting", sourceSurface: "quick_add", clock: CLOCK });
-            expect(result.entities.filter(e => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(0);
+            expect(result.entities.filter((e) => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(
+                0,
+            );
         });
 
         it("does not parse 'Black Friday deal' as a date", () => {
             const result = parse({ input: "Black Friday deal", sourceSurface: "quick_add", clock: CLOCK });
-            expect(result.entities.filter(e => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(0);
+            expect(result.entities.filter((e) => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(
+                0,
+            );
         });
 
         it("does not parse 'Saturday Night Live' as a date", () => {
             const result = parse({ input: "Watch Saturday Night Live", sourceSurface: "quick_add", clock: CLOCK });
-            expect(result.entities.filter(e => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(0);
+            expect(result.entities.filter((e) => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(
+                0,
+            );
         });
 
         it("does not parse 'daily standup' as a date", () => {
             const result = parse({ input: "daily standup prep", sourceSurface: "quick_add", clock: CLOCK });
-            expect(result.entities.filter(e => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(0);
+            expect(result.entities.filter((e) => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(
+                0,
+            );
         });
 
         it("does not parse 'morning routine' as a date", () => {
             const result = parse({ input: "morning routine checklist", sourceSurface: "quick_add", clock: CLOCK });
-            expect(result.entities.filter(e => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(0);
+            expect(result.entities.filter((e) => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(
+                0,
+            );
         });
 
         it("does not parse 'May Day' as a date", () => {
             const result = parse({ input: "May Day celebration", sourceSurface: "quick_add", clock: CLOCK });
-            expect(result.entities.filter(e => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(0);
+            expect(result.entities.filter((e) => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(
+                0,
+            );
         });
 
         it("does not parse 'March Madness' as a date", () => {
             const result = parse({ input: "March Madness bracket", sourceSurface: "quick_add", clock: CLOCK });
-            expect(result.entities.filter(e => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(0);
+            expect(result.entities.filter((e) => e.type === "scheduled_start" || e.type === "due_date")).toHaveLength(
+                0,
+            );
         });
     });
 
@@ -386,7 +479,11 @@ describe("Parser test matrix", () => {
         });
 
         it("emits multiple_dates_detected when more than one date found", () => {
-            const result = parse({ input: "Meet Sarah tomorrow and John next Friday", sourceSurface: "quick_add", clock: CLOCK });
+            const result = parse({
+                input: "Meet Sarah tomorrow and John next Friday",
+                sourceSurface: "quick_add",
+                clock: CLOCK,
+            });
             expect(result.warnings).toContain("multiple_dates_detected" as WarningCode);
         });
 
@@ -404,7 +501,7 @@ describe("Parser test matrix", () => {
                 sourceSurface: "quick_add",
                 clock: clockOf("2026-03-20"),
             });
-            const dateEntity = result.entities.find(e => e.type === "scheduled_start");
+            const dateEntity = result.entities.find((e) => e.type === "scheduled_start");
             expect(dateEntity).toBeDefined();
             // chrono-node recognizes "tonight" as a date reference
             const value = dateEntity!.normalizedValue as { date: string };
@@ -417,7 +514,7 @@ describe("Parser test matrix", () => {
                 sourceSurface: "quick_add",
                 clock: clockOf("2026-03-20"),
             });
-            const dateEntity = result.entities.find(e => e.type === "scheduled_start");
+            const dateEntity = result.entities.find((e) => e.type === "scheduled_start");
             expect(dateEntity).toBeDefined();
         });
 
@@ -427,7 +524,7 @@ describe("Parser test matrix", () => {
                 sourceSurface: "quick_add",
                 clock: clockOf("2026-03-20"),
             });
-            const dateEntity = result.entities.find(e => e.type === "scheduled_start");
+            const dateEntity = result.entities.find((e) => e.type === "scheduled_start");
             expect(dateEntity).toBeDefined();
         });
 
@@ -437,7 +534,7 @@ describe("Parser test matrix", () => {
                 sourceSurface: "quick_add",
                 clock: clockOf("2026-03-18"), // Wednesday
             });
-            const dateEntity = result.entities.find(e => e.type === "scheduled_start");
+            const dateEntity = result.entities.find((e) => e.type === "scheduled_start");
             expect(dateEntity).toBeDefined();
         });
 
@@ -447,7 +544,7 @@ describe("Parser test matrix", () => {
                 sourceSurface: "quick_add",
                 clock: clockOf("2026-03-20"),
             });
-            const dateEntity = result.entities.find(e => e.type === "scheduled_start");
+            const dateEntity = result.entities.find((e) => e.type === "scheduled_start");
             expect(dateEntity).toBeDefined();
             expect(dateEntity!.confidence).toBe("high");
         });
@@ -455,8 +552,10 @@ describe("Parser test matrix", () => {
         it("ends a 'before' deadline the day before, and keeps 'by' inclusive", () => {
             const clock = clockOf("2026-09-23");
             const due = (input: string) =>
-                (parse({ input, sourceSurface: "inbox", clock }).entities.find((e) => e.type === "due_date")
-                    ?.normalizedValue as { date: string } | undefined)?.date;
+                (
+                    parse({ input, sourceSurface: "inbox", clock }).entities.find((e) => e.type === "due_date")
+                        ?.normalizedValue as { date: string } | undefined
+                )?.date;
             expect(due("Renew passport before March")).toBe("2027-02-28");
             expect(due("Send it before Friday")).toBe("2026-09-24");
             expect(due("Send it by Friday")).toBe("2026-09-25");
@@ -471,7 +570,7 @@ describe("Parser test matrix", () => {
                 sourceSurface: "inbox",
                 clock: clockOf("2026-03-18"),
             });
-            const dateEntity = result.entities.find(e => e.type === "due_date");
+            const dateEntity = result.entities.find((e) => e.type === "due_date");
             expect(dateEntity).toBeDefined();
         });
     });
@@ -481,16 +580,18 @@ describe("Parser test matrix", () => {
         it("high confidence for explicit date patterns", () => {
             const result = parse({
                 input: "Meeting tomorrow at 3pm",
-                sourceSurface: "quick_add", clock: CLOCK,
+                sourceSurface: "quick_add",
+                clock: CLOCK,
             });
             expect(result.overallConfidence).toBe("high");
-            expect(result.entities.every(e => e.confidence === "high")).toBe(true);
+            expect(result.entities.every((e) => e.confidence === "high")).toBe(true);
         });
 
         it("low confidence for timed deadlines", () => {
             const result = parse({
                 input: "Submit report by 5pm",
-                sourceSurface: "inbox", clock: CLOCK,
+                sourceSurface: "inbox",
+                clock: CLOCK,
             });
             expect(result.overallConfidence).toBe("low");
         });
@@ -505,12 +606,21 @@ describe("date entity shape (zone-free)", () => {
 
     it("returns { date, time } and no datetime", () => {
         const v = entity("Call mom tomorrow at 3:30pm").normalizedValue as Record<string, unknown>;
-        expect(v).toMatchObject({ date: "2026-03-21", time: "15:30", hasTime: true, humanLabel: "Tomorrow at 3:30 PM" });
+        expect(v).toMatchObject({
+            date: "2026-03-21",
+            time: "15:30",
+            hasTime: true,
+            humanLabel: "Tomorrow at 3:30 PM",
+        });
         expect("datetime" in v).toBe(false);
     });
 
     it("date-only has time null", () => {
-        expect(entity("Pay rent March 25").normalizedValue).toMatchObject({ date: "2026-03-25", time: null, hasTime: false });
+        expect(entity("Pay rent March 25").normalizedValue).toMatchObject({
+            date: "2026-03-25",
+            time: null,
+            hasTime: false,
+        });
     });
 
     it("reports a timed deadline with its time", () => {

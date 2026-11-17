@@ -11,13 +11,26 @@ import { setUserZone } from "../../../../app/lib/utils/user-zone";
 // Times are shown in the person's zone, whatever zone this machine is in.
 const zone = "America/Toronto";
 setUserZone(zone);
-const proposal = (start: string, end: string) => ({ start: atLocal("2026-10-20", start, zone), end: atLocal("2026-10-20", end, zone), bucket: "morning" as const });
+const proposal = (start: string, end: string) => ({
+    start: atLocal("2026-10-20", start, zone),
+    end: atLocal("2026-10-20", end, zone),
+    bucket: "morning" as const,
+});
 const proposals = [proposal("09:00", "09:45"), proposal("13:00", "13:45"), proposal("19:00", "19:45")];
 
 beforeEach(() => vi.clearAllMocks());
 
 const setup = (over: object = {}) => {
-    const props = { id: "t1", title: "Lab report", zone, proposals, onApply: vi.fn(async () => {}), onOtherDay: vi.fn(), onUndo: vi.fn(), ...over };
+    const props = {
+        id: "t1",
+        title: "Lab report",
+        zone,
+        proposals,
+        onApply: vi.fn(async () => {}),
+        onOtherDay: vi.fn(),
+        onUndo: vi.fn(),
+        ...over,
+    };
     render(<FindTimeToast {...props} />);
     return props;
 };
@@ -32,10 +45,14 @@ describe("FindTimeToast", () => {
 
     it("Another time steps through the gaps, one write each, then says that's every gap and keeps Other day and Undo", async () => {
         const props = setup();
-        await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Another time" })); });
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: "Another time" }));
+        });
         expect(props.onApply).toHaveBeenLastCalledWith(1);
         expect(screen.getByRole("status").textContent).toMatch(/1:00.*1:45/);
-        await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Another time" })); });
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: "Another time" }));
+        });
         expect(props.onApply).toHaveBeenLastCalledWith(2);
         expect(screen.getByText(/That’s every gap on Tue/)).toBeTruthy();
         expect(screen.queryByRole("button", { name: "Another time" })).toBeNull();
@@ -44,8 +61,14 @@ describe("FindTimeToast", () => {
     });
 
     it("stays on the current gap when a write fails", async () => {
-        const props = setup({ onApply: vi.fn(async () => { throw new Error("offline"); }) });
-        await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Another time" })); });
+        const props = setup({
+            onApply: vi.fn(async () => {
+                throw new Error("offline");
+            }),
+        });
+        await act(async () => {
+            fireEvent.click(screen.getByRole("button", { name: "Another time" }));
+        });
         expect(props.onApply).toHaveBeenCalledTimes(1);
         expect(screen.getByRole("status").textContent).toMatch(/9:00.*9:45/);
     });
@@ -76,7 +99,16 @@ describe("PlaceReceiptToast", () => {
     it("offers the first gap as a quiet question, and Undo always", () => {
         const onOffer = vi.fn();
         const onUndo = vi.fn();
-        render(<PlaceReceiptToast id="p" title="Lab report" description="Moved to Tue" offer="2:00 PM" onOffer={onOffer} onUndo={onUndo} />);
+        render(
+            <PlaceReceiptToast
+                id="p"
+                title="Lab report"
+                description="Moved to Tue"
+                offer="2:00 PM"
+                onOffer={onOffer}
+                onUndo={onUndo}
+            />,
+        );
         fireEvent.click(screen.getByRole("button", { name: "Put it at 2:00 PM" }));
         expect(onOffer).toHaveBeenCalled();
         fireEvent.click(screen.getByRole("button", { name: "Undo" }));
@@ -84,7 +116,16 @@ describe("PlaceReceiptToast", () => {
     });
 
     it("shows only Undo when the day has no gap", () => {
-        render(<PlaceReceiptToast id="p" title="Lab report" description="Moved to Tue" offer={null} onOffer={vi.fn()} onUndo={vi.fn()} />);
+        render(
+            <PlaceReceiptToast
+                id="p"
+                title="Lab report"
+                description="Moved to Tue"
+                offer={null}
+                onOffer={vi.fn()}
+                onUndo={vi.fn()}
+            />,
+        );
         expect(screen.queryByText(/\?/)).toBeNull();
         expect(screen.getByRole("button", { name: "Undo" })).toBeTruthy();
     });

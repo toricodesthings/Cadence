@@ -8,11 +8,7 @@ import type { Tx } from "../types/db";
  * This guarantees the SET CONFIG and query run atomically on the same connection,
  * preventing RLS context from leaking across Hyperdrive pool connections.
  */
-export async function withRls<T>(
-    db: DbClient,
-    userId: string,
-    fn: (tx: Tx) => Promise<T>,
-): Promise<T> {
+export async function withRls<T>(db: DbClient, userId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
     return tracing.enterSpan("db.rls.transaction", async (span) => {
         const startedAt = Date.now();
         let workEndedAt: number | undefined;
@@ -21,9 +17,9 @@ export async function withRls<T>(
             // the transaction. These timings expose that gap without SQL or identity.
             span.setAttribute("db.begin_ms", Date.now() - startedAt);
             // Drizzle queries are thenables; tracing only awaits native Promises.
-            await tracing.enterSpan("db.rls.context", async () => tx.execute(
-                sql`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: userId })}, true)`,
-            ));
+            await tracing.enterSpan("db.rls.context", async () =>
+                tx.execute(sql`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: userId })}, true)`),
+            );
             const value = await tracing.enterSpan("db.rls.work", async () => fn(tx));
             workEndedAt = Date.now();
             return value;

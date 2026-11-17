@@ -8,7 +8,9 @@ import { testQueryClient, withClient } from "../../helpers";
 
 const updateAsync = vi.fn();
 const updateMutate = vi.fn();
-vi.mock("../../../app/hooks/tasks/use-update-task", () => ({ useUpdateTask: () => ({ mutateAsync: updateAsync, mutate: updateMutate, isPending: false }) }));
+vi.mock("../../../app/hooks/tasks/use-update-task", () => ({
+    useUpdateTask: () => ({ mutateAsync: updateAsync, mutate: updateMutate, isPending: false }),
+}));
 vi.mock("../../../app/hooks/tags/use-task-tags", () => ({ useAddTaskTag: () => ({ mutateAsync: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
 
@@ -22,7 +24,13 @@ describe("useApplyInstruction", () => {
         const { result } = renderHook(() => useApplyInstruction(), { wrapper: withClient() });
 
         let out: Awaited<ReturnType<typeof result.current.apply>>;
-        await act(async () => { out = await result.current.apply([task("a"), task("b"), task("c")], { dueDate: "2026-10-12" }, "Updated 3 tasks"); });
+        await act(async () => {
+            out = await result.current.apply(
+                [task("a"), task("b"), task("c")],
+                { dueDate: "2026-10-12" },
+                "Updated 3 tasks",
+            );
+        });
         expect(out!).toEqual({ ok: ["a", "c"], failed: ["b"] });
         expect(updateAsync).toHaveBeenCalledTimes(3);
         expect((toast.success as any).mock.calls[0][0]).toMatch(/2 done, 1 didn't save/);
@@ -32,7 +40,13 @@ describe("useApplyInstruction", () => {
         updateAsync.mockResolvedValue({});
         const client = testQueryClient();
         const { result } = renderHook(() => useApplyInstruction(), { wrapper: withClient(client) });
-        await act(async () => { await result.current.apply([task("a", "2026-10-08"), task("b", "2026-10-08")], { dueDate: "2026-10-12" }, "Updated"); });
+        await act(async () => {
+            await result.current.apply(
+                [task("a", "2026-10-08"), task("b", "2026-10-08")],
+                { dueDate: "2026-10-12" },
+                "Updated",
+            );
+        });
 
         // "a" still holds what we wrote; on "b" someone has since moved the day.
         client.setQueryData([...queryKeys.tasks.all, "list"], [task("a", "2026-10-12"), task("b", "2026-10-20")]);
@@ -46,7 +60,9 @@ describe("useApplyInstruction", () => {
         updateAsync.mockResolvedValue({});
         const { result } = renderHook(() => useApplyInstruction(), { wrapper: withClient() });
         const many = Array.from({ length: 40 }, (_, i) => task(`t${i}`));
-        await act(async () => { await result.current.apply(many, { dueDate: "2026-10-12" }, "Updated"); });
+        await act(async () => {
+            await result.current.apply(many, { dueDate: "2026-10-12" }, "Updated");
+        });
         expect(updateAsync).toHaveBeenCalledTimes(25);
     });
 });

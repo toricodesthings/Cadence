@@ -28,11 +28,34 @@ const SRC_DIR = join(fileURLToPath(import.meta.url), "../../../src");
 
 /** Tables that carry per-user data and must be scoped by `userId`. */
 const USER_SCOPED_TABLES = [
-    "users", "userMetrics", "aiMemories", "aiConversations", "aiMessages", "taskSections",
-    "projects", "tasks", "tags", "taskTags", "inboxItems", "inboxSections", "habits",
-    "habitTags", "habitLogs", "subtasks", "taskNotes", "taskMetrics", "usageEvents",
-    "notificationState", "mutationDedup", "taskNlpMetadata",
-    "savedFocusViews", "aiImages", "mcpConnections", "dataExports", "aiMemorySignals", "aiMemoryNotes",
+    "users",
+    "userMetrics",
+    "aiMemories",
+    "aiConversations",
+    "aiMessages",
+    "taskSections",
+    "projects",
+    "tasks",
+    "tags",
+    "taskTags",
+    "inboxItems",
+    "inboxSections",
+    "habits",
+    "habitTags",
+    "habitLogs",
+    "subtasks",
+    "taskNotes",
+    "taskMetrics",
+    "usageEvents",
+    "notificationState",
+    "mutationDedup",
+    "taskNlpMetadata",
+    "savedFocusViews",
+    "aiImages",
+    "mcpConnections",
+    "dataExports",
+    "aiMemorySignals",
+    "aiMemoryNotes",
 ];
 
 /**
@@ -40,13 +63,31 @@ const USER_SCOPED_TABLES = [
  * predicate. Each must stay justified.
  */
 const ALLOWED_WITHOUT_USERID: Array<{ fragment: string; reason: string }> = [
-    { fragment: "eq(taskTags.taskId", reason: "task_tags has no userId column; scoped by a task verified as owned earlier in the tx" },
-    { fragment: "inArray(taskTags.taskId, taskIds", reason: "task_tags has no userId column; every id was verified owned by updateTask earlier in the tx" },
-    { fragment: "eq(habitLogs.id, existing.id", reason: "`existing` was fetched via a userId-scoped select in the same tx" },
+    {
+        fragment: "eq(taskTags.taskId",
+        reason: "task_tags has no userId column; scoped by a task verified as owned earlier in the tx",
+    },
+    {
+        fragment: "inArray(taskTags.taskId, taskIds",
+        reason: "task_tags has no userId column; every id was verified owned by updateTask earlier in the tx",
+    },
+    {
+        fragment: "eq(habitLogs.id, existing.id",
+        reason: "`existing` was fetched via a userId-scoped select in the same tx",
+    },
     { fragment: "eq(habits.id, habit.id", reason: "`habit` was fetched via a userId-scoped select in the same tx" },
-    { fragment: "eq(habitTags.habitId, id", reason: "`id` is verified as an owned habit (update + throwIfNotFound) before tag sync" },
-    { fragment: "eq(inboxItems.id, id", reason: "inbox item ownership verified earlier in the same tx (process route)" },
-    { fragment: "eq(taskMetrics.id, existing[0].id", reason: "`existing` was fetched via a userId-scoped select in the same tx" },
+    {
+        fragment: "eq(habitTags.habitId, id",
+        reason: "`id` is verified as an owned habit (update + throwIfNotFound) before tag sync",
+    },
+    {
+        fragment: "eq(inboxItems.id, id",
+        reason: "inbox item ownership verified earlier in the same tx (process route)",
+    },
+    {
+        fragment: "eq(taskMetrics.id, existing[0].id",
+        reason: "`existing` was fetched via a userId-scoped select in the same tx",
+    },
 ];
 
 function collectSourceFiles(dir: string): string[] {

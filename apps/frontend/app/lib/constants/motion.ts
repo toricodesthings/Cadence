@@ -20,9 +20,17 @@ const ZOOM_STEP = 0.05;
 
 /** Period-change slide: pass `SlideCustom` as `custom` on both `AnimatePresence` and the child. */
 export const slideVariants = {
-    enter: ({ direction, distance, zoom = 0 }: SlideCustom) => ({ x: direction > 0 ? distance : -distance, scale: 1 - zoom * ZOOM_STEP, opacity: 0 }),
+    enter: ({ direction, distance, zoom = 0 }: SlideCustom) => ({
+        x: direction > 0 ? distance : -distance,
+        scale: 1 - zoom * ZOOM_STEP,
+        opacity: 0,
+    }),
     center: { x: 0, scale: 1, opacity: 1 },
-    exit: ({ direction, distance, zoom = 0 }: SlideCustom) => ({ x: direction > 0 ? -distance : distance, scale: 1 + zoom * ZOOM_STEP, opacity: 0 }),
+    exit: ({ direction, distance, zoom = 0 }: SlideCustom) => ({
+        x: direction > 0 ? -distance : distance,
+        scale: 1 + zoom * ZOOM_STEP,
+        opacity: 0,
+    }),
 };
 
 /** A chat bubble arriving: rises 10px and fades in (fade only under reduced motion). Spread on a `motion` element. */

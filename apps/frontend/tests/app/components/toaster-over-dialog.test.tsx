@@ -8,14 +8,24 @@ import { ResponsiveOverlayPanel } from "../../../app/components/shared/Responsiv
 
 // jsdom has no pointer capture; Sonner's swipe handling calls it on pointer down.
 Element.prototype.setPointerCapture ??= () => {};
-vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { appearance: { motion: "reduced" } } }) }));
-vi.mock("../../../app/hooks/ui/use-shell-mode", () => ({ useShellMode: () => ({ isCompact: false, isTablet: false, isPhone: false, isTouch: false }) }));
+vi.mock("../../../app/hooks/core/use-settings", () => ({
+    useSettings: () => ({ data: { appearance: { motion: "reduced" } } }),
+}));
+vi.mock("../../../app/hooks/ui/use-shell-mode", () => ({
+    useShellMode: () => ({ isCompact: false, isTablet: false, isPhone: false, isTouch: false }),
+}));
 
 function Harness({ onClose }: { onClose: () => void }) {
     const [open, setOpen] = useState(true);
     return (
         <>
-            <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) onClose(); }}>
+            <Dialog
+                open={open}
+                onOpenChange={(next) => {
+                    setOpen(next);
+                    if (!next) onClose();
+                }}
+            >
                 <DialogContent>
                     <DialogTitle>Edit</DialogTitle>
                     <DialogDescription>Body</DialogDescription>
@@ -33,7 +43,9 @@ describe("Toaster over an open dialog", () => {
         const undo = vi.fn();
         render(<Harness onClose={onClose} />);
         await screen.findByRole("dialog");
-        act(() => { toast("Task deleted", { action: { label: "Undo", onClick: undo } }); });
+        act(() => {
+            toast("Task deleted", { action: { label: "Undo", onClick: undo } });
+        });
         const button = await screen.findByRole("button", { name: "Undo" });
         const host = document.querySelector<HTMLElement>("[data-cadence-toaster]")!;
 
@@ -61,9 +73,18 @@ describe("Toaster over an open dialog", () => {
 
     it("does the same over a sheet", async () => {
         const onClose = vi.fn();
-        render(<><ResponsiveOverlayPanel open onClose={onClose} ariaLabel="Sheet"><button>Inside</button></ResponsiveOverlayPanel><Toaster /></>);
+        render(
+            <>
+                <ResponsiveOverlayPanel open onClose={onClose} ariaLabel="Sheet">
+                    <button>Inside</button>
+                </ResponsiveOverlayPanel>
+                <Toaster />
+            </>,
+        );
         await screen.findByRole("dialog", { name: "Sheet" });
-        act(() => { toast("Moved", { action: { label: "Undo", onClick: () => {} } }); });
+        act(() => {
+            toast("Moved", { action: { label: "Undo", onClick: () => {} } });
+        });
         const button = await screen.findByRole("button", { name: "Undo" });
         const host = document.querySelector<HTMLElement>("[data-cadence-toaster]")!;
         expect(host.closest("[aria-hidden='true']")).toBeNull();

@@ -4,7 +4,11 @@ import { readFileSync } from "node:fs";
 import postgres from "postgres";
 
 const here = new URL("..", import.meta.url);
-try { process.loadEnvFile(new URL(".dev.vars", here)); } catch { /* no .dev.vars: nothing to check against */ }
+try {
+    process.loadEnvFile(new URL(".dev.vars", here));
+} catch {
+    /* no .dev.vars: nothing to check against */
+}
 const url = process.env.PROD_MANAGEMENT_DATABASE_URL;
 if (!url) {
     console.warn("check-prod-migrations: PROD_MANAGEMENT_DATABASE_URL unset in apps/backend/.dev.vars, skipping.");
@@ -18,8 +22,12 @@ try {
     const [row] = await sql`select max(created_at)::float8 as last from drizzle.__drizzle_migrations`;
     const behind = journal.filter((e) => e.when > (row?.last ?? 0)).map((e) => e.tag);
     if (behind.length) {
-        console.error(`\nProd is missing ${behind.length === 1 ? "a migration" : `${behind.length} migrations`}: ${behind.join(", ")}.`);
-        console.error("Pushing main deploys code that needs them. Run this, then push again:\n\n    pnpm db:migrate:prod\n");
+        console.error(
+            `\nProd is missing ${behind.length === 1 ? "a migration" : `${behind.length} migrations`}: ${behind.join(", ")}.`,
+        );
+        console.error(
+            "Pushing main deploys code that needs them. Run this, then push again:\n\n    pnpm db:migrate:prod\n",
+        );
         process.exitCode = 1;
     }
 } catch (error) {

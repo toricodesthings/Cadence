@@ -1,7 +1,15 @@
 import { Feather, Plus, CalendarRange, CalendarClock, Inbox, CheckCircle2, Flame, Archive } from "lucide-react";
 import { useNavigate } from "react-router";
 
-export type EmptyStateVariant = "today" | "upcoming" | "holding" | "completed" | "schedule" | "routines" | "routines-archived" | "default";
+export type EmptyStateVariant =
+    | "today"
+    | "upcoming"
+    | "holding"
+    | "completed"
+    | "schedule"
+    | "routines"
+    | "routines-archived"
+    | "default";
 
 interface EmptyStateProps {
     variant?: EmptyStateVariant;
@@ -15,12 +23,15 @@ interface EmptyStateProps {
     onAction?: () => void;
 }
 
-const VARIANTS: Record<EmptyStateVariant, {
-    icon: typeof Feather;
-    title: string;
-    description?: string;
-    cta?: { label: string; to?: string };
-}> = {
+const VARIANTS: Record<
+    EmptyStateVariant,
+    {
+        icon: typeof Feather;
+        title: string;
+        description?: string;
+        cta?: { label: string; to?: string };
+    }
+> = {
     today: {
         icon: Feather,
         title: "Nothing pressing today.",
@@ -67,30 +78,41 @@ const VARIANTS: Record<EmptyStateVariant, {
 };
 
 /** The one empty state: icon, title, optional line and CTA, centred where the content would be. */
-export function EmptyState({ variant = "default", onAction, icon, title, description, compact = false }: EmptyStateProps) {
+export function EmptyState({
+    variant = "default",
+    onAction,
+    icon,
+    title,
+    description,
+    compact = false,
+}: EmptyStateProps) {
     const navigate = useNavigate();
     const config = VARIANTS[variant];
     const Icon = icon ?? config.icon;
     const line = description === undefined ? config.description : description;
 
     return (
-        <div className={`flex flex-col items-center justify-center px-8 ${compact ? "h-full min-h-48 py-10" : "py-24"}`}>
-            <div className={`flex items-center justify-center bg-twilight-surface ring-1 ring-twilight-border ${compact ? "mb-4 h-12 w-12 rounded-2xl" : "mb-6 h-16 w-16 rounded-3xl"}`}>
+        <div
+            className={`flex flex-col items-center justify-center px-8 ${compact ? "h-full min-h-48 py-10" : "py-24"}`}
+        >
+            <div
+                className={`flex items-center justify-center bg-twilight-surface ring-1 ring-twilight-border ${compact ? "mb-4 h-12 w-12 rounded-2xl" : "mb-6 h-16 w-16 rounded-3xl"}`}
+            >
                 <Icon size={compact ? 20 : 26} aria-hidden="true" className="text-twilight-text-muted" />
             </div>
-            <p className={`text-center text-twilight-text-soft ${compact ? "text-sm" : "text-base"} ${line ? "mb-1.5" : ""}`}>
+            <p
+                className={`text-center text-twilight-text-soft ${compact ? "text-sm" : "text-base"} ${line ? "mb-1.5" : ""}`}
+            >
                 {title ?? config.title}
             </p>
             {line ? (
-                <p className="text-sm text-twilight-text-muted/90 text-center max-w-[280px] leading-relaxed">
-                    {line}
-                </p>
+                <p className="text-sm text-twilight-text-muted/90 text-center max-w-[280px] leading-relaxed">{line}</p>
             ) : null}
             {/* The variant's action belongs to an empty page, never to one empty section or column. */}
             {config.cta && !compact && (
                 <button
                     type="button"
-                    onClick={() => onAction ? onAction() : config.cta?.to && navigate(config.cta.to)}
+                    onClick={() => (onAction ? onAction() : config.cta?.to && navigate(config.cta.to))}
                     className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent-primary/10 px-4 py-2 text-sm font-medium text-accent-primary hover:bg-accent-primary/20 transition-colors ring-1 ring-accent-primary/20 cursor-pointer"
                 >
                     <Plus size={14} />

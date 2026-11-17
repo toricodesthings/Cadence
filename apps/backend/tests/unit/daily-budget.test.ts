@@ -3,7 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const redis = vi.hoisted(() => ({ client: null as unknown }));
 vi.mock("../../src/platform/redis", () => ({ getRedis: () => null, getRateLimitRedis: () => redis.client }));
 
-import { addDailySpend, secondsToUtcMidnight, spendWithinCap, withinDailyBudget } from "../../src/platform/daily-budget";
+import {
+    addDailySpend,
+    secondsToUtcMidnight,
+    spendWithinCap,
+    withinDailyBudget,
+} from "../../src/platform/daily-budget";
 import { logger } from "../../src/platform/log";
 import { FakeRedis } from "../helpers/fake-redis";
 import { DAILY_DECISIONS, decideChoice } from "../../src/domains/decisions/decision";
@@ -22,7 +27,12 @@ describe("daily budget", () => {
     });
 
     it("fails closed on a Redis error, open with no Redis", async () => {
-        redis.client = { incr: async () => { throw new Error("down"); }, expire: async () => 1 };
+        redis.client = {
+            incr: async () => {
+                throw new Error("down");
+            },
+            expire: async () => 1,
+        };
         expect(await withinDailyBudget(env, "x", "h", 2)).toBe(false);
         redis.client = null;
         expect(await withinDailyBudget(env, "x", "h", 2)).toBe(true);
@@ -32,7 +42,13 @@ describe("daily budget", () => {
         const fetchSpy = vi.fn();
         vi.stubGlobal("fetch", fetchSpy);
         redis.client = { incr: async () => DAILY_DECISIONS + 1, expire: async () => 1 };
-        const result = await decideChoice(env, { kind: "search", state: "x", instructions: "i", candidates: [{ id: "a", label: "A" }], userHash: "h" });
+        const result = await decideChoice(env, {
+            kind: "search",
+            state: "x",
+            instructions: "i",
+            candidates: [{ id: "a", label: "A" }],
+            userHash: "h",
+        });
         expect(result).toBeNull();
         expect(fetchSpy).not.toHaveBeenCalled();
     });
@@ -62,7 +78,12 @@ describe("global daily spend ceiling", () => {
     });
 
     it("fails open on a Redis error and ignores empty charges", async () => {
-        redis.client = { get: async () => { throw new Error("down"); }, incrbyfloat: vi.fn() };
+        redis.client = {
+            get: async () => {
+                throw new Error("down");
+            },
+            incrbyfloat: vi.fn(),
+        };
         expect(await spendWithinCap(env, now)).toBe(true);
         await addDailySpend(env, undefined, now);
         await addDailySpend(env, 0, now);

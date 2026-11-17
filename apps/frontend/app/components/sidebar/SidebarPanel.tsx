@@ -53,7 +53,7 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
     }, [searchParams, activeTagId, setActiveTag]);
 
     useEffect(() => {
-        if (!tagsLoading && activeTagId && !tags.some(t => t.id === activeTagId)) {
+        if (!tagsLoading && activeTagId && !tags.some((t) => t.id === activeTagId)) {
             const newParams = new URLSearchParams(searchParams);
             newParams.delete("tag");
             setSearchParams(newParams);
@@ -79,11 +79,9 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
     const [tagSearch, setTagSearch] = useState("");
     const [showCreateTag, setShowCreateTag] = useState(false);
 
-    const filteredTags = tags.filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase()));
+    const filteredTags = tags.filter((t) => t.name.toLowerCase().includes(tagSearch.toLowerCase()));
 
-    const inboxCount = captureLoading ? (
-        <Skeleton className="h-4 w-6 rounded-xl bg-white/[0.04]" />
-    ) : captureCount;
+    const inboxCount = captureLoading ? <Skeleton className="h-4 w-6 rounded-xl bg-white/[0.04]" /> : captureCount;
 
     return (
         <div
@@ -164,7 +162,7 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                                             key={project.id}
                                             id={project.id}
                                             label={project.name}
-                                            count={listTasks ? listCounts.get(project.id) ?? 0 : undefined}
+                                            count={listTasks ? (listCounts.get(project.id) ?? 0) : undefined}
                                             emoji={project.emoji}
                                             color={resolveAccentColor(project.colorAccent)}
                                             href={`/project/${project.id}`}
@@ -197,10 +195,17 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                                     onValueChange={setTagSearch}
                                     placeholder="Search"
                                     aria-label="Search tags"
-                                    onKeyDown={(e) => { if (e.key === "Escape" && tagSearch) { e.stopPropagation(); setTagSearch(""); } }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Escape" && tagSearch) {
+                                            e.stopPropagation();
+                                            setTagSearch("");
+                                        }
+                                    }}
                                     className="min-w-0 flex-1 rounded-lg"
                                 />
-                            ) : <span className="flex-1" aria-hidden="true" />}
+                            ) : (
+                                <span className="flex-1" aria-hidden="true" />
+                            )}
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -213,23 +218,36 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                         </div>
                         <Reveal open={tagsOpen} id="tags-list">
                             {/* Tag bubbles */}
-                            <div className="flex min-w-0 flex-wrap gap-2 px-3" onDragOver={tagOrder.onDragOver} onDrop={tagOrder.onDrop}>
+                            <div
+                                className="flex min-w-0 flex-wrap gap-2 px-3"
+                                onDragOver={tagOrder.onDragOver}
+                                onDrop={tagOrder.onDrop}
+                            >
                                 {(tagSearch ? filteredTags : tagOrder.ordered).map((tag, index) => (
                                     // While a drag is live the others glide aside on a spring and the dropped tag settles into its slot.
-                                    <motion.div key={tag.id} layout={tagOrder.active ? "position" : false} transition={SPRINGS.GLIDE} className="flex min-w-0 max-w-full">
-                                    <TagBubble
-                                        tag={tag}
-                                        // Positions in a filtered list are ambiguous, so searching turns reordering off.
-                                        reorder={tagSearch ? undefined : {
-                                            first: index === 0,
-                                            last: index === tags.length - 1,
-                                            onMove: (by) => tagOrder.move(tag.id, by),
-                                            onDragStart: () => tagOrder.start(tag.id),
-                                            dragging: tagOrder.draggingId === tag.id,
-                                        }}
-                                        isActive={activeTagId === tag.id}
-                                        onClick={() => handleToggleTag(tag.id)}
-                                    />
+                                    <motion.div
+                                        key={tag.id}
+                                        layout={tagOrder.active ? "position" : false}
+                                        transition={SPRINGS.GLIDE}
+                                        className="flex min-w-0 max-w-full"
+                                    >
+                                        <TagBubble
+                                            tag={tag}
+                                            // Positions in a filtered list are ambiguous, so searching turns reordering off.
+                                            reorder={
+                                                tagSearch
+                                                    ? undefined
+                                                    : {
+                                                          first: index === 0,
+                                                          last: index === tags.length - 1,
+                                                          onMove: (by) => tagOrder.move(tag.id, by),
+                                                          onDragStart: () => tagOrder.start(tag.id),
+                                                          dragging: tagOrder.draggingId === tag.id,
+                                                      }
+                                            }
+                                            isActive={activeTagId === tag.id}
+                                            onClick={() => handleToggleTag(tag.id)}
+                                        />
                                     </motion.div>
                                 ))}
                             </div>

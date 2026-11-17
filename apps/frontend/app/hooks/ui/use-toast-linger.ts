@@ -6,7 +6,13 @@ import { toast } from "sonner";
  * Hover and focus are read live when the timer fires, not counted from events: a control that unmounts while
  * focused never blurs. Off while `paused`; re-armed whenever `step` changes.
  */
-export function useToastLinger(id: string | number, box: RefObject<HTMLElement | null>, ms: number, paused: boolean, step: unknown) {
+export function useToastLinger(
+    id: string | number,
+    box: RefObject<HTMLElement | null>,
+    ms: number,
+    paused: boolean,
+    step: unknown,
+) {
     useEffect(() => {
         if (paused) return;
         let timer: ReturnType<typeof setTimeout>;

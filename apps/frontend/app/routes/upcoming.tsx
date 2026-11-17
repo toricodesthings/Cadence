@@ -12,7 +12,11 @@ import { RoutineAgendaRow } from "../components/shared/RoutineAgendaRow";
 import { BucketedRouteBody } from "../components/shared/BucketedCollectionView";
 import { PhoneTaskDetails, TaskDetailsRail } from "../components/shared/TaskDetailsPanels";
 import { TaskList } from "../components/tasks/TaskList";
-import { FURTHER_OUT_OPEN_PARAM, useFurtherOutSection, type FurtherOutItem } from "../components/upcoming/FurtherOutSection";
+import {
+    FURTHER_OUT_OPEN_PARAM,
+    useFurtherOutSection,
+    type FurtherOutItem,
+} from "../components/upcoming/FurtherOutSection";
 import { PageContent } from "../components/layout/PageLayout";
 import { useTasks } from "../hooks/tasks/use-tasks";
 import { useProjects } from "../hooks/projects/use-projects";
@@ -30,7 +34,14 @@ import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
 import { useSectionNav } from "../hooks/ui/use-section-nav";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { addDays, wallTimeOf, type LocalDate } from "@cadence/domain/time";
-import { dayOfInstant, formatShortDate, formatTime, formatWallTime, fromTimeValue, nlpClock } from "../lib/utils/date-format";
+import {
+    dayOfInstant,
+    formatShortDate,
+    formatTime,
+    formatWallTime,
+    fromTimeValue,
+    nlpClock,
+} from "../lib/utils/date-format";
 import { getUserZone, useToday } from "../lib/utils/user-zone";
 import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task/task-scheduling";
 import { useEffortGuess, type GuessOf } from "../hooks/tasks/use-effort-guess";
@@ -39,7 +50,6 @@ import type { SortMode } from "../lib/utils/task/sort-tasks";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import type { Task } from "@cadence/contracts/task";
 import type { Project } from "@cadence/contracts/project";
-
 
 type UpcomingBucketKey = "overdue" | "today" | "tomorrow" | "nextWeek";
 
@@ -128,7 +138,12 @@ function sortBuckets(grouped: Buckets, smart: boolean, sortMode: SortMode, guess
     for (const bucket of buckets) grouped[bucket].sort(comparator);
 }
 
-function classifyUpcomingBucket(dateOnly: LocalDate, todayISO: LocalDate, tomorrowISO: LocalDate, nextWeekISO: LocalDate): UpcomingBucketKey | null {
+function classifyUpcomingBucket(
+    dateOnly: LocalDate,
+    todayISO: LocalDate,
+    tomorrowISO: LocalDate,
+    nextWeekISO: LocalDate,
+): UpcomingBucketKey | null {
     if (dateOnly < todayISO) return "overdue";
     if (dateOnly === todayISO) return "today";
     if (dateOnly === tomorrowISO) return "tomorrow";
@@ -158,44 +173,68 @@ function taskItem(task: Task, day: LocalDate, project: Project | undefined): Upc
 }
 
 /** A routine's open days, today and tomorrow only: a missed routine lets go, it never shows as overdue. */
-function habitItems(habit: RangeHabit, week: { today: LocalDate; tomorrow: LocalDate; nextWeek: LocalDate }): [UpcomingBucketKey, UpcomingViewerItem][] {
+function habitItems(
+    habit: RangeHabit,
+    week: { today: LocalDate; tomorrow: LocalDate; nextWeek: LocalDate },
+): [UpcomingBucketKey, UpcomingViewerItem][] {
     const logs = [...(habit.logs ?? [])].sort((a, b) => a.targetDate.localeCompare(b.targetDate));
     return logs.flatMap((log): [UpcomingBucketKey, UpcomingViewerItem][] => {
         const day = log.targetDate;
-        const bucket = log.status === "PENDING" && day ? classifyUpcomingBucket(day, week.today, week.tomorrow, week.nextWeek) : null;
+        const bucket =
+            log.status === "PENDING" && day
+                ? classifyUpcomingBucket(day, week.today, week.tomorrow, week.nextWeek)
+                : null;
         if (bucket !== "today" && bucket !== "tomorrow") return [];
         // A routine at set times lists at its next open time (its first on a later day).
         const times = habit.times?.length ? habit.times : null;
         const time = times
-            ? nextOpenTime(times, timeMarksOn(times, log), day === week.today ? wallTimeOf(new Date(), getUserZone()) : "00:00")
+            ? nextOpenTime(
+                  times,
+                  timeMarksOn(times, log),
+                  day === week.today ? wallTimeOf(new Date(), getUserZone()) : "00:00",
+              )
             : routineTimeOn(habit, day);
-        return [[bucket, {
-            id: `habit-${habit.id}-${day}`,
-            kind: "habit",
-            title: habit.title,
-            dueDate: day,
-            dateLabel: "Due",
-            sortAt: Date.parse(fromTimeValue(day, time ?? "12:00")),
-            timeLabel: time ? `${times ? "Next at " : ""}${formatWallTime(time)}` : null,
-            projectId: null,
-            projectName: null,
-            projectColor: null,
-            projectEmoji: null,
-            task: null,
-            habitId: habit.id,
-            habitTargetDate: day,
-            emoji: habit.emoji,
-            rationaleLabel: null,
-        }]];
+        return [
+            [
+                bucket,
+                {
+                    id: `habit-${habit.id}-${day}`,
+                    kind: "habit",
+                    title: habit.title,
+                    dueDate: day,
+                    dateLabel: "Due",
+                    sortAt: Date.parse(fromTimeValue(day, time ?? "12:00")),
+                    timeLabel: time ? `${times ? "Next at " : ""}${formatWallTime(time)}` : null,
+                    projectId: null,
+                    projectName: null,
+                    projectColor: null,
+                    projectEmoji: null,
+                    task: null,
+                    habitId: habit.id,
+                    habitTargetDate: day,
+                    emoji: habit.emoji,
+                    rationaleLabel: null,
+                },
+            ],
+        ];
     });
 }
 
 /** Smart sort: ranked tasks first, each with its reason, then routines in their place. */
 function rankBucket(items: UpcomingViewerItem[], guessOf: GuessOf): UpcomingViewerItem[] {
-    const tasks = items.filter((item): item is UpcomingViewerItem & { task: Task } => item.kind === "task" && Boolean(item.task));
+    const tasks = items.filter(
+        (item): item is UpcomingViewerItem & { task: Task } => item.kind === "task" && Boolean(item.task),
+    );
     const byId = new Map(tasks.map((item) => [item.task.id, item]));
-    const { tasks: rankedTasks, rationaleByTaskId } = rankTasksForRoute(tasks.map(({ task }) => task), "upcoming", guessOf);
-    const ranked = rankedTasks.map((task) => ({ ...byId.get(task.id)!, rationaleLabel: rationaleByTaskId[task.id] ?? null }));
+    const { tasks: rankedTasks, rationaleByTaskId } = rankTasksForRoute(
+        tasks.map(({ task }) => task),
+        "upcoming",
+        guessOf,
+    );
+    const ranked = rankedTasks.map((task) => ({
+        ...byId.get(task.id)!,
+        rationaleLabel: rationaleByTaskId[task.id] ?? null,
+    }));
     return [...ranked, ...items.filter((item) => item.kind !== "task")];
 }
 
@@ -210,7 +249,6 @@ export default function Upcoming() {
     const { sortMode, setSortMode } = useSortMode("upcoming");
     const selection = useTaskDetailSelection();
     const { selectedTaskId, setSelectedTaskId, setMobilePanelOpen, handleSelectTask } = selection;
-
 
     const { mutate: resolveHabit } = useResolveHabit();
     const shell = useShellMode();
@@ -246,9 +284,7 @@ export default function Upcoming() {
     useKeyboardShortcuts({ onNextSection, onPrevSection });
 
     const tagFilteredTasks = useMemo(() => {
-        let next = activeTagId
-            ? tasks.filter((task) => task.tagIds?.includes(activeTagId))
-            : tasks;
+        let next = activeTagId ? tasks.filter((task) => task.tagIds?.includes(activeTagId)) : tasks;
 
         if (activeDefinition && intelligenceEnabled && focusViewsEnabled) {
             next = applyFocusView(next, activeDefinition, { clock: nlpClock(), dayOf: dayOfInstant });
@@ -257,10 +293,7 @@ export default function Upcoming() {
         return next;
     }, [activeDefinition, activeTagId, focusViewsEnabled, intelligenceEnabled, tasks, todayISO]);
 
-    const projectById = useMemo(
-        () => new Map(projects.map((project) => [project.id, project] as const)),
-        [projects],
-    );
+    const projectById = useMemo(() => new Map(projects.map((project) => [project.id, project] as const)), [projects]);
 
     const groupedItems = useMemo<Buckets>(() => {
         const week = { today: todayISO, tomorrow: tomorrowISO, nextWeek: nextWeekISO };
@@ -269,7 +302,8 @@ export default function Upcoming() {
             if (isPassiveTimetableTask(task)) continue;
             const day = getTaskTimelineAnchor(task, todayISO) ?? task.dueDate;
             const bucket = day && classifyUpcomingBucket(day, todayISO, tomorrowISO, nextWeekISO);
-            if (bucket) grouped[bucket].push(taskItem(task, day, task.projectId ? projectById.get(task.projectId) : undefined));
+            if (bucket)
+                grouped[bucket].push(taskItem(task, day, task.projectId ? projectById.get(task.projectId) : undefined));
         }
         for (const habit of activeTagId ? [] : habits) {
             for (const [bucket, item] of habitItems(habit, week)) grouped[bucket].push(item);
@@ -277,16 +311,36 @@ export default function Upcoming() {
 
         sortBuckets(grouped, intelligenceEnabled && sortMode === "smart", sortMode, guessOf);
         return grouped;
-    }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO, intelligenceEnabled, guessOf]);
+    }, [
+        activeTagId,
+        habits,
+        nextWeekISO,
+        projectById,
+        sortMode,
+        tagFilteredTasks,
+        todayISO,
+        tomorrowISO,
+        intelligenceEnabled,
+        guessOf,
+    ]);
 
     // Past the week: Further out (tasks only; routines and yearly events keep to the week).
-    const furtherItems = useMemo(() => tagFilteredTasks.flatMap((task): FurtherOutItem[] => {
-        if (isPassiveTimetableTask(task)) return [];
-        const day = getTaskTimelineAnchor(task, todayISO) ?? task.dueDate;
-        return day && day > nextWeekISO ? [{ task, dueDate: day }] : [];
-    }), [nextWeekISO, tagFilteredTasks, todayISO]);
+    const furtherItems = useMemo(
+        () =>
+            tagFilteredTasks.flatMap((task): FurtherOutItem[] => {
+                if (isPassiveTimetableTask(task)) return [];
+                const day = getTaskTimelineAnchor(task, todayISO) ?? task.dueDate;
+                return day && day > nextWeekISO ? [{ task, dueDate: day }] : [];
+            }),
+        [nextWeekISO, tagFilteredTasks, todayISO],
+    );
 
-    const totalVisible = groupedItems.overdue.length + groupedItems.today.length + groupedItems.tomorrow.length + groupedItems.nextWeek.length + furtherItems.length;
+    const totalVisible =
+        groupedItems.overdue.length +
+        groupedItems.today.length +
+        groupedItems.tomorrow.length +
+        groupedItems.nextWeek.length +
+        furtherItems.length;
     const isLoading = tasksLoading || habitsLoading;
 
     const handleCompleteHabit = (item: UpcomingViewerItem) => {
@@ -294,9 +348,7 @@ export default function Upcoming() {
         resolveHabit({ habitId: item.habitId, targetDate: item.habitTargetDate, status: "COMPLETED" });
     };
 
-    const sidePanel = (
-        <TaskDetailsRail selection={selection} ariaLabel="Resize upcoming sidebar" />
-    );
+    const sidePanel = <TaskDetailsRail selection={selection} ariaLabel="Resize upcoming sidebar" />;
 
     const openHabits = () => navigate("/routines");
 
@@ -309,7 +361,14 @@ export default function Upcoming() {
         cardVariant?: "list" | "board",
     ) => {
         if (items.length === 0) {
-            return <EmptyState variant="upcoming" title={`Nothing in ${title.toLowerCase()}.`} description={null} compact />;
+            return (
+                <EmptyState
+                    variant="upcoming"
+                    title={`Nothing in ${title.toLowerCase()}.`}
+                    description={null}
+                    compact
+                />
+            );
         }
 
         const taskItems = items.filter((item) => item.kind === "task" && item.task);
@@ -355,7 +414,12 @@ export default function Upcoming() {
     const dayEvents: Record<UpcomingBucketKey, DayEvent[]> = { overdue: [], today: [], tomorrow: [], nextWeek: [] };
     for (const { event, dateStr } of upcomingEvents) {
         const bucket = classifyUpcomingBucket(dateStr, todayISO, tomorrowISO, nextWeekISO);
-        if (bucket) dayEvents[bucket].push({ ...event, dateStr, dateLabel: bucket === "nextWeek" ? formatShortDate(dateStr) : null });
+        if (bucket)
+            dayEvents[bucket].push({
+                ...event,
+                dateStr,
+                dateLabel: bucket === "nextWeek" ? formatShortDate(dateStr) : null,
+            });
     }
 
     const furtherSection = useFurtherOutSection({
@@ -375,21 +439,25 @@ export default function Upcoming() {
         ),
     });
 
-    const sections = [...UPCOMING_SECTIONS.map((section) => ({
-        key: section.key,
-        title: section.title,
-        icon: section.icon,
-        accentClass: section.accentClass,
-        count: groupedItems[section.key].length,
-        description: dayEvents[section.key].length > 0 ? <DayEventRows events={dayEvents[section.key]} /> : undefined,
-        listContent: renderUpcomingBucket(section.title, section.key, groupedItems[section.key]),
-        boardContent: (
-            <>
-                <DayEventRows events={dayEvents[section.key]} className="mb-2.5" />
-                {renderUpcomingBucket(section.title, section.key, groupedItems[section.key], "board")}
-            </>
-        ),
-    })), ...(furtherSection ? [furtherSection] : [])];
+    const sections = [
+        ...UPCOMING_SECTIONS.map((section) => ({
+            key: section.key,
+            title: section.title,
+            icon: section.icon,
+            accentClass: section.accentClass,
+            count: groupedItems[section.key].length,
+            description:
+                dayEvents[section.key].length > 0 ? <DayEventRows events={dayEvents[section.key]} /> : undefined,
+            listContent: renderUpcomingBucket(section.title, section.key, groupedItems[section.key]),
+            boardContent: (
+                <>
+                    <DayEventRows events={dayEvents[section.key]} className="mb-2.5" />
+                    {renderUpcomingBucket(section.title, section.key, groupedItems[section.key], "board")}
+                </>
+            ),
+        })),
+        ...(furtherSection ? [furtherSection] : []),
+    ];
 
     return (
         <MainLayout
@@ -399,7 +467,7 @@ export default function Upcoming() {
             onCloseSidePanel={() => setSelectedTaskId(null)}
             sidePanelLabel="Task"
             compactHeaderRightInline
-            headerRight={(
+            headerRight={
                 <TaskRouteControls
                     routeKey="upcoming"
                     title="Upcoming controls"
@@ -409,7 +477,7 @@ export default function Upcoming() {
                     onSortModeChange={setSortMode}
                     onOpenDetails={selectedTaskId ? () => setMobilePanelOpen(true) : undefined}
                 />
-            )}
+            }
             shellHeader={{
                 title: "Upcoming",
                 icon: <CalendarRange size={18} aria-hidden="true" />,
@@ -420,12 +488,22 @@ export default function Upcoming() {
                 <ActiveFilterBar placement="body" />
                 {!isLoading && totalVisible === 0 ? (
                     <DayEventRows
-                        events={upcomingEvents.map(({ event, dateStr }) => ({ ...event, dateStr, dateLabel: formatShortDate(dateStr) }))}
+                        events={upcomingEvents.map(({ event, dateStr }) => ({
+                            ...event,
+                            dateStr,
+                            dateLabel: formatShortDate(dateStr),
+                        }))}
                         className="pb-2"
                     />
                 ) : null}
             </PageContent>
-            <BucketedRouteBody view={view} sections={sections} isLoading={isLoading} isEmpty={totalVisible === 0} empty="upcoming" />
+            <BucketedRouteBody
+                view={view}
+                sections={sections}
+                isLoading={isLoading}
+                isEmpty={totalVisible === 0}
+                empty="upcoming"
+            />
 
             <PhoneTaskDetails selection={selection} ariaLabel="Upcoming details" />
         </MainLayout>

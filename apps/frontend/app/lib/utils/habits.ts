@@ -24,7 +24,11 @@ export function routineTone(colorAccent: string | null | undefined): string {
 /** Colour choices for a routine: the default tint first, then the list palette. */
 export const ROUTINE_SWATCHES = [
     { value: ROUTINE_DEFAULT_ACCENT, color: "var(--color-moonlit)", label: "Default" },
-    ...PROJECT_ACCENT_OPTIONS.map((option) => ({ value: option.value as string, color: option.varName as string, label: option.label as string })),
+    ...PROJECT_ACCENT_OPTIONS.map((option) => ({
+        value: option.value as string,
+        color: option.varName as string,
+        label: option.label as string,
+    })),
 ];
 
 export type RoutineSort = "created" | "time" | "name" | "custom";

@@ -74,12 +74,24 @@ const CONTROL_CHARS = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
  * visibly inert. Labels here mirror `detectInjectionSignal`.
  */
 const INJECTION_LEAD_INS: Array<{ pattern: RegExp; label: string }> = [
-    { pattern: /ignore\s+(?:all\s+|any\s+)?(?:previous|prior|above|earlier)\s+instructions?/gi, label: "ignore_previous" },
-    { pattern: /disregard\s+(?:all\s+|any\s+)?(?:previous|prior|above|earlier)\s+(?:instructions?|rules?)/gi, label: "ignore_previous" },
-    { pattern: /forget\s+(?:everything|all|your)\s+(?:above|previous|prior|instructions?)/gi, label: "ignore_previous" },
+    {
+        pattern: /ignore\s+(?:all\s+|any\s+)?(?:previous|prior|above|earlier)\s+instructions?/gi,
+        label: "ignore_previous",
+    },
+    {
+        pattern: /disregard\s+(?:all\s+|any\s+)?(?:previous|prior|above|earlier)\s+(?:instructions?|rules?)/gi,
+        label: "ignore_previous",
+    },
+    {
+        pattern: /forget\s+(?:everything|all|your)\s+(?:above|previous|prior|instructions?)/gi,
+        label: "ignore_previous",
+    },
     { pattern: /you\s+are\s+now\s+(?:a|an|the)\b/gi, label: "role_override" },
     { pattern: /(?:^|\n)\s*system\s*:/gi, label: "role_override" },
-    { pattern: /(?:reveal|print|show|repeat|output)\s+(?:your\s+|the\s+)?(?:system\s+)?(?:prompt|instructions?)/gi, label: "reveal_prompt" },
+    {
+        pattern: /(?:reveal|print|show|repeat|output)\s+(?:your\s+|the\s+)?(?:system\s+)?(?:prompt|instructions?)/gi,
+        label: "reveal_prompt",
+    },
     { pattern: /(?:new|updated|override)\s+(?:system\s+)?(?:rules?|instructions?)/gi, label: "role_override" },
 ];
 

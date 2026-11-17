@@ -7,18 +7,34 @@ const series = (rule: string) => ({ rule, start: { day: range.from }, zone: "UTC
 
 describe("bounded recurrence", () => {
     it.each([
-        "FREQ=SECONDLY", "FREQ=MINUTELY", "FREQ=HOURLY",
-        "RRULE:freq=secondly", "FREQ=DAILY;FREQ=SECONDLY",
-        "RRULE:FREQ=DAILY\nRRULE:FREQ=SECONDLY", "FREQ=DAILY\nRDATE:20261007T000000Z",
-        "DTSTART:19000101T000000Z\nRRULE:FREQ=DAILY", "FREQ=DAILY;DTSTART=19000101T000000Z",
-        "FREQ=DAILY;BYHOUR=0,1,2", "FREQ=DAILY;BYMINUTE=0,1", "FREQ=DAILY;BYSECOND=0,1",
-        "FREQ=DAILY;INTERVAL=-1", "FREQ=DAILY;INTERVAL=1.5", "FREQ=DAILY;INTERVAL=0",
-        "FREQ=DAILY;INTERVAL=999999999999999999999", "FREQ=DAILY;COUNT=-1", "FREQ=DAILY;COUNT=0",
-        "FREQ=DAILY;BYMONTH=13", "FREQ=DAILY;BYDAY=0MO", "FREQ=DAILY;BYSETPOS=0",
-        "FREQ=DAILY;UNTIL=20260230", "FREQ=DAILY;UNTIL=20261008;UNTIL=20261009",
+        "FREQ=SECONDLY",
+        "FREQ=MINUTELY",
+        "FREQ=HOURLY",
+        "RRULE:freq=secondly",
+        "FREQ=DAILY;FREQ=SECONDLY",
+        "RRULE:FREQ=DAILY\nRRULE:FREQ=SECONDLY",
+        "FREQ=DAILY\nRDATE:20261007T000000Z",
+        "DTSTART:19000101T000000Z\nRRULE:FREQ=DAILY",
+        "FREQ=DAILY;DTSTART=19000101T000000Z",
+        "FREQ=DAILY;BYHOUR=0,1,2",
+        "FREQ=DAILY;BYMINUTE=0,1",
+        "FREQ=DAILY;BYSECOND=0,1",
+        "FREQ=DAILY;INTERVAL=-1",
+        "FREQ=DAILY;INTERVAL=1.5",
+        "FREQ=DAILY;INTERVAL=0",
+        "FREQ=DAILY;INTERVAL=999999999999999999999",
+        "FREQ=DAILY;COUNT=-1",
+        "FREQ=DAILY;COUNT=0",
+        "FREQ=DAILY;BYMONTH=13",
+        "FREQ=DAILY;BYDAY=0MO",
+        "FREQ=DAILY;BYSETPOS=0",
+        "FREQ=DAILY;UNTIL=20260230",
+        "FREQ=DAILY;UNTIL=20261008;UNTIL=20261009",
         "FREQ=WEEKLY;BYDAY=MO;BYWEEKDAY=TU",
-        "FREQ=DAILY;BYSETPOS=1,1", "FREQ=DAILY;BYSETPOS=1,+1,01",
-        "FREQ=DAILY;BYSETPOS=2", "FREQ=WEEKLY;BYSETPOS=8",
+        "FREQ=DAILY;BYSETPOS=1,1",
+        "FREQ=DAILY;BYSETPOS=1,+1,01",
+        "FREQ=DAILY;BYSETPOS=2",
+        "FREQ=WEEKLY;BYSETPOS=8",
         "FREQ=DAILY;BYSETPOS=" + Array(230).fill("1").join(","),
     ])("rejects %s before both task and routine expansion", (rule) => {
         expect(isValidRule(rule)).toBe(false);
@@ -28,14 +44,21 @@ describe("bounded recurrence", () => {
     });
 
     it("rejects excessive ranges and ancient anchor prefixes without truncating", () => {
-        expect(() => expandSeries({ ...series("FREQ=DAILY"), range: { from: range.from, to: "9999-12-31" } })).toThrow();
+        expect(() =>
+            expandSeries({ ...series("FREQ=DAILY"), range: { from: range.from, to: "9999-12-31" } }),
+        ).toThrow();
         expect(() => expandSeries({ ...series("FREQ=DAILY"), start: { day: "1900-01-01" } })).toThrow();
     });
 
     it("rejects repeated positions before scanning a long prefix", () => {
         const rule = "FREQ=DAILY;BYSETPOS=" + Array(230).fill("1").join(",");
-        expect(() => expandSeries({ ...series(rule), start: { day: "1927-10-07" }, range: { from: range.from, to: range.from } }))
-            .toThrow(expect.objectContaining({ code: "INVALID_RECURRENCE_RULE" }));
+        expect(() =>
+            expandSeries({
+                ...series(rule),
+                start: { day: "1927-10-07" },
+                range: { from: range.from, to: range.from },
+            }),
+        ).toThrow(expect.objectContaining({ code: "INVALID_RECURRENCE_RULE" }));
     });
 
     it("finishes an impossible rule without searching to year 9999", () => {

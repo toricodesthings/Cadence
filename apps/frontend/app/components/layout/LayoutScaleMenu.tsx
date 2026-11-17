@@ -5,7 +5,11 @@ import { Tip } from "../primitives/Tooltip";
 import { HEADER_ICON_BUTTON } from "./PageHeader";
 import { MENU_HOVER, MENU_ITEM, MENU_SEPARATOR } from "../primitives/menu-styles";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
-import { DESKTOP_LAYOUT_SCALE_DEFAULT, DESKTOP_LAYOUT_SCALES, useDesktopLayoutScale } from "../../hooks/ui/use-desktop-layout-scale";
+import {
+    DESKTOP_LAYOUT_SCALE_DEFAULT,
+    DESKTOP_LAYOUT_SCALES,
+    useDesktopLayoutScale,
+} from "../../hooks/ui/use-desktop-layout-scale";
 
 /**
  * The desktop app's layout scale lives at the foot of every page header's ⋮ (⌘ + / − / 0 do the same).
@@ -45,9 +49,30 @@ export function LayoutScaleMenuRow({ separator = true, panel = false }: { separa
     const scale = useScale();
     if (!IS_DESKTOP_RUNTIME) return null;
     const steps = [
-        { id: "smaller", label: "Smaller", disabled: scale.atMin, run: scale.smaller, body: <Minus size={14} aria-hidden="true" />, className: STEP },
-        { id: "reset", label: `Scale ${scale.layoutScale}%, reset to ${DESKTOP_LAYOUT_SCALE_DEFAULT}%`, disabled: false, run: scale.reset, body: `${scale.layoutScale}%`, className: "min-w-14 justify-center text-sm tabular-nums" },
-        { id: "larger", label: "Larger", disabled: scale.atMax, run: scale.larger, body: <Plus size={14} aria-hidden="true" />, className: STEP },
+        {
+            id: "smaller",
+            label: "Smaller",
+            disabled: scale.atMin,
+            run: scale.smaller,
+            body: <Minus size={14} aria-hidden="true" />,
+            className: STEP,
+        },
+        {
+            id: "reset",
+            label: `Scale ${scale.layoutScale}%, reset to ${DESKTOP_LAYOUT_SCALE_DEFAULT}%`,
+            disabled: false,
+            run: scale.reset,
+            body: `${scale.layoutScale}%`,
+            className: "min-w-14 justify-center text-sm tabular-nums",
+        },
+        {
+            id: "larger",
+            label: "Larger",
+            disabled: scale.atMax,
+            run: scale.larger,
+            body: <Plus size={14} aria-hidden="true" />,
+            className: STEP,
+        },
     ];
     return (
         <div>
@@ -55,14 +80,33 @@ export function LayoutScaleMenuRow({ separator = true, panel = false }: { separa
             <div role="group" aria-label="Layout scale" className="flex items-center gap-0.5 pl-3 pr-1">
                 <ZoomIn size={14} className="shrink-0 text-twilight-text-soft" aria-hidden="true" />
                 <span className="ml-2 flex-1 text-[15px] text-twilight-text-soft">Scale</span>
-                {steps.map((step) => panel ? (
-                    <button key={step.id} type="button" aria-label={step.label} disabled={step.disabled} onClick={step.run} className={`${PANEL_STEP} ${step.className}`}>{step.body}</button>
-                ) : (
-                    <DropdownMenu.Item key={step.id} aria-label={step.label} disabled={step.disabled} className={step.className}
-                        onSelect={(event) => { event.preventDefault(); step.run(); }}>
-                        {step.body}
-                    </DropdownMenu.Item>
-                ))}
+                {steps.map((step) =>
+                    panel ? (
+                        <button
+                            key={step.id}
+                            type="button"
+                            aria-label={step.label}
+                            disabled={step.disabled}
+                            onClick={step.run}
+                            className={`${PANEL_STEP} ${step.className}`}
+                        >
+                            {step.body}
+                        </button>
+                    ) : (
+                        <DropdownMenu.Item
+                            key={step.id}
+                            aria-label={step.label}
+                            disabled={step.disabled}
+                            className={step.className}
+                            onSelect={(event) => {
+                                event.preventDefault();
+                                step.run();
+                            }}
+                        >
+                            {step.body}
+                        </DropdownMenu.Item>
+                    ),
+                )}
             </div>
         </div>
     );

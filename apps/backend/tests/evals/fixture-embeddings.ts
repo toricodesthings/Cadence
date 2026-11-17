@@ -10,10 +10,15 @@ export function createFixtureEmbedder(load: (texts: string[]) => Promise<number[
             const key = JSON.stringify(batch);
             let pending = batches.get(key);
             if (!pending) {
-                pending = load(batch).then((result) => {
-                    if (result.length !== batch.length) throw new Error("Fixture embedding count mismatch");
-                    return result;
-                }).catch((error) => { batches.delete(key); throw error; });
+                pending = load(batch)
+                    .then((result) => {
+                        if (result.length !== batch.length) throw new Error("Fixture embedding count mismatch");
+                        return result;
+                    })
+                    .catch((error) => {
+                        batches.delete(key);
+                        throw error;
+                    });
                 batches.set(key, pending);
             }
             // Each isolated user gets its own vectors, even if a fixture mutates one.

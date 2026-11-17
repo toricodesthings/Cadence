@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-    Sun, X, Clock, Calendar as CalendarIcon, CalendarRange, ArrowRight, Sunrise,
-} from "lucide-react";
+import { Sun, X, Clock, Calendar as CalendarIcon, CalendarRange, ArrowRight, Sunrise } from "lucide-react";
 import { Tip, TimePicker } from "../primitives";
 import { MonthCalendar } from "../shared/DatePicker";
 import { RecurrencePicker } from "./RecurrencePicker";
@@ -98,13 +96,31 @@ export function QuickScheduleSurface({
     const startTimeValue = scheduledStart ? toTimeValue(scheduledStart) : DEFAULT_TIME;
 
     /** A deadline day, or a timed block on `day`. */
-    const dayUpdates = (day: LocalDate, timed: boolean, start: WallTime, end: WallTime | null, rule = recurrenceRule): ScheduleUpdates => {
-        if (!timed) return { dueDate: day, endDate: null, scheduledStart: null, scheduledEnd: null, recurrenceRule: rule };
+    const dayUpdates = (
+        day: LocalDate,
+        timed: boolean,
+        start: WallTime,
+        end: WallTime | null,
+        rule = recurrenceRule,
+    ): ScheduleUpdates => {
+        if (!timed)
+            return { dueDate: day, endDate: null, scheduledStart: null, scheduledEnd: null, recurrenceRule: rule };
         const startIso = fromTimeValue(day, start);
-        return { dueDate: null, endDate: null, scheduledStart: startIso, scheduledEnd: end ? blockEnd(day, startIso, end) : null, recurrenceRule: rule };
+        return {
+            dueDate: null,
+            endDate: null,
+            scheduledStart: startIso,
+            scheduledEnd: end ? blockEnd(day, startIso, end) : null,
+            recurrenceRule: rule,
+        };
     };
-    const spanUpdates = (start: LocalDate, end: LocalDate | null, rule = recurrenceRule): ScheduleUpdates =>
-        ({ dueDate: start, endDate: end, scheduledStart: null, scheduledEnd: null, recurrenceRule: rule });
+    const spanUpdates = (start: LocalDate, end: LocalDate | null, rule = recurrenceRule): ScheduleUpdates => ({
+        dueDate: start,
+        endDate: end,
+        scheduledStart: null,
+        scheduledEnd: null,
+        recurrenceRule: rule,
+    });
 
     const handleSelectDate = (day: LocalDate) => {
         if (mode === "duration") {
@@ -155,9 +171,10 @@ export function QuickScheduleSurface({
             const sameDayEnd = fromTimeValue(selectedDate, endTimeValue);
             // Keep a positive block: when the end would land at or before the
             // new start, bump it to start + 1 hour.
-            endIso = Date.parse(sameDayEnd) > Date.parse(startIso)
-                ? sameDayEnd
-                : new Date(Date.parse(startIso) + 60 * 60000).toISOString();
+            endIso =
+                Date.parse(sameDayEnd) > Date.parse(startIso)
+                    ? sameDayEnd
+                    : new Date(Date.parse(startIso) + 60 * 60000).toISOString();
             setEndTimeValue(toTimeValue(endIso));
         }
         onChange({ dueDate: null, endDate: null, scheduledStart: startIso, scheduledEnd: endIso, recurrenceRule });
@@ -197,60 +214,71 @@ export function QuickScheduleSurface({
     const datesWithRange = new Set<number>();
     if (mode === "duration" && selectedDate && rangeEndDate) {
         const viewMonth = viewDay.slice(0, 7);
-        for (const day of daysIn(selectedDate, rangeEndDate)) if (day.startsWith(viewMonth)) datesWithRange.add(Number(day.slice(8, 10)));
+        for (const day of daysIn(selectedDate, rangeEndDate))
+            if (day.startsWith(viewMonth)) datesWithRange.add(Number(day.slice(8, 10)));
     }
 
     return (
         <div className="overflow-hidden">
-            {!moment && <div className="flex flex-wrap items-center gap-1 border-b border-twilight-border/40 px-3 py-2" role="tablist" aria-label="Picker mode">
-                <button
-                    type="button"
-                    role="tab"
-                    aria-selected={mode === "deadline"}
-                    onClick={() => {
-                        setMode("deadline");
-                        setRangeEndDate(null);
-                        setRangeClickStep("start");
-                    }}
-                    className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
-                        mode === "deadline"
-                            ? "bg-accent-primary/12 text-accent-primary"
-                            : "text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text-soft"
-                    }`}
+            {!moment && (
+                <div
+                    className="flex flex-wrap items-center gap-1 border-b border-twilight-border/40 px-3 py-2"
+                    role="tablist"
+                    aria-label="Picker mode"
                 >
-                    <span className="inline-flex items-center gap-1.5">
-                        <CalendarIcon size={13} aria-hidden="true" />
-                        Deadline
-                    </span>
-                </button>
-                <button
-                    type="button"
-                    role="tab"
-                    aria-selected={mode === "duration"}
-                    onClick={() => {
-                        setMode("duration");
-                        setRangeClickStep("start");
-                        // Duration is all-day: drop any time the Deadline tab had.
-                        if (showTime || scheduledStart) {
-                            setShowTime(false);
-                            setEndTimeValue(null);
-                            onChange(spanUpdates(selectedDate, rangeEndDate));
-                        }
-                    }}
-                    className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
-                        mode === "duration"
-                            ? "bg-accent-primary/12 text-accent-primary"
-                            : "text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text-soft"
-                    }`}
-                >
-                    <span className="inline-flex items-center gap-1.5">
-                        <CalendarRange size={13} aria-hidden="true" />
-                        Duration
-                    </span>
-                </button>
-            </div>}
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={mode === "deadline"}
+                        onClick={() => {
+                            setMode("deadline");
+                            setRangeEndDate(null);
+                            setRangeClickStep("start");
+                        }}
+                        className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                            mode === "deadline"
+                                ? "bg-accent-primary/12 text-accent-primary"
+                                : "text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text-soft"
+                        }`}
+                    >
+                        <span className="inline-flex items-center gap-1.5">
+                            <CalendarIcon size={13} aria-hidden="true" />
+                            Deadline
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={mode === "duration"}
+                        onClick={() => {
+                            setMode("duration");
+                            setRangeClickStep("start");
+                            // Duration is all-day: drop any time the Deadline tab had.
+                            if (showTime || scheduledStart) {
+                                setShowTime(false);
+                                setEndTimeValue(null);
+                                onChange(spanUpdates(selectedDate, rangeEndDate));
+                            }
+                        }}
+                        className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                            mode === "duration"
+                                ? "bg-accent-primary/12 text-accent-primary"
+                                : "text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text-soft"
+                        }`}
+                    >
+                        <span className="inline-flex items-center gap-1.5">
+                            <CalendarRange size={13} aria-hidden="true" />
+                            Duration
+                        </span>
+                    </button>
+                </div>
+            )}
 
-            <div className="flex items-center justify-center gap-1 px-3 pb-1 pt-3" role="group" aria-label="Quick date presets">
+            <div
+                className="flex items-center justify-center gap-1 px-3 pb-1 pt-3"
+                role="group"
+                aria-label="Quick date presets"
+            >
                 {QUICK_ACTIONS.map(({ id, icon: Icon, label }) => {
                     const isActive = activePreset === id;
 
@@ -305,7 +333,9 @@ export function QuickScheduleSurface({
                             aria-label={showTime ? "Remove time" : "Add time"}
                             aria-pressed={showTime}
                             className={`inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider ${
-                                showTime ? "text-accent-primary" : "text-twilight-text-muted/90 hover:text-twilight-text-muted"
+                                showTime
+                                    ? "text-accent-primary"
+                                    : "text-twilight-text-muted/90 hover:text-twilight-text-muted"
                             }`}
                         >
                             <Clock size={11} aria-hidden="true" />
@@ -315,10 +345,18 @@ export function QuickScheduleSurface({
                         {showTime ? (
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-1.5">
-                                    <TimePicker value={startTimeValue} onChange={handleStartTimeChange} label="Start time" />
+                                    <TimePicker
+                                        value={startTimeValue}
+                                        onChange={handleStartTimeChange}
+                                        label="Start time"
+                                    />
                                     <span className="shrink-0 text-xs text-twilight-text-muted">→</span>
                                     {endTimeValue ? (
-                                        <TimePicker value={endTimeValue} onChange={handleEndTimeChange} label="End time" />
+                                        <TimePicker
+                                            value={endTimeValue}
+                                            onChange={handleEndTimeChange}
+                                            label="End time"
+                                        />
                                     ) : (
                                         <button
                                             type="button"
@@ -346,14 +384,18 @@ export function QuickScheduleSurface({
                     </div>
                 ) : null}
 
-                {!moment && <RecurrencePicker
-                    value={recurrenceRule}
-                    onChange={(value) => onChange(
-                        mode === "duration"
-                            ? spanUpdates(selectedDate, rangeEndDate, value)
-                            : dayUpdates(selectedDate, showTime, startTimeValue, endTimeValue, value),
-                    )}
-                />}
+                {!moment && (
+                    <RecurrencePicker
+                        value={recurrenceRule}
+                        onChange={(value) =>
+                            onChange(
+                                mode === "duration"
+                                    ? spanUpdates(selectedDate, rangeEndDate, value)
+                                    : dayUpdates(selectedDate, showTime, startTimeValue, endTimeValue, value),
+                            )
+                        }
+                    />
+                )}
 
                 <button
                     type="button"

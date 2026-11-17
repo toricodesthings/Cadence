@@ -1,10 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-    flushAllPendingSettingsMutations,
-    useSettings,
-    useUpdateSettings,
-} from "../../../app/hooks/core/use-settings";
+import { flushAllPendingSettingsMutations, useSettings, useUpdateSettings } from "../../../app/hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../app/types/settings";
 import { testQueryClient, withClient } from "../../helpers";
 
@@ -32,10 +28,7 @@ describe("useSettings", () => {
     });
 
     it("hydrates from the authenticated user's local cache key", () => {
-        localStorage.setItem(
-            "cadence_user_settings:user-a",
-            JSON.stringify({ tasks: { hideCompleted: true } }),
-        );
+        localStorage.setItem("cadence_user_settings:user-a", JSON.stringify({ tasks: { hideCompleted: true } }));
         signedInAs("user-a");
         settingsGetMock.mockResolvedValue(Response.json({ data: { tasks: { hideCompleted: false } } }));
 
@@ -63,7 +56,9 @@ describe("useSettings", () => {
 
     it("optimistically merges settings updates and rolls back on mutation failure", async () => {
         signedInAs("user-c");
-        settingsPatchMock.mockResolvedValue(Response.json({ error: { code: "FAIL", message: "Nope" } }, { status: 500 }));
+        settingsPatchMock.mockResolvedValue(
+            Response.json({ error: { code: "FAIL", message: "Nope" } }, { status: 500 }),
+        );
 
         const queryClient = testQueryClient();
         queryClient.setQueryData(["settings", "user-c"], {
@@ -76,9 +71,9 @@ describe("useSettings", () => {
 
         const { result } = renderHook(() => useUpdateSettings(), { wrapper: withClient(queryClient) });
 
-        await expect(
-            result.current.mutateAsync({ tasks: { hideCompleted: true } }),
-        ).rejects.toMatchObject({ code: "FAIL" });
+        await expect(result.current.mutateAsync({ tasks: { hideCompleted: true } })).rejects.toMatchObject({
+            code: "FAIL",
+        });
 
         await waitFor(() => {
             expect(queryClient.getQueryData(["settings", "user-c"])).toEqual({

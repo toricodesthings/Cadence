@@ -10,25 +10,43 @@ import { liveChatHandlers } from "../../../../app/lib/ai/live-chat";
 import { useAssistantStore } from "../../../../app/stores/assistant-store";
 
 const chat = vi.hoisted(() => ({
-    messages: [] as UIMessage[], status: "ready" as ChatStatus, error: undefined,
-    sendMessage: vi.fn(), regenerate: vi.fn(), setMessages: vi.fn(),
-    addToolApprovalResponse: vi.fn(), stop: vi.fn(), resumeStream: vi.fn(),
+    messages: [] as UIMessage[],
+    status: "ready" as ChatStatus,
+    error: undefined,
+    sendMessage: vi.fn(),
+    regenerate: vi.fn(),
+    setMessages: vi.fn(),
+    addToolApprovalResponse: vi.fn(),
+    stop: vi.fn(),
+    resumeStream: vi.fn(),
 }));
 const mocks = vi.hoisted(() => ({
     history: { data: undefined as unknown, error: null as unknown, isFetching: false, isLoading: false },
     settings: undefined as unknown,
-    readHistory: vi.fn(), makeTransport: vi.fn(),
-    broadcast: vi.fn(), remote: vi.fn(), refresh: vi.fn(), stopServer: vi.fn(),
+    readHistory: vi.fn(),
+    makeTransport: vi.fn(),
+    broadcast: vi.fn(),
+    remote: vi.fn(),
+    refresh: vi.fn(),
+    stopServer: vi.fn(),
 }));
 vi.mock("@ai-sdk/react", () => ({
     useChat: () => chat,
-    Chat: class { stop() {} },
+    Chat: class {
+        stop() {}
+    },
 }));
 vi.mock("../../../../app/hooks/ai/use-conversations", () => ({
-    useConversationMessages: (id: string | null) => { mocks.readHistory(id); return mocks.history; },
+    useConversationMessages: (id: string | null) => {
+        mocks.readHistory(id);
+        return mocks.history;
+    },
 }));
 vi.mock("../../../../app/hooks/ai/use-conversation-broadcast", () => ({
-    useConversationBroadcast: (handler: unknown) => { mocks.remote(handler); return mocks.broadcast; },
+    useConversationBroadcast: (handler: unknown) => {
+        mocks.remote(handler);
+        return mocks.broadcast;
+    },
 }));
 vi.mock("../../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => ({}) }));
 vi.mock("../../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: mocks.settings }) }));
@@ -41,7 +59,8 @@ import { useAssistantConversation } from "../../../../app/hooks/ai/use-assistant
 
 const user = (id = "u1", text = "Hello"): UIMessage => ({ id, role: "user", parts: [{ type: "text", text }] });
 const snapshot = (activeStreamId: string | null = null) => ({
-    conversation: { id: "conv-1", title: "A conversation", activeStreamId }, messages: [user()],
+    conversation: { id: "conv-1", title: "A conversation", activeStreamId },
+    messages: [user()],
 });
 
 function setup(online = true) {
@@ -50,12 +69,20 @@ function setup(online = true) {
     const onNotice = vi.fn();
     const clearAttachments = vi.fn();
     const onTurnSubmitted = vi.fn();
-    const hook = renderHook((props: { online: boolean }) => useAssistantConversation({
-        ...props, onNotice, clearAttachments, onTurnSubmitted,
-    }), {
-        initialProps: { online },
-        wrapper: ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client: cache }, children),
-    });
+    const hook = renderHook(
+        (props: { online: boolean }) =>
+            useAssistantConversation({
+                ...props,
+                onNotice,
+                clearAttachments,
+                onTurnSubmitted,
+            }),
+        {
+            initialProps: { online },
+            wrapper: ({ children }: { children: ReactNode }) =>
+                createElement(QueryClientProvider, { client: cache }, children),
+        },
+    );
     const token = () => (mocks.makeTransport.mock.calls[0][1] as () => string)();
     const remote = (...args: unknown[]) => act(() => mocks.remote.mock.calls.at(-1)![0](...args));
     return { ...hook, cache, invalidate, onNotice, clearAttachments, token, remote };
@@ -131,7 +158,13 @@ describe("assistant conversation lifecycle", () => {
     it("marks a reply unread when it finishes unseen, even after the panel unmounts", () => {
         const { unmount } = setup();
         const finish = (isAbort = false) =>
-            liveChatHandlers.current!.onFinish({ message: user("a1"), messages: [user(), user("a1")], isAbort, isDisconnect: false, isError: false });
+            liveChatHandlers.current!.onFinish({
+                message: user("a1"),
+                messages: [user(), user("a1")],
+                isAbort,
+                isDisconnect: false,
+                isError: false,
+            });
         finish();
         expect(useAssistantStore.getState().replyUnread).toBe(false);
 
@@ -154,7 +187,13 @@ describe("assistant conversation lifecycle", () => {
     });
 
     it("preserves retry tokens, but gives edits a new token, anchor and the same photos", () => {
-        chat.messages = [user(), { ...user("u2"), parts: [{ type: "text", text: "Photo" }, imageFilePart("11111111-1111-4111-8111-111111111111")] }];
+        chat.messages = [
+            user(),
+            {
+                ...user("u2"),
+                parts: [{ type: "text", text: "Photo" }, imageFilePart("11111111-1111-4111-8111-111111111111")],
+            },
+        ];
         const { result, token, clearAttachments } = setup();
         act(() => expect(result.current.submitText("A new turn", [], false)).toBe(true));
         const sentToken = token();
@@ -164,7 +203,8 @@ describe("assistant conversation lifecycle", () => {
         act(() => result.current.handleEdit(1, "Edited"));
         expect(token()).not.toBe(sentToken);
         expect(chat.sendMessage).toHaveBeenLastCalledWith(
-            { text: "Edited", files: [imageFilePart("11111111-1111-4111-8111-111111111111")] }, { body: { editAnchorId: "u1" } },
+            { text: "Edited", files: [imageFilePart("11111111-1111-4111-8111-111111111111")] },
+            { body: { editAnchorId: "u1" } },
         );
         expect(chat.setMessages.mock.calls.at(-1)![0](chat.messages)).toEqual([user()]);
     });
@@ -185,27 +225,57 @@ describe("assistant conversation lifecycle", () => {
     });
 
     it("refreshes each landed write once even when onFinish repeats it", () => {
-        chat.messages = [{ id: "a1", role: "assistant", parts: [
-            { type: "tool-get_tasks", toolCallId: "read", state: "output-available", input: {}, output: {} },
-            { type: "tool-create_tasks", toolCallId: "write", state: "output-available", input: {}, output: {} },
-        ] }];
+        chat.messages = [
+            {
+                id: "a1",
+                role: "assistant",
+                parts: [
+                    { type: "tool-get_tasks", toolCallId: "read", state: "output-available", input: {}, output: {} },
+                    {
+                        type: "tool-create_tasks",
+                        toolCallId: "write",
+                        state: "output-available",
+                        input: {},
+                        output: {},
+                    },
+                ],
+            },
+        ];
         chat.status = "streaming";
         setup();
         expect(mocks.refresh).toHaveBeenCalledTimes(1);
-        act(() => liveChatHandlers.current!.onFinish({ message: chat.messages[0], messages: chat.messages, isAbort: false, isDisconnect: false, isError: false }));
+        act(() =>
+            liveChatHandlers.current!.onFinish({
+                message: chat.messages[0],
+                messages: chat.messages,
+                isAbort: false,
+                isDisconnect: false,
+                isError: false,
+            }),
+        );
         expect(mocks.refresh).toHaveBeenCalledTimes(1);
     });
 
     it("stops the server before local teardown, including when the server fails", async () => {
         mocks.history.data = snapshot("stream-1");
         let rejectStop!: (error: Error) => void;
-        mocks.stopServer.mockImplementationOnce(() => new Promise((_, reject) => { rejectStop = reject; }));
+        mocks.stopServer.mockImplementationOnce(
+            () =>
+                new Promise((_, reject) => {
+                    rejectStop = reject;
+                }),
+        );
         const { result } = setup();
         let stopped!: Promise<void>;
-        act(() => { stopped = result.current.handleStop(); });
+        act(() => {
+            stopped = result.current.handleStop();
+        });
         expect(mocks.stopServer).toHaveBeenCalledWith("conv-1", "stream-1", undefined);
         expect(chat.stop).not.toHaveBeenCalled();
-        await act(async () => { rejectStop(new Error("Network lost")); await stopped; });
+        await act(async () => {
+            rejectStop(new Error("Network lost"));
+            await stopped;
+        });
         expect(chat.stop).toHaveBeenCalledTimes(1);
     });
 
@@ -213,12 +283,17 @@ describe("assistant conversation lifecycle", () => {
         const { result, cache } = setup();
         cache.setQueryData(queryKeys.ai.conversations, [{ id: "conv-1", title: null }]);
         cache.setQueryData(queryKeys.ai.conversation("conv-1"), snapshot());
-        act(() => liveChatHandlers.current!.onData({
-            type: CONVERSATION_TITLE_DATA_TYPE, data: { conversationId: "conv-1", title: "New title" },
-        }));
+        act(() =>
+            liveChatHandlers.current!.onData({
+                type: CONVERSATION_TITLE_DATA_TYPE,
+                data: { conversationId: "conv-1", title: "New title" },
+            }),
+        );
         expect(result.current.threadTitle).toBe("New title");
         expect(cache.getQueryData(queryKeys.ai.conversations)).toEqual([{ id: "conv-1", title: "New title" }]);
-        expect(cache.getQueryData(queryKeys.ai.conversation("conv-1"))).toMatchObject({ conversation: { title: "New title" } });
+        expect(cache.getQueryData(queryKeys.ai.conversation("conv-1"))).toMatchObject({
+            conversation: { title: "New title" },
+        });
         expect(mocks.broadcast).toHaveBeenCalledWith("title-updated", "conv-1", "New title");
     });
 

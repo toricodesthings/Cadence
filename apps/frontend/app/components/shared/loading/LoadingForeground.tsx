@@ -16,9 +16,25 @@ const RING_B = "120 40 4 125";
 function HaloRing({ variant, dash, sparks }: { variant: "a" | "b"; dash: string; sparks: readonly number[] }) {
     return (
         <svg className={`ls-halo-ring ls-halo-ring-${variant}`} viewBox="0 0 100 100" aria-hidden="true">
-            <circle cx="50" cy="50" r="46" fill="none" stroke="url(#ls-halo-grad)" strokeWidth={variant === "a" ? 0.9 : 0.55} strokeDasharray={dash} strokeLinecap="round" />
+            <circle
+                cx="50"
+                cy="50"
+                r="46"
+                fill="none"
+                stroke="url(#ls-halo-grad)"
+                strokeWidth={variant === "a" ? 0.9 : 0.55}
+                strokeDasharray={dash}
+                strokeLinecap="round"
+            />
             {sparks.map((deg) => (
-                <circle key={deg} cx="50" cy="4" r={variant === "a" ? 1.3 : 0.9} fill="var(--accent-primary, #FFD166)" transform={`rotate(${deg} 50 50)`} />
+                <circle
+                    key={deg}
+                    cx="50"
+                    cy="4"
+                    r={variant === "a" ? 1.3 : 0.9}
+                    fill="var(--accent-primary, #FFD166)"
+                    transform={`rotate(${deg} 50 50)`}
+                />
             ))}
         </svg>
     );
@@ -54,7 +70,10 @@ function useTitleFill(fillRef: RefObject<HTMLSpanElement | null>, progress: numb
             const from = now();
             run.current.anims.forEach((anim) => anim.cancel());
             const timing = { duration: isStill(box) ? 0 : duration, easing, fill: "forwards" as const };
-            const anims = [box.animate({ translate: [fillAt(from), fillAt(to)] }, timing), text.animate({ translate: [textAt(from), textAt(to)] }, timing)];
+            const anims = [
+                box.animate({ translate: [fillAt(from), fillAt(to)] }, timing),
+                text.animate({ translate: [textAt(from), textAt(to)] }, timing),
+            ];
             run.current = { from, to, anims };
             if (then) anims[0].finished.then(then, () => undefined);
         };
@@ -66,7 +85,15 @@ function useTitleFill(fillRef: RefObject<HTMLSpanElement | null>, progress: numb
 }
 
 /** `slotRef` receives the box the current request's children portal into, under the wordmark. */
-export function LoadingForeground({ title, progress, slotRef }: { title?: string; progress?: number; slotRef?: Ref<HTMLDivElement> }) {
+export function LoadingForeground({
+    title,
+    progress,
+    slotRef,
+}: {
+    title?: string;
+    progress?: number;
+    slotRef?: Ref<HTMLDivElement>;
+}) {
     const fillRef = useRef<HTMLSpanElement>(null);
     useTitleFill(fillRef, title ? progress : undefined);
     const cubeRef = useRef<HTMLSpanElement>(null);
@@ -92,7 +119,12 @@ export function LoadingForeground({ title, progress, slotRef }: { title?: string
         // Each part's centre against its positioned parent's centre: transform-free, and blind to window size.
         const place = (el: HTMLElement) => {
             const parent = el.offsetParent as HTMLElement | null;
-            return parent ? [el.offsetLeft + (el.offsetWidth - parent.offsetWidth) / 2, el.offsetTop + (el.offsetHeight - parent.offsetHeight) / 2] : null;
+            return parent
+                ? [
+                      el.offsetLeft + (el.offsetWidth - parent.offsetWidth) / 2,
+                      el.offsetTop + (el.offsetHeight - parent.offsetHeight) / 2,
+                  ]
+                : null;
         };
         let last = parts.map(place);
         const observer = new ResizeObserver(() => {
@@ -101,7 +133,10 @@ export function LoadingForeground({ title, progress, slotRef }: { title?: string
             parts.forEach((el, i) => {
                 const [from, to] = [last[i], now[i]];
                 if (still || !from || !to || Math.abs(from[0] - to[0]) + Math.abs(from[1] - to[1]) < 0.5) return;
-                el.animate({ translate: [`${from[0] - to[0]}px ${from[1] - to[1]}px`, "0 0"] }, { duration: 320, easing: "cubic-bezier(0.65, 0, 0.35, 1)" });
+                el.animate(
+                    { translate: [`${from[0] - to[0]}px ${from[1] - to[1]}px`, "0 0"] },
+                    { duration: 320, easing: "cubic-bezier(0.65, 0, 0.35, 1)" },
+                );
             });
             last = now;
         });
@@ -124,8 +159,13 @@ export function LoadingForeground({ title, progress, slotRef }: { title?: string
                 </div>
             </div>
 
-            <h2 className="ls-enter ls-wordmark font-display font-medium relative" data-loading-title={title ? "" : undefined}>
-                <span className="sr-only" role="status">{title ?? "Cadence"}</span>
+            <h2
+                className="ls-enter ls-wordmark font-display font-medium relative"
+                data-loading-title={title ? "" : undefined}
+            >
+                <span className="sr-only" role="status">
+                    {title ?? "Cadence"}
+                </span>
                 <span className="ls-wordmark-halo" aria-hidden="true" />
                 <span className="ls-rule ls-rule-l" aria-hidden="true" />
                 <span className="ls-wordmark-flip" aria-hidden="true">
@@ -133,10 +173,14 @@ export function LoadingForeground({ title, progress, slotRef }: { title?: string
                         <span className="ls-wordmark-brand uppercase">Cadence</span>
                         {title && (
                             <span className="ls-wordmark-title">
-                                {progress === undefined ? title : (
+                                {progress === undefined ? (
+                                    title
+                                ) : (
                                     <>
                                         <span className="ls-title-muted">{title}</span>
-                                        <span className="ls-title-fill" ref={fillRef}><span>{title}</span></span>
+                                        <span className="ls-title-fill" ref={fillRef}>
+                                            <span>{title}</span>
+                                        </span>
                                     </>
                                 )}
                             </span>

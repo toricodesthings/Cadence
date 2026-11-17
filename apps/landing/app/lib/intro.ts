@@ -20,7 +20,7 @@ const root = () => document.documentElement;
 
 /** Starts the intro clock now. */
 export function startIntro() {
-  root().removeAttribute(HOLD);
+    root().removeAttribute(HOLD);
 }
 
 /**
@@ -29,32 +29,32 @@ export function startIntro() {
  * cancel.
  */
 export function releaseIntro(): () => void {
-  let cancelled = false;
-  const release = () => {
-    if (!cancelled) requestAnimationFrame(startIntro);
-  };
-  document.fonts.ready.then(() => {
-    if (cancelled) return;
-    // Safari has no idle callback; a short beat after the fonts stands in for it.
-    if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(release, { timeout: 600 });
-    else window.setTimeout(release, 50);
-  });
-  return () => {
-    cancelled = true;
-  };
+    let cancelled = false;
+    const release = () => {
+        if (!cancelled) requestAnimationFrame(startIntro);
+    };
+    document.fonts.ready.then(() => {
+        if (cancelled) return;
+        // Safari has no idle callback; a short beat after the fonts stands in for it.
+        if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(release, { timeout: 600 });
+        else window.setTimeout(release, 50);
+    });
+    return () => {
+        cancelled = true;
+    };
 }
 
 /** Calls `fn` once the intro clock is running (at once if it already is). Returns a cancel. */
 export function onIntroStart(fn: () => void): () => void {
-  if (!root().hasAttribute(HOLD)) {
-    fn();
-    return () => {};
-  }
-  const mo = new MutationObserver(() => {
-    if (root().hasAttribute(HOLD)) return;
-    mo.disconnect();
-    fn();
-  });
-  mo.observe(root(), { attributes: true, attributeFilter: [HOLD] });
-  return () => mo.disconnect();
+    if (!root().hasAttribute(HOLD)) {
+        fn();
+        return () => {};
+    }
+    const mo = new MutationObserver(() => {
+        if (root().hasAttribute(HOLD)) return;
+        mo.disconnect();
+        fn();
+    });
+    mo.observe(root(), { attributes: true, attributeFilter: [HOLD] });
+    return () => mo.disconnect();
 }

@@ -27,8 +27,14 @@ describe("memory queue", () => {
     });
 
     it("runs the person's nightly pass, acks on success, retries a failure, and drops a malformed message", async () => {
-        nightlyForUser.mockResolvedValueOnce({ expired: 1, decayed: 0, merged: 0, evicted: 0, activity: 0 }).mockResolvedValueOnce(null);
-        const [ok, failed, bad] = [message({ kind: "nightly", userId: "a", at }), message({ kind: "nightly", userId: "b", at }), message({ kind: "nope" })];
+        nightlyForUser
+            .mockResolvedValueOnce({ expired: 1, decayed: 0, merged: 0, evicted: 0, activity: 0 })
+            .mockResolvedValueOnce(null);
+        const [ok, failed, bad] = [
+            message({ kind: "nightly", userId: "a", at }),
+            message({ kind: "nightly", userId: "b", at }),
+            message({ kind: "nope" }),
+        ];
         await handleMemoryBatch({ messages: [ok, failed, bad] } as any, {} as any);
         expect(nightlyForUser).toHaveBeenCalledTimes(2);
         expect(nightlyForUser.mock.calls[0].slice(1)).toEqual(["a", new Date(at)]);
@@ -46,6 +52,8 @@ describe("memory queue", () => {
             await scheduleLearn({ MEMORY_QUEUE: { sendBatch } } as any, "user-1");
             expect(sendBatch).toHaveBeenCalled();
             expect(redis.strings.has(await learnPendingKey("user-1"))).toBe(false);
-        } finally { spy.mockRestore(); }
+        } finally {
+            spy.mockRestore();
+        }
     });
 });

@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { applyTimeMark, likelyOpenTime, nextOpenTime, routineTimesOn, timeDayStatus, timeMarksOn, timeProgress, habitOccurrences, isPausedOn, routineTimeOn, stepDayStatus, stepMarksOn, suggestInteractionMode } from "@cadence/domain/repeats";
+import {
+    applyTimeMark,
+    likelyOpenTime,
+    nextOpenTime,
+    routineTimesOn,
+    timeDayStatus,
+    timeMarksOn,
+    timeProgress,
+    habitOccurrences,
+    isPausedOn,
+    routineTimeOn,
+    stepDayStatus,
+    stepMarksOn,
+    suggestInteractionMode,
+} from "@cadence/domain/repeats";
 
 describe("routineTimeOn", () => {
     const gym = { targetTime: "18:00", targetTimes: { SA: "", MO: "07:00" } };
@@ -50,15 +64,20 @@ describe("habitOccurrences", () => {
         );
         expect(days).toEqual(["2026-09-21", "2026-09-23"]);
         // A plain monthly rule keeps its day of the month.
-        expect(habitOccurrences("FREQ=MONTHLY", "2026-09-15T10:00:00.000Z", "2026-07-01", "2026-08-31", "UTC"))
-            .toEqual(["2026-07-15", "2026-08-15"]);
+        expect(habitOccurrences("FREQ=MONTHLY", "2026-09-15T10:00:00.000Z", "2026-07-01", "2026-08-31", "UTC")).toEqual(
+            ["2026-07-15", "2026-08-15"],
+        );
     });
 
     it("counts an every-N rule from the creation day in the user's zone", () => {
         // 9 pm in New York on the 21st is the 22nd in UTC.
         const created = "2026-09-22T01:00:00.000Z";
         const window = ["2026-09-19", "2026-09-25"] as const;
-        expect(habitOccurrences("FREQ=DAILY;INTERVAL=2", created, ...window, "America/New_York")).toEqual(["2026-09-21", "2026-09-23", "2026-09-25"]);
+        expect(habitOccurrences("FREQ=DAILY;INTERVAL=2", created, ...window, "America/New_York")).toEqual([
+            "2026-09-21",
+            "2026-09-23",
+            "2026-09-25",
+        ]);
     });
 });
 
@@ -66,8 +85,13 @@ describe("stepDayStatus", () => {
     const ids = ["water", "stretch", "journal"];
     it("is done once every step is settled, pending while some are, and drops removed steps", () => {
         expect(stepDayStatus(ids, {})).toEqual({ status: "PENDING", stepStatus: null });
-        expect(stepDayStatus(ids, { water: "COMPLETED", gone: "COMPLETED" })).toEqual({ status: "PENDING", stepStatus: { water: "COMPLETED" } });
-        expect(stepDayStatus(ids, { water: "COMPLETED", stretch: "SKIPPED", journal: "COMPLETED" }).status).toBe("COMPLETED");
+        expect(stepDayStatus(ids, { water: "COMPLETED", gone: "COMPLETED" })).toEqual({
+            status: "PENDING",
+            stepStatus: { water: "COMPLETED" },
+        });
+        expect(stepDayStatus(ids, { water: "COMPLETED", stretch: "SKIPPED", journal: "COMPLETED" }).status).toBe(
+            "COMPLETED",
+        );
         expect(stepDayStatus(ids, { water: "SKIPPED", stretch: "SKIPPED", journal: "SKIPPED" }).status).toBe("SKIPPED");
     });
 
@@ -101,7 +125,10 @@ describe("routine at set times", () => {
     const at = (h: string) => `2026-10-08T${h}:00.000Z`;
 
     it("uses its set times, else the usual time", () => {
-        expect(routineTimesOn({ targetTime: "18:00", times: ["20:00", "08:00"] }, "2026-10-08")).toEqual(["08:00", "20:00"]);
+        expect(routineTimesOn({ targetTime: "18:00", times: ["20:00", "08:00"] }, "2026-10-08")).toEqual([
+            "08:00",
+            "20:00",
+        ]);
         expect(routineTimesOn({ targetTime: "18:00", times: null }, "2026-10-08")).toEqual(["18:00"]);
         expect(routineTimesOn({ targetTime: null }, "2026-10-08")).toEqual([]);
     });
@@ -130,7 +157,10 @@ describe("routine at set times", () => {
         log = applyTimeMark(times, log, { time: "14:00", status: "COMPLETED", at: at("18") });
         log = applyTimeMark(times, log, { time: "14:00", status: "PENDING", at: at("19") });
         expect(Object.keys(log.timeMarks!)).toEqual(["08:00"]);
-        expect(applyTimeMark(times, log, { status: "PENDING", at: at("19") })).toEqual({ status: "PENDING", timeMarks: null });
+        expect(applyTimeMark(times, log, { status: "PENDING", at: at("19") })).toEqual({
+            status: "PENDING",
+            timeMarks: null,
+        });
     });
 
     it("drops marks for a time the routine no longer has", () => {
@@ -150,7 +180,8 @@ describe("routine at set times", () => {
     });
 
     it("picks the next open time, else the latest late one", () => {
-        const done = (...t: string[]) => Object.fromEntries(t.map((x) => [x, { status: "COMPLETED" as const, at: null }]));
+        const done = (...t: string[]) =>
+            Object.fromEntries(t.map((x) => [x, { status: "COMPLETED" as const, at: null }]));
         expect(nextOpenTime(times, done("08:00"), "10:00")).toBe("14:00");
         expect(nextOpenTime(times, done("08:00"), "15:00")).toBe("20:00");
         expect(nextOpenTime(times, done("08:00", "14:00"), "22:00")).toBe("20:00"); // late, still reachable
@@ -163,6 +194,12 @@ describe("routine at set times", () => {
         expect(likelyOpenTime(times, {}, "11:00")).toBeNull(); // between doses
         expect(likelyOpenTime(times, { "08:00": { status: "COMPLETED", at: null } }, "08:30")).toBeNull(); // that one's done
         expect(likelyOpenTime(times, {}, null)).toBeNull(); // another day, three open
-        expect(likelyOpenTime(times, { "08:00": { status: "COMPLETED", at: null }, "14:00": { status: "SKIPPED", at: null } }, null)).toBe("20:00");
+        expect(
+            likelyOpenTime(
+                times,
+                { "08:00": { status: "COMPLETED", at: null }, "14:00": { status: "SKIPPED", at: null } },
+                null,
+            ),
+        ).toBe("20:00");
     });
 });

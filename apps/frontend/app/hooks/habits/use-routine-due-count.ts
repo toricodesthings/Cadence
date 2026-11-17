@@ -9,7 +9,7 @@ export function useRoutineDueCount() {
     const enabled = settings?.notifications?.showHabitNavDueCount !== false;
     const { data: routines = [] } = useHabitsRange({ start: today, end: today, enabled });
     if (!enabled) return 0;
-    return routines.filter((routine) => routine.logs?.some(
-        (log) => log.targetDate === today && log.status === "PENDING",
-    )).length;
+    return routines.filter((routine) =>
+        routine.logs?.some((log) => log.targetDate === today && log.status === "PENDING"),
+    ).length;
 }

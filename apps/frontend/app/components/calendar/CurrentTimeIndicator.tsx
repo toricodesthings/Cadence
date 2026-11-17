@@ -7,7 +7,7 @@ import { getUserZone } from "../../lib/utils/user-zone";
 function getNowTop() {
     const [h, m] = wallTimeOf(new Date(), getUserZone()).split(":").map(Number);
     const seconds = Math.floor(Date.now() / 1000) % 60;
-    return (((h * 60 + m + seconds / 60)) / 60) * HOUR_HEIGHT;
+    return ((h * 60 + m + seconds / 60) / 60) * HOUR_HEIGHT;
 }
 
 // One shared 15s clock for every chip that asks whether the now-line crosses it.

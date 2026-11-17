@@ -17,7 +17,12 @@ import type { useWeekRoom } from "../../../hooks/core/use-week-room";
  * A capture row. The primary is the day its words name (today's words only), else the model's guess, else Today.
  * A list the server already suggested shows as a chip; tapping it puts the task in that list on placement.
  */
-export function CaptureReviewRow({ item, guess, dayFor, review }: {
+export function CaptureReviewRow({
+    item,
+    guess,
+    dayFor,
+    review,
+}: {
     item: InboxItem;
     guess?: ResetDisposition;
     dayFor: ReturnType<typeof useWeekRoom>["dayFor"];
@@ -28,40 +33,70 @@ export function CaptureReviewRow({ item, guess, dayFor, review }: {
     const suggestion = storedSuggestion(item);
     const list = suggestion ? projects.find((p) => p.id === suggestion.projectId) : undefined;
     const [useList, setUseList] = useState(false);
-    const listPatch: InstructionPatch = useList && suggestion ? { projectId: suggestion.projectId, ...(suggestion.sectionId && { sectionId: suggestion.sectionId }) } : {};
+    const listPatch: InstructionPatch =
+        useList && suggestion
+            ? { projectId: suggestion.projectId, ...(suggestion.sectionId && { sectionId: suggestion.sectionId }) }
+            : {};
     // A capture from an earlier day: its "tomorrow" is not today's, so no day is proposed from its words.
     const fresh = toDay(item.createdAt) === today();
     const start = fresh ? parse.scheduledStart : null;
     const day = fresh ? parse.dueDate : null;
     const words: ReviewAction | null = start
-        ? { label: formatShortDateTime(start), icon: Calendar, onClick: () => review.placeCapture(item, { patch: { ...listPatch, scheduledStart: start, scheduledEnd: parse.scheduledEnd, dueDate: null } }) }
-        : day ? { label: formatShortDate(day), icon: Calendar, onClick: () => review.placeCapture(item, { day, patch: listPatch }) } : null;
+        ? {
+              label: formatShortDateTime(start),
+              icon: Calendar,
+              onClick: () =>
+                  review.placeCapture(item, {
+                      patch: { ...listPatch, scheduledStart: start, scheduledEnd: parse.scheduledEnd, dueDate: null },
+                  }),
+          }
+        : day
+          ? {
+                label: formatShortDate(day),
+                icon: Calendar,
+                onClick: () => review.placeCapture(item, { day, patch: listPatch }),
+            }
+          : null;
     return (
         <ReviewListItem
             title={item.rawText || "Empty"}
             onRename={(text) => review.renameCapture(item, text)}
             actionKeyPrefix={`inbox:${item.id}`}
-            chip={list ? (
-                <button
-                    type="button"
-                    onClick={() => setUseList((on) => !on)}
-                    aria-pressed={useList}
-                    aria-label={`Put in ${list.name}`}
-                    className={`inline-flex min-h-8 w-fit cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors ${
-                        useList ? "surface-control-accent text-accent-primary" : "surface-control text-twilight-text-soft hover:text-twilight-text"
-                    }`}
-                >
-                    <FolderOpen size={13} aria-hidden="true" /> → {list.name}
-                </button>
-            ) : null}
+            chip={
+                list ? (
+                    <button
+                        type="button"
+                        onClick={() => setUseList((on) => !on)}
+                        aria-pressed={useList}
+                        aria-label={`Put in ${list.name}`}
+                        className={`inline-flex min-h-8 w-fit cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors ${
+                            useList
+                                ? "surface-control-accent text-accent-primary"
+                                : "surface-control text-twilight-text-soft hover:text-twilight-text"
+                        }`}
+                    >
+                        <FolderOpen size={13} aria-hidden="true" /> → {list.name}
+                    </button>
+                ) : null
+            }
             actions={dayActions({
                 words,
                 guess,
                 dayFor,
-                place: (choice) => review.placeCapture(item, "later" in choice ? { waitlist: true, patch: listPatch } : { day: choice.day, patch: listPatch }),
+                place: (choice) =>
+                    review.placeCapture(
+                        item,
+                        "later" in choice
+                            ? { waitlist: true, patch: listPatch }
+                            : { day: choice.day, patch: listPatch },
+                    ),
                 trash: () => review.handleInboxAction(item, "delete"),
             })}
-            typed={{ placeholder: "Say when, like “Fri 3pm”", applyLabel: "Place", onApply: (patch) => review.placeCapture(item, { patch: { ...listPatch, ...patch } }) }}
+            typed={{
+                placeholder: "Say when, like “Fri 3pm”",
+                applyLabel: "Place",
+                onApply: (patch) => review.placeCapture(item, { patch: { ...listPatch, ...patch } }),
+            }}
             pendingActionKey={review.pendingActionKey}
             actionError={review.actionError}
             onRunAction={review.runCardAction}
@@ -70,7 +105,12 @@ export function CaptureReviewRow({ item, guess, dayFor, review }: {
 }
 
 /* ─── Step 1 · Captures ─── */
-export function InboxStep({ review, guesses, dayFor, onTitleVisible }: {
+export function InboxStep({
+    review,
+    guesses,
+    dayFor,
+    onTitleVisible,
+}: {
     review: ReviewActions;
     guesses: Record<string, ResetDisposition>;
     dayFor: ReturnType<typeof useWeekRoom>["dayFor"];
@@ -84,7 +124,12 @@ export function InboxStep({ review, guesses, dayFor, onTitleVisible }: {
                     <AnimatePresence initial={false}>
                         {inboxItems.map((item) => (
                             <ResolvingRow key={item.id}>
-                                <CaptureReviewRow item={item} guess={guesses[item.id]} dayFor={dayFor} review={review} />
+                                <CaptureReviewRow
+                                    item={item}
+                                    guess={guesses[item.id]}
+                                    dayFor={dayFor}
+                                    review={review}
+                                />
                             </ResolvingRow>
                         ))}
                     </AnimatePresence>

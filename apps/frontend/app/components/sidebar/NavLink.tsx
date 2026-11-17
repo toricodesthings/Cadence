@@ -44,9 +44,10 @@ export function NavLink({
             className={`
                 group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px]
                 transition-colors duration-200 cursor-pointer
-                ${active
-                    ? `${activeBg} text-twilight-text font-medium`
-                    : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.03]"
+                ${
+                    active
+                        ? `${activeBg} text-twilight-text font-medium`
+                        : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.03]"
                 }
             `}
         >
@@ -56,16 +57,12 @@ export function NavLink({
                     aria-hidden="true"
                     className={`transition-colors ${active ? activeColor : `text-twilight-text-muted ${hoverColor}`}`}
                 />
-                {showDot && (
-                    <ActivityBadge className="absolute -right-0.5 -top-0.5" />
-                )}
+                {showDot && <ActivityBadge className="absolute -right-0.5 -top-0.5" />}
             </span>
             <span className="flex-1 truncate">{label}</span>
-            {count !== undefined && count !== 0 && (
-                countAppearance === "plain"
-                    ? <PlainNavCount count={count} />
-                    : <ActivityBadge count={count} />
-            )}
+            {count !== undefined &&
+                count !== 0 &&
+                (countAppearance === "plain" ? <PlainNavCount count={count} /> : <ActivityBadge count={count} />)}
         </Link>
     );
 }

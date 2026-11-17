@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { pickChatModel } from "../../src/domains/ai/model-router";
 import type { Env } from "../../src/types/env";
 
-const env = (overrides: Partial<Env> = {}) => ({ AI_CHAT_MODEL: "std/model", AI_CHAT_MODEL_BASIC: "basic/model", ...overrides }) as Env;
+const env = (overrides: Partial<Env> = {}) =>
+    ({ AI_CHAT_MODEL: "std/model", AI_CHAT_MODEL_BASIC: "basic/model", ...overrides }) as Env;
 const pick = (text: string, imageCount = 0, e = env()) => pickChatModel(e, { text, imageCount });
 
 describe("pickChatModel", () => {
@@ -45,7 +46,9 @@ describe("pickChatModel", () => {
     });
 
     it("keeps long, multi-line, image and approval-only turns on the standard model", () => {
-        expect(pick("how do I set up a routine that reminds me at several different set times during the day")).toBe("std/model");
+        expect(pick("how do I set up a routine that reminds me at several different set times during the day")).toBe(
+            "std/model",
+        );
         expect(pick("hi\nthanks")).toBe("std/model");
         expect(pick("hi", 1)).toBe("std/model");
         expect(pick("")).toBe("std/model");

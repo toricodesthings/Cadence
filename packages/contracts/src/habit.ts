@@ -15,21 +15,27 @@ export const habitTargetTimesSchema = z.partialRecord(z.enum(HABIT_WEEKDAYS), ha
 export const MAX_ROUTINE_STEPS = 12;
 export const routineStepSchema = z.object({ id: z.string().min(1).max(64), title: z.string().trim().min(1).max(200) });
 export type RoutineStep = z.infer<typeof routineStepSchema>;
-export const routineStepsSchema = z.array(routineStepSchema).max(MAX_ROUTINE_STEPS)
+export const routineStepsSchema = z
+    .array(routineStepSchema)
+    .max(MAX_ROUTINE_STEPS)
     .refine((steps) => new Set(steps.map((step) => step.id)).size === steps.length, "Step ids must be unique");
 /** One day's steps, by step id: done or skipped. A step without a key is still open. */
-export const stepStatusSchema = z.record(z.string().max(64), z.enum(["COMPLETED", "SKIPPED"]))
+export const stepStatusSchema = z
+    .record(z.string().max(64), z.enum(["COMPLETED", "SKIPPED"]))
     .refine((marks) => Object.keys(marks).length <= MAX_ROUTINE_STEPS, "Too many steps");
 export type StepStatus = z.infer<typeof stepStatusSchema>;
 
 /** A routine at set times: its daily WallTimes, ascending. A time is its own id in a day's `timeMarks`. */
 export const MAX_ROUTINE_TIMES = 12;
-export const routineTimesSchema = z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Times are HH:MM, 24h")).max(MAX_ROUTINE_TIMES)
+export const routineTimesSchema = z
+    .array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Times are HH:MM, 24h"))
+    .max(MAX_ROUTINE_TIMES)
     .refine((times) => new Set(times).size === times.length, "Times must be unique");
 /** One day's marks by time: done or skipped, and the Instant it happened (null when the day was logged whole). A time without a key is still open. */
 export const timeMarkSchema = z.object({ status: z.enum(["COMPLETED", "SKIPPED"]), at: instantSchema.nullable() });
 export type TimeMark = z.infer<typeof timeMarkSchema>;
-export const timeMarksSchema = z.record(z.string().regex(/^\d{2}:\d{2}$/), timeMarkSchema)
+export const timeMarksSchema = z
+    .record(z.string().regex(/^\d{2}:\d{2}$/), timeMarkSchema)
     .refine((marks) => Object.keys(marks).length <= MAX_ROUTINE_TIMES, "Too many times");
 export type TimeMarks = z.infer<typeof timeMarksSchema>;
 
@@ -75,7 +81,10 @@ export const resolveHabitActionSchema = z.object({
     /** A routine with steps: the day's step marks. The server derives `status` from them (see `stepDayStatus`). */
     stepStatus: stepStatusSchema.optional(),
     /** A routine at set times: change just this time (`status` PENDING clears it); other times are kept. */
-    time: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    time: z
+        .string()
+        .regex(/^\d{2}:\d{2}$/)
+        .optional(),
     /** When it happened, for a late or corrected check-in; the server's clock when absent. */
     at: instantSchema.optional(),
 });
@@ -84,11 +93,19 @@ export type ResolveHabitAction = z.infer<typeof resolveHabitActionSchema>;
 export const weeklyHabitsQuerySchema = z.object({
     start: localDateSchema,
     end: localDateSchema,
-    archived: z.string().optional().default("false").transform(v => v === "true"),
+    archived: z
+        .string()
+        .optional()
+        .default("false")
+        .transform((v) => v === "true"),
 });
 
 export const habitListQuerySchema = z.object({
-    archived: z.string().optional().default("false").transform(v => v === "true"),
+    archived: z
+        .string()
+        .optional()
+        .default("false")
+        .transform((v) => v === "true"),
 });
 
 // ── Row schema (exact DB columns) ──

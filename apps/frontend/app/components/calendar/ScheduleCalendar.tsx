@@ -203,88 +203,122 @@ const PANES = { month: MonthPane, week: WeekPane, day: DayPane, year: YearPane }
 
 export function ScheduleCalendar(props: ScheduleCalendarProps) {
     const { shell, navigation, data, selection, actions, swipe } = props;
-    const { year, month, currentDate, todayIso, viewMode, isPhoneDay, direction, zoom,
-        handleViewMode, handleNavigate, handleToday, selectStripDay, shiftStripWeek } = navigation;
+    const {
+        year,
+        month,
+        currentDate,
+        todayIso,
+        viewMode,
+        isPhoneDay,
+        direction,
+        zoom,
+        handleViewMode,
+        handleNavigate,
+        handleToday,
+        selectStripDay,
+        shiftStripWeek,
+    } = navigation;
     const { periodRange, weekDates, weekStartsOn, weekLoads, phoneGroups, phoneMarkers } = data;
     const { reducedMotion, dragProps } = swipe;
-    const chipActions = useMemo<CalendarChipActions>(() => ({
-        complete: actions.completeTask,
-        resolveRoutine: actions.resolveRoutine,
-        moveToTomorrow: actions.moveToTomorrow,
-        pickDay: actions.setPlaceTask,
-        openInRoutines: selection.openInRoutines,
-    }), [actions.completeTask, actions.resolveRoutine, actions.moveToTomorrow, actions.setPlaceTask, selection.openInRoutines]);
-    const slideCustom = useMemo<SlideCustom>(() => ({ direction, distance: reducedMotion || zoom ? 0 : 32, zoom: reducedMotion ? 0 : zoom }),
-        [direction, reducedMotion, zoom]);
+    const chipActions = useMemo<CalendarChipActions>(
+        () => ({
+            complete: actions.completeTask,
+            resolveRoutine: actions.resolveRoutine,
+            moveToTomorrow: actions.moveToTomorrow,
+            pickDay: actions.setPlaceTask,
+            openInRoutines: selection.openInRoutines,
+        }),
+        [
+            actions.completeTask,
+            actions.resolveRoutine,
+            actions.moveToTomorrow,
+            actions.setPlaceTask,
+            selection.openInRoutines,
+        ],
+    );
+    const slideCustom = useMemo<SlideCustom>(
+        () => ({ direction, distance: reducedMotion || zoom ? 0 : 32, zoom: reducedMotion ? 0 : zoom }),
+        [direction, reducedMotion, zoom],
+    );
     const phoneHeader = usePhoneHeader(navigation, phoneGroups);
     const isCurrentPeriod = todayIso >= periodRange.start && todayIso <= periodRange.end;
     const Pane = PANES[viewMode];
 
     return (
         <CalendarChipActionsContext.Provider value={chipActions}>
-        <div className="h-full flex flex-col overflow-hidden">
-            {/* Header */}
-            <ScheduleHeader
-                year={year}
-                month={month}
-                currentDate={currentDate}
-                viewMode={viewMode}
-                weekStartsOn={weekStartsOn}
-                onViewMode={handleViewMode}
-                onNavigate={handleNavigate}
-                onToday={handleToday}
-                isCurrentPeriod={isCurrentPeriod}
-                onAddTask={props.creation.handleAddTaskToolbar}
-                hidePeriodNav={shell.isLaptop}
-                overflowContent={<ScheduleOptions phone={shell.isPhone} navigation={navigation} data={data} actions={actions} />}
-                compact={shell.isCompact}
-                phone={shell.isPhone ? phoneHeader : undefined}
-            />
-
-            {/* Phone Day: the week stays put while the day below swipes. */}
-            {isPhoneDay ? (
-                <DayStrip
-                    weekDates={weekDates}
-                    selectedIso={currentDate}
-                    loads={weekLoads}
-                    markedDays={new Set(phoneMarkers.keys())}
-                    onSelect={selectStripDay}
-                    onShiftWeek={shiftStripWeek}
+            <div className="h-full flex flex-col overflow-hidden">
+                {/* Header */}
+                <ScheduleHeader
+                    year={year}
+                    month={month}
+                    currentDate={currentDate}
+                    viewMode={viewMode}
+                    weekStartsOn={weekStartsOn}
+                    onViewMode={handleViewMode}
+                    onNavigate={handleNavigate}
+                    onToday={handleToday}
+                    isCurrentPeriod={isCurrentPeriod}
+                    onAddTask={props.creation.handleAddTaskToolbar}
+                    hidePeriodNav={shell.isLaptop}
+                    overflowContent={
+                        <ScheduleOptions phone={shell.isPhone} navigation={navigation} data={data} actions={actions} />
+                    }
+                    compact={shell.isCompact}
+                    phone={shell.isPhone ? phoneHeader : undefined}
                 />
-            ) : null}
 
-            {/* Main calendar area */}
-            <div className="flex-1 min-h-0 relative flex overflow-hidden">
-                {/* Calendar views */}
-                <motion.div
-                    {...dragProps}
-                    className={`flex-1 min-w-0 relative overflow-hidden${shell.isCompact ? " select-none" : ""}`}
-                >
-                    <AnimatePresence initial={false} custom={slideCustom} mode="wait">
-                        <motion.div
-                            key={viewKeyOf(navigation, weekDates)}
-                            custom={slideCustom}
-                            variants={slideVariants}
-                            initial="enter"
-                            animate="center"
-                            exit="exit"
-                            transition={reducedMotion ? { duration: 0 } : {
-                                x: SPRINGS.GLIDE,
-                                scale: SPRINGS.GLIDE,
-                                opacity: { duration: 0.18 },
-                            }}
-                            className="absolute inset-0 flex flex-col"
-                        >
-                            <Pane {...props} />
-                        </motion.div>
-                    </AnimatePresence>
-                </motion.div>
+                {/* Phone Day: the week stays put while the day below swipes. */}
+                {isPhoneDay ? (
+                    <DayStrip
+                        weekDates={weekDates}
+                        selectedIso={currentDate}
+                        loads={weekLoads}
+                        markedDays={new Set(phoneMarkers.keys())}
+                        onSelect={selectStripDay}
+                        onShiftWeek={shiftStripWeek}
+                    />
+                ) : null}
 
+                {/* Main calendar area */}
+                <div className="flex-1 min-h-0 relative flex overflow-hidden">
+                    {/* Calendar views */}
+                    <motion.div
+                        {...dragProps}
+                        className={`flex-1 min-w-0 relative overflow-hidden${shell.isCompact ? " select-none" : ""}`}
+                    >
+                        <AnimatePresence initial={false} custom={slideCustom} mode="wait">
+                            <motion.div
+                                key={viewKeyOf(navigation, weekDates)}
+                                custom={slideCustom}
+                                variants={slideVariants}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                transition={
+                                    reducedMotion
+                                        ? { duration: 0 }
+                                        : {
+                                              x: SPRINGS.GLIDE,
+                                              scale: SPRINGS.GLIDE,
+                                              opacity: { duration: 0.18 },
+                                          }
+                                }
+                                className="absolute inset-0 flex flex-col"
+                            >
+                                <Pane {...props} />
+                            </motion.div>
+                        </AnimatePresence>
+                    </motion.div>
+                </div>
+                {shell.isLaptop ? (
+                    <PeriodDock
+                        unit={viewMode}
+                        isCurrent={isCurrentPeriod}
+                        onNavigate={handleNavigate}
+                        onToday={handleToday}
+                    />
+                ) : null}
             </div>
-            {shell.isLaptop ? (
-                <PeriodDock unit={viewMode} isCurrent={isCurrentPeriod} onNavigate={handleNavigate} onToday={handleToday} />
-            ) : null}
-        </div>
         </CalendarChipActionsContext.Provider>
     );
 }

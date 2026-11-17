@@ -26,7 +26,11 @@ for (const file of readdirSync(ROOT, { recursive: true })) {
         const target = relative(ROOT, resolve(dirname(join(ROOT, file)), spec));
         const domain = target.split("/")[0];
         if (target.startsWith("..") || domain === from) continue;
-        if (target.endsWith(".service") || PUBLIC.some((p) => target === p || (p.endsWith("/") && target.startsWith(p)))) continue;
+        if (
+            target.endsWith(".service") ||
+            PUBLIC.some((p) => target === p || (p.endsWith("/") && target.startsWith(p)))
+        )
+            continue;
         violations.push(`${ROOT}/${file}: reaches into "${target}" (import ${domain}'s service instead)`);
     }
 }

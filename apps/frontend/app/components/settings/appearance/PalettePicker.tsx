@@ -1,10 +1,6 @@
 import { Check } from "lucide-react";
 import { cn } from "../../../lib/utils";
-import {
-    ACCENT_PALETTES,
-    type PaletteId,
-    type PaletteDefinition,
-} from "../../../lib/themes/accent-palettes";
+import { ACCENT_PALETTES, type PaletteId, type PaletteDefinition } from "../../../lib/themes/accent-palettes";
 
 interface PaletteCardProps {
     palette: PaletteDefinition;
@@ -36,30 +32,15 @@ function PaletteCard({ palette, selected, onSelect, isDaylight }: PaletteCardPro
                     className="h-6 w-6 rounded-full shadow-sm ring-1 ring-white/10"
                     style={{ background: colors.primary }}
                 />
-                <div
-                    className="h-4 w-4 rounded-full ring-1 ring-white/10"
-                    style={{ background: colors.secondary }}
-                />
-                <div
-                    className="h-3 w-3 rounded-full ring-1 ring-white/10"
-                    style={{ background: colors.tertiary }}
-                />
-                {selected && (
-                    <Check
-                        size={14}
-                        className="ml-auto text-[color:var(--accent-primary)]"
-                    />
-                )}
+                <div className="h-4 w-4 rounded-full ring-1 ring-white/10" style={{ background: colors.secondary }} />
+                <div className="h-3 w-3 rounded-full ring-1 ring-white/10" style={{ background: colors.tertiary }} />
+                {selected && <Check size={14} className="ml-auto text-[color:var(--accent-primary)]" />}
             </div>
 
             {/* Label */}
             <div>
-                <span className="text-[13px] font-medium text-twilight-text">
-                    {palette.name}
-                </span>
-                <p className="text-[11px] leading-tight text-twilight-text-muted">
-                    {palette.description}
-                </p>
+                <span className="text-[13px] font-medium text-twilight-text">{palette.name}</span>
+                <p className="text-[11px] leading-tight text-twilight-text-muted">{palette.description}</p>
             </div>
         </button>
     );

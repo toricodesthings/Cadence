@@ -10,7 +10,10 @@ export const focusViewSourceSchema = z.enum(["preset", "composed", "manual"]);
 export type FocusViewSource = z.infer<typeof focusViewSourceSchema>;
 export const focusViewSortModeSchema = z.enum(["smart", "priority", "manual"]);
 export const focusViewDefinitionSchema = z.object({
-    states: z.array(z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"])).min(1).max(8),
+    states: z
+        .array(z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]))
+        .min(1)
+        .max(8),
     projectIds: z.array(z.uuid()).max(100).default([]),
     tagIds: z.array(z.uuid()).max(100).default([]),
     needsDate: z.boolean(),
@@ -134,211 +137,298 @@ export const backgroundUploadMetaSchema = z.object({
 // The PATCH schema (`settingsPatchSchema`) is derived with `deepPartial`.
 // Defaults in `SETTINGS_DEFAULTS` must satisfy this schema exactly.
 
-const fieldAskEntrySchema = z.object({ lastOn: z.string().nullable(), misses: z.number().int().min(0), labels: z.array(z.string()).optional() });
+const fieldAskEntrySchema = z.object({
+    lastOn: z.string().nullable(),
+    misses: z.number().int().min(0),
+    labels: z.array(z.string()).optional(),
+});
 
 export const userSettingsSchema = z.object({
-    profile: z.object({
-        pronouns: z.string().optional(),
-        birthday: z.string().nullable().optional(),
-    }).optional(),
-    appearance: z.object({
-        theme: z.enum(["twilight", "daylight", "system", "custom"]),
-        accentIntensity: z.enum(["soft", "balanced", "vivid"]),
-        motion: z.enum(["system", "full", "reduced"]),
-        density: z.enum(["comfortable", "compact"]),
-        palette: z.enum([
-            "lantern", "ember", "rose", "violet",
-            "sapphire", "jade", "copper", "frost"
-        ]).optional(),
-        themePreset: z.enum([
-            "default", "daylight-default", "spring-bloom",
-            "summer-coast", "autumn-hearth", "winter-frost",
-            "midnight-garden", "golden-hour", "custom"
-        ]).optional(),
-        // Loading screen scene; "auto" follows the calendar season.
-        loadingSeason: z.enum(["auto", "spring", "summer", "autumn", "winter"]).optional(),
-        backgroundMode: z.enum(["theme", "custom", "image"]).optional(),
-        backgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
-        backgroundGradient: z.string().nullable().optional(),
-        // Kept while the user switches to a theme, so they can switch back; only the delete route clears it.
-        backgroundImage: backgroundImageSchema.nullable().optional(),
-    }).optional(),
-    notifications: z.object({
-        email: z.boolean(),
-        browser: z.boolean().optional(),
-        taskReminders: z.boolean().optional(),
-        habitReminders: z.boolean().optional(),
-        dueDateAlerts: z.boolean().optional(),
-        quietHoursEnabled: z.boolean().optional(),
-        quietHoursStart: z.string().nullable().optional(),
-        quietHoursEnd: z.string().nullable().optional(),
-        habitReminderLeadMinutes: z.union([z.literal(0), z.literal(5), z.literal(10), z.literal(15), z.literal(30), z.literal(60)]).optional(),
-        /** Waiting-task check-ins. */
-        followUps: z.boolean().optional(),
-        /** Timed blocks on the calendar. */
-        scheduleAlerts: z.boolean().optional(),
-        blockLeadMinutes: z.union([z.literal(0), z.literal(5), z.literal(10), z.literal(15), z.literal(30), z.literal(60)]).optional(),
-        /** Fixed blocks (class, shift) get their own, longer lead. */
-        fixedLeadMinutes: z.union([z.literal(0), z.literal(15), z.literal(30), z.literal(60), z.literal(120)]).optional(),
-        /** Days before a deadline for the extra heads-up; 0 = none. */
-        dueHeadsUpDays: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(7)]).optional(),
-        /** Days a missed deadline stays in the list; 0 = the due day only. */
-        overdueDays: z.union([z.literal(0), z.literal(1), z.literal(3), z.literal(7)]).optional(),
-        /** Yearly events notify this many days ahead (each one a separate alert). */
-        eventDaysBefore: z.array(z.union([z.literal(0), z.literal(1), z.literal(7)])).max(3).optional(),
-        /** "My morning" and "my evening": deadline and event alerts, and the Defer choices. */
-        morningTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-        eveningTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-        /** Everything stays silent until this instant. */
-        pausedUntil: instantSchema.nullable().optional(),
-        showHabitNavDueCount: z.boolean().optional(),
-        bundleMissedRoutinePrompts: z.boolean().optional(),
-    }).optional(),
-    dateTime: z.object({
-        weekStart: z.enum(["Sunday", "Monday", "Saturday"]),
-        // "device" follows the device's zone (the client keeps `users.time_zone` equal to it); an IANA name pins one.
-        timezone: z.union([z.literal("device"), zoneSchema]),
-        timeDisplay: z.enum(["12h", "24h"]),
-        dateStyle: z.enum(DATE_STYLES).optional(),
-    }).optional(),
-    calendar: z.object({
-        defaultView: z.enum(["month", "week", "day"]).optional(),
-        /** The hour (0-23) Day and Week open scrolled to. */
-        timelineStartHour: z.number().int().min(0).max(23).optional(),
-        clutter: z.object({
-            showAllDay: z.boolean().optional(),
-            showTimedTasks: z.boolean().optional(),
-            showHabitAnchors: z.boolean().optional(),
-            /** Fixed blocks (timetable). Missing means shown. */
-            showFixed: z.boolean().optional(),
-        }).optional(),
-        holidays: z.object({
-            enabled: z.boolean(),
-        }).optional(),
-        personalEvents: z.object({
-            enabled: z.boolean(),
-            items: z.array(personalEventSchema).max(50),
-        }).optional(),
-    }).optional(),
+    profile: z
+        .object({
+            pronouns: z.string().optional(),
+            birthday: z.string().nullable().optional(),
+        })
+        .optional(),
+    appearance: z
+        .object({
+            theme: z.enum(["twilight", "daylight", "system", "custom"]),
+            accentIntensity: z.enum(["soft", "balanced", "vivid"]),
+            motion: z.enum(["system", "full", "reduced"]),
+            density: z.enum(["comfortable", "compact"]),
+            palette: z.enum(["lantern", "ember", "rose", "violet", "sapphire", "jade", "copper", "frost"]).optional(),
+            themePreset: z
+                .enum([
+                    "default",
+                    "daylight-default",
+                    "spring-bloom",
+                    "summer-coast",
+                    "autumn-hearth",
+                    "winter-frost",
+                    "midnight-garden",
+                    "golden-hour",
+                    "custom",
+                ])
+                .optional(),
+            // Loading screen scene; "auto" follows the calendar season.
+            loadingSeason: z.enum(["auto", "spring", "summer", "autumn", "winter"]).optional(),
+            backgroundMode: z.enum(["theme", "custom", "image"]).optional(),
+            backgroundColor: z
+                .string()
+                .regex(/^#[0-9a-fA-F]{6}$/)
+                .nullable()
+                .optional(),
+            backgroundGradient: z.string().nullable().optional(),
+            // Kept while the user switches to a theme, so they can switch back; only the delete route clears it.
+            backgroundImage: backgroundImageSchema.nullable().optional(),
+        })
+        .optional(),
+    notifications: z
+        .object({
+            email: z.boolean(),
+            browser: z.boolean().optional(),
+            taskReminders: z.boolean().optional(),
+            habitReminders: z.boolean().optional(),
+            dueDateAlerts: z.boolean().optional(),
+            quietHoursEnabled: z.boolean().optional(),
+            quietHoursStart: z.string().nullable().optional(),
+            quietHoursEnd: z.string().nullable().optional(),
+            habitReminderLeadMinutes: z
+                .union([z.literal(0), z.literal(5), z.literal(10), z.literal(15), z.literal(30), z.literal(60)])
+                .optional(),
+            /** Waiting-task check-ins. */
+            followUps: z.boolean().optional(),
+            /** Timed blocks on the calendar. */
+            scheduleAlerts: z.boolean().optional(),
+            blockLeadMinutes: z
+                .union([z.literal(0), z.literal(5), z.literal(10), z.literal(15), z.literal(30), z.literal(60)])
+                .optional(),
+            /** Fixed blocks (class, shift) get their own, longer lead. */
+            fixedLeadMinutes: z
+                .union([z.literal(0), z.literal(15), z.literal(30), z.literal(60), z.literal(120)])
+                .optional(),
+            /** Days before a deadline for the extra heads-up; 0 = none. */
+            dueHeadsUpDays: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(7)]).optional(),
+            /** Days a missed deadline stays in the list; 0 = the due day only. */
+            overdueDays: z.union([z.literal(0), z.literal(1), z.literal(3), z.literal(7)]).optional(),
+            /** Yearly events notify this many days ahead (each one a separate alert). */
+            eventDaysBefore: z
+                .array(z.union([z.literal(0), z.literal(1), z.literal(7)]))
+                .max(3)
+                .optional(),
+            /** "My morning" and "my evening": deadline and event alerts, and the Defer choices. */
+            morningTime: z
+                .string()
+                .regex(/^\d{2}:\d{2}$/)
+                .optional(),
+            eveningTime: z
+                .string()
+                .regex(/^\d{2}:\d{2}$/)
+                .optional(),
+            /** Everything stays silent until this instant. */
+            pausedUntil: instantSchema.nullable().optional(),
+            showHabitNavDueCount: z.boolean().optional(),
+            bundleMissedRoutinePrompts: z.boolean().optional(),
+        })
+        .optional(),
+    dateTime: z
+        .object({
+            weekStart: z.enum(["Sunday", "Monday", "Saturday"]),
+            // "device" follows the device's zone (the client keeps `users.time_zone` equal to it); an IANA name pins one.
+            timezone: z.union([z.literal("device"), zoneSchema]),
+            timeDisplay: z.enum(["12h", "24h"]),
+            dateStyle: z.enum(DATE_STYLES).optional(),
+        })
+        .optional(),
+    calendar: z
+        .object({
+            defaultView: z.enum(["month", "week", "day"]).optional(),
+            /** The hour (0-23) Day and Week open scrolled to. */
+            timelineStartHour: z.number().int().min(0).max(23).optional(),
+            clutter: z
+                .object({
+                    showAllDay: z.boolean().optional(),
+                    showTimedTasks: z.boolean().optional(),
+                    showHabitAnchors: z.boolean().optional(),
+                    /** Fixed blocks (timetable). Missing means shown. */
+                    showFixed: z.boolean().optional(),
+                })
+                .optional(),
+            holidays: z
+                .object({
+                    enabled: z.boolean(),
+                })
+                .optional(),
+            personalEvents: z
+                .object({
+                    enabled: z.boolean(),
+                    items: z.array(personalEventSchema).max(50),
+                })
+                .optional(),
+        })
+        .optional(),
     // App-wide location used by weather and holidays. `approximate` comes from the
     // network (Cloudflare edge geo) and never triggers a browser prompt; `precise`
     // asks the browser only when the user turns it on.
-    location: z.object({
-        mode: locationModeSchema,
-        countryCode: z.string().max(3).nullable(),
-        subdivisionCode: z.string().max(10).nullable(),
-        city: savedCitySchema.nullable(),
-        promptDismissedAt: z.string().nullable(),
-    }).optional(),
-    weather: z.object({
-        enabled: z.boolean(),
-    }).optional(),
-    tasks: z.object({
-        defaultDueDate: z.enum(["None", "Today", "Tomorrow", "Next Week"]).nullable().optional(),
-        defaultView: z.enum(["list", "kanban"]).optional(),
-        defaultPriority: z.enum(TASK_PRIORITY_NAMES).optional(),
-        newTaskPlacement: z.enum(["top", "bottom"]).optional(),
-        hideTrash: z.boolean().optional(),
-        hideCompleted: z.boolean().optional(),
-        showDoneCelebration: z.boolean().optional(),
-        showStreaks: z.boolean().optional(),
-        quickAdd: z.object({
-            preset: z.enum(["minimal", "planner", "power"]).optional(),
-            style: z.enum(["icon", "label"]).optional(),
-            actions: z.array(z.enum(["date", "priority", "project", "tag"])).optional(),
-        }).optional(),
-        intelligence: z.object({
-            nlpEnabled: z.boolean().optional(),
-            /** Suggest an Effort from this account's own earlier choices. */
-            effortSuggestions: z.boolean().optional(),
-            /** Suggest a list and section for captures, and a "did you mean" task when a search finds nothing. On unless `false`. */
-            smartPlacement: z.boolean().optional(),
-            focusViewsEnabled: z.boolean().optional(),
-            lowStimulationMode: z.boolean().optional(),
-            dismissedEntityIds: z.array(z.string()).optional(),
-            dismissedEntities: z.array(z.object({
-                entityType: z.string(),
-                dismissedAt: z.string(),
-                scope: z.enum(["once", "always"]),
-            })).optional(),
-        }).optional(),
-    }).optional(),
-    shortcuts: z.object({
-        enabled: z.boolean().optional(),
-        bindings: z.object({
-            commandPalette: z.string().optional(),
-            newTask: z.string().optional(),
-            focusSearch: z.string().optional(),
-            toggleView: z.string().optional(),
-            completeTask: z.string().optional(),
-            archiveTask: z.string().optional(),
-        }).optional(),
-    }).optional(),
-    integrations: z.object({
-        googleCalendar: z.object({
+    location: z
+        .object({
+            mode: locationModeSchema,
+            countryCode: z.string().max(3).nullable(),
+            subdivisionCode: z.string().max(10).nullable(),
+            city: savedCitySchema.nullable(),
+            promptDismissedAt: z.string().nullable(),
+        })
+        .optional(),
+    weather: z
+        .object({
+            enabled: z.boolean(),
+        })
+        .optional(),
+    tasks: z
+        .object({
+            defaultDueDate: z.enum(["None", "Today", "Tomorrow", "Next Week"]).nullable().optional(),
+            defaultView: z.enum(["list", "kanban"]).optional(),
+            defaultPriority: z.enum(TASK_PRIORITY_NAMES).optional(),
+            newTaskPlacement: z.enum(["top", "bottom"]).optional(),
+            hideTrash: z.boolean().optional(),
+            hideCompleted: z.boolean().optional(),
+            showDoneCelebration: z.boolean().optional(),
+            showStreaks: z.boolean().optional(),
+            quickAdd: z
+                .object({
+                    preset: z.enum(["minimal", "planner", "power"]).optional(),
+                    style: z.enum(["icon", "label"]).optional(),
+                    actions: z.array(z.enum(["date", "priority", "project", "tag"])).optional(),
+                })
+                .optional(),
+            intelligence: z
+                .object({
+                    nlpEnabled: z.boolean().optional(),
+                    /** Suggest an Effort from this account's own earlier choices. */
+                    effortSuggestions: z.boolean().optional(),
+                    /** Suggest a list and section for captures, and a "did you mean" task when a search finds nothing. On unless `false`. */
+                    smartPlacement: z.boolean().optional(),
+                    focusViewsEnabled: z.boolean().optional(),
+                    lowStimulationMode: z.boolean().optional(),
+                    dismissedEntityIds: z.array(z.string()).optional(),
+                    dismissedEntities: z
+                        .array(
+                            z.object({
+                                entityType: z.string(),
+                                dismissedAt: z.string(),
+                                scope: z.enum(["once", "always"]),
+                            }),
+                        )
+                        .optional(),
+                })
+                .optional(),
+        })
+        .optional(),
+    shortcuts: z
+        .object({
             enabled: z.boolean().optional(),
-            syncMode: z.enum(["one_way", "two_way"]).optional(),
-            includeCompleted: z.boolean().optional(),
-        }).optional(),
-        appleCalendar: z.object({
-            enabled: z.boolean().optional(),
-            syncMode: z.enum(["one_way", "two_way"]).optional(),
-        }).optional(),
-        notion: z.object({
-            enabled: z.boolean().optional(),
-            createBacklinks: z.boolean().optional(),
-        }).optional(),
-        obsidian: z.object({
-            enabled: z.boolean().optional(),
-            appendTaskLinks: z.boolean().optional(),
-        }).optional(),
-        ics: z.object({
-            enabled: z.boolean().optional(),
-            includeHabits: z.boolean().optional(),
-        }).optional(),
-    }).optional(),
-    privacy: z.object({
-        usageDiagnostics: z.boolean().optional(),
-        crashReports: z.boolean().optional(),
-        storeRecentSearches: z.boolean().optional(),
-        // When the person confirmed they are 16+ and accepted the Terms and Privacy Policy, and which revision
-        legalAcceptedAt: z.string().nullable().optional(),
-        legalVersion: z.string().nullable().optional(),
-    }).optional(),
-    assistant: z.object({
-        persona: z.enum(["secretary", "coach", "minimalist", "companion"]).optional(),
-        tone: z.enum(["neutral", "warm", "playful", "clinical"]).optional(),
-        verbosity: z.enum(["terse", "balanced", "detailed"]).optional(),
-        emoji: z.boolean().optional(),
-        nickname: z.string().max(40).nullable().optional(),
-        assistantName: z.string().max(40).optional(),
-        customInstructions: z.string().max(600).nullable().optional(),
-        proactiveSuggestions: z.boolean().optional(),
-        // Server-owned (POST /ai/memory/mode): the settings PATCH refuses all four, so neither a client nor the model can forge consent.
-        memoryMode: z.enum(["off", "basic", "full"]).nullable().optional(),
-        memoryChoiceAt: z.string().nullable().optional(),
-        memoryEpoch: z.number().int().optional(),
-        // Learning reads only what was said after this (Clear, or the release that made Basic the default): server-owned.
-        memoryLearningNotBefore: z.string().nullable().optional(),
-        // Where the 90-day catch-up on choosing Full has got to (server-owned, like the choice itself).
-        memoryBackfill: z.object({
-            since: z.string(),
-            before: z.string(),
-            chats: z.enum(["pending", "done"]),
-            notes: z.enum(["pending", "done"]),
-            /** Facts saved or updated so far, when it finished, and nights in a row that broke. */
-            learned: z.number().int().optional(),
-            doneAt: z.string().optional(),
-            failedNights: z.number().int().optional(),
-        }).nullable().optional(),
-        // "How long did it take?" budget (server-owned: written only by /ai/memory/duration/ask and /shown).
-        durationAsk: z.object({ lastOn: z.string().nullable(), misses: z.number().int().min(0) }).nullable().optional(),
-        // "Which matters most?" / "Which is heaviest?" back-off (server-owned: written only by ask_user and the reply's turn).
-        fieldAsk: z.object({ priority: fieldAskEntrySchema.optional(), effort: fieldAskEntrySchema.optional() }).nullable().optional(),
-        adaptiveTone: z.boolean().optional(),
-        // Opening the assistant after the app starts shows the last conversation (true) or a new one (false).
-        resumeLastChat: z.boolean().optional(),
-    }).optional(),
+            bindings: z
+                .object({
+                    commandPalette: z.string().optional(),
+                    newTask: z.string().optional(),
+                    focusSearch: z.string().optional(),
+                    toggleView: z.string().optional(),
+                    completeTask: z.string().optional(),
+                    archiveTask: z.string().optional(),
+                })
+                .optional(),
+        })
+        .optional(),
+    integrations: z
+        .object({
+            googleCalendar: z
+                .object({
+                    enabled: z.boolean().optional(),
+                    syncMode: z.enum(["one_way", "two_way"]).optional(),
+                    includeCompleted: z.boolean().optional(),
+                })
+                .optional(),
+            appleCalendar: z
+                .object({
+                    enabled: z.boolean().optional(),
+                    syncMode: z.enum(["one_way", "two_way"]).optional(),
+                })
+                .optional(),
+            notion: z
+                .object({
+                    enabled: z.boolean().optional(),
+                    createBacklinks: z.boolean().optional(),
+                })
+                .optional(),
+            obsidian: z
+                .object({
+                    enabled: z.boolean().optional(),
+                    appendTaskLinks: z.boolean().optional(),
+                })
+                .optional(),
+            ics: z
+                .object({
+                    enabled: z.boolean().optional(),
+                    includeHabits: z.boolean().optional(),
+                })
+                .optional(),
+        })
+        .optional(),
+    privacy: z
+        .object({
+            usageDiagnostics: z.boolean().optional(),
+            crashReports: z.boolean().optional(),
+            storeRecentSearches: z.boolean().optional(),
+            // When the person confirmed they are 16+ and accepted the Terms and Privacy Policy, and which revision
+            legalAcceptedAt: z.string().nullable().optional(),
+            legalVersion: z.string().nullable().optional(),
+        })
+        .optional(),
+    assistant: z
+        .object({
+            persona: z.enum(["secretary", "coach", "minimalist", "companion"]).optional(),
+            tone: z.enum(["neutral", "warm", "playful", "clinical"]).optional(),
+            verbosity: z.enum(["terse", "balanced", "detailed"]).optional(),
+            emoji: z.boolean().optional(),
+            nickname: z.string().max(40).nullable().optional(),
+            assistantName: z.string().max(40).optional(),
+            customInstructions: z.string().max(600).nullable().optional(),
+            proactiveSuggestions: z.boolean().optional(),
+            // Server-owned (POST /ai/memory/mode): the settings PATCH refuses all four, so neither a client nor the model can forge consent.
+            memoryMode: z.enum(["off", "basic", "full"]).nullable().optional(),
+            memoryChoiceAt: z.string().nullable().optional(),
+            memoryEpoch: z.number().int().optional(),
+            // Learning reads only what was said after this (Clear, or the release that made Basic the default): server-owned.
+            memoryLearningNotBefore: z.string().nullable().optional(),
+            // Where the 90-day catch-up on choosing Full has got to (server-owned, like the choice itself).
+            memoryBackfill: z
+                .object({
+                    since: z.string(),
+                    before: z.string(),
+                    chats: z.enum(["pending", "done"]),
+                    notes: z.enum(["pending", "done"]),
+                    /** Facts saved or updated so far, when it finished, and nights in a row that broke. */
+                    learned: z.number().int().optional(),
+                    doneAt: z.string().optional(),
+                    failedNights: z.number().int().optional(),
+                })
+                .nullable()
+                .optional(),
+            // "How long did it take?" budget (server-owned: written only by /ai/memory/duration/ask and /shown).
+            durationAsk: z
+                .object({ lastOn: z.string().nullable(), misses: z.number().int().min(0) })
+                .nullable()
+                .optional(),
+            // "Which matters most?" / "Which is heaviest?" back-off (server-owned: written only by ask_user and the reply's turn).
+            fieldAsk: z
+                .object({ priority: fieldAskEntrySchema.optional(), effort: fieldAskEntrySchema.optional() })
+                .nullable()
+                .optional(),
+            adaptiveTone: z.boolean().optional(),
+            // Opening the assistant after the app starts shows the last conversation (true) or a new one (false).
+            resumeLastChat: z.boolean().optional(),
+        })
+        .optional(),
     // Legacy field — accepted for backward compat; migrated to tasks.defaultView
     preferredView: z.enum(["list", "kanban"]).optional(),
 });
@@ -350,18 +440,12 @@ export const LEGAL_VERSION = "2026-10-12";
 
 // ── Deep-partial utility (Zod 4 removed .deepPartial()) ──
 
-export type DeepPartial<T> = T extends Array<infer U>
-    ? Array<DeepPartial<U>>
-    : T extends object
-        ? { [K in keyof T]?: DeepPartial<T[K]> }
-        : T;
+export type DeepPartial<T> =
+    T extends Array<infer U> ? Array<DeepPartial<U>> : T extends object ? { [K in keyof T]?: DeepPartial<T[K]> } : T;
 
 /** Every field required, recursively: the inverse of `DeepPartial`. */
-export type DeepRequired<T> = T extends Array<infer U>
-    ? Array<DeepRequired<U>>
-    : T extends object
-        ? { [K in keyof T]-?: DeepRequired<T[K]> }
-        : T;
+export type DeepRequired<T> =
+    T extends Array<infer U> ? Array<DeepRequired<U>> : T extends object ? { [K in keyof T]-?: DeepRequired<T[K]> } : T;
 
 /**
  * The full settings the API returns: stored values over `SETTINGS_DEFAULTS`, so
@@ -404,9 +488,10 @@ export function deepMerge<R = Record<string, unknown>>(target: unknown, source: 
             if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
             // Merge object over object; otherwise replace. A target of null or a
             // scalar has no keys to merge into, so the source wins outright.
-            output[key] = isPlainObject(source[key]) && isPlainObject(target[key])
-                ? deepMerge(target[key], source[key])
-                : source[key];
+            output[key] =
+                isPlainObject(source[key]) && isPlainObject(target[key])
+                    ? deepMerge(target[key], source[key])
+                    : source[key];
         }
     }
     return output as R;
@@ -414,13 +499,26 @@ export function deepMerge<R = Record<string, unknown>>(target: unknown, source: 
 
 // Patch schema — recursively partial version of the canonical schema.
 // The memory consent fields (and the backfill's progress) are written only by POST /ai/memory/mode and the memory jobs.
-const SERVER_OWNED_ASSISTANT = { memoryMode: true, memoryChoiceAt: true, memoryEpoch: true, memoryLearningNotBefore: true, memoryBackfill: true, durationAsk: true, fieldAsk: true } as const;
+const SERVER_OWNED_ASSISTANT = {
+    memoryMode: true,
+    memoryChoiceAt: true,
+    memoryEpoch: true,
+    memoryLearningNotBefore: true,
+    memoryBackfill: true,
+    durationAsk: true,
+    fieldAsk: true,
+} as const;
 const patchSource = userSettingsSchema.extend({
     assistant: userSettingsSchema.shape.assistant
         .unwrap()
         .omit(SERVER_OWNED_ASSISTANT)
         // Desktop builds before 0.32.0 still send the old switch: accepted and dropped, never a 400.
-        .extend({ memoryEnabled: z.unknown().transform(() => undefined).optional() })
+        .extend({
+            memoryEnabled: z
+                .unknown()
+                .transform(() => undefined)
+                .optional(),
+        })
         .strict()
         .optional(),
 });
@@ -580,9 +678,20 @@ export const SETTINGS_DEFAULTS = {
         memoryChoiceAt: null as string | null,
         memoryEpoch: 0,
         memoryLearningNotBefore: null as string | null,
-        memoryBackfill: null as { since: string; before: string; chats: "pending" | "done"; notes: "pending" | "done"; learned?: number; doneAt?: string; failedNights?: number } | null,
+        memoryBackfill: null as {
+            since: string;
+            before: string;
+            chats: "pending" | "done";
+            notes: "pending" | "done";
+            learned?: number;
+            doneAt?: string;
+            failedNights?: number;
+        } | null,
         durationAsk: null as { lastOn: string | null; misses: number } | null,
-        fieldAsk: null as { priority?: { lastOn: string | null; misses: number; labels?: string[] }; effort?: { lastOn: string | null; misses: number; labels?: string[] } } | null,
+        fieldAsk: null as {
+            priority?: { lastOn: string | null; misses: number; labels?: string[] };
+            effort?: { lastOn: string | null; misses: number; labels?: string[] };
+        } | null,
         adaptiveTone: true,
         resumeLastChat: true,
     },

@@ -4,7 +4,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useWakeRefresh, WAKE_EVENT } from "../../../app/hooks/core/use-wake-refresh";
 
-afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+});
 
 it("refreshes only when a tick arrives far later than scheduled (the computer slept)", () => {
     vi.useFakeTimers();
@@ -12,7 +15,9 @@ it("refreshes only when a tick arrives far later than scheduled (the computer sl
     const refetch = vi.spyOn(client, "refetchQueries").mockResolvedValue();
     const woke = vi.fn();
     window.addEventListener(WAKE_EVENT, woke);
-    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
     const { unmount } = renderHook(() => useWakeRefresh(), { wrapper });
 
     vi.advanceTimersByTime(30_000 * 4);
@@ -37,7 +42,9 @@ it("only marks data stale when the window is hidden in the tray (a refetch would
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
     const woke = vi.fn();
     window.addEventListener(WAKE_EVENT, woke);
-    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
     const { unmount } = renderHook(() => useWakeRefresh(), { wrapper });
 
     vi.setSystemTime(Date.now() + 10 * 60_000);

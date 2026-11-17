@@ -41,7 +41,10 @@ export function RoutineMeta({ habit, today, showStreaks }: { habit: Habit; today
     const time = routineTimeOn(habit, today);
     const parts = paused
         ? [`Paused until ${formatShortDate(habit.pausedUntil!)}`]
-        : [habit.times?.length ? listTimes(habit.times) : time ? formatTime(fromTimeValue(today, time)) : null, showStreaks && habit.currentStreak > 0 ? `${habit.currentStreak} in a row` : null];
+        : [
+              habit.times?.length ? listTimes(habit.times) : time ? formatTime(fromTimeValue(today, time)) : null,
+              showStreaks && habit.currentStreak > 0 ? `${habit.currentStreak} in a row` : null,
+          ];
     const text = parts.filter(Boolean).join(" · ");
     return text ? <span className="block truncate text-xs text-twilight-text-muted">{text}</span> : null;
 }
@@ -60,7 +63,13 @@ export function openOnCardClick(onSelect: () => void) {
 }
 
 /** Mark (emoji, or the repeat glyph, tinted by the routine's colour) + title + meta; opens the routine. */
-export function RoutineIdentity({ habit, today, showStreaks, selected, onSelect }: {
+export function RoutineIdentity({
+    habit,
+    today,
+    showStreaks,
+    selected,
+    onSelect,
+}: {
     habit: Habit;
     today: string;
     showStreaks: boolean;
@@ -79,7 +88,9 @@ export function RoutineIdentity({ habit, today, showStreaks, selected, onSelect 
                 <RoutineMark emoji={habit.emoji} size={16} />
             </span>
             <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-medium leading-snug text-twilight-text">{habit.title}</span>
+                <span className="block truncate text-[15px] font-medium leading-snug text-twilight-text">
+                    {habit.title}
+                </span>
                 <RoutineMeta habit={habit} today={today} showStreaks={showStreaks} />
             </span>
         </button>
@@ -119,7 +130,9 @@ export function RoutineWeekRow({
     const logs = logsByDay(habit);
     const sortable = useSortableRoutine(habit);
     // Edit (menu, `E`) only opens; clicking the row again closes.
-    const edit = () => { if (!selected) onSelect(); };
+    const edit = () => {
+        if (!selected) onSelect();
+    };
     const style = { ...sortable.style, "--routine-tone": routineTone(habit.colorAccent) } as CSSProperties;
     const dim = isRoutinePaused(habit) ? "opacity-60" : "";
     const cell = (day: RoutineDay, col: number) => (
@@ -135,11 +148,25 @@ export function RoutineWeekRow({
             onEdit={edit}
         />
     );
-    const identity = <RoutineIdentity habit={habit} today={today} showStreaks={showStreaks} selected={selected} onSelect={onSelect} />;
+    const identity = (
+        <RoutineIdentity
+            habit={habit}
+            today={today}
+            showStreaks={showStreaks}
+            selected={selected}
+            onSelect={onSelect}
+        />
+    );
 
     if (stacked) {
         return (
-            <section ref={sortable.ref} style={style} aria-label={habit.title} onClick={openOnCardClick(onSelect)} className={`group cursor-pointer rounded-[1.5rem] border px-3 py-3 transition-colors ${selected ? "border-[color-mix(in_srgb,var(--routine-tone)_30%,transparent)] bg-[color-mix(in_srgb,var(--routine-tone)_6%,transparent)]" : "surface-card"} ${sortable.isDragging ? DRAGGING : ""} ${dim}`}>
+            <section
+                ref={sortable.ref}
+                style={style}
+                aria-label={habit.title}
+                onClick={openOnCardClick(onSelect)}
+                className={`group cursor-pointer rounded-[1.5rem] border px-3 py-3 transition-colors ${selected ? "border-[color-mix(in_srgb,var(--routine-tone)_30%,transparent)] bg-[color-mix(in_srgb,var(--routine-tone)_6%,transparent)]" : "surface-card"} ${sortable.isDragging ? DRAGGING : ""} ${dim}`}
+            >
                 <div className="flex items-center gap-1">
                     {sortable.grip}
                     {identity}
@@ -148,7 +175,12 @@ export function RoutineWeekRow({
                 <div className="mt-2 grid grid-cols-7 gap-1">
                     {days.map((day, col) => (
                         <div key={day.iso} className="flex flex-col items-center gap-1">
-                            <span aria-hidden="true" className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${day.iso === today ? "text-[var(--routine-tone)]" : "text-twilight-text-muted"}`}>{day.initial}</span>
+                            <span
+                                aria-hidden="true"
+                                className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${day.iso === today ? "text-[var(--routine-tone)]" : "text-twilight-text-muted"}`}
+                            >
+                                {day.initial}
+                            </span>
                             {cell(day, col)}
                         </div>
                     ))}
@@ -175,10 +207,21 @@ export function RoutineWeekRow({
                     <HabitMenu habit={habit} onEdit={edit} />
                 </div>
                 {days.map((day, col) => (
-                    <div key={day.iso} role="gridcell" data-today={day.iso === today || undefined} className={`flex justify-center ${day.iso === today ? "-my-2 self-stretch items-center bg-accent-primary/[0.045] py-2" : ""}`}>{cell(day, col)}</div>
+                    <div
+                        key={day.iso}
+                        role="gridcell"
+                        data-today={day.iso === today || undefined}
+                        className={`flex justify-center ${day.iso === today ? "-my-2 self-stretch items-center bg-accent-primary/[0.045] py-2" : ""}`}
+                    >
+                        {cell(day, col)}
+                    </div>
                 ))}
                 {showWeekCount ? (
-                    <span role="gridcell" className="text-right text-xs tabular-nums text-twilight-text-muted" aria-label={`${done} done this week`}>
+                    <span
+                        role="gridcell"
+                        className="text-right text-xs tabular-nums text-twilight-text-muted"
+                        aria-label={`${done} done this week`}
+                    >
                         {done || ""}
                     </span>
                 ) : null}

@@ -43,7 +43,7 @@ const HOUR_CACHE_BREAKPOINT = { type: "ephemeral", ttl: "1h" } as const;
 
 /** Isolated evaluation variants; longer TTLs carry a higher cold-write price. */
 export const CACHE_VARIANTS = ["5m-5m", "1h-5m", "1h-1h"] as const;
-export type CacheVariant = typeof CACHE_VARIANTS[number];
+export type CacheVariant = (typeof CACHE_VARIANTS)[number];
 export const DEFAULT_CACHE_VARIANT: CacheVariant = "5m-5m";
 
 /**
@@ -63,7 +63,12 @@ function isClaude(modelId: string): boolean {
  * gets the top-level automatic breakpoint, which follows the end of the conversation
  * so each tool-loop step reads the step before it from cache.
  */
-export function chatModelSettings(env: Env, modelId: string, userHash: string, cacheVariant: CacheVariant = DEFAULT_CACHE_VARIANT): OpenRouterChatSettings {
+export function chatModelSettings(
+    env: Env,
+    modelId: string,
+    userHash: string,
+    cacheVariant: CacheVariant = DEFAULT_CACHE_VARIANT,
+): OpenRouterChatSettings {
     const breakpoints = isClaude(modelId);
     return {
         models: [...new Set([modelId, getModelId(env), FALLBACK_CHAT_MODEL])],
@@ -79,9 +84,19 @@ export function chatModelSettings(env: Env, modelId: string, userHash: string, c
  * breakpoint: tools render before the system prompt, so this caches both (~15k
  * tokens, identical for every user and turn) whatever happens later in the messages.
  */
-export function chatInstructions(instructions: string, modelId: string, cacheVariant: CacheVariant = DEFAULT_CACHE_VARIANT): string | SystemModelMessage {
+export function chatInstructions(
+    instructions: string,
+    modelId: string,
+    cacheVariant: CacheVariant = DEFAULT_CACHE_VARIANT,
+): string | SystemModelMessage {
     if (!isClaude(modelId)) return instructions;
-    return { role: "system", content: instructions, providerOptions: { openrouter: { cacheControl: cacheVariant === "5m-5m" ? STATIC_CACHE_BREAKPOINT : HOUR_CACHE_BREAKPOINT } } };
+    return {
+        role: "system",
+        content: instructions,
+        providerOptions: {
+            openrouter: { cacheControl: cacheVariant === "5m-5m" ? STATIC_CACHE_BREAKPOINT : HOUR_CACHE_BREAKPOINT },
+        },
+    };
 }
 
 /** Language model via OpenRouter's native provider (Chat Completions, reasoning round-trip). */
@@ -92,18 +107,18 @@ function getModel(env: Env, modelId: string, userHash: string, cacheVariant: Cac
 
 /** Options resolved by the route before assembling the agent for one turn. */
 export interface AgentBuildOptions {
-    timezone: string;        // users.time_zone, already synced for this turn (ai.route)
-    currentDate: string;     // the client's current instant, ISO-8601 (usually UTC "Z")
+    timezone: string; // users.time_zone, already synced for this turn (ai.route)
+    currentDate: string; // the client's current instant, ISO-8601 (usually UTC "Z")
     locale?: string;
     approvalMode: ApprovalMode;
     hasImages?: () => boolean; // the turn's recent context holds an image (read at tool-call time): Full still asks before a permanent delete
-    surface?: ChatSurface;   // an embedded chat (the Weekly Reset's): its own instructions and the week ahead instead of today
-    modelId?: string;        // the router's pick for this turn (model-router.ts); default the standard model
-    nonce: string;           // per-request data-fence nonce (safety/injection-policy)
-    queryText?: string;      // the person's last two messages: what recall looks up
-    userTexts?: string[];    // the person's own recent messages: what `said` quotes are checked against
+    surface?: ChatSurface; // an embedded chat (the Weekly Reset's): its own instructions and the week ahead instead of today
+    modelId?: string; // the router's pick for this turn (model-router.ts); default the standard model
+    nonce: string; // per-request data-fence nonce (safety/injection-policy)
+    queryText?: string; // the person's last two messages: what recall looks up
+    userTexts?: string[]; // the person's own recent messages: what `said` quotes are checked against
     answeredField?: "priority" | "effort"; // this message answered that field's question (A2), so it may be quoted whole
-    requestId?: string;      // tags the turn's side-call log lines (embedding)
+    requestId?: string; // tags the turn's side-call log lines (embedding)
     diagnostics?: RunDiagnostics;
     reusedTurnContext?: Promise<string | undefined>; // server-validated continuation only
     settings?: UserSettings; // authoritative row already loaded during zone synchronization
@@ -112,9 +127,16 @@ export interface AgentBuildOptions {
 }
 
 /** Resolve the persona and week convention from one authoritative settings row. */
-function assistantContext(settings: UserSettings): { persona: AssistantPersona; weekStart: PromptRuntimeContext["weekStart"]; settings: UserSettings } {
-    return { settings, persona: { ...SETTINGS_DEFAULTS.assistant, ...settings.assistant } as AssistantPersona,
-        weekStart: settings.dateTime?.weekStart ?? "Sunday" };
+function assistantContext(settings: UserSettings): {
+    persona: AssistantPersona;
+    weekStart: PromptRuntimeContext["weekStart"];
+    settings: UserSettings;
+} {
+    return {
+        settings,
+        persona: { ...SETTINGS_DEFAULTS.assistant, ...settings.assistant } as AssistantPersona,
+        weekStart: settings.dateTime?.weekStart ?? "Sunday",
+    };
 }
 
 async function loadUserContext(
@@ -122,32 +144,48 @@ async function loadUserContext(
     userId: string,
     settings?: UserSettings,
     waitUntil?: (promise: Promise<unknown>) => void,
-): Promise<{ burnoutIndex: number | null; persona: AssistantPersona; weekStart: PromptRuntimeContext["weekStart"]; settings: UserSettings }> {
+): Promise<{
+    burnoutIndex: number | null;
+    persona: AssistantPersona;
+    weekStart: PromptRuntimeContext["weekStart"];
+    settings: UserSettings;
+}> {
     const db = getDbClient(env);
     const context = await withRls(db, userId, async (tx) => {
         const [metricsRow] = await tx
-            .select({ currentBurnoutIndex: userMetrics.currentBurnoutIndex, lastCalculatedAt: userMetrics.lastCalculatedAt })
+            .select({
+                currentBurnoutIndex: userMetrics.currentBurnoutIndex,
+                lastCalculatedAt: userMetrics.lastCalculatedAt,
+            })
             .from(userMetrics)
             .where(eq(userMetrics.userId, userId))
             .limit(1);
 
-        const [userRow] = settings !== undefined ? [{ settings }] : await tx
-            .select({ settings: users.settings })
-            .from(users)
-            .where(eq(users.id, userId))
-            .limit(1);
+        const [userRow] =
+            settings !== undefined
+                ? [{ settings }]
+                : await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
 
         // No metrics row (or a null index) means no evidence yet — unknown, not a low score. Neither is a reading
         // from weeks ago (the person hasn't chatted since): this turn treats it as unknown while it recomputes.
         const old = signalsStale(metricsRow?.lastCalculatedAt, Date.now() - 6 * SIGNALS_MAX_AGE_MS);
-        return { burnoutIndex: old ? null : metricsRow?.currentBurnoutIndex ?? null, stale: signalsStale(metricsRow?.lastCalculatedAt), ...assistantContext(userRow?.settings ?? {}) };
+        return {
+            burnoutIndex: old ? null : (metricsRow?.currentBurnoutIndex ?? null),
+            stale: signalsStale(metricsRow?.lastCalculatedAt),
+            ...assistantContext(userRow?.settings ?? {}),
+        };
     });
     // Signals are computed on read, not by a nightly pass: this turn uses the stored value, the next sees the fresh one.
     const { stale, ...rest } = context;
     if (stale && waitUntil) {
-        waitUntil(computeWorkloadSignals(db, userId).catch(async (err) => {
-            logger.error("ai", "workload_recompute_failed", { userHash: await hashIdentifier(userId), issues: issuesFromError(err) });
-        }));
+        waitUntil(
+            computeWorkloadSignals(db, userId).catch(async (err) => {
+                logger.error("ai", "workload_recompute_failed", {
+                    userHash: await hashIdentifier(userId),
+                    issues: issuesFromError(err),
+                });
+            }),
+        );
     }
     return rest;
 }
@@ -177,25 +215,35 @@ async function loadMemoryContext(
     let profile: ProfileLine[] = [];
     try {
         const canRecall = !!queryText && queryText.length >= MIN_RECALL_CHARS;
-        const embed = () => measurePhase(diagnostics, "embedding", () => embedText(env, queryText!, { requestId, userHash })).catch(() => null);
+        const embed = () =>
+            measurePhase(diagnostics, "embedding", () => embedText(env, queryText!, { requestId, userHash })).catch(
+                () => null,
+            );
         // The coherent profile is checked first, so a fully covered memory makes no embedding request.
-        const coverage = await measurePhase(diagnostics, "profile", () => withRls(db, userId, (tx) => loadProfileCoverage(tx, userId, today, persona.memoryMode)));
+        const coverage = await measurePhase(diagnostics, "profile", () =>
+            withRls(db, userId, (tx) => loadProfileCoverage(tx, userId, today, persona.memoryMode)),
+        );
         profile = coverage.lines;
-        diagnostics?.memoryCoverage({ hasRecallCandidates: coverage.hasRecallCandidates, profileFacts: profile.length });
+        diagnostics?.memoryCoverage({
+            hasRecallCandidates: coverage.hasRecallCandidates,
+            profileFacts: profile.length,
+        });
         if (!canRecall || !coverage.hasRecallCandidates) return profile;
         // No DB transaction stays open during this HTTP call. Candidate-present memories keep
         // hybrid recall and lexical fallback; the profile gate is an explicit measured dependency.
         const embedded = await embed();
-        const recalled = await measurePhase(diagnostics, "recall", () => withRls(db, userId, (tx) =>
-            recallFacts(tx, userId, {
-                text: queryText!,
-                embedding: embedded?.embedding ?? null,
-                model: embedded?.spend.model ?? getEmbeddingModelId(env),
-                today,
-                exclude: new Set(profile.map((p) => p.id)),
-                mode: persona.memoryMode,
-            }),
-        ));
+        const recalled = await measurePhase(diagnostics, "recall", () =>
+            withRls(db, userId, (tx) =>
+                recallFacts(tx, userId, {
+                    text: queryText!,
+                    embedding: embedded?.embedding ?? null,
+                    model: embedded?.spend.model ?? getEmbeddingModelId(env),
+                    today,
+                    exclude: new Set(profile.map((p) => p.id)),
+                    mode: persona.memoryMode,
+                }),
+            ),
+        );
         return [...profile, ...recalled];
     } catch (error) {
         logger.warn("ai", "memory_context_failed", { userHash, issues: issuesFromError(error) });
@@ -206,7 +254,11 @@ async function loadMemoryContext(
 type ChatTools = Omit<ReturnType<typeof buildToolRegistry>, "get_habit_status_today">;
 
 /** Evals and MCP keep their existing uninstrumented path. */
-function measurePhase<T>(diagnostics: RunDiagnostics | undefined, name: Parameters<RunDiagnostics["measure"]>[0], work: () => Promise<T>): Promise<T> {
+function measurePhase<T>(
+    diagnostics: RunDiagnostics | undefined,
+    name: Parameters<RunDiagnostics["measure"]>[0],
+    work: () => Promise<T>,
+): Promise<T> {
     return diagnostics ? diagnostics.measure(name, work) : work();
 }
 
@@ -236,8 +288,13 @@ function getPromptHash(tools: ToolSet, variant: boolean, memoryOn: boolean): Pro
     let hash = promptHashes.get(key);
     if (!hash) {
         hash = (async () => {
-            const toolDefs = await Promise.all(Object.entries(tools).map(async ([name, t]) =>
-                [name, t.description, await asSchema(t.inputSchema).jsonSchema]));
+            const toolDefs = await Promise.all(
+                Object.entries(tools).map(async ([name, t]) => [
+                    name,
+                    t.description,
+                    await asSchema(t.inputSchema).jsonSchema,
+                ]),
+            );
             return hashIdentifier(JSON.stringify([PROMPT_BLOCKS, HELP_TOPICS, toolDefs]));
         })();
         promptHashes.set(key, hash);
@@ -253,7 +310,12 @@ function getPromptHash(tools: ToolSet, variant: boolean, memoryOn: boolean): Pro
  */
 /** A question that was asked ends the turn; one held back by the field-question back-off (`asked: false`) lets the reply go on. */
 const askedUser: StopCondition<ToolSet> = ({ steps }) =>
-    steps.at(-1)?.toolResults?.some((result) => result.toolName === "ask_user" && (result.output as { asked?: boolean } | undefined)?.asked !== false) ?? false;
+    steps
+        .at(-1)
+        ?.toolResults?.some(
+            (result) =>
+                result.toolName === "ask_user" && (result.output as { asked?: boolean } | undefined)?.asked !== false,
+        ) ?? false;
 
 export async function getAgentInstance(
     env: Env,
@@ -268,11 +330,14 @@ export async function getAgentInstance(
     const modelId = opts.modelId ?? getModelId(env);
     const userHash = await hashIdentifier(userId);
     const clock = userClock(opts.timezone, opts.currentDate);
-    const userContext = measurePhase(opts.diagnostics, "settings", () => loadUserContext(env, userId, opts.settings, opts.waitUntil));
+    const userContext = measurePhase(opts.diagnostics, "settings", () =>
+        loadUserContext(env, userId, opts.settings, opts.waitUntil),
+    );
     userContext.catch(() => {}); // construction can fail before Promise.all attaches below
     // With authoritative settings already available, metrics need only finish before
     // prompt composition. Independent profile/snapshot work can start immediately.
-    const { persona, weekStart, settings } = opts.settings !== undefined ? assistantContext(opts.settings) : await userContext;
+    const { persona, weekStart, settings } =
+        opts.settings !== undefined ? assistantContext(opts.settings) : await userContext;
     const agentCtx: AgentContext = {
         timezone: clock.timezone,
         currentDate: clock.now.toISOString(),
@@ -292,10 +357,31 @@ export async function getAgentInstance(
     const resetSurface = opts.surface === "weekly_reset";
     const [{ burnoutIndex }, memories, snapshot] = await Promise.all([
         userContext,
-        reused ? [] : loadMemoryContext(env, userId, userHash, persona, clock.today, opts.queryText, opts.requestId, opts.diagnostics),
-        reused ? undefined : measurePhase(opts.diagnostics, "snapshot", () => resetSurface
-            ? loadWeekAhead(env, userId, agentCtx).catch(() => undefined) // a failed read is left out, as the snapshot's are
-            : loadAgentSnapshot(env, userId, agentCtx, tools, projectEvents(normalizeSettings(settings), clock.today))),
+        reused
+            ? []
+            : loadMemoryContext(
+                  env,
+                  userId,
+                  userHash,
+                  persona,
+                  clock.today,
+                  opts.queryText,
+                  opts.requestId,
+                  opts.diagnostics,
+              ),
+        reused
+            ? undefined
+            : measurePhase(opts.diagnostics, "snapshot", () =>
+                  resetSurface
+                      ? loadWeekAhead(env, userId, agentCtx).catch(() => undefined) // a failed read is left out, as the snapshot's are
+                      : loadAgentSnapshot(
+                            env,
+                            userId,
+                            agentCtx,
+                            tools,
+                            projectEvents(normalizeSettings(settings), clock.today),
+                        ),
+              ),
     ]);
 
     const endPrompt = opts.diagnostics?.beginPhase("prompt");
@@ -332,5 +418,12 @@ export async function getAgentInstance(
         ...opts.diagnostics?.hooks,
     });
 
-    return { agent, modelId, promptHash: await measurePhase(opts.diagnostics, "promptHash", () => getPromptHash(chatTools(tools, memoryOn), isClaude(modelId), memoryOn)), turnContext: reused ?? turnContext };
+    return {
+        agent,
+        modelId,
+        promptHash: await measurePhase(opts.diagnostics, "promptHash", () =>
+            getPromptHash(chatTools(tools, memoryOn), isClaude(modelId), memoryOn),
+        ),
+        turnContext: reused ?? turnContext,
+    };
 }

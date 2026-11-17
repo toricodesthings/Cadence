@@ -1,5 +1,12 @@
 import { animate, useMotionValue, useReducedMotionConfig } from "framer-motion";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useRef,
+    useState,
+    type PointerEvent as ReactPointerEvent,
+} from "react";
 import { SPRINGS } from "../../lib/constants/motion";
 
 /** Movement past this many px turns a press into a scrub. */
@@ -38,7 +45,15 @@ export function clampLens(x: number, items: Span[], width: number): number {
  * Items are the track's `[data-lens-item]` descendants, in DOM order. `rememberAs` names a row that
  * remounts, so its lens glides from where it last rested instead of appearing in place.
  */
-export function useLensScrub({ activeIndex, onCommit, rememberAs }: { activeIndex: number; onCommit: (index: number) => void; rememberAs?: string }) {
+export function useLensScrub({
+    activeIndex,
+    onCommit,
+    rememberAs,
+}: {
+    activeIndex: number;
+    onCommit: (index: number) => void;
+    rememberAs?: string;
+}) {
     const trackRef = useRef<HTMLDivElement | null>(null);
     const x = useMotionValue(0);
     const width = useMotionValue(0);
@@ -55,7 +70,10 @@ export function useLensScrub({ activeIndex, onCommit, rememberAs }: { activeInde
         const track = trackRef.current;
         if (!track) return spans.current;
         const origin = track.getBoundingClientRect().left;
-        const span = (el: Element): Span => { const r = el.getBoundingClientRect(); return { left: r.left - origin, width: r.width }; };
+        const span = (el: Element): Span => {
+            const r = el.getBoundingClientRect();
+            return { left: r.left - origin, width: r.width };
+        };
         spans.current = {
             items: Array.from(track.querySelectorAll("[data-lens-item]"), span),
             exclude: Array.from(track.querySelectorAll("[data-lens-exclude]"), span),
@@ -63,14 +81,17 @@ export function useLensScrub({ activeIndex, onCommit, rememberAs }: { activeInde
         return spans.current;
     }, []);
 
-    const glideTo = useCallback((index: number, instant = false) => {
-        const target = spans.current.items[index];
-        if (!target) return;
-        const transition = instant || reduced ? { duration: 0 } : SPRINGS.GLIDE;
-        void animate(x, target.left, transition);
-        void animate(width, target.width, transition);
-        if (rememberAs) lastRest.set(rememberAs, target);
-    }, [reduced, rememberAs, width, x]);
+    const glideTo = useCallback(
+        (index: number, instant = false) => {
+            const target = spans.current.items[index];
+            if (!target) return;
+            const transition = instant || reduced ? { duration: 0 } : SPRINGS.GLIDE;
+            void animate(x, target.left, transition);
+            void animate(width, target.width, transition);
+            if (rememberAs) lastRest.set(rememberAs, target);
+        },
+        [reduced, rememberAs, width, x],
+    );
 
     // At rest the lens sits on the active item; a change slides it there. The first placement is
     // instant, unless a remembered row left a resting place to glide from.
@@ -78,7 +99,10 @@ export function useLensScrub({ activeIndex, onCommit, rememberAs }: { activeInde
         measure();
         if (press.current?.scrubbing) return;
         const from = !placed.current && rememberAs ? lastRest.get(rememberAs) : undefined;
-        if (from) { x.jump(from.left); width.jump(from.width); }
+        if (from) {
+            x.jump(from.left);
+            width.jump(from.width);
+        }
         glideTo(activeIndex, !placed.current && !from);
         placed.current = spans.current.items.length > 0;
     }, [activeIndex, glideTo, measure, rememberAs, width, x]);
@@ -92,30 +116,42 @@ export function useLensScrub({ activeIndex, onCommit, rememberAs }: { activeInde
         const observer = new ResizeObserver(() => {
             measure();
             if (!press.current) glideTo(activeIndex, true);
-            setOverflowing(Boolean(scroller && scroller.scrollWidth > scroller.clientWidth && /auto|scroll/.test(getComputedStyle(scroller).overflowX)));
+            setOverflowing(
+                Boolean(
+                    scroller &&
+                    scroller.scrollWidth > scroller.clientWidth &&
+                    /auto|scroll/.test(getComputedStyle(scroller).overflowX),
+                ),
+            );
         });
         observer.observe(track);
         if (scroller) observer.observe(scroller);
         return () => observer.disconnect();
     }, [activeIndex, glideTo, measure]);
 
-    const release = useCallback((commit: boolean) => {
-        const current = press.current;
-        press.current = null;
-        setHeld(false);
-        setHoverIndex(null);
-        void animate(scale, 1, reduced ? { duration: 0 } : SPRINGS.SNAP);
-        if (!current?.scrubbing) return;
-        const index = commit ? current.hover : null;
-        glideTo(index ?? activeIndex);
-        if (index === null || index === activeIndex) return;
-        // The touch that scrubbed may still produce a click on whatever it ended over: swallow it.
-        const track = trackRef.current;
-        const swallow = (event: Event) => { event.preventDefault(); event.stopPropagation(); };
-        track?.addEventListener("click", swallow, { capture: true, once: true });
-        setTimeout(() => track?.removeEventListener("click", swallow, { capture: true }), 400);
-        onCommit(index);
-    }, [activeIndex, glideTo, onCommit, reduced, scale]);
+    const release = useCallback(
+        (commit: boolean) => {
+            const current = press.current;
+            press.current = null;
+            setHeld(false);
+            setHoverIndex(null);
+            void animate(scale, 1, reduced ? { duration: 0 } : SPRINGS.SNAP);
+            if (!current?.scrubbing) return;
+            const index = commit ? current.hover : null;
+            glideTo(index ?? activeIndex);
+            if (index === null || index === activeIndex) return;
+            // The touch that scrubbed may still produce a click on whatever it ended over: swallow it.
+            const track = trackRef.current;
+            const swallow = (event: Event) => {
+                event.preventDefault();
+                event.stopPropagation();
+            };
+            track?.addEventListener("click", swallow, { capture: true, once: true });
+            setTimeout(() => track?.removeEventListener("click", swallow, { capture: true }), 400);
+            onCommit(index);
+        },
+        [activeIndex, glideTo, onCommit, reduced, scale],
+    );
 
     const handlers = {
         onPointerDown: (event: ReactPointerEvent) => {
@@ -137,9 +173,13 @@ export function useLensScrub({ activeIndex, onCommit, rememberAs }: { activeInde
             current.hover = nearestIndex(finger, items, exclude);
             setHoverIndex(current.hover);
         },
-        onPointerUp: (event: ReactPointerEvent) => { if (event.pointerId === press.current?.id) release(true); },
+        onPointerUp: (event: ReactPointerEvent) => {
+            if (event.pointerId === press.current?.id) release(true);
+        },
         // The OS took the touch: glide back, commit nothing.
-        onPointerCancel: (event: ReactPointerEvent) => { if (event.pointerId === press.current?.id) release(false); },
+        onPointerCancel: (event: ReactPointerEvent) => {
+            if (event.pointerId === press.current?.id) release(false);
+        },
     };
 
     return { trackRef, lens: { x, width, scale }, handlers, hoverIndex, held, overflowing };

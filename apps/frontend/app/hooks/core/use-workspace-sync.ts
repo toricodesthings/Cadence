@@ -20,10 +20,12 @@ export function useWorkspaceSync() {
             toast.success("Everything is up to date.");
             if (IS_DESKTOP_RUNTIME) {
                 // Same check as startup; a failed check stays quiet since the sync itself worked.
-                void checkForAppUpdate().then((update) => {
-                    publishAvailableDesktopUpdate(update);
-                    if (update) announceDesktopUpdate(update);
-                }).catch(() => undefined);
+                void checkForAppUpdate()
+                    .then((update) => {
+                        publishAvailableDesktopUpdate(update);
+                        if (update) announceDesktopUpdate(update);
+                    })
+                    .catch(() => undefined);
             }
         } catch (error) {
             toastError(error, "Couldn't sync");

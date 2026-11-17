@@ -4,11 +4,22 @@ import { appliesWithoutChoice, resolveDraft, type DraftDecisions, type DraftFiel
 
 const CLOCK = { today: "2026-10-06", now: "10:00", weekStart: "Sunday" as const };
 const ALL = new Set<DraftField>([
-    "dueDate", "scheduledStart", "scheduledEnd", "recurrenceRule", "priority", "projectId", "tagIds", "waitingOn", "durationMinutes",
+    "dueDate",
+    "scheduledStart",
+    "scheduledEnd",
+    "recurrenceRule",
+    "priority",
+    "projectId",
+    "tagIds",
+    "waitingOn",
+    "durationMinutes",
 ]);
 const context = {
     projects: [{ id: "p-work", name: "Work" }],
-    tags: [{ id: "t-err", name: "errands" }, { id: "t-exp", name: "Expecting" }],
+    tags: [
+        { id: "t-err", name: "errands" },
+        { id: "t-exp", name: "Expecting" },
+    ],
 };
 const draft = (input: string, decisions: DraftDecisions = {}, caps: ReadonlySet<DraftField> = ALL) => {
     const r = parse({ input, sourceSurface: "inline_add", clock: CLOCK, context });
@@ -19,13 +30,23 @@ describe("resolveDraft", () => {
     it("counts a relative reminder back from the timed start, wherever it sits in the sentence", () => {
         const caps = new Set<DraftField>([...ALL, "reminderAt"]);
         const d = draft("Dentist tomorrow at 3pm remind me 30 minutes before", {}, caps);
-        expect(d.fields).toMatchObject({ scheduledStart: "2026-10-07T19:00:00.000Z", reminderAt: "2026-10-07T18:30:00.000Z", durationMinutes: null });
+        expect(d.fields).toMatchObject({
+            scheduledStart: "2026-10-07T19:00:00.000Z",
+            reminderAt: "2026-10-07T18:30:00.000Z",
+            durationMinutes: null,
+        });
         expect(d.title).toBe("Dentist");
-        expect(draft("Remind me an hour before, call Jo tomorrow at 3pm", {}, caps).fields.reminderAt).toBe("2026-10-07T18:00:00.000Z");
+        expect(draft("Remind me an hour before, call Jo tomorrow at 3pm", {}, caps).fields.reminderAt).toBe(
+            "2026-10-07T18:00:00.000Z",
+        );
     });
 
     it("a relative reminder with no start sets nothing and keeps its words", () => {
-        const d = draft("Dentist tomorrow remind me 30 minutes before", {}, new Set<DraftField>([...ALL, "reminderAt"]));
+        const d = draft(
+            "Dentist tomorrow remind me 30 minutes before",
+            {},
+            new Set<DraftField>([...ALL, "reminderAt"]),
+        );
         expect(d.fields.reminderAt).toBeNull();
         expect(d.fields.durationMinutes).toBeNull();
         expect(d.title).toBe("Dentist remind me 30 minutes before");
@@ -87,7 +108,10 @@ describe("resolveDraft", () => {
     });
 
     it("uses a cued list and tag, and never a bare word", () => {
-        expect(draft("Plan budget in Work tag it errands").fields).toMatchObject({ projectId: "p-work", tagIds: ["t-err"] });
+        expect(draft("Plan budget in Work tag it errands").fields).toMatchObject({
+            projectId: "p-work",
+            tagIds: ["t-err"],
+        });
         expect(draft("Expecting guests").fields.tagIds).toEqual([]);
     });
 

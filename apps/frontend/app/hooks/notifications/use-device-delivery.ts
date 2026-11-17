@@ -45,13 +45,25 @@ interface LocalState {
 }
 
 // One state for every surface (Settings, the center's offer, the dispatcher): a grant made anywhere is seen everywhere at once.
-const store = createExternalStore<LocalState>({ permission: "default", busy: false, test: "idle", error: null, pushIssue: null });
+const store = createExternalStore<LocalState>({
+    permission: "default",
+    busy: false,
+    test: "idle",
+    error: null,
+    pushIssue: null,
+});
 const patch = (next: Partial<LocalState>) => store.set({ ...store.get(), ...next });
 
 const OFFER_KEY = "cadence_notification_offer_dismissed";
 /** The account this load already said hello for: once per load, not once per screen. */
 let announcedFor: string | null = null;
-const offerDismissed = () => { try { return window.localStorage.getItem(OFFER_KEY) === "1"; } catch { return false; } };
+const offerDismissed = () => {
+    try {
+        return window.localStorage.getItem(OFFER_KEY) === "1";
+    } catch {
+        return false;
+    }
+};
 
 /** The state of reminders on this device and the account's other devices. Enable and test must be called from a tap. */
 export function useDeviceDelivery() {
@@ -72,13 +84,19 @@ export function useDeviceDelivery() {
         queryFn: () => listDevices(client),
         staleTime: STALE_TIMES.NOTIFICATIONS,
     });
-    const setDevices = useCallback((rows: Device[]) => queryClient.setQueryData(devicesKey, rows), [queryClient, devicesKey]);
+    const setDevices = useCallback(
+        (rows: Device[]) => queryClient.setQueryData(devicesKey, rows),
+        [queryClient, devicesKey],
+    );
 
     const thisInstallId = installId();
     const thisDevice = devices.find((device) => device.installId === thisInstallId);
 
     // Until the list loads (a cold start, no network), fall back to what this device last knew.
-    const assumed = devicesLoaded ? thisDevice : thisDevice ?? (readLocalEnabled() && local.permission === "granted" ? { enabled: true, push: false } : undefined);
+    const assumed = devicesLoaded
+        ? thisDevice
+        : (thisDevice ??
+          (readLocalEnabled() && local.permission === "granted" ? { enabled: true, push: false } : undefined));
     useEffect(() => {
         if (devicesLoaded) writeLocalEnabled(!!thisDevice?.enabled);
     }, [devicesLoaded, thisDevice?.enabled]);
@@ -110,7 +128,9 @@ export function useDeviceDelivery() {
             // Straight from the tap: the browser only prompts inside a user gesture.
             const permission = IS_DESKTOP_RUNTIME
                 ? await requestNotificationPermission()
-                : Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+                : Notification.permission === "granted"
+                  ? "granted"
+                  : await Notification.requestPermission();
             patch({ permission });
             if (permission !== "granted") {
                 patch({ error: permission === "denied" ? null : "Notifications weren't allowed. You can try again." });
@@ -118,10 +138,16 @@ export function useDeviceDelivery() {
             }
             if (!accountOn) updateSettings.mutate({ notifications: { browser: true } });
             const result = await register();
-            if (result.push === "failed") patch({ error: "This device couldn't be registered. Check your connection and try again." });
+            if (result.push === "failed")
+                patch({ error: "This device couldn't be registered. Check your connection and try again." });
             // A device turned off earlier (here or elsewhere) is switched back on by this tap.
             const row = result.devices?.find((device) => device.installId === thisInstallId);
-            if (row && !row.enabled) setDevices(await setDeviceEnabled(client, thisInstallId, true).then((updated) => result.devices!.map((d) => d.installId === updated.installId ? updated : d)));
+            if (row && !row.enabled)
+                setDevices(
+                    await setDeviceEnabled(client, thisInstallId, true).then((updated) =>
+                        result.devices!.map((d) => (d.installId === updated.installId ? updated : d)),
+                    ),
+                );
         } finally {
             patch({ busy: false });
         }
@@ -143,7 +169,12 @@ export function useDeviceDelivery() {
             return;
         }
         try {
-            await sendPlatformNotification({ title: "Cadence test notification", body: "If you can see this, reminders can appear on this device.", icon: "/logo.png", route: "/" });
+            await sendPlatformNotification({
+                title: "Cadence test notification",
+                body: "If you can see this, reminders can appear on this device.",
+                icon: "/logo.png",
+                route: "/",
+            });
             patch({ test: "sent" });
         } catch {
             patch({ test: "failed" });
@@ -152,7 +183,7 @@ export function useDeviceDelivery() {
 
     const update = useMutation({
         mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => setDeviceEnabled(client, id, enabled),
-        onSuccess: (row) => setDevices(devices.map((device) => device.installId === row.installId ? row : device)),
+        onSuccess: (row) => setDevices(devices.map((device) => (device.installId === row.installId ? row : device))),
     });
 
     const forget = useMutation({
@@ -160,7 +191,10 @@ export function useDeviceDelivery() {
         onMutate: (id) => setDevices(devices.filter((device) => device.installId !== id)),
     });
 
-    const duplicateHint = useMemo(() => duplicateRisk(devices, thisInstallId, status), [devices, status, thisInstallId]);
+    const duplicateHint = useMemo(
+        () => duplicateRisk(devices, thisInstallId, status),
+        [devices, status, thisInstallId],
+    );
 
     return {
         status,
@@ -180,7 +214,14 @@ export function useDeviceDelivery() {
         forget: (id: string) => forget.mutate(id),
         /** The contextual offer in the notification center: only for a device that can be enabled and hasn't been waved off. */
         offerEnable: !!settings && status === "off" && !offerDismissed(),
-        dismissOffer: () => { try { window.localStorage.setItem(OFFER_KEY, "1"); } catch { /* the offer returns next visit */ } patch({}); },
+        dismissOffer: () => {
+            try {
+                window.localStorage.setItem(OFFER_KEY, "1");
+            } catch {
+                /* the offer returns next visit */
+            }
+            patch({});
+        },
     };
 }
 
@@ -198,7 +239,9 @@ export function useDeviceDeliverySync() {
     useEffect(() => {
         warmPlatformRuntime();
         void recheck();
-        const onShow = () => { if (document.visibilityState === "visible") void recheck(); };
+        const onShow = () => {
+            if (document.visibilityState === "visible") void recheck();
+        };
         const onWake = () => void recheck();
         window.addEventListener("focus", onShow);
         window.addEventListener(WAKE_EVENT, onWake);

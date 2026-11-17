@@ -19,7 +19,14 @@ interface DayStripProps {
     onShiftWeek: (delta: number) => void;
 }
 
-function StripDay({ iso, selected, isToday, load, marked, onSelect }: {
+function StripDay({
+    iso,
+    selected,
+    isToday,
+    load,
+    marked,
+    onSelect,
+}: {
     iso: LocalDate;
     selected: boolean;
     isToday: boolean;
@@ -41,23 +48,33 @@ function StripDay({ iso, selected, isToday, load, marked, onSelect }: {
                 isOver
                     ? "bg-moonlit/20 ring-1 ring-moonlit/50"
                     : selected
-                        ? "bg-accent-primary text-twilight-void"
-                        : "hover:bg-white/[0.05]"
+                      ? "bg-accent-primary text-twilight-void"
+                      : "hover:bg-white/[0.05]"
             }`}
         >
-            <span className={`text-[10px] font-semibold uppercase ${selected ? "" : isToday ? "text-accent-primary" : "text-twilight-text-muted"}`}>
+            <span
+                className={`text-[10px] font-semibold uppercase ${selected ? "" : isToday ? "text-accent-primary" : "text-twilight-text-muted"}`}
+            >
                 {weekdayName(iso, "narrow")}
             </span>
-            <span className={`text-[17px] font-semibold leading-none tabular-nums ${selected ? "" : isToday ? "text-accent-primary" : "text-twilight-text"}`}>
+            <span
+                className={`text-[17px] font-semibold leading-none tabular-nums ${selected ? "" : isToday ? "text-accent-primary" : "text-twilight-text"}`}
+            >
                 {dayOfMonth(iso)}
             </span>
             <span className="flex h-1.5 items-center gap-0.5" aria-hidden="true">
                 {Array.from({ length: dots }, (_, i) => (
-                    <span key={i} className={`h-1 w-1 rounded-full ${selected ? "bg-twilight-void/60" : "bg-accent-primary/70"}`} />
+                    <span
+                        key={i}
+                        className={`h-1 w-1 rounded-full ${selected ? "bg-twilight-void/60" : "bg-accent-primary/70"}`}
+                    />
                 ))}
             </span>
             {marked ? (
-                <span aria-hidden="true" className={`absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full ${selected ? "bg-twilight-void/60" : "bg-solstice"}`} />
+                <span
+                    aria-hidden="true"
+                    className={`absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full ${selected ? "bg-twilight-void/60" : "bg-solstice"}`}
+                />
             ) : null}
         </button>
     );

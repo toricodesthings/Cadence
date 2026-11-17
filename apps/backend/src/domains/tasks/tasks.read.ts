@@ -69,7 +69,16 @@ export async function readTasks(tx: Tx, userId: string, filters: ReadFilters): P
         ...(isScheduleScopedTaskQuery(filters) ? {} : { limit: filters.limit, offset: filters.offset }),
         with: tagLinks,
     });
-    return finishTaskList(rows.map(({ tags: links, ...row }) => toTask(row, links.map((link) => link.tagId))), filters, zone);
+    return finishTaskList(
+        rows.map(({ tags: links, ...row }) =>
+            toTask(
+                row,
+                links.map((link) => link.tagId),
+            ),
+        ),
+        filters,
+        zone,
+    );
 }
 
 /**
@@ -81,34 +90,45 @@ export async function readTaskBatch(tx: Tx, userId: string, queries: TaskBatchFi
     const zone = await userZone(tx, userId);
     const filters: ReadFilters[] = queries;
     const predicates = filters.map((filter) => and(...buildTaskWhereClause(userId, filter, zone))!);
-    const rows = await tracing.enterSpan("tasks.batch.read", async () => tx.query.tasks.findMany({
-        where: or(...predicates),
-        orderBy: manualOrder,
-        with: tagLinks,
-        extras: {
-            batchMatches: sql<boolean[]>`json_build_array(${sql.join(predicates, sql`, `)})`
-                .mapWith((value: string | boolean[]) => typeof value === "string" ? JSON.parse(value) as boolean[] : value)
-                .as("batch_matches"),
-        },
-    }));
+    const rows = await tracing.enterSpan("tasks.batch.read", async () =>
+        tx.query.tasks.findMany({
+            where: or(...predicates),
+            orderBy: manualOrder,
+            with: tagLinks,
+            extras: {
+                batchMatches: sql<boolean[]>`json_build_array(${sql.join(predicates, sql`, `)})`
+                    .mapWith((value: string | boolean[]) =>
+                        typeof value === "string" ? (JSON.parse(value) as boolean[]) : value,
+                    )
+                    .as("batch_matches"),
+            },
+        }),
+    );
     const buckets: Task[][] = filters.map(() => []);
     for (const { tags: links, batchMatches, ...row } of rows) {
-        const task = toTask(row, links.map((link) => link.tagId));
-        batchMatches.forEach((matches, index) => { if (matches) buckets[index].push(task); });
+        const task = toTask(
+            row,
+            links.map((link) => link.tagId),
+        );
+        batchMatches.forEach((matches, index) => {
+            if (matches) buckets[index].push(task);
+        });
     }
     const result: TaskBatch = { tasks: [], lists: [] };
     const indexById = new Map<string, number>();
     filters.forEach((filter, index) => {
         const list = finishTaskList(buckets[index], filter, zone);
-        result.lists.push(list.map((task) => {
-            let taskIndex = indexById.get(task.id);
-            if (taskIndex === undefined) {
-                taskIndex = result.tasks.length;
-                result.tasks.push(task);
-                indexById.set(task.id, taskIndex);
-            }
-            return taskIndex;
-        }));
+        result.lists.push(
+            list.map((task) => {
+                let taskIndex = indexById.get(task.id);
+                if (taskIndex === undefined) {
+                    taskIndex = result.tasks.length;
+                    result.tasks.push(task);
+                    indexById.set(task.id, taskIndex);
+                }
+                return taskIndex;
+            }),
+        );
     });
     return result;
 }
@@ -122,9 +142,24 @@ const EVIDENCE_LIMIT = 300;
  */
 export async function readEffortEvidence(tx: Tx, userId: string) {
     const rows = await tx
-        .select({ id: tasks.id, title: tasks.title, projectId: tasks.projectId, effort: tasks.effort, origin: tasks.effortOrigin, chosenAt: tasks.effortChosenAt })
+        .select({
+            id: tasks.id,
+            title: tasks.title,
+            projectId: tasks.projectId,
+            effort: tasks.effort,
+            origin: tasks.effortOrigin,
+            chosenAt: tasks.effortChosenAt,
+        })
         .from(tasks)
-        .where(and(eq(tasks.userId, userId), isNotNull(tasks.effortOrigin), isNotNull(tasks.effort), isNull(tasks.recurrenceRule), ne(tasks.state, "ARCHIVED")))
+        .where(
+            and(
+                eq(tasks.userId, userId),
+                isNotNull(tasks.effortOrigin),
+                isNotNull(tasks.effort),
+                isNull(tasks.recurrenceRule),
+                ne(tasks.state, "ARCHIVED"),
+            ),
+        )
         .orderBy(desc(tasks.effortChosenAt))
         .limit(EVIDENCE_LIMIT);
     return rows as EffortEvidenceRow[];

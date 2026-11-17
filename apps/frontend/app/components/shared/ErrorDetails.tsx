@@ -26,7 +26,9 @@ export function ErrorDetails({ error }: { error: unknown }) {
     return (
         <div className="space-y-3">
             <div className="flex items-start justify-between gap-3 rounded-xl border border-twilight-border bg-twilight-surface-muted px-3 py-2">
-                <code className="min-w-0 break-all text-left text-[11px] leading-relaxed text-twilight-text-muted">{ref}</code>
+                <code className="min-w-0 break-all text-left text-[11px] leading-relaxed text-twilight-text-muted">
+                    {ref}
+                </code>
                 <button
                     type="button"
                     onClick={() => void copy()}

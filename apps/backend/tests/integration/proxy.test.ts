@@ -24,7 +24,10 @@ describe("proxy route contracts", () => {
 
     describe("GET /proxy/weather", () => {
         it("returns only the current conditions from upstream", async () => {
-            const upstream = { current_weather: { temperature: 22, weathercode: 1, is_day: 0, windspeed: 9 }, hourly: {} };
+            const upstream = {
+                current_weather: { temperature: 22, weathercode: 1, is_day: 0, windspeed: 9 },
+                hourly: {},
+            };
             fetchMock.mockResolvedValue(jsonResponse(upstream));
 
             const res = await app.request("/proxy/weather?latitude=40.7&longitude=-74.0");
@@ -126,18 +129,34 @@ describe("proxy route contracts", () => {
 
     describe("GET /proxy/geocode/search", () => {
         it("maps upstream results to rounded city options", async () => {
-            fetchMock.mockResolvedValue(jsonResponse({
-                results: [
-                    { name: "Toronto", latitude: 43.70011, longitude: -79.4163, country: "Canada", country_code: "CA", admin1: "Ontario" },
-                ],
-            }));
+            fetchMock.mockResolvedValue(
+                jsonResponse({
+                    results: [
+                        {
+                            name: "Toronto",
+                            latitude: 43.70011,
+                            longitude: -79.4163,
+                            country: "Canada",
+                            country_code: "CA",
+                            admin1: "Ontario",
+                        },
+                    ],
+                }),
+            );
 
             const res = await app.request("/proxy/geocode/search?name=Toronto&locale=en-CA");
 
             expect(res.status).toBe(200);
             const body: any = await res.json();
             expect(body.data).toEqual([
-                { name: "Toronto", region: "Ontario", country: "Canada", countryCode: "CA", latitude: 43.7, longitude: -79.42 },
+                {
+                    name: "Toronto",
+                    region: "Ontario",
+                    country: "Canada",
+                    countryCode: "CA",
+                    latitude: 43.7,
+                    longitude: -79.42,
+                },
             ]);
             const url = String(fetchMock.mock.calls[0][0]);
             expect(url).toContain("geocoding-api.open-meteo.com");
@@ -220,16 +239,12 @@ describe("proxy route contracts", () => {
 
     describe("GET /proxy/holidays/countries", () => {
         it("merges countries from both providers", async () => {
-            const openHolidays = [
-                { isoCode: "DE", name: [{ language: "EN", text: "Germany" }] },
-            ];
+            const openHolidays = [{ isoCode: "DE", name: [{ language: "EN", text: "Germany" }] }];
             const nager = [
                 { countryCode: "US", name: "United States" },
                 { countryCode: "DE", name: "Germany (Nager)" },
             ];
-            fetchMock
-                .mockResolvedValueOnce(jsonResponse(openHolidays))
-                .mockResolvedValueOnce(jsonResponse(nager));
+            fetchMock.mockResolvedValueOnce(jsonResponse(openHolidays)).mockResolvedValueOnce(jsonResponse(nager));
 
             const res = await app.request("/proxy/holidays/countries?locale=en");
 
@@ -244,9 +259,7 @@ describe("proxy route contracts", () => {
         });
 
         it("returns a retryable failure instead of caching an empty country list", async () => {
-            fetchMock
-                .mockRejectedValueOnce(new Error("network"))
-                .mockRejectedValueOnce(new Error("network"));
+            fetchMock.mockRejectedValueOnce(new Error("network")).mockRejectedValueOnce(new Error("network"));
 
             const res = await app.request("/proxy/holidays/countries");
 
@@ -257,9 +270,7 @@ describe("proxy route contracts", () => {
         });
 
         it("defaults locale when not provided", async () => {
-            fetchMock
-                .mockResolvedValueOnce(jsonResponse([]))
-                .mockResolvedValueOnce(jsonResponse([]));
+            fetchMock.mockResolvedValueOnce(jsonResponse([])).mockResolvedValueOnce(jsonResponse([]));
 
             const res = await app.request("/proxy/holidays/countries");
 
@@ -278,9 +289,7 @@ describe("proxy route contracts", () => {
             ];
             fetchMock.mockResolvedValue(jsonResponse(upstream));
 
-            const res = await app.request(
-                "/proxy/holidays/subdivisions?countryCode=US&year=2026&locale=en",
-            );
+            const res = await app.request("/proxy/holidays/subdivisions?countryCode=US&year=2026&locale=en");
 
             expect(res.status).toBe(200);
             const body: any = await res.json();
@@ -290,18 +299,14 @@ describe("proxy route contracts", () => {
         });
 
         it("falls back to Nager when OpenHolidays fails", async () => {
-            fetchMock
-                .mockResolvedValueOnce(jsonResponse({}, 500))
-                .mockResolvedValueOnce(
-                    jsonResponse([
-                        { types: ["Public"], counties: ["US-NY", "US-CA"] },
-                        { types: ["Public"], counties: null },
-                    ]),
-                );
-
-            const res = await app.request(
-                "/proxy/holidays/subdivisions?countryCode=US&year=2026&locale=en",
+            fetchMock.mockResolvedValueOnce(jsonResponse({}, 500)).mockResolvedValueOnce(
+                jsonResponse([
+                    { types: ["Public"], counties: ["US-NY", "US-CA"] },
+                    { types: ["Public"], counties: null },
+                ]),
             );
+
+            const res = await app.request("/proxy/holidays/subdivisions?countryCode=US&year=2026&locale=en");
 
             expect(res.status).toBe(200);
             const body: any = await res.json();
@@ -314,9 +319,7 @@ describe("proxy route contracts", () => {
         });
 
         it("returns 400 for year out of range", async () => {
-            const res = await app.request(
-                "/proxy/holidays/subdivisions?countryCode=US&year=1999",
-            );
+            const res = await app.request("/proxy/holidays/subdivisions?countryCode=US&year=1999");
             expect(res.status).toBe(400);
         });
     });
@@ -335,9 +338,7 @@ describe("proxy route contracts", () => {
             ];
             fetchMock.mockResolvedValue(jsonResponse(upstream));
 
-            const res = await app.request(
-                "/proxy/holidays?countryCode=US&start=2026-01-01&end=2026-12-31&locale=en",
-            );
+            const res = await app.request("/proxy/holidays?countryCode=US&start=2026-01-01&end=2026-12-31&locale=en");
 
             expect(res.status).toBe(200);
             const body: any = await res.json();
@@ -364,9 +365,7 @@ describe("proxy route contracts", () => {
                 ]),
             );
 
-            const res = await app.request(
-                "/proxy/holidays?countryCode=DE&start=2026-01-01&end=2026-12-31&locale=de",
-            );
+            const res = await app.request("/proxy/holidays?countryCode=DE&start=2026-01-01&end=2026-12-31&locale=de");
 
             expect(res.status).toBe(200);
             const body: any = await res.json();
@@ -392,9 +391,7 @@ describe("proxy route contracts", () => {
             ];
             fetchMock.mockResolvedValue(jsonResponse(upstream));
 
-            const res = await app.request(
-                "/proxy/holidays?countryCode=US&start=2026-01-01&end=2026-12-31&locale=en",
-            );
+            const res = await app.request("/proxy/holidays?countryCode=US&start=2026-01-01&end=2026-12-31&locale=en");
 
             const body: any = await res.json();
             expect(body.data).toHaveLength(1);
@@ -422,9 +419,7 @@ describe("proxy route contracts", () => {
         });
 
         it("returns 400 for invalid date format", async () => {
-            const res = await app.request(
-                "/proxy/holidays?countryCode=US&start=2026-1-1&end=2026-12-31",
-            );
+            const res = await app.request("/proxy/holidays?countryCode=US&start=2026-1-1&end=2026-12-31");
             expect(res.status).toBe(400);
         });
 

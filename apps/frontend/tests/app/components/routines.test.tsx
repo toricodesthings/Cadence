@@ -34,8 +34,23 @@ describe("routineTone", () => {
 
 describe("monthStats", () => {
     it("counts check-ins and the longest run up to today, never misses", () => {
-        const log = (offset: number, status: "COMPLETED" | "SKIPPED" | "PENDING") => ({ id: String(offset), habitId: "h", status, targetDate: day(offset), completedAt: null });
-        const habit = { logs: [log(-5, "COMPLETED"), log(-4, "COMPLETED"), log(-3, "PENDING"), log(-2, "COMPLETED"), log(0, "COMPLETED"), log(1, "COMPLETED")] } as Habit;
+        const log = (offset: number, status: "COMPLETED" | "SKIPPED" | "PENDING") => ({
+            id: String(offset),
+            habitId: "h",
+            status,
+            targetDate: day(offset),
+            completedAt: null,
+        });
+        const habit = {
+            logs: [
+                log(-5, "COMPLETED"),
+                log(-4, "COMPLETED"),
+                log(-3, "PENDING"),
+                log(-2, "COMPLETED"),
+                log(0, "COMPLETED"),
+                log(1, "COMPLETED"),
+            ],
+        } as Habit;
         expect(monthStats(habit, day(0))).toEqual({ checkIns: 4, longest: 2 });
     });
 });
@@ -50,8 +65,21 @@ describe("weekdayLabels", () => {
 
 describe("stepProgress", () => {
     it("counts settled steps only while a day is partly done", () => {
-        const habit = { steps: [{ id: "a", title: "Water" }, { id: "b", title: "Stretch" }, { id: "c", title: "Journal" }] };
-        const log = (status: "COMPLETED" | "PENDING", stepStatus: Record<string, "COMPLETED" | "SKIPPED"> | null) => ({ id: "1", habitId: "h", status, targetDate: day(0), completedAt: null, stepStatus });
+        const habit = {
+            steps: [
+                { id: "a", title: "Water" },
+                { id: "b", title: "Stretch" },
+                { id: "c", title: "Journal" },
+            ],
+        };
+        const log = (status: "COMPLETED" | "PENDING", stepStatus: Record<string, "COMPLETED" | "SKIPPED"> | null) => ({
+            id: "1",
+            habitId: "h",
+            status,
+            targetDate: day(0),
+            completedAt: null,
+            stepStatus,
+        });
         expect(stepProgress(habit, log("PENDING", { a: "COMPLETED", b: "SKIPPED" }))).toBe("2/3");
         expect(stepProgress(habit, log("COMPLETED", null))).toBeNull();
         expect(stepProgress({ steps: null }, log("PENDING", null))).toBeNull();
@@ -61,7 +89,12 @@ describe("stepProgress", () => {
 describe("openOnCardClick", () => {
     it("opens on the card's background, never on its own buttons", () => {
         const onSelect = vi.fn();
-        render(<section data-testid="card" onClick={openOnCardClick(onSelect)}><span>Walk</span><button type="button">Mon</button></section>);
+        render(
+            <section data-testid="card" onClick={openOnCardClick(onSelect)}>
+                <span>Walk</span>
+                <button type="button">Mon</button>
+            </section>,
+        );
         fireEvent.click(screen.getByRole("button", { name: "Mon" }));
         expect(onSelect).not.toHaveBeenCalled();
         fireEvent.click(screen.getByText("Walk"));
@@ -72,14 +105,22 @@ describe("openOnCardClick", () => {
 describe("CadencePicker", () => {
     it("builds every-N-days and every-other-week rules", () => {
         const onChange = vi.fn();
-        const { rerender } = render(<Provider><CadencePicker value="FREQ=DAILY;INTERVAL=2" onChange={onChange} /></Provider>);
+        const { rerender } = render(
+            <Provider>
+                <CadencePicker value="FREQ=DAILY;INTERVAL=2" onChange={onChange} />
+            </Provider>,
+        );
         expect(screen.getByText("Every 2 days")).toBeTruthy();
         fireEvent.click(screen.getByRole("button", { name: "More days between" }));
         expect(onChange).toHaveBeenLastCalledWith("FREQ=DAILY;INTERVAL=3");
         fireEvent.click(screen.getByRole("button", { name: "Fewer days between" }));
         expect(onChange).toHaveBeenLastCalledWith("FREQ=DAILY");
 
-        rerender(<Provider><CadencePicker value="FREQ=WEEKLY;BYDAY=MO,WE" onChange={onChange} /></Provider>);
+        rerender(
+            <Provider>
+                <CadencePicker value="FREQ=WEEKLY;BYDAY=MO,WE" onChange={onChange} />
+            </Provider>,
+        );
         fireEvent.click(screen.getByRole("switch", { name: "Every other week" }));
         expect(onChange).toHaveBeenLastCalledWith("FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE");
     });

@@ -69,12 +69,15 @@ export function useUserLocation() {
         bindDeviceLocationUser(userId);
     }, [userId]);
 
-    const lookupRegion = useCallback(async (coordinates: Coordinates) => {
-        const response = await client.api.proxy.geocode.reverse.$get({
-            query: { latitude: String(coordinates.latitude), longitude: String(coordinates.longitude) },
-        });
-        return unwrapResponse(response);
-    }, [client]);
+    const lookupRegion = useCallback(
+        async (coordinates: Coordinates) => {
+            const response = await client.api.proxy.geocode.reverse.$get({
+                query: { latitude: String(coordinates.latitude), longitude: String(coordinates.longitude) },
+            });
+            return unwrapResponse(response);
+        },
+        [client],
+    );
 
     const requestPrecise = useCallback(
         (): Promise<DeviceLocationResult> => requestDeviceLocation(lookupRegion),
@@ -89,14 +92,24 @@ export function useUserLocation() {
         const age = device.refreshedAt ? Date.now() - new Date(device.refreshedAt).getTime() : Number.POSITIVE_INFINITY;
         if (device.place && age < DEVICE_LOCATION_REFRESH_MS) return;
         void requestPrecise();
-    }, [ready, mode, device.permissionState, device.isLocating, device.failed, device.place, device.refreshedAt, requestPrecise]);
+    }, [
+        ready,
+        mode,
+        device.permissionState,
+        device.isLocating,
+        device.failed,
+        device.place,
+        device.refreshedAt,
+        requestPrecise,
+    ]);
 
     // Precise mode leans on the approximate location whenever the device can't
     // (or won't) answer, instead of asking again.
-    const preciseFallback = mode === "precise"
-        && !device.place
-        && device.permissionState !== "unknown"
-        && (device.permissionState !== "granted" || device.failed);
+    const preciseFallback =
+        mode === "precise" &&
+        !device.place &&
+        device.permissionState !== "unknown" &&
+        (device.permissionState !== "granted" || device.failed);
     const needsApproximate = ready && (mode === "approximate" || preciseFallback);
 
     const approximateQuery = useQuery({
@@ -136,41 +149,49 @@ export function useUserLocation() {
         return null;
     }, [ready, saved, mode, device.place, needsApproximate, approximateQuery.data]);
 
-    const isResolving = !ready
-        || (mode === "precise" && !device.place && !preciseFallback)
-        || (needsApproximate && approximateQuery.isLoading);
+    const isResolving =
+        !ready ||
+        (mode === "precise" && !device.place && !preciseFallback) ||
+        (needsApproximate && approximateQuery.isLoading);
 
-    const refreshedAt = place?.source === "precise"
-        ? device.refreshedAt
-        : place?.source === "approximate" && approximateQuery.dataUpdatedAt
-            ? new Date(approximateQuery.dataUpdatedAt).toISOString()
-            : null;
+    const refreshedAt =
+        place?.source === "precise"
+            ? device.refreshedAt
+            : place?.source === "approximate" && approximateQuery.dataUpdatedAt
+              ? new Date(approximateQuery.dataUpdatedAt).toISOString()
+              : null;
 
     // Every explicit choice also records the dismissal, so the one-time notice
     // can never come back after the user has decided something.
-    const saveLocation = useCallback(async (patch: { mode?: LocationMode } & ManualLocationPatch) => {
-        try {
-            await updateSettings.mutateAsync({
-                location: {
-                    ...patch,
-                    promptDismissedAt: saved?.promptDismissedAt ?? new Date().toISOString(),
-                },
-            });
-            return true;
-        } catch (error) {
-            toastError(error, "Couldn’t save your location choice");
-            return false;
-        }
-    }, [saved?.promptDismissedAt, updateSettings]);
+    const saveLocation = useCallback(
+        async (patch: { mode?: LocationMode } & ManualLocationPatch) => {
+            try {
+                await updateSettings.mutateAsync({
+                    location: {
+                        ...patch,
+                        promptDismissedAt: saved?.promptDismissedAt ?? new Date().toISOString(),
+                    },
+                });
+                return true;
+            } catch (error) {
+                toastError(error, "Couldn’t save your location choice");
+                return false;
+            }
+        },
+        [saved?.promptDismissedAt, updateSettings],
+    );
 
-    const setMode = useCallback(async (next: LocationMode) => {
-        if (next !== "precise") forgetDevicePlace();
-        // Start the device request before awaiting the save so the permission
-        // prompt stays attached to the click that asked for it.
-        const request = next === "precise" ? requestPrecise() : null;
-        await saveLocation({ mode: next });
-        return request ? request : null;
-    }, [requestPrecise, saveLocation]);
+    const setMode = useCallback(
+        async (next: LocationMode) => {
+            if (next !== "precise") forgetDevicePlace();
+            // Start the device request before awaiting the save so the permission
+            // prompt stays attached to the click that asked for it.
+            const request = next === "precise" ? requestPrecise() : null;
+            await saveLocation({ mode: next });
+            return request ? request : null;
+        },
+        [requestPrecise, saveLocation],
+    );
 
     const setManualLocation = useCallback(
         (patch: ManualLocationPatch) => saveLocation({ mode: "manual", ...patch }),

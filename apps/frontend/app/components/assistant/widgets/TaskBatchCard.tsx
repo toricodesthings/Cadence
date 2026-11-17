@@ -1,4 +1,16 @@
-import { Sparkles, Calendar, Check, ListChecks, Image as ImageIcon, Lock, Repeat, Bell, EyeOff, Tag as TagIcon, Hourglass } from "lucide-react";
+import {
+    Sparkles,
+    Calendar,
+    Check,
+    ListChecks,
+    Image as ImageIcon,
+    Lock,
+    Repeat,
+    Bell,
+    EyeOff,
+    Tag as TagIcon,
+    Hourglass,
+} from "lucide-react";
 import { IdentityBlock, MetaPill, MetaPills, TagPill, type MaybePill } from "./ProposalCard";
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useTagsLookup } from "./card-lookups";
@@ -18,7 +30,22 @@ import { useTask } from "../../../hooks/tasks/use-tasks";
 type Quoted = "title" | "dueDate" | "scheduledStart" | "priority" | "subtasks" | "note";
 
 /** A task as the assistant drafts it (`create_tasks`, `structure_inbox_item`). */
-export type TaskDraft = Partial<Pick<CreateTaskInput, "title" | "dueDate" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "priority" | "effort" | "recurrenceRule" | "projectId" | "sectionId" | "tagIds">> & {
+export type TaskDraft = Partial<
+    Pick<
+        CreateTaskInput,
+        | "title"
+        | "dueDate"
+        | "scheduledStart"
+        | "scheduledEnd"
+        | "durationEstimate"
+        | "priority"
+        | "effort"
+        | "recurrenceRule"
+        | "projectId"
+        | "sectionId"
+        | "tagIds"
+    >
+> & {
     subtasks?: string[];
     fixed?: boolean;
     note?: string;
@@ -85,7 +112,13 @@ export function DraftQuotes({ draft, compact = false }: { draft: TaskDraft; comp
 
 /** Tags named by the assistant (new ones are made when the change lands). */
 export function TagNamePills({ names, mark }: { names?: string[]; mark?: "add" }) {
-    return <>{names?.map((name) => <MetaPill key={name} icon={TagIcon}>{`${mark ? "+ " : ""}#${name}`}</MetaPill>)}</>;
+    return (
+        <>
+            {names?.map((name) => (
+                <MetaPill key={name} icon={TagIcon}>{`${mark ? "+ " : ""}#${name}`}</MetaPill>
+            ))}
+        </>
+    );
 }
 
 /** The draft's fields that read as pills: when, length, priority, effort, repeats, Fixed, reminder, hide-until. */
@@ -94,14 +127,18 @@ function draftPills(draft: TaskDraft): MaybePill[] {
     const priority = draft.priority ? PRIORITY_OPTIONS.find((o) => o.value === draft.priority) : undefined;
     const effort = draft.effort != null ? EFFORT_OPTIONS.find((o) => o.value === draft.effort) : undefined;
     const repeats = draft.recurrenceRule
-        ? (getTaskRecurrenceSummary({ recurrenceRule: draft.recurrenceRule, scheduledStart: null, scheduledEnd: null })?.cadenceLabel ?? "Repeats")
+        ? (getTaskRecurrenceSummary({ recurrenceRule: draft.recurrenceRule, scheduledStart: null, scheduledEnd: null })
+              ?.cadenceLabel ?? "Repeats")
         : null;
     const reminder = formatWhen(draft.reminderAt);
     const hidden = formatWhen(draft.hideUntil);
     return [
         when && { icon: Calendar, label: when },
         draft.durationEstimate && { icon: Hourglass, label: `${draft.durationEstimate}m block` },
-        priority && { icon: priority.icon, label: <span className={PRIORITY_CONFIG[priority.value].color}>{priority.label} priority</span> },
+        priority && {
+            icon: priority.icon,
+            label: <span className={PRIORITY_CONFIG[priority.value].color}>{priority.label} priority</span>,
+        },
         effort && { icon: effort.icon, label: `${effort.label} effort` },
         repeats && { icon: Repeat, label: repeats },
         draft.fixed && { icon: Lock, label: "Fixed" },
@@ -115,7 +152,8 @@ export function DraftDetails({ draft }: { draft: TaskDraft }) {
     const lookupTags = useTagsLookup();
     const pills = draftPills(draft);
     const tags = lookupTags(draft.tagIds ?? []);
-    if (!pills.some(Boolean) && !draft.projectId && !draft.sectionId && tags.length === 0 && !draft.tagNames?.length) return null;
+    if (!pills.some(Boolean) && !draft.projectId && !draft.sectionId && tags.length === 0 && !draft.tagNames?.length)
+        return null;
     return (
         <div className="flex flex-wrap gap-1.5">
             <MetaPills pills={pills} />
@@ -132,7 +170,9 @@ export function DraftDetails({ draft }: { draft: TaskDraft }) {
 export function DraftNote({ note, lines = 3 }: { note?: string; lines?: 1 | 3 }) {
     if (!note?.trim()) return null;
     return (
-        <p className={`whitespace-pre-line text-[11px] text-twilight-text-muted ${lines === 1 ? "line-clamp-1" : "line-clamp-3"}`}>
+        <p
+            className={`whitespace-pre-line text-[11px] text-twilight-text-muted ${lines === 1 ? "line-clamp-1" : "line-clamp-3"}`}
+        >
             {note}
         </p>
     );
@@ -223,7 +263,10 @@ function EffortGuessPill({ taskId, title, effortGuess, named }: Created & { name
                 <Check size={11} aria-hidden="true" /> {name} kept
                 <button
                     type="button"
-                    onClick={() => { setUsed(false); updateTask.mutate({ id: taskId, effort: null }); }}
+                    onClick={() => {
+                        setUsed(false);
+                        updateTask.mutate({ id: taskId, effort: null });
+                    }}
                     className="cursor-pointer underline-offset-2 hover:underline"
                 >
                     Undo
@@ -234,11 +277,15 @@ function EffortGuessPill({ taskId, title, effortGuess, named }: Created & { name
     return (
         <button
             type="button"
-            onClick={() => { setUsed(true); updateTask.mutate({ id: taskId, effort: level, effortOrigin: "accepted" }); }}
+            onClick={() => {
+                setUsed(true);
+                updateTask.mutate({ id: taskId, effort: level, effortOrigin: "accepted" });
+            }}
             aria-label={`Use ${effortName(level)} effort for ${title}`}
             className="min-h-8 cursor-pointer rounded-full border border-twilight-border px-2.5 text-[11px] text-twilight-text-soft hover:border-twilight-text-muted/40"
         >
-            <span aria-hidden="true">~</span>{name} · Use
+            <span aria-hidden="true">~</span>
+            {name} · Use
         </button>
     );
 }
@@ -248,7 +295,9 @@ function EffortGuessPills({ created }: { created: Created[] }) {
     if (!guessed.length) return null;
     return (
         <div className="flex flex-wrap gap-1.5 px-1 pt-1.5">
-            {guessed.map((c) => <EffortGuessPill key={c.taskId} {...c} named={guessed.length > 1} />)}
+            {guessed.map((c) => (
+                <EffortGuessPill key={c.taskId} {...c} named={guessed.length > 1} />
+            ))}
         </div>
     );
 }
@@ -262,7 +311,11 @@ export function TaskBatchCard({ ctx }: { ctx: ToolRenderContext<"create_tasks"> 
     const { off, onToggle, removed } = useUnticked(ctx);
     const drafts: TaskDraft[] = ctx.part?.input?.tasks ?? [];
     const created: unknown[] = ctx.part?.output?.created ?? [];
-    const { title, eyebrow, ariaLabel, primaryLabel, doneText } = batchCardText(drafts, drafts.length - off.size, created.length);
+    const { title, eyebrow, ariaLabel, primaryLabel, doneText } = batchCardText(
+        drafts,
+        drafts.length - off.size,
+        created.length,
+    );
     const first = drafts[0] ?? {};
 
     return (
@@ -290,7 +343,14 @@ export function TaskBatchCard({ ctx }: { ctx: ToolRenderContext<"create_tasks"> 
                 ) : (
                     <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5">
                         {drafts.map((draft, i) => (
-                            <DraftRow key={i} draft={draft} i={i} on={!off.has(i)} onToggle={onToggle(i)} terse={persona.terse} />
+                            <DraftRow
+                                key={i}
+                                draft={draft}
+                                i={i}
+                                on={!off.has(i)}
+                                onToggle={onToggle(i)}
+                                terse={persona.terse}
+                            />
                         ))}
                     </div>
                 )}

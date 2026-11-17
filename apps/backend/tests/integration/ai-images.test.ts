@@ -31,7 +31,9 @@ function createBucket() {
         put: vi.fn(async (key: string, value: Uint8Array, _options?: unknown) => void objects.set(key, value)),
         get: vi.fn(async (key: string) => {
             const value = objects.get(key);
-            return value ? { body: new Blob([value]).stream(), httpEtag: '"e"', arrayBuffer: async () => value.buffer } : null;
+            return value
+                ? { body: new Blob([value]).stream(), httpEtag: '"e"', arrayBuffer: async () => value.buffer }
+                : null;
         }),
         delete: vi.fn(async (keys: string | string[]) => {
             for (const key of Array.isArray(keys) ? keys : [keys]) objects.delete(key);
@@ -40,7 +42,10 @@ function createBucket() {
 }
 
 const rows = (userId: string) =>
-    asOwner(async (pg) => (await pg.query<any>("SELECT * FROM ai_images WHERE user_id = $1 ORDER BY created_at", [userId])).rows);
+    asOwner(
+        async (pg) =>
+            (await pg.query<any>("SELECT * FROM ai_images WHERE user_id = $1 ORDER BY created_at", [userId])).rows,
+    );
 
 describe("chat images", () => {
     let bucket: ReturnType<typeof createBucket>;
@@ -59,7 +64,11 @@ describe("chat images", () => {
         const form = new FormData();
         form.set("file", new File([bytes], "IMG_0001.webp", { type: "image/webp" }));
         form.set("conversationId", convo);
-        const res = await createTestApp("/ai/images", aiImageRoutes, as).request("/ai/images", { method: "POST", body: form }, env);
+        const res = await createTestApp("/ai/images", aiImageRoutes, as).request(
+            "/ai/images",
+            { method: "POST", body: form },
+            env,
+        );
         return { status: res.status, body: (await res.json()) as any };
     }
 
@@ -83,7 +92,9 @@ describe("chat images", () => {
         expect(key).toBe(`ai-images/${await hashIdentifier(userId)}/${body.data.id}.webp`);
         expect(key).not.toContain(userId);
         expect(key).not.toContain(row.content_hash);
-        expect(bucket.put.mock.calls[0][2]).toEqual({ httpMetadata: { contentType: "image/webp", cacheControl: expect.any(String) } });
+        expect(bucket.put.mock.calls[0][2]).toEqual({
+            httpMetadata: { contentType: "image/webp", cacheControl: expect.any(String) },
+        });
     });
 
     it("caps unsent uploads, and removing one frees its slot", async () => {
@@ -100,7 +111,10 @@ describe("chat images", () => {
     });
 
     it("rejects anything that isn't a still WebP", async () => {
-        const res = await upload(userId, new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...Array.from({ length: 30 }, () => 0)]));
+        const res = await upload(
+            userId,
+            new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...Array.from({ length: 30 }, () => 0)]),
+        );
         expect(res.status).toBe(415);
         expect(bucket.put).not.toHaveBeenCalled();
     });
@@ -120,10 +134,19 @@ describe("chat images", () => {
     it("refuses a chat turn that references another user's image", async () => {
         const { body } = await upload();
         const other = await createUser();
-        const res = await apiAs(other, "/ai", aiRoutes, env)("POST", "/chat", {
+        const res = await apiAs(
+            other,
+            "/ai",
+            aiRoutes,
+            env,
+        )("POST", "/chat", {
             conversationId,
             currentDate: new Date().toISOString(),
-            message: { id: "m1", role: "user", parts: [{ type: "file", mediaType: "image/webp", url: `cadence-image:${body.data.id}` }] },
+            message: {
+                id: "m1",
+                role: "user",
+                parts: [{ type: "file", mediaType: "image/webp", url: `cadence-image:${body.data.id}` }],
+            },
         });
         expect(res.status).toBe(400);
         expect(res.body.error.code).toBe("IMAGE_NOT_FOUND");
@@ -134,16 +157,25 @@ describe("chat images", () => {
         const ids = [body.data.id];
         const db = getTestDb();
 
-        expect(await withRls(db, userId, (tx) => resolveTurnImages(tx, userId, conversationId, ids))).toEqual({ newCount: 1 });
+        expect(await withRls(db, userId, (tx) => resolveTurnImages(tx, userId, conversationId, ids))).toEqual({
+            newCount: 1,
+        });
         await withRls(db, userId, (tx) => markSent(tx, userId, ids));
-        expect(await withRls(db, userId, (tx) => resolveTurnImages(tx, userId, conversationId, ids))).toEqual({ newCount: 0 });
+        expect(await withRls(db, userId, (tx) => resolveTurnImages(tx, userId, conversationId, ids))).toEqual({
+            newCount: 0,
+        });
         // Sent images belong to the thread: they can no longer be removed as a draft.
         expect((await apiAs(userId, "/ai/images", aiImageRoutes, env)("DELETE", `/${body.data.id}`)).status).toBe(404);
     });
 
     it("keeps a reported image for two more weeks", async () => {
         const { body } = await upload();
-        const res = await apiAs(userId, "/ai/images", aiImageRoutes, env)("POST", `/${body.data.id}/report`, { requestId: "req-1" });
+        const res = await apiAs(
+            userId,
+            "/ai/images",
+            aiImageRoutes,
+            env,
+        )("POST", `/${body.data.id}/report`, { requestId: "req-1" });
         const [row] = await rows(userId);
 
         expect(res.status).toBe(200);
@@ -179,7 +211,10 @@ describe("chat images", () => {
         const orphan = (await upload(userId, webp(2, 2))).body.data.id;
         const stale = (await upload(userId, webp(3, 3))).body.data.id;
         const age = (sql: string, id: string) => asOwner((pg) => pg.query(sql, [id]));
-        await age("UPDATE ai_images SET sent_at = now(), last_used_at = now() - interval '31 days' WHERE id = $1", stale);
+        await age(
+            "UPDATE ai_images SET sent_at = now(), last_used_at = now() - interval '31 days' WHERE id = $1",
+            stale,
+        );
         const fresh = (await upload(userId, webp(6, 6), crypto.randomUUID())).body.data.id;
         await age("UPDATE ai_images SET created_at = now() - interval '25 hours' WHERE id = $1", orphan);
         await age("UPDATE ai_images SET sent_at = now() WHERE id = $1", fresh);

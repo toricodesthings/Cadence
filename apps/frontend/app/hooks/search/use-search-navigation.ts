@@ -26,11 +26,7 @@ export function useSearchNavigation() {
 
             // A match inside notes/headings opens the note room rather than navigating.
             if (result.noteAction) {
-                openNoteRoom(
-                    result.noteAction.taskId,
-                    result.noteAction.taskTitle,
-                    result.noteAction.scrollToHeading,
-                );
+                openNoteRoom(result.noteAction.taskId, result.noteAction.taskTitle, result.noteAction.scrollToHeading);
                 return;
             }
 

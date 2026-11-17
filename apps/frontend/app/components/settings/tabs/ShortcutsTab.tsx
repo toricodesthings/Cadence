@@ -9,10 +9,19 @@ import { useDesktopCommandPreferences } from "../../../hooks/ui/use-desktop-comm
 import { IS_DESKTOP_RUNTIME } from "../../../platform/runtime";
 import { SHORTCUT_SECTIONS, bindingKeys } from "../../../lib/constants/shortcuts";
 
-const KBD = "inline-flex items-center rounded-lg border border-white/10 bg-black/40 px-2 py-1 font-mono text-xs text-twilight-text-soft";
+const KBD =
+    "inline-flex items-center rounded-lg border border-white/10 bg-black/40 px-2 py-1 font-mono text-xs text-twilight-text-soft";
 
 function Keys({ keys }: { keys: string[] }) {
-    return <span className="flex flex-wrap justify-end gap-1">{keys.map((k, i) => <kbd key={i} className={KBD}>{k}</kbd>)}</span>;
+    return (
+        <span className="flex flex-wrap justify-end gap-1">
+            {keys.map((k, i) => (
+                <kbd key={i} className={KBD}>
+                    {k}
+                </kbd>
+            ))}
+        </span>
+    );
 }
 
 function KeyBindingCapture({
@@ -29,27 +38,30 @@ function KeyBindingCapture({
     const [capturing, setCapturing] = useState(false);
     const inputRef = useRef<HTMLButtonElement>(null);
 
-    const handleKeyDown = useCallback((e: KeyboardEvent) => {
-        if (!capturing) return;
-        e.preventDefault();
-        e.stopPropagation();
+    const handleKeyDown = useCallback(
+        (e: KeyboardEvent) => {
+            if (!capturing) return;
+            e.preventDefault();
+            e.stopPropagation();
 
-        const parts: string[] = [];
-        if (e.metaKey || e.ctrlKey) parts.push("mod");
-        if (e.altKey) parts.push("alt");
-        if (e.shiftKey) parts.push("shift");
+            const parts: string[] = [];
+            if (e.metaKey || e.ctrlKey) parts.push("mod");
+            if (e.altKey) parts.push("alt");
+            if (e.shiftKey) parts.push("shift");
 
-        const key = e.key.toLowerCase();
-        if (!["control", "meta", "alt", "shift"].includes(key)) {
-            parts.push(key);
-        }
+            const key = e.key.toLowerCase();
+            if (!["control", "meta", "alt", "shift"].includes(key)) {
+                parts.push(key);
+            }
 
-        if (parts.length > 0 && !["control", "meta", "alt", "shift"].includes(e.key.toLowerCase())) {
-            const binding = parts.join("+");
-            onChange(binding);
-            setCapturing(false);
-        }
-    }, [capturing, onChange]);
+            if (parts.length > 0 && !["control", "meta", "alt", "shift"].includes(e.key.toLowerCase())) {
+                const binding = parts.join("+");
+                onChange(binding);
+                setCapturing(false);
+            }
+        },
+        [capturing, onChange],
+    );
 
     useEffect(() => {
         if (capturing) {
@@ -70,9 +82,7 @@ function KeyBindingCapture({
                         : "border-white/10 bg-black/40 text-twilight-text-soft hover:bg-white/[0.06]"
                 }`}
             >
-                {capturing ? "Press a key…" : (
-                    <kbd className="tracking-wider">{bindingKeys(value).join(" ")}</kbd>
-                )}
+                {capturing ? "Press a key…" : <kbd className="tracking-wider">{bindingKeys(value).join(" ")}</kbd>}
             </button>
             {value !== defaultValue && (
                 <Button
@@ -107,9 +117,7 @@ export function ShortcutsTab() {
                 >
                     <Switch
                         checked={shortcutSettings.enabled}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ shortcuts: { enabled: val } })
-                        }
+                        onCheckedChange={(val) => updateSettings.mutate({ shortcuts: { enabled: val } })}
                     />
                 </SettingsRow>
                 {IS_DESKTOP_RUNTIME ? (
@@ -130,18 +138,35 @@ export function ShortcutsTab() {
             {SHORTCUT_SECTIONS.map((section) => (
                 <SettingsSection key={section.title} title={section.title}>
                     <SettingsList>
-                        {section.items.filter((item) => IS_DESKTOP_RUNTIME || !item.desktopOnly).map((item) => (
-                            <SettingsRow key={item.label} inline title={item.label}>
-                                {item.binding ? (
-                                    <KeyBindingCapture
-                                        value={bindings[item.binding]}
-                                        defaultValue={SETTINGS_DEFAULTS.shortcuts.bindings[item.binding]}
-                                        onChange={(newKey) => updateSettings.mutate({ shortcuts: { bindings: { [item.binding!]: newKey } } })}
-                                        onReset={() => updateSettings.mutate({ shortcuts: { bindings: { [item.binding!]: SETTINGS_DEFAULTS.shortcuts.bindings[item.binding!] } } })}
-                                    />
-                                ) : <Keys keys={item.keys ?? []} />}
-                            </SettingsRow>
-                        ))}
+                        {section.items
+                            .filter((item) => IS_DESKTOP_RUNTIME || !item.desktopOnly)
+                            .map((item) => (
+                                <SettingsRow key={item.label} inline title={item.label}>
+                                    {item.binding ? (
+                                        <KeyBindingCapture
+                                            value={bindings[item.binding]}
+                                            defaultValue={SETTINGS_DEFAULTS.shortcuts.bindings[item.binding]}
+                                            onChange={(newKey) =>
+                                                updateSettings.mutate({
+                                                    shortcuts: { bindings: { [item.binding!]: newKey } },
+                                                })
+                                            }
+                                            onReset={() =>
+                                                updateSettings.mutate({
+                                                    shortcuts: {
+                                                        bindings: {
+                                                            [item.binding!]:
+                                                                SETTINGS_DEFAULTS.shortcuts.bindings[item.binding!],
+                                                        },
+                                                    },
+                                                })
+                                            }
+                                        />
+                                    ) : (
+                                        <Keys keys={item.keys ?? []} />
+                                    )}
+                                </SettingsRow>
+                            ))}
                     </SettingsList>
                 </SettingsSection>
             ))}

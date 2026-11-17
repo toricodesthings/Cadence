@@ -13,10 +13,11 @@ export function ProjectColorPicker({ value, onChange }: { value: string; onChang
                         type="button"
                         onClick={() => onChange(opt.value)}
                         aria-label={`Select ${opt.label} color`}
-                        className={`h-5 w-5 cursor-pointer rounded-full transition-[transform,opacity] duration-150 ${value === opt.value
-                            ? "scale-110 ring-2 ring-offset-2 ring-offset-twilight-surface"
-                            : "opacity-60 hover:opacity-100"
-                            }`}
+                        className={`h-5 w-5 cursor-pointer rounded-full transition-[transform,opacity] duration-150 ${
+                            value === opt.value
+                                ? "scale-110 ring-2 ring-offset-2 ring-offset-twilight-surface"
+                                : "opacity-60 hover:opacity-100"
+                        }`}
                         style={{ backgroundColor: opt.varName }}
                     />
                 </Tip>
@@ -42,7 +43,15 @@ export function ProjectColorPicker({ value, onChange }: { value: string; onChang
 }
 
 /** A list's look and name, as creating and editing a list both ask for it: emoji, name, then colour. */
-export function ListIdentityFields({ emoji, onEmoji, name, onName, color, onColor, onKeyDown }: {
+export function ListIdentityFields({
+    emoji,
+    onEmoji,
+    name,
+    onName,
+    color,
+    onColor,
+    onKeyDown,
+}: {
     emoji: string;
     onEmoji: (emoji: string) => void;
     name: string;

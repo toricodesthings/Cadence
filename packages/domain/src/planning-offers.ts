@@ -55,8 +55,13 @@ export function eligibleOffers(
     const out: Record<PlanningOffer, string[]> = { steps: [], later: [] };
     const stopped = (kind: PlanningOffer) =>
         ctx.avoid.includes(kind) ||
-        new Set(declines.filter((d) => d.kind === kind && d.saidOn > addDays(today, -STOP_WINDOW_DAYS)).map((d) => d.taskId)).size >= DECLINES_TO_STOP;
-    const declined = (t: OfferTask, kind: PlanningOffer) => declines.some((d) => d.taskId === t.id && d.kind === kind && d.fingerprint === t.fingerprint);
+        new Set(
+            declines
+                .filter((d) => d.kind === kind && d.saidOn > addDays(today, -STOP_WINDOW_DAYS))
+                .map((d) => d.taskId),
+        ).size >= DECLINES_TO_STOP;
+    const declined = (t: OfferTask, kind: PlanningOffer) =>
+        declines.some((d) => d.taskId === t.id && d.kind === kind && d.fingerprint === t.fingerprint);
 
     const offered = (t: OfferTask, kind: PlanningOffer) => !stopped(kind) && !declined(t, kind);
 

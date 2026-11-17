@@ -76,7 +76,12 @@ export async function compressImageToBase64(file: File): Promise<string> {
  * display and under the API's byte limit. The server re-checks and strips again.
  */
 export async function compressBackgroundImage(file: File): Promise<File> {
-    const blob = await encodeWebp(file, BACKGROUND_IMAGE_LIMITS.maxDimension, [0.86, 0.72, 0.58], BACKGROUND_IMAGE_LIMITS.maxBytes);
+    const blob = await encodeWebp(
+        file,
+        BACKGROUND_IMAGE_LIMITS.maxDimension,
+        [0.86, 0.72, 0.58],
+        BACKGROUND_IMAGE_LIMITS.maxBytes,
+    );
     return new File([blob], "background.webp", { type: "image/webp" });
 }
 

@@ -262,8 +262,12 @@ export type TurnSpend = { costUsd?: number; servedModel?: string };
  * every response (`providerMetadata.openrouter.usage.cost`); `servedModel` differs
  * from the requested model when OpenRouter falls back. No cost reported → stays unset.
  */
-export function addStepSpend(spend: TurnSpend, step: { providerMetadata?: unknown; response?: { modelId?: string } }): TurnSpend {
-    const cost = (step.providerMetadata as { openrouter?: { usage?: { cost?: unknown } } } | undefined)?.openrouter?.usage?.cost;
+export function addStepSpend(
+    spend: TurnSpend,
+    step: { providerMetadata?: unknown; response?: { modelId?: string } },
+): TurnSpend {
+    const cost = (step.providerMetadata as { openrouter?: { usage?: { cost?: unknown } } } | undefined)?.openrouter
+        ?.usage?.cost;
     return {
         costUsd: typeof cost === "number" ? (spend.costUsd ?? 0) + cost : spend.costUsd,
         servedModel: step.response?.modelId ?? spend.servedModel,
@@ -371,12 +375,7 @@ export async function admit(
  * (Window TTLs are NOT re-armed here: a turn is capped at 45s ≪ the 5h/7d windows,
  * so a window can never roll over mid-turn and leave a TTL-less recreated key.)
  */
-export async function settle(
-    redis: Redis,
-    userKey: string,
-    reserved: number,
-    actualTokens: number,
-): Promise<void> {
+export async function settle(redis: Redis, userKey: string, reserved: number, actualTokens: number): Promise<void> {
     const k = rlKeys(userKey);
     const delta = Math.max(0, actualTokens) - reserved; // negative = refund the unused hold
     await redis.eval(SETTLE_SCRIPT, [k.tok5h, k.tok7d, k.inflight], [String(delta)]);
@@ -435,7 +434,12 @@ function resetEpoch(pttlMs: number): number | null {
 export async function readImageUsage(redis: Redis, userKey: string, limits: AiLimits): Promise<AiImageUsage> {
     const k = rlKeys(userKey);
     const res = (await redis.pipeline().get(k.img24h).pttl(k.img24h).exec()) as unknown[];
-    return { used: num(res[0]), limit: limits.images24h, perMessage: limits.imagesPerMessage, resetEpoch: resetEpoch(num(res[1])) };
+    return {
+        used: num(res[0]),
+        limit: limits.images24h,
+        perMessage: limits.imagesPerMessage,
+        resetEpoch: resetEpoch(num(res[1])),
+    };
 }
 
 /**

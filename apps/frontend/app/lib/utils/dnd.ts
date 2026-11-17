@@ -1,7 +1,4 @@
-import {
-    MouseSensor as LibMouseSensor,
-    TouchSensor as LibTouchSensor,
-} from "@dnd-kit/core";
+import { MouseSensor as LibMouseSensor, TouchSensor as LibTouchSensor } from "@dnd-kit/core";
 
 function allowsDrag(target: EventTarget | null) {
     // Element, not HTMLElement: a press often lands on the grip's SVG icon.
@@ -24,8 +21,7 @@ export class TouchSensor extends LibTouchSensor {
     static activators = [
         {
             eventName: "onTouchStart" as const,
-            handler: ({ nativeEvent }: { nativeEvent: TouchEvent }) =>
-                allowsDrag(nativeEvent.target),
+            handler: ({ nativeEvent }: { nativeEvent: TouchEvent }) => allowsDrag(nativeEvent.target),
         },
     ];
 }

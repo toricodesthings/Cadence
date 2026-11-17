@@ -41,11 +41,7 @@ const UPLOAD_BODY_SLACK = 64 * 1024;
 const uploadFormSchema = backgroundUploadMetaSchema.extend({ file: z.instanceof(File) });
 
 async function readSettings(tx: Tx, userId: string): Promise<SettingsView> {
-    const [user] = await tx
-        .select({ settings: users.settings })
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
+    const [user] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
     return normalizeSettings((user?.settings ?? {}) as Record<string, any>);
 }
 
@@ -92,7 +88,7 @@ export const backgroundRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
             });
             const bucket = requireBucket(c.env, "Background");
             const idempotencyKey = getIdempotencyKey(c);
-    
+
             const replayed = await withCallerRls(c, async (tx) =>
                 (await checkIdempotency(tx, userId, idempotencyKey)) ? readSettings(tx, userId) : null,
             );

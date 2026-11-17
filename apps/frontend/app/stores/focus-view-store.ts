@@ -62,7 +62,7 @@ export const useFocusViewStore = create<FocusViewState>()(
                         definition: cloneDefinition(view.definition),
                     }));
                     const activeSavedView = state.activeSavedViewId
-                        ? hydratedViews.find((view) => view.id === state.activeSavedViewId) ?? null
+                        ? (hydratedViews.find((view) => view.id === state.activeSavedViewId) ?? null)
                         : null;
 
                     return {
@@ -71,13 +71,14 @@ export const useFocusViewStore = create<FocusViewState>()(
                         activeDefinition: activeSavedView
                             ? cloneDefinition(activeSavedView.definition)
                             : state.activePresetId
-                                ? state.activeDefinition
-                                : state.activeSavedViewId
-                                    ? null
-                                    : state.activeDefinition,
-                        customDefinition: activeSavedView && activeSavedView.source !== "preset"
-                            ? cloneDefinition(activeSavedView.definition)
-                            : state.customDefinition,
+                              ? state.activeDefinition
+                              : state.activeSavedViewId
+                                ? null
+                                : state.activeDefinition,
+                        customDefinition:
+                            activeSavedView && activeSavedView.source !== "preset"
+                                ? cloneDefinition(activeSavedView.definition)
+                                : state.customDefinition,
                     };
                 }),
 
@@ -111,9 +112,10 @@ export const useFocusViewStore = create<FocusViewState>()(
                     definition: cloneDefinition(definition),
                     isPinned: true,
                     source: state.activePresetId ? "preset" : "custom",
-                    orderIndex: state.savedViews.length > 0
-                        ? Math.max(...state.savedViews.map((view) => view.orderIndex)) + 1
-                        : 0,
+                    orderIndex:
+                        state.savedViews.length > 0
+                            ? Math.max(...state.savedViews.map((view) => view.orderIndex)) + 1
+                            : 0,
                 };
 
                 set((current) => ({

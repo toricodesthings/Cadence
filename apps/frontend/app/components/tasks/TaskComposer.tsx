@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Calendar, CheckSquare, Clock, FolderOpen, Plus, Repeat, StickyNote, Tag, X } from "lucide-react";
 import { ChipScroller } from "../shared/ChipScroller";
-import { ComposerMore, ComposerRow, ComposerRows, ComposerTitle, COMPOSER_FIELD, ROW_PILL, type ComposerDraft } from "../shared/Composer";
+import {
+    ComposerMore,
+    ComposerRow,
+    ComposerRows,
+    ComposerTitle,
+    COMPOSER_FIELD,
+    ROW_PILL,
+    type ComposerDraft,
+} from "../shared/Composer";
 import { DatePicker } from "../shared/DatePicker";
 import { REPEAT_PRESETS } from "./RecurrencePicker";
 import { Switch } from "../primitives";
@@ -134,16 +142,25 @@ export function useTaskComposer({
     const { effort } = effortChoice;
 
     const reset = () => {
-        setTitle(""); setNotes(""); setPriority(0); effortChoice.reset(); setManualProject(undefined); setManualTags(undefined); setManualRepeat(undefined); choices.reset();
+        setTitle("");
+        setNotes("");
+        setPriority(0);
+        effortChoice.reset();
+        setManualProject(undefined);
+        setManualTags(undefined);
+        setManualRepeat(undefined);
+        choices.reset();
         typed.reset();
     };
 
-    const listName = project ? null : projects.find((p) => p.id === resolvedProjectId)?.name ?? null;
+    const listName = project ? null : (projects.find((p) => p.id === resolvedProjectId)?.name ?? null);
 
-    const toggleTag = (tagId: string) => tagId !== lockedTag?.id && setManualTags((current) => {
-        const shown = current ?? nlp.fields.tagIds;
-        return shown.includes(tagId) ? shown.filter((id) => id !== tagId) : [...shown, tagId];
-    });
+    const toggleTag = (tagId: string) =>
+        tagId !== lockedTag?.id &&
+        setManualTags((current) => {
+            const shown = current ?? nlp.fields.tagIds;
+            return shown.includes(tagId) ? shown.filter((id) => id !== tagId) : [...shown, tagId];
+        });
 
     const submit = async () => {
         if (!title.trim() || createTask.isPending) return;
@@ -166,7 +183,8 @@ export function useTaskComposer({
                 rawInput: title,
                 title: finalTitle,
                 schedule: draftSchedule(draft.fields, settings?.tasks?.defaultDueDate),
-                priority: (draft.fields.priority || mapPriorityNameToNumber(settings?.tasks?.defaultPriority)) as TaskPriority,
+                priority: (draft.fields.priority ||
+                    mapPriorityNameToNumber(settings?.tasks?.defaultPriority)) as TaskPriority,
                 projectId: project?.id ?? draft.fields.projectId,
                 tagIds: Array.from(new Set([...(lockedTag ? [lockedTag.id] : []), ...draft.fields.tagIds])),
                 waitingOn: draft.fields.waitingOn,
@@ -193,30 +211,61 @@ export function useTaskComposer({
         onSubmitted?.();
     };
 
-    const band = projectSections.length > 0 ? (
-        <ChipScroller role="group" aria-label="Add to section">
-            {[{ id: UNSECTIONED_ID, name: "Unsectioned" }, ...projectSections].map((s) => (
-                <button key={s.id} type="button" aria-pressed={target === s.id} onClick={() => project?.onSectionChange(s.id)} className={chipClass(target === s.id)}>
-                    {s.name}
-                </button>
-            ))}
-        </ChipScroller>
-    ) : undefined;
+    const band =
+        projectSections.length > 0 ? (
+            <ChipScroller role="group" aria-label="Add to section">
+                {[{ id: UNSECTIONED_ID, name: "Unsectioned" }, ...projectSections].map((s) => (
+                    <button
+                        key={s.id}
+                        type="button"
+                        aria-pressed={target === s.id}
+                        onClick={() => project?.onSectionChange(s.id)}
+                        className={chipClass(target === s.id)}
+                    >
+                        {s.name}
+                    </button>
+                ))}
+            </ChipScroller>
+        ) : undefined;
 
     return {
         title: "Add task",
         icon: CheckSquare,
         subtitle: project
-            ? (projectSections.length > 0 ? `${project.name} · ${targetName}` : project.name)
-            : lockedTag ? `Tagged #${lockedTag.name}` : "Lands in Capture unless you pick a list",
+            ? projectSections.length > 0
+                ? `${project.name} · ${targetName}`
+                : project.name
+            : lockedTag
+              ? `Tagged #${lockedTag.name}`
+              : "Lands in Capture unless you pick a list",
         band,
-        isDirty: Boolean(title.trim() || notes.trim() || typed.touched || manualRepeat || priority > 0 || effort !== null || manualProject || manualTags?.length),
+        isDirty: Boolean(
+            title.trim() ||
+            notes.trim() ||
+            typed.touched ||
+            manualRepeat ||
+            priority > 0 ||
+            effort !== null ||
+            manualProject ||
+            manualTags?.length,
+        ),
         discardTitle: "Discard this task?",
-        submit: { onSubmit: () => void submit(), submitLabel: createTask.isPending ? "Adding…" : "Add task", icon: Plus, disabled: !submitTitle || createTask.isPending },
+        submit: {
+            onSubmit: () => void submit(),
+            submitLabel: createTask.isPending ? "Adding…" : "Add task",
+            icon: Plus,
+            disabled: !submitTitle || createTask.isPending,
+        },
         reset,
         children: (
             <>
-                <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="space-y-3">
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        void submit();
+                    }}
+                    className="space-y-3"
+                >
                     <ComposerTitle
                         inputRef={titleRef}
                         value={title}
@@ -236,7 +285,15 @@ export function useTaskComposer({
 
                 <ComposerRows>
                     <ComposerRow icon={Calendar} label="Date">
-                        <DatePicker label="Date" value={when.date} placeholder="None" className={ROW_PILL} onChange={(date) => { if (date) typed.edit({ date }); }} />
+                        <DatePicker
+                            label="Date"
+                            value={when.date}
+                            placeholder="None"
+                            className={ROW_PILL}
+                            onChange={(date) => {
+                                if (date) typed.edit({ date });
+                            }}
+                        />
                         {when.date ? (
                             <button
                                 type="button"
@@ -251,12 +308,30 @@ export function useTaskComposer({
                     {when.date ? (
                         <>
                             <ComposerRow icon={Clock} label="All-day">
-                                <Switch checked={when.allDay} onCheckedChange={(allDay) => typed.edit({ allDay })} aria-label="All day" />
+                                <Switch
+                                    checked={when.allDay}
+                                    onCheckedChange={(allDay) => typed.edit({ allDay })}
+                                    aria-label="All day"
+                                />
                             </ComposerRow>
                             {when.allDay ? null : (
                                 <>
-                                    <ComposerRow label="Starts"><TimePicker label="Start time" value={when.start} onChange={(start) => typed.edit({ start })} className={ROW_PILL} /></ComposerRow>
-                                    <ComposerRow label="Ends"><TimePicker label="End time" value={when.end} onChange={(end) => typed.edit({ end })} className={ROW_PILL} /></ComposerRow>
+                                    <ComposerRow label="Starts">
+                                        <TimePicker
+                                            label="Start time"
+                                            value={when.start}
+                                            onChange={(start) => typed.edit({ start })}
+                                            className={ROW_PILL}
+                                        />
+                                    </ComposerRow>
+                                    <ComposerRow label="Ends">
+                                        <TimePicker
+                                            label="End time"
+                                            value={when.end}
+                                            onChange={(end) => typed.edit({ end })}
+                                            className={ROW_PILL}
+                                        />
+                                    </ComposerRow>
                                 </>
                             )}
                             <ComposerRow icon={Repeat} label="Repeat">
@@ -279,7 +354,13 @@ export function useTaskComposer({
                                     label="List"
                                     value={resolvedProjectId ?? ""}
                                     onChange={(id) => setManualProject(id || null)}
-                                    options={[{ value: "", label: "None" }, ...projects.map((p) => ({ value: p.id, label: p.emoji ? `${p.emoji} ${p.name}` : p.name }))]}
+                                    options={[
+                                        { value: "", label: "None" },
+                                        ...projects.map((p) => ({
+                                            value: p.id,
+                                            label: p.emoji ? `${p.emoji} ${p.name}` : p.name,
+                                        })),
+                                    ]}
                                 />
                             </ComposerRow>
                         </ComposerRows>

@@ -51,48 +51,87 @@ export function HabitsCanvas({
     }, [sorted, days, today]);
     const { gridProps, tabIndexFor } = useRovingGrid(firstCell);
 
-    const rowsOf = (ordered: Habit[]) => ordered.map((habit, row) => (
-        <RoutineWeekRow
-            key={habit.id}
-            habit={habit}
-            days={days}
-            today={today}
-            row={row}
-            stacked={stacked}
-            selected={habit.id === selectedHabitId}
-            showStreaks={showStreaks}
-            showWeekCount={showWeekCount}
-            bloom={bloom}
-            tabIndexFor={tabIndexFor}
-            onSelect={() => onSelectHabit(habit.id)}
-        />
-    ));
+    const rowsOf = (ordered: Habit[]) =>
+        ordered.map((habit, row) => (
+            <RoutineWeekRow
+                key={habit.id}
+                habit={habit}
+                days={days}
+                today={today}
+                row={row}
+                stacked={stacked}
+                selected={habit.id === selectedHabitId}
+                showStreaks={showStreaks}
+                showWeekCount={showWeekCount}
+                bloom={bloom}
+                tabIndexFor={tabIndexFor}
+                onSelect={() => onSelectHabit(habit.id)}
+            />
+        ));
 
     return (
         <div className="min-h-0 flex-1 overflow-auto px-4 pb-28 scrollbar-thin sm:px-6">
             {lead}
-            {sorted.length === 0 ? empty : stacked ? (
+            {sorted.length === 0 ? (
+                empty
+            ) : stacked ? (
                 <SortableRoutines habits={sorted} sort={sort} onSortChange={onSortChange} layout="list">
-                    {(ordered) => <div role="group" aria-label="Routines this week" {...gridProps} className="flex flex-col gap-3">{rowsOf(ordered)}</div>}
+                    {(ordered) => (
+                        <div
+                            role="group"
+                            aria-label="Routines this week"
+                            {...gridProps}
+                            className="flex flex-col gap-3"
+                        >
+                            {rowsOf(ordered)}
+                        </div>
+                    )}
                 </SortableRoutines>
             ) : (
-                <div role="grid" aria-label="Routines this week" {...gridProps} className="surface-card min-w-[36rem] rounded-[24px] p-2">
-                    <div role="row" className={`photo-shell-surface layer-shell-base sticky top-0 grid ${weekGridColumns(showWeekCount)} items-end rounded-2xl bg-twilight-deep/75 px-2 py-2 backdrop-blur-xl`}>
+                <div
+                    role="grid"
+                    aria-label="Routines this week"
+                    {...gridProps}
+                    className="surface-card min-w-[36rem] rounded-[24px] p-2"
+                >
+                    <div
+                        role="row"
+                        className={`photo-shell-surface layer-shell-base sticky top-0 grid ${weekGridColumns(showWeekCount)} items-end rounded-2xl bg-twilight-deep/75 px-2 py-2 backdrop-blur-xl`}
+                    >
                         <span />
                         {days.map((day) => {
                             const isToday = day.iso === today;
                             return (
                                 <span key={day.iso} role="columnheader" className="flex flex-col items-center gap-1">
-                                    <span className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${isToday ? "text-accent-primary" : "text-twilight-text-soft"}`}>{day.short}</span>
-                                    <span className={`flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-medium tabular-nums ${isToday ? "bg-accent-primary font-semibold text-[var(--primary-foreground)]" : "text-twilight-text"}`}>{day.dayNum}</span>
+                                    <span
+                                        className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${isToday ? "text-accent-primary" : "text-twilight-text-soft"}`}
+                                    >
+                                        {day.short}
+                                    </span>
+                                    <span
+                                        className={`flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-medium tabular-nums ${isToday ? "bg-accent-primary font-semibold text-[var(--primary-foreground)]" : "text-twilight-text"}`}
+                                    >
+                                        {day.dayNum}
+                                    </span>
                                 </span>
                             );
                         })}
-                        {showWeekCount ? <span role="columnheader" className="text-right text-[11px] font-medium text-twilight-text-muted">This week</span> : null}
+                        {showWeekCount ? (
+                            <span
+                                role="columnheader"
+                                className="text-right text-[11px] font-medium text-twilight-text-muted"
+                            >
+                                This week
+                            </span>
+                        ) : null}
                     </div>
                     {/* Today's cells join into one column, rounded at its ends. */}
                     <SortableRoutines habits={sorted} sort={sort} onSortChange={onSortChange} layout="list">
-                        {(ordered) => <div className="mt-1 flex flex-col [&>*:first-child_[data-today]]:rounded-t-2xl [&>*:last-child_[data-today]]:rounded-b-2xl">{rowsOf(ordered)}</div>}
+                        {(ordered) => (
+                            <div className="mt-1 flex flex-col [&>*:first-child_[data-today]]:rounded-t-2xl [&>*:last-child_[data-today]]:rounded-b-2xl">
+                                {rowsOf(ordered)}
+                            </div>
+                        )}
                     </SortableRoutines>
                 </div>
             )}

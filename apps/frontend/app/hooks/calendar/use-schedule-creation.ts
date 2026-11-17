@@ -18,21 +18,44 @@ export function useScheduleCreation(currentDate: LocalDate) {
     const close = useCallback(() => setPopover(null), []);
     const handleGridClick = useCallback((info: CalendarEventInfo) => {
         const startMinute = info.startHour * 60 + info.startMinute;
-        setPopover({ info, tab: info.tab ?? "task", draftPlacement: info.tab === "event" ? null : { dateStr: info.date, startMinute, endMinute: startMinute + 30 } });
+        setPopover({
+            info,
+            tab: info.tab ?? "task",
+            draftPlacement:
+                info.tab === "event" ? null : { dateStr: info.date, startMinute, endMinute: startMinute + 30 },
+        });
     }, []);
     const handleAddAt = useCallback((start: Instant, minutes: number) => {
         const [hour, minute] = toTimeValue(start).split(":").map(Number);
-        setPopover({ tab: "task", draftPlacement: null, info: {
-            date: dayOfInstant(start), startHour: hour, startMinute: minute, durationMinutes: minutes, ...anchor(),
-        } });
+        setPopover({
+            tab: "task",
+            draftPlacement: null,
+            info: {
+                date: dayOfInstant(start),
+                startHour: hour,
+                startMinute: minute,
+                durationMinutes: minutes,
+                ...anchor(),
+            },
+        });
     }, []);
-    const openTask = useCallback((track: boolean) => {
-        const hour = Number(wallTimeOf(new Date(), getUserZone()).slice(0, 2));
-        if (track) trackUsageEvent("schedule.quick_add_used", { surface: "schedule_toolbar", object_type: "task" });
-        setPopover((previous) => ({ tab: "task", draftPlacement: previous?.draftPlacement ?? null, info: {
-            date: currentDate, startHour: Math.min(23, hour + 1), startMinute: 0, ...anchor(),
-        } }));
-    }, [currentDate]);
+    const openTask = useCallback(
+        (track: boolean) => {
+            const hour = Number(wallTimeOf(new Date(), getUserZone()).slice(0, 2));
+            if (track) trackUsageEvent("schedule.quick_add_used", { surface: "schedule_toolbar", object_type: "task" });
+            setPopover((previous) => ({
+                tab: "task",
+                draftPlacement: previous?.draftPlacement ?? null,
+                info: {
+                    date: currentDate,
+                    startHour: Math.min(23, hour + 1),
+                    startMinute: 0,
+                    ...anchor(),
+                },
+            }));
+        },
+        [currentDate],
+    );
     const handleAddTaskToolbar = useCallback(() => openTask(true), [openTask]);
     const handleAddTaskShortcut = useCallback(() => openTask(false), [openTask]);
     return { popover, close, handleGridClick, handleAddAt, handleAddTaskToolbar, handleAddTaskShortcut };

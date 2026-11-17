@@ -64,7 +64,12 @@ function byteSizeOfPart(part: unknown): number {
 function isImageReference(part: unknown): boolean {
     if (!part || typeof part !== "object") return false;
     const { type, mediaType, url, ...rest } = part as Record<string, unknown>;
-    return type === "file" && mediaType === CHAT_IMAGE_MEDIA_TYPE && parseChatImageUrl(url) !== null && Object.keys(rest).length === 0;
+    return (
+        type === "file" &&
+        mediaType === CHAT_IMAGE_MEDIA_TYPE &&
+        parseChatImageUrl(url) !== null &&
+        Object.keys(rest).length === 0
+    );
 }
 
 /**
@@ -90,31 +95,19 @@ export function assertMessageWithinCaps(
     }
 
     if (parts.length > MAX_PARTS_PER_MESSAGE) {
-        throw new AppError(
-            400,
-            "INVALID_REQUEST",
-            `Message has too many parts (max ${MAX_PARTS_PER_MESSAGE}).`,
-        );
+        throw new AppError(400, "INVALID_REQUEST", `Message has too many parts (max ${MAX_PARTS_PER_MESSAGE}).`);
     }
 
     let totalChars = 0;
     for (const part of parts) {
         if (byteSizeOfPart(part) > MAX_PART_BYTES) {
-            throw new AppError(
-                400,
-                "INVALID_REQUEST",
-                `A message part is too large (max ${MAX_PART_BYTES} bytes).`,
-            );
+            throw new AppError(400, "INVALID_REQUEST", `A message part is too large (max ${MAX_PART_BYTES} bytes).`);
         }
         totalChars += textLengthOfPart(part);
     }
 
     if (totalChars > MAX_MESSAGE_CHARS) {
-        throw new AppError(
-            400,
-            "INVALID_REQUEST",
-            `Message is too long (max ${MAX_MESSAGE_CHARS} characters).`,
-        );
+        throw new AppError(400, "INVALID_REQUEST", `Message is too long (max ${MAX_MESSAGE_CHARS} characters).`);
     }
 }
 

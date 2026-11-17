@@ -24,7 +24,10 @@ let db: ReturnType<typeof drizzle<typeof schema>> | undefined;
 
 export async function startTestDb() {
     // The migrated database global-setup.ts built once for this run.
-    client = new PGlite({ extensions: { vector, pg_trgm }, loadDataDir: new Blob([readFileSync(inject("testDbSnapshot"))]) });
+    client = new PGlite({
+        extensions: { vector, pg_trgm },
+        loadDataDir: new Blob([readFileSync(inject("testDbSnapshot"))]),
+    });
     db = drizzle(client, { schema });
     // Superusers bypass RLS. Run as the worker's role so policies and grants apply as in production,
     // and in UTC like Neon so timestamp text matches what production returns.
@@ -53,15 +56,17 @@ export async function asOwner<T>(fn: (pg: PGlite) => Promise<T>): Promise<T> {
 }
 
 /** Inserts a fresh user and returns its id. Unset `settings` / `zone` (`users.time_zone`) keep the column defaults. */
-export async function createUser({ settings, zone }: { settings?: Record<string, unknown>; zone?: string } = {}): Promise<string> {
+export async function createUser({
+    settings,
+    zone,
+}: { settings?: Record<string, unknown>; zone?: string } = {}): Promise<string> {
     const id = crypto.randomUUID();
     await asOwner(async (pg) => {
         await pg.query("INSERT INTO users (id) VALUES ($1)", [id]);
-        await pg.query("UPDATE users SET settings = COALESCE($2::jsonb, settings), time_zone = COALESCE($3, time_zone) WHERE id = $1", [
-            id,
-            settings ? JSON.stringify(settings) : null,
-            zone ?? null,
-        ]);
+        await pg.query(
+            "UPDATE users SET settings = COALESCE($2::jsonb, settings), time_zone = COALESCE($3, time_zone) WHERE id = $1",
+            [id, settings ? JSON.stringify(settings) : null, zone ?? null],
+        );
     });
     return id;
 }

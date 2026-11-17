@@ -2,10 +2,33 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useFocusViewUrl } from "../../hooks/ui/use-focus-view-url";
 import { FOCUS_VIEW_PRESETS, composeFocusView } from "@cadence/nlp/focus-views";
 import { useFocusViewStore, type CaptureOrder } from "../../stores/focus-view-store";
-import { useCreateFocusView, useDeleteFocusView, useFocusViews, useUpdateFocusView } from "../../hooks/core/use-focus-views";
+import {
+    useCreateFocusView,
+    useDeleteFocusView,
+    useFocusViews,
+    useUpdateFocusView,
+} from "../../hooks/core/use-focus-views";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useProjects } from "../../hooks/projects/use-projects";
-import { Zap, Clock, CalendarX2, UserCheck, Brain, CloudFog, Sparkles, ArrowRight, ArrowDown, ArrowUp, Flag, Check, X, BookmarkPlus, Pin, Trash2, Pencil } from "lucide-react";
+import {
+    Zap,
+    Clock,
+    CalendarX2,
+    UserCheck,
+    Brain,
+    CloudFog,
+    Sparkles,
+    ArrowRight,
+    ArrowDown,
+    ArrowUp,
+    Flag,
+    Check,
+    X,
+    BookmarkPlus,
+    Pin,
+    Trash2,
+    Pencil,
+} from "lucide-react";
 import * as Popover from "../primitives/Popover";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
@@ -38,7 +61,12 @@ const ORDER_LABELS: Partial<Record<CaptureOrder, string>> = { oldest: "Oldest", 
 type SavedFocusView = ReturnType<typeof useFocusViewStore.getState>["savedViews"][number];
 
 /** A human-readable label for the active filter: the preset or saved view's name, else Custom. */
-function activeLabelFor(presetId: string | null, savedViewId: string | null, definition: unknown, savedViews: SavedFocusView[]) {
+function activeLabelFor(
+    presetId: string | null,
+    savedViewId: string | null,
+    definition: unknown,
+    savedViews: SavedFocusView[],
+) {
     if (presetId) return FOCUS_VIEW_PRESETS.find((p) => p.id === presetId)?.name ?? presetId;
     if (savedViewId) return savedViews.find((v) => v.id === savedViewId)?.name ?? "Saved view";
     return definition ? "Custom" : null;
@@ -58,7 +86,11 @@ function ComposerField({ value, onChange, onSubmit, chips }: ComposerFieldProps)
     return (
         <div>
             <div className="group relative flex min-h-11 items-center gap-2.5 rounded-2xl border border-twilight-border/30 bg-white/[0.03] px-3.5 transition-colors focus-within:border-accent-primary/35 focus-within:bg-white/[0.05]">
-                <Sparkles size={15} aria-hidden="true" className="shrink-0 text-twilight-text-muted transition-colors group-focus-within:text-accent-primary" />
+                <Sparkles
+                    size={15}
+                    aria-hidden="true"
+                    className="shrink-0 text-twilight-text-muted transition-colors group-focus-within:text-accent-primary"
+                />
                 <input
                     type="text"
                     value={value}
@@ -82,7 +114,10 @@ function ComposerField({ value, onChange, onSubmit, chips }: ComposerFieldProps)
             {chips.length > 0 ? (
                 <div className="mt-2 flex flex-wrap gap-1 px-1">
                     {chips.map((chip) => (
-                        <span key={chip} className="inline-flex items-center rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-accent-primary">
+                        <span
+                            key={chip}
+                            className="inline-flex items-center rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-accent-primary"
+                        >
                             {chip}
                         </span>
                     ))}
@@ -132,17 +167,12 @@ function SavedViews({ views, activeId, onSelect }: SavedViewsProps) {
                                 <Pencil size={14} className="opacity-60" />
                                 Rename
                             </ContextMenu.Item>
-                            <ContextMenu.Item
-                                onSelect={() => updateFocusView.mutate({ id: view.id, isPinned: false })}
-                            >
+                            <ContextMenu.Item onSelect={() => updateFocusView.mutate({ id: view.id, isPinned: false })}>
                                 <Pin size={14} className="opacity-60" />
                                 Unpin
                             </ContextMenu.Item>
                             <ContextMenu.Separator />
-                            <ContextMenu.Item
-                                variant="danger"
-                                onSelect={() => deleteFocusViewMutation.mutate(view.id)}
-                            >
+                            <ContextMenu.Item variant="danger" onSelect={() => deleteFocusViewMutation.mutate(view.id)}>
                                 <Trash2 size={14} />
                                 Delete
                             </ContextMenu.Item>
@@ -203,8 +233,11 @@ function PresetButton({ preset, active, onSelect }: PresetButtonProps) {
                     : "border-transparent bg-white/[0.03] hover:bg-white/[0.06]"
             }`}
         >
-            <span aria-hidden="true" className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--preset-tone)] transition-colors ${active ? "bg-[color-mix(in_srgb,var(--preset-tone)_22%,transparent)]" : "bg-[color-mix(in_srgb,var(--preset-tone)_12%,transparent)] group-hover:bg-[color-mix(in_srgb,var(--preset-tone)_18%,transparent)]"}`}>
-                {active ? <Check size={15} strokeWidth={2.75} /> : look?.icon ?? null}
+            <span
+                aria-hidden="true"
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--preset-tone)] transition-colors ${active ? "bg-[color-mix(in_srgb,var(--preset-tone)_22%,transparent)]" : "bg-[color-mix(in_srgb,var(--preset-tone)_12%,transparent)] group-hover:bg-[color-mix(in_srgb,var(--preset-tone)_18%,transparent)]"}`}
+            >
+                {active ? <Check size={15} strokeWidth={2.75} /> : (look?.icon ?? null)}
             </span>
             <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="text-[13px] font-medium text-twilight-text">{preset.name}</span>
@@ -216,7 +249,7 @@ function PresetButton({ preset, active, onSelect }: PresetButtonProps) {
 
 /** The trigger's words: the capture order when it isn't Newest, then the active view; "Focus" with neither. */
 function triggerLabels(capture: boolean, captureOrder: CaptureOrder, activeLabel: string | null) {
-    const orderLabel = capture ? ORDER_LABELS[captureOrder] ?? null : null;
+    const orderLabel = capture ? (ORDER_LABELS[captureOrder] ?? null) : null;
     return { orderLabel, triggerLabel: [orderLabel, activeLabel].filter(Boolean).join(" · ") || "Focus" };
 }
 
@@ -231,7 +264,11 @@ function CaptureOrderPicker({ value, onChange }: CaptureOrderPickerProps) {
                 ariaLabel="Order"
                 value={value}
                 onChange={onChange}
-                options={[{ value: "newest", label: "Newest", icon: <ArrowDown size={13} aria-hidden="true" /> }, { value: "oldest", label: "Oldest", icon: <ArrowUp size={13} aria-hidden="true" /> }, { value: "priority", label: "Priority", icon: <Flag size={13} aria-hidden="true" /> }]}
+                options={[
+                    { value: "newest", label: "Newest", icon: <ArrowDown size={13} aria-hidden="true" /> },
+                    { value: "oldest", label: "Oldest", icon: <ArrowUp size={13} aria-hidden="true" /> },
+                    { value: "priority", label: "Priority", icon: <Flag size={13} aria-hidden="true" /> },
+                ]}
                 className="w-full [&>button]:flex-1"
             />
         </div>
@@ -250,17 +287,28 @@ type FocusTriggerProps = {
 /** Phones: an icon button (with the order when it isn't Newest) opening a sheet. */
 function CompactFocusTrigger({ label, orderLabel, active, open, setOpen, content }: FocusTriggerProps) {
     const name = label === "Focus" ? "Focus" : `Focus: ${label}`;
-    return <>
-        <Tip label={name}><button type="button" aria-label={name} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)} className={`mobile-icon-button relative ${orderLabel ? "!w-auto gap-1 px-2" : ""} ${active || orderLabel ? "bg-accent-primary/15 text-accent-primary" : ""}`}>
-            <Zap size={20} aria-hidden="true" />
-            {orderLabel && <span className="text-xs">{orderLabel}</span>}
-            {active && <span className="absolute right-2 top-2 size-1.5 rounded-full bg-accent-primary" />}
-        </button></Tip>
-        <UtilitySheet title="Focus" open={open} onClose={() => setOpen(false)}>
-            <p className="text-sm text-twilight-text-soft">Choose what you want to see right now.</p>
-            {content}
-        </UtilitySheet>
-    </>;
+    return (
+        <>
+            <Tip label={name}>
+                <button
+                    type="button"
+                    aria-label={name}
+                    aria-haspopup="dialog"
+                    aria-expanded={open}
+                    onClick={() => setOpen(true)}
+                    className={`mobile-icon-button relative ${orderLabel ? "!w-auto gap-1 px-2" : ""} ${active || orderLabel ? "bg-accent-primary/15 text-accent-primary" : ""}`}
+                >
+                    <Zap size={20} aria-hidden="true" />
+                    {orderLabel && <span className="text-xs">{orderLabel}</span>}
+                    {active && <span className="absolute right-2 top-2 size-1.5 rounded-full bg-accent-primary" />}
+                </button>
+            </Tip>
+            <UtilitySheet title="Focus" open={open} onClose={() => setOpen(false)}>
+                <p className="text-sm text-twilight-text-soft">Choose what you want to see right now.</p>
+                {content}
+            </UtilitySheet>
+        </>
+    );
 }
 
 /** Wider screens: a labelled trigger opening a popover. */
@@ -278,14 +326,14 @@ function FocusPopover({ label, active, open, setOpen, content }: FocusTriggerPro
                 {label}
             </Popover.Trigger>
 
-                <Popover.Content
-                    align="start"
-                    sideOffset={6}
-                    className="w-[23rem] max-h-[32rem] overflow-y-auto rounded-3xl p-3"
-                >
-                    {content}
-                </Popover.Content>
-            </Popover.Root>
+            <Popover.Content
+                align="start"
+                sideOffset={6}
+                className="w-[23rem] max-h-[32rem] overflow-y-auto rounded-3xl p-3"
+            >
+                {content}
+            </Popover.Content>
+        </Popover.Root>
     );
 }
 
@@ -299,7 +347,8 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
     const createFocusView = useCreateFocusView();
 
     const {
-        captureOrder, setCaptureOrder,
+        captureOrder,
+        setCaptureOrder,
         activePresetId,
         activeSavedViewId,
         activeDefinition,
@@ -335,19 +384,25 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
         setOpen(false);
     }, [composerInput, projects, setPreset, setCustomDefinition]);
 
-    const handleSelectPreset = useCallback((preset: (typeof FOCUS_VIEW_PRESETS)[number]) => {
-        if (activePresetId === preset.id) {
-            clear();
-        } else {
-            setPreset(preset);
-        }
-        setOpen(false);
-    }, [activePresetId, clear, setPreset]);
+    const handleSelectPreset = useCallback(
+        (preset: (typeof FOCUS_VIEW_PRESETS)[number]) => {
+            if (activePresetId === preset.id) {
+                clear();
+            } else {
+                setPreset(preset);
+            }
+            setOpen(false);
+        },
+        [activePresetId, clear, setPreset],
+    );
 
-    const handleSelectSavedView = useCallback((viewId: string) => {
-        applySavedView(viewId);
-        setOpen(false);
-    }, [applySavedView]);
+    const handleSelectSavedView = useCallback(
+        (viewId: string) => {
+            applySavedView(viewId);
+            setOpen(false);
+        },
+        [applySavedView],
+    );
 
     const handleClearAndClose = useCallback(() => {
         clear();
@@ -361,9 +416,7 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
             definition: activeDefinition,
             isPinned: true,
             source: activePresetId ? "preset" : "composed",
-            orderIndex: savedViews.length > 0
-                ? Math.max(...savedViews.map((view) => view.orderIndex)) + 1
-                : 0,
+            orderIndex: savedViews.length > 0 ? Math.max(...savedViews.map((view) => view.orderIndex)) + 1 : 0,
         });
     }, [activeDefinition, activePresetId, composerInput, createFocusView, savedViews]);
 
@@ -376,9 +429,7 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
     }, [composerInput, projects]);
 
     const pinnedViews = useMemo(
-        () => savedViews
-            .filter((view) => view.isPinned)
-            .sort((a, b) => a.orderIndex - b.orderIndex),
+        () => savedViews.filter((view) => view.isPinned).sort((a, b) => a.orderIndex - b.orderIndex),
         [savedViews],
     );
 
@@ -390,28 +441,55 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
 
     if (!enabled && !capture) return null;
 
-    const content = <div className={`flex flex-col gap-4 ${shell.isCompact ? "mobile-focus-options" : ""}`}>
-        <ComposerField value={composerInput} onChange={setComposerInput} onSubmit={handleComposerSubmit} chips={composerChips} />
+    const content = (
+        <div className={`flex flex-col gap-4 ${shell.isCompact ? "mobile-focus-options" : ""}`}>
+            <ComposerField
+                value={composerInput}
+                onChange={setComposerInput}
+                onSubmit={handleComposerSubmit}
+                chips={composerChips}
+            />
 
-        {capture && <CaptureOrderPicker value={captureOrder} onChange={(order) => { setCaptureOrder(order); setOpen(false); }} />}
+            {capture && (
+                <CaptureOrderPicker
+                    value={captureOrder}
+                    onChange={(order) => {
+                        setCaptureOrder(order);
+                        setOpen(false);
+                    }}
+                />
+            )}
 
-        <div>
-            <p className={SECTION_LABEL}>Presets</p>
-            <div className={`grid gap-1.5 ${shell.isCompact ? "grid-cols-1" : "grid-cols-2"}`}>
-                {FOCUS_VIEW_PRESETS.map((preset) => (
-                    <PresetButton key={preset.id} preset={preset} active={activePresetId === preset.id} onSelect={handleSelectPreset} />
-                ))}
+            <div>
+                <p className={SECTION_LABEL}>Presets</p>
+                <div className={`grid gap-1.5 ${shell.isCompact ? "grid-cols-1" : "grid-cols-2"}`}>
+                    {FOCUS_VIEW_PRESETS.map((preset) => (
+                        <PresetButton
+                            key={preset.id}
+                            preset={preset}
+                            active={activePresetId === preset.id}
+                            onSelect={handleSelectPreset}
+                        />
+                    ))}
+                </div>
             </div>
+
+            {pinnedViews.length > 0 && (
+                <SavedViews views={pinnedViews} activeId={activeSavedViewId} onSelect={handleSelectSavedView} />
+            )}
+
+            {activeDefinition && (
+                <ActiveViewBar
+                    label={activeLabel}
+                    onSave={activeSavedViewId ? null : handleSaveCurrent}
+                    onClear={handleClearAndClose}
+                />
+            )}
         </div>
-
-        {pinnedViews.length > 0 && <SavedViews views={pinnedViews} activeId={activeSavedViewId} onSelect={handleSelectSavedView} />}
-
-        {activeDefinition && <ActiveViewBar label={activeLabel} onSave={activeSavedViewId ? null : handleSaveCurrent} onClear={handleClearAndClose} />}
-    </div>;
+    );
 
     const { orderLabel, triggerLabel } = triggerLabels(capture, captureOrder, activeLabel);
 
     const triggerProps = { label: triggerLabel, orderLabel, active: Boolean(activeDefinition), open, setOpen, content };
     return shell.isCompact ? <CompactFocusTrigger {...triggerProps} /> : <FocusPopover {...triggerProps} />;
-
 }

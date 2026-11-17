@@ -111,15 +111,27 @@ export async function learnFromReading(
         let vectors: (number[] | null)[] = facts.map(() => null);
         if (facts.length > 0) {
             try {
-                vectors = await embedTexts(env, facts.map((c) => c.content), { userHash });
+                vectors = await embedTexts(
+                    env,
+                    facts.map((c) => c.content),
+                    { userHash },
+                );
             } catch (error) {
                 logger.warn("ai", "memory_embed_failed", { userHash, issues: issuesFromError(error) });
             }
         }
         const near = await withRls(db, userId, (tx) =>
-            Promise.all(facts.map((c, i) => (vectors[i] ? nearestFacts(tx, userId, vectors[i]!, model, c.kind) : Promise.resolve<NearFact[]>([])))),
+            Promise.all(
+                facts.map((c, i) =>
+                    vectors[i] ? nearestFacts(tx, userId, vectors[i]!, model, c.kind) : Promise.resolve<NearFact[]>([]),
+                ),
+            ),
         );
-        const matches = await consolidate(env, userHash, facts.map((c, i) => ({ content: c.content, near: near[i] })));
+        const matches = await consolidate(
+            env,
+            userHash,
+            facts.map((c, i) => ({ content: c.content, near: near[i] })),
+        );
 
         // 3 · Write, move the cursor, fenced by the epoch.
         const result: LearnResult = { saved: 0, reinforced: 0, updated: 0, skipped: false };
@@ -134,7 +146,14 @@ export async function learnFromReading(
                     await reinforceFact(tx, userId, match, today);
                     result.reinforced++;
                 } else if (match) {
-                    const ok = await updateFact(tx, userId, match, { content: candidate.content, ...(candidate.value && { value: candidate.value }), embedding: vectors[i], embeddingModel: model, today, validThrough: candidate.validThrough });
+                    const ok = await updateFact(tx, userId, match, {
+                        content: candidate.content,
+                        ...(candidate.value && { value: candidate.value }),
+                        embedding: vectors[i],
+                        embeddingModel: model,
+                        today,
+                        validThrough: candidate.validThrough,
+                    });
                     if (ok) result.updated++;
                 } else {
                     // The same thing in other words after the person asked to forget it stays forgotten.
@@ -157,7 +176,12 @@ export async function learnFromReading(
                 }
             }
         });
-        logger.info("ai", "ai_memory_learned", { userHash, source: reading.source, candidates: candidates.length, ...result });
+        logger.info("ai", "ai_memory_learned", {
+            userHash,
+            source: reading.source,
+            candidates: candidates.length,
+            ...result,
+        });
         return result;
     } catch (error) {
         logger.warn("ai", "memory_learn_failed", { userHash, issues: issuesFromError(error) });
@@ -169,7 +193,13 @@ export async function learnFromReading(
  * Learns from one conversation: what the person wrote since `metadata.memoryCursor`. Never throws into
  * the cron: a failure leaves the cursor where it was, so the next run retries the same messages.
  */
-export async function learnFromConversation(env: Env, userId: string, conversationId: string, now: Date = new Date(), admit?: Admit): Promise<LearnResult> {
+export async function learnFromConversation(
+    env: Env,
+    userId: string,
+    conversationId: string,
+    now: Date = new Date(),
+    admit?: Admit,
+): Promise<LearnResult> {
     const db = getDbClient(env);
     try {
         const read = await withRls(db, userId, async (tx) => {
@@ -184,19 +214,27 @@ export async function learnFromConversation(env: Env, userId: string, conversati
                 .from(aiConversations)
                 .where(and(eq(aiConversations.id, conversationId), eq(aiConversations.userId, userId)));
             if (!conversation?.lastMessageAt) return null;
-            const cursor = typeof conversation.metadata?.memoryCursor === "string" ? conversation.metadata.memoryCursor : null;
+            const cursor =
+                typeof conversation.metadata?.memoryCursor === "string" ? conversation.metadata.memoryCursor : null;
             const learn = isLearning(state.mode) && conversation.metadata?.learn !== false;
             const rows = learn
                 ? await tx
                       .select({ id: aiMessages.id, parts: aiMessages.parts })
                       .from(aiMessages)
-                      .where(and(
-                          eq(aiMessages.conversationId, conversationId),
-                          eq(aiMessages.userId, userId),
-                          eq(aiMessages.role, "user"),
-                          // After the cursor, and after the boundary Clear (or the release that made Basic the default) drew.
-                          cursor || state.notBefore ? gt(aiMessages.createdAt, sql`GREATEST(${cursor}::timestamptz, ${state.notBefore}::timestamptz)`) : undefined,
-                      ))
+                      .where(
+                          and(
+                              eq(aiMessages.conversationId, conversationId),
+                              eq(aiMessages.userId, userId),
+                              eq(aiMessages.role, "user"),
+                              // After the cursor, and after the boundary Clear (or the release that made Basic the default) drew.
+                              cursor || state.notBefore
+                                  ? gt(
+                                        aiMessages.createdAt,
+                                        sql`GREATEST(${cursor}::timestamptz, ${state.notBefore}::timestamptz)`,
+                                    )
+                                  : undefined,
+                          ),
+                      )
                       .orderBy(asc(aiMessages.orderIndex))
                 : [];
             const zone = await userZone(tx, userId);
@@ -206,12 +244,16 @@ export async function learnFromConversation(env: Env, userId: string, conversati
         const advance = async (tx: Tx) => {
             const moved = await tx
                 .update(aiConversations)
-                .set({ metadata: sql`${aiConversations.metadata} || ${JSON.stringify({ memoryCursor: read.upTo })}::jsonb` })
-                .where(and(
-                    eq(aiConversations.id, conversationId),
-                    eq(aiConversations.userId, userId),
-                    sql`${aiConversations.metadata} ->> 'memoryCursor' IS NOT DISTINCT FROM ${read.cursor}::text`,
-                ))
+                .set({
+                    metadata: sql`${aiConversations.metadata} || ${JSON.stringify({ memoryCursor: read.upTo })}::jsonb`,
+                })
+                .where(
+                    and(
+                        eq(aiConversations.id, conversationId),
+                        eq(aiConversations.userId, userId),
+                        sql`${aiConversations.metadata} ->> 'memoryCursor' IS NOT DISTINCT FROM ${read.cursor}::text`,
+                    ),
+                )
                 .returning({ id: aiConversations.id });
             return moved.length > 0;
         };
@@ -229,7 +271,10 @@ export async function learnFromConversation(env: Env, userId: string, conversati
             advance,
         );
     } catch (error) {
-        logger.warn("ai", "memory_learn_failed", { userHash: await hashIdentifier(userId), issues: issuesFromError(error) });
+        logger.warn("ai", "memory_learn_failed", {
+            userHash: await hashIdentifier(userId),
+            issues: issuesFromError(error),
+        });
         return NONE;
     }
 }
@@ -240,7 +285,10 @@ export async function extract(env: Env, userHash: string, today: string, reading
     const modelId = getModelId(env);
     const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY });
     const startedAt = Date.now();
-    const log = async (usage: { inputTokens?: number; outputTokens?: number } | undefined, step: { providerMetadata?: unknown; response?: { modelId?: string } }) => {
+    const log = async (
+        usage: { inputTokens?: number; outputTokens?: number } | undefined,
+        step: { providerMetadata?: unknown; response?: { modelId?: string } },
+    ) => {
         const spend = addStepSpend({}, step);
         logger.info("ai", "ai_memory_extract", {
             userHash,

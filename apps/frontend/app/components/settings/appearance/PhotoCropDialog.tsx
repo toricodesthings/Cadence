@@ -111,7 +111,12 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
 
     // How far the photo can slide on each axis before the frame would show an edge.
     const extentOf = (axis: "x" | "y") =>
-        media && cropSize ? Math.max(0, ((axis === "x" ? media.width * zoom - cropSize.width : media.height * zoom - cropSize.height)) / 2) : 0;
+        media && cropSize
+            ? Math.max(
+                  0,
+                  (axis === "x" ? media.width * zoom - cropSize.width : media.height * zoom - cropSize.height) / 2,
+              )
+            : 0;
 
     return (
         <Dialog open={file !== null} onOpenChange={(open) => !open && !busy && onCancel()}>
@@ -123,7 +128,10 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
                     </DialogDescription>
                 </DialogHeader>
 
-                <div data-sheet-no-drag className="relative aspect-[16/9] w-full touch-none select-none overflow-hidden rounded-2xl bg-twilight-deep ring-1 ring-white/10">
+                <div
+                    data-sheet-no-drag
+                    className="relative aspect-[16/9] w-full touch-none select-none overflow-hidden rounded-2xl bg-twilight-deep ring-1 ring-white/10"
+                >
                     {source ? (
                         <Cropper
                             image={source.url}
@@ -162,22 +170,27 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
                             onChange={(value) => setZoom(value / 100)}
                         />
                     </div>
-                    {source && (["x", "y"] as const).map((axis) => {
-                        const extent = extentOf(axis);
-                        if (extent < 1) return null;
-                        return (
-                            <RangeSlider
-                                key={axis}
-                                label={axis === "x" ? "Horizontal position" : "Vertical position"}
-                                value={Math.round((crop[axis] / extent) * 100)}
-                                min={-100}
-                                max={100}
-                                onChange={(value) => setCrop({ ...crop, [axis]: value / 100 * extent })}
-                            />
-                        );
-                    })}
+                    {source &&
+                        (["x", "y"] as const).map((axis) => {
+                            const extent = extentOf(axis);
+                            if (extent < 1) return null;
+                            return (
+                                <RangeSlider
+                                    key={axis}
+                                    label={axis === "x" ? "Horizontal position" : "Vertical position"}
+                                    value={Math.round((crop[axis] / extent) * 100)}
+                                    min={-100}
+                                    max={100}
+                                    onChange={(value) => setCrop({ ...crop, [axis]: (value / 100) * extent })}
+                                />
+                            );
+                        })}
                 </fieldset>
-                {error && <p role="alert" className="text-sm text-twilight-text">{error}</p>}
+                {error && (
+                    <p role="alert" className="text-sm text-twilight-text">
+                        {error}
+                    </p>
+                )}
 
                 <p className="flex items-center gap-1.5 text-[11px] text-twilight-text-muted">
                     <Move size={11} aria-hidden="true" />

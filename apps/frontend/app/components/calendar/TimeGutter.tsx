@@ -15,11 +15,7 @@ export function TimeGutter({ hourHeight }: { hourHeight: number }) {
     return (
         <div className="shrink-0 w-14 select-none">
             {hours.map((h) => (
-                <div
-                    key={h}
-                    className="relative flex items-start justify-end pr-2.5"
-                    style={{ height: hourHeight }}
-                >
+                <div key={h} className="relative flex items-start justify-end pr-2.5" style={{ height: hourHeight }}>
                     {h > 0 && (
                         <span className="text-[11px] text-twilight-text-muted/90 font-medium tabular-nums leading-none -mt-[5px]">
                             {hourLabel(h)}

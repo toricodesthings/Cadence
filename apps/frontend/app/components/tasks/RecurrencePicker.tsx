@@ -16,10 +16,7 @@ export const REPEAT_PRESETS = [
     { label: "Monthly", rrule: "FREQ=MONTHLY;INTERVAL=1" },
 ];
 
-export const RecurrencePicker: React.FC<RecurrencePickerProps> = ({
-    value,
-    onChange,
-}) => {
+export const RecurrencePicker: React.FC<RecurrencePickerProps> = ({ value, onChange }) => {
     return (
         <div className="flex flex-col gap-2 p-2">
             <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-twilight-text-muted/90">
@@ -33,9 +30,10 @@ export const RecurrencePicker: React.FC<RecurrencePickerProps> = ({
                         onClick={() => onChange(preset.rrule)}
                         className={`
 							flex items-center justify-center rounded-xl px-2 py-1.5 text-xs transition-colors
-							${value === preset.rrule
-                                ? "bg-accent-primary/20 text-accent-primary border border-accent-primary/30"
-                                : "bg-twilight-surface-muted text-twilight-text-muted hover:bg-twilight-surface-hover hover:text-twilight-text"
+							${
+                                value === preset.rrule
+                                    ? "bg-accent-primary/20 text-accent-primary border border-accent-primary/30"
+                                    : "bg-twilight-surface-muted text-twilight-text-muted hover:bg-twilight-surface-hover hover:text-twilight-text"
                             }
 						`}
                     >

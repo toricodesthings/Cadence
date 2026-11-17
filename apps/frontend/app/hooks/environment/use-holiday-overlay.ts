@@ -39,7 +39,7 @@ type Place = ReturnType<typeof useUserLocation>["place"];
 function holidayCountry(place: Place, timeZoneCountryCode: string | null, localeCountryCode: string | null) {
     if (place?.countryCode) return { countryCode: place.countryCode, source: place.source as HolidayRegionSource };
     if (timeZoneCountryCode) return { countryCode: timeZoneCountryCode, source: "timezone" as const };
-    return { countryCode: localeCountryCode, source: localeCountryCode ? "locale" as const : null };
+    return { countryCode: localeCountryCode, source: localeCountryCode ? ("locale" as const) : null };
 }
 
 /** A region the person chose is used as is; a located one is matched to the provider's subdivisions. */
@@ -47,15 +47,16 @@ function subdivisionNeed(place: Place) {
     return {
         manualSubdivisionCode: place?.source === "manual" ? place.subdivisionCode : null,
         needsSubdivisionMatch: Boolean(
-            place
-            && place.source !== "manual"
-            && place.countryCode
-            && (place.subdivisionCode || place.subdivisionName),
+            place && place.source !== "manual" && place.countryCode && (place.subdivisionCode || place.subdivisionName),
         ),
     };
 }
 
-function subdivisionLabelOf(code: string | null, subdivisions: { code: string; label: string }[] | undefined, place: Place) {
+function subdivisionLabelOf(
+    code: string | null,
+    subdivisions: { code: string; label: string }[] | undefined,
+    place: Place,
+) {
     if (!code) return null;
     return subdivisions?.find((subdivision) => subdivision.code === code)?.label ?? place?.subdivisionName ?? code;
 }
@@ -82,10 +83,7 @@ export function useHolidayOverlay({
     const place = location.place;
     const year = Number.parseInt(start.slice(0, 4), 10);
 
-    const timeZoneCountryCode = useMemo(
-        () => inferCountryFromTimezone(getBrowserTimeZone()),
-        [],
-    );
+    const timeZoneCountryCode = useMemo(() => inferCountryFromTimezone(getBrowserTimeZone()), []);
     const localeCountryCode = useMemo(() => getLocaleRegion(locale), [locale]);
 
     // The resolved location wins. Without one, the device time zone says more
@@ -101,8 +99,9 @@ export function useHolidayOverlay({
         gcTime: 14 * DAY_MS,
     });
 
-    const subdivisionCode = manualSubdivisionCode
-        ?? (needsSubdivisionMatch ? findSubdivisionCode(subdivisionsQuery.data ?? [], place) : null);
+    const subdivisionCode =
+        manualSubdivisionCode ??
+        (needsSubdivisionMatch ? findSubdivisionCode(subdivisionsQuery.data ?? [], place) : null);
 
     const lastYear = Number.parseInt(end.slice(0, 4), 10);
     const years = Array.from({ length: Math.max(0, lastYear - year + 1) }, (_, index) => year + index);
@@ -111,22 +110,25 @@ export function useHolidayOverlay({
     const holidayYears = useQueries({
         queries: years.map((holidayYear) => ({
             queryKey: queryKeys.holidays.year(holidayYear, countryCode, subdivisionCode, locale),
-            queryFn: () => fetchHolidays({
-                start: `${holidayYear}-01-01`,
-                end: `${holidayYear}-12-31`,
-                countryCode: countryCode!,
-                subdivisionCode,
-                locale,
-            }),
+            queryFn: () =>
+                fetchHolidays({
+                    start: `${holidayYear}-01-01`,
+                    end: `${holidayYear}-12-31`,
+                    countryCode: countryCode!,
+                    subdivisionCode,
+                    locale,
+                }),
             // Resolve the region first, avoiding national-then-regional reads.
-            enabled: fetchOverlay
-                && enabled
-                && Boolean(countryCode)
-                && !location.isResolving
-                && !(needsSubdivisionMatch && subdivisionsQuery.isLoading),
+            enabled:
+                fetchOverlay &&
+                enabled &&
+                Boolean(countryCode) &&
+                !location.isResolving &&
+                !(needsSubdivisionMatch && subdivisionsQuery.isLoading),
             staleTime: STALE_TIMES.HOLIDAYS,
             gcTime: 14 * DAY_MS,
-            select: (holidays: HolidayRecord[]) => holidays.filter((holiday) => holiday.date >= start && holiday.date <= end),
+            select: (holidays: HolidayRecord[]) =>
+                holidays.filter((holiday) => holiday.date >= start && holiday.date <= end),
         })),
         combine: (results) => ({
             holidays: results.flatMap((result) => result.data ?? []),
@@ -150,9 +152,12 @@ export function useHolidayOverlay({
     const subdivisionLabel = subdivisionLabelOf(subdivisionCode, subdivisionsQuery.data, place);
     const regionLabel = [subdivisionLabel, countryLabel].filter(Boolean).join(", ") || null;
 
-    const setEnabled = useCallback((next: boolean) => {
-        updateSettings.mutate({ calendar: { holidays: { enabled: next } } });
-    }, [updateSettings]);
+    const setEnabled = useCallback(
+        (next: boolean) => {
+            updateSettings.mutate({ calendar: { holidays: { enabled: next } } });
+        },
+        [updateSettings],
+    );
 
     return {
         enabled,

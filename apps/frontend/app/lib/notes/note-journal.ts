@@ -68,15 +68,30 @@ export const noteJournal: NoteJournal = {
 };
 
 /** Set aside a version the user didn't pick (a conflict choice); it stays until they discard it. */
-export function keepRecoveryCopy(journal: NoteJournal, userId: string, owner: string, branch: string, body: string): Promise<DraftRecord> {
-    const record: DraftRecord = { branch: `recovery-${branch}`, baseBody: "", baseVersion: 0, body, gen: 0, updatedAt: Date.now(), kind: "recovery" };
+export function keepRecoveryCopy(
+    journal: NoteJournal,
+    userId: string,
+    owner: string,
+    branch: string,
+    body: string,
+): Promise<DraftRecord> {
+    const record: DraftRecord = {
+        branch: `recovery-${branch}`,
+        baseBody: "",
+        baseVersion: 0,
+        body,
+        gen: 0,
+        updatedAt: Date.now(),
+        kind: "recovery",
+    };
     return journal.put(userId, owner, record).then(() => record);
 }
 
 /** Forget every note draft of an account on this device (sign-out that drops unsynced work). */
 export async function clearNoteJournal(userId: string): Promise<void> {
     await locked(`${PREFIX}:${userId}`, async () => {
-        for (const owner of (await read<string[]>(indexKey(userId))) ?? []) await write(keyOf(userId, owner), undefined);
+        for (const owner of (await read<string[]>(indexKey(userId))) ?? [])
+            await write(keyOf(userId, owner), undefined);
         await write(indexKey(userId), undefined);
     });
 }

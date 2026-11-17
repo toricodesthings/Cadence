@@ -48,7 +48,8 @@ export const newBackfill = (now: Date): Backfill => ({
     notes: "pending",
 });
 
-export const isBackfilling = (backfill: Backfill | null | undefined): boolean => !!backfill && (backfill.chats === "pending" || backfill.notes === "pending");
+export const isBackfilling = (backfill: Backfill | null | undefined): boolean =>
+    !!backfill && (backfill.chats === "pending" || backfill.notes === "pending");
 
 const DAY_MS = 24 * 60 * 60_000;
 /** How long the "Done" line stays after the catch-up finishes. */
@@ -63,7 +64,9 @@ export function catchUpOf(backfill: Backfill | null | undefined, now: Date): Mem
     const learned = backfill.learned ?? 0;
     if (!isBackfilling(backfill)) {
         const done = backfill.doneAt ? Date.parse(backfill.doneAt) : NaN;
-        return now.getTime() - done < DONE_SHOWN_DAYS * DAY_MS ? { progress: 1, learned, doneAt: backfill.doneAt! } : null;
+        return now.getTime() - done < DONE_SHOWN_DAYS * DAY_MS
+            ? { progress: 1, learned, doneAt: backfill.doneAt! }
+            : null;
     }
     if (backfill.chats === "done") return { progress: 0.9, learned, doneAt: null };
     const start = Date.parse(backfill.since) + BACKFILL_DAYS * DAY_MS;
@@ -74,12 +77,18 @@ export function catchUpOf(backfill: Backfill | null | undefined, now: Date): Mem
 async function saveBackfill(tx: Tx, userId: string, backfill: Backfill): Promise<void> {
     await tx
         .update(users)
-        .set({ settings: sql`jsonb_set(${users.settings}, '{assistant,memoryBackfill}', ${JSON.stringify(backfill)}::jsonb, true)` })
+        .set({
+            settings: sql`jsonb_set(${users.settings}, '{assistant,memoryBackfill}', ${JSON.stringify(backfill)}::jsonb, true)`,
+        })
         .where(eq(users.id, userId));
 }
 
 /** Merges into the stored progress, if a catch-up is still recorded (leaving Full clears it). */
-async function patchBackfill(tx: Tx, userId: string, patch: (b: Backfill) => Partial<Backfill>): Promise<Backfill | null> {
+async function patchBackfill(
+    tx: Tx,
+    userId: string,
+    patch: (b: Backfill) => Partial<Backfill>,
+): Promise<Backfill | null> {
     const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).for("update");
     const current = (row?.settings?.assistant?.memoryBackfill ?? null) as Backfill | null;
     if (!current) return null;
@@ -112,17 +121,22 @@ export async function backfillForUser(env: Env, userId: string, now: Date = new 
                         .select({ id: aiMessages.id, parts: aiMessages.parts, at: aiMessages.createdAt })
                         .from(aiMessages)
                         .innerJoin(aiConversations, eq(aiConversations.id, aiMessages.conversationId))
-                        .where(and(
-                            eq(aiMessages.userId, userId),
-                            eq(aiMessages.role, "user"),
-                            gte(aiMessages.createdAt, backfill!.since),
-                            lt(aiMessages.createdAt, backfill!.before),
-                            // Clear drew a line: nothing said before it is read back.
-                            state.notBefore ? gt(aiMessages.createdAt, state.notBefore) : undefined,
-                            lt(aiConversations.lastMessageAt, liveFrom),
-                            sql`coalesce(${aiConversations.metadata} ->> 'learn', 'true') <> 'false'`,
-                            or(isNull(sql`${aiConversations.metadata} ->> 'memoryCursor'`), sql`${aiMessages.createdAt} > (${aiConversations.metadata} ->> 'memoryCursor')::timestamptz`),
-                        ))
+                        .where(
+                            and(
+                                eq(aiMessages.userId, userId),
+                                eq(aiMessages.role, "user"),
+                                gte(aiMessages.createdAt, backfill!.since),
+                                lt(aiMessages.createdAt, backfill!.before),
+                                // Clear drew a line: nothing said before it is read back.
+                                state.notBefore ? gt(aiMessages.createdAt, state.notBefore) : undefined,
+                                lt(aiConversations.lastMessageAt, liveFrom),
+                                sql`coalesce(${aiConversations.metadata} ->> 'learn', 'true') <> 'false'`,
+                                or(
+                                    isNull(sql`${aiConversations.metadata} ->> 'memoryCursor'`),
+                                    sql`${aiMessages.createdAt} > (${aiConversations.metadata} ->> 'memoryCursor')::timestamptz`,
+                                ),
+                            ),
+                        )
                         .orderBy(desc(aiMessages.createdAt))
                         .limit(300);
                     const taken: { id: string; text: string; at: string }[] = [];
@@ -157,14 +171,16 @@ export async function backfillForUser(env: Env, userId: string, now: Date = new 
                 const notes = await tx
                     .select({ taskId: taskNotes.taskId, body: taskNotes.body })
                     .from(taskNotes)
-                    .where(and(
-                        eq(taskNotes.userId, userId),
-                        gte(taskNotes.updatedAt, backfill!.since),
-                        lt(taskNotes.updatedAt, liveFrom),
-                        state.notBefore ? gt(taskNotes.updatedAt, state.notBefore) : undefined,
-                        gt(taskNotes.wordCount, 3),
-                        sql`NOT EXISTS (SELECT 1 FROM ${aiMemoryNotes} n WHERE n.user_id = ${taskNotes.userId} AND n.task_id = ${taskNotes.taskId})`,
-                    ))
+                    .where(
+                        and(
+                            eq(taskNotes.userId, userId),
+                            gte(taskNotes.updatedAt, backfill!.since),
+                            lt(taskNotes.updatedAt, liveFrom),
+                            state.notBefore ? gt(taskNotes.updatedAt, state.notBefore) : undefined,
+                            gt(taskNotes.wordCount, 3),
+                            sql`NOT EXISTS (SELECT 1 FROM ${aiMemoryNotes} n WHERE n.user_id = ${taskNotes.userId} AND n.task_id = ${taskNotes.taskId})`,
+                        ),
+                    )
                     .orderBy(desc(taskNotes.updatedAt))
                     .limit(40);
                 const taken: { taskId: string; text: string; hashes: string[] }[] = [];
@@ -207,7 +223,13 @@ export async function backfillForUser(env: Env, userId: string, now: Date = new 
                 await withRls(db, userId, (tx) => step.advance(tx));
                 continue;
             }
-            const result = await learnFromReading(env, userId, { messages: step.messages, source: step.source, conversationId: null }, { state: step.state, today: step.today }, step.advance);
+            const result = await learnFromReading(
+                env,
+                userId,
+                { messages: step.messages, source: step.source, conversationId: null },
+                { state: step.state, today: step.today },
+                step.advance,
+            );
             // A failed read leaves the cursor: stop for tonight and retry on the next pass.
             if (result.failed) {
                 failed = true;
@@ -227,7 +249,12 @@ export async function backfillForUser(env: Env, userId: string, now: Date = new 
 }
 
 /** Keeps the count of what the catch-up learned and of nights in a row it broke (STUCK_NIGHTS logs an error), and logs the finish with the total. */
-async function recordNight(env: Env, userId: string, userHash: string, night: { failed: boolean; finished: boolean; batches: number; learned: number }): Promise<void> {
+async function recordNight(
+    env: Env,
+    userId: string,
+    userHash: string,
+    night: { failed: boolean; finished: boolean; batches: number; learned: number },
+): Promise<void> {
     if (!night.failed && !night.finished && night.batches === 0) return;
     try {
         const saved = await withRls(getDbClient(env), userId, (tx) =>

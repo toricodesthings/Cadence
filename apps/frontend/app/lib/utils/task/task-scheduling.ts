@@ -1,10 +1,4 @@
-import {
-    formatDateSpan,
-    formatShortDate,
-    formatShortDateTime,
-    formatTime,
-    dayOfInstant,
-} from "../date-format";
+import { formatDateSpan, formatShortDate, formatShortDateTime, formatTime, dayOfInstant } from "../date-format";
 import { getUserZone, today } from "../user-zone";
 import { classifyTaskReadShape, type TaskReadShape } from "@cadence/domain/task-temporal";
 import { resolveOccurrenceAnchor } from "@cadence/domain/task-recurrence";
@@ -105,11 +99,17 @@ export function getTaskRecurrenceSummary(
         const every = interval === 2 ? "every other week" : interval > 2 ? `every ${interval} weeks` : null;
         cadenceLabel = every
             ? `Repeats ${every}${weekdayLabel ? ` on ${weekdayLabel}` : ""}`
-            : weekdayLabel ? `Repeats ${weekdayLabel}` : "Repeats weekly";
+            : weekdayLabel
+              ? `Repeats ${weekdayLabel}`
+              : "Repeats weekly";
     }
     if (freq === "MONTHLY") cadenceLabel = "Repeats monthly";
 
-    const detailParts = [weekdayLabel ? `every ${weekdayLabel}` : null, timeLabel, endLabel ? `until ${endLabel}` : null].filter(Boolean);
+    const detailParts = [
+        weekdayLabel ? `every ${weekdayLabel}` : null,
+        timeLabel,
+        endLabel ? `until ${endLabel}` : null,
+    ].filter(Boolean);
 
     return {
         label: [cadenceLabel, timeLabel, endLabel ? `until ${endLabel}` : null].filter(Boolean).join(", "),
@@ -122,7 +122,21 @@ export function getTaskRecurrenceSummary(
 
 /** A Fixed block's next occurrence day on or after `referenceDay` (default today), else its own day. */
 export function getPassiveTimetableOccurrenceAnchor(
-    task: Pick<Task, "interactionMode" | "recurrenceRule" | "scheduledStart" | "dueDate" | "scheduledEnd" | "endDate" | "zone" | "id" | "title" | "orderIndex" | "isPinned" | "durationEstimate">,
+    task: Pick<
+        Task,
+        | "interactionMode"
+        | "recurrenceRule"
+        | "scheduledStart"
+        | "dueDate"
+        | "scheduledEnd"
+        | "endDate"
+        | "zone"
+        | "id"
+        | "title"
+        | "orderIndex"
+        | "isPinned"
+        | "durationEstimate"
+    >,
     referenceDay: LocalDate = today(),
 ): LocalDate | null {
     const own = task.dueDate ?? (task.scheduledStart ? dayOfInstant(task.scheduledStart) : null);
@@ -131,7 +145,9 @@ export function getPassiveTimetableOccurrenceAnchor(
 
     // Shared RRULE occurrence math lives in @cadence/domain; the passive-timetable
     // gating + fallback stay here in the presentation layer.
-    return resolveOccurrenceAnchor({ ...task, recurrenceRule: task.recurrenceRule }, referenceDay, getUserZone()) ?? own;
+    return (
+        resolveOccurrenceAnchor({ ...task, recurrenceRule: task.recurrenceRule }, referenceDay, getUserZone()) ?? own
+    );
 }
 
 /** A timed block: "Mar 8, 9:00 AM – 10:30 AM", Fixed or a time block. */
@@ -196,7 +212,9 @@ export function getTaskScheduleSummary(
 }
 
 /** The day a task sits on: its due day, or the user's day of its start. */
-export function getTaskEffectiveAnchor(task: Pick<Task, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "interactionMode">): LocalDate | null {
+export function getTaskEffectiveAnchor(
+    task: Pick<Task, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "interactionMode">,
+): LocalDate | null {
     return getTaskScheduleSummary(task).anchorDate;
 }
 
@@ -223,8 +241,12 @@ export function buildTasksQuery(filters: UseTasksFilterInput) {
         ...(filters.state && { state: filters.state }),
         ...(filters.projectId && { projectId: filters.projectId }),
         ...(filters.range && { from: filters.range.from, to: filters.range.to }),
-        ...(filters.hasNoProject !== undefined && { hasNoProject: filters.hasNoProject ? "true" as const : "false" as const }),
-        ...(filters.hasNoDate !== undefined && { hasNoDate: filters.hasNoDate ? "true" as const : "false" as const }),
+        ...(filters.hasNoProject !== undefined && {
+            hasNoProject: filters.hasNoProject ? ("true" as const) : ("false" as const),
+        }),
+        ...(filters.hasNoDate !== undefined && {
+            hasNoDate: filters.hasNoDate ? ("true" as const) : ("false" as const),
+        }),
         ...(filters.effectiveOnOrBeforeDate && { effectiveOnOrBeforeDate: filters.effectiveOnOrBeforeDate }),
         ...(filters.limit !== undefined && { limit: String(filters.limit) }),
         ...(filters.offset !== undefined && { offset: String(filters.offset) }),

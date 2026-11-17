@@ -153,5 +153,7 @@ export function webpResponse(object: R2ObjectBody | R2Object, cacheControl: stri
         "Content-Security-Policy": "default-src 'none'; sandbox",
         "X-Content-Type-Options": "nosniff",
     };
-    return "body" in object ? new Response(object.body, { status: 200, headers }) : new Response(null, { status: 304, headers });
+    return "body" in object
+        ? new Response(object.body, { status: 200, headers })
+        : new Response(null, { status: 304, headers });
 }

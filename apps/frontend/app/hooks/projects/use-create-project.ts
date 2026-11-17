@@ -19,7 +19,9 @@ export function useCreateProject() {
             (input) => ({ type: "create_project", payload: { ...input, id: clientIdFor(input) } }),
             async (input) => {
                 const id = clientIdFor(input);
-                return unwrapResponse(await client.api.projects.$post({ json: { ...input, id } }, { headers: { "Idempotency-Key": id } }));
+                return unwrapResponse(
+                    await client.api.projects.$post({ json: { ...input, id } }, { headers: { "Idempotency-Key": id } }),
+                );
             },
         ),
 
@@ -36,9 +38,8 @@ export function useCreateProject() {
                 createdAt: new Date().toISOString(),
             };
 
-            queryClient.setQueriesData<Project[]>(
-                { queryKey: queryKeys.projects.all },
-                (old) => transformListCache(old, (items) => [...items, optimisticProject], { initialize: true }),
+            queryClient.setQueriesData<Project[]>({ queryKey: queryKeys.projects.all }, (old) =>
+                transformListCache(old, (items) => [...items, optimisticProject], { initialize: true }),
             );
 
             return { snapshot, optimisticId: optimisticProject.id };

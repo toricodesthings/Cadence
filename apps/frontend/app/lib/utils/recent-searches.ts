@@ -16,7 +16,10 @@ export function readRecentSearches(): string[] {
 export function pushRecentSearch(query: string): string[] {
     const trimmed = query.trim();
     if (!trimmed) return readRecentSearches();
-    const next = [trimmed, ...readRecentSearches().filter((q) => q.toLowerCase() !== trimmed.toLowerCase())].slice(0, RECENT_LIMIT);
+    const next = [trimmed, ...readRecentSearches().filter((q) => q.toLowerCase() !== trimmed.toLowerCase())].slice(
+        0,
+        RECENT_LIMIT,
+    );
     try {
         localStorage.setItem(RECENT_KEY, JSON.stringify(next));
     } catch {

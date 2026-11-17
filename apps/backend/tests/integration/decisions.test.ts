@@ -23,17 +23,29 @@ let sent: any[];
 
 /** The model "picks" the option whose description contains `pick` (or abstains), with probability `p`. */
 function modelPicks(pick: string | null, p = 0.97) {
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: { body: string }) => {
-        const body = JSON.parse(init.body);
-        sent.push(body);
-        const criteria = body.questions.pick.criteria as Record<string, string>;
-        const key = pick ? Object.keys(criteria).find((k) => criteria[k].includes(pick)) : undefined;
-        return new Response(JSON.stringify({
-            model: "vendor/model-20260101",
-            answers: { pick: { type: "choice", choice: key ?? "none", probabilities: { [key ?? "none"]: key ? p : 0.9 } } },
-            usage: { input_tokens: 50, output_tokens: 3, cost: 0.00001 },
-        }), { status: 200, headers: { "content-type": "application/json" } });
-    }));
+    vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_url: string, init: { body: string }) => {
+            const body = JSON.parse(init.body);
+            sent.push(body);
+            const criteria = body.questions.pick.criteria as Record<string, string>;
+            const key = pick ? Object.keys(criteria).find((k) => criteria[k].includes(pick)) : undefined;
+            return new Response(
+                JSON.stringify({
+                    model: "vendor/model-20260101",
+                    answers: {
+                        pick: {
+                            type: "choice",
+                            choice: key ?? "none",
+                            probabilities: { [key ?? "none"]: key ? p : 0.9 },
+                        },
+                    },
+                    usage: { input_tokens: 50, output_tokens: 3, cost: 0.00001 },
+                }),
+                { status: 200, headers: { "content-type": "application/json" } },
+            );
+        }),
+    );
 }
 
 beforeAll(startTestDb);
@@ -61,7 +73,11 @@ describe("S1: pre-sorted captures", () => {
         modelPicks("Uni › COMP2000");
         const { body } = await inbox("POST", "", { rawText: "Finish the COMP2000 assignment" });
         const [item] = (await inbox("GET", "")).body.data.filter((i: any) => i.id === body.data.id);
-        expect(item.analysis.suggestedPlacement).toMatchObject({ projectId: uni.id, sectionId: comp.id, model: "vendor/model-20260101" });
+        expect(item.analysis.suggestedPlacement).toMatchObject({
+            projectId: uni.id,
+            sectionId: comp.id,
+            model: "vendor/model-20260101",
+        });
         const wire = JSON.stringify(sent[0]);
         expect(wire).not.toContain(uni.id);
         expect(Object.keys(sent[0].questions.pick.criteria)).toContain("none");
@@ -74,7 +90,8 @@ describe("S1: pre-sorted captures", () => {
         modelPicks("Work", 0.5);
         const b = (await inbox("POST", "", { rawText: "something vague" })).body.data;
         const rows = (await inbox("GET", "")).body.data;
-        for (const id of [a.id, b.id]) expect(rows.find((i: any) => i.id === id).analysis?.suggestedPlacement).toBeUndefined();
+        for (const id of [a.id, b.id])
+            expect(rows.find((i: any) => i.id === id).analysis?.suggestedPlacement).toBeUndefined();
     });
 
     it("asks no placement question with no lists, and no call with the switch off or no model set", async () => {
@@ -83,7 +100,11 @@ describe("S1: pre-sorted captures", () => {
         expect(Object.keys(sent[0].questions)).toEqual(["priority"]);
         sent = [];
         await roster();
-        await apiAs(userId, "/settings", (await import("../../src/domains/settings/settings.route")).settingsRoutes)("PATCH", "", { tasks: { intelligence: { smartPlacement: false } } });
+        await apiAs(userId, "/settings", (await import("../../src/domains/settings/settings.route")).settingsRoutes)(
+            "PATCH",
+            "",
+            { tasks: { intelligence: { smartPlacement: false } } },
+        );
         await inbox("POST", "", { rawText: "switch is off" });
         expect(sent).toHaveLength(0);
         const off = apiAs(userId, "/inbox", inboxRoutes, { ...env, AI_DECISION_MODEL: "" });
@@ -93,16 +114,25 @@ describe("S1: pre-sorted captures", () => {
 
     it("stores a priority the writer's words state, only when the parser found none, in the same call", async () => {
         await roster();
-        vi.stubGlobal("fetch", vi.fn(async (_url: string, init: { body: string }) => {
-            const body = JSON.parse(init.body);
-            sent.push(body);
-            const criteria = body.questions.priority.criteria as Record<string, string>;
-            const key = Object.keys(criteria).find((k) => criteria[k].includes("important"));
-            return new Response(JSON.stringify({
-                model: "vendor/model-20260101",
-                answers: { pick: { type: "choice", choice: "none", probabilities: { none: 0.9 } }, priority: { type: "choice", choice: key, probabilities: { [key!]: 0.97 } } },
-            }), { status: 200, headers: { "content-type": "application/json" } });
-        }));
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async (_url: string, init: { body: string }) => {
+                const body = JSON.parse(init.body);
+                sent.push(body);
+                const criteria = body.questions.priority.criteria as Record<string, string>;
+                const key = Object.keys(criteria).find((k) => criteria[k].includes("important"));
+                return new Response(
+                    JSON.stringify({
+                        model: "vendor/model-20260101",
+                        answers: {
+                            pick: { type: "choice", choice: "none", probabilities: { none: 0.9 } },
+                            priority: { type: "choice", choice: key, probabilities: { [key!]: 0.97 } },
+                        },
+                    }),
+                    { status: 200, headers: { "content-type": "application/json" } },
+                );
+            }),
+        );
         const said = (await inbox("POST", "", { rawText: "this really matters to me" })).body.data;
         expect(sent).toHaveLength(1);
         await inbox("POST", "", { rawText: "call bank asap" });
@@ -113,7 +143,10 @@ describe("S1: pre-sorted captures", () => {
 
     it("never fails the save when the provider errors", async () => {
         await roster();
-        vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 500 })));
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async () => new Response("nope", { status: 500 })),
+        );
         const { status } = await inbox("POST", "", { rawText: "still saved" });
         expect(status).toBe(201);
     });
@@ -121,9 +154,17 @@ describe("S1: pre-sorted captures", () => {
     it("rejects a section from a different list instead of dropping it", async () => {
         const { work, comp } = await roster();
         const cap = (await inbox("POST", "", { rawText: "mismatch" })).body.data;
-        const res = await inbox("POST", `/${cap.id}/process`, { title: "mismatch", projectId: work.id, sectionId: comp.id });
+        const res = await inbox("POST", `/${cap.id}/process`, {
+            title: "mismatch",
+            projectId: work.id,
+            sectionId: comp.id,
+        });
         expect(res.status).toBe(400);
-        const noList = await inbox("POST", `/${cap.id}/process`, { title: "mismatch", sectionId: comp.id, projectId: null });
+        const noList = await inbox("POST", `/${cap.id}/process`, {
+            title: "mismatch",
+            sectionId: comp.id,
+            projectId: null,
+        });
         expect(noList.status).toBe(400);
     });
 
@@ -154,7 +195,10 @@ describe("S2: did you mean", () => {
     it("survives a many-term query and doesn't prefix-match on a two-letter word", async () => {
         await tasks("POST", "", { title: "Renew lease", orderIndex: 0 });
         modelPicks(null);
-        const long = Array.from({ length: 60 }, (_, i) => `word${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}`).join(" ");
+        const long = Array.from(
+            { length: 60 },
+            (_, i) => `word${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}`,
+        ).join(" ");
         expect((await search("POST", "/did-you-mean", { query: long.slice(0, 200) })).status).toBe(200);
         // "re" must not stand in for every word starting with r: no candidate means no model call.
         expect((await search("POST", "/did-you-mean", { query: "re" })).status).toBe(200);
@@ -162,7 +206,11 @@ describe("S2: did you mean", () => {
 
     it("answers null when the switch is off", async () => {
         await tasks("POST", "", { title: "Renew lease", orderIndex: 0 });
-        await apiAs(userId, "/settings", (await import("../../src/domains/settings/settings.route")).settingsRoutes)("PATCH", "", { tasks: { intelligence: { smartPlacement: false } } });
+        await apiAs(userId, "/settings", (await import("../../src/domains/settings/settings.route")).settingsRoutes)(
+            "PATCH",
+            "",
+            { tasks: { intelligence: { smartPlacement: false } } },
+        );
         modelPicks("Renew lease");
         expect((await search("POST", "/did-you-mean", { query: "tenancy" })).body.data.task).toBeNull();
         expect(sent).toHaveLength(0);
@@ -171,8 +219,15 @@ describe("S2: did you mean", () => {
     it("adds possibleMatch to an empty assistant search only", async () => {
         await tasks("POST", "", { title: "Renew lease", orderIndex: 0 });
         modelPicks("Renew lease");
-        const registry = buildToolRegistry(env as any, userId, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
-        const empty = await registry.get_tasks.execute({ query: "tenancy", limit: 20 }, { toolCallId: "t", messages: [] });
+        const registry = buildToolRegistry(env as any, userId, {
+            timezone: "UTC",
+            currentDate: "2026-09-23T12:00:00Z",
+            today: "2026-09-23",
+        }) as any;
+        const empty = await registry.get_tasks.execute(
+            { query: "tenancy", limit: 20 },
+            { toolCallId: "t", messages: [] },
+        );
         expect(empty.possibleMatch.title).toBe("Renew lease");
         const hit = await registry.get_tasks.execute({ query: "lease", limit: 20 }, { toolCallId: "t2", messages: [] });
         expect(hit.possibleMatch).toBeUndefined();
@@ -181,8 +236,15 @@ describe("S2: did you mean", () => {
     it("never offers a different numeric identifier, even when the model would pick it", async () => {
         await tasks("POST", "", { title: "Implement 0.31.01", orderIndex: 0 });
         modelPicks("Implement 0.31.01");
-        const registry = buildToolRegistry(env as any, userId, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
-        const result = await registry.get_tasks.execute({ query: "implmentation 0.31.0", limit: 20 }, { toolCallId: "t", messages: [] });
+        const registry = buildToolRegistry(env as any, userId, {
+            timezone: "UTC",
+            currentDate: "2026-09-23T12:00:00Z",
+            today: "2026-09-23",
+        }) as any;
+        const result = await registry.get_tasks.execute(
+            { query: "implmentation 0.31.0", limit: 20 },
+            { toolCallId: "t", messages: [] },
+        );
         expect(result).toMatchObject({ tasks: [], count: 0 });
         expect(result.possibleMatch).toBeUndefined();
         expect(sent).toHaveLength(0);
@@ -192,23 +254,47 @@ describe("S2: did you mean", () => {
         const { work, uni, comp } = await roster();
         await tasks("POST", "", { title: "Implement 0.31.0 Work", orderIndex: 0, projectId: work.id });
         await tasks("POST", "", { title: "Implement 0.32.0", orderIndex: 0, projectId: uni.id, sectionId: comp.id });
-        await tasks("POST", "", { title: "Implement 0.31.0 Uni", orderIndex: 0, projectId: uni.id, sectionId: comp.id });
+        await tasks("POST", "", {
+            title: "Implement 0.31.0 Uni",
+            orderIndex: 0,
+            projectId: uni.id,
+            sectionId: comp.id,
+        });
         modelPicks("Implement 0.31.0 Uni");
-        const registry = buildToolRegistry(env as any, userId, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
-        const result = await registry.get_tasks.execute({ query: "implmentation 0.31.0", projectId: uni.id, sectionId: comp.id, limit: 20 }, { toolCallId: "t", messages: [] });
+        const registry = buildToolRegistry(env as any, userId, {
+            timezone: "UTC",
+            currentDate: "2026-09-23T12:00:00Z",
+            today: "2026-09-23",
+        }) as any;
+        const result = await registry.get_tasks.execute(
+            { query: "implmentation 0.31.0", projectId: uni.id, sectionId: comp.id, limit: 20 },
+            { toolCallId: "t", messages: [] },
+        );
         expect(result).toMatchObject({ tasks: [], count: 0, possibleMatch: { title: "Implement 0.31.0 Uni" } });
         // Shared spelling matching needs no model call and still respects every original filter.
         expect(sent).toHaveLength(0);
     });
 
     it.each([
-        { dueWindow: "overdue" }, { from: "2026-09-24" }, { noDate: true }, { pinned: true },
-        { minPriority: 4 }, { tagId: "00000000-0000-4000-8000-000000000001" }, { state: "COMPLETE" },
+        { dueWindow: "overdue" },
+        { from: "2026-09-24" },
+        { noDate: true },
+        { pinned: true },
+        { minPriority: 4 },
+        { tagId: "00000000-0000-4000-8000-000000000001" },
+        { state: "COMPLETE" },
     ])("does not escape filters on a fuzzy suggestion: %j", async (filter) => {
         await tasks("POST", "", { title: "Renew lease", orderIndex: 0, dueDate: "2026-09-23" });
         modelPicks("Renew lease");
-        const registry = buildToolRegistry(env as any, userId, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
-        const result = await registry.get_tasks.execute({ query: "tenancy", ...filter, limit: 20 }, { toolCallId: "t", messages: [] });
+        const registry = buildToolRegistry(env as any, userId, {
+            timezone: "UTC",
+            currentDate: "2026-09-23T12:00:00Z",
+            today: "2026-09-23",
+        }) as any;
+        const result = await registry.get_tasks.execute(
+            { query: "tenancy", ...filter, limit: 20 },
+            { toolCallId: "t", messages: [] },
+        );
         expect(result).toMatchObject({ tasks: [], count: 0 });
         expect(result.possibleMatch).toBeUndefined();
         expect(sent).toHaveLength(0);
@@ -228,8 +314,15 @@ describe("S2: did you mean", () => {
         const task = (await tasks("POST", "", { title: "Renew lease", orderIndex: 0 })).body.data;
         await tasks("PATCH", `/${task.id}`, { state: "COMPLETE" });
         modelPicks("Renew lease");
-        const registry = buildToolRegistry(env as any, userId, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
-        const result = await registry.get_tasks.execute({ query: "tenancy", state: "COMPLETE", limit: 20 }, { toolCallId: "t", messages: [] });
+        const registry = buildToolRegistry(env as any, userId, {
+            timezone: "UTC",
+            currentDate: "2026-09-23T12:00:00Z",
+            today: "2026-09-23",
+        }) as any;
+        const result = await registry.get_tasks.execute(
+            { query: "tenancy", state: "COMPLETE", limit: 20 },
+            { toolCallId: "t", messages: [] },
+        );
         expect(result.possibleMatch).toMatchObject({ id: task.id, title: "Renew lease" });
     });
 });
@@ -237,22 +330,39 @@ describe("S2: did you mean", () => {
 describe("Weekly Reset guesses (reset_disposition)", () => {
     /** Every row's question answered with the option whose label contains `pick`. */
     function modelAnswers(pick: string, p = 0.97) {
-        vi.stubGlobal("fetch", vi.fn(async (_url: string, init: { body: string }) => {
-            const body = JSON.parse(init.body);
-            sent.push(body);
-            const answers = Object.fromEntries(Object.entries(body.questions as Record<string, { criteria: Record<string, string> }>).map(([name, q]) => {
-                const key = Object.keys(q.criteria).find((k) => q.criteria[k].includes(pick)) ?? "none";
-                return [name, { type: "choice", choice: key, probabilities: { [key]: p } }];
-            }));
-            return new Response(JSON.stringify({ model: "vendor/model-20260101", answers, usage: { input_tokens: 50, cost: 0.00001 } }), { status: 200, headers: { "content-type": "application/json" } });
-        }));
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async (_url: string, init: { body: string }) => {
+                const body = JSON.parse(init.body);
+                sent.push(body);
+                const answers = Object.fromEntries(
+                    Object.entries(body.questions as Record<string, { criteria: Record<string, string> }>).map(
+                        ([name, q]) => {
+                            const key = Object.keys(q.criteria).find((k) => q.criteria[k].includes(pick)) ?? "none";
+                            return [name, { type: "choice", choice: key, probabilities: { [key]: p } }];
+                        },
+                    ),
+                );
+                return new Response(
+                    JSON.stringify({
+                        model: "vendor/model-20260101",
+                        answers,
+                        usage: { input_tokens: 50, cost: 0.00001 },
+                    }),
+                    { status: 200, headers: { "content-type": "application/json" } },
+                );
+            }),
+        );
     }
     const reset = () => apiAs(userId, "/ai/decisions", decisionRoutes, env);
 
     it("answers only for the person's own rows, in one request, with no notes in the state", async () => {
-        const mine = (await tasks("POST", "", { title: "Renew passport", orderIndex: 1, notes: "secret note" })).body.data;
+        const mine = (await tasks("POST", "", { title: "Renew passport", orderIndex: 1, notes: "secret note" })).body
+            .data;
         const other = await createUser();
-        const theirs = (await apiAs(other, "/tasks", taskRoutes, env)("POST", "", { title: "Not yours", orderIndex: 1 })).body.data;
+        const theirs = (
+            await apiAs(other, "/tasks", taskRoutes, env)("POST", "", { title: "Not yours", orderIndex: 1 })
+        ).body.data;
         modelAnswers("Next week");
         const { status, body } = await reset()("POST", "/reset", { step: "loose_ends", ids: [mine.id, theirs.id] });
         expect(status).toBe(200);
@@ -273,11 +383,20 @@ describe("Weekly Reset guesses (reset_disposition)", () => {
     it("returns nothing and calls no model with the switch off, or below the threshold", async () => {
         const task = (await tasks("POST", "", { title: "Tidy desk", orderIndex: 1 })).body.data;
         modelAnswers("Next week", 0.5);
-        expect((await reset()("POST", "/reset", { step: "loose_ends", ids: [task.id] })).body.data.suggestions).toEqual({});
+        expect((await reset()("POST", "/reset", { step: "loose_ends", ids: [task.id] })).body.data.suggestions).toEqual(
+            {},
+        );
         sent = [];
-        await apiAs(userId, "/settings", (await import("../../src/domains/settings/settings.route")).settingsRoutes, env)("PATCH", "", { tasks: { intelligence: { smartPlacement: false } } });
+        await apiAs(
+            userId,
+            "/settings",
+            (await import("../../src/domains/settings/settings.route")).settingsRoutes,
+            env,
+        )("PATCH", "", { tasks: { intelligence: { smartPlacement: false } } });
         modelAnswers("Next week");
-        expect((await reset()("POST", "/reset", { step: "loose_ends", ids: [task.id] })).body.data.suggestions).toEqual({});
+        expect((await reset()("POST", "/reset", { step: "loose_ends", ids: [task.id] })).body.data.suggestions).toEqual(
+            {},
+        );
         expect(sent).toHaveLength(0);
     });
 });

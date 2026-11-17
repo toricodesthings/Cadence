@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppPane } from "../../../app/components/shared/AppPane";
 import { Provider } from "../../../app/components/primitives/Tooltip";
 
-vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { tasks: { intelligence: { nlpEnabled: true } } } }) }));
+vi.mock("../../../app/hooks/core/use-settings", () => ({
+    useSettings: () => ({ data: { tasks: { intelligence: { nlpEnabled: true } } } }),
+}));
 const { undoToast } = vi.hoisted(() => ({ undoToast: vi.fn() }));
 vi.mock("../../../app/lib/utils/undo-toast", () => ({ toastUndo: undoToast }));
 
@@ -12,9 +14,27 @@ const onChange = vi.fn();
 function Harness({ initial, initialUrl, title }: { initial: string | null; initialUrl: string | null; title: string }) {
     const [link, setLink] = useState({ linkedAppId: initial, linkedUrl: initialUrl });
     const [open, setOpen] = useState(false);
-    return <AppPane value={link.linkedAppId} url={link.linkedUrl} title={title} kind="routine" open={open} onOpenChange={setOpen} onChange={(patch) => { onChange(patch); setLink(patch); }} />;
+    return (
+        <AppPane
+            value={link.linkedAppId}
+            url={link.linkedUrl}
+            title={title}
+            kind="routine"
+            open={open}
+            onOpenChange={setOpen}
+            onChange={(patch) => {
+                onChange(patch);
+                setLink(patch);
+            }}
+        />
+    );
 }
-const pane = (value: string | null, title = "Check emails", url: string | null = null) => render(<Provider><Harness initial={value} initialUrl={url} title={title} /></Provider>);
+const pane = (value: string | null, title = "Check emails", url: string | null = null) =>
+    render(
+        <Provider>
+            <Harness initial={value} initialUrl={url} title={title} />
+        </Provider>,
+    );
 const app = (linkedAppId: string | null) => ({ linkedAppId, linkedUrl: null });
 
 beforeEach(() => vi.clearAllMocks());
@@ -31,7 +51,9 @@ describe("AppPane", () => {
         fireEvent.click(screen.getByRole("button", { name: /^App/ }));
         const chooser = screen.getByRole("region", { name: "Choose app" });
         expect(within(chooser).getByRole("searchbox", { name: "Find an app" })).toBeTruthy();
-        const email = within(screen.getByRole("region", { name: "For email" })).getAllByRole("button").map((button) => button.textContent);
+        const email = within(screen.getByRole("region", { name: "For email" }))
+            .getAllByRole("button")
+            .map((button) => button.textContent);
         expect(email[0]).toContain("Gmail");
         expect(screen.queryByText("Selected")).toBeNull();
     });
@@ -102,7 +124,9 @@ describe("AppPane website", () => {
         pane("gmail");
         fireEvent.click(screen.getByRole("button", { name: "App: Gmail. Change app" }));
         fireEvent.click(screen.getByRole("button", { name: /^Website/ }));
-        fireEvent.change(screen.getByRole("textbox", { name: "Website address" }), { target: { value: "https://www.Example.com/plan" } });
+        fireEvent.change(screen.getByRole("textbox", { name: "Website address" }), {
+            target: { value: "https://www.Example.com/plan" },
+        });
         const open = screen.getByRole("link", { name: "Open example.com" });
         expect(open.getAttribute("href")).toBe("https://www.example.com/plan");
         expect(open.getAttribute("target")).toBe("_blank");
@@ -117,22 +141,31 @@ describe("AppPane website", () => {
         fireEvent.change(input, { target: { value: "https://docs.example.org" } });
         fireEvent.submit(input.form!);
         expect(onChange).toHaveBeenCalledWith({ linkedAppId: null, linkedUrl: "https://docs.example.org/" });
-        expect(screen.getByRole("button", { name: "App: docs.example.org. Change app" }).textContent).toContain("Website · Change");
+        expect(screen.getByRole("button", { name: "App: docs.example.org. Change app" }).textContent).toContain(
+            "Website · Change",
+        );
         // The chooser is still animating closed; the collapsed row's link comes first.
-        expect(screen.getAllByRole("link", { name: "Open docs.example.org" })[0].getAttribute("href")).toBe("https://docs.example.org/");
+        expect(screen.getAllByRole("link", { name: "Open docs.example.org" })[0].getAttribute("href")).toBe(
+            "https://docs.example.org/",
+        );
     });
 
-    it.each(["javascript:alert(1)", "http://example.com", "https://user:pw@example.com", "https://localhost", "data:text/html,hi", "https://exa mple.com"])(
-        "refuses %s: no link, nothing saved, says why", (address) => {
-            pane(null);
-            const input = openWebsite();
-            fireEvent.change(input, { target: { value: address } });
-            fireEvent.submit(input.form!);
-            expect(onChange).not.toHaveBeenCalled();
-            expect(screen.queryByRole("link")).toBeNull();
-            expect(screen.getByText(/Use a full https:\/\/ address/)).toBeTruthy();
-        },
-    );
+    it.each([
+        "javascript:alert(1)",
+        "http://example.com",
+        "https://user:pw@example.com",
+        "https://localhost",
+        "data:text/html,hi",
+        "https://exa mple.com",
+    ])("refuses %s: no link, nothing saved, says why", (address) => {
+        pane(null);
+        const input = openWebsite();
+        fireEvent.change(input, { target: { value: address } });
+        fireEvent.submit(input.form!);
+        expect(onChange).not.toHaveBeenCalled();
+        expect(screen.queryByRole("link")).toBeNull();
+        expect(screen.getByText(/Use a full https:\/\/ address/)).toBeTruthy();
+    });
 
     it("a stored address that fails the check never becomes a link", () => {
         pane(null, "Read", "javascript:alert(1)");

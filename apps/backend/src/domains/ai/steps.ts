@@ -41,8 +41,17 @@ export async function readStepsInput(tx: Tx, userId: string, taskId: string): Pr
         .leftJoin(taskNotes, eq(taskNotes.taskId, tasks.id))
         .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
     throwIfNotFound(task, "Task");
-    const steps = await tx.select({ title: subtasks.title }).from(subtasks).where(eq(subtasks.taskId, taskId)).orderBy(asc(subtasks.orderIndex));
-    return { title: task.title, notes: (task.notes ?? "").slice(0, NOTE_CHARS), listName: task.listName, existing: steps.map((s) => s.title) };
+    const steps = await tx
+        .select({ title: subtasks.title })
+        .from(subtasks)
+        .where(eq(subtasks.taskId, taskId))
+        .orderBy(asc(subtasks.orderIndex));
+    return {
+        title: task.title,
+        notes: (task.notes ?? "").slice(0, NOTE_CHARS),
+        listName: task.listName,
+        existing: steps.map((s) => s.title),
+    };
 }
 
 /** The task as the model reads it: plain labelled data. */
@@ -52,12 +61,21 @@ export function stepsPromptFor(input: StepsInput, smaller?: string[]): string {
         input.listName ? `List: ${input.listName}` : null,
         input.notes.trim() ? `Notes:\n${input.notes.trim()}` : null,
         input.existing.length ? `Existing steps:\n${input.existing.map((s) => `- ${s}`).join("\n")}` : null,
-        smaller?.length ? `Previous draft, to break into smaller steps:\n${smaller.map((s) => `- ${s}`).join("\n")}` : null,
-    ].filter(Boolean).join("\n\n");
+        smaller?.length
+            ? `Previous draft, to break into smaller steps:\n${smaller.map((s) => `- ${s}`).join("\n")}`
+            : null,
+    ]
+        .filter(Boolean)
+        .join("\n\n");
 }
 
 /** Drafted steps, cleaned to ≤ 80 characters each, and the metered tokens it cost. Throws a 504 on timeout, else 502. */
-export async function suggestSteps(env: Env, userHash: string, input: StepsInput, smaller?: string[]): Promise<{ steps: string[]; tokens: number }> {
+export async function suggestSteps(
+    env: Env,
+    userHash: string,
+    input: StepsInput,
+    smaller?: string[],
+): Promise<{ steps: string[]; tokens: number }> {
     if (!env.OPENROUTER_API_KEY) throw new AppError(503, "AI_UPSTREAM_UNAVAILABLE", "The assistant isn't available");
     const startedAt = Date.now();
     try {
@@ -88,7 +106,11 @@ export async function suggestSteps(env: Env, userHash: string, input: StepsInput
         return { steps, tokens: (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0) };
     } catch (error) {
         const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
-        logger.warn("ai", "ai_steps_failed", { userHash, reason: error instanceof Error ? error.name : "unknown", ms: Date.now() - startedAt });
+        logger.warn("ai", "ai_steps_failed", {
+            userHash,
+            reason: error instanceof Error ? error.name : "unknown",
+            ms: Date.now() - startedAt,
+        });
         throw timedOut
             ? new AppError(504, "AI_TIMEOUT", "Couldn't suggest steps in time", true)
             : new AppError(502, "AI_UPSTREAM_UNAVAILABLE", "Couldn't suggest steps", true);

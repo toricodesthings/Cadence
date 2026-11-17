@@ -23,7 +23,9 @@ import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { useRightPanelStore } from "../stores/right-panel-store";
 import { useAssistantStore } from "../stores/assistant-store";
 import { useCaptureFeed } from "../hooks/inbox/use-capture-feed";
-const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then((m) => ({ default: m.FocusViewBar })));
+const LazyFocusViewBar = lazy(() =>
+    import("../components/focus-views/FocusViewBar").then((m) => ({ default: m.FocusViewBar })),
+);
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
@@ -40,17 +42,31 @@ export default function HomeRoute() {
         onSaved: () => undefined,
     });
     const [selectedInboxItemId, setSelectedInboxItemId] = useState<string | null>(null);
-    const { selectedTaskId, setSelectedTaskId, mobilePanelOpen, setMobilePanelOpen, mobileDetailMode, setMobileDetailMode, handleSelectTask } = useTaskDetailSelection(() => setSelectedInboxItemId(null));
-
+    const {
+        selectedTaskId,
+        setSelectedTaskId,
+        mobilePanelOpen,
+        setMobilePanelOpen,
+        mobileDetailMode,
+        setMobileDetailMode,
+        handleSelectTask,
+    } = useTaskDetailSelection(() => setSelectedInboxItemId(null));
 
     const captureFeed = useCaptureFeed();
     const inboxItems = [...captureFeed.inboxItems, ...captureFeed.notes];
     const tasksLoading = captureFeed.isLoading;
-    const { holdingPanelOpen, holdingPanelWidth, setHoldingPanelWidth, toggleHoldingPanel, railView } = useRightPanelStore();
+    const { holdingPanelOpen, holdingPanelWidth, setHoldingPanelWidth, toggleHoldingPanel, railView } =
+        useRightPanelStore();
     const { assistantPanelOpen, toggleAssistantPanel } = useAssistantStore();
 
-
-    useRouteFocus({ onFocusMatch: ({ focusKind, focusId }) => { if (focusKind === "inbox" && focusId) { setSelectedInboxItemId(focusId); setMobilePanelOpen(true); } } });
+    useRouteFocus({
+        onFocusMatch: ({ focusKind, focusId }) => {
+            if (focusKind === "inbox" && focusId) {
+                setSelectedInboxItemId(focusId);
+                setMobilePanelOpen(true);
+            }
+        },
+    });
 
     // Find the selected inbox item for ClarifySheet
     const selectedInboxItem = useMemo(
@@ -61,7 +77,6 @@ export default function HomeRoute() {
     // Determine which panel content to show
     const hasPanelContent = selectedTaskId || selectedInboxItem || holdingPanelOpen;
 
-
     const clearSelection = useCallback(() => {
         setSelectedTaskId(null);
         setSelectedInboxItemId(null);
@@ -69,14 +84,27 @@ export default function HomeRoute() {
 
     /* ── Side panel — ClarifySheet for captures, EditSidePanel for tasks, Overview fallback ── */
     const sidePanel = (
-        <EditSidePanelRail ariaLabel="Resize Place panel" width={holdingPanelWidth} onWidthChange={setHoldingPanelWidth}>
+        <EditSidePanelRail
+            ariaLabel="Resize Place panel"
+            width={holdingPanelWidth}
+            onWidthChange={setHoldingPanelWidth}
+        >
             {hasPanelContent ? (
                 selectedInboxItem ? (
-                    <EditSidePanel kind="capture" item={selectedInboxItem} onClose={clearSelection}
-                        onOpenFullEditor={(taskId) => { setSelectedInboxItemId(null); setSelectedTaskId(taskId); }} />
+                    <EditSidePanel
+                        kind="capture"
+                        item={selectedInboxItem}
+                        onClose={clearSelection}
+                        onOpenFullEditor={(taskId) => {
+                            setSelectedInboxItemId(null);
+                            setSelectedTaskId(taskId);
+                        }}
+                    />
                 ) : selectedTaskId ? (
                     <EditSidePanel kind="task" taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
-                ) : <HoldingPlannerPanel onSelectTask={(id) => handleSelectTask(id)} />
+                ) : (
+                    <HoldingPlannerPanel onSelectTask={(id) => handleSelectTask(id)} />
+                )
             ) : null}
         </EditSidePanelRail>
     );
@@ -111,22 +139,24 @@ export default function HomeRoute() {
         } else toggleHoldingPanel();
     };
     const headerRight = shell.isWide ? (
-        <Button variant="ghost" size="icon"
+        <Button
+            variant="ghost"
+            size="icon"
             type="button"
             onClick={toggleRail}
             className="btn-icon rounded-2xl"
-            aria-label={
-                railShowsAssistant
-                    ? "Hide Cadence"
-                    : railOpen
-                        ? "Hide Place panel"
-                        : "Show Place panel"
-            }
+            aria-label={railShowsAssistant ? "Hide Cadence" : railOpen ? "Hide Place panel" : "Show Place panel"}
         >
-            {railOpen ? <PanelRightClose size={18} aria-hidden="true" /> : <PanelRightOpen size={18} aria-hidden="true" />}
+            {railOpen ? (
+                <PanelRightClose size={18} aria-hidden="true" />
+            ) : (
+                <PanelRightOpen size={18} aria-hidden="true" />
+            )}
         </Button>
     ) : shell.isCompact ? null : (
-        <Button variant="ghost" size="icon"
+        <Button
+            variant="ghost"
+            size="icon"
             type="button"
             onClick={() => {
                 clearSelection();
@@ -151,101 +181,128 @@ export default function HomeRoute() {
     );
 
     return (
-        <PlaceDndProvider><MainLayout
-            requireAuth
-            hideContextualOrb
-            sidePanel={sidePanel}
-            sidePanelActive={Boolean(hasPanelContent)}
-            sidePanelLabel="Place"
-            headerRight={<div className="flex items-center gap-2"><StartupSuspense fallback={null}><LazyFocusViewBar capture /></StartupSuspense><SortMenu view={view} onViewChange={setView} />{headerRight}</div>}
-            compactHeaderRightInline
-            shellHeader={{
-                title: "Capture",
-                icon: <Inbox size={18} aria-hidden="true" />,
-                accentColor: "var(--accent-nav-capture, var(--accent-primary))",
-            }}
-        >
-            {board ? <>
-                <PageContent width="default">
-                    {!shell.isCompact && <LocationNotice />}
-                    <div className="group/capture">
-                        {shell.isTouch ? <CaptureWindow variant="band" /> : <>
-                            <CaptureGreeting className="mb-2 pl-4 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0" />
-                            <CaptureInput />
-                        </>}
+        <PlaceDndProvider>
+            <MainLayout
+                requireAuth
+                hideContextualOrb
+                sidePanel={sidePanel}
+                sidePanelActive={Boolean(hasPanelContent)}
+                sidePanelLabel="Place"
+                headerRight={
+                    <div className="flex items-center gap-2">
+                        <StartupSuspense fallback={null}>
+                            <LazyFocusViewBar capture />
+                        </StartupSuspense>
+                        <SortMenu view={view} onViewChange={setView} />
+                        {headerRight}
                     </div>
-                </PageContent>
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col">{feed}</div>
-            </> : <ScrollAreaWrapper><PageContent width="default">
-                {!shell.isCompact && <LocationNotice />}
-                {!shell.isTouch && <div className="group/capture mb-6 pt-1">
-                    <CaptureGreeting className="mb-2 pl-4 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0" />
-                    <CaptureInput />
-                </div>}
-                {feed}
-            </PageContent></ScrollAreaWrapper>}
-            {shell.isTouch && <>
-                <ContextualAddOrb directCapture onOpen={() => setCaptureOpen(true)} />
-                {/* Every return already saved, so closing is "Done", not a discard. */}
-                <Composer open={captureOpen} onClose={() => setCaptureOpen(false)} {...captureComposer} isDirty={false} closeLabel="Done" />
-            </>}
-
-            {/* ── Mobile overlay — ClarifySheet / EditSidePanel / Overview (C4 fix) ── */}
-            {!shell.isWide && (
-                <ResponsiveOverlayPanel
-                    ariaLabel={
-                        selectedInboxItem ? "Clarify capture"
-                            : selectedTaskId ? "Task details"
-                            : "Place"
-                    }
-                    open={mobilePanelOpen}
-                    onClose={() => {
-                        setMobilePanelOpen(false);
-                        clearSelection();
-                    }}
-                    mode={selectedTaskId || selectedInboxItem ? mobileDetailMode : "peek"}
-                    fill={Boolean(selectedTaskId || selectedInboxItem)}
-                    title={
-                        selectedInboxItem ? "Clarify"
-                            : selectedTaskId ? "Task details"
-                            : "Place"
-                    }
-                    showHeader={!selectedInboxItem && !selectedTaskId}
-                >
+                }
+                compactHeaderRightInline
+                shellHeader={{
+                    title: "Capture",
+                    icon: <Inbox size={18} aria-hidden="true" />,
+                    accentColor: "var(--accent-nav-capture, var(--accent-primary))",
+                }}
+            >
+                {board ? (
                     <>
-                        {selectedInboxItem ? (
-                            <EditSidePanel kind="capture"
-                                key={`clarify-mobile-${selectedInboxItem.id}`}
-                                item={selectedInboxItem}
-                                detailMode={mobileDetailMode}
-                                onDetailModeChange={setMobileDetailMode}
-                                onClose={() => {
-                                    setSelectedInboxItemId(null);
-                                    setMobilePanelOpen(false);
-                                }}
-                                onOpenFullEditor={(taskId) => {
-                                    setSelectedInboxItemId(null);
-                                    setSelectedTaskId(taskId);
-                                    setMobileDetailMode("peek");
-                                }}
-                            />
-                        ) : selectedTaskId ? (
-                            <EditSidePanel kind="task"
-                                key={`holding-mobile-edit-${selectedTaskId}`}
-                                taskId={selectedTaskId}
-                                detailMode={mobileDetailMode}
-                                onDetailModeChange={setMobileDetailMode}
-                                onClose={() => {
-                                    setSelectedTaskId(null);
-                                    setMobilePanelOpen(false);
-                                }}
-                            />
-                        ) : (
-                            <HoldingPlannerPanel key="holding-mobile-planner" onSelectTask={(id) => handleSelectTask(id)} />
-                        )}
+                        <PageContent width="default">
+                            {!shell.isCompact && <LocationNotice />}
+                            <div className="group/capture">
+                                {shell.isTouch ? (
+                                    <CaptureWindow variant="band" />
+                                ) : (
+                                    <>
+                                        <CaptureGreeting className="mb-2 pl-4 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0" />
+                                        <CaptureInput />
+                                    </>
+                                )}
+                            </div>
+                        </PageContent>
+                        <div className="flex min-h-0 min-w-0 flex-1 flex-col">{feed}</div>
                     </>
-                </ResponsiveOverlayPanel>
-            )}
-        </MainLayout></PlaceDndProvider>
+                ) : (
+                    <ScrollAreaWrapper>
+                        <PageContent width="default">
+                            {!shell.isCompact && <LocationNotice />}
+                            {!shell.isTouch && (
+                                <div className="group/capture mb-6 pt-1">
+                                    <CaptureGreeting className="mb-2 pl-4 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0" />
+                                    <CaptureInput />
+                                </div>
+                            )}
+                            {feed}
+                        </PageContent>
+                    </ScrollAreaWrapper>
+                )}
+                {shell.isTouch && (
+                    <>
+                        <ContextualAddOrb directCapture onOpen={() => setCaptureOpen(true)} />
+                        {/* Every return already saved, so closing is "Done", not a discard. */}
+                        <Composer
+                            open={captureOpen}
+                            onClose={() => setCaptureOpen(false)}
+                            {...captureComposer}
+                            isDirty={false}
+                            closeLabel="Done"
+                        />
+                    </>
+                )}
+
+                {/* ── Mobile overlay — ClarifySheet / EditSidePanel / Overview (C4 fix) ── */}
+                {!shell.isWide && (
+                    <ResponsiveOverlayPanel
+                        ariaLabel={selectedInboxItem ? "Clarify capture" : selectedTaskId ? "Task details" : "Place"}
+                        open={mobilePanelOpen}
+                        onClose={() => {
+                            setMobilePanelOpen(false);
+                            clearSelection();
+                        }}
+                        mode={selectedTaskId || selectedInboxItem ? mobileDetailMode : "peek"}
+                        fill={Boolean(selectedTaskId || selectedInboxItem)}
+                        title={selectedInboxItem ? "Clarify" : selectedTaskId ? "Task details" : "Place"}
+                        showHeader={!selectedInboxItem && !selectedTaskId}
+                    >
+                        <>
+                            {selectedInboxItem ? (
+                                <EditSidePanel
+                                    kind="capture"
+                                    key={`clarify-mobile-${selectedInboxItem.id}`}
+                                    item={selectedInboxItem}
+                                    detailMode={mobileDetailMode}
+                                    onDetailModeChange={setMobileDetailMode}
+                                    onClose={() => {
+                                        setSelectedInboxItemId(null);
+                                        setMobilePanelOpen(false);
+                                    }}
+                                    onOpenFullEditor={(taskId) => {
+                                        setSelectedInboxItemId(null);
+                                        setSelectedTaskId(taskId);
+                                        setMobileDetailMode("peek");
+                                    }}
+                                />
+                            ) : selectedTaskId ? (
+                                <EditSidePanel
+                                    kind="task"
+                                    key={`holding-mobile-edit-${selectedTaskId}`}
+                                    taskId={selectedTaskId}
+                                    detailMode={mobileDetailMode}
+                                    onDetailModeChange={setMobileDetailMode}
+                                    onClose={() => {
+                                        setSelectedTaskId(null);
+                                        setMobilePanelOpen(false);
+                                    }}
+                                />
+                            ) : (
+                                <HoldingPlannerPanel
+                                    key="holding-mobile-planner"
+                                    onSelectTask={(id) => handleSelectTask(id)}
+                                />
+                            )}
+                        </>
+                    </ResponsiveOverlayPanel>
+                )}
+            </MainLayout>
+        </PlaceDndProvider>
     );
 }

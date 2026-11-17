@@ -54,11 +54,12 @@ export function createErrorBody(options: ErrorBodyOptions): ApiError {
 }
 
 export function formatErrorResponse(error: unknown, requestId?: string) {
-    const appError = error instanceof AppError
-        ? error
-        : error instanceof DomainError
-            ? new AppError(error.status, error.code, error.message)
-            : new AppError(500, "INTERNAL_ERROR", "An unexpected error occurred", true);
+    const appError =
+        error instanceof AppError
+            ? error
+            : error instanceof DomainError
+              ? new AppError(error.status, error.code, error.message)
+              : new AppError(500, "INTERNAL_ERROR", "An unexpected error occurred", true);
 
     return {
         body: createErrorBody({

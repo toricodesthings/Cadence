@@ -22,10 +22,13 @@ export interface QuickAddParseResult {
 }
 
 export function resolveQuickAddActions(
-    quickAdd: {
-        preset?: "minimal" | "planner" | "power";
-        actions?: Array<"date" | "priority" | "project" | "tag">;
-    } | null | undefined,
+    quickAdd:
+        | {
+              preset?: "minimal" | "planner" | "power";
+              actions?: Array<"date" | "priority" | "project" | "tag">;
+          }
+        | null
+        | undefined,
 ) {
     const preset = quickAdd?.preset ?? "planner";
     const presetActions: Record<typeof preset, Array<"date" | "priority" | "project" | "tag">> = {

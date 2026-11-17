@@ -16,7 +16,13 @@ describe("sanitizeBackgroundPatch", () => {
     it("lets a patch adjust accent, blur and brightness only", () => {
         const patch = {
             appearance: {
-                backgroundImage: { id: "33333333-3333-4333-8333-333333333333", swatches: ["#000000"], accent: "#aa5500", blur: 40, brightness: 60 },
+                backgroundImage: {
+                    id: "33333333-3333-4333-8333-333333333333",
+                    swatches: ["#000000"],
+                    accent: "#aa5500",
+                    blur: 40,
+                    brightness: 60,
+                },
             },
         };
         expect(sanitizeBackgroundPatch(withImage, patch)).toEqual({
@@ -25,12 +31,16 @@ describe("sanitizeBackgroundPatch", () => {
     });
 
     it("never lets a patch clear the photo", () => {
-        expect(sanitizeBackgroundPatch(withImage, { appearance: { backgroundImage: null } })).toEqual({ appearance: {} });
+        expect(sanitizeBackgroundPatch(withImage, { appearance: { backgroundImage: null } })).toEqual({
+            appearance: {},
+        });
     });
 
     it("drops photo fields and image mode when there is no photo", () => {
         expect(
-            sanitizeBackgroundPatch(withoutImage, { appearance: { backgroundMode: "image", backgroundImage: { blur: 10 }, palette: "rose" } }),
+            sanitizeBackgroundPatch(withoutImage, {
+                appearance: { backgroundMode: "image", backgroundImage: { blur: 10 }, palette: "rose" },
+            }),
         ).toEqual({ appearance: { palette: "rose" } });
     });
 

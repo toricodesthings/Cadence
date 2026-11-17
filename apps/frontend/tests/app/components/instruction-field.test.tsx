@@ -5,14 +5,24 @@ import { InstructionField } from "../../../app/components/weekly-review/Instruct
 // Real parser and real composers: under four parallel zone runs a wait needs more than the 1s default.
 configure({ asyncUtilTimeout: 5000 });
 
-vi.mock("../../../app/hooks/projects/use-projects", () => ({ useProjects: () => ({ data: [{ id: "p-work", name: "Work" }] }) }));
-vi.mock("../../../app/hooks/sections/use-sections", () => ({ useAllSections: () => [{ id: "s-later", name: "Later This Week", projectId: "p-work" }] }));
+vi.mock("../../../app/hooks/projects/use-projects", () => ({
+    useProjects: () => ({ data: [{ id: "p-work", name: "Work" }] }),
+}));
+vi.mock("../../../app/hooks/sections/use-sections", () => ({
+    useAllSections: () => [{ id: "s-later", name: "Later This Week", projectId: "p-work" }],
+}));
 vi.mock("../../../app/hooks/tags/use-tags", () => ({ useTags: () => ({ data: [] }) }));
-vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { tasks: { intelligence: {} }, dateTime: { dateStyle: "mdy" } } }) }));
+vi.mock("../../../app/hooks/core/use-settings", () => ({
+    useSettings: () => ({ data: { tasks: { intelligence: {} }, dateTime: { dateStyle: "mdy" } } }),
+}));
 
 const setup = (onApply = vi.fn()) => {
     render(<InstructionField placeholder="Say a change" applyLabel="Apply to 2 tasks" onApply={onApply} />);
-    return { onApply, input: screen.getByRole("textbox", { name: "Say a change" }), apply: screen.getByRole("button", { name: /Apply to 2 tasks/ }) as HTMLButtonElement };
+    return {
+        onApply,
+        input: screen.getByRole("textbox", { name: "Say a change" }),
+        apply: screen.getByRole("button", { name: /Apply to 2 tasks/ }) as HTMLButtonElement,
+    };
 };
 
 describe("InstructionField", () => {
@@ -24,7 +34,10 @@ describe("InstructionField", () => {
         await waitFor(() => expect(apply.disabled).toBe(false));
         fireEvent.click(apply);
         await waitFor(() => expect(onApply).toHaveBeenCalledTimes(1));
-        expect(onApply.mock.calls[0][0]).toMatchObject({ state: "WAITING", notBefore: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
+        expect(onApply.mock.calls[0][0]).toMatchObject({
+            state: "WAITING",
+            notBefore: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        });
         expect(onApply.mock.calls[0][0].dueDate).toBeUndefined();
     });
 

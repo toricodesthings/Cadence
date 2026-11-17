@@ -15,11 +15,19 @@ describe("applyMarkdownAction", () => {
     });
 
     it("prefixes every selected line, selecting from after the first prefix", () => {
-        expect(apply("one\ntwo", 0, 7, "numbered-list")).toEqual({ value: "1. one\n2. two", selectionStart: 3, selectionEnd: 13 });
+        expect(apply("one\ntwo", 0, 7, "numbered-list")).toEqual({
+            value: "1. one\n2. two",
+            selectionStart: 3,
+            selectionEnd: 13,
+        });
     });
 
     it("inserts a placeholder when nothing is selected", () => {
-        expect(apply("", 0, 0, "link")).toEqual({ value: "[Link text](https://)", selectionStart: 1, selectionEnd: 10 });
+        expect(apply("", 0, 0, "link")).toEqual({
+            value: "[Link text](https://)",
+            selectionStart: 1,
+            selectionEnd: 10,
+        });
         expect(apply("ab", 2, 2, "divider")).toEqual({ value: "ab\n\n---\n", selectionStart: 8, selectionEnd: 8 });
     });
 });

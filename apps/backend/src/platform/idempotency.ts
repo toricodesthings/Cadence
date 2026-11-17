@@ -33,12 +33,7 @@ export async function checkIdempotency(
     const [existing] = await tx
         .select({ resultId: mutationDedup.resultId })
         .from(mutationDedup)
-        .where(
-            and(
-                eq(mutationDedup.userId, userId),
-                eq(mutationDedup.clientMutationId, idempotencyKey),
-            ),
-        );
+        .where(and(eq(mutationDedup.userId, userId), eq(mutationDedup.clientMutationId, idempotencyKey)));
 
     return existing?.resultId ?? null;
 }
@@ -79,7 +74,11 @@ export async function insertWithClientId<T>(insert: () => Promise<T>): Promise<T
     try {
         return await insert();
     } catch (error) {
-        const pg = ((error as { cause?: unknown }).cause ?? error) as { code?: string; constraint?: string; constraint_name?: string };
+        const pg = ((error as { cause?: unknown }).cause ?? error) as {
+            code?: string;
+            constraint?: string;
+            constraint_name?: string;
+        };
         if (pg.code === "23505" && (pg.constraint_name ?? pg.constraint ?? "").endsWith("_pkey")) {
             throw new AppError(409, "CONFLICT", "That id is already in use");
         }

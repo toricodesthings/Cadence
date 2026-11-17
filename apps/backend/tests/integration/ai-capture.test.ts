@@ -11,8 +11,13 @@ beforeAll(startTestDb);
 beforeEach(async () => {
     const id = await createUser({ zone: "America/New_York" });
     inbox = apiAs(id, "/inbox", inboxRoutes);
-    const registry = buildToolRegistry({} as any, id, { timezone: "America/New_York", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23", weekStart: "Monday" }) as any;
-    run = args => registry.get_inbox_items.execute(args, { toolCallId: "test", messages: [] });
+    const registry = buildToolRegistry({} as any, id, {
+        timezone: "America/New_York",
+        currentDate: "2026-09-23T12:00:00Z",
+        today: "2026-09-23",
+        weekStart: "Monday",
+    }) as any;
+    run = (args) => registry.get_inbox_items.execute(args, { toolCallId: "test", messages: [] });
     capture = (args, toolCallId) => registry.capture_to_inbox.execute(args, { toolCallId, messages: [] });
 });
 it("reads only live thoughts and explicitly marked notes, never discarded captures", async () => {
