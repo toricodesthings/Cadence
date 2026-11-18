@@ -58,24 +58,15 @@ describe("scanStreak (pure reducer)", () => {
 });
 
 describe("computeCurrentStreak (cadence-agnostic, bounded)", () => {
-    it("builds a multi-step streak for MONTHLY habits (>7-day gaps)", async () => {
-        const created = "2025-01-15";
-        const asOf = "2026-06-15";
-        const occ = occurrences("FREQ=MONTHLY", created, asOf);
-        expect(occ.length).toBeGreaterThan(1); // sanity: spans many months
+    it.each([
+        ["MONTHLY (gaps over 7 days)", "FREQ=MONTHLY", "2025-01-15", "2026-06-15"],
+        ["bi-weekly", "FREQ=WEEKLY;INTERVAL=2", "2026-01-05", "2026-06-01"],
+    ])("builds a multi-step streak for %s habits", async (_name, rule, created, asOf) => {
+        const occ = occurrences(rule, created, asOf);
+        expect(occ.length).toBeGreaterThan(1); // sanity: spans many steps
 
-        const streak = await computeCurrentStreak("FREQ=MONTHLY", created, asOf, lookup(occ));
+        const streak = await computeCurrentStreak(rule, created, asOf, lookup(occ));
         expect(streak).toBe(occ.length); // every occurrence completed → full streak
-    });
-
-    it("builds a multi-step streak for bi-weekly habits", async () => {
-        const created = "2026-01-05";
-        const asOf = "2026-06-01";
-        const occ = occurrences("FREQ=WEEKLY;INTERVAL=2", created, asOf);
-        expect(occ.length).toBeGreaterThan(1);
-
-        const streak = await computeCurrentStreak("FREQ=WEEKLY;INTERVAL=2", created, asOf, lookup(occ));
-        expect(streak).toBe(occ.length);
     });
 
     it("counts long daily streaks across multiple fetch batches", async () => {

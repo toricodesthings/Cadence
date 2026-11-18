@@ -44,7 +44,7 @@ export type TimeMarks = z.infer<typeof timeMarksSchema>;
 export const insertHabitSchema = z.object({
     /** Client-chosen id, so a routine made offline can be logged before it syncs. */
     id: z.uuid().optional(),
-    title: z.string().min(1).max(255),
+    title: z.string().trim().min(1).max(255),
     description: z.string().max(10_000).nullable().optional(),
     notes: z.string().nullable().optional(),
     recurrenceRule: z.string().max(500),

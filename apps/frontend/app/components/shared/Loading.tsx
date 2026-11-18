@@ -7,6 +7,7 @@ import { LoadingLanterns } from "./loading/LoadingLanterns";
 import { LoadingParticles } from "./loading/LoadingParticles";
 import { LoadingFrame } from "./loading/LoadingFrame";
 import { LoadingForeground } from "./loading/LoadingForeground";
+import { startFlight } from "./loading/flight";
 import "./loading/loading-tokens.css";
 import "./loading/loading-scene.css";
 import { memo, useLayoutEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
@@ -31,20 +32,6 @@ type Snapshot = {
 // A titled bar on screen at least this long (past the title swap) fills to the end before leaving.
 const READ_MS = 400;
 const TITLE_MS = 1000;
-
-/** The arrival flight: the scene drifts into the valley and dissolves while the app is live underneath. */
-// Reduced motion zeroes --ls-fly-k in loading-scene.css (the in-app setting, or the OS one unless "full").
-export const flyMs = () => {
-    const screen = document.querySelector(".loading-screen");
-    return screen && getComputedStyle(screen).getPropertyValue("--ls-fly-k").trim() === "0" ? 200 : 600;
-};
-// A critically damped spring from rest (x = 1 − (1 + ωt)e^(−ωt), ω = 6), normalised to end at 1.
-const FLY_EASE = (() => {
-    const x = (t: number) => 1 - (1 + 6 * t) * Math.exp(-6 * t);
-    const samples = Array.from({ length: 24 }, (_, i) => (x(i / 23) / x(1)).toFixed(4));
-    return `linear(${samples.join(", ")})`;
-})();
-const FLY_FALLBACK = "cubic-bezier(0.3, 0, 0.15, 1)";
 
 let requests: Request[] = [];
 let slot: HTMLElement | null = null;
@@ -81,12 +68,14 @@ const setSlot = (el: HTMLElement | null) => {
     publish();
 };
 
-// The last request let go: the bar fills (if it has one) as the flight starts, and the scene unmounts after it.
-function leave(last: Request) {
-    publish(last);
-    const timer = setTimeout(() => publish(), flyMs());
-    cancelRelease = () => clearTimeout(timer);
-}
+// The last request let go: the bar fills (if it has one) as the flight starts.
+const leave = (last: Request) => publish(last);
+// The flight finished: the scene unmounts, unless loading resumed meanwhile. Keyed to the animations, not a
+// timer: they start on the first frame painted after the busy reveal, and a timer set beforehand could fire
+// in that same frame and drop the scene before any of the flight was seen.
+const flown = () => {
+    if (!requests.length) publish();
+};
 
 function request(entry: Request) {
     requests = [...requests, entry];
@@ -152,24 +141,16 @@ export function LoadingHost() {
  */
 function LoadingScene({ title, progress, leaving }: { title?: string; progress?: number; leaving: boolean }) {
     const ref = useRef<HTMLDivElement>(null);
-    const fly = useRef<Animation | null>(null);
-    // One driver (--ls-fly, 0 → 1) moves every layer. A request mid-flight reverses it from where it is.
+    const fly = useRef<Animation[]>([]);
+    // The flight (loading/flight.ts). A request mid-flight reverses every layer from where it is.
     useLayoutEffect(() => {
         const el = ref.current;
         if (!el) return;
-        if (fly.current) {
-            const forward = fly.current.playbackRate > 0;
-            if (leaving !== forward) fly.current.reverse();
-            return;
-        }
-        if (!leaving) return;
-        const run = (easing: string) =>
-            el.animate({ "--ls-fly": [0, 1] } as PropertyIndexedKeyframes, { duration: flyMs(), easing, fill: "both" });
-        try {
-            fly.current = run(FLY_EASE);
-        } catch {
-            fly.current = run(FLY_FALLBACK);
-        }
+        if (fly.current.length) {
+            const forward = fly.current[0].playbackRate > 0;
+            if (leaving !== forward) fly.current.forEach((anim) => anim.reverse());
+        } else if (leaving) fly.current = startFlight(el);
+        if (leaving) Promise.all(fly.current.map((anim) => anim.finished)).then(flown, () => undefined);
     }, [leaving]);
     return (
         <div

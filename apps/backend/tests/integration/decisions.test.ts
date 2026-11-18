@@ -147,8 +147,9 @@ describe("S1: pre-sorted captures", () => {
             "fetch",
             vi.fn(async () => new Response("nope", { status: 500 })),
         );
-        const { status } = await inbox("POST", "", { rawText: "still saved" });
+        const { status, body } = await inbox("POST", "", { rawText: "still saved" });
         expect(status).toBe(201);
+        expect((await inbox("GET", "")).body.data.map((i: any) => i.id)).toContain(body.data.id);
     });
 
     it("rejects a section from a different list instead of dropping it", async () => {
@@ -200,8 +201,12 @@ describe("S2: did you mean", () => {
             (_, i) => `word${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}`,
         ).join(" ");
         expect((await search("POST", "/did-you-mean", { query: long.slice(0, 200) })).status).toBe(200);
-        // "re" must not stand in for every word starting with r: no candidate means no model call.
-        expect((await search("POST", "/did-you-mean", { query: "re" })).status).toBe(200);
+        // "re" must not prefix-match "Renew": no spelling hit, so only the model-confirmed fallback may answer (here: null).
+        sent = [];
+        const short = await search("POST", "/did-you-mean", { query: "re" });
+        expect(short.status).toBe(200);
+        expect(short.body.data).toEqual({ task: null });
+        expect(sent).toHaveLength(1); // consulted as a confirmation, not skipped by a lone spelling hit
     });
 
     it("answers null when the switch is off", async () => {

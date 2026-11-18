@@ -6,8 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+- New tasks get the tag named like their list or section, and moving a task swaps it. Turn off in Task defaults.
+- Creating such a tag offers to tag the tasks already there, with Undo.
 - Opening Cadence now carries you gently through the valley into your workspace.
+- Routines at set times have a Check all button on a day's times, for quick backfilling.
+- Quick check-offs and edits to tasks, routines, lists, tags, captures and settings no longer flicker back.
 - Quick starts and sign-in no longer flicker: the loading title swaps cleanly and only appears on slow loads.
+- On iPhone, the loading logo shows from the start and the scene glides away instead of snapping.
+- Titles and names made only of spaces are no longer saved, and extra spaces around them are dropped.
+- The assistant no longer relearns something you told it to forget when its memory service is briefly down.
 
 ## [1.1.0] - 2026-11-13
 

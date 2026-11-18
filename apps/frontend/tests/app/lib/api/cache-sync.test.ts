@@ -104,7 +104,7 @@ describe("api/cache-sync", () => {
 
         reconcileTaskInCaches(queryClient, recurring);
 
-        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.tasks.all });
+        expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: queryKeys.tasks.all }));
     });
 
     it("replaces optimistic habits", () => {

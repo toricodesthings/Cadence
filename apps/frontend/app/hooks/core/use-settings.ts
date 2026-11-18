@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { refetchAfterWrites } from "../../lib/api/write-gate";
 import { useRef, useCallback, useEffect, useMemo } from "react";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
@@ -113,12 +114,10 @@ export function useUpdateSettings() {
             const res = await client.api.settings.$patch({ json: patch });
             return unwrapResponse(res);
         },
-        onError: (_err, _patch) => {
-            // On failure, re-fetch to restore the server state
-            queryClient.invalidateQueries({ queryKey });
-        },
+        // Refetch what the server ended with (on failure too), but not over a change still waiting for its debounce:
+        // that one sends next and refetches when it lands.
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey });
+            if (Object.keys(pendingPatch.current).length === 0) void refetchAfterWrites(queryClient, queryKey);
         },
     });
 

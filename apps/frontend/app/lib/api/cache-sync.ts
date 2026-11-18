@@ -6,6 +6,7 @@ import type { Project } from "@cadence/contracts/project";
 import type { Tag } from "@cadence/contracts/tag";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { transformListCache } from "./cache-guards";
+import { isOnlyWriteTo, refetchAfterWrites } from "./write-gate";
 import { getTaskEffectiveAnchor, isRecurringTask, isRecurringTaskInstance } from "../utils/task/task-scheduling";
 
 /** State, list and the no-list / no-date filters. */
@@ -37,11 +38,13 @@ function matchesTaskList(task: Task, filters: Record<string, unknown>) {
     return matchesBasics(task, filters) && matchesDays(task, filters);
 }
 
+/** Shows a write's server row, unless a later write to the same task is in flight (its row would flash that one off). */
 export function reconcileTaskInCaches(queryClient: QueryClient, task: Task, replaceId?: string) {
     if (isRecurringTask(task) || isRecurringTaskInstance(task)) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
+        void refetchAfterWrites(queryClient, queryKeys.tasks.all);
         return;
     }
+    if (!isOnlyWriteTo(queryClient, task.id)) return;
 
     const taskLists = queryClient
         .getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all })
@@ -127,6 +130,7 @@ export function removeHabitFromCaches(queryClient: QueryClient, habitId: string)
 }
 
 export function reconcileProjectInCaches(queryClient: QueryClient, project: Project, replaceId?: string) {
+    if (!isOnlyWriteTo(queryClient, project.id)) return;
     queryClient.setQueryData(queryKeys.projects.detail(project.id), project);
     queryClient.setQueriesData<Project[]>({ queryKey: queryKeys.projects.all }, (old) =>
         transformListCache(

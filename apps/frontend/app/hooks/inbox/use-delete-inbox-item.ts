@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { refetchAfterWrites } from "../../lib/api/write-gate";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
@@ -33,6 +34,6 @@ export function useDeleteInboxItem() {
         },
 
         onSettled: (data, error) =>
-            !wasQueued(data, error) && queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),
+            !wasQueued(data, error) && refetchAfterWrites(queryClient, queryKeys.inbox.all),
     });
 }

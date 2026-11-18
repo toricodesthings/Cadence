@@ -148,6 +148,8 @@ export const SETTINGS_CATEGORIES = [
         label: "Tasks & Routines",
         icon: CheckSquare,
         keywords: [
+            "tag by list and section",
+            "auto-tag",
             "due date",
             "priority",
             "placement",

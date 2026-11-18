@@ -8,7 +8,6 @@ describe("health route contracts", () => {
         expect(response.status).toBe(200);
         const body = (await response.json()) as any;
         expect(body.data.status).toBe("ok");
-        expect(body.data.timestamp).toBeDefined();
         expect(new Date(body.data.timestamp).toISOString()).toBe(body.data.timestamp);
     });
 });

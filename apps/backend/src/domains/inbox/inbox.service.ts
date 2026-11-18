@@ -13,6 +13,7 @@ import { userZone } from "../../platform/user-zone";
 import type { Zone } from "@cadence/domain/time";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "../tasks/task-nlp";
 import { writeNote } from "../notes/notes.service";
+import { placeTagIds } from "../tags/tags.service";
 import { assertRowRoom } from "../../platform/storage-ceiling";
 
 /**
@@ -50,7 +51,7 @@ export async function processCapture(
         ...values,
         ...(values.effort == null && !values.recurrenceRule && effortGuessFromCapture(item.analysis)),
     };
-    const taskTagIds = Array.from(new Set(inferred.tagIds));
+    const taskTagIds = Array.from(new Set([...inferred.tagIds, ...(await placeTagIds(tx, userId, taskValues))]));
 
     validateTaskRecurrenceRule(taskValues.recurrenceRule, taskValues.zone ?? zone);
 

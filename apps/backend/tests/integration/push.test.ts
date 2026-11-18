@@ -6,7 +6,14 @@ vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../h
 
 import { pushRoutes } from "../../src/domains/push/push.route";
 import { Hono } from "hono";
-import { ReminderClock, connectLive, replanAfterWrites } from "../../src/domains/push/reminder-clock";
+import {
+    ReminderClock,
+    connectLive,
+    forgetReminders,
+    pingLive,
+    replanAfterWrites,
+    replanReminders,
+} from "../../src/domains/push/reminder-clock";
 import { mergeOutcomes } from "../../src/domains/push/plan";
 import { fromBase64Url, toBase64Url } from "../../src/domains/push/web-push";
 import type { Env } from "../../src/types/env";
@@ -925,5 +932,163 @@ describe("the live socket's door", () => {
             expect(e.REMINDER_CLOCK.get).not.toHaveBeenCalled();
             expect(e.RATE_LIMITER_READ.limit).not.toHaveBeenCalled();
         });
+    });
+});
+
+describe("clock edges", () => {
+    const throwing = (method: "replan" | "ping" | "forget") => ({
+        REMINDER_CLOCK: {
+            idFromName: (name: string) => name,
+            get: () => ({
+                [method]: async () => {
+                    throw new Error("clock unreachable");
+                },
+            }),
+        },
+    });
+
+    it("does nothing without a userId, so a stray alarm sends and rebuilds nothing", async () => {
+        const env = await vapidEnv();
+        const calls = pushService();
+        const { clock, state, data } = clockFor(env);
+        await clock.fire(NOW);
+        await clock.alarm();
+        expect(calls).toEqual([]);
+        expect(data.size).toBe(0);
+        expect(state.alarm).toBeNull();
+    });
+
+    it("an alarm that throws re-arms itself with a growing backoff instead of stopping", async () => {
+        const env = await vapidEnv();
+        const { clock, state, data } = clockFor(env);
+        await state.storage.put("userId", "not-a-uuid"); // the rebuild this triggers fails in Postgres
+        const before = Date.now();
+        await clock.alarm();
+        expect(data.get("failures")).toBe(1);
+        expect(state.alarm).toBeGreaterThanOrEqual(before + 5 * 60_000);
+        await clock.alarm();
+        expect(data.get("failures")).toBe(2);
+        expect(state.alarm).toBeGreaterThanOrEqual(before + 15 * 60_000);
+    });
+
+    it("without VAPID keys it stands down: no plan, no alarm, no remembered person; sockets stay", async () => {
+        const { clock, state, data, sockets } = clockFor({} as TestEnv);
+        sockets.push({ send: vi.fn(), close: vi.fn() });
+        await state.storage.put({ userId: "u", plan: {}, sent: {}, failures: 2 });
+        state.alarm = 123;
+        await clock.replan("u", NOW, { quiet: true });
+        expect([...data.keys()].sort()).toEqual([]);
+        expect(state.alarm).toBeNull();
+        expect(sockets[0].close).not.toHaveBeenCalled();
+    });
+
+    it("keeps outcomes for the next rebuild when settling them fails", async () => {
+        const env = await vapidEnv();
+        const { userId } = await subscriber(env);
+        const { clock, data } = clockFor(env);
+        const outcomes = { "not-a-uuid": { failures: 1 } }; // settleOutcomes writes this to Postgres and fails
+        data.set("outcomes", outcomes);
+        await clock.replan(userId, NOW);
+        expect(data.get("stale")).toBe(true);
+        expect(data.get("outcomes")).toMatchObject(outcomes); // not lost: merged back for the retry
+    });
+
+    it("closes a socket once the client has gone, mapping abnormal codes to a normal close", () => {
+        const { clock } = clockFor({} as TestEnv);
+        const ws = (code: number) => {
+            const close = vi.fn();
+            clock.webSocketClose({ close } as never, code);
+            return close;
+        };
+        expect(ws(1005)).toHaveBeenCalledWith(1000);
+        expect(ws(1006)).toHaveBeenCalledWith(1000);
+        expect(ws(4001)).toHaveBeenCalledWith(4001);
+        expect(() =>
+            clock.webSocketClose(
+                {
+                    close: () => {
+                        throw new Error("already closed");
+                    },
+                } as never,
+                1000,
+            ),
+        ).not.toThrow();
+        expect(() => clock.webSocketMessage()).not.toThrow();
+        expect(() => clock.webSocketError()).not.toThrow();
+    });
+
+    it("never throws when the clock can't be reached, and does nothing without a binding", async () => {
+        for (const run of [
+            (env: object) => replanReminders(env as Env, "u"),
+            (env: object) => pingLive(env as Env, "u"),
+            (env: object) => forgetReminders(env as Env, "u"),
+        ]) {
+            await expect(run({})).resolves.toBeUndefined();
+        }
+        await expect(replanReminders(throwing("replan") as never, "u")).resolves.toBeUndefined();
+        await expect(pingLive(throwing("ping") as never, "u")).resolves.toBeUndefined();
+        await expect(forgetReminders(throwing("forget") as never, "u")).resolves.toBeUndefined();
+    });
+
+    it("pings and forgets the named person's own clock", async () => {
+        const ping = vi.fn(async () => {});
+        const forget = vi.fn(async () => {});
+        const names: string[] = [];
+        const env = {
+            REMINDER_CLOCK: { idFromName: (n: string) => (names.push(n), n), get: () => ({ ping, forget }) },
+        } as unknown as Env;
+        await pingLive(env, "alice");
+        await forgetReminders(env, "alice");
+        expect(names).toEqual(["alice", "alice"]);
+        expect(ping).toHaveBeenCalledOnce();
+        expect(forget).toHaveBeenCalledOnce();
+    });
+});
+
+describe("the live socket's door: limits and failures", () => {
+    const A = "8b1f3a4e-0000-4000-8000-000000000001";
+    const ticket = `t.${A}.${"0".repeat(32)}`;
+    const closed: Array<[number, string]> = [];
+    beforeEach(() => {
+        closed.length = 0;
+        vi.stubGlobal(
+            "WebSocketPair",
+            class {
+                0 = {};
+                1 = { accept() {}, close: (code: number, reason: string) => closed.push([code, reason]) };
+            },
+        );
+        vi.stubGlobal(
+            "Response",
+            class {
+                constructor(
+                    public body: unknown,
+                    public init: { status?: number; webSocket?: unknown },
+                ) {}
+            },
+        );
+    });
+    const knock = (env: object, token = ticket) =>
+        connectLive(
+            new Request("https://x/api/v1/live", {
+                headers: { Upgrade: "websocket", "Sec-WebSocket-Protocol": `cadence.live, ${token}` },
+            }),
+            env as Env,
+        ) as unknown as Promise<{ init: { status: number } }>;
+
+    it("an over-budget IP and an over-budget person get a closed socket (4429), and no clock is woken", async () => {
+        const wake = vi.fn();
+        const clock = { idFromName: wake, get: wake };
+        const full = { limit: async () => ({ success: false }) };
+        const open = { limit: async () => ({ success: true }) };
+        await knock({ RATE_LIMITER: full, REMINDER_CLOCK: clock });
+        await knock({ RATE_LIMITER: open, RATE_LIMITER_READ: full, REMINDER_CLOCK: clock });
+        expect(closed.map(([code]) => code)).toEqual([4429, 4429]);
+        expect(wake).not.toHaveBeenCalled();
+    });
+
+    it("closes with 'unavailable' (1011) when no clock is bound", async () => {
+        await knock({});
+        expect(closed).toEqual([[1011, "unavailable"]]);
     });
 });

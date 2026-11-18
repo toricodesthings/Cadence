@@ -104,3 +104,6 @@ export async function deleteTag(tx: Tx, userId: string, id: string) {
     throwIfNotFound(row, "Tag");
     return row;
 }
+
+// Auto-tag: the only door for other domains.
+export { placeTagIds, retagForMove } from "./auto-tag";

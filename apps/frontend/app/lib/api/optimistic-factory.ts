@@ -2,6 +2,8 @@ import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import { toastError } from "../utils/error-toast";
 import { isUndone } from "../utils/undo-toast";
 import { transformListCache } from "./cache-guards";
+import { wasQueued } from "./offline-mutation";
+import { isLastWrite, refetchAfterWrites } from "./write-gate";
 
 type CacheSnapshot = Array<[QueryKey, unknown]>;
 
@@ -22,7 +24,9 @@ export function createOptimisticHelpers<TItem = unknown>(cacheKeys: readonly Que
             return cacheKeys.map((key) => qc.getQueriesData({ queryKey: key }));
         },
 
+        /** Put the caches back, unless a later write is in flight: that would undo it too, and its refetch corrects this one. */
         rollback(qc: QueryClient, snapshots: CacheSnapshot[]) {
+            if (!isLastWrite(qc)) return;
             for (const group of snapshots) {
                 for (const [key, data] of group) {
                     if (data !== undefined) qc.setQueryData(key, data);
@@ -30,8 +34,14 @@ export function createOptimisticHelpers<TItem = unknown>(cacheKeys: readonly Que
             }
         },
 
+        /** Refetch once no other write is in flight (`refetchAfterWrites`). */
         invalidate(qc: QueryClient) {
-            return Promise.all(cacheKeys.map((key) => qc.invalidateQueries({ queryKey: key })));
+            return Promise.all(cacheKeys.map((key) => refetchAfterWrites(qc, key)));
+        },
+
+        /** `onSettled`: refetch what the server ended with, unless the write was queued offline. */
+        settle(qc: QueryClient, data: unknown, error: unknown) {
+            if (!wasQueued(data, error)) void this.invalidate(qc);
         },
 
         cancel(qc: QueryClient) {

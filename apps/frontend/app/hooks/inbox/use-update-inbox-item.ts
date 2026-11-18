@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { refetchAfterWrites } from "../../lib/api/write-gate";
 import { useApiClient } from "../auth/use-api-client";
 import type { InboxItem, UpdateInboxItem } from "@cadence/contracts/inbox";
 import { queryKeys } from "../../lib/api/query-keys";
@@ -35,7 +36,7 @@ export function useUpdateInboxItem() {
             toastError(err, "Couldn't update capture");
         },
         onSettled: (data, error) => {
-            if (!wasQueued(data, error)) queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });
+            if (!wasQueued(data, error)) void refetchAfterWrites(queryClient, queryKeys.inbox.all);
         },
     });
 }

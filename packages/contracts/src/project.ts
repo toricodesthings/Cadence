@@ -6,7 +6,7 @@ import { instantSchema } from "./common";
 export const insertProjectSchema = z.object({
     /** Client-chosen id, so it can be used before it syncs. */
     id: z.uuid().optional(),
-    name: z.string().min(1).max(200),
+    name: z.string().trim().min(1).max(200),
     colorAccent: z.string().max(50).optional(),
     // emoji is nullable in the DB — allow null on write to clear it.
     emoji: z.string().max(10).nullable().optional(),

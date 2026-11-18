@@ -5,6 +5,7 @@
  * and invalidate on settle, mirroring the domain-hook convention
  * (hooks/tasks/use-update-task.ts).
  */
+import { refetchAfterWrites } from "../../lib/api/write-gate";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
@@ -45,7 +46,7 @@ function useConversationPatch(failure: string) {
             if (context?.snapshot) queryClient.setQueryData(queryKeys.ai.conversations, context.snapshot);
             toastError(err, failure);
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
+        onSettled: () => refetchAfterWrites(queryClient, queryKeys.ai.conversations),
     });
 }
 
@@ -81,7 +82,7 @@ export function useDeleteConversation() {
             }
             if (!isUndone(err)) toastError(err, "Couldn’t delete that conversation");
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
+        onSettled: () => refetchAfterWrites(queryClient, queryKeys.ai.conversations),
     });
 }
 
@@ -115,6 +116,6 @@ export function useClearArchive() {
             }
             toastError(err, "Couldn’t clear the archive");
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
+        onSettled: () => refetchAfterWrites(queryClient, queryKeys.ai.conversations),
     });
 }

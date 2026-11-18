@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { refetchAfterWrites } from "../../lib/api/write-gate";
 import { toastError } from "../../lib/utils/error-toast";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { useApiClient } from "../auth/use-api-client";
@@ -45,8 +46,8 @@ export function useUnprocessInbox() {
         },
         onSettled: (data, error) => {
             if (wasQueued(data, error)) return;
-            cache.invalidateQueries({ queryKey: queryKeys.inbox.all });
-            cache.invalidateQueries({ queryKey: queryKeys.tasks.all });
+            void refetchAfterWrites(cache, queryKeys.inbox.all);
+            void refetchAfterWrites(cache, queryKeys.tasks.all);
         },
     });
 }

@@ -3,12 +3,13 @@ import { asc, eq, and } from "drizzle-orm";
 import { getIdempotencyKey } from "../../platform/idempotency";
 import { withCallerRls } from "../../platform/caller-rls";
 import { tags } from "../../db/schema";
-import { insertTagSchema, updateTagSchema } from "@cadence/contracts/tag";
+import { insertTagSchema, tagTasksSchema, updateTagSchema } from "@cadence/contracts/tag";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
+import { linkTag, placeMatches } from "./auto-tag";
 import { createTag, deleteTag, updateTag } from "./tags.service";
 
 export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -40,6 +41,19 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         );
 
         return c.json({ data: userTags });
+    })
+
+    // ── Auto-tag: open tasks in places named like this tag, and bulk link/unlink ──
+    .get("/:id/place-matches", apiValidator("param", uuidParamSchema), async (c) => {
+        const { id } = c.req.valid("param");
+        const data = await withCallerRls(c, (tx, userId) => placeMatches(tx, userId, id));
+        return c.json({ data });
+    })
+    .post("/:id/tasks", apiValidator("param", uuidParamSchema), apiValidator("json", tagTasksSchema), async (c) => {
+        const { id } = c.req.valid("param");
+        const { taskIds, linked } = c.req.valid("json");
+        const changed = await withCallerRls(c, (tx, userId) => linkTag(tx, userId, id, taskIds, linked));
+        return c.json({ data: { taskIds: changed } });
     })
 
     // ── Read (Single) ──

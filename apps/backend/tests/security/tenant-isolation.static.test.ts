@@ -56,6 +56,10 @@ const USER_SCOPED_TABLES = [
     "dataExports",
     "aiMemorySignals",
     "aiMemoryNotes",
+    "durationReports",
+    "planningRecords",
+    "devices",
+    "pushDeliveries",
 ];
 
 /**
@@ -70,6 +74,11 @@ const ALLOWED_WITHOUT_USERID: Array<{ fragment: string; reason: string }> = [
     {
         fragment: "inArray(taskTags.taskId, taskIds",
         reason: "task_tags has no userId column; every id was verified owned by updateTask earlier in the tx",
+    },
+    { fragment: ".where(mine)", reason: "`mine` is and(eq(devices.id), eq(devices.userId)) built in the same loop" },
+    {
+        fragment: ".where(suggestedToday)",
+        reason: "`suggestedToday` is built from eq(planningRecords.userId, userId) in the same tx",
     },
     {
         fragment: "eq(habitLogs.id, existing.id",

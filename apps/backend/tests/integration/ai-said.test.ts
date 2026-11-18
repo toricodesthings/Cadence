@@ -82,7 +82,7 @@ describe("said check", () => {
         const id = created[0].taskId;
         expect(
             (await run(["make it urgent"], "update_tasks", { taskIds: [id], patch: { priority: 4 } })).ignored,
-        ).toBeDefined();
+        ).toEqual([expect.stringMatching(/priority: not in their words/)]);
         expect((await row(id)).priority).toBe(0);
         await run(["make it urgent"], "update_tasks", {
             taskIds: [id],

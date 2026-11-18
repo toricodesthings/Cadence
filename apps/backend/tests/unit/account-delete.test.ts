@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const budget = vi.hoisted(() => ({ within: true }));
-vi.mock("../../src/platform/daily-budget", () => ({ withinDailyBudget: async () => budget.within }));
-
-import { accountRoutes, deleteAuthUser, verifyPresence } from "../../src/domains/account/account.route";
-import { createTestApp } from "../helpers/app";
+import { deleteAuthUser, verifyPresence } from "../../src/domains/account/account.route";
 import type { Env } from "../../src/types/env";
 
 const env = { NEON_API_KEY: "k", NEON_PROJECT_ID: "p", NEON_BRANCH_ID: "b" } as Env;
@@ -94,24 +90,5 @@ describe("presence checks are bounded", () => {
                 headers: { Authorization: "Bearer sess-1" },
             }),
         );
-    });
-
-    it("refuses past the day's tries without asking Neon Auth", async () => {
-        budget.within = false;
-        const fetchMock = vi.fn();
-        vi.stubGlobal("fetch", fetchMock);
-        const app = createTestApp("/account", accountRoutes);
-        const res = await app.request(
-            "/account/delete",
-            {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ confirmation: "delete my account", password: "guess" }),
-            },
-            { ...env, ...authEnv },
-        );
-        expect(res.status).toBe(429);
-        expect(fetchMock).not.toHaveBeenCalled();
-        budget.within = true;
     });
 });

@@ -14,6 +14,7 @@ React Router SPA (`ssr: false`, on purpose) served as Cloudflare Workers static 
 - Query keys and `STALE_TIMES` live in `lib/api/query-keys.ts`. No per-hook cache windows.
 - Read one task with `useTask(id)`.
 - Mutations are optimistic, via the domain's `createOptimisticHelpers`.
+- Only the last write in flight reads the server back (`lib/api/write-gate.ts`): refetch via `xCache.invalidate` / `refetchAfterWrites`, roll back via `xCache.rollback` or behind `isLastWrite`, show a row only if `isOnlyWriteTo(id)`.
 - Creates pick their id with `clientIdFor(input)` and send it as both `id` and `Idempotency-Key`. The optimistic row is then the real row.
 - Show only the end state, never an intermediate step.
 - Order with fractional indexes (`lib/utils/order-index.ts`). Never renumber a whole list.

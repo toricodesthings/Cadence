@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { habitCache } from "./optimistic-helpers";
+import { isLastWrite } from "../../lib/api/write-gate";
 import type { Habit, UpdateHabit } from "@cadence/contracts/habit";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
@@ -80,14 +81,15 @@ export function useUpdateHabit() {
         },
 
         onSuccess: (habit) => {
-            if (!habit) return; // Queued offline
+            if (!habit || !isLastWrite(queryClient)) return; // Queued offline, or a later write reads back
             reconcileHabitInCaches(queryClient, habit);
         },
 
         onError: (err, _vars, context) => {
-            if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
+            if (context) habitCache.rollback(queryClient, context.snapshot);
             toastError(err, "Couldn't update routine");
-            habitCache.invalidate(queryClient);
         },
+
+        onSettled: (data, error) => habitCache.settle(queryClient, data, error),
     });
 }

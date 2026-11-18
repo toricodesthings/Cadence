@@ -1,4 +1,4 @@
-import { Plus, X } from "lucide-react";
+import { CheckCheck, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { MAX_ROUTINE_TIMES, type Habit, type HabitLog } from "@cadence/contracts/habit";
 import { timeMarksOn } from "@cadence/domain/repeats";
@@ -133,22 +133,50 @@ export function RoutineTimeChecklist({
         });
     };
 
+    // Backfill in one tap: every time not yet marked is done (skipped ones stay skipped).
+    const open = times.filter((time) => !marks[time]);
+    const checkAll = () => {
+        for (const time of open)
+            resolve({ targetDate: date, ...timeAction(time, "COMPLETED", pastCheckIn(date, time)) });
+        if (!isTouch) return;
+        const undo = () => {
+            for (const time of open) resolve({ targetDate: date, ...timeAction(time, "PENDING") });
+        };
+        toast.message("All done", { description: habit.title, action: { label: "Undo", onClick: undo } });
+    };
+
     return (
-        <RoutineCheckList
-            label="Times"
-            items={times.map((time) => {
-                const state = marks[time];
-                const note =
-                    state?.status !== "COMPLETED" ? undefined : state.at ? `Done at ${formatTime(state.at)}` : "Done";
-                return {
-                    id: time,
-                    name: formatWallTime(time),
-                    title: <span className="tabular-nums">{formatWallTime(time)}</span>,
-                    note,
-                    state: state?.status,
-                };
-            })}
-            onMark={mark}
-        />
+        <>
+            <RoutineCheckList
+                label="Times"
+                items={times.map((time) => {
+                    const state = marks[time];
+                    const note =
+                        state?.status !== "COMPLETED"
+                            ? undefined
+                            : state.at
+                              ? `Done at ${formatTime(state.at)}`
+                              : "Done";
+                    return {
+                        id: time,
+                        name: formatWallTime(time),
+                        title: <span className="tabular-nums">{formatWallTime(time)}</span>,
+                        note,
+                        state: state?.status,
+                    };
+                })}
+                onMark={mark}
+            />
+            {open.length > 1 ? (
+                <button
+                    type="button"
+                    onClick={checkAll}
+                    className="mt-1 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-1.5 rounded-2xl text-[13px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                >
+                    <CheckCheck size={14} aria-hidden="true" />
+                    Check all
+                </button>
+            ) : null}
+        </>
     );
 }

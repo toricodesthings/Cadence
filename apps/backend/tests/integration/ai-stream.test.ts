@@ -48,7 +48,7 @@ describe("GET /ai/chat/:id/stream (resume)", () => {
         expect(res.status).toBe(204);
     });
 
-    it("404 when the conversation is not owned (RLS)", async () => {
+    it("404 when the repo finds no conversation for the caller (ownership itself: ai-conversation-repo-scoping)", async () => {
         getRedisMock.mockReturnValue(new FakeRedis());
         getConversationMock.mockResolvedValue(null);
         const res = await app.request(`/ai/chat/${CONV_ID}/stream`);
@@ -99,7 +99,7 @@ describe("GET /ai/chat/:id/stream (resume)", () => {
         expect(await res.text()).toBe("data: hello\n\ndata: world\n\n");
     });
 
-    it("204 when the recently-finished log has expired past the grace window", async () => {
+    it("204 when the recently-finished log is gone (reaped), so the client falls back to the DB", async () => {
         // lastStreamId points at a stream whose Redis log is already gone (TTL reaped):
         // readMeta is null, so there is nothing to replay → 204 (client falls back to DB).
         getRedisMock.mockReturnValue(new FakeRedis());
@@ -275,7 +275,7 @@ describe("POST /ai/chat/:id/stop", () => {
         expect(saveAssistantMessageMock).not.toHaveBeenCalled();
     });
 
-    it("404 when the conversation is not owned (RLS)", async () => {
+    it("404 when the repo finds no conversation for the caller (ownership itself: ai-conversation-repo-scoping)", async () => {
         getRedisMock.mockReturnValue(new FakeRedis());
         getConversationMock.mockResolvedValue(null);
         const res = await post({});

@@ -15,7 +15,7 @@ const make = (title: string, extra: object = {}) =>
     withRls(
         getTestDb(),
         userId,
-        async (tx) => (await createTask(tx, userId, { title, orderIndex: 0, ...extra } as never, [])).id,
+        async (tx) => (await createTask(tx, userId, { title, orderIndex: 0, ...extra } as never, [])).row.id,
     );
 const modelSays = (level: number, p = 0.98) =>
     vi.stubGlobal(

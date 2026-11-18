@@ -166,7 +166,10 @@ export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 tag: "cadence-test",
             },
         );
-        if (outcome === "gone") await withCallerRls(c, (tx) => tx.delete(devices).where(eq(devices.id, device.id)));
+        if (outcome === "gone")
+            await withCallerRls(c, (tx, userId) =>
+                tx.delete(devices).where(and(eq(devices.id, device.id), eq(devices.userId, userId))),
+            );
         const result: PushTestResult = { outcome };
         return c.json({ data: result }, 200);
     });

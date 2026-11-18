@@ -46,7 +46,9 @@ describe("storage ceilings", () => {
 
     it("leaves everyday creates alone", async () => {
         const userId = await createUser();
-        const { status } = await apiAs(userId, "/tasks", taskRoutes)("POST", "", { title: "Buy milk", orderIndex: 1 });
-        expect(status).toBe(201);
+        const api = apiAs(userId, "/tasks", taskRoutes);
+        const created = await api("POST", "", { title: "Buy milk", orderIndex: 1 });
+        expect(created.status).toBe(201);
+        expect(created.body.data.title).toBe("Buy milk");
     });
 });

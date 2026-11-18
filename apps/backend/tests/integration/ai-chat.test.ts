@@ -262,14 +262,16 @@ describe("continuation preparation", () => {
                 metadata: {},
             },
         ] as never);
+        let reused: unknown = "never asked";
         vi.mocked(getAgentInstance).mockImplementation(async (_env, _id, opts) => {
-            expect(await opts.reusedTurnContext).toBeUndefined();
+            reused = await opts.reusedTurnContext;
             return agentOf(model, {
                 turnContext: "Fresh context",
                 tools: { create_tag: tool({ inputSchema: z.object({ name: z.string() }), execute: vi.fn() }) },
             });
         });
         await chat();
+        expect(reused).toBeUndefined();
         expect(setTurnContext).toHaveBeenCalledWith({}, TEST_USER_ID, CONV_ID, "m-new", "Fresh context");
     });
 });

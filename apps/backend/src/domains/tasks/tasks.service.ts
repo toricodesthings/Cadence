@@ -37,6 +37,7 @@ import { recordPersonActivity, type PersonActivity } from "../ai/memory/memory.s
 import type { DbClient, Tx } from "../../types/db";
 import type { Env } from "../../types/env";
 import { writeNote } from "../notes/notes.service";
+import { placeTagIds, retagForMove } from "../tags/tags.service";
 import { assertRowRoom, assertStorageRoom } from "../../platform/storage-ceiling";
 
 // Query pieces other domains (the AI tools) reuse; tasks.service is the only door into this domain.
@@ -235,6 +236,7 @@ export async function withTagIds(tx: Tx, rows: TaskRow[]): Promise<Task[]> {
 export async function createTask(tx: Tx, userId: string, values: NewTask, tagIds: string[] = []) {
     validateTaskRecurrenceRule(values.recurrenceRule, values.zone ?? "UTC");
     await assertOwnership(tx, userId, { projectId: values.projectId ?? null, sectionId: values.sectionId, tagIds });
+    const allTagIds = [...new Set([...tagIds, ...(await placeTagIds(tx, userId, values))])];
     await assertRowRoom(tx, userId, "tasks");
     await assertStorageRoom(tx, userId, [values.content]);
 
@@ -249,10 +251,10 @@ export async function createTask(tx: Tx, userId: string, values: NewTask, tagIds
             })
             .returning(),
     );
-    if (tagIds.length > 0) {
-        await tx.insert(taskTags).values(tagIds.map((tagId) => ({ taskId: row.id, tagId })));
+    if (allTagIds.length > 0) {
+        await tx.insert(taskTags).values(allTagIds.map((tagId) => ({ taskId: row.id, tagId })));
     }
-    return row;
+    return { row, tagIds: allTagIds };
 }
 
 /**
@@ -274,7 +276,7 @@ export async function createTasks(tx: Tx, userId: string, drafts: TaskDraft[]) {
         notBefore,
         ...draft
     } of drafts) {
-        const row = await createTask(
+        const { row } = await createTask(
             tx,
             userId,
             {
@@ -427,7 +429,10 @@ async function patchOverStored(
     validateTaskRecurrenceRule(body.recurrenceRule, existing.zone ?? zone);
 
     const temporalPatch = temporalChanged ? temporalColumns(mergeTemporal(existing, body), zone) : {};
-    return { ...body, ...(placementChanged && { sectionId }), ...temporalPatch };
+    return {
+        patch: { ...body, ...(placementChanged && { sectionId }), ...temporalPatch },
+        previous: { projectId: existing.projectId, sectionId: existing.sectionId },
+    };
 }
 
 /**
@@ -448,9 +453,10 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
     const needsExisting = placementChanged || temporalChanged || body.recurrenceRule !== undefined;
     // Simple edits don't depend on the stored row. UPDATE takes the row lock and
     // checks its version atomically, avoiding a separate SELECT FOR UPDATE trip.
-    const patch: Record<string, unknown> = needsExisting
+    const stored = needsExisting
         ? await patchOverStored(tx, userId, id, body, expectedUpdatedAt, { placementChanged, temporalChanged })
-        : body;
+        : undefined;
+    const patch: Record<string, unknown> = stored ? stored.patch : body;
     const versionCondition = !needsExisting && expectedUpdatedAt ? sameVersionSql(expectedUpdatedAt) : undefined;
     await assertStorageRoom(tx, userId, [body.content]);
     if (body.state === "COMPLETE") {
@@ -489,6 +495,7 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
         throw new AppError(409, "CONFLICT", "Task was modified by another client");
     }
     throwIfNotFound(row, "Task");
+    if (placementChanged && stored) await retagForMove(tx, userId, row.id, stored.previous, row);
     return row;
 }
 

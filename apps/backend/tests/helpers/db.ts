@@ -32,6 +32,9 @@ export async function startTestDb() {
     // Superusers bypass RLS. Run as the worker's role so policies and grants apply as in production,
     // and in UTC like Neon so timestamp text matches what production returns.
     await client.exec("SET ROLE api_worker; SET TIME ZONE 'UTC';");
+    // `beforeAll(startTestDb)`: vitest runs the returned function after the file, so no PGlite is left open.
+    const opened = client;
+    return () => opened.close();
 }
 
 /** Stands in for `getDbClient(env)`; the drizzle API is the same across drivers. */

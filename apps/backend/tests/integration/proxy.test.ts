@@ -15,6 +15,25 @@ function jsonResponse(body: unknown, status = 200): Response {
     });
 }
 
+describe("an upstream that cannot be reached", () => {
+    beforeEach(() => {
+        fetchMock.mockRejectedValue(new TypeError("fetch failed"));
+    });
+
+    it.each([
+        "/proxy/weather?latitude=10&longitude=20",
+        "/proxy/geocode/reverse?latitude=10&longitude=20",
+        "/proxy/geocode/search?name=Toronto",
+        "/proxy/holidays/countries",
+        "/proxy/holidays/subdivisions?countryCode=US&year=2026&locale=en",
+    ])("answers %s with a retryable 502, never a 500", async (path) => {
+        const res = await app.request(path);
+
+        expect(res.status).toBe(502);
+        expect(((await res.json()) as any).error).toMatchObject({ code: "UPSTREAM_ERROR", isRetryable: true });
+    });
+});
+
 describe("proxy route contracts", () => {
     beforeEach(() => {
         vi.clearAllMocks();

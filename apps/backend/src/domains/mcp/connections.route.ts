@@ -45,9 +45,10 @@ export const connectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
             const { scopes, timezone } = c.req.valid("json");
             if (!isZone(timezone)) throw new AppError(400, "VALIDATION_ERROR", "Unknown time zone");
             const userId = c.get("userId");
+            // Approve first: an unknown or expired request must not move the user's zone.
+            const redirectTo = await approveConnectRequest(c.env, userId, request, [...new Set(scopes)]);
             // The browser's zone keeps users.time_zone current; MCP reads that, never the connection's copy.
             await withRls(getDbClient(c.env), userId, (tx) => syncUserZone(tx, userId, timezone));
-            const redirectTo = await approveConnectRequest(c.env, userId, request, [...new Set(scopes)]);
             return c.json({ data: { redirectTo } }, 201);
         },
     )

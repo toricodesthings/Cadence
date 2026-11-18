@@ -5,7 +5,7 @@ import { queryKeys } from "../../lib/api/query-keys";
 import { habitCache } from "./optimistic-helpers";
 import { removeHabitFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
 import { isUndone, undoWindow } from "../../lib/utils/undo-toast";
 
@@ -46,10 +46,10 @@ export function useDeleteHabit() {
         },
 
         onError: (err, _id, context) => {
-            if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
+            if (context) habitCache.rollback(queryClient, context.snapshot);
             if (!isUndone(err)) toastError(err, "Couldn't delete routine");
         },
 
-        onSettled: (data, error) => !wasQueued(data, error) && habitCache.invalidate(queryClient),
+        onSettled: (data, error) => habitCache.settle(queryClient, data, error),
     });
 }

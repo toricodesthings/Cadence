@@ -6,7 +6,7 @@
  * `GET /api/v1/ai/usage` is the "auth passed" probe: it answers 200 with no
  * database or Redis configured, so any non-200 comes from the middleware.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { jwtVerifyMock, redisMock } = vi.hoisted(() => ({
     jwtVerifyMock: vi.fn(),
@@ -54,6 +54,14 @@ function send(request: Request, env: Record<string, unknown> = {}) {
     return worker.fetch(request, fullEnv, ctx);
 }
 
+/** `send`, with the auth retry backoff (200ms, 400ms) fast-forwarded so a provider outage doesn't cost real time. */
+async function sendWithoutBackoff(request: Request) {
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    const pending = send(request);
+    await vi.runAllTimersAsync();
+    return pending;
+}
+
 /** A Request pre-populated with a bearer token. */
 function authedRequest(path: string, options: RequestInit = {}) {
     return new Request(`http://localhost${path}`, {
@@ -62,7 +70,9 @@ function authedRequest(path: string, options: RequestInit = {}) {
     });
 }
 
+afterEach(() => vi.useRealTimers());
 beforeEach(() => {
+    redisMock.current = null;
     jwtVerifyMock.mockReset();
     jwtVerifyMock.mockResolvedValue({ payload: ADMIN });
 });
@@ -78,15 +88,16 @@ describe("authentication", () => {
 
     it.each([
         { verifierError: "signature verification failed", status: 401, code: "UNAUTHORIZED" },
-        { verifierError: "exp claim timestamp check failed", status: 401, code: "TOKEN_EXPIRED" },
-        { verifierError: '"iss" claim check failed', status: 401, code: "INVALID_ISSUER" },
-        { verifierError: '"aud" claim check failed', status: 401, code: "INVALID_AUDIENCE" },
+        // Real jose wording: "unexpected" contains "exp", which once made these read as expired.
+        { verifierError: '"exp" claim timestamp check failed', status: 401, code: "TOKEN_EXPIRED" },
+        { verifierError: 'unexpected "iss" claim value', status: 401, code: "INVALID_ISSUER" },
+        { verifierError: 'unexpected "aud" claim value', status: 401, code: "INVALID_AUDIENCE" },
         { verifierError: "fetch failed: network error", status: 503, code: "AUTH_PROVIDER_UNAVAILABLE" },
     ])("maps verifier error '$verifierError' to $status $code", async ({ verifierError, status, code }) => {
         // Persistent, not Once: transient provider failures are retried before giving up.
         jwtVerifyMock.mockRejectedValue(new Error(verifierError));
 
-        const response = await send(authedRequest(USAGE));
+        const response = await sendWithoutBackoff(authedRequest(USAGE));
 
         expect(response.status).toBe(status);
         expect(((await response.json()) as any).error.code).toBe(code);
@@ -106,18 +117,12 @@ describe("authentication", () => {
     ])("treats $name as the provider being down (503), not a bad token", async ({ error }) => {
         jwtVerifyMock.mockRejectedValue(error);
 
-        const response = await send(authedRequest(USAGE));
+        const response = await sendWithoutBackoff(authedRequest(USAGE));
 
+        const body = (await response.json()) as any;
         expect(response.status).toBe(503);
-        expect(((await response.json()) as any).error.code).toBe("AUTH_PROVIDER_UNAVAILABLE");
-    });
-
-    it("marks an unreachable auth provider as retryable", async () => {
-        jwtVerifyMock.mockRejectedValue(new Error("fetch failed: network error"));
-
-        const body = (await (await send(authedRequest(USAGE))).json()) as any;
-
-        expect(body.error.isRetryable).toBe(true);
+        expect(body.error).toMatchObject({ code: "AUTH_PROVIDER_UNAVAILABLE", isRetryable: true });
+        expect(jwtVerifyMock).toHaveBeenCalledTimes(3); // retried with backoff before giving up
     });
 
     it("rejects a verified token that has no subject claim", async () => {
@@ -240,10 +245,7 @@ describe("rate limiting", () => {
 });
 
 describe("token checks", () => {
-    it("accepts only Neon Auth's signing algorithm", async () => {
-        await send(authedRequest(USAGE));
-        expect(jwtVerifyMock.mock.calls[0][2]).toMatchObject({ algorithms: ["EdDSA"] });
-    });
+    // Signature, algorithm, issuer and expiry are proven with real keys in jwt-crypto.test.ts.
 
     it("refuses a write from a just-deleted account instead of recreating it", async () => {
         jwtVerifyMock.mockResolvedValue({ payload: { sub: "deleted-user" } });
@@ -255,7 +257,6 @@ describe("token checks", () => {
         });
 
         const response = await send(request);
-        redisMock.current = null;
 
         expect(response.status).toBe(401);
     });

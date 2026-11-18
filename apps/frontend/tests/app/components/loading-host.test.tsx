@@ -1,24 +1,29 @@
 import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Loading, LoadingHost, flyMs } from "../../../app/components/shared/Loading";
+import { Loading, LoadingHost } from "../../../app/components/shared/Loading";
+import { flyMs } from "../../../app/components/shared/loading/flight";
 
 // jsdom has no Web Animations; record calls and hand back a reversible handle.
 function mockAnimate() {
     const reverse = vi.fn(function (this: { playbackRate: number }) {
         this.playbackRate *= -1;
     });
-    const animate = vi.fn(() => ({
+    // A flight (fill: "both") finishes after its duration; the rest run on.
+    const animate = vi.fn((_: unknown, options?: KeyframeAnimationOptions) => ({
         cancel: () => undefined,
         reverse,
         playbackRate: 1,
-        finished: new Promise(() => undefined),
+        finished: new Promise((resolve) => {
+            if (options?.fill === "both") setTimeout(resolve, Number(options.duration));
+        }),
         effect: null,
     }));
     Element.prototype.animate = animate as unknown as Element["animate"];
     return { animate, reverse };
 }
+// The flight's animations are the only ones that hold both ends (fill: "both").
 const flights = (animate: ReturnType<typeof mockAnimate>["animate"]) =>
-    animate.mock.calls.filter((c) => "--ls-fly" in (c as unknown as [object])[0]);
+    animate.mock.calls.filter((c) => (c as unknown as [unknown, KeyframeAnimationOptions])[1]?.fill === "both");
 const wait = (ms: number) => act(() => new Promise((resolve) => setTimeout(resolve, ms)));
 
 function Boot({ step }: { step: "fallback" | "session" | "workspace" | "done" }) {
@@ -62,8 +67,9 @@ describe("loading host", () => {
         expect(document.querySelector(".loading-screen")).toBe(scene);
         expect(scene!.hasAttribute("data-leaving")).toBe(true);
         expect(scene!.hasAttribute("inert")).toBe(true);
-        expect(flights(animate)).toHaveLength(1);
-        expect((flights(animate)[0] as unknown as [object])[0]).toEqual({ "--ls-fly": [0, 1] });
+        expect(flights(animate).length).toBeGreaterThan(0);
+        // The screen itself fades out last of all.
+        expect((flights(animate).at(-1) as unknown as [Keyframe[]])[0].at(-1)).toMatchObject({ offset: 1, opacity: 0 });
         await wait(flyMs());
         expect(document.querySelector(".loading-screen")).toBeNull();
     });
@@ -85,15 +91,17 @@ describe("loading host", () => {
         view.rerender(<Step on />);
         expect(document.querySelector(".loading-screen")).toBe(scene);
         expect(scene!.hasAttribute("data-leaving")).toBe(false);
-        expect(reverse).toHaveBeenCalledTimes(1);
+        // Every layer glides back from where it is.
+        const layers = flights(animate).length;
+        expect(reverse).toHaveBeenCalledTimes(layers);
         // The unmount timer was cancelled: the scene stays.
         await wait(flyMs());
         expect(document.querySelector(".loading-screen")).toBe(scene);
-        expect(flights(animate)).toHaveLength(1);
+        expect(flights(animate)).toHaveLength(layers);
 
         view.rerender(<Step on={false} />);
         await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
-        expect(reverse).toHaveBeenCalledTimes(2);
+        expect(reverse).toHaveBeenCalledTimes(2 * layers);
         await wait(flyMs());
         expect(document.querySelector(".loading-screen")).toBeNull();
     });
@@ -114,9 +122,11 @@ describe("loading host", () => {
         // 50% of the known work is 50% along the 10–90% band (the text, which moves against its clip box).
         const lastTarget = () =>
             String(
-                (animate.mock.calls.filter((c) => "translate" in (c as unknown as [object])[0]).at(-1) as unknown as [
-                    { translate: string[] },
-                ])[0].translate[1],
+                (
+                    animate.mock.calls
+                        .filter((c) => "translate" in (c as unknown as [object])[0])
+                        .at(-1) as unknown as [{ translate: string[] }]
+                )[0].translate[1],
             );
         expect(lastTarget()).toMatch(/^calc\(0.5 \*/);
 
@@ -126,7 +136,7 @@ describe("loading host", () => {
         // The bar fills and the flight starts in the same commit.
         expect(lastTarget()).toMatch(/^calc\(0 \*/);
         expect(document.querySelector(".loading-screen")?.hasAttribute("data-leaving")).toBe(true);
-        expect(flights(animate)).toHaveLength(1);
+        expect(flights(animate).length).toBeGreaterThan(0);
         await wait(flyMs());
         expect(document.querySelector(".loading-screen")).toBeNull();
         now.mockRestore();

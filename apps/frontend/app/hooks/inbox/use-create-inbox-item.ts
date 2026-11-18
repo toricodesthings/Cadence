@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { refetchAfterWrites } from "../../lib/api/write-gate";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
@@ -81,6 +82,6 @@ export function useCreateInboxItem() {
 
         // A placed capture's refetch belongs to the placing (it would show the thought again in between).
         onSettled: (data, error, { placing }) =>
-            !placing && !wasQueued(data, error) && queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),
+            !placing && !wasQueued(data, error) && refetchAfterWrites(queryClient, queryKeys.inbox.all),
     });
 }

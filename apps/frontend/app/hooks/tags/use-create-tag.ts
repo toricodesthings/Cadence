@@ -8,11 +8,25 @@ import { clientIdFor } from "../../lib/api/optimistic-id";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { tagCache } from "./optimistic-helpers";
 import { toastError } from "../../lib/utils/error-toast";
+import { useSettings } from "../core/use-settings";
+import { useAutoTagOfferStore } from "../../stores/auto-tag-offer-store";
 
 /** Create a tag with optimistic insertion */
 export function useCreateTag() {
     const client = useApiClient();
     const queryClient = useQueryClient();
+    const { data: settings } = useSettings();
+
+    /** Open tasks already in a place named like this tag? Offer to tag them. The offer is optional, so failures are silent. */
+    async function offerTagging(tag: Tag) {
+        try {
+            const { places, taskIds } = await unwrapResponse(await client.api.tags[":id"]["place-matches"].$get({ param: { id: tag.id } }));
+            if (taskIds.length)
+                useAutoTagOfferStore.getState().show({ tagId: tag.id, tagName: tag.name, places: places.map((p) => p.name), taskIds });
+        } catch {
+            // Nothing to offer.
+        }
+    }
 
     return useMutation({
         mutationFn: withOfflineSupport<CreateTagInput, Tag>(
@@ -51,7 +65,9 @@ export function useCreateTag() {
         },
 
         onSuccess: (tag, _input, context) => {
-            if (tag) reconcileTagInCaches(queryClient, tag, context?.optimisticId);
+            if (!tag) return; // Queued offline: no offer until it syncs.
+            reconcileTagInCaches(queryClient, tag, context?.optimisticId);
+            if (settings?.tasks?.autoTag !== false) void offerTagging(tag);
         },
 
         onError: (err, _input, context) => {

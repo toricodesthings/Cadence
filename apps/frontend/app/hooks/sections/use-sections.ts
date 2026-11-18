@@ -1,4 +1,5 @@
 import { useQuery, useQueries, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { isLastWrite, refetchAfterWrites } from "../../lib/api/write-gate";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import type { TaskSection } from "@cadence/contracts/section";
@@ -35,7 +36,7 @@ function revertEdit(
     key: ReturnType<typeof sectionsKey>,
     context: { previous?: TaskSection[] } | undefined,
 ) {
-    if (context?.previous) queryClient.setQueryData(key, context.previous);
+    if (context?.previous && isLastWrite(queryClient)) queryClient.setQueryData(key, context.previous);
 }
 
 /** A `beginEdit` mutation's ends: put the list back on failure, then refetch unless it was queued offline. */
@@ -43,7 +44,7 @@ const editEnds = (queryClient: QueryClient, key: ReturnType<typeof sectionsKey>)
     onError: (_err: unknown, _vars: unknown, context: { previous?: TaskSection[] } | undefined) =>
         revertEdit(queryClient, key, context),
     onSettled: (data: unknown, error: unknown) => {
-        if (!wasQueued(data, error)) queryClient.invalidateQueries({ queryKey: key });
+        if (!wasQueued(data, error)) void refetchAfterWrites(queryClient, key);
     },
 });
 
@@ -158,8 +159,8 @@ export function useDeleteSection(projectId?: string | null) {
             if (!isUndone(err)) toastError(err, "Couldn't delete section");
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: key });
-            queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
+            void refetchAfterWrites(queryClient, key);
+            void refetchAfterWrites(queryClient, queryKeys.tasks.all);
         },
     });
 }

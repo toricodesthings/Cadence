@@ -13,6 +13,8 @@ import { ApiErrorResponse } from "../../types/api";
 import { toastError } from "../../lib/utils/error-toast";
 import { clientIdFor } from "../../lib/api/optimistic-id";
 import { getUserZone } from "../../lib/utils/user-zone";
+import { placeTagIdsFromCache } from "../../lib/utils/task/place-tags";
+import { useSettings } from "../core/use-settings";
 
 /** The row a new task shows as until the server answers (a create, or a capture placed as a task). */
 export function buildOptimisticTask(id: string, input: CreateTaskInput): Task {
@@ -76,6 +78,7 @@ export function buildOptimisticTask(id: string, input: CreateTaskInput): Task {
 export function useCreateTask() {
     const client = useApiClient();
     const queryClient = useQueryClient();
+    const { data: settings } = useSettings();
 
     return useMutation({
         retry: (failureCount, error) => {
@@ -134,6 +137,10 @@ export function useCreateTask() {
 
             // The optimistic row already has the id the server will keep.
             const optimisticTask = buildOptimisticTask(clientIdFor(input), input);
+            if (settings?.tasks?.autoTag !== false)
+                optimisticTask.tagIds = [
+                    ...new Set([...optimisticTask.tagIds, ...placeTagIdsFromCache(queryClient, optimisticTask)]),
+                ];
 
             // Lists only (`["tasks", filters]`): seeding an empty detail or note key would leave a copy no server row reconciles.
             queryClient.setQueriesData<Task[]>(

@@ -8,6 +8,7 @@ vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../h
 const model = vi.hoisted(() => ({
     reply: '{"facts":[]}',
     match: null as string | null,
+    embedFails: false,
     beforeWrite: undefined as undefined | (() => Promise<void>),
 }));
 const scriptedReply = async () => {
@@ -24,8 +25,12 @@ vi.mock("ai", async (importOriginal) => ({
 vi.mock("../../src/domains/ai/memory/embedding", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../src/domains/ai/memory/embedding")>()),
     // One distinct, deterministic unit-ish vector per text: same text → same vector.
-    embedTexts: async (_env: unknown, texts: string[]) =>
-        texts.map((text) => Array.from({ length: 512 }, (_, i) => ((text.charCodeAt(i % text.length) + i) % 7) / 7)),
+    embedTexts: async (_env: unknown, texts: string[]) => {
+        if (model.embedFails) throw new Error("embedding service down");
+        return texts.map((text) =>
+            Array.from({ length: 512 }, (_, i) => ((text.charCodeAt(i % text.length) + i) % 7) / 7),
+        );
+    },
 }));
 // Consolidation is scripted: "first" names whichever known fact it is offered, otherwise the given id.
 vi.mock("../../src/domains/ai/memory/consolidate", () => ({
@@ -51,6 +56,9 @@ import { withRls } from "../../src/platform/rls";
 import { getTestDb } from "../helpers/db";
 
 const env = { OPENROUTER_API_KEY: "k" } as any;
+afterEach(() => {
+    model.embedFails = false;
+});
 
 let userId: string;
 let memory: ReturnType<typeof apiAs>;
@@ -476,6 +484,35 @@ describe("learning from a chat", () => {
         expect((await facts(userId)).filter((f) => f.status === "active")).toHaveLength(0);
     });
 
+    it("writes nothing while embeddings are down, then reads the same messages again once they are back", async () => {
+        await setMode("basic");
+        await insertFact(userId, "Works mornings");
+        const [{ id }] = await facts(userId);
+        await sql(
+            "UPDATE ai_memories SET embedding = $2::halfvec, embedding_model = 'qwen/qwen3-embedding-8b' WHERE id = $1",
+            [id, `[${Array.from({ length: 512 }, () => 0.1).join(",")}]`],
+        );
+        const chat = await seedChat(userId, ["I start work at six these days"]);
+        model.reply = JSON.stringify({
+            facts: [{ from: "m1", kind: "life", text: "Starts work at six", validThrough: null, flags: [] }],
+        });
+        model.match = id; // consolidation would rewrite the fact above if learning went on without vectors
+        const cursor = async () =>
+            (await sql("SELECT metadata ->> 'memoryCursor' AS c FROM ai_conversations WHERE id = $1", [chat]))[0].c;
+
+        model.embedFails = true;
+        expect(await learnFromConversation(env, userId, chat, now)).toMatchObject({ failed: true, saved: 0 });
+        expect(await cursor()).toBeNull();
+        const [kept] = await facts(userId);
+        expect(kept).toMatchObject({ content: "Works mornings", no_embedding: false }); // the vector is not wiped
+
+        model.embedFails = false;
+        const retry = await learnFromConversation(env, userId, chat, now);
+        expect(retry.failed).toBeUndefined();
+        expect(retry).toMatchObject({ updated: 1 });
+        expect(await cursor()).toEqual(expect.any(String));
+    });
+
     it("keeps the cursor to the microsecond, so a learned chat leaves the job's work list", async () => {
         await setMode("basic");
         const chat = await seedChat(
@@ -706,9 +743,7 @@ describe("recall", () => {
                     mode,
                 }),
             ).then((l) => l.map((x) => x.content).sort());
-        expect(await recalled("basic")).toEqual(
-            ["Said in chat", "Said outright"].filter((c) => c === "Said in chat" || c === "Said outright").sort(),
-        );
+        expect(await recalled("basic")).toEqual(["Said in chat", "Said outright"]);
         expect((await recalled("full")).length).toBeGreaterThan(2);
         expect(await sql("SELECT count(*)::int AS n FROM ai_memories WHERE user_id = $1", [userId])).toEqual([
             { n: 6 },

@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { isLastWrite, isOnlyWriteTo, refetchAfterWrites } from "../../lib/api/write-gate";
 import { useApiClient } from "../auth/use-api-client";
 import { parseApiError, unwrapResponse } from "../../lib/api/helpers";
 import type { Subtask } from "@cadence/contracts/subtask";
@@ -67,6 +68,7 @@ function reconcileSingleSubtaskCache(
     nextSubtask: Subtask,
     optimisticId?: string,
 ) {
+    if (!isOnlyWriteTo(queryClient, nextSubtask.id)) return; // A later write to it reads back instead.
     queryClient.setQueryData<CachedSubtask[]>(SUBTASKS_KEY(taskId), (old) =>
         replaceSubtask(Array.isArray(old) ? old : [], nextSubtask, optimisticId),
     );
@@ -127,14 +129,14 @@ async function beginEdit(
 }
 
 function revertEdit(queryClient: QueryClient, taskId: string, context: { previous?: Subtask[] } | undefined) {
-    if (!context?.previous) return;
+    if (!context?.previous || !isLastWrite(queryClient)) return;
     queryClient.setQueryData(SUBTASKS_KEY(taskId), context.previous);
     updateBulkSubtasksCaches(queryClient, taskId, () => context.previous ?? []);
 }
 
 function settleEdit(queryClient: QueryClient, taskId: string, data: unknown, error: unknown) {
     if (wasQueued(data, error)) return;
-    queryClient.invalidateQueries({ queryKey: SUBTASKS_KEY(taskId), exact: true });
+    void refetchAfterWrites(queryClient, SUBTASKS_KEY(taskId), true);
 }
 
 /** A `beginEdit` mutation's ends: put the list back on failure, then refetch unless it was queued offline. */

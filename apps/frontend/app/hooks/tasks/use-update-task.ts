@@ -12,6 +12,7 @@ import { offerDuration } from "../../lib/ai/duration-prompt";
 import { useDurationApi } from "../ai/use-memory";
 import { useDurationGuesser } from "../ai/use-duration-guess";
 import { useSettings } from "../core/use-settings";
+import { tagIdsAfterMove } from "../../lib/utils/task/place-tags";
 
 /** Normalize date ranges so scheduledStart ≤ scheduledEnd */
 function normalizeDateRange<T extends Record<string, unknown>>(updates: T): T {
@@ -88,13 +89,20 @@ export function useUpdateTask() {
             // `findTime` says how a placement came about; it is not a field of the task.
             const { findTime: _findTime, ...fields } = raw;
             const updates = normalizeDateRange(fields);
+            const autoTag = settings?.tasks?.autoTag !== false;
             await taskCache.cancel(queryClient);
             const snapshot = taskCache.snapshot(queryClient);
 
             queryClient.setQueriesData<Task[]>({ queryKey: queryKeys.tasks.all }, (old) =>
                 transformListCache(old, (items) =>
                     items.map((t) => {
-                        if (t.id === id) return { ...t, ...updates };
+                        if (t.id === id) {
+                            const tagIds =
+                                autoTag && ("projectId" in updates || "sectionId" in updates)
+                                    ? tagIdsAfterMove(queryClient, t, updates)
+                                    : t.tagIds;
+                            return { ...t, tagIds, ...updates };
+                        }
                         // An app or website belongs to the whole series: its cached occurrences show it too.
                         if (t.seriesId === id && ("linkedAppId" in updates || "linkedUrl" in updates)) {
                             return {

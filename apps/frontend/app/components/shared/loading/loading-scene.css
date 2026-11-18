@@ -191,11 +191,11 @@
 /* Stage-filling planes overscan slightly so their edges never show while they sway */
 .ls-par-far {
     --par: calc(10 * var(--su));
-    --ls-base-scale: 1.02;
+    scale: 1.02;
 }
 .ls-par-town {
     --par: calc(22 * var(--su));
-    --ls-base-scale: 1.02;
+    scale: 1.02;
 }
 .ls-par-near {
     --par: calc(34 * var(--su));
@@ -562,7 +562,7 @@
 
 /* A box-less wrapper around everything in the logo block: it owns the loop so the glow, rings and logo share --ls-grow */
 .ls-grower {
-    animation: var(--ls-still, ls-grow var(--ls-grow-loop) linear infinite);
+    animation: var(--ls-still, ls-grow var(--ls-grow-loop) linear var(--ls-grow-at) infinite);
 }
 
 .ls-logo svg {
@@ -584,6 +584,10 @@
 
 .ls-logo-block {
     --ls-grow-loop: 3.2s;
+    /* The loop starts in its open hold, so the boot's first frame is the whole mark. Custom properties only
+       animate on the main thread: on a phone the boot can block it for seconds, and a loop starting bare
+       froze the logo invisible until it unblocked, then popped it in. */
+    --ls-grow-at: calc(var(--ls-grow-loop) * -0.375);
 }
 
 .lg-part {
@@ -677,7 +681,8 @@ path.lg-part {
     rotate: none;
     animation: var(
         --ls-still,
-        ls-petal-fall var(--ls-grow-loop) cubic-bezier(0.45, 0, 0.75, 0.75) var(--fall-delay, 0s) infinite both,
+        ls-petal-fall var(--ls-grow-loop) cubic-bezier(0.45, 0, 0.75, 0.75)
+            calc(var(--ls-grow-at) + var(--fall-delay, 0s)) infinite both,
         ls-petal-drift 1.3s var(--ls-ease-sine) var(--fall-delay, 0s) infinite alternate
     );
 }
@@ -785,6 +790,11 @@ path.lg-part {
 .ls-wordmark.ls-enter {
     --ls-enter-delay: 90ms;
 }
+/* Held until the first frame is painted (the head boot script sets data-loading-painted then), so a boot
+   that blocks before that frame fades the logo and wordmark in afterwards instead of having finished unseen */
+:root:not([data-loading-painted]) .ls-enter {
+    animation-play-state: paused;
+}
 
 /* Thin rules flanking the wordmark, fading away from it */
 .ls-rule {
@@ -884,79 +894,21 @@ path.lg-part {
 
 /*
  * ── Leaving: the arrival flight ──
- * One number, --ls-fly (0 → 1, a critically damped spring driven from Loading.tsx), moves every layer:
- * nearer planes scale more about the vanishing point and fade first. At 0 every rule equals its idle pose,
- * so a reversed flight glides home. --ls-fly-k is the one knob for how far it travels.
+ * Loading.tsx animates each layer's own scale and opacity (FLIGHT): nearer planes scale more about the
+ * vanishing point and fade first. Compositor properties only, so it plays while the revealed workspace
+ * holds the main thread. --ls-fly-k is the one knob for how far it travels (0 under reduced motion).
  */
-@property --ls-fly {
-    syntax: "<number>";
-    inherits: true;
-    initial-value: 0;
-}
-
 .loading-screen {
     --ls-fly-k: 0.03;
     --ls-fly-origin: 50% 74%;
 }
-
-:is(.ls-par-far, .ls-par-town, .ls-par-near, .ls-particles, .ls-fly-frame) {
-    scale: calc(var(--ls-base-scale, 1) * (1 + var(--ls-fly-k) * var(--depth, 0) * var(--ls-fly)));
-}
 :is(.ls-par-far, .ls-par-town, .ls-par-near):not(.ls-reflect) {
     transform-origin: var(--ls-fly-origin);
 }
-.ls-par-far {
-    --depth: 1.5;
-}
-.ls-par-town {
-    --depth: 4;
-}
-.ls-par-near {
-    --depth: 9;
-    --fly-from: 0.1;
-    --fly-span: 0.55;
-}
-.ls-particles {
-    --depth: 10;
-    --fly-from: 0.05;
-    --fly-span: 0.5;
-}
 .ls-fly-frame {
-    --depth: 8;
-    --fly-from: 0;
-    --fly-span: 0.5;
     position: absolute;
     inset: 0;
     pointer-events: none;
-}
-.ls-column {
-    --fly-from: 0.1;
-    --fly-span: 0.5;
-    scale: calc(1 + var(--ls-fly-k) * 1.67 * var(--ls-fly));
-    translate: 0 calc(var(--ls-fly-k) * -67% * var(--ls-fly));
-}
-.ls-vignette {
-    --fly-from: 0;
-    --fly-span: 0.7;
-}
-.loading-screen {
-    --fly-from: 0.15;
-    --fly-span: 0.7;
-}
-
-/* Each fader's own slice of the driver */
-:is(.loading-screen, .ls-par-near, .ls-particles, .ls-fly-frame, .ls-column, .ls-vignette) {
-    --ft: clamp(0, (var(--ls-fly) - var(--fly-from, 0)) / var(--fly-span, 1), 1);
-}
-:is(.ls-particles, .ls-fly-frame, .ls-column, .ls-vignette) {
-    opacity: calc(1 - var(--ft));
-}
-.ls-lanterns.ls-par-near {
-    opacity: calc(var(--ls-lantern-opacity) * 0.8 * (1 - var(--ft)));
-}
-/* The screen's own fade starts and ends with zero slope */
-.loading-screen {
-    opacity: calc(1 - var(--ft) * var(--ft) * (3 - 2 * var(--ft)));
 }
 .loading-screen[data-leaving] {
     pointer-events: none;
@@ -1232,10 +1184,10 @@ path.lg-part {
     }
 }
 
+/* Opacity and transform only, so the compositor plays it while the boot holds the main thread */
 @keyframes ls-enter {
     from {
         opacity: 0;
         transform: translateY(8px);
-        filter: blur(4px);
     }
 }

@@ -245,7 +245,6 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         async (c) => {
             const { id } = c.req.valid("param");
             const body = c.req.valid("json");
-            const idempotencyKey = getIdempotencyKey(c);
 
             const view = await withCallerRls(c, async (tx, userId) => {
                 const [existing] = await tx
@@ -259,8 +258,6 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                     .set({ ...body, updatedAt: sql`NOW()` })
                     .where(and(eq(savedFocusViews.id, id), eq(savedFocusViews.userId, userId)))
                     .returning();
-
-                await recordMutation(tx, userId, idempotencyKey, row.id);
 
                 return row;
             });

@@ -12,9 +12,11 @@
         "cf-typegen": "wrangler types --env-interface CloudflareBindings",
         "check": "tsc --noEmit && vitest run",
         "test": "vitest run",
+        "test:coverage": "vitest run --coverage",
         "test:unit": "vitest run tests/unit",
         "test:integration": "vitest run tests/integration",
         "test:security": "vitest run tests/security",
+        "test:e2e": "vitest run tests/e2e",
         "test:watch": "vitest",
         "eval": "node scripts/run-evals.mjs smoke",
         "eval:assistant": "node scripts/run-evals.mjs assistant",
@@ -60,10 +62,11 @@
         "@electric-sql/pglite": "^0.5.16",
         "@electric-sql/pglite-pgvector": "^0.0.17",
         "@types/node": "^26.6.6",
+        "@vitest/coverage-v8": "5.1.1",
         "drizzle-kit": "^0.31.11",
         "rrule": "^2.8.1",
         "typescript": "^7.0.2",
-        "vitest": "^5.1.0",
+        "vitest": "5.1.1",
         "wrangler": "^4.160.0"
     }
 }

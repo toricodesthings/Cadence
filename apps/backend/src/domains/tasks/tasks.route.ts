@@ -265,14 +265,14 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                       ...temporalColumns(body, zone),
                   };
 
-            const row = await createTask(tx, userId, taskBody, allTagIds);
+            const { row, tagIds: storedTagIds } = await createTask(tx, userId, taskBody, allTagIds);
 
             if (parsed) {
                 await persistNlpSnapshot(tx, parsed, row.id, userId);
             }
 
             await recordMutation(tx, userId, idempotencyKey, row.id);
-            return toTask(row, allTagIds);
+            return toTask(row, storedTagIds);
         });
 
         trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { created: [task.id] });

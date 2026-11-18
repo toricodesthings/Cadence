@@ -3,6 +3,7 @@
  * The server owns the mode (POST /ai/memory/mode); the page response is the whole truth,
  * so every mutation writes it back into the cache and nothing is merged client-side.
  */
+import { refetchAfterWrites } from "../../lib/api/write-gate";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     type DurationReport,
@@ -87,7 +88,7 @@ export function useForgetMemory() {
             toastError(error, "Couldn’t forget that");
         },
         onSettled: () => {
-            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.memory });
+            void refetchAfterWrites(queryClient, queryKeys.ai.memory);
             void queryClient.invalidateQueries({ queryKey: queryKeys.ai.durationEvidence }); // a duration fact's answers hide with it
         },
     });
@@ -100,7 +101,7 @@ export function useRestoreMemory() {
         mutationFn: async (id: string) =>
             unwrapResponse(await client.api.ai.memory[":id"].restore.$post({ param: { id } })),
         onSettled: () => {
-            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.memory });
+            void refetchAfterWrites(queryClient, queryKeys.ai.memory);
             void queryClient.invalidateQueries({ queryKey: queryKeys.ai.durationEvidence }); // a duration fact's answers hide with it
         },
         onError: (error) => toastError(error, "Couldn’t bring that back"),

@@ -35,7 +35,8 @@ Within each group, the primary resource comes before sub-resources.
 - Never trust a `userId` sent by the client.
 - Another user's row is a 404 under RLS. Check referenced ids with the `platform/ownership.ts` asserts.
 - Every new create path calls `assertRowRoom`, and `assertStorageRoom` for long text (`platform/storage-ceiling.ts`).
-- Writes honour `Idempotency-Key`: `checkIdempotency` → mutate → `recordMutation`.
+- Every write that creates a row (creates, duplicate, process) honours `Idempotency-Key`: `checkIdempotency` → mutate → `recordMutation`. PATCH, PUT, DELETE and set-style action POSTs (resolve, link, reschedule, batch) are idempotent by nature and take no key. Usage telemetry is exempt.
+- A replayed key returns the first result whatever the new body says; keys are per queued mutation, so a mismatch is a client bug.
 - Creates that accept a client `id` insert through `insertWithClientId`.
 
 **Migrations**
@@ -62,9 +63,14 @@ Within each group, the primary resource comes before sub-resources.
 
 ## Tests
 
-- `tests/unit`: pure logic, no HTTP or DB.
-- `tests/integration`: real routes on PGlite, running as `api_worker` so RLS applies. Create users with `createUser()` and call routes with `apiAs()`. Only external services are faked.
-- `tests/security`: middleware chain and tenant-isolation scan.
+Every change ships its tests in the same change. Test behaviour through public entry points, not internals.
+
+- `tests/unit`: new or changed logic (validation, transforms, time math, branching). Pure, no HTTP or DB. Never mock the DB to unit-test a query.
+- `tests/integration`: new or changed route, service or query. Real routes on PGlite, running as `api_worker` so RLS applies. Create users with `createUser()` and call routes with `apiAs()`. Only external services are faked.
+- `tests/e2e`: one flow test per user-visible feature: the full user sequence through the API with the integration helpers. Happy path only; edge cases stay in unit/integration.
+- `tests/security`: middleware chain and tenant-isolation scan. A new user-owned table goes in `USER_SCOPED_TABLES` (`tenant-isolation.static.test.ts`), and its routes get an integration test proving another user gets 404/empty, never data.
+- `vitest.config.ts` has two projects: `fast` (`unit` + `security`, no PGlite) and `db` (`integration` + `e2e`). A test needing the DB goes in `integration`/`e2e`; never import `helpers/db` from `unit`/`security`. Timeouts are 5s (`fast`) / 15s (`db`), so a hang fails loudly.
+- No real waits: fake `setTimeout` (`vi.useFakeTimers({ toFake: ["setTimeout"] })` + `runAllTimersAsync`) for backoff and delays. Tests use `beforeAll(startTestDb)`, which closes PGlite after the file.
 - Schema and domain-rule tests belong in `packages/tests`.
 - A new AI tool must be used in the debug seed's `ai-showcase-conversation.ts`, or `debug-seed.test.ts` fails.
 - `tests/evals` spend real tokens and never run in `pnpm test` or CI. While iterating, run only affected scenarios. Run the full relevant suite once after the final prompt or tool change.

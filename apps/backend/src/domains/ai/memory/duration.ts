@@ -404,9 +404,12 @@ export async function pruneRoutineReports(
     );
     if (gone.length)
         await tx.delete(durationReports).where(
-            inArray(
-                durationReports.id,
-                gone.map((r) => r.id),
+            and(
+                eq(durationReports.userId, userId),
+                inArray(
+                    durationReports.id,
+                    gone.map((r) => r.id),
+                ),
             ),
         );
 }

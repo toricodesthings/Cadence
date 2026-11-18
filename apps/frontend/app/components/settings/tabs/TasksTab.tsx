@@ -63,6 +63,12 @@ function TaskDefaultsSection({
                 options={PLACEMENT_OPTIONS}
                 onChange={(val) => set({ newTaskPlacement: val as TaskSettings["newTaskPlacement"] })}
             />
+            <SwitchSetting
+                title="Tag by list and section"
+                description="A new task gets the tag named like its list or section, and moving it swaps that tag. Remove it any time."
+                checked={taskSettings.autoTag !== false}
+                onChange={(val) => set({ autoTag: val })}
+            />
         </SettingsSection>
     );
 }

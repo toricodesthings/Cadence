@@ -220,3 +220,52 @@ describe("abort-watcher", () => {
         expect(getSpy).not.toHaveBeenCalled();
     });
 });
+
+/** Upstash answers differently by client setting; the store must read every shape the same way. */
+describe("resume-store reads Upstash's raw shapes", () => {
+    const rawRedis = (xrange: unknown, state: string | null, hgetall: unknown = null) =>
+        ({
+            pipeline: () => {
+                const p = { xrange: () => p, get: () => p, exec: async () => [xrange, state] };
+                return p;
+            },
+            hgetall: async () => hgetall,
+        }) as any;
+
+    it("reads flat-array entries, the keyed-object form, and skips malformed ones", async () => {
+        const flat = [
+            ["1-0", ["f", "frame-A"]],
+            ["2-0", ["other", "ignored"]], // no frame field
+            ["3-0", ["f", 42]], // not a string
+            [7, ["f", "bad id"]], // not an entry
+            ["4-0", ["f", "frame-B"]],
+        ];
+        expect((await readSince(rawRedis(flat, "active"), USER_KEY, SID, "-")).frames).toEqual([
+            { id: "1-0", frame: "frame-A" },
+            { id: "4-0", frame: "frame-B" },
+        ]);
+        const keyed = { "1-0": { f: "frame-A" }, "2-0": { f: 5 }, "3-0": ["f", "frame-C"] };
+        expect((await readSince(rawRedis(keyed, "done"), USER_KEY, SID, "-")).frames).toEqual([
+            { id: "1-0", frame: "frame-A" },
+            { id: "3-0", frame: "frame-C" },
+        ]);
+    });
+
+    it("an empty or unrecognised range is no frames, and a missing state is null", async () => {
+        for (const range of [null, undefined, "nope", 5, []]) {
+            expect(await readSince(rawRedis(range, null), USER_KEY, SID, "-")).toEqual({ frames: [], state: null });
+        }
+    });
+
+    it("readMeta accepts the flat array and the object form, and refuses a hash with no owner", async () => {
+        const flat = ["conversationId", "c", "userId", "u", "messageId", "m", "model", "x"];
+        const expected = { conversationId: "c", userId: "u", messageId: "m", model: "x" };
+        expect(await readMeta(rawRedis(null, null, flat), USER_KEY, SID)).toEqual(expected);
+        expect(await readMeta(rawRedis(null, null, expected), USER_KEY, SID)).toEqual(expected);
+        // Odd or non-string entries are dropped, never half-read into another field.
+        expect(await readMeta(rawRedis(null, null, [...flat, "dangling"]), USER_KEY, SID)).toEqual(expected);
+        for (const none of [null, [], {}, ["conversationId", "c"], ["userId", 9], "garbage"]) {
+            expect(await readMeta(rawRedis(null, null, none), USER_KEY, SID)).toBeNull();
+        }
+    });
+});

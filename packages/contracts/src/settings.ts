@@ -31,7 +31,7 @@ export const focusViewDefinitionSchema = z.object({
 export type FocusViewDefinitionInput = z.infer<typeof focusViewDefinitionSchema>;
 
 export const savedFocusViewInputSchema = z.object({
-    name: z.string().min(1).max(120),
+    name: z.string().trim().min(1).max(120),
     definition: focusViewDefinitionSchema,
     isPinned: z.boolean().optional(),
     source: focusViewSourceSchema.optional(),
@@ -80,7 +80,7 @@ export const locationModeSchema = z.enum(["off", "approximate", "precise", "manu
 export type LocationMode = z.infer<typeof locationModeSchema>;
 
 export const savedCitySchema = z.object({
-    name: z.string().min(1).max(120),
+    name: z.string().trim().min(1).max(120),
     latitude: z.number().min(-90).max(90),
     longitude: z.number().min(-180).max(180),
 });
@@ -294,6 +294,7 @@ export const userSettingsSchema = z.object({
             hideCompleted: z.boolean().optional(),
             showDoneCelebration: z.boolean().optional(),
             showStreaks: z.boolean().optional(),
+            autoTag: z.boolean().optional(),
             quickAdd: z
                 .object({
                     preset: z.enum(["minimal", "planner", "power"]).optional(),
@@ -609,6 +610,7 @@ export const SETTINGS_DEFAULTS = {
         hideTrash: false,
         showDoneCelebration: true,
         showStreaks: true,
+        autoTag: true,
         quickAdd: {
             preset: "planner" as const,
             style: "label" as const,

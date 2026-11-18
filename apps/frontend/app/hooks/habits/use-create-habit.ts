@@ -7,7 +7,7 @@ import type { Habit, InsertHabit } from "@cadence/contracts/habit";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { today as getToday } from "../../lib/utils/user-zone";
-import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
 import { clientIdFor } from "../../lib/api/optimistic-id";
 
@@ -127,10 +127,10 @@ export function useCreateHabit() {
         },
 
         onError: (err, _input, context) => {
-            if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
+            if (context) habitCache.rollback(queryClient, context.snapshot);
             toastError(err, "Couldn't create routine");
         },
 
-        onSettled: (data, error) => !wasQueued(data, error) && habitCache.invalidate(queryClient),
+        onSettled: (data, error) => habitCache.settle(queryClient, data, error),
     });
 }

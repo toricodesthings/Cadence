@@ -528,7 +528,12 @@ describe("connections API", () => {
         const state = "s".repeat(32);
         const body = { scopes: ["cadence:read"], timezone: "America/Toronto" };
 
-        expect((await api("POST", `/requests/${state}/approve`, body)).status).toBe(404);
+        const zoneOf = async () =>
+            (await asOwner((pg) => pg.query("SELECT time_zone FROM users WHERE id = $1", [userId]))).rows[0];
+        const before = await zoneOf();
+
+        expect((await api("POST", `/requests/${state}/approve`, { ...body, timezone: "Asia/Tokyo" })).status).toBe(404);
+        expect(await zoneOf()).toEqual(before); // a dead request must not move the user's zone
 
         const { hashIdentifier } = await import("../../src/platform/log");
         kv.map.set(`cadence:mcp-request:${await hashIdentifier(state)}`, JSON.stringify({ clientName: "Claude" }));

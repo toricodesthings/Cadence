@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { refetchAfterWrites } from "../../lib/api/write-gate";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
@@ -138,7 +139,7 @@ export function useProcessInboxToTask() {
             if (!_data) return; // Queued offline: the optimistic task stays until sync.
             reconcileTaskInCaches(queryClient, _data, context?.optimisticId);
             // The saved task is already in every list; refetching tasks here only risks a stale list snapping it back.
-            queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });
+            void refetchAfterWrites(queryClient, queryKeys.inbox.all);
             const label =
                 variables.successLabel ??
                 (variables.complete ? "Ticked off" : whereItWent(_data, variables, queryClient));

@@ -10,7 +10,9 @@ describe("getAgentInstance", () => {
             approvalMode: "ask",
             nonce: "n",
         } as const;
-        await expect(getAgentInstance({} as Env, "11111111-1111-4111-8111-111111111111", opts)).rejects.toMatchObject({
+        await expect(
+            getAgentInstance({ DEPLOYMENT_STAGE: "production" } as Env, "11111111-1111-4111-8111-111111111111", opts),
+        ).rejects.toMatchObject({
             code: "AUTH_MISCONFIGURED",
         });
     });

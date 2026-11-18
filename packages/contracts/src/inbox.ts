@@ -11,14 +11,14 @@ export const inboxAnalysisStatusSchema = z.enum(["pending", "parsed", "reviewed"
 export const insertInboxItemSchema = z.object({
     /** Client-chosen id, so a capture made offline can be placed before it syncs. */
     id: z.uuid().optional(),
-    rawText: z.string().min(1).max(5_000),
+    rawText: z.string().trim().min(1).max(5_000),
     sectionId: z.uuid().optional(),
     orderIndex: z.number().optional(),
     captureKind: captureKindSchema.optional(),
 });
 
 export const updateInboxItemSchema = z.object({
-    rawText: z.string().min(1).max(5_000).optional(),
+    rawText: z.string().trim().min(1).max(5_000).optional(),
     sectionId: z.uuid().nullable().optional(),
     orderIndex: z.number().optional(),
     captureKind: captureKindSchema.optional(),
@@ -38,7 +38,7 @@ export type UpdateInboxItem = z.infer<typeof updateInboxItemSchema>;
 export const processInboxItemSchema = z.object({
     /** Client-chosen id for the new task, so the optimistic row is the real row. */
     taskId: z.uuid().optional(),
-    title: z.string().min(1).max(2_000),
+    title: z.string().trim().min(1).max(2_000),
     complete: z.boolean().optional(),
     /** An all-day placement: the day (a deadline is a day). */
     scheduledDay: localDateSchema.nullish(),
@@ -69,7 +69,7 @@ export type ProcessInboxItem = z.infer<typeof processInboxItemSchema>;
 export const insertInboxSectionSchema = z.object({
     /** Client-chosen id, so it can be used before it syncs. */
     id: z.uuid().optional(),
-    name: z.string().min(1).max(200),
+    name: z.string().trim().min(1).max(200),
     orderIndex: z.number().optional(),
 });
 

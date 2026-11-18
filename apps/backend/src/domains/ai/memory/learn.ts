@@ -108,18 +108,16 @@ export async function learnFromReading(
 
         // 2 · Consolidate each fact: embed, find the closest known facts, ask which one it repeats.
         const model = getEmbeddingModelId(env);
-        let vectors: (number[] | null)[] = facts.map(() => null);
-        if (facts.length > 0) {
-            try {
-                vectors = await embedTexts(
-                    env,
-                    facts.map((c) => c.content),
-                    { userHash },
-                );
-            } catch (error) {
-                logger.warn("ai", "memory_embed_failed", { userHash, issues: issuesFromError(error) });
-            }
-        }
+        // Without vectors a paraphrase of a forgotten fact can't be recognised, so a failure here writes nothing:
+        // the cursor stays and the next run reads the same messages again.
+        const vectors =
+            facts.length > 0
+                ? await embedTexts(
+                      env,
+                      facts.map((c) => c.content),
+                      { userHash },
+                  )
+                : [];
         const near = await withRls(db, userId, (tx) =>
             Promise.all(
                 facts.map((c, i) =>

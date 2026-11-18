@@ -57,15 +57,16 @@ function classifyAuthFailure(error: unknown) {
         return new AppError(503, "AUTH_PROVIDER_UNAVAILABLE", "Authentication provider unavailable", true);
     }
 
-    if (message.includes("exp")) {
+    // jose names the claim in quotes; a bare "exp" also matches `unexpected "iss" claim value`.
+    if (message.includes('"exp"') || message.includes("expired")) {
         return new AppError(401, "TOKEN_EXPIRED", "Session expired");
     }
 
-    if (message.includes("iss") || message.includes("issuer")) {
+    if (message.includes('"iss"') || message.includes("issuer")) {
         return new AppError(401, "INVALID_ISSUER", "Token issuer not trusted");
     }
 
-    if (message.includes("aud") || message.includes("audience")) {
+    if (message.includes('"aud"') || message.includes("audience")) {
         return new AppError(401, "INVALID_AUDIENCE", "Token not intended for this API");
     }
 

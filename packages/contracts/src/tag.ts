@@ -6,7 +6,7 @@ import { instantSchema } from "./common";
 export const insertTagSchema = z.object({
     /** Client-chosen id, so it can be used before it syncs. */
     id: z.uuid().optional(),
-    name: z.string().min(1).max(100),
+    name: z.string().trim().min(1).max(100),
     color: z.string().max(50).optional(),
     /** Place among the person's tags; a new tag without one goes last. */
     sortOrder: z.number().optional(),
@@ -19,6 +19,13 @@ export type UpdateTag = z.infer<typeof updateTagSchema>;
 export const taskTagSchema = z.object({
     tagId: z.uuid(),
 });
+
+/** Link (or unlink) one tag on several tasks at once. */
+export const tagTasksSchema = z.object({
+    taskIds: z.array(z.uuid()).min(1).max(500),
+    linked: z.boolean(),
+});
+export type TagTasks = z.infer<typeof tagTasksSchema>;
 
 export const tagRowSchema = z.object({
     id: z.uuid(),

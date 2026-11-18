@@ -4,7 +4,7 @@ import { instantSchema } from "./common";
 export const insertSubtaskSchema = z.object({
     /** Client-chosen id, so it can be used before it syncs. */
     id: z.uuid().optional(),
-    title: z.string().min(1).max(500),
+    title: z.string().trim().min(1).max(500),
     orderIndex: z.number(),
 });
 
@@ -22,7 +22,7 @@ export const subtasksByTaskQuerySchema = z.object({
 export const bulkSubtasksSchema = z.object({ taskIds: subtaskTaskIdsSchema });
 
 export const updateSubtaskSchema = z.object({
-    title: z.string().min(1).max(500).optional(),
+    title: z.string().trim().min(1).max(500).optional(),
     isComplete: z.boolean().optional(),
     orderIndex: z.number().optional(),
 });

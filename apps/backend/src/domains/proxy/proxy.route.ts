@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { apiValidator } from "../../platform/validation";
-import { createErrorBody } from "../../platform/errors";
+import { AppError, createErrorBody } from "../../platform/errors";
 import { logger, shorten, issuesFromError } from "../../platform/log";
 import { holidayCache } from "./holiday-cache";
 import {
@@ -47,7 +47,7 @@ async function upstreamFetch(upstream: string, url: string, cacheTtl: number): P
         });
     } catch (err) {
         logger.error("proxy", "upstream_unreachable", { upstream, issues: issuesFromError(err) });
-        throw err;
+        throw new AppError(502, "UPSTREAM_ERROR", "The service is unreachable right now", true);
     }
 
     // Validate upstream response content-type

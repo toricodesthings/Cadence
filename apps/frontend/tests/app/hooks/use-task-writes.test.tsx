@@ -4,25 +4,32 @@ import type { Task } from "@cadence/contracts/task";
 import { atLocal } from "@cadence/domain/time";
 import { useCreateTask } from "../../../app/hooks/tasks/use-create-task";
 import { useBatchRescheduleTasks } from "../../../app/hooks/tasks/use-batch-state";
+import { useUpdateTask } from "../../../app/hooks/tasks/use-update-task";
 import { queryKeys } from "../../../app/lib/api/query-keys";
 import { setUserZone } from "../../../app/lib/utils/user-zone";
 import { makeTask, testQueryClient, withClient } from "../../helpers";
 
-const api = vi.hoisted(() => ({ create: vi.fn(), reschedule: vi.fn() }));
+const api = vi.hoisted(() => ({ create: vi.fn(), reschedule: vi.fn(), patch: vi.fn() }));
 vi.mock("../../../app/hooks/auth/use-api-client", () => ({
-    useApiClient: () => ({ api: { tasks: { $post: api.create, batch: { reschedule: { $post: api.reschedule } } } } }),
+    useApiClient: () => ({
+        api: { tasks: { $post: api.create, ":id": { $patch: api.patch }, batch: { reschedule: { $post: api.reschedule } } } },
+    }),
 }));
 vi.mock("../../../app/lib/api/offline-mutation", () => ({
     withOfflineSupport: (_op: unknown, online: unknown) => online,
     wasQueued: () => false,
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: undefined }) }));
+vi.mock("../../../app/hooks/ai/use-memory", () => ({ useDurationApi: () => ({}) }));
+vi.mock("../../../app/hooks/ai/use-duration-guess", () => ({ useDurationGuesser: () => () => undefined }));
 
 const ZONE = "America/Toronto";
 const listKey = queryKeys.tasks.list({ state: "ACTIVE" });
 beforeEach(() => {
     api.create.mockReset();
     api.reschedule.mockReset();
+    api.patch.mockReset();
     setUserZone(ZONE);
 });
 
@@ -75,5 +82,22 @@ describe("task writes in the one time model", () => {
         const [a, b] = qc.getQueryData<Task[]>(listKey)!;
         expect(a.scheduledStart).toBe(atLocal("2026-03-30", "09:30", ZONE));
         expect(b).toMatchObject({ dueDate: "2026-03-30", scheduledStart: null });
+    });
+
+    it("keeps an Undo in place while the check-off it reverses lands", async () => {
+        const task = makeTask({ id: "10000000-0000-4000-8000-000000000003", state: "ACTIVE" });
+        let land!: (res: Response) => void;
+        api.patch
+            .mockReturnValueOnce(new Promise<Response>((resolve) => (land = resolve)))
+            .mockReturnValueOnce(new Promise(() => {}));
+        const qc = testQueryClient();
+        qc.setQueryData(listKey, [task]);
+        const { result } = renderHook(useUpdateTask, { wrapper: withClient(qc) });
+        act(() => result.current.mutate({ id: task.id, state: "COMPLETE" }));
+        act(() => result.current.mutate({ id: task.id, state: "ACTIVE" }));
+        await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(1));
+        await act(async () => land(Response.json({ data: { ...task, state: "COMPLETE" } })));
+        await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(2));
+        expect(qc.getQueryData<Task[]>(listKey)![0].state).toBe("ACTIVE");
     });
 });

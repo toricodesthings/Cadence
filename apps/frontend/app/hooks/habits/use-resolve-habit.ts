@@ -3,10 +3,11 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { habitCache } from "./optimistic-helpers";
+import { isLastWrite } from "../../lib/api/write-gate";
 import type { ResolveHabitAction, Habit } from "@cadence/contracts/habit";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { applyTimeMark, nextOpenTime, stepDayStatus, timeMarksOn } from "@cadence/domain/repeats";
 import { wallTimeOf } from "@cadence/domain/time";
 import { getUserZone } from "../../lib/utils/user-zone";
@@ -38,13 +39,6 @@ function withNextTime(queryClient: QueryClient, habitId: string, vars: ResolveVa
     return time ? { ...vars, ...timeAction(time, "COMPLETED") } : vars;
 }
 
-const latestResolveByCell = new Map<string, string>();
-
-function makeCellKey(habitId: string, targetDate: string, time?: string) {
-    const timePart = time ? `:${time}` : "";
-    return `${habitId}:${targetDate}${timePart}`;
-}
-
 /** Pass `habitId` per call when one hook instance resolves many habits (e.g. schedule rows). */
 type ResolveVariables = ResolveHabitAction & { habitId?: string };
 
@@ -54,7 +48,7 @@ export function useResolveHabit(boundHabitId?: string) {
     const queryClient = useQueryClient();
 
     const mutation = useMutation({
-        mutationFn: withOfflineSupport<ResolveVariables, { habit: Habit; requestId: string; requestKey: string }>(
+        mutationFn: withOfflineSupport<ResolveVariables, { habit: Habit }>(
             (action) => ({
                 type: "resolve_habit",
                 id: idOf(action),
@@ -69,25 +63,17 @@ export function useResolveHabit(boundHabitId?: string) {
             async (vars) => {
                 const habitId = idOf(vars);
                 const { habitId: _omit, ...action } = vars;
-                const requestKey = makeCellKey(habitId, action.targetDate, action.time);
-                const requestId = crypto.randomUUID();
-                latestResolveByCell.set(requestKey, requestId);
                 const res = await client.api.habits[":id"].resolve.$post({
                     param: { id: habitId },
                     json: action,
                 });
-                return {
-                    ...(await unwrapResponse(res)),
-                    requestId,
-                    requestKey,
-                };
+                return unwrapResponse(res);
             },
         ),
         onMutate: async (action) => {
             const habitId = idOf(action);
             await habitCache.cancel(queryClient);
             const snapshot = habitCache.snapshot(queryClient);
-            const requestKey = makeCellKey(habitId, action.targetDate, action.time);
 
             // Helper to update a habit's log status in-place
             const applyUpdate = (habits: Habit[] | undefined): Habit[] | undefined => {
@@ -126,27 +112,20 @@ export function useResolveHabit(boundHabitId?: string) {
             // Update each weekly query variant
             queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll }, applyUpdate);
 
-            return { snapshot, requestKey };
+            return { snapshot };
         },
         onSuccess: (result) => {
-            if (!result) return; // Queued offline
-            if (latestResolveByCell.get(result.requestKey) !== result.requestId) {
-                return;
-            }
+            if (!result || !isLastWrite(queryClient)) return; // Queued offline, or a later write reads back
             reconcileHabitInCaches(queryClient, result.habit);
-            latestResolveByCell.delete(result.requestKey);
         },
         onError: (err, _action, context) => {
-            if (context?.requestKey) {
-                latestResolveByCell.delete(context.requestKey);
-            }
-            if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
+            if (context) habitCache.rollback(queryClient, context.snapshot);
             toastError(err, "Couldn't update routine");
         },
         onSettled: (data, error) => {
             // Clearing or skipping a day takes its "Took" answer with it on the server: the cached one is stale.
             void queryClient.invalidateQueries({ queryKey: queryKeys.ai.routineDurationAll });
-            if (!wasQueued(data, error)) habitCache.invalidate(queryClient);
+            habitCache.settle(queryClient, data, error);
         },
     });
     return {

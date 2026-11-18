@@ -238,7 +238,7 @@ describe("GET /ai/usage", () => {
         expect(status).toBe(200);
         expect(body.data.enabled).toBe(true);
         expect(body.data.windows["5h"].requests).toEqual({ used: 0, limit: 42 });
-        expect(body.data.windows["7d"]).toBeDefined();
+        expect(body.data.windows["7d"].requests).toMatchObject({ used: 0 });
     });
 
     it("returns a disabled placeholder when the budget store is not configured", async () => {

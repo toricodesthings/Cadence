@@ -11,6 +11,7 @@ import { ApiErrorResponse } from "./types/api";
 import { AuthStateProvider, useAuthState } from "./hooks/auth/use-auth-state";
 import { BackgroundLayer } from "./components/settings/appearance/BackgroundLayer";
 import { Toaster } from "./components/feedback/Toaster";
+import { AutoTagOfferDialog } from "./components/tags/AutoTagOfferDialog";
 import { WorkspaceStartup } from "./components/layout/WorkspaceStartup";
 import { OfflineBanner } from "./components/shared/OfflineBanner";
 import { Provider as TooltipProvider } from "./components/primitives/Tooltip";
@@ -34,6 +35,7 @@ import {
     normalizeRedirectTo,
 } from "./platform/runtime";
 import { installDesktopE2EBridge } from "./platform/desktop-e2e";
+import { flushHeldRefetches } from "./lib/api/write-gate";
 import {
     announceDesktopUpdate,
     confirmDesktopUpdate,
@@ -166,7 +168,10 @@ function AccountProviders({ children }: { children: ReactNode }) {
                         }
                     },
                 }),
-                mutationCache: new MutationCache({ onError: (error) => reportError(error, "mutation") }),
+                mutationCache: new MutationCache({
+                    onError: (error) => reportError(error, "mutation"),
+                    onSettled: (_data, _error, _vars, _result, _mutation, { client }) => flushHeldRefetches(client),
+                }),
                 defaultOptions: {
                     queries: {
                         // Default to tasks stale time (most common query); hooks may override
@@ -397,6 +402,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
                         </AppMotion>
                     </div>
                     <Toaster />
+                    <AutoTagOfferDialog />
                 </AuthUIBoundary>
             </div>
         </PersistQueryClientProvider>
