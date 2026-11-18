@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-18
+
 - New tasks get the tag named like their list or section, and moving a task swaps it. Turn off in Task defaults.
 - Creating such a tag offers to tag the tasks already there, with Undo.
 - Opening Cadence now carries you gently through the valley into your workspace.
