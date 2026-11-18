@@ -1,6 +1,25 @@
 import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Loading, LoadingHost } from "../../../app/components/shared/Loading";
+import { Loading, LoadingHost, flyMs } from "../../../app/components/shared/Loading";
+
+// jsdom has no Web Animations; record calls and hand back a reversible handle.
+function mockAnimate() {
+    const reverse = vi.fn(function (this: { playbackRate: number }) {
+        this.playbackRate *= -1;
+    });
+    const animate = vi.fn(() => ({
+        cancel: () => undefined,
+        reverse,
+        playbackRate: 1,
+        finished: new Promise(() => undefined),
+        effect: null,
+    }));
+    Element.prototype.animate = animate as unknown as Element["animate"];
+    return { animate, reverse };
+}
+const flights = (animate: ReturnType<typeof mockAnimate>["animate"]) =>
+    animate.mock.calls.filter((c) => "--ls-fly" in (c as unknown as [object])[0]);
+const wait = (ms: number) => act(() => new Promise((resolve) => setTimeout(resolve, ms)));
 
 function Boot({ step }: { step: "fallback" | "session" | "workspace" | "done" }) {
     return (
@@ -18,7 +37,8 @@ function Boot({ step }: { step: "fallback" | "session" | "workspace" | "done" })
 }
 
 describe("loading host", () => {
-    it("keeps one scene through every hand-off and drops it a frame after the last", async () => {
+    it("keeps one scene through every hand-off and flies out a frame after the last", async () => {
+        const { animate } = mockAnimate();
         const view = render(<Boot step="fallback" />);
         const scene = document.querySelector(".loading-screen");
         expect(scene).not.toBeNull();
@@ -27,24 +47,59 @@ describe("loading host", () => {
         view.rerender(<Boot step="workspace" />);
         // Same element: the entrance and the loops never restart.
         expect(document.querySelector(".loading-screen")).toBe(scene);
+        // A fast start never names itself; the title waits until the load is slow enough to read it.
+        expect(screen.getByRole("status").textContent).toBe("Cadence");
+        await wait(1000);
         expect(screen.getByRole("status").textContent).toBe("Preparing your workspace");
         // The request's children portal under the wordmark.
         expect(scene!.querySelector(".ls-wordmark + .contents")?.textContent).toBe("Taking longer than usual");
 
         view.rerender(<Boot step="done" />);
         expect(document.querySelector(".loading-screen")).toBe(scene);
+        expect(flights(animate)).toHaveLength(0);
         await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+        // Leaving: still drawn, but out of the way of clicks, Tab and screen readers.
+        expect(document.querySelector(".loading-screen")).toBe(scene);
+        expect(scene!.hasAttribute("data-leaving")).toBe(true);
+        expect(scene!.hasAttribute("inert")).toBe(true);
+        expect(flights(animate)).toHaveLength(1);
+        expect((flights(animate)[0] as unknown as [object])[0]).toEqual({ "--ls-fly": [0, 1] });
+        await wait(flyMs());
+        expect(document.querySelector(".loading-screen")).toBeNull();
+    });
+
+    it("glides back when loading resumes mid-flight", async () => {
+        const { animate, reverse } = mockAnimate();
+        const Step = ({ on }: { on: boolean }) => (
+            <>
+                {on && <Loading />}
+                <LoadingHost />
+            </>
+        );
+        const view = render(<Step on />);
+        const scene = document.querySelector(".loading-screen");
+        view.rerender(<Step on={false} />);
+        await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+        expect(scene!.hasAttribute("data-leaving")).toBe(true);
+
+        view.rerender(<Step on />);
+        expect(document.querySelector(".loading-screen")).toBe(scene);
+        expect(scene!.hasAttribute("data-leaving")).toBe(false);
+        expect(reverse).toHaveBeenCalledTimes(1);
+        // The unmount timer was cancelled: the scene stays.
+        await wait(flyMs());
+        expect(document.querySelector(".loading-screen")).toBe(scene);
+        expect(flights(animate)).toHaveLength(1);
+
+        view.rerender(<Step on={false} />);
+        await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+        expect(reverse).toHaveBeenCalledTimes(2);
+        await wait(flyMs());
         expect(document.querySelector(".loading-screen")).toBeNull();
     });
 
     it("turns a title with progress into a bar that fills before the scene leaves", async () => {
-        // jsdom has no Web Animations; the fill only needs a handle it can cancel.
-        const animate = vi.fn(() => ({
-            cancel: () => undefined,
-            finished: new Promise(() => undefined),
-            effect: null,
-        }));
-        Element.prototype.animate = animate as unknown as Element["animate"];
+        const { animate } = mockAnimate();
         const now = vi.spyOn(performance, "now");
         now.mockReturnValue(0);
         const Startup = ({ pending }: { pending: boolean }) => (
@@ -54,19 +109,25 @@ describe("loading host", () => {
             </>
         );
         const view = render(<Startup pending />);
+        await wait(1000);
         expect(document.querySelector(".ls-title-muted")?.textContent).toBe("Preparing your workspace");
         // 50% of the known work is 50% along the 10–90% band (the text, which moves against its clip box).
         const lastTarget = () =>
-            String((animate.mock.lastCall as unknown as [{ translate: string[] }])[0].translate[1]);
+            String(
+                (animate.mock.calls.filter((c) => "translate" in (c as unknown as [object])[0]).at(-1) as unknown as [
+                    { translate: string[] },
+                ])[0].translate[1],
+            );
         expect(lastTarget()).toMatch(/^calc\(0.5 \*/);
 
         // On screen long enough to read: it fills to the end, then leaves.
         now.mockReturnValue(1_000);
         view.rerender(<Startup pending={false} />);
+        // The bar fills and the flight starts in the same commit.
         expect(lastTarget()).toMatch(/^calc\(0 \*/);
-        await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
-        expect(document.querySelector(".loading-screen")).not.toBeNull();
-        await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+        expect(document.querySelector(".loading-screen")?.hasAttribute("data-leaving")).toBe(true);
+        expect(flights(animate)).toHaveLength(1);
+        await wait(flyMs());
         expect(document.querySelector(".loading-screen")).toBeNull();
         now.mockRestore();
     });

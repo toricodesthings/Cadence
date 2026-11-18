@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+- Opening Cadence now carries you gently through the valley into your workspace.
+- Quick starts and sign-in no longer flicker: the loading title swaps cleanly and only appears on slow loads.
+
 ## [1.1.0] - 2026-11-13
 
 ### Changed

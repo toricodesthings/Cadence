@@ -78,9 +78,23 @@ function useTitleFill(fillRef: RefObject<HTMLSpanElement | null>, progress: numb
             if (then) anims[0].finished.then(then, () => undefined);
         };
         const creep = () => go(0.9, CREEP_MS, "cubic-bezier(0.3, 0.6, 0.35, 1)");
-        if (progress >= 1) go(1, 50, "cubic-bezier(0.22, 1, 0.36, 1)");
-        else if (progress > now()) go(progress, 420, "cubic-bezier(0.22, 1, 0.36, 1)", creep);
-        else if (!run.current.anims.length) creep();
+        const apply = () => {
+            if (progress >= 1) go(1, 50, "cubic-bezier(0.22, 1, 0.36, 1)");
+            else if (progress > now()) go(progress, 420, "cubic-bezier(0.22, 1, 0.36, 1)", creep);
+            else if (!run.current.anims.length) creep();
+        };
+        // A fill the compositor is already moving reads 0% until the busy main thread hears it started,
+        // so retargeting it then would jump the bar back. Wait for its start; the newest mark wins.
+        const current = run.current.anims[0];
+        if (!current?.pending) return apply();
+        let live = true;
+        current.ready.then(
+            () => live && apply(),
+            () => undefined,
+        );
+        return () => {
+            live = false;
+        };
     }, [fillRef, progress]);
 }
 
@@ -96,25 +110,13 @@ export function LoadingForeground({
 }) {
     const fillRef = useRef<HTMLSpanElement>(null);
     useTitleFill(fillRef, title ? progress : undefined);
-    const cubeRef = useRef<HTMLSpanElement>(null);
-
-    useLayoutEffect(() => {
-        const cube = cubeRef.current;
-        if (!cube) return;
-        // Adjacent faces share an edge, including when the message wraps on phones.
-        const measure = () => cube.style.setProperty("--ls-wordmark-depth", `${cube.offsetHeight / 2}px`);
-        measure();
-        const observer = new ResizeObserver(measure);
-        observer.observe(cube);
-        return () => observer.disconnect();
-    }, [title]);
 
     const columnRef = useRef<HTMLDivElement>(null);
     useLayoutEffect(() => {
         const column = columnRef.current;
         if (!column) return;
         // The column is centred, so a wider title, a settling font or a message under the wordmark
-        // snaps every part to a new spot. Glide each part there instead, in step with the title roll.
+        // snaps every part to a new spot. Glide each part there instead, in step with the title swap.
         const parts = [...column.querySelectorAll<HTMLElement>(".ls-logo-block, .ls-wordmark, .ls-rule")];
         // Each part's centre against its positioned parent's centre: transform-free, and blind to window size.
         const place = (el: HTMLElement) => {
@@ -146,7 +148,7 @@ export function LoadingForeground({
     }, []);
 
     return (
-        <div ref={columnRef} className="relative z-10 flex flex-col items-center text-center">
+        <div ref={columnRef} className="ls-column relative z-10 flex flex-col items-center text-center">
             <div className="ls-enter ls-logo-block mb-6 relative flex items-center justify-center">
                 <div className="ls-grower contents">
                     <div className="ls-aura-core absolute top-1/2 left-1/2 w-64 h-64 pointer-events-none" />
@@ -168,24 +170,22 @@ export function LoadingForeground({
                 </span>
                 <span className="ls-wordmark-halo" aria-hidden="true" />
                 <span className="ls-rule ls-rule-l" aria-hidden="true" />
-                <span className="ls-wordmark-flip" aria-hidden="true">
-                    <span className="ls-wordmark-cube" ref={cubeRef}>
-                        <span className="ls-wordmark-brand uppercase">Cadence</span>
-                        {title && (
-                            <span className="ls-wordmark-title">
-                                {progress === undefined ? (
-                                    title
-                                ) : (
-                                    <>
-                                        <span className="ls-title-muted">{title}</span>
-                                        <span className="ls-title-fill" ref={fillRef}>
-                                            <span>{title}</span>
-                                        </span>
-                                    </>
-                                )}
-                            </span>
-                        )}
-                    </span>
+                <span className="ls-wordmark-faces" aria-hidden="true">
+                    <span className="ls-wordmark-brand uppercase">Cadence</span>
+                    {title && (
+                        <span className="ls-wordmark-title">
+                            {progress === undefined ? (
+                                title
+                            ) : (
+                                <>
+                                    <span className="ls-title-muted">{title}</span>
+                                    <span className="ls-title-fill" ref={fillRef}>
+                                        <span>{title}</span>
+                                    </span>
+                                </>
+                            )}
+                        </span>
+                    )}
                 </span>
                 <span className="ls-rule ls-rule-r" aria-hidden="true" />
             </h2>

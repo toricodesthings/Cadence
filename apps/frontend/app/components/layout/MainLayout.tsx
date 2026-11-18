@@ -401,15 +401,9 @@ export function MainLayout({
         );
     }
 
+    // The sign-in redirect is on its way; the scene holds until the auth page takes it over.
     if (requireAuth && !isAuthenticated) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-twilight">
-                <div className="rounded-3xl border border-twilight-border bg-twilight-surface/80 px-8 py-6 text-center">
-                    <p className="text-sm uppercase tracking-[0.2em] text-twilight-text-muted">Redirecting</p>
-                    <p className="mt-3 text-sm text-twilight-text-soft">Taking you to sign in.</p>
-                </div>
-            </div>
-        );
+        return <Loading />;
     }
 
     // ── Shared right rail (mutually exclusive context panel ↔ assistant) ──

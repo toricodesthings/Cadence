@@ -191,11 +191,11 @@
 /* Stage-filling planes overscan slightly so their edges never show while they sway */
 .ls-par-far {
     --par: calc(10 * var(--su));
-    scale: 1.02;
+    --ls-base-scale: 1.02;
 }
 .ls-par-town {
     --par: calc(22 * var(--su));
-    scale: 1.02;
+    --ls-base-scale: 1.02;
 }
 .ls-par-near {
     --par: calc(34 * var(--su));
@@ -704,16 +704,11 @@ path.lg-part {
     text-shadow: var(--ls-text-shadow);
 }
 
-.ls-wordmark-flip {
-    min-width: 0;
-    perspective: 600px;
-}
-
-.ls-wordmark-cube {
-    --ls-wordmark-depth: 0.75em;
+/* The brand and the title share one cell; a title lifts the brand away and rises in under it. Flat
+   (2D) on purpose: text on a 3D layer re-rasterises at rest, so its weight flickered as it settled. */
+.ls-wordmark-faces {
     display: grid;
-    transform-style: preserve-3d;
-    transform: translateZ(calc(-1 * var(--ls-wordmark-depth)));
+    min-width: 0;
 }
 
 .ls-wordmark-brand,
@@ -721,11 +716,6 @@ path.lg-part {
     display: grid;
     place-items: center;
     grid-area: 1 / 1;
-    backface-visibility: hidden;
-}
-
-.ls-wordmark-brand {
-    transform: translateZ(var(--ls-wordmark-depth));
 }
 
 .ls-wordmark[data-loading-title] {
@@ -733,16 +723,16 @@ path.lg-part {
     gap: clamp(0.5rem, 1.5vw, 1.8rem);
 }
 
-.ls-wordmark[data-loading-title] .ls-wordmark-cube {
-    transform: translateZ(calc(-1 * var(--ls-wordmark-depth))) rotateX(90deg);
-    animation: var(--ls-still, ls-wordmark-roll 320ms cubic-bezier(0.65, 0, 0.35, 1) both);
+.ls-wordmark[data-loading-title] .ls-wordmark-brand {
+    visibility: hidden;
+    animation: var(--ls-still, ls-wordmark-out 200ms cubic-bezier(0.55, 0, 1, 0.45) both);
 }
 
 .ls-wordmark-title {
     letter-spacing: 0.02em;
     text-indent: 0.02em;
     text-wrap: balance;
-    transform: rotateX(-90deg) translateZ(var(--ls-wordmark-depth));
+    animation: var(--ls-still, ls-wordmark-in 420ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both);
 }
 
 /* With progress the title is a bar: a muted line the full colour fills from the left (useTitleFill).
@@ -770,12 +760,21 @@ path.lg-part {
     translate: calc(0.9 * (100% - 1.5em)) 0;
 }
 
-@keyframes ls-wordmark-roll {
+@keyframes ls-wordmark-out {
     from {
-        transform: translateZ(calc(-1 * var(--ls-wordmark-depth))) rotateX(0deg);
+        visibility: visible;
     }
     to {
-        transform: translateZ(calc(-1 * var(--ls-wordmark-depth))) rotateX(90deg);
+        opacity: 0;
+        translate: 0 -0.5em;
+        visibility: hidden;
+    }
+}
+
+@keyframes ls-wordmark-in {
+    from {
+        opacity: 0;
+        translate: 0 0.5em;
     }
 }
 
@@ -871,14 +870,96 @@ path.lg-part {
 /* ── Reduced motion: a designed still (OS setting unless the user chose "full", or the in-app setting) ── */
 [data-motion="reduced"] .loading-screen {
     --ls-still: none;
+    --ls-fly-k: 0;
     --ls-rm-display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
     :root:not([data-motion="full"]) .loading-screen {
         --ls-still: none;
+        --ls-fly-k: 0;
         --ls-rm-display: none;
     }
+}
+
+/*
+ * ── Leaving: the arrival flight ──
+ * One number, --ls-fly (0 → 1, a critically damped spring driven from Loading.tsx), moves every layer:
+ * nearer planes scale more about the vanishing point and fade first. At 0 every rule equals its idle pose,
+ * so a reversed flight glides home. --ls-fly-k is the one knob for how far it travels.
+ */
+@property --ls-fly {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 0;
+}
+
+.loading-screen {
+    --ls-fly-k: 0.03;
+    --ls-fly-origin: 50% 74%;
+}
+
+:is(.ls-par-far, .ls-par-town, .ls-par-near, .ls-particles, .ls-fly-frame) {
+    scale: calc(var(--ls-base-scale, 1) * (1 + var(--ls-fly-k) * var(--depth, 0) * var(--ls-fly)));
+}
+:is(.ls-par-far, .ls-par-town, .ls-par-near):not(.ls-reflect) {
+    transform-origin: var(--ls-fly-origin);
+}
+.ls-par-far {
+    --depth: 1.5;
+}
+.ls-par-town {
+    --depth: 4;
+}
+.ls-par-near {
+    --depth: 9;
+    --fly-from: 0.1;
+    --fly-span: 0.55;
+}
+.ls-particles {
+    --depth: 10;
+    --fly-from: 0.05;
+    --fly-span: 0.5;
+}
+.ls-fly-frame {
+    --depth: 8;
+    --fly-from: 0;
+    --fly-span: 0.5;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.ls-column {
+    --fly-from: 0.1;
+    --fly-span: 0.5;
+    scale: calc(1 + var(--ls-fly-k) * 1.67 * var(--ls-fly));
+    translate: 0 calc(var(--ls-fly-k) * -67% * var(--ls-fly));
+}
+.ls-vignette {
+    --fly-from: 0;
+    --fly-span: 0.7;
+}
+.loading-screen {
+    --fly-from: 0.15;
+    --fly-span: 0.7;
+}
+
+/* Each fader's own slice of the driver */
+:is(.loading-screen, .ls-par-near, .ls-particles, .ls-fly-frame, .ls-column, .ls-vignette) {
+    --ft: clamp(0, (var(--ls-fly) - var(--fly-from, 0)) / var(--fly-span, 1), 1);
+}
+:is(.ls-particles, .ls-fly-frame, .ls-column, .ls-vignette) {
+    opacity: calc(1 - var(--ft));
+}
+.ls-lanterns.ls-par-near {
+    opacity: calc(var(--ls-lantern-opacity) * 0.8 * (1 - var(--ft)));
+}
+/* The screen's own fade starts and ends with zero slope */
+.loading-screen {
+    opacity: calc(1 - var(--ft) * var(--ft) * (3 - 2 * var(--ft)));
+}
+.loading-screen[data-leaving] {
+    pointer-events: none;
 }
 
 /* ── Keyframes ── */

@@ -17,8 +17,10 @@ import { RESUME_ROUTE_SCRIPT } from "./lib/resume-route";
 // One render-blocking stylesheet link; Vite updates its URL during HMR.
 // Do not also side-effect-import app.css, which would load a second copy.
 import appStylesHref from "./app.css?url";
-// The loading wordmark's face: fetched with the stylesheet so its first paint isn't the fallback.
+// The loading wordmark's face and the workspace's body face: fetched with the stylesheet, so neither
+// first paint (the scene, then the workspace the flight reveals) is the fallback swapping in.
 import outfitLatinHref from "@fontsource-variable/outfit/files/outfit-latin-wght-normal.woff2?url";
+import soraLatinHref from "@fontsource-variable/sora/files/sora-latin-wght-normal.woff2?url";
 import "@fontsource-variable/outfit";
 import "@fontsource-variable/sora";
 
@@ -27,6 +29,7 @@ import type { LinksFunction } from "react-router";
 export const links: LinksFunction = () => [
     { rel: "stylesheet", href: appStylesHref },
     { rel: "preload", href: outfitLatinHref, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
+    { rel: "preload", href: soraLatinHref, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
     ...(RUNTIME_TARGET === "desktop"
         ? []
         : [
