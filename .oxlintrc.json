@@ -1,6 +1,6 @@
 {
     "$schema": "./node_modules/oxlint/configuration_schema.json",
-    "plugins": ["eslint", "typescript", "unicorn", "oxc", "react"],
+    "plugins": ["eslint", "typescript", "unicorn", "oxc", "react", "jsx-a11y"],
     "categories": {
         "correctness": "warn"
     },
@@ -14,13 +14,43 @@
         "react/purity": "off",
         "react/preserve-manual-memoization": "off",
         "react/use-memo": "off",
-        "react/globals": "off"
+        "react/globals": "off",
+        "jsx-a11y/prefer-tag-over-role": "off",
+        "jsx-a11y/no-autofocus": "off"
     },
     "overrides": [
         {
             "files": ["apps/backend/src/**", "apps/frontend/app/**", "apps/landing/app/**"],
             "rules": {
-                "eslint/no-console": "error"
+                "eslint/no-console": "error",
+                "eslint/no-alert": "error"
+            }
+        },
+        {
+            "files": ["apps/backend/src/**"],
+            "rules": {
+                "typescript/no-explicit-any": "warn"
+            }
+        },
+        {
+            "files": ["apps/backend/src/**", "apps/frontend/app/**", "apps/landing/app/**"],
+            "rules": {
+                "eslint/no-restricted-properties": [
+                    "error",
+                    {
+                        "property": "toLocaleDateString",
+                        "message": "Format dates with formatInZone (@cadence/domain/time)."
+                    },
+                    {
+                        "property": "toLocaleTimeString",
+                        "message": "Format times with formatInZone (@cadence/domain/time)."
+                    },
+                    {
+                        "object": "Intl",
+                        "property": "DateTimeFormat",
+                        "message": "Format with formatInZone (@cadence/domain/time)."
+                    }
+                ]
             }
         },
         {
@@ -106,6 +136,14 @@
                     {
                         "name": "innerWidth",
                         "message": "Use useShellMode()."
+                    },
+                    {
+                        "name": "localStorage",
+                        "message": "UI reads storage through a hook or lib module."
+                    },
+                    {
+                        "name": "sessionStorage",
+                        "message": "UI reads storage through a hook or lib module."
                     }
                 ],
                 "eslint/no-restricted-properties": [
@@ -119,6 +157,29 @@
                         "object": "window",
                         "property": "innerWidth",
                         "message": "Use useShellMode()."
+                    },
+                    {
+                        "property": "toLocaleDateString",
+                        "message": "Format dates with formatInZone (@cadence/domain/time)."
+                    },
+                    {
+                        "property": "toLocaleTimeString",
+                        "message": "Format times with formatInZone (@cadence/domain/time)."
+                    },
+                    {
+                        "object": "Intl",
+                        "property": "DateTimeFormat",
+                        "message": "Format with formatInZone (@cadence/domain/time)."
+                    },
+                    {
+                        "object": "window",
+                        "property": "localStorage",
+                        "message": "UI reads storage through a hook or lib module."
+                    },
+                    {
+                        "object": "window",
+                        "property": "sessionStorage",
+                        "message": "UI reads storage through a hook or lib module."
                     }
                 ]
             }
@@ -198,6 +259,24 @@
                         ]
                     }
                 ]
+            }
+        },
+        {
+            "files": ["apps/frontend/app/**", "apps/landing/app/**"],
+            "rules": {
+                "jsx-a11y/control-has-associated-label": "error",
+                "typescript/no-explicit-any": "error"
+            }
+        },
+        {
+            "files": [
+                "apps/frontend/app/lib/utils/user-zone.ts",
+                "apps/frontend/app/lib/utils/date-format.ts",
+                "apps/frontend/app/lib/themes/season.ts",
+                "apps/frontend/app/hooks/environment/use-holiday-overlay.ts"
+            ],
+            "rules": {
+                "eslint/no-restricted-properties": "off"
             }
         }
     ]

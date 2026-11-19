@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+- Renaming a Focus View now opens a proper in-app field instead of a browser pop-up.
+
 ## [1.2.0] - 2026-11-18
 
 - New tasks get the tag named like their list or section, and moving a task swaps it. Turn off in Task defaults.

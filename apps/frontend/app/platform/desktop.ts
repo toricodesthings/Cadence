@@ -398,7 +398,7 @@ export const desktopRuntime = {
     },
     async beginSocialLink(provider: SocialProvider, callbackURL?: string): Promise<void> {
         await beginSocialRedirect("linking", callbackURL, (args) =>
-            (redirectlessAuthClient as any).linkSocial({ provider, ...args }),
+            redirectlessAuthClient.linkSocial({ provider, ...args }),
         );
     },
     async platformFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {

@@ -1,35 +1,36 @@
 {
-    "enabledPlugins": {
-        "frontend-design@claude-plugins-official": true,
-        "code-simplifier@claude-plugins-official": true,
-        "javascript-typescript@claude-code-workflows": true,
-        "ui-design@claude-code-workflows": true,
-        "playwright@claude-plugins-official": true,
-        "marketing-skills@marketingskills": true,
-        "claude-security@claude-plugins-official": true,
-        "codacy@anthropic-plugin-directory": true
-    },
-    "hooks": {
-        "PostToolUse": [
-            {
-                "matcher": "Edit|MultiEdit|Write|NotebookEdit",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "node \"$CLAUDE_PROJECT_DIR/scripts/claude-format.mjs\" track"
-                    }
-                ]
-            }
-        ],
-        "Stop": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "node \"$CLAUDE_PROJECT_DIR/scripts/claude-format.mjs\" flush"
-                    }
-                ]
-            }
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/claude-format.mjs\" track"
+          }
         ]
-    }
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/claude-format.mjs\" flush"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "javascript-typescript@claude-code-workflows": true,
+    "ui-design@claude-code-workflows": true,
+    "playwright@claude-plugins-official": true,
+    "marketing-skills@marketingskills": true,
+    "claude-security@claude-plugins-official": true,
+    "codacy@anthropic-plugin-directory": true,
+    "andrej-karpathy-skills@karpathy-skills": true
+  }
 }

@@ -134,7 +134,7 @@ export function userClock(timezone: string | undefined, currentDate: string) {
     const tz = isZone(timezone) ? timezone : "UTC";
     const parsed = new Date(currentDate);
     const now = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-    const weekday = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long" }).format(now);
+    const weekday = formatInZone(now, tz, { weekday: "long" });
     const iso = toZonedIso(now, tz); // 2026-09-21T22:30:00-04:00
     const localTime = `${iso.slice(0, 10)} ${iso.slice(11, 16)} ${iso.slice(19)} (${weekday})`; // time-ok: slicing the zoned ISO string for the prompt, not deriving a day
     return { timezone: tz, now, today: todayIn(tz, now), localTime };

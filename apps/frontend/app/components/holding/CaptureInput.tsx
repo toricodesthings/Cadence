@@ -25,6 +25,7 @@ import { useAuthState } from "../../hooks/auth/use-auth-state";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { MOD_KEY } from "../../lib/constants/keys";
 import { DeadlineTrigger } from "../tasks/DeadlineTrigger";
+import { readCaptureDraft, writeCaptureDraft } from "../../lib/utils/capture-draft";
 import { isFloatingFocus } from "../../lib/utils/dom";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { ScheduleUpdates } from "../tasks/QuickScheduleSurface";
@@ -89,26 +90,12 @@ function taskPayload(
     };
 }
 
-function readDraft(key: string | undefined): string {
-    if (!key) return "";
-    try {
-        return sessionStorage.getItem(key) ?? "";
-    } catch {
-        return "";
-    }
-}
-
 /** Shared draft semantics for the page, phone composer and Quick Add. With `storageKey`, a half-written thought survives leaving the page. */
 function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storageKey?: string) {
-    const [value, setValue] = useState(() => readDraft(storageKey));
+    const [value, setValue] = useState(() => readCaptureDraft(storageKey));
     useEffect(() => {
         if (!storageKey) return;
-        try {
-            if (value) sessionStorage.setItem(storageKey, value);
-            else sessionStorage.removeItem(storageKey);
-        } catch {
-            /* the draft just won't outlive the page */
-        }
+        writeCaptureDraft(storageKey, value);
     }, [storageKey, value]);
     const [count, setCount] = useState(0);
     const [busy, startSave] = useTransition();

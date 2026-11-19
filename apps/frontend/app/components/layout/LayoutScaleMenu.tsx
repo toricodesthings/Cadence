@@ -76,7 +76,7 @@ export function LayoutScaleMenuRow({ separator = true, panel = false }: { separa
     ];
     return (
         <div>
-            {separator ? <div role="separator" className={MENU_SEPARATOR} /> : null}
+            {separator ? <div role="separator" aria-hidden="true" className={MENU_SEPARATOR} /> : null}
             <div role="group" aria-label="Layout scale" className="flex items-center gap-0.5 pl-3 pr-1">
                 <ZoomIn size={14} className="shrink-0 text-twilight-text-soft" aria-hidden="true" />
                 <span className="ml-2 flex-1 text-[15px] text-twilight-text-soft">Scale</span>

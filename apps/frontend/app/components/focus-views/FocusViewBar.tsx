@@ -34,6 +34,9 @@ import * as ContextMenu from "../primitives/ContextMenu";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { Tip } from "../primitives";
+import * as Dialog from "../primitives/Dialog";
+import { Button } from "../primitives/Button";
+import { Input } from "../primitives/Input";
 import { SegmentedControl } from "../primitives/SegmentedControl";
 
 /** Each preset's icon and a quiet hue for its bubble, so the six read apart at a glance. */
@@ -135,12 +138,8 @@ type SavedViewsProps = { views: SavedFocusView[]; activeId: string | null; onSel
 function SavedViews({ views, activeId, onSelect }: SavedViewsProps) {
     const updateFocusView = useUpdateFocusView();
     const deleteFocusViewMutation = useDeleteFocusView();
-    const rename = (view: SavedFocusView) => {
-        const nextName = window.prompt("Rename Focus View", view.name);
-        if (nextName !== null && nextName.trim()) {
-            updateFocusView.mutate({ id: view.id, name: nextName.trim() });
-        }
-    };
+    const [renaming, setRenaming] = useState<SavedFocusView | null>(null);
+    const rename = (view: SavedFocusView) => setRenaming(view);
     return (
         <div>
             <p className={SECTION_LABEL}>Saved</p>
@@ -180,7 +179,48 @@ function SavedViews({ views, activeId, onSelect }: SavedViewsProps) {
                     </ContextMenu.Root>
                 ))}
             </div>
+            <Dialog.Dialog open={!!renaming} onOpenChange={(open) => !open && setRenaming(null)}>
+                <Dialog.DialogContent className="sm:max-w-sm" hideCloseButton>
+                    <Dialog.DialogHeader>
+                        <Dialog.DialogTitle>Rename Focus View</Dialog.DialogTitle>
+                        <Dialog.DialogDescription>Give this view a new name.</Dialog.DialogDescription>
+                    </Dialog.DialogHeader>
+                    {renaming ? (
+                        <RenameViewForm
+                            key={renaming.id}
+                            name={renaming.name}
+                            onSave={(name) => updateFocusView.mutate({ id: renaming.id, name })}
+                            onDone={() => setRenaming(null)}
+                        />
+                    ) : null}
+                </Dialog.DialogContent>
+            </Dialog.Dialog>
         </div>
+    );
+}
+
+type RenameViewFormProps = { name: string; onSave: (name: string) => void; onDone: () => void };
+
+/** Enter saves, Escape (the dialog) or Cancel leaves the name as it was. */
+function RenameViewForm({ name: initial, onSave, onDone }: RenameViewFormProps) {
+    const [name, setName] = useState(initial);
+    const submit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (name.trim()) onSave(name.trim());
+        onDone();
+    };
+    return (
+        <form onSubmit={submit} className="flex flex-col gap-4">
+            <Input value={name} onChange={(e) => setName(e.target.value)} aria-label="Focus View name" autoFocus />
+            <Dialog.DialogFooter>
+                <Button type="button" variant="ghost" size="md" onClick={onDone}>
+                    Cancel
+                </Button>
+                <Button type="submit" variant="cardPrimary" size="md" disabled={!name.trim()}>
+                    Rename
+                </Button>
+            </Dialog.DialogFooter>
+        </form>
     );
 }
 

@@ -9,6 +9,15 @@
 - `videos/` (Remotion) is a standalone npm project outside the pnpm workspace and every gate. Landing clips share `videos/src/stage.tsx` and render only through `videos/render.sh <Composition> "<out folder>"`.
 - If `graphify-out/graph.json` exists, use `graphify query|explain|path` before grepping across files. It lags uncommitted edits.
 
+## Before planning, coding or fixing
+
+Load the `andrej-karpathy-skills:karpathy-guidelines` skill first (if you lack it, follow the rules below).
+
+- **Think first:** trace the flow and state your assumptions. Ask before writing the plan, not inside it.
+- **Simplest thing:** reuse what exists and add nothing speculative.
+- **Surgical:** every changed line traces to the request. Tests, the CHANGELOG bullet and stale AGENTS.md lines count as part of it.
+- **Verifiable:** for a bug, write a failing test in `tests/`, then fix the root cause.
+
 ## Gates
 
 `pnpm lint` also runs the time guard and `jscpd`. On a duplication failure, extract to the nearest shared home (`@cadence/geometry` for scene math shared by app and landing). Lower `.jscpd.json` `threshold` when duplication drops; never raise it.

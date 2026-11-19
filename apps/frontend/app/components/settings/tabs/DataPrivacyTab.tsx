@@ -11,6 +11,7 @@ import { useApiClient } from "../../../hooks/auth/use-api-client";
 import { unwrapResponse } from "../../../lib/api/helpers";
 import { toastError } from "../../../lib/utils/error-toast";
 import { clearRecentSearches } from "../../../lib/utils/recent-searches";
+import { clearPersistedNotificationState } from "../../../hooks/notifications/use-notification-center";
 import { useAuthState } from "../../../hooks/auth/use-auth-state";
 import { useDataExport, useRequestDataExport } from "../../../hooks/core/use-data-export";
 
@@ -80,11 +81,7 @@ export function DataPrivacyTab() {
         try {
             await unwrapResponse(await client.api.settings["intelligence-history"].clear.$post({}));
             updateSettings.mutate({ tasks: { intelligence: { dismissedEntityIds: [], dismissedEntities: [] } } });
-            try {
-                window.localStorage.removeItem("cadence_notification_state");
-            } catch {
-                // Ignore local storage failures and keep the successful server-side clear.
-            }
+            clearPersistedNotificationState();
             toast.success("Cleared stored intelligence history.");
         } catch (error) {
             toastError(error, "Couldn't clear intelligence history");

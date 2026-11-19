@@ -139,7 +139,7 @@ export function ScheduleOptions({
                     onChange={(value) => updateClutter({ [field]: value })}
                 />
             ))}
-            <div role="separator" className={MENU_SEPARATOR} />
+            <div role="separator" aria-hidden="true" className={MENU_SEPARATOR} />
             <h4 className={MENU_LABEL}>Dates</h4>
             {overlays}
         </>

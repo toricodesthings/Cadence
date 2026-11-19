@@ -162,7 +162,7 @@ export function MonthFold({
                                     className="grid grid-cols-7 overflow-hidden"
                                 >
                                     {week.map((iso, i) => {
-                                        if (!iso) return <span key={i} role="gridcell" />;
+                                        if (!iso) return <span key={i} role="gridcell" aria-label="No day" />;
                                         const items = groups.get(iso) ?? [];
                                         const kinds = new Set(
                                             items.filter((t) => t.state !== "COMPLETE").map(scheduleKind),

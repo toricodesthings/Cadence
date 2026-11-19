@@ -58,6 +58,15 @@ function readPersistedState(): PersistedNotificationState {
     }
 }
 
+/** Forgets the device's dismissed/read/deferred notification state. */
+export function clearPersistedNotificationState() {
+    try {
+        window.localStorage.removeItem(NOTIFICATION_STATE_STORAGE_KEY);
+    } catch {
+        // Best-effort, like the writes.
+    }
+}
+
 function writePersistedState() {
     if (typeof window === "undefined") return;
 

@@ -1,5 +1,4 @@
 import { useMemo, type ReactNode } from "react";
-import { formatInZone } from "@cadence/domain/time";
 import { Link, useNavigate } from "react-router";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { SearchSelect } from "../../primitives/SearchSelect";
@@ -13,6 +12,7 @@ import { HOLIDAY_SOURCE_LABELS, useHolidayOverlay } from "../../../hooks/environ
 import { usePersonalEvents } from "../../../hooks/calendar/use-personal-events";
 import { useMinuteClock } from "../../../hooks/ui/use-realtime-clock";
 import { deviceZone, resolveZone, useToday } from "../../../lib/utils/user-zone";
+import { formatInZone } from "@cadence/domain/time";
 import { formatWallTime } from "../../../lib/utils/date-format";
 
 /** Every IANA zone the runtime knows, "UTC" first (some runtimes leave it out of the list). */
@@ -23,10 +23,7 @@ function listZones(): string[] {
 
 /** "UTC-04:00" etc. for a zone at the given instant. */
 function zoneOffsetLabel(zone: string, atISO: string): string {
-    const offset =
-        new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "shortOffset" })
-            .formatToParts(new Date(atISO))
-            .find((part) => part.type === "timeZoneName")?.value ?? "";
+    const offset = formatInZone(atISO, zone, { timeZoneName: "shortOffset" }).split(", ").pop() ?? "";
     return offset.replace("GMT", "UTC") || "UTC+0";
 }
 

@@ -79,6 +79,7 @@ export function NoteSlashMenu({
                                 id={slashOptionId(cmd.id)}
                                 role="option"
                                 aria-selected={i === index}
+                                aria-label={cmd.label}
                                 tabIndex={-1}
                                 onMouseEnter={() => onHover(i)}
                                 onClick={() => onPick(cmd)}

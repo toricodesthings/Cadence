@@ -59,7 +59,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     const navigateToResult = useCallback(
         (result: SearchResult) => {
             onOpenChange(false);
-            trackUsageEvent("command_palette.result_opened", { object_type: result.kind as any });
+            trackUsageEvent("command_palette.result_opened", { object_type: result.kind as never });
 
             // If the match was in notes/headings, open note room instead
             if (result.noteAction) {
