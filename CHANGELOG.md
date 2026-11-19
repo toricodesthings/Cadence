@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-18
+
 - Renaming a Focus View now opens a proper in-app field instead of a browser pop-up.
 
 ## [1.2.0] - 2026-11-18
