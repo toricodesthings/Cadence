@@ -39,6 +39,7 @@ import { TagField } from "./TagField";
 import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags/use-task-tags";
 import { SubtaskList } from "./SubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
+import { TaskViewPanel } from "./TaskViewPanel";
 import { TakesRow, hasTakesRow } from "./TakesRow";
 import { FindTimeButton } from "./FindTimeButton";
 import { useTaskDetailIntentStore } from "../../stores/task-detail-intent-store";
@@ -67,6 +68,7 @@ import {
     getTaskSeriesId,
     isPassiveTimetableTask,
     isRecurringTask,
+    scheduleFieldLabelOf,
 } from "../../lib/utils/task/task-scheduling";
 import type { EffortLevel, Task, TaskPriority, TaskState } from "@cadence/contracts/task";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
@@ -102,6 +104,8 @@ function formatDateTime(iso: string) {
 /** Full task editing panel — notes-first design; metadata revealed on demand */
 export function TaskEditor({ taskId, onClose, detailMode, onDetailModeChange }: TaskEditorProps) {
     const task = useTask(taskId);
+    // A list you can only view gets the facts, never controls that can't save.
+    const { canEdit } = useTaskAccess(task);
 
     // Removed from elsewhere (assistant, another view): the panel closes instead of staying on a gone task.
     const wasLive = useRef(false);
@@ -113,7 +117,14 @@ export function TaskEditor({ taskId, onClose, detailMode, onDetailModeChange }: 
 
     return (
         <div className="h-full min-w-0 overflow-hidden" role="complementary" aria-label="Task details">
-            {task ? (
+            {task && !canEdit ? (
+                <TaskViewPanel
+                    task={task}
+                    onClose={onClose}
+                    detailMode={detailMode}
+                    onDetailModeChange={onDetailModeChange}
+                />
+            ) : task ? (
                 <TaskEditorBody
                     task={task}
                     onClose={onClose}
@@ -148,8 +159,6 @@ type TaskEditorBodyProps = Omit<TaskEditorProps, "taskId"> & { task: Task };
 
 function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange }: TaskEditorBodyProps) {
     const taskId = task.id;
-    // A list you can only view: everything reads, nothing changes.
-    const readOnly = !useTaskAccess(task).canEdit;
     // Below the wide layout this panel is a modal overlay (everything behind it is inert): it steps aside so the room above it is usable.
     const { isWide } = useShellMode();
     const updateTask = useUpdateTask();
@@ -241,7 +250,6 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
                 value={task.title}
                 label="Task title"
                 textareaRef={titleTextareaRef}
-                readOnly={readOnly}
                 onSave={(title) => updateTask.mutate({ id: task.id, title })}
             />
 
@@ -262,11 +270,7 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
                 {activePanel === "notes" ? (
                     <motion.div key="notes-panel" {...PANE_IN} className="flex shrink-0 flex-col gap-3">
                         <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
-                            <TaskNoteInline
-                                taskId={task.id}
-                                onOpenRoom={isWide ? undefined : onClose}
-                                readOnly={readOnly}
-                            />
+                            <TaskNoteInline taskId={task.id} onOpenRoom={isWide ? undefined : onClose} />
                         </Suspense>
                     </motion.div>
                 ) : null}
@@ -285,9 +289,7 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
             ) : null}
 
             <Reveal open={activePanel === "details"} className={`${CARD} flex flex-col`}>
-                <fieldset disabled={readOnly} className="contents">
-                    <TaskDetailsFields task={task} onDone={() => setActivePanel("notes")} onClose={onClose} />
-                </fieldset>
+                <TaskDetailsFields task={task} onDone={() => setActivePanel("notes")} onClose={onClose} />
             </Reveal>
 
             {/* ── Subtasks pane ── */}
@@ -314,41 +316,39 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
                                 onDone={() => setActivePanel("notes")}
                             />
                         </div>
-                        <fieldset disabled={readOnly} className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thin">
+                        <div className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thin">
                             <SubtaskList
                                 taskId={task.id}
                                 focusAdd={stepsAsked}
                                 onFocused={() => consumeStepsAsk(task.id)}
                             />
-                        </fieldset>
+                        </div>
                     </motion.div>
                 ) : null}
             </AnimatePresence>
 
-            {readOnly ? null : (
-                <Button
-                    variant="ghost"
-                    size="none"
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={archiveTask.isPending}
-                    className={`${PANEL_TRIGGER} shrink-0 font-normal text-feedback-error disabled:cursor-not-allowed disabled:opacity-50`}
-                >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-feedback-error/10">
-                        <Trash2 size={16} aria-hidden="true" />
+            <Button
+                variant="ghost"
+                size="none"
+                type="button"
+                onClick={handleDelete}
+                disabled={archiveTask.isPending}
+                className={`${PANEL_TRIGGER} shrink-0 font-normal text-feedback-error disabled:cursor-not-allowed disabled:opacity-50`}
+            >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-feedback-error/10">
+                    <Trash2 size={16} aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium">
+                        {task.recurrenceRule ? "Move series to Trash" : "Move to Trash"}
                     </span>
-                    <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium">
-                            {task.recurrenceRule ? "Move series to Trash" : "Move to Trash"}
-                        </span>
-                        <span className="block text-xs text-twilight-text-muted">
-                            {task.recurrenceRule
-                                ? "Removes every occurrence. Restore from Trash."
-                                : "You can restore this task from Trash."}
-                        </span>
+                    <span className="block text-xs text-twilight-text-muted">
+                        {task.recurrenceRule
+                            ? "Removes every occurrence. Restore from Trash."
+                            : "You can restore this task from Trash."}
                     </span>
-                </Button>
-            )}
+                </span>
+            </Button>
 
             <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-1">
                 <CreatedBy task={task} />
@@ -535,18 +535,6 @@ function StatusGroup({ task, onClose }: StatusGroupProps) {
     );
 }
 
-/** "Series", "Duration", "Fixed time", "Time block" or "Deadline": what the When row edits. */
-function scheduleFieldLabelOf(
-    task: Task,
-    scheduleSummary: ReturnType<typeof getTaskScheduleSummary>,
-    isPassiveTimetable: boolean,
-) {
-    if (isRecurringTask(task)) return "Series";
-    if (scheduleSummary?.isDuration) return "Duration";
-    if (scheduleSummary?.isTimed) return isPassiveTimetable ? "Fixed time" : "Time block";
-    return "Deadline";
-}
-
 /** When it happens, how long it takes, its repeat, hide-until and reminder. */
 function WhenGroup({ task }: { task: Task }) {
     const { isOwner } = useTaskAccess(task);
@@ -576,7 +564,7 @@ function WhenGroup({ task }: { task: Task }) {
     // Timetable blocks get direct start/end/day editing instead of the date popover alone.
     const isTimetableBlock = isPassiveTimetable && canToggleInteractionMode;
     const scheduleLabel = recurrenceSummary?.label ?? scheduleSummary?.primaryLabel ?? "No schedule";
-    const scheduleFieldLabel = scheduleFieldLabelOf(task, scheduleSummary, isPassiveTimetable);
+    const scheduleFieldLabel = scheduleFieldLabelOf(task);
 
     return (
         <DetailGroup title="When">

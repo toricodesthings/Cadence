@@ -10,7 +10,9 @@ Share a list with someone and work on it together, live.
 
 ### Added
 
-- Share a list by link; people you invite can view it, or edit it if you let them.
+- Share a list by link; choose whether the link lets people view it or edit it.
+- Lists you share move to Shared in the sidebar, and you get a note when someone joins one.
+- A task in a list you can only view shows its details plainly, with nothing that looks editable.
 - Shared lists update live on everyone's screen, and each task shows who added it.
 - Tap someone's picture in a shared list to see their profile.
 

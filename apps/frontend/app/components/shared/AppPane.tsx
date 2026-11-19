@@ -30,6 +30,7 @@ export function AppPane({
     open,
     onOpenChange,
     onChange,
+    readOnly = false,
 }: {
     value: string | null | undefined;
     url: string | null | undefined;
@@ -40,6 +41,8 @@ export function AppPane({
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onChange: (patch: AppLinkPatch) => void;
+    /** A list you can only view: the saved app opens, nothing changes, and an empty pane isn't shown. */
+    readOnly?: boolean;
 }) {
     const { data: settings } = useSettings();
     const entry = appEntry(value);
@@ -61,19 +64,29 @@ export function AppPane({
 
     const row = (tile: React.ReactNode, name: string, summary: string, action: React.ReactNode) => (
         <div className={`${CARD} flex min-h-16 items-center gap-2 py-2 pl-2 pr-3`} role="group" aria-label="App">
-            <button
-                type="button"
-                aria-expanded={false}
-                aria-label={`App: ${name}. Change app`}
-                onClick={() => onOpenChange(true)}
-                className="flex min-h-12 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl px-2 text-left transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-            >
-                {tile}
-                <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-twilight-text">{name}</span>
-                    <span className="block truncate text-xs text-twilight-text-muted">{summary} · Change</span>
+            {readOnly ? (
+                <span className="flex min-h-12 min-w-0 flex-1 items-center gap-3 px-2">
+                    {tile}
+                    <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-twilight-text">{name}</span>
+                        <span className="block truncate text-xs text-twilight-text-muted">{summary}</span>
+                    </span>
                 </span>
-            </button>
+            ) : (
+                <button
+                    type="button"
+                    aria-expanded={false}
+                    aria-label={`App: ${name}. Change app`}
+                    onClick={() => onOpenChange(true)}
+                    className="flex min-h-12 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl px-2 text-left transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                >
+                    {tile}
+                    <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-twilight-text">{name}</span>
+                        <span className="block truncate text-xs text-twilight-text-muted">{summary} · Change</span>
+                    </span>
+                </button>
+            )}
             {action}
         </div>
     );
@@ -109,6 +122,8 @@ export function AppPane({
             null,
         )
     );
+
+    if (readOnly) return saved ? collapsed : null;
 
     return (
         <>

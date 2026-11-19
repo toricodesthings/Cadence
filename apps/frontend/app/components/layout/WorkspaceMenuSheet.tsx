@@ -13,7 +13,7 @@ import { Skeleton } from "../primitives/Skeleton";
 import { useCreateProject } from "../../hooks/projects/use-create-project";
 import { useProjects } from "../../hooks/projects/use-projects";
 import type { Project } from "@cadence/contracts/project";
-import { isOwnList } from "../../hooks/sharing/use-list-access";
+import { isSharedList } from "../../hooks/sharing/use-list-access";
 import { useCreateTag } from "../../hooks/tags/use-create-tag";
 import { useTags } from "../../hooks/tags/use-tags";
 import { PROJECT_ACCENT_OPTIONS } from "../../lib/constants/colors";
@@ -238,13 +238,13 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
                             ) : (
                                 <>
                                     <nav aria-label="Lists" className={NAV_GROUP}>
-                                        {projects.filter(isOwnList).map(listRow)}
+                                        {projects.filter((p) => !isSharedList(p)).map(listRow)}
                                     </nav>
-                                    {projects.some((p) => !isOwnList(p)) && (
+                                    {projects.some(isSharedList) && (
                                         <>
-                                            <h3 className={NAV_GROUP_LABEL}>Shared with me</h3>
-                                            <nav aria-label="Shared with me" className={NAV_GROUP}>
-                                                {projects.filter((p) => !isOwnList(p)).map(listRow)}
+                                            <h3 className={NAV_GROUP_LABEL}>Shared</h3>
+                                            <nav aria-label="Shared" className={NAV_GROUP}>
+                                                {projects.filter(isSharedList).map(listRow)}
                                             </nav>
                                         </>
                                     )}

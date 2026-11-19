@@ -55,15 +55,26 @@ beforeEach(() => {
 });
 
 describe("the share surface", () => {
+    it("turns Copy link into Copied once the link is on the clipboard", () => {
+        state.invite.mockImplementation((_vars, opts) => opts.onSuccess({ url: "u", copied: true }));
+        renderPanel("owner");
+        fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+        expect(screen.getByText("Copied")).toBeTruthy(); // the old label may still be fading out
+        expect(screen.getByRole("status").textContent).toBe("Link copied. It works for 7 days.");
+    });
+
     it("gives the owner people with access, a role picker for each person but themselves, link access and Done", () => {
         renderPanel("owner");
         fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-        expect(state.invite).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111");
+        expect(state.invite).toHaveBeenCalledWith(
+            { listId: "11111111-1111-4111-8111-111111111111", role: "view" },
+            expect.anything(),
+        );
         expect(screen.getByRole("list", { name: "People in this list" })).toBeTruthy();
         expect(screen.getByText("(you)")).toBeTruthy();
         expect(screen.getByRole("button", { name: "What Ben can do: Can view" })).toBeTruthy();
         expect(screen.queryByRole("button", { name: /What Ada can do/ })).toBeNull();
-        expect(screen.getByText("Anyone with the link can view")).toBeTruthy();
+        expect(screen.getByRole("button", { name: "What people with the link can do: Can view" })).toBeTruthy();
         expect(screen.getByRole("button", { name: "Done" })).toBeTruthy();
         expect(screen.getByRole("button", { name: "Reset links" })).toBeTruthy();
         expect(screen.getByRole("button", { name: "Stop sharing" })).toBeTruthy();

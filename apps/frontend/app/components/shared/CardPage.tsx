@@ -38,7 +38,7 @@ export function CardPage({
                 <img
                     src="/logo.svg"
                     alt="Cadence"
-                    className="mx-auto mb-4 h-10 w-10 rounded-[0.8rem] object-cover shadow-[0_8px_32px_color-mix(in_srgb,var(--accent-primary)_22%,transparent)]"
+                    className="mx-auto mb-4 h-10 w-10 drop-shadow-[0_0_14px_color-mix(in_srgb,var(--accent-primary)_35%,transparent)]"
                 />
                 {title && (
                     <motion.header

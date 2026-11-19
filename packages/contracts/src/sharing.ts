@@ -45,4 +45,6 @@ export const inviteTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const joinListSchema = z.object({ token: inviteTokenSchema });
 export const invitePreviewQuerySchema = z.object({ token: inviteTokenSchema });
 export const setMemberRoleSchema = z.object({ role: shareRoleSchema });
+/** What a link lets people do once they join. No body: they can view. */
+export const createInviteSchema = z.object({ role: shareRoleSchema.default("view") });
 export const listMemberParamSchema = z.object({ id: z.uuid(), userId: z.uuid() });

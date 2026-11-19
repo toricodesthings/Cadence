@@ -7,7 +7,7 @@ import { Reveal } from "../shared/Reveal";
 import { NavLink } from "./NavLink";
 import { ProjectLink } from "./ProjectLink";
 import type { Project } from "@cadence/contracts/project";
-import { isOwnList } from "../../hooks/sharing/use-list-access";
+import { isOwnList, isSharedList } from "../../hooks/sharing/use-list-access";
 import { ListOwnerFace } from "../sharing/PersonAvatar";
 import { CreateProjectPopover } from "./CreateProjectPopover";
 import { useProjects } from "../../hooks/projects/use-projects";
@@ -39,8 +39,8 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
         }
         return counts;
     }, [listTasks]);
-    const own = useMemo(() => (projects ?? []).filter(isOwnList), [projects]);
-    const shared = useMemo(() => (projects ?? []).filter((project) => !isOwnList(project)), [projects]);
+    const own = useMemo(() => (projects ?? []).filter((project) => !isSharedList(project)), [projects]);
+    const shared = useMemo(() => (projects ?? []).filter(isSharedList), [projects]);
     const renderList = (project: Project) => (
         <ProjectLink
             key={project.id}
@@ -179,7 +179,7 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                                     {shared.length > 0 && (
                                         <>
                                             <p className="px-3 pb-1 pt-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-twilight-text-muted">
-                                                Shared with me
+                                                Shared
                                             </p>
                                             {shared.map((project) => renderList(project))}
                                         </>

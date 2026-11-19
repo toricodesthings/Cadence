@@ -124,6 +124,16 @@ describe("joining", () => {
         expect((await projects("GET", "")).body.data[0].access).toBe("edit"); // a re-join never demotes
     });
 
+    it("makes the person an editor when the link was made for editing", async () => {
+        const { owner, list, as } = await house();
+        const me = await createUser();
+        const { body } = await as(owner)("POST", `/${list.id}/invites`, { role: "edit" });
+        await as(me)("POST", "/join", { token: tokenOf(body.data.url) });
+        const mine = (await apiAs(me, "/projects", projectRoutes)("GET", "")).body.data;
+        expect(mine).toMatchObject([{ id: list.id, access: "edit" }]);
+        expect((await as(owner)("POST", `/${list.id}/invites`, { role: "owner" })).status).toBe(400);
+    });
+
     it("lets the owner open their own link without becoming a member of it", async () => {
         const { owner, list, join } = await house();
         expect((await join(owner)).body.data).toEqual({ listId: list.id });

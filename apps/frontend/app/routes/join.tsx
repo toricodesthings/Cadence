@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
-import { FolderOpen, LoaderCircle, Link2Off } from "lucide-react";
+import { FolderOpen, LoaderCircle, Link2Off, Users } from "lucide-react";
 import { motion } from "framer-motion";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { Button } from "../components/primitives/Button";
@@ -72,25 +72,25 @@ export default function JoinRoute() {
 
     return (
         <CardPage>
-            <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-5">
-                <motion.header variants={rise} className="flex flex-col items-center text-center">
-                    <span
-                        className="grid size-14 place-items-center rounded-2xl text-2xl surface-control"
-                        style={{ boxShadow: `inset 0 0 0 1px ${resolveAccentColor(colorAccent)}` }}
-                        aria-hidden="true"
-                    >
-                        {emoji || <FolderOpen size={24} style={{ color: resolveAccentColor(colorAccent) }} />}
-                    </span>
-                    <h1 className="mt-3 font-display text-[1.45rem] font-semibold leading-tight tracking-tight text-twilight-text text-balance">
-                        {name}
+            <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
+                <motion.header variants={rise} className="flex flex-col items-center gap-3 text-center">
+                    <h1 className="flex max-w-full items-center justify-center gap-2.5 font-display text-[1.6rem] font-semibold leading-tight tracking-tight text-twilight-text">
+                        <span className="shrink-0 text-[1.45rem] leading-none" aria-hidden="true">
+                            {emoji || <FolderOpen size={22} style={{ color: resolveAccentColor(colorAccent) }} />}
+                        </span>
+                        <span className="min-w-0 text-balance">{name}</span>
                     </h1>
-                    <p className="mt-2 inline-flex items-center gap-2 text-sm text-twilight-text-soft">
+                    <p className="inline-flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm text-twilight-text-soft surface-control">
                         <AvatarFace person={{ name: ownerName, image: ownerImage }} size={24} />
                         <span>Shared by {ownerName ?? "someone"}</span>
                     </p>
                 </motion.header>
-                <motion.p variants={rise} className="text-center text-sm leading-6 text-twilight-text-soft text-pretty">
-                    Joining shows you this list. People in it will see your name, picture and pronouns.
+                <motion.p
+                    variants={rise}
+                    className="mx-auto flex max-w-xs items-start gap-2 text-left text-[0.8125rem] leading-5 text-twilight-text-soft text-pretty"
+                >
+                    <Users size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>Joining shows you this list. People in it will see your name, picture and pronouns.</span>
                 </motion.p>
                 <motion.div variants={rise} className="flex gap-3">
                     <Button

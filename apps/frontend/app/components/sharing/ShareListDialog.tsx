@@ -1,5 +1,18 @@
-import { useRef, useState } from "react";
-import { ChevronDown, Eye, Link2Off, LinkIcon, LogOut, Pencil, RotateCcw, UserMinus, Users } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+    Check,
+    ChevronDown,
+    Copy,
+    Eye,
+    Link2Off,
+    LinkIcon,
+    LogOut,
+    Pencil,
+    RotateCcw,
+    UserMinus,
+    Users,
+} from "lucide-react";
 import type { Project } from "@cadence/contracts/project";
 import type { ListPerson, ShareRole } from "@cadence/contracts/sharing";
 import * as Dialog from "../primitives/Dialog";
@@ -19,6 +32,7 @@ import {
     useStopSharing,
 } from "../../hooks/sharing/use-share-list";
 import { toastName } from "../../lib/utils/undo-toast";
+import { SPRINGS } from "../../lib/constants/motion";
 import { AvatarFace } from "./PersonAvatar";
 import { ROLE_ICON, ROLE_LABEL, tagOf } from "./ProfileCard";
 
@@ -26,6 +40,94 @@ const ROLES: { role: ShareRole; label: string; icon: typeof Eye }[] = [
     { role: "view", label: ROLE_LABEL.view, icon: Eye },
     { role: "edit", label: ROLE_LABEL.edit, icon: Pencil },
 ];
+
+/** Choose view or edit: the same quiet control for a person and for the link. `children` adds items below the roles. */
+function RolePicker({
+    role,
+    onChange,
+    label,
+    triggerRef,
+    children,
+}: {
+    role: ShareRole;
+    onChange: (role: ShareRole) => void;
+    label: string;
+    triggerRef?: Ref<HTMLButtonElement>;
+    children?: ReactNode;
+}) {
+    const Icon = ROLE_ICON[role];
+    return (
+        <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+                <Button
+                    ref={triggerRef}
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 gap-1.5 text-twilight-text-soft"
+                    aria-label={`${label}: ${ROLE_LABEL[role]}`}
+                >
+                    <Icon size={13} aria-hidden="true" />
+                    {ROLE_LABEL[role]}
+                    <ChevronDown size={12} aria-hidden="true" className="opacity-70" />
+                </Button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">
+                {ROLES.map((item) => (
+                    <DropdownMenu.CheckItem
+                        key={item.role}
+                        icon={item.icon}
+                        label={item.label}
+                        checked={role === item.role}
+                        onSelect={() => onChange(item.role)}
+                    />
+                ))}
+                {children}
+            </DropdownMenu.Content>
+        </DropdownMenu.Root>
+    );
+}
+
+/** Copy link, which turns into ✓ Copied for a moment once the link is on the clipboard. */
+function CopyLinkButton({ onCopy, pending }: { onCopy: (done: () => void) => void; pending: boolean }) {
+    const [copied, setCopied] = useState(false);
+    useEffect(() => {
+        if (!copied) return;
+        const timer = window.setTimeout(() => setCopied(false), 1800);
+        return () => window.clearTimeout(timer);
+    }, [copied]);
+    return (
+        <>
+            <Button
+                variant="secondary"
+                size="md"
+                className="w-full rounded-2xl"
+                disabled={pending}
+                onClick={() => onCopy(() => setCopied(true))}
+            >
+                <AnimatePresence mode="popLayout" initial={false}>
+                    <motion.span
+                        key={copied ? "copied" : "copy"}
+                        initial={{ opacity: 0, scale: 0.85, filter: "blur(4px)" }}
+                        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                        exit={{ opacity: 0, scale: 0.85, filter: "blur(4px)" }}
+                        transition={SPRINGS.SNAP}
+                        className={`inline-flex items-center gap-2 ${copied ? "text-feedback-success" : ""}`}
+                    >
+                        {copied ? (
+                            <Check size={15} strokeWidth={2.5} aria-hidden="true" />
+                        ) : (
+                            <Copy size={15} aria-hidden="true" />
+                        )}
+                        {copied ? "Copied" : "Copy link"}
+                    </motion.span>
+                </AnimatePresence>
+            </Button>
+            <span className="sr-only" role="status">
+                {copied ? "Link copied. It works for 7 days." : ""}
+            </span>
+        </>
+    );
+}
 
 /** What the owner may do to one person: choose what they can do, or remove them (confirmed: only a new link brings them back). */
 function RoleMenu({ project, person }: { project: Project; person: ListPerson }) {
@@ -36,35 +138,18 @@ function RoleMenu({ project, person }: { project: Project; person: ListPerson })
     const name = person.name ?? "this person";
     return (
         <>
-            <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                    <Button
-                        ref={roleButton}
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`What ${name} can do: ${ROLE_LABEL[person.role]}`}
-                    >
-                        {ROLE_LABEL[person.role]}
-                        <ChevronDown size={12} aria-hidden="true" />
-                    </Button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content align="end">
-                    {ROLES.map(({ role, label, icon }) => (
-                        <DropdownMenu.CheckItem
-                            key={role}
-                            icon={icon}
-                            label={label}
-                            checked={person.role === role}
-                            onSelect={() => setRole.mutate({ listId: project.id, userId: person.userId, role })}
-                        />
-                    ))}
-                    <DropdownMenu.Separator />
-                    <DropdownMenu.Item variant="danger" onSelect={() => setConfirmRemove(true)}>
-                        <UserMinus size={14} aria-hidden="true" />
-                        Remove access
-                    </DropdownMenu.Item>
-                </DropdownMenu.Content>
-            </DropdownMenu.Root>
+            <RolePicker
+                role={person.role as ShareRole}
+                onChange={(role) => setRole.mutate({ listId: project.id, userId: person.userId, role })}
+                label={`What ${name} can do`}
+                triggerRef={roleButton}
+            >
+                <DropdownMenu.Separator />
+                <DropdownMenu.Item variant="danger" onSelect={() => setConfirmRemove(true)}>
+                    <UserMinus size={14} aria-hidden="true" />
+                    Remove access
+                </DropdownMenu.Item>
+            </RolePicker>
             <ConfirmDanger
                 trigger={null}
                 open={confirmRemove}
@@ -138,6 +223,8 @@ export function ShareListPanel({
     const me = session?.user;
     const { data: fetched } = useListPeople(project);
     const createInvite = useCreateInvite();
+    // The link's role is chosen before copying; most links are for viewing.
+    const [linkRole, setLinkRole] = useState<ShareRole>("view");
     const resetInvites = useResetInvites();
     const stopSharing = useStopSharing();
     const leave = useLeaveList();
@@ -171,26 +258,30 @@ export function ShareListPanel({
             )}
 
             {owner && (
-                <div className="flex items-center gap-3 rounded-[22px] surface-item py-3 pl-4 pr-3">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent-primary/10 text-accent-primary">
-                        <LinkIcon size={16} aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                        <p className="text-sm text-twilight-text">Anyone with the link can view</p>
-                        <p className="text-xs text-twilight-text-soft">Links last 7 days</p>
+                <div className="flex flex-col gap-1.5 rounded-[22px] surface-item p-1.5">
+                    <div className="flex min-h-14 items-center gap-3 px-2.5 py-2">
+                        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent-primary/10 text-accent-primary">
+                            <LinkIcon size={15} aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-twilight-text">Anyone with the link</p>
+                            <p className="truncate text-xs text-twilight-text-soft">Links last 7 days</p>
+                        </div>
+                        <RolePicker role={linkRole} onChange={setLinkRole} label="What people with the link can do" />
                     </div>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={createInvite.isPending}
-                        onClick={() => createInvite.mutate(project.id)}
-                    >
-                        Copy link
-                    </Button>
+                    <CopyLinkButton
+                        pending={createInvite.isPending}
+                        onCopy={(done) =>
+                            createInvite.mutate(
+                                { listId: project.id, role: linkRole },
+                                { onSuccess: ({ copied }) => copied && done() },
+                            )
+                        }
+                    />
                 </div>
             )}
 
-            <div className="flex flex-wrap items-center gap-1 pt-1">
+            <div className="flex flex-wrap items-center gap-1 border-t border-twilight-border/60 pt-3">
                 {owner ? (
                     shared && (
                         <>

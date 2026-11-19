@@ -130,7 +130,8 @@ export function TaskNoteInline({
                         <NoteToolbar editor={editor} onLink={() => setLinkOpen(true)} more={null} />
                     </Reveal>
                     {editor && <NoteLinkPopover editor={editor} open={linkOpen} onOpenChange={setLinkOpen} />}
-                    {lines > 0 && (
+                    {/* The writing room and the subtask sheet both edit: a viewer only reads. */}
+                    {lines > 0 && !readOnly && (
                         <button
                             type="button"
                             onClick={() => setConvertOpen(true)}
@@ -140,18 +141,20 @@ export function TaskNoteInline({
                             Turn {lines} line{lines === 1 ? "" : "s"} into subtasks
                         </button>
                     )}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (!task) return;
-                            onOpenRoom?.();
-                            openRoom(task.id, task.title);
-                        }}
-                        className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                    >
-                        <ExternalLink size={14} aria-hidden="true" />
-                        Open writing room
-                    </button>
+                    {readOnly ? null : (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (!task) return;
+                                onOpenRoom?.();
+                                openRoom(task.id, task.title);
+                            }}
+                            className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        >
+                            <ExternalLink size={14} aria-hidden="true" />
+                            Open writing room
+                        </button>
+                    )}
                     {scope && (
                         <span className="w-fit rounded-md bg-moonlit/10 px-1.5 py-0.5 text-[11px] font-medium text-moonlit">
                             {scope}

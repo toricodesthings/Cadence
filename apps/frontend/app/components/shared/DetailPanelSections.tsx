@@ -17,8 +17,21 @@ export function PanelTrigger({
     icon: React.ElementType;
     title: string;
     summary: string;
-    onOpen: () => void;
+    /** Left out when there's nothing to open: the row only states the summary. */
+    onOpen?: () => void;
 }) {
+    const face = (
+        <>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-twilight-text-muted">
+                <Icon size={16} aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-twilight-text">{title}</span>
+                <span className="block truncate text-xs text-twilight-text-muted">{summary}</span>
+            </span>
+        </>
+    );
+    if (!onOpen) return <div className={`${CARD} flex min-h-16 items-center gap-3 px-4 py-3`}>{face}</div>;
     return (
         <Button
             variant="ghost"
@@ -28,13 +41,7 @@ export function PanelTrigger({
             aria-expanded={false}
             className={`${PANEL_TRIGGER} font-normal`}
         >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-twilight-text-muted">
-                <Icon size={16} aria-hidden="true" />
-            </span>
-            <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-twilight-text">{title}</span>
-                <span className="block truncate text-xs text-twilight-text-muted">{summary}</span>
-            </span>
+            {face}
             <ChevronDown size={16} className="shrink-0 text-twilight-text-muted" aria-hidden="true" />
         </Button>
     );

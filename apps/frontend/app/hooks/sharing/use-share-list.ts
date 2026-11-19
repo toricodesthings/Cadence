@@ -14,20 +14,27 @@ import { projectCache } from "../projects/optimistic-helpers";
 const withMembers = (items: Project[], id: string, change: (members: Project["members"]) => Project["members"]) =>
     items.map((project) => (project.id === id ? { ...project, members: change(project.members) } : project));
 
-/** Copy a new link: it works for 7 days, and earlier links keep working until they expire. */
+/**
+ * Copy a new link that lets people view or edit: it works for 7 days, and earlier links keep working until they expire.
+ * Resolves `copied: false` when the clipboard refused; the link is then shown so it can be copied by hand.
+ */
 export function useCreateInvite() {
     const client = useApiClient();
     return useMutation({
-        mutationFn: async (listId: string) =>
-            unwrapResponse(await client.api.lists[":id"].invites.$post({ param: { id: listId } })),
-        onSuccess: async ({ url }) => {
-            try {
-                await navigator.clipboard.writeText(url);
-                toast.success("Link copied. It works for 7 days.");
-            } catch {
-                // Clipboard refused (no permission, or not a secure page): show the link so it can still be copied by hand.
+        mutationFn: async ({ listId, role }: { listId: string; role: ShareRole }) => {
+            const { url } = await unwrapResponse(
+                await client.api.lists[":id"].invites.$post({ param: { id: listId }, json: { role } }),
+            );
+            const copied = await navigator.clipboard.writeText(url).then(
+                () => true,
+                () => false,
+            );
+            return { url, copied };
+        },
+        // Copied: the button says so in place. Refused (no permission, or not a secure page): show the link instead.
+        onSuccess: ({ url, copied }) => {
+            if (!copied)
                 toast.message("Here's your link. It works for 7 days.", { description: url, duration: 20_000 });
-            }
         },
         onError: (err) => toastError(err, "Couldn't make a link"),
     });

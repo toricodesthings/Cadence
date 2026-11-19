@@ -25,10 +25,10 @@ export async function hashToken(token: string): Promise<string> {
 }
 
 /**
- * Mint a link that works for 7 days. Earlier links keep working until they expire; expired rows are pruned here.
+ * Mint a link that works for 7 days; whoever joins with it gets `role`. Earlier links keep working until they expire; expired rows are pruned here.
  * Returns the token (shown once, never stored) and when it stops working.
  */
-export async function createInvite(tx: Tx, userId: string, listId: string) {
+export async function createInvite(tx: Tx, userId: string, listId: string, role: ShareRole = "view") {
     await tx
         .delete(shareInvites)
         .where(
@@ -48,6 +48,7 @@ export async function createInvite(tx: Tx, userId: string, listId: string) {
         .insert(shareInvites)
         .values({
             tokenHash: await hashToken(token),
+            role,
             listId,
             createdBy: userId,
             expiresAt: sql`now() + interval '7 days'`,
@@ -80,7 +81,7 @@ export async function previewInvite(tx: Tx, token: string): Promise<InvitePrevie
 }
 
 /**
- * Join the list a link opens (as a viewer). Joining twice, or as the owner, changes nothing. Returns the list id.
+ * Join the list a link opens, with the role the link gives. Joining twice, or as the owner, changes nothing. Returns the list id.
  * The ceilings are checked first; the insert itself is the SECURITY DEFINER `cadence_join_list`.
  */
 export async function joinList(tx: Tx, userId: string, token: string): Promise<string> {

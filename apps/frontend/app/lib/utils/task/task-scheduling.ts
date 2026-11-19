@@ -252,3 +252,12 @@ export function buildTasksQuery(filters: UseTasksFilterInput) {
         ...(filters.offset !== undefined && { offset: String(filters.offset) }),
     };
 }
+
+/** "Series", "Duration", "Fixed time", "Time block" or "Deadline": what a task's When row holds. */
+export function scheduleFieldLabelOf(task: Task) {
+    const summary = getTaskScheduleSummary(task);
+    if (isRecurringTask(task)) return "Series";
+    if (summary?.isDuration) return "Duration";
+    if (summary?.isTimed) return isPassiveTimetableTask(task) ? "Fixed time" : "Time block";
+    return "Deadline";
+}

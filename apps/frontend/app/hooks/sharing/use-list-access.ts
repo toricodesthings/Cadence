@@ -9,6 +9,10 @@ export type ListAccessInfo = { role: ListRole; isShared: boolean; canEdit: boole
 /** Unknown access reads as the caller's own, as everywhere else. */
 export const isOwnList = (project: Pick<Project, "access">) => !project.access || project.access === "owner";
 
+/** Someone else is in it: a list shared with you, or one of yours that someone joined. */
+export const isSharedList = (project: Pick<Project, "access" | "members">) =>
+    !isOwnList(project) || (project.members?.length ?? 0) > 0;
+
 const OWN: ListAccessInfo = { role: "owner", isShared: false, canEdit: true, isOwner: true };
 
 /** What the caller may do in a list. An unknown list (not loaded yet, or none) is the caller's own. */

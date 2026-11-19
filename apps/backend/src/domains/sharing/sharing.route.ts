@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import {
+    createInviteSchema,
     invitePreviewQuerySchema,
     joinListSchema,
     listMemberParamSchema,
@@ -57,15 +58,21 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         noteChange(c, { type: "list", listId });
         return c.json({ data: { listId } });
     })
-    .post("/:id/invites", apiValidator("param", uuidParamSchema), async (c) => {
-        const { id } = c.req.valid("param");
-        // No Idempotency-Key: a retry mints another link, which is harmless and capped.
-        const { token, expiresAt } = await withCallerRls(c, async (tx, userId) => {
-            requireOwner(await listAccess(tx, userId, id));
-            return createInvite(tx, userId, id);
-        });
-        return c.json({ data: { url: `${appOrigin(c.env)}/join/${token}`, expiresAt } }, 201);
-    })
+    .post(
+        "/:id/invites",
+        apiValidator("param", uuidParamSchema),
+        apiValidator("json", createInviteSchema),
+        async (c) => {
+            const { id } = c.req.valid("param");
+            const { role } = c.req.valid("json");
+            // No Idempotency-Key: a retry mints another link, which is harmless and capped.
+            const { token, expiresAt } = await withCallerRls(c, async (tx, userId) => {
+                requireOwner(await listAccess(tx, userId, id));
+                return createInvite(tx, userId, id, role);
+            });
+            return c.json({ data: { url: `${appOrigin(c.env)}/join/${token}`, expiresAt } }, 201);
+        },
+    )
     .patch(
         "/:id/members/:userId",
         apiValidator("param", listMemberParamSchema),
